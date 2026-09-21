@@ -45,6 +45,22 @@ const CONTROLS = stripComments(
   readFileSync(join(DIR, '_components', 'arrange-controls.tsx'), 'utf8'),
 );
 
+/**
+ * The ArrangeTh component's own source, as one window.
+ *
+ * 🪤 THESE TWO ASSERTIONS USED TO SLICE FROM `<th className={className}` — and
+ * the very next fix changed that expression, so `indexOf` returned -1, the
+ * slice became the file's last character, and both went red judging nothing.
+ * Anchored on the COMPONENT now, which a styling change cannot rename, and the
+ * window asserts it was found rather than slicing from -1.
+ */
+function arrangeThBody(): string {
+  const a = CONTROLS.indexOf('export function ArrangeTh(');
+  const b = CONTROLS.indexOf('export function ArrangeSheet(');
+  assert.ok(a !== -1 && b > a, 'cannot find ArrangeTh in arrange-controls.tsx — this guard is blind');
+  return CONTROLS.slice(a, b);
+}
+
 /** The header row's cells, in order, as their opening tags. */
 function headerCells(): string[] {
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
@@ -92,7 +108,7 @@ test('an arrangeable header may SHRINK, so it can never spill into its neighbour
   // The two classes are a pair and neither works alone: a flex child will not
   // go below its content width unless `min-w-0` says it may, and `truncate`
   // is what then clips instead of overflowing.
-  const th = CONTROLS.slice(CONTROLS.indexOf('<th className={className}'));
+  const th = arrangeThBody();
   assert.match(
     th,
     /<span className="flex min-w-0 items-center/,
@@ -109,7 +125,7 @@ test('the checkbox and the sort arrow never shrink instead of the label', () => 
   // If the CONTROL is what gives way, the header degrades into an unclickable
   // sliver while the word stays whole — backwards. The word is recoverable
   // (it is in `title` and in the column below); the control is not.
-  const th = CONTROLS.slice(CONTROLS.indexOf('<th className={className}'));
+  const th = arrangeThBody();
   assert.match(th, /<label\s+className="inline-flex shrink-0/, 'the grouping checkbox can be squeezed away');
   assert.match(th, /<ChevronDown className="h-3 w-3 shrink-0"/, 'the sort arrow can be squeezed away');
 });
@@ -118,3 +134,27 @@ test('every header cell still declares a scope, so the table stays readable alou
   const cells = headerCells();
   assert.ok(cells.length >= 7, `found ${cells.length} header cells — this guard is blind`);
 });
+
+test('no header cell can widen the table — the floor under every width above', () => {
+  // 🪤 THE FIRST FIX STOPPED LABELS SPILLING AND STILL LEFT THE TABLE 19PX TOO
+  // WIDE. Measured in a real render: 1,085px of table inside a 1,066px
+  // scroller, all of it the plain-text "Contact" header, whose word needs ~72px
+  // in a 53px cell. The spill check that "passed" measured child elements, and
+  // that cell has none. Two different failures:
+  //   · a LABEL spilling into its neighbour   → min-w-0 + truncate (above)
+  //   · a CELL widening the scroll area       → overflow-hidden on the cell
+  // The second is what made the page "not stretch the whole screen".
+  assert.match(
+    CONTROLS,
+    /<th className=\{`\$\{className \?\? ''\} overflow-hidden`\}/,
+    'ArrangeTh no longer clips its own cell — any caller can widen the table again',
+  );
+  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
+  const plain = [...head.matchAll(/<th className="([^"]*)"[^>]*>\s*(?:<span[^>]*>)?\s*([A-Za-z]+)/g)]
+    .filter((m) => m[2] && m[2] !== 'label'); // the text-bearing plain cells
+  assert.ok(plain.length >= 1, 'found no plain text header — this guard is blind');
+  for (const [, cls, word] of plain) {
+    assert.match(cls!, /\boverflow-hidden\b/, `the "${word}" header can widen the table — it needs overflow-hidden`);
+  }
+});
+

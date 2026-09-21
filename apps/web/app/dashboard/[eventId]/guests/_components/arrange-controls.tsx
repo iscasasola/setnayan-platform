@@ -111,7 +111,12 @@ export function ArrangeTh({
       : `Group by ${label}`;
 
   return (
-    <th className={className} scope="col">
+    // 🔑 `overflow-hidden` ON THE CELL ITSELF, whatever the caller passes. The
+    // inner `min-w-0` + `truncate` stop the LABEL spilling; this stops the CELL
+    // from ever widening the table's scroll area, which is a different failure
+    // and the one that actually made the page "not stretch". Structural, so no
+    // caller can forget it.
+    <th className={`${className ?? ''} overflow-hidden`} scope="col">
       {/* 🪤 `min-w-0` AND `truncate`, and BOTH are load-bearing. The table is
           `table-fixed`, so a declared width is honoured for LAYOUT — but
           `whitespace-nowrap` content is not clipped by it, it spills over the

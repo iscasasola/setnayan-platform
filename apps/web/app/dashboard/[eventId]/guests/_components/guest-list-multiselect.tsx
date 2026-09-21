@@ -979,6 +979,17 @@ export function GuestListMultiselect({
                   overflowed its own scroller instead of filling the screen.
                   The six go 46% → 50%; Name keeps the rest.
 
+                  🪤 AND THAT WAS NOT ENOUGH — measured, not guessed. Rendered
+                  at 1100px with the real Tailwind config, the table was STILL
+                  1,085px inside a 1,066px scroller after the first fix, and
+                  "Contact" still read "CONTA": the whole 19px overflow was
+                  that one plain-text header, whose word needs ~72px in a 53px
+                  cell. The first fix's own spill check read it as zero,
+                  because it measured child elements and this cell has none.
+                  Contact goes 5% → 8% (it now reads in full down to ~900px),
+                  and every header cell carries `overflow-hidden` so no single
+                  word can widen the table again.
+
                   ⛔ PADDING IS NOT WHERE THE SPACE COMES FROM. Trimming these
                   to px-2 buys 8px a column and puts the header 4px left of
                   every cell under it — the exact crookedness
@@ -994,7 +1005,9 @@ export function GuestListMultiselect({
               <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[10%] px-3 py-2.5 font-medium" />
               <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-medium" />
               <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-medium" />
-              <th className="w-[5%] px-3 py-2.5 font-medium">Contact</th>
+              <th className="w-[8%] overflow-hidden px-3 py-2.5 font-medium">
+                <span className="block truncate">Contact</span>
+              </th>
             </tr>
           </thead>
           <tbody>

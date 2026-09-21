@@ -12,6 +12,13 @@ import React, { useId } from 'react';
  * which is an inert image context (no script execution, no external fetches)
  * — defense-in-depth on top of the sanitizer.
  *
+ * ⭕ NO RING (owner 2026-09-21: "a circle on the monogram that is not part of
+ * the monogram. remove that"). This used to draw a 2px ring in the monogram
+ * colour and a cream disc around every uploaded / AI mark — a frame the couple
+ * never designed. The mark now renders as itself. `plate` keeps a plain cream
+ * disc, with NO ring, for the dark surfaces that need one to read (the recap
+ * photo hero, the Live Wall) — see HeroMonogram's `plate`.
+ *
  * `entrance` plays a gentle bloom-in (fade + scale settle) when the event
  * owns the ANIMATED_MONOGRAM upgrade — the Motion Library's glyph-level
  * signatures (stroke-trace etc.) need letterform strokes, so the bespoke
@@ -30,21 +37,23 @@ const SIZE_PX: Record<Size, number> = {
 
 export function BespokeMonogramMark({
   svg,
-  color,
   size = 'md',
   className,
   shadow = false,
   entrance = false,
+  plate = false,
 }: {
   /** Sanitized SVG markup (events.monogram_custom_svg). */
   svg: string;
-  /** Ring color — the couple's monogram.color. */
-  color: string;
+  /** Kept for callers; the ring it coloured is gone (see the note above). */
+  color?: string;
   size?: Size;
   className?: string;
   shadow?: boolean;
   /** Play the bloom-in entrance (ANIMATED_MONOGRAM owners). */
   entrance?: boolean;
+  /** A plain cream disc behind the mark, for dark surfaces. Never a ring. */
+  plate?: boolean;
 }) {
   const px = SIZE_PX[size];
   const uid = useId().replace(/[:]/g, '');
@@ -54,10 +63,10 @@ export function BespokeMonogramMark({
   return (
     <span
       aria-hidden
-      className={`${sc} inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-cream ${
-        shadow ? 'shadow-sm' : ''
-      } ${className ?? ''}`.trim()}
-      style={{ height: px, width: px, borderColor: color }}
+      className={`${sc} inline-flex shrink-0 items-center justify-center ${
+        plate ? 'overflow-hidden rounded-full bg-cream' : ''
+      } ${shadow && plate ? 'shadow-sm' : ''} ${className ?? ''}`.trim()}
+      style={{ height: px, width: px }}
     >
       {entrance ? (
         <style>{`
@@ -82,7 +91,13 @@ export function BespokeMonogramMark({
         alt=""
         width={px}
         height={px}
-        style={{ width: '86%', height: '86%', objectFit: 'contain' }}
+        style={{
+          width: plate ? '86%' : '100%',
+          height: plate ? '86%' : '100%',
+          objectFit: 'contain',
+          // Off the disc, the shadow follows the mark's own shape.
+          filter: shadow && !plate ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.18))' : undefined,
+        }}
       />
     </span>
   );

@@ -48,16 +48,30 @@ test('each door goes where it always went', () => {
   const href = (k: string) => (all.find((x) => x.key === k) as { href?: string } | undefined)?.href;
   assert.equal(href('roster'), '/dashboard/E/guests');
   assert.equal(href('walk'), '/dashboard/E/guests?gview=walk');
-  assert.equal(href('share'), '/dashboard/E/guests/invite');
+  // ⚖ Deliberately NOT /guests/invite any more (owner 2026-09-21: "should not
+  // clear the whole page. only the body"). That link removed the whole guest
+  // list 185ms after the click, measured on the live page. It is a tab on this
+  // page now; the invite page keeps its own doors (sidebar, journey).
+  assert.equal(href('share'), '/dashboard/E/guests?gview=share');
   assert.equal(href('arrange'), '/dashboard/E/seating');
   assert.equal(href('checkin'), '/dashboard/E/guests/checkin');
 });
 
 test('exactly one tab is current, and the mind map keeps Roster lit', () => {
-  for (const view of ['list', 'map', 'walk'] as const) {
+  const expected = { list: 'roster', map: 'roster', walk: 'walk', share: 'share' } as const;
+  for (const view of ['list', 'map', 'walk', 'share'] as const) {
     const current = doors({ view }).tabs.filter((x) => x.kind === 'tab' && x.current).map((x) => x.key);
-    assert.deepEqual(current, [view === 'walk' ? 'walk' : 'roster'], `view=${view}`);
+    assert.deepEqual(current, [expected[view]], `view=${view}`);
   }
+});
+
+test('Share the link is a TAB on this page, never a link away from it', () => {
+  // A door that LEAVES the page was the defect: it cleared the whole guest
+  // list. If it ever becomes a `link` again, that comes back.
+  const share = doors().tabs.find((x) => x.key === 'share');
+  assert.ok(share, 'no Share the link door before the event');
+  assert.equal(share.kind, 'tab', 'Share the link leaves the page again — the whole list clears on click');
+  assert.ok(!('href' in share && share.href.includes('/guests/invite')), 'Share the link points off the page again');
 });
 
 test('the page MOUNTS the row, and feeds it the real conditions', () => {

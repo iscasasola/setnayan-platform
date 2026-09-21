@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useFormStatus, createPortal } from 'react-dom';
-import { Check, Undo2, Wand2 } from 'lucide-react';
+import { Check, Undo2 } from 'lucide-react';
 import type { StudioConfig } from '@/lib/monogram-studio-shared';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
@@ -219,18 +219,9 @@ export function VectorStudio({
     >
       <style dangerouslySetInnerHTML={{ __html: monogramStudioV2Enabled() ? STUDIO_CSS_V2 : STUDIO_CSS }} />
 
-      <header className="space-y-1.5">
-        <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
-          <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Vector studio
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Design your mark from scratch</h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          Your real initials, freely composed — drag to move, resize with the gold handle, weave or merge
-          where they cross, and frame them with a mirrored pen. Save it and it becomes your monogram everywhere:
-          your dashboard, QR codes, Event Hub, and save-the-date.
-        </p>
-      </header>
+      {/* No heading here any more: the page's <MarkToggle> ("Create your own" /
+          "Upload your monogram") names this side, and a second title-plus-paragraph
+          inside the door pushed the canvas down for no new information. */}
 
       {notice ? (
         <p

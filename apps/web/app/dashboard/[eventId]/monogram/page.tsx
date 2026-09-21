@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { registerGatesEnabled } from '@/lib/register-gates';
@@ -10,7 +8,7 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
-import { MarkDoors } from './mark-doors';
+import { MarkToggle } from './mark-toggle';
 import { RevealStep } from './reveal-step';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { applyMarkInk } from '@/lib/monogram-ink';
@@ -216,7 +214,13 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   /* Both actions redirect back here with a notice and the #upload-mark anchor.
    * Open the matching door, or a couple reads "Saved!" on a chooser showing
    * none of what they just changed. */
-  const mode = askedMode ?? (uploadNotice ? 'upload' : studioNotice ? 'design' : null);
+  /* ALWAYS a side — the toggle replaced the chooser screen, so there is no
+   * "neither" state any more. With nothing asked: the upload side for a couple
+   * whose mark is an uploaded logo they have not yet composed from, the studio
+   * otherwise. A saved-notice redirect opens the side that saved. */
+  const mode: 'design' | 'upload' =
+    askedMode ??
+    (uploadNotice ? 'upload' : studioNotice ? 'design' : hasUpload && !customSvg ? 'upload' : 'design');
 
   return (
     <section className="space-y-6">
@@ -235,30 +239,22 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
           The app shell's own navigation still reaches add-ons; this was a
           second, page-level way back sitting above the page title. */}
-      {mode ? (
-        <Link
-          href={`/dashboard/${eventId}/monogram`}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Both ways to make it
-        </Link>
-      ) : null}
 
       <PageMasthead title="Your wedding monogram" />
 
       {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}
       <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />
 
-      {mode === null ? (
-        <MarkDoors
-          eventId={eventId}
-          liveSvg={effectiveSvg}
-          liveIsComposition={Boolean(customSvg)}
-          hasStudio={hasStudio}
-          hasUpload={hasUpload}
-        />
-      ) : null}
+      {/* ── ONE TOGGLE (owner 2026-09-20): "make a toggle. what will switch which
+          editor or uploader will show under. under it is the animate."
+
+          It replaces the chooser SCREEN (<MarkDoors>, two large door cards), the
+          "Both ways to make it" link back to it, and the heading inside each
+          door — four pieces of navigation for one binary choice. The page is now
+          three things, top to bottom: this toggle · the editor or the uploader ·
+          the reveal. ── */}
+      <MarkToggle eventId={eventId} mode={mode} />
+
 
       {/* The "Animate the reveal" panel lives INSIDE the Vector Studio (engine.ts
           #animbox) — owner 2026-06-23 "improve THIS animate the reveal … not a

@@ -17,6 +17,7 @@ import {
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { rotateMyGuestQr } from '../rotate-qr-actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
+import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
@@ -161,7 +162,10 @@ export function GuestHubBar({
 
       {/* Top-right account affordance. Fixed so it rides above the page chrome;
           safe-area inset keeps it clear of notches. */}
-      <div className="fixed right-3 top-3 z-40 [padding-top:env(safe-area-inset-top)]">
+      <div className="fixed right-3 top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">
+        {/* The music button portals in HERE (background-music.tsx), left of the
+            account control — one cluster, never two fixed things stacked. */}
+        <div id={TOP_CORNER_SLOT_ID} className="contents" />
         {hasAccount ? (
           <Link
             href="/dashboard/profile"

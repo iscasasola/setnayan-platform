@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "3ff54a1b7",
+  "generatedFromRef": "33bfaa32e",
   "routeCount": 430,
-  "destinations": 922,
+  "destinations": 923,
   "actions": 654,
   "blocks": 4577,
   "routes": {
@@ -5944,8 +5944,8 @@
         "dashboard/[eventId]/monogram/draft-restore.tsx",
         "dashboard/[eventId]/monogram/ink-compare.tsx",
         "dashboard/[eventId]/monogram/loading.tsx",
-        "dashboard/[eventId]/monogram/mark-doors.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
+        "dashboard/[eventId]/monogram/mark-toggle.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
         "dashboard/[eventId]/monogram/reveal-actions.ts",
         "dashboard/[eventId]/monogram/reveal-step.tsx",
@@ -5956,7 +5956,8 @@
         "dashboard/[eventId]/monogram/upload-tips.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/monogram"
+        "/dashboard/[seg]/monogram?mode=design",
+        "/dashboard/[seg]/monogram?mode=upload"
       ],
       "actions": [
         "clearStudioAction",
@@ -5980,9 +5981,9 @@
         "InkCompare",
         "InlineCheckoutDrawer",
         "Link",
-        "MarkDoors",
         "MarkEverywhere",
         "MarkInkMode",
+        "MarkToggle",
         "MoltenMonogramInline",
         "MonogramDraft",
         "MonogramDraftRestore",

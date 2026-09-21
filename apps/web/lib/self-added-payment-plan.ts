@@ -192,3 +192,49 @@ export function buildCouplePaymentPlan(opts: {
 
   return { ok: true, instances };
 }
+
+/**
+ * MAY THE LOCK STEP OVERWRITE THIS BOOKING'S PAYMENT PLAN? (2026-09-21)
+ *
+ * 🔴 THE BUG THIS CLOSES — found by tracing the owner's question "is the
+ * payment connected?", not by any test. `finalizeVendor` snapshots a plan into
+ * `event_vendor_payment_plan` at EVERY lock, with an `upsert`. That was written
+ * when only a marketplace supplier could have a plan (theirs, from their
+ * service's schedule). Its own comment said so: "off-platform / manual vendors
+ * have no vendor_services rows … we still create an empty plan for them."
+ *
+ * Since 2026-09-20 a couple CAN author a plan for a supplier they added. So:
+ *   1. couple adds a venue — ₱80,000, "30% now, 70% two weeks before" — saved;
+ *   2. couple taps Lock;
+ *   3. the snapshot finds no service schedule, seeds a generic 50/50 ESTIMATE,
+ *      and the upsert REPLACES the couple's plan with it.
+ * Each half passed its own tests. Only the sequence was wrong.
+ *
+ * ── The rule ──────────────────────────────────────────────────────────────
+ *  · ON-PLATFORM → yes. The supplier's own schedule is the truth, and a
+ *    re-lock refreshing it is the existing, intended behaviour.
+ *  · OFF-PLATFORM with no plan, or an empty one → yes. Nothing to lose.
+ *  · OFF-PLATFORM whose plan is our own default-seeded estimate → yes; it was
+ *    only ever a placeholder, and refreshing it is what the flag is for.
+ *  · OFF-PLATFORM with a real, non-default plan → **NO.** That plan was typed
+ *    by the couple, and a lock step with no schedule to read has nothing better
+ *    to offer than a generic 50/50.
+ *
+ * ⚖ Why this can be told apart without a new column: the only writers of a
+ * non-empty, NON-default-seeded plan on an off-platform booking are the
+ * couple's (`saveSelfAddedPaymentPlan`, never sets `is_default_seeded`). The
+ * lock snapshot on such a booking writes either `[]` or a default-seeded
+ * estimate. If a third writer ever appears, this truth table is where it must
+ * be added — `self-added-payment-plan.test.ts` executes it.
+ */
+export function lockMayOverwritePlan(args: {
+  onPlatform: boolean;
+  /** The existing plan's instances, or null when there is no plan row. */
+  existingInstances: readonly unknown[] | null;
+  existingIsDefaultSeeded: boolean;
+}): boolean {
+  if (args.onPlatform) return true;
+  if (!args.existingInstances || args.existingInstances.length === 0) return true;
+  if (args.existingIsDefaultSeeded) return true;
+  return false;
+}

@@ -29,6 +29,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { inviteReturnPath, parseInviteReturn } from '@/lib/invite-return';
 import { randomBytes } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -129,9 +130,12 @@ export async function setInviteTheme(eventId: string, formData: FormData): Promi
   } catch {
     redirect(`/dashboard/${eventId}`);
   }
+  // Which of the two pages the picker sits on — the invite page, or the guest
+  // list's Share the link tab. An allowlist, never a URL (lib/invite-return).
+  const back = parseInviteReturn(formData.get('return_to'));
   const raw = formData.get('invite_theme');
   if (!isInviteThemeId(raw) || !INVITE_THEMES[raw].ready) {
-    redirect(`/dashboard/${eventId}/guests/invite`);
+    redirect(inviteReturnPath(eventId, back));
   }
   const theme = raw as InviteThemeId;
   const admin = createAdminClient();
@@ -149,7 +153,7 @@ export async function setInviteTheme(eventId: string, formData: FormData): Promi
       // An unmeasured type is not a wedding. A refused read must never be the
       // reason a paid theme is saved.
       .catch(() => false);
-    if (!mayShowStdFilm) redirect(`/dashboard/${eventId}/guests/invite`);
+    if (!mayShowStdFilm) redirect(inviteReturnPath(eventId, back));
     const ownsPro = await eventCoupleWebsiteProActive(admin, eventId);
     if (!ownsPro) redirect(`/dashboard/${eventId}/studio/website-pro`);
   }
@@ -174,8 +178,10 @@ export async function setInviteTheme(eventId: string, formData: FormData): Promi
     .eq('event_id', eventId)
     .select('event_id');
   if (error || !data || data.length === 0) {
-    redirect(`/dashboard/${eventId}/guests/invite?theme=error`);
+    redirect(inviteReturnPath(eventId, back, 'error'));
   }
+  // Both doors show the look, so both are refreshed whichever one saved it.
   revalidatePath(`/dashboard/${eventId}/guests/invite`);
-  redirect(`/dashboard/${eventId}/guests/invite?theme=saved`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(inviteReturnPath(eventId, back, 'saved'));
 }

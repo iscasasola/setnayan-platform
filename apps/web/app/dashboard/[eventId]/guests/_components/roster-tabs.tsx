@@ -36,7 +36,7 @@ import Link from 'next/link';
 import { ClipboardCheck, LayoutGrid, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
 
-export type RosterView = 'list' | 'map' | 'walk';
+export type RosterView = 'list' | 'map' | 'walk' | 'share';
 
 const ICON: Record<'share' | 'arrange' | 'checkin', React.ReactNode> = {
   share: <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />,
@@ -89,7 +89,12 @@ export function RosterTabs({
       >
         {tabs.map((d) =>
           d.kind === 'tab' ? (
-            <Tab key={d.key} href={d.href} current={d.current}>
+            <Tab
+              key={d.key}
+              href={d.href}
+              current={d.current}
+              icon={d.key === 'share' ? ICON.share : undefined}
+            >
               {d.label}
             </Tab>
           ) : d.kind === 'link' ? (

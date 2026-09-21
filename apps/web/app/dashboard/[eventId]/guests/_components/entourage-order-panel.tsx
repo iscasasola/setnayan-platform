@@ -29,7 +29,8 @@
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { WalkingOrderLines } from './walking-order-lines';
+import { WalkingOrderLines, type MarchSlot } from './walking-order-lines';
+import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -184,6 +185,7 @@ export async function EntourageOrderPanel({
                 leadId: line[0]?.id ?? line[1]?.id ?? `${key}-${i}`,
                 cells: [<LineCell key="l" half={line[0]} />, <LineCell key="r" half={line[1]} />],
                 label: [line[0]?.name, line[1]?.name].filter(Boolean).join(' and ') || 'Blank line',
+                slots: [slotFor(lines, key, line, 0), slotFor(lines, key, line, 1)],
               }))}
             >
               {lines.map((line, i) => (
@@ -216,6 +218,32 @@ export async function EntourageOrderPanel({
       </p>
     </section>
   );
+}
+
+/**
+ * What one cell of a line can do — asked of `lib/march-moves.ts`, the rule the
+ * server action asks again before it writes. Computed HERE, on the server, so
+ * the client island is handed answers and never re-derives a rule.
+ */
+function slotFor(
+  lines: readonly EntourageRow[],
+  groupKey: string,
+  line: EntourageRow,
+  col: 0 | 1,
+): MarchSlot {
+  const half = line[col];
+  if (half?.id) {
+    return { kind: 'name', id: half.id, name: half.name, swapWith: swapsFor(lines, groupKey, half.id) };
+  }
+  // An empty place always sits beside somebody: a line with nobody on it is
+  // never built.
+  const anchor = line[col === 0 ? 1 : 0];
+  return {
+    kind: 'empty',
+    anchorId: anchor?.id ?? '',
+    anchorName: anchor?.name ?? '',
+    joiners: anchor?.id ? joinersFor(lines, groupKey, anchor.id) : [],
+  };
 }
 
 /**

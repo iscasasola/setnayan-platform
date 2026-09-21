@@ -529,6 +529,21 @@ export function entourageGroupOfRole(role: string): string | null {
   return GROUPS.find((g) => (g.roles as readonly string[]).includes(role))?.key ?? null;
 }
 
+/**
+ * Which printed column a role stands in within a group — 0 left, 1 right — or
+ * null when the group has ONE side and a pair fills left-then-right.
+ *
+ * Exported for the Wedding March's drag-and-tap moves (`lib/march-moves.ts`):
+ * "can she take that empty place?" is only honest if it asks the same rule
+ * `pairUp` prints by. A second copy of the side lists would agree today and
+ * drift the first time a role moves.
+ */
+export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
+  const spec = GROUPS.find((g) => g.key === groupKey);
+  if (!spec?.sides) return null;
+  return sideOf({ role: role as GuestRole }, spec.sides);
+}
+
 /** The people of one group, in `spec.roles` order — the sequence pairing sees. */
 function peopleForSpec(
   rows: readonly EntourageGuestRow[],
@@ -577,7 +592,7 @@ export function buildEntourage(rows: readonly EntourageGuestRow[]): EntourageGro
 
 /** Which column a person belongs in, or null when the group has one side. */
 function sideOf(
-  person: EntouragePerson,
+  person: Pick<EntouragePerson, 'role'>,
   sides: GroupSpec['sides'],
 ): 0 | 1 | null {
   if (!sides) return null;

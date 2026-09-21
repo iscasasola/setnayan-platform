@@ -234,6 +234,7 @@ type Props = {
     // the floating SelectionBar holding two guests it had already acted on.
     paired?: string;
     unpaired?: string;
+    swapped?: string;
     // entourage-order-actions.ts — a per-ROW control, so these get a flash but
     // deliberately do NOT feed `recentlyApplied`: reordering one name must not
     // discard a multi-select the host is still assembling.
@@ -1472,6 +1473,7 @@ function pickFlash(search: {
   bulk_deleted?: string;
   paired?: string;
   unpaired?: string;
+  swapped?: string;
   reordered?: string;
   order_cleared?: string;
   group_created?: string;
@@ -1524,6 +1526,7 @@ function pickFlash(search: {
   }
   if (search.paired) return 'Paired — they walk in together.';
   if (search.unpaired) return 'Pair removed.';
+  if (search.swapped) return 'Swapped — they traded places.';
   if (search.reordered) return 'Wedding March saved.';
   if (search.order_cleared) return 'Back to alphabetical order.';
   if (search.group_created) return 'Group created.';

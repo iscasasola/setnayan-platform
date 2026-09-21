@@ -166,7 +166,11 @@ test('the pack SKU is in the price table, active, at the owner’s ₱500, per e
 
   // A negative the positive cannot reach: "100 credits (was 25)" would satisfy
   // it while still quoting a dead number at a paying supplier.
-  if (VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS !== 25) {
+  // Widened on purpose: tsc narrows the import to the literal `100` and then
+  // calls the comparison unintentional. The guard is not pointless — it is what
+  // keeps this assertion honest if the pack is ever repriced BACK to 25.
+  const granted: number = VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS;
+  if (granted !== 25) {
     assert.doesNotMatch(
       row.title,
       /\b25\b\s*Papic credits/,

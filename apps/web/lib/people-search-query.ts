@@ -34,5 +34,37 @@ export function escapeLikeQuery(raw: string): string {
 /** Below this, a query is an enumeration attempt rather than a name. */
 export const MIN_QUERY_LENGTH = 2;
 
+/** More words than this is a sentence, not a name. */
+export const MAX_QUERY_TERMS = 5;
+
+/**
+ * The words a name search matches — in ANY order.
+ *
+ * Owner, 2026-09-21: *"Casasola Ice … this should work also"*. Filipinos write
+ * surname-first as often as not, so "Casasola Ice" must find "Ice Casasola".
+ * Each word is matched on its own, anywhere in the display name, and EVERY word
+ * must be present — so extra words narrow the list, never widen it. Spaces and
+ * commas separate words ("Casasola, Ice" is the same search), repeats collapse.
+ *
+ * Returns [] — no search at all — unless at least one word is MIN_QUERY_LENGTH
+ * long: "a b" is two single letters, which is a crawl of the table, while an
+ * initial beside a real word ("Casasola I") is a narrower search and is kept.
+ *
+ * The words are returned RAW — the caller still escapes each with
+ * `escapeLikeQuery` before it goes anywhere near an ILIKE.
+ */
+export function nameSearchTerms(raw: string): string[] {
+  const seen = new Set<string>();
+  const terms: string[] = [];
+  for (const word of (raw ?? '').trim().slice(0, 60).split(/[\s,]+/)) {
+    const key = word.toLowerCase();
+    if (!word || seen.has(key)) continue;
+    seen.add(key);
+    terms.push(word);
+    if (terms.length === MAX_QUERY_TERMS) break;
+  }
+  return terms.some((t) => t.length >= MIN_QUERY_LENGTH) ? terms : [];
+}
+
 /** A result list, not a dataset. */
 export const MAX_RESULTS = 10;

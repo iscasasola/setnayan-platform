@@ -4265,3 +4265,12 @@ html:active-view-transition .sn-page-enter { animation: none; }
     animation: none;
   }
 }
+
+/* The invitation's pinned top bar (invitation-shell.tsx, data-sticky-top) is
+   4rem tall. Every in-page jump — "Show your pass", the menu's anchors, "the
+   day, the place, the story" — must stop BELOW it, or the thing jumped to
+   lands under the bar. scroll-padding on the root adds to each target's own
+   scroll-margin, so no anchor needs to know about the bar. */
+html:has([data-sticky-top]) {
+  scroll-padding-top: 4.5rem;
+}

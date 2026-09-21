@@ -300,8 +300,18 @@ export function roleLabel(role: GuestRole): string | null {
  * the five name parts (a ninong printed without his "Atty."), then `guest_id`
  * and `pair_with_guest_id` (every pair invisible).
  */
+/**
+ * ⚠ DO NOT WIDEN THIS FOR ONE READER. `lint:dup-rule` treats this list as the
+ * reference for the `guests` table, so every column added here is a column
+ * every OTHER guest read in the app now appears to be "dropping". Adding
+ * `invited_to_blocks` for the walking-order panel's ceremony-only flag flagged
+ * 32 unrelated reads — none of which had changed, and none of which needed it —
+ * and put the column into the PUBLIC invitation's entourage query, which never
+ * uses it. The one reader that needs an extra column asks for it itself:
+ * `${ENTOURAGE_COLUMNS}, invited_to_blocks`.
+ */
 export const ENTOURAGE_COLUMNS =
-  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order, invited_to_blocks';
+  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order';
 
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);

@@ -567,7 +567,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       //   - custom group labels (e.g. "Katropa") + team_side labels
       //     ("Team Bride" / "Team Groom" / "Both sides") for every
       //     custom group the guest belongs to
-      const roleLabel = ROLE_LABELS[g.role];
+      // NAMED FOR WHAT IT IS. `lib/entourage` exports a `roleLabel` too, built
+      // from the entourage's own printed wording; this is the roster's
+      // ROLE_LABELS, used only to make a role searchable. Two rules, so two
+      // names — a shared identifier would hide that they differ.
+      const roleSearchLabel = ROLE_LABELS[g.role];
       const roleEnumNormalized = g.role.replace(/_/g, ' ');
       const groupBlob = groupBlobByGuestId.get(g.guest_id) ?? '';
       const haystack = [
@@ -577,7 +581,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         g.email ?? '',
         g.mobile ?? '',
         g.custom_tags.join(' '),
-        roleLabel,
+        roleSearchLabel,
         roleEnumNormalized,
         SIDE_LABELS[g.side],
         GROUP_CATEGORY_LABELS[g.group_category],

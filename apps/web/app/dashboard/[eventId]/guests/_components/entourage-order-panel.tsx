@@ -101,7 +101,9 @@ export async function EntourageOrderPanel({
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('guests')
-    .select(ENTOURAGE_COLUMNS)
+    // The only reader of `ceremonyOnly`, so the only read that asks for the
+    // column it needs — never by widening the shared list (see its note).
+    .select(`${ENTOURAGE_COLUMNS}, invited_to_blocks`)
     .eq('event_id', eventId)
     .is('deleted_at', null);
 

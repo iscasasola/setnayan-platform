@@ -68,6 +68,8 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     // Three-action card inputs (slice D) — no marketplace link, no thread, no
     // group, no price basis. The sort never reads them; they are here so the
     // fixture stays a complete ShortlistVendor.
+    // An ordinary card — not a supplier's "also covers" copy.
+    includedWith: null,
     marketplaceVendorId: null,
     threadId: null,
     inquiryStatus: null,

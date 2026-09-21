@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { guestPassFacts, hasPassFacts } from './guest-pass';
 import { stripComments } from './strip-comments';
+import { formatBlockTimeRange } from './schedule';
 
 const labels = (f: { label: string }[]) => f.map((x) => x.label);
 
@@ -70,11 +71,17 @@ test('PERMISSION IS NOT A PERSON — the card asks for both', () => {
 
 test('ARRIVE is the FIRST block of the day, not the next one', () => {
   // A pass in a pocket at 9pm must not tell a guest to arrive at the send-off.
-  const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8');
+  const src = stripComments(readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8'));
   const block = src.slice(src.indexOf('const firstScheduleBlock'), src.indexOf('const passFacts'));
   assert.match(block, /scheduleBlocks\[0\]/, 'the first block');
   assert.doesNotMatch(block, /nextScheduleBlock/, 'never the next one');
-  assert.match(block, /timeZone: 'Asia\/Manila'/, 'formatted in the event’s own day, not the server’s');
+  // 🔴 This line used to REQUIRE `timeZone: 'Asia/Manila'` — and that was the
+  // bug. The schedule stores the event's own wall-clock parked in UTC, so a
+  // Manila conversion adds eight hours a second time: live on 2026-09-21 the
+  // pass said "ARRIVE 9:30 PM" for a 1:30 PM arrival. It must use the
+  // programme's own formatter, so the two can never disagree.
+  assert.match(block, /formatBlockTimeRange\(firstScheduleBlock\.start_at, null\)/, 'the programme’s formatter');
+  assert.doesNotMatch(block, /Asia\/Manila|toLocaleTimeString/, 'never a second timezone conversion');
 });
 
 test('the facts render on the pass card, at the anchor the action links to', () => {
@@ -84,4 +91,12 @@ test('the facts render on the pass card, at the anchor the action links to', () 
   const body = card.slice(0, cardEnd > 0 ? cardEnd : card.length);
   assert.match(body, /id=\{PASS_ANCHOR\}/, 'the anchor "Show your pass" points at');
   assert.match(body, /passFacts\.map/, 'and the facts are drawn inside that card');
+});
+
+test('ARRIVE reads the same clock as the programme — a real stored value', () => {
+  // cale-ice's first block, as stored: the couple typed 1:30 PM.
+  const stored = '2026-12-18T13:30:00+00:00';
+  const label = formatBlockTimeRange(stored, null);
+  assert.match(label, /^1:30\s?PM$/, `the pass must say 1:30 PM, got "${label}"`);
+  assert.doesNotMatch(label, /9:30/, 'the eight-hour double shift is back');
 });

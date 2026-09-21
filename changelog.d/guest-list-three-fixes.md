@@ -22,3 +22,14 @@ Three things the owner pointed at on the live guest list:
 - Guards: `lib/groups-for-side.test.ts` (6), sabotaged 2 ways, each caught.
 
 SPEC IMPACT: None
+
+### …and every popup in the guest table was invisible
+
+Owner: *"tapping the side will pop up so they can choose which side as well."* It already did — where
+nobody could see it. Measured on the live page: tapping a Side cell rendered the Bride's / Groom's /
+Both menu at (-9999, -9999) with `visibility: hidden`. The shared `Popover` (overlay-primitives.tsx)
+measured its position on the first render, when its portal was still null, bailed, and — with deps of
+only `[anchorRef, width]` — never measured again. Side · RSVP · Role · the + group menu all shared it.
+`portal` is now a dependency. Verified in a browser with the real editors: the Side menu opens 6px
+under its cell, the + menu 6px under its button, both visible. Guard
+`_components/a-popover-is-seen.test.ts` (sabotaged: caught).

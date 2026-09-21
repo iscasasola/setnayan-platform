@@ -10,3 +10,8 @@ moments and "All N moments" (expands in place). On the day the run of show
 stays whole. Guard: `the-hub-is-cards.test.ts`.
 
 SPEC IMPACT: None beyond the 2026-09-21 invitation-card decision row.
+
+The hub card's corner routes through `var(--m-r-md)` rather than a raw
+`border-radius: 14px` (the same value, on the token scale). The radius guard
+runs strict in CI and cannot see inside `globals.css` — it is excluded as the
+token home — so the literal was caught only where the test restated it.

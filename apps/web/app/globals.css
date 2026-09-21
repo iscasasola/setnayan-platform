@@ -4275,7 +4275,7 @@ html:active-view-transition .sn-page-enter { animation: none; }
    countdown) simply become a card too. */
 .sn-hub-cards > section,
 .sn-hub-cards > div > section {
-  border-radius: 14px;
+  border-radius: var(--m-r-md);
   border: 1px solid rgb(var(--color-ink) / 0.08);
   background: rgb(var(--color-cream) / 1);
   padding: 1.125rem 1.125rem 1rem;

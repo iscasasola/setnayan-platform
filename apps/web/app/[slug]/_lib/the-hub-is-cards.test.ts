@@ -28,7 +28,7 @@ test('both pages wrap the hub sections in the card wrapper', () => {
 
 test('the card look is one CSS block', () => {
   const css = read(join(__dirname, '..', '..', 'globals.css'));
-  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section \{[^}]*border-radius: 14px;/);
+  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section \{[^}]*border-radius: var\(--m-r-md\);/);
   assert.match(css, /\.sn-hub-cards \.pahina-eyebrow > span\[aria-hidden\]:first-child \{\s*display: none;/);
 });
 

@@ -90,7 +90,10 @@ test('the header and every row use the SAME horizontal padding', () => {
   */
   const pads = new Set<string>();
   for (const region of [HEAD, component('DesktopRow'), component('SelfJoinDesktopRow')]) {
-    for (const m of region.matchAll(/<t[dh]\b[\s\S]*?>/g)) {
+    // 🪤 `<ArrangeTh>` IS A HEADER CELL. Since #5793 six of the eight header
+    // cells render through it, and a scan for `<t[dh]` could not see them —
+    // their padding went unchecked while this test stayed green.
+    for (const m of region.matchAll(/<(?:t[dh]|ArrangeTh)\b[\s\S]*?>/g)) {
       const cell = m[0];
       const span = /colSpan=\{(\d+)\}/.exec(cell);
       if (span && Number(span[1]) > 1) continue;
@@ -120,7 +123,8 @@ test('rows centre their cells instead of hanging them off the avatar baseline', 
 test('the header still declares exactly one column per cell in a row', () => {
   // The cheapest way for a table to go crooked is a cell count that no longer
   // matches. The self-join row spans the rest, so its spans must add up too.
-  const headerCells = (HEAD.match(/<th[ >]/g) ?? []).length;
+  // A column is a header cell however it is spelled (see the padding note).
+  const headerCells = (HEAD.match(/<(?:th|ArrangeTh)[\s>]/g) ?? []).length;
   const bodyCells = (component('DesktopRow').match(/<td[ >]/g) ?? []).length;
   assert.equal(bodyCells, headerCells, `${bodyCells} body cells against ${headerCells} headers`);
 

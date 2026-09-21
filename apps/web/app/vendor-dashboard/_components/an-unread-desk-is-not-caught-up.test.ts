@@ -47,6 +47,7 @@ async function renderFeed(incomplete: boolean, cards: unknown[] = []): Promise<s
       declineDeletion: noop,
       postReviewReply: noop,
       respondMeeting: noop,
+      markServiceComplete: noop,
     }),
   );
 }

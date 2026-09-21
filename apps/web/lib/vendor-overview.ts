@@ -682,7 +682,7 @@ export async function fetchVendorOverviewData(
     if (
       !needsCompletionMark({
         status: b.status,
-        eventDate: meta?.event_date ?? null,
+        eventDate: meta?.eventDate ?? null,
         serviceMarkedCompleteAt: b.service_marked_complete_at,
       })
     ) {
@@ -693,12 +693,12 @@ export async function fetchVendorOverviewData(
       id: `done-${b.vendor_id}`,
       eventVendorId: b.vendor_id,
       eventId: b.event_id,
-      eventName: meta?.display_name ?? 'A celebration',
-      eventDate: meta?.event_date ?? null,
+      eventName: meta?.displayName ?? 'A celebration',
+      eventDate: meta?.eventDate ?? null,
       // The day after the event is when this started waiting — not now, or it
       // would sort to the top of an oldest-first desk forever.
-      createdAt: meta?.event_date
-        ? new Date(new Date(`${meta.event_date}T00:00:00+08:00`).getTime() + 86_400_000).toISOString()
+      createdAt: meta?.eventDate
+        ? new Date(new Date(`${meta.eventDate}T00:00:00+08:00`).getTime() + 86_400_000).toISOString()
         : new Date().toISOString(),
     });
   }

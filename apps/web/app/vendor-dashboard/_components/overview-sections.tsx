@@ -83,6 +83,10 @@ const CARD_KIND: Record<
   Exclude<WhatsNewCard['kind'], 'review'>,
   CardTone
 > = {
+  // CTRL-B2 build 1. Neutral ink, deliberately: this row is an ASK, not news
+  // and not a problem. A gold accent would make it compete with a live inquiry,
+  // and a warm semantic is reserved for genuine status (the repo's colour rule).
+  mark_complete: { accent: 'var(--m-ink)', eye: 'var(--m-ink)', eyebrow: 'Your event has finished' },
   inquiry: { accent: 'var(--sn-gold-500)', eye: 'var(--sn-gold-700)', eyebrow: 'New inquiry' },
   lock: { accent: 'var(--sn-success)', eye: 'var(--sn-success)', eyebrow: 'Lock request' },
   // Amber, not green: this one is a QUESTION with a deadline, not good news to
@@ -722,6 +726,7 @@ export function WhatsNewFeed({
                 declineDeletion={declineDeletion}
                 postReviewReply={postReviewReply}
                 respondMeeting={respondMeeting}
+                markServiceComplete={markServiceComplete}
                 payoutReadiness={payoutReadiness}
                 feeForecasts={feeForecasts}
               />
@@ -745,6 +750,7 @@ function FeedCard({
   declineDeletion,
   postReviewReply,
   respondMeeting,
+  markServiceComplete,
   payoutReadiness,
   feeForecasts,
 }: {
@@ -758,6 +764,8 @@ function FeedCard({
   declineLock: (formData: FormData) => void | Promise<void>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
   declineDeletion: (formData: FormData) => void | Promise<void>;
+  /** Forwarded to MarkCompleteBody — CTRL-B2 build 1. */
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
   payoutReadiness: PayoutReadiness;

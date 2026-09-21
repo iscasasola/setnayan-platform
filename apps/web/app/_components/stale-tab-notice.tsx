@@ -70,10 +70,39 @@ export function StaleTabNotice() {
     };
   }, [check]);
 
+  /*
+    🔑 THE BAR MUST NOT HIDE THE PAGE'S LAST LINE. Owner 2026-09-21: "i cannot
+    see the bottom of the guest list." It is `fixed` over the bottom of the
+    screen, so without room reserved the last thing on ANY page — the final
+    guest row — sat underneath it and could not be scrolled clear. While it
+    shows, the body's bottom padding grows by the bar's height (measured, so a
+    wrapped two-line bar on a phone reserves two lines), and is put back exactly
+    as it was when the bar goes.
+  */
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!stale || !el) return;
+    const body = document.body;
+    const before = body.style.paddingBottom;
+    const base = parseFloat(getComputedStyle(body).paddingBottom) || 0;
+    const reserve = () => {
+      body.style.paddingBottom = `${base + el.getBoundingClientRect().height}px`;
+    };
+    reserve();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reserve);
+    ro?.observe(el);
+    return () => {
+      ro?.disconnect();
+      body.style.paddingBottom = before;
+    };
+  }, [stale]);
+
   if (!stale) return null;
 
   return (
     <div
+      ref={bar}
       role="status"
       className="fixed inset-x-0 bottom-0 z-[60] flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-ink/10 bg-cream/95 px-4 py-2.5 text-center text-sm text-ink/80 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur"
     >

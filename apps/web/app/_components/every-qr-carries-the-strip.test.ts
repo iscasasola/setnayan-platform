@@ -19,7 +19,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,10 +46,12 @@ const STRIP_MOUNTS: Record<string, number> = {
   'app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx': 1,
 };
 
-/** The guest's own code has its own pair of keepers; it gains the NFC button alone. */
-const NFC_ONLY_MOUNTS: Record<string, number> = {
-  'app/[slug]/_components/guest-code-keepers.tsx': 1,
-};
+/**
+ * Mounts of the NFC button OUTSIDE the full strip. EMPTY since 2026-09-21: the
+ * guest's own code keepers used to carry it, and the owner removed it —
+ * "remove the write to NFC on the event hub." See the guest-tree sweep below.
+ */
+const NFC_ONLY_MOUNTS: Record<string, number> = {};
 
 /**
  * QRs that are NOT links: bank payment payloads (a phone tapping one would do
@@ -135,4 +137,41 @@ test('the iOS app is allowed to write tags, and says why it asks', () => {
   assert.match(spm, /CapgoCapacitorNfc/, 'cap sync wired it into the iOS package');
   const gradle = readFileSync(join(WEB, '..', 'mobile/android/capacitor.settings.gradle'), 'utf8');
   assert.match(gradle, /capgo-capacitor-nfc/, 'cap sync wired it into the Android build');
+});
+
+
+/**
+ * ⛔ NO "WRITE TO NFC" ANYWHERE A GUEST READS — owner, 2026-09-21: "remove the
+ * write to NFC on the event hub."
+ *
+ * Writing a tag is a job for whoever PRINTS and PLACES it — the couple, or a
+ * supplier dressing the tables — not for a guest holding their own invitation.
+ * The strip stays on the host and supplier surfaces that own physical tags.
+ *
+ * 🔑 DERIVED FROM THE TREE, not from a list: every file under `app/[slug]/`
+ * is read, so a NEW guest surface that mounts the strip is caught without
+ * anyone remembering to add it here. Both the bare button and the full strip
+ * (which contains it) are forbidden. A floor proves the sweep read something.
+ */
+test('the guest tree carries no Write-to-NFC — neither the button nor the strip', () => {
+  const root = join(WEB, 'app', '[slug]');
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) files.push(full);
+    }
+  };
+  walk(root);
+  assert.ok(files.length >= 100, `the sweep read only ${files.length} files — it is not sweeping`);
+
+  const offenders: string[] = [];
+  for (const full of files) {
+    const src = readFileSync(full, 'utf8');
+    if (src.includes('<NfcWriteButton') || src.includes('<QrActions')) {
+      offenders.push(full.slice(WEB.length + 1));
+    }
+  }
+  assert.deepEqual(offenders, [], 'a guest-facing surface mounts Write-to-NFC');
 });

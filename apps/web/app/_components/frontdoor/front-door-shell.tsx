@@ -98,11 +98,11 @@ import {
   ChevronDown,
   ChevronUp,
   Compass,
-  Home,
   LayoutGrid,
   PenLine,
   Search,
   Sparkles,
+  Telescope,
   Users,
 } from 'lucide-react';
 /*
@@ -1296,10 +1296,16 @@ export function FrontDoorShell({
               "true" on Home until 2026-08-13, which read correctly on the one
               URL this rail rendered on and would have lit Home on all 296
               pages the moment it rendered anywhere else. */}
+          {/* DISCOVER, NOT "HOME" (owner 2026-09-21: *"change Home to Discover
+              so My Home will be more personal"*). This row is the public feed;
+              "My Home" two rows down is the person's own space. Two "Home"s in
+              one rail read as the same place. The telescope, not a house:
+              Compass is already the Suppliers row's glyph. The slot key stays
+              'home' — it is match data, not a word anyone reads. */}
           <Link href="/" {...rowProps('home')}>
-            <RailIcon as={Home} />
-            <span className="fd-label-text">Home</span>
-            <span className="fd-icon-caption">Home</span>
+            <RailIcon as={Telescope} />
+            <span className="fd-label-text">Discover</span>
+            <span className="fd-icon-caption">Discover</span>
           </Link>
           {/*
             STORIES IS NOT A DESTINATION ANY MORE — IT IS A CHIP (owner

@@ -46,7 +46,6 @@ const BOTTOM_EDGE = [
   'guest-hub-bar.tsx',
   'public-event-day-bar.tsx',
   'site-menu-bar.tsx',
-  'background-music.tsx',
 ] as const;
 
 test('the two legacy bars give up the bottom edge when the menu renders', () => {
@@ -76,12 +75,6 @@ test('nothing else parks inside the bar strip at bottom-4 or bottom-5', () => {
   // 3.5rem + safe-area footprint. Anything that must float above the bar uses
   // the lifted offset instead.
   const lifted = 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]';
-  const music = read(join(COMPONENTS, 'background-music.tsx'));
-  assert.ok(
-    music.includes(lifted),
-    'The music toggle is back inside the bar strip. At z-50 it wins the tap, ' +
-      'so the leftmost tab (Home) becomes a mute button on any page with music.',
-  );
 
   // Share/Report no longer float at all (owner 2026-09-21: "make a place at
   // the bottom for report and share") — see the footer test below, which
@@ -170,4 +163,20 @@ test('Share and Report sit in a footer at the END of the page, covering nothing'
   // SiteBody no longer mounts it — a second copy would put Share mid-page.
   const body = stripComments(read(join(COMPONENTS, 'site-body.tsx')));
   assert.doesNotMatch(body, /<PublicPageActions/);
+});
+
+test('the music button left the bottom edge for the top-right corner', () => {
+  // Owner 2026-09-21: "follow your proposed". It floated bottom-left, one lift
+  // away from the menu bar's Home tab, over whatever scrolled under it. It now
+  // joins the top-right cluster (a guest's Account control) through a portal,
+  // or holds that corner alone when the page has no cluster.
+  const music = stripComments(read(join(COMPONENTS, 'background-music.tsx')));
+  assert.doesNotMatch(music, /\bbottom-/, 'the music button is back on the bottom edge');
+  assert.match(music, /createPortal\(control, slot\)/, 'it must join the corner cluster when there is one');
+  assert.match(music, /fixed right-3 top-3/, 'and hold the corner itself when there is not');
+  assert.match(music, /Tap for their song/, 'the one hint that there is music at all');
+  const hub = stripComments(read(join(COMPONENTS, 'guest-hub-bar.tsx')));
+  const cluster = hub.indexOf('fixed right-3 top-3');
+  const slot = hub.indexOf('id={TOP_CORNER_SLOT_ID}');
+  assert.ok(cluster > 0 && slot > cluster && slot - cluster < 400, 'the slot sits INSIDE the top-right cluster');
 });

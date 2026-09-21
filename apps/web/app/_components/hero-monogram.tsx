@@ -79,8 +79,9 @@ export function HeroMonogram({
   /** Render on a DARK surface (recap photo-hero overlay · the venue Live Wall).
    *  Adds a cream backing to ONLY the otherwise-bare branches — the lockup (3)
    *  and framed (4) marks — so they read on dark. The self-backing branches
-   *  (bespoke · animated · legacy circle) already carry their own cream disc, so
-   *  they ignore this — which is why callers pass `plate` instead of wrapping the
+   *  (animated · legacy circle) already carry their own cream disc, so they
+   *  ignore this. The bespoke mark has NO disc or ring of its own since
+   *  2026-09-21, so it takes `plate` too — which is why callers pass `plate` instead of wrapping the
    *  whole component in a cream lozenge (that double-backed the self-disc
    *  branches into a faint cream-on-cream ring). Default off → light surfaces
    *  (public hero · editorial · recap cream body) are unchanged. */
@@ -112,7 +113,7 @@ export function HeroMonogram({
     // Owned but no studio reveal threaded here (a secondary surface) → the legacy
     // bloom entrance; not owned → static. Never a regression for un-threaded callers.
     return (
-      <BespokeMonogramMark svg={bespokeSvg} color={markColor} size="md" shadow={shadow} entrance={Boolean(animatedMonogram)} />
+      <BespokeMonogramMark svg={bespokeSvg} color={markColor} size="md" shadow={shadow} entrance={Boolean(animatedMonogram)} plate={plate} />
     );
   }
 

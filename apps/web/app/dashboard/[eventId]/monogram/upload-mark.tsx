@@ -92,19 +92,11 @@ export function UploadMark({
   }
 
   return (
-    <section id="upload-mark" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-8">
-      <header className="space-y-1.5">
-        <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
-          <UploadCloud aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Upload your own
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Already have a mark?</h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          Upload an SVG, a transparent-background PNG, or a scan. We decipher it into its pieces — each
-          piece becomes an element every reveal can animate — and it takes over as your monogram
-          everywhere. EPS/AI files can&rsquo;t be read by browsers; export them as SVG or PNG first.
-        </p>
-      </header>
+    <section id="upload-mark" className="scroll-mt-24 space-y-4">
+      {/* No heading: the page's <MarkToggle> already says which side this is.
+          What the heading used to explain (SVG / PNG / scan, EPS and AI must be
+          converted first) is in <UploadTips>, which says it better and before
+          the upload rather than above it. */}
 
       {notice ? (
         <p

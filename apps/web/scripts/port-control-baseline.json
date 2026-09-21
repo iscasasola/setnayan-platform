@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8f6553883",
+  "generatedFromRef": "95fbebf43",
   "routeCount": 430,
-  "destinations": 922,
+  "destinations": 923,
   "actions": 654,
-  "blocks": 4578,
+  "blocks": 4580,
   "routes": {
     "/": {
       "files": [
@@ -835,6 +835,7 @@
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
         "[slug]/_lib/supplier-desk.server.ts",
+        "[slug]/_lib/top-corner.ts",
         "[slug]/_lib/types.ts",
         "[slug]/_lib/your-own-day.server.ts",
         "[slug]/actions.ts",
@@ -5387,6 +5388,7 @@
         "dashboard/[eventId]/guests/inline-actions.ts",
         "dashboard/[eventId]/guests/loading.tsx",
         "dashboard/[eventId]/guests/map-actions.ts",
+        "dashboard/[eventId]/guests/march-actions.ts",
         "dashboard/[eventId]/guests/page.tsx",
         "dashboard/[eventId]/guests/pair-actions.ts",
         "dashboard/[eventId]/guests/people-add-actions.ts",
@@ -5451,6 +5453,7 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLInputElement",
+        "HTMLSpanElement",
         "Icon",
         "InlineEditor",
         "InlineResult",
@@ -5469,6 +5472,7 @@
         "LockedChip",
         "MPill",
         "MapActionResult",
+        "MarchCell",
         "Meter",
         "MiniChip",
         "MobileGuestCarousel",
@@ -5946,8 +5950,8 @@
         "dashboard/[eventId]/monogram/draft-restore.tsx",
         "dashboard/[eventId]/monogram/ink-compare.tsx",
         "dashboard/[eventId]/monogram/loading.tsx",
-        "dashboard/[eventId]/monogram/mark-doors.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
+        "dashboard/[eventId]/monogram/mark-toggle.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
         "dashboard/[eventId]/monogram/reveal-actions.ts",
         "dashboard/[eventId]/monogram/reveal-step.tsx",
@@ -5958,7 +5962,8 @@
         "dashboard/[eventId]/monogram/upload-tips.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/monogram"
+        "/dashboard/[seg]/monogram?mode=design",
+        "/dashboard/[seg]/monogram?mode=upload"
       ],
       "actions": [
         "clearStudioAction",
@@ -5982,9 +5987,9 @@
         "InkCompare",
         "InlineCheckoutDrawer",
         "Link",
-        "MarkDoors",
         "MarkEverywhere",
         "MarkInkMode",
+        "MarkToggle",
         "MoltenMonogramInline",
         "MonogramDraft",
         "MonogramDraftRestore",

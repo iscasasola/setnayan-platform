@@ -68,7 +68,7 @@ export async function saveStudioAction(formData: FormData): Promise<void> {
   const config = sanitizeStudioConfig(parsed);
   if (!config) backToMaker(eventId, { studio_error: 'invalid' });
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('events')
     .update({
       monogram_custom_svg: svg,
@@ -79,16 +79,29 @@ export async function saveStudioAction(formData: FormData): Promise<void> {
       // column — was dropped in S40 alongside the retired
       // bespoke_monogram_generations table; see that migration's comment.)
       monogram_cipher_config: null,
-      // Reclaim precedence from any earlier upload (gap audit 2026-07-17):
-      // every surface resolves `uploaded ?? custom`, so a leftover
-      // monogram_uploaded_svg would make this "Save as my monogram" a silent
-      // no-op — the hero/QR/save-the-date would keep the OLD upload while the
-      // UI says "your mark everywhere." Hitting Save on a studio design is an
-      // unambiguous intent to make THAT the mark, so clear the upload.
-      monogram_uploaded_svg: null,
+      /* ⛔ `monogram_uploaded_svg` IS NO LONGER CLEARED HERE (2026-09-20).
+       *
+       * It used to be set to null, with this reason: "every surface resolves
+       * `uploaded ?? custom`, so a leftover monogram_uploaded_svg would make
+       * this Save a silent no-op." That stopped being true the same day:
+       * precedence flipped to `custom ?? uploaded`, so a saved design wins on
+       * its own and needs nothing cleared to be seen.
+       *
+       * What remained was pure data loss — and worse, because the studio can
+       * now open ON the uploaded logo and compose from it: open your logo, add a
+       * frame, save, and the original is erased. The upload flow never kept the
+       * source photo, so it would be gone for good. Owner, asked whether to keep
+       * the original: "yes keep it."
+       *
+       * Only "Remove upload" (clearUploadedMarkAction) may delete it;
+       * lib/only-remove-upload-deletes-the-upload.test.ts holds that line. */
     })
-    .eq('event_id', eventId);
-  if (error) backToMaker(eventId, { studio_error: 'save' });
+    .eq('event_id', eventId)
+    /* `.select()` counts the rows: a PostgREST UPDATE matching none (an RLS
+     * refusal, a stale event id) returns error:null, and this redirected to
+     * "Your studio monogram is now your mark everywhere" having written nothing. */
+    .select('event_id');
+  if (error || !updated || updated.length === 0) backToMaker(eventId, { studio_error: 'save' });
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);

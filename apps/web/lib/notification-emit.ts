@@ -5,6 +5,7 @@ import { renderBrandedEmail } from '@/lib/email-template';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
+import { eventIdFromRelatedUrl } from '@/lib/notification-event-id';
 
 // Web Push is wired at the same funnel as email but kept deliberately MINIMAL:
 // only the highest-signal, time-sensitive types fire a push on top of the
@@ -349,6 +350,16 @@ export type EmitNotificationArgs = {
   title: string;
   body?: string | null;
   relatedUrl?: string | null;
+  /**
+   * The wedding this notice is about. Almost never needed: when omitted it is
+   * DERIVED from `relatedUrl`, which nearly every event-scoped call site
+   * already builds. Pass it explicitly only when a notice belongs to an event
+   * whose id is not in its own link.
+   *
+   * Passing `null` means the same as omitting it — a non-event link derives to
+   * null anyway.
+   */
+  eventId?: string | null;
 };
 
 /**
@@ -365,17 +376,54 @@ export type EmitNotificationArgs = {
  */
 export async function emitNotification(args: EmitNotificationArgs): Promise<void> {
   const { userId, type, title, body = null, relatedUrl = null } = args;
+  // Which wedding is this about? Derived from the link unless the caller said.
+  // The rule is pure and unit-tested in `notification-event-id.ts` — this module
+  // is `server-only`, so a test cannot reach in here to check it.
+  const eventId = args.eventId ?? eventIdFromRelatedUrl(relatedUrl);
   try {
     const admin = createAdminClient();
-    const { error } = await admin.from('notifications').insert({
+    // ONE shape, always carrying `event_id` (nullable in the schema). A
+    // conditional spread would hand `.insert()` a UNION of two object types,
+    // which supabase-js's `RejectExcessProperties` infers from the first member
+    // and then rejects — the column is fine; the union is what does not compile.
+    const row: {
+      user_id: string;
+      type: NotificationType;
+      title: string;
+      body: string | null;
+      related_url: string | null;
+      event_id: string | null;
+    } = {
       user_id: userId,
       type,
       title: title.slice(0, 160),
       body,
       related_url: relatedUrl,
-    });
+      event_id: eventId,
+    };
+    const { error } = await admin.from('notifications').insert(row);
     if (error) {
-      console.error('[notifications] emit failed:', error.message);
+      // 🔑 A DERIVED EVENT ID MUST NEVER COST SOMEBODY THEIR NOTIFICATION.
+      // `event_id` is a foreign key, and the id here is only whatever the link
+      // said — so a notice about an event that has since been deleted (or a
+      // hand-built link with a stale uuid) would be REJECTED, and this
+      // function's fail-soft contract would turn that into silence. The user
+      // would simply never be told. So: retry once without the column. The
+      // notice is the product; the column is bookkeeping.
+      if (eventId) {
+        const { error: retryError } = await admin
+          .from('notifications')
+          .insert({ ...row, event_id: null });
+        if (retryError) {
+          console.error('[notifications] emit failed:', retryError.message);
+        } else {
+          console.warn(
+            `[notifications] emit kept the notice but dropped event_id=${eventId}: ${error.message}`,
+          );
+        }
+      } else {
+        console.error('[notifications] emit failed:', error.message);
+      }
     }
   } catch (e) {
     console.error('[notifications] emit threw:', e);

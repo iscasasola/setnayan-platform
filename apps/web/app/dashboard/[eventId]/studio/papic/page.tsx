@@ -48,6 +48,7 @@ import { getKwentoDensity } from '@/lib/kwento-density';
 import {
   resolveStoredWindow,
   formatWindowSummary,
+  formatCaptureCloseLabel,
   PAPIC_CAPTURE_MONTHS_BEFORE,
 } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
@@ -398,10 +399,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     eventDate: (ev.event_date as string | null) ?? null,
   });
   const papicDays = papicWindow.days;
+  // ⚠ THE CHOSEN DAYS, NOT THE CLOSING INSTANT. `endIso` now lands on the
+  // morning AFTER the last day, so passing it here turned a one-day wedding
+  // into "Dec 20 – Dec 21 · 2 days" on the tile the couple reads first.
   const papicWindowSummary = formatWindowSummary(
-    papicWindow.startIso,
-    papicWindow.endIso,
+    papicWindow.startDate,
+    papicWindow.endDate,
   );
+  // When the cameras actually stop — formatted from the gate's own number.
+  const papicCaptureCloseLabel = formatCaptureCloseLabel(papicWindow.endIso);
   const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
 
   // ⚠ READ ONCE, USED TWICE. The stage needs to know whether the library is

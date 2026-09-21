@@ -7,6 +7,12 @@ import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { setPapicGuestCaptureEarly } from '../guest-window-actions';
 import { SettingRow } from './setting-row';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  PAPIC_CAPTURE_GRACE_HOURS,
+  formatCaptureCloseLabel,
+  manilaCaptureCloseIso,
+  manilaDate,
+} from '@/lib/papic-window';
 
 /**
  * "When guests can shoot" — the host's button over everyone else's phone.
@@ -44,7 +50,7 @@ export async function GuestCamerasChoice({
 
   const { data, error } = await supabase
     .from('events')
-    .select('papic_guest_capture_early, event_date')
+    .select('papic_guest_capture_early, event_date, papic_window_end')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -102,22 +108,39 @@ export async function GuestCamerasChoice({
   const row = data as {
     papic_guest_capture_early: boolean | null;
     event_date: string | null;
+    papic_window_end: string | null;
   };
   const early = row.papic_guest_capture_early === true;
   const day = row.event_date;
 
+  // ⏰ THE SENTENCE IS BUILT FROM THE GATE'S OWN NUMBERS (owner 2026-09-22).
+  // Both branches used to end "until the end of that day", and capture now runs
+  // twelve hours past it — so the card told a couple their guests' phones were
+  // dead while the shutter still worked. Each label is formatted from the exact
+  // instant `guestCaptureGate` compares against: the stored window end when the
+  // switch is ON, and `manilaCaptureCloseIso(event day)` when it is OFF, which
+  // is literally the expression in that resolver's switch-OFF branch.
+  const eventDay = manilaDate(day);
+  const openCloseLabel = formatCaptureCloseLabel(row.papic_window_end);
+  const dayCloseLabel = eventDay
+    ? formatCaptureCloseLabel(manilaCaptureCloseIso(eventDay))
+    : null;
+
   const explanation = early ? (
     <>
-      Open now. Your guests can take photos any time up to the end of
-      your event day — good for the pre-nup shoot, the fitting, or the
-      night before.
+      Open now. Your guests can take photos any time through your capture
+      window
+      {openCloseLabel ? `, which closes ${openCloseLabel}` : ''} — good for
+      the pre-nup shoot, the fitting, or the night before.
     </>
   ) : (
     <>
       Your guests&rsquo; cameras switch on
-      {day ? ` on ${day}` : ' on your event day'} and stay on until the
-      end of that day. Open them early if you want photos of the
-      preparations too.
+      {day ? ` on ${day}` : ' on your event day'} and stay on
+      {dayCloseLabel
+        ? ` until ${dayCloseLabel} — ${PAPIC_CAPTURE_GRACE_HOURS} hours past the end of the day`
+        : ` until ${PAPIC_CAPTURE_GRACE_HOURS} hours after your event day ends`}
+      . Open them early if you want photos of the preparations too.
     </>
   );
 

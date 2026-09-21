@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { guestCaptureGate } from './papic-guest-window';
+import { manilaCaptureCloseIso } from './papic-window';
 import { stripComments } from './strip-comments';
 
 /**
@@ -39,7 +40,7 @@ const code = (p: string) => stripComments(read(p));
 const DAY = '2026-12-20';
 const ms = (iso: string) => Date.parse(iso);
 
-test('switch OFF: open all of the event day in Manila, shut on either side', () => {
+test('switch OFF: open all of the event day in Manila, plus the capture tail', () => {
   const g = (nowMs: number) =>
     guestCaptureGate({ earlyAllowed: false, eventDate: DAY, nowMs }).state;
 
@@ -48,8 +49,18 @@ test('switch OFF: open all of the event day in Manila, shut on either side', () 
   assert.equal(g(ms(`${DAY}T23:59:59+08:00`)), 'open', 'last second of the party');
 
   assert.equal(g(ms(`${DAY}T00:00:00+08:00`) - 1), 'not_open_yet', '1ms before the day');
-  assert.equal(g(ms(`${DAY}T23:59:59.999+08:00`) + 1), 'closed', '1ms after the day');
   assert.equal(g(ms('2026-06-20T12:00:00+08:00')), 'not_open_yet', 'six months early');
+
+  // ⏰ THIS ASSERTION USED TO READ `1ms after the day → closed`, and owner
+  // 2026-09-22 moved it: capture runs twelve hours past the end of the event
+  // day, so a guest at a reception that spills past midnight is no longer
+  // refused her photograph. Taken from the resolver rather than written out, so
+  // deleting the rule turns this red too. The full tail is walked in
+  // lib/capture-runs-past-lunch.test.ts.
+  const close = ms(manilaCaptureCloseIso(DAY));
+  assert.equal(g(ms(`${DAY}T23:59:59.999+08:00`) + 1), 'open', 'the after-party');
+  assert.equal(g(close), 'open', 'the last second of the tail');
+  assert.equal(g(close + 1), 'closed', '1ms after the cameras close');
 });
 
 test('🪤 the day boundary is MANILA, not UTC — the seat-window bug, again', () => {
@@ -66,6 +77,9 @@ test('🪤 the day boundary is MANILA, not UTC — the seat-window bug, again', 
 
 test('switch ON: the event window governs instead', () => {
   const start = '2026-06-20T09:00:00+08:00';
+  // Deliberately the PRE-TAIL shape — a row the 2026-09-22 migration has not
+  // reached. The gate honours a stored instant verbatim, so a legacy event
+  // keeps closing exactly where it always did.
   const end = '2026-12-20T23:59:59+08:00';
   const g = (nowMs: number) =>
     guestCaptureGate({

@@ -1283,7 +1283,8 @@ export async function SiteBody({
     const passCard = plan.qrCardShouldRender ? (
       <section
         id={PASS_ANCHOR}
-        className="scroll-mt-6 rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8"
+        data-motion="pass"
+        className="mx-auto max-w-md scroll-mt-6 overflow-hidden rounded-2xl border border-ink/10 bg-cream text-center shadow-lg"
       >
         {/* The anchor the arrival action's day-of label points at. A fragment
             link to a missing id fails SILENTLY — the first version of that
@@ -1295,51 +1296,54 @@ export async function SiteBody({
             two slots — on the day it leads, directly under the programme — so
             the id moves with it and the action's link keeps resolving, to a
             shorter scroll. It renders in exactly ONE slot per render, so there
-            is never a second element with this id. */}
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Your invitation QR
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight">For tagging &amp; pickup</h2>
+            is never a second element with this id.
+
+            🎫 IT LOOKS LIKE A PASS NOW (owner 2026-09-21, on this card: "so many
+            text. we want the event hub to be minimalist" — canvas "4 · The
+            pass"). Gone from the face: the "YOUR INVITATION QR · For tagging &
+            pickup" heading, the paragraph about photographers, and the raw
+            invitation URL in mono. What is left is what a door reads: whose
+            celebration, who you are, where you sit, when to arrive, and one
+            large code. Colours are the site palette's (mulberry = the moodboard
+            wine), never hard-coded. */}
+        <div className="bg-mulberry px-5 py-4 text-left text-cream">
+          <p className="font-pahina text-xl leading-tight">{event.display_name}</p>
+          {event.event_date ? (
+            <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-cream/80">
+              {formatEventDate(event.event_date)}
+            </p>
+          ) : null}
+        </div>
         {/* ── THE FOUR FACTS A DOOR NEEDS (arrival board "4 · the pass").
-            A code in a box is not a pass. Someone at the door asks who this is
-            and where they sit, and until now the card answered neither.
             🔑 EVERY FACT IS OMITTED WHEN IT DOES NOT EXIST — no "Table TBA".
             A pass that states a table the couple never assigned is worse than
             one that stays quiet: the guest believes it and is moved in front
-            of other people. See lib/guest-pass.ts.
-            `max-w-md` is the PHONE measure, one of the four sanctioned column
-            widths (`_lib/measures.test.ts`); the first version used
-            `max-w-xs` and took the page off its own grid. */}
+            of other people. See lib/guest-pass.ts. */}
         {passFacts.length > 0 ? (
-          <dl className="mx-auto mt-5 grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-left">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-5 pt-5 text-left">
             {passFacts.map((fact) => (
               <div key={fact.label}>
-                <dt className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/50">
+                <dt className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
                   {fact.label}
                 </dt>
-                <dd className="mt-0.5 text-sm font-medium text-ink">{fact.value}</dd>
+                <dd className="mt-0.5 text-base font-medium text-ink">{fact.value}</dd>
               </div>
             ))}
           </dl>
         ) : null}
-        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
-          Save this to your phone. Photographers will scan it on the day to tag the
-          photos they take of you — and you&rsquo;ll be able to grab those photos here
-          after the event.
-        </p>
+        {/* The tear line — where a paper pass would be torn at the door. */}
+        <div aria-hidden className="mx-5 mt-5 border-t border-dashed border-ink/20" />
         <div
           aria-label={`QR code for ${displayNameOf(guest)}`}
-          className="mx-auto mt-6 inline-block rounded-xl bg-white p-3 shadow-sm"
+          className="mx-auto mt-5 inline-block rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-56"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
-        <p className="mt-4 break-all font-mono text-xs tracking-[0.05em] text-ink/55">
-          {invitationUrl}
+        <p className="mx-auto mt-3 max-w-prose px-5 text-sm text-ink/60">
+          Show this at the door. It finds your table too.
         </p>
-        {/* "Save this to your phone" above was a promise this card had
-            no way to keep — the code is drawn as an inline SVG, so a
-            long-press offers nothing and a screenshot was the only
-            answer. These are the two ways to take it away. */}
-        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
+        {/* Save it or copy it — the code is drawn as an inline SVG, so a
+            long-press offers nothing and a screenshot was the only answer. */}
+        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4 px-5" />
         {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
             "Find my table" (the Indoor Blueprint map) and "Your seat pass"
             (this guest's exact seat, the same map, their tablemates and the
@@ -1354,12 +1358,13 @@ export async function SiteBody({
         {seatPassActive && guest.qr_token ? (
           <Link
             href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
-            className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
+            className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink/75 hover:border-terracotta hover:text-terracotta-700"
           >
             <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Find my seat
           </Link>
         ) : null}
+        <div aria-hidden className="h-6" />
       </section>
     ) : null;
 
@@ -1468,7 +1473,10 @@ export async function SiteBody({
             />
           ) : null}
 
-          <ArrivalActionRow action={arrivalAction} />
+          <ArrivalActionRow
+            action={arrivalAction}
+            landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')}
+          />
 
           {/* ── THE PAGE OPENS ON THE MARK (owner 2026-09-20).
               Until now an identified guest met a box about THEMSELVES — "Hi

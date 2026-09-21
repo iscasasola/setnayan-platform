@@ -87,7 +87,7 @@ const SHEET_CSS = `
   box-shadow:0 -16px 44px rgba(30,34,41,0.28);
 }
 @media (prefers-reduced-motion:no-preference){
-  .sn-sheet-js .sn-rsvp-sheet[data-open="1"]{animation:sn-rsvp-rise .26s ease-out}
+  .sn-sheet-js .sn-rsvp-sheet[data-open="1"]{animation:sn-rsvp-rise var(--sn-dur-elem) var(--sn-ease-out)}
 }
 @keyframes sn-rsvp-rise{from{transform:translateY(12%)}to{transform:none}}
 `;

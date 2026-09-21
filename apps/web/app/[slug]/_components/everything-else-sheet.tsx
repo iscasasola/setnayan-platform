@@ -44,6 +44,7 @@ export function EverythingElseSheet({ rows }: { rows: EverythingElseRow[] }) {
         onClose={() => setOpen(false)}
         labelledById="everything-else-heading"
         title="Everything else"
+        rise
       >
         <h2 id="everything-else-heading" className="sr-only">
           Everything else on this invitation

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 /**
  * ⚖ Owner 2026-09-21, on the shipped header: *"text is improper. and it does
@@ -26,18 +27,17 @@ import { join } from 'node:path';
 const DIR = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests');
 
 /**
- * 🪤 COMMENTS OUT FIRST, ALWAYS. The first cut of the padding assertion below
- * went red against a `{/* … px-2 … *\/}` note explaining why px-2 is wrong —
- * a guard convicting the prose that documents it. Strip the comments and judge
- * only what renders; a rule about pixels must never be readable from an
- * explanation of itself.
+ * 🪤 COMMENTS OUT FIRST, ALWAYS — and through the repo's ONE stripper.
+ *
+ * The first cut of the padding assertion below went red against a comment
+ * EXPLAINING why px-2 is wrong: a guard convicting the prose that documents it.
+ * The second cut fixed that with a two-line regex of its own, which
+ * `lint-one-comment-stripper` then refused, and it was right to: stripping
+ * block comments first lets a `video/*` inside a LINE comment open a comment
+ * that never existed, which blanks every line to the next real close — and a
+ * guard asserting against a blank passes. `lib/strip-comments.ts` is a lexer,
+ * not a regex, precisely because the regex is wrong in the silent direction.
  */
-const stripComments = (src: string): string =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '') // {/* JSX */}
-    .replace(/\/\*[\s\S]*?\*\//g, '') //      /* block */
-    .replace(/^\s*\/\/.*$/gm, ''); //           // line
-
 const ROSTER = stripComments(
   readFileSync(join(DIR, '_components', 'guest-list-multiselect.tsx'), 'utf8'),
 );

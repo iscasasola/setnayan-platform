@@ -111,10 +111,24 @@ export function ArrangeTh({
       : `Group by ${label}`;
 
   return (
-    <th className={className} scope="col">
-      <span className="flex items-center gap-1.5">
+    // 🔑 `overflow-hidden` ON THE CELL ITSELF, whatever the caller passes. The
+    // inner `min-w-0` + `truncate` stop the LABEL spilling; this stops the CELL
+    // from ever widening the table's scroll area, which is a different failure
+    // and the one that actually made the page "not stretch". Structural, so no
+    // caller can forget it.
+    <th className={`${className ?? ''} overflow-hidden`} scope="col">
+      {/* 🪤 `min-w-0` AND `truncate`, and BOTH are load-bearing. The table is
+          `table-fixed`, so a declared width is honoured for LAYOUT — but
+          `whitespace-nowrap` content is not clipped by it, it spills over the
+          cell boundary into the next column. Shipped without these, every
+          header sat visibly shifted from the column beneath it and the last
+          one ("Contact") was pushed off the right edge and read "CONTA".
+          A flex child will not shrink below its content unless it is told it
+          may, which is what `min-w-0` grants; `truncate` then clips instead of
+          spilling. The full word stays in `title` either way. */}
+      <span className="flex min-w-0 items-center gap-1">
         <label
-          className="inline-flex cursor-pointer items-center gap-0.5 rounded p-0.5 hover:bg-ink/5"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-0.5 rounded p-0.5 hover:bg-ink/5"
           title={what}
         >
           <input
@@ -139,12 +153,14 @@ export function ArrangeTh({
           onClick={() => setSort(column)}
           aria-label={`Sort by ${label}`}
           title={`Sort by ${label}`}
-          className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-medium hover:bg-ink/5 hover:text-ink ${
+          className={`inline-flex min-w-0 items-center gap-0.5 rounded px-0.5 py-0.5 font-medium hover:bg-ink/5 hover:text-ink ${
             sorted ? 'text-terracotta-700' : ''
           }`}
         >
-          {label}
-          {sorted ? <ChevronDown className="h-3 w-3" strokeWidth={2.4} aria-hidden /> : null}
+          <span className="truncate">{label}</span>
+          {sorted ? (
+            <ChevronDown className="h-3 w-3 shrink-0" strokeWidth={2.4} aria-hidden />
+          ) : null}
         </button>
       </span>
     </th>

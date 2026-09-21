@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { syncExtraSeats } from '@/lib/extra-seats-sync';
 import { parseCsv } from '@/lib/csv';
 import { normalizeGuestName } from '@/lib/guest-name';
 import { parsePersonName } from '@/lib/person-name-parse';
@@ -181,7 +182,10 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
     );
   }
 
-  const { error: insertErr } = await supabase.from('guests').insert(valid);
+  const { data: insertedRows, error: insertErr } = await supabase
+    .from('guests')
+    .insert(valid)
+    .select('guest_id, plus_one_count');
   if (insertErr) {
     return redirect(
       `/dashboard/${eventId}/guests/import?error=${encodeURIComponent('Insert failed: ' + insertErr.message)}`,
@@ -189,6 +193,12 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
   }
 
   // Smart seat-plan Phase 5: gap-fill the imported guests into provisional seats.
+  // ⚖ "+ will have seats beside the person invited" (owner 2026-09-21): each
+  // imported +N gets its N seats. A row that could not get them keeps its
+  // number and the couple can re-set it from the list.
+  for (const r of (insertedRows ?? []) as Array<{ guest_id: string; plus_one_count: number | null }>) {
+    if ((r.plus_one_count ?? 0) > 0) await syncExtraSeats(supabase, eventId, r.guest_id);
+  }
   await applyReconcileForEvent(supabase, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);

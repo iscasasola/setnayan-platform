@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { seatToName, type ExtraSeatRow } from '@/lib/extra-seats';
 import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
@@ -630,12 +631,30 @@ export async function submitRsvp(
       .maybeSingle();
 
     if (primary?.plus_one_allowed) {
-      const { data: existing } = await admin
+      /*
+        🔴 A GUEST MAY NOW HAVE SEVERAL SEATS (owner 2026-09-21: up to +4, each
+        a row beside them). This used to be `.maybeSingle()` — which ERRORS on
+        two rows, reads as "none", and inserted ANOTHER seat on every RSVP. It
+        also counted removed rows. Now: fill the oldest open (unnamed) seat; if
+        every seat is named, update the first, as the single-seat path did.
+      */
+      const { data: seatRows } = await admin
         .from('guests')
-        .select('guest_id')
+        .select('guest_id, first_name, plus_one_name_confirmed_at, created_at')
         .eq('event_id', eventId)
         .eq('plus_one_of_guest_id', guestId)
-        .maybeSingle();
+        .is('deleted_at', null);
+      const seats: ExtraSeatRow[] = (seatRows ?? []).map((r) => ({
+        guest_id: r.guest_id as string,
+        first_name: (r.first_name as string | null) ?? null,
+        confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
+        created_at: (r.created_at as string | null) ?? null,
+      }));
+      const targetId =
+        seatToName(seats) ??
+        [...seats].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0]?.guest_id ??
+        null;
+      const existing = targetId ? { guest_id: targetId } : null;
 
       const first = plusOneFirst || 'TBA';
       const last = plusOneLast || '+1';

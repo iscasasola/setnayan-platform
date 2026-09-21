@@ -111,9 +111,11 @@ import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-ac
 import {
   lockMayOverwritePlan,
   planInstancesToRows,
+  redateOnLockInstalments,
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
 import { geocodeAddressWithCity } from '@/lib/geo';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -2238,7 +2240,12 @@ export async function finalizeVendor(
     const totalCostPhp = agreedTotalNow(planRow?.total_cost_php ?? null, planRow?.change_lines);
     const eventDateIso =
       (eventRow as { event_date: string | null } | null)?.event_date ?? null;
-    const lockDateIso = new Date().toISOString().slice(0, 10);
+    // A self-added supplier's lock day is the day the couple clicked, in
+    // Manila — a 7am lock is not "yesterday". The marketplace path keeps its
+    // existing UTC day; changing it is a separate decision.
+    const lockDateIso = targetVendor.marketplace_vendor_id
+      ? new Date().toISOString().slice(0, 10)
+      : manilaTodayIso();
 
     // Read the booked service's schedule template (seq-ordered). Off-platform /
     // serviceless bookings → no rows → empty plan (direct-pay fallback).
@@ -2316,8 +2323,33 @@ export async function finalizeVendor(
     // Upsert one plan row per (event, event_vendor) — re-locking refreshes it.
     // Skipped entirely when the couple's own plan must survive (see above); the
     // "your payment info is ready" notice below still fires, because it is.
+    //
+    // 📅 THE LOCK DAY (owner 2026-09-21: "on the date you clicked on lock").
+    // For a supplier the couple added themselves, TODAY is the day their
+    // "N days after lock" instalments count from. It is stamped on the plan
+    // (`on_lock_anchor_date`) so later edits read it back instead of sliding,
+    // and the couple's kept plan is re-dated to it — until now those rows were
+    // anchored on the day the supplier was added. Only "after lock" dates move
+    // (`redateOnLockInstalments`, executed by its test).
+    const stampLockDay = !onPlatformBooking;
     const { error: planErr } = keepCouplePlan
-      ? { error: null }
+      ? await planAdmin
+          .from('event_vendor_payment_plan')
+          .update(
+            existingPlanErr
+              ? // Unreadable plan: record the day, touch nothing else.
+                { on_lock_anchor_date: lockDateIso }
+              : {
+                  on_lock_anchor_date: lockDateIso,
+                  instances_json: redateOnLockInstalments(
+                    (existingPlan as { instances_json?: unknown } | null)?.instances_json,
+                    lockDateIso,
+                  ),
+                  updated_at: new Date().toISOString(),
+                },
+          )
+          .eq('event_id', eventId)
+          .eq('event_vendor_id', vendorId)
       : await planAdmin
       .from('event_vendor_payment_plan')
       .upsert(
@@ -2336,6 +2368,7 @@ export async function finalizeVendor(
           // cleared_at write-guard. The couple re-confirms via the gated path.
           cleared_at: null,
           cleared_by: null,
+          ...(stampLockDay ? { on_lock_anchor_date: lockDateIso } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'event_id,event_vendor_id' },

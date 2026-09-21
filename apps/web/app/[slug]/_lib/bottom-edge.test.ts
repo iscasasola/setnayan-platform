@@ -180,3 +180,17 @@ test('the music button left the bottom edge for the top-right corner', () => {
   const slot = hub.indexOf('id={TOP_CORNER_SLOT_ID}');
   assert.ok(cluster > 0 && slot > cluster && slot - cluster < 400, 'the slot sits INSIDE the top-right cluster');
 });
+
+test('the top bar label gives way to the pinned corner controls on a phone', () => {
+  // Seen live 2026-09-21: the music button, pinned top-right, covered the
+  // invitation bar's "INVITATION" label at the top of the page.
+  const shell = stripComments(read(join(COMPONENTS, 'invitation-shell.tsx')));
+  const labels = (shell.match(/className="sn-top-label /g) ?? []).length;
+  assert.equal(labels, 2, `both right-hand labels carry sn-top-label (found ${labels})`);
+  const music = stripComments(read(join(COMPONENTS, 'background-music.tsx')));
+  const hub = stripComments(read(join(COMPONENTS, 'guest-hub-bar.tsx')));
+  assert.match(music, /<div data-top-corner className=\{CORNER_ALONE\}>/, 'the lone music corner marks itself');
+  assert.match(hub, /<div data-top-corner className="fixed right-3 top-3/, 'the guest cluster marks itself');
+  const css = read(join(HERE, '..', '..', 'globals.css'));
+  assert.match(css, /html:has\(\[data-top-corner\]\) \.sn-top-label \{\s*visibility: hidden;/);
+});

@@ -162,7 +162,7 @@ export function GuestHubBar({
 
       {/* Top-right account affordance. Fixed so it rides above the page chrome;
           safe-area inset keeps it clear of notches. */}
-      <div className="fixed right-3 top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">
+      <div data-top-corner className="fixed right-3 top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">
         {/* The music button portals in HERE (background-music.tsx), left of the
             account control — one cluster, never two fixed things stacked. */}
         <div id={TOP_CORNER_SLOT_ID} className="contents" />

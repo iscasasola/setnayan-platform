@@ -1178,6 +1178,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           ) : (
             <GuestListMultiselect
               eventId={eventId}
+              listFinalized={finalize.locked}
               guests={visible}
               palette={palette}
               groups={groups}

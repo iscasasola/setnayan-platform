@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { PLACEHOLDER_FIRST_NAME, planExtraSeats, type ExtraSeatRow } from '@/lib/extra-seats';
 
 /**
@@ -56,7 +57,20 @@ async function readSeats(supabase: SupabaseClient, eventId: string, guestId: str
   return { primary: primary as Primary, seats };
 }
 
-/** Would setting `want` be allowed? Refuses only when named seats exceed it. */
+/** The sentence every finalized-list refusal uses — the RSVP lock's own words. */
+export const GUEST_LIST_FINALIZED = 'Your guest list is finalized — the guest count is locked.';
+
+/**
+ * Would setting `want` be allowed? Refuses when the guest list is closed and
+ * the number would change, or when named seats exceed it.
+ *
+ * ⚖ Owner 2026-09-21 ("1. yes"): once the guest count is finalized, extra seats
+ * no longer move — the head count suppliers priced against is closed, and each
+ * seat is a guest row the lock already refuses to add or remove. Asked HERE,
+ * before anything is saved, so a refused change never leaves a number without
+ * its chairs. "Closed" is `guestListIsClosed` — the stamp OR the deadline — the
+ * same answer the RSVP and the roster's finalized banner use.
+ */
 export async function checkExtraSeats(
   supabase: SupabaseClient,
   eventId: string,
@@ -66,6 +80,24 @@ export async function checkExtraSeats(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const read = await readSeats(supabase, eventId, guestId);
   if (!read) return { ok: false, error: 'Couldn’t read this guest’s seats — nothing was changed.' };
+  if ((read.primary.plus_one_count ?? 0) !== want) {
+    const { data: ev, error: evErr } = await supabase
+      .from('events')
+      .select('guest_count_locked_at, guest_list_edit_deadline, event_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    // Unreadable is not "open": refuse rather than risk a half-made change.
+    if (evErr || !ev) return { ok: false, error: 'Couldn’t check whether your guest list is finalized — nothing was changed.' };
+    if (
+      guestListIsClosed({
+        lockedAt: ev.guest_count_locked_at as string | null,
+        editDeadline: ev.guest_list_edit_deadline as string | null,
+        eventDate: ev.event_date as string | null,
+      })
+    ) {
+      return { ok: false, error: GUEST_LIST_FINALIZED };
+    }
+  }
   const plan = planExtraSeats(want, read.seats, guestName ?? read.primary.first_name ?? 'This guest');
   return plan.ok ? { ok: true } : { ok: false, error: plan.reason };
 }

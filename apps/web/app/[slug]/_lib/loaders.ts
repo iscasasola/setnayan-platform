@@ -18,6 +18,8 @@
 // the results IN as arguments. The service-role admin client is cookie-free and
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
+import { plusOneSeats } from '@/lib/guests';
+import { isPlaceholderSeat } from '@/lib/extra-seats';
 import { cache } from 'react';
 import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
@@ -1404,9 +1406,43 @@ export const loadGuestContext = cache(
     // never has a descriptor computed; the enroll actions null any vector anyway.
     const rsvpFaceMode = await resolvePapicFaceMode(admin, event.event_id);
 
+    /*
+      ⚖ Owner 2026-09-21 ("2. yes"): one name box per extra seat on the reply.
+      Each box needs its seat and the name already on it, so a guest who named
+      three people sees three names, not one. Oldest seat first — the order they
+      were given. A failed read degrades to the single-box reply (no seats
+      listed), never to "your seats are empty".
+    */
+    let plusOneSeatRows: { guest_id: string; name: string | null }[] | undefined;
+    if (plusOneSeats(guest) > 0) {
+      const { data: seatRows, error: seatErr } = await admin
+        .from('guests')
+        // The shared guest-name columns, not a hand-picked few (lint:dup-rule).
+        .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at`)
+        .eq('event_id', event.event_id)
+        .eq('plus_one_of_guest_id', guest.guest_id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true });
+      if (seatErr) {
+        logQueryError('loadGuestContext.seats', seatErr, { event_id: event.event_id }, 'graceful_degrade');
+      } else {
+        plusOneSeatRows = (seatRows ?? []).map((r) => {
+          const placeholder = isPlaceholderSeat({
+            guest_id: r.guest_id as string,
+            first_name: (r.first_name as string | null) ?? null,
+            confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
+          });
+          return {
+            guest_id: r.guest_id as string,
+            name: placeholder ? null : `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || null,
+          };
+        });
+      }
+    }
+
     return {
       kind: 'ready',
-      guest,
+      guest: plusOneSeatRows ? { ...guest, plus_one_seats: plusOneSeatRows } : guest,
       qrSvg,
       invitationUrl,
       papicGuestActive,

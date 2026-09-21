@@ -31,3 +31,51 @@ test('an RSVP name fills the oldest open seat, never a named one', () => {
   assert.equal(seatToName([named('rosa', '1'), tba('b', '3'), tba('a', '2')]), 'a');
   assert.equal(seatToName([named('rosa', '1')]), null);
 });
+
+import { planSeatNames, readSeatNames } from '@/lib/extra-seats';
+
+const form = (o: Record<string, string>) => ({ get: (k: string) => o[k] ?? null });
+
+test('the reply reads one name per box, and an older reply’s single box still counts', () => {
+  assert.deepEqual(
+    readSeatNames(form({ plus_one_first_name_1: 'Rosa', plus_one_last_name_1: 'Cruz', plus_one_seat_id_1: 's1', plus_one_first_name_3: 'Ben' })),
+    [{ seatId: 's1', first: 'Rosa', last: 'Cruz' }, { seatId: null, first: 'Ben', last: '' }],
+  );
+  assert.deepEqual(readSeatNames(form({ plus_one_first_name: 'Rosa' })), [{ seatId: null, first: 'Rosa', last: '' }]);
+  assert.deepEqual(readSeatNames(form({ plus_one_first_name_1: '  ' })), [], 'a blank box is not a removal');
+});
+
+test('each name fills its own seat; a box without one takes the oldest open seat', () => {
+  const seats = [tba('a', '1'), tba('b', '2'), named('c', '3')];
+  assert.deepEqual(
+    planSeatNames([{ seatId: 'c', first: 'Carl', last: '' }, { seatId: null, first: 'Ana', last: '' }], seats, 3),
+    [{ kind: 'name', seatId: 'c', first: 'Carl', last: '' }, { kind: 'name', seatId: 'a', first: 'Ana', last: '' }],
+  );
+});
+
+test('🔒 a reply can never make more seats than the couple gave, nor name someone else’s seat', () => {
+  // A forged seat id from another guest is ignored — it takes an open seat instead.
+  assert.deepEqual(planSeatNames([{ seatId: 'NOT-MINE', first: 'X', last: '' }], [tba('a', '1')], 1), [
+    { kind: 'name', seatId: 'a', first: 'X', last: '' },
+  ]);
+  // Allowed 1, one seat already named: a second name is not saved, and nothing is made.
+  assert.deepEqual(planSeatNames([{ seatId: null, first: 'Extra', last: '' }], [named('c', '1')], 1), []);
+  // A +2 whose seats were never made gets them from the names — up to two.
+  const ops = planSeatNames(
+    [{ seatId: null, first: 'A', last: '' }, { seatId: null, first: 'B', last: '' }, { seatId: null, first: 'C', last: '' }],
+    [],
+    2,
+  );
+  assert.equal(ops.filter((o) => o.kind === 'create').length, 2);
+});
+
+import { plusOneNameSlots } from '@/lib/extra-seats';
+
+test('the reply shows one box per seat, prefilled; no seats read → the old single box', () => {
+  assert.deepEqual(plusOneNameSlots(3, [{ guest_id: 'a', name: 'Rosa Cruz' }, { guest_id: 'b', name: null }], null), [
+    { seatId: 'a', name: 'Rosa Cruz' },
+    { seatId: 'b', name: null },
+    { seatId: null, name: null },
+  ]);
+  assert.deepEqual(plusOneNameSlots(2, undefined, 'Rosa'), [{ seatId: null, name: 'Rosa' }]);
+});

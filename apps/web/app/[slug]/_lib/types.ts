@@ -379,6 +379,9 @@ export type GuestRow = {
   /** How MANY extra seats, 0–4 (owner 2026-09-21). Optional so a read that
    *  predates it falls back to the boolean's one — see `plusOneSeats`. */
   plus_one_count?: number | null;
+  /** The guest's seat rows, oldest first, with the name on each (null = still
+   *  TBA) — one reply box per seat (owner 2026-09-21). Absent when not read. */
+  plus_one_seats?: { guest_id: string; name: string | null }[];
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */
   plus_one_name: string | null;

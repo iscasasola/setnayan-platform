@@ -5,6 +5,7 @@ import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { plusOneSeats } from '@/lib/guests';
+import { plusOneNameSlots } from '@/lib/extra-seats';
 import { SelfieCapture } from './selfie-capture';
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
@@ -412,31 +413,36 @@ export function RsvpWidget({
             Who are you bringing?
           </span>
           <p className="text-xs text-ink/55">
-            {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4). One
-                name box still: a named guest becomes a real row with its own
-                invitation; the others are seats, and the note below can say
-                who. */}
+            {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4), and
+                each seat gets its own optional name box below. */}
             {words.theOrganizer.charAt(0).toUpperCase() + words.theOrganizer.slice(1)} saved
             you {plusOneSeats(guest) > 1 ? `${plusOneSeats(guest)} more seats` : 'a seat for one more'}.
-            Give us {plusOneSeats(guest) > 1 ? 'a name' : 'their name'} and they get their own
+            Give us {plusOneSeats(guest) > 1 ? 'their names and they each get' : 'their name and they get'} their own
             invitation, their own QR and their own photos — you can add it later
             if you are still asking.
-            {plusOneSeats(guest) > 1 ? ' Tell us about the others in the note below.' : ''}
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field
-              id="plus_one_first_name"
-              label="Their first name"
-              defaultValue={(guest.plus_one_name ?? '').split(' ')[0] ?? ''}
-              placeholder="First name"
-            />
-            <Field
-              id="plus_one_last_name"
-              label="Their last name"
-              defaultValue={(guest.plus_one_name ?? '').split(' ').slice(1).join(' ')}
-              placeholder="Last name"
-            />
-          </div>
+          {/* ⚖ Owner 2026-09-21 ("2. yes"): one name box per seat. Box i fills
+              seat i — its id rides along and the server re-checks it belongs
+              to this guest. Each is optional; a blank one leaves that seat TBA.
+              With no seats read (a failed read, or an older guest), this falls
+              back to the single box it always was. */}
+          {plusOneNameSlots(plusOneSeats(guest), guest.plus_one_seats, guest.plus_one_name).map((slot, i) => (
+            <div key={slot.seatId ?? i} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${i + 1}`} value={slot.seatId} /> : null}
+              <Field
+                id={`plus_one_first_name_${i + 1}`}
+                label={plusOneSeats(guest) > 1 ? `Guest ${i + 1} — first name` : 'Their first name'}
+                defaultValue={(slot.name ?? '').split(' ')[0] ?? ''}
+                placeholder="First name"
+              />
+              <Field
+                id={`plus_one_last_name_${i + 1}`}
+                label={plusOneSeats(guest) > 1 ? `Guest ${i + 1} — last name` : 'Their last name'}
+                defaultValue={(slot.name ?? '').split(' ').slice(1).join(' ')}
+                placeholder="Last name"
+              />
+            </div>
+          ))}
         </div>
       ) : null}
 
@@ -605,3 +611,4 @@ function Select({
     </div>
   );
 }
+

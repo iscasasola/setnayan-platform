@@ -9,10 +9,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VendorTierGate } from '../_components/tier-gate';
-import {
-  computeMonthlySubtotals,
-  fetchVendorLedgerEarnings,
-} from '@/lib/vendor-earnings';
+import { fetchVendorLedgerEarnings } from '@/lib/vendor-earnings';
+import { earningsView, readVendorEarnings } from '@/lib/vendor-earnings-view';
 /* Retired 2026-05-28 V2 cutover: Setnayan Pay 5% convenience fee + 3-stage payout
  * model + BIR 0.5% withholding routing through Setnayan-as-rails all retire.
  * Historical PayoutStage labels stay so legacy V1 records render correctly;
@@ -79,10 +77,30 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
   // The money couples paid THIS shop and the shop confirmed — the booking
   // ledger, scoped by this shop's own booking rows (see the docblock on
   // `fetchVendorLedgerEarnings` for the platform-orders read it replaced).
+  //
+  // ⚠ THE READER THROWS ON A REFUSED OR SHORT READ, AND THAT THROW USED TO
+  // ⚠ REACH NOBODY WHO COULD ACT ON IT. Unawaited by any catch, it took the
+  // ⚠ whole route to `vendor-dashboard/error.tsx` — losing the payouts totals,
+  // ⚠ the booking-fee bills and the verification chip, all of which say
+  // ⚠ something true — and the obvious repair (`.catch(() => [])`) would have
+  // ⚠ printed ₱0 to a supplier who was paid. `readVendorEarnings` turns the
+  // ⚠ throw into a VALUE the renderer has to answer for; `earningsView` makes
+  // ⚠ every unread figure `null` (an em-dash) and the ledger 'unreadable'.
   const admin = createAdminClient();
-  const earnings = await fetchVendorLedgerEarnings(admin, profile.vendor_profile_id);
-
-  const { ytdTotal, months } = computeMonthlySubtotals(earnings);
+  const earningsRead = await readVendorEarnings(() =>
+    fetchVendorLedgerEarnings(admin, profile.vendor_profile_id),
+  );
+  if (!earningsRead.ok) {
+    logQueryError(
+      'VendorEarningsSurface.ledgerEarnings',
+      { message: earningsRead.error },
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const view = earningsView(earningsRead);
+  const earnings = view.rows;
+  const months = view.months;
 
   // Vendor Payout model (2026-05-16 lock) — pull this vendor's own scheduled
   // payouts so the page can render the confirmed / in-stage / paid split.
@@ -234,18 +252,40 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         </div>
       </article>
 
+      {/* The two money tiles below are the first thing a supplier reads. If the
+          ledger was not read they are em-dashes, and this line says why —
+          because a blank figure with no sentence beside it still reads as a
+          business that has earned nothing. */}
+      {!view.measured ? (
+        <p
+          role="alert"
+          className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70"
+        >
+          <strong className="text-ink">We couldn&rsquo;t load your earnings ledger.</strong>{' '}
+          Year-to-date and this month are blank because the read failed &mdash; not
+          because no couple has paid you. Reload in a moment; every payment you
+          confirmed is still on file.
+        </p>
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Stat
           label="Year-to-date"
-          value={formatPhp(ytdTotal)}
-          help={`${earnings.length} payment${earnings.length === 1 ? '' : 's'} confirmed`}
+          value={formatPhp(view.ytdPhp)}
+          help={
+            view.measured
+              ? `${view.paymentCount} payment${view.paymentCount === 1 ? '' : 's'} confirmed`
+              : 'not read'
+          }
         />
         <Stat
           label="This month"
-          value={formatPhp(months[months.length - 1]?.total_php ?? 0)}
-          help={`${months[months.length - 1]?.order_count ?? 0} booking${
-            (months[months.length - 1]?.order_count ?? 0) === 1 ? '' : 's'
-          }`}
+          value={formatPhp(view.thisMonthPhp)}
+          help={
+            view.measured
+              ? `${view.thisMonthCount} booking${view.thisMonthCount === 1 ? '' : 's'}`
+              : 'not read'
+          }
         />
         {/* ⚠ TRUE, AND NOT THE WHOLE TRUTH WHEN A FEE IS OPEN. Couples do pay
             the supplier 100% directly — Setnayan takes nothing out of that
@@ -265,10 +305,24 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
 
       <section className="sn-tile space-y-2 p-5">
         <h2 className="sn-sec">Last 12 months</h2>
-        {months.every((m) => m.total_php === 0) ? (
+        {/* ⚠ THREE STATES, NOT TWO. "No earnings yet" is a claim about this
+            shop's year; it may only be made once the year was actually read. */}
+        {!view.measured ? (
+          <p role="status" className="py-4 text-sm text-ink/70">
+            We couldn&rsquo;t load your monthly totals. This is a failed read, not a
+            year with nothing in it.
+          </p>
+        ) : months.every((m) => m.total_php === 0) ? (
+          /* ⚠ THIS SENTENCE USED TO DESCRIBE THE BROKEN READER — it pointed the
+             supplier at the Services tab and promised their category's platform
+             orders would roll up here, which was the join that could never find
+             a supplier's money (see `lib/vendor-earnings.ts`). Believing it
+             meant adding services and waiting forever. Money reaches this page
+             one way: a couple logs a payment on their booking with you, and you
+             confirm it. */
           <p className="py-4 text-sm text-ink/55">
-            No earnings yet. Add services on the Services tab — paid orders posted to
-            those categories will roll up here.
+            No earnings yet. When a couple logs a payment to you on their booking
+            and you confirm it, it rolls up here.
           </p>
         ) : (
           <ol className="divide-y divide-ink/10">
@@ -427,7 +481,24 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           ) : null}
         </div>
 
-        {earnings.length === 0 ? (
+        {view.ledger === 'unreadable' ? (
+          /* ⚠ NOT "No confirmed payments yet." A refused read and a shop that
+              has never been paid produced the SAME empty box; this is the
+              branch that tells them apart. */
+          <div
+            role="alert"
+            className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-6 text-center"
+          >
+            <p className="text-sm font-medium text-ink">
+              We couldn&rsquo;t load your payment ledger.
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-ink/70">
+              This list is empty because the read failed, not because no couple has
+              paid you. Nothing you confirmed has been lost &mdash; reload in a
+              moment, and tell us if it keeps happening.
+            </p>
+          </div>
+        ) : view.ledger === 'empty' ? (
           <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
             <Wallet
               aria-hidden

@@ -29,14 +29,19 @@
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { WalkingOrderLines } from './walking-order-lines';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   ENTOURAGE_COLUMNS,
+  ENTOURAGE_GROUP_LIST,
+  entourageGroupLabel,
+  entourageGroupOfRole,
+  entourageLines,
   ENTOURAGE_ROLES,
-  holdersOfRoleInPrintOrder,
   roleLabel,
   type EntourageGuestRow,
+  type EntourageRow,
 } from '@/lib/entourage';
 import { guestFullName, ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { roleGroupOf } from '@/lib/role-groups';
@@ -60,6 +65,27 @@ export function printedRolesForView(view: string): GuestRole[] {
   );
 }
 
+/**
+ * Which printed groups this dashboard view should offer to arrange.
+ *
+ * 🔑 "ALL" MEANS THE WHOLE PROCESSIONAL, and that is the fix for a real defect:
+ * the panel used to render ONLY under a role filter, so the one place a couple
+ * can arrange who walks first was invisible unless they already knew to filter
+ * first. Owner, 2026-09-20: *"where is the arranging? why do you not build
+ * it?"* — it was built, and it was hidden, which from where he was standing is
+ * the same thing.
+ */
+export function printedGroupsForView(view: string): string[] {
+  if (!view || view === 'all') return ENTOURAGE_GROUP_LIST.map((g) => g.key);
+  return [
+    ...new Set(
+      printedRolesForView(view)
+        .map((r) => entourageGroupOfRole(r))
+        .filter((k): k is string => Boolean(k)),
+    ),
+  ];
+}
+
 export async function EntourageOrderPanel({
   eventId,
   view,
@@ -67,8 +93,10 @@ export async function EntourageOrderPanel({
   eventId: string;
   view: string;
 }) {
-  const roles = printedRolesForView(view);
-  if (roles.length === 0) return null;
+  // The early return was the bug: under "All" this asked for ROLES, got none,
+  // and rendered nothing — hiding the only way to arrange the processional.
+  const groupKeys = printedGroupsForView(view);
+  if (groupKeys.length === 0) return null;
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -94,41 +122,47 @@ export async function EntourageOrderPanel({
   }
 
   const rows = (data ?? []) as EntourageGuestRow[];
-  const lists = roles
-    .map((role) => ({ role, people: holdersOfRoleInPrintOrder(rows, role) }))
-    .filter((l) => l.people.length > 0);
+
+  /*
+    ⚖ OWNER 2026-09-20: "the pair collapses to ONE line only in the walking-order
+    panel and the printed processional." So this panel lists LINES, not people —
+    `entourageLines` is the same function the invitation prints from and the
+    same one Move ↑ acts on, which is the only way "move this pair up" can mean
+    the same thing on all three.
+  */
+  const lists = groupKeys
+    .map((key) => ({ key, lines: entourageLines(rows, key) }))
+    .filter((l) => l.lines.length > 0);
 
   if (lists.length === 0) return null;
 
   const anyPlaced = lists.some((l) =>
-    l.people.some((p) => typeof p.entourage_order === 'number'),
+    l.lines.some((ln) => ln.some((half) => typeof half?.order === 'number')),
   );
 
   return (
     <section className="mb-4 rounded-xl border border-ink/10 bg-white/70 px-4 py-3">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
-          Walking order
+          Wedding March
         </h2>
         <p className="text-xs text-ink/55">
-          The order your invitation prints them in.{' '}
+          The order your invitation prints them in. A pair is one line.{' '}
           {anyPlaced
             ? 'You have arranged these yourself.'
             : 'Arranged by surname until you change it.'}
         </p>
       </header>
 
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        {lists.map(({ role, people }) => (
-          <div key={role}>
+      <div className="mt-3 space-y-4">
+        {lists.map(({ key, lines }) => (
+          <div key={key}>
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="text-xs font-medium text-ink/70">
-                {roleLabel(role) ?? ROLE_LABELS[role]}
+                {entourageGroupLabel(key) ?? key}
               </h3>
-              {/* Only offered once there is something to undo — a "reset" on an
-                  order nobody set is a button that cannot do anything. */}
-              {people.some((p) => typeof p.entourage_order === 'number') ? (
-                <form action={clearEntourageOrder.bind(null, eventId, role)}>
+              {lines.some((ln) => ln.some((h) => typeof h?.order === 'number')) ? (
+                <form action={clearEntourageOrder.bind(null, eventId, key)}>
                   <SubmitButton
                     className="text-[11px] text-ink/45 underline-offset-2 hover:text-ink/70 hover:underline"
                     pendingLabel="Resetting…"
@@ -140,60 +174,87 @@ export async function EntourageOrderPanel({
               ) : null}
             </div>
 
-            <ol className="mt-1.5 space-y-1">
-              {people.map((person, i) => (
-                <li
-                  key={person.guest_id ?? `${role}-${i}`}
-                  className="flex items-center gap-2 rounded-md px-2 py-1 text-sm odd:bg-ink/[0.02]"
-                >
-                  <span className="w-5 flex-none font-mono text-[11px] text-ink/40">
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-ink">
-                    {guestFullName(person as never) ?? '—'}
-                  </span>
+            <WalkingOrderLines
+              eventId={eventId}
+              groupKey={key}
+              groupLabel={entourageGroupLabel(key) ?? key}
+              lines={lines.map((line, i) => ({
+                leadId: line[0]?.id ?? line[1]?.id ?? `${key}-${i}`,
+                cells: [<LineCell key="l" half={line[0]} />, <LineCell key="r" half={line[1]} />],
+                label: [line[0]?.name, line[1]?.name].filter(Boolean).join(' and ') || 'Blank line',
+              }))}
+            >
+              {lines.map((line, i) => (
+                /* The always-available path — plain forms, no JavaScript
+                   required. The drag layer above never replaces these. */
+                <span key={line[0]?.id ?? line[1]?.id ?? i} className="inline-flex">
                   <MoveButton
                     eventId={eventId}
-                    guestId={person.guest_id}
-                    role={role}
+                    guestId={line[0]?.id ?? line[1]?.id ?? null}
+                    groupKey={key}
                     direction="up"
                     disabled={i === 0}
                   />
                   <MoveButton
                     eventId={eventId}
-                    guestId={person.guest_id}
-                    role={role}
+                    guestId={line[0]?.id ?? line[1]?.id ?? null}
+                    groupKey={key}
                     direction="down"
-                    disabled={i === people.length - 1}
+                    disabled={i === lines.length - 1}
                   />
-                </li>
+                </span>
               ))}
-            </ol>
+            </WalkingOrderLines>
           </div>
         ))}
       </div>
+
+      <p className="mt-3 border-t border-ink/5 pt-2 text-[11px] text-ink/45">
+        Order is the line&rsquo;s; a chair is the person&rsquo;s — the seat plan is untouched.
+      </p>
     </section>
+  );
+}
+
+/**
+ * One half of a printed line.
+ *
+ * ⚖ A BLANK STAYS BLANK (owner 2026-09-14): an unpartnered name keeps its line
+ * and leaves the other side empty, rather than being tidied up against somebody
+ * it does not walk with.
+ */
+function LineCell({ half }: { half: EntourageRow[number] }) {
+  if (!half) {
+    return <span aria-label="left blank" className="min-w-0 truncate text-ink/25">—</span>;
+  }
+  return (
+    <span className="min-w-0 truncate">
+      <span className="text-ink">{half.name}</span>{' '}
+      <span className="text-[11px] text-ink/45">
+        {roleLabel(half.role) ?? half.role}
+        {half.ceremonyOnly ? ' · ceremony only' : ''}
+      </span>
+    </span>
   );
 }
 
 function MoveButton({
   eventId,
   guestId,
-  role,
+  groupKey,
   direction,
   disabled,
 }: {
   eventId: string;
-  guestId: string | null | undefined;
-  role: GuestRole;
+  guestId: string | null;
+  groupKey: string;
   direction: 'up' | 'down';
   disabled: boolean;
 }) {
   const Icon = direction === 'up' ? ArrowUp : ArrowDown;
-  // The end of the list renders a DISABLED control rather than no control, so
-  // the row keeps its shape and the buttons do not shuffle sideways as the
-  // order changes — which is the one thing that would make a list of arrows
-  // hard to use with a thumb.
+  // The end of the list keeps a disabled control rather than none, so the
+  // buttons do not shuffle sideways as the order changes — the one thing that
+  // would make a column of arrows hard to use with a thumb.
   if (!guestId || disabled) {
     return (
       <span
@@ -205,14 +266,10 @@ function MoveButton({
     );
   }
   return (
-    <form action={moveInEntourageOrder.bind(null, eventId, guestId, role, direction)}>
+    <form action={moveInEntourageOrder.bind(null, eventId, guestId, groupKey, direction)}>
       <SubmitButton
         className="inline-flex h-7 w-7 flex-none items-center justify-center rounded text-ink/45 hover:bg-ink/5 hover:text-ink"
-        aria-label={`Move ${direction}`}
-        // Empty label leaves the spinner with an sr-only "Working…", which is
-        // right for a 28px icon button. `overlay={false}` because veiling the
-        // whole screen to move one name up one place is a bigger interruption
-        // than the thing it is reporting.
+        aria-label={`Move this line ${direction}`}
         pendingLabel=""
         overlay={false}
       >

@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { eventNoun } from '@/lib/event-noun';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, ArrowRight, Send, LayoutGrid } from 'lucide-react';
+import { Link2, ArrowRight, Send, LayoutGrid, ListOrdered } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
@@ -46,6 +46,7 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
+import { ENTOURAGE_ROLES } from '@/lib/entourage';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
@@ -298,6 +299,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Ceremony-aware View-sidebar filters: muslim weddings get the Nikah-principals
   // filter and not the Catholic sponsor/bearer ones, and vice-versa.
   const viewFilters = viewFiltersFor(guestRoleSetKey);
+
+  /*
+    ⚖ DOES THIS CELEBRATION EVEN HAVE A PROCESSIONAL? A generic event's roles
+    are guest · host · vip · family · helper — not one of them walks down an
+    aisle. Offering "Wedding March" on a birthday guest list would be wrong
+    twice over: wrong word, and a view with nothing in it.
+
+    🔑 DERIVED, NOT A LIST OF EVENT TYPES. Asking whether this event's own role
+    set offers any role the invitation prints means a new event type answers
+    correctly the day it is added, and a wedding that loses a role still says
+    yes. A hard-coded `=== 'wedding'` would be right until the next profile.
+  */
+  const hasProcessional = resolveRoleSet(guestRoleSetKey).offeredRoles.some((r) =>
+    (ENTOURAGE_ROLES as readonly string[]).includes(r),
+  );
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -478,7 +494,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
+  const gview: 'list' | 'map' | 'walk' =
+    search.gview === 'map' ? 'map' : search.gview === 'walk' ? 'walk' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
@@ -891,6 +908,31 @@ export default async function GuestsPage({ params, searchParams }: Props) {
                 Arrange the room
               </Link>
             )}
+            {/* ⚖ OWNER 2026-09-20: "Add a button on the upper part beside arrange
+                the room to launch that. [Wedding March]."
+
+                The processional had a tab and nothing else. "Arrange the room"
+                is the door to the seat plan; this is the door to the AISLE, and
+                the two belong side by side because a couple thinks of them
+                together and they are emphatically not the same ordering —
+                moving a pair up the march never moves a chair.
+
+                🔑 THE OWNER NAMED IT, SO THE COUPLE'S WORD IS "WEDDING MARCH"
+                EVERYWHERE THEY SEE IT — this button, the view tab, and the
+                panel's own heading. A button called one thing that opens a view
+                called another is two names for one idea, and the second one
+                always looks like a different feature. The column stays
+                `entourage_order`; that is a schema name, not a word anybody
+                reads. */}
+            {finished || !hasProcessional ? null : (
+              <Link
+                href={`/dashboard/${eventId}/guests?gview=walk`}
+                className="button-secondary inline-flex items-center gap-2"
+              >
+                <ListOrdered aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Wedding March
+              </Link>
+            )}
             {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
           </div>
         }
@@ -1053,6 +1095,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           stats={stats}
           measured={guestsMeasured}
           eventId={eventId}
+          hasProcessional={hasProcessional}
           search={search}
           q={q}
           sort={sort}
@@ -1140,7 +1183,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           desktop = node/edge canvas, mobile = vertical expand/collapse tree.
           Mobile reaches map mode only via the carousel's Journey panel (a
           deliberate choice — the default stays "just the list"). */}
-      {gview === 'map' ? (
+      {/* ⚖ Owner 2026-09-20: "so how to launch it on the guestlist?" — Walking
+          order is its own view, reached from the same segmented control as List
+          and Mind map. It is not a banner above the roster: the whole
+          processional on top of the guest list would push the list down the
+          page on every visit, for a job done a handful of times. */}
+      {gview === 'walk' ? (
+        <EntourageOrderPanel eventId={eventId} view={view} />
+      ) : gview === 'map' ? (
         <GuestMindMap
           eventId={eventId}
           guests={guests.map((g) => ({
@@ -1164,11 +1214,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          column beside it. `gl-settle-delayed` eases the roster in a beat after
          the bar on first load (frozen under prefers-reduced-motion). */
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
-          {/* ⚖ Owner 2026-09-20, asked where the reorder control belongs: "on
-              the guest list, per role view". It renders itself away for any
-              view the invitation does not print (all · guest · a custom
-              group), so the default roster is untouched. */}
-          <EntourageOrderPanel eventId={eventId} view={view} />
           {visible.length === 0 ? (
             <EmptyState
               finished={finished}
@@ -1543,7 +1588,7 @@ function pickFlash(search: {
   }
   if (search.paired) return 'Paired — they walk in together.';
   if (search.unpaired) return 'Pair removed.';
-  if (search.reordered) return 'Walking order saved.';
+  if (search.reordered) return 'Wedding March saved.';
   if (search.order_cleared) return 'Back to alphabetical order.';
   if (search.group_created) return 'Group created.';
   if (search.group_saved) return 'Group saved.';
@@ -1593,6 +1638,7 @@ function SummaryFacetBar({
   sort,
   sortOptions,
   gview,
+  hasProcessional,
   paxProgress,
   rsvpActive,
   teamActive,
@@ -1612,7 +1658,10 @@ function SummaryFacetBar({
   q: string;
   sort: SortKey;
   sortOptions: readonly { value: string; label: string }[];
-  gview: 'list' | 'map';
+  gview: 'list' | 'map' | 'walk';
+  /** Whether this celebration has a processional — see the derivation in the
+   *  page body; a generic event's roles walk down no aisle. */
+  hasProcessional: boolean;
   paxProgress: PaxProgress | null;
   rsvpActive: RsvpStatus | '';
   teamActive: 'all' | 'bride' | 'groom';
@@ -1796,7 +1845,12 @@ function SummaryFacetBar({
           <Suspense fallback={null}>
             <SortSelect value={sort} options={sortOptions} />
           </Suspense>
-          <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
+          <GuestsViewSwitcher
+            eventId={eventId}
+            active={gview}
+            search={search}
+            showWalk={hasProcessional}
+          />
         </div>
       </div>
 

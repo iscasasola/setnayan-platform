@@ -1206,6 +1206,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               )}
             />
           )}
+          {/* ⚖ Owner 2026-09-21: "make the last guest row scroll up to the
+              middle of the screen for safety." Half a screen of room after the
+              list, so the last guest can always be brought up clear of
+              anything pinned to the bottom — the update bar, the selection
+              bar, a phone's own toolbar. `dvh` so a phone's collapsing browser
+              bar does not change the answer. Empty list: no room needed. */}
+          {visible.length > 0 ? <div aria-hidden className="h-[50dvh]" data-roster-runout /> : null}
       </div>
       )}
 

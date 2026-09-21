@@ -116,7 +116,17 @@ export function attributeCommitted(args: {
       continue;
     }
 
-    const [primary, ...secondary] = groups as [string, ...string[]];
+    // Flag ON: the money's home comes from the ONE rule (`bucketForVendor`),
+    // not from `groups[0]` — for a supplier the couple added by hand, `[0]` is
+    // a category they ALSO cover, not their own (2026-09-21). Every covered
+    // group is still marked committed below. Flag OFF keeps the shipped read.
+    const primary = enabled
+      ? bucketForVendor({
+          covers_plan_groups: groups,
+          category: (v.category ?? null) as never,
+        })
+      : groups[0]!;
+    const secondary = groups.filter((g) => g !== primary);
     byGroup.set(primary, (byGroup.get(primary) ?? 0) + vendorCostCentavos(v));
     for (const g of secondary) {
       // Marked committed, zero additive cost — already paid via the primary.

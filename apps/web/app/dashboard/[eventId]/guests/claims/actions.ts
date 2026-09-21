@@ -5,6 +5,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { redirect } from 'next/navigation';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { readKeepChoice, type KeepChoice } from '@/lib/unlisted-guests';
+
+/** Back to the page with a sentence the couple can act on. */
+function back(eventId: string, message: string): never {
+  redirect(`/dashboard/${eventId}/guests/claims?error=${encodeURIComponent(message)}`);
+}
 
 /**
  * Invite/Join v2 reconcile actions (0000 ADDENDUM 2026-06-25).
@@ -49,7 +57,12 @@ async function readUnlistedGuest(
   return data.guest_id as string;
 }
 
-/** KEEP: promote an unlisted joiner to a normal list member. */
+/**
+ * KEEP: promote an unlisted joiner to a normal list member — with the name,
+ * side, role and group the couple chose (owner 2026-09-21: "allow manual add to
+ * list where you can choose their role, group, side, and name"). Every choice
+ * is re-checked here against what this event offers (`readKeepChoice`).
+ */
 export async function keepGuestAction(eventId: string, formData: FormData) {
   await assertCouple(eventId);
   const admin = createAdminClient();
@@ -58,6 +71,19 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
     revalidatePath(`/dashboard/${eventId}/guests/claims`);
     return;
   }
+
+  const [{ offeredRoles }, { data: groupRows, error: groupErr }] = await Promise.all([
+    resolveRoleSetForEvent(eventId),
+    admin.from('guest_groups').select('group_id').eq('event_id', eventId),
+  ]);
+  if (groupErr) back(eventId, 'Your groups could not be read just now — nothing was changed.');
+  const choice = readKeepChoice(
+    formData,
+    offeredRoles,
+    new Set((groupRows ?? []).map((g) => g.group_id as string)),
+  );
+  if (!choice.ok) back(eventId, choice.error);
+  const chosen = (choice as { ok: true; value: KeepChoice }).value;
 
   // Promote out of the reconcile queue. Drop the legacy self_joined tag too so
   // the row reads as a clean host-list member.
@@ -68,11 +94,40 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
     .maybeSingle();
   const tags = ((row?.custom_tags as string[] | null) ?? []).filter((t) => t !== 'self_joined');
 
-  await admin
+  const { error: keepErr } = await admin
     .from('guests')
-    .update({ entry_source: 'host_seeded', custom_tags: tags, updated_at: new Date().toISOString() })
+    .update({
+      entry_source: 'host_seeded',
+      custom_tags: tags,
+      first_name: chosen.first_name,
+      last_name: chosen.last_name,
+      // The name they typed on joining was a display name; the couple's choice
+      // replaces it, so the list shows what the couple wrote.
+      display_name: null,
+      side: chosen.side,
+      role: chosen.role,
+      updated_at: new Date().toISOString(),
+    })
     .eq('guest_id', guestId)
     .eq('event_id', eventId);
+  if (keepErr) {
+    // 23505 = a singleton role (one Best Man, one Maid of Honour…) is taken.
+    back(
+      eventId,
+      (keepErr as { code?: string }).code === '23505'
+        ? 'Someone on your list already has that role — pick another.'
+        : 'They could not be added just now — nothing was changed.',
+    );
+  }
+  if (chosen.group_id) {
+    const { error: memberErr } = await admin
+      .from('guest_group_memberships')
+      .upsert([{ group_id: chosen.group_id, guest_id: guestId }], {
+        onConflict: 'group_id,guest_id',
+        ignoreDuplicates: true,
+      });
+    if (memberErr) back(eventId, 'Added to your list, but not to that group — add them from the guest list.');
+  }
 
   // Smart seat-plan Phase 5: a kept joiner is now a real list member — gap-fill
   // them into a provisional seat if they don't have one.

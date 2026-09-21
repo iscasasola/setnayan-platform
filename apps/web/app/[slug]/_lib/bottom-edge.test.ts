@@ -175,6 +175,10 @@ test('the music button left the bottom edge for the top-right corner', () => {
   assert.match(music, /createPortal\(control, slot\)/, 'it must join the corner cluster when there is one');
   assert.match(music, /fixed right-3 top-3/, 'and hold the corner itself when there is not');
   assert.match(music, /Tap for their song/, 'the one hint that there is music at all');
+  // …and only at the top of the page: pinned to the viewport, it otherwise
+  // rides down over the invitation's text as the guest scrolls.
+  assert.match(music, /\{touched \|\| !atTop \? null : \(/, 'the hint must hide once the page scrolls');
+  assert.match(music, /addEventListener\('scroll'/);
   const hub = stripComments(read(join(COMPONENTS, 'guest-hub-bar.tsx')));
   const cluster = hub.indexOf('fixed right-3 top-3');
   const slot = hub.indexOf('id={TOP_CORNER_SLOT_ID}');

@@ -47,6 +47,10 @@ export const STUDIO_CSS_V2 = `
    #tab-reveal. The tabs start on Letters and nothing else opens Reveal, so a
    hidden button is a tab nobody can reach. Letters · Frame stretch to fill. */
 .vsroot .vs .vt[data-vt="reveal"]{display:none!important}
+/* The canvas's own Replay goes too: it replayed the SAVED reveal, not the effect
+   picked in the row below, which has its own "▶ Play". Hidden, not deleted —
+   the engine looks it up by id. */
+.vsroot .vs #replay{display:none!important}
 
 .vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;font-family:var(--font-hanken),system-ui,sans-serif;color:#1E2229;container-type:inline-size;}
 .vsroot .vs .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}

@@ -89,23 +89,29 @@ R2 probe "proved" a CORS fault that did not exist (a real presigned PUT returned
 
 ---
 
-## 📋 START HERE — [`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md) (2026-08-07)
+## 📋 START HERE — [`WHAT_IS_LEFT_2026-09-21.md`](WHAT_IS_LEFT_2026-09-21.md)
 
-**The verified register of every remaining item, carried INTO THIS REPO because
-`~/.claude/.../memory/` does not travel between accounts and the spec corpus is a
-second repo you may not have.**
+**The current register of what still has to be finished before a real supplier and a real couple can
+use this product**, carried INTO THIS REPO because `~/.claude/.../memory/` does not travel between
+accounts and the spec corpus is a second repo you may not have. Four parallel read-only audits
+against `origin/main` + the live prod DB; their raw output is in `docs/handoff-2026-09-21/`.
 
-87 claims checked against shipped code and the live database — not against the
-documents that made them — then attacked by a refute pass. **58 survived · 15
-need the owner, not engineering.**
+It also carries what would otherwise be lost on an account change: **the owner decisions already
+made — do not re-ask them** (§5), the decisions still open (§6), what is fixed and must not be
+rebuilt (§7), the environment traps that have each cost a whole session (§8), and an explicit list
+of what nobody could verify (§10).
 
-It also carries what would otherwise be lost on an account change: the owner
-decisions already made (**do not re-ask them**), the prod test accounts and the
-`is_internal` false-green trap, the environment traps that have each cost real
-time, and an honest account of four times a session stated something untrue and
-was corrected by a one-word question from the owner.
+🛑 **The three facts that frame every row in it:** no wedding has ever happened · both shops on the
+platform are the owner's, and the supplier verification path has never been walked end to end by
+anybody · exactly one real booking fee has ever been collected. **So most rows are a measured
+ABSENCE of evidence, not a measured defect.** A row marked NEVER EXERCISED is not broken and is not
+working — nobody knows, and saying either would be an invention.
 
-⚠ **A HANDOFF IS NOT EVIDENCE — including that one.** Verify before acting.
+⏹ **Superseded:** [`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md) (2026-08-07) and the corpus
+`WHATS_NEXT_HANDOFF_2026-08-20.md`. Both of their build lists are complete. Read them only for history.
+
+⚠ **A HANDOFF IS NOT EVIDENCE — including that one.** It cites no line numbers, only greppable
+strings and re-measuring SQL. Run them before you act.
 
 ---
 

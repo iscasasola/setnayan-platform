@@ -47,6 +47,17 @@ export function BackgroundMusic({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [touched, setTouched] = useState(false);
+  // 📜 THE HINT BELONGS TO THE TOP OF THE PAGE. The button is pinned to the
+  // viewport, so a hint pinned with it rode down over the invitation's text
+  // as the guest scrolled (seen live 2026-09-21, covering the "open the link
+  // the couple sent you" line). It shows only while the page is at the top.
+  const [atTop, setAtTop] = useState(true);
+  useEffect(() => {
+    const onScroll = () => setAtTop(window.scrollY < 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   // The guest's top-right cluster, when the page has one. Read after mount:
   // GuestHubBar renders after this component in the tree.
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -105,7 +116,7 @@ export function BackgroundMusic({ src }: { src: string }) {
           <VolumeX aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         )}
       </button>
-      {touched ? null : (
+      {touched || !atTop ? null : (
         <span
           role="note"
           className="absolute right-0 top-full mt-2 whitespace-nowrap rounded-lg bg-ink px-3 py-1.5 text-xs text-cream shadow-lg"

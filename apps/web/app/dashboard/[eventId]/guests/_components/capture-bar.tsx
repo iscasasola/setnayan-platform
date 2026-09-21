@@ -82,13 +82,11 @@ export function CaptureBar({
           cannot have 12rem beside the doors, the doors drop to their own line
           under it and the box takes the width. On a desktop nothing wraps. */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Leading glyph */}
-        <span aria-hidden className="shrink-0 pl-1 text-ink/35">
-          <Plus className="h-4 w-4" strokeWidth={2} />
-        </span>
-
         {/* Add input — the capture-first guest parser. */}
-        <div className="min-w-0 flex-1 basis-[12rem]">
+        {/* ⚖ Owner 2026-09-21: "same to the add text box. insert the + inside"
+            — the "+" sits inside the box at its end, matching the search box
+            on the other side of the row. */}
+        <div className="relative min-w-0 flex-1 basis-[12rem]">
           <input
             ref={inputRef}
             value={value}
@@ -106,7 +104,12 @@ export function CaptureBar({
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            className="input-field w-full"
+            className="input-field w-full pr-9"
+          />
+          <Plus
+            aria-hidden
+            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
+            strokeWidth={2}
           />
         </div>
 

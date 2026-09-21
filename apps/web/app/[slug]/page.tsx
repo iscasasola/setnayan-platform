@@ -73,6 +73,7 @@ import {
   type OwnerCapability,
 } from './_lib/site-identity';
 import { siteMenuEnabled } from './_lib/site-menu';
+import { PublicPageActions } from '@/app/_components/public-page-actions';
 import {
   buildSimulatedGuestIdentity,
   shouldSimulateRepliedGuest,
@@ -1065,7 +1066,25 @@ async function InvitationBody({
         ? await eventSongRequestDoor(admin, event.event_id)
         : null,
   };
+  // 🔑 SHARE AND REPORT, AT THE BOTTOM (owner 2026-09-21: "make a place at
+  // the bottom for report and share"). Mounted HERE, after everything, because
+  // on a guest's page SiteBody is not the end — the guest's own section
+  // (GuestHubBar) renders after it. Same gate as before: never on a private
+  // page; Share only once the page is public.
+  const pageFooter =
+    visibility !== 'private' ? (
+      <PublicPageActions
+        canShare={visibility === 'public'}
+        reportTargetId={event.event_id}
+        shareTitle={event.display_name}
+        clearOfMenuBar={siteMenuEnabled({
+          flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+          isSample: Boolean(event.is_sample),
+        })}
+      />
+    ) : null;
   const renderAnonymous = (reason: AnonymousReason) => (
+    <>
     <SiteBody
       {...siteProps}
       identity={anonymousIdentity({
@@ -1074,6 +1093,8 @@ async function InvitationBody({
         publicAlbumHref,
       })}
     />
+    {pageFooter}
+    </>
   );
 
   // ── EDITOR "RSVP'd" PREVIEW TAB (2026-07-26) ─────────────────────────────
@@ -1100,10 +1121,13 @@ async function InvitationBody({
     })
   ) {
     return (
-      <SiteBody
-        {...siteProps}
-        identity={buildSimulatedGuestIdentity({ slug: event.slug ?? slug })}
-      />
+      <>
+        <SiteBody
+          {...siteProps}
+          identity={buildSimulatedGuestIdentity({ slug: event.slug ?? slug })}
+        />
+        {pageFooter}
+      </>
     );
   }
 
@@ -1328,6 +1352,7 @@ async function InvitationBody({
           isSample: Boolean(event.is_sample),
         })}
       />
+      {pageFooter}
     </>
   );
 }

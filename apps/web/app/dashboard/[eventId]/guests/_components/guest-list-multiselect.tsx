@@ -139,8 +139,9 @@ type GuestSection = {
   mobileCols: string;
   guests: GuestRow[];
   count: number;
-  /** The honoree's section. Never collapsible: "always first" would otherwise
-   *  last exactly until somebody folded it. */
+  /** The honoree's section. Pinned FIRST — no sort or grouping can move it —
+   *  and, since 2026-09-21, foldable like the rest: first is about order, not
+   *  about staying open (owner: "collapse and expand like an accordion"). */
   pinned?: boolean;
 };
 
@@ -183,7 +184,7 @@ function TierHeader({
   count: number;
   collapsed?: boolean;
   onToggle?: () => void;
-  /** The honoree. Shown, never folded — see the section build. */
+  /** The honoree — pinned first; carries the "always first" note. Folds. */
   pinned?: boolean;
 }) {
   const labelEls = (
@@ -199,7 +200,7 @@ function TierHeader({
       ) : null}
     </>
   );
-  if (!onToggle || pinned) {
+  if (!onToggle) {
     return (
       <div className="mb-2 flex items-baseline gap-2">{labelEls}</div>
     );
@@ -827,7 +828,11 @@ export function GuestListMultiselect({
         label: grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp],
         mobileCols: 'grid-cols-2',
         count: honorees.length,
-        guests: honorees,
+        // Folds like every other section — owner 2026-09-21: "these rows
+        // should be able to make the content of that grouping collapse and
+        // expand like an accordion." Pinned means FIRST, not always-open: a
+        // folded honoree heading is still the first heading on the list.
+        guests: collapsed.has('honoree') ? [] : honorees,
         pinned: true,
       });
     }
@@ -921,13 +926,25 @@ export function GuestListMultiselect({
         }}
       >
         <table className="w-full table-fixed text-left text-sm">
-          <thead className="border-b border-ink/[0.07] font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
+          <thead
+            // ⚖ Owner 2026-09-21: "make the header all caps and readable" →
+            // "still not readable". It was 11px SPACE MONO capitals, 0.12em apart,
+            // at 55% ink — the widest face in the app at its smallest size, and
+            // monospace capitals are the hardest small text there is to read.
+            // Now the dashboard's text face (Hanken Grotesk via font-sans) at
+            // 12px, semibold, 0.06em, 70% ink: easier to read AND narrower,
+            // which is what actually stops SIDE and CONTACT being cut off.
+            // 🪤 The weight is ALSO set on every cell below: a header cell carries
+            // the browser's own `font-weight: bold`, which beats the row's
+            // semibold — measured at 700 until each cell said 600 itself.
+            className="border-b border-ink/[0.07] font-sans text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
+          >
             <tr>
               {/* 🪤 THE HEADER MUST RESERVE THE ROW'S EDGE. Every body row's first
                   cell carries a 2px side rule; without a matching (transparent)
                   one here the header labels sit 2px off every column beneath
                   them — a misalignment invisible in a diff and obvious on screen. */}
-              <th className="w-10 border-l-2 border-transparent px-3 py-2.5">
+              <th className="w-10 border-l-2 border-transparent px-3 py-2.5 font-semibold">
                 <label className="flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -980,6 +997,14 @@ export function GuestListMultiselect({
                   overflowed its own scroller instead of filling the screen.
                   The six go 46% → 50%; Name keeps the rest.
 
+                  🪤 AND CAPITALS ARE WIDER THAN LOWERCASE. Once the sort labels
+                  really rendered in capitals (2026-09-21 — preflight had been
+                  resetting them to mixed case), SIDE needed 79px in a 71px cell
+                  and CONTACT 84px in 82 at the owner's 1,022px table, reading
+                  "SI…" and "CONTAC…". Side 7% → 8%, Contact 8% → 9%: the fixed
+                  columns now claim 55%, the ceiling the geometry guard allows,
+                  and Name keeps 45%.
+
                   🪤 AND THAT WAS NOT ENOUGH — measured, not guessed. Rendered
                   at 1100px with the real Tailwind config, the table was STILL
                   1,085px inside a 1,066px scroller after the first fix, and
@@ -1000,13 +1025,13 @@ export function GuestListMultiselect({
                   🔑 Truncation in ArrangeTh is the floor under all of it:
                   these widths make truncating RARE, they do not prevent it,
                   and nothing here may depend on a label fitting. */}
-              <ArrangeTh column="name" grouping={grouping} sort={sort} className="px-3 py-2.5 font-medium" />
-              <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[7%] px-3 py-2.5 font-medium" />
-              <ArrangeTh column="role" grouping={grouping} sort={sort} className="w-[12%] px-3 py-2.5 font-medium" />
-              <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[10%] px-3 py-2.5 font-medium" />
-              <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-medium" />
-              <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-medium" />
-              <th className="w-[8%] overflow-hidden px-3 py-2.5 font-medium">
+              <ArrangeTh column="name" grouping={grouping} sort={sort} className="px-3 py-2.5 font-semibold" />
+              <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
+              <ArrangeTh column="role" grouping={grouping} sort={sort} className="w-[12%] px-3 py-2.5 font-semibold" />
+              <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[10%] px-3 py-2.5 font-semibold" />
+              <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
+              <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-semibold" />
+              <th className="w-[9%] overflow-hidden px-3 py-2.5 font-semibold">
                 <span className="block truncate">Contact</span>
               </th>
             </tr>

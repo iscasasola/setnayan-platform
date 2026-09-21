@@ -26,7 +26,8 @@
  * the input; if both carried a handler the grouping would toggle twice and
  * appear inert. See the test.
  *
- * URL-merge contract copied verbatim from `sort-select.tsx`: read the latest
+ * URL-merge contract shared with `live-search.tsx` (and the retired desktop
+ * sort-select, removed 2026-09-21 when the header took over sorting): read the latest
  * `searchParams` INSIDE the handler, so a filter click that landed mid-
  * interaction is never clobbered, and `router.replace(..., {scroll:false})` so
  * re-arranging a list does not throw the host back to the top of it.
@@ -138,13 +139,14 @@ export function ArrangeTh({
             aria-label={ticked ? `Stop arranging by ${label}` : `Group by ${label}`}
             className="h-3 w-3 rounded border-ink/30 text-terracotta-700 focus:ring-terracotta"
           />
-          {ticked ? (
-            <span
-              className={`font-sans text-[9px] font-bold leading-none ${
-                groups ? 'text-terracotta-700' : 'text-ink/40'
-              }`}
-            >
-              {groups ? '§' : level - 1}
+          {/* ⚖ Owner 2026-09-21: "remove the weird symbol beside the checkbox
+              of role." The "§" marked the column that makes the headings; the
+              ticked box already says that, and the headings themselves say
+              it louder. Only an ORDERING tick keeps a number — "1", "2" —
+              because that order is invisible otherwise. */}
+          {ticked && !groups ? (
+            <span className="font-sans text-[9px] font-bold leading-none text-ink/45">
+              {level - 1}
             </span>
           ) : null}
         </label>
@@ -153,7 +155,12 @@ export function ArrangeTh({
           onClick={() => setSort(column)}
           aria-label={`Sort by ${label}`}
           title={`Sort by ${label}`}
-          className={`inline-flex min-w-0 items-center gap-0.5 rounded px-0.5 py-0.5 font-medium hover:bg-ink/5 hover:text-ink ${
+          // 🪤 `uppercase` HAS TO BE SAID AGAIN HERE. The header row is set in
+          // capitals, but Tailwind's preflight resets `text-transform` on every
+          // <button> — so the six labels that sort (Name, Role, Groups…) read
+          // in mixed case while the one plain cell, CONTACT, read in capitals.
+          // Owner 2026-09-21: "make the header all caps and readable."
+          className={`inline-flex min-w-0 items-center gap-0.5 rounded px-0.5 py-0.5 uppercase hover:bg-ink/5 hover:text-ink ${
             sorted ? 'text-terracotta-700' : ''
           }`}
         >

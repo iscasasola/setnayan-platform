@@ -27,9 +27,13 @@ const DEBOUNCE_MS = 250;
 export function LiveSearch({
   initialValue,
   placeholder,
+  className,
 }: {
   initialValue: string;
   placeholder: string;
+  /** Extra classes for the box. The desktop search uses it to make room for an
+   *  icon inside; the phone carousel passes nothing and renders as before. */
+  className?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -87,7 +91,7 @@ export function LiveSearch({
       }}
       placeholder={placeholder}
       aria-label="Search guests"
-      className="input-field flex-1"
+      className={`input-field flex-1 ${className ?? ''}`}
     />
   );
 }

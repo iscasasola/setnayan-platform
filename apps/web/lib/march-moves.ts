@@ -150,3 +150,32 @@ export function swapsFor(
   }
   return out;
 }
+
+/**
+ * Move one SECTION a step up or down, among the sections that are ON SCREEN.
+ *
+ * ⚖ Owner 2026-09-21: *"arrange the parents, immediate family and other roles
+ * and modify its sequence."* `full` is every section in the couple's order
+ * (`orderedGroupKeys`); `visible` is the ones with somebody in them. Returns
+ * the new full order, or null when the move goes nowhere.
+ *
+ * 🔑 IT STEPS OVER EMPTY SECTIONS. They are not drawn, so swapping with one
+ * would change the saved order and nothing on the page — a button that
+ * visibly did nothing.
+ */
+export function nextSectionOrder(
+  full: readonly string[],
+  visible: ReadonlySet<string>,
+  key: string,
+  direction: 'up' | 'down',
+): string[] | null {
+  const at = full.indexOf(key);
+  if (at === -1 || !visible.has(key)) return null;
+  const step = direction === 'up' ? -1 : 1;
+  let to = at + step;
+  while (to >= 0 && to < full.length && !visible.has(full[to]!)) to += step;
+  if (to < 0 || to >= full.length) return null;
+  const next = [...full];
+  [next[at], next[to]] = [next[to]!, next[at]!];
+  return next;
+}

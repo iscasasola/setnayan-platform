@@ -580,9 +580,45 @@ function isCeremonyOnly(row: EntourageGuestRow): boolean {
   return Array.isArray(blocks) && blocks.length === 1 && blocks[0] === 'ceremony';
 }
 
-export function buildEntourage(rows: readonly EntourageGuestRow[]): EntourageGroup[] {
+/**
+ * The Wedding March's SECTION order for one event.
+ *
+ * ⚖ Owner 2026-09-21: *"we should be able to arrange the parents, immediate
+ * family and other roles and modify its sequence."* `saved` is
+ * `events.entourage_section_order` — the couple's keys, or NULL for never
+ * arranged.
+ *
+ * 🔑 FORGIVING BY DESIGN. A saved list is a snapshot of the groups that existed
+ * when the couple arranged them. Keys this build no longer knows are dropped;
+ * groups the list lacks (added since) are appended in the built-in order. So a
+ * stale value can never hide a section, duplicate one, or print a heading for
+ * nothing — and there is no SQL copy of the key set to drift.
+ */
+export function orderedGroupKeys(saved?: readonly string[] | null): string[] {
+  const known = new Set(ENTOURAGE_GROUP_KEYS);
+  const out: string[] = [];
+  for (const key of saved ?? []) {
+    if (known.has(key) && !out.includes(key)) out.push(key);
+  }
+  for (const key of ENTOURAGE_GROUP_KEYS) if (!out.includes(key)) out.push(key);
+  return out;
+}
+
+/** Has the couple arranged the sections themselves? (Drives the Reset control.) */
+export function sectionsAreArranged(saved?: readonly string[] | null): boolean {
+  const mine = orderedGroupKeys(saved);
+  return mine.some((key, i) => key !== ENTOURAGE_GROUP_KEYS[i]);
+}
+
+export function buildEntourage(
+  rows: readonly EntourageGuestRow[],
+  /** `events.entourage_section_order` — omitted or NULL prints the built-in order. */
+  sectionOrder?: readonly string[] | null,
+): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
-  for (const spec of GROUPS) {
+  const byKey = new Map(GROUPS.map((g) => [g.key, g]));
+  for (const key of orderedGroupKeys(sectionOrder)) {
+    const spec = byKey.get(key)!;
     // The SAME function the dashboard reorders with — see `entourageLines`.
     const built = entourageLines(rows, spec.key);
     if (built.length > 0) groups.push({ key: spec.key, label: spec.label, rows: built });

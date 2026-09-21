@@ -1437,6 +1437,31 @@ export const loadGuestContext = cache(
  * when this shipped; see the docblock on `lib/entourage.ts` before adding it as
  * a second source.
  */
+/**
+ * The couple's Wedding March SECTION order (`events.entourage_section_order`).
+ *
+ * ⚖ Owner 2026-09-21: the couple arranges the sections themselves.
+ *
+ * 🔑 ITS OWN QUERY, AND A FAILURE IS "BUILT-IN ORDER", NOT A BROKEN PAGE. This
+ * is an arrangement, not content: if it cannot be read the entourage still
+ * prints, everybody in it, in the default order. Folding it into the event's
+ * main select would let one unreadable preference 404 the whole invitation.
+ */
+export const loadEntourageSectionOrder = cache(
+  async (admin: AdminClient, eventId: string): Promise<string[] | null> => {
+    const { data, error } = await admin
+      .from('events')
+      .select('entourage_section_order')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) {
+      logQueryError('loadEntourageSectionOrder', error, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }
+    return ((data as { entourage_section_order: string[] | null } | null)?.entourage_section_order) ?? null;
+  },
+);
+
 export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
@@ -1480,6 +1505,9 @@ export const loadEntourage = cache(
       logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
       return [];
     }
-    return buildEntourage((data ?? []) as EntourageGuestRow[]);
+    return buildEntourage(
+      (data ?? []) as EntourageGuestRow[],
+      await loadEntourageSectionOrder(admin, eventId),
+    );
   },
 );

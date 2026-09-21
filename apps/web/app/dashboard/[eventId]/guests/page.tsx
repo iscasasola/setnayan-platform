@@ -237,6 +237,7 @@ type Props = {
     paired?: string;
     unpaired?: string;
     swapped?: string;
+    sections?: string;
     // entourage-order-actions.ts — a per-ROW control, so these get a flash but
     // deliberately do NOT feed `recentlyApplied`: reordering one name must not
     // discard a multi-select the host is still assembling.
@@ -1490,6 +1491,7 @@ function pickFlash(search: {
   paired?: string;
   unpaired?: string;
   swapped?: string;
+  sections?: string;
   reordered?: string;
   order_cleared?: string;
   group_created?: string;
@@ -1543,6 +1545,7 @@ function pickFlash(search: {
   if (search.paired) return 'Paired — they walk in together.';
   if (search.unpaired) return 'Pair removed.';
   if (search.swapped) return 'Swapped — they traded places.';
+  if (search.sections) return search.sections === 'reset' ? 'Sections back in the usual order.' : 'Section order saved.';
   if (search.reordered) return 'Wedding March saved.';
   if (search.order_cleared) return 'Back to alphabetical order.';
   if (search.group_created) return 'Group created.';

@@ -47,7 +47,11 @@ function entourageRead(): string {
   const src = stripComments(
     readFileSync(join(process.cwd(), 'app/[slug]/_lib/loaders.ts'), 'utf8'),
   );
-  const start = src.indexOf('loadEntourage');
+  /* 🪤 ANCHOR ON THE DECLARATION, NOT THE NAME. `indexOf('loadEntourage')`
+     matched `loadEntourageSectionOrder` the day that loader landed above this
+     one, and the guard went red while reading the wrong function. A bare-name
+     anchor faces whichever match comes first. */
+  const start = src.indexOf('export const loadEntourage = cache(');
   assert.ok(start > 0, 'loadEntourage is gone — this guard is pointing at nothing');
   const body = src.slice(start).replace(/\s+/g, ' ').slice(0, 700);
   /* Vacuity: if the slice missed the query, every assertion below is about

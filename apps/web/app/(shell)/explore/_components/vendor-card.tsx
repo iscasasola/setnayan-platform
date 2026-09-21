@@ -58,6 +58,7 @@ import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
 import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
+import { headlineServiceFor } from './card-headline-service';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { replyTimeBadgeLabel } from '@/lib/vendor-reply-time';
 import { displayServiceLabel, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
@@ -215,6 +216,12 @@ type Props = {
   venueAnchor: { lat: number; lng: number } | null;
   badges: ReadonlyArray<VendorBadge>;
   reviews: ReadonlyArray<VendorReviewPreview>;
+  /**
+   * The category filter the visitor has applied, if any — CTRL-B3 build 7.
+   * Optional and defaulting to null so every other call site keeps today's
+   * behaviour exactly; only the filtered grid passes it.
+   */
+  activeCategory?: string | null;
 };
 
 /**
@@ -246,12 +253,19 @@ export async function VendorCard({
   venueAnchor,
   badges,
   reviews,
+  activeCategory = null,
 }: Props) {
   // Resolved ONCE per card and handed to VendorHero as an already-usable URL.
   // The hero's own fallback ladder (service photo → logo → placeholder) is
   // unchanged; only the logo rung now carries something a browser can load.
   const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
-  const primaryService = vendor.services[0] ?? null;
+  // 🔴 WAS `vendor.services[0]` UNCONDITIONALLY — CTRL-B3 build 7, fixed
+  // 2026-09-22. Nothing passed the active filter in, so a couple filtering by
+  // Florist could be shown "Photography by X" because photography happened to
+  // be first in that shop's list. The rule is pure and lives in
+  // `card-headline-service.ts`, so it is executed by a test rather than
+  // described; with no filter it returns exactly what this line used to.
+  const primaryService = headlineServiceFor(vendor.services, activeCategory);
   const serviceLabel = primaryService ? displayServiceLabel(primaryService) : null;
   // V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity label.
   // Free + Verified vendors render the placeholder until their first

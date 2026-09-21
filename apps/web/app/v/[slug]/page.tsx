@@ -3772,9 +3772,13 @@ function ReviewsSection({
       {reviews.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6">
           <p className="text-sm text-ink/65">This vendor still has no review.</p>
+          {/* 🔴 Was "a review request 24 hours after the event" — a promise
+              nothing kept, on every shop page. See CTRL-B3 build 11 and the
+              sibling fix in vendor-marketplace-info.tsx. No duration is named:
+              a sentence with no number cannot drift from the code's. */}
           <p className="mt-1 text-xs text-ink/45">
-            Bookings through Setnayan generate a review request 24 hours after
-            the event.
+            A review opens once the supplier confirms they delivered and the
+            couple confirms they received it.
           </p>
         </div>
       ) : (

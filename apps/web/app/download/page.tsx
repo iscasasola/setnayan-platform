@@ -182,10 +182,26 @@ export default async function DownloadPage() {
                 title="Opens straight to your plan"
                 body="No landing page, no sign-in wall every time. Launch it and you're already inside your wedding."
               />
+              {/*
+                🔴 THIS CARD CLAIMED NOTARIZATION UNCONDITIONALLY — CTRL-B3
+                build 8, fixed 2026-09-22. The hero above it is correctly
+                branched on `mac.signed` and says "Not yet notarized by Apple"
+                when it is not — and then this card, outside both branches, told
+                the same visitor the build was "notarized by Apple". One page,
+                two answers, the wrong one louder.
+
+                🔑 GATED ON THE SAME FACT THE HERO READS, not on a second one.
+                A copy of the condition is a second place for the page to
+                disagree with itself; `mac?.signed` is the single fact.
+              */}
               <Value
                 icon={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
                 title="Trusted & always signed in"
-                body="Signed with an Apple Developer ID and notarized by Apple. Sign in once — it remembers you after that."
+                body={
+                  mac?.signed
+                    ? 'Signed with an Apple Developer ID and notarized by Apple. Sign in once — it remembers you after that.'
+                    : 'Signed, and it remembers you after the first sign-in. This build is not Apple-notarized yet, so macOS asks once on first launch — see “First launch” below.'
+                }
               />
             </div>
           </RevealGroup>

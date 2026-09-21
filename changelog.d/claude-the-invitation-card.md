@@ -20,3 +20,9 @@ The paper card's corner routes through the `rounded-sm` token (`--m-r-xs`, 4px)
 rather than an ad-hoc `rounded-[3px]` — the radius guard
 (`apps/web/scripts/lint-radius.mjs`, strict in CI) keeps every corner on the
 one token scale.
+
+`the-hub-moves-with-meaning.test.ts` now counts the arrival marks **per
+branch** instead of per file. The masthead returns one of two layouts and each
+carries its own `arrive-mark` / `arrive-names` / `arrive-date`; a file-wide
+count of 3 would have been satisfied by all three landing in one branch and
+none in the other, which is exactly what a regression looks like.

@@ -85,8 +85,27 @@ test('the arrival plays once, and the script and lib agree on the key', () => {
 
 test('each movement is mounted where it belongs', () => {
   const mast = stripComments(read('app/[slug]/_components/pahina-masthead.tsx'));
+  // The masthead returns ONE of two layouts: the invitation card (`if (card)`)
+  // and the classic masthead after it. A file-wide count of 3 marks would be
+  // satisfied by all three landing in one branch and none in the other, so
+  // each branch is counted on its own — the branch that never runs is exactly
+  // the one a regression would strip.
+  const cardAt = mast.indexOf('if (card) {');
+  assert.ok(cardAt > 0, 'the masthead still branches on `card`');
+  const classicAt = mast.indexOf('\n  return (', cardAt);
+  assert.ok(classicAt > cardAt, 'the classic masthead still follows the card branch');
+  const branches: Array<[string, string]> = [
+    ['card', mast.slice(cardAt, classicAt)],
+    ['classic', mast.slice(classicAt)],
+  ];
   for (const m of ['arrive-mark', 'arrive-names', 'arrive-date']) {
-    assert.equal(mast.split(`data-motion="${m}"`).length - 1, 1, `masthead carries ${m} once`);
+    for (const [where, branch] of branches) {
+      assert.equal(
+        branch.split(`data-motion="${m}"`).length - 1,
+        1,
+        `the ${where} masthead carries ${m} once`,
+      );
+    }
   }
   const action = stripComments(read('app/[slug]/_components/arrival-action.tsx'));
   assert.match(action, /data-motion="arrive-action"/);

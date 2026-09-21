@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, Undo2, UploadCloud } from 'lucide-react';
+import { Trash2, Upload, UploadCloud } from 'lucide-react';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { StudioRevealPlayer } from '@/app/_components/studio-reveal-player';
 import { clearUploadedMarkAction } from './upload-actions';
@@ -80,6 +80,11 @@ export function UploadMark({
     setDecoded({ svg: res.svg, elements: res.elements, traced: res.traced });
   }
 
+  /** The Upload icon opens the same hidden file input the dropzone uses. */
+  function pick() {
+    if (!busy) fileRef.current?.click();
+  }
+
   useEffect(() => onPlay((d) => setPlaying((p) => ({ ...d, n: (p?.n ?? 0) + 1 }))), []);
 
   /* What "Use Static Image" / "Unlock Animation & Apply" save from this side:
@@ -124,7 +129,13 @@ export function UploadMark({
           like as a converted svg to be able to animate" is answerable without
           uploading the file a second time. */}
       {hasUpload && savedSvg && !decoded ? (
-        <SavedMark svg={savedSvg} live={savedIsLive !== false} monogramText={monogramText} playing={playing} />
+        <SavedMark
+          svg={savedSvg}
+          live={savedIsLive !== false}
+          monogramText={monogramText}
+          playing={playing}
+          tools={<MarkTools eventId={eventId} busy={busy} onUpload={pick} canRemove />}
+        />
       ) : null}
 
       {/* A freshly chosen file sits where the saved logo was — the mark is the
@@ -132,11 +143,14 @@ export function UploadMark({
           under it. */}
       {decoded ? (
         <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep" data-testid="upload-elements">
-            {decoded.traced
-              ? `Deciphered into ${decoded.elements} ${decoded.elements === 1 ? 'piece' : 'pieces'} — traced to crisp vector`
-              : `${decoded.elements} vector ${decoded.elements === 1 ? 'element' : 'elements'} found`}
-          </p>
+          <header className="flex items-center justify-between gap-2">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep" data-testid="upload-elements">
+              {decoded.traced
+                ? `Deciphered into ${decoded.elements} ${decoded.elements === 1 ? 'piece' : 'pieces'} — traced to crisp vector`
+                : `${decoded.elements} vector ${decoded.elements === 1 ? 'element' : 'elements'} found`}
+            </p>
+            <MarkTools eventId={eventId} busy={busy} onUpload={pick} canRemove={false} />
+          </header>
 
           <MarkStage svg={decoded.svg} monogramText={monogramText} playing={playing} />
 
@@ -149,48 +163,38 @@ export function UploadMark({
         </div>
       ) : null}
 
-      {hasUpload ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3">
-          <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-            {savedIsLive === false
-              ? 'Kept, but not in use — your designed mark is the live one.'
-              : 'Your uploaded logo is your monogram.'}
-          </p>
-          <form action={clearUploadedMarkAction}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-            >
-              <Undo2 aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Remove upload
-            </button>
-          </form>
-        </div>
+      {/* ONE CARD (owner 2026-09-21, pointing at the "in use" card, the green
+          banner and the dropzone under it: "we can integrate these 2 on the
+          actual your logo, in use area with icons of upload and remove
+          image"). Upload and Remove are icons in the card's header; the
+          dropzone shows only while there is no logo to put a header on. */}
+      <input
+        ref={fileRef}
+        id="upload-mark-file"
+        type="file"
+        accept=".svg,.png,.webp,.jpg,.jpeg,image/svg+xml,image/png,image/webp,image/jpeg"
+        className="sr-only"
+        data-testid="upload-mark-input"
+        onChange={(e) => {
+          void onFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+      {!decoded && !(hasUpload && savedSvg) ? (
+        <label
+          htmlFor="upload-mark-file"
+          className="flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-gold/60 bg-cream/60 px-4 py-6 text-center transition-colors hover:bg-cream"
+        >
+          <UploadCloud aria-hidden className="h-5 w-5 text-gold-deep" strokeWidth={1.75} />
+          <span className="text-sm font-medium text-ink/80">
+            {busy ? 'Deciphering…' : 'Tap to upload · SVG or transparent PNG'}
+          </span>
+          <span className="text-xs text-ink/50">Up to 8MB · your file never leaves the page until you save</span>
+        </label>
       ) : null}
-
-      <label className="flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-gold/60 bg-cream/60 px-4 py-6 text-center transition-colors hover:bg-cream">
-        <UploadCloud aria-hidden className="h-5 w-5 text-gold-deep" strokeWidth={1.75} />
-        <span className="text-sm font-medium text-ink/80">
-          {busy ? 'Deciphering…' : decoded ? 'Choose a different file' : 'Tap to upload · SVG or transparent PNG'}
-        </span>
-        <span className="text-xs text-ink/50">Up to 8MB · your file never leaves the page until you save</span>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".svg,.png,.webp,.jpg,.jpeg,image/svg+xml,image/png,image/webp,image/jpeg"
-          className="sr-only"
-          data-testid="upload-mark-input"
-          onChange={(e) => void onFile(e.target.files?.[0])}
-        />
-      </label>
 
       {error ? <p className="text-sm text-terracotta-700">{error}</p> : null}
 
-      {/* Open while there is nothing to look at, collapsed once a mark is on
-          screen — NN/g's mobile-accordion rule, applied to the moment rather
-          than the breakpoint: guidance first, then get out of the way. */}
       {/* Collapsed once a logo is on screen — saved or freshly chosen — so the
           effects and the two buttons are not pushed a screen further down. */}
       <UploadTips open={!decoded && !hasUpload} />
@@ -219,11 +223,13 @@ function SavedMark({
   live,
   monogramText,
   playing,
+  tools,
 }: {
   svg: string;
   live: boolean;
   monogramText: string;
   playing: (PlayDetail & { n: number }) | null;
+  tools: React.ReactNode;
 }) {
   // Counted from the SAME svg that renders, so the numbers cannot describe a
   // different file from the one on screen.
@@ -236,9 +242,12 @@ function SavedMark({
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep">
           {live ? 'Your logo, in use' : 'Your logo, kept'}
         </p>
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/55">
-          {pieces} {pieces === 1 ? 'piece' : 'pieces'} · {colours} {colours === 1 ? 'colour' : 'colours'}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/55">
+            {pieces} {pieces === 1 ? 'piece' : 'pieces'} · {colours} {colours === 1 ? 'colour' : 'colours'}
+          </p>
+          {tools}
+        </div>
       </header>
       <MarkStage svg={svg} monogramText={monogramText} playing={playing} />
     </section>
@@ -282,6 +291,54 @@ function MarkStage({
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * <MarkTools> — Upload and Remove as two icons in the logo card's header.
+ * Icon-only, so each carries an aria-label and a title, and both are 44px
+ * targets. Remove deletes the logo for good (the original photo was never
+ * kept), so it asks first.
+ */
+function MarkTools({
+  eventId,
+  busy,
+  onUpload,
+  canRemove,
+}: {
+  eventId: string;
+  busy: boolean;
+  onUpload: () => void;
+  canRemove: boolean;
+}) {
+  const ICON =
+    'inline-flex h-11 w-11 items-center justify-center rounded-lg border border-ink/15 bg-white text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-50';
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onUpload}
+        disabled={busy}
+        aria-label={busy ? 'Deciphering your file' : 'Upload a different logo'}
+        title="Upload a different logo"
+        className={ICON}
+      >
+        <Upload aria-hidden className="h-4 w-4" strokeWidth={2} />
+      </button>
+      {canRemove ? (
+        <form
+          action={clearUploadedMarkAction}
+          onSubmit={(e) => {
+            if (!window.confirm('Remove your uploaded logo? This cannot be undone.')) e.preventDefault();
+          }}
+        >
+          <input type="hidden" name="event_id" value={eventId} />
+          <button type="submit" aria-label="Remove uploaded logo" title="Remove uploaded logo" className={ICON}>
+            <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

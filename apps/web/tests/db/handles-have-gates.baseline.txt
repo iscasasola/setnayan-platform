@@ -51,7 +51,6 @@ event_editorial.edited_by_couple | Marks that the couple touched the editorial d
 event_floor_plan.ghost_booths_enabled | A seating-editor display option, written and read by the seating surface.
 event_software_activations_v2.is_reward_issued | Idempotence marker on the manpower sync route — a stamped side effect, not a person-facing switch.
 event_vendor_payment_plan.is_default_seeded | Seeding marker for the payment-plan rows; consumed by the same vendors surface and its server helper.
-event_vendors.crew_meal_covered | Written and read on the couple's vendors surface, where the crew-meal line is shown.
 faith_vocab.is_civil | Taxonomy row property authored in `/admin/taxonomy`; read where that vocabulary is administered.
 npc_filing_tasks.counsel_gated | Admin compliance bookkeeping written and read inside `/admin/npc-readiness`; the effect (an admin seeing which filing tasks are counsel-gated) IS on that surface. Minors/Phase-3 gating is genuinely counsel-dependent and tracked in the corpus, not by a cross-surface read.
 panood_control_state.director_mode | Live Studio control-room mode, written and read by `lib/panood-control.ts` and the room it drives. ⚠ The old control room is a DELIBERATE rollback kept until the roaming cutover is verified — its own file says "it is not dead code and must not be deleted".

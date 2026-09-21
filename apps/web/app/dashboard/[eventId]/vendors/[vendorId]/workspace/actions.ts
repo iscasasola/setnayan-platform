@@ -34,6 +34,7 @@ import {
   workingNoteAuthorRole,
   type WorkingNoteViewer,
 } from '@/lib/vendor-working-notes';
+import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 
 /**
  * Idempotently create (or re-read) the auto-share claim link for a locked
@@ -292,5 +293,184 @@ export async function deleteWorkingNoteAction(formData: FormData): Promise<void>
     .eq('author_user_id', user.id);
   if (error) throw new Error(error.message);
 
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+
+// ============================================================================
+// saveSelfAddedServiceCard (2026-09-20)
+//
+// THE ONE WRITE BEHIND THE COUPLE'S SERVICE CARD for a supplier they added
+// themselves: contact person, contact number, exact address, and two free-text
+// payment notes.
+//
+// Owner, across one sitting:
+//   · "the ceremony and reception venues to lock needs an exact address if
+//      added manually … they will be used for the event itself"
+//   · "payment method and payment option can be entered manually. but this is
+//      just manual … no connection to the user's event."
+//   · "payment options doesn't need to be a qr. just a note so the user can
+//      rely on the payment method."
+//
+// ── IT CREATES THE ROW WHEN THERE ISN'T ONE ───────────────────────────────
+// An earlier draft of this action refused with "remove and re-add them" when
+// the booking had no `event_manual_vendors` row. That is a real state: two
+// production rows with `source = 'host_manual'` carry no contact card
+// (2026-09-15 and 2026-06-18), created before or outside the Add-a-contact
+// modal's two-step. Telling a couple to delete a booking to record its address
+// is not a fix, so this upserts instead.
+//
+// ⚠ AND THAT IS WHY contact_person / contact_number ARE WRITTEN HERE TOO. They
+// are NOT NULL on the table, so the row cannot be created without them — the
+// card collects all three or none. The alternative (address-only, refusing the
+// two rows above) is the behaviour this replaces.
+//
+// ── WHAT IT DELIBERATELY DOES NOT DO ──────────────────────────────────────
+// The payment METHOD note reaches no payment machinery: no
+// `event_vendor_payment_plan` row, no `event_vendor_payments`, no schedule, no
+// rail, no notification. It is the GCash number the couple wrote down, and
+// `the-payment-note-is-inert.test.ts` fails CI if a writer of those tables
+// ever learns to read it.
+//
+// ⚖ THE PAYMENT PLAN IS A DIFFERENT ANIMAL AND IS NOT WRITTEN HERE. Owner
+// 2026-09-20: "Payment Plan Must set date for until the payment is fully paid.
+// just like on our quote maker." A plan with due dates IS the event's money —
+// it belongs in `event_vendor_payment_plan` through `computePlanInstances`,
+// not in a text column beside a phone number.
+//
+// Auth: the couple's session client throughout. RLS
+// (`event_manual_vendors_host_all`) is the wall; the event_id equalities are
+// defence in depth. A marketplace-linked booking is refused outright — their
+// address and payment methods are theirs to publish.
+// ============================================================================
+
+/** Caps. Generous, and only here so one paste cannot fill a column. */
+const PAYMENT_NOTE_MAX = 400;
+const CONTACT_PERSON_MAX = 128;
+const CONTACT_NUMBER_MAX = 32;
+
+function readNote(formData: FormData, key: string, max: number): string | null {
+  const raw = formData.get(key);
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  if (t.length === 0) return null;
+  return t.slice(0, max);
+}
+
+export async function saveSelfAddedServiceCard(formData: FormData): Promise<void> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof vendorId !== 'string' ||
+    vendorId.length === 0
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // The booking carries the CATEGORY — the only thing that decides whether an
+  // address is owed — plus the link to the contact row and the account fact.
+  const { data: booking, error: bookingErr } = await supabase
+    .from('event_vendors')
+    .select('category, vendor_name, manual_vendor_id, marketplace_vendor_id')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (bookingErr) throw new Error(bookingErr.message);
+  if (!booking) throw new Error('Booking not found');
+
+  const row = booking as {
+    category: string | null;
+    vendor_name: string | null;
+    manual_vendor_id: string | null;
+    marketplace_vendor_id: string | null;
+  };
+
+  // Fails closed rather than writing over somebody else's record.
+  if (row.marketplace_vendor_id) {
+    throw new Error(
+      'This supplier is on Setnayan now, so their address and payment details come from their own listing.',
+    );
+  }
+
+  const address = checkManualVenueAddress(row.category, formData.get('address'));
+  if (!address.ok) throw new Error(address.message);
+
+  const paymentMethodNote = readNote(formData, 'payment_method_note', PAYMENT_NOTE_MAX);
+  const contactPerson = readNote(formData, 'contact_person', CONTACT_PERSON_MAX);
+  const contactNumber = readNote(formData, 'contact_number', CONTACT_NUMBER_MAX);
+
+  if (row.manual_vendor_id) {
+    // 🔑 `.select()` AND A ROW COUNT. A zero-row UPDATE returns no error, so an
+    // RLS refusal would otherwise be indistinguishable from a save and the card
+    // would print "Saved" over unchanged text.
+    const update: Record<string, unknown> = {
+      address: address.value,
+      payment_method_note: paymentMethodNote,
+      updated_at: new Date().toISOString(),
+    };
+    // NOT NULL columns: only overwritten when the card actually sent a value,
+    // so clearing the input cannot violate the constraint or wipe a contact.
+    if (contactPerson) update.contact_person = contactPerson;
+    if (contactNumber) update.contact_number = contactNumber;
+
+    const { data: written, error } = await supabase
+      .from('event_manual_vendors')
+      .update(update)
+      .eq('manual_vendor_id', row.manual_vendor_id)
+      .eq('event_id', eventId)
+      .select('manual_vendor_id');
+    if (error) throw new Error(error.message);
+    if (!written || written.length === 0) {
+      throw new Error('Could not save — refresh and try again.');
+    }
+  } else {
+    // No contact card yet. Create one, then link the booking to it.
+    if (!contactPerson || !contactNumber) {
+      throw new Error(
+        'Add a contact person and number as well — this supplier has no contact card yet.',
+      );
+    }
+    const { data: created, error: createErr } = await supabase
+      .from('event_manual_vendors')
+      .insert({
+        event_id: eventId,
+        business_name: (row.vendor_name ?? '').trim() || 'Supplier',
+        contact_person: contactPerson,
+        contact_number: contactNumber,
+        address: address.value,
+        payment_method_note: paymentMethodNote,
+          created_by_user_id: user.id,
+      })
+      .select('manual_vendor_id')
+      .single();
+    if (createErr || !created) {
+      throw new Error(createErr?.message ?? 'Could not create the contact card.');
+    }
+
+    // ⚠ THE LINK IS THE HALF THAT CAN BE LOST. Without it the row exists and
+    // the card still renders empty on the next paint — a save that looks like a
+    // failure. Row count checked for the same reason as the UPDATE above.
+    const { data: linked, error: linkErr } = await supabase
+      .from('event_vendors')
+      .update({ manual_vendor_id: created.manual_vendor_id })
+      .eq('vendor_id', vendorId)
+      .eq('event_id', eventId)
+      .is('marketplace_vendor_id', null)
+      .select('vendor_id');
+    if (linkErr) throw new Error(linkErr.message);
+    if (!linked || linked.length === 0) {
+      throw new Error('Saved the details but could not attach them — refresh and try again.');
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }

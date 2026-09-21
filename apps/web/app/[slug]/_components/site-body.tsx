@@ -31,7 +31,6 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
-import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
@@ -2163,22 +2162,9 @@ export async function SiteBody({
           hasDesk={supplierDesk != null}
         />
       ) : null}
-      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
-          the event is effectively public (couple launched their Save-the-Date);
-          the abuse-report entry (target_type='event') is present on any listed
-          page. Never rendered on a private page (this whole component is behind
-          the not-private gate). */}
-      {resolveEffectiveVisibility(event) !== 'private' && (
-        <PublicPageActions
-          canShare={resolveEffectiveVisibility(event) === 'public'}
-          reportTargetId={event.event_id}
-          shareTitle={event.display_name}
-          aboveMenuBar={siteMenuEnabled({
-            flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
-            isSample: Boolean(event.is_sample),
-          })}
-        />
-      )}
+      {/* Share and Report live in a footer at the very END of the page now —
+          mounted by page.tsx, after the guest's own section, because this
+          component is not the last thing on a guest's page. */}
       {plan.stdViewBeacon ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={plan.revealEnabled}

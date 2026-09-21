@@ -539,6 +539,40 @@ export async function updateSharePhotoWithHosts(formData: FormData) {
   redirect('/dashboard/profile?photo_sharing_saved=1#privacy');
 }
 
+/**
+ * The public birthday / anniversary greeting switch (Privacy group). Its own
+ * action, like the two switches beside it, so the write names its column at
+ * the `.update()` — `gates-have-handles.db.test.ts` proves a switch is
+ * flippable by finding exactly that, and a write assembled in a helper module
+ * is invisible to it.
+ */
+export async function updatePublicGreeting(formData: FormData) {
+  const raw = formData.get('public_greeting_opt_in');
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error('Invalid greeting preference');
+  }
+  const enabled = raw === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({
+      public_greeting_opt_in: enabled,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
+  redirect('/dashboard/profile?tab=privacy');
+}
+
 export async function updateDiscoverableByName(formData: FormData) {
   const raw = formData.get('discoverable_by_name');
   if (raw !== 'true' && raw !== 'false') {

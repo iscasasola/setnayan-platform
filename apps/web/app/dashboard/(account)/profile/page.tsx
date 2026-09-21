@@ -44,6 +44,7 @@ import {
   updatePublicProfileEnabled,
   updateDiscoverableByName,
   updateSharePhotoWithHosts,
+  updatePublicGreeting,
   updateRemindersEnabled,
   updateUserSlug,
 } from './actions';
@@ -710,18 +711,18 @@ export default async function ProfilePage({ searchParams }: Props) {
   /* ── PRIVACY ─────────────────────────────────────────────────────────────── */
   const greetingSwitch = (
     <SwitchRow
-      action={updatePersonalInfo}
+      action={updatePublicGreeting}
       on={profile?.public_greeting_opt_in ?? false}
       id="public-greeting"
       label="Public birthday and anniversary greetings"
       help="A greeting on our Facebook, Instagram & TikTok pages. Email greetings don’t need this."
     >
-      <input type="hidden" name="tab" value="privacy" />
-      <input type="hidden" name={PRESENCE_MARKERS.public_greeting_opt_in} value="1" />
       {/* The switch submits the state it is turning TO. */}
-      {profile?.public_greeting_opt_in ? null : (
-        <input type="hidden" name="public_greeting_opt_in" value="on" />
-      )}
+      <input
+        type="hidden"
+        name="public_greeting_opt_in"
+        value={profile?.public_greeting_opt_in ? 'false' : 'true'}
+      />
     </SwitchRow>
   );
 

@@ -4162,3 +4162,25 @@ html:active-view-transition .sn-page-enter { animation: none; }
     transition-property: transform, opacity;
   }
 }
+
+/* The music button's "playing" bars (app/[slug]/_components/background-music.tsx).
+   Three bars rise and fall from the baseline; still under reduced motion. */
+@keyframes sn-eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.sn-eq-bar {
+  transform-origin: bottom;
+  animation: sn-eq 0.9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-eq-bar {
+    animation: none;
+    transform: scaleY(0.8);
+  }
+}

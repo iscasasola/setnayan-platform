@@ -751,8 +751,13 @@ export function GuestListMultiselect({
     [groups],
   );
 
+  /*
+    ⚖ Owner 2026-09-21: *"pressing it will deselect everything as well."* So
+    with ANYTHING selected — all of it, or a few (the dash state) — the header
+    box clears; with nothing selected it ticks everyone in view.
+  */
   const toggleAll = () =>
-    allSelected ? guestSelection.clear() : guestSelection.setAll(allIds);
+    selectedIds.length > 0 ? guestSelection.clear() : guestSelection.selectAllInView(allIds);
 
   // Sections derived from the sort control (redesign Phase 1): role tiers
   // (importance · default), by-side, or one flat grid. Built from the already-
@@ -954,7 +959,7 @@ export function GuestListMultiselect({
                     }}
                     onChange={toggleAll}
                     aria-label={
-                      allSelected ? 'Clear selection' : 'Select all guests in view'
+                      selectedIds.length > 0 ? 'Clear selection' : 'Select all guests in view'
                     }
                     className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
                   />
@@ -1197,6 +1202,7 @@ function SelectionBar({
   setShowNewGroupForm: (v: boolean) => void;
   bulkRoleSections: RoleSection[];
 }) {
+  const { viaAll } = useGuestSelection();
   return (
     <div
       role="region"
@@ -1261,6 +1267,10 @@ function SelectionBar({
           alone cannot be checked against intent; a name can.
           Each chip removes just that guest, so a wrong pick costs one click
           instead of Clear selection and starting over. */}
+      {/* ⚖ …but NOT after select-all (owner 2026-09-21: "there are so many
+          that showed. do not show this when we click on the select all").
+          Seventy-nine chips answer no question — the ticks in the list do. */}
+      {viaAll ? null : (
       <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-ink/[0.07] pt-2">
         {selectedIds.map((id) => (
           <span
@@ -1282,6 +1292,7 @@ function SelectionBar({
           </span>
         ))}
       </div>
+      )}
 
       {showNewGroupForm ? (
         <NewGroupInlineForm

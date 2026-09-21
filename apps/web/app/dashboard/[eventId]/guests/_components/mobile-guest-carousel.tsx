@@ -1008,11 +1008,13 @@ function CustomizePanel({
             if (el) el.indeterminate = someSelected;
           }}
           onChange={() =>
-            allSelected
+            // Same rule as the desktop header (owner 2026-09-21): anything
+            // ticked → this clears it; nothing ticked → select everyone.
+            allSelected || someSelected
               ? guestSelection.clear()
-              : guestSelection.setAll(allVisibleIds)
+              : guestSelection.selectAllInView(allVisibleIds)
           }
-          aria-label={allSelected ? 'Deselect all' : 'Select all guests in view'}
+          aria-label={allSelected || someSelected ? 'Deselect all' : 'Select all guests in view'}
           className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
         />
         Select all

@@ -27,12 +27,21 @@ export type GuestSelectionState = {
   selectMode: boolean;
   ids: string[];
   set: Set<string>;
+  /**
+   * ⚖ Owner 2026-09-21, on select-all: *"there are so many that showed. do not
+   * show this when we click on the select all. just put a check."* True when
+   * the selection STARTED from select-all — the bar then shows the count, not
+   * a wall of name chips. It stays true while the host unticks a few (78 chips
+   * is the same wall), and resets when the selection empties.
+   */
+  viaAll: boolean;
 };
 
 let state: GuestSelectionState = {
   selectMode: false,
   ids: [],
   set: new Set(),
+  viaAll: false,
 };
 
 const listeners = new Set<() => void>();
@@ -44,12 +53,14 @@ function emit() {
 // Replace `state` with a fresh object so useSyncExternalStore sees a new
 // reference and re-renders subscribers. `set` is rebuilt from `ids` for
 // O(1) membership checks in row components.
-function commit(next: { selectMode?: boolean; ids?: string[] }) {
+function commit(next: { selectMode?: boolean; ids?: string[]; viaAll?: boolean }) {
   const ids = next.ids ?? state.ids;
   state = {
     selectMode: next.selectMode ?? state.selectMode,
     ids,
     set: new Set(ids),
+    // An empty selection has no origin; the next pick decides again.
+    viaAll: ids.length === 0 ? false : (next.viaAll ?? state.viaAll),
   };
   emit();
 }
@@ -68,8 +79,14 @@ export const guestSelection = {
       : [...state.ids, id];
     commit({ ids });
   },
+  /** Replace the ids, keeping where the selection came from (used to prune
+   *  the selection after a delete). */
   setAll(ids: string[]) {
     commit({ ids: [...ids] });
+  },
+  /** The select-all checkbox: every guest in view, marked as select-all. */
+  selectAllInView(ids: string[]) {
+    commit({ ids: [...ids], viaAll: true });
   },
   // Drop the selection but stay in select mode (desktop "Clear selection").
   clear() {
@@ -85,6 +102,11 @@ function subscribe(cb: () => void) {
 }
 
 function getSnapshot() {
+  return state;
+}
+
+/** The current selection, outside React — for tests and non-hook callers. */
+export function readGuestSelection(): GuestSelectionState {
   return state;
 }
 

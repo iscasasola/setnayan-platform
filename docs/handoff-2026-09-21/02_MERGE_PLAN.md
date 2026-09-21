@@ -1,7 +1,8 @@
 # THE MERGE PLAN — finish what is known in the fewest merges
 
-**Written 2026-09-21.** The constraint is that **cost is charged per merge**, not per commit, per
-line, or per hour. Everything below follows from that one fact.
+**Written 2026-09-21.** The constraint is Vercel build cost, and everything below follows from one
+**measured** fact: the unit of cost is a **production build on `main`**, and there is exactly one
+per merge.
 
 ⚠ **Re-measure before acting.** The queue moves hourly:
 
@@ -12,9 +13,46 @@ gh pr list --state open --limit 40 --json number,title,headRefName,mergeStateSta
 
 ---
 
+## What actually costs money — measured 2026-09-21, not assumed
+
+| Event | Vercel result | Cost |
+|---|---|---|
+| Push to a `claude/*` branch | deployment created, immediately **CANCELED** | **≈ nothing** |
+| Update an open PR, any number of times | same — canceled | **≈ nothing** |
+| **Merge to `main`** | **READY**, target `production` — a full build of the whole app | **the bill** |
+
+`apps/web/vercel.json`'s `ignoreCommand` skips `claude/*` outright (`exit 0`). Verified against the
+live deployment list: every `claude/*` entry reads `"state": "CANCELED", "target": null`, every
+`main` entry reads `"state": "READY", "target": "production"`. **In one ninety-minute window on
+2026-09-21 there were six production builds — one per merge** (#5830 · #5832 · #5841 · #5829 ·
+#5842 · #5840).
+
+🔑 **Pushing is free; merging is not.** A branch can be revised twenty times at no cost — so **there
+is never a reason to open a second PR for work that belongs in one already open.** This
+documentation was written across three pushes to a single branch and cost nothing until it merged.
+
+⚠ **This repo has already burned roughly $787 on no-op builds.** That is why `ignoreCommand` exists
+at all.
+
+### Why `main` builds even for a documentation-only merge — do not casually "optimise" this
+
+The rule once asked *"did the last commit touch the app?"*. The last commit was a CI-only fix, so
+Vercel **skipped the build twice**, and **production sat 35 app files behind with nothing saying
+so.** It was answering the wrong question: it should ask "has the app changed since what is
+*deployed*", not "since the previous commit". `main) exit 1;;` can only ever cause an unnecessary
+build — never a missing deploy.
+
+**The principled fix is already named in this repo: `turbo-ignore`**, which asks the Vercel API what
+actually shipped last instead of guessing from `HEAD^`, letting doc-only and CI-only merges skip
+safely. It changes the guard standing between the team and a silently stale production, so it
+deserves its own scoped change with someone watching the first doc-only merge confirm that
+production still moves. **It is not a side effect of anything else in this plan.**
+
+---
+
 ## The arithmetic that makes the case
 
-| Approach | Merges to finish everything currently known |
+| Approach | Production builds to finish everything currently known |
 |---|---|
 | One PR per fix, the way this repo has worked so far | **~45** |
 | Bundled — one PR per neighbourhood, one commit per fix | **4** |

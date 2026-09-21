@@ -11,7 +11,7 @@ register, and one walk of the live public site.
 | File | What it is |
 |---|---|
 | **`01_WHAT_IS_LEFT.md`** | **The register.** Every item still to be built, ranked, with the command that re-measures it. This is the document. |
-| **`02_MERGE_PLAN.md`** | How to land it in **11 merges instead of ~45**, because cost is charged per merge. |
+| **`02_MERGE_PLAN.md`** | How to land it in **11 merges instead of ~45**. Measured: pushing to a `claude/*` branch is free (Vercel cancels it); **a merge to `main` is a full production build.** That is the entire bill. |
 | `AUDITS/` | The four raw audits the register was assembled from — money · supplier · couple · launch. Kept whole so the assembly can be checked against its source. |
 | `BRIEFS/` | Four ready-to-dispatch build briefs and the rules for bundling. **Nothing here has been dispatched.** They are documentation of how each item would be done. |
 | `PARKED/` | The mood-board outfit library — parked by the owner: *"we will do it next time."* |

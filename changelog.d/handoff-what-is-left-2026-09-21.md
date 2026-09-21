@@ -40,3 +40,21 @@ Second pass on the same document, before merge.
   build was dispatched.**
 
 SPEC IMPACT: None. The open questions in §6 are recorded as open, not answered.
+
+## 2026-09-21 · docs(handoff): the merge plan now rests on a measurement, not an assumption
+
+The plan said "cost is charged per merge". Re-measured against the live Vercel deployment list, the
+precise statement is: a push to a `claude/*` branch is created and **immediately CANCELED** by
+`apps/web/vercel.json`'s `ignoreCommand`, so updating an open PR costs nothing; **a merge to `main`
+produces one READY production build of the whole app**, and that is the entire bill. Six such builds
+were observed in one ninety-minute window.
+
+Consequence now stated in the plan: **there is never a reason to open a second PR for work that
+belongs in one already open.**
+
+Also records why `main` builds unconditionally even for documentation — the 2026-08-07 incident where
+the rule asked "did the last commit touch the app?", answered no for a CI-only fix, and left
+production 35 files behind with nothing saying so — and names `turbo-ignore` as the principled fix,
+explicitly scoped as its own change rather than a side effect of this plan.
+
+SPEC IMPACT: None.

@@ -2604,11 +2604,12 @@ export async function EventDashboard({
             >
               {openDecisionCount} open
             </span>
-            <p className="sn-sec-sub">
-              {aiActive
-                ? 'Ranked by what closes soonest — each one links to its room.'
-                : 'Choices only you can make — everything else keeps moving without you.'}
-            </p>
+            {/* "each one links to its room" describes a link the reader can
+                see, and the free line said nothing the heading does not. What
+                survives is the one FACT here: Sai chose the order. */}
+            {aiActive ? (
+              <p className="sn-sec-sub">Ranked by what closes soonest.</p>
+            ) : null}
           </div>
           {venueOfferAvailable && !venueOfferInline ? (
             <div className="mb-3.5">
@@ -2690,7 +2691,6 @@ export async function EventDashboard({
               >
                 {datesCount} {datesCount === 1 ? 'date' : 'dates'}
               </span>
-              <p className="sn-sec-sub">Nothing to decide — just what lands when.</p>
             </div>
             <div className="grid gap-3.5 lg:grid-cols-2">
               {renderDecisionGroup(datesGroup, null)}
@@ -2770,10 +2770,6 @@ export async function EventDashboard({
         <section aria-label="Around your event">
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="sn-sec">{spark}Around your event</h2>
-            <p className="sn-sec-sub">
-              Your hosts, team, threads, services, and schedule — this is the
-              doorstep.
-            </p>
           </div>
           <div className="grid gap-3.5 sm:grid-cols-2">
             {/* Hosts — every account managing this event. The add-host entry
@@ -2792,12 +2788,13 @@ export async function EventDashboard({
               fullHref={`${base}/hosts`}
               fullLabel="Add a host"
               preview={
-                hostAccounts.length > 1 ? (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {hostAccounts.length} accounts can run this {eventWord} —
-                    expand to see who.
-                  </p>
-                ) : (
+                /* A collapsed card's preview used to REPEAT the count already
+                   in its own header and add "expand to see …" — an instruction
+                   for a disclosure the reader is looking at. That is the "dead
+                   teaser" the 2026-07-12 council named. The ENDOWED EMPTY state
+                   below it stays: it carries a fact and a first step, which is
+                   what Phase 2 shipped it for. */
+                hostAccounts.length > 1 ? null : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? `It was just you running this ${eventWord}.`
@@ -2866,13 +2863,7 @@ export async function EventDashboard({
                     We couldn&rsquo;t load your suppliers just now. Nothing has
                     changed &mdash; refresh to try again.
                   </p>
-                ) : teamVendors.length > 0 ? (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {teamVendors.length}{' '}
-                    {teamVendors.length === 1 ? 'vendor' : 'vendors'} booked —
-                    expand to see your team.
-                  </p>
-                ) : (
+                ) : teamVendors.length > 0 ? null : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? 'No suppliers were booked through Setnayan for this one.'
@@ -2937,11 +2928,15 @@ export async function EventDashboard({
                   Open threads →
                 </Link>
               </div>
-              <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                {unreadCount > 0
-                  ? `${unreadCount} ${unreadCount === 1 ? 'thread has' : 'threads have'} unread messages — open to catch up.`
-                  : 'All caught up — when a vendor replies, it lands right here.'}
-              </p>
+              {/* The unread COUNT is already the card's own badge; saying it
+                  again in a sentence and adding "open to catch up" is the same
+                  dead-teaser shape as the cards above. Silence when there is
+                  something to read, the endowed line when there is not. */}
+              {unreadCount > 0 ? null : (
+                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                  All caught up — when a vendor replies, it lands right here.
+                </p>
+              )}
             </article>
 
             {/* Your services */}
@@ -2956,13 +2951,7 @@ export async function EventDashboard({
               fullHref={`${base}/orders`}
               fullLabel="Open orders"
               preview={
-                serviceRows.length > 0 ? (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {serviceRows.length}{' '}
-                    {serviceRows.length === 1 ? 'order' : 'orders'} — expand to see
-                    {serviceRows.length === 1 ? ' it.' : ' them.'}
-                  </p>
-                ) : (
+                serviceRows.length > 0 ? null : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? 'Nothing was ordered for this one.'
@@ -3072,10 +3061,6 @@ export async function EventDashboard({
         <section aria-label="Event progress">
           <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="sn-sec">{spark}Read your progress</h2>
-            <p className="sn-sec-sub">
-              Tap a stage — or use ← → — to walk through your {eventWord}, start to
-              finish.
-            </p>
           </div>
           <JourneyRail
             stages={stageModel.stages}

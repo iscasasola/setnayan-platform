@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { after } from 'next/server';
@@ -223,6 +224,12 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   }
 
   const supabase = await createClient();
+  // A named plus-one is a person: going below them is refused BEFORE anything
+  // on this form is saved (owner 2026-09-21 — extra seats are real chairs).
+  if (typeof plusOneWrite.plus_one_count === 'number') {
+    const check = await checkExtraSeats(supabase, eventId, guestId, plusOneWrite.plus_one_count);
+    if (!check.ok) return redirect(`${backTo}?error=${encodeURIComponent(check.error)}`);
+  }
   // Smart seat-plan Phase 5: snapshot the tier-affecting fields before the write
   // so we only re-place the guest when role / group_category actually changed.
   // ── rsvp_status / rsvp_responded_at ride along on the SAME read, for the SAME
@@ -522,6 +529,9 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   if (prevGuest && (prevGuest.role !== role || prevGuest.group_category !== group_category)) {
     await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
   }
+  // ⚖ "+ will have seats beside the person invited" — one seat row per extra
+  // seat, seated beside this guest (a no-op when the number did not change).
+  await syncExtraSeats(supabase, eventId, guestId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath(backTo);

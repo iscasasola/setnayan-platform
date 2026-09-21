@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { syncExtraSeats } from '@/lib/extra-seats-sync';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -203,9 +204,10 @@ export async function createGuest(eventId: string, formData: FormData) {
     );
   }
 
-  // If plus-one is allowed, create a SECOND guests row for the +1.
-  // TBA is valid: first_name / last_name may be empty strings.
-  if (plus_one_allowed) {
+  // A NAMED plus-one (an older form that still posts the name fields) gets its
+  // own row first; `syncExtraSeats` below then tops up to the full +N with TBA
+  // seats, beside this guest (owner 2026-09-21).
+  if (plus_one_allowed && (plus_one_first_name || plus_one_last_name)) {
     const { error: plusOneErr } = await supabase.from('guests').insert({
       event_id: eventId,
       first_name: plus_one_first_name || 'TBA',
@@ -218,12 +220,22 @@ export async function createGuest(eventId: string, formData: FormData) {
       invited_to_blocks,
       plus_one_of_guest_id: inserted.guest_id,
       plus_one_mode,
-      display_name: !plus_one_first_name && !plus_one_last_name ? `+ TBA · brought by ${first_name}` : null,
+      plus_one_name_confirmed_at: new Date().toISOString(),
     });
 
     if (plusOneErr) {
       return redirect(
         `/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + plusOneErr.message)}`,
+      );
+    }
+  }
+
+  // ⚖ "+ will have seats beside the person invited" — one seat per extra seat.
+  if (plus_one_count > 0) {
+    const seats = await syncExtraSeats(supabase, eventId, inserted.guest_id);
+    if (!seats.ok) {
+      return redirect(
+        `/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + seats.error)}`,
       );
     }
   }

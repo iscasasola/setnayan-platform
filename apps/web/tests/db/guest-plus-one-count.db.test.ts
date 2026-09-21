@@ -74,3 +74,22 @@ test('more than four, or fewer than none, is refused', async () => {
   await assert.rejects(() => add({ plus_one_count: 5 }), /guests_plus_one_count_range/);
   await assert.rejects(() => add({ plus_one_count: -1 }), /guests_plus_one_count_range/);
 });
+
+test('a seat row of exactly the shape syncExtraSeats inserts is accepted, and linked', async () => {
+  // ⚖ "+ will have seats beside the person invited". If a constraint refused
+  // this shape, every +N would fail at the seat step in production.
+  const host = await add({ plus_one_count: 2 });
+  for (const n of [1, 2]) {
+    await db.query(
+      `INSERT INTO public.guests (event_id, first_name, last_name, display_name, side, group_category, role, rsvp_status, photo_consent, plus_one_of_guest_id, plus_one_mode)
+       VALUES ($1, 'TBA', '+1', $2, 'both', 'other', 'guest', 'pending', true, $3, 'limited')`,
+      [eventId, `+ TBA ${n} · brought by G`, host],
+    );
+  }
+  const r = await db.query<{ n: number; allowed: boolean }>(
+    `SELECT count(*)::int AS n, bool_or(plus_one_allowed) AS allowed FROM public.guests WHERE plus_one_of_guest_id = $1`,
+    [host],
+  );
+  assert.equal(r.rows[0]!.n, 2);
+  assert.equal(r.rows[0]!.allowed, false, 'a seat row must not itself be allowed a plus-one');
+});

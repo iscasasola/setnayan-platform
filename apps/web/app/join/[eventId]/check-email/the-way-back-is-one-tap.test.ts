@@ -113,9 +113,14 @@ test('a plus-one who names themselves stops being called "+ TBA"', () => {
 test('the placeholder is still MINTED — only the confirm clears it', () => {
   // The '+ TBA · brought by …' label is correct for a plus-one nobody has
   // named yet. This fix must not delete it at the source.
+  // 🪤 The mint MOVED (2026-09-21): an unnamed seat is now made by
+  // lib/extra-seats-sync.ts for every +N ("+ will have seats beside the person
+  // invited"), and the add-guest form calls it. Follow the mint, not the file.
   const NEWACTION = strip(read('app/dashboard/[eventId]/guests/new/actions.ts'));
+  const SYNC = strip(read('lib/extra-seats-sync.ts'));
+  assert.match(NEWACTION, /syncExtraSeats\(/, 'the add-guest form no longer mints its plus-one seats');
   assert.ok(
-    /brought by/.test(NEWACTION),
+    /brought by/.test(SYNC),
     'the TBA placeholder was removed at the mint — an unnamed +1 now shows a blank name',
   );
 });

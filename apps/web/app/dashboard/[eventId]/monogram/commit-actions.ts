@@ -9,6 +9,7 @@ import {
   ANIM_KINDS,
   ANIM_TEMPO_TIMINGS,
   type StudioAnimKind,
+  resolveRevealTiming,
 } from '@/lib/monogram-studio-shared';
 import { isMarkInkMode, writeMarkInkMode, type MarkInkMode } from '@/lib/monogram-ink';
 
@@ -49,6 +50,9 @@ export type CommitMonogramInput = {
   inkMode?: string;
   kind: string;
   tempo: string;
+  /** The Fine-tune sliders (owner 2026-09-21). Absent → the tempo preset's
+   *  timings. Resolved by `resolveRevealTiming`, never trusted as sent. */
+  timing?: { dur?: unknown; delay?: unknown; smooth?: unknown };
   animate: boolean;
 };
 
@@ -78,9 +82,8 @@ export async function commitMonogram(
     : 'handwriting';
   const tempo = input.tempo in ANIM_TEMPO_TIMINGS ? (input.tempo as keyof typeof ANIM_TEMPO_TIMINGS) : 'classic';
   const anim = {
-    ...ANIM_TEMPO_TIMINGS[tempo],
+    ...resolveRevealTiming(tempo, input.timing),
     kind,
-    preset: tempo,
     ...(input.animate ? {} : { off: true as const }),
   };
 

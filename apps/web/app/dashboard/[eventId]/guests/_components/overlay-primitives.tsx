@@ -157,7 +157,17 @@ export function Popover({
     let top = r.bottom + 6;
     if (top + h > vh - 8) top = Math.max(8, r.top - h - 6); // flip above
     setPos({ left, top });
-  }, [anchorRef, width]);
+    /*
+      🔴 `portal` IS A DEPENDENCY, AND ITS ABSENCE WAS A LIVE BUG. `usePortal`
+      is null on the first render (it is set in an effect), so that render
+      returns null, this effect finds no `ref.current` and bails — and with
+      deps of only [anchorRef, width] it never ran again. Every popover in the
+      guest table (Side · RSVP · Role · + group) opened at (-9999,-9999) with
+      `visibility: hidden`: in the DOM, focus-trapped, and invisible. Measured
+      on the live page 2026-09-21 after the owner asked for the Side cell to
+      pop up — it already did, where nobody could see it.
+    */
+  }, [anchorRef, width, portal]);
 
   if (!portal) return null;
 

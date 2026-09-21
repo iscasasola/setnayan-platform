@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ANIM_TEMPO_TIMINGS,
+  REVEAL_FINE_TUNE,
   type StudioAnimKind,
   type StudioAnimTempo,
 } from '@/lib/monogram-studio-shared';
@@ -33,6 +33,13 @@ import { currentMark, playOnMark } from './mark-bench';
  *
  * The tempo is not a control any more but is not lost: the saved preset rides
  * through every save unchanged.
+ *
+ * ⚖ FINE-TUNE IS BACK, HERE (owner 2026-09-21): *"please add that fine tune on
+ * the lower part reveal which will be the official reveal"* — and *"on the
+ * upper editors should both not have reveal. just the one at the bottom."* The
+ * studio's own reveal panel and its tab are hidden; its three sliders live
+ * here, folded shut so the rows stay "simple and direct" until asked for. A
+ * slider replays the effect when let go, so what you set is what you just saw.
  */
 
 const EFFECTS: { kind: StudioAnimKind; label: string }[] = [
@@ -49,6 +56,7 @@ export function AnimateRows({
   eventId,
   initialKind,
   tempo,
+  initialTiming,
   owned,
   checkout,
   unlock,
@@ -57,6 +65,8 @@ export function AnimateRows({
   initialKind: StudioAnimKind;
   /** The saved tempo preset — carried through, not shown. */
   tempo: Tempo;
+  /** The saved speed / delay / smoothness — the Fine-tune sliders start here. */
+  initialTiming: { dur: number; delay: number; smooth: number };
   /** Does the event own the paid animation already? */
   owned: boolean;
   /** Everything the checkout drawer needs, read server-side. Null when owned,
@@ -71,6 +81,9 @@ export function AnimateRows({
 }) {
   const router = useRouter();
   const [kind, setKind] = useState<StudioAnimKind>(initialKind);
+  const [timing, setTiming] = useState(initialTiming);
+  const [tuneOpen, setTuneOpen] = useState(false);
+  const replay = (t = timing) => playOnMark({ kind, ...t });
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
@@ -80,7 +93,7 @@ export function AnimateRows({
       setResult({ tone: 'error', text: m.error });
       return false;
     }
-    const res = await commitMonogram({ ...m.mark, eventId, kind, tempo, animate });
+    const res = await commitMonogram({ ...m.mark, eventId, kind, tempo, timing, animate });
     if (!res.ok) {
       setResult({ tone: 'error', text: res.error });
       return false;
@@ -120,7 +133,7 @@ export function AnimateRows({
             onClick={() => {
               setKind(e.kind);
               setResult(null);
-              playOnMark({ kind: e.kind, ...ANIM_TEMPO_TIMINGS[tempo] });
+              playOnMark({ kind: e.kind, ...timing });
             }}
             className={`min-h-[48px] shrink-0 rounded-xl border-[1.5px] px-4 text-sm font-semibold transition-colors sm:min-h-[60px] ${
               kind === e.kind ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-cream text-ink hover:bg-ink/5'
@@ -129,6 +142,64 @@ export function AnimateRows({
             {e.label}
           </button>
         ))}
+      </div>
+
+      {/* FINE-TUNE — folded shut; the same three sliders the studio had. */}
+      <div className="rounded-xl border border-ink/10 bg-cream/60">
+        <button
+          type="button"
+          aria-expanded={tuneOpen}
+          onClick={() => setTuneOpen((o) => !o)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-ink/70"
+        >
+          Fine-tune
+          <span aria-hidden className={`transition-transform ${tuneOpen ? 'rotate-90' : ''}`}>▸</span>
+        </button>
+        {tuneOpen ? (
+          <div className="space-y-4 px-4 pb-4">
+            {(
+              [
+                { k: 'dur', label: 'Speed · drawing pace', lo: 'Fast', hi: 'Slow', show: (v: number) => `${v.toFixed(1)}s` },
+                { k: 'delay', label: 'Delay · between letter starts', lo: '0s', hi: '2s', show: (v: number) => `${v.toFixed(1)}s` },
+                { k: 'smooth', label: 'Smoothness', lo: 'Linear', hi: 'Silky', show: (v: number) => `${Math.round(v * 100)}%` },
+              ] as const
+            ).map((s) => (
+              <label key={s.k} className="block">
+                <span className="flex items-baseline justify-between text-xs text-ink/70">
+                  <span>{s.label}</span>
+                  <span className="tabular-nums text-ink">{s.show(timing[s.k])}</span>
+                </span>
+                <span className="mt-1 flex items-center gap-3 text-xs text-ink/55">
+                  <span className="w-12 shrink-0">{s.lo}</span>
+                  <input
+                    type="range"
+                    min={REVEAL_FINE_TUNE[s.k].min}
+                    max={REVEAL_FINE_TUNE[s.k].max}
+                    step={REVEAL_FINE_TUNE[s.k].step}
+                    value={timing[s.k]}
+                    aria-label={s.label}
+                    onChange={(e) => {
+                      setResult(null);
+                      setTiming((t) => ({ ...t, [s.k]: Number(e.target.value) }));
+                    }}
+                    // Replay when let go — pointer or keyboard — not on every tick.
+                    onPointerUp={(e) => replay({ ...timing, [s.k]: Number(e.currentTarget.value) })}
+                    onKeyUp={(e) => replay({ ...timing, [s.k]: Number(e.currentTarget.value) })}
+                    className="min-w-0 flex-1 accent-terracotta-700"
+                  />
+                  <span className="w-12 shrink-0 text-right">{s.hi}</span>
+                </span>
+              </label>
+            ))}
+            <button
+              type="button"
+              onClick={() => replay()}
+              className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm font-medium text-ink hover:bg-ink/5"
+            >
+              ▶ Play the reveal
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* ROW 4 — pinned in the thumb on a phone, in the flow on a wide screen. */}

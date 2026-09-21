@@ -1,15 +1,14 @@
 import Link from 'next/link';
-import { List, ListOrdered, Network, type LucideIcon } from 'lucide-react';
+import { List, Network, type LucideIcon } from 'lucide-react';
 
 /**
- * Guests view switcher (redesign Phase 1) — URL-driven (`?gview=list|map|walk`) so it
+ * Guests view switcher (redesign Phase 1) — URL-driven (`?gview=list|map`) so it
  * fits the existing search-param architecture: SSR, shareable, no client island.
  * List is the default; Mind map is a placeholder until Phase 2 builds the editor;
- * Walking order is where a pair is one line and the couple sets who walks first.
  * Carries the active filter params across the switch so the chosen view inherits
  * the couple's current filtering.
  */
-type ViewKey = 'list' | 'map' | 'walk';
+type ViewKey = 'list' | 'map';
 
 const FILTER_KEYS = ['q', 'rsvp', 'view', 'group', 'team', 'tag', 'sort'] as const;
 
@@ -17,18 +16,12 @@ export function GuestsViewSwitcher({
   eventId,
   active,
   search,
-  showWalk = true,
 }: {
   eventId: string;
-  /** The page's view. `share` (the Share the link tab) lights neither List nor
-   *  Mind map — it is not a way of looking at the roster. */
-  active: ViewKey | 'share';
+  /** The page's view. `walk` and `share` are their own tabs and light neither
+   *  List nor Mind map — they are not ways of looking at the roster. */
+  active: ViewKey | 'walk' | 'share';
   search: Record<string, string | undefined>;
-  /** Whether this celebration has a processional at all — a generic event's
-   *  roles (guest · host · vip · family · helper) walk down no aisle, so the
-   *  tab would open a view with nothing in it. Derived by the caller from the
-   *  event's own role set, never from a list of event types. */
-  showWalk?: boolean;
 }) {
   const hrefFor = (gview: ViewKey) => {
     const p = new URLSearchParams();
@@ -45,19 +38,15 @@ export function GuestsViewSwitcher({
     { key: 'list', label: 'List', Icon: List },
     { key: 'map', label: 'Mind map', Icon: Network },
     /*
-      ⚖ OWNER 2026-09-20: *"so how to launch it on the guestlist?"* — the
-      Walking order panel had NO entry point. It rendered under a role filter
-      only, so the one place to arrange who walks first was reachable solely by
-      someone who already knew to filter first, and then only for that filter's
-      group.
-
-      🔑 A TAB, NOT A PERMANENT PANEL. Putting the whole processional above the
-      roster would push the guest list down the page on every visit, for a job a
-      couple does a handful of times. It is a VIEW of the same list, so it lives
-      where the other views live — URL-driven, SSR, shareable, no client island.
+      ⚖ NO WEDDING MARCH HERE (owner 2026-09-21: "wedding march is repeated?").
+      It was added here on 2026-09-20 because it had no entry point; the next
+      day the masthead's doors became one row of tabs (lib/roster-doors.ts) and
+      Wedding March became one of them — gated on the event having a
+      processional, which this copy never was (the page never passed
+      `showWalk`, so birthdays saw it too). This switcher is only ever ways of
+      LOOKING at the roster: List · Mind map.
     */
   ];
-  if (showWalk) tabs.push({ key: 'walk', label: 'Wedding March', Icon: ListOrdered });
 
   return (
     <div role="tablist" aria-label="Guest list view" className="sn-seg inline-flex">

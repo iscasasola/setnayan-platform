@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { stripComments } from './strip-comments';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -142,7 +143,12 @@ test('⚖ the roster never collapses a pair, and removes no column', () => {
     Collapsing there would be the one change this ruling forbids.
   */
   const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  const columns = (head.match(/<th[ >]/g) ?? []).length;
+  // 🪤 A COLUMN IS A HEADER CELL HOWEVER IT IS SPELLED. Since #5793 six of the
+  // eight render through `<ArrangeTh>` (the header became the arrangement
+  // control), so counting literal `<th` tags reported "down to 2 columns" while
+  // all eight were on screen — this assertion went red on a merge, not on a
+  // removal. Matched at a tag boundary so `<ArrangeThing` could not count.
+  const columns = (head.match(/<(?:th|ArrangeTh)[\s>]/g) ?? []).length;
   assert.ok(columns >= 8, `the roster is down to ${columns} columns`);
 
   // Rows are emitted per GUEST, never per pair: no mount is conditioned on a
@@ -167,7 +173,7 @@ test('⛔ reordering the processional cannot touch a chair', () => {
     'utf8',
   );
   // Comments may name them; a WRITE may not.
-  const code = action.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  const code = stripComments(action);
   for (const seatThing of ['event_seat_assignments', 'seating_priority']) {
     assert.ok(
       !code.includes(seatThing),
@@ -245,7 +251,7 @@ test('⛔ the drag path posts NAMES, and touches no chair', () => {
     join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'entourage-order-actions.ts'),
     'utf8',
   );
-  const code = action.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  const code = stripComments(action);
   assert.match(code, /setEntourageLineOrder/, 'the explicit-order action is gone');
   assert.match(code, /order_is_stale/, 'a stale client order is applied instead of refused');
   for (const seatThing of ['event_seat_assignments', 'seating_priority']) {
@@ -325,7 +331,7 @@ test("⚖ the owner's word is the ONLY word the couple sees", () => {
      that teaches somebody to delete the guard. Strip comments; judge the
      strings a couple can actually read. */
   const copyOf = (src: string) =>
-    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    stripComments(src);
   for (const [what, src] of [
     ['the header button', PAGE],
     ['the view tab', SWITCHER],

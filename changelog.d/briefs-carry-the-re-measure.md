@@ -22,10 +22,14 @@ production database, one day after they were written.
 - **B3 build 12 is measured**: no slug-redirect mechanism exists anywhere in the repo.
 - **B4's counts moved** — 146 guests, 0 invited, 5 with an email, 0 mobile-only.
 
-Owner decision recorded: **an unpaid booking fee removes access** (event hub, portfolio, fuller
-event detail, gathering and sharing data, reviews, stats) and does **not** pause new inquiries. The
-owner's list ends "and more"; the brief and register both say that tail must be closed with the
-owner before anything is built.
+**The register's §6 "does an unpaid booking fee remove anything?" was never open.** It was ruled on
+2026-09-20 and the mechanism is already built and shipped dark behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`
+(`lib/event-access-stage.ts`, whose docblock carries the owner's seven items verbatim). Carrying it
+as open cost the owner a second answer to a settled question — RULE 0 applies to decisions, not only
+to code. The register and merge plan now say so, and record the two genuine deltas from his
+2026-09-22 restatement: **reviews and stats**, which the shipped gate does not cover. Turning the
+gate on is a flag in Vercel, not a merge.
 
-SPEC IMPACT: `DECISION_LOG.md` — the unpaid-booking-fee access question moves from open to decided.
-Applied directly in the corpus per the 2026-06-04 standing authorization.
+SPEC IMPACT: `DECISION_LOG.md` — no new ruling; a row is added recording that the 2026-09-20
+ruling was re-confirmed, that reviews/stats are a delta, and that the register wrongly carried it as
+open. Applied directly in the corpus per the 2026-06-04 standing authorization.

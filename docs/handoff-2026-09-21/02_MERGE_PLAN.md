@@ -160,11 +160,12 @@ a session at all, and saying so is better than guessing.
 Each of these is one answer that releases one build. Until answered they should stay **out** of every
 bundle — a build shipped against a guess is a build shipped twice.
 
-1. ~~**Does an unpaid booking fee remove anything?**~~ ✅ **ANSWERED 2026-09-22 — option (B).** An
-   unpaid fee removes access to the event hub, portfolio, fuller event detail, gathering and sharing
-   data, reviews and stats. It does **not** pause new inquiries (ruled separately). ⚠ The owner's list
-   ends "and more" — **close that list with the owner before building**, then dunning (M5) can be
-   built, because the removal is what a dunning notice has to warn about.
+1. ~~**Does an unpaid booking fee remove anything?**~~ 🛑 **WAS NEVER OPEN — ruled 2026-09-20 and
+   already BUILT** behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT` (`lib/event-access-stage.ts`), which is not
+   set in Production. Option (C) was explicitly dropped; a free booking keeps full access. **Turning
+   it on is a flag, not a merge — it belongs in "What costs NOTHING" above.** The only genuine delta
+   from the owner's 2026-09-22 restatement is **reviews and stats**, which the shipped gate does not
+   cover. M5's dunning is unblocked: the gate is the consequence a dunning notice must warn about.
 2. **Is "0% commission" the promise to keep**, beside a 5% booking fee? Claimed five times on public
    pages, including to suppliers. **No wording should be touched until this is answered.**
 3. **Void or credit memo** for a refunded receipt — neither exists in the system.

@@ -72,8 +72,15 @@ export function FindAddRow({
   const open = (next: Mode) => {
     setMode(next);
     // After the width starts to move, put the cursor where the host is going.
+    // 🪤 `preventScroll`, measured: a plain focus() scrolls the page to bring
+    // the box into view, and with this row tucked under the sticky top bar it
+    // moved the page 8px — the owner's "the table nudge[s] down a bit when
+    // pressed". The host has just CLICKED this row, so it is already on
+    // screen; nothing should move but the width.
     requestAnimationFrame(() =>
-      (next === 'find' ? findRef : addRef).current?.querySelector('input')?.focus(),
+      (next === 'find' ? findRef : addRef).current
+        ?.querySelector('input')
+        ?.focus({ preventScroll: true }),
     );
   };
 

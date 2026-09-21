@@ -380,14 +380,20 @@ export type AccordionChild = {
    */
   dependency: DependencyState;
   /**
-   * Category-satisfaction (2026-06-12): set when this EMPTY category is
+   * Category-satisfaction (2026-06-12): set when this category (with no
+   * committed pick of its own — owner 2026-09-21; it was "EMPTY") is
    * already covered by a COMMITTED pick elsewhere (in the build, or locked)
    * whose package "comes with" it — marketplace `vendor_service_links` or
    * host-authored covers (manual vendors, PR #1274), both arriving through
    * the enrichment's linked_services groupIds. Informational, never a gate:
    * Find/Add stay available; Build's Flag/Compute exclude covered categories.
    */
-  coveredBy: { vendorName: string; fromGroupLabel: string } | null;
+  coveredBy: {
+    vendorName: string;
+    fromGroupLabel: string;
+    /** The covering booking itself is locked (not merely in the build). */
+    locked: boolean;
+  } | null;
 };
 
 /** One folder section (the sticky accordion header + its child rails). */
@@ -912,32 +918,45 @@ export function buildPlanBudgetModel(args: {
   // A COMMITTED pick (in the build, or locked) whose package "comes with"
   // another category covers it — marketplace vendor_service_links and
   // host-authored covers (manual vendors) both arrive as linked_services
-  // entries carrying the target groupId. Only EMPTY categories get the badge
-  // (own candidates win over coverage), and it is informational, never a
+  // entries carrying the target groupId. A category with its OWN committed
+  // pick keeps it (see below); otherwise the badge shows, informational, never a
   // gate: the couple can still search/add there. First committed coverer wins
   // (deterministic: folder/children order).
   {
-    const coverage = new Map<string, { vendorName: string; fromGroupLabel: string }>();
+    const coverage = new Map<
+      string,
+      { vendorName: string; fromGroupLabel: string; locked: boolean }
+    >();
     for (const children of childrenByFolder.values()) {
       for (const c of children) {
         for (const p of c.picks) {
-          const committed =
-            p.isBuildPick || (p.raw_status != null && LOCKED_STATUSES.has(p.raw_status));
+          const locked = p.raw_status != null && LOCKED_STATUSES.has(p.raw_status);
+          const committed = p.isBuildPick || locked;
           if (!committed) continue;
           for (const ls of p.linked_services ?? []) {
             if (!ls.groupId || coverage.has(ls.groupId)) continue;
             coverage.set(ls.groupId, {
               vendorName: p.marketplace_business_name ?? p.vendor_name ?? 'your vendor',
               fromGroupLabel: c.label,
+              locked,
             });
           }
         }
       }
     }
+    // Owner 2026-09-21 — *"automatically linked everytime. even when they are
+    // making builds."* This used to require the category to be EMPTY, so a
+    // couple who had merely shortlisted one other name there lost the link the
+    // moment they did. Now only the category's OWN commitment (its own build
+    // pick, or its own lock) outranks the package that already covers it —
+    // candidates alone no longer do.
     if (coverage.size > 0) {
       for (const children of childrenByFolder.values()) {
         for (const c of children) {
-          if (c.state === 'empty') c.coveredBy = coverage.get(c.groupId) ?? null;
+          const ownCommitted = c.picks.some(
+            (p) => p.isBuildPick || (p.raw_status != null && LOCKED_STATUSES.has(p.raw_status)),
+          );
+          if (!ownCommitted) c.coveredBy = coverage.get(c.groupId) ?? null;
         }
       }
     }

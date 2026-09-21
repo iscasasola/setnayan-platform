@@ -94,7 +94,11 @@ import {
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
-import { buildShortlistFolders, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import {
+  buildShortlistFolders,
+  LOCKED_VENDOR_STATUSES,
+  type ShortlistVendor,
+} from '@/lib/shortlist-taxonomy';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import {
@@ -1796,13 +1800,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       : null;
   const inspectSelection = inspectVendorId
     ? (() => {
+        // A supplier can sit in several tiles (their "also covers" copies);
+        // the quick view opens on their OWN card — the one carrying the price.
+        let linked: { vendor: ShortlistVendor; categoryLabel: string } | null = null;
         for (const folder of shortlistFolders) {
           for (const tile of folder.tiles) {
             const vendor = tile.vendors.find((v) => v.vendorId === inspectVendorId);
-            if (vendor) return { vendor, categoryLabel: tile.label };
+            if (!vendor) continue;
+            if (vendor.includedWith == null) return { vendor, categoryLabel: tile.label };
+            linked ??= { vendor, categoryLabel: tile.label };
           }
         }
-        return null;
+        return linked;
       })()
     : null;
   const shortlistInspectorBody = inspectSelection ? (
@@ -1925,8 +1934,24 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const PLAN_LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
     const planPicks = model.folders
       .flatMap((f) => f.children)
-      .filter((c) => c.picks.length > 0)
+      .filter((c) => c.picks.length > 0 || c.coveredBy != null)
       .map((c) => {
+        // Covered by another supplier's package (owner 2026-09-21 — "linked
+        // everytime, even when they are making builds"): the build carries the
+        // category as that supplier, at ₱0 — their one price already sits on
+        // their own category. NO `vendorId`, deliberately: loading a saved build
+        // pins only picks that carry one (`planPicksToApply`), so this row can
+        // never write a second build pick for the same booking.
+        if (c.coveredBy) {
+          return {
+            groupId: c.groupId as string,
+            label: c.label,
+            vendorName: c.coveredBy.vendorName,
+            costPhp: 0,
+            locked: c.coveredBy.locked,
+            inclusions: [`Included with their ${c.coveredBy.fromGroupLabel} package`],
+          };
+        }
         const lockedPick = c.picks.find((p) => p.raw_status && PLAN_LOCKED.has(p.raw_status));
         const pick = lockedPick ?? c.picks[0]!;
         return {

@@ -59,3 +59,32 @@ Guard `a-promote-has-a-precondition.test.ts` — 5 executing tests, 2 wiring tes
 confirmed red.
 
 SPEC IMPACT: None.
+
+### 3 — the duplicate-transfer check no longer reads an unbounded subset
+
+`classifyDuplicate`'s priors came from a query with **no `.limit()` and no `.range()`**. PostgREST
+caps rows server-side, so past that cap it returned an arbitrary SUBSET — silently, no error, no
+flag. A money guard that reads a subset passes on the duplicate it never loaded, in the reassuring
+shape of "no duplicates found". Same family as the enum bug the surrounding comment records: the
+read was wrong and the failure looked like a clean answer.
+
+⚠ **The cap is Supabase platform configuration — not in this repo, not in the database, and NOT
+measured.** Nothing in the fix depends on its value; that is the design constraint.
+
+Two reads now, because the two verdicts have different reach:
+- **Same order** — the only source of the blocking `refuse` verdict. Bounded by the payments on one
+  bill.
+- **Cross order** — the `warn` verdict, which must survive the BDO rail where the bank wraps our code
+  in theirs. `compareReferences` catches that by NORMALISING both sides and SQL cannot, because the
+  normalisation strips the characters an `ilike` would match on. So it is **paged exhaustively**,
+  ordered by `payment_id`.
+
+New `lib/payment-priors-scan.ts` holds the paging, because `approvePayment` is `'use server'` and
+the paging is the part that can be got wrong. A failed page is a FAILURE, never a short answer; a
+page ceiling exists as a hang-stop and **hitting it fails closed** rather than returning a partial
+read wearing the shape of a complete one.
+
+Guard `payment-priors-scan.test.ts` — 6 executing tests, 6 sabotages confirmed red (including the
+off-by-one that stops on a full last page, and the ceiling returning partial rows).
+
+SPEC IMPACT: None.

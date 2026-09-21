@@ -67,6 +67,7 @@ import {
   canPromoteOrderToPaid,
   promotionRefusedReason,
 } from '@/lib/order-promotion-rule';
+import { scanAllPriors } from '@/lib/payment-priors-scan';
   orderNoticeLinkForRow as noticeLinkFor,
   orderPaidBodyForRow,
 } from '@/lib/pay-back-link';
@@ -236,11 +237,50 @@ export async function approvePaymentCore(args: {
       // Supabase call naming something the schema does not have returns an
       // ERROR, not a crash. I had internalised that for COLUMN names and
       // missed it for ENUM VALUES, which fail exactly the same way.
-      const { data: others, error: othersErr } = await admin
-        .from('payments')
-        .select('payment_id, order_id, reference_number, status')
-        .neq('payment_id', paymentId)
-        .in('status', MONEY_STATUSES);
+      //
+      // ── 🔑 AND IT READ AN UNBOUNDED SUBSET (CTRL-B1 build 3, 2026-09-22) ──
+      // The query below carried no `.limit()` and no `.range()`. PostgREST caps
+      // rows server-side, so past that cap this returned an ARBITRARY SUBSET
+      // with no error and no flag — and a money guard that reads a subset
+      // passes on the duplicate it never loaded, in the reassuring shape of
+      // "no duplicates found". Same family as the enum bug above: the read was
+      // wrong and the failure looked like a clean answer.
+      //
+      // ⚠ The cap is Supabase PLATFORM config — not in this repo, not in the
+      // database, and NOT measured. So nothing here depends on its value.
+      //
+      // TWO READS NOW, because the two verdicts have different reach:
+      //   · SAME ORDER — the only source of the BLOCKING `refuse` verdict.
+      //     Narrowed with `.eq('order_id', …)`, so it is bounded by the
+      //     payments on one bill and can never be truncated in practice.
+      //   · CROSS ORDER — the `warn` verdict, which must survive the BDO rail
+      //     where the bank wraps our code in theirs. `compareReferences`
+      //     catches that by NORMALISING both sides, and SQL cannot, because the
+      //     normalisation strips the characters an `ilike` would match on. So
+      //     it is paged exhaustively rather than narrowed.
+      const priorsScan = await scanAllPriors<{
+        payment_id: string;
+        order_id: string;
+        reference_number: string | null;
+        status: string;
+      }>(async (from, to) => {
+        const { data, error } = await admin
+          .from('payments')
+          .select('payment_id, order_id, reference_number, status')
+          .neq('payment_id', paymentId)
+          .in('status', MONEY_STATUSES)
+          .order('payment_id', { ascending: true })
+          .range(from, to);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, rows: (data ?? []) as Array<{
+          payment_id: string;
+          order_id: string;
+          reference_number: string | null;
+          status: string;
+        }> };
+      });
+      const others = priorsScan.ok ? priorsScan.rows : null;
+      const othersErr = priorsScan.ok ? null : { message: priorsScan.error };
 
       // 🔑 A MONEY GUARD THAT CANNOT READ MUST NOT PASS. Swallowing this is
       // what made the bug above invisible: "the check found nothing" and "the

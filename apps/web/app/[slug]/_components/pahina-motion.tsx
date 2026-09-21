@@ -39,6 +39,37 @@
  * These are server components: no client bundle, no hydration cost.
  */
 
+/**
+ * THE ARRIVAL PLAYS ONCE (owner 2026-09-21: "make the whole event hub fully
+ * animated" — ARRIVAL-S7 movement 1). On a browser's FIRST visit to this
+ * invitation it adds `.sn-arrive` to the root, and globals.css plays the mark,
+ * then the names, then the date, then the one action. A return visit sees the
+ * page already in place.
+ *
+ * Fail-visible like the flag below: no script, reduced motion or blocked
+ * storage → no class → nothing is animated and nothing is hidden. The class is
+ * also dropped after 3s, so an element can never be left mid-animation. The
+ * key must equal `arrivalSeenKey()` in lib/motion.ts (the guard checks).
+ */
+export function ArrivalOnce() {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `(function(){try{
+var r=document.documentElement;
+if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+var k='sn-arrived:'+(location.pathname.replace(/\/+$/,'')||'/');
+var seen=null;try{seen=localStorage.getItem(k)}catch(e){}
+if(seen)return;
+r.classList.add('sn-arrive');
+try{localStorage.setItem(k,'1')}catch(e){}
+setTimeout(function(){r.classList.remove('sn-arrive')},3000);
+}catch(e){}})()`,
+      }}
+    />
+  );
+}
+
 /** Sits ABOVE the page content — arms the hidden state before first paint. */
 export function PahinaMotionRootFlag() {
   return (

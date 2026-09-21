@@ -1,19 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import {
-  normalizeReligion,
-  normalizeCivilStatus,
-  normalizeSex,
-  consentPatch,
-} from '@/lib/profile-personalization';
+import { planPersonalInfoPatch } from '@/lib/profile-personal-info-patch';
+import { isSettingsGroup } from '@/lib/profile-settings-groups';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
 // replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
@@ -68,12 +63,16 @@ export async function updateThemePreference(formData: FormData) {
   revalidatePath('/dashboard', 'layout');
 }
 
-function nullIfBlank(raw: FormDataEntryValue | null): string | null {
-  if (typeof raw !== 'string') return null;
-  const t = raw.trim();
-  return t.length > 0 ? t : null;
-}
-
+/**
+ * Save personal info — from ANY of the grouped forms (Profile · Guest details ·
+ * the greeting switch in Privacy · the marketing switch in Preferences).
+ *
+ * 🔑 It writes ONLY the columns whose fields the submitted form carried. The
+ * page used to be one form and this action wrote every column on every save;
+ * split across groups, that would have nulled each group's fields whenever
+ * another group saved. The field selection and the consent-stamp transitions
+ * live in `lib/profile-personal-info-patch.ts`, which is pure and unit-tested.
+ */
 export async function updatePersonalInfo(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -81,120 +80,26 @@ export async function updatePersonalInfo(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const displayNameRaw = formData.get('display_name');
-  const phoneRaw = formData.get('phone');
-  const photoRaw = formData.get('profile_photo_url');
-  const marketingRaw = formData.get('marketing_opt_in');
-  const birthDateRaw = formData.get('birth_date');
-  const publicGreetingRaw = formData.get('public_greeting_opt_in');
-
-  const display_name =
-    typeof displayNameRaw === 'string' ? displayNameRaw.trim().slice(0, 128) || null : null;
-  const phone =
-    typeof phoneRaw === 'string' ? phoneRaw.trim().slice(0, 32) || null : null;
-  const profile_photo_url = nullIfBlank(photoRaw);
-  const marketing_opt_in = marketingRaw === 'on';
-  // Social Sharing Program (migration 20261203000000): optional birthday +
-  // the SEPARATE public-greeting opt-in (Facebook birthday/anniversary posts;
-  // email greetings never need it). Empty string → NULL; anything that isn't
-  // a clean YYYY-MM-DD is rejected rather than half-saved.
-  const birthDateStr = typeof birthDateRaw === 'string' ? birthDateRaw.trim() : '';
-  if (birthDateStr && !/^\d{4}-\d{2}-\d{2}$/.test(birthDateStr)) {
-    return redirect(
-      `/dashboard/profile?error=${encodeURIComponent('Birthday must be a valid date (YYYY-MM-DD).')}`,
-    );
-  }
-  const birth_date = birthDateStr || null;
-  const public_greeting_opt_in = publicGreetingRaw === 'on';
-
-  // Optional, REFERENCE-ONLY sensitive-PI personalization (date-anchor model,
-  // owner 2026-07-12): religion + civil status. Unknown/empty → null (the
-  // "prefer not to say" / withdrawal state). Consent is stamped per field on
-  // the transition to a value, cleared on withdrawal (RA 10173 §3(l)).
-  const religion = normalizeReligion(formData.get('religion'));
-  const civil_status = normalizeCivilStatus(formData.get('civil_status'));
-  const sex = normalizeSex(formData.get('sex'));
-
-  /**
-   * FOOD — the answer a guest gives on every invitation, kept once (owner
-   * 2026-08-21). `meal_preference` is the SAME enum the guest row uses, so an
-   * unrecognised value is dropped rather than written; dietary needs are
-   * bounded to the 300 the column's CHECK allows so a long paste is refused by
-   * this form, not by the database.
-   *
-   * ⚠ Dietary text is HEALTH DATA under RA 10173 — it carries a per-field
-   * consent stamp, exactly like religion beside it.
-   */
-  const mealRaw = formData.get('meal_preference');
-  const meal_preference =
-    typeof mealRaw === 'string' && MEAL_PREFERENCES.includes(mealRaw as MealPreference)
-      ? (mealRaw as MealPreference)
-      : null;
-  const dietaryRaw = formData.get('dietary_restrictions');
-  const dietary_restrictions =
-    typeof dietaryRaw === 'string' ? dietaryRaw.trim().slice(0, 300) || null : null;
+  // Which group to reopen after the save — whitelisted, never echoed raw.
+  const tabRaw = formData.get('tab');
+  const tabQs = isSettingsGroup(tabRaw) ? `&tab=${tabRaw}` : '';
 
   // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
-  // current opt-in state so we only STAMP marketing_consent_at on an actual
-  // transition — opting in sets now(), opting out clears it to NULL, and an
-  // unrelated profile save while already opted-in leaves the original consent
-  // timestamp untouched (unlike updated_at, which every save overwrites).
+  // current state so consent stamps move only on an actual transition —
+  // opting in sets now(), opting out clears it to NULL, and an unrelated save
+  // leaves the original consent timestamp untouched (unlike updated_at).
   const { data: existing } = await supabase
     .from('users')
     .select('marketing_opt_in, religion, civil_status, sex, dietary_restrictions')
     .eq('user_id', user.id)
     .maybeSingle();
-  const wasOptedIn = existing?.marketing_opt_in === true;
 
-  const nowIso = new Date().toISOString();
-  const marketingConsent: { marketing_consent_at?: string | null } = {};
-  if (marketing_opt_in && !wasOptedIn) {
-    marketingConsent.marketing_consent_at = nowIso;
-  } else if (!marketing_opt_in && wasOptedIn) {
-    marketingConsent.marketing_consent_at = null;
+  const plan = planPersonalInfoPatch(formData, existing ?? null, new Date().toISOString());
+  if (!plan.ok) {
+    return redirect(`/dashboard/profile?error=${encodeURIComponent(plan.error)}${tabQs}`);
   }
 
-  // Per-field sensitive-PI consent transitions (stamp on first value, clear on
-  // withdrawal, untouched when unchanged).
-  const religionConsent = consentPatch(religion, existing?.religion ?? null, nowIso);
-  const civilConsent = consentPatch(civil_status, existing?.civil_status ?? null, nowIso);
-  const sexConsent = consentPatch(sex, existing?.sex ?? null, nowIso);
-  const dietaryConsent = consentPatch(
-    dietary_restrictions,
-    existing?.dietary_restrictions ?? null,
-    nowIso,
-  );
-
-  const { error } = await supabase
-    .from('users')
-    .update({
-      display_name,
-      phone,
-      profile_photo_url,
-      marketing_opt_in,
-      ...marketingConsent,
-      birth_date,
-      public_greeting_opt_in,
-      religion,
-      ...(religionConsent.consent_at !== undefined
-        ? { religion_consent_at: religionConsent.consent_at }
-        : {}),
-      civil_status,
-      ...(civilConsent.consent_at !== undefined
-        ? { civil_status_consent_at: civilConsent.consent_at }
-        : {}),
-      sex,
-      ...(sexConsent.consent_at !== undefined
-        ? { sex_consent_at: sexConsent.consent_at }
-        : {}),
-      meal_preference,
-      dietary_restrictions,
-      ...(dietaryConsent.consent_at !== undefined
-        ? { dietary_restrictions_consent_at: dietaryConsent.consent_at }
-        : {}),
-      updated_at: nowIso,
-    })
-    .eq('user_id', user.id);
+  const { error } = await supabase.from('users').update(plan.patch).eq('user_id', user.id);
 
   if (error) {
     await insertFaultLog({
@@ -202,13 +107,16 @@ export async function updatePersonalInfo(formData: FormData) {
       element_name: 'Save personal info',
       file_path: 'app/dashboard/profile/actions.ts',
       error_message: error.message,
-      payload_snapshot: { userId: user.id, marketing_opt_in, hasPhone: phone !== null, hasPhoto: profile_photo_url !== null },
+      payload_snapshot: {
+        userId: user.id,
+        columns: Object.keys(plan.patch),
+      },
     });
-    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}${tabQs}`);
   }
 
   revalidatePath('/dashboard', 'layout');
-  redirect('/dashboard/profile?saved=1');
+  redirect(`/dashboard/profile?saved=1${tabQs}`);
 }
 
 /**
@@ -629,6 +537,40 @@ export async function updateSharePhotoWithHosts(formData: FormData) {
 
   revalidatePath('/dashboard', 'layout');
   redirect('/dashboard/profile?photo_sharing_saved=1#privacy');
+}
+
+/**
+ * The public birthday / anniversary greeting switch (Privacy group). Its own
+ * action, like the two switches beside it, so the write names its column at
+ * the `.update()` — `gates-have-handles.db.test.ts` proves a switch is
+ * flippable by finding exactly that, and a write assembled in a helper module
+ * is invisible to it.
+ */
+export async function updatePublicGreeting(formData: FormData) {
+  const raw = formData.get('public_greeting_opt_in');
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error('Invalid greeting preference');
+  }
+  const enabled = raw === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({
+      public_greeting_opt_in: enabled,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
+  redirect('/dashboard/profile?tab=privacy');
 }
 
 export async function updateDiscoverableByName(formData: FormData) {

@@ -257,7 +257,7 @@ export function ScheduleWidget({
                 ) : null}
                 {isNow ? (
                   <span className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.18em] text-terracotta">
-                    <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-terracotta" />
+                    <span className="sn-live-dot inline-block h-1 w-1 rounded-full bg-terracotta" />
                     Happening now
                   </span>
                 ) : isNext ? (

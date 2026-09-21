@@ -34,6 +34,8 @@ import {
   type InvitedToBlock,
   type MealPreference,
   type RsvpStatus,
+  PLUS_ONE_CHOICES,
+  plusOneSeats,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -628,24 +630,37 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             host can manually remove if needed (avoids accidental loss
             of a real RSVP'd +1 to a stray checkbox toggle). */}
         <Section title="Plus-one">
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-4 transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/30">
-            <input
-              type="checkbox"
-              name="plus_one_allowed"
-              defaultChecked={guest.plus_one_allowed}
-              className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-            <span className="space-y-1">
-              <span className="flex items-center gap-2 text-sm font-medium text-ink">
-                <UserPlus aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
-                Allow plus-one
-              </span>
-              <span className="block text-xs text-ink/60">
-                Your guest confirms yes or no on their invitation, and fills in
-                their +1&rsquo;s name when they RSVP.
-              </span>
+          {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4. can be
+              +1/+2/+3/+4. these are for the additional seats." The checkbox
+              became a choice of how many — None is the old "off". */}
+          <fieldset className="space-y-2 rounded-lg border border-ink/15 bg-cream p-4">
+            <legend className="sr-only">Extra seats</legend>
+            <span className="flex items-center gap-2 text-sm font-medium text-ink">
+              <UserPlus aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+              Extra seats
             </span>
-          </label>
+            <span className="flex flex-wrap gap-2">
+              {PLUS_ONE_CHOICES.map((n) => (
+                <label
+                  key={n}
+                  className="cursor-pointer rounded-lg border border-ink/15 px-3 py-1.5 text-sm text-ink/80 transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 has-[:checked]:font-medium has-[:checked]:text-ink hover:border-ink/30"
+                >
+                  <input
+                    type="radio"
+                    name="plus_one_count"
+                    value={n}
+                    defaultChecked={plusOneSeats(guest) === n}
+                    className="sr-only"
+                  />
+                  {n === 0 ? 'None' : `+${n}`}
+                </label>
+              ))}
+            </span>
+            <span className="block text-xs text-ink/60">
+              Your guest confirms on their invitation, and fills in their
+              plus-one&rsquo;s name when they RSVP.
+            </span>
+          </fieldset>
           {plusOneStateLabel ? (
             <p className="rounded-md border border-success-200/60 bg-success-50/70 px-3 py-2 text-xs text-success-900">
               <span className="font-medium">+1 status:</span> {plusOneStateLabel}

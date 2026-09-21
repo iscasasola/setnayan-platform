@@ -1,7 +1,7 @@
 /**
  * Unit suite for the pure Add-grammar parser (Living Roster · P2). Proves the
  * capture-bar grammar without a browser — this is the highest-value pure helper
- * of the phase, so the edge cases the plan calls out (empty name, `+3`→2,
+ * of the phase, so the edge cases the plan calls out (empty name, `+3`→3 (cap 4 since 2026-09-21),
  * multiple `#group`, side+plus+group combined, name-only) are all pinned here.
  */
 
@@ -132,12 +132,14 @@ test('+2 → 2 plus-ones', () => {
   assert.equal(parseGuestInput('Ana Cruz +2').plusOnes, 2);
 });
 
-test('+3 clamps to 2 (the hard cap)', () => {
-  assert.equal(parseGuestInput('Ana Cruz +3').plusOnes, 2);
+// ⚖ The cap moved from 2 to 4 (owner 2026-09-21: "+1 per guest can be up to number 4").
+test('+3 → 3 and +4 → 4 (the cap is four)', () => {
+  assert.equal(parseGuestInput('Ana Cruz +3').plusOnes, 3);
+  assert.equal(parseGuestInput('Ana Cruz +4').plusOnes, 4);
 });
 
-test('+9 clamps to 2', () => {
-  assert.equal(parseGuestInput('Ana +9').plusOnes, 2);
+test('+9 clamps to 4', () => {
+  assert.equal(parseGuestInput('Ana +9').plusOnes, 4);
 });
 
 test('+0 → 0 (reads as none — no phantom +1)', () => {

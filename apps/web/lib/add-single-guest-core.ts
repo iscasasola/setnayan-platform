@@ -43,7 +43,8 @@ export interface AddSingleGuestDeps {
   addGuest(eventId: string, input: QuickAddInput): Promise<QuickAddResult>;
   resolveOfferedRoles(eventId: string): Promise<GuestRole[]>;
   attachMembership(groupId: string, guestId: string): Promise<void>;
-  setPlusOne(guestId: string): Promise<void>;
+  /** Save the parsed `+N` (1–4) as the guest's extra seats. */
+  setPlusOne(guestId: string, count: number): Promise<void>;
   deleteEmptyGroup(groupId: string, eventId: string): Promise<void>;
   revalidate(eventId: string): void;
 }
@@ -128,9 +129,9 @@ export async function runAddSingleGuest(
     await deps.attachMembership(gid, guestId);
   }
 
-  // Plus-one permission from the parsed `+N`.
+  // Extra seats from the parsed `+N` — the number, not just "yes".
   if (draft.plusOnes > 0) {
-    await deps.setPlusOne(guestId);
+    await deps.setPlusOne(guestId, draft.plusOnes);
   }
 
   deps.revalidate(eventId);

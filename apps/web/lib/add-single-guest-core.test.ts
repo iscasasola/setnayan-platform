@@ -84,8 +84,8 @@ function makeHarness(
     attachMembership: async (groupId, guestId) => {
       attached.push([groupId, guestId]);
     },
-    setPlusOne: async (guestId) => {
-      plusOnes.push(guestId);
+    setPlusOne: async (guestId, count) => {
+      plusOnes.push(count === 1 ? guestId : `${guestId}:+${count}`);
     },
     deleteEmptyGroup: async (groupId, eventId) => {
       deleted.push([groupId, eventId]);
@@ -199,4 +199,12 @@ test('missing last name → short-circuits before any group is minted', async ()
   // Never reached createGroup / addGuest / delete.
   assert.deepEqual(h.deleted, []);
   assert.deepEqual(h.addGuestCalls, []);
+});
+
+test('a typed +3 saves three seats, not one', async () => {
+  // ⚖ Owner 2026-09-21: "+1/+2/+3/+4 … for the additional seats". The old
+  // path saved a boolean, so "+3" silently became one seat.
+  const h = makeHarness(succeed('guest-1'));
+  await runAddSingleGuest(EVENT, draft({ plusOnes: 3 }), h.deps);
+  assert.deepEqual(h.plusOnes, ['guest-1:+3']);
 });

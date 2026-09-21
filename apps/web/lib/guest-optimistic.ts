@@ -47,6 +47,10 @@ export type GuestFieldOverride = Partial<{
   side: GuestSide;
   role: GuestRole;
   rsvp_status: RsvpStatus;
+  /** Extra seats (0–4). Always sent WITH `plus_one_allowed` so the overlay never
+   *  shows a count and a boolean that disagree — the DB keeps them equal. */
+  plus_one_count: number;
+  plus_one_allowed: boolean;
 }>;
 
 /** A local, not-yet-confirmed change the roster applies immediately. */

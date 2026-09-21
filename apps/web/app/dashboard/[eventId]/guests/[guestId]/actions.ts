@@ -174,7 +174,16 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // That row stays on the list so the host can manually remove it if
   // they're sure (defends against accidental loss of a real RSVP'd +1
   // to a stray checkbox toggle).
-  const plus_one_allowed = clean(formData.get('plus_one_allowed')) === 'on';
+  // Extra seats, 0–4 (owner 2026-09-21). A form rendered before the choice
+  // replaced the checkbox still posts `plus_one_allowed` — honour it as one.
+  const rawCount = clean(formData.get('plus_one_count'));
+  const parsedCount = rawCount === '' ? Number.NaN : Number(rawCount);
+  // Old forms write the BOOLEAN, so the DB trigger's "on again never shrinks
+  // a +3" still protects them; a count is written only when one was chosen.
+  const plusOneWrite =
+    Number.isInteger(parsedCount) && parsedCount >= 0 && parsedCount <= 4
+      ? { plus_one_count: parsedCount }
+      : { plus_one_allowed: clean(formData.get('plus_one_allowed')) === 'on' };
   const notes = clean(formData.get('notes')) || null;
   // Custom tags RETIRED 2026-05-23 PM — owner directive: tags now
   // auto-derived from side/group/role/table at render time, host can't
@@ -291,7 +300,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       photo_consent,
       faceblock_enabled,
       face_recognition_excluded,
-      plus_one_allowed,
+      ...plusOneWrite,
       notes,
       invited_to_blocks,
       rsvp_responded_at,

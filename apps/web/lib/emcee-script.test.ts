@@ -55,6 +55,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     role: p.role ?? 'guest',
     extra_roles: [],
     plus_one_allowed: false,
+    plus_one_count: 0,
     plus_one_name: null,
     plus_one_of_guest_id: null,
     plus_one_mode: null,

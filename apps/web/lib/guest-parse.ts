@@ -14,7 +14,7 @@
  * Token rules (whitespace-split, order-independent; later tokens of the same
  * kind WIN, matching the prototype's overwrite-on-each-token behaviour):
  *   • `bride` | `groom` | `both`            → side
- *   • `+N` (`/^\+(\d+)$/`)                   → plusOnes, `min(2, N || 1)`
+ *   • `+N` (`/^\+(\d+)$/`)                   → plusOnes, clamped 0–4
  *   • `#Word`                               → group name (case preserved, deduped)
  *   • `vip`                                 → roleHint 'vip'
  *   • `ninong` → 'principal_sponsor_ninong'; `ninang` → '..._ninang'
@@ -95,15 +95,15 @@ export function parseGuestInput(
 
       const plusMatch = w.match(PLUS_RE);
       if (plusMatch) {
-        // Read the digits honestly and clamp to 0–2: `+0` → 0 (a "+0" reads as
+        // Read the digits honestly and clamp to 0–4: `+0` → 0 (a "+0" reads as
         // NONE, so it must not grant a phantom +1 the way the prototype's
-        // `|| 1` did), `+1` → 1, `+3`/`+9` → 2. The regex only matches digits, so
-        // a non-numeric `+x` never reaches here — it stays a name word.
-        // NOTE: the schema models plus-one as a boolean `plus_one_allowed`, so
-        // any n>0 currently maps to a single +1 at the action; true "up to +2"
-        // reservation would need a count column (owner decision, no migration here).
+        // `|| 1` did), `+3` → 3, `+9` → 4. The regex only matches digits, so a
+        // non-numeric `+x` never reaches here — it stays a name word.
+        // ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4". The count
+        // column this note used to say was missing now exists
+        // (`guests.plus_one_count`), so the number typed is the number saved.
         const n = Number.parseInt(plusMatch[1] ?? '', 10);
-        plusOnes = Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : 0;
+        plusOnes = Number.isFinite(n) ? Math.min(4, Math.max(0, n)) : 0;
         continue;
       }
 

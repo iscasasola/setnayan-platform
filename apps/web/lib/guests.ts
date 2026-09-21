@@ -194,6 +194,9 @@ export type GuestRow = {
   role: GuestRole;
   extra_roles: GuestRole[];
   plus_one_allowed: boolean;
+  /** Extra seats this guest may bring, 0–4 (owner 2026-09-21). `plus_one_allowed`
+   *  is kept equal to `plus_one_count > 0` by a DB trigger — read this for seats. */
+  plus_one_count: number;
   plus_one_name: string | null;
   plus_one_of_guest_id: string | null;
   plus_one_mode: 'full' | 'limited' | null;
@@ -480,7 +483,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration
@@ -677,7 +680,8 @@ export function computeGuestStats(guests: GuestRow[]): GuestStats {
     else if (guest.rsvp_status === 'pending') stats.pending += 1;
     else if (guest.rsvp_status === 'declined') stats.declined += 1;
     else if (guest.rsvp_status === 'maybe') stats.maybe += 1;
-    if (guest.plus_one_allowed) stats.plus_ones += 1;
+    // Seats, not permissions: a +3 is three (owner 2026-09-21).
+    stats.plus_ones += plusOneSeats(guest);
   }
 
   return stats;
@@ -1078,4 +1082,35 @@ export async function fetchGroupMembershipsByEvent(
     map.set(row.guest_id, existing);
   }
   return map;
+}
+
+/**
+ * How many extra seats a guest brings — 0 to 4 (owner 2026-09-21: "+1/+2/+3/+4
+ * … for the additional seats"). Reads the count; a row from a read that did not
+ * select it (older callers) falls back to the boolean's one seat, so a missing
+ * column under-counts by the old rule rather than reading zero.
+ */
+export function plusOneSeats(guest: { plus_one_count?: number | null; plus_one_allowed?: boolean | null }): number {
+  const n = guest.plus_one_count;
+  if (typeof n === 'number' && Number.isFinite(n)) return Math.max(0, Math.min(4, Math.trunc(n)));
+  return guest.plus_one_allowed ? 1 : 0;
+}
+
+/** The choices the couple picks from: none, then +1 … +4. */
+export const PLUS_ONE_CHOICES = [0, 1, 2, 3, 4] as const;
+
+/**
+ * Extra seats from a CSV row. `plus_ones` / `plus_one_count` take a number;
+ * `plus_one_allowed` takes a number OR yes/true (= one), as it always did.
+ * Anything else is none; anything above four is four.
+ */
+export function plusOnesFromCsv(row: Record<string, string | undefined>): number {
+  for (const key of ['plus_ones', 'plus_one_count', 'plus_one_allowed']) {
+    const raw = (row[key] ?? '').trim().toLowerCase().replace(/^\+/, '');
+    if (!raw) continue;
+    if (/^\d+$/.test(raw)) return Math.min(4, Number(raw));
+    if (['y', 'yes', 'true', 'x', 'on'].includes(raw)) return 1;
+    return 0;
+  }
+  return 0;
 }

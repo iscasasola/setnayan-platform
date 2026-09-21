@@ -27,6 +27,7 @@ import {
 import { SeatChip } from './seat-chip';
 import {
   AddToGroupControl,
+  PlusOneChipEditor,
   RoleChipEditor,
   RsvpChipEditor,
   SideChipEditor,
@@ -46,6 +47,7 @@ import {
   guestDisplayName,
   guestFullName,
   guestInitials,
+  plusOneSeats,
   ROLE_LABELS,
   RSVP_LABELS,
   SIDE_LABELS,
@@ -364,9 +366,10 @@ function DesktopRow({
               >
                 {(guestFullName(guest) ?? guestDisplayName(guest))}
               </p>
-              {guest.plus_one_allowed ? (
+              {plusOneSeats(guest) > 0 ? (
                 <p className="truncate text-xs text-ink/55">
-                  + {guest.plus_one_name ?? 'TBA'}
+                  {/* One named plus-one, or the count when there are more. */}
+                  + {guest.plus_one_name ?? (plusOneSeats(guest) > 1 ? `${plusOneSeats(guest)} guests` : 'TBA')}
                 </p>
               ) : null}
               {/* 🔑 A PAIR THAT NOTHING RENDERS IS NOT A PAIR. The column has
@@ -436,8 +439,9 @@ function DesktopRow({
           placed={seat?.placed ?? null}
           suggested={seat?.suggested ?? null}
           rsvp={guest.rsvp_status}
-          hasPlusOne={guest.plus_one_allowed}
+          plusOnes={plusOneSeats(guest)}
           plain
+          plusControl={<PlusOneChipEditor eventId={eventId} guest={guest} />}
         />
       </td>
       {/* Owner 2026-09-14: "contact number should just show icon to call." The
@@ -1887,8 +1891,9 @@ function MobileListRow({
           placed={seat?.placed ?? null}
           suggested={seat?.suggested ?? null}
           rsvp={guest.rsvp_status}
-          hasPlusOne={guest.plus_one_allowed}
+          plusOnes={plusOneSeats(guest)}
           plain
+          plusControl={<PlusOneChipEditor eventId={eventId} guest={guest} />}
         />
       </div>
     </div>

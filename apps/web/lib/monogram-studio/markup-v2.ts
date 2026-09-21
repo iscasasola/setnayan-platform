@@ -41,6 +41,11 @@ export const STUDIO_CSS_V2 = `
    listeners to #animbox in three places — removing it would throw and take the
    whole editor down. */
 #animbox{display:none!important}
+/* …and so is the tab that opened it, with its Replay button: with #animbox
+   hidden, "Reveal" opened an empty pane holding only a Replay that played the
+   SAVED reveal, not the one picked in the effects row. The engine looks both up
+   by id / data-vt, so they stay in the DOM and are only hidden. */
+.vsroot .vs [data-vt="reveal"],.vsroot .vs #replay{display:none!important}
 
 .vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;font-family:var(--font-hanken),system-ui,sans-serif;color:#1E2229;container-type:inline-size;}
 .vsroot .vs .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}

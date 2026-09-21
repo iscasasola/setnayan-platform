@@ -155,7 +155,7 @@ export function UploadMark({
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
             {savedIsLive === false
               ? 'Kept, but not in use — your designed mark is the live one.'
-              : 'Your uploaded mark is live — it outranks the designed mark everywhere.'}
+              : 'Your uploaded logo is your monogram.'}
           </p>
           <form action={clearUploadedMarkAction}>
             <input type="hidden" name="event_id" value={eventId} />
@@ -191,7 +191,9 @@ export function UploadMark({
       {/* Open while there is nothing to look at, collapsed once a mark is on
           screen — NN/g's mobile-accordion rule, applied to the moment rather
           than the breakpoint: guidance first, then get out of the way. */}
-      <UploadTips open={!decoded} />
+      {/* Collapsed once a logo is on screen — saved or freshly chosen — so the
+          effects and the two buttons are not pushed a screen further down. */}
+      <UploadTips open={!decoded && !hasUpload} />
 
     </section>
   );

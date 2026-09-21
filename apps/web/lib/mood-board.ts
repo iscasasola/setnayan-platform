@@ -143,7 +143,26 @@ export type PaletteLimits = {
   slotLabels?: ReadonlyArray<string>;
   /** Grouping tag for UI sectioning. */
   family: 'venue' | 'couple' | 'role';
+  /**
+   * What several colors on this key MEAN (owner, 2026-09-21: "for everybody
+   * except the guests, it is main color + accent color").
+   *   • `outfit`  — ONE look: color 1 is the main piece, the rest accents.
+   *   • `options` — guests wear ANY ONE of these; never combined on a figure.
+   *   • `scene`   — a venue palette, not attire.
+   * Required, so a new key cannot ship without deciding.
+   */
+  meaning: 'scene' | 'outfit' | 'options';
 };
+
+/** Slot names for every `outfit` key — sized to the largest outfit `max` (6). */
+export const OUTFIT_SLOT_LABELS: ReadonlyArray<string> = [
+  'Main',
+  'Accent',
+  'Accent 2',
+  'Accent 3',
+  'Accent 4',
+  'Accent 5',
+];
 
 /**
  * Per-key min/max color counts.
@@ -159,6 +178,7 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Ceremony palette',
     hint: 'Overall ceremony venue setting — 1 to 3 colors',
+    meaning: 'scene',
     family: 'venue',
   },
   // RECEPTION IS FIVE (owner directive 2026-09-03: "themes must be 5 colors").
@@ -181,6 +201,7 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     label: 'Reception palette',
     hint: 'Dominant + supporting + accent + two neutrals — 3 to 5 colors',
     slotLabels: ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'],
+    meaning: 'scene',
     family: 'venue',
   },
   bride: {
@@ -188,6 +209,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Bride',
     hint: "The bride's attire palette — 1 to 3 colors",
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'couple',
   },
   groom: {
@@ -195,6 +218,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Groom',
     hint: "The groom's attire palette — 1 to 3 colors",
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'couple',
   },
   // Wedding Party — the shared FALLBACK palette (taxonomy v2). Still set-once for
@@ -205,6 +230,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 6,
     label: 'Wedding Party (all)',
     hint: 'Shared fallback — colors any entourage role without its own palette · 3 to 6 colors',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   // Wedding-party SPLIT keys (taxonomy v2). MoH covers maid + matron of honor.
@@ -213,6 +240,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Maid / Matron of Honor',
     hint: 'The honor attendant — 1 to 3 colors (falls back to Wedding Party)',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   best_man: {
@@ -220,6 +249,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Best Man',
     hint: 'The best man — 1 to 3 colors (falls back to Wedding Party)',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   bridesmaids: {
@@ -227,6 +258,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 6,
     label: 'Bridesmaids',
     hint: 'Coordinated bridesmaid attire — 3 to 6 colors (falls back to Wedding Party)',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   groomsmen: {
@@ -234,6 +267,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 6,
     label: 'Groomsmen',
     hint: 'Coordinated groomsmen attire — 3 to 6 colors (falls back to Wedding Party)',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   // Parents + immediate family of both sides (was the dormant vip_family key).
@@ -245,6 +280,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Parents & Immediate Family',
     hint: 'Parents and immediate family of both sides — 1 to 3 colors',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   // Nikah principals (wali · witnesses · imam · wakil). Surfaces ONLY for muslim
@@ -255,6 +292,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Nikah Principals',
     hint: 'Wali · witnesses · imam · wakil — 1 to 3 colors',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   principal_sponsors: {
@@ -262,6 +301,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Principal Sponsors',
     hint: 'Ninongs & ninangs — 1 to 3 colors',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   secondary_sponsors: {
@@ -269,6 +310,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Secondary Sponsors',
     hint: 'Candle · veil · cord · coin — 1 to 3 colors',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   bearers_flower_girl: {
@@ -276,6 +319,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Bearers & Flower Girl',
     hint: 'Ring / bible / coin bearers and flower girl — 1 to 3 colors',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   officiants: {
@@ -283,6 +328,8 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 3,
     label: 'Officiants & Readers',
     hint: 'Officiant · lectors · soloists — 1 to 3 colors',
+    meaning: 'outfit',
+    slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
   guest: {
@@ -290,6 +337,7 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     max: 6,
     label: 'Plain guests',
     hint: 'Dress-code palette guests can choose from — 3 to 6 colors',
+    meaning: 'options',
     family: 'role',
   },
 };

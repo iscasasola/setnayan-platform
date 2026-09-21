@@ -646,6 +646,7 @@ export function WhatsNewFeed({
   payoutReadiness = 'unreadable',
   feeForecasts = {},
   incomplete = false,
+  statusLine = '',
 }: {
   cards: WhatsNewCard[];
   /**
@@ -678,12 +679,34 @@ export function WhatsNewFeed({
    * two asks prices both without either card doing its own arithmetic.
    */
   feeForecasts?: Record<string, FeeDisclosure | null>;
+  /**
+   * "3 waiting · oldest 4 days", built by `deskStatusLine` on the page.
+   * Passed in rather than derived here so the phrasing lives in exactly one
+   * place and a guard can execute it.
+   */
+  statusLine?: string;
 }) {
   return (
+    /*
+      🔒 THE ID STAYS `whats-new` THOUGH THE HEADING NO LONGER DOES. Two shipped
+      doors point at this fragment — the focal tile's "Answer them" and every
+      Ongoing row's `/vendor-dashboard#whats-new` — and a fragment link to an id
+      that does not exist scrolls nowhere and throws nothing. Renaming the
+      anchor to match the new words would break both, silently, on the one page
+      every supplier opens.
+    */
     <section id="whats-new" className="mb-8 scroll-mt-24">
       <SectionHeader
-        title="What's new"
+        /*
+          RENAMED 2026-09-22 to the words the owner approved on 2026-08-26
+          ("yes i agree"). His note on the shipped page: the block "is called
+          **What's new**, a news name on a to-do list". Everything under this
+          heading now renders at least one control — the closed lines moved to
+          `NothingToAnswerFeed` below.
+        */
+        title="Needs your answer"
         count={cards.length}
+        subtitle={statusLine || undefined}
         // ⛔ "Mark all seen" REMOVED — it was a bare <span> with no onClick, no
         // href and no form: a control that looked pressable and did nothing.
         // No bulk-acknowledge action exists for these cards, so the honest fix is
@@ -724,6 +747,57 @@ export function WhatsNewFeed({
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/**
+ * NOTHING TO ANSWER — the closed lines, under their own heading.
+ *
+ * Owner, on the shipped desk (2026-08-26 drawing, approved): it "mixes five
+ * things waiting on you with a 5-star review that needs nothing". These are the
+ * kinds `deskDisposition` calls `news`: a booking window that shut, a proposed
+ * time that passed, and an open dispute — every one of which renders no control.
+ *
+ * ⚠ IT RENDERS THE SAME `<FeedCard>`, not a lighter copy of it. A second card
+ * component would be a second place for a card kind to be drawn wrong, and the
+ * dispatch guard in `answers-desk.test.ts` only watches one of them.
+ *
+ * ⚠ AND IT RENDERS NOTHING WHEN EMPTY — no "nothing here" tile. An empty second
+ * list on a page whose first list is the point is furniture, not information.
+ */
+export function NothingToAnswerFeed({
+  cards,
+  ...actions
+}: {
+  cards: WhatsNewCard[];
+  acceptInquiry: (formData: FormData) => void | Promise<void>;
+  declineInquiry: (formData: FormData) => void | Promise<void>;
+  confirmLock: (formData: FormData) => void | Promise<void>;
+  rejectLock: (formData: FormData) => void | Promise<void>;
+  agreeLock: (formData: FormData) => void | Promise<void>;
+  declineLock: (formData: FormData) => void | Promise<void>;
+  agreeDeletion: (formData: FormData) => void | Promise<void>;
+  declineDeletion: (formData: FormData) => void | Promise<void>;
+  postReviewReply: (formData: FormData) => void | Promise<void>;
+  respondMeeting: (formData: FormData) => void | Promise<void>;
+}) {
+  if (cards.length === 0) return null;
+  return (
+    <section id="nothing-to-answer" className="mb-8 scroll-mt-24">
+      <SectionHeader title="Nothing to answer" count={cards.length} />
+      <ul className="space-y-3">
+        {cards.map((card) => (
+          <li key={card.id}>
+            <FeedCard
+              card={card}
+              {...actions}
+              payoutReadiness="unreadable"
+              feeForecasts={{}}
+            />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

@@ -305,6 +305,13 @@ export type PrivacyControlRow = {
   approved_by: string | null;
   approved_at: string | null;
   note: string | null;
+  /**
+   * Provisional-approval deadline (migration 20271238899699). NULL = settled.
+   * A date means this approval is TEMPORARY. Resolve it with
+   * `approvalStanding()` in lib/provisional-approval.ts — never compare it
+   * here, and never gate a feature on it.
+   */
+  review_by: string | null;
   sort_order: number;
   updated_at: string | null;
   /** From the code catalog (not the DB) — the board's section grouping. */
@@ -322,7 +329,7 @@ export async function fetchDataPrivacyControls(
   const byKey = new Map<string, Partial<PrivacyControlRow>>();
   const { data } = await supabase
     .from('data_privacy_controls')
-    .select('control_key,status,approved_by,approved_at,note,sort_order,updated_at');
+    .select('control_key,status,approved_by,approved_at,note,review_by,sort_order,updated_at');
   for (const r of (data ?? []) as Partial<PrivacyControlRow>[]) {
     if (r.control_key) byKey.set(r.control_key, r);
   }
@@ -338,6 +345,7 @@ export async function fetchDataPrivacyControls(
       approved_by: row?.approved_by ?? null,
       approved_at: row?.approved_at ?? null,
       note: row?.note ?? null,
+      review_by: row?.review_by ?? null,
       sort_order: row?.sort_order ?? (i + 1) * 10,
       updated_at: row?.updated_at ?? null,
       group: c.group,

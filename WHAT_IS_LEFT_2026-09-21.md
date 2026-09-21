@@ -303,6 +303,39 @@ least two different greppable symbols before calling anything missing.**
   Other shops' names stay hidden. The brief fields are **sealed in SQL**, one platform-settings switch.
 - **No need to pause new inquiries** on an unpaid fee.
 
+**An unpaid booking fee — RE-CONFIRMED 2026-09-22, and it was ALREADY RULED ON 2026-09-20**
+
+🛑 **The 2026-09-21 register carried this in §6 as an OPEN question. It was not open.** It had been
+ruled four weeks' worth of decisions earlier — on **2026-09-20** — and the mechanism is **already
+built and shipped**, dark, behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`. Asking the owner again cost him a
+second answer to a settled question. RULE 0 applies to decisions, not only to code.
+
+- **The ruling (2026-09-20, verbatim):** *"when they pay the booking fee, that is when we unlock the
+  rest of the controls for that event. 1. the access to full details and actual updates of the event
+  2. the request to access features 3. their papic service for that event 4. the event hub access
+  5. the portfolio for that event 6. the being part of the story for that event 7. and whatever
+  functions should only work after the booking fee has been made."*
+- **The owner's 2026-09-22 answer restates it**, verbatim: *"unpaid booking fee loses access to event
+  hub, portfolio, accessing more details for the event, gathering and sharing data, reviews, stats,
+  and more."* Items 4, 5 and 1 map one-to-one; "gathering and sharing data" is 3 + 6; "and more" is 7.
+- 🔑 **TWO ITEMS ARE GENUINELY NEW and are NOT in the shipped gate: `reviews` and `stats`.** Those are
+  the delta. Everything else is built.
+- **Already settled and must not be re-litigated:** option (C) — pausing new inquiries and
+  marketplace visibility on an overdue fee — was explicitly **DROPPED on 2026-09-20** (*"the gate is
+  the consequence, no visibility pause"*). And **a free booking keeps FULL access**: `waived_free5`
+  and `waived_import` both resolve to unlocked, asserted by name in `event-access-stage.test.ts`.
+- **What is actually left here is not a build — it is a flag.** `NEXT_PUBLIC_FEE_UNLOCKS_EVENT` is
+  not set in Production, so every stage resolves to `unlocked` and the redaction is a no-op. Turning
+  it on is an owner decision and costs no merge.
+  ⚠ **Do not read the code default as the production value** — check `vercel env ls production`.
+- ⚠ **One known hole, surfaced when it shipped and still open:** the narrowing is applied in the app,
+  **not in SQL**. `get_vendor_event_brief` and four sibling RPCs still return venue, timeline,
+  dietary and seat-plan at every rung, so a supplier calling the RPC from their own session can still
+  read them. The migration to seal them was approved as a separate follow-up.
+
+Re-measure: `git grep -n "NEXT_PUBLIC_FEE_UNLOCKS_EVENT" origin/main -- apps/web` ·
+`git show origin/main:apps/web/lib/event-access-stage.ts | head -30`
+
 **Money and pricing**
 - The deposit **follows the amount the quote requested, and that is the minimum**.
 - One control reading **"Amount to pay"**, showing the **next due installment** — not just the deposit.
@@ -333,7 +366,7 @@ least two different greppable symbols before calling anything missing.**
 
 | Question | Why it matters | Where it bites |
 |---|---|---|
-| **Does an unpaid booking fee remove anything?** (A) it stays a bill · (B) full access waits for payment · (C) access stays but an overdue fee pauses new inquiries and marketplace visibility. **Nothing is decided, so today the answer is (A) by default.** | Decides whether M5's dunning is even needed | `lib/vendor-room-access-rule.ts` |
+| ~~**Does an unpaid booking fee remove anything?**~~ ✅ **ANSWERED BY THE OWNER 2026-09-22 — see §5.** | — | — |
 | **Flip the subscription paywall on?** `VENDOR_TIER_FEATURE_GATE` is absent from prod, so the ₱1,000/mo ladder collects nothing | The second revenue line does not exist yet | §2d |
 | **Void vs credit memo for a refunded receipt** — `receipts` has no `voided_at`, no status, no reason, and there is no credit-memo table | BIR audit exposure | M13 |
 | **The OR series starts at 8** — 1–7 were burned by rolled-back transactions and there is no record. A BIR series is supposed to be accountable end to end | BIR audit exposure | `select min(or_serial), max(or_serial), count(*) from receipts;` |

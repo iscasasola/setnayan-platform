@@ -1348,7 +1348,7 @@ export async function activatePapicLimited(formData: FormData) {
   // layer adds VAT for the customer invoice; requested_total_php is the base.
   const tierLabel = tier === 'unlimited' ? 'Unlimited' : 'Limited';
   const referenceCode = mintPapicReferenceCode();
-  const windowLabel = formatWindowSummary(win.startIso, win.endIso);
+  const windowLabel = formatWindowSummary(win.startDate, win.endDate);
   const description = `Papic ${tierLabel} — ${guestCount} guest camera${
     guestCount === 1 ? '' : 's'
   }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
@@ -1508,7 +1508,7 @@ export async function purchasePapicExtras(formData: FormData) {
 
   const isFree = quote.totalPhp === 0;
   const referenceCode = mintPapicReferenceCode();
-  const windowLabel = formatWindowSummary(win.startIso, win.endIso);
+  const windowLabel = formatWindowSummary(win.startDate, win.endDate);
   const description = `Papic extra cameras — ${quote.rungSummary}${
     windowLabel
       ? ` · ${windowLabel}`

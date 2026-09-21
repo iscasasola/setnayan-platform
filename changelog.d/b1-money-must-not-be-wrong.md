@@ -117,11 +117,31 @@ build 7, and the "billed into a void" half is already handled by `unbilled-fee-r
 **For the owner:** if badge-less shops should be billable, they already are; if manual suppliers
 should be, that needs an account to bill and is a product decision, not this build.
 
-### 8 — NOT ATTEMPTED (dropped from the end, for budget, not for doubt)
+### 8 — a send-sourced fee charge now outlives its proposal
 
-The send-sourced `proposal_id → ON DELETE CASCADE` is still live and still real. It was not started.
-⚠ **It is bigger than the brief suggests:** `booking_fee_charges_anchor_ck` requires
-`proposal_id IS NOT NULL OR event_vendor_id IS NOT NULL`, and a send-sourced charge has no
-`event_vendor_id` — so flipping the FK to `SET NULL` makes the preserve write **violate the anchor
-CHECK**. The migration has to give that charge another anchor, or widen the constraint, before the
-FK can change. Whoever takes it should read `20271153200818_the_money_outlives_the_event.sql` first.
+`the_money_outlives_the_event` made a charge survive its celebration and named the half it left:
+*"a charge anchored on `proposal_id` (source='send') still dies with `vendor_proposals`, which is
+its own slice."* This is that slice.
+
+🔑 **It is not "flip the FK to SET NULL".** `booking_fee_charges_anchor_ck` requires
+`proposal_id OR event_vendor_id`, and a send-sourced charge has no `event_vendor_id` — so SET NULL
+alone makes the FK's **own write** violate the table's CHECK, and a constraint violation inside a
+cascade takes the whole DELETE down. The couple's delete button would start **erroring** instead of
+quietly destroying money. Same shape as the bug slice 4 shipped and regression-tested (*"a composite
+FK turns 'preserve the parent' into an UPDATE of a referenced column"*), caught before shipping
+rather than after.
+
+So the detachment is **recorded** rather than the rule widened into meaninglessness: a new
+`proposal_detached_at`, stamped by a `BEFORE UPDATE OF proposal_id` trigger exactly when the FK nulls
+the anchor, and a third CHECK arm that accepts only that state. The column is NULL at INSERT, so an
+anchorless charge still cannot be created — only orphaned by a deletion it did not choose.
+
+⚠ The LOCK half was already correct and is untouched; none of the three preserve conditions in
+`keep_supplier_bookings_on_event_delete` were weakened.
+
+Guard `tests/db/the-send-fee-outlives-its-proposal.db.test.ts` — 5 tests against a real replayed
+schema, because a CASCADE is a property of the database and no grep can see one. **Proved twice:**
+with the migration parked, 3 of 5 go red including the defect itself; with the migration applied but
+the CHECK-widening removed — the obvious wrong fix — the delete throws and the third test catches it.
+
+SPEC IMPACT: None.

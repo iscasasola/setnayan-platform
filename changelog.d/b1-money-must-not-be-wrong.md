@@ -30,3 +30,32 @@ The guard asserts it is reversed ONCE; a second deletion here would be a bug, no
 Guard `a-refunded-fee-gives-the-money-back.test.ts`, 6 sabotages confirmed red.
 
 SPEC IMPACT: None — no ruling made or changed. The two refusals above are flagged for the owner.
+
+### 2 — approving a payment now has an order-status precondition
+
+The promote was `.update({status:'paid'}).eq('order_id', …)` with **no condition on the status it was
+leaving**, and the order was read without `status` in the SELECT, so it could not have checked. The
+customer-side submit selected `order_id, event_id` only. A payment could be logged and approved
+against a `cancelled`, `refunded` or already-`paid` order — re-running `activateOrderSku`, which
+re-activates the SKU, re-schedules payouts and re-grants Papic credits and the couple's gift.
+
+**Both doors are guarded, because a precondition on one door is not a precondition.** The decision
+lives in a new pure module `lib/order-promotion-rule.ts` — both call sites are `'use server'`, so a
+test cannot import them and a guard over them could only ever grep. Now the rule is EXECUTED against
+every value of the live enum.
+
+- `PROMOTABLE_ORDER_STATUSES` = `draft · submitted · awaiting_payment`. An allowlist, so a future
+  enum value is refused rather than promotable by default. `lapsed` is deliberately excluded and
+  named — a late payment on a lapsed order is a decision about whether the offer still stands, and
+  belongs to a person.
+- `PAYABLE_ORDER_STATUSES` adds `paid`: settling a balance is ordinary and `resolveEventMoney`
+  reconciles an overpayment. Only CLOSED orders refuse money — **a payment against a closed order
+  does not bounce, it disappears**, because nothing reads that row again.
+- The admin door carries the rule **twice**: once before the write so the refusal can name the
+  status, and once in the WHERE clause so two admins approving the same payment cannot both promote.
+  The update now `.select()`s its rows — a zero-row UPDATE is success-shaped.
+
+Guard `a-promote-has-a-precondition.test.ts` — 5 executing tests, 2 wiring tests, 5 sabotages
+confirmed red.
+
+SPEC IMPACT: None.

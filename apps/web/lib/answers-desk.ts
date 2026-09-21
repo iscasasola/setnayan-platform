@@ -31,6 +31,12 @@
  *     desk's enquiry lane is pre-accept only, so a reply owed to a couple the
  *     shop has already booked appeared NOWHERE — while that is the exact thing
  *     we measure and publish as the shop's reply speed.
+ *  5. AN EVENT THAT IS OVER AND UNMARKED IS THE START OF THE WHOLE RETENTION
+ *     LOOP, AND NOTHING ASKED FOR IT. `coupleConfirmReceived` requires
+ *     `service_marked_complete_at`; prod has it on 0 of 51 bookings, so no
+ *     couple has ever been able to confirm delivery, so `vendor_reviews` is
+ *     empty, so no shop has a track record. **The starter motor was missing:
+ *     there was no `mark_complete` kind on this desk at all.**
  *
  * ── FAILURE DIRECTION, CHOSEN ONCE ────────────────────────────────────────
  * Where a fact is missing or unparseable these rules fail toward SHOWING an
@@ -167,3 +173,68 @@ export const ANSWERS_THAT_DO_NOT_JOIN: ReadonlyArray<{
     why: 'Somebody-says-they-paid-you has no "no" — the only possible answer is yes, and it cannot be taken back. It joins once the row carries the receipt and there is a second button (owner decision).',
   },
 ];
+
+/**
+ * ── RULE 5 · THE EVENT IS OVER AND NOBODY SAID SO ──────────────────────────
+ *
+ * The chain this unblocks: the supplier marks the service complete →
+ * `coupleConfirmReceived` becomes reachable → confirmation opens the review
+ * door → the shop has a track record → the next couple books them. **Measured
+ * 2026-09-22: 51 bookings, `service_marked_complete_at` set on 0, and
+ * `vendor_reviews` empty. The loop has never closed once.**
+ *
+ * PURE and total — the page passes what it read and gets back whether to ask.
+ */
+export type CompletionCandidate = {
+  /** `event_vendors.status`. Only a really-booked shop is asked. */
+  status: string | null;
+  /** `events.event_date`, `YYYY-MM-DD`. Null → unknown → do not ask. */
+  eventDate: string | null;
+  /** `event_vendors.service_marked_complete_at`. Set → already answered. */
+  serviceMarkedCompleteAt: string | null;
+};
+
+/**
+ * Really booked, not merely being considered. Deliberately the same four the
+ * deletion gate calls `BOOKED_VENDOR_STATUSES` — a shop that was only ever
+ * `considering` did not work the day and must never be asked whether they did.
+ */
+const BOOKED_FOR_COMPLETION = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+
+/**
+ * Ask the day AFTER the celebration, never on it.
+ *
+ * 🔑 A wedding runs past midnight. Asking a supplier "did you deliver?" while
+ * the reception is still going is the single fastest way to teach them this
+ * desk does not know what day it is — and a desk they distrust is a desk they
+ * stop reading, which costs the whole loop, not just this row.
+ */
+export const COMPLETION_ASK_AFTER_DAYS = 1;
+
+/**
+ * Should this booking produce a "mark it complete" row?
+ *
+ * ⚠ FAILS CLOSED, against this module's usual direction, and the reason is
+ * worth stating: rules 1–4 fail toward showing a row because a missing row
+ * means a couple waits. Here an over-eager row asks a supplier to assert
+ * something that is NOT YET TRUE — that they delivered — and the assertion
+ * unlocks a review and a confirmation. An unreadable date must not be able to
+ * put words in a supplier's mouth.
+ */
+export function needsCompletionMark(
+  c: CompletionCandidate,
+  now: Date = new Date(),
+): boolean {
+  if (c.serviceMarkedCompleteAt) return false;
+  if (!c.status || !BOOKED_FOR_COMPLETION.has(c.status)) return false;
+  if (!c.eventDate) return false;
+
+  // Parse as a PH civil day at midnight. A bare `new Date('YYYY-MM-DD')` is UTC
+  // midnight, which in Manila (+08:00) is 8am the SAME day — so a naive compare
+  // asks a supplier eight hours into their own event day.
+  const day = new Date(`${c.eventDate}T00:00:00+08:00`);
+  if (Number.isNaN(day.getTime())) return false;
+
+  const askFrom = day.getTime() + COMPLETION_ASK_AFTER_DAYS * 24 * 60 * 60 * 1000;
+  return now.getTime() >= askFrom;
+}

@@ -17,6 +17,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   vendorAcknowledgeDeposit,
+  vendorMarkServiceComplete,
   vendorRejectDeposit,
   vendorAgreeToLock,
   vendorDeclineLock,
@@ -573,6 +574,7 @@ export default async function VendorOverviewPage({
         declineDeletion={vendorDeclineDeletion}
         postReviewReply={postVendorReply}
         respondMeeting={respondAppointment}
+        markServiceComplete={vendorMarkServiceComplete}
         payoutReadiness={payoutReadiness}
         feeForecasts={feeForecasts}
       />

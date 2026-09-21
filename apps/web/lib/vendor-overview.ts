@@ -26,6 +26,7 @@ import {
 import {
   lockAskPhase,
   meetingAskPhase,
+  needsCompletionMark,
   reviewNeedsReply,
   threadOwesReply,
 } from '@/lib/answers-desk';
@@ -37,6 +38,7 @@ import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { readInChunks } from '@/lib/read-all-pages';
 import {
   readDeclinedDepositIds,
+  readBookingsAwaitingCompletion,
   readDeletionRequests,
   readDepositsAwaitingAcknowledgement,
   readLockAgreementRequests,
@@ -153,6 +155,22 @@ export type WhatsNewCard =
       eventDate: string | null;
       requestedAt: string;
       expiresAt: string | null;
+    }
+  | {
+      /**
+       * THE STARTER MOTOR (CTRL-B2 build 1). The event has happened and nobody
+       * has said the service was delivered — so the couple cannot confirm, so
+       * the review door never opens, so the shop never builds a track record.
+       * Measured 2026-09-22: `service_marked_complete_at` set on 0 of 51.
+       */
+      kind: 'mark_complete';
+      id: string;
+      eventVendorId: string;
+      eventId: string;
+      eventName: string;
+      eventDate: string | null;
+      /** Sorts this row on the desk, like every other: oldest waiting first. */
+      createdAt: string;
     }
   | {
       kind: 'review';
@@ -433,7 +451,7 @@ export async function fetchVendorOverviewData(
     covers their events too. The deletion card would have inherited the
     identical hole — a supplier asked to release a celebration, not told which.
   */
-  const [lockRead, lockAgreementRead, deletionRead, declinedRead] =
+  const [lockRead, lockAgreementRead, deletionRead, declinedRead, completionAwaiting] =
     await Promise.all([
       fetchLockRequests(admin, vendorProfileId),
       // Flag-gated so the extra read does not even run while the handshake is
@@ -444,6 +462,11 @@ export async function fetchVendorOverviewData(
       // NOT flag-gated: the deletion handshake is live, not dark.
       fetchDeletionRequests(admin, vendorProfileId),
       fetchDeclinedDepositIds(admin, vendorProfileId),
+      // CTRL-B2 build 1. Runs here with the others so its event ids reach
+      // `fetchEventMeta` below — the card names the celebration and its date,
+      // and this is the exact hole the comment above says the deletion card
+      // would otherwise have inherited.
+      readBookingsAwaitingCompletion(admin, vendorProfileId),
     ]);
   const lockRequests = lockRead.rows;
   const lockAgreementRequests = lockAgreementRead.rows;
@@ -497,6 +520,10 @@ export async function fetchVendorOverviewData(
       ...answerableMeetings.map((m) => m.eventId),
       ...draftQuotes.map((q) => q.eventId).filter((id): id is string => Boolean(id)),
       ...draftContracts.map((c) => c.event_id),
+      // CTRL-B2 build 1 — without this the completion card would render with a
+      // null date and `needsCompletionMark` would read `eventDate: null` and
+      // refuse EVERY row, so the card could never appear at all.
+      ...completionAwaiting.rows.map((b) => b.event_id),
     ]),
   ];
   const eventMeta = await fetchEventMeta(admin, eventIds);
@@ -645,6 +672,37 @@ export async function fetchVendorOverviewData(
     anywhere reported that it had been excluded. The rating rides on the card
     because it decides both the words and the colour (see `reviewTemper`).
   */
+  /*
+    THE EVENT IS OVER AND NOBODY SAID SO. One row per booked celebration that
+    has passed without a completion mark. `needsCompletionMark` owns the date
+    test (pure, in answers-desk.ts) so "the day after, in Manila" exists once.
+  */
+  for (const b of completionAwaiting.rows) {
+    const meta = eventMeta.get(b.event_id);
+    if (
+      !needsCompletionMark({
+        status: b.status,
+        eventDate: meta?.event_date ?? null,
+        serviceMarkedCompleteAt: b.service_marked_complete_at,
+      })
+    ) {
+      continue;
+    }
+    whatsNew.push({
+      kind: 'mark_complete',
+      id: `done-${b.vendor_id}`,
+      eventVendorId: b.vendor_id,
+      eventId: b.event_id,
+      eventName: meta?.display_name ?? 'A celebration',
+      eventDate: meta?.event_date ?? null,
+      // The day after the event is when this started waiting — not now, or it
+      // would sort to the top of an oldest-first desk forever.
+      createdAt: meta?.event_date
+        ? new Date(new Date(`${meta.event_date}T00:00:00+08:00`).getTime() + 86_400_000).toISOString()
+        : new Date().toISOString(),
+    });
+  }
+
   for (const r of reviews) {
     if (!reviewNeedsReply(r)) continue;
     whatsNew.push({
@@ -954,6 +1012,11 @@ function cardTimestamp(card: WhatsNewCard): Date {
       return new Date(card.requestedAt);
     case 'delete_request':
       return new Date(card.requestedAt);
+    // CTRL-B2 build 1. `createdAt` is the day AFTER the celebration, not now —
+    // on an oldest-waiting-first desk, stamping it `now` would pin every
+    // completion row to the bottom forever and the oldest unmarked event,
+    // which is the one most likely to be forgotten, would sort last.
+    case 'mark_complete':
     case 'review':
       return new Date(card.createdAt);
     case 'dispute':

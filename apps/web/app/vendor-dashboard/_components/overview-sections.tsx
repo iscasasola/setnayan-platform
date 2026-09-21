@@ -643,6 +643,7 @@ export function WhatsNewFeed({
   declineDeletion,
   postReviewReply,
   respondMeeting,
+  markServiceComplete,
   payoutReadiness = 'unreadable',
   feeForecasts = {},
   incomplete = false,
@@ -666,6 +667,10 @@ export function WhatsNewFeed({
   /** The review reply is TAKEN HERE — the desk could name an unanswered review and not accept the answer. */
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
+  /** The completion mark is TAKEN HERE — CTRL-B2 build 1. A desk that names
+   *  an unmarked celebration and cannot accept the mark is the same defect as
+   *  naming a review it cannot accept an answer to. */
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
   /**
    * S19 — can a couple see anywhere to pay this supplier? Shown on the booking
    * ask, where agreeing makes the deposit the couple's next step. Defaults to
@@ -795,6 +800,8 @@ function FeedCard({
         />
       ) : card.kind === 'lock' ? (
         <LockBody card={card} confirmLock={confirmLock} rejectLock={rejectLock} />
+      ) : card.kind === 'mark_complete' ? (
+        <MarkCompleteBody card={card} markServiceComplete={markServiceComplete} />
       ) : card.kind === 'review' ? (
         <ReviewBody card={card} postReviewReply={postReviewReply} />
       ) : card.kind === 'message' ? (
@@ -829,6 +836,44 @@ function AgeLine({ since }: { since: string }) {
     <span style={waited.overdue ? { color: 'var(--m-mulberry)' } : undefined}>
       {waited.label}
     </span>
+  );
+}
+
+function MarkCompleteBody({
+  card,
+  markServiceComplete,
+}: {
+  card: Extract<WhatsNewCard, { kind: 'mark_complete' }>;
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
+}) {
+  /*
+    THE ROW THAT STARTS THE WHOLE AFTER-THE-EVENT CHAIN (CTRL-B2 build 1).
+    Measured 2026-09-22: `service_marked_complete_at` set on 0 of 51 bookings,
+    `vendor_reviews` empty. The couple's confirm is gated on this mark and
+    nothing ever asked a supplier for it.
+
+    🔑 THE COPY SAYS WHAT IT UNLOCKS, not just what it does. "Mark it complete"
+    alone reads like filing; a supplier presses it for the review, which is the
+    thing that wins them their next booking.
+  */
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-ink/75">
+        {card.eventName} has finished. Confirm you delivered your service — that
+        lets the couple confirm they received it, which is what opens your
+        review.
+      </p>
+      <p className="text-xs text-ink/55">{metaLine([card.eventDate ? formatLongDate(card.eventDate) : null])}</p>
+      {/* 🔑 `event_id` ONLY. The shipped `vendorMarkServiceComplete` resolves the
+          booking from (event, this shop's own profile) and ignores any vendor id
+          — passing one would look like it scoped the write when it did not. */}
+      <form action={markServiceComplete}>
+        <input type="hidden" name="event_id" value={card.eventId} />
+        <button type="submit" className="sn-btn sn-btn-primary text-sm">
+          I delivered this service
+        </button>
+      </form>
+    </div>
   );
 }
 

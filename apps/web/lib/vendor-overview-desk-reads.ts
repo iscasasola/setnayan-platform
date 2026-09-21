@@ -8,6 +8,8 @@
  *     arrived", which leave the desk.
  *   · `readLockAgreementRequests` — "Agree to a booking" asks, each on a 7-day fuse.
  *   · `readDeletionRequests` — "a celebration you were paid for is being removed".
+ *   · `readBookingsAwaitingCompletion` — "your event is over, mark it delivered",
+ *     the starter motor of the whole after-the-event chain (CTRL-B2 build 1).
  *
  * ⚠ PAGED TO THE SERVER'S EXACT COUNT (`readAllPages`). Each was one un-ranged
  * SELECT, and PostgREST caps a response at 1,000 rows with `error: null` — so a
@@ -173,4 +175,62 @@ export async function readDeletionRequests(
     { pageSize: PAGE },
   );
   return { rows: read.rows as DeletionRequestRow[], error: read.error, complete: read.complete };
+}
+
+export type CompletionAwaitingRow = {
+  vendor_id: string;
+  event_id: string;
+  vendor_name: string | null;
+  status: string | null;
+  service_marked_complete_at: string | null;
+};
+
+/**
+ * Bookings whose celebration has happened and which nobody has marked
+ * delivered.
+ *
+ * ── WHY THIS READ DID NOT EXIST ────────────────────────────────────────────
+ * `coupleConfirmReceived` requires `service_marked_complete_at`. Measured
+ * 2026-09-22: **51 bookings, that column set on 0 of them, and `vendor_reviews`
+ * empty.** No couple has ever been able to confirm delivery, so no review has
+ * ever been possible, so no shop has a track record. Nothing anywhere asked a
+ * supplier for the mark — there was no `mark_complete` kind on the desk at all.
+ *
+ * The DATE test is deliberately left to `needsCompletionMark` (pure, in
+ * `answers-desk.ts`) rather than done in SQL: "the day after, in Manila" is the
+ * part that can be got wrong, and a `.lt('event_date', today)` here would be a
+ * second, silent copy of that rule computed in the server's timezone.
+ * This query narrows to what is cheap and unambiguous — this shop, really
+ * booked, not yet marked, not archived.
+ */
+export async function readBookingsAwaitingCompletion(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<DeskRead<CompletionAwaitingRow>> {
+  const read = await readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await admin
+        .from('event_vendors')
+        .select('vendor_id, event_id, vendor_name, status, service_marked_complete_at', {
+          count: 'exact',
+        })
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .is('service_marked_complete_at', null)
+        .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete'])
+        // A `covered` cascade line is not a sale and did not work the day; an
+        // archived row is a rejected or withdrawn booking. Same exclusions the
+        // deposit read makes, for the same reason.
+        .or('package_role.is.null,package_role.eq.anchor')
+        .is('archived_at', null)
+        .order('vendor_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: PAGE },
+  );
+  return {
+    rows: read.rows as CompletionAwaitingRow[],
+    error: read.error,
+    complete: read.complete,
+  };
 }

@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { readKeepLine, type KeepLine } from '@/lib/unlisted-guests';
 import { quickCreateGroup } from '../quick-add-actions';
-import { syncExtraSeats } from '@/lib/extra-seats-sync';
+import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 
 /** Back to the page with a sentence the couple can act on. */
 function back(eventId: string, message: string): never {
@@ -80,6 +80,14 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
   const choice = readKeepLine(String(formData.get('line') ?? ''), String(formData.get('role') ?? ''), offeredRoles);
   if (!choice.ok) back(eventId, choice.error);
   const chosen = (choice as { ok: true; value: KeepLine }).value;
+
+  // 🔒 This path writes with the ADMIN client, which the database's own
+  // finalized-list lock lets through (it exempts service_role). So the seat
+  // rule is asked explicitly, before anything is saved (owner 2026-09-21).
+  if (chosen.plusOnes > 0) {
+    const seatCheck = await checkExtraSeats(admin, eventId, guestId, chosen.plusOnes);
+    if (!seatCheck.ok) back(eventId, seatCheck.error);
+  }
 
   // Promote out of the reconcile queue. Drop the legacy self_joined tag too so
   // the row reads as a clean host-list member.

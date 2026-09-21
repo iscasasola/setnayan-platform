@@ -27,6 +27,7 @@ import {
 import { SeatChip } from './seat-chip';
 import {
   AddToGroupControl,
+  GuestListFinalizedContext,
   PlusOneChipEditor,
   RoleChipEditor,
   RsvpChipEditor,
@@ -622,6 +623,8 @@ type Props = {
   // the host isn't left with a stale selection after assigning a role/side/group).
   recentlyDeleted?: string;
   recentlyApplied?: boolean;
+  /** The guest list is finalized — extra seats stop being editable (owner 2026-09-21). */
+  listFinalized?: boolean;
 };
 
 export function GuestListMultiselect({
@@ -640,6 +643,7 @@ export function GuestListMultiselect({
   roleSetKey,
   recentlyDeleted,
   recentlyApplied,
+  listFinalized = false,
 }: Props) {
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
   // the role-editor popover's option groups (P2).
@@ -870,6 +874,7 @@ export function GuestListMultiselect({
   ]);
 
   return (
+    <GuestListFinalizedContext.Provider value={listFinalized}>
     <div className="space-y-4">
       {/* Floating bulk-action bar — DESKTOP ONLY (lg+). On phones + tablets
           the carousel's Customize panel + Assign bottom sheet own bulk
@@ -1174,6 +1179,7 @@ export function GuestListMultiselect({
         ))}
       </div>
     </div>
+    </GuestListFinalizedContext.Provider>
   );
 }
 

@@ -1,7 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { seatToName, type ExtraSeatRow } from '@/lib/extra-seats';
+import { planSeatNames, readSeatNames, type ExtraSeatRow } from '@/lib/extra-seats';
+import { plusOneSeats } from '@/lib/guests';
 import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
@@ -135,11 +136,6 @@ export async function submitRsvp(
   const contactEmail = clean(formData.get('contact_email')) || null;
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
-  // The guest names the person they are bringing. Blank changes nothing — see
-  // the write below; removing a +1 deletes a real guest row and is the HOST's
-  // action, not something a guest does by clearing a box.
-  const plusOneFirst = clean(formData.get('plus_one_first_name'));
-  const plusOneLast = clean(formData.get('plus_one_last_name'));
 
   if (meal && !MEAL_VALUES.includes(meal)) {
     return;
@@ -622,21 +618,22 @@ export async function submitRsvp(
   // its own camera — at an event whose host allowed them none.
   //
   // ⚖ A BLANK BOX IS NOT A REMOVAL, the same rule the contact boxes follow.
-  if (plusOneFirst || plusOneLast) {
+  const seatNames = readSeatNames(formData);
+  if (seatNames.length > 0) {
     const { data: primary } = await admin
       .from('guests')
-      .select('plus_one_allowed, plus_one_mode, side, group_category')
+      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category')
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .maybeSingle();
 
     if (primary?.plus_one_allowed) {
       /*
-        🔴 A GUEST MAY NOW HAVE SEVERAL SEATS (owner 2026-09-21: up to +4, each
-        a row beside them). This used to be `.maybeSingle()` — which ERRORS on
-        two rows, reads as "none", and inserted ANOTHER seat on every RSVP. It
-        also counted removed rows. Now: fill the oldest open (unnamed) seat; if
-        every seat is named, update the first, as the single-seat path did.
+        ⚖ Owner 2026-09-21 ("2. yes"): one name box per seat — up to +4, each
+        seat a row beside this guest. `planSeatNames` decides which seat each
+        name fills and REFUSES to mint a seat beyond what the couple gave (the
+        form is postable by anyone with the link). It replaced a `.maybeSingle()`
+        lookup that errored on two seats and inserted another every reply.
       */
       const { data: seatRows } = await admin
         .from('guests')
@@ -650,56 +647,57 @@ export async function submitRsvp(
         confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
         created_at: (r.created_at as string | null) ?? null,
       }));
-      const targetId =
-        seatToName(seats) ??
-        [...seats].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0]?.guest_id ??
-        null;
-      const existing = targetId ? { guest_id: targetId } : null;
-
-      const first = plusOneFirst || 'TBA';
-      const last = plusOneLast || '+1';
-      const named = `${plusOneFirst} ${plusOneLast}`.trim();
+      const ops = planSeatNames(seatNames, seats, plusOneSeats(primary));
       const stamp = new Date().toISOString();
 
-      if (existing?.guest_id) {
-        await admin
-          .from('guests')
-          .update({
+      for (const op of ops) {
+        const first = op.first || 'TBA';
+        const last = op.last || '+1';
+        if (op.kind === 'name') {
+          await admin
+            .from('guests')
+            .update({
+              first_name: first,
+              last_name: last,
+              // Clearing this is what actually replaces "+ TBA · brought by …":
+              // guestDisplayName PREFERS display_name, so leaving it would keep
+              // the placeholder on the seating chart and in the emcee script.
+              display_name: null,
+              plus_one_name_confirmed_at: stamp,
+              updated_at: stamp,
+            })
+            .eq('guest_id', op.seatId)
+            .eq('event_id', eventId)
+            .eq('plus_one_of_guest_id', guestId);
+        } else {
+          // Same shape the host's own "add a guest" form inserts, so the seat
+          // gets a real row — and with it the qr_token the column mints by DEFAULT.
+          await admin.from('guests').insert({
+            event_id: eventId,
             first_name: first,
             last_name: last,
-            // Clearing this is what actually replaces "+ TBA · brought by …":
-            // guestDisplayName PREFERS display_name, so leaving it would keep
-            // the placeholder on the seating chart and in the emcee script —
-            // the same half-fix /welcome shipped with.
-            display_name: null,
+            side: primary.side,
+            group_category: primary.group_category,
+            role: 'guest',
+            rsvp_status: 'pending',
+            photo_consent: true,
+            plus_one_of_guest_id: guestId,
+            plus_one_mode: primary.plus_one_mode,
             plus_one_name_confirmed_at: stamp,
-            updated_at: stamp,
-          })
-          .eq('guest_id', existing.guest_id);
-      } else {
-        // Same shape the host's own "add a guest" form inserts, so the +1 gets a
-        // real row — and with it the qr_token the column mints by DEFAULT.
-        await admin.from('guests').insert({
-          event_id: eventId,
-          first_name: first,
-          last_name: last,
-          side: primary.side,
-          group_category: primary.group_category,
-          role: 'guest',
-          rsvp_status: 'pending',
-          photo_consent: true,
-          plus_one_of_guest_id: guestId,
-          plus_one_mode: primary.plus_one_mode,
-          plus_one_name_confirmed_at: stamp,
-        });
+          });
+        }
       }
 
-      // Mirror onto the primary so the host's list chips stop reading "+ TBA".
-      await admin
-        .from('guests')
-        .update({ plus_one_name: named || null, updated_at: stamp })
-        .eq('guest_id', guestId)
-        .eq('event_id', eventId);
+      // Mirror onto the primary so the host's list chips stop reading "+ TBA":
+      // the first name given, as the single-seat reply always did.
+      const firstNamed = ops[0] ? `${ops[0].first} ${ops[0].last}`.trim() : '';
+      if (firstNamed) {
+        await admin
+          .from('guests')
+          .update({ plus_one_name: firstNamed, updated_at: stamp })
+          .eq('guest_id', guestId)
+          .eq('event_id', eventId);
+      }
     }
   }
 

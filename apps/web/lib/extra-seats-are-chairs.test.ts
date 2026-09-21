@@ -48,5 +48,27 @@ test('a guest naming their plus-one fills a seat — never adds one', () => {
   const window = rsvp.slice(at, at + 600);
   assert.match(window, /\.is\('deleted_at', null\)/, 'removed seats are counted again');
   assert.ok(!/\.eq\('plus_one_of_guest_id', guestId\)\s*\.maybeSingle\(\)/.test(rsvp), 'maybeSingle on the seats is back — two seats read as none, and every RSVP adds another');
-  assert.match(rsvp, /seatToName\(seats\)/, 'the RSVP does not fill the open seat');
+  // One box per seat (owner 2026-09-21): planSeatNames fills seats and caps
+  // new ones at what the couple gave — the reply can never mint extra seats.
+  assert.match(rsvp, /const ops = planSeatNames\(seatNames, seats, plusOneSeats\(primary\)\);/, 'the RSVP does not use the seat plan, or does not cap it');
+  assert.match(rsvp, /\.eq\('plus_one_of_guest_id', guestId\);/, 'a named seat is not scoped to this guest');
+});
+
+test('🔒 a finalized guest list locks extra seats — checked before saving, on every path', () => {
+  // ⚖ Owner 2026-09-21 ("1. yes"): once the count is finalized, seats stop moving.
+  const sync = read('lib', 'extra-seats-sync.ts');
+  const at = sync.indexOf('export async function checkExtraSeats(');
+  const body = sync.slice(at, sync.indexOf('\nexport async function', at + 1));
+  assert.match(body, /guestListIsClosed\(\{/, 'the seat check no longer asks whether the list is closed');
+  assert.match(body, /return \{ ok: false, error: GUEST_LIST_FINALIZED \};/, 'a closed list does not refuse a seat change');
+  assert.match(body, /if \(evErr \|\| !ev\) return \{ ok: false/, 'an unreadable event is treated as open');
+  // Keep writes with the ADMIN client, which the DB lock exempts — so it must ask.
+  const keep = read(...G, 'claims', 'actions.ts');
+  const check = keep.indexOf('checkExtraSeats(admin, eventId, guestId, chosen.plusOnes)');
+  const write = keep.indexOf('.update({ plus_one_count: chosen.plusOnes');
+  assert.ok(check > -1 && write > check, 'Keep saves extra seats on a finalized list');
+  // And the roster stops offering the picker.
+  const chip = read(...G, '_components', 'chip-editors.tsx');
+  assert.match(chip, /const finalized = useContext\(GuestListFinalizedContext\);[\s\S]{0,400}if \(finalized\) \{/, 'the + picker is offered on a finalized list');
+  assert.match(read(...G, 'page.tsx'), /listFinalized=\{finalize\.locked\}/, 'the roster is never told the list is finalized');
 });

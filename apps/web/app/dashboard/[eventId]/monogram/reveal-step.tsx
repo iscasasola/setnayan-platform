@@ -7,7 +7,9 @@ import {
   type StudioAnimKind,
   type StudioAnimTempo,
 } from '@/lib/monogram-studio-shared';
-import { setRevealAction } from './reveal-actions';
+import { setRevealAction, saveRevealChoice } from './reveal-actions';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import type { InlineCheckoutDrawerProps } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 /**
  * <RevealStep> — ONE reveal, for a mark made either way.
@@ -52,6 +54,7 @@ export function RevealStep({
   initialTempo,
   owned,
   unlock,
+  checkout,
 }: {
   eventId: string;
   /** The couple's mark, resolved and ink-applied by the page. */
@@ -61,9 +64,18 @@ export function RevealStep({
   initialTempo: Exclude<StudioAnimTempo, 'custom'>;
   /** Does the event own the paid animation already? */
   owned: boolean;
-  /** The ₱500 unlock row, rendered by the page (a server component) and placed
-   *  here so the price sits under the thing it buys. */
+  /** Shown BELOW the step once the animation is owned — the confirmation /
+   *  under-review states, rendered server-side by the page. Not used for the
+   *  purchase itself any more. */
   unlock?: React.ReactNode;
+  /** Everything the checkout drawer needs, resolved server-side by the page
+   *  (catalog price, payment settings). Absent when the animation is owned,
+   *  when the store shell withholds purchases, or when the price could not be
+   *  read — and the button below degrades accordingly rather than guessing. */
+  checkout?: Pick<
+    InlineCheckoutDrawerProps,
+    'serviceKey' | 'displayName' | 'originalPriceCentavos' | 'settings' | 'vatRatePct'
+  > | null;
 }) {
   const [kind, setKind] = useState<StudioAnimKind>(initialKind);
   const [tempo, setTempo] = useState<Exclude<StudioAnimTempo, 'custom'>>(initialTempo);
@@ -142,22 +154,80 @@ export function RevealStep({
         ))}
       </div>
 
-      <form action={setRevealAction} className="flex flex-wrap items-center gap-3">
-        <input type="hidden" name="event_id" value={eventId} />
-        <input type="hidden" name="kind" value={kind} />
-        <input type="hidden" name="tempo" value={tempo} />
-        <button
-          type="submit"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-5 text-sm font-semibold text-ink hover:bg-ink/5"
-        >
-          Keep this reveal
-        </button>
-        <span className="text-xs text-ink/55">
-          {owned
-            ? 'Saved reveals play for your guests straight away.'
-            : 'Saving is free — it plays for guests once the animation is unlocked.'}
-        </span>
-      </form>
+      {/* ── ONE BUTTON (owner 2026-09-20): "keep this reveal and animate & apply
+          should be 1. Unlock & Apply. One time payment that they can animate
+          their monogram."
+
+          There used to be two: "Keep this reveal" (free, saves the choice) and
+          "Animate & apply · ₱500" (pays). Two buttons for one intention made the
+          couple do the bookkeeping — and let them pay without saving, so the
+          animation they bought could play a different reveal from the one they
+          were looking at. Now the ONE button records the reveal on screen and
+          THEN opens payment (InlineCheckoutDrawer.onBeforeOpen), so what they
+          pay for is exactly what they chose. ── */}
+      {owned ? (
+        <form action={setRevealAction} className="flex flex-wrap items-center gap-3">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="kind" value={kind} />
+          <input type="hidden" name="tempo" value={tempo} />
+          <button
+            type="submit"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-lg bg-mulberry px-6 text-sm font-semibold text-cream hover:bg-mulberry-700"
+          >
+            Apply this reveal
+          </button>
+          <span className="text-xs text-ink/55">Unlocked — it plays for your guests as soon as you apply it.</span>
+        </form>
+      ) : checkout ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center">
+          <div className="flex-1 space-y-1">
+            <p className="text-base font-semibold tracking-tight text-ink">One-time payment, then it’s yours</p>
+            <p className="max-w-prose text-sm leading-relaxed text-ink/65">
+              Unlock animation for your monogram — it draws itself in on your website, your
+              invitation, your save-the-date and the screens on the day. One payment for your
+              wedding, whichever mark you use.
+            </p>
+            {/* The honest wait. `order_paid` is on the email allowlist, so the
+                email is real; NO duration is promised because approval latency
+                has never been measured. */}
+            <p className="pt-1 text-xs text-ink/55">
+              We check every payment by hand and email you the moment it goes live.
+            </p>
+          </div>
+          <div className="shrink-0 sm:w-auto">
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey={checkout.serviceKey}
+              displayName={checkout.displayName}
+              originalPriceCentavos={checkout.originalPriceCentavos}
+              settings={checkout.settings}
+              vatRatePct={checkout.vatRatePct}
+              /* No price in the label — the drawer appends the catalog price
+                 itself; passing one printed it twice on a money button. */
+              triggerLabel="Unlock & Apply"
+              triggerClassName="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-lg bg-mulberry px-6 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-70 sm:w-auto"
+              onBeforeOpen={async () => {
+                await saveRevealChoice({ eventId, kind, tempo });
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        /* No purchase path here — the store shell withholds paid items, or the
+           catalog price could not be read. The couple can still record the
+           reveal they like; nothing is priced from a guess. */
+        <form action={setRevealAction} className="flex flex-wrap items-center gap-3">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="kind" value={kind} />
+          <input type="hidden" name="tempo" value={tempo} />
+          <button
+            type="submit"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-5 text-sm font-semibold text-ink hover:bg-ink/5"
+          >
+            Keep this reveal
+          </button>
+        </form>
+      )}
 
       {unlock}
     </section>

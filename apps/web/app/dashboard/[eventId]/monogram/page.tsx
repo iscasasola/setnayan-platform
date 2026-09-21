@@ -17,7 +17,9 @@ import { applyMarkInk } from '@/lib/monogram-ink';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
 import { UploadMark } from './upload-mark';
 import { MarkEverywhere } from './mark-everywhere';
-import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
@@ -138,6 +140,34 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
    * two chances to disagree about what a customer is charged. */
   const storeShell = await isStoreShellRequest();
   const ownsAnimated = await eventOwnsAnimatedMonogram(supabase, eventId);
+
+  /* Everything the ONE "Unlock & Apply" button needs, read here and nowhere
+   * else. This is the single place the price is fetched now: the compact buy
+   * row inside <AnimatedMonogramUpgrade> no longer renders for an unowned
+   * event, because its button was merged into the reveal step. Two components
+   * fetching one price is two chances to show a couple different numbers.
+   *
+   * Absent (null) when owned, when the store shell withholds purchases (App
+   * Review 3.1.1), or when the catalog price cannot be read — and the step then
+   * offers no purchase rather than a guessed one. */
+  let checkout: {
+    serviceKey: string;
+    displayName: string;
+    originalPriceCentavos: string;
+    settings: Awaited<ReturnType<typeof fetchPlatformSettings>>;
+  } | null = null;
+  if (!ownsAnimated && !storeShell) {
+    const pricePhp =
+      (await formatV2Sku(ANIMATED_MONOGRAM_SERVICE_KEY).catch(() => null))?.price_php ?? null;
+    if (pricePhp != null) {
+      checkout = {
+        serviceKey: ANIMATED_MONOGRAM_SERVICE_KEY,
+        displayName: `Animated Monogram${event.display_name ? ` · ${event.display_name}` : ''}`,
+        originalPriceCentavos: String(Math.round(pricePhp * 100)),
+        settings: await fetchPlatformSettings(supabase),
+      };
+    }
+  }
 
   // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
   // right after a successful save — studio or upload — on the EFFECTIVE mark.
@@ -283,7 +313,11 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
               : 'classic'
           }
           owned={ownsAnimated}
-          unlock={!storeShell ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
+          checkout={checkout}
+          /* Owned (or paid and under review) keeps its fuller confirmation
+           * below the step. The PURCHASE is no longer here — it is the step's
+           * own "Unlock & Apply". */
+          unlock={!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
         />
       ) : null}
     </section>

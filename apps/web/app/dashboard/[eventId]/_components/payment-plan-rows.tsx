@@ -33,6 +33,14 @@
 
 import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2 } from 'lucide-react';
+// 🔑 THE SHARED EXACT FORMATTER, not a local one. This file had its own
+// `Math.round(n).toLocaleString('en-PH')`, which printed a 33⅓% instalment of
+// ₱79,993.50 as ₱26,665 instead of ₱26,664.50 — the very bug PR #5744 traced
+// (₱837.50 shown as ₱838 on the screen whose job is to name the figure to type
+// into GCash). The money-formatter scan did not catch it only because it
+// inspects functions NAMED like converters; the rule is the intent, not the
+// scan's reach.
+import { formatPhp } from '@/lib/php';
 
 type Row = {
   key: number;
@@ -50,12 +58,21 @@ const ANCHOR_LABEL: Record<'on_lock' | 'before_event', string> = {
 
 const MAX_ROWS = 12;
 
+/**
+ * ⚠ NO WIDTH IN HERE — every call site sets its own (`flex-1`, `w-20`…).
+ *
+ * This carried `w-full` until 2026-09-21, and every control ALSO added a fixed
+ * width on top. Two width utilities on one element do not resolve by the order
+ * they are written in `className`; they resolve by the order Tailwind emits
+ * them in the stylesheet — and `w-full` won. Every control went to 100% and the
+ * flex row shrank them all together: measured on a live 375px phone, the
+ * payment's NAME input was 18px and its due-date rule 18px. The two-line layout
+ * alone would have shipped still broken; removing this is what fixed it (name
+ * 169px, rule 130px against the 88px "before the event" needs).
+ */
 const CELL =
-  'w-full rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-xs text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
+  'rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-xs text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
 
-function peso(n: number): string {
-  return `₱${Math.round(n).toLocaleString('en-PH')}`;
-}
 
 export function PaymentPlanRows({
   totalPhp,
@@ -121,97 +138,112 @@ export function PaymentPlanRows({
     <div className="space-y-2">
       <div className="space-y-1.5">
         {rows.map((r, i) => (
+          /* ── TWO LINES PER PAYMENT, NOT SIX COLUMNS (2026-09-21) ──────────
+             Measured live on production the day this shipped: one six-column
+             row put the payment's NAME in a 34px input and its DUE-DATE rule
+             in a 31px select on a 375px phone, and still clipped them on a
+             448px desktop sheet ("Downpaymer", "after bo", "before t"). A
+             couple could not read which rule they had picked — which is the
+             whole point of a dated plan. Line 1 is WHAT and HOW MUCH; line 2
+             is WHEN; every control now gets real width at 375px. */
           <div
             key={r.key}
-            className="sn-canvas-rise grid grid-cols-[minmax(0,1.3fr)_52px_44px_minmax(0,1.2fr)_40px_auto] items-center gap-1.5"
+            className="sn-canvas-rise space-y-1.5 rounded-lg border border-ink/10 bg-paper p-2"
             style={{ animationDelay: `${Math.min(i, 8) * 26}ms` }}
           >
-            <input
-              type="text"
-              name="plan_label"
-              value={r.label}
-              disabled={disabled}
-              maxLength={60}
-              placeholder="Downpayment"
-              aria-label={`Payment ${i + 1} name`}
-              onChange={(e) => patch(r.key, { label: e.target.value })}
-              className={CELL}
-            />
-            <input
-              type="text"
-              name="plan_value"
-              inputMode="decimal"
-              value={r.value}
-              disabled={disabled}
-              placeholder="50"
-              aria-label={`Payment ${i + 1} amount`}
-              onChange={(e) => patch(r.key, { value: e.target.value })}
-              className={CELL}
-            />
-            <select
-              name="plan_kind"
-              value={r.kind}
-              disabled={disabled}
-              aria-label={`Payment ${i + 1} amount type`}
-              onChange={(e) => patch(r.key, { kind: e.target.value === 'fixed' ? 'fixed' : 'percent' })}
-              className={CELL}
-            >
-              <option value="percent">%</option>
-              <option value="fixed">₱</option>
-            </select>
-            <select
-              name="plan_anchor"
-              value={r.anchor}
-              disabled={disabled}
-              aria-label={`Payment ${i + 1} due date`}
-              onChange={(e) =>
-                patch(r.key, { anchor: e.target.value as Row['anchor'] })
-              }
-              className={CELL}
-            >
-              <option value="on_lock">{ANCHOR_LABEL.on_lock}</option>
-              <option value="before_event">{ANCHOR_LABEL.before_event}</option>
-            </select>
-            <input
-              type="text"
-              name="plan_days"
-              inputMode="numeric"
-              value={r.days}
-              disabled={disabled}
-              placeholder="0"
-              aria-label={`Payment ${i + 1} days from the anchor`}
-              onChange={(e) => patch(r.key, { days: e.target.value })}
-              className={CELL}
-            />
-            <span className="flex items-center">
-              <button
-                type="button"
-                disabled={disabled || i === 0}
-                onClick={() => move(r.key, -1)}
-                aria-label={`Move payment ${i + 1} earlier`}
-                className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                name="plan_label"
+                value={r.label}
+                disabled={disabled}
+                maxLength={60}
+                placeholder="Downpayment"
+                aria-label={`Payment ${i + 1} name`}
+                onChange={(e) => patch(r.key, { label: e.target.value })}
+                className={`${CELL} min-w-0 flex-1`}
+              />
+              <input
+                type="text"
+                name="plan_value"
+                inputMode="decimal"
+                value={r.value}
+                disabled={disabled}
+                placeholder="50"
+                aria-label={`Payment ${i + 1} amount`}
+                onChange={(e) => patch(r.key, { value: e.target.value })}
+                className={`${CELL} w-20 shrink-0`}
+              />
+              <select
+                name="plan_kind"
+                value={r.kind}
+                disabled={disabled}
+                aria-label={`Payment ${i + 1} amount type`}
+                onChange={(e) =>
+                  patch(r.key, { kind: e.target.value === 'fixed' ? 'fixed' : 'percent' })
+                }
+                className={`${CELL} w-14 shrink-0`}
               >
-                <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                disabled={disabled || i === rows.length - 1}
-                onClick={() => move(r.key, 1)}
-                aria-label={`Move payment ${i + 1} later`}
-                className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
+                <option value="percent">%</option>
+                <option value="fixed">₱</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-[11px] text-ink/50">Due</span>
+              <input
+                type="text"
+                name="plan_days"
+                inputMode="numeric"
+                value={r.days}
+                disabled={disabled}
+                placeholder="0"
+                aria-label={`Payment ${i + 1} days from the anchor`}
+                onChange={(e) => patch(r.key, { days: e.target.value })}
+                className={`${CELL} w-12 shrink-0 text-center`}
+              />
+              <span className="shrink-0 text-[11px] text-ink/50">days</span>
+              <select
+                name="plan_anchor"
+                value={r.anchor}
+                disabled={disabled}
+                aria-label={`Payment ${i + 1} due date`}
+                onChange={(e) => patch(r.key, { anchor: e.target.value as Row['anchor'] })}
+                className={`${CELL} min-w-0 flex-1`}
               >
-                <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                disabled={disabled || rows.length <= 1}
-                onClick={() => remove(r.key)}
-                aria-label={`Remove payment ${i + 1}`}
-                className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-danger-700 disabled:opacity-30"
-              >
-                <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-            </span>
+                <option value="on_lock">{ANCHOR_LABEL.on_lock}</option>
+                <option value="before_event">{ANCHOR_LABEL.before_event}</option>
+              </select>
+              <span className="flex shrink-0 items-center">
+                <button
+                  type="button"
+                  disabled={disabled || i === 0}
+                  onClick={() => move(r.key, -1)}
+                  aria-label={`Move payment ${i + 1} earlier`}
+                  className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
+                >
+                  <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || i === rows.length - 1}
+                  onClick={() => move(r.key, 1)}
+                  aria-label={`Move payment ${i + 1} later`}
+                  className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
+                >
+                  <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || rows.length <= 1}
+                  onClick={() => remove(r.key)}
+                  aria-label={`Remove payment ${i + 1}`}
+                  className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-danger-700 disabled:opacity-30"
+                >
+                  <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+              </span>
+            </div>
           </div>
         ))}
       </div>
@@ -236,7 +268,7 @@ export function PaymentPlanRows({
         <span className={covered ? 'font-medium text-success-800' : 'font-medium text-warn-800'}>
           {totalPhp == null
             ? 'Set a price first'
-            : `${peso(scheduled)} of ${peso(totalPhp)}`}
+            : `${formatPhp(scheduled)} of ${formatPhp(totalPhp)}`}
         </span>
       </div>
     </div>

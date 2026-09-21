@@ -352,7 +352,19 @@ export function NewManualVendorModal({
       }}
     >
       <div
-        className="sn-addman-sheet w-full max-w-md rounded-t-2xl border-t border-ink/10 bg-cream p-5 shadow-2xl sm:rounded-2xl sm:border"
+        /* 🔴 THE SHEET SCROLLS INSIDE THE VIEWPORT (2026-09-21) — measured live
+           on production the day it shipped. Eight fields and a 200px map made
+           this sheet 1,513px tall in a 768px window. It sits in a `fixed
+           inset-0` overlay, which CANNOT scroll, and `sm:items-center` centred
+           it — so it overflowed 372px off BOTH edges. The required Vendor name
+           field sat at y = -174 and "Save & add" below the fold: a couple on a
+           laptop could not reach either. The old four-field sheet fit; the
+           consolidation broke it, and no source guard could see it.
+           So the sheet caps its own height and scrolls, and the footer below is
+           sticky, so the primary action never scrolls away on a long form.
+           `dvh`, not `vh`: on a phone `vh` includes the browser chrome, which
+           would push the pinned footer under the address bar. */
+        className="sn-addman-sheet max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border-t border-ink/10 bg-cream p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-4 flex items-start justify-between gap-3">
@@ -640,7 +652,13 @@ export function NewManualVendorModal({
             </p>
           ) : null}
 
-          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          {/* PINNED FOOTER. Negative margins run it edge to edge across the
+              sheet's p-5, and the matching padding puts the buttons back where
+              they were. Sticky works here BECAUSE the sheet's entrance uses
+              `backwards`: `both` would leave an identity transform on the
+              sheet after the run, and a transformed ancestor breaks sticky the
+              same way it breaks position:fixed. */}
+          <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-2 flex flex-col-reverse gap-2 border-t border-ink/10 bg-cream px-5 py-3 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}

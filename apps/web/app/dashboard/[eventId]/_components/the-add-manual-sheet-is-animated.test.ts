@@ -59,8 +59,62 @@ describe('the add-manually sheet is animated', () => {
   it('the backdrop and the sheet are the elements that carry it', () => {
     // Pinned to the two mounts rather than a bare file match, so moving the
     // class onto an inner div (where it would animate the wrong box) fails.
-    assert.match(modal, /className="sn-addman-veil fixed inset-0/);
-    assert.match(modal, /className="sn-addman-sheet w-full max-w-md/);
+    // ⚠ Pinned to the ELEMENT, not to the class ORDER. The first version
+    // matched the literal `sn-addman-sheet w-full max-w-md`, and the next edit
+    // to that className (adding the height cap) broke it for a reason that had
+    // nothing to do with animation. The property is "the sheet wears it"; the
+    // sheet is the one element carrying `max-w-md`.
+    assert.match(modal, /className="sn-addman-veil [^"]*fixed inset-0/);
+    assert.match(modal, /className="sn-addman-sheet [^"]*\bmax-w-md\b/);
+  });
+});
+
+/**
+ * THE SHEET CAN BE REACHED. (2026-09-21 — a bug found LIVE on production the
+ * day the eight-field sheet shipped, not by any test.)
+ *
+ * Measured in the browser: the sheet was 1,513px tall in a 768px window. It
+ * sits in a `fixed inset-0` overlay, which cannot scroll, and was centred — so
+ * it overflowed 372px off BOTH edges. The required Vendor name field was at
+ * y = -174 and "Save & add" was below the fold. A couple on a laptop could not
+ * fill in the one required name or press save.
+ *
+ * ⚠ A SOURCE GUARD CANNOT MEASURE LAYOUT, and this one does not pretend to. It
+ * pins the two declarations whose ABSENCE produced the bug — a height cap with
+ * scrolling on the sheet, and a sticky footer — so that removing either fails
+ * CI with the reason. Whether the result is comfortable to use is still a
+ * browser question; whether the cap exists at all is not.
+ */
+describe('the sheet can be reached on a short screen', () => {
+  const modal = readFileSync(MODAL, 'utf8');
+  const sheetClass = (modal.match(/className="(sn-addman-sheet [^"]*)"/) ?? [])[1] ?? '';
+
+  it('found the sheet className to inspect', () => {
+    assert.ok(sheetClass.length > 0, 'could not find the sheet className — re-point this guard');
+  });
+
+  it('caps its own height, on phones and on desktop', () => {
+    assert.match(sheetClass, /(^|\s)max-h-\[/, 'the sheet has no mobile max-height');
+    assert.match(sheetClass, /\bsm:max-h-\[/, 'the sheet has no desktop max-height');
+  });
+
+  it('scrolls inside itself', () => {
+    assert.match(
+      sheetClass,
+      /\boverflow-y-auto\b/,
+      'the sheet does not scroll. Inside a fixed overlay, a sheet taller than the ' +
+        'window overflows off both edges and cannot be reached — measured on ' +
+        'production 2026-09-21 with the Vendor name field at y = -174.',
+    );
+  });
+
+  it('keeps Save & add pinned so the primary action never scrolls away', () => {
+    assert.match(
+      modal,
+      /className="sticky bottom-0[^"]*"/,
+      'the footer holding "Save & add" is no longer sticky — on an eight-field ' +
+        'sheet the primary action would scroll out of reach.',
+    );
   });
 });
 

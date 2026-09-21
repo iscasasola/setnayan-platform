@@ -1415,18 +1415,33 @@ export function bucketVendorsByGroup(
 }
 
 /**
- * Compute the target lock-by date for a group given the wedding date.
- * Returns null if event_date is missing.
+ * Compute the lock-by FLOOR date for a group, given the wedding date and how
+ * many DAYS before it that group's floor falls.
+ *
+ * 🛑 `lockByDays` IS DAYS, AND IT IS THE FLOOR — NOT `monthsBefore`.
+ * This took MONTHS in a previous life, and its only caller passed
+ * `PLAN_GROUPS.monthsBefore`, which is an AIM ("aim to have this locked") and
+ * not a deadline. The surface that renders "Overdue by N days" was therefore
+ * measuring lateness from a date the couple had merely hoped to be finished by.
+ *
+ * Measured on production 2026-09-22 — wedding 2026-12-18, 87 days out,
+ * coordinator unbooked: the aim (12 months → 2025-12-18) gave the Overview
+ * "overdue by 278 days", while the real floor (`lockLeadDaysFor('coordinator')`
+ * = 200 days → 2026-06-01) gives 113 — **165 days apart**, and the Your Team
+ * page was already printing the correct 113.
+ *
+ * Pass `lockLeadDaysFor(groupId)` from `@/lib/vendors-plan-budget`, the single
+ * source of the floor. Returns null if event_date is missing.
  */
 export function computeTargetDate(
   weddingDateIso: string | null,
-  monthsBefore: number,
+  lockByDays: number,
 ): Date | null {
   if (!weddingDateIso) return null;
   const wedding = new Date(weddingDateIso);
   if (Number.isNaN(wedding.getTime())) return null;
   const target = new Date(wedding);
-  target.setMonth(target.getMonth() - monthsBefore);
+  target.setDate(target.getDate() - lockByDays);
   return target;
 }
 
@@ -1445,10 +1460,10 @@ export type TargetDateStatus =
  */
 export function targetDateStatus(
   weddingDateIso: string | null,
-  monthsBefore: number,
+  lockByDays: number,
   hasAtLeastOneLocked: boolean,
 ): TargetDateStatus {
-  const target = computeTargetDate(weddingDateIso, monthsBefore);
+  const target = computeTargetDate(weddingDateIso, lockByDays);
   if (!target) {
     return { tone: 'none', label: 'Set a wedding date to see your timeline' };
   }

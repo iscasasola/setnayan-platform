@@ -17,7 +17,9 @@
  *   1. OVERDUE — `targetDateStatus` tone === 'overdue'. Sort by
  *      daysOverdue DESC (most-overdue first). These are tasks whose
  *      hard-floor lock date has already passed and the host has zero
- *      locked vendors in that category. Tie-break by group `monthsBefore`
+ *      locked vendors in that category. The floor is `lockLeadDaysFor`
+ *      (`vendors-plan-budget.ts`) — NOT `monthsBefore`, which is an aim;
+ *      see the note in `classify()` for the 165-day error that cost. Tie-break by group `monthsBefore`
  *      ASC (earlier-locking categories outrank later ones — e.g. a
  *      venue overdue by 30 days outranks a cake overdue by 30 days
  *      because the venue is structurally upstream).
@@ -62,6 +64,7 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { anyAwaitingVendor } from '@/lib/lock-request-state';
+import { lockLeadDaysFor } from '@/lib/vendors-plan-budget';
 
 const CONFIRMED_SET = new Set<string>(
   CONFIRMED_VENDOR_STATUSES as readonly string[],
@@ -523,10 +526,43 @@ function classify(
   weddingDateIso: string,
   now: Date,
 ): Candidate | null {
+  /*
+    ─── 🛑 THE FLOOR, NOT THE AIM ─────────────────────────────────────────────
+    This used `group.monthsBefore` and called the result a "hard-floor lock
+    date" (see this module's header, bucket 1). It is not one.
+    `PLAN_GROUPS.monthsBefore` is documented as "how many months before the
+    wedding date to **aim** to have this locked" — the coordinator's is 12, and
+    its own hint reads "Top coordinators book 9-12 months out." The hard floor
+    is `lockLeadDaysFor`, which `vendors-plan-budget.ts` has exported since
+    2026-07-27 and which the Your Team page has always read.
+
+    Measured on production 2026-09-22 (wedding 2026-12-18, 87 days out,
+    coordinator unbooked), the two surfaces disagreed to the couple's face:
+
+        Overview  ..... "Lock your coordinator · overdue by 278 days"  ← the aim
+        Your Team ..... "Coordinator / Planner · 113D OVERDUE"         ← the floor
+
+    12 calendar months before the wedding is 2025-12-18, which is 278 days ago;
+    the 200-day floor is 2026-06-01, which is 113 days ago. Both arithmetics
+    were right about the number they were handed. **165 days apart.**
+
+    🔑 MISSING THE AIM IS NOT BEING LATE. The aim sits earlier than the floor
+    for 22 of the 26 groups that have both, so this overstated lateness almost
+    everywhere — venues by 95 days, attire by 78, officiant by 74, cake by 47 —
+    and it did it in the one place on the Overview whose whole job is to tell
+    the couple what is most urgent.
+
+    `monthsBefore` is still carried on the Candidate below, and that use is
+    correct: it is the TIE-BREAK for two equally-overdue categories ("a venue
+    overdue by 30 days outranks a cake overdue by 30 days"). An aim orders
+    things fine. It just cannot say whether you are late.
+  */
+  const lockByDays = lockLeadDaysFor(group.id);
+
   // `targetDateStatus` returns one of four tones; we re-categorize into
   // the four hero-card statuses. `hasAtLeastOneLocked` is false here by
   // construction (we already filtered locked groups above).
-  const status = targetDateStatus(weddingDateIso, group.monthsBefore, false);
+  const status = targetDateStatus(weddingDateIso, lockByDays, false);
 
   // Re-derive days against the actual `now` arg so the resolver is
   // testable (targetDateStatus uses `new Date()` internally; for V1
@@ -535,7 +571,7 @@ function classify(
   const wedding = new Date(weddingDateIso);
   if (Number.isNaN(wedding.getTime())) return null;
   const target = new Date(wedding);
-  target.setMonth(target.getMonth() - group.monthsBefore);
+  target.setDate(target.getDate() - lockByDays);
   const diffDays = Math.round(
     (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
   );

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3a04dab31",
+  "generatedFromRef": "23a6b30b8",
   "routeCount": 430,
-  "destinations": 923,
-  "actions": 652,
-  "blocks": 4589,
+  "destinations": 924,
+  "actions": 654,
+  "blocks": 4601,
   "routes": {
     "/": {
       "files": [
@@ -883,6 +883,7 @@
         "ArrangedSheet",
         "ArrivalActionRow",
         "ArrivalGreeting",
+        "ArrivalOnce",
         "BackCover",
         "BackCoverBlock",
         "BackgroundMusic",
@@ -1598,6 +1599,7 @@
         "/admin/website",
         "/admin/website-media",
         "/admin/work",
+        "/dashboard",
         "/dashboard/profile"
       ],
       "actions": [],
@@ -4481,6 +4483,7 @@
       "files": [
         "dashboard/(account)/profile/_components/analytics-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
+        "dashboard/(account)/profile/_components/settings-shell.tsx",
         "dashboard/(account)/profile/actions.ts",
         "dashboard/(account)/profile/face-profile-actions.ts",
         "dashboard/(account)/profile/loading.tsx",
@@ -4490,12 +4493,14 @@
         "/admin",
         "/api/profile/export",
         "/dashboard/api-keys",
+        "/dashboard/profile",
         "/dashboard/profile/concierge",
         "/help",
         "/signup?next=%2Fdashboard%2Fprofile",
         "/u/[seg]"
       ],
       "actions": [
+        "action",
         "cancelAccountDeletionRequest",
         "changePassword",
         "forgetMyFaceEverywhere",
@@ -4508,6 +4513,7 @@
         "updateLocalePreference",
         "updatePersonalInfo",
         "updatePlannerMode",
+        "updatePublicGreeting",
         "updatePublicProfileEnabled",
         "updateRemindersEnabled",
         "updateSharePhotoWithHosts",
@@ -4521,13 +4527,19 @@
         "FileUpload",
         "FormFlash",
         "FormPageSkeleton",
+        "GroupHeader",
         "HapticsToggle",
+        "Icon",
         "Link",
         "PageMasthead",
         "ProfileShareButton",
         "PushToggle",
         "Row",
+        "Segmented",
+        "SettingsGroup",
+        "SettingsShell",
         "SubmitButton",
+        "SwitchRow",
         "TurnstileField"
       ]
     },
@@ -5497,6 +5509,8 @@
         "PageMasthead",
         "PairSelectedForm",
         "PartnerLine",
+        "PlusBadge",
+        "PlusOneChipEditor",
         "Popover",
         "QrActions",
         "QuickAddInlineForm",
@@ -5599,6 +5613,8 @@
     "/dashboard/[eventId]/guests/claims": {
       "files": [
         "dashboard/[eventId]/guests/claims/actions.ts",
+        "dashboard/[eventId]/guests/claims/keep-quick-add.tsx",
+        "dashboard/[eventId]/guests/claims/link-picker.tsx",
         "dashboard/[eventId]/guests/claims/page.tsx"
       ],
       "destinations": [
@@ -5606,7 +5622,11 @@
       ],
       "actions": [],
       "blocks": [
+        "Chip",
+        "KeepQuickAdd",
         "Link",
+        "LinkCandidate",
+        "LinkPicker",
         "SubmitButton"
       ]
     },
@@ -5996,6 +6016,7 @@
         "MarkInkMode",
         "MarkStage",
         "MarkToggle",
+        "MarkTools",
         "MoltenMonogramInline",
         "MonogramDraft",
         "MonogramDraftRestore",
@@ -9741,7 +9762,6 @@
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
         "vendor-dashboard/_components/vendor-nav-destinations.ts",
-        "vendor-dashboard/_components/vendor-nav-fab.tsx",
         "vendor-dashboard/_components/vendor-rail-context.tsx",
         "vendor-dashboard/_components/vendor-track-record-panel.tsx",
         "vendor-dashboard/_components/video-links-editor.tsx",
@@ -9759,7 +9779,6 @@
         "/explore",
         "/signup?as=vendor",
         "/vendor-dashboard",
-        "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -9840,7 +9859,6 @@
         "MediaTile",
         "MeetingBody",
         "MessageBody",
-        "NavFab",
         "NotConnected",
         "OngoingTasks",
         "PageMasthead",
@@ -9872,7 +9890,6 @@
         "VendorDealFacts",
         "VendorEnergyStats",
         "VendorFirstSteps",
-        "VendorNavFab",
         "VendorRailContext",
         "VendorTodayFocal",
         "WhatsNewFeed"

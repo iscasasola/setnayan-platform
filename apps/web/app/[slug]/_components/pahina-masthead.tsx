@@ -116,7 +116,7 @@ export function PahinaMasthead({
     return (
       <header className="text-center">
         {badgeSlot}
-        <div className="mx-auto max-w-md rounded-[3px] bg-cream p-3 shadow-[0_20px_48px_rgba(30,34,41,0.16)]">
+        <div className="mx-auto max-w-md rounded-sm bg-cream p-3 shadow-[0_20px_48px_rgba(30,34,41,0.16)]">
           <div className="border border-gild/45 px-5 pb-7 pt-8">
             <p className="text-xs uppercase tracking-[0.36em] text-ink/60">{card.eyebrow}</p>
             {monogramSlot ? (

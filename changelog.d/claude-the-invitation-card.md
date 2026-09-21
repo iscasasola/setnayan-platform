@@ -15,3 +15,8 @@ Guard: `the-invitation-is-a-card.test.ts`.
 
 SPEC IMPACT: DECISION_LOG.md row (the invitation card; countdown off the first
 screen; strangers see the same card).
+
+The paper card's corner routes through the `rounded-sm` token (`--m-r-xs`, 4px)
+rather than an ad-hoc `rounded-[3px]` — the radius guard
+(`apps/web/scripts/lint-radius.mjs`, strict in CI) keeps every corner on the
+one token scale.

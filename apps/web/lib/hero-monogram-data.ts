@@ -14,7 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { resolveMonogramMotion, type MonogramMotionKey } from '@/lib/monogram-motion';
-import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
@@ -100,9 +100,12 @@ export async function resolveEventMonogram(
     opts?.ink ?? getPrimaryColor(sanitizeRolePalette(row.role_palette), 'reception') ?? null;
   const bespokeSvg = resolveEventMonogramSvg(row, { ink: markInk });
   const ownsAnimated = await eventAnimatedMonogramActive(client, eventId);
-  const animatedMonogram: MonogramMotionKey | false = ownsAnimated
-    ? resolveMonogramMotion(row.monogram_motion_key)
-    : false;
+  /* Owned is not the same as ON: a couple who paid can still choose "Use Static
+   * Image" and their guests then see the mark still (owner 2026-09-20). */
+  const animatedMonogram: MonogramMotionKey | false =
+    ownsAnimated && !markAnimationSwitchedOff(row.monogram_studio_config)
+      ? resolveMonogramMotion(row.monogram_motion_key)
+      : false;
   // The bespoke reveal designed in the studio panel (config.anim), defaulted.
   const studioCfg = sanitizeStudioConfig(row.monogram_studio_config);
   const studioAnim: StudioAnim = studioCfg?.anim

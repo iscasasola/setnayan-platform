@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
@@ -54,4 +55,22 @@ test('a NAME drag never turns into a LINE drag', () => {
   // And every cell of every line is a MarchCell — count the mount, not the name.
   assert.equal((island.match(/<MarchCell\b/g) ?? []).length, 1, 'expected exactly one MarchCell mount (inside the per-cell map)');
   assert.match(island, /\(\[0, 1\] as const\)\.map\(\(c\) => \(\s*<MarchCell\b/, 'MarchCell is not rendered for both cells');
+});
+
+test('every printed entourage follows the couple’s section order', () => {
+  // ⚖ Owner 2026-09-21: the couple arranges the sections. A reader that calls
+  // buildEntourage with ONE argument prints the built-in order and silently
+  // disagrees with the Wedding March the couple just arranged.
+  const hits = execFileSync('git', ['grep', '-n', '-F', 'buildEntourage(', '--', 'app', 'lib'], { encoding: 'utf8' })
+    .split('\n')
+    .filter(Boolean)
+    .filter((l) => !/\.test\.tsx?:/.test(l) && !/export function buildEntourage\(/.test(l));
+  assert.ok(hits.length >= 2, `expected the two public readers, found ${hits.length}: ${hits.join(' | ')}`);
+  for (const hit of hits) {
+    const [file] = hit.split(':');
+    const src = readFileSync(join(process.cwd(), file!), 'utf8');
+    const at = src.indexOf('buildEntourage(');
+    const call = src.slice(at, src.indexOf(');', at));
+    assert.match(call, /loadEntourageSectionOrder\(/, `${file} prints the entourage without the couple's section order`);
+  }
 });

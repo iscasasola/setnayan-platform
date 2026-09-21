@@ -142,6 +142,26 @@ test('a refused read never renders as a money figure or a headcount of zero', ()
     /const (pending|paid|onHold)Centavos = payouts\s*\n?\s*\.filter/,
     'Reintroducing the direct reduce puts the zero back.',
   );
+  // 🔴 THIS TEST COULD NOT SEE THE WORSE HALF OF ITS OWN PAGE. Both assertions
+  // above are about the payouts read, which REFUSES. The EARNINGS read on the
+  // same page succeeded and returned `[]` — the year-to-date tile printed ₱0
+  // and the ledger said "No confirmed payments yet." to a supplier who had been
+  // paid ₱5,350, and this guard stayed green through all of it. A silent empty
+  // is the failure it was written to catch, so it must be named here too.
+  // The rule itself is EXECUTED in `lib/the-earnings-page-never-invents-a-zero.test.ts`;
+  // these two lines only hold the page to the module that decides it.
+  assert.match(
+    earnings,
+    /value=\{formatPhp\(view\.ytdPhp\)\}/,
+    'The year-to-date figure must come from `earningsView`, whose `ytdPhp` is ' +
+      'null — an em-dash — when the ledger was not read. A raw total prints ₱0.',
+  );
+  assert.match(
+    earnings,
+    /\{view\.ledger === 'unreadable' \? \(/,
+    'An unread ledger and a shop nobody has paid rendered the same empty box. ' +
+      'The list must branch on the read, not on the row count.',
+  );
 
   const dayOf = read('on-the-day/page.tsx');
   // 🪤 THIS ASSERTION WAS DECORATIVE ON ITS FIRST DRAFT AND THE MUTATION RUN

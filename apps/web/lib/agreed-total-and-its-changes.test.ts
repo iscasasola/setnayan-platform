@@ -746,10 +746,19 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
     ],
     column: 7,
   },
+  // ⚖ 13 → 21 on 2026-09-21, and none of the eight is a display of the agreed
+  // total. Seven WRITE the price (the price-only branch of updateVendorCosts,
+  // and the add/details sheets posting it). The eighth — loadSelfAddedSupplier
+  // — PRE-FILLS the editable Price field with the stored HEADLINE, deliberately
+  // not agreedTotalNow: that field is written back AS the headline, so
+  // pre-filling headline + accepted changes would fold the changes in and
+  // count them twice on save. Same call the workspace Costing editor makes. A
+  // self-added supplier has no account to raise a change order, so the two are
+  // equal today; the distinction is what keeps it right if that changes.
   'app/dashboard/[eventId]/vendors/actions.ts': {
     what: 'lock — the downpayment and the payment plan amounts',
     needles: [[AGREED_NOW, 2], [EMBED, 2], [/const totalCostPhp = agreedTotalNow\(/, 2]],
-    column: 13,
+    column: 21,
   },
   'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
     what: 'build-from-quotes — the price each quote is ranked at',

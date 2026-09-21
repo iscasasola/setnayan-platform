@@ -38,8 +38,8 @@
  */
 
 import Link from 'next/link';
-import { useTransition } from 'react';
-import { Ban, CalendarX2, Check, Clock, Hammer, Hourglass, MessageCircle } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { Ban, CalendarX2, Check, Clock, Hammer, Hourglass, MessageCircle, QrCode } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
@@ -71,6 +71,7 @@ import { AccordionLockButton } from './accordion-lock';
 import { ContactShortlistVendorButton } from './contact-shortlist-vendor-button';
 import { WithdrawAskButton } from './withdraw-ask-button';
 import { SelfAddedPrice } from './self-added-price';
+import { ConnectSupplierModal } from '../../_components/connect-supplier-modal';
 
 export function BenchVendorActions({
   actions,
@@ -80,8 +81,6 @@ export function BenchVendorActions({
   groupLabel,
   verifiedState,
   lockRequestExpiresAt,
-  transportPhp,
-  foodAllowancePhp,
 }: {
   actions: BenchCardActions;
   eventId: string;
@@ -97,14 +96,6 @@ export function BenchVendorActions({
    * to (spec §9: manual vendors skip the handshake and lock directly).
    */
   verifiedState: boolean | null;
-  /**
-   * Passed through UNCHANGED to `updateVendorCosts` by the self-added price
-   * control. That action writes whatever the FormData holds, so a form that
-   * omitted these two would blank a transport or food figure the couple had
-   * already recorded on the workspace. Never read for display here.
-   */
-  transportPhp?: number | null;
-  foodAllowancePhp?: number | null;
   /** ISO deadline of a still-outstanding ask, read back off the row the DB
    *  stamped. Only meaningful when `actions.withdraw` is non-null. */
   lockRequestExpiresAt?: string | null;
@@ -136,9 +127,36 @@ export function BenchVendorActions({
   // nulls the lock id on a clash — so the clash note below could never draw.
   const groupId = actions.lockGroupId;
   const buildGroupId = actions.buildGroupId;
+  const [connectOpen, setConnectOpen] = useState(false);
 
   return (
     <div className="vacts">
+      {/* [Connect] — FIRST, per the owner's order: "[Connect] · Add to build ·
+          [Lock]". The supplier's portal into their own account, at every
+          status (a locked self-added card showed no buttons at all before
+          this). Opening it only READS whether a link exists. */}
+      {actions.connect ? (
+        <>
+          <button
+            type="button"
+            className="vact ghost"
+            onClick={() => setConnectOpen(true)}
+            aria-haspopup="dialog"
+          >
+            <QrCode size={12} strokeWidth={2} aria-hidden />
+            Connect
+          </button>
+          {connectOpen ? (
+            <ConnectSupplierModal
+              eventId={eventId}
+              vendorId={vendorId}
+              vendorName={vendorName}
+              onClose={() => setConnectOpen(false)}
+            />
+          ) : null}
+        </>
+      ) : null}
+
       {actions.build && buildGroupId ? (
         actions.build.kind === 'add' ? (
           <button
@@ -205,12 +223,7 @@ export function BenchVendorActions({
           // A supplier the couple added themselves. There is nobody to ask, so
           // the couple types the price and the card unblocks (owner
           // 2026-09-20). Writes through `updateVendorCosts` — the one writer.
-          <SelfAddedPrice
-            eventId={eventId}
-            vendorId={vendorId}
-            transportPhp={transportPhp ?? null}
-            foodAllowancePhp={foodAllowancePhp ?? null}
-          />
+          <SelfAddedPrice eventId={eventId} vendorId={vendorId} />
         ) : (
           <span className="vact note">
             <Clock size={12} strokeWidth={1.9} aria-hidden />

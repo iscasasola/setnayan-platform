@@ -9,7 +9,7 @@ import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { MarkToggle } from './mark-toggle';
-import { RevealStep } from './reveal-step';
+import { AnimateRows } from './animate-rows';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { applyMarkInk } from '@/lib/monogram-ink';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
@@ -251,8 +251,8 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           It replaces the chooser SCREEN (<MarkDoors>, two large door cards), the
           "Both ways to make it" link back to it, and the heading inside each
           door — four pieces of navigation for one binary choice. The page is now
-          three things, top to bottom: this toggle · the editor or the uploader ·
-          the reveal. ── */}
+          four rows, top to bottom: this toggle · the editor or the uploader ·
+          the effects · Use Static Image / Unlock Animation & Apply. ── */}
       <MarkToggle eventId={eventId} mode={mode} />
 
 
@@ -282,40 +282,33 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           hasUpload={hasUpload}
           monogramText={monogram.text}
           notice={uploadNotice}
-          ownsAnimated={ownsAnimated}
           paletteInk={paletteInk}
           savedSvg={uploadedSvgForDisplay}
           savedIsLive={uploadIsLive}
         />
       ) : null}
 
-      {/* ── ONE REVEAL, for a mark made either way (owner 2026-09-20,
-          overruling the 2026-06-23 "the reveal lives inside the studio" lock).
-          It sits AFTER the mark exists rather than inside either door, and the
-          ₱500 unlock renders beneath it — the money buys the animation, not the
-          door. Nothing to reveal without a mark, so it waits for one.
+      {/* ── ROWS 3 + 4 (owner's concept, 2026-09-20): "next row is the different
+          animation effects / next row is Use Static Image (FREE) and Unlock
+          Animation (500)". Tapping an effect plays it on the mark above, in
+          place; the two buttons are the page's only save, for either side of
+          the toggle. The money buys the animation, not the side you came
+          through.
 
-          🔒 The unlock is withheld in the store shell (App Review 3.1.1); the
-          reveal itself previews free and stays. ── */}
-      {effectiveSvg ? (
-        <RevealStep
-          eventId={eventId}
-          markSvg={effectiveSvg}
-          monogramText={monogram.text}
-          initialKind={studioConfig?.anim?.kind ?? 'handwriting'}
-          initialTempo={
-            studioConfig?.anim?.preset === 'quick' || studioConfig?.anim?.preset === 'ceremonial'
-              ? studioConfig.anim.preset
-              : 'classic'
-          }
-          owned={ownsAnimated}
-          checkout={checkout}
-          /* Owned (or paid and under review) keeps its fuller confirmation
-           * below the step. The PURCHASE is no longer here — it is the step's
-           * own "Unlock & Apply". */
-          unlock={!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
-        />
-      ) : null}
+          🔒 The purchase is withheld in the store shell (App Review 3.1.1); the
+          effects still preview and "Use Static Image" still saves. ── */}
+      <AnimateRows
+        eventId={eventId}
+        initialKind={studioConfig?.anim?.kind ?? 'handwriting'}
+        tempo={
+          studioConfig?.anim?.preset === 'quick' || studioConfig?.anim?.preset === 'ceremonial'
+            ? studioConfig.anim.preset
+            : 'classic'
+        }
+        owned={ownsAnimated}
+        checkout={checkout}
+        unlock={!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
+      />
     </section>
   );
 }

@@ -30,14 +30,17 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireHostMembership } from '@/lib/host-gate';
 import {
   ENTOURAGE_COLUMNS,
   ENTOURAGE_GROUP_KEYS,
   entourageLines,
+  orderedGroupKeys,
   type EntourageGuestRow,
   type EntourageRow,
 } from '@/lib/entourage';
-import { joinVerdict, swapVerdict } from '@/lib/march-moves';
+import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
 
 /** Back to the Wedding March, never the roster — see entourage-order-actions. */
 function backToMarch(eventId: string, params: Record<string, string>): string {
@@ -130,4 +133,61 @@ export async function swapEntouragePlaces(
   });
   if (error) redirect(backToMarch(eventId, { error: 'That swap did not go through — nothing was changed.' }));
   done(eventId, { swapped: '2' });
+}
+
+/* ── SECTIONS ──────────────────────────────────────────────────────────────
+ * ⚖ Owner 2026-09-21: *"we should be able to arrange the parents, immediate
+ * family and other roles and modify its sequence."*
+ *
+ * The order is one per-event value, `events.entourage_section_order`, read by
+ * the invitation through `orderedGroupKeys`. It is written with the admin
+ * client after `requireHostMembership` — the column has no session UPDATE
+ * grant on purpose (see its migration).
+ */
+
+export async function moveEntourageSection(
+  eventId: string,
+  groupKey: string,
+  direction: 'up' | 'down',
+): Promise<void> {
+  await requireHostMembership(eventId);
+  const { full, visible } = await readAllGroups(eventId);
+  const next = nextSectionOrder(full, visible, groupKey, direction);
+  if (!next) redirect(backToMarch(eventId, {}));
+  await writeSectionOrder(eventId, next);
+  done(eventId, { sections: '1' });
+}
+
+export async function resetEntourageSections(eventId: string): Promise<void> {
+  await requireHostMembership(eventId);
+  await writeSectionOrder(eventId, null);
+  done(eventId, { sections: 'reset' });
+}
+
+async function readAllGroups(eventId: string): Promise<{ full: string[]; visible: Set<string> }> {
+  const admin = createAdminClient();
+  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }] = await Promise.all([
+    admin.from('events').select('entourage_section_order').eq('event_id', eventId).maybeSingle(),
+    admin.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+  ]);
+  if (evErr || rowsErr || !ev) {
+    redirect(backToMarch(eventId, { error: 'The Wedding March could not be read just now, so nothing was changed.' }));
+  }
+  const saved = (ev as { entourage_section_order: string[] | null }).entourage_section_order;
+  const all = (rows ?? []) as EntourageGuestRow[];
+  const full = orderedGroupKeys(saved);
+  return { full, visible: new Set(full.filter((k) => entourageLines(all, k).length > 0)) };
+}
+
+async function writeSectionOrder(eventId: string, order: string[] | null): Promise<void> {
+  const admin = createAdminClient();
+  // A zero-row UPDATE returns no error — count the rows, or "saved" is a guess.
+  const { data, error } = await admin
+    .from('events')
+    .update({ entourage_section_order: order })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error || !data || data.length === 0) {
+    redirect(backToMarch(eventId, { error: 'The new section order was not saved — nothing was changed.' }));
+  }
 }

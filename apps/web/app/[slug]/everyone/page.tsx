@@ -8,6 +8,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { isHostMemberType } from '../_lib/host-scope';
+import { loadEntourageSectionOrder } from '../_lib/loaders';
 import {
   buildEntourage,
   plainGuestNames,
@@ -129,7 +130,11 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
     .or(
       `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
     );
-  const groups = buildEntourage((castRows ?? []) as EntourageGuestRow[]);
+  // Same section order the invitation prints — the couple's, when they set one.
+  const groups = buildEntourage(
+    (castRows ?? []) as EntourageGuestRow[],
+    await loadEntourageSectionOrder(admin, event.event_id),
+  );
 
   /*
     🔒 THE GATED READ RUNS ONLY FOR SOMEONE THE EVENT RECOGNISES, and it is its

@@ -53,8 +53,31 @@ export type CouplePlanRowInput = {
   due_offset_days: string;
 };
 
+/**
+ * A resolved instalment PLUS the rule the couple typed to produce it.
+ *
+ * 🔑 WHY `authored` EXISTS (2026-09-21). `instances_json` stores RESOLVED dates
+ * — `due_date: '2026-12-11'` — which is what the Payments surface needs. But
+ * "7 days before the event" cannot be recovered from 2026-12-11, so the
+ * Details sheet had nothing to pre-fill its plan rows with: re-opening a
+ * supplier would have shown the couple an empty plan and invited them to
+ * retype one they had already agreed. The rule rides along in the same JSONB
+ * row; every existing reader ignores fields it does not know.
+ *
+ * It also answers the question flagged when the lock fix shipped: with the
+ * anchors kept, a plan CAN be re-resolved against a later lock date. Whether
+ * it SHOULD be is still the owner's call — this only stops the data being lost.
+ */
+export type AuthoredPlanRule = {
+  amount_kind: 'percent' | 'fixed';
+  value: string;
+  due_anchor: DueAnchor;
+  due_offset_days: string;
+};
+export type CouplePlanInstance = PlanInstance & { authored: AuthoredPlanRule };
+
 export type CouplePlanResult =
-  | { ok: true; instances: PlanInstance[] }
+  | { ok: true; instances: CouplePlanInstance[] }
   | { ok: false; message: string };
 
 export const PLAN_LABEL_MAX = 60;
@@ -190,7 +213,57 @@ export function buildCouplePaymentPlan(opts: {
     return { ok: false, message: planShortfallMessage(scheduled, opts.totalPhp) };
   }
 
-  return { ok: true, instances };
+  // Rows were filtered and validated above in the same order
+  // `computePlanInstances` returns them (it sorts by seq, and seq IS the index),
+  // so position i of `instances` is row i.
+  const ordered = [...rows];
+  return {
+    ok: true,
+    instances: instances.map((inst, i) => {
+      const r = ordered[i]!;
+      return {
+        ...inst,
+        authored: {
+          amount_kind: r.amount_kind,
+          value: r.value.trim(),
+          due_anchor: r.due_anchor as DueAnchor,
+          due_offset_days: r.due_offset_days.trim() === '' ? '0' : r.due_offset_days.trim(),
+        },
+      };
+    }),
+  };
+}
+
+/**
+ * Read a stored plan back into the rows the sheet edits.
+ *
+ * Instances written before `authored` existed cannot be turned back into
+ * rules — only a resolved date survives. They come back as FIXED peso amounts
+ * with NO anchor, so the sheet shows the money correctly and asks for the one
+ * thing it genuinely does not know. Guessing an anchor from a date would put a
+ * rule in the couple's plan that they never chose.
+ */
+export type EditablePlanRow = {
+  label: string;
+  kind: 'percent' | 'fixed';
+  value: string;
+  anchor: '' | DueAnchor;
+  days: string;
+};
+
+export function planInstancesToRows(instances: unknown): EditablePlanRow[] {
+  if (!Array.isArray(instances)) return [];
+  return instances.flatMap((raw): EditablePlanRow[] => {
+    if (!raw || typeof raw !== 'object') return [];
+    const i = raw as Partial<CouplePlanInstance>;
+    const label = typeof i.label === 'string' ? i.label : '';
+    const a = i.authored;
+    if (a && (a.due_anchor === 'on_lock' || a.due_anchor === 'before_event')) {
+      return [{ label, kind: a.amount_kind === 'fixed' ? 'fixed' : 'percent', value: String(a.value ?? ''), anchor: a.due_anchor, days: String(a.due_offset_days ?? '0') }];
+    }
+    const amt = typeof i.amount_php === 'number' ? i.amount_php : null;
+    return [{ label, kind: 'fixed' as const, value: amt == null ? '' : String(amt), anchor: '' as const, days: '0' }];
+  });
 }
 
 /**

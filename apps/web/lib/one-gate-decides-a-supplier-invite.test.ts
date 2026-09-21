@@ -70,6 +70,10 @@ const GATES = [
   // than asking the question itself, so THIS is where the gate actually
   // lives — bucketVendorsByGroup stamps it onto every pick at build time.
   'lib/wedding-plan-groups.ts',
+  // [Connect] on a self-added supplier's card (2026-09-21). The bench resolver
+  // decides whether the portal is offered — the same question — and its first
+  // draft re-derived it from the column instead of asking. Listed so it can't.
+  'lib/bench-card-actions.ts',
 ] as const;
 
 /**
@@ -159,11 +163,13 @@ test('every gate CALLS the predicate — none spells its own', () => {
       `${rel} spells the old two-column gate again`,
     );
   }
-  // Six gates now (5 + the pick-build gate in wedding-plan-groups.ts added
-  // 2026-09-08), and the count is asserted rather than "at least one file
-  // matched" — a file-level check cannot tell 6 from 5, and a gate that
-  // silently stops calling is exactly how this drifted the first time.
-  assert.equal(callSites, 6, `expected 6 call sites, found ${callSites}`);
+  // Eight call sites now: the original 5, the pick-build gate in
+  // wedding-plan-groups.ts (2026-09-08), and on 2026-09-21 the [Connect] leg in
+  // the bench resolver plus `readSupplierInvite` in vendors/actions.ts. The
+  // count is asserted rather than "at least one file matched" — a file-level
+  // check cannot tell 8 from 7, and a gate that silently stops calling is
+  // exactly how this drifted the first time.
+  assert.equal(callSites, 8, `expected 8 call sites, found ${callSites}`);
 });
 
 test('the invite helper is never called without the gate in the same file', () => {

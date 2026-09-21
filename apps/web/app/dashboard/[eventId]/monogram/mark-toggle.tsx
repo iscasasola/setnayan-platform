@@ -9,8 +9,8 @@ import { PenLine, UploadCloud } from 'lucide-react';
  * toggle. what will switch which editor or uploader will show under. under it
  * is the animate."*
  *
- * So the page is three things, top to bottom: this toggle, the editor OR the
- * uploader it selects, and the reveal. It replaces a chooser SCREEN (two large
+ * So the page is four rows, top to bottom: this toggle, the editor OR the
+ * uploader it selects, the effects, and the two save buttons. It replaces a chooser SCREEN (two large
  * door cards you had to pass through), a "Both ways to make it" link back to
  * that screen, and a separate heading-plus-paragraph inside each door — four
  * pieces of navigation for one binary choice.

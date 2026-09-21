@@ -151,6 +151,50 @@ export function PaymentPlanRows({
             className="sn-canvas-rise space-y-1.5 rounded-lg border border-ink/10 bg-paper p-2"
             style={{ animationDelay: `${Math.min(i, 8) * 26}ms` }}
           >
+            {/* HEADER — the payment's number, and its reorder/delete controls.
+                They lived on the due-date line until 2026-09-21, where they took
+                72px of a 317px row. Measured on a live 375px phone in the
+                select's REAL font, "before the event" needs ~152px (118px of
+                text at 16px + padding + arrow) and got 130: clipped. The 16px is
+                deliberate and must not be shrunk — globals.css floors mobile
+                form fields at 16px because iOS Safari zooms the whole page into
+                any field smaller than that on tap. So the space came from
+                layout: the controls moved up here, keeping full 24px targets. */}
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
+                Payment {i + 1}
+              </span>
+              <span className="flex shrink-0 items-center">
+                <button
+                  type="button"
+                  disabled={disabled || i === 0}
+                  onClick={() => move(r.key, -1)}
+                  aria-label={`Move payment ${i + 1} earlier`}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
+                >
+                  <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || i === rows.length - 1}
+                  onClick={() => move(r.key, 1)}
+                  aria-label={`Move payment ${i + 1} later`}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
+                >
+                  <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || rows.length <= 1}
+                  onClick={() => remove(r.key)}
+                  aria-label={`Remove payment ${i + 1}`}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-danger-700 disabled:opacity-30"
+                >
+                  <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+              </span>
+            </div>
+
             <div className="flex items-center gap-1.5">
               <input
                 type="text"
@@ -190,7 +234,6 @@ export function PaymentPlanRows({
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="shrink-0 text-[11px] text-ink/50">Due</span>
               <input
                 type="text"
                 name="plan_days"
@@ -214,35 +257,6 @@ export function PaymentPlanRows({
                 <option value="on_lock">{ANCHOR_LABEL.on_lock}</option>
                 <option value="before_event">{ANCHOR_LABEL.before_event}</option>
               </select>
-              <span className="flex shrink-0 items-center">
-                <button
-                  type="button"
-                  disabled={disabled || i === 0}
-                  onClick={() => move(r.key, -1)}
-                  aria-label={`Move payment ${i + 1} earlier`}
-                  className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
-                >
-                  <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  disabled={disabled || i === rows.length - 1}
-                  onClick={() => move(r.key, 1)}
-                  aria-label={`Move payment ${i + 1} later`}
-                  className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
-                >
-                  <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  disabled={disabled || rows.length <= 1}
-                  onClick={() => remove(r.key)}
-                  aria-label={`Remove payment ${i + 1}`}
-                  className="inline-flex h-7 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-danger-700 disabled:opacity-30"
-                >
-                  <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-              </span>
             </div>
           </div>
         ))}

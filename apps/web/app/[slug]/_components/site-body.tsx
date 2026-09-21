@@ -1039,14 +1039,14 @@ export async function SiteBody({
                   venueName={event.venue_name}
                   venueAddress={event.venue_address}
                 />
-                {publicWidgetNodes}
+                <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {plan.publicSafeWidgets.length === 0 ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                 ) : null}
               </section>
             ) : plan.publicSafeWidgets.length > 0 ? (
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                {publicWidgetNodes}
+                <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
               </section>
             ) : null}
 
@@ -1954,6 +1954,7 @@ export async function SiteBody({
               {menuOn && plan.hideableInOrder.length > 0 ? (
                 <span id={SITE_MENU_ANCHORS.details} aria-hidden className="sr-only" />
               ) : null}
+              <div className="sn-hub-cards space-y-4">
               {plan.hideableInOrder.map((widget) => (
                 <HideableWidgetRender
                   key={widget.widget_id}
@@ -1972,6 +1973,7 @@ export async function SiteBody({
                   words={clientWords}
                 />
               ))}
+              </div>
 
               {/* The same entourage, for the guest tree. TWO MOUNTS, ONE
                   SECTION: the anonymous and guest trees are separate subtrees

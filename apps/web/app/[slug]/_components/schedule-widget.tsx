@@ -37,6 +37,8 @@ type Props = {
   estimated?: boolean;
   /** events.event_type — a birthday's arrival is not "Pre-ceremony". */
   eventType?: string | null;
+  /** Hub card: the first three moments, then "All N moments". Before the day only. */
+  compact?: boolean;
 };
 
 /**
@@ -47,14 +49,22 @@ type Props = {
  *   • up next — first block whose start_at is in the future
  * Everything else is rendered in muted ink.
  */
+/** How many moments the hub card shows before "All N moments". */
+const COMPACT_MOMENTS = 3;
+
 export function ScheduleWidget({
   blocks,
   eventTz,
   nowTrigger = false,
   estimated = false,
   eventType = null,
+  compact = false,
 }: Props) {
   const [now, setNow] = useState<Date | null>(null);
+  // 🗂 THE DAY AS A CARD (owner 2026-09-21, canvas "3 · Scrolled, replied"):
+  // before the day the hub shows the first three moments and an "All N
+  // moments" control — the whole run of show one tap away, not a screen long.
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     // Initialize on mount so SSR doesn't mismatch with a stale "now".
@@ -231,7 +241,7 @@ export function ScheduleWidget({
           tag under its time — replacing the filled terracotta pill. All
           now/next LOGIC above is untouched; this is markup + classes only. */}
       <ol className="border-t border-ink/12">
-        {ordered.map((b, i) => {
+        {(compact && !showAll ? ordered.slice(0, COMPACT_MOMENTS) : ordered).map((b, i) => {
           const isNow = i === currentIndex;
           const isNext = i === upNextIndex;
           return (
@@ -289,6 +299,17 @@ export function ScheduleWidget({
           );
         })}
       </ol>
+      {compact && ordered.length > COMPACT_MOMENTS ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+          className="flex min-h-[44px] w-full items-center justify-between border-t border-ink/12 pt-3 text-sm text-mulberry hover:text-mulberry-600"
+        >
+          <span>{showAll ? 'Fewer moments' : `All ${ordered.length} moments`}</span>
+          <span aria-hidden>{showAll ? '↑' : '→'}</span>
+        </button>
+      ) : null}
     </section>
   );
 }

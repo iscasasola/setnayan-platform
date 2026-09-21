@@ -83,3 +83,32 @@ test('a group with ONE side lets anyone swap with anyone on another line', () =>
   assert.equal(swapVerdict(lines, 'secondary_sponsors', 'c2', 'v1').ok, true, 'right-column name swaps with a left-column name');
   assert.equal(joinVerdict(lines, 'secondary_sponsors', 'v1', 'c2').ok, true);
 });
+
+/* ── sections (owner 2026-09-21: "arrange the parents, immediate family and
+      other roles and modify its sequence") ─────────────────────────────── */
+import { ENTOURAGE_GROUP_KEYS, buildEntourage, orderedGroupKeys, sectionsAreArranged } from '@/lib/entourage';
+import { nextSectionOrder } from '@/lib/march-moves';
+
+test('a saved order is forgiving: unknown keys drop, missing sections append, nothing doubles', () => {
+  const out = orderedGroupKeys(['honour', 'retired_group', 'parents', 'honour']);
+  assert.deepEqual(out.slice(0, 2), ['honour', 'parents']);
+  assert.deepEqual([...out].sort(), [...ENTOURAGE_GROUP_KEYS].sort(), 'a section went missing or doubled');
+  assert.deepEqual(orderedGroupKeys(null), [...ENTOURAGE_GROUP_KEYS], 'NULL must print the built-in order');
+  assert.equal(sectionsAreArranged(null), false);
+  assert.equal(sectionsAreArranged(['honour', 'parents']), true);
+});
+
+test('the invitation prints sections in the couple’s order', () => {
+  const rows = [g('p1', 'Abad', 'groom_parents'), g('h1', 'Cruz', 'best_man')];
+  assert.deepEqual(buildEntourage(rows).map((x) => x.key), ['parents', 'honour']);
+  assert.deepEqual(buildEntourage(rows, ['honour', 'parents']).map((x) => x.key), ['honour', 'parents']);
+});
+
+test('a section step skips sections nobody is in — they are not drawn', () => {
+  const full = ['parents', 'immediate_family', 'honour', 'principal_sponsors'];
+  const visible = new Set(['parents', 'honour', 'principal_sponsors']);
+  assert.deepEqual(nextSectionOrder(full, visible, 'honour', 'up'), ['honour', 'immediate_family', 'parents', 'principal_sponsors']);
+  assert.deepEqual(nextSectionOrder(full, visible, 'parents', 'down'), ['honour', 'immediate_family', 'parents', 'principal_sponsors']);
+  assert.equal(nextSectionOrder(full, visible, 'parents', 'up'), null, 'the first section cannot go up');
+  assert.equal(nextSectionOrder(full, visible, 'immediate_family', 'down'), null, 'an empty section is not moved');
+});

@@ -82,12 +82,26 @@ test('the duplicate lookup refuses when it cannot read, instead of passing', () 
   // precisely what made bug #1 invisible: "found nothing" and "could not look"
   // produced identical, reassuring behaviour.
   const src = read('app/admin/payments/actions.ts');
-  const block = src.match(/const \{ data: others, error: othersErr \}[\s\S]{0,900}/);
+  // ⚠ ANCHOR UPDATED 2026-09-22 (CTRL-B1 build 3), NOT RELAXED. The lookup used
+  // to be one `const { data: others, error: othersErr } = await admin…`; it is
+  // now a paged scan, because the un-ranged read silently returned an arbitrary
+  // SUBSET past PostgREST's row cap — and a money guard that reads a subset
+  // passes on the duplicate it never loaded. The PROPERTY asserted below is
+  // unchanged; only the shape it is anchored on moved.
+  const block = src.match(/const othersErr = [\s\S]{0,900}/);
   assert.ok(block, 'the duplicate lookup no longer reads its error');
   assert.match(
     block[0],
     /if \(othersErr\)[\s\S]{0,200}blocking: true/,
     'a failed duplicate lookup must block, not fall through to "clear"',
+  );
+  // 🔑 AND IT MUST STILL READ EVERY PRIOR. Re-introducing an un-ranged select
+  // would restore the original defect while leaving the error-handling above
+  // perfectly intact — the two failures are independent, so both are asserted.
+  assert.match(
+    src,
+    /scanAllPriors</,
+    'the priors must be paged exhaustively; an un-ranged read is capped server-side with error:null and classifies from an arbitrary subset',
   );
 });
 

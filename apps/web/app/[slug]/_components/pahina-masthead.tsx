@@ -100,10 +100,10 @@ export function PahinaMasthead({
         <span aria-hidden>№ {chapterNo}</span>
         <span>{eyebrow}</span>
       </p>
-      {monogramSlot ? <div className="mt-6 flex justify-center">{monogramSlot}</div> : null}
+      {monogramSlot ? <div data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
 
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
-      <h1 className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
+      <h1 data-motion="arrive-names" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
         <span className="block">{names.first}</span>
         {names.second ? (
           <>
@@ -119,7 +119,7 @@ export function PahinaMasthead({
 
       {/* The gild date — oversized lining numerals; venue meta beneath. */}
       {dateLabel ? (
-        <p className="mt-6 font-pahina text-[clamp(1.6rem,6vw,2.4rem)] font-light tracking-tight text-gild">
+        <p data-motion="arrive-date" className="mt-6 font-pahina text-[clamp(1.6rem,6vw,2.4rem)] font-light tracking-tight text-gild">
           {dateLabel}
         </p>
       ) : null}

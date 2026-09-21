@@ -4176,7 +4176,7 @@ html:active-view-transition .sn-page-enter { animation: none; }
 }
 .sn-eq-bar {
   transform-origin: bottom;
-  animation: sn-eq 0.9s ease-in-out infinite;
+  animation: sn-eq 0.9s var(--sn-ease) infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .sn-eq-bar {
@@ -4196,5 +4196,72 @@ html:active-view-transition .sn-page-enter { animation: none; }
 @media (max-width: 55rem) {
   html:has([data-top-corner]) .sn-top-label {
     visibility: hidden;
+  }
+}
+
+/* ── THE EVENT HUB MOVES, AND EVERY MOVEMENT MEANS SOMETHING (2026-09-21) ──
+   Owner: "make the whole event hub fully animated." No new tokens: every
+   movement reads the site's EXISTING motion set in :root (--sn-dur-elem,
+   --sn-dur-enter, --sn-ease-out), mirrored in lib/motion.ts and held equal by
+   the-hub-moves-with-meaning.test.ts. Keyframes declare only `from` and run
+   `backwards`, NEVER `both` — see the .sn-page-enter note: a held transform
+   silently unpins every `position: fixed` descendant. Every rule is off under
+   prefers-reduced-motion (the block at the end), and the arrival hides
+   nothing unless the ArrivalOnce script has opted the page in. */
+@keyframes sn-hub-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sn-pass-lift {
+  from {
+    transform: translateY(10px);
+    box-shadow: 0 30px 70px -20px rgb(30 34 41 / 0.5);
+  }
+}
+/* 1 · Arrival — the mark, then the names, then the date, then the one action.
+   ONCE: only while ArrivalOnce has put .sn-arrive on the root, which it does
+   on a browser's first visit to this invitation. No class, nothing hidden. */
+.sn-arrive [data-motion='arrive-mark'] {
+  animation: sn-rise-soft var(--sn-dur-enter) var(--sn-ease-out) backwards;
+}
+.sn-arrive [data-motion='arrive-names'] {
+  animation: sn-rise-soft var(--sn-dur-enter) var(--sn-ease-out) 0.18s backwards;
+}
+.sn-arrive [data-motion='arrive-date'] {
+  animation: sn-hub-fade var(--sn-dur-enter) var(--sn-ease-out) 0.34s backwards;
+}
+.sn-arrive [data-motion='arrive-action'] {
+  animation: sn-rise-soft var(--sn-dur-enter) var(--sn-ease-out) 0.5s backwards;
+}
+/* 3 · The reply lands — right after a guest answers, the action's words fade
+   in place so they see their answer take. */
+[data-motion='label-land'] {
+  animation: sn-hub-fade var(--sn-dur-elem) var(--sn-ease-out) backwards;
+}
+/* 4 · Sheets and the camera's first-tap cards rise into place. */
+.sn-rise {
+  animation: sn-rise-soft var(--sn-dur-elem) var(--sn-ease-out) backwards;
+}
+.sn-fade {
+  animation: sn-hub-fade var(--sn-dur-elem) var(--sn-ease-out) backwards;
+}
+/* 5 · The pass lifts when it is opened ("My pass" / "Show your pass" link to
+   #site-pass), so it reads as the thing to show at the door. */
+[data-motion='pass']:target {
+  animation: sn-pass-lift var(--sn-dur-enter) var(--sn-ease-out) backwards;
+}
+/* 6 · "Happening now" wears the site's ONE sanctioned live pulse,
+   .sn-live-dot — no second pulse is added here. */
+@media (prefers-reduced-motion: reduce) {
+  .sn-arrive [data-motion='arrive-mark'],
+  .sn-arrive [data-motion='arrive-names'],
+  .sn-arrive [data-motion='arrive-date'],
+  .sn-arrive [data-motion='arrive-action'],
+  [data-motion='label-land'],
+  .sn-rise,
+  .sn-fade,
+  [data-motion='pass']:target {
+    animation: none;
   }
 }

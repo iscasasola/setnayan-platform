@@ -1334,7 +1334,7 @@ export function PapicGuestCapture({
   if (!accepted) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-10 text-ink">
-        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
+        <div className="sn-rise w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
           <ShieldCheck aria-hidden className="h-7 w-7 text-mulberry" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">
             Before you start shooting, {guestName}
@@ -1424,7 +1424,7 @@ export function PapicGuestCapture({
   if (enrolling) {
     return (
       <main className="flex min-h-screen flex-col bg-ink px-4 py-8 text-cream">
-        <div className="mx-auto mt-6 w-full max-w-md">
+        <div className="sn-rise mx-auto mt-6 w-full max-w-md">
           <DayOfFaceEnroll
             context="guest_camera"
             faceMode={faceMode}

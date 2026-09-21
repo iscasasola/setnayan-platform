@@ -5,6 +5,7 @@ import {
   PahinaCoverParallax,
   PahinaMotionObserver,
   PahinaMotionRootFlag,
+  ArrivalOnce,
 } from './pahina-motion';
 
 /**
@@ -91,6 +92,7 @@ export function InvitationShell({
           content builds the observer. See pahina-motion.tsx for why a failure
           in either one leaves the page fully visible. */}
       <PahinaMotionRootFlag />
+      <ArrivalOnce />
       {backdrop}
       {/* `sn-top-label` steps aside for the fixed top-right controls (the
           music button, a guest's Account) — see `.sn-top-label` in

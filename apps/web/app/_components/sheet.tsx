@@ -67,6 +67,12 @@ export type SheetProps = {
    * caller renders byte-identically.
    */
   wide?: boolean;
+  /**
+   * The sheet RISES into place and its backdrop fades in (the Event Hub's
+   * motion, owner 2026-09-21 — tokens in lib/motion.ts, off under reduced
+   * motion). Default false: every existing caller renders byte-identically.
+   */
+  rise?: boolean;
   children: ReactNode;
 };
 
@@ -76,6 +82,7 @@ export function Sheet({
   labelledById,
   title,
   wide = false,
+  rise = false,
   children,
 }: SheetProps) {
   // Esc-to-close + body-scroll-lock + focus management (focus-in, Tab trap,
@@ -99,12 +106,12 @@ export function Sheet({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+        className={`absolute inset-0 bg-ink/40 backdrop-blur-sm${rise ? ' sn-fade' : ''}`}
       />
 
       {/* Sheet body */}
       <div
-        className={`relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
+        className={`${rise ? 'sn-rise ' : ''}relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
           wide ? 'lg:w-[min(34rem,92vw)]' : 'lg:w-[22rem]'
         }`}
       >

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ca5d3bcc2",
+  "generatedFromRef": "8f6553883",
   "routeCount": 430,
   "destinations": 922,
   "actions": 654,
-  "blocks": 4577,
+  "blocks": 4578,
   "routes": {
     "/": {
       "files": [
@@ -5379,7 +5379,6 @@
         "dashboard/[eventId]/guests/_components/roster-meters.tsx",
         "dashboard/[eventId]/guests/_components/roster-tabs.tsx",
         "dashboard/[eventId]/guests/_components/seat-chip.tsx",
-        "dashboard/[eventId]/guests/_components/sort-select.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
         "dashboard/[eventId]/guests/_components/walking-order-lines.tsx",
@@ -5459,6 +5458,7 @@
         "InspectorLayout",
         "InspectorTrigger",
         "InviteButton",
+        "InvitePanel",
         "InvitedToBlock",
         "KebabMenu",
         "Lens",
@@ -5518,7 +5518,6 @@
         "SideChipEditor",
         "SideText",
         "SoftDeleteForUndoResult",
-        "SortSelect",
         "SubmitButton",
         "SummaryFacetBar",
         "Suspense",
@@ -5622,6 +5621,7 @@
     "/dashboard/[eventId]/guests/invite": {
       "files": [
         "dashboard/[eventId]/guests/invite/_components/invite-link.tsx",
+        "dashboard/[eventId]/guests/invite/_components/invite-panel.tsx",
         "dashboard/[eventId]/guests/invite/_components/invite-theme-picker.tsx",
         "dashboard/[eventId]/guests/invite/_components/regenerate-qr-button.tsx",
         "dashboard/[eventId]/guests/invite/actions.ts",
@@ -5642,6 +5642,7 @@
       ],
       "blocks": [
         "InviteLink",
+        "InvitePanel",
         "InviteThemePicker",
         "Link",
         "QrActions",

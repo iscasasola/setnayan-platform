@@ -31,8 +31,8 @@
  */
 
 export type RosterDoor =
-  | { kind: 'tab'; key: 'roster' | 'walk'; label: string; href: string; current: boolean }
-  | { kind: 'link'; key: 'share' | 'arrange' | 'checkin'; label: string; href: string }
+  | { kind: 'tab'; key: 'roster' | 'walk' | 'share'; label: string; href: string; current: boolean }
+  | { kind: 'link'; key: 'arrange' | 'checkin'; label: string; href: string }
   | { kind: 'shareMenu'; key: 'share-menu' };
 
 export function rosterDoors({
@@ -43,7 +43,7 @@ export function rosterDoors({
   hasJoinLink,
 }: {
   eventId: string;
-  view: 'list' | 'map' | 'walk';
+  view: 'list' | 'map' | 'walk' | 'share';
   finished: boolean;
   hasProcessional: boolean;
   hasJoinLink: boolean;
@@ -52,13 +52,20 @@ export function rosterDoors({
   // `map` is a way of LOOKING at the roster, not a different task — it keeps
   // the Roster tab lit rather than leaving the row with nothing selected.
   const tabs: RosterDoor[] = [
-    { kind: 'tab', key: 'roster', label: 'Roster', href: base, current: view !== 'walk' },
+    // `map` is a way of LOOKING at the roster; walk and share are their own tabs.
+    { kind: 'tab', key: 'roster', label: 'Roster', href: base, current: view === 'list' || view === 'map' },
   ];
   if (!finished && hasProcessional) {
     tabs.push({ kind: 'tab', key: 'walk', label: 'Wedding March', href: `${base}?gview=walk`, current: view === 'walk' });
   }
+  // ⚖ A REAL TAB NOW (owner 2026-09-21: "pressing buttons inside the guest list
+  // should not clear the whole page. only the body."). It was a link to
+  // /guests/invite, which measured on the live page removed the whole guest
+  // list 185ms after the click. `?gview=share` renders the same invite panel in
+  // this page's body, so the header, tabs and meters stay where they are. The
+  // /guests/invite page still exists — the sidebar and journey link there.
   if (!finished) {
-    tabs.push({ kind: 'link', key: 'share', label: 'Share the link', href: `${base}/invite` });
+    tabs.push({ kind: 'tab', key: 'share', label: 'Share the link', href: `${base}?gview=share`, current: view === 'share' });
   }
 
   const trailing: RosterDoor[] = finished

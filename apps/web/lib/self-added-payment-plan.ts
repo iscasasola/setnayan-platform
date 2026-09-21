@@ -41,6 +41,7 @@ import {
   type DueAnchor,
   type PaymentScheduleItemRow,
   type PlanInstance,
+  shiftIsoDate,
 } from '@/lib/vendor-service-payment-schedules';
 
 /** One row as the couple types it. Strings, because the inputs are strings. */
@@ -160,7 +161,8 @@ export function buildCouplePaymentPlan(opts: {
   rows: readonly CouplePlanRowInput[];
   /** The agreed total NOW — resolved by the caller, never a raw column. */
   totalPhp: number | null;
-  /** ISO date the booking locked, or the day it was added. Anchors `on_lock`. */
+  /** The day the couple clicked Lock — or, before they have, today (see
+   *  `onLockAnchorIso`). Anchors `on_lock`. */
   lockDateIso: string;
   /** ISO event date, or null. Anchors `before_event`. */
   eventDateIso: string | null;
@@ -204,7 +206,7 @@ export function buildCouplePaymentPlan(opts: {
   if (undated) {
     return {
       ok: false,
-      message: `"${undated.label}" is set before the event, but your event date isn't fixed yet. Anchor it after the booking instead, or set your date first.`,
+      message: `"${undated.label}" is set before the event, but your event date isn't fixed yet. Set it for after you lock instead, or set your date first.`,
     };
   }
 
@@ -310,4 +312,44 @@ export function lockMayOverwritePlan(args: {
   if (!args.existingInstances || args.existingInstances.length === 0) return true;
   if (args.existingIsDefaultSeeded) return true;
   return false;
+}
+
+/**
+ * WHAT "N DAYS AFTER LOCK" COUNTS FROM. (owner 2026-09-21: "on the date you
+ * clicked on lock")
+ *
+ * `anchorDate` is `event_vendor_payment_plan.on_lock_anchor_date`, stamped by
+ * `finalizeVendor` the day the couple locks. Once it exists it is the only
+ * answer — re-saving the plan months later must not slide every date forward.
+ * Before the lock there is no such day yet, so the dates are shown as if the
+ * couple locked today, and the lock re-dates them (`redateOnLockInstalments`).
+ *
+ * ⚠ It used to be the day the supplier was ADDED — which put "7 days after
+ * lock" in the past for a supplier added in March and locked in June.
+ */
+export function onLockAnchorIso(anchorDate: string | null | undefined, todayIso: string): string {
+  return typeof anchorDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(anchorDate)
+    ? anchorDate.slice(0, 10)
+    : todayIso;
+}
+
+/**
+ * Re-date a couple's plan to the day they clicked Lock.
+ *
+ * Only the DATE of instalments the couple anchored "after lock" moves; amounts,
+ * labels, seq and "before the event" rows are untouched. A legacy
+ * instance with no stored rule (`authored`) is left exactly as it is — its
+ * rule is unknown, and guessing one from a date would invent a term the couple
+ * never set.
+ */
+export function redateOnLockInstalments(instances: unknown, lockDateIso: string): unknown[] {
+  if (!Array.isArray(instances)) return [];
+  return instances.map((raw) => {
+    if (!raw || typeof raw !== 'object') return raw;
+    const i = raw as Partial<CouplePlanInstance>;
+    if (i.authored?.due_anchor !== 'on_lock') return raw;
+    const days = Number(i.authored.due_offset_days);
+    const due = shiftIsoDate(lockDateIso, Number.isFinite(days) && days >= 0 ? days : 0);
+    return due ? { ...i, due_date: due } : raw;
+  });
 }

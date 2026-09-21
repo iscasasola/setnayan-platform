@@ -52,7 +52,7 @@ type Row = {
 };
 
 const ANCHOR_LABEL: Record<'on_lock' | 'before_event', string> = {
-  on_lock: 'after booking',
+  on_lock: 'after you lock', // counts from the day Lock is clicked (owner 2026-09-21)
   before_event: 'before the event',
 };
 

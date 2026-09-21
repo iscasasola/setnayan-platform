@@ -304,3 +304,64 @@ export async function markGuestInvitationSent(
   revalidatePath(`/dashboard/${eventId}/invitation`);
   revalidatePath(`/dashboard/${eventId}/guests`);
 }
+
+/**
+ * MARK A WHOLE BATCH AS HANDED OUT — CTRL-B4 build 1.
+ *
+ * ── THE MEASURED PROBLEM ───────────────────────────────────────────────────
+ * A couple hands out printed invitations and then has to record it. With 146
+ * guests that is **146 individual toggles**, so in practice nobody finishes and
+ * the Invite step can never complete. Production: 0 of 146 marked.
+ *
+ * ── RULE 0 ─────────────────────────────────────────────────────────────────
+ * `markGuestInvitationSent` above is the writer and it is CORRECT — it counts
+ * its rows, refuses silent success, and carries the undo. This is the same
+ * statement with `.in()` instead of `.eq()`; it is not a second writer, and the
+ * guard asserts both share the shape.
+ *
+ * 🔑 THE COUNT SHOWN MUST BE THE COUNT WRITTEN. A zero-row UPDATE is
+ * success-shaped, and a PARTIAL one is worse: ask for 146, write 3, and a
+ * screen that echoes the request tells the couple 143 people were recorded who
+ * were not. `.select()` returns what actually moved, and that — not the length
+ * of the request — is what the page is told.
+ */
+export async function markGuestsInvitationSent(
+  eventId: string,
+  formData: FormData,
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const markSent = formData.get('sent') === '1';
+  // Multiple `guest_id` inputs, de-duplicated: a double-submitted checkbox must
+  // not make the requested count disagree with the written one for a reason
+  // that has nothing to do with the database.
+  const ids = [...new Set(formData.getAll('guest_id').filter((v): v is string => typeof v === 'string' && v.length > 0))];
+  if (ids.length === 0) {
+    redirect(`/dashboard/${eventId}/invitation?invite=none`);
+  }
+
+  const { data, error } = await supabase
+    .from('guests')
+    .update({ invitation_sent_at: markSent ? new Date().toISOString() : null })
+    .in('guest_id', ids)
+    .eq('event_id', eventId)
+    .select('guest_id');
+
+  if (error || !data) {
+    // A refused write leaves the chips as they were and SAYS SO. 73 couple
+    // dashboard reads already swallow their errors; this is not the 74th.
+    redirect(`/dashboard/${eventId}/invitation?invite=failed`);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/invitation`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  // The WRITTEN count, never `ids.length`. A partial write is a real outcome
+  // and the couple is told the real number.
+  redirect(
+    `/dashboard/${eventId}/invitation?invite=${markSent ? 'marked' : 'unmarked'}&n=${data.length}`,
+  );
+}

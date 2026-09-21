@@ -1,7 +1,16 @@
 import Link from 'next/link';
 import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound, Gem, MonitorSmartphone } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  AlertTriangle,
+  ChevronRight,
+  Compass,
+  KeyRound,
+  Gem,
+  MonitorSmartphone,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
@@ -43,6 +52,7 @@ import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   atTag,
+  composeFormalName,
   FORMAL_NAME_FIELDS,
   FORMAL_NAME_LABELS,
   FORMAL_NAME_PART_MAX,
@@ -51,6 +61,9 @@ import {
 } from '@/lib/formal-name';
 import { formalNameFromGuestList } from '@/lib/formal-name-from-guest-list';
 import { AnalyticsChoice } from './_components/analytics-choice';
+import { SettingsShell } from './_components/settings-shell';
+import { groupFromSearchParams } from '@/lib/profile-settings-groups';
+import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
 import {
   CIVIL_STATUSES,
   CIVIL_STATUS_LABELS,
@@ -79,6 +92,9 @@ type Props = {
     slug_saved?: string;
     slug_error?: string;
     public_profile_saved?: string;
+    discoverable_saved?: string;
+    photo_sharing_saved?: string;
+    tab?: string;
   }>;
 };
 
@@ -314,18 +330,42 @@ export default async function ProfilePage({ searchParams }: Props) {
       : '/dashboard';
   const backLabel = activeEvents.length === 1 ? 'Back to Home' : 'Back to events';
 
-  return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="Profile &amp; settings"
-        actions={
-          <Link href={backHref} className="sn-chip sn-press w-fit">
-            <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {backLabel}
-          </Link>
-        }
-      />
+  /* ── GROUPED SETTINGS (owner-approved prototype, 2026-09-21) ───────────────
+     Twelve sections on one long page became six groups — Profile · Guest
+     details · Privacy · Sign-in & security · Preferences · Account. ALL SIX are
+     rendered here, on the server, so every form and server action below works
+     exactly as it did; `SettingsShell` only chooses which one is not `hidden`.
+     Which one opens: `?tab=` → the group holding `#hash` → a flash param → the
+     default (lib/profile-settings-groups.ts). Old anchors keep their ids and
+     now sit in the group that holds their content: `#url-slug` + `#slug` +
+     `#privacy` → Privacy, `#settings` (deletion lives there) → Account.
 
+     The personal-info form is SPLIT across Profile, Guest details, and two
+     switches (greeting in Privacy, marketing in Preferences). They all post to
+     `updatePersonalInfo`, which writes ONLY the fields a form carried — see
+     lib/profile-personal-info-patch.ts. The switches carry a presence marker
+     because an unchecked value posts nothing. */
+  const { group: initialGroup, fromTab } = groupFromSearchParams(search);
+  const composedFormalName = composeFormalName(savedFormalName);
+  const displayName = profile?.display_name?.trim() || null;
+  const tag = atTag(currentSlug);
+  const initials =
+    (displayName ?? profile?.email ?? user.email ?? '?')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w: string) => w[0]?.toUpperCase() ?? '')
+      .join('') || '?';
+  const storedPhoto = profile?.profile_photo_url ?? null;
+  const avatarUrl = storedPhoto
+    ? (photoDisplayMap[storedPhoto] ?? (/^https?:\/\//.test(storedPhoto) ? storedPhoto : null))
+    : null;
+  const emailShown = isPlaceholderEmail(profile?.email ?? user.email)
+    ? 'Not secured yet — add an email to keep your plan'
+    : (profile?.email ?? user.email ?? '—');
+
+  const flash = (
+    <>
       {search.error ? (
         <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>
       ) : null}
@@ -351,7 +391,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           className="mb-4 rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900"
         >
           Account-deletion request received. Our team will review it within 24 hours. You can
-          cancel any time before it&rsquo;s approved — see Privacy &amp; data below.
+          cancel any time before it&rsquo;s approved — see Account below.
         </p>
       ) : null}
       {search.deletion_cancelled ? (
@@ -373,94 +413,141 @@ export default async function ProfilePage({ searchParams }: Props) {
       {search.public_profile_saved ? (
         <FormFlash tone="success">Public profile setting saved.</FormFlash>
       ) : null}
+      {search.discoverable_saved ? (
+        <FormFlash tone="success">Saved — who can find you by name.</FormFlash>
+      ) : null}
+      {search.photo_sharing_saved ? (
+        <FormFlash tone="success">Saved — who can see your photo.</FormFlash>
+      ) : null}
+    </>
+  );
 
-      {/* PERSONAL INFO — deliberately UNLABELLED (owner 2026-08-19).
-          It carried an <h2>Personal info</h2>. As the FIRST section it sat flush
-          under "Profile & settings" with nothing above it, so it read as a
-          subtitle rather than a group label — the exact shape the owner has been
-          removing all week, and he spotted it here.
+  /* ── PROFILE ─────────────────────────────────────────────────────────────── */
+  const profilePane = (
+    <>
+      <GroupHeader eyebrow="Who you are" title="Profile" />
+      <form action={updatePersonalInfo} className="space-y-6">
+        <input type="hidden" name="tab" value="profile" />
+        {/* The photo control is on this form, so a cleared photo (which posts
+            no value at all) is told apart from a form without the photo. */}
+        <input type="hidden" name={PRESENCE_MARKERS.profile_photo_url} value="1" />
 
-          The five sections BELOW keep their headings, and should: "Change
-          password", "Sessions", "Planner mode", "Planning reminders" each follow
-          other content and you need to know which one you are in. The first group
-          follows only the page title, which already names it — and its fields say
-          the rest out loud: Display name · Phone · Profile photo · Birthday. */}
-      <section className="mb-10 space-y-4">
-        <form action={updatePersonalInfo} className="space-y-4">
-          <Field label="Display name" htmlFor="display_name">
-            <input
-              id="display_name"
-              name="display_name"
-              maxLength={128}
-              defaultValue={profile?.display_name ?? ''}
-              placeholder="How you want to appear in the app"
-              className="input-field"
-            />
-          </Field>
-          {/* ACCOUNT NAME — the @tag. It is `users.slug`, edited in the Handle
-              form further down; shown here because it is how people find you. */}
-          {atTag(currentSlug) ? (
-            <p className="-mt-2 text-xs text-ink/55">
-              Your account name is{' '}
-              <span className="font-mono font-medium text-ink/80">{atTag(currentSlug)}</span>
-              {' · '}
-              <a href="#slug" className="underline decoration-ink/25 underline-offset-2 hover:text-terracotta">
-                change
-              </a>
+        {/* Identity card. Profile photo upload (owner directive 2026-06-12:
+            the account avatar is the account's OWN photo, never the event
+            logo). Same R2 presigned-PUT pipeline as the vendor logo. No
+            watermark: the 2026-05-21 directive covers marketplace photos, not
+            account identity. Clearing the photo nulls the column → the avatar
+            falls back to the account initial. */}
+        <div className="sn-tile grid items-center gap-5 sm:grid-cols-[11rem_minmax(0,1fr)]">
+          <FileUpload
+            bucket="media"
+            pathPrefix={`profile-photo/${user.id}`}
+            name="profile_photo_url"
+            currentValue={storedPhoto}
+            initialDisplayUrls={photoDisplayMap}
+            maxSizeMB={2}
+            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            variant="square"
+            roundPreview
+            help="Your avatar across the app · PNG / JPG / WebP, up to 2 MB"
+          />
+          <div className="min-w-0 text-center sm:text-left">
+            <p className="font-display text-3xl font-semibold leading-tight text-ink">
+              {displayName ?? 'Add your name'}
             </p>
-          ) : null}
+            {tag || composedFormalName ? (
+              <p className="mt-1.5 text-sm text-ink/70">
+                {tag ? <span className="font-semibold text-terracotta-700">{tag}</span> : null}
+                {tag && composedFormalName ? ' · ' : null}
+                {composedFormalName}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="sn-tile space-y-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Display name" htmlFor="display_name">
+              <input
+                id="display_name"
+                name="display_name"
+                maxLength={128}
+                defaultValue={profile?.display_name ?? ''}
+                placeholder="How you want to appear in the app"
+                className="input-field"
+              />
+            </Field>
+            {/* ACCOUNT NAME — the @tag. It is `users.slug`, edited in the
+                Handle form under Privacy; shown here because it is how people
+                find you. Read-only, and deliberately NOT named, so this form
+                never posts a slug. */}
+            {tag ? (
+              <div className="space-y-1">
+                <label htmlFor="account_name_shown" className="block text-sm font-medium text-ink">
+                  Account name
+                </label>
+                <input
+                  id="account_name_shown"
+                  value={tag}
+                  readOnly
+                  className="input-field bg-ink/5 font-semibold text-terracotta-700"
+                />
+                {isAnon ? null : (
+                  <span className="block text-xs text-ink/60">
+                    Change it under{' '}
+                    <a
+                      href="#slug"
+                      className="underline decoration-ink/25 underline-offset-2 hover:text-terracotta-700"
+                    >
+                      Privacy › Public profile
+                    </a>
+                    .
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           {/* FULL NAME — the formal name guest lists and invitations print
               (owner 2026-09-21). Self-declared, never verified. */}
-          <fieldset className="sn-row space-y-3 p-4">
-            <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
-              Full name
-            </legend>
-            <p className="text-xs leading-relaxed text-ink/55">
-              How your name is written on guest lists and invitations. Your display name above
-              stays the name people see around the app.
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-ink">Full name</legend>
+            <p className="text-xs text-ink/60">
+              How guest lists and invitations print your name.
             </p>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_5rem]">
+              {FORMAL_NAME_FIELDS.map((f) => (
+                <Field key={f} label={FORMAL_NAME_LABELS[f]} htmlFor={f}>
+                  <input
+                    id={f}
+                    name={f}
+                    maxLength={FORMAL_NAME_PART_MAX}
+                    defaultValue={formalNameShown[f] ?? ''}
+                    placeholder={
+                      f === 'name_prefix' ? 'Mr., Atty.…' : f === 'name_suffix' ? 'Jr., II…' : undefined
+                    }
+                    className="input-field"
+                  />
+                </Field>
+              ))}
+            </div>
             {formalNameSuggestion ? (
-              <p className="rounded-tile bg-terracotta/10 px-3 py-2 text-xs text-ink/70">
-                Filled in from{' '}
-                {formalNameSuggestion.eventTitle ? (
-                  <span className="font-medium">{formalNameSuggestion.eventTitle}</span>
-                ) : (
-                  'a guest list you are on'
-                )}
-                . Check it, then press Save to keep it.
+              <p className="flex items-center gap-2 text-xs text-ink/70">
+                <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-terracotta" />
+                <span>
+                  Filled in from{' '}
+                  {formalNameSuggestion.eventTitle ? (
+                    <span className="font-medium">{formalNameSuggestion.eventTitle}</span>
+                  ) : (
+                    'a guest list you are on'
+                  )}
+                  . Check it, then press Save to keep it.
+                </span>
               </p>
             ) : null}
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,7rem)_minmax(0,1fr)_minmax(0,1fr)]">
-              {(['name_prefix', 'first_name', 'middle_name'] as const).map((f) => (
-                <Field key={f} label={FORMAL_NAME_LABELS[f]} htmlFor={f}>
-                  <input
-                    id={f}
-                    name={f}
-                    maxLength={FORMAL_NAME_PART_MAX}
-                    defaultValue={formalNameShown[f] ?? ''}
-                    placeholder={f === 'name_prefix' ? 'Mr., Atty.…' : undefined}
-                    className="input-field"
-                  />
-                </Field>
-              ))}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,7rem)]">
-              {(['last_name', 'name_suffix'] as const).map((f) => (
-                <Field key={f} label={FORMAL_NAME_LABELS[f]} htmlFor={f}>
-                  <input
-                    id={f}
-                    name={f}
-                    maxLength={FORMAL_NAME_PART_MAX}
-                    defaultValue={formalNameShown[f] ?? ''}
-                    placeholder={f === 'name_suffix' ? 'Jr., II…' : undefined}
-                    className="input-field"
-                  />
-                </Field>
-              ))}
-            </div>
           </fieldset>
-          <div className="grid gap-4 sm:grid-cols-2">
+
+          <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Phone" htmlFor="phone">
               <input
                 id="phone"
@@ -471,135 +558,48 @@ export default async function ProfilePage({ searchParams }: Props) {
                 className="input-field"
               />
             </Field>
-            {/* Profile photo upload (owner directive 2026-06-12: the account
-                avatar is the account's OWN photo, never the event logo —
-                this replaces the "file upload ships later" URL input). Same
-                R2 presigned-PUT pipeline as the vendor logo. No watermark:
-                the 2026-05-21 watermark directive covers marketplace photos,
-                not account identity. Clearing the photo emits no hidden
-                input → updatePersonalInfo nulls the column → avatar falls
-                back to the account initial. */}
-            <Field
-              label="Profile photo"
-              htmlFor="profile_photo_url"
-              help="Shown as your account avatar across the app. PNG / JPG / WebP, up to 2 MB."
-            >
-              <FileUpload
-                bucket="media"
-                pathPrefix={`profile-photo/${user.id}`}
-                name="profile_photo_url"
-                currentValue={profile?.profile_photo_url ?? null}
-                initialDisplayUrls={photoDisplayMap}
-                maxSizeMB={2}
-                acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                variant="square"
+            <Field label="Birthday" htmlFor="birth_date" help="So we can greet you on your day.">
+              <input
+                id="birth_date"
+                name="birth_date"
+                type="date"
+                defaultValue={profile?.birth_date ?? ''}
+                className="input-field"
               />
             </Field>
           </div>
-          <Field
-            label="Birthday"
-            htmlFor="birth_date"
-            help="Optional — so we can greet you on your day 🎂"
-          >
-            <input
-              id="birth_date"
-              name="birth_date"
-              type="date"
-              defaultValue={profile?.birth_date ?? ''}
-              className="input-field"
-            />
-          </Field>
 
-          {/* Optional, reference-only personalization (date-anchor model). Both
-              fields are sensitive PI (RA 10173 §3(l)) — opt-in, never required,
-              never shared. Leaving them blank changes nothing. */}
-          <fieldset className="sn-row space-y-3 p-4">
-            <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
-              Personalize your events — optional
-            </legend>
-            <p className="text-xs leading-relaxed text-ink/55">
-              Add these to tailor your events — your wedding ceremony, your milestones.
-              Optional and used only to personalize; never required, never shared.{' '}
-              <span className="font-medium text-ink/70">We store your events, not your documents.</span>
-            </p>
-            <Field
-              label="Civil status"
-              htmlFor="civil_status"
-              help="Helps tailor wedding &amp; anniversary suggestions"
-            >
-              <select
-                id="civil_status"
-                name="civil_status"
-                defaultValue={profile?.civil_status ?? ''}
-                className="input-field"
-              >
-                <option value="">Prefer not to say</option>
-                {CIVIL_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {CIVIL_STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field
-              label="Religion"
-              htmlFor="religion"
-              help="Pre-selects your ceremony &amp; faith milestones"
-            >
-              <select
-                id="religion"
-                name="religion"
-                defaultValue={profile?.religion ?? ''}
-                className="input-field"
-              >
-                <option value="">Prefer not to say</option>
-                {RELIGIONS.map((r) => (
-                  <option key={r} value={r}>
-                    {RELIGION_LABELS[r]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field
-              label="Gender"
-              htmlFor="sex"
-              help="Personalizes your own milestones — e.g. your debut (18th / 21st)"
-            >
-              <select
-                id="sex"
-                name="sex"
-                defaultValue={profile?.sex ?? ''}
-                className="input-field"
-              >
-                <option value="">Prefer not to say</option>
-                {SEXES.map((s) => (
-                  <option key={s} value={s}>
-                    {SEX_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </fieldset>
+          <div className="border-t border-ink/10 pt-5">
+            <SubmitButton className="button-primary" pendingLabel="Saving…">
+              Save
+            </SubmitButton>
+          </div>
+        </div>
+      </form>
+    </>
+  );
 
-          {/* ── AT THE TABLE (owner 2026-08-21) ────────────────────────────
-              *"if they create an account to sync, these information will be
-              saved on their account automatically."* A guest answers these on
-              every invitation they accept, and today the answer dies with that
-              one event. Kept here, the reply card offers them back — so
-              somebody invited to their fourth wedding types "nut allergy"
-              once, not four times, and never gets it wrong on the fourth.
-              Whatever they answer for a specific event still wins there. */}
-          <fieldset className="space-y-4">
-            <legend className="text-sm font-semibold text-ink">At the table</legend>
-            <p className="-mt-1 text-xs text-ink/55">
-              Optional. We fill these in for you when you reply to an invitation — you
-              can always change them for a particular event.
-            </p>
-            <Field
-              label="Meal preference"
-              htmlFor="meal_preference"
-              help="Used as your default when you RSVP"
-            >
+  /* ── GUEST DETAILS ───────────────────────────────────────────────────────── */
+  const guestDetailsPane = (
+    <>
+      <GroupHeader
+        eyebrow="What hosts may ask for"
+        title="Guest details"
+        lead="Nothing here is shared automatically — you confirm what to share each time you join an event."
+      />
+      <form action={updatePersonalInfo} className="sn-tile space-y-6">
+        <input type="hidden" name="tab" value="guest-details" />
+        {/* ── AT THE TABLE (owner 2026-08-21) ────────────────────────────
+            *"if they create an account to sync, these information will be
+            saved on their account automatically."* A guest answers these on
+            every invitation they accept; kept here, the reply card offers them
+            back. Whatever they answer for a specific event still wins there. */}
+        <fieldset className="space-y-4">
+          <legend className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
+            At the table
+          </legend>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Meal preference" htmlFor="meal_preference">
               <select
                 id="meal_preference"
                 name="meal_preference"
@@ -615,9 +615,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               </select>
             </Field>
             <Field
-              label="Dietary needs"
+              label="Dietary needs / allergies"
               htmlFor="dietary_restrictions"
-              help="Allergies or restrictions your hosts should know — shared only with an event you join"
+              help="Shared only with an event you join."
             >
               <input
                 id="dietary_restrictions"
@@ -629,730 +629,379 @@ export default async function ProfilePage({ searchParams }: Props) {
                 className="input-field"
               />
             </Field>
-          </fieldset>
+          </div>
+        </fieldset>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
-            <input
-              type="checkbox"
-              name="public_greeting_opt_in"
-              defaultChecked={profile?.public_greeting_opt_in ?? false}
-              className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
-            />
-            <span>
-              <span className="block font-medium text-ink">
-                Allow public birthday &amp; anniversary greetings
-              </span>
-              <span className="block text-xs text-ink/55">
-                Lets Setnayan greet you on our social pages — Facebook, Instagram
-                &amp; TikTok — for birthdays and wedding anniversaries. Email
-                greetings don&rsquo;t need this. Default off.
-              </span>
-            </span>
-          </label>
-          {/* Anon-draft: marketing email would go to the non-routable
-              placeholder address. Hide until they secure a real email. */}
-          {isAnon ? null : (
-            <label className="sn-row flex cursor-pointer items-start gap-3 p-3 text-sm">
-              <input
-                type="checkbox"
-                name="marketing_opt_in"
-                defaultChecked={profile?.marketing_opt_in ?? false}
-                className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
-              />
-              <span>
-                <span className="block font-medium text-ink">
-                  Receive marketing emails
-                </span>
-                <span className="block text-xs text-ink/55">
-                  Product updates · new templates · seasonal promos. RA 10173 opt-in. Default
-                  off.
-                </span>
-              </span>
-            </label>
-          )}
-          <SubmitButton className="button-primary" pendingLabel="Saving…">
-            Save personal info
-          </SubmitButton>
-        </form>
-      </section>
-
-      {isAnon ? null : (
-      <>
-      <section className="mb-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Change password
-          </h2>
-          <p className="text-sm text-ink/60">
-            Enter your current password, then a new one (minimum 8 characters).
-            Your current session stays active. Forgot your current password —
-            or signed up with Google/Facebook or a magic link? Sign out and use
-            the reset link on the sign-in page instead.
+        {/* Optional, reference-only personalization (date-anchor model). These
+            are sensitive PI (RA 10173 §3(l)) — opt-in, never required, never
+            shared. Leaving them blank changes nothing. */}
+        <fieldset className="space-y-4 border-t border-ink/10 pt-6">
+          <legend className="sr-only">Personalize your events — optional</legend>
+          <p aria-hidden className="text-sm font-semibold text-ink">
+            Personalize your events — optional
           </p>
-        </div>
-        <form action={changePassword} className="sn-tile space-y-3">
-          <input type="hidden" name="return_to" value="/dashboard/profile" />
-          <TurnstileField action="reauth" />
-          <Field label="Current password" htmlFor="current_password">
-            <input
-              id="current_password"
-              name="current_password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="input-field"
-            />
-          </Field>
-          <Field label="New password" htmlFor="new_password">
-            <input
-              id="new_password"
-              name="new_password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="input-field"
-            />
-          </Field>
-          <Field label="Confirm new password" htmlFor="confirm_password">
-            <input
-              id="confirm_password"
-              name="confirm_password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="input-field"
-            />
-          </Field>
-          <SubmitButton
-            className="button-primary inline-flex items-center gap-2"
-            pendingLabel="Changing…"
-          >
-            <KeyRound aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Change password
-          </SubmitButton>
-        </form>
-      </section>
-
-      <section className="mb-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Sessions
-          </h2>
-          <p className="text-sm text-ink/60">
-            Left yourself signed in on a borrowed laptop or a shared phone?
-            Sign out everywhere else in one tap — this device stays signed in.
-          </p>
-        </div>
-        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink">Sign out other devices</p>
-            <p className="text-xs text-ink/55">
-              Ends every session except this one. Other devices will need your
-              password to sign back in.
-            </p>
-          </div>
-          <ConfirmForm
-            action={signOutOtherDevices}
-            title="Sign out other devices?"
-            message="This signs you out on every other phone/laptop where you're logged in. This device stays signed in."
-            confirmLabel="Sign out others"
-            destructive={false}
-          >
-            <input type="hidden" name="return_to" value="/dashboard/profile" />
-            <SubmitButton
-              className="button-secondary inline-flex items-center gap-2"
-              pendingLabel="Signing out…"
-            >
-              <MonitorSmartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Sign out other devices
-            </SubmitButton>
-          </ConfirmForm>
-        </div>
-      </section>
-      </>
-      )}
-
-      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Row
-          label="Email"
-          value={
-            isPlaceholderEmail(profile?.email ?? user.email)
-              ? 'Not secured yet — add an email to keep your plan'
-              : (profile?.email ?? user.email ?? '—')
-          }
-        />
-        <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
-        <Row label="Account type" value={profile?.account_type ?? '—'} />
-        <Row label="Locale" value={profile?.locale ?? '—'} />
-        <Row
-          label="Internal account"
-          value={
-            profile?.is_internal
-              ? 'Yes (§ 10a — owner)'
-              : profile?.is_team_member
-                ? 'Yes (§ 10b — team pool)'
-                : 'No'
-          }
-        />
-      </dl>
-
-      {/*
-        Anchor target for the Settings row of the (I) menu that lived in
-        apps/web/app/_components/profile-menu.tsx (deleted 2026-09-18,
-        unmounted — superseded by the account switcher). That menu split
-        identity rows (above this section) from preferences rows
-        (this section onward — Planner mode, Display language,
-        Appearance, Privacy & data). `scroll-mt-24` pads under the
-        sticky dashboard chrome so the section heading doesn't hide
-        behind the top bar when anchor-scrolled. WHY this lives here
-        instead of /dashboard/settings: V1 keeps a single Profile
-        page; the menu split is anchor-based, not route-based, so
-        deep links survive without a route migration.
-      */}
-      <section id="settings" className="mt-10 space-y-4 scroll-mt-24">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Planner mode
-          </h2>
-          <p className="text-sm text-ink/60">
-            Guided shows the 9-step checklist on your Overview tab. DIY hides it so you can plan
-            in any order without the prompts.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(
-            [
-              {
-                key: 'guided' as const,
-                label: 'Guided',
-                tagline: '9-step checklist · best for first weddings',
-              },
-              {
-                key: 'diy' as const,
-                label: 'DIY',
-                tagline: 'Hide the checklist · pick what to do next',
-              },
-            ]
-          ).map((mode) => {
-            const isActive = mode.key === activePlannerMode;
-            return (
-              <form key={mode.key} action={updatePlannerMode}>
-                <input type="hidden" name="planner_mode" value={mode.key} />
-                <button
-                  type="submit"
-                  disabled={isActive}
-                  className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
-                    isActive
-                      ? 'border-terracotta bg-terracotta/5'
-                      : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-ink">{mode.label}</span>
-                    {isActive ? (
-                      <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                        Active
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="text-xs text-ink/55">{mode.tagline}</span>
-                </button>
-              </form>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* URL & Slug — public handle editor (#7a) + public-profile gate (#7b).
-          The handle is a public identifier derived from the account name, so
-          RA-10173 requires it be user-controllable; the toggle keeps the /u
-          showcase dormant until the owner opts in. Hidden for anon drafts —
-          they have no durable public identity to publish. */}
-      {isAnon ? null : (
-        <section id="url-slug" className="mt-10 space-y-4 scroll-mt-24">
-          <div className="space-y-1">
-            <h2 className="sn-sec">URL &amp; handle</h2>
-            <p className="text-sm text-ink/60">
-              Your public profile lives at{' '}
-              <span className="font-mono text-ink/80">
-                {publicHost}/u/{currentSlug ?? 'your-handle'}
-              </span>
-              . Change the handle any time — the old link keeps redirecting for{' '}
-              {slugForwardingLabel()}.
-            </p>
-          </div>
-
-          <form action={updateUserSlug} className="sn-tile space-y-3">
-            <Field
-              label="Account name"
-              htmlFor="slug"
-              help={`Your @tag — how people find you. 3–32 characters · lowercase letters, numbers, and hyphens only. Also your address: ${publicHost}/u/${currentSlug ?? 'your-handle'}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="shrink-0 font-mono text-sm text-ink/50">@</span>
-                <input
-                  id="slug"
-                  name="slug"
-                  maxLength={32}
-                  defaultValue={currentSlug ?? ''}
-                  placeholder="your-handle"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  className="input-field font-mono"
-                />
-              </div>
-            </Field>
-            <SubmitButton
-              className="button-secondary inline-flex items-center gap-2"
-              pendingLabel="Saving…"
-            >
-              Save account name
-            </SubmitButton>
-          </form>
-
-          <div className="space-y-1 pt-2">
-            <h3 className="text-sm font-semibold text-ink">Public profile page</h3>
-            <p className="text-sm text-ink/60">
-              A public profile turns{' '}
-              <span className="font-mono text-ink/80">{publicHost}/u/{currentSlug ?? 'your-handle'}</span>{' '}
-              into a shareable showcase of the celebrations you&rsquo;ve made
-              public. It&rsquo;s <span className="font-medium">off by default</span> — while
-              off, the page is hidden from everyone but you, and never appears in
-              search. This is separate from each event&rsquo;s own privacy setting;
-              your profile only ever lists events you&rsquo;ve already made public.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {(
-              [
-                {
-                  key: 'false' as const,
-                  label: 'Off',
-                  tagline: 'Hidden · only you can see it · not in search',
-                },
-                {
-                  key: 'true' as const,
-                  label: 'On',
-                  tagline: 'Anyone with the link can view your public celebrations',
-                },
-              ]
-            ).map((opt) => {
-              const isActive = (opt.key === 'true') === publicProfileOn;
-              return (
-                <form key={opt.key} action={updatePublicProfileEnabled}>
-                  <input type="hidden" name="public_profile_enabled" value={opt.key} />
-                  <button
-                    type="submit"
-                    disabled={isActive}
-                    className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
-                      isActive
-                        ? 'border-terracotta bg-terracotta/5'
-                        : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-ink">{opt.label}</span>
-                      {isActive ? (
-                        <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                          Active
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="text-xs text-ink/55">{opt.tagline}</span>
-                  </button>
-                </form>
-              );
-            })}
-          </div>
-          {/* FINDABLE BY NAME — the way out of the people search (owner
-              2026-08-21, "just like facebook"). It sits under the public-profile
-              block because both answer "who can find me", and deliberately NOT
-              inside it: a public profile is a page you publish, this is whether
-              a signed-in person who knows your name can ask to connect. */}
-          <div className="space-y-3 border-t border-ink/10 pt-6">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-ink">Can people find you by name?</h3>
-              <p className="text-sm text-ink/60">
-                When this is on, somebody signed in to Setnayan who types your name can find you
-                and ask to connect. They see your name and photo — never your email, your phone,
-                or your celebrations — and nothing connects until you confirm it. Turn it off and
-                you can only be added by someone who already knows your email address.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    key: 'true' as const,
-                    label: 'On',
-                    tagline: 'People who know your name can ask to connect',
-                  },
-                  {
-                    key: 'false' as const,
-                    label: 'Off',
-                    tagline: 'Only somebody with your email address can add you',
-                  },
-                ]
-              ).map((opt) => {
-                const isActive = (opt.key === 'true') === findableByName;
-                return (
-                  <form key={opt.key} action={updateDiscoverableByName}>
-                    <input type="hidden" name="discoverable_by_name" value={opt.key} />
-                    <button
-                      type="submit"
-                      disabled={isActive}
-                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
-                        isActive
-                          ? 'border-terracotta bg-terracotta/5'
-                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
-                        {isActive ? (
-                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                            Active
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="text-xs text-ink/55">{opt.tagline}</span>
-                    </button>
-                  </form>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-4 border-t border-ink/10 pt-6">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-ink">
-                Can the couples you join see your photo?
-              </h3>
-              <p className="text-sm text-ink/60">
-                When this is on, a couple whose celebration you have joined sees your profile
-                photo beside your name on their guest list — only where they have not added a
-                photo for you themselves. It is off unless you turn it on, and turning it off
-                again does not hide your name, your RSVP, or a photo they uploaded for you.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    key: 'true' as const,
-                    label: 'On',
-                    tagline: 'Couples you have joined see your photo',
-                  },
-                  {
-                    key: 'false' as const,
-                    label: 'Off',
-                    tagline: 'They see your initials unless they add a photo',
-                  },
-                ]
-              ).map((opt) => {
-                const isActive = (opt.key === 'true') === sharePhotoWithHosts;
-                return (
-                  <form key={opt.key} action={updateSharePhotoWithHosts}>
-                    <input
-                      type="hidden"
-                      name="share_profile_photo_with_hosts"
-                      value={opt.key}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isActive}
-                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
-                        isActive
-                          ? 'border-terracotta bg-terracotta/5'
-                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
-                        {isActive ? (
-                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                            Active
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="text-xs text-ink/55">{opt.tagline}</span>
-                    </button>
-                  </form>
-                );
-              })}
-            </div>
-          </div>
-
-          {publicProfileOn && currentSlug ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href={`/u/${currentSlug}`}
-                className="sn-chip sn-press w-fit"
-                prefetch={false}
+          <div className="grid gap-5 sm:grid-cols-3">
+            <Field label="Civil status" htmlFor="civil_status">
+              <select
+                id="civil_status"
+                name="civil_status"
+                defaultValue={profile?.civil_status ?? ''}
+                className="input-field"
               >
-                Preview your public profile
-              </Link>
-              {/* Share doorway (#7c) — only once there's a public celebration to
-                  show; until then, sharing the link would land on an empty page. */}
-              {hasPublicChapter ? (
-                <ProfileShareButton
-                  url={publicProfileUrl}
-                  title={publicProfileShareTitle}
-                />
-              ) : (
-                <p className="text-xs text-ink/50">
-                  Publish a celebration to share your profile.
-                </p>
-              )}
-            </div>
-          ) : null}
-        </section>
-      )}
-
-      <section className="mt-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Planning reminders
-          </h2>
-          <p className="text-sm text-ink/60">
-            Friendly nudges on your Overview tab for when to book each vendor and
-            handle key documents. On by default — turn off to plan on your own
-            clock.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(
-            [
-              {
-                key: 'true' as const,
-                label: 'On',
-                tagline: 'Show recommended deadlines on your Overview tab',
-              },
-              {
-                key: 'false' as const,
-                label: 'Off',
-                tagline: 'Hide them · plan on your own clock',
-              },
-            ]
-          ).map((opt) => {
-            const isActive = (opt.key === 'true') === remindersOn;
-            return (
-              <form key={opt.key} action={updateRemindersEnabled}>
-                <input type="hidden" name="reminders_enabled" value={opt.key} />
-                <button
-                  type="submit"
-                  disabled={isActive}
-                  className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
-                    isActive
-                      ? 'border-terracotta bg-terracotta/5'
-                      : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-ink">{opt.label}</span>
-                    {isActive ? (
-                      <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                        Active
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="text-xs text-ink/55">{opt.tagline}</span>
-                </button>
-              </form>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mt-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Display language
-          </h2>
-          <p className="text-sm text-ink/60">
-            Switches dashboard nav, headings, and common buttons between English and
-            Tagalog. Your guest list, vendor names, and the marketing site stay in
-            whatever you typed them in.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(
-            [
-              {
-                key: 'en' as const,
-                label: 'English',
-                tagline: 'Default · ships across every Setnayan surface',
-              },
-              {
-                key: 'tl' as const,
-                label: 'Tagalog',
-                tagline: 'Dashboard chrome only · conversational tone',
-              },
-            ]
-          ).map((opt) => {
-            const isActive = opt.key === activeLocale;
-            return (
-              <form key={opt.key} action={updateLocalePreference}>
-                <input type="hidden" name="locale" value={opt.key} />
-                <button
-                  type="submit"
-                  disabled={isActive}
-                  className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
-                    isActive
-                      ? 'border-terracotta bg-terracotta/5'
-                      : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-ink">{opt.label}</span>
-                    {isActive ? (
-                      <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                        Active
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="text-xs text-ink/55">{opt.tagline}</span>
-                </button>
-              </form>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mt-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Notifications &amp; feedback
-          </h2>
-          <p className="text-sm text-ink/60">
-            Turn on push to hear about new messages and inquiries even when the
-            app is closed. Haptics adds a gentle tap when you press buttons, on
-            phones that support it.
-          </p>
-        </div>
-        <PushToggle audience="couple" />
-        <HapticsToggle />
-      </section>
-
-      <section className="mt-10 space-y-4">
-        <div className="space-y-1">
-          <h2 className="sn-sec">
-            Privacy &amp; data (RA 10173)
-          </h2>
-          <p className="text-sm text-ink/60">
-            Export your data or request account deletion at any time. Deletion
-            requests are reviewed by our team within 24 hours before they take
-            effect.
-          </p>
-        </div>
-        <AnalyticsChoice />
-
-        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink">Export my data</p>
-            <p className="text-xs text-ink/55">
-              Downloads a JSON file with your profile, events you&rsquo;re on, vendor
-              profile (if any), and chat messages you authored.
-            </p>
+                <option value="">Prefer not to say</option>
+                {CIVIL_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {CIVIL_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Religion" htmlFor="religion">
+              <select
+                id="religion"
+                name="religion"
+                defaultValue={profile?.religion ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {RELIGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RELIGION_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Gender" htmlFor="sex">
+              <select id="sex" name="sex" defaultValue={profile?.sex ?? ''} className="input-field">
+                <option value="">Prefer not to say</option>
+                {SEXES.map((s) => (
+                  <option key={s} value={s}>
+                    {SEX_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
-          <a
-            href="/api/profile/export"
-            download
-            className="button-secondary inline-flex items-center gap-2"
-          >
-            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Download .json
-          </a>
-        </div>
+          <p className="text-xs text-ink/60">
+            Used only to personalize your events — never required, never shared.{' '}
+            <span className="font-medium text-ink/75">We store your events, not your documents.</span>
+          </p>
+        </fieldset>
 
-        {/*
-          LEGACY CONTACT (reserved · person-spine Phase 3, owner-locked
-          2026-07-04). Designate-while-alive — who inherits your memories. Inert
-          placeholder here; the actual flow (memorialization + inheritance) ships
-          in Phase 3 behind PH counsel. Baked in now so the setting has its
-          permanent home. See 03_Strategy/People_Graph_and_Lifelong_Identity_
-          2026-07-04.md.
-        */}
-        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink">Legacy contact</p>
-            <p className="text-xs text-ink/55">
-              Choose who inherits your memories. You decide, while living, who your
-              archive passes to. Coming soon.
-            </p>
-          </div>
-          <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs text-ink/50">
-            Not set
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/10 pt-5">
+          <SubmitButton className="button-primary" pendingLabel="Saving…">
+            Save
+          </SubmitButton>
+          <span className="text-xs text-ink/60">
+            Your profile photo goes to hosts only if you allow it under{' '}
+            <a
+              href="#privacy"
+              className="underline decoration-ink/25 underline-offset-2 hover:text-terracotta-700"
+            >
+              Privacy
+            </a>
+            .
           </span>
         </div>
+      </form>
+    </>
+  );
+
+  /* ── PRIVACY ─────────────────────────────────────────────────────────────── */
+  const greetingSwitch = (
+    <SwitchRow
+      action={updatePersonalInfo}
+      on={profile?.public_greeting_opt_in ?? false}
+      id="public-greeting"
+      label="Public birthday and anniversary greetings"
+      help="A greeting on our Facebook, Instagram & TikTok pages. Email greetings don’t need this."
+    >
+      <input type="hidden" name="tab" value="privacy" />
+      <input type="hidden" name={PRESENCE_MARKERS.public_greeting_opt_in} value="1" />
+      {/* The switch submits the state it is turning TO. */}
+      {profile?.public_greeting_opt_in ? null : (
+        <input type="hidden" name="public_greeting_opt_in" value="on" />
+      )}
+    </SwitchRow>
+  );
+
+  const privacyPane = (
+    <>
+      <GroupHeader
+        id="privacy"
+        eyebrow="Who can see you"
+        title="Privacy"
+        lead="Nothing about you is shared automatically. Each switch here is yours."
+      />
+      <div className="space-y-6">
+        {/* URL & handle — public handle editor (#7a) + public-profile gate
+            (#7b). The handle is a public identifier derived from the account
+            name, so RA-10173 requires it be user-controllable; the switch keeps
+            the /u showcase dormant until the person opts in. Hidden for anon
+            drafts — they have no durable public identity to publish. */}
+        {isAnon ? (
+          <div className="sn-tile">{greetingSwitch}</div>
+        ) : (
+          <section id="url-slug" aria-labelledby="public-profile-title" className="sn-tile scroll-mt-24">
+            <h3 id="public-profile-title" className="font-display text-2xl font-semibold text-ink">
+              Public profile
+            </h3>
+            <div className="mt-2 divide-y divide-ink/10">
+              <SwitchRow
+                action={updatePublicProfileEnabled}
+                on={publicProfileOn}
+                id="public-profile"
+                label="Public profile page"
+                help={`${publicHost}/u/${currentSlug ?? 'your-handle'} · lists only celebrations you’ve made public. Off: hidden from everyone but you, never in search.`}
+              >
+                <input
+                  type="hidden"
+                  name="public_profile_enabled"
+                  value={publicProfileOn ? 'false' : 'true'}
+                />
+              </SwitchRow>
+
+              {publicProfileOn && currentSlug ? (
+                <div className="flex flex-wrap items-center gap-3 py-4">
+                  {/* Share doorway (#7c) — only once there's a public
+                      celebration to show; until then, sharing the link would
+                      land on an empty page. */}
+                  {hasPublicChapter ? (
+                    <ProfileShareButton url={publicProfileUrl} title={publicProfileShareTitle} />
+                  ) : null}
+                  <Link href={`/u/${currentSlug}`} className="sn-chip sn-press w-fit" prefetch={false}>
+                    View public profile
+                  </Link>
+                  {hasPublicChapter ? null : (
+                    <p className="text-xs text-ink/60">Publish a celebration to share your profile.</p>
+                  )}
+                </div>
+              ) : null}
+
+              <form action={updateUserSlug} className="space-y-2 py-4">
+                <label htmlFor="slug" className="block text-sm font-medium text-ink">
+                  Account name
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="shrink-0 font-mono text-sm text-ink/60">@</span>
+                    <input
+                      id="slug"
+                      name="slug"
+                      maxLength={32}
+                      defaultValue={currentSlug ?? ''}
+                      placeholder="your-handle"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      className="input-field font-mono"
+                    />
+                  </div>
+                  <SubmitButton className="button-secondary shrink-0" pendingLabel="Saving…">
+                    Save account name
+                  </SubmitButton>
+                </div>
+                <p className="text-xs text-ink/60">
+                  Your @tag and your address. 3–32 characters: lowercase letters, numbers, hyphens.
+                  The old link keeps redirecting for {slugForwardingLabel()}.
+                </p>
+              </form>
+
+              {/* FINDABLE BY NAME — the way out of the people search (owner
+                  2026-08-21, "just like facebook"). Not the public page: this
+                  is whether a signed-in person who knows your name can ask to
+                  connect. */}
+              <SwitchRow
+                action={updateDiscoverableByName}
+                on={findableByName}
+                id="findable-by-name"
+                label="Can people find you by name?"
+                help="They see your name and photo — never your email, phone or celebrations — and nothing connects until you confirm. Off: only someone with your email can add you."
+              >
+                <input
+                  type="hidden"
+                  name="discoverable_by_name"
+                  value={findableByName ? 'false' : 'true'}
+                />
+              </SwitchRow>
+
+              <SwitchRow
+                action={updateSharePhotoWithHosts}
+                on={sharePhotoWithHosts}
+                id="photo-with-hosts"
+                label="Share my profile photo with hosts"
+                help="Couples whose celebration you joined see it on their guest list. Never shared automatically."
+              >
+                <input
+                  type="hidden"
+                  name="share_profile_photo_with_hosts"
+                  value={sharePhotoWithHosts ? 'false' : 'true'}
+                />
+              </SwitchRow>
+
+              {greetingSwitch}
+            </div>
+          </section>
+        )}
+
+        {/* ── YOUR DATA (RA 10173) ─────────────────────────────────────── */}
+        <section aria-labelledby="your-data-title" className="space-y-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/60">
+              RA 10173 · Data Privacy Act
+            </p>
+            <h3 id="your-data-title" className="mt-1 font-display text-2xl font-semibold text-ink">
+              Your data
+            </h3>
+          </div>
+          <AnalyticsChoice />
+
+          <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Download my data</p>
+              <p className="text-xs text-ink/60">
+                Your profile, events you&rsquo;re on, vendor profile (if any), and chat messages you
+                wrote.
+              </p>
+            </div>
+            <a
+              href="/api/profile/export"
+              download
+              className="button-secondary inline-flex items-center gap-2"
+            >
+              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Download .json
+            </a>
+          </div>
+
+          {/*
+            Social Sharing & Featuring Program — live consents the user can
+            revoke. A revoke after a post went live still works (revoked_at
+            flips); the admin Social Queue then handles the take-down within
+            the 24-hour SLA. See migration 20261203000000.
+          */}
+          <div className="sn-tile space-y-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">
+                Featured on Setnayan&rsquo;s pages
+              </p>
+              <p className="text-xs text-ink/60">
+                Creations you&rsquo;ve allowed us to feature on our social pages (Facebook,
+                Instagram &amp; TikTok) — always after your event, never before.
+              </p>
+            </div>
+            {!shareConsentsMeasured ? (
+              <p role="status" className="text-xs text-ink/70">
+                We couldn’t load these just now, so anything you’ve allowed isn’t
+                shown. Nothing has changed — refresh to try again.
+              </p>
+            ) : shareConsents.length === 0 ? (
+              <p className="text-xs text-ink/60">
+                Nothing here — when you allow a creation to be featured, it shows up
+                here and can be revoked any time.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {shareConsents.map((c) => (
+                  <li
+                    key={c.consent_id}
+                    className="sn-row flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-medium text-ink">
+                        {SHARE_ARTIFACT_LABEL[c.artifact_type as ShareArtifactType] ??
+                          c.artifact_type}
+                        {consentEventNames[c.event_id] ? (
+                          <span className="text-ink/60"> · {consentEventNames[c.event_id]}</span>
+                        ) : null}
+                      </p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
+                        {c.credit_mode === 'anonymous' ? 'Anonymous' : 'First names'} · allowed{' '}
+                        {c.consented_at.slice(0, 10)} ·{' '}
+                        {c.posted_at ? (
+                          c.post_url ? (
+                            <a
+                              href={c.post_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-terracotta hover:underline"
+                            >
+                              posted ↗
+                            </a>
+                          ) : (
+                            'posted'
+                          )
+                        ) : (
+                          'queued — posts after your event'
+                        )}
+                      </p>
+                    </div>
+                    <form action={revokeShareConsent}>
+                      <input type="hidden" name="consent_id" value={c.consent_id} />
+                      <input type="hidden" name="revalidate_path" value="/dashboard/profile" />
+                      <SubmitButton
+                        className="button-secondary text-xs"
+                        pendingLabel="Revoking…"
+                      >
+                        Revoke
+                      </SubmitButton>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/*
+            LEGACY CONTACT (reserved · person-spine Phase 3, owner-locked
+            2026-07-04). Designate-while-alive — who inherits your memories.
+            Inert placeholder here; the actual flow (memorialization +
+            inheritance) ships in Phase 3 behind PH counsel. Baked in now so the
+            setting has its permanent home. See 03_Strategy/People_Graph_and_
+            Lifelong_Identity_2026-07-04.md.
+          */}
+          <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Legacy contact</p>
+              <p className="text-xs text-ink/60">
+                Choose, while living, who inherits your memories. Coming soon.
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs text-ink/60">
+              Not set
+            </span>
+          </div>
+        </section>
 
         {/*
           ACCOUNT-LEVEL FACE PROFILE (owner-locked 2026-06-26 reversal of
           per-event scoping). OPT-IN, OFF by default. Rendered only when the
           feature flag is ON — DPO sign-off on this consent copy + retention is
           required before the flag is flipped. Never names the model ("Setnayan
-          AI"). Two controls: the opt-in toggle, and account-level erasure.
+          AI"). Two controls: the opt-in switch, and account-level erasure in
+          its own separated danger block.
         */}
         {faceProfileFlagOn ? (
-          <div className="sn-tile space-y-3">
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium text-ink">
-                Remember my face across my events
-              </p>
-              <p className="text-xs text-ink/55">
-                When on, Setnayan AI can use a face profile saved to your account
-                to recognize you and tag your photos faster — at any Setnayan event
-                you attend, not just one. It is only ever used to find{' '}
-                <strong>you</strong>, never to identify anyone else, and you can
-                turn it off and erase it any time. Off by default. Biometric data
-                is handled under the Data Privacy Act (RA 10173).
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    key: 'true' as const,
-                    label: 'On',
-                    tagline: 'Reuse my account face profile across my events',
-                  },
-                  {
-                    key: 'false' as const,
-                    label: 'Off',
-                    tagline: 'Don’t save a face profile to my account',
-                  },
-                ]
-              ).map((opt) => {
-                const isActive = (opt.key === 'true') === faceProfileOptedIn;
-                return (
-                  <form key={opt.key} action={setAccountFaceProfileConsent}>
-                    <input type="hidden" name="enabled" value={opt.key} />
-                    <button
-                      type="submit"
-                      disabled={isActive}
-                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
-                        isActive
-                          ? 'border-terracotta bg-terracotta/5'
-                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
-                        {isActive ? (
-                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                            Active
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="text-xs text-ink/55">{opt.tagline}</span>
-                    </button>
-                  </form>
-                );
-              })}
-            </div>
+          <section aria-labelledby="face-profile-title" className="sn-tile space-y-4">
+            <h3 id="face-profile-title" className="font-display text-2xl font-semibold text-ink">
+              Face profile
+            </h3>
+            <p className="text-xs text-ink/60">
+              When on, Setnayan AI can use a face profile saved to your account to recognize you
+              and tag your photos faster — at any Setnayan event you attend, not just one. It is
+              only ever used to find <strong>you</strong>, never to identify anyone else, and you
+              can turn it off and erase it any time. Off by default. Biometric data is handled
+              under the Data Privacy Act (RA 10173).
+            </p>
+            <SwitchRow
+              action={setAccountFaceProfileConsent}
+              on={faceProfileOptedIn}
+              id="face-profile"
+              label="Reuse my account face profile across my events"
+              help="Off means no face profile is saved to your account."
+            >
+              <input type="hidden" name="enabled" value={faceProfileOptedIn ? 'false' : 'true'} />
+            </SwitchRow>
 
             {/* Account-level erasure (guardrail #3) — one action wipes the
                 account profile and, optionally, the per-event enrollments too. */}
@@ -1387,87 +1036,259 @@ export default async function ProfilePage({ searchParams }: Props) {
                 </SubmitButton>
               </form>
             </details>
-          </div>
+          </section>
         ) : null}
+      </div>
+    </>
+  );
 
-        {/*
-          Social Sharing & Featuring Program — live consents the user can
-          revoke. A revoke after a post went live still works (revoked_at
-          flips); the admin Social Queue then handles the take-down within
-          the 24-hour SLA. See migration 20261203000000.
-        */}
-        <div className="sn-tile space-y-3">
+  /* ── SIGN-IN & SECURITY ──────────────────────────────────────────────────── */
+  const securityPane = (
+    <>
+      <GroupHeader eyebrow="Keeping your account yours" title="Sign-in & security" />
+      <div className="space-y-6">
+        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-ink">
-              Featured on Setnayan&rsquo;s pages
-            </p>
-            <p className="text-xs text-ink/55">
-              Creations you&rsquo;ve allowed us to feature on our social pages
-              (Facebook, Instagram &amp; TikTok) — always after your event, never
-              before.
-            </p>
+            <p className="text-sm font-medium text-ink">Email</p>
+            <p className="break-words text-sm text-ink/70">{emailShown}</p>
           </div>
-          {!shareConsentsMeasured ? (
-            <p role="status" className="text-xs text-ink/70">
-              We couldn’t load these just now, so anything you’ve allowed isn’t
-              shown. Nothing has changed — refresh to try again.
-            </p>
-          ) : shareConsents.length === 0 ? (
-            <p className="text-xs text-ink/45">
-              Nothing here — when you allow a creation to be featured, it shows up
-              here and can be revoked any time.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {shareConsents.map((c) => (
-                <li
-                  key={c.consent_id}
-                  className="sn-row flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+          {/* Anon-draft: a not-yet-secured account has no password and no
+              meaningful multi-device sessions, so the two sections below are
+              hidden — adding an email IS where they set their first password. */}
+          {isAnon ? (
+            <Link href="/signup?next=%2Fdashboard%2Fprofile" className="button-primary shrink-0">
+              Secure your plan
+            </Link>
+          ) : null}
+        </div>
+
+        {isAnon ? null : (
+          <>
+            <form action={changePassword} className="sn-tile space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Change password</h3>
+                <p className="mt-1 text-xs text-ink/60">
+                  At least 8 characters; this session stays signed in. Signed up with Google,
+                  Facebook or a magic link? Use the reset link on the sign-in page instead.
+                </p>
+              </div>
+              <input type="hidden" name="return_to" value="/dashboard/profile" />
+              <TurnstileField action="reauth" />
+              <Field label="Current password" htmlFor="current_password">
+                <input
+                  id="current_password"
+                  name="current_password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  className="input-field"
+                />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="New password" htmlFor="new_password">
+                  <input
+                    id="new_password"
+                    name="new_password"
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="input-field"
+                  />
+                </Field>
+                <Field label="Confirm new password" htmlFor="confirm_password">
+                  <input
+                    id="confirm_password"
+                    name="confirm_password"
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="input-field"
+                  />
+                </Field>
+              </div>
+              <SubmitButton
+                className="button-primary inline-flex items-center gap-2"
+                pendingLabel="Changing…"
+              >
+                <KeyRound aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Change password
+              </SubmitButton>
+            </form>
+
+            <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">Other devices</p>
+                <p className="text-xs text-ink/60">
+                  Signs out every session except this one. They&rsquo;ll need your password to
+                  sign back in.
+                </p>
+              </div>
+              <ConfirmForm
+                action={signOutOtherDevices}
+                title="Sign out other devices?"
+                message="This signs you out on every other phone/laptop where you're logged in. This device stays signed in."
+                confirmLabel="Sign out others"
+                destructive={false}
+              >
+                <input type="hidden" name="return_to" value="/dashboard/profile" />
+                <SubmitButton
+                  className="button-secondary inline-flex items-center gap-2"
+                  pendingLabel="Signing out…"
                 >
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-medium text-ink">
-                      {SHARE_ARTIFACT_LABEL[c.artifact_type as ShareArtifactType] ??
-                        c.artifact_type}
-                      {consentEventNames[c.event_id] ? (
-                        <span className="text-ink/55"> · {consentEventNames[c.event_id]}</span>
-                      ) : null}
-                    </p>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                      {c.credit_mode === 'anonymous' ? 'Anonymous' : 'First names'} · allowed{' '}
-                      {c.consented_at.slice(0, 10)} ·{' '}
-                      {c.posted_at ? (
-                        c.post_url ? (
-                          <a
-                            href={c.post_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-terracotta hover:underline"
-                          >
-                            posted ↗
-                          </a>
-                        ) : (
-                          'posted'
-                        )
-                      ) : (
-                        'queued — posts after your event'
-                      )}
-                    </p>
-                  </div>
-                  <form action={revokeShareConsent}>
-                    <input type="hidden" name="consent_id" value={c.consent_id} />
-                    <input type="hidden" name="revalidate_path" value="/dashboard/profile" />
-                    <SubmitButton
-                      className="button-secondary text-xs"
-                      pendingLabel="Revoking…"
-                    >
-                      Revoke
-                    </SubmitButton>
-                  </form>
-                </li>
-              ))}
-            </ul>
+                  <MonitorSmartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Sign out other devices
+                </SubmitButton>
+              </ConfirmForm>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+
+  /* ── PREFERENCES ─────────────────────────────────────────────────────────── */
+  const preferencesPane = (
+    <>
+      <GroupHeader eyebrow="How Setnayan works for you" title="Preferences" />
+      <div className="space-y-6">
+        <div className="sn-tile divide-y divide-ink/10">
+          <Segmented
+            label="Planner mode"
+            help="Guided shows the 9-step checklist on your Overview tab. DIY hides it."
+            action={updatePlannerMode}
+            name="planner_mode"
+            value={activePlannerMode}
+            options={[
+              { key: 'guided', label: 'Guided' },
+              { key: 'diy', label: 'DIY' },
+            ]}
+          />
+          {/* Iteration 0025 — runtime EN/TL toggle. */}
+          <Segmented
+            label="Display language"
+            help="Dashboard menus, headings and buttons. What you typed stays as you typed it."
+            action={updateLocalePreference}
+            name="locale"
+            value={activeLocale}
+            options={[
+              { key: 'en', label: 'English' },
+              { key: 'tl', label: 'Tagalog' },
+            ]}
+          />
+        </div>
+
+        <div className="sn-tile divide-y divide-ink/10">
+          <SwitchRow
+            action={updateRemindersEnabled}
+            on={remindersOn}
+            id="planning-reminders"
+            label="Planning reminders"
+            help="Nudges on your Overview tab for when to book each vendor."
+          >
+            <input type="hidden" name="reminders_enabled" value={remindersOn ? 'false' : 'true'} />
+          </SwitchRow>
+          {/* Anon-draft: marketing email would go to the non-routable
+              placeholder address. Hidden until they secure a real email. */}
+          {isAnon ? null : (
+            <SwitchRow
+              action={updatePersonalInfo}
+              on={profile?.marketing_opt_in ?? false}
+              id="marketing-emails"
+              label="Marketing emails"
+              help="Product updates, new templates, seasonal promos. RA 10173 opt-in. Default off."
+            >
+              <input type="hidden" name="tab" value="preferences" />
+              <input type="hidden" name={PRESENCE_MARKERS.marketing_opt_in} value="1" />
+              {/* The switch submits the state it is turning TO. */}
+              {profile?.marketing_opt_in ? null : (
+                <input type="hidden" name="marketing_opt_in" value="on" />
+              )}
+            </SwitchRow>
           )}
         </div>
+
+        <PushToggle audience="couple" />
+        <HapticsToggle />
+      </div>
+    </>
+  );
+
+  /* ── ACCOUNT ─────────────────────────────────────────────────────────────── */
+  const accountPane = (
+    <>
+      {/*
+        `#settings` — the anchor target of the account menu's "Settings" row
+        (lib/nav-registry-defaults.ts) and of every deletion redirect. Deletion
+        lives in this group, so the id lives here. `scroll-mt-24` pads under the
+        sticky dashboard chrome. WHY this is not /dashboard/settings: V1 keeps a
+        single Profile page; the split is anchor-based, not route-based, so deep
+        links survive without a route migration.
+      */}
+      <GroupHeader id="settings" eyebrow="The account itself" title="Account" />
+      <div className="space-y-6">
+        <dl className="sn-tile grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
+          <Row label="Account type" value={profile?.account_type ?? '—'} />
+          <Row label="Locale" value={profile?.locale ?? '—'} />
+          <Row
+            label="Internal account"
+            value={
+              profile?.is_internal
+                ? 'Yes (§ 10a — owner)'
+                : profile?.is_team_member
+                  ? 'Yes (§ 10b — team pool)'
+                  : 'No'
+            }
+          />
+        </dl>
+
+        <div className="sn-row divide-y divide-ink/10 overflow-hidden">
+          <Link href="/help" className={ACCOUNT_ROW}>
+            {tr('common.help')}
+            <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
+          </Link>
+          {/* Route URL stays `/dashboard/profile/concierge` to avoid
+              cross-iteration import + spec-corpus churn. Visible label is the
+              V2 brand "Setnayan AI" per the 2026-05-28 V1→V2 cutover lock. */}
+          {CONCIERGE_ENABLED ? (
+            <Link href="/dashboard/profile/concierge" className={ACCOUNT_ROW}>
+              <span className="inline-flex items-center gap-2">
+                <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Setnayan AI
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
+            </Link>
+          ) : null}
+          <Link href="/dashboard/api-keys" className={ACCOUNT_ROW}>
+            API keys
+            <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
+          </Link>
+          <form action={restartTour}>
+            <SubmitButton pendingLabel="Restarting…" className={`${ACCOUNT_ROW} w-full text-left`}>
+              <span className="inline-flex items-center gap-2">
+                <Compass aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Restart welcome tour
+              </span>
+            </SubmitButton>
+          </form>
+          {isAdmin ? (
+            <Link href="/admin" className={ACCOUNT_ROW}>
+              Setnayan HQ ↗
+              <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
+            </Link>
+          ) : null}
+        </div>
+        {/*
+          THE SIGNED-IN "SIGN OUT" BUTTON WAS HERE — retired 2026-08-13
+          (Redesign Session 6, "the seam"). Owner: *"sign out lives under the
+          avatar and nowhere else."* A second place to sign out is not a
+          convenience, it is a second thing to find.
+          `app/_components/auth/seam-invariants.test.ts` fails if it returns.
+          Anon drafts get "Secure your plan" under Sign-in & security instead —
+          that is NOT a sign-out.
+        */}
 
         {pendingDeletion ? (
           <div className="space-y-3 rounded-xl border border-warn-300/60 bg-warn-50/60 p-4">
@@ -1558,66 +1379,202 @@ export default async function ProfilePage({ searchParams }: Props) {
             </form>
           </details>
         )}
-      </section>
+      </div>
+    </>
+  );
 
-      <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        {/* Route URL stays `/dashboard/profile/concierge` to avoid cross-iteration
-            import + spec-corpus churn. Visible label rewritten to V2 brand
-            "Setnayan AI" per CLAUDE.md 2026-05-28 V1→V2 cutover row 3 lock. */}
-        {CONCIERGE_ENABLED ? (
-          <Link
-            href="/dashboard/profile/concierge"
-            className="button-secondary inline-flex items-center gap-2"
-          >
-            <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Setnayan AI
-          </Link>
-        ) : null}
-        <Link href="/help" className="button-secondary">
-          {tr('common.help')}
+  /* The phone's group list ends with the Account group's doorways, quietly —
+     the same destinations as the Account pane, one tap from the list. */
+  const indexExtras = (
+    <>
+      <Link href="/help" className={ACCOUNT_ROW}>
+        {tr('common.help')}
+      </Link>
+      {CONCIERGE_ENABLED ? (
+        <Link href="/dashboard/profile/concierge" className={ACCOUNT_ROW}>
+          Setnayan AI
         </Link>
-        <Link href="/dashboard/api-keys" className="button-secondary">
-          API keys
+      ) : null}
+      <Link href="/dashboard/api-keys" className={ACCOUNT_ROW}>
+        API keys
+      </Link>
+      {isAdmin ? (
+        <Link href="/admin" className={ACCOUNT_ROW}>
+          Setnayan HQ ↗
         </Link>
-        <form action={restartTour}>
-          <SubmitButton pendingLabel="Restarting…" className="button-secondary inline-flex items-center gap-2">
-            <Compass aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Restart welcome tour
-          </SubmitButton>
-        </form>
-        {isAdmin ? (
-          <Link href="/admin" className="button-secondary">
-            Setnayan HQ ↗
-          </Link>
-        ) : null}
-        {isAnon ? (
-          // Anon-draft: signing out destroys their only key to the plan (no
-          // password to get back in). Offer "Secure your plan" instead — this
-          // is NOT a sign-out and is unaffected by the rule below.
-          <Link href="/signup?next=%2Fdashboard%2Fprofile" className="button-primary">
-            Secure your plan
-          </Link>
-        ) : null}
-        {/*
-          THE SIGNED-IN "SIGN OUT" BUTTON WAS HERE — retired 2026-08-13
-          (Redesign Session 6, "the seam"). Owner: *"sign out lives under the
-          avatar and nowhere else."*
+      ) : null}
+    </>
+  );
 
-          🔑 A SECOND PLACE TO SIGN OUT IS NOT A CONVENIENCE, it is a second
-          thing to find. The avatar / plaque menu carries it on every screen in
-          the product including this one, and it is the menu people reach this
-          page THROUGH. Nobody is stranded; there is simply one gesture rather
-          than two. `app/_components/auth/seam-invariants.test.ts` fails if it
-          returns.
-        */}
-      </section>
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <PageMasthead
+        title="Profile &amp; settings"
+        actions={
+          <Link href={backHref} className="sn-chip sn-press w-fit">
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {backLabel}
+          </Link>
+        }
+      />
+
+      <SettingsShell
+        // Remount on every navigation to a new URL (an action's redirect), so
+        // the group and the flash banner are re-read from it.
+        key={JSON.stringify(search)}
+        initialGroup={initialGroup}
+        fromTab={fromTab}
+        flash={flash}
+        identity={{ displayName, tag, fullName: composedFormalName, avatarUrl, initials }}
+        accountId={profile?.public_id ?? null}
+        indexExtras={indexExtras}
+        showDeleteRow={!isAnon}
+        panes={{
+          profile: profilePane,
+          'guest-details': guestDetailsPane,
+          privacy: privacyPane,
+          security: securityPane,
+          preferences: preferencesPane,
+          account: accountPane,
+        }}
+      />
+    </div>
+  );
+}
+
+const ACCOUNT_ROW =
+  'flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink hover:bg-ink/5';
+
+/** A group's title block. `id` keeps an old in-page anchor pointing at its group. */
+function GroupHeader({
+  eyebrow,
+  title,
+  lead,
+  id,
+}: {
+  eyebrow: string;
+  title: string;
+  lead?: string;
+  id?: string;
+}) {
+  return (
+    <div id={id} className="mb-6 scroll-mt-24">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/60">{eyebrow}</p>
+      <h2 className="mt-1.5 font-display text-3xl font-semibold leading-tight text-ink">{title}</h2>
+      {lead ? <p className="mt-2 max-w-xl text-sm text-ink/70">{lead}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * One on/off setting that saves the moment it is flipped. It is a plain form:
+ * the hidden inputs passed as `children` carry the state it is turning TO, and
+ * the submit button is drawn as the same switch as PushToggle / HapticsToggle.
+ * These replace the old pair of "On" / "Off" choice cards per setting.
+ */
+function SwitchRow({
+  action,
+  on,
+  id,
+  label,
+  help,
+  children,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  on: boolean;
+  id: string;
+  label: string;
+  help?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <form action={action} className="flex items-center justify-between gap-4 py-4 first:pt-2 last:pb-2">
+      {children}
+      <div className="min-w-0">
+        <p id={`${id}-label`} className="text-sm font-medium text-ink">
+          {label}
+        </p>
+        {help ? <p className="mt-0.5 text-xs text-ink/60">{help}</p> : null}
+      </div>
+      <button
+        type="submit"
+        role="switch"
+        aria-checked={on}
+        aria-labelledby={`${id}-label`}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+          on ? 'bg-terracotta' : 'bg-ink/20'
+        }`}
+      >
+        <span
+          aria-hidden
+          className={`inline-block h-5 w-5 transform rounded-full bg-cream shadow transition-transform ${
+            on ? 'translate-x-[22px]' : 'translate-x-0.5'
+          }`}
+        />
+      </button>
+    </form>
+  );
+}
+
+/**
+ * A two-option choice (Planner mode, Display language) as one segmented
+ * control. Each segment is its own tiny form, exactly like the choice cards it
+ * replaces; the active one is disabled and marked pressed.
+ */
+function Segmented({
+  label,
+  help,
+  action,
+  name,
+  value,
+  options,
+}: {
+  label: string;
+  help: string;
+  action: (formData: FormData) => void | Promise<void>;
+  name: string;
+  value: string;
+  options: Array<{ key: string; label: string }>;
+}) {
+  return (
+    <div className="flex flex-col gap-3 py-4 first:pt-2 last:pb-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-ink">{label}</p>
+        <p className="mt-0.5 text-xs text-ink/60">{help}</p>
+      </div>
+      <div
+        role="group"
+        aria-label={label}
+        className="inline-flex shrink-0 gap-1 self-start rounded-md border border-ink/15 bg-cream p-1 sm:self-auto"
+      >
+        {options.map((opt) => {
+          const isActive = opt.key === value;
+          return (
+            <form key={opt.key} action={action}>
+              <input type="hidden" name={name} value={opt.key} />
+              <button
+                type="submit"
+                disabled={isActive}
+                aria-pressed={isActive}
+                className={`rounded-sm px-4 py-1.5 text-sm transition-colors ${
+                  isActive
+                    ? 'bg-terracotta/10 font-semibold text-terracotta-700'
+                    : 'font-medium text-ink/70 hover:text-ink'
+                }`}
+              >
+                {opt.label}
+              </button>
+            </form>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="sn-row space-y-1 p-4">
+    <div className="space-y-1">
       <dt className="sn-eye">{label}</dt>
       <dd className={`text-base text-ink ${mono ? 'font-mono' : ''}`}>{value}</dd>
     </div>

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
+import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
@@ -183,6 +184,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // admin-only mount would leave a supplier's reminder waiting on somebody
   // opening /admin.
   after(() => maybeRunDeletionRequestNudge().catch(() => {}));
+  // 🔴 The booking fee is the only revenue path, and it could open without ever
+  // being billed: the collector opens the charge through the RPC first and can
+  // fail at five later points, leaving a `pending` charge with no `orders` row
+  // — a supplier shown nothing owed, and no screen anywhere saying so.
+  // Mounted here AND on the vendor layout, same reasoning as the two above; the
+  // DB claim picks one winner per window. Flag-gated inside.
+  after(() => maybeRunUnbilledFeeRepair().catch(() => {}));
   // SEO health audit + Google Search Console pull — CRON-FREE: admin traffic +
   // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
   // feed /admin/seo; a skipped day only leaves the dashboard a day stale.

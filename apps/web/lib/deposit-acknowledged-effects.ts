@@ -23,8 +23,17 @@
  * can exercise every branch. The server half must not re-derive any of this.
  */
 
-/** Which surface the supplier pressed, or the render-time catch-up. */
-export type DepositEffectsDoor = 'clients_card' | 'payment_card' | 'catch_up';
+/**
+ * Which surface the supplier pressed, or which sweep ran it.
+ *
+ * `catch_up` — the per-visitor render-time catch-up: a booking this supplier
+ *   acknowledged that carries NO charge at all, so the effects never ran.
+ * `unbilled_repair` — the fleet-wide claimed job: a charge that IS open and
+ *   owed but whose BILL was never raised, because the collector opens the
+ *   charge first and can fail at five later points. Two different absences;
+ *   the door says which one was being healed.
+ */
+export type DepositEffectsDoor = 'clients_card' | 'payment_card' | 'catch_up' | 'unbilled_repair';
 
 /** The fee collector's answer, as this judge needs it (`CollectBookingFeeResult`
  *  is declared in a `server-only` module, so the shape is restated structurally

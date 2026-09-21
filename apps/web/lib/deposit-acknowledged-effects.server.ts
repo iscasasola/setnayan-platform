@@ -152,6 +152,11 @@ function recordDepositEffects(outcome: DepositEffectsOutcome): void {
   }
 }
 
+/** How many acknowledged bookings one render may LOOK at (deterministic window). */
+const CATCH_UP_SCAN_LIMIT = 200;
+/** How many of them one render may actually run the effects for. */
+const CATCH_UP_MAX_EFFECT_RUNS = 10;
+
 /**
  * CRON-FREE CATCH-UP — the house pattern (`maybeSweepVendorBookingFeeNotifications`,
  * `runLoginGhostingCheck`): fired post-response via `after()` from the vendor
@@ -169,8 +174,28 @@ function recordDepositEffects(outcome: DepositEffectsOutcome): void {
  *
  * ⚠ A covered cascade row is skipped (its anchor carries the money); an anchor
  * that was acknowledged only through its covered line is not found here and is
- * left to the doors. Capped so a supplier with a long history cannot turn one
- * render into a batch job.
+ * left to the doors.
+ *
+ * ─── ITS CONDITION IS "NO CHARGE AT ALL", AND ONLY THAT ──────────────────
+ * A charge in `('pending','paid','waived_import','waived_free5')` counts as
+ * charged here and is skipped — which is right for THIS sweep and was wrong as
+ * a description of the money. A `pending` charge with no `orders` row behind it
+ * is open, owed, and invisible: the collector opens the charge through the RPC
+ * before it mints the bill, and can fail at five points in between. That second
+ * absence is healed by `lib/unbilled-fee-repair.server.ts`, fleet-wide and
+ * claimed — NOT here, because a supplier who was never billed has been shown
+ * nothing owed and has no reason to open this page.
+ *
+ * ─── THE CAP IS ON THE WORK, NOT ON THE SCAN (fixed 2026-09-21) ──────────
+ * This used to read 25 acknowledged bookings with **no ordering at all** and
+ * then subtract the charged ones. Two defects in one line: PostgREST may hand
+ * back the same arbitrary page every render, so at scale the sweep re-walks the
+ * same few forever; and because the cap was applied BEFORE the subtraction, a
+ * supplier whose 25 arbitrary rows were all already charged had a sweep that
+ * could never reach the uncharged 26th — it would run, find nothing, and report
+ * success. Now: scan a bounded, DETERMINISTIC oldest-acknowledged-first window,
+ * subtract, and cap the number of effect runs. Oldest first because the oldest
+ * unbilled booking is the one that has been uncollected longest.
  */
 export async function maybeCatchUpAcknowledgedDeposits(userId: string): Promise<void> {
   if (!isBookingFeeEnabled()) return;
@@ -193,7 +218,8 @@ export async function maybeCatchUpAcknowledgedDeposits(userId: string): Promise<
       .not('deposit_acknowledged_at', 'is', null)
       .is('archived_at', null)
       .or('package_role.is.null,package_role.neq.covered')
-      .limit(25);
+      .order('deposit_acknowledged_at', { ascending: true })
+      .limit(CATCH_UP_SCAN_LIMIT);
     const acknowledged = ((rows ?? []) as Array<{ vendor_id: string }>).map((r) => r.vendor_id);
     if (acknowledged.length === 0) return;
 
@@ -208,8 +234,11 @@ export async function maybeCatchUpAcknowledgedDeposits(userId: string): Promise<
         .filter((id): id is string => typeof id === 'string'),
     );
 
+    let runs = 0;
     for (const eventVendorId of acknowledged) {
       if (charged.has(eventVendorId)) continue;
+      if (runs >= CATCH_UP_MAX_EFFECT_RUNS) break;
+      runs += 1;
       await runDepositAcknowledgedEffects(admin, { eventVendorId, door: 'catch_up' });
     }
   } catch (e) {

@@ -10,6 +10,7 @@ import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
+import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -334,6 +335,16 @@ export default async function VendorDashboardLayout({
   // nothing. The effects are idempotent, scoped to the caller's own bookings,
   // flag-gated inside, and every run is recorded.
   after(() => maybeCatchUpAcknowledgedDeposits(user.id).catch(() => {}));
+
+  // 🔴 Unbilled booking-fee repair (CRON-FREE · FLEET-WIDE · claimed).
+  // The catch-up directly above heals "a booking with no charge". This heals
+  // the OTHER absence: a charge that IS open and owed whose BILL was never
+  // raised, because the collector opens the charge through the RPC first and
+  // can fail at five points before the order and payment rows exist. It is
+  // deliberately NOT scoped to the visiting shop — a supplier who was never
+  // billed has been told nothing is owed and has no reason to open this page,
+  // so a per-visitor sweep would reach everyone except the shops it is for.
+  after(() => maybeRunUnbilledFeeRepair().catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

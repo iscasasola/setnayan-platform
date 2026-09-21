@@ -4,6 +4,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { relativeTime } from '@/lib/activity';
 import {
+  approvalStanding,
+  reviewBanner,
+  summariseReviews,
+} from '@/lib/provisional-approval';
+import {
   fetchDataPrivacyControls,
   PRIVACY_CONTROL_GROUP_ORDER,
   PRIVACY_CONTROL_GROUP_LABEL,
@@ -222,8 +227,33 @@ function ControlsBoard({ controls }: { controls: PrivacyControlRow[] }) {
   const live = controls.filter((c) => c.status !== 'retired');
   const retired = controls.filter((c) => c.status === 'retired');
 
+  /*
+   * ⚠ A TEMPORARY APPROVAL THAT LOOKS PERMANENT IS THE DEFECT THIS ANSWERS.
+   * Owner 2026-09-22: the controls are on TEMPORARILY, to be revisited in
+   * January. Until migration 20271238899699 the table could not say so, and a
+   * date that only exists in conversation raises nothing when it arrives. This
+   * banner is the arrival. It never switches a control off — `review_by` gates
+   * nothing, by design; see lib/provisional-approval.ts.
+   */
+  const summary = summariseReviews(
+    live.map((c) => ({ status: c.status, reviewBy: c.review_by })),
+  );
+  const banner = reviewBanner(summary);
+
   return (
     <div className="space-y-8">
+      {banner ? (
+        <p
+          className="rounded-xl border px-4 py-3.5 text-sm leading-relaxed"
+          style={
+            summary.overdue > 0
+              ? { borderColor: 'var(--sn-danger, #b42318)', background: 'rgba(180,35,24,0.06)', color: 'var(--sn-danger, #b42318)' }
+              : { borderColor: 'var(--m-orange-deep)', background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }
+          }
+        >
+          {banner}
+        </p>
+      ) : null}
       {PRIVACY_CONTROL_GROUP_ORDER.map((g) => {
         const rows = live.filter((c) => c.group === g);
         if (rows.length === 0) return null;
@@ -303,6 +333,25 @@ function ControlCard({ control: c }: { control: PrivacyControlRow }) {
             <p className="mt-2 text-xs" style={{ color: 'var(--m-slate-3)' }}>
               Approved {relativeTime(c.approved_at)}
               {c.note ? ` · “${c.note}”` : ''}
+              {/* The card has to carry it too: a board-level count tells you
+                  SOMETHING is provisional, never WHICH. */}
+              {(() => {
+                const standing = approvalStanding({ status: c.status, reviewBy: c.review_by });
+                if (standing === 'overdue') {
+                  return (
+                    <>
+                      {' · '}
+                      <strong style={{ color: 'var(--sn-danger, #b42318)' }}>
+                        review was due {c.review_by ?? '(date unreadable)'}
+                      </strong>
+                    </>
+                  );
+                }
+                if (standing === 'provisional') {
+                  return <>{` · temporary — review by ${c.review_by}`}</>;
+                }
+                return null;
+              })()}
             </p>
           ) : c.note ? (
             <p className="mt-2 text-xs" style={{ color: 'var(--m-slate-3)' }}>

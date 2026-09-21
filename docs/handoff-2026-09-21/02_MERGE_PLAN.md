@@ -160,9 +160,12 @@ a session at all, and saying so is better than guessing.
 Each of these is one answer that releases one build. Until answered they should stay **out** of every
 bundle — a build shipped against a guess is a build shipped twice.
 
-1. **Does an unpaid booking fee remove anything?** (A) it stays a bill · (B) access waits for payment
-   · (C) overdue pauses new inquiries and marketplace visibility. Nothing is decided, so today the
-   answer is (A) by default — and dunning cannot be built until it is settled.
+1. ~~**Does an unpaid booking fee remove anything?**~~ 🛑 **WAS NEVER OPEN — ruled 2026-09-20 and
+   already BUILT** behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT` (`lib/event-access-stage.ts`), which is not
+   set in Production. Option (C) was explicitly dropped; a free booking keeps full access. **Turning
+   it on is a flag, not a merge — it belongs in "What costs NOTHING" above.** The only genuine delta
+   from the owner's 2026-09-22 restatement is **reviews and stats**, which the shipped gate does not
+   cover. M5's dunning is unblocked: the gate is the consequence a dunning notice must warn about.
 2. **Is "0% commission" the promise to keep**, beside a 5% booking fee? Claimed five times on public
    pages, including to suppliers. **No wording should be touched until this is answered.**
 3. **Void or credit memo** for a refunded receipt — neither exists in the system.

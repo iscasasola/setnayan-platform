@@ -11,7 +11,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * plugins. This keeps the single Next.js codebase 100% intact.
  *
  * `webDir` (./www) is the LOCAL FALLBACK shown when the remote URL is
- * unreachable — not the app itself.
+ * unreachable — not the app itself. NOTHING ABOUT THAT IS AUTOMATIC: Capacitor
+ * does not fall back on its own, so each platform wires it by hand — Android in
+ * `MainActivity.onReceivedError`, iOS in `SetnayanBridgeViewController`. This
+ * sentence described only Android until 2026-09-22; on iOS there was no
+ * `WKNavigationDelegate` at all, the splash auto-hid after 2s, and a first load
+ * that never arrived left a blank white WebView with no error and no retry.
  *
  * Switch `server.url` per environment:
  *   - production : https://www.setnayan.com   (default below)

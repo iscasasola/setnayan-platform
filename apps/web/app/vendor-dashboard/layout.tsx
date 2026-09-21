@@ -19,7 +19,6 @@ import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
-import { VendorNavFab } from './_components/vendor-nav-fab';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
@@ -539,9 +538,26 @@ export default async function VendorDashboardLayout({
         bookingsBadge={bookingsPending}
         threadsBadge={threadsUnread}
       />
-      {/* NAV-2 broken-out action — Check inquiries (a sibling of the pill,
-          never a tab). Hides itself when a docked SubNav is up. */}
-      <VendorNavFab />
+      {/*
+        ── THERE IS NO FAB HERE, AND THAT IS DELIBERATE (owner, 2026-09-22:
+        "delete fab") ──────────────────────────────────────────────────────
+        The vendor doorway carried a NAV-2 floating action — `VendorNavFab`,
+        "Check inquiries" → `/vendor-dashboard/bookings` — owner-picked on
+        2026-06-21 because answering an inquiry is a supplier's most
+        time-sensitive job. That reasoning stands; what changed is where the
+        inquiries are. Since the Today desk was renamed to "Needs your answer"
+        it IS the list of everything waiting on this shop, at the top of the
+        page a supplier lands on. A floating button that jumps to a subset of
+        the list you are already reading is a door into the room you are
+        standing in.
+
+        🪤 THE SIBLING DOORWAYS STILL HAVE ONE, so its absence here reads as an
+        oversight unless this note exists. `AdminNavFab` (admin) and
+        `CustomerNavFab` (the couple) both still mount the shared `NavFab`
+        primitive, which is untouched — only the vendor wrapper was deleted.
+        Do not "restore the missing fab for consistency": three doorways with
+        three different jobs is not an inconsistency.
+      */}
       {/* Push notification opt-in banner. Client-only; renders null once the
           vendor has granted push permission or dismissed the prompt. */}
       <PushNotificationRegistrar />

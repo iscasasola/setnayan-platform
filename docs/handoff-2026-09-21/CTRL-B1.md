@@ -27,6 +27,21 @@ Fee shape: **5% to ₱100,000 then 1%, ₱50 floor. First 5 bookings free.** Set
 
 ---
 
+---
+
+## ✅ RE-MEASURED 2026-09-22 against `origin/main` + prod — **3 of 8 builds are ALREADY DONE**
+
+**Builds 4, 5 and 7 below are struck through. Do not build them.** Five remain: 1 · 2 · 3 · 6 · 8.
+
+🔑 **The lesson is in HOW they were missed.** All three closures are rows whose **anchor still greps
+nothing.** Build 7's anchor `highest_declared` returns empty on a tree where that feature shipped in
+full under completely different symbols. Had the anchor's zero been trusted, a 685-line subsystem
+would have been rebuilt from scratch. **A zero only proves something on a row asking for an ABSENCE.**
+
+⚠ Build 1's scope is WIDER than this brief states — see its own note below.
+
+---
+
 ## Build in THIS order. The order is the cut line.
 
 ### 1 — A refund does not reverse the booking fee
@@ -39,6 +54,14 @@ and the ledger says the supplier paid us when they did not.
 - **Property the guard holds:** deactivating a booking-fee order moves the charge OUT of `paid`, and
   the free-5 ordinal is released. Assert both — releasing the money without releasing the ordinal
   silently costs the supplier their free booking.
+
+⚠ **SCOPE IS WIDER THAN THIS BRIEF SAID — re-measured 2026-09-22.** The activation arm does not only
+settle the charge. Read it: it also calls `grantVendorPapicCreditsForBookingFee` (the owner's 5%
+credits) **and** `grantSetnayanGiftForBookingFee` (the couple's photo pot). **A reversal that undoes
+the charge and leaves those two granted is a half-reversal**, and it hands out credits and photos
+paid for by money that was returned. Decide explicitly for each of the three whether it reverses,
+and say why for any that does not — do not simply mirror the settle call.
+Re-measure: `git show origin/main:apps/web/lib/sku-activation.ts | grep -n "grantVendorPapicCreditsForBookingFee\|grantSetnayanGiftForBookingFee"`
 
 ### 2 — Approving a payment has no order-status precondition
 The promote is `.update({status:'paid'}).eq('order_id', …)` with **no `.in('status', …)`**, and the
@@ -65,7 +88,19 @@ subset — and a money guard that reads a subset passes on the duplicate it neve
   comment records that. **Watch your sabotage go red.**
 - **Property:** the classifier's verdict does not change when the table is large.
 
-### 4 — The fee bill says "nothing due" when it could not read
+### ~~4 — The fee bill says "nothing due" when it could not read~~ ✅ ALREADY DONE — DO NOT BUILD
+
+**Re-measured 2026-09-22: shipped.** `vendor-booking-fees.server.ts` now exports
+`FEE_ORDERS_UNREADABLE` and returns it instead of `[]`; `countDueVendorFeeOrders` treats it as
+"hide the doorway", not "nothing owed". Landed in `169576a6e5` — *"four money screens say
+'couldn't load' instead of 'none' when a read is refused (S41)"* — and fenced by
+`apps/web/lib/money-reads-are-honest.test.ts`.
+🔑 That commit fixed **four** money screens, so check any other money row against it before building.
+Re-measure: `git grep -n FEE_ORDERS_UNREADABLE origin/main -- apps/web/lib`
+
+<details><summary>original brief text, kept for the record</summary>
+
+#### 4 — The fee bill says "nothing due" when it could not read
 `fetchVendorFeeOrders` ends `if (error) return [];` — an RLS refusal or an outage renders an empty
 bill, which reads exactly like "you owe nothing".
 
@@ -75,7 +110,22 @@ bill, which reads exactly like "you owe nothing".
   and "we couldn't load", never a zero. Read it first.
 - **Property:** "nothing due" is a claim, and a failure must never be able to make it.
 
-### 5 — An unclaimed supplier profile is billed into a void
+</details>
+
+### ~~5 — An unclaimed supplier profile is billed into a void~~ ✅ ALREADY DONE — DO NOT BUILD
+
+**Re-measured 2026-09-22: the mechanism exists.** `unbilled-fee-repair` carries a `no_payer` verdict
+whose own copy is *"It bills itself once the shop is claimed."* — and that is a real property, not
+reassuring text: `listPendingCharges` filters on `status='pending'` **only**, so a `no_payer` charge
+stays in the scan set and is re-attempted every pass. Held by `unbilled-fee-repair.test.ts`.
+⚠ **One thing to carry forward, not a build:** that scan is `order(created_at) LIMIT
+UNBILLED_SCAN_LIMIT`, so permanently-unclaimable charges will crowd the head of the queue at volume.
+Worth a note when the repair job is next touched.
+Re-measure: `git show origin/main:apps/web/lib/unbilled-fee-repair.server.ts | grep -n -A8 listPendingCharges`
+
+<details><summary>original brief text, kept for the record</summary>
+
+#### 5 — An unclaimed supplier profile is billed into a void
 `no_payer` leaves the charge `pending` with no order and no payer, and **nothing re-runs it when the
 supplier later claims the profile.**
 
@@ -84,6 +134,8 @@ supplier later claims the profile.**
   `claim_periodic_job` and fired from `after()` on the vendor and admin layouts. **Extend that job —
   do not add a second one.** Find it before you write anything.
 - **Property:** a charge whose profile has since been claimed gets its bill minted on the next pass.
+
+</details>
 
 ### 6 — An unverified shop is never charged, ever
 `!args.verified` returns `charge:false` **before the ordinal is even considered.** Safe only while
@@ -96,7 +148,26 @@ client) by an unverified shop is free forever.
 - **Property:** an import-sourced booking is charged regardless of verification state; a
   marketplace-sourced one is not. Attribution comes from `chat_threads.inquiry_source`.
 
-### 7 — A waived booking tells the supplier nothing
+### ~~7 — A waived booking tells the supplier nothing~~ ✅ ALREADY DONE — DO NOT BUILD
+
+**Re-measured 2026-09-22: shipped in full, BOTH halves.**
+- The disclosure: `apps/web/lib/booking-fee-disclosure.ts` + `.server.ts` implement a `free` kind
+  that, in the module's own words, *"CARRIES THE SCHEDULE, like `billable`"* because *"a free booking
+  must NAME the amount it would have cost"* — the owner's ruling, followed. `booking-fee-notice.tsx`
+  is mounted on the vendor dashboard, the proposal maker, the open-shop wizard, the client page and
+  the thread. Fenced by `the-fee-finds-the-supplier.test.ts`.
+- The receipt email: `'booking_fee_waived'` **is on `EMAIL_ENABLED_TYPES`**, fenced by
+  `the-waived-fee-sends-a-receipt.test.ts`. Both halves present — which matters, because having one
+  half is indistinguishable from having neither.
+
+🛑 **Its anchor `highest_declared` STILL GREPS EMPTY.** The feature did not use that column. This is
+the single most instructive miss in the pack: the prescribed evidence returns exactly the zero the
+brief predicted, and the conclusion drawn from it would have been wrong.
+Re-measure: `git grep -rln booking-fee-disclosure origin/main -- apps/web`
+
+<details><summary>original brief text, kept for the record</summary>
+
+#### 7 — A waived booking tells the supplier nothing
 The bill reads `orders`, and a waived booking calls `createOrder: false`, so **no row exists**.
 `highest_declared_centavos` — the "what it would have cost" figure — has **zero readers in the entire
 application**. A supplier sees an empty bill for bookings 1–5, then ₱837.50 on #6 with no context.
@@ -111,6 +182,8 @@ application**. A supplier sees an empty bill for bookings 1–5, then ₱837.50 
   cost and that it was free — and the receipt email is on the allowlist. An emitted notification that
   is not on the allowlist is a tray badge reaching nobody; **having one half is indistinguishable
   from having neither.**
+
+</details>
 
 ---
 

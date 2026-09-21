@@ -88,14 +88,14 @@ const BELOW_AA_AS_TEXT: ReadonlyArray<{
  * decorative arrows. This list only ever gets SHORTER. */
 const BILL: ReadonlyArray<readonly [string, number]> = [
   ['budget/_components/share-budget-band-toggle.tsx', 1],
-  ['guests/[guestId]/page.tsx', 4],
+  ['guests/[guestId]/page.tsx', 3], // the Allow plus-one checkbox became the 0–4 choice (2026-09-21)
   ['guests/_components/guest-list-multiselect.tsx', 3],
   ['guests/_components/mobile-guest-carousel.tsx', 1],
   ['guests/checkin/page.tsx', 1],
   ['guests/claims/page.tsx', 1],
   ['guests/invite/_components/invite-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel
   ['guests/invite/page.tsx', 1],
-  ['guests/new/page.tsx', 2],
+  ['guests/new/page.tsx', 1], // the Allow plus-one checkbox became the 0–4 choice (2026-09-21)
   ['guests/souvenirs/_components/souvenir-desk.tsx', 1],
   ['guests/souvenirs/page.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/change-order-trail.tsx', 1],

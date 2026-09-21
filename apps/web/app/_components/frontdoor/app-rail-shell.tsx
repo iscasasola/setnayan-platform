@@ -50,6 +50,7 @@ import {
 
 import './front-door.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
+import type { RailFocus } from './rail-focus';
 import type { RailMatchRow } from './rail-active';
 import {
   railToolsSignedIn,
@@ -73,6 +74,7 @@ export async function AppRailShell({
   railContext,
   contextMatchRows,
   studioEventId,
+  focus,
   topBarSlot,
   searchSlot,
   createSlot,
@@ -89,6 +91,9 @@ export async function AppRailShell({
   /** The `railContext` child's rows, as match data — see the shell's own
    *  prop note. Pure pass-through; the shell resolves the union. */
   contextMatchRows?: ReadonlyArray<RailMatchRow>;
+  /** Collapse the rail to this section's menu + one way back. Pure
+   *  pass-through — see the shell's `focus` prop note. */
+  focus?: RailFocus;
   /**
    * WHICH EVENT THE STUDIO ROWS OPEN, when the surface knows (owner 2026-08-21:
    * *"now it is link to that event"*). Only the event tree passes it. Without
@@ -265,6 +270,7 @@ export async function AppRailShell({
       ]}
       railContext={railContext}
       contextMatchRows={contextMatchRows}
+      focus={focus}
       /*
         Only the event tree passes `studioEventId` — the admin console and
         the vendor dashboard also push a `railContext`, but neither is a

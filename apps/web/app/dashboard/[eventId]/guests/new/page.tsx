@@ -12,6 +12,7 @@ import {
   type GuestSide,
   type MealPreference,
   type RsvpStatus,
+  PLUS_ONE_CHOICES,
 } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
@@ -306,23 +307,29 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
  * directly from the guest list.
  */
 function PlusOneToggle() {
+  /* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4. can be
+     +1/+2/+3/+4. these are for the additional seats." None is the old
+     unticked box; any number is the old tick, and still creates the one TBA
+     row described above. */
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-4 transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/30">
-      <input
-        type="checkbox"
-        name="plus_one_allowed"
-        className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-      />
-      <span className="space-y-1">
-        <span className="block text-sm font-medium text-ink">
-          Allow plus-one
-        </span>
-        <span className="block text-xs text-ink/60">
-          Your guest confirms yes or no on their invitation, and fills in their
-          +1&rsquo;s name when they RSVP.
-        </span>
+    <fieldset className="space-y-2 rounded-lg border border-ink/15 bg-cream p-4">
+      <legend className="block text-sm font-medium text-ink">Extra seats</legend>
+      <span className="flex flex-wrap gap-2">
+        {PLUS_ONE_CHOICES.map((n) => (
+          <label
+            key={n}
+            className="cursor-pointer rounded-lg border border-ink/15 px-3 py-1.5 text-sm text-ink/80 transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 has-[:checked]:font-medium has-[:checked]:text-ink hover:border-ink/30"
+          >
+            <input type="radio" name="plus_one_count" value={n} defaultChecked={n === 0} className="sr-only" />
+            {n === 0 ? 'None' : `+${n}`}
+          </label>
+        ))}
       </span>
-    </label>
+      <span className="block text-xs text-ink/60">
+        Your guest confirms on their invitation, and fills in their plus-one&rsquo;s
+        name when they RSVP.
+      </span>
+    </fieldset>
   );
 }
 

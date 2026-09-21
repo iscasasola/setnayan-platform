@@ -4,6 +4,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
+import { plusOneSeats } from '@/lib/guests';
 import { SelfieCapture } from './selfie-capture';
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
@@ -411,10 +412,16 @@ export function RsvpWidget({
             Who are you bringing?
           </span>
           <p className="text-xs text-ink/55">
+            {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4). One
+                name box still: a named guest becomes a real row with its own
+                invitation; the others are seats, and the note below can say
+                who. */}
             {words.theOrganizer.charAt(0).toUpperCase() + words.theOrganizer.slice(1)} saved
-            you a seat for one more. Give us their name and they get their own
+            you {plusOneSeats(guest) > 1 ? `${plusOneSeats(guest)} more seats` : 'a seat for one more'}.
+            Give us {plusOneSeats(guest) > 1 ? 'a name' : 'their name'} and they get their own
             invitation, their own QR and their own photos — you can add it later
             if you are still asking.
+            {plusOneSeats(guest) > 1 ? ' Tell us about the others in the note below.' : ''}
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field

@@ -79,7 +79,7 @@ export async function ConnectionTreeSection({ userId }: { userId: string }) {
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <section className="mt-10" aria-labelledby="connection-tree-heading">
+    <section id="connection-tree" className="mt-10 scroll-mt-24" aria-labelledby="connection-tree-heading">
       <div className="mb-3 flex items-center gap-2">
         <Sparkles aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />
         <h2 id="connection-tree-heading" className="text-lg font-semibold text-ink">

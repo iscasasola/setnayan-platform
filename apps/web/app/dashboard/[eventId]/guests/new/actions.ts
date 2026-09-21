@@ -101,7 +101,13 @@ export async function createGuest(eventId: string, formData: FormData) {
   const invited_to_blocks = parseInvitedToBlocks(formData);
 
   // Plus-one fields (sub-block, only meaningful when plus_one_allowed === true)
-  const plus_one_allowed = clean(formData.get('plus_one_allowed')) === 'on';
+  // Extra seats, 0–4 (owner 2026-09-21). An old form's checkbox still counts as one.
+  const rawPlus = Number(clean(formData.get('plus_one_count')) || Number.NaN);
+  const plus_one_count =
+    Number.isInteger(rawPlus) && rawPlus >= 0 && rawPlus <= 4
+      ? rawPlus
+      : clean(formData.get('plus_one_allowed')) === 'on' ? 1 : 0;
+  const plus_one_allowed = plus_one_count > 0;
   const plus_one_first_name = normalizeGuestName(clean(formData.get('plus_one_first_name')));
   const plus_one_last_name = normalizeGuestName(clean(formData.get('plus_one_last_name')));
   const plus_one_mode_raw = clean(formData.get('plus_one_mode')) || 'full';
@@ -173,6 +179,7 @@ export async function createGuest(eventId: string, formData: FormData) {
       custom_tags,
       invited_to_blocks,
       plus_one_allowed,
+      plus_one_count,
       plus_one_name,
       relation,
       seniority_rank,

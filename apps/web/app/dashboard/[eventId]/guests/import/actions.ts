@@ -14,6 +14,7 @@ import type {
   GuestSide,
   RsvpStatus,
 } from '@/lib/guests';
+import { plusOnesFromCsv } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 
 const MAX_ROWS = 200;
@@ -30,12 +31,6 @@ const GROUP_VALUES: GuestGroupCategory[] = [
   'other',
 ];
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
-
-function truthy(value: string | undefined): boolean {
-  if (!value) return false;
-  const lower = value.trim().toLowerCase();
-  return ['true', 'yes', 'y', '1', 'on'].includes(lower);
-}
 
 export async function importGuestsCsv(eventId: string, formData: FormData) {
   const raw = String(formData.get('csv') ?? '').trim();
@@ -104,7 +99,9 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
     const role = ((row.role ?? '').trim().toLowerCase() || 'guest') as GuestRole;
     const email = (row.email ?? '').trim() || null;
     const mobile = (row.mobile ?? '').trim() || null;
-    const plus_one_allowed = truthy(row.plus_one_allowed);
+    // Extra seats, 0–4 (owner 2026-09-21): a number, or yes/true for one.
+    const plus_one_count = plusOnesFromCsv(row);
+    const plus_one_allowed = plus_one_count > 0;
     const plus_one_name = normalizeGuestName(row.plus_one_name) || (plus_one_allowed ? 'TBA' : null);
     const household = (row.household ?? '').trim() || null;
     const rsvp_status = ((row.rsvp_status ?? 'pending').trim().toLowerCase() ||
@@ -160,6 +157,7 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
       email,
       mobile,
       plus_one_allowed,
+      plus_one_count,
       plus_one_name,
       rsvp_status,
       photo_consent: true,

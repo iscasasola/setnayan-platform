@@ -21,8 +21,8 @@ import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { deadlineAtApproval, permitDeadlineFrom } from '@/lib/verified-badge';
-import {
 import { emitNotification } from '@/lib/notification-emit';
+import {
   DEEP_SEARCH_MODEL,
   DEEP_SEARCH_LITE_MODEL,
   DEEP_SEARCH_CHAT_MODEL,

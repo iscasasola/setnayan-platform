@@ -39,6 +39,19 @@
  * the same six-line block appears three times in this file (desktop row, photo
  * card, this row) and a naive replace hits the wrong one, which would have
  * "measured" a mutation of a component this file does not test.
+ *
+ * ⚠ RETIRED 2026-09-20 — 'the density toggle no longer decides which fields
+ * exist' test REMOVED, not repointed. Owner: "remove the grid view on guest
+ * list. make it same sa row view only." `GuestCard` (the grid density this
+ * test compared MobileListRow against) is deleted along with `MobileGridItem`
+ * — there is no second density left to decide anything. The surviving
+ * property this test actually protected — that a phone gets the same editors
+ * a desktop gets — did not stop mattering; it is pinned against the real
+ * comparison (DesktopRow, not a retired sibling row) in
+ * the-phone-card-edits-what-the-desktop-row-edits.test.ts, so keeping a second
+ * copy here would just be a second rule to drift. The rest of this file (the
+ * avatar-as-side-trigger, the scrolling sub-line, the un-forked couple lock,
+ * the threaded props) is untouched — none of it depended on GuestCard.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -92,27 +105,6 @@ test('the extractor reads the BODY, not the destructured props', () => {
     bodyOf('MobileListRow').includes('const row = ('),
     'bodyOf stopped short of the function body',
   );
-});
-
-test('the density toggle no longer decides which fields exist', () => {
-  // Both phone densities must reach the same editors. Whichever one a host
-  // prefers, the same guest is editable in the same ways.
-  const card = bodyOf('GuestCard');
-  const row = bodyOf('MobileListRow');
-  for (const editor of [
-    'SideChipEditor',
-    'RoleChipEditor',
-    'RsvpChipEditor',
-    'AddToGroupControl',
-    'GroupChipList',
-  ]) {
-    assert.ok(card.includes(`<${editor}`), `GuestCard lost ${editor}`);
-    assert.ok(
-      row.includes(`<${editor}`),
-      `MobileListRow has no ${editor}: ?density=list still removes a field the ` +
-        'grid density can edit',
-    );
-  }
 });
 
 test('side rides the avatar — the signal became its own control', () => {

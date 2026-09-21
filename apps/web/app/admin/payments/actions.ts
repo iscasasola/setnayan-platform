@@ -65,6 +65,12 @@ import {
   orderNoticeLinkForRow as noticeLinkFor,
   orderPaidBodyForRow,
 } from '@/lib/pay-back-link';
+import {
+  PROMOTABLE_ORDER_STATUSES,
+  canPromoteOrderToPaid,
+  promotionRefusedReason,
+} from '@/lib/order-promotion-rule';
+import { scanAllPriors } from '@/lib/payment-priors-scan';
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -195,6 +201,12 @@ export async function approvePaymentCore(args: {
   | { ok: true }
   | { ok: false; shortfall: true; message: string }
   | { ok: false; duplicate: true; message: string; blocking: boolean }
+  /**
+   * The order was not in a state that can be promoted to `paid` — CTRL-B1
+   * build 2. The payment stays matched and recorded; only the promotion is
+   * withheld, and `message` names the status that stopped it.
+   */
+  | { ok: false; notPromotable: true; message: string }
 > {
   const { admin, userId, paymentId, adminNotes, promoteOrder } = args;
 
@@ -231,11 +243,50 @@ export async function approvePaymentCore(args: {
       // Supabase call naming something the schema does not have returns an
       // ERROR, not a crash. I had internalised that for COLUMN names and
       // missed it for ENUM VALUES, which fail exactly the same way.
-      const { data: others, error: othersErr } = await admin
-        .from('payments')
-        .select('payment_id, order_id, reference_number, status')
-        .neq('payment_id', paymentId)
-        .in('status', MONEY_STATUSES);
+      //
+      // ── 🔑 AND IT READ AN UNBOUNDED SUBSET (CTRL-B1 build 3, 2026-09-22) ──
+      // The query below carried no `.limit()` and no `.range()`. PostgREST caps
+      // rows server-side, so past that cap this returned an ARBITRARY SUBSET
+      // with no error and no flag — and a money guard that reads a subset
+      // passes on the duplicate it never loaded, in the reassuring shape of
+      // "no duplicates found". Same family as the enum bug above: the read was
+      // wrong and the failure looked like a clean answer.
+      //
+      // ⚠ The cap is Supabase PLATFORM config — not in this repo, not in the
+      // database, and NOT measured. So nothing here depends on its value.
+      //
+      // TWO READS NOW, because the two verdicts have different reach:
+      //   · SAME ORDER — the only source of the BLOCKING `refuse` verdict.
+      //     Narrowed with `.eq('order_id', …)`, so it is bounded by the
+      //     payments on one bill and can never be truncated in practice.
+      //   · CROSS ORDER — the `warn` verdict, which must survive the BDO rail
+      //     where the bank wraps our code in theirs. `compareReferences`
+      //     catches that by NORMALISING both sides, and SQL cannot, because the
+      //     normalisation strips the characters an `ilike` would match on. So
+      //     it is paged exhaustively rather than narrowed.
+      const priorsScan = await scanAllPriors<{
+        payment_id: string;
+        order_id: string;
+        reference_number: string | null;
+        status: string;
+      }>(async (from, to) => {
+        const { data, error } = await admin
+          .from('payments')
+          .select('payment_id, order_id, reference_number, status')
+          .neq('payment_id', paymentId)
+          .in('status', MONEY_STATUSES)
+          .order('payment_id', { ascending: true })
+          .range(from, to);
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, rows: (data ?? []) as Array<{
+          payment_id: string;
+          order_id: string;
+          reference_number: string | null;
+          status: string;
+        }> };
+      });
+      const others = priorsScan.ok ? priorsScan.rows : null;
+      const othersErr = priorsScan.ok ? null : { message: priorsScan.error };
 
       // 🔑 A MONEY GUARD THAT CANNOT READ MUST NOT PASS. Swallowing this is
       // what made the bug above invisible: "the check found nothing" and "the
@@ -322,7 +373,9 @@ export async function approvePaymentCore(args: {
   // and so the PostHog `order_paid` event below has `service_key` to slice on.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, user_id, vendor_profile_id, public_id, reference_code, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos')
+    // `status` added 2026-09-22 (CTRL-B1 build 2): the promote below now has a
+    // precondition, and it could not have one while the status was never read.
+    .select('event_id, user_id, vendor_profile_id, public_id, reference_code, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -434,10 +487,35 @@ export async function approvePaymentCore(args: {
     // pending — and downstream payout / receipt logic would diverge.
     // Fail loudly so the admin can re-run rather than leaking a
     // half-promoted order.
-    const { error: promoteErr } = await admin
+    // 🔒 THE PRECONDITION (CTRL-B1 build 2, 2026-09-22). This update used to
+    // carry NO condition on the status it was LEAVING, so a payment could be
+    // approved against a `cancelled`, `refunded` or already-`paid` order —
+    // re-running `activateOrderSku`, which re-activates the SKU, re-schedules
+    // payouts and re-grants Papic credits and the couple's gift.
+    //
+    // Refused BEFORE the write, so the admin is told which status stopped it
+    // rather than reading an unexplained no-op. The payment stays matched and
+    // recorded; only the promotion is withheld.
+    if (!canPromoteOrderToPaid(order?.status)) {
+      return { ok: false, notPromotable: true, message: promotionRefusedReason(order?.status) };
+    }
+
+    // 🔑 AND THE SAME RULE IN THE WHERE CLAUSE — not belt-and-braces, a race.
+    // The check above read a row fetched earlier in this request; a second admin
+    // approving the same payment between the two would promote twice. The `.in()`
+    // makes the database the arbiter, and `.select()` makes the outcome COUNTABLE:
+    // a zero-row UPDATE is success-shaped, and without the rows back this would
+    // report "paid" for a promote that changed nothing.
+    const { data: promoted, error: promoteErr } = await admin
       .from('orders')
       .update({ status: 'paid', updated_at: new Date().toISOString() })
-      .eq('order_id', payment.order_id);
+      .eq('order_id', payment.order_id)
+      .in('status', PROMOTABLE_ORDER_STATUSES)
+      .select('order_id');
+    if (!promoteErr && (promoted ?? []).length === 0) {
+      // Lost the race, or the status moved under us. Not a fault — an answer.
+      return { ok: false, notPromotable: true, message: promotionRefusedReason(order?.status) };
+    }
     if (promoteErr) {
       await insertFaultLog({
         event_type: 'SUPABASE_SAVE_ERROR',

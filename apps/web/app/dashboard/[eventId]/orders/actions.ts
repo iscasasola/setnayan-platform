@@ -10,6 +10,7 @@ import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { paymentRowFor } from '@/lib/order-mint-identity';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
+import { canLogPaymentAgainstOrder } from '@/lib/order-promotion-rule';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -160,11 +161,31 @@ export async function logPayment(formData: FormData) {
   // stranger's order and pollute their reconciliation/order totals.
   const { data: ownedOrder } = await supabase
     .from('orders')
-    .select('order_id, event_id')
+    .select('order_id, event_id, status')
     .eq('order_id', orderId)
     .maybeSingle();
   if (!ownedOrder || ownedOrder.event_id !== eventId) {
     throw new Error('Order not found for this event');
+  }
+
+  // 🔒 THE SECOND DOOR (CTRL-B1 build 2, 2026-09-22). A precondition on the
+  // admin's approve door is not a precondition — money arrives here first, and
+  // this read used to select `order_id, event_id` and nothing else, so a
+  // customer could attach a payment to an order that was already `cancelled`,
+  // `refunded` or `lapsed`.
+  //
+  // 🔑 THAT MONEY DOES NOT BOUNCE — IT DISAPPEARS. Nothing downstream reads a
+  // closed order again, so the payment sits in the queue attached to a row no
+  // reconciliation will ever revisit, and the couple believes they have paid.
+  //
+  // Paying against an already-`paid` order stays ALLOWED on purpose: settling a
+  // balance is ordinary, and `resolveEventMoney` reconciles an overpayment
+  // rather than discarding it. Only CLOSED orders are refused.
+  if (!canLogPaymentAgainstOrder(ownedOrder.status)) {
+    throw new Error(
+      `This order is “${String(ownedOrder.status)}” and is no longer accepting payments. ` +
+        'If you have already sent money for it, contact us before sending more — do not pay again.',
+    );
   }
 
   // Consent-scoped coordinator payment handling (owner 2026-07-19 #5). The

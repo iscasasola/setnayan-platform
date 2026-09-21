@@ -88,3 +88,40 @@ Guard `payment-priors-scan.test.ts` — 6 executing tests, 6 sabotages confirmed
 off-by-one that stops on a full last page, and the ceiling returning partial rows).
 
 SPEC IMPACT: None.
+
+### 6 — DROPPED, because the brief's premise does not survive measurement
+
+The brief asked to split `if (!args.flagEnabled || !args.verified)` in `lib/booking-fee-lock.ts` so
+that "unverified-and-import is charged". **Not built. Two measurements, either one fatal:**
+
+1. **`decideLockFee` has no caller in production.** Every reference outside its own definition is a
+   test file. Its docblock calls it "the single source of truth mirrored by the SQL RPC", but the
+   mirror is what runs — the decision is made in `booking_fee_open_lock_charge`. Editing that arm
+   would change no behaviour and would read, to the next person, as though it had.
+   Re-measure: `git grep -n "decideLockFee" -- apps/web | grep -v "\.test\."`
+2. **"Verified" in the SQL that actually decides does not mean the badge.** The gate is
+   `IF v_ev.vpid IS NULL THEN skipped:'not_verified_vendor'`, and `vpid` is
+   `event_vendors.marketplace_vendor_id`. Its own comment: *"Off-platform / manual vendors
+   (marketplace_vendor_id IS NULL) are NEVER billed."* So the population that goes unbilled is
+   **manual, host-added suppliers with no shop and no account to bill** — not badge-less shops. A
+   shop with a profile but no badge already IS billable.
+
+🔑 **And the prescription contradicts a shipped promise.** `booking_fee_ledger.attribution`'s own
+comment reads *"import → fee always 0 (free forever)"*, the status vocabulary carries
+`waived_import` for exactly that, and `/vendors` tells suppliers in public: *"Your imported and
+repeat clients stay free, forever."* Charging import bookings is a pricing change, not a bug fix.
+
+Unbilled manual suppliers are the same population as the three `deposit_paid` rows in CTRL-B2's
+build 7, and the "billed into a void" half is already handled by `unbilled-fee-repair` (`no_payer`).
+
+**For the owner:** if badge-less shops should be billable, they already are; if manual suppliers
+should be, that needs an account to bill and is a product decision, not this build.
+
+### 8 — NOT ATTEMPTED (dropped from the end, for budget, not for doubt)
+
+The send-sourced `proposal_id → ON DELETE CASCADE` is still live and still real. It was not started.
+⚠ **It is bigger than the brief suggests:** `booking_fee_charges_anchor_ck` requires
+`proposal_id IS NOT NULL OR event_vendor_id IS NOT NULL`, and a send-sourced charge has no
+`event_vendor_id` — so flipping the FK to `SET NULL` makes the preserve write **violate the anchor
+CHECK**. The migration has to give that charge another anchor, or widen the constraint, before the
+FK can change. Whoever takes it should read `20271153200818_the_money_outlives_the_event.sql` first.

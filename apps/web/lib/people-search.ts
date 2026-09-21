@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
+import { atTag, composeFormalName } from '@/lib/formal-name';
 import {
   escapeLikeQuery,
   MAX_RESULTS,
@@ -96,12 +97,17 @@ export async function searchPeopleByName(
   // under `users` RLS by design — and NOTHING from this read leaves this
   // function except the four fields of PersonHit.
   // One ILIKE per word; PostgREST ANDs repeated filters on a column, so every
-  // word must appear somewhere in the name.
+  // word must appear somewhere. The column is `name_search` — a generated,
+  // lower-cased haystack of nickname + the five formal-name parts + the slug
+  // (migration users_formal_name) — so "Indalecio", "Ice" and "@ice" all find
+  // the same person with one single-column filter per word.
   let query = admin
     .from('users')
-    .select('user_id, public_id, display_name, profile_photo_url, email, discoverable_by_name');
+    .select(
+      'user_id, public_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, slug, profile_photo_url, email, discoverable_by_name',
+    );
   for (const term of terms) {
-    query = query.ilike('display_name', `%${escapeLikeQuery(term)}%`);
+    query = query.ilike('name_search', `%${escapeLikeQuery(term)}%`);
   }
   const { data, error } = await query
     .eq('discoverable_by_name', true)
@@ -117,6 +123,12 @@ export async function searchPeopleByName(
     user_id: string;
     public_id: string;
     display_name: string | null;
+    name_prefix: string | null;
+    first_name: string | null;
+    middle_name: string | null;
+    last_name: string | null;
+    name_suffix: string | null;
+    slug: string | null;
     profile_photo_url: string | null;
     email: string | null;
   }>;
@@ -149,12 +161,19 @@ export async function searchPeopleByName(
     keep.map((r) => r.user_id),
   );
 
-  return keep.slice(0, MAX_RESULTS).map((r) => ({
-    publicId: r.public_id,
-    name: (r.display_name ?? '').trim(),
-    photoUrl: r.profile_photo_url,
-    hint: hints.get(r.user_id) ?? null,
-  }));
+  return keep.slice(0, MAX_RESULTS).map((r) => {
+    const name = (r.display_name ?? '').trim();
+    const formal = composeFormalName(r);
+    return {
+      publicId: r.public_id,
+      name,
+      photoUrl: r.profile_photo_url,
+      // Only when it adds something — "Ice Casasola" over "Ice Casasola" is noise.
+      fullName: formal && formal.toLowerCase() !== name.toLowerCase() ? formal : null,
+      handle: atTag(r.slug),
+      hint: hints.get(r.user_id) ?? null,
+    };
+  });
 }
 
 /**

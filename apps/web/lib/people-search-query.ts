@@ -13,6 +13,12 @@ export type PersonHit = {
   publicId: string;
   name: string;
   photoUrl: string | null;
+  /** Their formal name ("Mr. Indalecio Sacdalan Casasola II") — only when it
+   *  says something the nickname does not. Owner 2026-09-21: a result shows
+   *  "all. nickname, full name and tag". */
+  fullName: string | null;
+  /** Their @tag — `users.slug` with its "@". */
+  handle: string | null;
   /** Why you might know them. Null when there is nothing shared to say. */
   hint: string | null;
 };
@@ -42,7 +48,8 @@ export const MAX_QUERY_TERMS = 5;
  *
  * Owner, 2026-09-21: *"Casasola Ice … this should work also"*. Filipinos write
  * surname-first as often as not, so "Casasola Ice" must find "Ice Casasola".
- * Each word is matched on its own, anywhere in the display name, and EVERY word
+ * Each word is matched on its own, anywhere in the person's names — nickname,
+ * full name or @tag (`users.name_search`) — and EVERY word
  * must be present — so extra words narrow the list, never widen it. Spaces and
  * commas separate words ("Casasola, Ice" is the same search), repeats collapse.
  *
@@ -56,7 +63,10 @@ export const MAX_QUERY_TERMS = 5;
 export function nameSearchTerms(raw: string): string[] {
   const seen = new Set<string>();
   const terms: string[] = [];
-  for (const word of (raw ?? '').trim().slice(0, 60).split(/[\s,]+/)) {
+  for (const part of (raw ?? '').trim().slice(0, 60).split(/[\s,]+/)) {
+    // "@ice" is a search for the tag "ice" — the "@" is how it is shown, not
+    // part of what is stored.
+    const word = part.replace(/^@+/, '');
     const key = word.toLowerCase();
     if (!word || seen.has(key)) continue;
     seen.add(key);

@@ -75,7 +75,7 @@ export async function setAccountFaceProfileConsent(formData: FormData) {
   }
 
   revalidatePath(PROFILE_PATH);
-  redirect(`${PROFILE_PATH}?saved=1`);
+  redirect(`${PROFILE_PATH}?saved=1&tab=privacy`);
 }
 
 /**

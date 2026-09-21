@@ -3843,6 +3843,45 @@ html:active-view-transition .sn-page-enter { animation: none; }
 /* The meter is a width transition, not a keyframe — it animates from wherever
  * it already was, so an edit that lifts the score reads as a climb. */
 .sn-canvas-meter { transition: width 450ms ease; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Add-manually sheet (owner 2026-09-20: "make sure it is fully animated").
+ *
+ * The Add-a-contact modal had NO entrance at all — it appeared, fully formed,
+ * with only `transition-colors` on its buttons. These reuse the maker's own
+ * motion vocabulary above rather than inventing a second one, because the
+ * add-manually sheet IS a maker: same rise, same 280ms, same curve.
+ *
+ * 🔴 `backwards`, NEVER `both`, ON THE SHEET — the lesson `sn-rise-soft`
+ * carries, measured on production 2026-09-18. `both` holds the animation's
+ * TRANSFORM after it finishes, at its identity value; per CSS spec ANY
+ * transform on an ancestor makes it the containing block for every
+ * `position: fixed` descendant. The sheet is inside a `fixed inset-0` dialog
+ * and its own children include absolutely-positioned dropdowns today and may
+ * include fixed ones tomorrow. `backwards` holds the FROM state before the
+ * run (no flash) and returns the element to its own styles afterwards —
+ * visually identical, structurally inert.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes sn-addman-veil { from { opacity: 0; } }
+@keyframes sn-addman-sheet {
+  from { opacity: 0; transform: translateY(26px); }
+}
+@keyframes sn-addman-sheet-sm {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+}
+.sn-addman-veil  { animation: sn-addman-veil 180ms ease backwards; }
+.sn-addman-sheet { animation: sn-addman-sheet 280ms cubic-bezier(.2,.7,.2,1) backwards; }
+@media (min-width: 640px) {
+  .sn-addman-sheet { animation-name: sn-addman-sheet-sm; }
+}
+/* Each field group enters just behind the sheet. The delay is set inline per
+ * row so one class serves every field without a rule per index. */
+.sn-addman-field { animation: sn-canvas-rise 240ms ease backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .sn-addman-veil,
+  .sn-addman-sheet,
+  .sn-addman-field { animation: none; opacity: 1; transform: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .sn-canvas-sheet,
   .sn-canvas-rise { animation: none; opacity: 1; transform: none; }

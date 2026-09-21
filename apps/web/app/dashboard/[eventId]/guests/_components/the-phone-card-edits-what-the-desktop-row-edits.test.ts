@@ -34,6 +34,17 @@
  *  · stop threading bulkRoleSections at the MobileGridItem call site
  *                                             → 0 → 1 failing · RED (and the
  *    scoped tsc fails too — the prop is required, so this one cannot ship)
+ *
+ * ⚠ UPDATED 2026-09-20 — THE GRID DENSITY IS RETIRED, THIS FILE IS NOT. Owner:
+ * "remove the grid view on guest list. make it same sa row view only."
+ * `GuestCard` and `MobileGridItem` are deleted; `MobileListRow` is now the
+ * ONLY phone row, so every assertion below moved from `GuestCard`/
+ * `MobileGridItem` to `MobileListRow` — same property (a phone offers every
+ * editor the desktop row offers), same shape of check, pointed at the
+ * component that actually renders on a phone today. `RoleChips` is `RoleTexts`
+ * on this row (MB-something's text-not-pill pass) and `SidePill` is dropped in
+ * favour of wrapping the avatar itself — both still render INSIDE their editor,
+ * which is the property this file was always pinning, not the atom's name.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -84,14 +95,14 @@ function bodyOf(name: string): string {
 
 test('the extractor reads the BODY, not the destructured props', () => {
   assert.ok(
-    bodyOf('GuestCard').includes('return ('),
+    bodyOf('MobileListRow').includes('return ('),
     'bodyOf stopped short of the function body',
   );
 });
 
-test('every chip the desktop row can edit, the phone card can edit', () => {
+test('every chip the desktop row can edit, the phone row can edit', () => {
   const desktop = bodyOf('DesktopRow');
-  const card = bodyOf('GuestCard');
+  const row = bodyOf('MobileListRow');
   for (const editor of [
     'SideChipEditor',
     'RoleChipEditor',
@@ -104,24 +115,26 @@ test('every chip the desktop row can edit, the phone card can edit', () => {
       `DesktopRow lost ${editor} — the parity baseline moved`,
     );
     assert.ok(
-      card.includes(`<${editor}`),
-      `GuestCard has no ${editor}: the same chip is a control on a desktop and ` +
-        'inert on a phone',
+      row.includes(`<${editor}`),
+      `MobileListRow has no ${editor}: the same chip is a control on a desktop ` +
+        'and inert on a phone',
     );
   }
 });
 
-test('no chip in the phone card is rendered as a bare pill', () => {
+test('no chip in the phone row is rendered as a bare pill', () => {
   // The defect's exact shape: the atom present, its editor absent. Assert the
-  // atoms only ever appear as an editor's child.
-  const card = bodyOf('GuestCard');
+  // atoms only ever appear as an editor's child. MobileListRow wraps the
+  // AVATAR (not a SidePill) in SideChipEditor, and RoleTexts (not RoleChips) in
+  // RoleChipEditor — different atoms than GuestCard used, same property.
+  const row = bodyOf('MobileListRow');
   assert.ok(
-    /<SideChipEditor[\s\S]*?<SidePill[\s\S]*?<\/SideChipEditor>/.test(card),
-    'SidePill must render INSIDE SideChipEditor, not beside it',
+    /<SideChipEditor[\s\S]*?<RowAvatar[\s\S]*?<\/SideChipEditor>/.test(row),
+    'the avatar must render INSIDE SideChipEditor, not beside it',
   );
   assert.ok(
-    /<RoleChipEditor[\s\S]*?<RoleChips[\s\S]*?<\/RoleChipEditor>/.test(card),
-    'RoleChips must render INSIDE RoleChipEditor',
+    /<RoleChipEditor[\s\S]*?<RoleTexts[\s\S]*?<\/RoleChipEditor>/.test(row),
+    'RoleTexts must render INSIDE RoleChipEditor',
   );
 });
 
@@ -129,13 +142,13 @@ test('a phone can put a guest BACK in a group it took them out of', () => {
   // GroupChipList carries the remove form. Mounting it without its counterpart
   // is a one-way door: the association is destroyed and cannot be restored from
   // the same screen.
-  const card = bodyOf('GuestCard');
+  const row = bodyOf('MobileListRow');
   assert.ok(
-    card.includes('<GroupChipList'),
-    'the card must still show which groups a guest is in',
+    row.includes('<GroupChipList'),
+    'the row must still show which groups a guest is in',
   );
   assert.ok(
-    card.includes('<AddToGroupControl'),
+    row.includes('<AddToGroupControl'),
     'remove-without-add is a one-way door on the only screen a phone host has',
   );
 });
@@ -143,30 +156,30 @@ test('a phone can put a guest BACK in a group it took them out of', () => {
 test('the phone offers the SAME role sections as the desktop row', () => {
   // A second, phone-only role list would be a second source of truth for which
   // roles exist. Both must read the one `bulkRoleSections` the bulk bar uses.
+  // There is no longer an outer wrapper forwarding the prop to an inner card —
+  // MobileListRow both receives it and hands it straight to RoleChipEditor —
+  // so this now pins the one hand-off instead of two.
   assert.ok(
-    /roleSections=\{bulkRoleSections\}/.test(bodyOf('GuestCard')),
-    'GuestCard must pass the shared sections, not a list of its own',
+    /roleSections=\{bulkRoleSections\}/.test(bodyOf('MobileListRow')),
+    'MobileListRow must pass the shared sections, not a list of its own',
   );
-  assert.ok(
-    /bulkRoleSections=\{bulkRoleSections\}/.test(bodyOf('MobileGridItem')),
-    'MobileGridItem must forward the sections it was handed',
-  );
-  const callSite = /<MobileGridItem[\s\S]*?\/>/.exec(SRC)?.[0] ?? '';
+  const callSite = /<MobileListRow[\s\S]*?\/>/.exec(SRC)?.[0] ?? '';
   assert.ok(
     /bulkRoleSections=\{bulkRoleSections\}/.test(callSite) &&
       /groups=\{groups\}/.test(callSite),
-    'the grid call site must thread groups + bulkRoleSections down',
+    'the call site must thread groups + bulkRoleSections down',
   );
 });
 
 test('the couple lock is untouched — it stays in RoleChipEditor', () => {
-  // Wrapping the phone's chip must not fork the gate. GuestCard must NOT spell
-  // its own bride/groom condition; RoleChipEditor owns it (and is pinned by
-  // the-locked-chip-answers-for-itself.test.ts).
-  const card = bodyOf('GuestCard');
+  // Wrapping the phone's chip must not fork the gate. MobileListRow must NOT
+  // spell its own bride/groom role EQUALITY check (RoleChipEditor owns that
+  // one, pinned by the-locked-chip-answers-for-itself.test.ts) — distinct from
+  // the row's own swipe gate, which spells the couple as `!==`, never `===`.
+  const row = bodyOf('MobileListRow');
   assert.equal(
-    /guest\.role === 'bride'/.test(card),
+    /guest\.role === 'bride'/.test(row),
     false,
-    'GuestCard is re-implementing the couple gate — one copy, in the editor',
+    'MobileListRow is re-implementing the couple gate — one copy, in the editor',
   );
 });

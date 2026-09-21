@@ -64,16 +64,53 @@ test('the two SHARED components are asked for their plain presentation', () => {
   }
 });
 
-test('🔑 the mobile surfaces are UNTOUCHED — their pills still stand', () => {
-  // The promise made when this was proposed. GuestCard and MobileListRow show
-  // one guest per card, where a chip reads as a label rather than as texture.
-  const card = ROW.slice(ROW.indexOf('function GuestCard('), ROW.indexOf('function MobileGridItem('));
-  const mobileRow = ROW.slice(ROW.indexOf('function MobileListRow('), ROW.indexOf('function MobileSelfJoinCard('));
-  assert.ok(card.includes('<SidePill'), 'GuestCard lost its side pill');
-  assert.ok(card.includes('<RoleChips'), 'GuestCard lost its role chips');
-  assert.ok(card.includes('<RsvpPill'), 'GuestCard lost its RSVP pill');
-  assert.ok(mobileRow.includes('<RoleChips'), 'MobileListRow lost its role chips');
-  assert.ok(mobileRow.includes('<RsvpPill'), 'MobileListRow lost its RSVP pill');
+test('🔑 the phone roster drops its pills too — one vocabulary, every width', () => {
+  /*
+    ⚖ Owner 2026-09-20, shown the phone after the desktop redesign shipped:
+    *"why did mobile view did not adjust. there are still pills on the table"*.
+
+    This test used to assert the OPPOSITE — that GuestCard and MobileListRow
+    kept their chips — and it was right to, because scoping mobile out was a
+    deliberate call I made and wrote down. The owner disagreed, so the decision
+    changed and the guard changes with it. It is not weakened: it still pins a
+    surface against drift, just to the answer that is now correct.
+  */
+  const mobileRow = ROW.slice(
+    ROW.indexOf('function MobileListRow('),
+    ROW.indexOf('function MobileSelfJoinCard('),
+  );
+  assert.ok(mobileRow.includes('<RoleTexts'), 'the phone row lost its role text');
+  assert.ok(mobileRow.includes('<RsvpText'), 'the phone row lost its RSVP text');
+  for (const pill of ['<SidePill', '<RoleChips', '<RsvpPill']) {
+    assert.ok(!mobileRow.includes(pill), `${pill} is back on the phone row`);
+  }
+});
+
+test('the capsule components are GONE, not merely unmounted', () => {
+  // 🔑 A component nothing renders is a component somebody re-renders. Leaving
+  // `SidePill` and friends defined beside the text variants is an invitation to
+  // put one back "just for this column" — which is exactly the creep the filled
+  // capsule count above exists to catch, one step earlier.
+  for (const dead of ['function SidePill(', 'function RsvpPill(', 'function RoleChips(', 'function RoleChip(']) {
+    assert.ok(!ROW.includes(dead), `${dead.replace('function ', '').replace('(', '')} is still defined with no caller`);
+  }
+});
+
+test('⚖ there is ONE roster view — the grid is gone, not hidden', () => {
+  // Owner 2026-09-20: "remove the grid view on guest list. make it same sa row
+  // view only." A `?density=grid` toggle defaulted the phone to a photo-card
+  // grid. Both the branch and the components it rendered are removed, so a
+  // stale link renders the list rather than a view nobody can reach the toggle
+  // for.
+  assert.ok(!ROW.includes('mobileDensity'), 'the roster still branches on a density param');
+  for (const gone of ['function GuestCard(', 'function MobileGridItem(']) {
+    assert.ok(!ROW.includes(gone), `${gone} survives — the grid view is hidden, not removed`);
+  }
+  const carousel = readFileSync(
+    join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'mobile-guest-carousel.tsx'),
+    'utf8',
+  );
+  assert.ok(!carousel.includes('DensityBtn'), 'the density toggle is still on screen');
 });
 
 test('exactly one element in the row carries a filled tint', () => {

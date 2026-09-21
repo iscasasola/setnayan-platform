@@ -37,13 +37,21 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import {
   ENTOURAGE_COLUMNS,
-  ENTOURAGE_ROLES,
-  holdersOfRoleInPrintOrder,
+  ENTOURAGE_GROUP_KEYS,
+  entourageGroupOfRole,
+  entourageLines,
   type EntourageGuestRow,
 } from '@/lib/entourage';
 
+/**
+ * Back to the WALKING ORDER view, not the roster.
+ *
+ * 🔑 Every caller here is reachable only from `?gview=walk`. Dropping the param
+ * on the way back would bounce the couple out to the guest list after every
+ * single move — the control would work and still feel broken.
+ */
 function backToList(eventId: string, params: Record<string, string>): string {
-  const q = new URLSearchParams(params);
+  const q = new URLSearchParams({ gview: 'walk', ...params });
   return `/dashboard/${eventId}/guests?${q.toString()}`;
 }
 
@@ -59,13 +67,17 @@ export type MoveDirection = 'up' | 'down';
 export async function moveInEntourageOrder(
   eventId: string,
   guestId: string,
-  role: string,
+  groupKey: string,
   direction: MoveDirection,
 ): Promise<void> {
-  // The role must be one the invitation actually prints. Anything else has no
-  // list to be moved within, so an order written for it would never be read.
-  if (!ENTOURAGE_ROLES.includes(role as never)) {
-    redirect(backToList(eventId, { error: 'not_an_entourage_role' }));
+  /*
+    ⚖ OWNER 2026-09-20 — A PAIR MOVES AS ONE LINE. This took a group key where
+    it used to take a ROLE, and that is the whole change: ninong and ninang are
+    two different roles, so ordering each role separately could not express a
+    pair at all. Moving her up moved her past other ninangs while he stayed put.
+  */
+  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
+    redirect(backToList(eventId, { error: 'not_an_entourage_group' }));
   }
 
   const supabase = await createClient();
@@ -79,40 +91,43 @@ export async function moveInEntourageOrder(
     redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
   }
 
-  const holders = holdersOfRoleInPrintOrder(
-    (data ?? []) as EntourageGuestRow[],
-    role,
-  );
-  const from = holders.findIndex((g) => g.guest_id === guestId);
-  // Not in this role, or already at the end it is being pushed towards. Both
-  // are no-ops rather than errors: a host double-tapping the top row's ↑ has
-  // done nothing wrong.
+  const lines = entourageLines((data ?? []) as EntourageGuestRow[], groupKey);
+  const from = lines.findIndex((ln) => ln.some((half) => half?.id === guestId));
   const to = direction === 'up' ? from - 1 : from + 1;
-  if (from === -1 || to < 0 || to >= holders.length) {
+  if (from === -1 || to < 0 || to >= lines.length) {
     redirect(backToList(eventId, {}));
   }
 
-  const next = [...holders];
-  const moved = next[from]!;
-  next.splice(from, 1);
-  next.splice(to, 0, moved);
+  const next = [...lines];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved!);
 
-  // Write the full sequence. `.select()` is what makes a refusal visible: a
-  // zero-row UPDATE is success-shaped, and an RLS refusal returns exactly
-  // that — no error, no rows, and a screen that says it worked.
+  /*
+    🔑 BOTH HALVES GET THE SAME NUMBER. That is what makes the column able to
+    order a pair without a schema change — it always could; nothing was ever
+    writing it this way. Writing the whole group each time also means there is
+    no "have we normalised yet" state: the first drag behaves like the
+    hundredth.
+
+    ⛔ NOTHING HERE TOUCHES event_seat_assignments OR seating_priority. The
+    processional and the seat plan are two orderings on purpose; moving a pair
+    up the aisle must never move a chair.
+  */
   let written = 0;
-  for (const [index, person] of next.entries()) {
-    if (!person.guest_id) continue;
-    const { data: rows, error: writeErr } = await supabase
-      .from('guests')
-      .update({ entourage_order: index, updated_at: new Date().toISOString() })
-      .eq('event_id', eventId)
-      .eq('guest_id', person.guest_id)
-      .select('guest_id');
-    if (writeErr) {
-      redirect(backToList(eventId, { error: encodeURIComponent(writeErr.message) }));
+  for (const [index, line] of next.entries()) {
+    for (const half of line) {
+      if (!half?.id) continue;
+      const { data: rows, error: writeErr } = await supabase
+        .from('guests')
+        .update({ entourage_order: index, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .eq('guest_id', half.id)
+        .select('guest_id');
+      if (writeErr) {
+        redirect(backToList(eventId, { error: encodeURIComponent(writeErr.message) }));
+      }
+      written += rows?.length ?? 0;
     }
-    written += rows?.length ?? 0;
   }
 
   if (written === 0) {
@@ -120,14 +135,12 @@ export async function moveInEntourageOrder(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  // The invitation is what actually changed — revalidate it too, or the couple
-  // checks the public page and sees the order they just replaced.
   revalidatePath('/[slug]', 'layout');
   redirect(backToList(eventId, { reordered: String(written) }));
 }
 
 /**
- * Hand one role's order back to the alphabetical default.
+ * Hand one printed GROUP's order back to the alphabetical default.
  *
  * Without this, a couple who drags once can never get back to "no opinion" —
  * every name in that role keeps a number forever, and the default they were
@@ -135,18 +148,34 @@ export async function moveInEntourageOrder(
  */
 export async function clearEntourageOrder(
   eventId: string,
-  role: string,
+  groupKey: string,
 ): Promise<void> {
-  if (!ENTOURAGE_ROLES.includes(role as never)) {
-    redirect(backToList(eventId, { error: 'not_an_entourage_role' }));
+  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
+    redirect(backToList(eventId, { error: 'not_an_entourage_group' }));
   }
 
   const supabase = await createClient();
+  const { data: all, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, role')
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  if (readErr) {
+    redirect(backToList(eventId, { error: encodeURIComponent(readErr.message) }));
+  }
+  // Every role in this printed group — derived, so a group that gains a role
+  // does not quietly keep half its order.
+  const ids = ((all ?? []) as Array<{ guest_id: string; role: string | null }>)
+    .filter((g) => g.role && entourageGroupOfRole(g.role) === groupKey)
+    .map((g) => g.guest_id);
+  if (ids.length === 0) {
+    redirect(backToList(eventId, { order_cleared: '0' }));
+  }
   const { data, error } = await supabase
     .from('guests')
     .update({ entourage_order: null, updated_at: new Date().toISOString() })
     .eq('event_id', eventId)
-    .eq('role', role)
+    .in('guest_id', ids)
     .not('entourage_order', 'is', null)
     .select('guest_id');
 
@@ -157,4 +186,83 @@ export async function clearEntourageOrder(
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath('/[slug]', 'layout');
   redirect(backToList(eventId, { order_cleared: String(data?.length ?? 0) }));
+}
+
+/**
+ * Set a whole group's line order at once, from an explicit sequence.
+ *
+ * ⚖ Owner 2026-09-20, asked where the arranging was: the Move ↑ / Move ↓
+ * buttons are the ALWAYS-AVAILABLE path and stay exactly as they are. This is
+ * the additional one — what a desktop drag, or a keyboard grab-and-move, posts
+ * when it lets go.
+ *
+ * 🔑 IT TAKES LEAD IDS, NOT POSITIONS. A position is only meaningful against
+ * the order the client happened to be looking at; if the roster moved under
+ * them (another tab, another planner) applying positions would silently
+ * reorder the wrong lines. Naming the lines means a stale client can be
+ * detected instead of obeyed.
+ *
+ * ⛔ Touches no chair, exactly like the button path.
+ */
+export async function setEntourageLineOrder(
+  eventId: string,
+  groupKey: string,
+  leadGuestIds: readonly string[],
+): Promise<void> {
+  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
+    redirect(backToList(eventId, { error: 'not_an_entourage_group' }));
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('guests')
+    .select(ENTOURAGE_COLUMNS)
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  if (error) {
+    redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
+  }
+
+  const lines = entourageLines((data ?? []) as EntourageGuestRow[], groupKey);
+  const byLead = new Map<string, (typeof lines)[number]>();
+  for (const line of lines) {
+    const lead = line[0]?.id ?? line[1]?.id;
+    if (lead) byLead.set(lead, line);
+  }
+
+  /*
+    The client's sequence must name EVERY line in this group, exactly once. A
+    short or unrecognised list means the page it was built from is not the page
+    that exists now — refuse rather than apply a partial order, which would
+    leave the processional in a state nobody chose.
+  */
+  const unique = [...new Set(leadGuestIds)];
+  const resolved = unique.map((id) => byLead.get(id)).filter(Boolean);
+  if (unique.length !== leadGuestIds.length || resolved.length !== byLead.size) {
+    redirect(backToList(eventId, { error: 'order_is_stale' }));
+  }
+
+  let written = 0;
+  for (const [index, line] of resolved.entries()) {
+    for (const half of line!) {
+      if (!half?.id) continue;
+      const { data: rows, error: writeErr } = await supabase
+        .from('guests')
+        .update({ entourage_order: index, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .eq('guest_id', half.id)
+        .select('guest_id');
+      if (writeErr) {
+        redirect(backToList(eventId, { error: encodeURIComponent(writeErr.message) }));
+      }
+      written += rows?.length ?? 0;
+    }
+  }
+  if (written === 0) {
+    redirect(backToList(eventId, { error: 'order_not_saved' }));
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  revalidatePath('/[slug]', 'layout');
+  redirect(backToList(eventId, { reordered: String(written) }));
 }

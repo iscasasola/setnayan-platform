@@ -584,6 +584,18 @@ html.dark .slcat .plan-err{color:#e2b968}
 .slcat .vact.quiet:hover{background:rgba(169,131,75,.17)}
 .slcat .vact.on{background:rgba(169,131,75,.14);color:var(--gold-deep);border-color:rgba(169,131,75,.42);cursor:default}
 .slcat .vact.note{background:transparent;color:var(--ink-soft);border-style:dashed;border-color:var(--line);font-weight:500;font-size:10.5px;cursor:default;text-align:left;justify-content:flex-start}
+/* Self-added supplier · inline price (owner 2026-09-20 — "they can just list
+   manually"). Wears the card's own scale so it reads as one more control in
+   the .vacts stack, not a form bolted on. */
+.slcat .vact-inline-price{display:flex;flex-direction:column;gap:4px}
+.slcat .vact-inline-price-row{display:flex;align-items:center;gap:4px;padding:5px 7px;border:1px solid var(--line);border-radius:var(--m-r-sm);background:var(--card);font-size:11.5px;font-weight:600;color:var(--ink)}
+.slcat .vact-inline-price-row input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;color:inherit;padding:2px 0}
+.slcat .vact-inline-price-row input::placeholder{color:var(--ink-soft);font-weight:500}
+.slcat .vact-inline-price-row button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border:0;border-radius:var(--m-r-sm);background:var(--mulberry);color:#fff;cursor:pointer}
+.slcat .vact-inline-price-row button:disabled{opacity:.55;cursor:default}
+.slcat .vact-inline-price-err{margin:0;font-family:var(--sans);font-size:10px;line-height:1.3;color:var(--danger-900,#7f1d1d)}
+.slcat .vact-inline-price-more{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;text-align:center;padding:2px}
+.slcat .vact-inline-price-more:hover,.slcat .vact-inline-price-more:focus{color:var(--ink);text-decoration:underline}
 .slcat .vact.mini{flex:0 0 auto;width:auto;padding:8px 10px;background:transparent;color:var(--ink-soft);border-color:var(--line);font-size:10.5px;font-weight:500}
 .slcat .vact.mini:hover{color:var(--ink)}
 .slcat .vact-pair{display:flex;gap:5px;align-items:stretch}
@@ -1220,6 +1232,8 @@ function VendorCard({
         groupLabel={tileLabel}
         verifiedState={v.verifiedState}
         lockRequestExpiresAt={v.lockRequestExpiresAt}
+        transportPhp={v.transportPhp ?? null}
+        foodAllowancePhp={v.foodAllowancePhp ?? null}
       />
     </div>
   );

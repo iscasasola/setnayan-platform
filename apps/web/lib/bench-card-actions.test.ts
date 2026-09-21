@@ -85,6 +85,41 @@ test('no price signal anywhere → the note, never a pin that lands ₱0 in the 
   assert.deepEqual(a.build, { kind: 'needs_price' });
 });
 
+test('a SELF-ADDED supplier with no price is asked to type one, never to ask for one', () => {
+  // owner 2026-09-20: "manual upload can have no requesting … they can just
+  // list manually." There is no account on the other end of `needs_price` for
+  // an off-platform supplier, so the ask would wait forever.
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ priceBasisPhp: null, marketplaceVendorId: null }),
+    inBuild: false,
+  });
+  assert.deepEqual(a.build, { kind: 'set_price' });
+});
+
+test('a MARKETPLACE supplier with no price still gets the ask — they have an inbox', () => {
+  // The pair above and below is the whole point: same absence, two suppliers,
+  // two answers. A single test on either side would pass while the resolver
+  // gave both the same treatment.
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ priceBasisPhp: null, marketplaceVendorId: 'vp-9' }),
+    inBuild: false,
+  });
+  assert.deepEqual(a.build, { kind: 'needs_price' });
+});
+
+test('a self-added supplier already in the build keeps Remove, not the price prompt', () => {
+  // Same exemption the priced path has: the pin exists, and replacing its
+  // Remove with a price box would strand it.
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ priceBasisPhp: null, marketplaceVendorId: null }),
+    inBuild: true,
+  });
+  assert.deepEqual(a.build, { kind: 'in_build' });
+});
+
 test('an already-pinned vendor keeps the in-build state even with no price', () => {
   // The pin already exists; hiding its Remove behind a price check would strand it.
   const a = resolveBenchCardActions({

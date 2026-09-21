@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,6 +17,7 @@ import {
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { rotateMyGuestQr } from '../rotate-qr-actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
+import { PASS_ANCHOR } from '@/lib/arrival-action';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
 // personal QR they land on their own InvitationSite view; this turns that page
@@ -96,6 +97,22 @@ export function GuestHubBar({
   menuOn?: boolean;
 }) {
   const [qrOpen, setQrOpen] = useState(false);
+
+  // 🔑 ONE QR ON THE INVITATION (owner, 2026-09-21: "they serve the same
+  // purpose"). The pass card (`#site-pass`) already shows this guest's code
+  // on the page, with its own save and copy controls, so a "My QR" button
+  // opening the SAME code in a pop-up is a second door to one thing.
+  //
+  // ⚠ BUT THE CARD IS NOT ALWAYS THERE. The couple can hide it, and some
+  // phases leave it out — and then this button is the guest's ONLY QR. The
+  // decision lives in site-body's plan, which this client component cannot
+  // see, so it asks the page itself: is the pass anchor rendered? Starts
+  // `true` (hidden) so the duplicate never flashes; a page without the card
+  // shows the button once this runs.
+  const [passOnPage, setPassOnPage] = useState(true);
+  useEffect(() => {
+    setPassOnPage(document.getElementById(PASS_ANCHOR) !== null);
+  }, []);
   const qrDialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({
     open: qrOpen,
@@ -176,6 +193,7 @@ export function GuestHubBar({
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">You</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-ink">Your invitation</h2>
           <div className="mt-4 flex flex-wrap gap-3">
+            {passOnPage ? null : (
             <button
               type="button"
               onClick={() => setQrOpen(true)}
@@ -184,6 +202,7 @@ export function GuestHubBar({
               <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               <span>My QR</span>
             </button>
+            )}
             <Link
               href={galleryHref}
               className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
@@ -198,8 +217,9 @@ export function GuestHubBar({
             </Link>
           </div>
           <p className="mt-3 text-sm text-ink/60">
-            Show your QR so photographers and friends can tag you. Anything you are tagged in
-            shows up under Photos of you.
+            {passOnPage
+              ? 'Anything a photographer or friend tags you in shows up under Photos of you.'
+              : 'Show your QR so photographers and friends can tag you. Anything you are tagged in shows up under Photos of you.'}
           </p>
         </section>
       ) : null}

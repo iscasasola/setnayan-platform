@@ -44,6 +44,37 @@ write code.
 
 ---
 
+---
+
+## ✅ RE-MEASURED 2026-09-22 against `origin/main` + prod — **all 3 builds survive; the numbers moved**
+
+Nothing here is already built. `markGuestInvitationSent` is still the only writer and is still bound
+**one guest at a time** (`.bind(null, eventId, guest.guest_id)` at two call sites in
+`invitation/page.tsx`). No bulk path. No invitation sender of any kind.
+
+**The counts are NOT the ones in the register** — re-measure, do not quote:
+
+| | register (2026-09-21) | measured 2026-09-22 |
+|---|---|---|
+| guests | 142 | **146** |
+| with `invitation_sent_at` | 0 | **0** |
+| with an email | 2 | **5** |
+| with a mobile and no email | 1 | **0** |
+
+So 141 of 146 guests are reachable by **no channel at all**, and the Invite step still cannot
+complete for any event. The conclusion is unchanged; the arithmetic in build 3's copy is not — derive
+it, never hand-type it.
+
+```sql
+select count(*) as guests,
+       count(*) filter (where invitation_sent_at is not null) as sent,
+       count(*) filter (where email is not null)              as with_email,
+       count(*) filter (where mobile is not null and email is null) as mobile_only
+from guests;
+```
+
+---
+
 ## Build in THIS order. The order is the cut line.
 
 ### 1 — Bulk "mark as given"

@@ -8,9 +8,13 @@ supplier has been told they are buying a **quarter** of what they get.
 
 - Migration `20271239096928` rewrites the title and asserts it landed (a zero-row UPDATE is
   success-shaped). Price stays ₱500; the grant stays 100 and stays in TypeScript.
-- New guard `tests/db/the-pack-sells-what-it-grants.db.test.ts` reads the LIVE constant and asserts
-  the title quotes it, plus a negative for any retired figure. Verified by sabotage: reverting the
-  migration to 25 turns 2 of its 3 cases red with the real message.
+- 🚨 **A guard was already defending the bug.** `tests/db/vendor-papic-credits-are-the-suppliers.db.test.ts`
+  asserted `assert.match(row.title, /25/, 'the title tells the buyer how many credits')` — it pinned
+  the stale figure as correct, which is why CI stayed green through a year of it. That assertion now
+  reads the LIVE constant, plus a negative for any retired figure.
+- The number was *spoken* in **five** places and *used* in one. Two comments in `lib/sku-activation.ts`,
+  a test name in `lib/the-fee-reaches-the-allowance.test.ts`, the catalogue title, and fixtures in the
+  db guard — all now derive from `VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS` or stop restating it.
 
 🔑 A generous lie raises no support ticket — it errs in the customer's favour, which is why it
 survived. And `/admin/pricing` could never have fixed it: `saveVendorRow` writes price, description

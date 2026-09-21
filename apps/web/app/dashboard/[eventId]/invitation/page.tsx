@@ -33,6 +33,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { QrActions } from '@/app/_components/qr-actions';
 import { qrFileName, svgDataUri } from '@/lib/qr-download';
 import { TagListDownload } from '@/app/_components/tag-list-download';
+import { invitationReach, unreachableSentence } from '@/lib/invitation-reach';
 
 export const metadata = { title: 'Invitations' };
 
@@ -88,6 +89,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   /* Counted from the rows already in hand — no second query for a number the
      page has already read. */
   const invitationsMarked = guests.filter((g) => g.invitation_sent_at !== null).length;
+  const unreachableLine = unreachableSentence(invitationReach(guests));
 
   const monogram = resolveMonogram(event);
 
@@ -411,6 +413,22 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         ⚠ It counts what the couple RECORDED, not what any system delivered —
         Setnayan sends none of these. The wording says "marked", never "sent".
       */}
+      {/*
+        WHO CANNOT BE REACHED AT ALL — CTRL-B4 build 3.
+
+        🔑 A SCREEN THAT REPORTS ONLY "MARKED" IS A LIE OF OMISSION HERE.
+        Measured 2026-09-22: 146 guests, 5 with an email, 0 with a mobile only —
+        so 141 people cannot be sent anything by any channel. "3 marked" is true
+        and useless next to that; the number that decides what the couple does
+        next is the one that was missing.
+
+        Rendered immediately beside the marked count on purpose, and asserted
+        that way by `the-invitation-says-who-it-cannot-reach.test.ts`, so a
+        later change cannot keep one number and quietly drop the other.
+      */}
+      {guests.length > 0 && unreachableLine ? (
+        <p className="mb-2 text-xs text-ink/60">{unreachableLine}</p>
+      ) : null}
       {guests.length > 0 ? (
         <p className="mb-2 text-xs text-ink/60">
           {invitationsMarked === 0 ? (

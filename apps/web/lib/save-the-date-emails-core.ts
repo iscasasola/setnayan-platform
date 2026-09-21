@@ -147,3 +147,64 @@ export function resolveCoupleName(ev: {
     .join(' & ');
   return pair || 'Our wedding';
 }
+
+/**
+ * Build the INVITATION email for one guest — CTRL-B4 build 2.
+ *
+ * ── WHY A SECOND BUILDER AND NOT A SECOND MAILER ───────────────────────────
+ * The MESSAGE differs (a save-the-date asks you to hold a day; an invitation
+ * asks you to come, and carries the guest's own RSVP link). The MECHANISM does
+ * not — both fan out through `sendAndStamp`, which stamps only an accepted
+ * send. One mechanism, two messages; the defect this repo keeps meeting is two
+ * mechanisms for one fact.
+ *
+ * Pure, so its wording is executed by a test rather than described.
+ */
+export function buildInvitationGuestEmail(
+  guest: StdGuestRow,
+  ctx: StdEventContext,
+): StdGuestEmail {
+  const greet = stdGuestGreetingName(guest);
+  const dateLine = formatWeddingDate(ctx.weddingDateIso);
+  const calUrl = googleCalendarUrl({
+    title: ctx.coupleName,
+    dateIso: ctx.weddingDateIso,
+    location: ctx.venue,
+    details: `${ctx.coupleName} — ${ctx.pageUrl}`,
+  });
+
+  const subject = dateLine
+    ? `You're invited — ${ctx.coupleName} · ${dateLine}`
+    : `You're invited — ${ctx.coupleName}`;
+
+  const hello = greet ? `Hi ${greet},` : 'Hi,';
+  const inviteSentence = dateLine
+    ? `${ctx.coupleName} would love you to celebrate with them on ${dateLine}${ctx.venue ? ` at ${ctx.venue}` : ''}.`
+    : `${ctx.coupleName} would love you to celebrate with them.`;
+
+  const text = [
+    hello,
+    '',
+    inviteSentence,
+    '',
+    `Open your invitation and let them know if you can make it:`,
+    ctx.pageUrl,
+    ...(calUrl ? ['', `Add it to your calendar:`, calUrl] : []),
+    '',
+    `— Set na 'yan.`,
+    '',
+    `You're receiving this because ${ctx.coupleName} added you to their guest list on Setnayan. To stop these, reply with "unsubscribe" or email ${STD_SUPPORT_EMAIL}.`,
+  ].join('\n');
+
+  const html = text
+    .split('\n')
+    .map((line) => (line ? `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>` : '<p>&nbsp;</p>'))
+    .join('');
+
+  return {
+    subject,
+    text,
+    html,
+    headers: { 'List-Unsubscribe': `<mailto:${STD_SUPPORT_EMAIL}?subject=unsubscribe>` },
+  };
+}

@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "ea36d25c9",
+  "generatedFromRef": "0bd162417",
   "routeCount": 430,
   "destinations": 923,
-  "actions": 654,
+  "actions": 652,
   "blocks": 4580,
   "routes": {
     "/": {
@@ -5944,15 +5944,16 @@
     },
     "/dashboard/[eventId]/monogram": {
       "files": [
+        "dashboard/[eventId]/monogram/animate-rows.tsx",
         "dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx",
+        "dashboard/[eventId]/monogram/commit-actions.ts",
         "dashboard/[eventId]/monogram/draft-restore.tsx",
         "dashboard/[eventId]/monogram/ink-compare.tsx",
         "dashboard/[eventId]/monogram/loading.tsx",
+        "dashboard/[eventId]/monogram/mark-bench.ts",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
         "dashboard/[eventId]/monogram/mark-toggle.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
-        "dashboard/[eventId]/monogram/reveal-actions.ts",
-        "dashboard/[eventId]/monogram/reveal-step.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
         "dashboard/[eventId]/monogram/upload-actions.ts",
@@ -5966,18 +5967,16 @@
       "actions": [
         "clearStudioAction",
         "clearUploadedMarkAction",
-        "saveStudioAction",
-        "saveUploadedMarkAction",
-        "setRevealAction"
+        "saveStudioAction"
       ],
       "blocks": [
+        "AnimateRows",
         "AnimatedMonogramHero",
         "AnimatedMonogramUpgrade",
         "ApplyButton",
         "BespokeMonogramMark",
         "FeatureUsCard",
         "GoldMonogramReveal",
-        "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLInputElement",
@@ -5987,6 +5986,7 @@
         "Link",
         "MarkEverywhere",
         "MarkInkMode",
+        "MarkStage",
         "MarkToggle",
         "MoltenMonogramInline",
         "MonogramDraft",
@@ -5994,9 +5994,8 @@
         "OwnedView",
         "PageMasthead",
         "PaymentUnderReview",
-        "RevealStep",
+        "PlayDetail",
         "SDLoader",
-        "SaveButton",
         "SavedMark",
         "StudioAnim",
         "StudioAnimKind",

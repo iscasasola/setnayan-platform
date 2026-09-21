@@ -44,7 +44,7 @@ import { eventOwnsCustomQrGuest, eventSeatingPublished } from '@/lib/seat-pass';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
-import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import {
   resolveMonogramMotion,
@@ -377,9 +377,15 @@ export const loadMedia = cache(
       admin,
       event.event_id,
     );
-    const animatedMonogram: MonogramMotionKey | false = ownsAnimatedMonogram
-      ? resolveMonogramMotion(event.monogram_motion_key)
-      : false;
+    /* Owned is not the same as ON: "Use Static Image" keeps a paid mark still
+     * for guests (owner 2026-09-20). This loader calls the paid gate directly
+     * rather than going through resolveEventMonogram, so it must ask too — a
+     * gate that asks "owned?" and not "switched off?" plays a mark the couple
+     * chose to keep still. */
+    const animatedMonogram: MonogramMotionKey | false =
+      ownsAnimatedMonogram && !markAnimationSwitchedOff(event.monogram_studio_config)
+        ? resolveMonogramMotion(event.monogram_motion_key)
+        : false;
 
     // Paid COUPLE_WEBSITE_PRO upgrade (retired/unbundled · the single website-Pro unlock).
     // V1 perk: when ACTIVE (admin-approved), the couple's wedding site sheds the

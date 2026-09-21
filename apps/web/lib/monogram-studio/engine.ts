@@ -3598,5 +3598,20 @@ export function mountStudio(opts) {
     if (initialConfig) applyConfig(initialConfig);
   });
 
-  return { getExport: getExport, destroy: destroy };
+  /* Play a reveal ON THE CANVAS, driven by the page rather than the studio's own
+   * panel (owner 2026-09-20, the concept: "next row is the different animation
+   * effects" — one effects row under the editor, the mark playing in place).
+   * `play()` already hands the current export to the host's overlay, which runs
+   * the SAME player guests see; this just lets the page choose the effect and
+   * tempo. Timings come from ANIM_TEMPO_TIMINGS via the caller — never a second
+   * table here. */
+  function playReveal(kind, timing) {
+    if (timing) {
+      animDur = timing.dur;
+      animSmooth = timing.smooth;
+      animDelay = timing.delay;
+    }
+    play(kind);
+  }
+  return { getExport: getExport, destroy: destroy, playReveal: playReveal };
 }

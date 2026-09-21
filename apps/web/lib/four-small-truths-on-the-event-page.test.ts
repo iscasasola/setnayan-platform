@@ -75,18 +75,35 @@ test('D-5 · a "pick" row carries no chip, and the other kinds keep theirs', () 
   assert.ok(!/'pick one'/.test(focal), 'the heading, the label and the sub-line already said it');
 });
 
-test('D-5 · and both places that render a chip survive it being absent', () => {
+test('D-5 · every place that renders a chip survives it being absent', () => {
   const focal = code(FOCAL);
-  assert.match(focal, /\{item\.chip \? \(/, 'the digest');
+  /*
+    ⚠ THIS USED TO ASSERT THE NUMBER 2 — "the digest AND the decisions board".
+    That was a CENSUS of the render sites that happened to exist, not the rule.
+    When the bento's preview of the board was removed (2026-09-22, one list not
+    two) the count fell to 1 and this went red on a change that deleted a
+    duplicate — which is the failure mode a count has and a property does not.
+
+    The rule is: a null chip must never render an empty pill. So every mention
+    of `item.chip` at a RENDER position must be a guard and its guarded value —
+    two mentions per site — and the only other legal mention is handing it to a
+    component that guards it itself (asserted below).
+  */
+  const guarded = (focal.match(/\{item\.chip \? \(/g) || []).length;
+  const passedOn = (focal.match(/chip=\{item\.chip\}/g) || []).length;
+  const mentions = (focal.match(/item\.chip\b/g) || []).length;
+  console.log(`  chip: ${guarded} guarded site(s), ${passedOn} passed on, ${mentions} mentions`);
+
+  assert.ok(guarded >= 1, 'the decisions board still renders a chip');
   assert.equal(
-    (focal.match(/\{item\.chip \? \(/g) || []).length,
-    2,
-    'the digest AND the decisions board — a null chip must not render an empty pill',
+    mentions - passedOn,
+    guarded * 2,
+    'every rendered chip is a guard plus its value — nothing renders one unguarded',
   );
   assert.match(
     code('app/dashboard/[eventId]/_components/overview-inspector-body.tsx'),
     /\{chip \? \(/,
-    'and the inspector the row opens',
+    'and the inspector the row opens guards the one it is handed',
   );
 });
 

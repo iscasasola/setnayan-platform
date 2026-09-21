@@ -84,6 +84,7 @@ import {
   rankMarkFor,
   splitDecisionsAndDates,
 } from '@/lib/a-date-is-not-a-decision';
+import { shouldChaseRsvps } from '@/lib/one-decision-list-not-two';
 import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
@@ -1293,10 +1294,13 @@ export async function EventDashboard({
     openDecisionCount,
     datesCount,
   } = splitDecisionsAndDates(sortedGroups, deadlineGroup);
-  // Flattened, group-ordered decision list — ONE source of data feeding both the
-  // top-grid digest (top 3) AND the full board below (all of them, grouped). The
-  // digest links to `#decisions` (the board), so there is no data drift.
-  const flatDecisions = decisionGroups.flatMap((g) => g.items);
+  /*
+    `flatDecisions` LIVED HERE and is gone (2026-09-22). It existed to feed the
+    top-grid digest its first three rows — a preview of the board that sits
+    below it on the same screen. With the preview removed there is exactly one
+    rendered decision list, so there is nothing left to keep in sync and no
+    second flattening of the same data to drift.
+  */
 
   // ---- FREE first-venue-shortlist offer (owner-locked 2026-07-09 ·
   // Pricing.md § 00 carve-out). Free (non-AI) state only, and ONLY while the
@@ -2441,127 +2445,83 @@ export async function EventDashboard({
                       : ''}
                   </span>
                 </div>
-                {flatDecisions.length > 0 ? (
-                  <>
-                    {/* WARM EDITORIAL row grammar (§ 2.2): one line, one status, one
-                     *  destination. THE WHOLE ROW IS THE LINK now — a 44px target
-                     *  instead of a 28px pill, which is the tap-target rule rather
-                     *  than a preference. The labelled CTA pills are NOT lost: the
-                     *  decisions board below keeps them (§ 2.2b), so every action
-                     *  still has a verb somewhere on the page.
-                     *
-                     *  The dot replaces the pill as the urgency signal, read from the
-                     *  SHIPPED `chipTone` — no new field, no re-derivation.
-                     *
-                     *  ⚠ Two deliberate departures from the spec, both to avoid
-                     *  inventing fragile logic:
-                     *   · the spec wanted the peso figure parsed OUT of `chip`. There
-                     *     is no amount field on DecisionItemView, so that means a
-                     *     regex over display text that breaks silently when the chip
-                     *     is reworded. The chip itself is rendered instead — same
-                     *     number, nothing to break — in mono when it carries a ₱.
-                     *   · the spec wanted `sub` shown only "when it carries a date or
-                     *     a reference". That is a heuristic over free text with no
-                     *     field to key on, so `sub` is kept as shipped. */}
-                    <div className="mt-2">
-                      {flatDecisions.slice(0, 3).map((item, ii) => (
-                        <Link
-                          key={item.id}
-                          href={item.href}
-                          className={`flex min-h-[44px] items-center gap-3 px-4 py-3 transition-colors hover:bg-ink/[0.03] ${
-                            ii > 0 ? 'border-t' : ''
-                          }`}
-                          style={ii > 0 ? { borderColor: '#EDE8DE' } : undefined}
-                        >
-                          <span
-                            aria-hidden
-                            className="h-2 w-2 flex-none rounded-full"
-                            style={{ background: decisionDotColor[item.chipTone] }}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[14px] font-semibold text-ink">
-                              {item.label}
-                            </span>
-                            {/* § 2.2 — on the DIGEST the second line earns its place
-                              *  only when it carries a date or a reference. Everything
-                              *  else it used to repeat is still written in full on the
-                              *  decisions board below, so nothing is lost, and the row
-                              *  becomes one line with one number as the frame draws it. */}
-                            {digestSubWorthShowing(item.sub) ? (
-                              <span className="block truncate text-[11.5px] text-ink/55">
-                                {item.sub}
-                              </span>
-                            ) : null}
-                          </span>
-                          {item.chip ? (
-                            <span
-                              className={`flex-none whitespace-nowrap text-[13.5px] font-bold text-ink ${
-                                item.chip.includes('₱') ? 'font-mono' : ''
-                              }`}
-                            >
-                              {item.chip}
-                            </span>
-                          ) : null}
-                        </Link>
-                      ))}
-                      {/* EXTEND (§ 2.2) — unanswered RSVPs. Not a cockpit decision, so
-                       *  it is appended BELOW the top-3 slice and deliberately does NOT
-                       *  enter `decisionGroups` or `openDecisionCount`: that number means
-                       *  "cockpit decisions + payments" and corrupting a shipped number's
-                       *  definition is worse than the row is worth.
-                       *
-                       *  🔑 HONESTY GATE — `rsvpRepliesStarted`. A roster nobody has
-                       *  invited yet must never be nagged that "141 haven't replied";
-                       *  before the first reply arrives, silence is the truthful state.
-                       *  (An explicit "invitations sent" signal would be the better gate,
-                       *  but `computeGuestStats` has none — this is the conservative
-                       *  substitute, not a guess dressed as one.)
-                       *
-                       *  Zero new queries: `stats` is already computed for this surface.
-                       *  No "nudge them?" copy — no nudge mechanism ships, and a question
-                       *  implying one is a fake door. Links to the plain roster; no
-                       *  invented `?filter=` param. */}
-                      {/* ⚠ AND the event must not have happened: chasing replies
-                          to an invitation to a party that is over is the purest
-                          version of the owner's complaint. */}
-                      {!eventHasHappened && stats.pending > 0 && rsvpRepliesStarted ? (
-                        <Link
-                          href={`${base}/guests`}
-                          className="flex min-h-[44px] items-center gap-3 border-t px-4 py-3 transition-colors hover:bg-ink/[0.03]"
-                          style={{ borderColor: '#EDE8DE' }}
-                        >
-                          <span
-                            aria-hidden
-                            className="h-2 w-2 flex-none rounded-full"
-                            // gold = "waiting on people" in the § 2.1 dot vocabulary.
-                            // Inlined rather than importing Unit B's shared
-                            // `decisionDotColor` map, so this row ships independently
-                            // of that PR; identical value, no stacked dependency.
-                            style={{ background: 'var(--sn-gold-500)' }}
-                          />
-                          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">
-                            <span className="font-mono font-bold">{stats.pending}</span>{' '}
-                            {stats.pending === 1 ? 'guest hasn' : 'guests haven'}&rsquo;t
-                            replied yet
-                          </span>
-                          <span className="flex-none text-[13.5px] text-ink/45">&rarr;</span>
-                        </Link>
-                      ) : null}
-                    </div>
-                    <a
-                      href="#decisions"
-                      className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold"
-                      style={{ color: 'rgb(var(--color-link))' }}
-                    >
-                      All {openDecisionCount}{' '}
-                      {openDecisionCount === 1 ? 'decision' : 'decisions'} ↗
-                    </a>
-                  </>
+                {/*
+                  ── ONE LIST, NOT A PREVIEW OF ITSELF (owner-approved 2026-09-22) ──
+
+                  This tile used to print `flatDecisions.slice(0, 3)` — the first
+                  three rows of the Decisions board that sits a few hundred
+                  pixels below it, followed by "All N decisions ↗", an anchor to
+                  a list already on the same screen. Measured on the live page
+                  2026-09-22: "Lock your coordinator" rendered THREE times (here,
+                  in "Today's one thing", and on the board), "Papic Guest 500"
+                  twice here and a third time inside Your services.
+
+                  The council's own de-dup rule says the bento is STATUS and the
+                  board is ACT. A preview of the board is the board, in the
+                  status slot. So the tile keeps the NUMBER and loses the rows.
+
+                  🔑 THE RSVP ROW STAYS, AND IT IS NOT A DUPLICATE. It is
+                  deliberately not a cockpit decision and deliberately not in
+                  `openDecisionCount` (the note that used to sit inside this
+                  block, preserved below) — the board has never carried it, so
+                  dropping the preview would have dropped its only home.
+
+                  ⚠ AND IT WAS NESTED IN THE WRONG BRANCH. The row lived inside
+                  `flatDecisions.length > 0`, so an event with no open decisions
+                  but seventy-seven unanswered invitations read "Nothing needs a
+                  decision right now" and said nothing about the RSVPs. It is now
+                  a sibling of that branch, not a child of it.
+                */}
+                {openDecisionCount > 0 ? (
+                  <a
+                    href="#decisions"
+                    className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold"
+                    style={{ color: 'rgb(var(--color-link))' }}
+                  >
+                    {openDecisionCount === 1 ? 'Open the decision' : 'Open the list'} ↗
+                  </a>
                 ) : (
                   <p className="mt-2 text-[13px] text-ink/55">
                     Nothing needs a decision right now — your plan keeps moving on its own.
                   </p>
                 )}
+                {/* EXTEND (§ 2.2) — unanswered RSVPs. Not a cockpit decision, so it
+                 *  deliberately does NOT enter `decisionGroups` or `openDecisionCount`:
+                 *  that number means "cockpit decisions + payments" and corrupting a
+                 *  shipped number's definition is worse than the row is worth.
+                 *
+                 *  🔑 HONESTY GATE — `rsvpRepliesStarted`. A roster nobody has invited
+                 *  yet must never be nagged that "141 haven't replied"; before the first
+                 *  reply arrives, silence is the truthful state. (An explicit
+                 *  "invitations sent" signal would be the better gate, but
+                 *  `computeGuestStats` has none — this is the conservative substitute,
+                 *  not a guess dressed as one.)
+                 *
+                 *  And it stops after the celebration: chasing a reply to an invitation
+                 *  to a party that is over is the purest version of the owner's complaint. */}
+                {shouldChaseRsvps({
+                  eventHasHappened,
+                  pending: stats.pending,
+                  repliesStarted: rsvpRepliesStarted,
+                }) ? (
+                  <Link
+                    href={`${base}/guests`}
+                    className="mt-3 flex min-h-[44px] items-center gap-3 border-t px-1 py-3 transition-colors hover:bg-ink/[0.03]"
+                    style={{ borderColor: '#EDE8DE' }}
+                  >
+                    <span
+                      aria-hidden
+                      className="h-2 w-2 flex-none rounded-full"
+                      // gold = "waiting on people" in the § 2.1 dot vocabulary.
+                      style={{ background: 'var(--sn-gold-500)' }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">
+                      <span className="font-mono font-bold">{stats.pending}</span>{' '}
+                      {stats.pending === 1 ? 'guest hasn' : 'guests haven'}&rsquo;t replied yet
+                    </span>
+                    <span className="flex-none text-[13.5px] text-ink/45">&rarr;</span>
+                  </Link>
+                ) : null}
               </div>
 
               {miniTiles.length > 0 ? (

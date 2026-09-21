@@ -3,14 +3,21 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, UserCheck, UserPlus, Link2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { ROLE_LABELS, SIDE_LABELS, type GuestRole } from '@/lib/guests';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { unlinkedCandidates } from '@/lib/unlisted-guests';
+import { LinkPicker } from './link-picker';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { keepGuestAction, removeGuestAction, linkGuestAction } from './actions';
 
 export const metadata = { title: 'Unlisted guests' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ error?: string }>;
+};
 
 type UnlistedRow = {
   guest_id: string;
@@ -22,8 +29,9 @@ type UnlistedRow = {
   created_at: string;
 };
 
-export default async function UnlistedGuestsPage({ params }: Props) {
+export default async function UnlistedGuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const { error: actionError } = await searchParams;
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -97,7 +105,41 @@ export default async function UnlistedGuestsPage({ params }: Props) {
     }
     candidatesMeasured = !candError && candRaw !== null;
     candidates = (candRaw ?? []) as Candidate[];
+
+    /*
+      ⚖ Owner 2026-09-21: "this should only show accounts that are not yet
+      linked". A guest an account already signed in as IS that person; the Link
+      action refuses to bind a second account to them, so offering them only
+      produced an error. Read with the admin client — the couple's own session
+      may not see other people's memberships — AFTER the couple check above.
+      A refused read hides the Link form rather than offering linked guests.
+    */
+    const { data: boundRaw, error: boundError } = await createAdminClient()
+      .from('event_members')
+      .select('guest_id')
+      .eq('event_id', eventId)
+      .not('guest_id', 'is', null);
+    if (boundError) {
+      logQueryError('UnlistedGuestsPage.linked', boundError, { event_id: eventId }, 'graceful_degrade');
+      candidatesMeasured = false;
+      candidates = [];
+    } else {
+      candidates = unlinkedCandidates(
+        candidates,
+        new Set((boundRaw ?? []).map((m) => m.guest_id as string)),
+      );
+    }
   }
+
+  // The Keep form's choices — what THIS event offers (the action re-checks).
+  const [{ offeredRoles }, { data: groupsRaw }] = rows.length > 0
+    ? await Promise.all([
+        resolveRoleSetForEvent(eventId),
+        supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId).order('label'),
+      ])
+    : [{ offeredRoles: [] as GuestRole[] }, { data: [] }];
+  const roleChoices = offeredRoles.filter((r) => r !== 'bride' && r !== 'groom');
+  const groupChoices = (groupsRaw ?? []) as { group_id: string; label: string; team_side: string }[];
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
@@ -118,6 +160,12 @@ export default async function UnlistedGuestsPage({ params }: Props) {
           who belong, remove the ones who don&rsquo;t.
         </p>
       </header>
+
+      {actionError ? (
+        <p role="alert" className="mt-4 rounded-lg border border-danger-200 bg-danger-50/70 px-3 py-2 text-sm text-danger-900">
+          {actionError}
+        </p>
+      ) : null}
 
       {!unlistedMeasured ? (
         <p
@@ -153,12 +201,63 @@ export default async function UnlistedGuestsPage({ params }: Props) {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <form action={keepGuestAction.bind(null, eventId)}>
-                    <input type="hidden" name="guest_id" value={g.guest_id} />
-                    <SubmitButton className="button-primary inline-flex items-center gap-1.5" pendingLabel="Keeping…">
+                  {/* ⚖ Owner 2026-09-21: "allow manual add to list where you
+                      can choose their role, group, side, and name". Keep opens
+                      the form, prefilled with what they typed on joining. */}
+                  <details className="group/keep w-full">
+                    <summary className="button-primary inline-flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
                       <UserCheck className="h-4 w-4" /> Keep on my list
-                    </SubmitButton>
-                  </form>
+                    </summary>
+                    <form action={keepGuestAction.bind(null, eventId)} className="mt-3 grid gap-3 rounded-lg border border-ink/10 bg-cream/60 p-3 sm:grid-cols-2">
+                      <input type="hidden" name="guest_id" value={g.guest_id} />
+                      <label className="space-y-1 text-sm">
+                        <span className="text-ink/70">First name</span>
+                        <input name="first_name" required defaultValue={splitName(name).first} className="input-field h-9 w-full py-1" />
+                      </label>
+                      <label className="space-y-1 text-sm">
+                        <span className="text-ink/70">Last name</span>
+                        <input name="last_name" defaultValue={splitName(name).last} className="input-field h-9 w-full py-1" />
+                      </label>
+                      <fieldset className="space-y-1 text-sm sm:col-span-2">
+                        <legend className="text-ink/70">Side</legend>
+                        <span className="flex flex-wrap gap-2">
+                          {(['bride', 'groom', 'both'] as const).map((s) => (
+                            <label key={s} className="cursor-pointer rounded-lg border border-ink/15 px-3 py-1.5 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 has-[:checked]:font-medium">
+                              <input type="radio" name="side" value={s} required defaultChecked={s === 'both'} className="sr-only" />
+                              {SIDE_LABELS[s]}
+                            </label>
+                          ))}
+                        </span>
+                      </fieldset>
+                      <label className="space-y-1 text-sm">
+                        <span className="text-ink/70">Role</span>
+                        <select name="role" defaultValue="guest" className="input-field h-9 w-full py-1">
+                          {roleChoices.map((r) => (
+                            <option key={r} value={r}>
+                              {ROLE_LABELS[r]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 text-sm">
+                        <span className="text-ink/70">Group</span>
+                        <select name="group_id" defaultValue="" className="input-field h-9 w-full py-1">
+                          <option value="">No group</option>
+                          {groupChoices.map((gr) => (
+                            <option key={gr.group_id} value={gr.group_id}>
+                              {gr.label}
+                              {gr.team_side === 'bride' ? ' · Bride’s' : gr.team_side === 'groom' ? ' · Groom’s' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="sm:col-span-2">
+                        <SubmitButton className="button-primary inline-flex items-center gap-1.5" pendingLabel="Adding…">
+                          <UserCheck className="h-4 w-4" /> Add to my list
+                        </SubmitButton>
+                      </div>
+                    </form>
+                  </details>
 
                   <form action={removeGuestAction.bind(null, eventId)}>
                     <input type="hidden" name="guest_id" value={g.guest_id} />
@@ -181,22 +280,7 @@ export default async function UnlistedGuestsPage({ params }: Props) {
                     <span className="inline-flex items-center gap-1.5 text-sm text-ink/55">
                       <Link2 className="h-4 w-4" /> Same as
                     </span>
-                    <select
-                      name="target_guest_id"
-                      required
-                      defaultValue=""
-                      aria-label="Link to an existing guest"
-                      className="input-field h-9 flex-1 py-1 text-sm sm:flex-none"
-                    >
-                      <option value="" disabled>
-                        Choose a guest on your list…
-                      </option>
-                      {candidates.map((c) => (
-                        <option key={c.guest_id} value={c.guest_id}>
-                          {(c.display_name?.trim() || `${c.first_name} ${c.last_name}`).trim()}
-                        </option>
-                      ))}
-                    </select>
+                    <LinkPicker candidates={candidates} />
                     <SubmitButton className="button-secondary text-sm" pendingLabel="Linking…">
                       Link
                     </SubmitButton>
@@ -215,4 +299,10 @@ export default async function UnlistedGuestsPage({ params }: Props) {
       )}
     </div>
   );
+}
+
+/** "Shey" → first "Shey"; "Julian Gerolaga" → "Julian" + "Gerolaga". */
+function splitName(full: string): { first: string; last: string } {
+  const parts = full.trim().split(/\s+/);
+  return { first: parts[0] ?? '', last: parts.slice(1).join(' ') };
 }

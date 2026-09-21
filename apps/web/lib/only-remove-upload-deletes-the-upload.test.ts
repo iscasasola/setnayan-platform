@@ -24,6 +24,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+/* Comments are stripped so prose that NAMES the write — like this rule's own
+ * explanation in studio-actions.ts — is not mistaken for the write. */
+import { stripComments as code } from './strip-comments';
 
 /** The one place allowed to delete it, and the function that must do it. */
 const ALLOWED = { file: 'app/dashboard/[eventId]/monogram/upload-actions.ts', fn: 'clearUploadedMarkAction' };
@@ -36,12 +39,6 @@ function walk(dir: string, out: string[] = []): string[] {
     else if (/\.tsx?$/.test(full) && !/\.test\.tsx?$/.test(full)) out.push(full);
   }
   return out;
-}
-
-/** Strip comments so prose that NAMES the write — like this rule's own
- *  explanation in studio-actions.ts — is not mistaken for the write. */
-function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
 const NULLS = /monogram_uploaded_svg\s*:\s*null/g;

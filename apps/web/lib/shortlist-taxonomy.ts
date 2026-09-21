@@ -119,6 +119,47 @@ export function tileForCategory(category: VendorCategory): WeddingTile | null {
 }
 
 /**
+ * The bench tile a PLAN GROUP id opens on — the group's `catalogTile`, else the
+ * tile its first category bridges to (Attire / Band-DJ-Performer / Logistics
+ * span several tiles and carry no `catalogTile`). Null for an id that is not a
+ * plan group, so a stale value in `covers_plan_groups` places nothing rather
+ * than landing on a guessed tile.
+ */
+export function tileForPlanGroup(groupId: string): WeddingTile | null {
+  const g = PLAN_GROUPS.find((p) => (p.id as string) === groupId);
+  if (!g) return null;
+  if (g.catalogTile) return g.catalogTile;
+  const first = g.categories[0];
+  return first ? tileForCategory(first) : null;
+}
+
+/**
+ * Every OTHER tile a supplier row also covers, in the order the couple chose
+ * them, de-duplicated, never including the row's own tile. Pure; the one
+ * answer the bench uses to place a supplier in more than one category.
+ *
+ * ⚠ A budget-cost row carries its OWN group in `covers_plan_groups`
+ * (`budget/cost-actions.ts`), which bridges back to its home tile — that is why
+ * the home tile is excluded here rather than assumed absent.
+ */
+export function linkedTilesForRow(row: {
+  category: VendorCategory;
+  covers_plan_groups?: readonly string[] | null;
+}): WeddingTile[] {
+  const covers = Array.isArray(row.covers_plan_groups) ? row.covers_plan_groups : [];
+  if (covers.length === 0) return [];
+  const home = tileForCategory(row.category);
+  const out: WeddingTile[] = [];
+  for (const id of covers) {
+    if (typeof id !== 'string') continue;
+    const t = tileForPlanGroup(id);
+    if (!t || t === home || out.includes(t)) continue;
+    out.push(t);
+  }
+  return out;
+}
+
+/**
  * Inverse bridge: a tile → a representative `VendorCategory` to store a
  * MANUALLY-added vendor under (the "Add manually" affordance and the fit-QR add
  * both write event_vendors.category from this). First category that maps to the
@@ -364,6 +405,22 @@ export type ShortlistVendor = {
    * is unchanged and still rendered — this is additive.
    */
   freeDays: readonly string[] | null;
+  /**
+   * Set when this card is the SAME supplier shown again in a category their
+   * package also covers (`event_vendors.covers_plan_groups`, owner 2026-09-21:
+   * *"it should auto populate to the other categories … automatically linked
+   * everytime. even when they are making builds."*). The value is the label of
+   * the category the supplier was ADDED under — where their price lives.
+   *
+   * 🔑 A LINKED CARD CARRIES NO MONEY. `totalCostPhp`, `priceBasisPhp` and
+   * `budgetFit` are null on it: the booking is one row with one price, and
+   * showing it again here would read as a second bill. Its `vendorId` and
+   * `planGroupId` are the home row's, so "Add to build" / Lock act on the one
+   * real booking, and a build pick lights this card too.
+   *
+   * Null on every ordinary card.
+   */
+  includedWith: string | null;
 };
 
 /**
@@ -536,6 +593,7 @@ export function buildShortlistFolders(args: {
 
   // Bucket considered vendors by tile (exhaustive bridge → never dropped).
   const byTile = new Map<WeddingTile, ShortlistVendor[]>();
+  const linkedByTile: Array<[WeddingTile, ShortlistVendor]> = [];
   for (const v of vendorRows) {
     const tile = tileForCategory(v.category);
     if (!tile) continue;
@@ -642,10 +700,36 @@ export function buildShortlistFolders(args: {
       buildClashWith: buildFitByVendorId?.get(v.vendor_id)?.clashWith ?? null,
       freeDaysLine: freeDaysLineByVendorId?.get(v.vendor_id) ?? null,
       freeDays: freeDaysByVendorId?.get(v.vendor_id) ?? null,
+      includedWith: null,
     };
     const arr = byTile.get(tile);
     if (arr) arr.push(vendor);
     else byTile.set(tile, [vendor]);
+
+    // The same supplier, again, in every category their package also covers —
+    // queued and appended AFTER every tile's own vendors (below), so a
+    // category's own candidates always lead its rail.
+    const linked = linkedTilesForRow(v);
+    if (linked.length > 0) {
+      const homeLabel = tileLabelMap[tile] ?? tile;
+      const copy: ShortlistVendor = {
+        ...vendor,
+        includedWith: homeLabel,
+        totalCostPhp: null,
+        priceBasisPhp: null,
+        budgetFit: null,
+        budgetEstimated: false,
+      };
+      for (const t of linked) linkedByTile.push([t, copy]);
+    }
+  }
+  for (const [t, copy] of linkedByTile) {
+    const arr = byTile.get(t);
+    // One supplier appears once per tile — their own row there (if the couple
+    // also filed them under it) wins over the linked copy.
+    if (arr?.some((x) => x.vendorId === copy.vendorId)) continue;
+    if (arr) arr.push(copy);
+    else byTile.set(t, [copy]);
   }
 
   const folders: ShortlistFolder[] = [];
@@ -677,7 +761,8 @@ export function buildShortlistFolders(args: {
         continue;
       // Faith scope.
       if (vendors.length === 0 && !tilePassesFaith(tile, faithSet, map)) continue;
-      pickCount += vendors.length;
+      // A linked copy is the same booking shown again — count suppliers, not cards.
+      pickCount += vendors.filter((x) => x.includedWith == null).length;
       const planned = plannedTiles?.has(tile) ?? false;
       if (planned) plannedCount += 1;
       const slug = tileSlugMap[tile] ?? tile;

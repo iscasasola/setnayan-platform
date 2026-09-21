@@ -477,15 +477,53 @@ export function bucketLabel(bucketId: string): string {
   return BUCKET_LABEL[bucketId] ?? bucketId;
 }
 
+/** plan-group id → the vendor categories it lists (empty for the entry-point cards). */
+const CATEGORIES_BY_GROUP = new Map<string, readonly string[]>(
+  PLAN_GROUPS.map((g) => [g.id as string, g.categories as readonly string[]]),
+);
+
+/**
+ * Can `groupId` be the HOME of a row stamped `category`? True when the group
+ * lists that category, or — for the five entry-point groups with an EMPTY
+ * `categories` (stylist, live_band, …) — when the row is `misc`, which is the
+ * only thing a row filed under one of them can be stamped
+ * (`vendorCategoryForCostCategory`, `TILE_TO_CATEGORY`'s fallback).
+ */
+export function isHomeGroupFor(groupId: string, category: string | null): boolean {
+  const cats = CATEGORIES_BY_GROUP.get(groupId);
+  if (!cats || category == null) return false;
+  return cats.length === 0 ? category === 'misc' : cats.includes(category);
+}
+
 /**
  * Which bucket a vendor's money lands in.
  *
- * `covers_plan_groups[0]` is the booking plan group and wins. When it's empty
- * we map the vendor_category — this is the half `checklist-budget.ts:186`
- * throws away (`if (groups.length === 0) continue;`), which is why ₱810,000 of
- * real commitments currently register as ₱0 on the health card (R2). Nothing
- * is ever skipped here; an unmappable category falls into `'other'` and is
- * still counted.
+ * ⚖ `covers_plan_groups` HAS TWO WRITERS THAT MEAN DIFFERENT THINGS BY IT, and
+ * this is the one rule both satisfy (2026-09-21):
+ *
+ *   · `budget/cost-actions.ts` writes `[planGroupId]` — the category the couple
+ *     picked for a cost, i.e. the row's HOME. Its `category` is stamped from
+ *     that group (`vendorCategoryForCostCategory`: `categories[0]`, or `misc`),
+ *     because a vendor category alone cannot always say which group it meant
+ *     (`transportation` is listed by Bridal Car AND Logistics; five groups list
+ *     nothing at all).
+ *   · the Add-manually sheet and the workspace editor write the groups a
+ *     supplier ALSO covers, and never their own — so `[0]` is somebody ELSE's
+ *     category. Reading it as the bucket filed a reception venue that also
+ *     covers catering under Catering (the only such row in prod, measured
+ *     2026-09-21, had not been priced yet).
+ *
+ * So: a covered group is the bucket only when it could be the row's home
+ * (`isHomeGroupFor`). The cost writer's group always is — it stamped the
+ * category from it; an ALSO-covered group never is — it is a different
+ * service. Otherwise the vendor category maps the bucket, which is the half
+ * `checklist-budget.ts` used to throw away (R2, the ₱810,000 defect). Nothing
+ * is ever skipped; an unmappable category falls into `'other'` and is still
+ * counted.
+ *
+ * Residual, stated rather than hidden: a `misc` supplier that ALSO covers one
+ * of the five category-less groups buckets there. Such a row's true home is
+ * not expressible in `category` at all, so neither answer is provably right.
  */
 export function bucketForVendor(
   // Minimal shape on purpose: BUD-3's checklist rows carry only these two
@@ -495,8 +533,11 @@ export function bucketForVendor(
   v: Pick<VendorMoneyRow, 'covers_plan_groups' | 'category'>,
 ): string {
   const groups = Array.isArray(v.covers_plan_groups) ? v.covers_plan_groups : [];
-  const primary = groups.find((g) => typeof g === 'string' && g.length > 0);
-  if (primary) return primary;
+  const category = (v.category ?? null) as string | null;
+  const home = groups.find(
+    (g) => typeof g === 'string' && g.length > 0 && isHomeGroupFor(g, category),
+  );
+  if (home) return home;
   return BUCKET_BY_CATEGORY.get(v.category as VendorCategory) ?? OTHER_BUCKET;
 }
 

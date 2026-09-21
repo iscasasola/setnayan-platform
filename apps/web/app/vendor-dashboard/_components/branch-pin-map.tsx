@@ -21,6 +21,8 @@ const TILE = 256;
 const HEIGHT = 260;
 const MIN_ZOOM = 4;
 const MAX_ZOOM = 18;
+/** Street level — where an outside value (an address search) lands the view. */
+const SEARCH_ZOOM = 16;
 
 const tileUrl = (z: number, x: number, y: number) =>
   `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
@@ -74,11 +76,32 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  // FOLLOW THE VALUE WHEN IT CHANGES FROM OUTSIDE (2026-09-21). `center` was
+  // seeded from `value` once, at mount, and never again — so when the couple's
+  // address sheet pressed "Find", the parent's pin moved and "Pinned at …"
+  // updated while the map sat exactly where it was. Owner: *"the map is not
+  // working and not searching."* Worse, the next nudge of the map committed
+  // the centre it was STILL showing, overwriting the search result.
+  // A drag or key-pan sets `value` to the centre it already shows, so this
+  // fires only for an outside change — a search — and zooms to street level,
+  // where a crosshair on a building is a thing you can actually check.
+  // Mirrors `center` at every write (never assigned during render).
+  const centerRef = useRef(center);
+  useEffect(() => {
+    if (!value) return;
+    const c = centerRef.current;
+    if (Math.abs(c.lat - value.lat) < 1e-7 && Math.abs(c.lng - value.lng) < 1e-7) return;
+    centerRef.current = value;
+    setCenter(value);
+    setZoom((z) => Math.max(z, SEARCH_ZOOM));
+  }, [value]);
+
   const W = width;
   const H = HEIGHT;
 
   const commitCenter = useCallback(
     (next: LatLng) => {
+      centerRef.current = next;
       setCenter(next);
       onChange(next);
     },

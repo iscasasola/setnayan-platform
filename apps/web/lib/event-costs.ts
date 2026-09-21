@@ -117,9 +117,10 @@ export function isCostCategoryId(value: unknown): value is string {
  * (`stylist`, `live_band`, `dance_instructor`, `after_party_music`,
  * `guest_shuttle`) carry an EMPTY `categories` array on purpose: they are
  * entry-point cards whose underlying category is owned by another card. They
- * fall to `misc`, and `covers_plan_groups` — which `bucketForVendor` reads
- * FIRST — still carries the group the couple chose, so the money lands right
- * regardless.
+ * fall to `misc`, and `covers_plan_groups` still carries the group the couple
+ * chose — `bucketForVendor` accepts a covered group as the home exactly when
+ * this stamped category could belong to it (`isHomeGroupFor`), so the money
+ * lands right regardless. Change this stamp and that pairing breaks.
  */
 export function vendorCategoryForCostCategory(planGroupId: string): VendorCategory {
   const group = PLAN_GROUPS.find((g) => (g.id as string) === planGroupId);

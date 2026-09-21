@@ -21,10 +21,12 @@
  * `disabled`, because `aria-pressed` buttons stay keyboard-reachable in some
  * assistive setups.
  *
- * ⚖ AND IT IS NOT SUBMITTED. `bucketForVendor` reads `covers_plan_groups[0]`
- * as the money bucket; writing the own group in would move which bucket
- * existing bookings land in, for no gain. The chip states the fact on screen;
- * the column keeps meaning "ALSO covers".
+ * ⚖ AND IT IS NOT SUBMITTED. It is already implied by `event_vendors.category`,
+ * and the column keeps meaning "ALSO covers". `bucketForVendor` never takes an
+ * ALSO-covered group as the money's home (`isHomeGroupFor`, 2026-09-21 — it used
+ * to read `[0]`, which filed a venue that also covers catering under Catering),
+ * so dropping an own group a row happened to carry is harmless: the category
+ * maps the same bucket.
  *
  * Motion: rows and chips use `.sn-canvas-rise`, the maker's own entrance —
  * already covered by the global `prefers-reduced-motion` block in globals.css,

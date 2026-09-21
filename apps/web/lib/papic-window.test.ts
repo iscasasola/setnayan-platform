@@ -16,7 +16,7 @@ import {
   resolvePapicWindow,
   resolveStoredWindow,
   manilaDate,
-  manilaEndOfDayIso,
+  manilaCaptureCloseIso,
   isTravelEventType,
 } from './papic-window';
 
@@ -43,7 +43,7 @@ test('travel: free range, day 1 → end of trip, days = full span', () => {
     assert.equal(r.window.startDate, '2026-07-10');
     assert.equal(r.window.endDate, '2026-07-15');
     assert.match(r.window.startIso, /2026-07-10T09:00:00\+08:00/);
-    assert.equal(r.window.endIso, manilaEndOfDayIso('2026-07-15'));
+    assert.equal(r.window.endIso, manilaCaptureCloseIso('2026-07-15'));
   }
 });
 
@@ -70,7 +70,7 @@ test('wedding: a same-day window is 1 day, end pinned to event_date', () => {
   if (r.ok) {
     assert.equal(r.window.days, 1);
     assert.equal(r.window.endDate, '2026-12-20');
-    assert.equal(r.window.endIso, manilaEndOfDayIso('2026-12-20'));
+    assert.equal(r.window.endIso, manilaCaptureCloseIso('2026-12-20'));
   }
 });
 
@@ -120,11 +120,25 @@ test('birthday (anchored, non-wedding) behaves like wedding — end pinned', () 
 test('resolveStoredWindow: window set → inclusive days', () => {
   const w = resolveStoredWindow({
     windowStart: '2026-07-10T09:00:00+08:00',
+    // A row written BEFORE the twelve-hour tail shipped — the shape the
+    // migration has not reached yet. It must still read as six days, or a
+    // legacy event's price label moves the moment this file changes.
     windowEnd: '2026-07-15T23:59:59+08:00',
     eventDate: '2026-07-01',
   });
   assert.equal(w.days, 6);
+  assert.equal(w.endDate, '2026-07-15');
   assert.equal(w.startIso, '2026-07-10T09:00:00+08:00');
+});
+
+test('resolveStoredWindow: a window written WITH the tail reads the same days', () => {
+  const w = resolveStoredWindow({
+    windowStart: '2026-07-10T09:00:00+08:00',
+    windowEnd: manilaCaptureCloseIso('2026-07-15'),
+    eventDate: '2026-07-01',
+  });
+  assert.equal(w.days, 6, 'the close instant added a phantom day to every label');
+  assert.equal(w.endDate, '2026-07-15');
 });
 
 test('🔑 resolveStoredWindow: no window → SIX MONTHS before the event, not one day', () => {
@@ -143,7 +157,12 @@ test('🔑 resolveStoredWindow: no window → SIX MONTHS before the event, not o
     eventDate: '2026-12-20',
   });
   assert.equal(manilaDate(w.startIso), '2026-06-20', 'default start is 6 months before');
-  assert.equal(w.endIso, manilaEndOfDayIso('2026-12-20'), 'still ends on the event day');
+  assert.equal(
+    w.endIso,
+    manilaCaptureCloseIso('2026-12-20'),
+    'still ends on the event day — plus the owner’s twelve-hour tail (2026-09-22)',
+  );
+  assert.equal(w.endDate, '2026-12-20', 'the last DAY is still the event day');
   assert.ok(w.days > 180, `default window collapsed to ${w.days} days`);
   assert.notEqual(
     manilaDate(w.startIso),
@@ -157,6 +176,7 @@ test('resolveStoredWindow: no window + no date → 1 day, null bounds', () => {
   assert.equal(w.days, 1);
   assert.equal(w.startIso, null);
   assert.equal(w.endIso, null);
+  assert.equal(w.endDate, null);
 });
 
 test('isTravelEventType is case-insensitive', () => {

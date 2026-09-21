@@ -110,7 +110,7 @@ test('🚨 only a PAID charge earns — waived_free5 / waived_import mean they p
   );
 });
 
-test('🚨 the pack door is registered — ₱500 → 25 credits on approval of THAT order', () => {
+test('🚨 the pack door is registered — ₱500 lands the pack credits on approval of THAT order', () => {
   const src = code(ACTIVATION_SRC);
   assert.ok(
     /\[VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE\]: grantVendorPapicPortfolioPack/.test(src),

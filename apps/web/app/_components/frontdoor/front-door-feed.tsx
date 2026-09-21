@@ -39,6 +39,9 @@ import {
 
 import { type FrontDoorData } from './data';
 import { shopInitials } from '@/lib/shop-initials';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 /**
  * The card's terminal blurb when a story has no excerpt of its own.
@@ -355,10 +358,38 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
         ))}
         <div className="fd-invite fd-invite-wide">
           <h3>Open your shop — free while we&rsquo;re new.</h3>
+          {/*
+            🔴 THIS CARD PROMISED "No commission on your bookings, ever." — to a
+            SUPPLIER, beside a real 5% booking fee. Measured 2026-09-22.
+
+            The owner's 2026-08-06 ruling is that "no commission" is CORRECT and
+            stays: the couple pays the supplier directly and Setnayan never
+            touches that money. The booking fee is a separate bill to the
+            supplier for the introduction — not a cut of the couple↔supplier
+            deal. **Both sentences are true at once, but only if the second one
+            is actually said.** `/pricing` says both. This card said only the
+            first, and added "ever", which no flag can keep true.
+
+            🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeScheduleSummary()`
+            and `FREE_BOOKING_LIMIT` are the same sources the bill uses, and the
+            launch line is gated on `isBookingFeeEnabled()` — the very flag that
+            decides whether anyone is billed — so the promise and the charge
+            cannot disagree. A hand-edited sentence is exactly what went stale
+            here before (see VendorGrowFairPay, which was false on 2026-09-20).
+          */}
           <p>
-            No commission on your bookings, ever. Your own web address, a
-            calendar couples can see, and enquiries that arrive as real
-            messages.
+            Couples pay you directly — we never take a cut of it.{' '}
+            {isBookingFeeEnabled() ? (
+              <>
+                Your first {FREE_BOOKING_LIMIT} bookings we introduce are free;
+                after that a booking fee of {bookingFeeScheduleSummary()}, only
+                on couples we bring you. Your own clients stay free.{' '}
+              </>
+            ) : (
+              <>No booking fee while we&rsquo;re new.{' '}</>
+            )}
+            Your own web address, a calendar couples can see, and enquiries that
+            arrive as real messages.
           </p>
           <Link href="/open-shop" className="fd-go">
             Open your shop &rarr;

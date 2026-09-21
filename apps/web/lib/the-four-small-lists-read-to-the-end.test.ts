@@ -535,7 +535,37 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
   );
   assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete \};/);
   const page = read('app/vendor-dashboard/page.tsx');
-  assert.match(page, /<WhatsNewFeed\s+cards=\{whatsNew\}\s+incomplete=\{deskIncomplete\}/);
+  /*
+    ⚠ WAS PINNED TO THE EXACT PROP ORDER `cards={whatsNew} incomplete={deskIncomplete}`.
+    Since 2026-09-22 the desk is split in two before it is rendered, so the ask
+    feed is fed `needsAnswer` and carries a `statusLine` between those props —
+    the old regex could not match, though every property it existed to protect
+    still held. Assert the properties instead of the phrasing:
+      1. the short-read flag REACHES the feed (the whole point of this test —
+         a partial read must not render as an empty desk);
+      2. BOTH halves of the split are mounted, so neither list can be computed
+         and then quietly dropped on the way to the screen;
+      3. the two halves come from ONE `splitDesk` call, so they cannot disagree
+         about which card went where.
+  */
+  const feedMount = page.match(/<WhatsNewFeed\b[\s\S]*?\/>/)?.[0] ?? '';
+  assert.ok(feedMount, 'the Overview no longer mounts <WhatsNewFeed>');
+  assert.match(
+    feedMount,
+    /incomplete=\{deskIncomplete\}/,
+    'the short-read flag no longer reaches the feed — a partial read would render as an empty desk',
+  );
+  assert.match(feedMount, /cards=\{needsAnswer\}/, 'the ask feed is no longer fed the answer half');
+  assert.match(
+    page,
+    /<NothingToAnswerFeed[\s\S]*?cards=\{nothingToAnswer\}/,
+    'the news half is computed and never rendered — those cards would vanish from the page',
+  );
+  assert.equal(
+    (page.match(/splitDesk\(whatsNew\)/g) ?? []).length,
+    1,
+    'the desk is split more than once (or not at all) — two splits can disagree about which card went where',
+  );
 });
 
 test('screens: the client page reads every open ask, and a short read is "could not load"', () => {

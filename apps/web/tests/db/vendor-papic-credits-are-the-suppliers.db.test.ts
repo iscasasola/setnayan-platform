@@ -21,6 +21,10 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+// ⚠ RELATIVE, NOT `@/lib/…`. A VALUE import — the point is to read the LIVE
+// constant rather than restate it — so it takes the path the db runner can
+// definitely follow. `vendor-papic-credits` imports nothing itself.
+import { VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS } from '../../lib/vendor-papic-credits';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -131,10 +135,49 @@ test('the pack SKU is in the price table, active, at the owner’s ₱500, per e
   );
   assert.equal(r.rows.length, 1, 'vendor_papic_portfolio_pack is not seeded');
   const row = r.rows[0]!;
-  assert.equal(Number(row.price_php), 500, 'owner: "they pay 500 pesos for 25 papic credits"');
+  assert.equal(Number(row.price_php), 500, 'owner: "they pay 500 pesos" — the PRICE never moved');
   assert.equal(row.offering_type, 'vendor_addon_per_event');
   assert.equal(row.is_active, true);
-  assert.match(row.title, /25/, 'the title tells the buyer how many credits');
+
+  /*
+   * 🚨 THIS USED TO READ `assert.match(row.title, /25/)`, AND THAT IS WHY THE
+   * DEFECT SURVIVED. The owner raised what one ₱500 buys from 25 to 100 on
+   * 2026-09-06 (`VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS`); the catalogue title was
+   * never updated, and this guard was actively defending the stale number.
+   * Measured in production 2026-09-22, the row's `updated_at` was still the
+   * 2026-09-05 seed timestamp — a supplier had been told, for a year, that they
+   * were buying a QUARTER of what they got.
+   *
+   * 🔑 A GUARD THAT RESTATES A NUMBER CAN ONLY PIN THE DAY IT WAS WRITTEN.
+   * It reads the live constant now, so the next reprice moves both halves or
+   * fails here. Never put the literal back.
+   *
+   * It errs in the customer's favour, which is why nobody ever reported it: a
+   * generous lie raises no support ticket.
+   */
+  assert.match(
+    row.title,
+    new RegExp(`\\b${VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS}\\b`),
+    `the title must quote the ${VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS} credits the pack actually ` +
+      `grants, and says: ${JSON.stringify(row.title)}. The title is migration-owned — ` +
+      '/admin/pricing writes price, description and is_active only — so fix it in a migration, ' +
+      'never by bending the constant to match the sentence.',
+  );
+
+  // A negative the positive cannot reach: "100 credits (was 25)" would satisfy
+  // it while still quoting a dead number at a paying supplier.
+  // Widened on purpose: tsc narrows the import to the literal `100` and then
+  // calls the comparison unintentional. The guard is not pointless — it is what
+  // keeps this assertion honest if the pack is ever repriced BACK to 25.
+  const granted: number = VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS;
+  if (granted !== 25) {
+    assert.doesNotMatch(
+      row.title,
+      /\b25\b\s*Papic credits/,
+      `the title still offers 25 Papic credits: ${JSON.stringify(row.title)}. Nobody has ` +
+        'received 25 since 2026-09-06.',
+    );
+  }
 });
 
 test('🚨 a supplier grant is INVISIBLE to the couple’s pool — and the pool to the supplier', async () => {
@@ -212,7 +255,11 @@ test('every writer names its source — there is no default to fall back on', as
   );
 });
 
-test('🚨 fulfilment is idempotent per (order, source): a re-approved pack lands 25, not 50', async () => {
+test('🚨 fulfilment is idempotent per (order, source): a re-approved pack lands its credits ONCE', async () => {
+  // ⚠ The fixture is the LIVE constant, not a literal. It was 25 here — an
+  // arbitrary number that happened to match what the pack granted in 2026-09-05
+  // and then silently stopped matching. A fixture that looks like the real
+  // figure teaches the next reader a stale one.
   const orderId = await newOrder(vendorUserA, vendorA, 'vendor_papic_portfolio_pack');
   const before = await supplierCredits(vendorA);
 
@@ -220,22 +267,26 @@ test('🚨 fulfilment is idempotent per (order, source): a re-approved pack land
     db.query(
       `INSERT INTO public.vendor_papic_portfolio_credit_grants
          (vendor_profile_id, event_id, credits, source, order_id)
-       VALUES ($1, $2, 25, 'pack_order', $3)`,
+       VALUES ($1, $2, ${VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS}, 'pack_order', $3)`,
       [vendorA, eventId, orderId],
     );
   await insertPack();
   await assert.rejects(insertPack(), /vendor_papic_portfolio_credit_grants_order_source_unique|duplicate key/);
-  assert.equal(await supplierCredits(vendorA), before + 25);
+  assert.equal(await supplierCredits(vendorA), before + VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS);
 
   // A second, DIFFERENT pack order for the same event stacks — packs are repeatable.
   const secondOrder = await newOrder(vendorUserA, vendorA, 'vendor_papic_portfolio_pack');
   await db.query(
     `INSERT INTO public.vendor_papic_portfolio_credit_grants
        (vendor_profile_id, event_id, credits, source, order_id)
-     VALUES ($1, $2, 25, 'pack_order', $3)`,
+     VALUES ($1, $2, ${VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS}, 'pack_order', $3)`,
     [vendorA, eventId, secondOrder],
   );
-  assert.equal(await supplierCredits(vendorA), before + 50, 'a second pack for the same event must stack');
+  assert.equal(
+    await supplierCredits(vendorA),
+    before + VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS * 2,
+    'a second pack for the same event must stack',
+  );
 
   // Admin / comp grants carry no order and are not constrained by the index.
   await db.query(
@@ -248,7 +299,12 @@ test('🚨 fulfilment is idempotent per (order, source): a re-approved pack land
        (vendor_profile_id, event_id, credits, source) VALUES ($1, $2, 5, 'comp')`,
     [vendorA, eventId],
   );
-  assert.equal(await supplierCredits(vendorA), before + 60);
+  // Two packs (the live constant each) plus the two ₱5 comps above. Derived,
+  // so a reprice moves this total with it instead of turning it red.
+  assert.equal(
+    await supplierCredits(vendorA),
+    before + VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS * 2 + 10,
+  );
 });
 
 test('RLS: a supplier reads only their OWN ledger; the couple reads none of it; nobody but the server writes', async () => {

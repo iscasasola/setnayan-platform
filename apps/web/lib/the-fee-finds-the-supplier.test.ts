@@ -239,6 +239,64 @@ test('the fee is named before the supplier commits — all four places', () => {
   }
 });
 
+/**
+ * ── THE SELLING SURFACES — where a SUPPLIER is recruited ───────────────────
+ *
+ * The six mounts above cover the moment a supplier COMMITS. These two cover the
+ * moment they are SOLD TO, and both were promising a commission-free deal with
+ * no mention of the fee at all — measured 2026-09-22:
+ *
+ *   · `front-door-feed.tsx`  — "No commission on your bookings, ever."
+ *   · `earnings/surface.tsx` — "you always get paid directly, 0% commission."
+ *
+ * 🔑 THE PROPERTY IS UNCONDITIONAL, NOT KEYED ON A PHRASE. A guard that only
+ * fires when it sees the word "commission" is a phrasing ban, and a phrasing ban
+ * fails in BOTH directions — it misses a reword ("we take nothing from you") and
+ * convicts innocent code. So these surfaces must name the booking fee FULL STOP,
+ * whatever else they say. The owner's 2026-08-06 ruling is that "no commission"
+ * is true and stays; it is true only when its second sentence travels with it.
+ *
+ * 🔑 AND THE TERMS MUST BE DERIVED. Every number comes from
+ * `bookingFeeScheduleSummary()` / `FREE_BOOKING_LIMIT`, never re-typed — a
+ * hand-edited sentence is precisely what went stale on `VendorGrowFairPay`,
+ * which promised "0% commission while we launch" on the day the owner was
+ * billed ₱837.50.
+ */
+const SELLING_SURFACES: Array<[string, string]> = [
+  ['front door · Open your shop', 'app/_components/frontdoor/front-door-feed.tsx'],
+  ['earnings · Solo gate', 'app/vendor-dashboard/earnings/surface.tsx'],
+];
+
+// SABOTAGE: drop `bookingFeeScheduleSummary()` from the front-door card → RED.
+test('every surface that recruits a supplier names the booking fee', () => {
+  for (const [what, file] of SELLING_SURFACES) {
+    const src = read(file);
+    assert.ok(
+      /bookingFeeScheduleSummary\(/.test(src),
+      `${what} (${file}) sells to a supplier without naming the booking fee — ` +
+        'the owner\'s 2026-08-06 ruling makes "no commission" true only with its second sentence',
+    );
+  }
+});
+
+// SABOTAGE: hand-type "5% of the first ₱100,000" into either file → RED.
+// SABOTAGE: restore the word "ever"/"always" beside the claim → RED.
+test('a selling surface never types the rate, and never promises it forever', () => {
+  for (const [what, file] of SELLING_SURFACES) {
+    const src = read(file);
+    assert.equal(
+      count(src, /\d+% of the first/),
+      0,
+      `${what} (${file}) re-types the fee schedule instead of deriving it — it will go stale`,
+    );
+    assert.equal(
+      count(src, /commission[^.<>{}]{0,40}\b(ever|always|forever)\b/i),
+      0,
+      `${what} (${file}) makes the commission promise UNCONDITIONAL — no flag can keep "ever" true`,
+    );
+  }
+});
+
 // SABOTAGE: put the notice BELOW the <form action={agreeLock}> → RED.
 // A fee named after the press is a receipt, not a disclosure.
 test('every Agree button names the fee ABOVE itself, not after', () => {

@@ -939,8 +939,21 @@ export async function fetchVendorEarningsSummary(
   };
 }
 
-/** The sort key for a feed card — its creation/recorded timestamp. */
-function cardTimestamp(card: WhatsNewCard): Date {
+/**
+ * The sort key for a feed card — its creation/recorded timestamp.
+ *
+ * EXPORTED 2026-09-22 so the Today page can say how long the longest-waiting
+ * ask has waited WITHOUT a second implementation of "when did this start
+ * waiting". `oldestAskWaitDays` in `vendor-desk-disposition.ts` takes this
+ * function as an argument rather than copying its switch: two mechanisms that
+ * disagree about one fact each pass their own test.
+ *
+ * ⚠ IT STAYS IN THIS FILE, UNDER THIS NAME. `answers-desk.test.ts` locates it
+ * with `indexOf('function cardTimestamp')` and asserts every card kind has a
+ * `case` inside it; moving or renaming it turns that guard into a scan of
+ * nothing, which it says out loud but only if you read the message.
+ */
+export function cardTimestamp(card: WhatsNewCard): Date {
   switch (card.kind) {
     case 'inquiry':
       return new Date(card.createdAt);

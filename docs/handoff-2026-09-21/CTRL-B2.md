@@ -25,6 +25,20 @@ closed once, so `vendor_reviews` is empty, so the marketplace has no trust signa
 
 ---
 
+---
+
+## ✅ RE-MEASURED 2026-09-22 against `origin/main` + prod — **all 7 builds survive; build 7's MECHANISM was wrong**
+
+Nothing here is already built. Live counts confirming the premises:
+`event_vendors` **51**, of which `service_marked_complete_at` is set on **0** · `vendor_reviews` **0**
+· `completion_status='auto_confirmed'` **0 rows, and no writer in TypeScript OR SQL** (checked both —
+a TS grep cannot see a SQL writer) · `vendor_calendar_blocks` **0** · `vendor_schedule_pool_bookings` **3**.
+
+🛑 **Build 7's diagnosis below is WRONG in its mechanism, though right in its conclusion.** Read the
+correction attached to that build before starting it.
+
+---
+
 ## Build in THIS order. The order is the cut line.
 
 ### 1 — Nothing ever tells a supplier their event is over
@@ -172,3 +186,40 @@ availability/calendar: the supplier looks free while couples are choosing.** Bui
 - **Property:** once a supplier's booking fee is settled, that date is blocked on their calendar and
   excluded from availability search — and releasing the booking releases both the block and the pool.
   Assert both ends; a block without a release is the mirror defect.
+
+---
+
+## 🛑 CORRECTION TO BUILD 7 — re-measured 2026-09-22, against prod
+
+**The brief says the blocker is the trigger's `deposit_paid` condition. That is not what is stopping
+it.** `event_vendor_autoblock_on_booking` has **three** guards, in this order:
+
+1. `IF NEW.marketplace_vendor_id IS NULL THEN RETURN NEW;` — manual vendors have no calendar.
+2. `IF NEW.status <> 'deposit_paid' THEN RETURN NEW;`
+3. on UPDATE, `IF OLD.status = 'deposit_paid' THEN RETURN NEW;`
+
+**Prod has 3 rows at `deposit_paid` — and all three carry `marketplace_vendor_id IS NULL`.** They are
+manual, host-added suppliers, and the trigger skips them at guard **1**, entirely correctly. The two
+marketplace bookings that matter (`rosa-ben` 2026-10-30, `ana-miguel` 2027-03-13) sit at `contracted`
+and are stopped at guard 2.
+
+🔑 **So the honest statement is stronger than the brief's: the trigger's happy path has NEVER ONCE RUN
+in production.** No row has ever satisfied guards 1 and 2 together. A reader of the original brief
+would assume the 3 `deposit_paid` rows prove guard 2 is the only obstacle — they prove nothing of the
+kind, and relaxing guard 2 alone would still block nothing for those three.
+
+⚠ **And the trigger cannot tell you when it fails.** Its block call is wrapped in
+`EXCEPTION WHEN OTHERS THEN RAISE WARNING` — deliberately, so a failed auto-block never rolls back a
+booking. A `RAISE WARNING` reaches no table and no screen. **So "0 calendar blocks" is consistent with
+three different worlds: never fired · fired and skipped · fired and threw silently.** Whatever you
+build must make the outcome observable, or the next session re-measures the same ambiguous zero.
+
+Re-measure:
+```sql
+select ev.status, (ev.marketplace_vendor_id is not null) as has_link, e.event_date
+from event_vendors ev join events e using (event_id) where ev.status = 'deposit_paid';
+select count(*) from vendor_calendar_blocks;
+```
+```bash
+git grep -n -A28 "FUNCTION public.event_vendor_autoblock_on_booking" origin/main -- supabase/migrations
+```

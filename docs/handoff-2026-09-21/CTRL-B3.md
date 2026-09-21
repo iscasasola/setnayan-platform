@@ -13,6 +13,28 @@ cd ~/Documents/Claude/Projects/setnayan-platform && claude --model claude-opus-5
 
 ---
 
+---
+
+## ✅ RE-MEASURED 2026-09-22 against `origin/main` + prod — **all 12 builds survive; two need correcting**
+
+Nothing here is already built. Two corrections, both attached to their own build below:
+
+- **Build 1 is THREE surfaces, not one.** The claim is also on `/features`, twice.
+- **Build 10's prescribed fix would delete something true.** The two lists are not two mechanisms
+  answering one question — they answer different questions, from different tables.
+
+Live confirmations: `event_vendors` holds `considering` 34 · `contracted` 14 · `deposit_paid` 3 and
+**no `shortlisted`** (build 4) · `market_price_bands` **0 rows** (build 5) ·
+`user_reports_target_type_check` allows exactly `photo, comment, user, ai_output, event,
+user_profile, chapter` — **no vendor or shop** (build 9).
+
+**Build 12 is answered:** there is **no slug-redirect mechanism anywhere in the repo** —
+`slug_redirect|previous_slug|slug_history|legacy_slug` greps nothing in `apps/web/lib` or
+`supabase/migrations`. The brief said "if there is no redirect, say so — that is itself the build."
+There is none. It is still an owner call.
+
+---
+
 ## Build in THIS order. The order is the cut line.
 
 ### 1 — `/signup` makes a compliance claim the company has not earned
@@ -35,6 +57,16 @@ a data-subject complaint reaches the NPC.
 - **Property:** the guard bans the *claim of certified/complete compliance status*, not a noun. A
   phrasing ban fails in both directions — it misses a reword and convicts innocent code. Assert the
   property. `features-page-says-what-ships.test.ts` is the shape to copy.
+
+⚠ **THIS IS THREE SURFACES, NOT ONE — re-measured 2026-09-22.** The brief and the register both name
+only `/signup`. The same claim also renders **twice on `/features`**:
+`apps/web/app/features/_sections/_Compliance.tsx` carries `title: 'RA 10173 (Data Privacy Act)
+compliant'` at two separate call sites. Sweep all three.
+🔑 **And ask why the fence missed it.** `/features` is supposedly held by
+`features-page-says-what-ships.test.ts` — the very test this brief tells you to copy — and that test
+is letting an unearned compliance claim through today. Whatever guard you write must cover
+`/features`, or you will have fenced `/signup` and left the fence next door still broken.
+Re-measure: `git grep -rn "RA 10173" origin/main -- apps/web/app | grep -v test`
 
 ### 2 — Terms is a footnote, not an agreement
 The only checkboxes on `/signup` are "Include my wedding in Stories" (opt-in) and "Stay signed in"
@@ -176,12 +208,39 @@ So a couple who clicks the front door's featured shop reaches a page that contra
 cannot be contacted.
 
 - Reproduce logged out: `https://setnayan.com/` (the "first shops" row) → `/setnaprod` → `/explore`.
-- **Find where the two lists come from — they disagree about what "a service" is.** One counts
-  something the other does not (almost certainly active/priced vs merely present). **Make both read
-  one resolver** rather than fixing the sentence; two mechanisms answering one question is the defect.
-- **Property:** a shop's services section, its inquire state, and its presence on `/explore` all
-  derive from the same predicate. Assert that a shop with no inquirable service says so **in one
-  place only**, and that the home page does not feature a shop `/explore` will not list.
+🛑 **DO NOT FOLLOW THE ORIGINAL PRESCRIPTION — it would delete something true. Re-measured
+2026-09-22.** This brief used to say *"make both read one resolver … two mechanisms answering one
+question is the defect."* **They are not answering one question.** Measured in prod:
+
+| source | column / table | SetnaProd | Saysay |
+|---|---|---|---|
+| "SERVICES OFFERED" chips | `vendor_profiles.services` (declared trades, TEXT[]) | `{pabati, day_of_coordinator}` | `{live_band, host_mc}` |
+| "hasn't listed a service you can ask about yet" | `vendor_services` rows where `is_active` | **0** | **2** |
+
+**Both sentences are true, about different facts.** `vendor_profiles.services` is *what trades this
+shop works in*; `vendor_services` is *what a couple can actually ask about and be quoted for*. A shop
+can legitimately be a Pabati specialist with nothing yet listed for sale. Collapsing them to one
+resolver destroys a real distinction and would either hide a shop's trades or invent a purchasable
+service it does not have.
+
+- **The defect is that the page never says these are different**, and that the Inquire CTA sits above
+  the contradiction promising something the shop cannot answer.
+- **Property:** a shop with declared trades but no inquirable service still shows its trades, and
+  says plainly — **once, above the CTA, not twice in opposite directions** — that it is not yet
+  taking inquiries; and the Inquire control is not offered in that state. Separately: the home page
+  must not feature a shop `/explore` will not list. Assert those as two properties, because they are
+  two facts.
+- ⚠ Also confirmed: **SetnaProd is `is_published=false` while `public_visibility='verified'` and
+  `verification_state='verified'`** — so `isShopLive()` calls it live. That is CTRL-B2 build 5a's
+  `is_published` leak, on this same shop. **Coordinate; do not fix it in both bundles.**
+Re-measure:
+```sql
+select business_slug, services,
+       (select count(*) from vendor_services vs
+         where vs.vendor_profile_id = vp.vendor_profile_id and vs.is_active) as active_rows,
+       is_published, public_visibility, verification_state
+from vendor_profiles vp order by business_slug;
+```
 
 ### 11 — A public promise the product cannot keep
 Every shop page states: **"Bookings through Setnayan generate a review request 24 hours after the

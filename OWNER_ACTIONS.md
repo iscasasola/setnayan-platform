@@ -1480,6 +1480,50 @@ captcha. **The code to support it is already shipped.** It's currently a **stric
 no-op**: with no site key set, no widget renders and auth works exactly as before.
 You activate it with the steps below.
 
+> 🔁 **THIS WAS SWITCHED ON FOR REAL ON 2026-09-18, AND SWITCHED BACK OFF. Read
+> this before doing step 2 — the "strict no-op" above is true again only because
+> of a round trip that cost a day.**
+>
+> **What happened.** Steps 2 and 3 were both completed. Within hours, email +
+> password sign-in was unusable **for every mobile visitor**: the widget's holder
+> measured `293 x 0` at a 375px viewport, under Cloudflare's **300px minimum** for
+> `size:'flexible'`, so an interactive challenge could not be painted at all.
+> Desktop measured `382 x 72` and worked perfectly — **the failure was invisible
+> on a laptop.** On a Philippines-first platform that is most of the users.
+> Supabase's captcha switch was turned **off** the same day to restore sign-in.
+>
+> ✅ **The render bug is FIXED and shipped**, so this is no longer a reason to
+> avoid step 2. The holder now carries a min width plus a negative inline margin
+> that reclaims the shortfall from the card's padding instead of widening the
+> page — grep `TURNSTILE_HOLDER_MIN_WIDTH_PX` in
+> `apps/web/app/_components/auth/turnstile-field.tsx`.
+>
+> **Then on 2026-09-22 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` was DELETED from Vercel**
+> — every scope, deleted rather than blanked. Reason: with Supabase's switch off
+> and `TURNSTILE_SECRET_KEY` never set, the widget still rendered on every auth
+> form and its answer was checked by **nobody**, which reads as more protection
+> than having none. Deleted rather than emptied because `vercel env pull` writes
+> `KEY=""` for both a blanked variable *and* an unreadable one, so only an absent
+> row in `vercel env ls` is unambiguous.
+>
+> **All three values are unset today — start at step 1 and do 2 → 3 → 3a in
+> full.** Re-measure rather than believing this paragraph:
+>
+> ```sh
+> npx vercel env ls production | grep -i turnstile                 # expect: no rows
+> curl -sL https://www.setnayan.com/login | grep -c captcha_token  # expect: 0
+> ```
+>
+> 🔴 **AND TEST STEP 3 ON A REAL PHONE, NOT A DESKTOP BROWSER.** That is the whole
+> lesson of the lockout — the only surface that broke was the one nobody checked.
+>
+> ⚠ **An automated browser cannot stand in for the phone.** Turnstile detects
+> automation and **silently never starts**: zero iframes, no error, no console
+> message — indistinguishable from "the site is broken". Worse, every such attempt
+> issues a challenge that can never complete, so Cloudflare scores that IP as a bot
+> and starts handing **your own** sign-ins hard interactive challenges. Use a real
+> device.
+
 > ⚠ **THIS SECTION WAS WRONG UNTIL 2026-08-11 — three holes, all closed now.**
 > It used to say Turnstile was "wired into every auth form". Three places were
 > not, and each one would have refused real people the hour captcha went on:

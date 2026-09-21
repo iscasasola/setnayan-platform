@@ -24,6 +24,7 @@ import {
   type PayoutStage,
   type VendorVerificationState,
 } from '@/lib/payouts';
+import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { displayServiceLabel } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
@@ -68,7 +69,17 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
       <VendorTierGate
         feature="Earnings"
         requiredTier="solo"
-        blurb="Your year-to-date revenue, monthly subtotals and scheduled payouts in one view. Business analytics start with Solo — you always get paid directly, 0% commission."
+        // 🔴 THIS BLURB CARRIED TWO UNTRUE THINGS — measured 2026-09-22.
+        //  ⓵ "0% commission" said to a SUPPLIER with nothing beside it. Per the
+        //    owner's 2026-08-06 ruling the claim is correct only WITH its second
+        //    sentence — the booking fee is a separate bill for the introduction,
+        //    not a cut of the couple's payment. "Always" made it unconditional.
+        //  ⓶ "scheduled payouts" — the 3-stage payout model was RETIRED at the
+        //    2026-05-28 V2 cutover and `vendor_payouts` is empty. This page's own
+        //    docblock says so. Promising a supplier a view of something that can
+        //    never have rows is how a money page loses their trust.
+        // The fee terms are DERIVED (`bookingFeeScheduleSummary`), never typed.
+        blurb={`Your year-to-date revenue and monthly subtotals in one view. Business analytics start with Solo — couples pay you directly and we never take a cut. Setnayan bills you a booking fee of ${bookingFeeScheduleSummary()}, only on the couples we introduce.`}
         icon={<Wallet aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

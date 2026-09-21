@@ -77,6 +77,7 @@ export function PublicHideableWidget({
             nowTrigger={isGuestNowTriggerEnabled()}
             estimated={scheduleEstimated}
             eventType={event.event_type}
+            compact
           />
           {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
         </>

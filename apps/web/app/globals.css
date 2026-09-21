@@ -4266,6 +4266,29 @@ html:active-view-transition .sn-page-enter { animation: none; }
   }
 }
 
+/* ── THE HUB IS CARDS (owner 2026-09-21: "doesn't look like the event hub we
+   planned" — canvas "3 · Scrolled, replied"). Every section the hub renders
+   (the day, the place, what to wear, the rest) sits on one card look, applied
+   here from the `.sn-hub-cards` wrapper so no widget is rewritten: paper,
+   14px corners, a soft shadow; the chapter number drops and the heading
+   shrinks to a card title. Sections that already draw their own box (the
+   countdown) simply become a card too. */
+.sn-hub-cards > section,
+.sn-hub-cards > div > section {
+  border-radius: var(--m-r-md);
+  border: 1px solid rgb(var(--color-ink) / 0.08);
+  background: rgb(var(--color-cream) / 1);
+  padding: 1.125rem 1.125rem 1rem;
+  box-shadow: 0 8px 22px rgb(30 34 41 / 0.08);
+}
+.sn-hub-cards .pahina-eyebrow > span[aria-hidden]:first-child {
+  display: none;
+}
+.sn-hub-cards h2 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
 /* The invitation's pinned top bar (invitation-shell.tsx, data-sticky-top) is
    4rem tall. Every in-page jump — "Show your pass", the menu's anchors, "the
    day, the place, the story" — must stop BELOW it, or the thing jumped to

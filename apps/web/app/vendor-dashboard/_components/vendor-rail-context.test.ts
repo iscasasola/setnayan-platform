@@ -386,7 +386,7 @@ test('the shop content still stands on the warm ground, and not on the slide', (
   );
 });
 
-test('all eight cron-free sweeps still ride on this layout', () => {
+test('all nine cron-free sweeps still ride on this layout', () => {
   const src = code(read(LAYOUT));
   // There is NO scheduler behind these. Drop one in a rewrite and the vendor
   // ghosting nudge, the creator-offer refund or the booking-fee notice simply
@@ -425,6 +425,15 @@ test('all eight cron-free sweeps still ride on this layout', () => {
       unbilled and unheld forever, with every screen still looking correct.
     */
     'maybeCatchUpAcknowledgedDeposits',
+    /*
+      The unbilled-fee repair (2026-09-21). Fleet-wide, not per-visitor, and
+      that is exactly why losing it is worse than losing a scoped sweep: a
+      supplier whose fee opened but was never billed has been SHOWN NOTHING
+      OWED, so they have no reason to open this page at all. Drop it and the
+      only revenue path this product has goes uncollected with every screen
+      still looking correct.
+    */
+    'maybeRunUnbilledFeeRepair',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -433,10 +442,13 @@ test('all eight cron-free sweeps still ride on this layout', () => {
   }
   assert.equal(
     (src.match(/\bafter\(/g) ?? []).length,
-    // 8 since 2026-09-18: S6's deposit-acknowledge catch-up (#5615) and S40's
-    // deletion-request nudge (#5688) each added a sweep and named it in the list
-    // above; neither bumped this count. Every sweep is still asserted BY NAME.
-    8,
+    // 9 since 2026-09-21: S6's deposit-acknowledge catch-up (#5615), S40's
+    // deletion-request nudge (#5688) and now the unbilled-fee repair each added
+    // a sweep and named it in the list above. Every sweep is asserted BY NAME;
+    // this count is the half the name loop cannot do — it catches a TENTH sweep
+    // added without a line here, which the next rewrite could then drop
+    // silently.
+    9,
     'the count of post-response jobs changed',
   );
 });

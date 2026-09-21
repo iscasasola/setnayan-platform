@@ -92,6 +92,23 @@ function allEnclosingActions(src: string, needle: RegExp): string[] {
   return out;
 }
 
+/**
+ * Callers that are NOT a door: a sweep that re-runs the effects for a booking
+ * whose moment already happened. Each one is listed with why it exists, because
+ * the assertion below is a whitelist and an unexplained addition to a whitelist
+ * on the money path is how a second trigger gets in.
+ *
+ * ⚠ A SWEEP MAY ONLY RE-RUN THE EFFECTS, NEVER CREATE THE MOMENT. Both of these
+ * are safe because `runDepositAcknowledgedEffects` refuses a booking whose
+ * `deposit_acknowledged_at` is not set, and because the collector behind it is
+ * idempotent in two independent ways (the RPC reuses its one live charge; the
+ * one-bill-per-charge unique index refuses a second order).
+ */
+const SWEEPS: Record<string, string> = {
+  'lib/unbilled-fee-repair.server.ts':
+    'the fleet-wide repair for a charge that opened but whose BILL was never raised',
+};
+
 const RPC_CALL = (name: string) => new RegExp(`\\.rpc\\(\\s*['"]${name}['"]`);
 const EFFECTS_CALL = /runDepositAcknowledgedEffects\s*\(/;
 
@@ -126,7 +143,15 @@ test('every door runs the effects, inside the SAME exported action that calls th
 
 test('nothing else calls the effects — they mint a fee order and must not be reachable from a surprise', () => {
   const callers = ALL.filter((rel) => rel !== EFFECTS_MODULE && EFFECTS_CALL.test(read(rel))).sort();
-  assert.deepEqual(callers, Object.keys(DOORS).sort(), `unexpected callers: ${callers.join(', ')}`);
+  const sanctioned = [...Object.keys(DOORS), ...Object.keys(SWEEPS)].sort();
+  assert.deepEqual(
+    callers,
+    sanctioned,
+    `unexpected callers: ${callers.join(', ')}.\n` +
+      `A new DOOR belongs in DOORS; a new SWEEP belongs in SWEEPS with the ` +
+      `sentence saying why it may re-run a money effect. Anything else mints a ` +
+      `fee order from a surface nobody reviewed.`,
+  );
 });
 
 test('the effects module itself owns the catch-up, and the vendor layout fires it post-response', () => {

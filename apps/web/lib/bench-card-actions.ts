@@ -22,6 +22,7 @@
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import { isHardSinglePickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import type { LockRequestState } from '@/lib/lock-request-state';
+import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 
 /** The subset of `ShortlistVendor` this resolver reads. Structural on purpose:
  *  the test fixtures stay small and a new card field can't silently join the
@@ -151,6 +152,17 @@ export type BenchCardActions = {
   lockGroupId: string | null;
   /** Non-null ⇒ Lock is absent for a reason the card must name. */
   lockWithheld: LockWithheldReason | null;
+  /**
+   * [Connect] — the supplier's portal into their own account (owner
+   * 2026-09-21: "give the vendor a portal to connect this to their new
+   * account"). TRUE exactly for a supplier the couple added themselves, at
+   * EVERY status: a locked self-added supplier is the one most worth
+   * connecting, and until this leg existed a locked self-added card rendered
+   * no buttons at all. Asks the same fact `canInviteSupplier` does — no
+   * account yet — and goes false the moment they claim one, when the card
+   * starts opening the vendor–user connection instead.
+   */
+  connect: boolean;
 };
 
 const NO_ACTIONS: BenchCardActions = {
@@ -160,6 +172,7 @@ const NO_ACTIONS: BenchCardActions = {
   withdraw: null,
   lockGroupId: null,
   lockWithheld: null,
+  connect: false,
 };
 
 /**
@@ -255,7 +268,18 @@ export function resolveBenchCardActions(args: {
         ? { kind: 'check', threadId: vendor.threadId }
         : { kind: 'inquire' };
 
+  // [Connect] — one definition for every branch below (same reasoning as
+  // `inquiry` above). It ASKS the shared predicate rather than testing the
+  // column: the first draft here wrote `marketplaceVendorId == null`, which is
+  // a fourth spelling of "may we invite this supplier?" — the exact defect
+  // `one-gate-decides-a-supplier-invite.test.ts` exists to end (three spellings
+  // of it once refused 12 of 12 eligible suppliers). This file is on that
+  // guard's gate list now.
+  const connect = canInviteSupplier({ marketplace_vendor_id: vendor.marketplaceVendorId });
+
   // Rule 2 — booked. No build, no lock, and the conversation stays open.
+  // [Connect] survives too: a supplier the couple has just LOCKED is exactly
+  // the one worth bringing onto Setnayan.
   if (vendor.status === 'locked') {
     return {
       build: null,
@@ -264,6 +288,7 @@ export function resolveBenchCardActions(args: {
       withdraw: null,
       lockGroupId: null,
       lockWithheld: null,
+      connect,
     };
   }
 
@@ -320,6 +345,7 @@ export function resolveBenchCardActions(args: {
     lockGroupId:
       awaitingAnswer || clashes || unavailable || lockWithheld ? null : vendor.planGroupId,
     lockWithheld,
+    connect,
   };
 }
 

@@ -9,11 +9,12 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, Copy, Share2 } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin } from 'lucide-react';
 import {
   addManualSupplier,
+  updateSelfAddedSupplier,
+  type SelfAddedSupplierPrefill,
   attachMarketplaceVendorToCategory,
-  createManualVendorInvite,
   searchMarketplaceVendorsByName,
   updateVendorCosts,
   type MarketplaceVendorSuggestion,
@@ -28,10 +29,10 @@ import {
 } from '@/lib/manual-venue-address';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { AddressPinField } from './address-pin-field';
+import { SupplierConnectPanel } from './supplier-connect-panel';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
-import { useSaveLoader } from '@/components/sd-loader';
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
 //
@@ -80,6 +81,15 @@ type Props = {
   categoryLabel: string;
   onClose: () => void;
   onCreated: () => void;
+  /**
+   * DETAILS MODE (2026-09-21). Present when the sheet is opened by tapping a
+   * self-added supplier's card on Your Team, not by "Add manually". Owner:
+   * "with this we have the power to update [and] improve the purchase details
+   * for that vendor." Same sheet, same eight fields, pre-filled from
+   * `loadSelfAddedSupplier` and saved through `updateSelfAddedSupplier` — so
+   * there is one form to add a supplier and the same one to complete them.
+   */
+  edit?: SelfAddedSupplierPrefill;
 };
 
 // State machine for the modal's primary action.
@@ -96,6 +106,7 @@ export function NewManualVendorModal({
   eventId,
   category,
   categoryLabel,
+  edit,
   onClose,
   onCreated,
 }: Props) {
@@ -107,7 +118,8 @@ export function NewManualVendorModal({
   const addressRequired = manualVendorNeedsAddress(category);
   /* The price drives the payment plan's running total, so it is controlled
      here rather than left uncontrolled like the other text fields. */
-  const [priceInput, setPriceInput] = useState('');
+  const isEdit = Boolean(edit);
+  const [priceInput, setPriceInput] = useState(edit?.price ?? '');
   const priceNumber = (() => {
     const n = Number(priceInput.replace(/,/g, ''));
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -156,7 +168,7 @@ export function NewManualVendorModal({
   // server response. `searching` is true while a debounced request is
   // in flight (renders the subtle "Searching…" hint).
   const [mode, setMode] = useState<ModalMode>({ kind: 'manual' });
-  const [nameQuery, setNameQuery] = useState('');
+  const [nameQuery, setNameQuery] = useState(edit?.name ?? '');
   const [suggestions, setSuggestions] = useState<
     ReadonlyArray<MarketplaceVendorSuggestion>
   >([]);
@@ -174,6 +186,9 @@ export function NewManualVendorModal({
   // clobber a faster newer response.
   useEffect(() => {
     if (mode.kind !== 'manual') return; // skip search while in linked mode
+    // Editing a supplier who already exists: renaming them is not a request to
+    // link a different marketplace shop, so the autocomplete stays quiet.
+    if (isEdit) return;
     const trimmed = nameQuery.trim();
     if (trimmed.length < 2) {
       setSuggestions([]);
@@ -204,7 +219,7 @@ export function NewManualVendorModal({
       }
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [nameQuery, eventId, category, mode.kind]);
+  }, [nameQuery, eventId, category, mode.kind, isEdit]);
 
   function handleNameChange(e: ChangeEvent<HTMLInputElement>) {
     setNameQuery(e.currentTarget.value);
@@ -318,6 +333,28 @@ export function NewManualVendorModal({
       typeof nameEntry === 'string' && nameEntry.trim().length > 0
         ? nameEntry.trim()
         : 'Your vendor';
+    if (edit) {
+      startTransition(async () => {
+        const result = await updateSelfAddedSupplier(fd);
+        if (result.status === 'not_signed_in') {
+          const next = encodeURIComponent(window.location.pathname + window.location.search);
+          window.location.href = `/login?next=${next}`;
+          return;
+        }
+        if (result.status === 'error') {
+          setErrorMsg(result.message ?? 'Could not save.');
+          return;
+        }
+        if (result.warning) {
+          // Some of it saved and some did not — keep the sheet open on the
+          // sentence that names what, rather than closing over a partial save.
+          setErrorMsg(result.warning);
+          return;
+        }
+        onCreated();
+      });
+      return;
+    }
     startTransition(async () => {
       const result = await addManualSupplier(fd);
       if (result.status === 'not_signed_in') {
@@ -376,12 +413,14 @@ export function NewManualVendorModal({
               id="new-manual-vendor-heading"
               className="font-display text-xl italic text-ink"
             >
-              Add a contact
+              {edit ? `Edit ${edit.name || 'supplier'}` : 'Add a contact'}
             </h2>
             <p className="mt-1 text-xs text-ink/65">
               {created
                 ? 'Saved! Two quick options — both optional.'
-                : 'Save once · reuse anywhere on your plan.'}
+                : edit
+                  ? 'Complete or improve what you agreed with them.'
+                  : 'Save once · reuse anywhere on your plan.'}
             </p>
           </div>
           <button
@@ -414,6 +453,7 @@ export function NewManualVendorModal({
               address rule server-side. The modal is always opened FROM a
               category card, so this is never a guess. */}
           <input type="hidden" name="category" value={category} />
+          {edit ? <input type="hidden" name="vendor_id" value={edit.vendorId} /> : null}
 
           {mode.kind === 'linked' ? (
             // LINKED MODE — host picked a marketplace vendor from the
@@ -432,6 +472,11 @@ export function NewManualVendorModal({
             // owner directive 2026-05-22. Vendor Name input now drives
             // an autocomplete dropdown that searches the marketplace.
             <>
+              {/* The photo picker is ADD-only: `updateSelfAddedSupplier` does not
+                  carry a photo, so offering one here would take a file and
+                  silently drop it. */}
+              {isEdit ? null : (
+                <>
               {/* Photo upload — round preview + Choose button */}
               <div className="flex items-center gap-3">
                 <button
@@ -477,6 +522,9 @@ export function NewManualVendorModal({
                   onChange={handlePhotoChange}
                 />
               </div>
+
+                </>
+              )}
 
               {/* Vendor name + marketplace autocomplete wrapper. The
                   dropdown anchors to the input via absolute positioning
@@ -525,6 +573,7 @@ export function NewManualVendorModal({
                   id="manual-vendor-contact-person"
                   name="contact_person"
                   type="text"
+                  defaultValue={edit?.contactPerson}
                   required
                   maxLength={128}
                   disabled={pending}
@@ -543,6 +592,7 @@ export function NewManualVendorModal({
                 <input
                   id="manual-vendor-contact-number"
                   name="contact_number"
+                  defaultValue={edit?.contactNumber}
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
@@ -559,7 +609,12 @@ export function NewManualVendorModal({
                   ARE a place; the pin itself is always optional, because a
                   wrong pin routes guests somewhere real and incorrect. */}
               <div className="sn-addman-field" style={{ animationDelay: '255ms' }}>
-                <AddressPinField required={addressRequired} disabled={pending} />
+                <AddressPinField
+                  required={addressRequired}
+                  disabled={pending}
+                  initialAddress={edit?.address}
+                  initialPin={edit?.pin ?? null}
+                />
               </div>
 
               {/* ── The four fields that used to live on two other tabs ──────
@@ -578,7 +633,7 @@ export function NewManualVendorModal({
                   options={coverOptions}
                   ownGroupId={ownGroupId}
                   ownGroupLabel={categoryLabel}
-                  initialSelected={[]}
+                  initialSelected={edit?.covers ?? []}
                   disabled={pending}
                 />
               </div>
@@ -592,6 +647,7 @@ export function NewManualVendorModal({
                 <textarea
                   id="manual-vendor-inclusions"
                   name="inclusions"
+                  defaultValue={edit?.inclusions}
                   rows={3}
                   disabled={pending}
                   placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
@@ -625,7 +681,11 @@ export function NewManualVendorModal({
                 {/* The running total reads the price field live, so the couple
                     sees "₱80,000 of ₱80,000" as they type rather than only
                     when the server refuses the save. */}
-                <PaymentPlanRows totalPhp={priceNumber} disabled={pending} />
+                <PaymentPlanRows
+                  totalPhp={priceNumber}
+                  disabled={pending}
+                  initial={edit && edit.planRows.length > 0 ? edit.planRows : undefined}
+                />
               </div>
 
               {/* Owner 2026-07-01: note to couples that a self-added vendor is
@@ -685,7 +745,7 @@ export function NewManualVendorModal({
               ) : (
                 <>
                   <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  Save &amp; add
+                  {edit ? 'Save changes' : <>Save &amp; add</>}
                 </>
               )}
             </button>
@@ -726,49 +786,6 @@ function PostSaveStep({
   onDone: () => void;
 }) {
 
-  const [invitePending, startInvite] = useTransition();
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [qrSvg, setQrSvg] = useState<string | null>(null);
-  const [inviteErr, setInviteErr] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const save = useSaveLoader();
-
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-
-  function getInvite() {
-    setInviteErr(null);
-    startInvite(async () => {
-      const res = await save.run(
-        () => createManualVendorInvite({ eventId, vendorId: eventVendorId }),
-        { steps: ['Creating the invite'], hint: 'Saving' },
-      );
-      if (res.ok) {
-        setInviteUrl(res.url);
-        setQrSvg(res.qrSvg);
-      } else setInviteErr(res.error);
-    });
-  }
-
-  async function copyInvite() {
-    if (!inviteUrl) return;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard blocked — the host can long-press/select the visible URL.
-    }
-  }
-
-  function shareInvite() {
-    if (!inviteUrl) return;
-    navigator
-      .share({ title: `Join me on Setnayan, ${vendorName}!`, url: inviteUrl })
-      .catch(() => {
-        // Host dismissed the share sheet — nothing to do.
-      });
-  }
-
   return (
     <div className="space-y-3.5">
       <p className="flex items-center gap-2 rounded-md border border-success-300/50 bg-success-50/60 px-3 py-2 text-sm text-success-900">
@@ -793,84 +810,11 @@ function PostSaveStep({
         </p>
       ) : null}
 
-      {/* Invite — the claim link the vendor uses to join + auto-link. */}
-      <div className="rounded-xl border border-ink/10 bg-paper p-3">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
-          Invite them to Setnayan <span className="font-normal normal-case text-ink/45">(optional)</span>
-        </p>
-        {inviteUrl ? (
-          <>
-            {qrSvg ? (
-              <div className="mt-2 flex flex-col items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-3">
-                <span
-                  role="img"
-                  aria-label={`QR code — ${vendorName} scans this to join Setnayan and log in`}
-                  className="h-40 w-40 [&>svg]:h-full [&>svg]:w-full"
-                  dangerouslySetInnerHTML={{ __html: qrSvg }}
-                />
-                <p className="max-w-[14rem] text-center text-[10px] leading-snug text-ink/55">
-                  Show this to {vendorName} — they scan it to join Setnayan &amp;
-                  log in. Or send the link below.
-                </p>
-              </div>
-            ) : null}
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                readOnly
-                value={inviteUrl}
-                aria-label="Invite link"
-                onFocus={(e) => e.currentTarget.select()}
-                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-2 font-mono text-[11px] text-ink/80 focus:border-terracotta focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={copyInvite}
-                aria-label="Copy invite link"
-                className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/75 transition-colors hover:text-ink"
-              >
-                {copied ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} /> : <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-              {canShare ? (
-                <button
-                  type="button"
-                  onClick={shareInvite}
-                  aria-label="Share invite link"
-                  className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/75 transition-colors hover:text-ink"
-                >
-                  <Share2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-                  Share
-                </button>
-              ) : null}
-            </div>
-            <p className="mt-1.5 text-[10px] text-ink/45">
-              Send it over Viber, Messenger, or SMS — when they join, your prices,
-              payments, and chat link to their account automatically.
-            </p>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={getInvite}
-              disabled={invitePending}
-              className="mt-2 inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-md border border-mulberry/40 bg-mulberry/5 px-3.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60"
-            >
-              {invitePending ? <Spinner /> : <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
-              Get their invite link
-            </button>
-            <p className="mt-1.5 text-[10px] text-ink/45">
-              Not on Setnayan yet? When they join through your link, everything you
-              recorded carries over — nothing is re-entered.
-            </p>
-          </>
-        )}
-        {inviteErr ? (
-          <p role="alert" className="mt-1.5 text-[11px] text-danger-900">
-            {inviteErr}
-          </p>
-        ) : null}
-      </div>
+      {/* The supplier's portal — extracted to SupplierConnectPanel so the
+          same panel also opens from [Connect] on their card. This step used
+          to be the ONLY place it existed, and it vanished when the sheet
+          closed (owner 2026-09-20: "i dont have access for this qr"). */}
+      <SupplierConnectPanel eventId={eventId} vendorId={eventVendorId} vendorName={vendorName} />
 
       <button
         type="button"

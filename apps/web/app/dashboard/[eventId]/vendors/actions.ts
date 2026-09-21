@@ -54,7 +54,7 @@ import {
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
-import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
+import { buildClaimUrl, ensureAutoShareInvite, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import {
   SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
   canInviteSupplier,
@@ -106,9 +106,13 @@ import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock'
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress, manualVendorNeedsAddress } from '@/lib/manual-venue-address';
-import { updateHostServiceDetails } from './[vendorId]/workspace/actions';
+import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
-import { lockMayOverwritePlan } from '@/lib/self-added-payment-plan';
+import {
+  lockMayOverwritePlan,
+  planInstancesToRows,
+  type EditablePlanRow,
+} from '@/lib/self-added-payment-plan';
 import { geocodeAddressWithCity } from '@/lib/geo';
 
 function isValidCategory(value: unknown): value is VendorCategory {
@@ -271,7 +275,25 @@ export async function updateVendorCosts(formData: FormData) {
     typeof crewSizeRaw === 'string' && crewSizeRaw.trim() !== '' ? Number(crewSizeRaw) : NaN;
   const crewSize = Number.isFinite(crewSizeNum) ? Math.max(0, Math.trunc(crewSizeNum)) : null;
 
-  const updatePayload: Record<string, unknown> = quoteSettlesPrice
+  // ── PRICE-ONLY WRITES (2026-09-21) ────────────────────────────────────────
+  // 🔴 This action rewrites EVERY costing column on each call, reading an
+  // absent field as null / false — correct for the workspace Costing form,
+  // which always posts all of them. But three callers manage ONLY the price:
+  // the bench's inline price control, and the Add-manually and Details
+  // sheets. The bench control shipped in #5777 echoing back transport and food
+  // and NOT crew, so typing a price on a card silently set `crew_size` to null
+  // and `crew_meal_covered` to false — erasing "the event feeds this crew",
+  // and with it the food-allowance rule that depends on it.
+  // Echoing every column from every caller is how that happened; one more
+  // column added here later would repeat it. So a caller that means "just the
+  // price" says so, and nothing else on the row is touched.
+  const priceOnly = formData.get('price_only') === '1';
+
+  const updatePayload: Record<string, unknown> = priceOnly
+    ? quoteSettlesPrice
+      ? {}
+      : { total_cost_php: newTotal }
+    : quoteSettlesPrice
     ? { crew_size: crewSize, crew_meal_covered: crewMealCovered }
     : {
         total_cost_php: newTotal,
@@ -286,6 +308,10 @@ export async function updateVendorCosts(formData: FormData) {
     updatePayload.pax_surcharge_php = 0;
     updatePayload.cost_basis_pax = livePax;
   }
+
+  // Price-only on a booking whose accepted quote settles the price: there is
+  // nothing this caller may change, so write nothing rather than an empty UPDATE.
+  if (Object.keys(updatePayload).length === 0) return;
 
   const { error } = await supabase
     .from('event_vendors')
@@ -5427,6 +5453,9 @@ export async function addManualSupplier(
       costFd.set('event_id', eventId);
       costFd.set('vendor_id', eventVendorId);
       costFd.set('total_cost_php', String(Math.round(priceNum)));
+      // Price only — the sheet carries no transport, food or crew, and must not
+      // reset them (see the price-only note in updateVendorCosts).
+      costFd.set('price_only', '1');
       await updateVendorCosts(costFd);
     } catch {
       warnings.push('the price');
@@ -5513,4 +5542,297 @@ export async function locateAddressPin(query: string): Promise<AddressPinResult>
   const r = await geocodeAddressWithCity(query);
   if (!r) return null;
   return { lat: r.latitude, lng: r.longitude, label: r.displayName };
+}
+
+// ============================================================================
+// THE SELF-ADDED CARD ON "YOUR TEAM" (2026-09-21)
+//
+// Owner: tapping the card of a supplier the couple added themselves opens the
+// DETAILS — "with this we have the power to update [and] improve the purchase
+// details for that vendor" — until there is a real vendor, at which point the
+// card goes back to opening the vendor–user connection. And a [Connect] button
+// that "give[s] the vendor a portal to connect this to their new account".
+//
+// Three actions below, and none of them is a new writer:
+//   · loadSelfAddedSupplier  — READ, to pre-fill the same one-screen sheet.
+//   · updateSelfAddedSupplier — COMPOSES the writers that already exist.
+//   · readSupplierInvite     — READ-ONLY lookup of an existing claim link.
+// ============================================================================
+
+export type SelfAddedSupplierPrefill = {
+  vendorId: string;
+  category: string;
+  name: string;
+  contactPerson: string;
+  contactNumber: string;
+  address: string;
+  pin: { lat: number; lng: number } | null;
+  covers: string[];
+  inclusions: string;
+  /** The HEADLINE price the couple edits — see the note where it is read. */
+  price: string;
+  planRows: EditablePlanRow[];
+};
+
+export type LoadSelfAddedSupplierResult =
+  | { status: 'ok'; prefill: SelfAddedSupplierPrefill }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+export async function loadSelfAddedSupplier(
+  eventId: string,
+  vendorId: string,
+): Promise<LoadSelfAddedSupplierResult> {
+  if (typeof eventId !== 'string' || !eventId || typeof vendorId !== 'string' || !vendorId) {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // Under the couple's own RLS — the read is the ownership check.
+  const { data: ev, error: evErr } = await supabase
+    .from('event_vendors')
+    .select(
+      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, manual_vendor_id, marketplace_vendor_id',
+    )
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .maybeSingle();
+  if (evErr) return { status: 'error', message: evErr.message };
+  if (!ev) return { status: 'error', message: 'Supplier not found.' };
+  const row = ev as {
+    vendor_id: string;
+    category: string | null;
+    vendor_name: string | null;
+    total_cost_php: number | string | null;
+    host_inclusions: string[] | null;
+    covers_plan_groups: string[] | null;
+    manual_vendor_id: string | null;
+    marketplace_vendor_id: string | null;
+  };
+  // Once they have an account, the card opens the vendor–user connection
+  // instead — their details are theirs to publish, not the couple's to edit.
+  if (row.marketplace_vendor_id) {
+    return { status: 'error', message: 'This supplier is on Setnayan now — open their page instead.' };
+  }
+
+  const [manualRes, planRes] = await Promise.all([
+    row.manual_vendor_id
+      ? supabase
+          .from('event_manual_vendors')
+          .select('business_name, contact_person, contact_number, address, address_latitude, address_longitude')
+          .eq('manual_vendor_id', row.manual_vendor_id)
+          .eq('event_id', eventId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from('event_vendor_payment_plan')
+      .select('instances_json')
+      .eq('event_id', eventId)
+      .eq('event_vendor_id', vendorId)
+      .maybeSingle(),
+  ]);
+  // A refused read is not an empty supplier: pre-filling blanks over a real
+  // contact card would invite the couple to "save" their data away.
+  if (manualRes.error) return { status: 'error', message: manualRes.error.message };
+  if (planRes.error) return { status: 'error', message: planRes.error.message };
+  const m = (manualRes.data ?? null) as {
+    business_name: string | null;
+    contact_person: string | null;
+    contact_number: string | null;
+    address: string | null;
+    address_latitude: number | string | null;
+    address_longitude: number | string | null;
+  } | null;
+
+  const lat = m?.address_latitude == null ? NaN : Number(m.address_latitude);
+  const lng = m?.address_longitude == null ? NaN : Number(m.address_longitude);
+
+  // ⚖ THE HEADLINE, NOT THE AGREED TOTAL NOW. This value pre-fills the field
+  // the couple EDITS and that `updateVendorCosts` writes back as the headline.
+  // Pre-filling `agreedTotalNow` (headline + accepted change lines) would, on
+  // save, fold the changes INTO the headline and count them twice. A
+  // self-added supplier has no account to raise a change order, so the two
+  // are equal today; the distinction is what keeps it right if that changes.
+  const price =
+    row.total_cost_php == null || !Number.isFinite(Number(row.total_cost_php))
+      ? ''
+      : String(Number(row.total_cost_php));
+
+  return {
+    status: 'ok',
+    prefill: {
+      vendorId: row.vendor_id,
+      category: row.category ?? '',
+      name: (m?.business_name ?? row.vendor_name ?? '').trim(),
+      contactPerson: m?.contact_person ?? '',
+      contactNumber: m?.contact_number ?? '',
+      address: m?.address ?? '',
+      pin: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
+      covers: Array.isArray(row.covers_plan_groups) ? row.covers_plan_groups : [],
+      inclusions: Array.isArray(row.host_inclusions) ? row.host_inclusions.join('\n') : '',
+      price,
+      planRows: planInstancesToRows((planRes.data as { instances_json?: unknown } | null)?.instances_json),
+    },
+  };
+}
+
+export type UpdateSelfAddedSupplierResult =
+  | { status: 'ok'; warning?: string }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+/**
+ * Save the Details sheet for an EXISTING self-added supplier.
+ *
+ * Composes the same writers `addManualSupplier` does, in the same order, and
+ * with the same honesty about partial failure — the difference is that the
+ * supplier already exists, so the FIRST step (the contact card, which enforces
+ * the venue-address rule) is the gate: if it refuses, nothing else is written
+ * and the couple sees the reason. Past it, a later failure is reported as what
+ * did not save, never as "nothing saved".
+ *
+ * Price goes through `updateVendorCosts` with `price_only`, so editing the
+ * price here cannot reset transport, food or crew set on the workspace.
+ */
+export async function updateSelfAddedSupplier(
+  formData: FormData,
+): Promise<UpdateSelfAddedSupplierResult> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || !eventId || typeof vendorId !== 'string' || !vendorId) {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // 1 · The contact card — name, contact, address, pin. It throws the
+  //     couple-facing sentence on a bad address, before anything is written.
+  try {
+    await saveSelfAddedServiceCard(formData);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    return { status: 'error', message: msg || 'Could not save their details.' };
+  }
+
+  const warnings: string[] = [];
+
+  // 2 · The booking's own name, which is what the bench card prints.
+  const name = formData.get('business_name');
+  if (typeof name === 'string' && name.trim().length > 0) {
+    const { error } = await supabase
+      .from('event_vendors')
+      .update({ vendor_name: name.trim().slice(0, 128) })
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .is('marketplace_vendor_id', null);
+    if (error) warnings.push('the name on your team');
+  }
+
+  // 3 · Price — price-only, so nothing else on the row moves.
+  try {
+    const costFd = new FormData();
+    costFd.set('event_id', eventId);
+    costFd.set('vendor_id', vendorId);
+    const p = formData.get('total_cost_php');
+    costFd.set('total_cost_php', typeof p === 'string' ? p.replace(/,/g, '') : '');
+    costFd.set('price_only', '1');
+    await updateVendorCosts(costFd);
+  } catch {
+    warnings.push('the price');
+  }
+
+  // 4 · Services covered + inclusions.
+  try {
+    const detailsFd = new FormData();
+    detailsFd.set('event_id', eventId);
+    detailsFd.set('vendor_id', vendorId);
+    const inc = formData.get('inclusions');
+    detailsFd.set('inclusions', typeof inc === 'string' ? inc : '');
+    for (const c of formData.getAll('covers')) {
+      if (typeof c === 'string') detailsFd.append('covers', c);
+    }
+    await updateHostServiceDetails(detailsFd);
+  } catch {
+    warnings.push('what they cover');
+  }
+
+  // 5 · The payment plan, when the sheet sent one.
+  const hasPlanRows = formData
+    .getAll('plan_label')
+    .some((l) => typeof l === 'string' && l.trim().length > 0);
+  if (hasPlanRows) {
+    try {
+      const planFd = new FormData();
+      planFd.set('event_id', eventId);
+      planFd.set('vendor_id', vendorId);
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+        for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
+      }
+      await saveSelfAddedPaymentPlan(planFd);
+    } catch (e) {
+      // The plan's own refusal ("₱60,000 of ₱80,000") is the only sentence
+      // that says what to fix, so it is passed through, not summarised.
+      const msg = e instanceof Error ? e.message : '';
+      warnings.push(msg && !msg.startsWith('An error occurred') ? msg : 'the payment plan');
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  return warnings.length === 0
+    ? { status: 'ok' }
+    : { status: 'ok', warning: `Saved — except ${warnings.join(' and ')}.` };
+}
+
+export type SupplierInviteView = { url: string; qrSvg: string } | null;
+
+/**
+ * The supplier's existing claim link, if there is one — READ ONLY.
+ *
+ * ⚠ Opening [Connect] must never create a row by itself. `createManualVendorInvite`
+ * mints one (idempotently), which is right when the couple presses "Create
+ * link" and wrong when they merely looked. So the panel opens on this read and
+ * offers the write as a deliberate button.
+ */
+export async function readSupplierInvite(
+  eventId: string,
+  vendorId: string,
+): Promise<SupplierInviteView> {
+  if (typeof eventId !== 'string' || !eventId || typeof vendorId !== 'string' || !vendorId) {
+    return null;
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  // Ownership under the couple's RLS, and the one account question.
+  const { data: row, error: rowErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .maybeSingle();
+  if (rowErr) {
+    // Recorded, not swallowed. Returning null here makes the panel offer
+    // "Create their link" — safe only because that writer is idempotent and
+    // returns the existing link — so the reason must be visible somewhere.
+    console.error(
+      `[readSupplierInvite] could not read vendor_id=${vendorId} event_id=${eventId}:`,
+      rowErr.message,
+    );
+    return null;
+  }
+  if (!row || !canInviteSupplier(row)) return null;
+  const invite = await fetchActiveAutoShareInvite(supabase, vendorId);
+  if (!invite || invite.status !== 'pending') return null;
+  const url = buildClaimUrl(invite.claim_token);
+  return { url, qrSvg: await renderUrlQrSvg(url) };
 }

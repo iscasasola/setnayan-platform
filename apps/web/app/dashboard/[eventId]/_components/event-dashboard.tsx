@@ -85,6 +85,7 @@ import {
   splitDecisionsAndDates,
 } from '@/lib/a-date-is-not-a-decision';
 import { shouldChaseRsvps } from '@/lib/one-decision-list-not-two';
+import { findTodaysOneThingRowId } from '@/lib/todays-one-thing-is-row-one';
 import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
@@ -1294,6 +1295,21 @@ export async function EventDashboard({
     openDecisionCount,
     datesCount,
   } = splitDecisionsAndDates(sortedGroups, deadlineGroup);
+
+  /*
+    ── TODAY'S ONE THING IS ROW ①, WHEN THE BOARD HAS IT ────────────────────
+
+    The resolver's #1 pick and the board's `start` row are the SAME task by
+    construction — `buildCockpitModel` builds `start:<id>` straight from
+    `topPriorityTask`. Rendering both put one task on the page twice.
+
+    🔑 BUT NOT ALWAYS. Two cockpit branches leave the pick with no row of its
+    own: the group may surface as `pick:<id>` instead, and a group with an
+    OUTSTANDING ASK is marked decided while pushing NO decision at all. So the
+    row is resolved FIRST; `null` means the board does not carry it and the
+    standalone tile still renders. The fold can never delete today's one thing.
+  */
+  const oneThingRowId = findTodaysOneThingRowId(decisionGroups, topPriorityTask?.id);
   /*
     `flatDecisions` LIVED HERE and is gone (2026-09-22). It existed to feed the
     top-grid digest its first three rows — a preview of the board that sits
@@ -1641,6 +1657,13 @@ export async function EventDashboard({
                           href={item.href}
                           className="-mx-3.5 -my-2.5 block rounded-xl px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
                         >
+                          {/* The card is gone; its NAME is not. Without this the
+                              row is merely the first of several and the "one
+                              thing" framing — the whole point of the resolver —
+                              would have left with the tile. */}
+                          {item.id === oneThingRowId ? (
+                            <p className="sn-eye">Today&rsquo;s one thing</p>
+                          ) : null}
                           <div className="flex items-center gap-2.5">
                             <b className="min-w-0 truncate text-sm font-semibold text-ink">
                               {item.label}
@@ -1655,21 +1678,43 @@ export async function EventDashboard({
                             ) : null}
                           </div>
                           <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
+                          {/* The tile's 26-word "why it matters" paragraph does not
+                              come with it — a board of rows is not the place for a
+                              paragraph, and the sub-line above already carries the
+                              fact ("Nothing booked · overdue by 278 days"). It is
+                              handed to the inspector instead, which is the surface
+                              built for one row at a time. */}
                           <span
-                            className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
-                            /* D-4 · EVERY DECISION CTA IS AN OUTLINE NOW.
+                            className={`mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold${
+                              item.id === oneThingRowId
+                                ? ' transition-transform hover:-translate-y-0.5'
+                                : ''
+                            }`}
+                            /* D-4 · EVERY DECISION CTA IS AN OUTLINE — EXCEPT
+                               TODAY'S ONE THING, WHICH IS NOW ONE OF THEM.
                                The first row of EVERY group used to be filled,
                                so a couple with three open groups met three
                                identical "most important" buttons plus the
                                top-priority one above them — four things
                                shouting at once, which is the same as none.
-                               The page's single filled action is the
-                               top-priority task; these are the queue behind
-                               it. */
-                            style={{
-                              border: '1px solid var(--sn-gold-500)',
-                              color: 'var(--sn-gold-700)',
-                            }}
+
+                               The page still has exactly ONE filled action and
+                               it is still the top-priority task; it simply sits
+                               in the queue now instead of in a card of its own
+                               above it. The colour is unchanged (the CTA
+                               terracotta in the `mulberry` token, #C24E25,
+                               white on it 4.76:1). When the board does not
+                               carry the task, `oneThingRowId` is null, every
+                               row here is an outline, and the standalone tile
+                               below keeps the filled action. Either way: one. */
+                            style={
+                              item.id === oneThingRowId
+                                ? { background: 'rgb(var(--color-mulberry))', color: '#FFFFFF' }
+                                : {
+                                    border: '1px solid var(--sn-gold-500)',
+                                    color: 'var(--sn-gold-700)',
+                                  }
+                            }
                           >
                             {item.ctaLabel}
                           </span>
@@ -1708,6 +1753,9 @@ export async function EventDashboard({
               chipStyle={chipToneStyle[item.chipTone]}
               ctaLabel={item.ctaLabel}
               href={item.href}
+              why={
+                item.id === oneThingRowId ? topPriorityTask?.whyItMatters : undefined
+              }
             />
           );
           break;
@@ -2533,7 +2581,13 @@ export async function EventDashboard({
 
         {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
          *  glass tile below the top grid. */}
-        {aiActive && topPriorityTask ? (
+        {/* ── Today's one thing, as a CARD — the FALLBACK, not the default ──
+         *  Renders only when the Decisions board does NOT carry the task
+         *  (`oneThingRowId === null`) — the group surfaced with an outstanding
+         *  ask, so the cockpit pushed no row for it. In every ordinary state
+         *  the task is a named row on the board above and this is absent,
+         *  which is what stops one task being drawn twice on one page. */}
+        {aiActive && topPriorityTask && !oneThingRowId ? (
           <div className="sn-tile relative !mt-4 flex flex-wrap items-center gap-4 overflow-hidden">
             <span
               aria-hidden
@@ -2604,11 +2658,12 @@ export async function EventDashboard({
             >
               {openDecisionCount} open
             </span>
-            <p className="sn-sec-sub">
-              {aiActive
-                ? 'Ranked by what closes soonest — each one links to its room.'
-                : 'Choices only you can make — everything else keeps moving without you.'}
-            </p>
+            {/* "each one links to its room" describes a link the reader can
+                see, and the free line said nothing the heading does not. What
+                survives is the one FACT here: Sai chose the order. */}
+            {aiActive ? (
+              <p className="sn-sec-sub">Ranked by what closes soonest.</p>
+            ) : null}
           </div>
           {venueOfferAvailable && !venueOfferInline ? (
             <div className="mb-3.5">
@@ -2690,7 +2745,6 @@ export async function EventDashboard({
               >
                 {datesCount} {datesCount === 1 ? 'date' : 'dates'}
               </span>
-              <p className="sn-sec-sub">Nothing to decide — just what lands when.</p>
             </div>
             <div className="grid gap-3.5 lg:grid-cols-2">
               {renderDecisionGroup(datesGroup, null)}
@@ -2770,10 +2824,6 @@ export async function EventDashboard({
         <section aria-label="Around your event">
           <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="sn-sec">{spark}Around your event</h2>
-            <p className="sn-sec-sub">
-              Your hosts, team, threads, services, and schedule — this is the
-              doorstep.
-            </p>
           </div>
           <div className="grid gap-3.5 sm:grid-cols-2">
             {/* Hosts — every account managing this event. The add-host entry
@@ -2792,12 +2842,13 @@ export async function EventDashboard({
               fullHref={`${base}/hosts`}
               fullLabel="Add a host"
               preview={
-                hostAccounts.length > 1 ? (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {hostAccounts.length} accounts can run this {eventWord} —
-                    expand to see who.
-                  </p>
-                ) : (
+                /* A collapsed card's preview used to REPEAT the count already
+                   in its own header and add "expand to see …" — an instruction
+                   for a disclosure the reader is looking at. That is the "dead
+                   teaser" the 2026-07-12 council named. The ENDOWED EMPTY state
+                   below it stays: it carries a fact and a first step, which is
+                   what Phase 2 shipped it for. */
+                hostAccounts.length > 1 ? null : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? `It was just you running this ${eventWord}.`
@@ -2866,13 +2917,7 @@ export async function EventDashboard({
                     We couldn&rsquo;t load your suppliers just now. Nothing has
                     changed &mdash; refresh to try again.
                   </p>
-                ) : teamVendors.length > 0 ? (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {teamVendors.length}{' '}
-                    {teamVendors.length === 1 ? 'vendor' : 'vendors'} booked —
-                    expand to see your team.
-                  </p>
-                ) : (
+                ) : teamVendors.length > 0 ? null : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? 'No suppliers were booked through Setnayan for this one.'
@@ -2937,11 +2982,15 @@ export async function EventDashboard({
                   Open threads →
                 </Link>
               </div>
-              <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                {unreadCount > 0
-                  ? `${unreadCount} ${unreadCount === 1 ? 'thread has' : 'threads have'} unread messages — open to catch up.`
-                  : 'All caught up — when a vendor replies, it lands right here.'}
-              </p>
+              {/* The unread COUNT is already the card's own badge; saying it
+                  again in a sentence and adding "open to catch up" is the same
+                  dead-teaser shape as the cards above. Silence when there is
+                  something to read, the endowed line when there is not. */}
+              {unreadCount > 0 ? null : (
+                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                  All caught up — when a vendor replies, it lands right here.
+                </p>
+              )}
             </article>
 
             {/* Your services */}
@@ -2956,13 +3005,7 @@ export async function EventDashboard({
               fullHref={`${base}/orders`}
               fullLabel="Open orders"
               preview={
-                serviceRows.length > 0 ? (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {serviceRows.length}{' '}
-                    {serviceRows.length === 1 ? 'order' : 'orders'} — expand to see
-                    {serviceRows.length === 1 ? ' it.' : ' them.'}
-                  </p>
-                ) : (
+                serviceRows.length > 0 ? null : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? 'Nothing was ordered for this one.'
@@ -3072,10 +3115,6 @@ export async function EventDashboard({
         <section aria-label="Event progress">
           <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="sn-sec">{spark}Read your progress</h2>
-            <p className="sn-sec-sub">
-              Tap a stage — or use ← → — to walk through your {eventWord}, start to
-              finish.
-            </p>
           </div>
           <JourneyRail
             stages={stageModel.stages}

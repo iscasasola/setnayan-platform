@@ -194,3 +194,60 @@ the exact original shape — turned the guard red (`1 file(s) re-declare`).
 Restored, 4/4. `save-the-date-emails-core.test.ts` 8/8 unchanged.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · track the two-admin promise the help page makes to suppliers
+
+`/help` publishes, live, under **"What needs two-admin approval"**:
+
+> *"Per Vendor Agreement § 9.1: major decisions need two admins. That means
+> ad-revenue activation, vendor verification override, a large refund above the
+> policy threshold, force-majeure bulk resolution, payment-method config change,
+> and any blanket policy update."*
+
+That is a **contractual commitment to suppliers, citing a numbered clause.**
+
+Measured against production's `admin_approval_requests` CHECK — which allows
+`grant_internal_account`, `grant_team_pool`, `promote_to_admin`,
+`approve_vendor_partnership`, `approve_fraud_wipe_ban`,
+`approve_journal_spotlight`, and since this bundle `approve_comp_grant` —
+**none of the six is implemented. Zero of six.**
+
+🔑 **The mechanism is real, works, and is enforced in the database**
+(`admin_approval_four_eyes`: `decided_by <> initiated_by`). It is pointed
+somewhere other than where the contract says it points. Found while following up
+the caveat on the comp-grant gate — that refunds and payout-account changes were
+still single-admin — which turned out to be a much smaller statement of a much
+larger one.
+
+**This does not implement them.** Six approval flows is a body of work, and one
+of them cannot even be specified here:
+
+⛔ **THE REFUND THRESHOLD MUST NOT BE GUESSED.** The page itself says *"the exact
+refund threshold is set in the Vendor Agreement"* — a number that lives in a
+contract, not this repo. `refundOrder` today accepts any amount up to a ₱100M
+paste-typo guard, from one admin. Owner ruling 2026-08-31 on a different invented
+default: *"don't guess."* Picking one here and labelling it a guess would be the
+same mistake with a comment attached.
+
+`TWO_ADMIN_PROMISES` records all six with what implementing each would need, and
+`the-two-admin-promise-is-tracked.test.ts` stops the promise and the code
+drifting further apart: adding a promise to the copy without a row fails,
+implementing one without recording it fails, and **quietly deleting the promise
+to make the guard pass also fails** — withdrawing a contractual commitment is an
+owner decision, not a copy edit.
+
+🪤 The untracked-phrase test FAILED against correct code on first write: it read
+to the end of the article and reported "user lookup" as an untracked PROMISE,
+when the sentence it came from says the exact opposite — *"Routine ops (review
+moderation, user lookup, manual help reply) stay single-admin."* The window now
+ends at the promise sentence, with a note saying why.
+
+Proved by sabotage: adding an untracked promise to the copy, silently deleting
+the refund promise, and claiming an `action_type` the CHECK would reject each
+turned a different test red. Restored, 4/4.
+
+⚖ OWNER: this is the largest open item found today. Six published commitments,
+no mechanism, one of them needing a number only the Vendor Agreement holds.
+
+SPEC IMPACT: none in code; the gap between `/help` and the Vendor Agreement is
+now recorded where a session will read it.

@@ -35,11 +35,23 @@ const TONE = {
 export function BookingFeeNotice({
   disclosure,
   cta,
+  framed = true,
   testId = 'booking-fee-notice',
 }: {
   /** `null` ⇒ render NOTHING. Silence is the honest rendering of "no fee here". */
   disclosure: FeeDisclosure | null;
   cta?: { href: string; label: string };
+  /**
+   * FALSE when this row sits INSIDE a shared `rows` container, which owns the
+   * border and the corner radius and separates its children with a hairline.
+   *
+   * 🔑 The prototype draws ONE bordered box with rows in it, not a stack of
+   * bordered cards with gaps. A row that carries its own border cannot be put
+   * in a container without drawing a box inside a box — which is what the
+   * composer showed the owner: four separate cards where he expected one.
+   * Default TRUE so every standalone mount is unchanged.
+   */
+  framed?: boolean;
   /**
    * This row's own name, so a surface that mounts the shape TWICE can be
    * counted per LINE rather than per file. Both quote composers do: the fee,
@@ -54,27 +66,47 @@ export function BookingFeeNotice({
     <div
       role="note"
       data-testid={testId}
-      className="mt-3 flex items-start gap-2.5 rounded-xl border p-3"
-      style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
+      className={
+        framed
+          ? 'mt-3 flex items-center gap-2.5 rounded-2xl border px-3 py-2.5'
+          : 'flex items-center gap-2.5 px-3 py-2.5'
+      }
+      style={
+        framed
+          ? { borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }
+          : undefined
+      }
     >
       <Icon
         aria-hidden
-        className="mt-0.5 h-4 w-4 shrink-0"
+        className="h-4 w-4 shrink-0"
         strokeWidth={1.75}
         style={{ color: accent }}
       />
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm font-semibold text-ink">{disclosure.headline}</p>
-        <p className="text-sm text-ink/70">{disclosure.detail}</p>
-        {cta ? (
-          <Link
-            href={cta.href}
-            className="inline-flex text-sm font-semibold text-ink underline underline-offset-2"
-          >
-            {cta.label}
-          </Link>
-        ) : null}
-      </div>
+      {/*
+        THE LEFT CELL. `flex-col` is the row's whole structure, not decoration:
+        the sentence and its sub-line are ONE cell that stacks, which is what
+        makes the thing beside it read as a value rather than a third line.
+        `min-w-0` lets the cell shrink so a long sentence wraps inside it instead
+        of pushing the right cell off the row.
+      */}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-sm font-semibold text-ink">{disclosure.headline}</span>
+        <span className="text-xs text-ink/70">{disclosure.detail}</span>
+      </span>
+      {/*
+        THE RIGHT CELL. `ml-auto shrink-0` is what puts it on the right and keeps
+        it there; without both, a long headline pushes it down into a third line
+        and the row silently becomes the stack this replaced.
+      */}
+      {cta ? (
+        <Link
+          href={cta.href}
+          className="ml-auto shrink-0 text-sm font-semibold text-ink underline underline-offset-2"
+        >
+          {cta.label}
+        </Link>
+      ) : null}
     </div>
   );
 }

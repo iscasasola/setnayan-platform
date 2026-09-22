@@ -117,6 +117,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         invitationBase={invitationBase}
         brandedQrActive={brandedQrActive}
         photoDisplayUrl={photoDisplayUrl}
+        variant="page"
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}

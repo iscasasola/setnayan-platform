@@ -776,6 +776,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           accountFaceByGuest[inspectedGuest.guest_id] ??
           null
         }
+        variant="panel"
         returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
         errorMessage={
           typeof search.error === 'string'

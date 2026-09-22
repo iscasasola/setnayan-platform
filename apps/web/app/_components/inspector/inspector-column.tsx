@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X, ArrowUpRight } from 'lucide-react';
 import {
@@ -261,23 +262,19 @@ function InspectorSheet({
   children: ReactNode;
 }) {
   const [portal, setPortal] = useState<HTMLElement | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setPortal(document.body);
   }, []);
 
-  // Esc closes, and the page behind does not scroll while the sheet is up.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
+  /* The shared hook, not a hand-rolled copy: focus-in on open, Tab trap, Esc to
+   * close, body-scroll lock, and focus RESTORED to the trigger on close.
+   *
+   * 🔑 `aria-modal="true"` is a PROMISE that focus is managed. Making it while
+   * leaving focus loose strands a screen-reader user behind the sheet with no
+   * way back — which is what `lib/modal-a11y-adoption.test.ts` exists to catch,
+   * and did catch, on the first draft of this component. */
+  useModalA11y({ open: true, onClose, containerRef: ref });
 
   if (!portal) return null;
   return createPortal(
@@ -288,7 +285,13 @@ function InspectorSheet({
         onClick={onClose}
         className="sn-inspector-peek"
       />
-      <div role="dialog" aria-modal="true" className="sn-inspector-sheet">
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="sn-inspector-sheet"
+      >
         {children}
       </div>
     </>,

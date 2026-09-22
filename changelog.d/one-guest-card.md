@@ -56,3 +56,32 @@ pick up unrelated entries because they were last generated at an older ref.
 
 SPEC IMPACT: Prototype + owner rulings recorded in the corpus at
 `prototypes/guest_card_panel_2026-09-22.html` (commits b26f61e, 5242988, c652f12).
+
+### CI found three real defects the local run had not
+
+`typecheck + lint` went red and its summary blamed `native encoder tests` — a
+step that was *skipped*. The actual failure was **Unit tests**; everything after
+it skipped, and the last skipped step got the blame. (Read the step list, not
+the summary line.) 13 tests were red. Ten were symbols that had moved file and
+were re-anchored. **Three were genuine bugs in this change:**
+
+- **A held identity transform.** `.sn-inspector-sheet` and `.gl-disc` animated
+  with `both`, which keeps `transform: none` applied after the animation ends —
+  and a held transform makes the element the containing block for every
+  `position: fixed` descendant, silently unpinning anything fixed inside the
+  card. Both are `backwards` now
+  (`an-identity-transform-unpins-every-fixed-child.test.ts`).
+- **`aria-modal` without focus management.** The phone sheet promised a modal
+  and managed nothing: no focus trap, no restore. It now uses the shared
+  `useModalA11y`, like every other overlay (`modal-a11y-adoption.test.ts`).
+- **A skeleton promising a heading the page stopped drawing.** Making the route
+  a loader removed its `<h1>`, so `[guestId]/loading.tsx` reserved a title that
+  never arrived and the screen jumped on land. The card now takes a
+  `variant`: `page` draws the `<h1>`, `panel` leaves the name to the column
+  header that already prints it, instead of saying it twice.
+
+Guards re-anchored by following the symbol, never by loosening the rule — and
+two were re-expressed as the PROPERTY they always meant: the release action is
+asserted to sit *outside* the autosave form (it was pinned to `formAction`), and
+a side-rendering surface may now ask `eventHasSides()` itself **or** consume the
+shared loader's answer, with a vacuity check that the loader still asks.

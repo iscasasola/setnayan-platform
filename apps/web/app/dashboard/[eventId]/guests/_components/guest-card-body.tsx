@@ -131,6 +131,7 @@ export function GuestCardBody({
   invitationBase,
   brandedQrActive,
   photoDisplayUrl,
+  variant,
   returnTo,
   errorMessage,
   inviteFlash,
@@ -143,6 +144,19 @@ export function GuestCardBody({
   invitationBase: string | null;
   brandedQrActive: boolean;
   photoDisplayUrl: string | null;
+  /**
+   * Which frame is rendering.
+   *   'page'  — the standalone route. The card owns the page heading, so the
+   *             identity row carries an <h1>. Its `loading.tsx` reserves a
+   *             title, and a route whose skeleton promises a heading it never
+   *             draws jumps upward on land (the-skeleton-promises-only-what-
+   *             the-page-draws.test.ts).
+   *   'panel' — the roster's card. `InspectorColumn` already prints the name in
+   *             its own header, so repeating it here would say it twice; the
+   *             row keeps the face and the status line, which the header has
+   *             neither of.
+   */
+  variant: 'page' | 'panel';
   /** Where a FAILED save should land — the surface this card is open on. */
   returnTo: string;
   errorMessage: string | null;
@@ -207,9 +221,11 @@ export function GuestCardBody({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-xl font-semibold text-ink">
-            {guestDisplayName(guest)}
-          </h2>
+          {variant === 'page' ? (
+            <h1 className="truncate text-2xl font-semibold tracking-tight text-ink">
+              {guestDisplayName(guest)}
+            </h1>
+          ) : null}
           <p className="mt-0.5 truncate text-xs text-ink/55">
             {[
               RSVP_LABELS[guest.rsvp_status],
@@ -359,15 +375,27 @@ export function GuestCardBody({
                   </label>
                 ))}
               </fieldset>
-              {/* Deliberately "recorded", not "replied": three of this column's
-                  four writers are host-side dashboard paths. Rendered only when
-                  there IS one — the writers clear it to null on pending and
-                  maybe, so an absent value means "no answer on record". */}
-              {recordedAt ? (
-                <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
-              ) : null}
             </>
           )}
+          {/* Deliberately "recorded", not "replied": three of this column's four
+              writers are host-side dashboard paths. Rendered only when there IS
+              one — the writers clear it to null on pending and maybe, so an
+              absent value means "no answer on record", and "hasn't replied"
+              would be false for anyone who answered and changed their mind.
+
+              🔴 AND NEVER FOR THE COUPLE. The action coerces bride and groom to
+              attending, so their stamp only records when a host last saved; in
+              production both carry a value byte-identical to their row's
+              created_at. Printed under "Answer recorded" one sentence after
+              "always attending", it contradicts the line above it with
+              something that was never an answer.
+
+              The `!isCouple` is written out even though this sits outside the
+              couple branch: a guarantee a reader has to reconstruct from an
+              enclosing ternary is one a future edit can move out from under. */}
+          {!isCouple && recordedAt ? (
+            <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
+          ) : null}
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink">Invited to</label>

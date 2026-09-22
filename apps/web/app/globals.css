@@ -3634,7 +3634,12 @@ html.dark {
   background: var(--sn-paper, #fffdf8);
   box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
   padding: 1.25rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
-  animation: sn-sheet-in 0.32s var(--sn-ease) both;
+  /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
+   * animation ends, and a held transform — even the identity — makes this
+   * element the containing block for every `position: fixed` descendant, which
+   * silently unpins anything fixed inside the card. See
+   * lib/an-identity-transform-unpins-every-fixed-child.test.ts. */
+  animation: sn-sheet-in 0.32s var(--sn-ease) backwards;
 }
 @media (min-width: 1280px) {
   /* The rail owns the card at ≥xl; the sheet must never double it. */
@@ -3649,7 +3654,9 @@ html.dark {
 
 /* A native disclosure cannot animate its height; this gives the open some
  * motion without measuring anything. */
-.gl-disc { animation: sn-disc-in 0.24s var(--sn-ease) both; }
+/* `backwards` for the same reason as the sheet above: a `both` fill would hold
+ * `transform: none` and make every opened disclosure a containing block. */
+.gl-disc { animation: sn-disc-in 0.24s var(--sn-ease) backwards; }
 @keyframes sn-disc-in {
   from { opacity: 0; transform: translateY(-4px) }
   to { opacity: 1; transform: none }

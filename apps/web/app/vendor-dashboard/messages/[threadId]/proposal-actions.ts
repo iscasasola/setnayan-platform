@@ -289,6 +289,9 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   let note: string | null = null;
   let schedule: unknown = null;
   let paymentMethodIds: string[] = [];
+  // The quote's own Setnayan-gift switch (owner 2026-09-22). `null` = the quote
+  // says nothing and the booking keeps falling back to the service card.
+  let includesSetnayanGift: boolean | null = null;
   try {
     const parsed = JSON.parse(String(formData.get('payload') ?? '{}')) as {
       lineItems?: ProposalLineItem[];
@@ -297,6 +300,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
       note?: string;
       schedule?: unknown;
       paymentMethodIds?: string[];
+      includesSetnayanGift?: boolean | null;
     };
     lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
     validUntil = parsed.validUntil ?? null;
@@ -304,6 +308,9 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     note = parsed.note ?? null;
     schedule = parsed.schedule ?? null;
     paymentMethodIds = Array.isArray(parsed.paymentMethodIds) ? parsed.paymentMethodIds : [];
+    // Only a real boolean is a decision; anything else leaves the card deciding.
+    includesSetnayanGift =
+      typeof parsed.includesSetnayanGift === 'boolean' ? parsed.includesSetnayanGift : null;
   } catch {
     redirect(`${back}?notice=proposal_failed`);
   }
@@ -316,6 +323,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     note,
     schedule,
     paymentMethodIds,
+    includesSetnayanGift,
   });
 
   if (!result.ok) {

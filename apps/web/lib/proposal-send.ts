@@ -421,6 +421,16 @@ export interface SendCustomProposalInput {
    * vendor's OWN methods; unknown ids are dropped. [] = show all approved.
    */
   paymentMethodIds?: string[] | null;
+  /**
+   * THE SETNAYAN GIFT ON THIS QUOTE — the supplier's yes/no, owner 2026-09-22
+   * ("per-quote switch"). `true` / `false` is a decision this quote makes;
+   * `null` or absent means the quote says NOTHING and the booking keeps
+   * falling back to the service card's own switch.
+   *
+   * ⛔ Not an amount. The gift stays 40% of the booking fee, capped, spent
+   * proportionally along the live ladder (owner 2026-09-09: "no dial").
+   */
+  includesSetnayanGift?: boolean | null;
 }
 
 const MAX_CUSTOM_LINE_ITEMS = 60;
@@ -581,6 +591,21 @@ export async function sendCustomProposalCore(
       payment_schedule: resolvedSchedule ?? {},
       payment_method_ids: paymentMethodIds,
       valid_until: /^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? validUntil : null,
+      /*
+        THE SETNAYAN GIFT ON THIS QUOTE (owner 2026-09-22: "per-quote switch";
+        migration 20271240324859). Seeded in the composer from the cards it was
+        built from — ON if any of them is on (Answer 1) — and flipped there.
+
+        ⚠ `null` MEANS THE QUOTE SAYS NOTHING, and the booking falls back to the
+        service card. It is NOT "off": a composer that never rendered the switch
+        (an older client, a template send) must not silently retract a gift the
+        supplier's card promises.
+
+        ⛔ IT DOES NOT BILL BY ITSELF. `setnayan_gift_offered_on` reads this only
+        once the couple has ACCEPTED the quote, and the amount stays 40% of the
+        fee, capped, proportional along the live ladder. A switch, never a dial.
+      */
+      includes_setnayan_gift: input.includesSetnayanGift ?? null,
       status: 'draft',
     })
     .select('proposal_id, public_id')

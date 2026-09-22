@@ -330,30 +330,34 @@ function MethodIcon({ type }: { type: CoupleFacingMethod['method_type'] }) {
 
 // --- bank ------------------------------------------------------------------
 
+/** Sized to sit under the CopyRows rather than compete with them. */
+const WALLET_BTN_CLASS =
+  'inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-2 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta-700';
+
 function BankBody({ method }: { method: CoupleFacingMethod }) {
   return (
-    <dl className="space-y-1.5">
-      {method.account_name ? (
-        <CopyRow label="Account name" value={method.account_name} />
-      ) : null}
-      {method.account_number ? (
-        <CopyRow label="Account number" value={method.account_number} mono />
-      ) : null}
-      {method.provider ? (
-        <CopyRow label="Bank / wallet" value={method.provider} />
-      ) : null}
-      {/* Tap-to-open, measured on a real phone — see lib/wallet-handoff.ts.
+    <div className="space-y-1.5">
+      <dl className="space-y-1.5">
+        {method.account_name ? (
+          <CopyRow label="Account name" value={method.account_name} />
+        ) : null}
+        {method.account_number ? (
+          <CopyRow label="Account number" value={method.account_number} mono />
+        ) : null}
+        {method.provider ? (
+          <CopyRow label="Bank / wallet" value={method.provider} />
+        ) : null}
+      </dl>
+      {/* OUTSIDE the <dl>: this is an action, not a term/definition pair, and a
+          bare div among dt/dd groups is invalid grouping.
+          Tap-to-open, measured on a real phone — see lib/wallet-handoff.ts.
           Exact-match on provider, so a BDO row cannot open GCash and point a
           couple's money at the wrong rail. Renders nothing on a desktop
           pointer and nothing for a provider we have not probed. */}
       <OpenWalletButton provider={method.provider} className={WALLET_BTN_CLASS} />
-    </dl>
+    </div>
   );
 }
-
-/** Sized to sit under the CopyRows rather than compete with them. */
-const WALLET_BTN_CLASS =
-  'mt-0.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-2 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta-700';
 
 function CopyRow({
   label,

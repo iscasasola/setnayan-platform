@@ -37,6 +37,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
+import { OpenWalletButton } from '@/app/_components/open-wallet-button';
 import { mintOrderQr } from '@/lib/emv-qr';
 import { qrWords } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
@@ -424,6 +425,16 @@ export function PaymentDetailsBlock({
           <CopyButton value={amountPhp.toFixed(2)} />
         </div>
       </div>
+
+      {/* Tap-to-open, measured on a real phone — see lib/wallet-handoff.ts.
+          It renders BELOW the rows on purpose: the number and its copy control
+          are the payment path, and this only ever saves the walk to the home
+          screen. Renders nothing on BDO (no measured scheme) and nothing on a
+          desktop pointer, so a dead button never ships. */}
+      <OpenWalletButton
+        provider={label}
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-[13px] font-semibold text-ink/80 transition hover:border-mulberry/50 hover:text-mulberry"
+      />
     </div>
   );
 }

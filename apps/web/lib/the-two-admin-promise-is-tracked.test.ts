@@ -202,17 +202,44 @@ test('§ 9.1 thresholds are the contract\'s numbers, and the boundary is single-
   assert.equal(refundNeedsTwoAdmins(100_000), true);
 });
 
-test('the page states the same figures the constants hold', () => {
+test('the page CITES the clause and states no figure of its own', () => {
   const body = publishedBody();
-  // Written as the page writes them, with the thousands separator.
-  for (const n of [REFUND_TWO_ADMIN_THRESHOLD_PHP, COMP_TWO_ADMIN_THRESHOLD_PHP]) {
-    assert.ok(
-      body.includes(n.toLocaleString('en-US')),
-      `the help copy no longer states ₱${n.toLocaleString('en-US')}. The page and the gate must ` +
-        'quote one number — a page that names a different figure from the one the code enforces ' +
-        'is the defect this whole module exists to close.',
-    );
-  }
+
+  // 🪤 THIS TEST ASSERTED THE OPPOSITE FOR ONE COMMIT, AND CI CAUGHT IT.
+  // It required the page to print ₱25,000 and ₱10,000, on the reasoning that
+  // the page and the gate must quote one number. `help-no-hardcoded-prices`
+  // (2026-07-05) then failed the build, and its reasoning is the stronger one:
+  // help bodies are serialized VERBATIM into FAQPage + Article JSON-LD that
+  // answer engines quote, so a figure there goes stale somewhere no one is
+  // looking. A contractual threshold can be renegotiated exactly like a price.
+  //
+  // 🔑 TWO GUARDS DISAGREED AND THE OLDER ONE WAS RIGHT. The resolution is not
+  // to weaken either: the page carries the RULE and the citation, the admin
+  // console carries the FIGURE (computed from the constant, in the error the
+  // admin actually reads), and § 9.1 remains the single source of the number.
+  assert.ok(
+    body.includes('§ 9.1'),
+    'the article no longer cites § 9.1. Without the citation the reader has no way to reach the ' +
+      'figure, and the page becomes a rule with no source.',
+  );
+  assert.doesNotMatch(
+    body,
+    /₱|\bPHP\b|\bP\d{1,3},\d{3}\b/,
+    'the two-admin article states a peso figure again. Published bodies are quoted verbatim into ' +
+      'JSON-LD — name § 9.1 and let the admin console print the number.',
+  );
+});
+
+test('the admin console — not the help page — prints the figure', () => {
+  // The number has to reach a person SOMEWHERE, or the gate refuses without
+  // saying what the limit is. That somewhere is the server action's error.
+  const src = stripComments(readFileSync(join(WEB, 'app/admin/payments/actions.ts'), 'utf8'));
+  assert.match(
+    src,
+    /REFUND_TWO_ADMIN_THRESHOLD_PHP\.toLocaleString\(\)/,
+    'the refund refusal no longer prints the threshold. An admin told only "this needs a second ' +
+      'admin", with no figure, cannot tell whether the form or the limit is wrong.',
+  );
 });
 
 /**

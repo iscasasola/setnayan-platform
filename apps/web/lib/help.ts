@@ -624,7 +624,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-needs-two-admins',
         title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, adding a team member to the shared pool, a comp grant worth over ₱10,000 retail, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a vendor without the due-process timeline, refunding a single transaction over ₱25,000, and re-publishing a previously rejected vendor application. Routine ops stay single-admin — payment reconciliation, approving a vendor verification queue item, comp gifts up to ₱10,000, refunds up to ₱25,000, dispute mediation, review moderation and user lookup. The ₱25,000 and ₱10,000 figures are § 9.1\'s own; at the threshold exactly, one admin is enough.',
+        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, adding a team member to the shared pool, a comp grant above the § 9.1 retail limit, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a vendor without the due-process timeline, refunding a single transaction above the § 9.1 limit, and re-publishing a previously rejected vendor application. Routine ops stay single-admin — payment reconciliation, approving a vendor verification queue item, comps and refunds at or below those limits, dispute mediation, review moderation and user lookup. Both limits are stated in § 9.1 itself, and the admin console names the exact figure at the moment you go over it.',
       },
       {
         slug: 'approving-an-action',
@@ -634,7 +634,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'routine-vs-major',
         title: 'Routine vs major — the rule of thumb',
-        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has significant financial impact above § 9.1\'s stated figures (₱25,000 for a refund, ₱10,000 for a comp), or touches public trust. When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
+        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has financial impact above the limits § 9.1 states, or touches public trust. When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
       },
     ],
   },

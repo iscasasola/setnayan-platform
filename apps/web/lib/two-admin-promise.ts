@@ -115,7 +115,7 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
   },
   {
     key: 'large-comp-grant',
-    asPublished: 'a comp grant worth over ₱10,000 retail',
+    asPublished: 'a comp grant above the § 9.1 retail limit',
     whyPerClause: 'Material giveaway',
     actionType: 'approve_comp_grant',
     note: 'Enforced since 2026-09-22 (migration 20271240919693). `issueVendorSkuComp` opens the approval; `executeVendorSkuComp` writes `granted_by` and `approved_by` as two different admins. Threshold: COMP_TWO_ADMIN_THRESHOLD_PHP.',
@@ -143,7 +143,7 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
   },
   {
     key: 'large-refund',
-    asPublished: 'refunding a single transaction over ₱25,000',
+    asPublished: 'refunding a single transaction above the § 9.1 limit',
     whyPerClause: 'Financial control',
     actionType: 'approve_large_refund',
     note: 'Enforced since 2026-09-22 (migration 20271241619056). `refundOrder` opens an approval above REFUND_TWO_ADMIN_THRESHOLD_PHP and refunds directly at or below it, per § 9.1\'s single-admin row.',

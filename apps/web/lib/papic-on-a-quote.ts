@@ -148,6 +148,66 @@ export function standingForGiftArm(
   }
 }
 
+/**
+ * THE WORDS ON THE QUOTE'S GIFT SWITCH — here, not in the composer, for the
+ * same reason every other figure in this file is here: the share is rendered
+ * from `GIFT_SHARE_OF_FEE_PCT` and never re-typed.
+ *
+ * 🔑 IT ALSO KEEPS THE COMPOSER CLEAN FOR ITS OWN GUARD.
+ * `the-gift-is-on-the-quote-being-written.test.ts` fails if `proposal-maker.tsx`
+ * so much as mentions `GIFT_SHARE_OF_FEE_PCT`, because a composer that knows
+ * the rate is one keystroke from computing the gift itself. That guard caught
+ * this copy on the way in (2026-09-22) and it was right to.
+ */
+export function quoteGiftSwitchCopy(): { label: string; detail: string } {
+  return {
+    label: 'Include the Setnayan gift on this quote',
+    detail:
+      `Free Papic photos for your couple — ${sharePct()} of your booking fee, billed to you on ` +
+      'top of it. It applies when they accept this quote, and it decides the bill whatever your ' +
+      'service cards say.',
+  };
+}
+
+/**
+ * THE QUOTE'S OWN SWITCH, APPLIED TO THE STANDING (owner 2026-09-22: "per-quote
+ * switch" — migration 20271240324859).
+ *
+ * The database answers for the BOOKING: `included` when the card (or the
+ * already-accepted quote) says yes, `available` when only the switch is off.
+ * The quote being written carries its own yes/no, seeded from the cards and
+ * flipped by the supplier; `setnayan_gift_offered_on` reads it once the couple
+ * accepts. So while composing, the switch — not the card — decides which of the
+ * two eligible sentences is true. Every other arm is untouched: no fee, no
+ * client, an unreadable ladder — a switch cannot conjure a gift out of those.
+ *
+ * `null` (the switch says nothing) leaves the database's answer as it was.
+ */
+export function standingForQuoteSwitch(
+  standing: PapicQuoteStanding,
+  switchOn: boolean | null | undefined,
+): PapicQuoteStanding {
+  if (switchOn == null) return standing;
+  if (standing.kind === 'included' && !switchOn) return { kind: 'available', basis: standing.basis };
+  if (standing.kind === 'available' && switchOn) return { kind: 'included', basis: standing.basis };
+  return standing;
+}
+
+/**
+ * WHAT THE QUOTE'S SWITCH OPENS AT — the cards' answer (owner, Answer 1: ON if
+ * ANY card the quote is built from has it on), else the booking's own card as
+ * the database read it, else nothing.
+ */
+export function defaultQuoteSwitch(
+  standing: PapicQuoteStanding,
+  cardSwitches: readonly boolean[] = [],
+): boolean | null {
+  if (cardSwitches.length > 0) return cardSwitches.some(Boolean);
+  if (standing.kind === 'included') return true;
+  if (standing.kind === 'available') return false;
+  return null;
+}
+
 /** "40%" — the owner's ceiling, rendered from the constant, never typed. */
 function sharePct(): string {
   return `${GIFT_SHARE_OF_FEE_PCT}%`;
@@ -187,15 +247,17 @@ export function papicTopUpForQuote(
           (gift.capped
             ? `, and this quote is at the ceiling of ${formatGiftPhotos(GIFT_CAP_CREDITS)} photos`
             : '') +
-          '. It is already switched on for this service card, so the photos above are part of this quote ' +
+          '. The switch above is on, so the photos above are part of this quote ' +
           'and are billed to you with the fee.',
       };
     }
 
     case 'available': {
+      // The switch is on THIS quote now (20271240324859), so the door is the
+      // switch beside this line, not the service card page.
       const cta = {
-        href: VENDOR_SERVICE_CARDS_PATH,
-        label: 'Switch the Setnayan gift on',
+        href: '#quote-setnayan-gift-switch',
+        label: 'Switch the Setnayan gift on for this quote',
       };
       if (!Number.isFinite(totalCentavos) || totalCentavos <= 0) {
         return {
@@ -227,7 +289,7 @@ export function papicTopUpForQuote(
         detail:
           `That is the most this booking can carry: ${sharePct()} of your booking fee` +
           (gift.capped ? `, stopping at ${formatGiftPhotos(GIFT_CAP_CREDITS)} photos` : '') +
-          '. This service card does not offer it yet, so this quote carries none — switch it on and ' +
+          '. The switch above is off, so this quote carries none — switch it on and ' +
           'the photos reach your couple when your fee bill is paid.',
       };
     }

@@ -90,3 +90,29 @@ its exhaustive Records.
 third fails locally rather than in CI. And two assertion windows had to be sized to a *measured* gap:
 `stripComments` replaces a comment with whitespace rather than removing it, so a well-documented
 branch pushes its own code 800+ characters apart.
+
+### 5, second half — the refill can actually run
+
+🛑 **A guard caught my own build 5 and was exactly right.**
+`admin-gated-rpc-needs-a-session.test.ts`: *"These call an admin-gated function through the
+service-role client, which has no `auth.uid()` and is REFUSED by the database — the call can never
+succeed."*
+
+`recompute_market_price_bands()` opens with `IF NOT is_console_admin() THEN RAISE EXCEPTION` and is
+granted to `authenticated` only. A background job has no session, so **it would have thrown on every
+run, silently, forever**, with `cron_job_runs` recording a claim each time. **A job that can never
+succeed is worse than no job: it looks like coverage.**
+
+The gate is widened by **one condition**, using this repo's own precedent
+(`admin_intelligence_analytics`, 2026-12): `IF NOT (is_console_admin() OR auth.role() =
+'service_role')`. The body is re-created byte-identical — a sibling `..._job()` would be two
+mechanisms for one computation, and the copy would drift the first time the band maths changed.
+
+🪤 **And the guard itself had a flaw, now fixed.** It added a name on ANY migration that gated it and
+never removed it — but **an applied migration is never edited**, so an old `CREATE OR REPLACE` says
+what a function USED to do forever. It is now **last-definition-wins**, which makes it *stricter* as
+well as truer: a function whose admin check is later REMOVED now leaves the set, so a genuine
+regression can no longer be masked by an ancient definition that had one.
+
+Two registries updated as their guards instructed: the admin layout's `JOBS` list and the
+vendor-rail post-response count (9 → 10).

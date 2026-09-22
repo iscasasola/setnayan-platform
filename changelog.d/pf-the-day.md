@@ -141,3 +141,29 @@ turned the guard red; dropping jsdelivr from `script-src` only, the exact
 half-fix shape, turned two tests red. Restored, 3/3.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · fix(types): three errors no test could see
+
+CI's "Typecheck" step caught three faults that every unit test passed straight
+through — the class `source-reading guards cannot compile` describes:
+
+1. `liveWallUnreadable` was returned from the loader but never added to
+   `LiveLayerData`, so the object literal did not match its own return type.
+2. `executeApproved` used `row.initiated_by`, which its parameter type did not
+   declare.
+3. `reason: payload.reason ?? row.rationale` passed `string | null` where a
+   `string` was required — narrowed rather than asserted, so a future nullable
+   path cannot put `null` into an audited money record.
+
+And a fourth, found only by re-running after fixing those: the CALL SITE carried
+its own inline cast listing the same fields. **A cast that omits a field does
+not fail at the cast — it fails at the call, one line later**, which is why
+widening the parameter alone left the build red.
+
+🪤 The background wrapper reported **exit code 0** while the log held `tsc
+exit=2` and three errors. Read the log, not the wrapper. (Second time this has
+been observed; it is in memory as `tsc-full-project-killed-by-sandbox`.)
+
+All five guards added in this bundle re-run green afterwards.
+
+SPEC IMPACT: None.

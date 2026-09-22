@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Loader2, UserCheck, X } from 'lucide-react';
 import { dismissVendorLockProposal, finalizeVendor } from '../actions';
+import { capRows, hiddenMoreLabel } from '@/lib/capped-rows';
 
 export type PendingLockProposal = {
   id: number;
@@ -31,6 +32,8 @@ export function PendingLockProposals({
   const [isPending, startTransition] = useTransition();
 
   if (items.length === 0) return null;
+  const { shown, hiddenCount } = capRows(items);
+  const more = hiddenMoreLabel(hiddenCount, 'proposals');
 
   function confirmLock(p: PendingLockProposal) {
     setBusyId(p.id);
@@ -79,8 +82,23 @@ export function PendingLockProposals({
           Your coordinator proposed locking
         </p>
       </header>
+      {/* ── CAPPED, 2026-09-22 ────────────────────────────────────────────
+          This strip renders ABOVE `<ShortlistCategories>` in
+          `vendors/page.tsx` and used to map the whole list. Owner: *"if i have
+          100 vendors and i am inquire to all… i will not be able to see the
+          bench anymore."* Measured in the approved prototype: the bench began
+          4,806px down against 757px capped.
+
+          🔑 THE REMAINDER FOLDS IN PLACE, IT IS NOT LINKED AWAY. Every row here
+          is ACTIONABLE — "Lock now" is a money-adjacent confirm — so hiding one
+          behind a route that does not exist would remove the couple's ability
+          to answer it. A native `<details>` keeps all of them one tap away in
+          the same strip, and needs no JavaScript to open.
+
+          `hiddenMoreLabel` returns null for a zero remainder, so a list of
+          exactly the ceiling length cannot render "…and 0 more". */}
       <ul className="divide-y divide-ink/10">
-        {items.map((p) => {
+        {shown.map((p) => {
           const busy = isPending && busyId === p.id;
           return (
             <li
@@ -116,6 +134,50 @@ export function PendingLockProposals({
           );
         })}
       </ul>
+      {more ? (
+        <details>
+          <summary className="cursor-pointer list-none font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+            {more}
+          </summary>
+          <ul className="mt-1 divide-y divide-ink/10">
+            {items.slice(shown.length).map((p) => {
+              const busy = isPending && busyId === p.id;
+              return (
+                <li
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+                >
+                  <p className="text-sm font-medium text-ink">{p.vendorName}</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => confirmLock(p)}
+                      disabled={busy}
+                      className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
+                    >
+                      {busy ? (
+                        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                      ) : (
+                        <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                      )}
+                      Lock now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dismiss(p)}
+                      disabled={busy}
+                      className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-ink/15 px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 disabled:opacity-60"
+                    >
+                      <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                      Dismiss
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      ) : null}
       {note ? (
         <p role="status" className="text-xs text-ink/70">
           {note}

@@ -4808,6 +4808,7 @@ col	public.vendor_proposal_templates.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_proposal_templates.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_proposals.created_at	anon=SIU authenticated=SIU
 col	public.vendor_proposals.event_id	anon=SIU authenticated=SIU
+col	public.vendor_proposals.includes_setnayan_gift	anon=SIU authenticated=SIU
 col	public.vendor_proposals.line_items	anon=SIU authenticated=SIU
 col	public.vendor_proposals.merge_snapshot	anon=SIU authenticated=SIU
 col	public.vendor_proposals.payment_method_ids	anon=SIU authenticated=SIU

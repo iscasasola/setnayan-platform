@@ -73,6 +73,15 @@ export interface SendProposalInput {
   validUntil?: string | null;
   /** Optional custom title. */
   title?: string | null;
+  /**
+   * THE SETNAYAN GIFT ON THIS QUOTE — the supplier's yes/no, owner 2026-09-22
+   * ("per-quote switch"). The same meaning it has on the line-item path:
+   * `true`/`false` is a decision this quote made, `null` or absent means it
+   * said nothing and the service card still answers.
+   *
+   * ⛔ Not an amount. 40% of the fee, capped, proportional along the ladder.
+   */
+  includesSetnayanGift?: boolean | null;
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -343,6 +352,18 @@ export async function sendProposalCore(
       line_items: lineItems,
       total_centavos: totalCentavos,
       valid_until: /^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? validUntil : null,
+      /*
+        THE SETNAYAN GIFT ON THIS QUOTE — the SAME column the line-item builder
+        writes (migration 20271240324859). Both composers live in the one
+        `build-quote` panel, and until this line only one of them carried the
+        supplier's answer: a quote sent from a saved template said nothing and
+        silently fell back to the service card.
+
+        ⚠ `null` IS THE HONEST DEFAULT and must stay one. A template send that
+        never rendered a switch has made no decision; writing `false` here would
+        retract a gift the supplier's card actively promises.
+      */
+      includes_setnayan_gift: input.includesSetnayanGift ?? null,
       status: 'draft',
     })
     .select('proposal_id, public_id')

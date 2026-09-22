@@ -16,7 +16,7 @@
  *     from vendor_services;      →  2 services, 0 with the gift on
  *
  * So on every quote written in production so far, the composer said NOTHING
- * about Papic. `giftQuoteBasis` collapses four distinct database answers —
+ * about Papic. `giftQuoteBasis` (deleted 2026-09-22) collapsed four answers —
  * `card_says_no`, `free_booking`, `not_sourced`, `no_booking` — into one
  * `null`, and `null` renders nothing. Right for the PROMISE (never quote photos
  * a bill will not carry), wrong for the supplier's question.
@@ -303,10 +303,28 @@ test('both quote surfaces carry BOTH lines — the fee and the Papic ceiling', (
   assert.equal(count(page, /resolvePapicQuoteStanding\(/), 1, 'one read, one answer');
   assert.equal(count(page, /papicStanding=\{composerPapicStanding\}/), 2);
   assert.match(page, /const composerGiftBasis = giftBasisFrom\(composerPapicStanding\)/);
-  assert.doesNotMatch(
-    page,
-    /giftQuoteBasis\(/,
-    'asking the same RPC twice lets the two lines answer to different moments',
+  /*
+    ⚖ RE-POINTED 2026-09-22. This forbade a second call to `giftQuoteBasis`,
+    whose PROPERTY is "one RPC read answers both lines — asking twice lets the
+    two halves of one screen resolve against two different moments." That
+    function has now been deleted (no caller; it carried the old eligibility
+    rule beside the new one), which would make a ban on its name VACUOUSLY
+    TRUE — a guard that can never fail, protecting nothing.
+
+    The property is asserted directly instead, and it is the stronger form: the
+    page may make exactly ONE eligibility read, whatever it is spelled. The
+    `resolvePapicQuoteStanding` count above pins the one that exists; this pins
+    that no SECOND read of the same RPC is added beside it under any name.
+  */
+  assert.equal(
+    count(page, /rpc\('setnayan_gift_quote_applies'/),
+    0,
+    'the page must not call the eligibility RPC directly — it goes through the one resolver',
+  );
+  assert.equal(
+    count(page, /setnayan_gift_quote_applies/),
+    0,
+    'and must not reach that RPC by any second route either',
   );
 
   // The row can be named per line — the shared component takes the id.

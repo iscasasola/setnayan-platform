@@ -17,10 +17,11 @@ import { standingForGiftArm, type PapicQuoteStanding } from '@/lib/papic-on-a-qu
  * the lock charge opens, and reaches the couple through
  * `booking_fee_grant_setnayan_gift` when that bill is paid.
  *
- * 🔑 WHY IT DOES NOT CALL `giftQuoteBasis`. That function answers "is a gift
- * promised?" with a basis or `null`, throwing away WHICH of four reasons a
- * `null` was — and the supplier's question ("how much CAN I add?") needs the
- * reason. This asks the same RPC once and returns both answers;
+ * 🔑 WHY IT REPLACED `giftQuoteBasis` — that sibling was DELETED on 2026-09-22,
+ * once this was the only caller path left. It answered "is a gift promised?"
+ * with a basis or `null`, throwing away WHICH of four reasons a `null` was —
+ * and the supplier's question ("how much CAN I add?") needs the reason.
+ * This asks the same RPC once and returns both answers;
  * `giftBasisFrom(standing)` is what the gift block then reads. One read, one
  * answer, so the two lines under one total cannot be resolved against two
  * different moments.
@@ -43,7 +44,8 @@ import { standingForGiftArm, type PapicQuoteStanding } from '@/lib/papic-on-a-qu
  * Papic here" by a failed query would be the exact shape of defect — a failure
  * that renders identically to an absence — this lane exists to remove.
  *
- * ⚠ WHAT TRAVELS TO THE BROWSER, and how it differs from `giftQuoteBasis`:
+ * ⚠ WHAT TRAVELS TO THE BROWSER, and how it differed from `giftQuoteBasis`
+ * (deleted 2026-09-22):
  * that function let only the PRESENCE of a basis cross; this lets the standing
  * of the supplier's own booking cross too. The schedule is owner-set and
  * already disclosed to suppliers, the ladder is the public retail catalogue,

@@ -76,6 +76,13 @@ type ProposalRow = {
   sent_at: string | null;
   resolved_at: string | null;
   created_at: string;
+  /**
+   * This quote's own Setnayan-gift switch (owner 2026-09-22). NULL = the quote
+   * says nothing and the booking's own answer stands. Read here so the couple
+   * is told what the supplier promised WHILE DECIDING rather than only after
+   * they accept — see the defect note on `quoteSetnayanGift`.
+   */
+  includes_setnayan_gift: boolean | null;
 };
 
 function fmtDate(iso: string | null): string | null {
@@ -128,7 +135,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   const { data, error: proposalError } = await supabase
     .from('vendor_proposals')
     .select(
-      'proposal_id, public_id, vendor_profile_id, event_id, title, merge_snapshot, rendered_body, rendered_terms, line_items, total_centavos, payment_schedule, payment_method_ids, status, valid_until, sent_at, resolved_at, created_at',
+      'proposal_id, public_id, vendor_profile_id, event_id, title, merge_snapshot, rendered_body, rendered_terms, line_items, total_centavos, payment_schedule, payment_method_ids, status, valid_until, sent_at, resolved_at, created_at, includes_setnayan_gift',
     )
     .eq('public_id', publicId)
     .maybeSingle();
@@ -227,6 +234,14 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           eventId: proposal.event_id,
           vendorProfileId: proposal.vendor_profile_id,
           amountCentavos: proposal.total_centavos,
+          /*
+            THIS QUOTE'S OWN SWITCH (owner 2026-09-22). Without it this page
+            asked only what the BOOKING carries, which reads the switch only
+            once the quote is accepted — so a sent quote with the gift switched
+            on showed the couple nothing while the supplier had been shown the
+            photo count. The gift is named at the moment of decision, not after.
+          */
+          quoteSwitch: proposal.includes_setnayan_gift ?? null,
         })
       : null;
 

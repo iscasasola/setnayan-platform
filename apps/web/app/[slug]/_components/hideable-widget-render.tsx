@@ -4,6 +4,7 @@ import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { ROLE_LABELS } from '@/lib/guests';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { hasHubCanvas, hubCanvasClass, hubCanvasVars, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow, GuestRow } from '../_lib/types';
@@ -31,18 +32,7 @@ import { YourPhotosWidget } from './your-photos-widget';
  * + in what order — NOT the per-widget content (which lives in
  * sibling editors at /website/dress-code, /website/photo-moments, etc.).
  */
-export function HideableWidgetRender({
-  widget,
-  event,
-  guest,
-  sideLabel,
-  scheduleBlocks,
-  isLive,
-  scheduleEstimated = false,
-  isLimitedPlusOne,
-  ourPhotoUrls,
-  words,
-}: {
+type HideableWidgetProps = {
   widget: InvitationWidgetRow;
   event: EventRow;
   /** The event type's own words, resolved ONCE by the body and threaded here
@@ -57,7 +47,25 @@ export function HideableWidgetRender({
   scheduleEstimated?: boolean;
   isLimitedPlusOne: boolean;
   ourPhotoUrls: string[];
-}) {
+};
+
+/**
+ * THE WIDGET ITSELF — unchanged, and deliberately still the whole dispatcher.
+ * `HideableWidgetRender` below is a thin wrapper that puts the couple's own
+ * arrangement around whatever this returns.
+ */
+function HideableWidgetBody({
+  widget,
+  event,
+  guest,
+  sideLabel,
+  scheduleBlocks,
+  isLive,
+  scheduleEstimated = false,
+  isLimitedPlusOne,
+  ourPhotoUrls,
+  words,
+}: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
   // an always-on widget here is a defensive no-op (would only happen
@@ -183,6 +191,38 @@ function Detail({
         {label}
       </dt>
       <dd className="mt-0.5 text-base text-ink">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * 🎨 THE CANVAS WRAPPER — one place, every widget.
+ *
+ * A couple's arrangement lives in `invitation_widgets.config_json` and is read
+ * by `lib/hub-canvas.ts`. Rather than teach sixteen widget components about it,
+ * the arrangement is put AROUND whatever the dispatcher returns: the widgets
+ * stay ignorant, and there is exactly one place where a layout choice becomes
+ * markup.
+ *
+ * ⛔ A WIDGET THAT HID ITSELF STAYS HIDDEN. Several of them return `null` —
+ * Countdown with no date, Schedule with no public blocks. Wrapping a null in a
+ * styled div would put an empty, animated box on the page where the widget
+ * deliberately drew nothing, which is worse than the bug it would be hiding.
+ *
+ * ⛔ AND A COUPLE WHO ARRANGED NOTHING GETS NO WRAPPER AT ALL. `hasHubCanvas`
+ * is false for an empty or unreadable `config_json`, which is every event on
+ * the platform today. So this ships inert: a defect in the canvas CSS cannot
+ * reach a page nobody has arranged, and the markup for those pages is
+ * byte-identical to what it was before this existed.
+ */
+export function HideableWidgetRender(props: HideableWidgetProps) {
+  const inner = HideableWidgetBody(props);
+  if (inner === null) return null;
+  const canvas = sanitizeHubCanvas(props.widget.config_json);
+  if (!hasHubCanvas(canvas)) return inner;
+  return (
+    <div className={hubCanvasClass(canvas)} style={hubCanvasVars(canvas) as React.CSSProperties}>
+      {inner}
     </div>
   );
 }

@@ -4703,3 +4703,99 @@ html:active-view-transition .sn-page-enter { animation: none; }
 html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE EVENT HUB CANVAS — a couple's own arrangement, drawn with CSS only
+   (owner 2026-09-23: "rails on"; contract in lib/hub-canvas.ts)
+   ════════════════════════════════════════════════════════════════════════════
+
+   🔒 FAIL-VISIBLE BY CONSTRUCTION, the same property `.pahina-js` above buys a
+   different way. Every rule that can HIDE anything lives inside BOTH
+   `@supports (animation-timeline: view())` and
+   `@media (prefers-reduced-motion: no-preference)`. A browser without
+   scroll-driven animations, a guest who asked for less motion, or a future
+   refactor that drops the wrapper all land on the same outcome: the section
+   renders at rest, fully visible, exactly as it did before any of this existed.
+   There is no half-state and nothing to un-stick.
+
+   🔑 NO SCRIPT CROSSES TO THE GUEST PAGE. The editor is the only place
+   JavaScript runs. `animation-timeline` needs none, which is the whole reason
+   the motion was specified this way rather than as an IntersectionObserver.
+
+   ⚠ THE WRAPPER ONLY EXISTS FOR A COUPLE WHO ARRANGED SOMETHING. `hasHubCanvas`
+   is false for an empty `config_json` — which is every event today — so these
+   rules match nothing at all until somebody uses the editor.
+
+   ⛔ WHAT IS DELIBERATELY NOT HERE YET: `--hub-focal` and `--hub-zoom` are
+   carried by the contract and are NOT applied below, because nothing in a
+   widget is marked as the section's media yet. A control that stored a value
+   and moved no pixels would be the exact defect this build exists to remove,
+   so the editor does not offer them either. They land with per-section
+   backgrounds, and the contract is already the right shape for it.
+   Likewise the LEFT / RIGHT arrangements: splitting a section into a photo
+   column and a words column needs the widget to expose two slots, and today it
+   exposes one. `full` and `text` are the two that are honest right now. */
+
+.hub-canvas { display: block; }
+/* `full` is the default and is stated rather than implied: the contract emits
+   this class, and a class the CSS does not mention is indistinguishable from a
+   control that moves no pixels. It explicitly un-does any narrowing a parent
+   or a previous choice applied. */
+.hub-arr-full { max-width: none; margin-inline: 0; }
+.hub-arr-text { max-width: 58ch; margin-inline: auto; }
+
+@keyframes hub-in-rise   { from { opacity: 0; transform: translateY(26px); } }
+@keyframes hub-in-fade   { from { opacity: 0; } }
+@keyframes hub-in-slide  { from { opacity: 0; transform: translateX(-28px); } }
+@keyframes hub-out-fade  { to   { opacity: 0; } }
+@keyframes hub-out-lift  { to   { opacity: 0; transform: translateY(-26px); } }
+@keyframes hub-out-shrink{ to   { opacity: 0; transform: scale(0.965); } }
+@keyframes hub-during-lift { from { transform: translateY(14px); } to { transform: translateY(-14px); } }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .hub-canvas {
+      animation-timeline: view();
+      animation-fill-mode: both;
+      animation-timing-function: linear;
+      animation-duration: auto;
+    }
+
+    /* PLAYS ONCE — the whole arrival happens while the section is entering, so
+       by the time it is fully on screen it is finished and simply stays. It
+       still technically scrubs, and that is not a cheat: a reader who scrolls
+       back up sees it play backwards, which is what every scroll-driven page
+       does and what a guest expects from the gesture. */
+    .hub-tl-time.hub-in-rise  { animation-name: hub-in-rise;  animation-range: entry 0% entry 100%; }
+    .hub-tl-time.hub-in-fade  { animation-name: hub-in-fade;  animation-range: entry 0% entry 100%; }
+    .hub-tl-time.hub-in-slide { animation-name: hub-in-slide; animation-range: entry 0% entry 100%; }
+
+    /* FOLLOWS THE SCROLL — the owner's correction, and the reason `out` exists
+       at all. He was right that a TIMED exit fights the reader; a scrubbed one
+       is the handoff to the next section, driven entirely by their own thumb.
+       `cover` spans the section's whole pass across the viewport, so in and out
+       are two halves of one journey rather than two competing animations. */
+    .hub-tl-scrub.hub-in-rise  { animation-name: hub-in-rise;  animation-range: entry 0% entry 90%; }
+    .hub-tl-scrub.hub-in-fade  { animation-name: hub-in-fade;  animation-range: entry 0% entry 90%; }
+    .hub-tl-scrub.hub-in-slide { animation-name: hub-in-slide; animation-range: entry 0% entry 90%; }
+
+    /* The exit rides its own timeline on a child-free pseudo-layer so it cannot
+       fight the entrance for the same property: entrance owns `entry`, exit
+       owns `exit`, and the two ranges never overlap. */
+    .hub-tl-scrub.hub-out-fade,
+    .hub-tl-scrub.hub-out-lift,
+    .hub-tl-scrub.hub-out-shrink { animation-composition: replace; }
+    .hub-tl-scrub.hub-out-fade   { animation-name: hub-in-fade,  hub-out-fade;   animation-range: entry 0% entry 90%, exit 10% exit 100%; }
+    .hub-tl-scrub.hub-out-lift   { animation-name: hub-in-fade,  hub-out-lift;   animation-range: entry 0% entry 90%, exit 10% exit 100%; }
+    .hub-tl-scrub.hub-out-shrink { animation-name: hub-in-fade,  hub-out-shrink; animation-range: entry 0% entry 90%, exit 10% exit 100%; }
+
+    /* "Slow lift" — the one DURING motion. It runs across the full pass and is
+       deliberately small: 28px over a whole screen-height of scrolling reads as
+       depth, and anything larger reads as a page that will not sit still. */
+    .hub-during-lift { animation-name: hub-during-lift; animation-range: cover 0% cover 100%; }
+
+    /* A section that asked for nothing is not animated at all — no name, no
+       fill mode, nothing to get stuck in. */
+    .hub-in-none.hub-out-none.hub-during-still { animation-name: none; animation-fill-mode: none; }
+  }
+}

@@ -272,7 +272,7 @@ function QuoteStage({
               type="button"
               onClick={onNext}
               data-stage-next={id}
-              className="inline-flex h-10 items-center rounded-full bg-terracotta px-4 text-sm font-semibold text-cream hover:bg-terracotta-700"
+              className="inline-flex h-10 items-center rounded-full bg-terracotta-700 px-4 text-sm font-semibold text-cream hover:brightness-95"
             >
               Next · {QUOTE_STAGES.find((d) => d.id === nextStage(id))?.title}
             </button>

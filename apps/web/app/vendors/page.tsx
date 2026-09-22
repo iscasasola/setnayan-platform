@@ -34,6 +34,8 @@
  * hand-hardcoded in JSX. Front-end only: no checkout / entitlement / DB change.
  */
 
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { VendorGrowHero } from './_components/vendor-grow-hero';
 import {
   VendorGrowThesis,
@@ -256,6 +258,58 @@ export default async function ForVendorsPage() {
             }
           />
         </RevealOnView>
+        {/*
+          THE RETURN LEG — added 2026-09-22 at the owner's instruction.
+
+          `/pricing` has carried a "Vendor? See the free business offering +
+          your plans" pointer at `/vendors` for a long time. Nothing pointed
+          back. So a supplier reading their own plans here had no route to the
+          couple-facing catalogue — the prices their clients actually see, and
+          the software a couple buys — and the two pricing surfaces were a
+          one-way street.
+
+          🔑 IT NAMES WHOSE PRICES ARE ON THE OTHER SIDE. "See pricing" would
+          read, on this page, as "see MY pricing", which is the page the
+          supplier is already on. The whole value of the link is that it leads
+          somewhere different.
+
+          Mirrors the /pricing pointer's own shape deliberately — same card,
+          same ghost button, same arrow — so the pair reads as one crossing
+          rather than two unrelated boxes.
+        */}
+        <section style={{ borderTop: '1px solid var(--m-hair)' }}>
+          <div
+            style={{
+              maxWidth: 1120,
+              margin: '0 auto',
+              padding: '40px 16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                borderRadius: 'var(--m-r-lg)',
+                border: '1px solid var(--m-hair)',
+                background: 'var(--m-cream)',
+                padding: 20,
+              }}
+              className="sn-vendors-pricing-pointer"
+            >
+              <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--m-ink)', margin: 0 }}>
+                Planning your own celebration, or want to see what couples pay?
+              </p>
+              <Link
+                href="/pricing"
+                className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
+              >
+                Couple pricing
+                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              </Link>
+            </div>
+          </div>
+        </section>
         <VendorGrowCTA />
         <VendorGrowStyles />
       </main>

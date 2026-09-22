@@ -118,6 +118,7 @@ async function executeApproved(
     target_user_id: string | null;
     target_id: string | null;
     rationale: string | null;
+    initiated_by: string | null;
     decided_by: string | null;
   },
 ): Promise<void> {
@@ -170,13 +171,19 @@ async function executeApproved(
   if (row.action_type === 'approve_comp_grant') {
     if (!row.target_id) throw new Error('Comp approval has no target vendor');
     if (!row.decided_by) throw new Error('Comp approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Comp approval has no initiating admin');
     const payload = (row.payload ?? {}) as { sku?: string; reason?: string };
     if (!payload.sku) throw new Error('Comp approval has no SKU');
+    // `rationale` is nullable in the row type even though the CHECK makes it
+    // 1..2000 chars — narrow it rather than assert it, so a future nullable
+    // path cannot pass `null` into an audited money record.
+    const compReason = payload.reason ?? row.rationale ?? '';
+    if (!compReason) throw new Error('Comp approval has no reason');
     const { executeVendorSkuComp } = await import('@/app/admin/vendors/actions');
     await executeVendorSkuComp(admin, {
       vendorProfileId: row.target_id,
       sku: payload.sku,
-      reason: payload.reason ?? row.rationale,
+      reason: compReason,
       initiatedByAdminId: row.initiated_by,
       confirmingAdminId: row.decided_by,
     });
@@ -243,6 +250,10 @@ export async function approveRequest(formData: FormData) {
   try {
     await executeApproved(admin, claimed as {
       action_type: ApprovalActionType;
+      // Kept in step with executeApproved's parameter — a cast that omits a
+      // field does not fail at the cast, it fails at the call, one line later.
+      payload?: Record<string, unknown> | null;
+      initiated_by: string | null;
       target_user_id: string | null;
       target_id: string | null;
       rationale: string | null;

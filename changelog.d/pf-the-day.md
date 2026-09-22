@@ -100,3 +100,70 @@ answers 503. Both routes now 302 to R2 and serve real builds — a 2,823,382-byt
 `.dmg` and a 3,076,096-byte `.msi` — and the sizes the page prints are accurate.
 
 SPEC IMPACT: None — the page now says what is true of the file it hands over.
+
+## 2026-09-22 · fix(csp): name what face matching actually loads
+
+W6 / register LAU-10 — whose wording is *"the browser protection can be switched
+on WITHOUT BREAKING FACE MATCHING."* This is the thing it meant.
+
+The full policy (`default-src`, `script-src`, `connect-src`) is **report-only**;
+only `frame-ancestors`/`frame-src` are enforced. So the question is not "should
+we enforce" but "what breaks if we do" — and production has been answering for a
+month in `csp_violation_reports`.
+
+Read back, that table says: **the first-party violations are already fixed**
+(`pub-…r2.dev` last seen 2026-09-04; `www.setnayan.com` 2026-09-11; the OSM tile
+host was named in `img-src` on 2026-09-21). What was still outstanding is
+`cdn.jsdelivr.net` — 4 `script-src-elem` violations between 2026-08-22 and
+2026-09-18 — which is `lib/face-gate.ts` loading MediaPipe.
+
+⛔ **AND THE REPORT TABLE WAS NOT THE WHOLE ANSWER.** `face-gate.ts` loads TWO
+hosts: the wasm runtime from jsdelivr **and the model itself** from
+`storage.googleapis.com/mediapipe-models/…/blaze_face_short_range.tflite`. Only
+jsdelivr ever reached the table, because the model fetch happens only when face
+matching actually RUNS, and it rarely does in production yet.
+
+🔑 **REPORT-ONLY DATA IS A LOWER BOUND ON WHAT BREAKS.** A fix driven by the
+table alone names one host and leaves the other to fail later, under
+enforcement, on a real event. I made exactly that half-fix; the guard below
+caught it, because it reads the hosts out of `face-gate.ts` rather than from a
+list I typed.
+
+Both hosts are now named, and jsdelivr is in `script-src` **and** `connect-src` —
+not duplication: MediaPipe loads a LOADER SCRIPT and then FETCHES the wasm
+binary, and naming one leaves the other failing with a different error.
+
+⚠ This does NOT enforce the policy. It removes two reasons it could not be
+enforced. Flipping report-only to enforcing stays an owner decision.
+
+Proved by sabotage: dropping the model host — the one the reports never caught —
+turned the guard red; dropping jsdelivr from `script-src` only, the exact
+half-fix shape, turned two tests red. Restored, 3/3.
+
+SPEC IMPACT: None.
+
+## 2026-09-22 · fix(types): three errors no test could see
+
+CI's "Typecheck" step caught three faults that every unit test passed straight
+through — the class `source-reading guards cannot compile` describes:
+
+1. `liveWallUnreadable` was returned from the loader but never added to
+   `LiveLayerData`, so the object literal did not match its own return type.
+2. `executeApproved` used `row.initiated_by`, which its parameter type did not
+   declare.
+3. `reason: payload.reason ?? row.rationale` passed `string | null` where a
+   `string` was required — narrowed rather than asserted, so a future nullable
+   path cannot put `null` into an audited money record.
+
+And a fourth, found only by re-running after fixing those: the CALL SITE carried
+its own inline cast listing the same fields. **A cast that omits a field does
+not fail at the cast — it fails at the call, one line later**, which is why
+widening the parameter alone left the build red.
+
+🪤 The background wrapper reported **exit code 0** while the log held `tsc
+exit=2` and three errors. Read the log, not the wrapper. (Second time this has
+been observed; it is in memory as `tsc-full-project-killed-by-sandbox`.)
+
+All five guards added in this bundle re-run green afterwards.
+
+SPEC IMPACT: None.

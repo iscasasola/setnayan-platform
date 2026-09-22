@@ -353,7 +353,7 @@ See `STATUS.md` "What comes after Sprint 0" for the canonical iteration sequence
 - **Web:** auto-deploys on push to `main` via Vercel · `https://setnayan-platform-web.vercel.app`
 - **Desktop:** `.github/workflows/build-desktop.yml` produces `.dmg` + `.msi` on push to `main`
 - **Database:** Supabase Singapore · migrations via `supabase db push --db-url "$SUPABASE_DB_URL"`
-- **Object storage:** 4 Cloudflare R2 buckets in APAC
+- **Object storage:** 5 Cloudflare R2 buckets in APAC — `setnayan-media` (the only PUBLIC one, served from its `r2.dev` dev URL; no custom domain, `media.setnayan.com` does not resolve and is not being set up per the 2026-09-05 owner ruling) · `thread-files` · `vendor-contracts` · `vendor-verification` · `samples`, all private and presigned-only
 
 Owner sign-up email: `iscasasolaii@gmail.com` (hardcoded in the `on_auth_user_created` trigger for `is_internal=TRUE` per § 10a).
 

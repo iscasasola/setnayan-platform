@@ -230,8 +230,12 @@ const CSP_REPORT_ONLY = [
   // serves the `setnayan-media` bucket from its `r2.dev` dev subdomain
   // (measured live 2026-09-08 against `/download` and the homepage's own
   // rendered asset URLs), which is ADDED alongside the dead host below
-  // rather than replacing it — `R2_PUBLIC_URL` is unset in production today,
-  // so a future custom domain would need the same treatment, not a swap.
+  // rather than replacing it. ⚠ CORRECTED 2026-09-22: this said `R2_PUBLIC_URL`
+  // was "unset in production today". It IS set (`vercel env ls production` —
+  // Secret, added 2026-09-07, one day before the measurement above). It holds
+  // the r2.dev host. A future custom domain would still be an ADD, not a swap,
+  // because the dev URL is currently the ONLY public path to the bucket —
+  // disabling it before a custom domain is Active blacks out 1.11 GB of media.
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com https://cdn.jsdelivr.net https://storage.googleapis.com ipc: http://ipc.localhost",
   // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
   // a live outage scheduled for whenever someone enforces this draft: with no

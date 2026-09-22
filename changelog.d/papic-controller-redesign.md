@@ -31,3 +31,32 @@ different.
 SPEC IMPACT: `DECISION_LOG.md` 2026-09-22 rows (the per-type table and the two traps)
 are now BUILT rather than recorded; the floor/ceiling recommendation is carried into the
 corpus with this build.
+
+## 2026-09-22 · feat(papic): the credit recommendation learns — and the naive loop is wrong twice
+
+Owner: *"we will set the initial value. then create an average depending on the total
+credits used on actual events."* Migration
+`20271240727195_papic_pool_recommendation_learns_from_closed_events.sql` builds the
+mechanism. **It starts dormant** and changes no number on merge — the migration refuses
+to apply if any row already carries a learned figure.
+
+- **Trap 1 — there is no data.** Nine weddings hold 100,362 credits granted and ONE used
+  (measured 2026-09-22). A mean over that recommends ~0 a head, i.e. *"your wedding needs
+  no credits"*. A type needs `learning_min_sample` uncensored observations before anything
+  overrides the owner's figure; the initial stays as the fallback and is never overwritten.
+- **Trap 2 — usage measures supply, not demand.** An event that spent its whole pool may
+  have wanted twice as much, so averaging raw usage spirals downward. Exhausted
+  celebrations are excluded from the mean and enter as a **lower bound only** — they can
+  raise the figure, never lower it. Only closed capture windows count.
+- **The admin can see which figure is in force** (`/admin/pricing` → Papic), with the
+  sample behind it and what a recompute would do. Nothing recomputes on its own — this
+  repo has no scheduler, deliberately, and a number that tells couples how much to spend
+  should not move while nobody is looking. The 17 rows are editable there, all three
+  numbers together.
+- 🪤 **A fixture caught a real defect.** `papic_event_pool_status.guest_count` is a
+  literal 0 on every non-flat-pass event — which is every live celebration — so the first
+  cut of the sample query returned nothing and would have been permanently, silently
+  dormant. The denominator is `papic_event_guest_headcount` now.
+
+SPEC IMPACT: builds the 2026-09-22 ruling on learned recommendations, including both
+traps as recorded.

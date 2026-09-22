@@ -1574,7 +1574,7 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {showcaseError === 'missing_photo'
-            ? 'That clip is no longer in your gallery.'
+            ? 'That snippet is no longer in your gallery.'
             : 'Could not change that — please try again.'}
         </p>
       ) : null}
@@ -2278,7 +2278,7 @@ function CaptureDefaultsSection() {
     {
       Icon: Hand,
       title: 'Locked-down by design',
-      body: 'Rear-only, 10-second clip cap, no settings for your crew to fiddle with.',
+      body: 'Rear-only, 10-second snippet cap, no settings for your crew to fiddle with.',
     },
   ];
   return (

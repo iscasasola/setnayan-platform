@@ -107,24 +107,20 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   },
 
   // ── non-SKU figures: commission thresholds, free markers, examples ─────────
-  {
-    file: 'app/vendors/_components/vendor-tier-matrix.tsx',
-    literal: '₱100,000',
-    sku: null,
-    reason: 'Commission-tapering threshold (post-launch 5%→1%), not a purchasable price.',
-  },
-  {
-    file: 'app/vendors/_components/vendor-grow-sections.tsx',
-    literal: '₱100,000',
-    sku: null,
-    reason: 'Same commission-tapering threshold.',
-  },
-  {
-    file: 'app/_components/home/vendor-benefits.ts',
-    literal: '₱100,000',
-    sku: null,
-    reason: 'Same commission-tapering threshold.',
-  },
+  /*
+    ─── THREE MORE ENTRIES RETIRED 2026-09-22, THE SAME WAY AS 2026-08-13 ────
+    `vendor-tier-matrix.tsx` · `vendor-grow-sections.tsx` · `vendor-benefits.ts`
+    each declared the `₱100,000` commission-tapering threshold. All three now
+    render it through `bookingFeeScheduleSummary()`, which composes the taper
+    from `BOOKING_FEE` — the same source `bookingFeePhp` charges from, pinned by
+    `booking-fee-schedule-summary.test.ts`.
+
+    🔑 A DERIVED FIGURE IS STRICTLY STRONGER THAN A DECLARED ONE. A declaration
+    here is a standing promise that a human keeps a number in step; a derivation
+    cannot fall out of step at all. This file's own header says it: "A BASELINE
+    IS A BILL, NOT A DECISION", and four entries were already retired for
+    exactly this reason.
+  */
   {
     file: 'app/vendors/page.tsx',
     literal: '₱100,000',

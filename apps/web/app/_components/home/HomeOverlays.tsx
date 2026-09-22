@@ -39,6 +39,7 @@ import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
 import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 import { SignInHerePanel } from '@/app/_components/auth/sign-in-here-panel';
+import { supplierCommissionShort } from '@/lib/commission-promise';
 
 export type OverlayId =
   | 'prices'
@@ -295,7 +296,8 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       </p>
       <ul className="hr-glist">
         <li>
-          <b>0% commission</b> — keep 100% of every sale
+          {/* Supplier-facing: the second sentence is owed here. */}
+          <b>{supplierCommissionShort()}</b>
         </li>
         <li>Free business public website</li>
         <li>Get verified — free</li>

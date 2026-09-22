@@ -8,6 +8,7 @@ import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { supplierCommissionShort } from '@/lib/commission-promise';
 
 export const metadata = {
   title: 'Claim your Setnayan profile',
@@ -226,7 +227,10 @@ export default async function VendorClaimPage({ params }: Props) {
               <Perk>Free vendor profile + marketplace listing</Perk>
               <Perk>Chat with couples in-app</Perk>
               <Perk>Calendar + bookings dashboard</Perk>
-              <Perk>0% commission on bookings</Perk>
+              {/* A perk list is where half a promise hides best: "0% commission
+                  on bookings" read as the whole truth to a supplier who was
+                  about to be billed. Short form, still BOTH halves. */}
+              <Perk>{supplierCommissionShort()}</Perk>
               <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
             </ul>
           </section>

@@ -33,10 +33,28 @@ import { join, relative } from 'node:path';
 const WEB = process.cwd();
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 
-/** Function names whose body gates on the caller being a console admin. */
+/**
+ * Function names whose body gates on the caller being a console admin.
+ *
+ * 🪤 LAST DEFINITION WINS — corrected 2026-09-22. This used to add a name to the
+ * set on ANY migration that gated it, and never remove it. But an applied
+ * migration is never edited, so an old `CREATE OR REPLACE` stays on disk saying
+ * what the function USED to do forever; only the newest definition describes the
+ * gate that actually runs. The scan therefore reported
+ * `recompute_market_price_bands` as hard-gated after a later migration had
+ * widened it to `IF NOT (is_console_admin() OR auth.role() = 'service_role')`
+ * — the same class as the repo's own rule that a migration comment is not a
+ * measurement.
+ *
+ * Files are read in name order, which for this repo's 14-digit prefixes is
+ * application order, and a later definition REPLACES the earlier verdict rather
+ * than adding to it. That makes the guard stricter as well as truer: a function
+ * whose gate is later REMOVED now leaves the set, so a genuine regression that
+ * drops an admin check is no longer masked by an ancient definition that had one.
+ */
 function adminGatedFunctions(): Set<string> {
-  const gated = new Set<string>();
-  for (const file of readdirSync(MIGRATIONS)) {
+  const verdict = new Map<string, boolean>();
+  for (const file of readdirSync(MIGRATIONS).sort()) {
     if (!file.endsWith('.sql')) continue;
     const sql = readFileSync(join(MIGRATIONS, file), 'utf8');
     // Split on function headers, then keep a body that consults the gate.
@@ -53,10 +71,12 @@ function adminGatedFunctions(): Set<string> {
       // succeed on the service-role client.
       const hardGate =
         /IF\s+NOT\s+(?:public\.)?is_(?:console_)?admin\s*\(\s*\)[\s\S]{0,200}?RAISE/i.test(body);
-      if (hardGate) gated.add(name.toLowerCase());
+      // Overwrite, never accumulate — see the docblock. A redefinition that no
+      // longer hard-gates is a real change to the live function, not a gap.
+      verdict.set(name.toLowerCase(), hardGate);
     }
   }
-  return gated;
+  return new Set([...verdict].filter(([, gated]) => gated).map(([name]) => name));
 }
 
 function sourceFiles(): string[] {

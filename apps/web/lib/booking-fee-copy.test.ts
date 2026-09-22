@@ -71,10 +71,30 @@ for (const rel of SWEPT_FILES) {
     // a sweep that simply DELETED the rate would pass the check above while
     // leaving the vendor with no fee statement at all.
     const src = read(rel);
-    assert.match(
-      src,
-      /1\s*%[^\n]*₱100,000/,
-      `${rel} must still name the 1% tail beyond ₱100,000 — the taper is half the claim.`,
+    /*
+      ⚠ WIDENED 2026-09-22, NOT RELAXED. The requirement is unchanged: the page
+      must STATE the taper, because deleting the rate would pass the flat-rate
+      check above while leaving the vendor with no fee statement at all — which
+      is exactly what this test's own comment warns about.
+
+      What changed is that a page may now satisfy it by DERIVING the taper
+      through `bookingFeeScheduleSummary()` (directly, or through
+      `supplierCommissionPromise/Short()`, which compose it) instead of typing
+      it. That is strictly stronger, not weaker: the literal is a standing
+      promise that a human keeps ₱100,000 in step with `BOOKING_FEE`, while the
+      derivation reads the same constant `bookingFeePhp` charges from and is
+      pinned by `booking-fee-schedule-summary.test.ts`. Three such literals were
+      retired from `public-price-literals.ts` in the same commit, matching the
+      2026-08-13 precedent recorded there.
+    */
+    const statesLiteral = /1\s*%[^\n]*₱100,000/.test(src);
+    const derivesIt =
+      /bookingFeeScheduleSummary\(/.test(src) ||
+      /supplierCommission(Promise|Short)\(/.test(src);
+    assert.ok(
+      statesLiteral || derivesIt,
+      `${rel} must still name the 1% tail beyond ₱100,000 — the taper is half the claim. ` +
+        'State it, or derive it with bookingFeeScheduleSummary(); an empty page satisfies neither.',
     );
   });
 }

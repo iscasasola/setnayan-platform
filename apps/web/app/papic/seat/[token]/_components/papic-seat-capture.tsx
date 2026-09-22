@@ -785,7 +785,7 @@ export function PapicSeatCapture({
             return;
           }
           if (result.error === 'clip_too_long') {
-            setSaveError('Clips are capped at 10 seconds — give it another go.');
+            setSaveError('Snippets are capped at 10 seconds — give it another go.');
             patchShot(shot.id, { status: 'failed' });
             rollbackCount(shot.kind);
             return;
@@ -1062,7 +1062,7 @@ export function PapicSeatCapture({
         clipBitrate ? { mimeType: mime, videoBitsPerSecond: clipBitrate } : { mimeType: mime },
       );
     } catch {
-      setSaveError('Clips aren’t supported on this browser — photos still work.');
+      setSaveError('Snippets aren’t supported on this browser — photos still work.');
       return;
     }
 
@@ -1080,7 +1080,7 @@ export function PapicSeatCapture({
       if (blob.size === 0) {
         // A sub-frame hold produced no data — tell the paparazzo rather than
         // silently doing nothing (parity with the guest camera).
-        setSaveError('That clip came back empty — hold a little longer.');
+        setSaveError('That snippet came back empty — hold a little longer.');
         return;
       }
       const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
@@ -1641,7 +1641,7 @@ export function PapicSeatCapture({
               <p className="text-center text-xs text-cream/80">
                 {capNotice === 'photos'
                   ? 'That’s all your free photos — every one’s in the gallery.'
-                  : 'That’s all your free clips — every one’s in the gallery.'}
+                  : 'That’s all your free snippets — every one’s in the gallery.'}
               </p>
             )}
             {poolNotice && !saveError && !capNotice && (
@@ -1747,7 +1747,7 @@ export function PapicSeatCapture({
                         recording
                           ? 'Recording — release to stop'
                           : clipsAllowed
-                            ? 'Tap to take a photo, or press and hold to record a clip'
+                            ? 'Tap to take a photo, or press and hold to record a snippet'
                             : 'Tap to take a photo'
                       }
                       className="flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 bg-cream/10 transition active:scale-95 disabled:opacity-50"
@@ -1781,7 +1781,7 @@ export function PapicSeatCapture({
                         recording ? stopClip() : clipFull ? flashCapNotice('clips') : startClip()
                       }
                     >
-                      {recording ? 'Stop recording' : 'Record a 10-second clip'}
+                      {recording ? 'Stop recording' : 'Record a 10-second snippet'}
                     </button>
                   )}
                 </div>

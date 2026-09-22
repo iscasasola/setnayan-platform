@@ -624,7 +624,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-needs-two-admins',
         title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1: major decisions need two admins. That means ad-revenue activation, vendor verification override, a large refund above the policy threshold, force-majeure bulk resolution, payment-method config change, and any blanket policy update. Routine ops (review moderation, user lookup, manual help reply) stay single-admin. The exact refund threshold is set in the Vendor Agreement.',
+        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, adding a team member to the shared pool, a comp grant worth over ₱10,000 retail, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a vendor without the due-process timeline, refunding a single transaction over ₱25,000, and re-publishing a previously rejected vendor application. Routine ops stay single-admin — payment reconciliation, approving a vendor verification queue item, comp gifts up to ₱10,000, refunds up to ₱25,000, dispute mediation, review moderation and user lookup. The ₱25,000 and ₱10,000 figures are § 9.1\'s own; at the threshold exactly, one admin is enough.',
       },
       {
         slug: 'approving-an-action',
@@ -634,7 +634,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'routine-vs-major',
         title: 'Routine vs major — the rule of thumb',
-        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has significant financial impact above the policy threshold, or touches public trust (verification, refunds, ad activation). When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
+        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has significant financial impact above § 9.1\'s stated figures (₱25,000 for a refund, ₱10,000 for a comp), or touches public trust. When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
       },
     ],
   },

@@ -102,6 +102,21 @@ test('the comp EXECUTOR is reachable only from the approvals dispatcher', () => 
       const body = stripComments(readFileSync(abs, 'utf8'));
       if (!body.includes('executeVendorSkuComp')) continue;
 
+      // 🪤 NAMING A FUNCTION IS NOT REACHING IT. A file can hold the symbol as
+      // prose or data and be no kind of door: `lib/two-admin-promise.ts`
+      // documents which executor enforces which § 9.1 row, and said so in a
+      // note string, which made this guard report it as a second caller.
+      //
+      // The property is REACHABILITY, so the decisive question is whether the
+      // file CALLS it or IMPORTS it. A file doing neither cannot invoke it,
+      // whatever it says. Tested by sabotage: adding a real call to that file
+      // turns this red.
+      const callsIt = /executeVendorSkuComp\s*\(/.test(body);
+      const importsIt =
+        /import[^;]*executeVendorSkuComp/.test(body) ||
+        /await import\([^)]*\)[^;]*executeVendorSkuComp/.test(body);
+      if (!callsIt && !importsIt) continue;
+
       // 🪤 A GENERATED REGISTRY NAMES THE FUNCTION; IT DOES NOT CALL IT.
       // `lib/admin-map/admin-jobs.generated.ts` lists every exported admin
       // function as DATA — `"name": "executeVendorSkuComp"` — so adding the
@@ -151,5 +166,101 @@ test('the executor records the SECOND admin — approved_by is the confirmer', (
     body,
     /approved_by:\s*null/,
     'approved_by is null again — the gate writes no evidence that two people were involved',
+  );
+});
+
+/**
+ * ── The same three properties, for the § 9.1 refund gate ────────────────────
+ * Added 2026-09-22 with `approve_large_refund`. A refund over ₱25,000 moves
+ * more money in one press than a comp does, so it gets the same shape: the
+ * request path refunds nothing, the executor has one door, and the door is the
+ * approvals dispatcher.
+ */
+const PAYMENTS = 'app/admin/payments/actions.ts';
+
+test('the refund REQUEST path refunds nothing above the threshold', () => {
+  const src = read(PAYMENTS);
+  const body = bodyOf(src, 'refundOrder');
+
+  // The gate must sit BEFORE the flip. If `applyRefund` were called first, the
+  // money would already be recorded as returned by the time anyone was asked.
+  const gateAt = body.indexOf('refundNeedsTwoAdmins(');
+  const applyAt = body.indexOf('applyRefund(');
+  assert.ok(gateAt >= 0, 'refundOrder no longer consults the § 9.1 threshold');
+  assert.ok(applyAt >= 0, 'refundOrder no longer performs the refund at all');
+  assert.ok(
+    gateAt < applyAt,
+    'refundOrder performs the refund BEFORE testing the § 9.1 threshold. The approval would open ' +
+      'after the money was already recorded as returned, which is a receipt, not a gate.',
+  );
+
+  // And the gated branch must open an approval rather than fall through.
+  const gated = body.slice(gateAt, applyAt);
+  assert.match(
+    gated,
+    /action_type: 'approve_large_refund'/,
+    'the over-threshold branch does not open an approve_large_refund request',
+  );
+});
+
+test('the refund EXECUTOR is reachable only from the approvals dispatcher', () => {
+  const SKIP = new Set(['node_modules', '.next', 'dist']);
+  const callers: string[] = [];
+  let scanned = 0;
+
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      if (SKIP.has(entry)) continue;
+      const abs = join(dir, entry);
+      if (statSync(abs).isDirectory()) {
+        walk(abs);
+        continue;
+      }
+      if (!/\.(ts|tsx)$/.test(entry) || entry.includes('.test.')) continue;
+      scanned += 1;
+      const rel = abs.slice(WEB.length + 1);
+      if (rel === PAYMENTS) continue; // its definition
+      const body = stripComments(readFileSync(abs, 'utf8'));
+      if (!body.includes('executeLargeRefund')) continue;
+
+      // Same shape rule as the comp executor above: naming is not reaching.
+      const callsIt = /executeLargeRefund\s*\(/.test(body);
+      const importsIt =
+        /import[^;]*executeLargeRefund/.test(body) ||
+        /await import\([^)]*\)[^;]*executeLargeRefund/.test(body);
+      if (!callsIt && !importsIt) continue;
+      callers.push(rel);
+    }
+  };
+  walk(join(WEB, 'app'));
+  walk(join(WEB, 'lib'));
+
+  // 🔑 FLOOR THE SCAN. A walk that finds nothing reads exactly like a walk that
+  // proves nothing; print what was searched.
+  console.log(`[money-gate] scanned ${scanned} source files for executeLargeRefund callers`);
+  assert.ok(scanned > 500, `only ${scanned} files scanned — the walk is not reaching the tree`);
+
+  assert.deepEqual(
+    callers.sort(),
+    ['app/admin/approvals/actions.ts'],
+    'executeLargeRefund must be called ONLY by the approvals dispatcher. Any other caller is a ' +
+      'second door onto the money path, and a gate with a second door is decoration.',
+  );
+});
+
+test('the refund executor records the CONFIRMING admin, not the initiator', () => {
+  const body = bodyOf(read(PAYMENTS), 'executeLargeRefund');
+  assert.match(
+    body,
+    /actingAdminId: confirmingAdminId/,
+    'executeLargeRefund no longer attributes the refund to the confirming admin. The audit trail ' +
+      'must be able to show two people — that is the only thing four eyes is for.',
+  );
+  // It must also re-read the order rather than trust a payload up to 72h old.
+  assert.match(
+    body,
+    /from\('orders'\)/,
+    'executeLargeRefund no longer re-reads the order. A request can sit for 72 hours, in which ' +
+      'time the order can be refunded, cancelled or paid again.',
   );
 });

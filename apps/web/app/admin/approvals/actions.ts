@@ -190,6 +190,41 @@ async function executeApproved(
     return;
   }
 
+  // A refund over ₱25,000 is money leaving, and Vendor Agreement § 9.1 names
+  // that figure. The order rides in target_id; the amount, reason and proof
+  // ride in the payload. The amount is taken from the PAYLOAD, never re-read
+  // from the order total — the second admin is approving the number the first
+  // admin wrote down, not whatever the order says now.
+  if (row.action_type === 'approve_large_refund') {
+    if (!row.target_id) throw new Error('Refund approval has no target order');
+    if (!row.decided_by) throw new Error('Refund approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Refund approval has no initiating admin');
+    const payload = (row.payload ?? {}) as {
+      amount_php?: number;
+      reason?: string;
+      proof_url?: string | null;
+    };
+    const amountPhp = payload.amount_php;
+    if (typeof amountPhp !== 'number' || !Number.isFinite(amountPhp) || amountPhp <= 0) {
+      throw new Error('Refund approval has no usable amount');
+    }
+    // `rationale` is nullable in the row type even though the CHECK makes it
+    // 1..2000 chars — narrow rather than assert, so no audited money record
+    // can carry `null` as its reason.
+    const refundReason = payload.reason ?? row.rationale ?? '';
+    if (!refundReason) throw new Error('Refund approval has no reason');
+    const { executeLargeRefund } = await import('@/app/admin/payments/actions');
+    await executeLargeRefund(admin, {
+      orderId: row.target_id,
+      reason: refundReason,
+      proofUrl: payload.proof_url ?? null,
+      amountPhp,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+    });
+    return;
+  }
+
   if (!row.target_user_id) throw new Error('Request has no target user');
   const t = row.target_user_id;
 

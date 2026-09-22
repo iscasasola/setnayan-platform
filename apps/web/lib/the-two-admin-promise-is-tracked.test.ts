@@ -39,7 +39,15 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
-import { TWO_ADMIN_PROMISES, unimplementedPromises } from './two-admin-promise';
+import { stripComments } from './strip-comments';
+import {
+  TWO_ADMIN_PROMISES,
+  unimplementedPromises,
+  enforcedPromises,
+  refundNeedsTwoAdmins,
+  REFUND_TWO_ADMIN_THRESHOLD_PHP,
+  COMP_TWO_ADMIN_THRESHOLD_PHP,
+} from './two-admin-promise';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
@@ -88,8 +96,12 @@ test('the page makes no promise that is untracked', () => {
   assert.ok(to > from, 'the promise sentence has no terminator — has the copy been restructured?');
   const sentence = body.slice(from, to);
 
+  // ⚠ SPLIT ON A COMMA THAT IS NOT INSIDE A NUMBER. The clause's own figures
+  // are "₱25,000" and "₱10,000"; a bare /,/ cuts them in half and then reports
+  // "000 retail" as an untracked PROMISE. The thousands separator is the only
+  // comma in this sentence that does not end a phrase.
   const phrases = sentence
-    .split(/,\s*(?:and\s+)?/)
+    .split(/,(?!\d)\s*(?:and\s+)?/)
     .map((s) => s.trim())
     .filter((s) => s.length > 8);
 
@@ -114,6 +126,7 @@ test('an implemented promise must name a REAL action type', () => {
     'approve_fraud_wipe_ban',
     'approve_journal_spotlight',
     'approve_comp_grant',
+    'approve_large_refund',
   ]);
   for (const p of TWO_ADMIN_PROMISES) {
     if (p.actionType === null) continue;
@@ -132,14 +145,124 @@ test('every unimplemented promise says what implementing it would need', () => {
       `${p.key} has no usable note. "Not built" is not a finding; what it would take is.`,
     );
   }
-  // The refund one must keep naming the reason it cannot be specified here —
-  // otherwise a later session reads "not built" and invents a threshold.
+});
+
+/**
+ * ── This test replaced one whose premise expired ────────────────────────────
+ * It used to assert that the refund row kept SAYING the threshold "lives in the
+ * Vendor Agreement" — a guard against a later session inventing a number.
+ *
+ * 🔑 That guard was doing real work and was still wrong, because the number was
+ * never missing: § 9.1 states "> ₱25,000" outright, and a comment in
+ * `app/admin/payments/actions.ts` had repeated it since the pilot. The guard
+ * protected an absence that was actually a failure to look, and each session
+ * that read it was told, with authority, not to go looking.
+ *
+ * ⚠ A GUARD CAN PRESERVE THE THING IT WAS WRITTEN TO PREVENT. This one now
+ * asserts the opposite and stronger property: the refund row is ENFORCED, and
+ * names where.
+ */
+test('the refund promise is enforced, and says by what', () => {
   const refund = TWO_ADMIN_PROMISES.find((p) => p.key === 'large-refund');
   assert.ok(refund, 'the refund promise row is gone');
+  assert.equal(
+    refund.actionType,
+    'approve_large_refund',
+    'the § 9.1 refund gate lost its action type — a refund over the threshold would go through ' +
+      'on one admin again',
+  );
   assert.match(
     refund.note,
-    /Vendor Agreement/,
-    'the refund row must keep saying the threshold lives in the Vendor Agreement, or the next ' +
-      'session will pick a number',
+    /migration \d{14}/,
+    'the refund row must name the migration that put approve_large_refund in the CHECK, so the ' +
+      'next person can verify the gate exists rather than trust this row',
+  );
+});
+
+/**
+ * ── The threshold itself ────────────────────────────────────────────────────
+ * § 9.1 names two figures and puts the boundary on the SINGLE-admin side of
+ * both. These tests exist because the number was, for months, reported as
+ * unknowable — "the exact refund threshold is set in the Vendor Agreement" —
+ * while the clause stated it plainly and a comment in `app/admin/payments/
+ * actions.ts` repeated it.
+ */
+test('§ 9.1 thresholds are the contract\'s numbers, and the boundary is single-admin', () => {
+  assert.equal(REFUND_TWO_ADMIN_THRESHOLD_PHP, 25_000);
+  assert.equal(COMP_TWO_ADMIN_THRESHOLD_PHP, 10_000);
+
+  // "Process a refund ≤ ₱25,000" is named as single-admin authority for the
+  // Disputes and Payments Handlers. Exactly at the line, one admin is enough.
+  assert.equal(refundNeedsTwoAdmins(25_000), false, '₱25,000 exactly is single-admin per § 9.1');
+  assert.equal(refundNeedsTwoAdmins(24_999.99), false);
+  assert.equal(refundNeedsTwoAdmins(0.01), false);
+
+  // "Refund any single transaction > ₱25,000" is a major decision.
+  assert.equal(refundNeedsTwoAdmins(25_000.01), true);
+  assert.equal(refundNeedsTwoAdmins(100_000), true);
+});
+
+test('the page states the same figures the constants hold', () => {
+  const body = publishedBody();
+  // Written as the page writes them, with the thousands separator.
+  for (const n of [REFUND_TWO_ADMIN_THRESHOLD_PHP, COMP_TWO_ADMIN_THRESHOLD_PHP]) {
+    assert.ok(
+      body.includes(n.toLocaleString('en-US')),
+      `the help copy no longer states ₱${n.toLocaleString('en-US')}. The page and the gate must ` +
+        'quote one number — a page that names a different figure from the one the code enforces ' +
+        'is the defect this whole module exists to close.',
+    );
+  }
+});
+
+/**
+ * ⚠ THE GATE MUST READ THE SHARED RULE, NOT ITS OWN COPY OF THE NUMBER.
+ * A literal `25000` in the action would pass every test above and then drift
+ * the day the contract is renegotiated. One rule, imported by both sides.
+ */
+test('refundOrder gates on the shared rule and holds no threshold of its own', () => {
+  const src = stripComments(readFileSync(join(WEB, 'app/admin/payments/actions.ts'), 'utf8'));
+
+  assert.ok(
+    src.includes('refundNeedsTwoAdmins('),
+    'refundOrder no longer calls refundNeedsTwoAdmins — the § 9.1 refund gate is gone. If the ' +
+      'clause changed, change two-admin-promise.ts and say so in the changelog; do not remove ' +
+      'the gate.',
+  );
+  assert.ok(
+    src.includes('approve_large_refund'),
+    'refundOrder no longer opens an approve_large_refund request',
+  );
+
+  // The number may appear ONLY via the imported constant.
+  const literals = src.match(/\b25[_,]?000\b/g) ?? [];
+  console.log(`[two-admin] ${literals.length} hard-coded 25,000 literal(s) in payments/actions.ts`);
+  assert.deepEqual(
+    literals,
+    [],
+    'The refund threshold is written as a literal in payments/actions.ts. Import ' +
+      'REFUND_TWO_ADMIN_THRESHOLD_PHP instead — a second copy of a contractual number is a ' +
+      'second thing to forget.',
+  );
+});
+
+test('every enforced promise has an arm in the approvals dispatcher', () => {
+  // Complements every-approval-type-can-be-approved.test.ts from the other
+  // direction: that one starts from the types the code CREATES, this one from
+  // the promises the CONTRACT makes.
+  const dispatcher = stripComments(
+    readFileSync(join(WEB, 'app/admin/approvals/actions.ts'), 'utf8'),
+  );
+  const missing = enforcedPromises()
+    .filter((p) => !dispatcher.includes(`'${p.actionType}'`))
+    .map((p) => `${p.key} (${p.actionType})`);
+
+  console.log(`[two-admin] ${enforcedPromises().length} enforced, ${unimplementedPromises().length} not`);
+  assert.deepEqual(
+    missing,
+    [],
+    'A § 9.1 promise claims an action_type the dispatcher cannot execute. The request would open, ' +
+      'sit in the queue, and throw when the second admin pressed Approve — money stuck at the ' +
+      'last step.\n  ' + missing.join('\n  '),
   );
 });

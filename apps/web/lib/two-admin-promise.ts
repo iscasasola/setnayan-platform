@@ -1,99 +1,168 @@
 /**
- * two-admin-promise.ts — what `/help` promises needs two admins, and what the
- * code actually gates.
+ * two-admin-promise.ts — Vendor Agreement § 9.1, as one list both the help page
+ * and the admin actions read.
  *
- * ── The finding (2026-09-22) ────────────────────────────────────────────────
- * `/help` publishes, live, under "What needs two-admin approval":
+ * ── WHAT WAS WRONG (2026-09-22) ─────────────────────────────────────────────
+ * `/help` published, live, under "What needs two-admin approval":
  *
  *   "Per Vendor Agreement § 9.1: major decisions need two admins. That means
  *    ad-revenue activation, vendor verification override, a large refund above
  *    the policy threshold, force-majeure bulk resolution, payment-method config
- *    change, and any blanket policy update."
+ *    change, and any blanket policy update. … The exact refund threshold is set
+ *    in the Vendor Agreement."
  *
- * That is a **contractual commitment to suppliers**, citing a numbered clause.
+ * 🔑 **IT MISQUOTED THE CLAUSE IT CITED, IN BOTH DIRECTIONS.** § 9.1's major-
+ * decisions table does not contain "ad-revenue activation", "force-majeure bulk
+ * resolution" or "any blanket policy update" at all — those were invented. And
+ * it OMITTED five things the clause does require, including the one number that
+ * matters. § 9.1 is explicit:
  *
- * 🔑 THE FOUR-EYES MECHANISM IS REAL AND GATES A DIFFERENT SET. Production's
- * `admin_approval_requests` CHECK allows `grant_internal_account`,
- * `grant_team_pool`, `promote_to_admin`, `approve_vendor_partnership`,
- * `approve_fraud_wipe_ban`, `approve_journal_spotlight` — and, since this
- * session, `approve_comp_grant`. **Not one of the six the page promises.**
+ *     | Refund any single transaction **> ₱25,000** | Financial control |
+ *     | **Process a refund** ≤ ₱25,000 | Disputes Handler · Payments Handler |
  *
- * So the control exists, works, is enforced in the database
- * (`admin_approval_four_eyes`: `decided_by <> initiated_by`) — and is pointed
- * somewhere other than where the contract says it points.
+ * Worse, "vendor verification override" is listed by § 9.1 as the OPPOSITE —
+ * "Approve a vendor verification queue item" is named there as single-admin
+ * authority. The page told suppliers a routine action was double-checked.
  *
- * ── What this module is FOR, and what it is not ─────────────────────────────
- * It is not a fix. Implementing six approval flows is a body of work, and the
- * refund one cannot even be specified here: the page says "above the policy
- * threshold" and "the exact refund threshold is set in the Vendor Agreement" —
- * a number that lives in a contract, not in this repo.
+ * ⚠ **A CITATION IS NOT A QUOTATION.** The copy carried a clause number, which
+ * is what made it credible and what stopped anyone opening the clause. The
+ * number was never missing: it is in § 9.1, and it was also sitting in a
+ * comment in `app/admin/payments/actions.ts` ("refunds > ₱25K"). A session
+ * still escalated it to the owner as unknowable.
  *
- * ⛔ AND THAT NUMBER MUST NOT BE GUESSED. Owner ruling, 2026-08-31, on a
- * different invented default: *"don't guess."* A threshold that decides which
- * refunds need a second pair of eyes governs money and is quoted in an
- * agreement; picking one here and labelling it a guess would be the same
- * mistake with a comment attached.
- *
- * So this records the gap where the next session reads it, and the guard beside
- * it stops the promise and the code drifting further apart in silence.
+ * ── WHAT THIS MODULE IS ─────────────────────────────────────────────────────
+ * The § 9.1 table, transcribed, with the thresholds as constants. The help copy
+ * is generated against it, `refundOrder` gates on it, and
+ * `the-two-admin-promise-is-tracked.test.ts` fails if the page and this list
+ * stop agreeing — in either direction.
  */
 
-/** An action the published help page says requires two admins. */
+/**
+ * § 9.1: "Refund any single transaction **> ₱25,000**" needs two admins;
+ * "Process a refund ≤ ₱25,000" is single-admin. The boundary is single-admin,
+ * so the comparison is strict.
+ */
+export const REFUND_TWO_ADMIN_THRESHOLD_PHP = 25_000;
+
+/**
+ * § 9.1: "Issue an `unlimited_use_grant` worth **> ₱10,000** retail to an
+ * external customer" needs two admins; "Issue a comp gift worth ≤ ₱10,000
+ * retail" is single-admin. Same strict boundary.
+ */
+export const COMP_TWO_ADMIN_THRESHOLD_PHP = 10_000;
+
+/**
+ * Does this refund need a second admin?
+ *
+ * 🔒 STRICT `>`, DELIBERATELY. A refund of exactly ₱25,000 is single-admin by
+ * the contract. Making the boundary inclusive would be safer-feeling and would
+ * still be a breach of what the vendor signed — in the direction of slowing the
+ * Disputes Handler on an amount they were promised authority over.
+ */
+export function refundNeedsTwoAdmins(amountPhp: number): boolean {
+  return amountPhp > REFUND_TWO_ADMIN_THRESHOLD_PHP;
+}
+
+/** Does this comp gift need a second admin? Same shape, § 9.1's other number. */
+export function compNeedsTwoAdmins(retailPhp: number): boolean {
+  return retailPhp > COMP_TWO_ADMIN_THRESHOLD_PHP;
+}
+
+/** A row of § 9.1's "major decisions" table. */
 export type TwoAdminPromise = {
   /** Short key, for the guard and for talking about it. */
   key: string;
-  /** The words on the page, so a copy change is detectable. */
+  /** The words on the help page, so a copy change is detectable. */
   asPublished: string;
+  /** § 9.1's own "why two-admin" column, verbatim. */
+  whyPerClause: string;
   /**
    * The `admin_approval_requests.action_type` that implements it, or `null`
-   * when nothing does. `null` is a statement of fact, not a TODO: the page
-   * promises it today, to suppliers, under a contract clause.
+   * when nothing does. `null` is a statement of fact, not a TODO: the clause
+   * binds today, and every vendor has signed it.
    */
   actionType: string | null;
-  /** Why it is not implemented, or what implementing it would need. */
+  /** Where it is enforced, or what enforcing it would need. */
   note: string;
 };
 
+/**
+ * § 9.1's major-decisions table, all nine rows, in the contract's own order.
+ * ⚠ Do not add a row that is not in § 9.1, and do not drop one that is. The
+ * page is generated from this; the contract is not.
+ */
 export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
   {
-    key: 'ad-revenue-activation',
-    asPublished: 'ad-revenue activation',
-    actionType: null,
-    note: 'Paid placement going live on the public marketplace. No approval type exists; the admin boost dial writes directly.',
+    key: 'promote-to-admin',
+    asPublished: 'promoting a user to any admin role',
+    whyPerClause: 'Privilege escalation — irreversible damage potential',
+    actionType: 'promote_to_admin',
+    note: 'Enforced. In the live CHECK since the approvals table shipped.',
   },
   {
-    key: 'vendor-verification-override',
-    asPublished: 'vendor verification override',
+    key: 'internal-account',
+    asPublished: 'adding an internal account',
+    whyPerClause: 'Bypasses all billing permanently',
+    actionType: 'grant_internal_account',
+    note: 'Enforced (§ 10a). `users.is_internal = TRUE` passes every paid gate, which is why it is here.',
+  },
+  {
+    key: 'team-pool',
+    asPublished: 'adding a team member to the shared pool',
+    whyPerClause: 'Grants ongoing pool draw rights',
+    actionType: 'grant_team_pool',
+    note: 'Enforced (§ 10b). `users.is_team_member = TRUE`.',
+  },
+  {
+    key: 'large-comp-grant',
+    asPublished: 'a comp grant worth over ₱10,000 retail',
+    whyPerClause: 'Material giveaway',
+    actionType: 'approve_comp_grant',
+    note: 'Enforced since 2026-09-22 (migration 20271240919693). `issueVendorSkuComp` opens the approval; `executeVendorSkuComp` writes `granted_by` and `approved_by` as two different admins. Threshold: COMP_TWO_ADMIN_THRESHOLD_PHP.',
+  },
+  {
+    key: 'payment-account-change',
+    asPublished: 'changing the BDO or GCash receiving account',
+    whyPerClause: 'Payment redirection = fraud risk',
     actionType: null,
-    note: 'Granting the verified badge against the paper check. Register SUP-29 separately asks that Approve switch from WARN to REFUSE once real outside suppliers apply.',
+    note: '⚠ NOT ENFORCED, and arguably the highest-consequence row in the clause: it redirects every future payment rather than moving one amount. The account numbers are platform settings, not repo constants — see `a-zero-is-not-evidence-unless-you-searched-where-the-answer-lives`. Needs the settings write path identified before it can be gated.',
+  },
+  {
+    key: 'mid-quarter-price-change',
+    asPublished: 'a mid-quarter price change on any in-app SKU',
+    whyPerClause: 'Pricing governance (per § 8)',
+    actionType: null,
+    note: '⚠ NOT ENFORCED. Prices live in `platform_retail_catalog_v2`, which is admin-managed — the single place a customer-charged price comes from. Gating this means gating that table\'s write path, not adding a constant.',
+  },
+  {
+    key: 'vendor-force-delisting',
+    asPublished: 'force-delisting a vendor without the due-process timeline',
+    whyPerClause: 'Vendor protection',
+    actionType: null,
+    note: '⚠ NOT ENFORCED. Distinct from `approve_fraud_wipe_ban`, which is in the live CHECK and covers the fraud path; this row is the NON-fraud revocation that skips the timeline the vendor was promised.',
   },
   {
     key: 'large-refund',
-    asPublished: 'a large refund above the policy threshold',
-    actionType: null,
-    note: '⛔ CANNOT BE SPECIFIED HERE. The page itself says "the exact refund threshold is set in the Vendor Agreement" — the number lives in a contract, not this repo. `refundOrder` today accepts any amount up to a ₱100M paste-typo guard, from one admin. Implementing this needs the owner to state the threshold first.',
+    asPublished: 'refunding a single transaction over ₱25,000',
+    whyPerClause: 'Financial control',
+    actionType: 'approve_large_refund',
+    note: 'Enforced since 2026-09-22 (migration 20271241619056). `refundOrder` opens an approval above REFUND_TWO_ADMIN_THRESHOLD_PHP and refunds directly at or below it, per § 9.1\'s single-admin row.',
   },
   {
-    key: 'force-majeure-bulk-resolution',
-    asPublished: 'force-majeure bulk resolution',
+    key: 'republish-rejected-vendor',
+    asPublished: 're-publishing a previously rejected vendor application',
+    whyPerClause: 'Verification integrity',
     actionType: null,
-    note: 'Resolving many affected bookings at once. `app/admin/force-majeure/actions.ts` requires notes for refund/partial-credit but no second admin.',
-  },
-  {
-    key: 'payment-method-config-change',
-    asPublished: 'payment-method config change',
-    actionType: null,
-    note: 'Changing where money arrives. Arguably the highest-consequence item on the list, since it redirects funds rather than moving a single amount.',
-  },
-  {
-    key: 'blanket-policy-update',
-    asPublished: 'any blanket policy update',
-    actionType: null,
-    note: 'Deliberately broad in the contract. Would need the owner to name which concrete admin screens it covers before it can be gated.',
+    note: '⚠ NOT ENFORCED. `approve_vendor_partnership` is in the live CHECK but covers the partnership decision, not the re-publication of an application already rejected once.',
   },
 ];
 
-/** Promises with no mechanism behind them. */
+/** Rows § 9.1 binds that nothing in the code enforces. */
 export function unimplementedPromises(): readonly TwoAdminPromise[] {
   return TWO_ADMIN_PROMISES.filter((p) => p.actionType === null);
+}
+
+/** Rows that are enforced, with the action type that does it. */
+export function enforcedPromises(): readonly TwoAdminPromise[] {
+  return TWO_ADMIN_PROMISES.filter((p) => p.actionType !== null);
 }

@@ -39,8 +39,21 @@
  */
 export const DPO_EMAIL = 'dpo@setnayan.com';
 
-/** Ordinary customer support — NOT a substitute for the DPO address above. */
-export const SUPPORT_EMAIL = 'support@setnayan.com';
+/**
+ * Ordinary customer support — NOT a substitute for the DPO address above.
+ *
+ * ⚠ `support@setnayan.com` WAS PUBLISHED FOR MONTHS AND NEVER EXISTED. The
+ * domain receives mail through iCloud+ Custom Email Domain, which caps a plan
+ * at **three** addresses, and all three were already spent: `live@`, `dpo@`,
+ * `noreply@`. So every unsubscribe line and receipt that named `support@` was
+ * pointing customers at a bounce.
+ *
+ * 🔑 A DOMAIN ACCEPTING MAIL IS NOT A MAILBOX EXISTING. A session confirmed the
+ * MX records resolved and read that as the address working; the owner's own
+ * iCloud screen was what settled it. Owner ruled 2026-09-22: **use `live@`**,
+ * which exists today, rather than buying a plan tier for a fourth address.
+ */
+export const SUPPORT_EMAIL = 'live@setnayan.com';
 
 /**
  * Domains a published Setnayan surface may never point a person at. Consumer

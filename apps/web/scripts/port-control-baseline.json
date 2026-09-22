@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b02063e90",
+  "generatedFromRef": "6edffa3de",
   "routeCount": 430,
-  "destinations": 925,
+  "destinations": 927,
   "actions": 655,
-  "blocks": 4608,
+  "blocks": 4614,
   "routes": {
     "/": {
       "files": [
@@ -7882,6 +7882,7 @@
         "VendorQuickViewInspector",
         "VendorStatus",
         "WaitingForQuotes",
+        "WaitingRow",
         "WeddingFolder",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
@@ -8853,7 +8854,10 @@
         "open-shop/city-actions.ts",
         "open-shop/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/privacy",
+        "/terms"
+      ],
       "actions": [
         "becomeVendor"
       ],
@@ -8861,6 +8865,7 @@
         "AddressCheck",
         "AddressPreview",
         "CityPin",
+        "DesktopOAuthButtons",
         "DetectedCity",
         "FileUpload",
         "HTMLDivElement",
@@ -8869,10 +8874,13 @@
         "LeafletMarker",
         "LeafletModule",
         "LocatedAddress",
+        "OAuthButtonRow",
         "OpenShopWizard",
         "ServicePicker",
+        "SignInHereLink",
         "Step",
-        "SubmitButton"
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/our-story": {
@@ -10696,6 +10704,7 @@
         "Resolved",
         "RevealToolButton",
         "SendProposalCard",
+        "ServiceCardQuoteSeed",
         "Sheet",
         "ShutTool",
         "SnapRow",

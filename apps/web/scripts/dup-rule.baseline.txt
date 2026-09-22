@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 374
+# facts: 373
 #   shadow  20
-#   omit    354
+#   omit    353
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -337,7 +337,6 @@ omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	role
-omit	app/vendor-dashboard/messages/[threadId]/page.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	proposal_id
 omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	consumable_budget_centavos
 omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	created_at
 omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	description

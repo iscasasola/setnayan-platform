@@ -7,13 +7,17 @@ import {
 } from '@/lib/setnayan-gift';
 import {
   bookingFeeForecast,
+  feePesos,
   type BookingFeeStanding,
 } from '@/lib/booking-fee-disclosure';
+import { bookingFeePhp } from '@/lib/booking-fee';
+import { formatGiftPhotos } from '@/lib/setnayan-gift';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import {
   papicTopUpForQuote,
   standingForQuoteSwitch,
   defaultQuoteSwitch,
+  openingGiftSwitch,
   quoteGiftSwitchCopy,
   type PapicQuoteStanding,
 } from '@/lib/papic-on-a-quote';
@@ -37,8 +41,19 @@ import {
 import {
   sendCustomProposalFromChat,
   loadPackageLinesForQuote,
+  loadServiceCardLinesForQuote,
   type QuoteSeedLine,
 } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
+import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-service-card';
+import type { QuoteEventBrief } from '@/lib/quote-event-brief';
+import {
+  QUOTE_STAGES,
+  nextStage,
+  openingStage,
+  stageStates,
+  stageSummaries,
+  type QuoteStageId,
+} from '@/lib/quote-stages';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 
 /**
@@ -93,6 +108,25 @@ export type ProposalPaymentMethodOption = {
   provider: string | null;
   /** Approved + shown → publishable by default; else the vendor can still pick it but it's flagged. */
   publishable: boolean;
+};
+
+/**
+ * ONE OF THE SHOP'S SERVICE CARDS, as the "Your cards" picker offers it
+ * (owner 2026-09-22: *"load 1 or multiple service cards combined"*). The
+ * label is the card's title or its kind in the shop's own words — resolved
+ * on the server through `cardKindLabeller`, never the raw key.
+ */
+export type QuoteCardOption = {
+  id: string;
+  label: string;
+  /** "from ₱X" as the card advertises it, or null when unpriced. */
+  fromPhp: number | null;
+  /** Priced extras on the card; ticking one adds it as a line. */
+  addons: { id: number; label: string; fromPhp: number | null }[];
+  /** "Comes with" — the kinds this card bundles, as the wizard's links name them. */
+  comesWith: string[];
+  /** The card's Setnayan-gift switch — shown, not yet a control on the quote (slice G). */
+  giftOn: boolean;
 };
 
 /** One manual installment row in the editor (peso/percent-facing). */
@@ -166,6 +200,89 @@ function basisDetail(l: Line, pax: number, hours: number): string | null {
   return null;
 }
 
+/* ── One step of the five (owner 2026-09-22: "evident separation … a clean continuity") ── */
+
+/**
+ * A STEP ON THE SPINE. Draws only what `lib/quote-stages.ts` decided: its
+ * number, title and state, the one-line summary when folded, and the Next band
+ * that ends every step but the last. The body is HIDDEN, not unmounted, when
+ * the step is folded — every input keeps its state and every existing mount
+ * guard keeps counting one of each control.
+ */
+function QuoteStage({
+  id,
+  state,
+  summary,
+  onOpen,
+  onNext,
+  children,
+}: {
+  id: QuoteStageId;
+  state: 'done' | 'cur' | 'later';
+  summary: string;
+  onOpen: () => void;
+  onNext: (() => void) | null;
+  children: React.ReactNode;
+}) {
+  const def = QUOTE_STAGES.find((d) => d.id === id)!;
+  const isCur = state === 'cur';
+  return (
+    <section
+      data-stage={id}
+      data-state={state}
+      aria-label={`Step ${def.n} of ${QUOTE_STAGES.length}: ${def.title}`}
+      className={`relative border-b border-ink/10 pl-12 ${state === 'later' ? 'opacity-60' : ''}`}
+    >
+      {/* the spine: number bubble + the line to the next step */}
+      <span
+        aria-hidden
+        className={`absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold ${
+          isCur
+            ? 'border-terracotta bg-terracotta text-cream'
+            : state === 'done'
+              ? 'border-success-300 bg-success-100 text-success-700'
+              : 'border-ink/15 bg-white text-ink/50'
+        }`}
+      >
+        {state === 'done' ? '✓' : def.n}
+      </span>
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={isCur}
+        className="flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left disabled:cursor-default"
+      >
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
+          Step {def.n} of {QUOTE_STAGES.length}
+        </span>
+        <span className="font-serif text-lg font-semibold leading-tight text-ink">{def.title}</span>
+        {!isCur ? (
+          <span className="text-xs text-ink/60">
+            {state === 'later' ? 'Up next · ' : ''}
+            {summary}
+          </span>
+        ) : null}
+      </button>
+      <div hidden={!isCur} className="pb-1">
+        {children}
+        {onNext && def.lead ? (
+          <div className="mx-4 mb-4 mt-2 flex items-center gap-3 rounded-xl bg-ink px-4 py-3 text-cream">
+            <span className="flex-1 text-sm text-cream/80">{def.lead}</span>
+            <button
+              type="button"
+              onClick={onNext}
+              data-stage-next={id}
+              className="inline-flex h-10 items-center rounded-full bg-terracotta-700 px-4 text-sm font-semibold text-cream hover:brightness-95"
+            >
+              Next · {QUOTE_STAGES.find((d) => d.id === nextStage(id))?.title}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 /* ── Component ───────────────────────────────────────────────────────────── */
 
 let schedSeq = 0;
@@ -194,6 +311,8 @@ export function ProposalMaker({
   requestedHours = 8,
   coupleName,
   packages = [],
+  cards = [],
+  brief = null,
   coupleCrewProvider = null,
   paymentMethods = [],
   viewerPromo = null,
@@ -273,6 +392,24 @@ export function ProposalMaker({
   requestedHours?: number;
   coupleName?: string | null;
   packages?: { id: string; name: string }[];
+  /**
+   * THE SHOP'S SERVICE CARDS — the seed every real shop can use. Measured
+   * 2026-09-22: production holds 0 packages and 0 templates, so the picker
+   * above never rendered for anyone; the two live cards were unreachable.
+   * Picking one or several REPLACES the lines with what the cards say and
+   * sets crew / travel / discount / schedule from them (`applyCardSeedToDraft`
+   * decides exactly what a card overrides and what the supplier keeps).
+   */
+  cards?: QuoteCardOption[];
+  /**
+   * STEP 1 · KNOW THE EVENT — what Setnayan can tell the supplier while they
+   * price (owner 2026-09-22: "the vendor must see the basic information we can
+   * provide to them"). Built on the server by `briefForQuote` from the SAME
+   * rows the customer rail shows, plus the stage-1 facts (area, asked-for,
+   * budget band, style, locked categories) and — only under an enforced fee —
+   * the names of what is withheld. Null → the step shows guests & hours only.
+   */
+  brief?: QuoteEventBrief | null;
   /** When the couple has booked a crew-meal marketplace service, the provider name (enables the offset banner). */
   coupleCrewProvider?: string | null;
   /** The vendor's published payment methods (§ 9) — the couple sees the picked subset. */
@@ -291,6 +428,10 @@ export function ProposalMaker({
   // quote" and a closed "Build a quote" button would read as a link that did
   // nothing (the same trap the `?compose=deal` panel fell into on 2026-09-18).
   const [open, setOpen] = useState(revision != null);
+  // WHICH STEP IS OPEN. A fresh quote starts at Know the event; "Update this
+  // quote" opens at Set the price (`openingStage`). Nothing is locked — a
+  // folded step's header reopens it.
+  const [stage, setStage] = useState<QuoteStageId>(() => openingStage({ revision: revision != null }));
   /*
     THE OPENING GUEST COUNT — the live one, falling back to the inquiry count.
 
@@ -347,6 +488,18 @@ export function ProposalMaker({
   const [note, setNote] = useState(revision?.note ?? '');
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [seeding, startSeed] = useTransition();
+  // "Your cards": which of the shop's cards this quote is built from, which of
+  // their add-ons are ticked, and what the last seed said about the event.
+  const [pickedCards, setPickedCards] = useState<Record<string, boolean>>({});
+  const [chosenAddons, setChosenAddons] = useState<Record<number, boolean>>({});
+  // The reason beside the Discount field ("Booked 3+ months ahead · −10%") — the
+  // card's, applied (owner 2026-09-22). Cleared the moment the supplier types
+  // over the figure, so a hand-edited discount is never captioned as the card's.
+  const [discountReason, setDiscountReason] = useState<string | null>(null);
+  // The card's reservation terms, shown under the schedule it seeded.
+  const [cardTerms, setCardTerms] = useState<string | null>(null);
+  const [cardWarnings, setCardWarnings] = useState<QuoteSeedWarning[]>([]);
+  const [cardTitle, setCardTitle] = useState<string>('');
   /*
     THE SETNAYAN GIFT ON THIS QUOTE (owner 2026-09-22: "per-quote switch", and,
     on the switch drawn disabled in the approved prototype: "We want this
@@ -360,9 +513,19 @@ export function ProposalMaker({
     unreadable ladder — stays null and renders NO switch: there is no question
     to answer, and a switch over a gift that cannot exist is a control that
     does nothing.
+
+    ON A REVISION it opens at the SUPPLIER'S OWN last answer instead of the
+    card's — `openingGiftSwitch` asks the current booking whether there is a
+    switch at all, and only then lets the replaced quote set its value. Before
+    that, every other field in this builder seeded from the revision and this
+    one did not, so "Update this quote" silently reset a decision the supplier
+    had already made, and nothing errored.
   */
   const [giftSwitch, setGiftSwitch] = useState<boolean | null>(() =>
-    defaultQuoteSwitch(papicStanding ?? { kind: 'silent' }),
+    openingGiftSwitch({
+      revisionAnswer: revision?.giftSwitch,
+      cardsAnswer: defaultQuoteSwitch(papicStanding ?? { kind: 'silent' }),
+    }),
   );
 
   /*
@@ -429,7 +592,7 @@ export function ProposalMaker({
               detail: viewerPromo.terms,
               amount_centavos: -discountC,
             }
-          : { label: 'Discount', detail: null, amount_centavos: -discountC },
+          : { label: 'Discount', detail: discountReason, amount_centavos: -discountC },
       );
     } else if (viewerPromo) {
       // No peso amount entered yet — still reflect the promised promo on the
@@ -448,7 +611,7 @@ export function ProposalMaker({
       });
     }
     return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
-  }, [items, crew, transport, discountPhp, pax, hours, viewerPromo]);
+  }, [items, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo]);
 
   /**
    * THE GIFT, RE-PRICED AS THEY TYPE — and what it costs them.
@@ -535,6 +698,44 @@ export function ProposalMaker({
   const schedule = useMemo(() => resolveSchedule(scheduleDraft), [scheduleDraft]);
   // The generated auto "Final balance" row (last resolved installment), if any.
   const autoRow = schedule.installments.find((r) => r.is_auto_balance) ?? null;
+
+  /**
+   * THE FIVE STEPS — their states and their one-line summaries, from the live
+   * draft through `lib/quote-stages.ts`. The fee and the Papic figures are the
+   * SAME calls the open step renders (`bookingFeePhp` on the standing's own
+   * schedule; `gift` from `previewGiftForTotal`), so a folded step can never
+   * show a number the open one does not.
+   */
+  const stageState = stageStates(stage);
+  const pickedCardLabels = cards.filter((c) => pickedCards[c.id]).map((c) => c.label);
+  const feeText =
+    feeStanding && (feeStanding.kind === 'free' || feeStanding.kind === 'billable') && netPayable > 0
+      ? `${feePesos(bookingFeePhp(netPayable / 100, feeStanding.schedule))}${feeStanding.kind === 'free' ? ' waived' : ''}`
+      : null;
+  const papicText = gift
+    ? `${formatGiftPhotos(gift.credits)} photos`
+    : papicStanding?.kind === 'available'
+      ? 'off'
+      : null;
+  const stageSummary = stageSummaries({
+    eventLine: brief?.eventLine ?? (coupleName?.trim() || null),
+    pax,
+    hours,
+    cardsLine: pickedCardLabels.length ? pickedCardLabels.join(' + ') : null,
+    netPayableCentavos: netPayable,
+    feeText,
+    papicText,
+    paymentsCount: installments.length + (autoRow && autoRow.amount_centavos > 0 ? 1 : 0),
+    railLabels: paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.label),
+    validUntil,
+  });
+  const stageProps = (id: QuoteStageId) => ({
+    id,
+    state: stageState[id],
+    summary: stageSummary[id],
+    onOpen: () => setStage(id),
+    onNext: nextStage(id) ? () => setStage(nextStage(id)!) : null,
+  });
 
   const selectedMethodIds = useMemo(
     () => paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.id),
@@ -640,6 +841,60 @@ export function ProposalMaker({
     });
   }
 
+  /**
+   * RE-SEED FROM THE PICKED CARDS. Every change to the pick or the ticked
+   * add-ons re-reads the cards on the server (the event date and the card's
+   * sibling rows are read there, never trusted from here) and hands the seed
+   * to `applyCardSeedToDraft`, which decides what the card overrides.
+   */
+  function reseedFromCards(nextPicked: Record<string, boolean>, nextAddons: Record<number, boolean>) {
+    const ids = cards.filter((c) => nextPicked[c.id]).map((c) => c.id);
+    if (ids.length === 0) {
+      setDiscountReason(null);
+      setCardTerms(null);
+      setCardWarnings([]);
+      setCardTitle('');
+      return;
+    }
+    startSeed(async () => {
+      const seed = await loadServiceCardLinesForQuote({
+        threadId,
+        vendorServiceIds: ids,
+        chosenAddonIds: Object.entries(nextAddons)
+          .filter(([, on]) => on)
+          .map(([id]) => Number(id)),
+        pax,
+        hours,
+      });
+      if (!seed) return;
+      const after = applyCardSeedToDraft(seed, {
+        crew,
+        transport,
+        discountPhp,
+        coupleProvidesCrewMeal: Boolean(coupleCrewProvider),
+      });
+      setItems(after.lines.map((l) => ({ ...l, key: nextKey() })));
+      setCrew(after.crew);
+      setTransport(after.transport);
+      setDiscountPhp(after.discountPhp);
+      setDiscountReason(after.discountReason);
+      if (after.schedule) setInstallments(after.schedule.map((d) => ({ ...d, key: nextSchedKey() })));
+      setCardTerms(after.terms);
+      setCardWarnings(seed.warnings);
+      setCardTitle(after.title);
+    });
+  }
+  const toggleCard = (id: string) => {
+    const next = { ...pickedCards, [id]: !pickedCards[id] };
+    setPickedCards(next);
+    reseedFromCards(next, chosenAddons);
+  };
+  const toggleAddon = (id: number) => {
+    const next = { ...chosenAddons, [id]: !chosenAddons[id] };
+    setChosenAddons(next);
+    reseedFromCards(pickedCards, next);
+  };
+
   /*
     Undo my edits — back to what the builder OPENED at, not back to the inquiry
     count. Reset that jumped to a different number than the one the supplier
@@ -700,6 +955,57 @@ export function ProposalMaker({
         </div>
       ) : null}
 
+      {/* THE STEP STRIP — where the supplier is, and the way back to any step. */}
+      <div data-testid="quote-step-strip" className="flex gap-1 overflow-x-auto border-b border-ink/10 px-3 py-2">
+        {QUOTE_STAGES.map((d) => (
+          <button
+            key={d.id}
+            type="button"
+            onClick={() => setStage(d.id)}
+            aria-pressed={stageState[d.id] === 'cur'}
+            className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] ${
+              stageState[d.id] === 'cur'
+                ? 'bg-ink text-cream'
+                : stageState[d.id] === 'done'
+                  ? 'text-success-700'
+                  : 'text-ink/40'
+            }`}
+          >
+            {stageState[d.id] === 'done' ? '✓ ' : `${d.n} `}
+            {d.title}
+          </button>
+        ))}
+      </div>
+
+      {/* ── STEP 1 · KNOW THE EVENT ─────────────────────────────────────── */}
+      <QuoteStage {...stageProps('know')}>
+      {/* THEIR EVENT — the rail's rows plus the stage-1 facts, beside the quote. */}
+      {brief ? (
+        <div data-testid="quote-event-brief" className="space-y-2 border-b border-ink/10 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className={lbl}>Their event</span>
+            <a href={brief.fullBriefHref} className="text-[11px] text-terracotta-700 underline hover:text-terracotta">
+              Full brief ›
+            </a>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+            {brief.rows.map((r) => (
+              <div key={r.label} className="contents">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45 pt-0.5">{r.label}</dt>
+                <dd className={`text-right ${r.unknown ? 'text-ink/45' : 'text-ink'}`}>
+                  {r.value}
+                  {r.note ? <span className="text-ink/45"> · {r.note}</span> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {brief.withheld ? (
+            <p data-testid="quote-brief-withheld" className="text-[11px] text-ink/55">
+              <span className="font-medium text-ink/70">{brief.withheld.headline}</span> {brief.withheld.detail}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {/* Header — seeded pax/hours (rule 0) */}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-4">
         <div className="min-w-0">
@@ -753,6 +1059,99 @@ export function ProposalMaker({
         </div>
       </div>
 
+      </QuoteStage>
+
+      {/* ── STEP 2 · CHOOSE WHAT TO OFFER ───────────────────────────────── */}
+      <QuoteStage {...stageProps('offer')}>
+      {/* YOUR CARDS — the shop's service cards seed the quote (owner 2026-09-22).
+          One or several; each contributes its priced line, its freebies and the
+          add-ons ticked under it. Mounted ONCE, and only when the shop has a card. */}
+      {cards.length > 0 ? (
+        <div data-testid="quote-card-picker" className="space-y-2 border-b border-ink/10 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className={lbl}>Your cards</span>
+            <span className="text-[11px] text-ink/45">
+              {seeding ? 'Loading…' : 'Pick one or more · sets the lines, terms and discount'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {cards.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggleCard(c.id)}
+                disabled={seeding}
+                aria-pressed={Boolean(pickedCards[c.id])}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${
+                  pickedCards[c.id]
+                    ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                    : 'border-ink/15 bg-white text-ink/70 hover:border-ink/40'
+                }`}
+              >
+                {pickedCards[c.id] ? '✓ ' : '+ '}
+                {c.label}
+                {c.fromPhp != null ? (
+                  <span className="text-ink/45">· from {formatCentavos(toCentavos(c.fromPhp))}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+          {cards
+            .filter((c) => pickedCards[c.id] && (c.addons.length > 0 || c.comesWith.length > 0))
+            .map((c) => (
+              <div key={`x-${c.id}`} className="flex flex-wrap items-center gap-1.5 pl-1 text-[11px] text-ink/55">
+                <span>{c.label}:</span>
+                {c.addons.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => toggleAddon(a.id)}
+                    disabled={seeding}
+                    aria-pressed={Boolean(chosenAddons[a.id])}
+                    className={`rounded-full border px-2 py-0.5 ${
+                      chosenAddons[a.id]
+                        ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                        : 'border-ink/15 bg-white hover:border-ink/40'
+                    }`}
+                  >
+                    {chosenAddons[a.id] ? '✓ ' : '+ '}
+                    {a.label}
+                    {a.fromPhp != null ? ` · +${formatCentavos(toCentavos(a.fromPhp))}` : ''}
+                  </button>
+                ))}
+                {c.comesWith.map((w) => {
+                  // "Comes with" names a KIND; offer the shop's card of that kind when there is one.
+                  const other = cards.find((o) => o.id !== c.id && o.label === w && !pickedCards[o.id]);
+                  return other ? (
+                    <button
+                      key={`cw-${other.id}`}
+                      type="button"
+                      onClick={() => toggleCard(other.id)}
+                      disabled={seeding}
+                      className="rounded-full border border-dashed border-ink/25 bg-white px-2 py-0.5 hover:border-ink/40"
+                    >
+                      comes with {other.label} · add
+                    </button>
+                  ) : (
+                    <span key={`cw-${w}`}>comes with {w}</span>
+                  );
+                })}
+              </div>
+            ))}
+          {cardWarnings.length > 0 ? (
+            <p data-testid="quote-card-warnings" className="text-[11px] text-warn-900">
+              {cardWarnings
+                .map((w) =>
+                  w.kind === 'lead_time'
+                    ? `Their date is ${Math.floor(w.monthsAway)} months out — your card recommends ${w.recommendedMonths}.`
+                    : `Inside your last-minute window — a ${w.pct}% surcharge line was added.`,
+                )
+                .join(' ')}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Bundle picker (optional) */}
       {packages.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-4 py-3">
@@ -779,6 +1178,10 @@ export function ProposalMaker({
         </div>
       ) : null}
 
+      </QuoteStage>
+
+      {/* ── STEP 3 · SET THE PRICE ──────────────────────────────────────── */}
+      <QuoteStage {...stageProps('price')}>
       {/* Line items */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
@@ -1064,7 +1467,14 @@ export function ProposalMaker({
           <span className="font-serif tabular-nums">{formatCentavos(subtotal)}</span>
         </div>
         <div className="flex items-center justify-between text-sm text-ink/60">
-          <span>{viewerPromo ? 'Discount · viewer promo' : 'Discount'}</span>
+          <span>
+            {viewerPromo ? 'Discount · viewer promo' : 'Discount'}
+            {discountReason ? (
+              <span data-testid="quote-discount-reason" className="ml-1 text-[11px] text-terracotta-700">
+                · {discountReason}
+              </span>
+            ) : null}
+          </span>
           <span className="flex items-center gap-1">
             ₱
             <input
@@ -1072,7 +1482,11 @@ export function ProposalMaker({
               min={0}
               step={500}
               value={discountPhp}
-              onChange={(e) => setDiscountPhp(Number(e.target.value) || 0)}
+              onChange={(e) => {
+                setDiscountPhp(Number(e.target.value) || 0);
+                // A hand-edited figure is the supplier's, not the card's.
+                setDiscountReason(null);
+              }}
               aria-label="Discount"
               className={`${numField} w-24`}
             />
@@ -1163,6 +1577,10 @@ export function ProposalMaker({
         />
       </div>
 
+      </QuoteStage>
+
+      {/* ── STEP 4 · TERMS ──────────────────────────────────────────────── */}
+      <QuoteStage {...stageProps('terms')}>
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
@@ -1181,6 +1599,12 @@ export function ProposalMaker({
             </span>
           )}
         </div>
+
+        {cardTerms ? (
+          <p data-testid="quote-card-terms" className="text-[11px] text-ink/55">
+            From your card: {cardTerms}
+          </p>
+        ) : null}
 
         {installments.map((r, i) => {
           const resolved = schedule.installments[i];
@@ -1410,7 +1834,7 @@ export function ProposalMaker({
               maxLength={160}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Auto-titled if blank"
+              placeholder={cardTitle || 'Auto-titled if blank'}
               className={`${field} w-full`}
             />
           </label>
@@ -1435,6 +1859,12 @@ export function ProposalMaker({
             className={`${field} w-full resize-y`}
           />
         </label>
+      </div>
+      </QuoteStage>
+
+      {/* ── STEP 5 · REVIEW & SEND ──────────────────────────────────────── */}
+      <QuoteStage {...stageProps('send')}>
+      <div className="space-y-3 p-4">
         {/*
           🔴 THIS SAID "accepting just adds it to their plan" AND THAT IS
           BACKWARDS. Owner, 2026-09-18: *"Plan should only fill at lock. not
@@ -1474,6 +1904,7 @@ export function ProposalMaker({
           </button>
         </div>
       </div>
+      </QuoteStage>
     </form>
   );
 }

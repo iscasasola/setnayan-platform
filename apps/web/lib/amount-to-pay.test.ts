@@ -30,7 +30,11 @@ import {
   type AcceptedQuoteRow,
   type MoneyStepInput,
 } from './accepted-quote-terms';
-import { seedQuoteRevision, seedScheduleFromStored } from './quote-revision-seed';
+import {
+  seedQuoteRevision,
+  seedScheduleFromStored,
+  QUOTE_REVISION_SELECT,
+} from './quote-revision-seed';
 import { resolveSchedule } from './proposal-payment-schedule';
 import { quoteCardState } from './quote-card-state';
 
@@ -398,8 +402,16 @@ test('the itemization log is replaced, not duplicated, for a Setnayan supplier',
 
 test('the revision seed reads the schedule, and the builder starts from it', () => {
   const page = src('app/vendor-dashboard/messages/[threadId]/page.tsx');
-  const read = page.slice(page.indexOf('.in(\'status\', [\'sent\', \'viewed\', \'accepted\'])') - 400);
-  assert.match(read.slice(0, 400), /payment_schedule/);
+  // The column list moved into a CONSTANT (2026-09-22) so a test can execute it
+  // rather than grep a byte window out of a server component. Asserting the
+  // value itself is strictly stronger: it cannot pass because some other part
+  // of the query happened to fall inside the window.
+  assert.match(QUOTE_REVISION_SELECT, /payment_schedule/, 'the revision read stopped asking for the schedule');
+  assert.match(
+    page,
+    /\.select\(QUOTE_REVISION_SELECT\)/,
+    'and the page must still read with the shared list, or a column can be dropped unnoticed',
+  );
   const maker = src('app/_components/proposal-maker.tsx');
   assert.match(maker, /revision\?\.schedule && revision\.schedule\.manual\.length > 0/);
   assert.match(maker, /revision\?\.schedule\?\.autoBalance \?\?/);

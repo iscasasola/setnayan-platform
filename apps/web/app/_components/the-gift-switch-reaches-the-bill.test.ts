@@ -40,7 +40,16 @@ test('the composer mounts ONE switch, and only where there is a question to answ
   const at = maker.indexOf('data-testid="quote-setnayan-gift-switch"');
   const gate = maker.slice(Math.max(0, at - 300), at);
   assert.match(gate, /giftSwitch !== null \?/, 'no switch on a booking that cannot carry a gift');
-  assert.match(maker, /useState<boolean \| null>\(\(\) =>\s*defaultQuoteSwitch\(/, 'it opens at what the booking says');
+  // The booking's own answer must be what the switch opens at. Pinned to the
+  // INITIALIZER, not the file: after the revision fix (2026-09-22)
+  // `defaultQuoteSwitch` is an argument rather than the whole expression, and a
+  // whole-file match would also be satisfied by a mention anywhere below.
+  const initAt = maker.indexOf('const [giftSwitch, setGiftSwitch]');
+  assert.ok(initAt > 0, 'the giftSwitch state moved or was renamed — re-point this guard');
+  const initEnd = maker.indexOf('\n  );', initAt);
+  assert.ok(initEnd > initAt, 'could not find the end of the giftSwitch initializer');
+  const init = maker.slice(initAt, initEnd);
+  assert.match(init, /defaultQuoteSwitch\(/, 'it opens at what the booking says');
   // the Papic line's own "switch it on" link lands ON that control
   assert.match(maker, /id="quote-setnayan-gift-switch"/);
 });

@@ -19,7 +19,6 @@ import {
 import type { ReactNode } from 'react';
 import { fetchChecklistProgress } from '@/lib/checklist';
 import { eventDateToEpoch, type MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { digestSubWorthShowing } from '@/lib/digest-sub';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';

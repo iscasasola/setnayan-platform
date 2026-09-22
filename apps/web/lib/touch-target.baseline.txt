@@ -1,0 +1,20 @@
+# Icon-only buttons under the 44px touch floor — inherited 2026-09-22 (register ST-11).
+# Read by lib/a-tap-target-is-reachable.test.ts.  file<TAB>count
+# This is DEBT, not permission: fix one and lower its count; never add one.
+# 44px is the WCAG 2.5.5 / Apple HIG floor. A 28px control (p-1.5 round a 16px
+# icon) is the common shape here and is the one ST-11 named on the moment row.
+app/admin/_apple-secret-reminder.tsx	1
+app/admin/connection-logs/connection-logs-client.tsx	1
+app/admin/taxonomy/_components/taxonomy-studio.tsx	5
+app/dashboard/[eventId]/studio/patiktok/_components/tag-sheet.tsx	1
+app/dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx	1
+app/dashboard/[eventId]/vendors/_components/lock-milestone.tsx	1
+app/dashboard/[eventId]/pabuya/_components/pabuya-manager.tsx	1
+app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx	1
+app/dashboard/[eventId]/_components/vendor-direct-pay.tsx	1
+app/dashboard/[eventId]/guests/_components/undo-toast.tsx	1
+app/_components/chat-privacy-notice.tsx	1
+app/_components/demo-mode-banner-client.tsx	1
+app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx	2
+app/vendor-dashboard/_components/push-notification-registrar.tsx	1
+app/[slug]/seat/_components/guest-push-prompt.tsx	1

@@ -18,9 +18,15 @@ test.describe('Signup routing', () => {
     await page.goto('/signup');
     // The signup page has its own heading; first H1/H2 should be visible
     await expect(page.getByRole('heading').first()).toBeVisible();
-    // Email input is labeled "Email" with htmlFor="email" — getByLabel
-    // resolves through the label-for association.
-    await expect(page.getByLabel(/^Email$/i)).toBeVisible();
+    // The property this test exists for (see the docblock) is that the email
+    // field is REACHABLE BY ITS LABEL — not that the label reads any
+    // particular words. Pinning /^Email$/i made the copy the contract, and it
+    // broke the day the card started saying "Email address". Match the field's
+    // purpose, and assert the count so a loose matcher cannot start passing
+    // against two controls or silently resolve the wrong one.
+    const email = page.getByLabel(/email/i);
+    await expect(email).toHaveCount(1);
+    await expect(email).toBeVisible();
   });
 
   test('/signup?as=vendor renders vendor variant', async ({ page }) => {

@@ -7,8 +7,11 @@ import {
 } from '@/lib/setnayan-gift';
 import {
   bookingFeeForecast,
+  feePesos,
   type BookingFeeStanding,
 } from '@/lib/booking-fee-disclosure';
+import { bookingFeePhp } from '@/lib/booking-fee';
+import { formatGiftPhotos } from '@/lib/setnayan-gift';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import {
   papicTopUpForQuote,
@@ -38,6 +41,14 @@ import {
   type QuoteSeedLine,
 } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
 import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-service-card';
+import {
+  QUOTE_STAGES,
+  nextStage,
+  openingStage,
+  stageStates,
+  stageSummaries,
+  type QuoteStageId,
+} from '@/lib/quote-stages';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 
 /**
@@ -184,6 +195,89 @@ function basisDetail(l: Line, pax: number, hours: number): string | null {
   return null;
 }
 
+/* ── One step of the five (owner 2026-09-22: "evident separation … a clean continuity") ── */
+
+/**
+ * A STEP ON THE SPINE. Draws only what `lib/quote-stages.ts` decided: its
+ * number, title and state, the one-line summary when folded, and the Next band
+ * that ends every step but the last. The body is HIDDEN, not unmounted, when
+ * the step is folded — every input keeps its state and every existing mount
+ * guard keeps counting one of each control.
+ */
+function QuoteStage({
+  id,
+  state,
+  summary,
+  onOpen,
+  onNext,
+  children,
+}: {
+  id: QuoteStageId;
+  state: 'done' | 'cur' | 'later';
+  summary: string;
+  onOpen: () => void;
+  onNext: (() => void) | null;
+  children: React.ReactNode;
+}) {
+  const def = QUOTE_STAGES.find((d) => d.id === id)!;
+  const isCur = state === 'cur';
+  return (
+    <section
+      data-stage={id}
+      data-state={state}
+      aria-label={`Step ${def.n} of ${QUOTE_STAGES.length}: ${def.title}`}
+      className={`relative border-b border-ink/10 pl-12 ${state === 'later' ? 'opacity-60' : ''}`}
+    >
+      {/* the spine: number bubble + the line to the next step */}
+      <span
+        aria-hidden
+        className={`absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold ${
+          isCur
+            ? 'border-terracotta bg-terracotta text-cream'
+            : state === 'done'
+              ? 'border-success-300 bg-success-100 text-success-700'
+              : 'border-ink/15 bg-white text-ink/50'
+        }`}
+      >
+        {state === 'done' ? '✓' : def.n}
+      </span>
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={isCur}
+        className="flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left disabled:cursor-default"
+      >
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
+          Step {def.n} of {QUOTE_STAGES.length}
+        </span>
+        <span className="font-serif text-lg font-semibold leading-tight text-ink">{def.title}</span>
+        {!isCur ? (
+          <span className="text-xs text-ink/60">
+            {state === 'later' ? 'Up next · ' : ''}
+            {summary}
+          </span>
+        ) : null}
+      </button>
+      <div hidden={!isCur} className="pb-1">
+        {children}
+        {onNext && def.lead ? (
+          <div className="mx-4 mb-4 mt-2 flex items-center gap-3 rounded-xl bg-ink px-4 py-3 text-cream">
+            <span className="flex-1 text-sm text-cream/80">{def.lead}</span>
+            <button
+              type="button"
+              onClick={onNext}
+              data-stage-next={id}
+              className="inline-flex h-10 items-center rounded-full bg-terracotta px-4 text-sm font-semibold text-cream hover:bg-terracotta-700"
+            >
+              Next · {QUOTE_STAGES.find((d) => d.id === nextStage(id))?.title}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 /* ── Component ───────────────────────────────────────────────────────────── */
 
 let schedSeq = 0;
@@ -319,6 +413,10 @@ export function ProposalMaker({
   // quote" and a closed "Build a quote" button would read as a link that did
   // nothing (the same trap the `?compose=deal` panel fell into on 2026-09-18).
   const [open, setOpen] = useState(revision != null);
+  // WHICH STEP IS OPEN. A fresh quote starts at Know the event; "Update this
+  // quote" opens at Set the price (`openingStage`). Nothing is locked — a
+  // folded step's header reopens it.
+  const [stage, setStage] = useState<QuoteStageId>(() => openingStage({ revision: revision != null }));
   /*
     THE OPENING GUEST COUNT — the live one, falling back to the inquiry count.
 
@@ -538,6 +636,44 @@ export function ProposalMaker({
   // The generated auto "Final balance" row (last resolved installment), if any.
   const autoRow = schedule.installments.find((r) => r.is_auto_balance) ?? null;
 
+  /**
+   * THE FIVE STEPS — their states and their one-line summaries, from the live
+   * draft through `lib/quote-stages.ts`. The fee and the Papic figures are the
+   * SAME calls the open step renders (`bookingFeePhp` on the standing's own
+   * schedule; `gift` from `previewGiftForTotal`), so a folded step can never
+   * show a number the open one does not.
+   */
+  const stageState = stageStates(stage);
+  const pickedCardLabels = cards.filter((c) => pickedCards[c.id]).map((c) => c.label);
+  const feeText =
+    feeStanding && (feeStanding.kind === 'free' || feeStanding.kind === 'billable') && netPayable > 0
+      ? `${feePesos(bookingFeePhp(netPayable / 100, feeStanding.schedule))}${feeStanding.kind === 'free' ? ' waived' : ''}`
+      : null;
+  const papicText = gift
+    ? `${formatGiftPhotos(gift.credits)} photos`
+    : papicStanding?.kind === 'available'
+      ? 'off'
+      : null;
+  const stageSummary = stageSummaries({
+    eventLine: coupleName?.trim() || null,
+    pax,
+    hours,
+    cardsLine: pickedCardLabels.length ? pickedCardLabels.join(' + ') : null,
+    netPayableCentavos: netPayable,
+    feeText,
+    papicText,
+    paymentsCount: installments.length + (autoRow && autoRow.amount_centavos > 0 ? 1 : 0),
+    railLabels: paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.label),
+    validUntil,
+  });
+  const stageProps = (id: QuoteStageId) => ({
+    id,
+    state: stageState[id],
+    summary: stageSummary[id],
+    onOpen: () => setStage(id),
+    onNext: nextStage(id) ? () => setStage(nextStage(id)!) : null,
+  });
+
   const selectedMethodIds = useMemo(
     () => paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.id),
     [paymentMethods, selectedMethods],
@@ -750,6 +886,30 @@ export function ProposalMaker({
         </div>
       ) : null}
 
+      {/* THE STEP STRIP — where the supplier is, and the way back to any step. */}
+      <div data-testid="quote-step-strip" className="flex gap-1 overflow-x-auto border-b border-ink/10 px-3 py-2">
+        {QUOTE_STAGES.map((d) => (
+          <button
+            key={d.id}
+            type="button"
+            onClick={() => setStage(d.id)}
+            aria-pressed={stageState[d.id] === 'cur'}
+            className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] ${
+              stageState[d.id] === 'cur'
+                ? 'bg-ink text-cream'
+                : stageState[d.id] === 'done'
+                  ? 'text-success-700'
+                  : 'text-ink/40'
+            }`}
+          >
+            {stageState[d.id] === 'done' ? '✓ ' : `${d.n} `}
+            {d.title}
+          </button>
+        ))}
+      </div>
+
+      {/* ── STEP 1 · KNOW THE EVENT ─────────────────────────────────────── */}
+      <QuoteStage {...stageProps('know')}>
       {/* Header — seeded pax/hours (rule 0) */}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-4">
         <div className="min-w-0">
@@ -803,6 +963,10 @@ export function ProposalMaker({
         </div>
       </div>
 
+      </QuoteStage>
+
+      {/* ── STEP 2 · CHOOSE WHAT TO OFFER ───────────────────────────────── */}
+      <QuoteStage {...stageProps('offer')}>
       {/* YOUR CARDS — the shop's service cards seed the quote (owner 2026-09-22).
           One or several; each contributes its priced line, its freebies and the
           add-ons ticked under it. Mounted ONCE, and only when the shop has a card. */}
@@ -918,6 +1082,10 @@ export function ProposalMaker({
         </div>
       ) : null}
 
+      </QuoteStage>
+
+      {/* ── STEP 3 · SET THE PRICE ──────────────────────────────────────── */}
+      <QuoteStage {...stageProps('price')}>
       {/* Line items */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
@@ -1281,6 +1449,10 @@ export function ProposalMaker({
         />
       </div>
 
+      </QuoteStage>
+
+      {/* ── STEP 4 · TERMS ──────────────────────────────────────────────── */}
+      <QuoteStage {...stageProps('terms')}>
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
@@ -1559,6 +1731,12 @@ export function ProposalMaker({
             className={`${field} w-full resize-y`}
           />
         </label>
+      </div>
+      </QuoteStage>
+
+      {/* ── STEP 5 · REVIEW & SEND ──────────────────────────────────────── */}
+      <QuoteStage {...stageProps('send')}>
+      <div className="space-y-3 p-4">
         {/*
           🔴 THIS SAID "accepting just adds it to their plan" AND THAT IS
           BACKWARDS. Owner, 2026-09-18: *"Plan should only fill at lock. not
@@ -1598,6 +1776,7 @@ export function ProposalMaker({
           </button>
         </div>
       </div>
+      </QuoteStage>
     </form>
   );
 }

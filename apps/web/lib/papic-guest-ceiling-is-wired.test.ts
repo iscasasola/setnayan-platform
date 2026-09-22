@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { drainGuestCaptureWith, type GuestPostResult } from './offline/service-handlers/papic-drain';
-import { papicCaptureCost, PAPIC_POINTS_PER_CLIP } from './papic-cameras';
+import { papicCaptureCost, PAPIC_POINTS_PER_SNIPPET } from './papic-cameras';
 
 const ROUTE = readFileSync(
   join(import.meta.dirname, '..', 'app', 'api', 'papic', 'guest-capture', 'route.ts'),
@@ -42,7 +42,7 @@ test('the route hands the RPC the cost it already computed — not a literal, no
     /p_points_cost:\s*\d/,
     'a literal here would be a second copy of a money rule',
   );
-  assert.equal(papicCaptureCost('clip'), PAPIC_POINTS_PER_CLIP);
+  assert.equal(papicCaptureCost('clip'), PAPIC_POINTS_PER_SNIPPET);
   assert.equal(papicCaptureCost('clip'), 8);
   assert.equal(papicCaptureCost('photo'), 1);
 });

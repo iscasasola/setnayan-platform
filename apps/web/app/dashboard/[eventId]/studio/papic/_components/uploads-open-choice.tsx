@@ -33,7 +33,7 @@ export function UploadsOpenChoice({
   variant?: 'card' | 'row';
 }) {
   const explanation = open
-    ? 'Photos and clips can be added from a phone or laptop — older memories included. Each one uses a credit, the same as a camera shot.'
+    ? 'Photos and snippets can be added from a phone or laptop — older memories included. Each one uses a credit, the same as a camera shot.'
     : 'Only what your cameras capture goes into this gallery. Nothing can be added from a phone or laptop.';
 
   const control = (

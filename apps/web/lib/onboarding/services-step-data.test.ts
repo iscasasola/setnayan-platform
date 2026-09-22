@@ -26,7 +26,7 @@ import {
   type PapicTypeView,
 } from './services-step-data';
 import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
-import { PAPIC_POINTS_PER_CLIP, PAPIC_POINTS_PER_PHOTO } from '@/lib/papic-cameras';
+import { PAPIC_POINTS_PER_SNIPPET, PAPIC_POINTS_PER_PHOTO } from '@/lib/papic-cameras';
 
 const POOL_TIERS = [
   { serviceCode: 'PAPIC_GUEST', points: 3000, isTopup: false, sortOrder: 10 }, // gitleaks:allow
@@ -146,7 +146,7 @@ test('the free allowances track their admin columns, they are not literals', () 
 test('the point currency is derived from the capture-path constants', () => {
   const [photo, clip] = build().papic.currencyTerms;
   assert.match(photo, new RegExp(`= ${PAPIC_POINTS_PER_PHOTO} credit`));
-  assert.match(clip, new RegExp(`= ${PAPIC_POINTS_PER_CLIP} credits`));
+  assert.match(clip, new RegExp(`= ${PAPIC_POINTS_PER_SNIPPET} credits`));
 });
 
 test('Setnayan AI renders only when the gate resolved a price', () => {

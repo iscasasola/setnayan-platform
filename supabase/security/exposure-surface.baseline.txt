@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6440
+# facts: 6442
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     562
-#   col       4747
+#   col       4749
 #   policy    876
 #   view      8
 #   func      243
@@ -4018,6 +4018,8 @@ col	public.users.sex	anon=S authenticated=SU
 col	public.users.sex_consent_at	anon=S authenticated=SU
 col	public.users.share_profile_photo_with_hosts	anon=S authenticated=SU
 col	public.users.slug	anon=S authenticated=SU
+col	public.users.terms_accepted_at	anon=S authenticated=SU
+col	public.users.terms_version	anon=S authenticated=SU
 col	public.users.theme_preference	anon=S authenticated=SU
 col	public.users.tour_completed_at	anon=S authenticated=SU
 col	public.users.tour_seen_keys	anon=S authenticated=SU
@@ -6362,7 +6364,7 @@ func	public.price_band_pax_bucket(p_pax integer)	secdef=no exec=anon,authenticat
 func	public.public_seat_lookup(p_slug text, p_query text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.public_venue_scene(p_slug text, p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.recompute_market_funnel_bands()	secdef=yes exec=anon,authenticated search_path=public
-func	public.recompute_market_price_bands()	secdef=yes exec=anon,authenticated search_path=public
+func	public.recompute_market_price_bands()	secdef=yes exec=authenticated search_path=public
 func	public.refresh_demand_radar_rollups()	secdef=yes exec=anon,authenticated search_path=public
 func	public.refresh_identity_clusters()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refresh_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public

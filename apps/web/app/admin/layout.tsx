@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
@@ -191,6 +192,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Mounted here AND on the vendor layout, same reasoning as the two above; the
   // DB claim picks one winner per window. Flag-gated inside.
   after(() => maybeRunUnbilledFeeRepair().catch(() => {}));
+  // CTRL-B3 build 5. Dual-mounted like the repair above, and for the same
+  // reason: the meter this feeds belongs to SUPPLIERS, so it must not depend
+  // on an admin opening one particular screen. `claim_periodic_job` makes the
+  // second mount free — whichever surface is loaded first takes the window.
+  after(() => maybeRefillPriceBands().catch(() => {}));
   // SEO health audit + Google Search Console pull — CRON-FREE: admin traffic +
   // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
   // feed /admin/seo; a skipped day only leaves the dashboard a day stale.

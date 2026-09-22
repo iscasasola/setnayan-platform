@@ -39,6 +39,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '../../../../..');
 const read = (p: string) => readFileSync(p, 'utf8');
 
+import { INVITE_THEMES, INVITE_THEME_IDS } from '@/lib/invite-themes';
+import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+
 const SKU = 'COUPLE_WEBSITE_PRO';
 const GATE = 'eventCoupleWebsiteProActive';
 
@@ -214,5 +217,83 @@ test('the reveal — the one real exclusive — is still aliased to this SKU', (
     aliases[0]!,
     new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'\\]\\)`),
     'the cinematic reveal is no longer granted by Event Hub PRO — the copy claims it is the only way to get it',
+  );
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Q3 · THE INVITE THEME IS ONE FACT, NOT A MARKETING LINE AND A REGISTRY
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('the Pro list sells the invite theme if and only if the registry has one', () => {
+  /*
+    🔑 THE TWO HALVES OF ONE SENTENCE, AND THEY LIVED IN DIFFERENT FILES.
+    `lib/invite-themes.ts` decides whether a theme is `tier: 'pro'`.
+    `lib/website-pro-items.ts` is a hand-written list a COUPLE READS before
+    paying ₱3,500. Nothing joined them. Flip all four themes to `tier: 'free'`
+    and the list keeps selling "Invite link theme" — a product describing
+    itself wrongly, with both files passing their own suites.
+
+    That is the exact failure `NOT_SOLD_ON` already exists for one row below
+    (Editorial editing is in the list and is free, so the umbrella may not be
+    SOLD on it). This asserts the same property for the themes, in BOTH
+    directions, so the copy can neither outrun nor outlive the registry.
+  */
+  const sellablePro = INVITE_THEME_IDS.filter(
+    (id) => INVITE_THEMES[id].tier === 'pro' && INVITE_THEMES[id].ready,
+  );
+  const listed = (WEBSITE_PRO_ITEMS as readonly string[]).filter((i) => /invite/i.test(i));
+
+  if (sellablePro.length > 0) {
+    assert.equal(
+      listed.length,
+      1,
+      `${sellablePro.length} invite theme(s) are Pro and shipped (${sellablePro.join(', ')}), but ` +
+        `WEBSITE_PRO_ITEMS names ${listed.length} invite entr(y/ies) — a couple pays for something ` +
+        'the list does not mention, or the list mentions it twice',
+    );
+    for (const { where, text } of claimSurfaces()) {
+      assert.match(
+        text,
+        /invite link/i,
+        `${where} does not name the invite theme, which ${sellablePro.length} shipped Pro theme(s) withhold from non-buyers`,
+      );
+    }
+  } else {
+    assert.deepEqual(
+      listed,
+      [],
+      'no invite theme is Pro and shipped any more, but the list still sells one — ' +
+        'the copy has outlived what it sells',
+    );
+  }
+});
+
+test('a Pro invite theme is gated on the SAME entitlement the Pro list is sold under', () => {
+  /*
+    ⚠ ONE ENTITLEMENT READ, NOT TWO (owner, 2026-09-22: the Event Hub work and
+    the invite themes "can both integrate to each other properly").
+
+    A second lookup onto "does this couple have Pro" is how one surface says
+    Pro and the other says House for the same couple — and each is correct
+    about the thing it asked. The resolver must reach the entitlement through
+    `eventCoupleWebsiteProActive`, the same helper the Pro page and the Event
+    Hub itself use, and must not carry a private notion of ownership.
+  */
+  const look = read(join(WEB, 'app/[slug]/_lib/hub-look.ts'));
+  assert.match(
+    look,
+    /eventCoupleWebsiteProActive/,
+    'the theme resolver does not read the shared entitlement helper',
+  );
+  assert.doesNotMatch(
+    look,
+    /from '@\/lib\/orders'|\.from\('orders'\)/,
+    'the theme resolver queries orders directly — that is a second door onto the entitlement',
+  );
+  // …and the Event Hub's own Pro checks go through the same helper.
+  assert.match(
+    read(join(WEB, 'app/dashboard/[eventId]/website/editor/page.tsx')),
+    /eventCoupleWebsiteProActive/,
+    'the website editor no longer shares the entitlement read with the theme resolver',
   );
 });

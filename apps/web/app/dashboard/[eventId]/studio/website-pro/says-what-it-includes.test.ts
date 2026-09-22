@@ -39,6 +39,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '../../../../..');
 const read = (p: string) => readFileSync(p, 'utf8');
 
+import { INVITE_THEMES, INVITE_THEME_IDS } from '@/lib/invite-themes';
+import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+
 const SKU = 'COUPLE_WEBSITE_PRO';
 const GATE = 'eventCoupleWebsiteProActive';
 
@@ -141,7 +144,29 @@ test('Editorial PRO is not sold as an inclusion while it is free for everyone', 
  * ways: an entry whose gate is gone fails too, so the copy cannot outlive it.
  */
 const ADVERTISED_GUEST_GATES: ReadonlyArray<{ under: string; claim: RegExp; what: string }> = [
-  { under: 'app/[slug]/invite/', claim: /invite link/i, what: 'a Pro theme for the invite link' },
+  /*
+    🪤 WIDENED FROM `app/[slug]/invite/` TO `app/[slug]/` — 2026-09-22, and this
+    guard is what reported it rather than a person noticing.
+
+    The four Pro themes now dress the Event Hub PAGES as well as the invite door
+    (owner, that date). "Which theme is this event wearing" became a two-surface
+    fact and lifted into `app/[slug]/_lib/hub-look.ts`, which is where the SKU is
+    now read. Nothing under `app/[slug]/invite/` gates on it any more, so BOTH
+    assertions below fired at once: an unadvertised gate in a new place, and an
+    advertised gate whose implementation had apparently vanished. One move, two
+    reds, and between them they described it exactly.
+
+    ⚠ THE CLAIM REGEX IS DELIBERATELY UNCHANGED. `invite link` is still true —
+    the door is still themed — and all three claim surfaces still say it. What is
+    now UNDERSTATED is the scope: a couple buying Event Hub PRO gets the theme on
+    every page behind the door too, and no surface says so. That is the safe
+    direction (the copy promises less than it delivers, never more, which is the
+    direction this guard exists to police) but it is a real upsell left on the
+    table. 🔑 FLAGGED, NOT FIXED HERE: the SKU's own description lives in a
+    migration, so widening the copy needs one — and this branch deliberately
+    carries no schema change. Owner's call.
+  */
+  { under: 'app/[slug]/', claim: /invite link/i, what: 'a Pro theme for the invite link' },
 ];
 
 test('every guest-facing gate on this SKU is the watermark or an inclusion the copy names', () => {
@@ -192,5 +217,83 @@ test('the reveal — the one real exclusive — is still aliased to this SKU', (
     aliases[0]!,
     new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'\\]\\)`),
     'the cinematic reveal is no longer granted by Event Hub PRO — the copy claims it is the only way to get it',
+  );
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Q3 · THE INVITE THEME IS ONE FACT, NOT A MARKETING LINE AND A REGISTRY
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('the Pro list sells the invite theme if and only if the registry has one', () => {
+  /*
+    🔑 THE TWO HALVES OF ONE SENTENCE, AND THEY LIVED IN DIFFERENT FILES.
+    `lib/invite-themes.ts` decides whether a theme is `tier: 'pro'`.
+    `lib/website-pro-items.ts` is a hand-written list a COUPLE READS before
+    paying ₱3,500. Nothing joined them. Flip all four themes to `tier: 'free'`
+    and the list keeps selling "Invite link theme" — a product describing
+    itself wrongly, with both files passing their own suites.
+
+    That is the exact failure `NOT_SOLD_ON` already exists for one row below
+    (Editorial editing is in the list and is free, so the umbrella may not be
+    SOLD on it). This asserts the same property for the themes, in BOTH
+    directions, so the copy can neither outrun nor outlive the registry.
+  */
+  const sellablePro = INVITE_THEME_IDS.filter(
+    (id) => INVITE_THEMES[id].tier === 'pro' && INVITE_THEMES[id].ready,
+  );
+  const listed = (WEBSITE_PRO_ITEMS as readonly string[]).filter((i) => /invite/i.test(i));
+
+  if (sellablePro.length > 0) {
+    assert.equal(
+      listed.length,
+      1,
+      `${sellablePro.length} invite theme(s) are Pro and shipped (${sellablePro.join(', ')}), but ` +
+        `WEBSITE_PRO_ITEMS names ${listed.length} invite entr(y/ies) — a couple pays for something ` +
+        'the list does not mention, or the list mentions it twice',
+    );
+    for (const { where, text } of claimSurfaces()) {
+      assert.match(
+        text,
+        /invite link/i,
+        `${where} does not name the invite theme, which ${sellablePro.length} shipped Pro theme(s) withhold from non-buyers`,
+      );
+    }
+  } else {
+    assert.deepEqual(
+      listed,
+      [],
+      'no invite theme is Pro and shipped any more, but the list still sells one — ' +
+        'the copy has outlived what it sells',
+    );
+  }
+});
+
+test('a Pro invite theme is gated on the SAME entitlement the Pro list is sold under', () => {
+  /*
+    ⚠ ONE ENTITLEMENT READ, NOT TWO (owner, 2026-09-22: the Event Hub work and
+    the invite themes "can both integrate to each other properly").
+
+    A second lookup onto "does this couple have Pro" is how one surface says
+    Pro and the other says House for the same couple — and each is correct
+    about the thing it asked. The resolver must reach the entitlement through
+    `eventCoupleWebsiteProActive`, the same helper the Pro page and the Event
+    Hub itself use, and must not carry a private notion of ownership.
+  */
+  const look = read(join(WEB, 'app/[slug]/_lib/hub-look.ts'));
+  assert.match(
+    look,
+    /eventCoupleWebsiteProActive/,
+    'the theme resolver does not read the shared entitlement helper',
+  );
+  assert.doesNotMatch(
+    look,
+    /from '@\/lib\/orders'|\.from\('orders'\)/,
+    'the theme resolver queries orders directly — that is a second door onto the entitlement',
+  );
+  // …and the Event Hub's own Pro checks go through the same helper.
+  assert.match(
+    read(join(WEB, 'app/dashboard/[eventId]/website/editor/page.tsx')),
+    /eventCoupleWebsiteProActive/,
+    'the website editor no longer shares the entitlement read with the theme resolver',
   );
 });

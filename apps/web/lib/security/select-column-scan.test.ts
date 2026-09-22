@@ -60,6 +60,8 @@ import {
   isNearCopy,
   parseSelectList,
   resolveConstantSelectSites,
+  extractSelectConstantAliases,
+  resolveConstantAliases,
   scanAllSelectSites,
   scanForOmittedColumns,
   scanSelectSites,
@@ -862,4 +864,60 @@ test('T24 · table constants are collected before the no-.from() early exit', ()
       'A file can DECLARE the table constant and read no tables itself — that is\n' +
       'exactly the contract-module shape. Collecting after the exit skips it.',
   );
+});
+
+test('T21 · a canonical list re-exported under a second name still resolves', () => {
+  /*
+    🔴 THE DEFECT THIS EXISTS FOR TOOK THREE LIVE SELECTS DARK IN ONE COMMIT.
+    On 2026-09-22 `INVITE_LOOK_COLUMNS` became `export const INVITE_LOOK_COLUMNS
+    = HUB_LOOK_COLUMNS;` — the SAME string, deliberately not a copy, so the three
+    invite doors that import it stay pointing at one list. The resolver could
+    not follow an identifier initialiser, so all three sites were reported
+    unresolved and **dropped out of T1's phantom check entirely**. Only the
+    unresolved-constant ratchet noticed, and its message says what to do:
+    "Fix the resolver (preferred)."
+
+    🔑 THE ALIAS IS THE GOOD OUTCOME. Two names for one string is exactly what
+    this repo asks for instead of copying a column list — so a scanner that
+    cannot read that shape punishes the correct fix.
+  */
+  const aliasSrc = "export const B_COLUMNS = A_COLUMNS;\nconst LOCAL_SELECT = B_COLUMNS;\n";
+  const aliases = extractSelectConstantAliases(aliasSrc, 'x.ts');
+  assert.deepEqual(
+    aliases.map((a) => `${a.name}=${a.aliasOf}:${a.exported}`),
+    ['B_COLUMNS=A_COLUMNS:true', 'LOCAL_SELECT=B_COLUMNS:false'],
+    'the alias shapes are not being read — exported and file-local both count',
+  );
+
+  const base = [{ name: 'A_COLUMNS', file: 'x.ts', columns: ['id', 'slug'], exported: true }];
+  const out = resolveConstantAliases(base, aliases);
+  const byName = new Map(out.map((c) => [c.name, c.columns]));
+  assert.deepEqual(byName.get('B_COLUMNS'), ['id', 'slug'], 'a one-hop alias did not resolve');
+  assert.deepEqual(
+    byName.get('LOCAL_SELECT'),
+    ['id', 'slug'],
+    'an alias OF an alias did not resolve — the pass must reach a fixed point, not run once',
+  );
+
+  // ⚠ And it must TERMINATE on source nobody could run. A cycle is not valid
+  // TypeScript, but this reads text, and a resolver that loops on invalid input
+  // hangs CI rather than failing it.
+  const cyc = resolveConstantAliases([], [
+    { name: 'P_COLUMNS', file: 'y.ts', aliasOf: 'Q_COLUMNS', exported: true },
+    { name: 'Q_COLUMNS', file: 'y.ts', aliasOf: 'P_COLUMNS', exported: true },
+  ]);
+  assert.deepEqual(cyc, [], 'a cycle resolved to something, or did not terminate');
+
+  // …and the real tree: the three invite doors must be CHECKED, not merely
+  // absent from the unresolved list.
+  const scan = scanAllSelectSites();
+  const doors = scan.resolved.filter((r) => /invite\/(page|reply\/page|enter\/page)\.tsx$/.test(r.file));
+  assert.equal(
+    doors.length,
+    3,
+    `expected all three invite doors resolved through the alias, got ${doors.length}`,
+  );
+  for (const d of doors) {
+    assert.ok(d.columns.length >= 6, `${d.file} resolved to ${d.columns.length} columns`);
+  }
 });

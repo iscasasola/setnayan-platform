@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X, ArrowUpRight } from 'lucide-react';
 import {
@@ -88,6 +90,10 @@ type InspectorContextValue = {
   /** True once per user-initiated open — the panel uses it to decide whether to
    *  steal focus (it must NOT on a cold refresh/share load). */
   consumePanelFocus: () => boolean;
+  /** This layout also presents BELOW xl, as a peek sheet, so its triggers must
+   *  select at every width instead of navigating away. Opt-in per surface —
+   *  see `mobileSheet` on InspectorLayout. */
+  sheet: boolean;
 };
 
 const InspectorContext = createContext<InspectorContextValue | null>(null);
@@ -124,8 +130,23 @@ export function InspectorLayout({
   master,
   inspector,
   className,
+  mobileSheet = false,
 }: {
   paramKey?: string;
+  /**
+   * OPT-IN (2026-09-22, for the guest card). Below xl this layout normally
+   * hides the rail and its triggers navigate to a standalone route. With
+   * `mobileSheet`, the SAME server-rendered `inspector` node is presented as a
+   * sheet that slides in from the right and leaves the master peeking on the
+   * left — the geometry of the shipped payment drawer
+   * (`_components/inline-checkout-drawer.tsx`), which is the pattern the owner
+   * named. Tapping the dimmed strip goes back.
+   *
+   * ⚠ Default false ON PURPOSE. Studio, Vendors and Overview keep their
+   * standalone routes below xl; turning this on for them would replace a real
+   * page with a panel nobody designed for it.
+   */
+  mobileSheet?: boolean;
   /** Server truth: is a VALID inspector body being rendered right now? Drives the
    *  resting open state (so an unknown/stale `?inspect=` id renders closed rather
    *  than a blank rail). */
@@ -184,9 +205,22 @@ export function InspectorLayout({
     prevOpen.current = open;
   }, [open]);
 
+  // Below xl with `mobileSheet`, the sheet is open whenever the server says a
+  // selection resolved — `open` above is gated on isXl, which the rail needs and
+  // the sheet must not inherit.
+  const sheetOpen = mobileSheet && !isXl && (optimisticOpen ?? hasSelection);
+
   const ctx = useMemo<InspectorContextValue>(
-    () => ({ paramKey, selectedId, open, select, close, consumePanelFocus }),
-    [paramKey, selectedId, open, select, close, consumePanelFocus],
+    () => ({
+      paramKey,
+      selectedId,
+      open,
+      select,
+      close,
+      consumePanelFocus,
+      sheet: mobileSheet,
+    }),
+    [paramKey, selectedId, open, select, close, consumePanelFocus, mobileSheet],
   );
 
   return (
@@ -202,7 +236,66 @@ export function InspectorLayout({
           {inspector}
         </div>
       </div>
+      {sheetOpen ? (
+        <InspectorSheet onClose={close}>{inspector}</InspectorSheet>
+      ) : null}
     </InspectorContext.Provider>
+  );
+}
+
+/**
+ * The below-xl frame: the panel slides in from the right and stops short of the
+ * left edge, so a strip of the list stays visible behind a dimmed, blurred
+ * scrim. Tapping that strip is the way back — owner 2026-09-22: *"on mobile it
+ * will peek from the left and will leave a small space so when we tap on that
+ * space it returns to the guestlist"*, *"similar to our payment page that peeks
+ * from the right side of the screen."*
+ *
+ * Portalled to `document.body` so no ancestor's `overflow`/`transform` can clip
+ * a fixed panel, and gated on mount so SSR and first paint agree.
+ */
+function InspectorSheet({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const [portal, setPortal] = useState<HTMLElement | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setPortal(document.body);
+  }, []);
+
+  /* The shared hook, not a hand-rolled copy: focus-in on open, Tab trap, Esc to
+   * close, body-scroll lock, and focus RESTORED to the trigger on close.
+   *
+   * 🔑 `aria-modal="true"` is a PROMISE that focus is managed. Making it while
+   * leaving focus loose strands a screen-reader user behind the sheet with no
+   * way back — which is what `lib/modal-a11y-adoption.test.ts` exists to catch,
+   * and did catch, on the first draft of this component. */
+  useModalA11y({ open: true, onClose, containerRef: ref });
+
+  if (!portal) return null;
+  return createPortal(
+    <>
+      <button
+        type="button"
+        aria-label="Back to the list"
+        onClick={onClose}
+        className="sn-inspector-peek"
+      />
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="sn-inspector-sheet"
+      >
+        {children}
+      </div>
+    </>,
+    portal,
   );
 }
 
@@ -242,7 +335,7 @@ export function InspectorTrigger({
         data-inspector-selected={selMark}
         aria-current={selMark}
         onClick={(e) => {
-          if (!ctx || !inspectId || !isXl) return;
+          if (!ctx || !inspectId || !(isXl || ctx.sheet)) return;
           ctx.select(inspectId, e.currentTarget as unknown as HTMLElement);
         }}
       >
@@ -252,7 +345,9 @@ export function InspectorTrigger({
   }
 
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (!ctx || !inspectId || !isXl) return; // navigate normally
+    // `ctx.sheet` surfaces present below xl too, so there the row opens the
+    // panel at every width rather than leaving the list for a route.
+    if (!ctx || !inspectId || !(isXl || ctx.sheet)) return; // navigate normally
     // Preserve open-in-new-tab / download intents and non-primary buttons.
     if (
       e.defaultPrevented ||

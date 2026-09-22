@@ -11,6 +11,7 @@ import styles from './capiz.module.css';
  */
 export function capizSkin({ photo, accent, monogram }: InviteSkinInput): DoorSkin {
   return {
+    themeId: 'capiz',
     className: styles.capiz ?? '',
     style: { ['--accent' as string]: accent } as React.CSSProperties,
     ground: (

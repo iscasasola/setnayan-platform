@@ -78,6 +78,19 @@ export type DoorStep = {
  * a hair under a locked budget, and a theme must never reach the shared chunk.
  */
 export type DoorSkin = {
+  /**
+   * 🔑 THE THEME'S ID, STAMPED AS `data-invite-theme` ON THE PAGE FRAME — and it
+   * is LOAD-BEARING, not telemetry. Since 2026-09-22 the theme's MATERIAL
+   * (pearl, velvet, wall, kraft, and the couple's accent mixed into each) lives
+   * once in `app/globals.css` keyed on this attribute, shared with the Event Hub
+   * pages behind the door, because the site may not import a theme stylesheet
+   * (`themes-stay-skins.test.ts`, and rightly). Without this attribute a skin's
+   * `var(--cz-*)` resolve to nothing and the door renders unpainted.
+   *
+   * Typed as a bare string, not `InviteThemeId`: DoorShell is in the shared
+   * chunk and must not import the invite vocabulary to know a door's colour.
+   */
+  themeId: string;
   /** The theme's CSS scope, on the page frame. Replaces the bare door's `bg-cream`. */
   className: string;
   /** Custom properties the theme reads — the couple's colour, their photo. */
@@ -208,6 +221,7 @@ export function DoorShell({
 
   return (
     <main
+      data-invite-theme={skin?.themeId}
       className={[
         /*
           ⬆ TOP-RANGED ON A PHONE, CENTRED FROM `sm`. A centred card spends the

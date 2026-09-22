@@ -43,7 +43,8 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 const GATED_SURFACES = [
   'app/dashboard/[eventId]/guests/new/page.tsx',
   'app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx',
-  'app/dashboard/[eventId]/guests/[guestId]/page.tsx',
+  // The route delegates its side control to the shared guest card (2026-09-22).
+  'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
 ];
 
 /**
@@ -68,13 +69,33 @@ test('🔴 every side-rendering surface gates on the shared helper', () => {
   const offenders: string[] = [];
   for (const f of GATED_SURFACES) {
     const src = read(f);
-    if (!/eventHasSides\s*\(/.test(src)) offenders.push(`${f} — never calls eventHasSides()`);
+    /*
+      ⤷ 2026-09-22: a surface may now ASK the question itself, or consume the
+      answer from the shared loader that asked it. The guest card takes
+      `hasSides` off `loadGuestCard`, so requiring the call in the rendering
+      file would convict correct code and teach the next person to weaken this.
+      The chain is still proven end to end: the loader is asserted to make the
+      call, below.
+    */
+    const asks = /eventHasSides\s*\(/.test(src);
+    const gatesOnTheSharedAnswer = /hasSides \?/.test(src);
+    if (!asks && !gatesOnTheSharedAnswer) {
+      offenders.push(`${f} — neither calls eventHasSides() nor gates on hasSides`);
+    }
   }
   assert.deepEqual(
     offenders,
     [],
     'a surface renders a side control without asking whether the event has sides:\n' +
       offenders.join('\n'),
+  );
+
+  // Vacuity guard: if nothing calls the helper any more, the allowance above is
+  // a hole rather than a delegation.
+  assert.match(
+    read('app/dashboard/[eventId]/guests/_components/guest-card-data.ts'),
+    /eventHasSides\s*\(/,
+    'the guest card’s loader stopped asking whether the event has sides',
   );
 });
 

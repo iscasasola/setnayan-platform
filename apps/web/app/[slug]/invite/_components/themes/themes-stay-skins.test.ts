@@ -40,19 +40,54 @@ test('DoorShell imports no stylesheet — a theme can never reach the shared chu
   assert.doesNotMatch(shell, /import\s+['"][^'"]+\.css['"]/, 'DoorShell side-imports CSS');
 });
 
-test('a theme stylesheet is imported only from the invite routes’ own theme folder', () => {
-  const themesDir = join(WEB, 'app', '[slug]', 'invite', '_components', 'themes');
-  const sheets = readdirSync(themesDir).filter((f) => f.endsWith('.module.css'));
-  assert.ok(sheets.length >= 1, 'no theme stylesheet found — the Capiz skin is gone');
+test('a theme stylesheet is imported only from its OWN surface’s theme folder', () => {
+  /*
+    🪤 THIS GUARD USED TO MATCH BY BASENAME, AND SINCE 2026-09-22 THAT IS A TRAP.
+    The Event Hub pages wear the same five themes now, so there is a SECOND
+    folder of theme stylesheets — `app/[slug]/_components/skins/` — and its files
+    are deliberately named `capiz.module.css`, `velvet.module.css`… after the
+    themes they paint. A basename match reported every one of them as importing
+    the DOOR's stylesheet, which it does not and cannot.
+
+    So the check is keyed on the FULL PATH, and the property it holds is the
+    real one, now stated for both surfaces: a theme's stylesheet is imported
+    only from the folder it lives in. That is still what keeps a theme out of
+    the shared chunk — and it is now also what keeps the two surfaces from
+    importing each other's, which would put the door's CSS on every guest page.
+  */
+  const SURFACES = [
+    join(WEB, 'app', '[slug]', 'invite', '_components', 'themes'),
+    join(WEB, 'app', '[slug]', '_components', 'skins'),
+  ];
+  const sheets: { path: string; dir: string }[] = [];
+  for (const dir of SURFACES) {
+    for (const f of readdirSync(dir).filter((f) => f.endsWith('.module.css'))) {
+      sheets.push({ path: join(dir, f), dir });
+    }
+  }
+  assert.ok(sheets.length >= 8, `found ${sheets.length} theme stylesheets across both surfaces, expected 8+`);
+
   const offenders: string[] = [];
   for (const file of [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))]) {
     const src = stripComments(readFileSync(file, 'utf8'));
     for (const sheet of sheets) {
-      if (src.includes(sheet) && !file.startsWith(themesDir)) offenders.push(relative(WEB, file));
+      // An import is only ever relative here, so resolve what the file asks for
+      // against the file's own directory and compare PATHS, never names.
+      for (const m of src.matchAll(/from\s+['"](\.[^'"]*\.module\.css)['"]/g)) {
+        const resolved = join(dirname(file), m[1]!);
+        if (resolved === sheet.path && !file.startsWith(sheet.dir)) {
+          offenders.push(`${relative(WEB, file)} → ${relative(WEB, sheet.path)}`);
+        }
+      }
     }
   }
-  assert.deepEqual(offenders, [], `a theme stylesheet is imported outside app/[slug]/invite/_components/themes: ${offenders.join(', ')}`);
+  assert.deepEqual(
+    offenders,
+    [],
+    `a theme stylesheet is imported from outside its own surface's folder: ${offenders.join(', ')}`,
+  );
 });
+
 
 test('a skin never restyles the card’s controls — its only reach inside the card is the header', () => {
   const themesDir = join(WEB, 'app', '[slug]', 'invite', '_components', 'themes');

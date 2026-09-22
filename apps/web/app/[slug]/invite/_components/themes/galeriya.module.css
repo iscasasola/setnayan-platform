@@ -62,11 +62,23 @@
  *     ruling is about.
  */
 .galeriya {
+  /*
+   * ⚠ THE MATERIAL TOKENS MOVED OUT OF THIS RULE (Event Hub themes, 2026-09-22)
+   * and now live in `app/globals.css` under
+   * `[data-invite-theme='galeriya'], [data-hub-theme='galeriya']`.
+   *
+   * They had to: the SITE behind this door wears the same theme now, and
+   * `themes-stay-skins.test.ts` forbids the site importing this stylesheet (no
+   * theme may reach the shared chunk). The only way both surfaces can hold ONE
+   * definition of the material is an attribute-scoped block neither of them
+   * owns. Geometry that describes DoorShell stays here — it is about the door,
+   * not about the material.
+   *
+   * `DoorShell` stamps `data-invite-theme` from `skin.themeId`, so this rule's
+   * vars resolve exactly as before.
+   */
   /* the gallery wall */
-  --ga-wall: #e9eaec;
   /* the one structural rule, and the print's hairline */
-  --ga-rule: #bdc0c5;
-
   /*
    * WHERE THE CARD'S LEFT EDGE IS, expressed the way DoorShell expresses it —
    * `px-4 sm:px-6` around a `max-w-md` column. The rule on the wall and the
@@ -77,10 +89,8 @@
   --ga-pad: 1rem; /* DoorShell's px-4 */
   --ga-card-pad: 1.5rem; /* DoorShell's p-6 */
   --ga-rule-gap: 8px; /* how far left of the card the rule stands */
-
   /* the hung print's height — see port correction 2 above */
   --ga-print-h: 40px;
-
   background-color: var(--ga-wall);
 }
 @media (min-width: 640px) {

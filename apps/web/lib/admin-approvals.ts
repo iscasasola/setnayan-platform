@@ -33,7 +33,15 @@ export type ApprovalActionType =
   // picker, because a refund only makes sense against a specific paid order.
   // target_id carries the order_id; the amount, reason and proof ride in the
   // payload. The threshold itself lives in lib/two-admin-promise.ts.
-  | 'approve_large_refund';
+  | 'approve_large_refund'
+  // Vendor Agreement § 9.1 — "Modify Setnayan's static BDO / GCash
+  // payment-receiving account numbers". Initiated from
+  // /admin/settings/payment-methods, either by editing the account fields or
+  // by uploading a new payment QR (a QR IS a destination), and confirmed by a
+  // second admin. Never in the picker: there is nothing to propose in the
+  // abstract, only a specific new destination. No target_id — the subject is
+  // the platform_settings row; the destination rides in the payload.
+  | 'approve_payment_account_change';
 
 /**
  * Display labels for action types that are NOT in the manual picker
@@ -46,6 +54,7 @@ const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
   approve_journal_spotlight: 'Publish sponsored journal spotlight',
   approve_large_refund: 'Approve refund over ₱25,000 (money)',
+  approve_payment_account_change: 'Change the BDO/GCash receiving account (money)',
 };
 
 export type ApprovalActionMeta = {

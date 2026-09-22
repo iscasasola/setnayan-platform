@@ -47,6 +47,8 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
     "Sound, lights, LED wall, mics — so every speech lands in the back row. Ask your venue what is in-house before you rent.",
   event_medic:
     "A nurse or paramedic quietly on standby at outdoor, sports, or large events. Many venues and tournaments require one.",
+  everything_else:
+    "Someone you added yourself whose trade we could not place. They stay here so you can still see them, price them and lock them.",
   tour_activity:
     "Island hopping, a city tour, team-building — the day your visiting guests talk about longest. Book once your headcount is firm.",
   tour_guide:

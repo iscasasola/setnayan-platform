@@ -822,6 +822,20 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Medic / First-aid',
     cardKind: 'inclusions',
   },
+  /*
+    The fallback tile has no trade, so it gets the plainest booth in the kit: a
+    bare DESK with one clipboard and nobody in costume. It exists to satisfy
+    `Record<WeddingTile, BoothTemplateSpec>` — a couple's self-added supplier
+    can appear in a 3D plan, and rendering nothing for them would be the same
+    disappearance this tile was added to fix.
+  */
+  everything_else: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [-0.2, 0.79, 0.05], rotY: 0.12 }],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Everything else',
+    cardKind: 'inclusions',
+  },
   event_insurance: {
     chassis: 'DESK',
     props: [{ kind: 'clipboard_board', position: [-0.2, 0.79, 0.05], rotY: 0.12 }],

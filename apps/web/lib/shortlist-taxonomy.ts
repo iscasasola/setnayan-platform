@@ -85,7 +85,20 @@ const CATEGORY_TO_TILE: Partial<Record<VendorCategory, WeddingTile>> = (() => {
     choir: 'choir',
     security: 'escort',
     gifts_and_giveaways: 'souvenir_giveaways',
-    misc: 'escort',
+    /*
+      ⚖ `misc` WAS `'escort'`, AND THAT FILED A HOTEL UNDER CARS & TRANSPORT.
+      `misc` is the fallback VendorCategory for a trade we could not name, so it
+      is what a couple's SELF-ADDED supplier gets stamped with. Measured on
+      production 2026-09-22: `Seda Hotel` and `Saysay Live Band & Hosting` both
+      sat on `category = 'misc'` for a live wedding and therefore rendered
+      under "Cars & transport › Escort" — visible, and nowhere a couple looks.
+
+      `everything_else` (tier-2 under Logistics & safety, seeded by
+      `20271238...self_added_suppliers_have_a_home.sql`) is a real home for
+      exactly this. It keeps first-writer-wins: `security` stays on `escort`
+      because a security detail genuinely is one, and only the FALLBACK moves.
+    */
+    misc: 'everything_else',
   };
   for (const [c, t] of Object.entries(supplement)) {
     if (!(c in m)) m[c as VendorCategory] = t as WeddingTile;
@@ -751,7 +764,12 @@ export function buildShortlistFolders(args: {
       //
       // Tile-level marketplace_hidden (admin-only tile) — dropped from the
       // couple-facing Shortlist (it deep-links to /explore, where the tile is
-      // also hidden). No tile is hidden today (no-op).
+      // also hidden).
+      //
+      // ⚠ NO LONGER A NO-OP (2026-09-22). `everything_else` is hidden, and it
+      // relies on the `vendors.length === 0` qualifier below being real: the
+      // tile must stay invisible while empty (nobody browses for "everything
+      // else") and appear the moment a self-added supplier is filed there.
       if (vendors.length === 0 && hiddenCategories[tile]) continue;
       // Event-type scope (tile-grain primary control).
       if (

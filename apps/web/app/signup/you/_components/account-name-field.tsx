@@ -103,8 +103,8 @@ export function AccountNameField({ suggested }: { suggested: string }) {
         id="hr-you-slug-verdict"
         role={verdict.tone === 'no' ? 'alert' : 'status'}
         data-tone={verdict.tone}
+        className="hr-si-hint"
         style={{
-          fontSize: 12,
           color:
             verdict.tone === 'ok' ? '#2F6B35' : verdict.tone === 'no' ? '#8A3418' : 'var(--hr-grey)',
         }}

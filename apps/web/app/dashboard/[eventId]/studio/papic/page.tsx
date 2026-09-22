@@ -102,6 +102,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { CreditRecommendation } from './_components/credit-recommendation';
+import { PapicCamerasCard } from './_components/papic-cameras-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
@@ -830,6 +831,27 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           only honest while the number visibly recomputes. */}
       <CreditRecommendation eventId={eventId} eventType={(ev.event_type as string | null) ?? null} />
       <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
+      {/* Hand credits to one camera's QR, or take unspent ones back (owner
+          2026-08-11).
+
+          ⚠ THIS CONTROL IS RETIRED BY A LATER RULING AND IS STILL HERE ON
+          PURPOSE. Owner 2026-09-16, asked which of two of his own rulings
+          stands: *"no dedicated shots individually."* Removing the card is the
+          easy half; the hard half is `papic_dedicate_shots`, which the
+          both-ends guard then requires be DROPPED — and dropping it orphans
+          `papic_seat_allocations`, whose term is read by four live money
+          functions and nine app files. Measured, not guessed.
+
+          🔑 SO THE RETIREMENT SHIPS WHOLE, IN ITS OWN PR, rather than as the
+          tail of a bundle: half-retiring it is what turned this PR red. Until
+          then the page still says two things at once — the Crew-cameras sheet
+          says every shot draws from the shared pot while this hands credits to
+          one QR — which it has said for weeks and will say for one PR more. */}
+      <PapicCamerasCard
+        eventId={eventId}
+        error={shotsError ?? papicOneError ?? null}
+        justSet={shotsSet ?? null}
+      />
       {/* ⛔ NO CAMERA HOLDS CREDITS OF ITS OWN — `PapicCamerasCard` WAS HERE.
           ⚖ Two of the owner's own rulings were in direct conflict and the
           shipped code followed the older one. 2026-08-11: *"the host can

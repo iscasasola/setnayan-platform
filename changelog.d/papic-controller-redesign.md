@@ -85,33 +85,24 @@ anything**. A couple could cap a loud uncle at 40 and still have their mother ar
 SPEC IMPACT: the per-guest allotment model gains a floor; `splitTheRest`'s
 "suggestion engine, not an allocation" note still stands for the ceiling half.
 
-## 2026-09-22 · refactor(papic): no camera holds credits of its own
+## 2026-09-22 · (withdrawn from this PR) no camera holds credits of its own
 
-⚖ **This REMOVES shipped functionality**, on the owner's own ruling. Two of his rulings
-were in direct conflict and the code followed the older one: 2026-08-11 *"the host can
-dedicated a specific number of shots for a specific QR code"* (why `PapicCamerasCard`
-existed) against 2026-09-16 *"no dedicated shots individually."* Asked which stands, he
-chose 2026-09-16.
+⚖ The owner's 2026-09-16 ruling over his own 2026-08-11 one stands, and the retirement is
+**not cancelled — it is moved to its own PR**, whole.
 
-- **Removed:** `PapicCamerasCard` (deleted, unmounted) and the `setCameraShots` action.
-  🔑 The page was saying both things at once — the Crew-cameras sheet reads *"Every shot
-  draws from your shared credits"* while that card, four blocks below, handed credits to a
-  single QR.
-- **`paparazzi_seats` STAYS** — 24 live rows. A seat is the camera CLAIM, not an
-  allowance, and `app/api/upload/route.ts` resolves a seatGate per seat.
-- **The RPC `papic_dedicate_shots` is deliberately NOT dropped in this PR.** Five db tests
-  exercise it and it shares machinery with the per-seat GRANT layer that stays — measured
-  2026-09-22, `papic_seat_allocations` 0 rows but `papic_event_point_grants` 4 rows with a
-  `seat_id`, all `source = 'camera_grant'` (the free Papic One camera), which is not the
-  couple dedicating anything. Dropping it is its own change with its own baseline
-  regeneration. **Instead the retirement is enforced at the app boundary**:
-  `no-camera-holds-its-own-credits.test.ts` fails if any surface under `app/` reaches it.
-- The removal is recorded with its reason in the controls bill
-  (`nothing-was-lost-with-the-tabs.test.ts`) and `port-control-baseline.json` is
-  regenerated in the same commit, per the `VendorNavFab` precedent.
+**Why it came out of this bundle.** Removing the card and `setCameraShots` leaves
+`papic_dedicate_shots` with no caller, and `ugat-both-ends` is explicit: *"call it, or drop
+the function"*, with *"Do NOT add a line to ugat-both-ends.baseline.txt."* Dropping it then
+orphans `papic_seat_allocations` — **measured**: it is that function's only writer, and the
+table's term is read by four live money functions (`papic_event_pool_status`,
+`papic_seat_releasable_grants`, the per-guest ceiling, the self-funded-spend attribution)
+and nine app/lib files including `papic-exhaustion-truth.ts`. Five db test files hold 21
+call sites, two of them autopsies of shipped money defects.
 
-SPEC IMPACT: the 2026-09-22 ⚖ ruling row is now built on the app side; the SQL half is
-named as still open.
+🔑 **Half-retiring it is what turned this PR red.** A fail-closed credit primitive is not a
+bundle tail — BUNDLE-COMMON rule 3: a red build is dropped, not nursed, and finished builds
+are never held hostage to one. The page goes on saying two things at once for one more PR,
+which it has said for weeks.
 
 ## 2026-09-22 · feat(papic): the controller re-orders itself by phase
 

@@ -77,23 +77,7 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'LiveWallCard',
   'MagazineCard',
   'MiniTour',
-  // ⛔ REMOVED DELIBERATELY, 2026-09-22 — and this is what "deleting a line here
-  // is a decision" looks like when the decision is real.
-  //
-  // ⚖ Two of the owner's own rulings were in direct conflict and the shipped
-  // code followed the older one: 2026-08-11 *"the host can dedicated a specific
-  // number of shots for a specific QR code"* (which is why this card existed)
-  // versus 2026-09-16 *"no dedicated shots individually."* Asked which stands,
-  // he chose 2026-09-16.
-  //
-  // 🔑 The page was saying BOTH THINGS AT ONCE: the Crew-cameras sheet reads
-  // "Every shot draws from your shared credits" while this card, four blocks
-  // below, handed credits to a single QR.
-  //
-  // It is not merely absent — `no-camera-holds-its-own-credits.test.ts` asserts
-  // it stays unmounted, that the promise it contradicted is still on the page,
-  // and that no surface under app/ reaches `papic_dedicate_shots`. A removal
-  // with no guard is a removal somebody re-adds for symmetry.
+  'PapicCamerasCard',
   'PapicGalleryGrid',
   'PapicPoolCard',
   'PapicWindowPicker',

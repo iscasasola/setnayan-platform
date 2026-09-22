@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "559bfe512",
+  "generatedFromRef": "99c845c4b",
   "routeCount": 430,
   "destinations": 925,
-  "actions": 656,
+  "actions": 657,
   "blocks": 4610,
   "routes": {
     "/": {
@@ -7087,6 +7087,7 @@
         "dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx",
         "dashboard/[eventId]/studio/papic/_components/magazine-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-stage.tsx",
@@ -7140,6 +7141,7 @@
         "purchasePapicPoolTopUp",
         "releaseTheRest",
         "reviewVendorChallengeAction",
+        "setCameraShots",
         "setCapturePreserved",
         "setCoupleChallengeActiveAction",
         "setCoupleFaceTaggingDeclined",

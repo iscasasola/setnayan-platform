@@ -1973,27 +1973,70 @@ Modifier letters that trigger it after a bare `$var:` — **s h t r e g a A c l 
 `PIPESTATUS` (bash-only, empty in zsh) and `status` (read-only in zsh, kills a watch loop on
 line 1). **When an argument looks wrong, `od -c` it before theorising about the tool.**
 
-## 🛑 THIS FILE WAS NOT UNDER VERSION CONTROL — fixed by putting it in wave 2
+## 🚨 LOAD 39 ON 10 CORES, SWAP AT 884 MB FREE — four fan-outs at once (2026-09-22 09:04 UTC)
 
-Measured 2026-09-22: `build-sessions/` **is** a tracked directory (198 files on `origin/main`),
-but every artefact this controller produced was **untracked** —
+Four test fan-outs were running simultaneously: `wt-guestcard` (24 processes), `wt-rd-money`,
+`wt-rd-counts` and the controller's own `wt-rd-wave-2`. Load averaged **39 on 10 cores** and
+swap reached **10.3 GB used of 11.2 GB**. This is the state in which a Bash call cannot write
+its own output file — **including the `rm` needed to recover**.
 
+**This was the controller's doing.** Three builds were dispatched inside twenty minutes with
+the lock named only as advice. The rule is now stated as a requirement in every dispatch:
+
+```bash
+build-sessions/heavy-lock.sh npx tsx --test --test-concurrency=4 "lib/**/*.test.ts" "app/**/*.test.ts"
 ```
-REDESIGN-CONTROL.md  WAVE-PLAN.md  PROTOTYPE-SPEC.md
-merge-control.sh     import-graph.py  why-red.sh
-```
 
-— 316 KB of charter, rulings, traps and the analyzer itself, living **only in the working
-tree of a stale branch** (`claude/front-door-drops-hero-for-anchor`, hundreds of commits
-behind main). `git show "origin/main:build-sessions/REDESIGN-CONTROL.md"` → *"exists on disk,
-but not in `origin/main`"*.
+from `apps/web`, always capped. Bare `pnpm test:unit` has **no** `--test-concurrency` and took
+this machine to load 139 earlier the same day.
 
-⚠ **A `git checkout`, a worktree prune, or a branch switch in that checkout would have taken
-the entire record with it**, and nothing would have reported a loss — the same shape as
-everything else on this register. It is the second time on this project that a register has
-turned out to be untracked.
+🔑 **The lock is about machine LOAD, not job size** — a two-line change still fans out over
+~620 files.
 
-✅ They are committed here, in the wave, so they cost **no extra merge**. The generated
-reports (`MERGE-CONTROL*.md`) are deliberately **not** committed: they are outputs, they
-change on every run, and storing an output is how a stale number becomes a fact. Regenerate
-with `build-sessions/merge-control.sh`.
+### ⚠ THE CONTROLLER'S OWN EVIDENCE WAS INTERRUPTED, AND SAID SO
+
+The wave-2 suite was killed at **15,230 assertions** to free the machine. It exited **143** and
+the `# tests / # pass / # fail` summary **never printed**. There is no complete clean local run
+on the merged tree; CI on #5892 is the evidence. **An interrupted run and a clean one are
+identical if you only read the tail** — check the exit code AND that the summary lines exist.
+Two sessions independently reported the same discipline back the same hour.
+
+## 🪤 THE HOLD LABEL IS THE ONLY RELIABLE DISARM — `gh pr merge --disable-auto` GETS UNDONE
+
+`.github/workflows/auto-merge.yml`'s `enable-automerge` job fires on every push, so a PR
+disarmed by hand **re-arms itself on the next commit.** That is why #5885 appeared armed twice;
+it was the workflow, not the session.
+
+The real control is the **`do-not-auto-merge` label**, whose `disarm-on-hold-label` job is
+explicitly excluded from the arming path (*"labelling a PR may never be what arms it"*).
+
+🔑 **AND THE DANGER IS NOT THE MERGE TO `main`, IT IS THE MERGE TO THE TRUNK.** The guest-card
+session caught this and it is the sharper half: once #5885 was retargeted onto `rd/wave-2`, an
+auto-merge would have folded it into the trunk **without the `port-control-baseline.json`
+regeneration** — the trunk would then have carried a stale generated file into `main` with
+every check green. A hold is needed on the *contributor* PR, not only on the trunk.
+
+Both #5892 and #5885 wear the label. It comes off the trunk when the fold is complete.
+
+## 🔑 A SOURCE GUARD ANCHORED TO A BYTE OFFSET IS MEASURING THE FILE, NOT THE CODE
+
+Three faces of one rule, all found on 2026-09-22 by two sessions:
+
+| what moved | what the guard did |
+|---|---|
+| a **symbol** moved file | the guard's file pointer went stale — red on correct code |
+| **prose** moved code | a seven-line comment pushed a mount from offset 135 to **715**, past a fixed 600-char window |
+| **prose imitated code** | a docblock naming `<QrActions` in a guard that counts that exact string and does not strip comments — the explanation would have counted as a second mount |
+
+✅ **Brace-match the block, and assert the COUNT** so a window that is too long fails as loudly
+as one that is too short. Strip comments for any assertion that counts. The old guard had no
+defence against a too-long window at all.
+
+## ⚠ THE BRACKETED-PATH TRAP CAUGHT THE CONTROLLER TOO
+
+`npx tsx --test "app/dashboard/[eventId]/guests/_components/the-autosave-can-be-taken-back.test.ts"`
+printed **`# tests 0 · # pass 0 · # fail 0`** and exited 0. The brackets are a glob character
+class; the path matches nothing. Re-run as `"app/**/<name>.test.ts"` → **6 tests, 6 pass.**
+
+🔑 It was caught only because the count was printed and read. **A zero from a harness is not
+evidence** — and this one is in the memory file, was known, and still nearly passed as a green.

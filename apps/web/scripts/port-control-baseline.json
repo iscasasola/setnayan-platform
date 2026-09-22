@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "36506692e",
+  "generatedFromRef": "95a625755",
   "routeCount": 431,
-  "destinations": 928,
+  "destinations": 927,
   "actions": 658,
   "blocks": 4626,
   "routes": {
@@ -9437,7 +9437,6 @@
         "signup/page.tsx"
       ],
       "destinations": [
-        "/",
         "/privacy",
         "/terms"
       ],

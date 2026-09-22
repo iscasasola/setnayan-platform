@@ -48,6 +48,10 @@ import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
 import { ChatAppointmentCard, type ChatAppointmentData } from './chat-appointment-card';
 import { ChatOfferedServiceCard } from './chat-offered-service-card';
+import {
+  offeredServiceCardState,
+  latestQuoteAtFrom,
+} from '@/lib/offered-service-card-state';
 import { ScheduleSuggestChip } from './schedule-suggest-chip';
 import {
   ChatAmendmentCard,
@@ -1401,11 +1405,23 @@ export function ChatMessageStream({
           // component fetches its own data and draws the message body until it
           // arrives, so a slow or refused resolve still reads as an offer.
           if (m.offered_service_id) {
+            /* A quote REPLACES an offer (owner 2026-09-22) — and the offer is
+               kept as history rather than removed. One rule, in
+               lib/offered-service-card-state.ts, executed by its own test; the
+               card only draws what it is handed. `latestQuoteAtFrom` is the one
+               way to say which quote is newest, so the caller cannot invent a
+               second. */
+            const offerState = offeredServiceCardState({
+              offeredAt: m.created_at,
+              latestQuoteAt: latestQuoteAtFrom(messages),
+            });
             return (
               <li key={m.message_id} className="flex justify-center">
                 <ChatOfferedServiceCard
                   messageId={m.message_id}
                   fallbackBody={m.body}
+                  superseded={offerState.kind === 'superseded'}
+                  supersededNote={offerState.note}
                 />
               </li>
             );

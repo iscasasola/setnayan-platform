@@ -102,6 +102,12 @@ export type QuoteRevisionSeed = {
   paymentMethodIds: string[];
   /** The replaced quote's payment schedule, in the builder's draft shape; null = keep the default. */
   schedule: QuoteRevisionSchedule | null;
+  /**
+   * The supplier's own answer on the quote being replaced — NOT the card's.
+   * `null` means that quote expressed no opinion, which is a real answer: the
+   * column is nullable by design, so the builder falls through to the cards.
+   */
+  giftSwitch: boolean | null;
 };
 
 export type QuoteRevisionSource = {
@@ -115,7 +121,30 @@ export type QuoteRevisionSource = {
   line_items: unknown;
   payment_method_ids: unknown;
   payment_schedule?: unknown;
+  includes_setnayan_gift?: boolean | null;
 };
+
+/**
+ * EVERY COLUMN `seedQuoteRevision` READS, as one value the page selects with.
+ *
+ * 🔑 IT IS A CONSTANT SO THAT A UNIT TEST CAN EXECUTE IT. The read lives in a
+ * server component, which a test can never import, so a guard over the query
+ * itself could only grep. Holding the column list here moves the thing that can
+ * be got wrong into a pure module — drop a column and
+ * `the-revision-keeps-the-suppliers-answer.test.ts` goes red by RUNNING this,
+ * not by reading the page's source.
+ *
+ * Why that matters here specifically: `includes_setnayan_gift` was written on
+ * send and never asked for again, so the supplier's answer was discarded by the
+ * QUERY, a layer above the builder. A fix that only touched the component would
+ * have shipped green and still lost it.
+ *
+ * ⚠ ONE literal with `as const`, never a `+` concatenation: supabase-js types the
+ * returned row FROM the select string's literal type, and a concatenation infers
+ * as plain `string`, which degrades the row to `GenericStringError`.
+ */
+export const QUOTE_REVISION_SELECT =
+  'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids, payment_schedule, includes_setnayan_gift' as const;
 
 const peso = (centavos: number) => Math.round(centavos) / 100;
 
@@ -170,5 +199,6 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
     validUntil: /^\d{4}-\d{2}-\d{2}$/.test(row.valid_until ?? '') ? (row.valid_until as string) : '',
     paymentMethodIds: ids,
     schedule: seedScheduleFromStored(row.payment_schedule),
+    giftSwitch: row.includes_setnayan_gift ?? null,
   };
 }

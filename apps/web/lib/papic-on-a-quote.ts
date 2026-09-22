@@ -211,6 +211,38 @@ export function defaultQuoteSwitch(
   return null;
 }
 
+/**
+ * WHAT THE SWITCH OPENS AT WHEN THE SUPPLIER IS REVISING A QUOTE THEY ALREADY SENT.
+ *
+ * 🔑 THE ORDER OF THE TWO QUESTIONS IS THE WHOLE POINT. The CURRENT booking
+ * decides whether there is a switch at all; the REPLACED quote decides its
+ * value. Never the other way round.
+ *
+ * A naive pass-through — "reopen at whatever the old quote said" — resurrects a
+ * gift on a booking that has since become waived, imported or unreadable. That
+ * fails in the direction that costs the supplier money, which is why
+ * `cardsAnswer === null` is answered first and returns before anything else is
+ * considered.
+ *
+ * @param revisionAnswer `vendor_proposals.includes_setnayan_gift` of the quote
+ *   being replaced. `undefined` = not a revision. `null` = that quote expressed
+ *   no opinion (the column is nullable by design, so NULL is a real answer
+ *   meaning "nothing was said"), and falling through to the cards is then
+ *   correct rather than lazy.
+ * @param cardsAnswer `defaultQuoteSwitch(...)` for the booking as it stands
+ *   NOW. `null` means this booking offers no switch at all.
+ *
+ * With no revision this returns `cardsAnswer` unchanged, so a first-draft quote
+ * behaves exactly as it did before this function existed.
+ */
+export function openingGiftSwitch(a: {
+  revisionAnswer: boolean | null | undefined;
+  cardsAnswer: boolean | null;
+}): boolean | null {
+  if (a.cardsAnswer === null) return null;
+  return a.revisionAnswer ?? a.cardsAnswer;
+}
+
 /** "40%" — the owner's ceiling, rendered from the constant, never typed. */
 function sharePct(): string {
   return `${GIFT_SHARE_OF_FEE_PCT}%`;
@@ -244,7 +276,7 @@ export function papicTopUpForQuote(
       if (!gift) return null;
       return {
         tone: 'good',
-        headline: 'That is the most Papic this booking can carry.',
+        headline: 'Papic deal · on — that is the most this booking can carry.',
         detail:
           `Your exclusive Papic deal is capped at ${sharePct()} of your booking fee` +
           (gift.capped
@@ -265,7 +297,7 @@ export function papicTopUpForQuote(
       if (!Number.isFinite(totalCentavos) || totalCentavos <= 0) {
         return {
           tone: 'info',
-          headline: 'You can add an exclusive Papic deal to this quote.',
+          headline: 'Papic deal · off — put your price in to size it.',
           cta,
           detail:
             `Free Papic photos for your couple, sized at ${sharePct()} of your booking fee and ` +
@@ -276,7 +308,7 @@ export function papicTopUpForQuote(
       if (!gift) {
         return {
           tone: 'info',
-          headline: 'This quote is too small to carry a Papic deal.',
+          headline: 'Papic deal · off — this quote is too small to carry one.',
           cta,
           detail:
             `The exclusive deal is ${sharePct()} of your booking fee, and at this price that does not ` +
@@ -286,8 +318,8 @@ export function papicTopUpForQuote(
       return {
         tone: 'info',
         headline:
-          `You can add up to ${formatGiftPhotos(gift.credits)} free Papic photos for your couple — ` +
-          `${feePesos(gift.chargeCentavos / 100)} on top of your booking fee.`,
+          `Papic deal · off — up to ${formatGiftPhotos(gift.credits)} free photos, ` +
+          `${feePesos(gift.chargeCentavos / 100)} on your fee.`,
         cta,
         detail:
           `That is the most this booking can carry: ${sharePct()} of your booking fee` +
@@ -309,7 +341,7 @@ export function papicTopUpForQuote(
        */
       return {
         tone: 'good',
-        headline: 'No Papic deal on this booking — and nothing to pay.',
+        headline: 'Papic deal · none — and nothing to pay.',
         detail:
           'Your exclusive Papic deal is a share of the booking fee you actually pay, and this ' +
           `booking's fee is waived — one of your first ${FREE_BOOKING_LIMIT} on Setnayan. Your first ` +
@@ -319,7 +351,7 @@ export function papicTopUpForQuote(
     case 'not_sourced':
       return {
         tone: 'good',
-        headline: 'No Papic deal on this booking — and nothing to pay.',
+        headline: 'Papic deal · none — and nothing to pay.',
         detail:
           'This client did not come from Setnayan, so this booking carries no booking fee — and the ' +
           'exclusive Papic deal is sized from that fee. Nothing here is billed to you.',
@@ -328,7 +360,7 @@ export function papicTopUpForQuote(
     case 'unreadable':
       return {
         tone: 'info',
-        headline: 'We could not work out the Papic you can add to this booking.',
+        headline: 'Papic deal — we could not work it out just now.',
         detail:
           'Rather than show you a number we have not checked, we would rather say so. ' +
           'Reopen this quote in a moment and it will be here.',

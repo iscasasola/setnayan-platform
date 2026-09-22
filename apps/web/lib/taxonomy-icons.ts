@@ -40,6 +40,7 @@ import {
   ChefHat,
   Church,
   ClipboardCheck,
+  Boxes,
   ClipboardList,
   Coffee,
   Compass,
@@ -200,6 +201,9 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   // LOGISTICS & SAFETY
   referee_official: ClipboardCheck,
   event_medic: Stethoscope,
+  // The fallback tile. `Boxes` reads as "assorted", not as a trade — this tile
+  // holds whatever the couple typed in, so its icon must not imply a category.
+  everything_else: Boxes,
   // INSURANCE & PROTECTION
   event_insurance: Shield,
   personal_accident_insurance: HeartPulse,

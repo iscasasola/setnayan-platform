@@ -47,11 +47,18 @@ export function NavFab({
     };
   }, []);
 
+  /*
+   * `sn-vt-fab` → `view-transition-name: sn-navfab` (globals.css). Without a
+   * name of its own this circle stays in the `root` snapshot, and `root`
+   * paints BENEATH the sliding `sn-page` group — whose `<main>` box covers
+   * this strip — so the FAB disappeared for the whole 320ms of every
+   * bottom-nav tab change, taking half the bar row with it.
+   */
   return (
     <Link
       href={href}
       aria-label={label}
-      className="fixed right-[14px] z-30 flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform active:scale-95 motion-reduce:transition-none lg:hidden"
+      className="sn-vt-fab fixed right-[14px] z-30 flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform active:scale-95 motion-reduce:transition-none lg:hidden"
       style={{
         // Centered in the bar row: the pill floats 12px above the safe-area inset
         // and is `--sn-bottomnav-h` tall; center the 56px circle within that.

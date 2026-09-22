@@ -10,7 +10,9 @@ log=$(mktemp)
 gh api "repos/{owner}/{repo}/actions/jobs/$jid/logs" > $log 2>/dev/null
 echo "  --- failing steps ---"
 gh api "repos/{owner}/{repo}/actions/jobs/$jid" --jq '.steps[]|select(.conclusion=="failure")|"    \(.number)\t\(.name)"' 2>/dev/null
-echo "  --- assertions / errors ---"
-grep -aE "(^|[^#] )not ok [0-9]+ -|error TS[0-9]+:|^##\[error\]" $log \
+echo "  --- assertions / errors / guard output ---"
+  # 🔑 a job can fail in MORE THAN ONE step. Print every failing step and match guard
+  # output (✗ …) as well as TAP, or the second failure stays invisible.
+grep -aE "(^|[^#] )not ok [0-9]+ -|error TS[0-9]+:|^##\[error\]|✗ |file\(s\) grew|FAILED" $log \
   | sed 's/\x1b\[[0-9;]*m//g' | sed -E 's/^[0-9T:.\-]+Z //' | sort -u | head -20 | cut -c1-190 | sed 's/^/    /'
 rm -f $log

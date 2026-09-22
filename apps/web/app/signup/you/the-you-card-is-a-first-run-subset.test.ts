@@ -11,8 +11,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FORMAL_NAME_FIELDS } from '@/lib/formal-name';
 import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
+import { stripComments } from '@/lib/strip-comments';
 
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 const PAGE = strip(readFileSync('app/signup/you/page.tsx', 'utf8'));
 const ACTIONS = strip(readFileSync('app/signup/you/actions.ts', 'utf8'));
 const FIELD = strip(readFileSync('app/signup/you/_components/account-name-field.tsx', 'utf8'));

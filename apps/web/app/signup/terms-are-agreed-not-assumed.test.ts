@@ -125,10 +125,38 @@ test('the subject of the record cannot author it, and half a record is refused',
   const file = readdirSync(dir).find((f) => f.includes('users_record_the_terms_they_agreed_to'));
   assert.ok(file, 'the migration is missing');
   const sql = readFileSync(join(dir, file), 'utf8');
+  // 🪤 THE FIRST VERSION OF THIS ASSERTED A COLUMN-LEVEL REVOKE, AND THE REVOKE
+  // WAS A NO-OP. `users` carries a TABLE-level UPDATE grant, which
+  // `REVOKE UPDATE (col) … FROM authenticated` does not subtract from — the
+  // exposure baseline still reported `authenticated=SU` on both new columns
+  // afterwards. The guard passed, and protected nothing. Assert the mechanism
+  // that actually works: the BEFORE UPDATE trigger reverts the columns for a
+  // non-privileged caller, extending `guard_users_privilege_columns` rather
+  // than racing a second trigger against it on the same table.
   assert.match(
     sql,
-    /REVOKE UPDATE \(terms_accepted_at, terms_version\) ON public\.users FROM anon, authenticated/,
-    'RLS is row-level and cannot hide a column, and users is owner-updatable — without this a person could stamp or clear their own consent record with one PostgREST call',
+    /NEW\.terms_accepted_at\s*:= OLD\.terms_accepted_at/,
+    'a non-privileged caller must not be able to stamp their own consent record — a column-level REVOKE against a table grant does not stop them',
+  );
+  assert.match(
+    sql,
+    /NEW\.terms_version\s*:= OLD\.terms_version/,
+    'and must not be able to rewrite WHICH terms they agreed to',
+  );
+  // 🪤 AND THIS ONE CONVICTED THE COMMENT EXPLAINING THE FIX — the sixth time
+  // in this work a matcher has fired on documentation OF a defect rather than
+  // the defect. SQL comments stripped before counting; the assertion is about
+  // STATEMENTS, and a `--` line is not one.
+  const sqlCode = sql.replace(/^\s*--.*$/gm, '');
+  assert.equal(
+    count(sqlCode, /REVOKE UPDATE \(/),
+    0,
+    'a column-level REVOKE against a table-level grant is inert — shipping one is protection that only looks like protection',
+  );
+  assert.match(
+    sql,
+    /CREATE OR REPLACE FUNCTION public\.guard_users_privilege_columns/,
+    'extend the existing guard; two triggers reverting different columns on one table is a second mechanism for one rule',
   );
   assert.match(
     sql,

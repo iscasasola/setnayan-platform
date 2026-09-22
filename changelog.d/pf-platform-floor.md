@@ -153,3 +153,31 @@ old enough to be missing a section cannot know to check for it.
 Ceiling tightened 160 → 40 now that the debt is cleared.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · fix(env): two of the four converted flags were deliberate holdouts
+
+CI caught this, and it is the exact failure mode `env-flag.ts`'s own docblock
+warns about: *"the adoption pass was done ONE FLAG AT A TIME, not as a
+find-and-replace, because widening a reader silently activates whatever the flag
+gates."*
+
+`CATEGORY_PROPOSAL_DRAFT_ENABLED` and `SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED` each
+already had their own test asserting strictness — *"OFF for near-miss truthy
+values — only the exact string arms it"* — and each says why in its docblock.
+Category-proposal ships DARK (production has held zero category requests, so
+there is nothing to draft); supplier-night-before arms an unproven SEND to real
+suppliers the night before their job. Neither is a parsing bugfix.
+
+Both are reverted to strict and moved from `CONVERTED` to `HELD_STRICT`, which
+pins the strict read AND the note explaining it, so a later sweep cannot widen
+one without first deleting the sentence saying not to. Five holdouts become seven.
+
+🔑 THE LESSON, for the remaining bundles: **before converting a flag, check
+whether it has its own test.** The closed-set gate added in this bundle finds
+flags that are in NO list — it cannot tell you that a flag belongs in the other
+one. Two different questions, and only the first was automated.
+
+The other two conversions stand: `NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION` and
+`VENDOR_SIGNUP_COVERAGE_SUGGEST_ENABLED` have no such test and no such reason.
+
+SPEC IMPACT: None.

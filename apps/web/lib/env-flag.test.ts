@@ -95,9 +95,7 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   // and — the one that matters — SURROUNDING WHITESPACE. A trailing space is
   // invisible in the Vercel dashboard, and this flag gates whether a new
   // account must confirm its email.
-  ['lib/category-proposal-flag.ts', ['CATEGORY_PROPOSAL_DRAFT_ENABLED']],
   ['lib/email-verification.ts', ['NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION']],
-  ['lib/supplier-night-before-email-flag.ts', ['SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED']],
   ['lib/vendor-signup-coverage-suggest-flag.ts', ['VENDOR_SIGNUP_COVERAGE_SUGGEST_ENABLED']],
   ['lib/ghost-booths.ts', ['NEXT_PUBLIC_PLAN3D_BOOTH_ADS']],
   /* GUEST_SESSION_TOKEN_CHECK removed 2026-09-17 — the FLAG is gone, not the
@@ -201,7 +199,7 @@ test('no converted switch regressed to a bare string comparison', () => {
 /**
  * ⚠ THE DELIBERATE HOLDOUTS.
  *
- * These five readers stay strict ON PURPOSE. Each gates something whose "on"
+ * These SEVEN readers stay strict ON PURPOSE. Each gates something whose "on"
  * is a compliance or owner decision, so widening what counts as ON is not a
  * parsing bugfix. This test pins BOTH halves — the strict read AND the note
  * that explains it — so nobody can widen one in a later sweep without first
@@ -213,6 +211,15 @@ const HELD_STRICT: ReadonlyArray<readonly [string, string]> = [
   ['lib/device-capture-flag.ts', 'NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED'],
   ['lib/papic-fullres-drop.ts', 'PAPIC_CLIP_DROP_ENABLED'],
   ['lib/daily-email-jobs.ts', 'PAPIC_CLIP_DROP_ENABLED'],
+  // Added 2026-09-22 after a sweep wrongly converted BOTH. Each already had
+  // its own test pinning strictness, and each says why in its docblock:
+  //   category-proposal   — "C4 ships DARK … must require the exact opt-in
+  //                          string". Production has held ZERO category
+  //                          requests, so there is nothing to draft.
+  //   supplier-night-before — same shape: an unproven send, armed by the
+  //                          owner on an exact string and nothing looser.
+  ['lib/category-proposal-flag.ts', 'CATEGORY_PROPOSAL_DRAFT_ENABLED'],
+  ['lib/supplier-night-before-email-flag.ts', 'SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED'],
 ];
 
 test('the deliberate holdouts stay strict, and still say why', () => {

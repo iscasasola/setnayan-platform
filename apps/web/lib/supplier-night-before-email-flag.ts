@@ -16,7 +16,10 @@
  * `!== 'false'` shape used for safe, already-proven cleanup jobs.
  */
 
-import { envFlagEnabled } from './env-flag';
 export function isSupplierNightBeforeEmailEnabled(): boolean {
-  return envFlagEnabled(process.env.SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED);
+  // ⛔ DELIBERATELY NOT converted to envFlagEnabled. This arms an unproven SEND
+  // to real suppliers the night before their job. Widening what counts as ON is
+  // an owner decision, not a parsing bugfix.
+  // Pinned by supplier-night-before-email-flag.test.ts.
+  return process.env.SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED === 'true';
 }

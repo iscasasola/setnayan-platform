@@ -20,7 +20,11 @@
  * sees the same four buttons. Nothing about the supplier's path is gated on it.
  */
 
-import { envFlagEnabled } from './env-flag';
 export function isCategoryProposalDraftEnabled(): boolean {
-  return envFlagEnabled(process.env.CATEGORY_PROPOSAL_DRAFT_ENABLED);
+  // ⛔ DELIBERATELY NOT converted to envFlagEnabled. C4 ships DARK: production
+  // has held ZERO category requests, so there is nothing to draft and nothing
+  // to judge a draft against. The owner arms it the day a supplier first types
+  // a trade we have no word for — on the exact string, never a near-miss.
+  // Pinned by category-proposal-flag.test.ts.
+  return process.env.CATEGORY_PROPOSAL_DRAFT_ENABLED === 'true';
 }

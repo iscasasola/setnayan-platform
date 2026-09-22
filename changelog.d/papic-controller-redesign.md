@@ -112,3 +112,34 @@ chose 2026-09-16.
 
 SPEC IMPACT: the 2026-09-22 ⚖ ruling row is now built on the app side; the SQL half is
 named as still open.
+
+## 2026-09-22 · feat(papic): the controller re-orders itself by phase
+
+⚖ Owner, on the live page: *"it doesn't feel inquitive and easy to manage."* The approved
+prototype (`prototypes/papic_controller_redesign_2026-09-21/`) puts ten blocks in one DOM
+and re-orders them with CSS `order`. This is that, in the real page.
+
+- **Before the day** — money leads the setup: Credits → Coverage → Allotment → Filter →
+  Challenges → Live wall → Gallery → Kwento → Made for you → More.
+- **On the day and after** — the photographs lead: Gallery → Kwento → Made for you → Live
+  wall → Credits → Allotment → Filter → Challenges → Coverage → More.
+- **Two renames**: the capture-window block is **Coverage**; "Guests' shots" is
+  **Allotment**.
+- **Live wall moved UP, above the gallery** in both phases — it is a setup job (pick a
+  style, get the screen code) that was sitting below the results it helps produce.
+- **The recommendation is on the credits block** and shows its own arithmetic
+  ("146 guests × 150 for a wedding = 21,900 · you hold 5,050"). ⚠ Money now sits ABOVE the
+  two blocks that size it; that inversion is only honest while the number recomputes, so
+  the guard requires the recommendation to be on the page.
+- **A row whose sheet held one switch now carries the switch** (owner: *"set the toggles
+  here if it only needs toggle switches"*) — Finding people. Blurred faces and Google Drive
+  keep their panels: one is a report the couple cannot set, the other is an OAuth connect.
+- **The allotment panel says the couple does not add guests here** and carries the door to
+  the guest list (owner asked *"how to add guests?"* on that screen).
+
+🪤 **Two silent failure modes are guarded**, because neither is visible to typecheck, to a
+snapshot, or to the controls bill: an interpolated `order-${n}` is a class Tailwind never
+generates, and CSS `order` is inert on a block container. Either one leaves the page in
+source order looking exactly as it did.
+
+SPEC IMPACT: builds RULING 2 of the 2026-09-22 redesign row.

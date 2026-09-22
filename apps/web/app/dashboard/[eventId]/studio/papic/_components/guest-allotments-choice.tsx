@@ -17,6 +17,7 @@
 // another file's allowlist staying correct.
 import 'server-only';
 
+import Link from 'next/link';
 import { Coins } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -378,9 +379,28 @@ export async function GuestAllotmentsChoice({
           {/* NAMING GUESTS — the real new control. */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-ink">Give someone their own number</p>
+            {/* ⚖ THE COUPLE DOES NOT ADD GUESTS HERE (owner, 2026-09-22, asked
+                exactly that on this screen: *"how to add guests?"*). THIS LIST
+                IS THE GUEST LIST — the same people, read from the same table —
+                so a second way to add somebody would be a second place their
+                name could exist. The panel says so, and carries the door.
+
+                🔑 A DEAD END IS THE DEFECT, NOT THE ABSENCE OF A CONTROL. The
+                honest answer to "how do I add a guest" is a link to where guests
+                are added, not an Add button that writes a second roster. */}
+            <p className="text-xs text-ink/55">
+              These are the people on your guest list — you add and remove them{' '}
+              <Link
+                href={`/dashboard/${eventId}/guests`}
+                className="font-medium text-mulberry underline-offset-2 hover:underline"
+              >
+                on your guest list
+              </Link>
+              , and whoever is there appears here.
+            </p>
             {guests.length === 0 ? (
               <p className="text-xs text-ink/55">
-                Your guest list is empty. Add guests and you can name them here.
+                Your guest list is empty. Add guests there and you can name them here.
               </p>
             ) : (
               /*

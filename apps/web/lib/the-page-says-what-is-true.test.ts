@@ -68,10 +68,31 @@ test('the download page cannot claim notarization while saying it is not notariz
     0,
     'the hero branches on mac.signed and says "Not yet notarized" — an unconditional card beside it told the same visitor the opposite, louder',
   );
+  // ⚠ UPDATED 2026-09-22 (register DSK-6). This asserted the literal
+  // `mac?.signed`, because that is what the hero read when BUILD 8 was written.
+  // It no longer does: `stapler`/`spctl` on the live build proved signed and
+  // notarized are DIFFERENT facts — signed ✓, notarized ✗ — so the hero was
+  // repointed at `mac.notarized` and the card followed it.
+  //
+  // 🔑 The PROPERTY this test states has never changed: "the card must be gated
+  // on the SAME fact the hero reads." Pinning the literal made it fail when the
+  // page got MORE correct. So it now derives the hero's fact and requires the
+  // card to match, which is strictly stronger — it would also catch the two
+  // drifting apart in a direction nobody has thought of yet.
+  const heroFact = /\{mac\.(signed|notarized) \?/.exec(src)?.[1];
+  assert.ok(heroFact, 'could not find the hero branch — has the download page been restructured?');
+  const cardFact = /mac\?\.(signed|notarized)\s*\n?\s*\?/.exec(src)?.[1];
+  assert.ok(cardFact, 'could not find the Value card branch');
+  assert.equal(
+    cardFact,
+    heroFact,
+    `the hero reads mac.${heroFact} and the card reads mac?.${cardFact} — a copy of the condition ` +
+      'is a second place for the page to disagree with itself',
+  );
   assert.match(
     src,
-    /mac\?\.signed[\s\S]{0,400}not Apple-notarized yet/,
-    'the card must be gated on the SAME fact the hero reads; a copy of the condition is a second place for the page to disagree with itself',
+    new RegExp(`mac\\?\\.${heroFact}[\\s\\S]{0,400}not Apple-notarized yet`),
+    'the card must still carry the honest branch beside the claim',
   );
 });
 

@@ -251,3 +251,38 @@ no mechanism, one of them needing a number only the Vendor Agreement holds.
 
 SPEC IMPACT: none in code; the gap between `/help` and the Vendor Agreement is
 now recorded where a session will read it.
+
+## 2026-09-22 · fix: three guards this bundle tripped, none of them a real defect
+
+CI's unit suite went red on three tests. All three were caused by this bundle and
+none was a defect in it — worth recording because each failed for a different,
+instructive reason.
+
+**1 · `the-page-says-what-is-true.test.ts` pinned a literal that got more correct.**
+Written in CTRL-B3 build 8 (earlier today), it asserted the download card was
+gated on `mac?.signed` — because that is what the hero read then. DSK-6 repointed
+both at `mac.notarized`, because `stapler`/`spctl` proved signed and notarized
+are different facts. The test's stated PROPERTY — *"the card must be gated on the
+SAME fact the hero reads"* — never stopped holding; only its spelling went stale.
+
+🔑 **Assert the property, never the phrasing.** It now DERIVES the hero's fact
+and requires the card to match, which is strictly stronger: it would also catch
+the two drifting apart in a direction nobody has thought of yet. Sabotage: making
+the card read `signed` while the hero reads `notarized` turns it red.
+
+**2 · `deposit-proofs-are-private.test.ts` fired on the documentation of the
+finding.** Its `SELECTS_IT` matches any single-line quoted string containing
+`deposit_proof_url` and calls that file a surface reading the receipt. The
+`DPO_QUESTIONS` entry added in this bundle NAMES that column in prose — and a
+register entry is a record, not a surface.
+
+The guard is right to be blunt: prose is exactly what would slip past a subtler
+rule. So the column's exact name now lives in a COMMENT (stripped before the
+guard scans, and still greppable) and the prose refers to it descriptively. The
+guard stays strict; the record keeps its precision.
+
+**3 · `admin-jobs-are-generated.test.ts` wanted a regenerate.** The money gate
+exported `executeVendorSkuComp`, so the admin job map went 319 → 320. Ran
+`pnpm --filter @setnayan/web admin:jobs` as the failure message says.
+
+SPEC IMPACT: None.

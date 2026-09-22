@@ -65,6 +65,7 @@ const oswald = localFont({
 
 export function abacaSkin({ photo, accent, monogram }: InviteSkinInput): DoorSkin {
   return {
+    themeId: 'abaca',
     className: [styles.abaca ?? '', alfaSlabOne.variable, oswald.variable].join(' '),
     style: { ['--accent' as string]: accent } as React.CSSProperties,
     /*

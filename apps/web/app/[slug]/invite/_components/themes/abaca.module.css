@@ -82,15 +82,23 @@
  *     because a skin may not declare a card edge at all.
  */
 .abaca {
+  /*
+   * ⚠ THE MATERIAL TOKENS MOVED OUT OF THIS RULE (Event Hub themes, 2026-09-22)
+   * and now live in `app/globals.css` under
+   * `[data-invite-theme='abaca'], [data-hub-theme='abaca']`.
+   *
+   * They had to: the SITE behind this door wears the same theme now, and
+   * `themes-stay-skins.test.ts` forbids the site importing this stylesheet (no
+   * theme may reach the shared chunk). The only way both surfaces can hold ONE
+   * definition of the material is an attribute-scoped block neither of them
+   * owns. Geometry that describes DoorShell stays here — it is about the door,
+   * not about the material.
+   *
+   * `DoorShell` stamps `data-invite-theme` from `skin.themeId`, so this rule's
+   * vars resolve exactly as before.
+   */
   /* the stock */
-  --ab-kraft: #c4a171;
-  --ab-ink: #2b2118; /* measured: 6.5:1 on bare kraft, 15.8:1 on DoorShell's card */
-
   /* derived paper tones — neutral fallbacks where color-mix is unavailable */
-  --ab-kraft-hi: #cbab7e;
-  --ab-kraft-mid: #bd9b6c;
-  --ab-kraft-lo: #ad8d61;
-
   /*
    * WHERE THE CARD'S PADDING IS, written down the way DoorShell writes it
    * (`p-6 sm:p-8`). The wax seal is placed from the card's own corner, so this
@@ -99,19 +107,11 @@
    * seal moves with it and this line is where to change it.
    */
   --ab-card-pad: 1.5rem; /* DoorShell's p-6 */
-
   background-color: var(--ab-kraft);
 }
 @media (min-width: 640px) {
   .abaca {
     --ab-card-pad: 2rem; /* sm:p-8 */
-  }
-}
-@supports (color: color-mix(in srgb, red, blue)) {
-  .abaca {
-    --ab-kraft-hi: color-mix(in srgb, var(--ab-kraft) 92%, #fff0d0);
-    --ab-kraft-mid: color-mix(in srgb, var(--ab-kraft) 96%, #2b1a08);
-    --ab-kraft-lo: color-mix(in srgb, var(--ab-kraft) 86%, #2b1a08);
   }
 }
 

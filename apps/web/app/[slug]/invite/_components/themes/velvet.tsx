@@ -55,6 +55,7 @@ const jost = localFont({
 
 export function velvetSkin({ photo, accent, monogram }: InviteSkinInput): DoorSkin {
   return {
+    themeId: 'velvet',
     className: [styles.velvet ?? '', bodoni.variable, jost.variable].join(' '),
     /*
      * THE WORDMARK IS THE ONLY LETTERING THAT EVER SITS ON THE VELVET, and it

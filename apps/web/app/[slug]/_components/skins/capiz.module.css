@@ -1,0 +1,90 @@
+/*
+ * CAPIZ on the PAGE — the Elegant theme's ground, at site scale.
+ *
+ * The door's own Capiz (app/[slug]/invite/_components/themes/capiz.module.css)
+ * draws a shell window behind ONE centred card on a 375×812 screen. This is the
+ * same shell behind a page a guest scrolls, and the difference is not a
+ * redesign, it is a consequence:
+ *
+ *   • The ground is `position: fixed`, not `absolute`. A scrolling page would
+ *     drag an absolute lattice up past its own light pool within one swipe, and
+ *     the window would leave through the top of the screen.
+ *   • The milk gradient's stops are PERCENTAGES here, not the door's pixel
+ *     offsets (84px / 200px / 520px). Those figures are measured against a card
+ *     of known height; a page has none.
+ *   • The light pool sits at 50% 26vh rather than a fixed 190px, so it falls on
+ *     the masthead on any viewport instead of on whatever happens to be 190px
+ *     down.
+ *
+ * 🎨 The material — pearl, milk, gold, mullion, frame, the accent-tinted panes —
+ * is NOT declared here. It lives once in `app/globals.css` under
+ * `[data-invite-theme='capiz'], [data-hub-theme='capiz']`, shared with the door,
+ * because `themes-stay-skins.test.ts` rightly forbids this file importing that
+ * one. Declaring a `--cz-*` here would fork the material and is guarded against.
+ */
+
+.ground {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Light through shell is never fully saturated — the door's own figure. */
+  filter: saturate(0.85);
+}
+
+.shell {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 50% 26vh, var(--cz-light) 0, transparent 42%),
+    repeating-linear-gradient(90deg, var(--cz-frame) 0 2px, transparent 2px 108px),
+    repeating-linear-gradient(0deg, var(--cz-frame) 0 2px, transparent 2px 108px),
+    repeating-linear-gradient(90deg, var(--cz-mullion) 0 1px, transparent 1px 27px),
+    repeating-linear-gradient(0deg, var(--cz-mullion) 0 1px, transparent 1px 27px),
+    radial-gradient(ellipse at 42% 30%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0) 78%),
+    repeating-conic-gradient(var(--cz-pane-b) 0 25%, transparent 0 50%),
+    repeating-conic-gradient(var(--cz-pane-c) 0 25%, transparent 0 50%),
+    linear-gradient(var(--cz-pane-a), var(--cz-pane-a)),
+    linear-gradient(
+      180deg,
+      rgb(var(--cz-milk) / 0.82) 0,
+      rgb(var(--cz-milk) / 0.72) 18%,
+      rgb(var(--cz-milk) / 0.62) 46%,
+      rgb(var(--cz-milk) / 0.62) 78%,
+      rgb(var(--cz-milk) / 0.74) 100%
+    );
+  background-size: auto, auto, auto, auto, auto, auto, 54px 54px, 108px 108px, auto, auto;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 27px 27px, 0 0, 0 0;
+}
+
+/*
+ * 🔴 THE MILK IS HEAVIER HERE THAN ON THE DOOR — 0.82→0.62 against the door's
+ * 0.70→0.40 — AND THAT IS A CONTRAST DECISION, not a taste one.
+ *
+ * The door puts ONE wordmark on the ground and everything else inside an opaque
+ * card. A page puts REAL TEXT on the ground between its plates: chapter
+ * headings, and the loose prose the editorial runs unplated.
+ *
+ * MEASURED (ink #1E2229 over milk 250 247 240 composited on a BLACK photo — the
+ * worst ground a couple can upload):
+ *
+ *     door's thinnest band, alpha 0.40  →  composite  (100, 99, 96)  2.65:1  ✗
+ *     alpha 0.58                        →  composite (145,143,139)   4.96:1
+ *     this file's thinnest, alpha 0.62  →  composite (155,153,149)   5.62:1  ✓
+ *     this file's heaviest, alpha 0.82  →  composite (205,203,197)   9.80:1
+ *
+ * So the door's own band is below the 4.5:1 floor for body text — which is FINE
+ * on the door, because no body text is ever set on it. It is not fine here, and
+ * 0.62 is the floor this file holds at every stop. Over a white photo the whole
+ * range sits at ~15:1 and the choice is invisible.
+ *
+ * The pane tints, the lattice and the light pool are UNCHANGED, so the window
+ * reads as the same window. There is simply more milk in it.
+ */

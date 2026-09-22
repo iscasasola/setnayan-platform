@@ -479,6 +479,15 @@ const discardMatches = (src: string) =>
 const KNOWN_DISCARDED: Record<string, number> = {
   // The shared-pool hint: failing to 0 can only refuse a hand-out the host
   // could have made, never permit one they could not. Logged, direction kept.
+  //
+  // ⚠ THIS LINE WAS REMOVED AND PUT BACK, AND THE ROUND TRIP IS THE POINT. The
+  // dedicated-credits retirement deleted this file, so the entry was correctly
+  // dropped with it; withdrawing that retirement from this PR (see the revert of
+  // e940a9874 — the drop orphans `papic_seat_allocations` and cascades into four
+  // money functions) brought the file back, and the ratchet then read a
+  // pre-existing discard as a NEW one. Restoring the entry is bookkeeping, not a
+  // weakening: the count is 1, exactly what it has been, and it goes out again
+  // for good when the retirement ships whole.
   'app/dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx': 1,
   // `isMissingRelation(error) → []` — the table does not exist yet, so there
   // genuinely IS nothing to show. The other branch of that same function now

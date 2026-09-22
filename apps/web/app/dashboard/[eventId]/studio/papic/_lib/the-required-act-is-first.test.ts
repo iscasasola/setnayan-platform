@@ -73,16 +73,59 @@ test('🚨 …and it is shown exactly while the dates are UNSET', () => {
 });
 
 test('🚨 the picker is never on screen twice at once', () => {
-  // Two mounts is correct — one above the ways in while unset, one in the
-  // settings rows for editing a window that already exists. What must never
-  // happen is both rendering together, which is what an ungated second mount
-  // would do.
-  const mounts = SRC.split('<PapicWindowPicker').length - 1;
-  assert.equal(mounts, 2, `expected exactly 2 mounts (unset + edit), found ${mounts}`);
-  const belowTheAsk = SRC.slice(SRC.indexOf(WAYS_IN));
-  assert.ok(
-    /\{windowIsSet \?[\s\S]{0,600}?<PapicWindowPicker/.test(belowTheAsk),
-    'the settings-row picker is not gated on `windowIsSet` — with the card above also showing, a couple sees two identical date pickers on one page',
+  // Two mounts is correct — one while the dates are unset, one for editing a
+  // window that already exists. What must never happen is both rendering
+  // together, which is what an ungated second mount would do.
+  //
+  // ⚠ RE-ANCHORED 2026-09-22, AND THIS IS THE SECOND TIME. The old form sliced
+  // `SRC.slice(SRC.indexOf(WAYS_IN))` and looked forward for a gate. The
+  // redesign moved the edit picker UP into the Coverage block, which put both
+  // mounts ABOVE that heading — so the window faced an empty region and the
+  // guard would have passed a page with NO GATE AT ALL. It was protecting
+  // nothing, silently, which is worse than being absent.
+  //
+  // 🔑 SO IT NO LONGER ANCHORS ON A POSITION. It pairs every mount with the
+  // nearest gate that PRECEDES it — the gate is wrapped around the mount, so
+  // only a backward look can see it — and asserts over the whole file. A
+  // reorder can move both anywhere; what it cannot do is leave a mount without
+  // its own gate, or put both under the same one.
+  const mounts = [...SRC.matchAll(/<PapicWindowPicker/g)].map((m) => m.index!);
+  assert.equal(
+    mounts.length,
+    2,
+    `expected exactly 2 mounts (unset + edit), found ${mounts.length}`,
+  );
+
+  const gates = [...SRC.matchAll(/\{(!?)windowIsSet\s*\?/g)].map((m) => ({
+    at: m.index!,
+    negated: m[1] === '!',
+  }));
+
+  const gateFor = (mount: number) => gates.filter((g) => g.at < mount).pop();
+  const paired = mounts.map((m) => ({ mount: m, gate: gateFor(m) }));
+
+  for (const { mount, gate } of paired) {
+    assert.ok(
+      gate,
+      `the <PapicWindowPicker at char ${mount} has no windowIsSet gate before it at all — ` +
+        'it renders unconditionally, so a couple can meet two identical date pickers on one page',
+    );
+  }
+
+  assert.notEqual(
+    paired[0]!.gate!.at,
+    paired[1]!.gate!.at,
+    'both pickers sit under the SAME windowIsSet gate — they render together, which is the ' +
+      'exact failure this guard exists to stop',
+  );
+
+  const negated = paired.filter((p) => p.gate!.negated).length;
+  assert.equal(
+    negated,
+    1,
+    `expected exactly one picker gated on \`!windowIsSet\` (the ask) and one on \`windowIsSet\` ` +
+      `(the edit); found ${negated} negated. Two of the same sense means one state shows both ` +
+      'pickers and the other shows none.',
   );
 });
 

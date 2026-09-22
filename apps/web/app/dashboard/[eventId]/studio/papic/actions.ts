@@ -2005,11 +2005,35 @@ export async function setGuestAllotments(formData: FormData) {
     everyoneElse = n;
   }
 
+  // ── THE MINIMUM · the opposite semantic, and the one that is a PROMISE ────
+  // Blank is "no minimum", which is not zero either: zero would mean nobody may
+  // shoot, and that is what the capture window is for. The database's CHECK is
+  // `IS NULL OR > 0` and a second CHECK refuses a minimum above the couple's
+  // own ceiling, so both are refused here with words rather than arriving back
+  // as "save failed".
+  //
+  // ⚠ PAYABILITY IS NOT CHECKED HERE, ON PURPOSE. The pot and the head count
+  // both move without this column being touched, so refusing the save would
+  // block a couple who is about to buy the credits — and passing it would go
+  // stale a minute later. `guestMinimumVerdict` re-derives it on every render
+  // and names the shortfall, which is a number a couple can act on.
+  const rawFloor = String(formData.get('minimum_each') ?? '').trim();
+  let floorPoints: number | null = null;
+  if (rawFloor !== '') {
+    const n = Number(rawFloor);
+    if (!Number.isFinite(n) || n < 1 || !Number.isInteger(n)) fail('bad_minimum');
+    floorPoints = n;
+  }
+  if (floorPoints !== null && everyoneElse !== null && floorPoints > everyoneElse) {
+    fail('minimum_above_limit');
+  }
+
   const { error } = await createAdminClient()
     .from('events')
     .update({
       [ALLOTMENT_STORAGE.enabled]: enabled,
       [ALLOTMENT_STORAGE.everyoneElse]: everyoneElse,
+      [ALLOTMENT_STORAGE.floor]: floorPoints,
     })
     .eq('event_id', eventId);
 
@@ -2017,7 +2041,7 @@ export async function setGuestAllotments(formData: FormData) {
     logQueryError(
       'setGuestAllotments',
       error,
-      { event_id: eventId, enabled, everyone_else: everyoneElse },
+      { event_id: eventId, enabled, everyone_else: everyoneElse, minimum_each: floorPoints },
       'graceful_degrade',
     );
     fail('save_failed');

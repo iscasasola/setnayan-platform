@@ -195,25 +195,49 @@ test('the couple’s colour reaches the door from the LOOK, never from a theme f
   const look = read('app/[slug]/invite/_lib/load-invite-look.ts');
   assert.match(look, /resolveInviteButton\(event\.site_button_color\)/, 'the button colour is not resolved on the look');
   assert.match(look, /site_button_color/, 'the column is not even read');
+  /*
+    🪤 THE COLUMN LIST MOVED — 2026-09-22. The Event Hub pages wear the same
+    theme now, so they need the identical columns; `INVITE_LOOK_COLUMNS` is a
+    RE-EXPORT of `HUB_LOOK_COLUMNS` and the literal lives in
+    `app/[slug]/_lib/hub-look.ts`. Both halves are asserted, so a rename that
+    quietly left the doors importing nothing still fails.
+    ⚠ Q2's rule is UNCHANGED and is still the point: the button is resolved on
+    the LOOK, never in a theme file. That assertion above did not move.
+  */
   assert.match(
-    read('app/[slug]/invite/_lib/load-invite-look.ts'),
-    /INVITE_LOOK_COLUMNS[\s\S]{0,300}site_button_color/,
+    read('app/[slug]/_lib/hub-look.ts'),
+    /HUB_LOOK_COLUMNS[\s\S]{0,300}site_button_color/,
     'the column is not in the one select string every door interpolates',
+  );
+  assert.match(
+    look,
+    /export const INVITE_LOOK_COLUMNS = HUB_LOOK_COLUMNS;/,
+    "the doors' own name no longer points at that one list",
   );
 });
 
 test('House keeps the house colour — the skin, and therefore the button, is absent', () => {
   const look = read('app/[slug]/invite/_lib/load-invite-look.ts');
+  /*
+    🪤 RE-ANCHORED ON THE PROPERTY, NOT THE SENTENCE — 2026-09-22. This pinned the
+    exact source line `if (theme === 'house') return { theme, skin: undefined };`
+    and went red when the resolution lifted into `hub-look.ts` and the local
+    became `look.theme`. The behaviour never changed. A guard that pins a
+    spelling reports a rename as a defect, so it now matches the House early
+    return in any spelling and still checks the ORDER, which is the half that
+    actually keeps a House event from reading the column.
+  */
   assert.match(
     look,
-    /if \(theme === 'house'\) return \{ theme, skin: undefined \};/,
+    /=== 'house'\)\s*return \{[^}]*skin: undefined[^}]*\};/,
     'House must return NO skin — no skin means no `action`, which means the ' +
       'scoped rule never applies and the button stays #C24E25',
   );
   // And the resolve happens AFTER that early return, so a House event never
   // even reads the column.
   assert.ok(
-    look.indexOf("if (theme === 'house')") < look.indexOf('resolveInviteButton('),
+    look.indexOf("=== 'house'") >= 0 &&
+      look.indexOf("=== 'house'") < look.indexOf('resolveInviteButton('),
     'the button is being resolved for House events too',
   );
 });

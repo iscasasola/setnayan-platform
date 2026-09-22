@@ -141,7 +141,29 @@ test('Editorial PRO is not sold as an inclusion while it is free for everyone', 
  * ways: an entry whose gate is gone fails too, so the copy cannot outlive it.
  */
 const ADVERTISED_GUEST_GATES: ReadonlyArray<{ under: string; claim: RegExp; what: string }> = [
-  { under: 'app/[slug]/invite/', claim: /invite link/i, what: 'a Pro theme for the invite link' },
+  /*
+    🪤 WIDENED FROM `app/[slug]/invite/` TO `app/[slug]/` — 2026-09-22, and this
+    guard is what reported it rather than a person noticing.
+
+    The four Pro themes now dress the Event Hub PAGES as well as the invite door
+    (owner, that date). "Which theme is this event wearing" became a two-surface
+    fact and lifted into `app/[slug]/_lib/hub-look.ts`, which is where the SKU is
+    now read. Nothing under `app/[slug]/invite/` gates on it any more, so BOTH
+    assertions below fired at once: an unadvertised gate in a new place, and an
+    advertised gate whose implementation had apparently vanished. One move, two
+    reds, and between them they described it exactly.
+
+    ⚠ THE CLAIM REGEX IS DELIBERATELY UNCHANGED. `invite link` is still true —
+    the door is still themed — and all three claim surfaces still say it. What is
+    now UNDERSTATED is the scope: a couple buying Event Hub PRO gets the theme on
+    every page behind the door too, and no surface says so. That is the safe
+    direction (the copy promises less than it delivers, never more, which is the
+    direction this guard exists to police) but it is a real upsell left on the
+    table. 🔑 FLAGGED, NOT FIXED HERE: the SKU's own description lives in a
+    migration, so widening the copy needs one — and this branch deliberately
+    carries no schema change. Owner's call.
+  */
+  { under: 'app/[slug]/', claim: /invite link/i, what: 'a Pro theme for the invite link' },
 ];
 
 test('every guest-facing gate on this SKU is the watermark or an inclusion the copy names', () => {

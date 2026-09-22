@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "23a6b30b8",
+  "generatedFromRef": "36355f4fb",
   "routeCount": 430,
-  "destinations": 924,
-  "actions": 654,
-  "blocks": 4601,
+  "destinations": 927,
+  "actions": 657,
+  "blocks": 4617,
   "routes": {
     "/": {
       "files": [
@@ -158,6 +158,7 @@
     },
     "/(shell)/explore": {
       "files": [
+        "(shell)/explore/_components/card-headline-service.ts",
         "(shell)/explore/_components/category-tile.tsx",
         "(shell)/explore/_components/event-type-notify-form.tsx",
         "(shell)/explore/_components/explore-search-hero.tsx",
@@ -825,6 +826,7 @@
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/icon-source.ts",
+        "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
@@ -2671,6 +2673,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
@@ -2685,6 +2688,8 @@
         "KpiStatCard",
         "Link",
         "MobileLandingGrid",
+        "RevenueSummary",
+        "Row",
         "Suspense",
         "TablePageSkeleton",
         "TransactionsLedger"
@@ -2964,6 +2969,7 @@
         "admin/pricing/_components/legacy-catalog.tsx",
         "admin/pricing/_components/papic-ladder-editor.tsx",
         "admin/pricing/_components/papic-rest-editor.tsx",
+        "admin/pricing/_components/papic-type-sizing-editor.tsx",
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
@@ -2991,10 +2997,12 @@
         "formAction",
         "ladderFormAction",
         "reactivateFormAction",
+        "recompute",
         "recomputeFunnelBands",
         "recomputePriceBands",
         "removeFormAction",
         "retireFormAction",
+        "save",
         "saveBookingFeeSchedule",
         "saveDiscountAction",
         "savePriceAction",
@@ -3015,6 +3023,7 @@
         "EmptyState",
         "Family",
         "FamilyDiscountCard",
+        "Field",
         "FieldLabel",
         "FreeWindowsSurface",
         "GridPageSkeleton",
@@ -3029,6 +3038,7 @@
         "PapicLadderEditor",
         "PapicLadderSurface",
         "PapicRestEditor",
+        "PapicTypeSizingEditor",
         "PriceBandsSurface",
         "PriceCatalogBrowser",
         "PricingSurface",
@@ -3047,6 +3057,7 @@
         "Suspense",
         "TablePageSkeleton",
         "Tag",
+        "TypeRow",
         "UnassignedTray",
         "ViewState"
       ]
@@ -5459,6 +5470,7 @@
         "GroupsSidebar",
         "GuestDetailBody",
         "GuestDrawerHost",
+        "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
         "GuestRole",
@@ -7062,6 +7074,7 @@
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
+        "dashboard/[eventId]/studio/papic/_components/credit-recommendation.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
@@ -7149,6 +7162,7 @@
         "CaptureDefaultsSection",
         "ChallengeRow",
         "CoupleChallengesManager",
+        "CreditRecommendation",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",
@@ -7873,6 +7887,7 @@
         "VendorQuickViewInspector",
         "VendorStatus",
         "WaitingForQuotes",
+        "WaitingRow",
         "WeddingFolder",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
@@ -8844,7 +8859,10 @@
         "open-shop/city-actions.ts",
         "open-shop/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/privacy",
+        "/terms"
+      ],
       "actions": [
         "becomeVendor"
       ],
@@ -8852,6 +8870,7 @@
         "AddressCheck",
         "AddressPreview",
         "CityPin",
+        "DesktopOAuthButtons",
         "DetectedCity",
         "FileUpload",
         "HTMLDivElement",
@@ -8860,10 +8879,13 @@
         "LeafletMarker",
         "LeafletModule",
         "LocatedAddress",
+        "OAuthButtonRow",
         "OpenShopWizard",
         "ServicePicker",
+        "SignInHereLink",
         "Step",
-        "SubmitButton"
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/our-story": {
@@ -9683,6 +9705,7 @@
         "NavLinksRow",
         "PackageCard",
         "PublicVendorRow",
+        "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
         "ReviewRow",
@@ -9808,6 +9831,7 @@
         "declineLock",
         "disconnectInstagram",
         "formAction",
+        "markServiceComplete",
         "null",
         "postReviewReply",
         "rejectLock",
@@ -9855,11 +9879,13 @@
         "LockRequestLapsedBody",
         "LockedBody",
         "LockedQrGenerator",
+        "MarkCompleteBody",
         "Marker",
         "MediaTile",
         "MeetingBody",
         "MessageBody",
         "NotConnected",
+        "NothingToAnswerFeed",
         "OngoingTasks",
         "PageMasthead",
         "PaymentsPausedNote",
@@ -10683,6 +10709,7 @@
         "Resolved",
         "RevealToolButton",
         "SendProposalCard",
+        "ServiceCardQuoteSeed",
         "Sheet",
         "ShutTool",
         "SnapRow",
@@ -11864,6 +11891,7 @@
       "destinations": [
         "/help",
         "/open-shop",
+        "/pricing",
         "/vendors"
       ],
       "actions": [],

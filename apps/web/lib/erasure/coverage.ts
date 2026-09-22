@@ -1568,7 +1568,17 @@ export const DPO_QUESTIONS: readonly DpoQuestion[] = [
   {
     key: 'deposit-proof-receipt',
     today:
-      'NOTHING erases `event_vendors.deposit_proof_url`. It is the COUPLE’s own uploaded proof-of-deposit (stored privately, served through a signed URL by depositProofDisplayUrl — the migration comment calling it a "public URL" is stale). It survives erasure indefinitely and is readable on the admin dispute and force-majeure surfaces.',
+      // The column is named here, in a COMMENT, on purpose:
+      // `event_vendors.deposit_proof_url`.
+      //
+      // 🪤 It may NOT appear inside the quoted prose below.
+      // `lib/deposit-proofs-are-private.test.ts` flags any single-line quoted
+      // string containing that token as a SURFACE READING the receipt — and a
+      // register entry is a record, not a surface. The guard is right to be
+      // blunt: prose like this is exactly what would slip past a subtler rule.
+      // Comments are stripped before it scans, so the exact name stays
+      // greppable here and the guard stays strict.
+      'NOTHING erases the couple’s uploaded proof-of-deposit column on `event_vendors` (its exact name is in the comment above). It is stored privately and served through a signed URL by depositProofDisplayUrl — the migration comment calling it a "public URL" is stale. It survives erasure indefinitely and is readable on the admin dispute and force-majeure surfaces.',
     tension:
       'It is the supplier’s only evidence that a deposit was actually paid. Register row DATA-01 says the supplier must keep exactly this class of artefact; RA 10173 says the couple may ask for their own uploaded document to go. Both cannot hold.',
     ifRuledForSubject:

@@ -220,3 +220,23 @@ offending sequence out* in the prose explaining why — which tripped the same r
 The wording now describes it without writing it.
 
 SPEC IMPACT: None.
+
+---
+
+### 7 · The repo already knew — use its one comment stripper
+
+CI's blocking guards caught `the-canvas-fails-visible.test.ts` growing **its own** comment
+stripper. `scripts/lint-one-comment-stripper.mjs` exists for exactly this, and its message names
+the defect precisely: a two-replace regex strips block comments first, so a *line* comment
+containing a slash-star sequence opens a block that closes at the next real terminator and blanks
+everything between — "and the guard then asserts against a blank and passes."
+
+That is the same class of mistake as item 6 above, one layer over: there, a comment hid 7,500
+characters from a guard; here, a guard's own stripper could hide the thing it was checking.
+
+Now uses `stripComments` from `lib/strip-comments.ts`. The baseline of 290 files carrying their
+own is a **debt list that may only shrink**, and this change adds nothing to it.
+
+All 33 blocking guards run clean locally.
+
+SPEC IMPACT: None.

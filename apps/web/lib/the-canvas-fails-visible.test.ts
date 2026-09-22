@@ -23,6 +23,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 import {
   HUB_ARRANGEMENTS,
   HUB_DURING,
@@ -36,15 +37,23 @@ import {
 const RAW = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
 
 /**
- * \ud83e\udea4 COMMENTS ARE STRIPPED BEFORE ANYTHING IS SEARCHED, and this is not
+ * 🪤 COMMENTS ARE STRIPPED BEFORE ANYTHING IS SEARCHED, and this is not
  * tidiness. The canvas block opens with a long comment that NAMES the gates it
- * is describing \u2014 "`@supports (animation-timeline: view())` and
- * `@media (prefers-reduced-motion: no-preference)`" \u2014 so the first version of
- * this guard found the gate 1,500 characters early, inside the prose about the
- * gate, and brace-counted from a `{` that belonged to nothing. A matcher that
- * fires on the DOCUMENTATION of the fix agrees with itself forever.
+ * is describing, so the first version of this guard found the gate 1,500
+ * characters early — inside the prose about the gate — and brace-counted from
+ * an opening brace that belonged to nothing. A matcher that fires on the
+ * DOCUMENTATION of the fix agrees with itself forever.
+ *
+ * 🔑 AND IT USES THE REPO'S ONE STRIPPER, not a regex of its own. The hand-
+ * rolled version this file started with is the exact defect
+ * `scripts/lint-one-comment-stripper.mjs` exists to stop: strip block comments
+ * with a single non-greedy regex and a LINE comment containing `video` plus a
+ * slash-star opens a block that closes at the next real terminator, blanking
+ * everything between — after which the guard asserts against a blank and
+ * passes. Measured on this very branch, in `site-body.tsx`, where the same
+ * class of mistake hid 7,500 characters of real code from a different guard.
  */
-const CSS = RAW.replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(RAW);
 
 /** The canvas block, from its first rule to the end of the file. */
 function canvasBlock(): string {

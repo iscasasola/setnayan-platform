@@ -60,3 +60,46 @@ Proved by sabotage: inflating 13 baseline counts turned it red at exactly 13 > 1
 (the printed count confirmed the mutation landed); restored, 6/6 green.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · fix(schema-drift): assert the prod snapshot is still about production
+
+W1 / register LAU-28 + LAU-29.
+
+**The guard could be green and blind at the same time.** `schema-drift.db.test.ts`
+replays the migrations in the snapshot's own `[ledger]` and compares them to the
+snapshot's own `[columns]`. Both halves come from the same file, so an old
+snapshot is perfectly self-consistent: it verifies an old ledger produces an old
+prod, and says nothing about anything applied since.
+
+Measured against production: the snapshot's ledger holds **1351** versions while
+prod's ledger and the repo both hold **1475**. **124 migrations sat outside the
+comparison** — including any `CREATE TABLE IF NOT EXISTS` no-op among them, which
+is the exact bug class this file exists to catch. Nothing was red, because
+staleness had no symptom.
+
+Freshness is now asserted. The repo's migration count is the honest local proxy
+for prod's ledger (the pipeline applies every committed file with
+`db push --include-all`), so no production credential is needed here.
+
+⚖ The ceiling is **160 = the 124 measured today + 36 of headroom** — a ratchet
+pinned at existing debt, not a judgement that 124 is fine. Clearing it needs
+`SUPABASE_DB_URL` and is an OWNER action, and a red required check would block
+every bundle behind it for a reason no session can fix. The headroom is small on
+purpose: `gap` grows by one per migration merged, so ~36 more land before it goes
+red, and the answer then is the refresh in the failure message — never a bigger
+number.
+
+LAU-29's other half: the "HONEST LIMITS" paragraph claimed nullability was not
+compared. It has been compared since `[notnull]` was added, with its own floor.
+Corrected — a limits paragraph that overstates the hole teaches people to
+distrust the guard, which is the same damage as one that understates it. Defaults
+are still genuinely not compared, and that stays stated.
+
+Proved by sabotage: 40 extra migration files pushed the gap to 164 and turned it
+red; removed, 8/8 green at 1475 files.
+
+SPEC IMPACT: None.
+
+OWNER ACTION: refresh the snapshot — `export SUPABASE_DB_URL='postgresql://...'`
+then `pnpm --filter @setnayan/web schema:snapshot`, and commit
+`supabase/security/prod-schema.snapshot.txt`.

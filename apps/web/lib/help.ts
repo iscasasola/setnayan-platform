@@ -3,7 +3,7 @@ import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
- * PAPIC_POINTS_PER_PHOTO / PAPIC_POINTS_PER_CLIP from the capture path itself
+ * PAPIC_POINTS_PER_PHOTO / PAPIC_POINTS_PER_SNIPPET from the capture path itself
  * (lib/papic-cameras.ts). The clip weight moved 7 → 8 on 2026-07-29; help prose
  * that had typed the number would have gone quietly wrong that day, on the one
  * surface a confused couple reads. `papic-tier-copy` is pure + client-safe, so

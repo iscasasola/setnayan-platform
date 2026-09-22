@@ -368,11 +368,18 @@ export async function savePaymentInstruments(formData: FormData) {
       );
     }
 
-    await admin.from('admin_audit_log').insert({
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
       action: 'payment_account_change_requested',
       actor_user_id: adminUserId,
       metadata: { changed, summary },
     });
+    // Non-fatal: the approval row IS the control, and it is already written.
+    // Losing the audit line must not strand a request that a second admin can
+    // still see — but it must never be silent either, because this is the
+    // paper trail for a change to where money lands.
+    if (auditErr) {
+      console.error('[savePaymentInstruments] audit insert failed (non-fatal):', auditErr);
+    }
 
     revalidatePath('/admin/settings/payment-methods');
     revalidatePath('/admin/approvals');
@@ -530,11 +537,14 @@ export async function uploadMerchantQr(formData: FormData) {
     );
   }
 
-  await admin.from('admin_audit_log').insert({
+  const { error: qrAuditErr } = await admin.from('admin_audit_log').insert({
     action: 'payment_qr_change_requested',
     actor_user_id: adminUserId,
     metadata: { rail: kind, url: upload.publicUrl, replaces_url: existingUrl },
   });
+  if (qrAuditErr) {
+    console.error('[uploadMerchantQr] audit insert failed (non-fatal):', qrAuditErr);
+  }
 
   revalidatePath('/admin/settings/payment-methods');
   revalidatePath('/admin/approvals');
@@ -662,7 +672,12 @@ export async function executePaymentAccountChange(
       .eq('id', 1);
     if (error) throw new Error(`Payment account update failed: ${error.message}`);
 
-    await admin.from('admin_audit_log').insert({
+    // ⚠ THIS ROW IS THE ONLY PLACE TWO ADMINS ARE RECORDED TOGETHER. Four eyes
+    // that leaves no trace of the second pair is a control nobody can audit
+    // afterwards, so the failure is loud even though it is not fatal — the
+    // money change itself has already succeeded above and must not be undone
+    // because a log write did not land.
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
       action: 'payment_account_changed',
       actor_user_id: params.confirmingAdminId,
       metadata: {
@@ -671,6 +686,13 @@ export async function executePaymentAccountChange(
         confirmed_by: params.confirmingAdminId,
       },
     });
+    if (auditErr) {
+      console.error(
+        '[executePaymentAccountChange] account-change audit insert FAILED — the change is live ' +
+          'but unrecorded:',
+        auditErr,
+      );
+    }
     revalidatePath('/admin/settings/payment-methods');
     revalidatePath('/receipts', 'layout');
     return;
@@ -697,7 +719,7 @@ export async function executePaymentAccountChange(
       await deletePublicAsset({ publicUrl: body.replaces_url });
     }
 
-    await admin.from('admin_audit_log').insert({
+    const { error: qrAuditErr } = await admin.from('admin_audit_log').insert({
       action: 'payment_qr_changed',
       actor_user_id: params.confirmingAdminId,
       metadata: {
@@ -707,6 +729,13 @@ export async function executePaymentAccountChange(
         confirmed_by: params.confirmingAdminId,
       },
     });
+    if (qrAuditErr) {
+      console.error(
+        '[executePaymentAccountChange] QR-change audit insert FAILED — the QR is live but ' +
+          'unrecorded:',
+        qrAuditErr,
+      );
+    }
     revalidatePath('/admin/settings/payment-methods');
     return;
   }

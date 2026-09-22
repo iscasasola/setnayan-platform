@@ -225,6 +225,24 @@ async function executeApproved(
     return;
   }
 
+  // § 9.1 — the BDO/GCash receiving account, text fields or QR image. No
+  // target_user_id and no target_id: the subject is the platform's own
+  // settings row, not a person or a vendor. Everything needed is in the
+  // payload, which is deliberate — the second admin approves exactly the
+  // destination the first one proposed, never a value re-read at execution.
+  if (row.action_type === 'approve_payment_account_change') {
+    if (!row.decided_by) throw new Error('Payment approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Payment approval has no initiating admin');
+    if (!row.payload) throw new Error('Payment approval has no payload');
+    const { executePaymentAccountChange } = await import('@/app/admin/settings/actions');
+    await executePaymentAccountChange(admin, {
+      payload: row.payload,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+    });
+    return;
+  }
+
   if (!row.target_user_id) throw new Error('Request has no target user');
   const t = row.target_user_id;
 

@@ -127,6 +127,7 @@ test('an implemented promise must name a REAL action type', () => {
     'approve_journal_spotlight',
     'approve_comp_grant',
     'approve_large_refund',
+    'approve_payment_account_change',
   ]);
   for (const p of TWO_ADMIN_PROMISES) {
     if (p.actionType === null) continue;

@@ -124,8 +124,8 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     key: 'payment-account-change',
     asPublished: 'changing the BDO or GCash receiving account',
     whyPerClause: 'Payment redirection = fraud risk',
-    actionType: null,
-    note: '⚠ NOT ENFORCED, and arguably the highest-consequence row in the clause: it redirects every future payment rather than moving one amount. The account numbers are platform settings, not repo constants — see `a-zero-is-not-evidence-unless-you-searched-where-the-answer-lives`. Needs the settings write path identified before it can be gated.',
+    actionType: 'approve_payment_account_change',
+    note: 'Enforced since 2026-09-22 (migration 20271242482874). The highest-consequence row in the clause — it redirects every future payment rather than moving one amount. Gated on THREE doors, not one: the account fields in `savePaymentInstruments`, and the QR upload in `uploadMerchantQr`, because a QR image IS a destination and never touches the text fields. The kill switches and caps on the same form are deliberately NOT gated — a control that stops money must not wait on a quorum. See lib/payment-destination.ts.',
   },
   {
     key: 'mid-quarter-price-change',

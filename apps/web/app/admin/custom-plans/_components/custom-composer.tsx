@@ -499,7 +499,18 @@ export function CustomComposer({
 
             {/* Assurances */}
             <div className="mt-4 space-y-1 rounded-lg bg-cream/60 p-3 text-xs text-ink/60">
-              <div>0% commission on every booking, every cycle.</div>
+              {/* An admin composing a bespoke plan is writing what a SUPPLIER will
+                  be told, so the second sentence is owed here too — otherwise
+                  the one surface that sets a supplier's expectations is the one
+                  that omits the bill. */}
+              <div>
+                0% commission on every booking, every cycle — couples pay directly.{' '}
+                {/* 🪤 Kept on ONE line: JSX wrapping split "A booking / fee" across a
+                    newline, so the phrase did not exist as a string and the guard
+                    could not see it. A line break is invisible to a reader and
+                    decisive to a matcher. */}
+                A booking fee applies only on couples Setnayan introduces, charged to the supplier and never added to what a couple pays.
+              </div>
               <div>Pay via BDO or GCash — manual apply-then-pay.</div>
               <div>Nothing is charged until the payment is approved.</div>
             </div>

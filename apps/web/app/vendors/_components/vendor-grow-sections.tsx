@@ -14,6 +14,7 @@
 import Link from 'next/link';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 /* ── shared primitives ─────────────────────────────────────────────────── */
@@ -149,8 +150,13 @@ function CardGrid({ children }: { children: React.ReactNode }) {
 export function VendorGrowThesis() {
   const items = [
     { b: '₱0', s: 'to join, run your whole business & bring your own clients — always free' },
-    { b: '0% now', s: 'commission while we launch — you keep every peso you earn' },
-    { b: 'First 5 free', s: 'the bookings we bring you are on us — after that, 5%, then 1% beyond ₱100,000, only on couples we source' },
+    // 🔴 THIS FILE DOCUMENTS FIXING "0% commission while we launch" ON THE HERO
+    // AND STILL CARRIED IT HERE, TWICE, PLUS A HAND-TYPED SCHEDULE — found by
+    // the propagation guard on 2026-09-22, while production had already
+    // collected ₱837.50. A fix applied to one string in a file is not a fix
+    // applied to the file.
+    { b: '0%', s: 'commission — couples pay you directly and we never sit between you at checkout' },
+    { b: 'First 5 free', s: `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary()}, only on couples we source` },
   ];
   return (
     <div style={{ background: 'var(--m-ink)', color: 'var(--m-mulberry-3)' }}>
@@ -574,7 +580,7 @@ export function VendorGrowCTA() {
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>
-          0% commission while we launch · we never hold your money · merit-only ranking.
+          {supplierCommissionShort()} · we never hold your money · merit-only ranking.
         </p>
       </section>
     </div>

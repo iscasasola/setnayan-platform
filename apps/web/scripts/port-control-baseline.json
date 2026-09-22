@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0b0957a7d",
-  "routeCount": 430,
+  "generatedFromRef": "87c376784",
+  "routeCount": 431,
   "destinations": 928,
-  "actions": 657,
-  "blocks": 4621,
+  "actions": 658,
+  "blocks": 4626,
   "routes": {
     "/": {
       "files": [
@@ -4914,6 +4914,7 @@
         "Money",
         "NavFab",
         "NikahEssentialsCard",
+        "OpenWalletButton",
         "OverviewDecisionInspector",
         "OverviewWatchInspector",
         "PageMasthead",
@@ -7866,6 +7867,7 @@
         "ReuseBookingsPanel",
         "RevertVendorResult",
         "Row",
+        "RowPrice",
         "RunBuildResult",
         "SaveCategoryRequirementsResult",
         "SavedPhotoMarker",
@@ -9444,13 +9446,29 @@
       ],
       "blocks": [
         "DesktopOAuthButtons",
-        "FormField",
         "Link",
         "OAuthButtonRow",
         "Sk",
         "SubmitButton",
-        "TurnstileField",
-        "Wordmark"
+        "TurnstileField"
+      ]
+    },
+    "/signup/you": {
+      "files": [
+        "signup/you/_components/account-name-field.tsx",
+        "signup/you/actions.ts",
+        "signup/you/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "saveYou"
+      ],
+      "blocks": [
+        "AccountNameCheck",
+        "AccountNameField",
+        "FileUpload",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/site-editor/[eventId]": {

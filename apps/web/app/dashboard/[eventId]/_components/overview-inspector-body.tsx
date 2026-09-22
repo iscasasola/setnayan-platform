@@ -21,6 +21,7 @@ export function OverviewDecisionInspector({
   chipStyle,
   ctaLabel,
   href,
+  why,
 }: {
   swapKey: string;
   groupTitle: string;
@@ -32,6 +33,19 @@ export function OverviewDecisionInspector({
   chipStyle: ChipStyle;
   ctaLabel: string;
   href: string;
+  /**
+   * Why this one matters, for TODAY'S ONE THING only (2026-09-22).
+   *
+   * The standalone "Today's one thing" card carried a 26-word paragraph. When
+   * that card folded into a row on the board, the paragraph had nowhere to go:
+   * a board of one-line rows is not the place for prose, and the row's own
+   * sub-line already carries the fact ("Nothing booked · overdue by 278 days").
+   *
+   * This is the surface built for one row at a time, so it lands here. Absent
+   * on every other row — `undefined` renders nothing, it does not render an
+   * empty paragraph.
+   */
+  why?: string;
 }) {
   return (
     <InspectorColumn
@@ -55,6 +69,7 @@ export function OverviewDecisionInspector({
           </span>
         </div>
         <p className="text-sm leading-relaxed text-ink/75">{sub}</p>
+        {why ? <p className="text-sm leading-relaxed text-ink/60">{why}</p> : null}
         {/* The SAME action the row offers — this decision's own CTA to its room. */}
         <Link
           href={href}

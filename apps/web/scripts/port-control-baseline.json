@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f3640b04c",
+  "generatedFromRef": "0b0957a7d",
   "routeCount": 430,
   "destinations": 928,
-  "actions": 655,
-  "blocks": 4617,
+  "actions": 657,
+  "blocks": 4621,
   "routes": {
     "/": {
       "files": [
@@ -2972,6 +2972,7 @@
         "admin/pricing/_components/legacy-catalog.tsx",
         "admin/pricing/_components/papic-ladder-editor.tsx",
         "admin/pricing/_components/papic-rest-editor.tsx",
+        "admin/pricing/_components/papic-type-sizing-editor.tsx",
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
@@ -2999,10 +3000,12 @@
         "formAction",
         "ladderFormAction",
         "reactivateFormAction",
+        "recompute",
         "recomputeFunnelBands",
         "recomputePriceBands",
         "removeFormAction",
         "retireFormAction",
+        "save",
         "saveBookingFeeSchedule",
         "saveDiscountAction",
         "savePriceAction",
@@ -3023,6 +3026,7 @@
         "EmptyState",
         "Family",
         "FamilyDiscountCard",
+        "Field",
         "FieldLabel",
         "FreeWindowsSurface",
         "GridPageSkeleton",
@@ -3037,6 +3041,7 @@
         "PapicLadderEditor",
         "PapicLadderSurface",
         "PapicRestEditor",
+        "PapicTypeSizingEditor",
         "PriceBandsSurface",
         "PriceCatalogBrowser",
         "PricingSurface",
@@ -3055,6 +3060,7 @@
         "Suspense",
         "TablePageSkeleton",
         "Tag",
+        "TypeRow",
         "UnassignedTray",
         "ViewState"
       ]
@@ -7078,6 +7084,7 @@
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
+        "dashboard/[eventId]/studio/papic/_components/credit-recommendation.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
@@ -7165,6 +7172,7 @@
         "CaptureDefaultsSection",
         "ChallengeRow",
         "CoupleChallengesManager",
+        "CreditRecommendation",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",

@@ -696,3 +696,149 @@ export async function savePapicProductPrice(
   revalidatePath('/pricing');
   return { ok: true, message: `Saved — ₱${price.toLocaleString('en-PH')}.` };
 }
+
+/**
+ * ONE EVENT TYPE'S CREDIT SIZING — the per-head figure, and its clamp.
+ *
+ * ⚖ Owner 2026-09-22: *"each event has different levels of complexity. wedding
+ * is one of the most services we can use."* Seventeen rows were seeded with his
+ * own confirmed numbers; this is how they move afterwards, so a per-head figure
+ * never has to come back through a migration.
+ *
+ * 🛑 THE CLAMP IS PART OF THE ANSWER, so all three numbers are edited together.
+ * A per-head figure saved against somebody else's floor is the exact defect the
+ * seed was built to avoid: 50/head under a 5,000 floor recommends 5,000 credits
+ * for a dinner for two.
+ *
+ * ⚠ IT WRITES `points_per_guest`, NEVER `learned_points_per_guest`. The owner's
+ * figure and the learned one sit side by side on purpose — overwriting the
+ * initial with an edit would destroy the only thing a learned number can be
+ * compared against.
+ */
+export async function savePapicTypeSizing(
+  _prev: RowActionState,
+  formData: FormData,
+): Promise<RowActionState> {
+  const { userId: adminUserId } = await requireAdminAction();
+  const admin = createAdminClient();
+
+  const key = String(formData.get('config_key') ?? '').trim();
+  if (!key || key === 'default') {
+    return { ok: false, message: 'Pick an event type — the global row is not edited here.' };
+  }
+
+  /** A whole number of credits, or the complaint to show instead. */
+  function readCredits(field: string): number | string {
+    const raw = String(formData.get(field) ?? '').trim();
+    if (raw === '') return 'All three numbers are needed.';
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+      return 'Credits must be a whole number, zero or more.';
+    }
+    return n;
+  }
+
+  const perHead = readCredits('points_per_guest');
+  const floor = readCredits('floor_points');
+  const ceiling = readCredits('ceiling_points');
+  for (const v of [perHead, floor, ceiling]) {
+    if (typeof v === 'string') return { ok: false, message: v };
+  }
+  const nums = {
+    points_per_guest: perHead as number,
+    floor_points: floor as number,
+    ceiling_points: ceiling as number,
+  };
+  if (nums.ceiling_points < nums.floor_points) {
+    return { ok: false, message: 'The most a celebration may hold cannot be below the least.' };
+  }
+
+  const { data: prior, error: readErr } = await admin
+    .from('papic_event_pool_config')
+    .select('config_key, points_per_guest, floor_points, ceiling_points')
+    .eq('config_key', key)
+    .maybeSingle();
+  // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read writes a
+  // number with no before-value and logs a false audit row.
+  if (readErr) return { ok: false, message: `Couldn't read that row — ${readErr.message}` };
+  if (!prior) return { ok: false, message: 'That event type has no sizing row.' };
+
+  const unchanged =
+    Number(prior.points_per_guest) === nums.points_per_guest &&
+    Number(prior.floor_points) === nums.floor_points &&
+    Number(prior.ceiling_points) === nums.ceiling_points;
+  if (unchanged) return { ok: true, message: 'No changes to save.' };
+
+  const { error } = await admin
+    .from('papic_event_pool_config')
+    .update({ ...nums, updated_at: new Date().toISOString() })
+    .eq('config_key', key);
+  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'papic_event_type_sizing_edit',
+    target_id: key,
+    actor_user_id: adminUserId,
+    metadata: {
+      table: 'papic_event_pool_config',
+      before: {
+        perHead: Number(prior.points_per_guest),
+        floor: Number(prior.floor_points),
+        ceiling: Number(prior.ceiling_points),
+      },
+      after: { perHead: nums.points_per_guest, floor: nums.floor_points, ceiling: nums.ceiling_points },
+    },
+  });
+  if (auditErr) {
+    // Don't roll back — the edit above already succeeded, and a missing audit row
+    // is a known degradation, not a corruption. Same shape as createDiscountCode.
+    console.error('[savePapicTypeSizing] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/admin/pricing');
+  return {
+    ok: true,
+    message: `Saved — ${nums.points_per_guest} credits a head for a ${key.replace(/_/g, ' ')}.`,
+  };
+}
+
+/**
+ * RECOMPUTE THE LEARNED FIGURES — and nothing else ever calls this.
+ *
+ * ⚠ THERE IS NO SCHEDULER, DELIBERATELY. A recommendation that governs how much
+ * money a couple is told to spend should not change while nobody is looking, so
+ * a learned number only ever appears because an admin pressed this and could
+ * see what it was replacing.
+ */
+export async function recomputePapicPoolLearning(
+  _prev: RowActionState,
+  _formData: FormData,
+): Promise<RowActionState> {
+  const { userId: adminUserId } = await requireAdminAction();
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc('papic_recompute_pool_learning');
+  if (error) return { ok: false, message: `Couldn't recompute — ${error.message}` };
+
+  const changed = Array.isArray(data) ? data.length : 0;
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'papic_pool_learning_recompute',
+    target_id: 'papic_event_pool_config',
+    actor_user_id: adminUserId,
+    metadata: { changed, rows: data ?? [] },
+  });
+  if (auditErr) {
+    // Don't roll back — the edit above already succeeded, and a missing audit row
+    // is a known degradation, not a corruption. Same shape as createDiscountCode.
+    console.error('[recomputePapicPoolLearning] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/admin/pricing');
+  return {
+    ok: true,
+    message:
+      changed === 0
+        ? 'Nothing changed — no event type has enough finished celebrations yet.'
+        : `${changed} event type${changed === 1 ? '' : 's'} updated.`,
+  };
+}

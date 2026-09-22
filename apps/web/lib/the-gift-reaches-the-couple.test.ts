@@ -104,13 +104,34 @@ test('the quote’s count comes from the shared derivation, not a local formula'
     /if \(error\)[\s\S]{0,160}?return null;/,
     'a refused eligibility read must still return null — an outage could now surface a stale or invented count',
   );
-  // The not-applies branch is untouched by the logging change and must still
-  // return null on its own — this is what proves the assertion above is
-  // load-bearing rather than one regex accidentally swallowing both branches.
+  /*
+    ⚖ RE-POINTED 2026-09-22, AND STRENGTHENED — one assertion became two.
+    This pinned the literal `if (applies !== 'applies') return null;`, which was
+    the property's only spelling at the time AND, measured on origin/main the
+    same day, a defect: a quote whose own switch said YES while the card said no
+    came back `card_says_no`, so the SUPPLIER read "N free Papic photos" and the
+    COUPLE deciding on that quote was shown nothing until they accepted. The
+    owner's 2026-09-09 lock is the opposite — "a gift named at the moment of
+    decision closes; a gift revealed after booking is only a thank-you."
+
+    The PROPERTY is unchanged: a gift that will not be carried must resolve to
+    null. It now happens in TWO places and BOTH are pinned, so removing either
+    goes red:
+      · arms with no fee to size a gift from return null before a ladder is read;
+      · the promise stays gated on `giftBasisFrom`, which yields a basis for
+        `included` and nothing else — the contract it has always had.
+    Executed, not merely grepped, across five arms × three switch values in
+    `the-quote-promises-what-the-supplier-was-shown.test.ts`.
+  */
   assert.match(
     body,
-    /if \(applies !== 'applies'\) return null;/,
-    'a non-applying gift must still return null',
+    /arm !== 'applies' && arm !== 'card_says_no'[\s\S]{0,40}return null;/,
+    'an arm that carries no fee to size a gift from must still return null',
+  );
+  assert.match(
+    body,
+    /if \(!giftBasisFrom\([\s\S]{0,30}\)\) return null;/,
+    'and the promise must stay gated on the basis contract — else a switched-off quote would still quote a count',
   );
   assert.match(body, /bookingFeePhp\(args\.amountCentavos \/ 100, schedule\)/);
   assert.match(body, /setnayanGiftForFee\(feeCentavos, ladder\)/);

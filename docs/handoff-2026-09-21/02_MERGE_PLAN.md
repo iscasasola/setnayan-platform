@@ -166,8 +166,13 @@ bundle — a build shipped against a guess is a build shipped twice.
    it on is a flag, not a merge — it belongs in "What costs NOTHING" above.** The only genuine delta
    from the owner's 2026-09-22 restatement is **reviews and stats**, which the shipped gate does not
    cover. M5's dunning is unblocked: the gate is the consequence a dunning notice must warn about.
-2. **Is "0% commission" the promise to keep**, beside a 5% booking fee? Claimed five times on public
-   pages, including to suppliers. **No wording should be touched until this is answered.**
+2. ~~**Is "0% commission" the promise to keep**, beside a 5% booking fee?~~ ✅ **ANSWERED
+   2026-09-22: it STAYS, with the `/pricing` second sentence propagated everywhere
+   supplier-facing.** Built — `lib/commission-promise.ts` is the single source and every
+   number derives from the bill. ⛔ **This item also repeated the register's false claim that
+   "no supplier pricing page exists": `/vendors` IS one.** What is real is discoverability —
+   `/pricing` renders supplier prices only into its JSON-LD, never to a person — and that is
+   an open navigation call, not a blocker.
 3. **Void or credit memo** for a refunded receipt — neither exists in the system.
 4. **Rename the `-fix` shop slug?** Renaming breaks every link already shared for the only shop with
    real bookings.

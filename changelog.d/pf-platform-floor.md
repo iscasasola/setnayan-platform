@@ -125,3 +125,31 @@ need an explicit target. The failure message now names both routes, with the
 `read -rs` form for the URL path so the password stays out of shell history.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · chore(schema-snapshot): refresh against production — gap 124 → 0
+
+The owner refreshed `prod-schema.snapshot.txt` via the new linked-project path
+(`supabase link`, no pasted password). Ledger 1351 → 1478, head
+`20271240604358`; 402 tables, 5007 columns, 3049 NOT NULL.
+
+**The full check now passes against current production**, so no real drift was
+hiding in the 124 migrations that had been outside the comparison. That is the
+good outcome, and it was not knowable before.
+
+🪤 THE FIRST REFRESH SILENTLY PRODUCED A BAD FILE. It was run from the repo's
+main checkout, which sits on a feature branch **2,521 commits behind
+`origin/main`** — and that branch's generator predates the `[notnull]` section
+entirely (0 references to it, vs 5 on `main`). The command printed
+`✓ wrote supabase/security/prod-schema.snapshot.txt` with wholly plausible
+numbers (1478 migrations, 402 tables, 5007 columns) while omitting a third of the
+file. Read against it, the drift test reported **3040 columns that production
+"does not" mark NOT NULL** — an absent section wearing the costume of enormous
+drift.
+
+The existing "is not truncated" meta-test caught it, which is why it exists.
+Worth stating anyway: **run the generator from an up-to-date tree.** A generator
+old enough to be missing a section cannot know to check for it.
+
+Ceiling tightened 160 → 40 now that the debt is cleared.
+
+SPEC IMPACT: None.

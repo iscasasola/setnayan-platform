@@ -638,18 +638,18 @@ test('THE CHECK: every migration production applied actually landed', () => {
  * production credential is needed here (the same trade the rest of this file
  * makes).
  */
-// ⚖ 160 = the 124 measured on 2026-09-22 + 36 of deliberate headroom.
+// 40 — roughly a fortnight of migrations at this repo's rate.
 //
-// This is a RATCHET PINNED AT TODAY'S DEBT, not a judgement that 124 is
-// acceptable. It is here rather than at 40 because clearing it needs the
-// production URL — an OWNER action — and shipping a red required check would
-// block every bundle behind it for a reason no session can fix.
+// This was briefly 160 (the 124 of debt measured on 2026-09-22 plus headroom),
+// because clearing it needed a production credential and a red required check
+// would have blocked every bundle. The owner refreshed the snapshot the same
+// day and the gap is 0, so the allowance goes back to something that means
+// something. `gap` grows by one per migration merged; when this fires, the
+// answer is the refresh in the message, never a bigger number here.
 //
-// 🔑 The headroom is the forcing function, and it is small on purpose. `gap`
-// grows by one for EVERY migration merged, so ~36 more migrations land before
-// this goes red. At the current rate that is days, not months. When it fires,
-// the answer is the refresh in the message — never a bigger number here.
-const LEDGER_GAP_CEILING = 160;
+// Refreshing no longer needs a pasted password — `supabase link` once, then
+// `pnpm --filter @setnayan/web schema:snapshot`.
+const LEDGER_GAP_CEILING = 40;
 
 test('the prod snapshot is fresh enough to still be about production', () => {
   // `snapshot` is the module-level value parsed in `before`; the orphan

@@ -89,7 +89,7 @@ test('papicBucketPhrase discloses the one-purse trade-off, derived', () => {
   assert.match(phrase, /about 50 photographs/);
   assert.match(
     phrase,
-    new RegExp(`Snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`),
+    new RegExp(`snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`, 'i'),
     'the clip weight must interpolate the constant so a reprice moves the copy',
   );
   // Never an exact split promise — photos and clips share ONE bucket.

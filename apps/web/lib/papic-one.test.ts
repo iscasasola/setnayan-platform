@@ -193,7 +193,7 @@ test('rung copy takes its numbers as arguments and names what makes One differen
 test('a bucket never promises an exact photo+clip split, and discloses the clip cost', () => {
   const phrase = papicBucketPhrase(5); // the free One camera
   assert.match(phrase, /about 5 photographs/);
-  assert.match(phrase, new RegExp(`Snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`));
+  assert.match(phrase, new RegExp(`snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`, 'i'));
   // "N photos + M clips" is unkeepable — one purse, and clips eat the photos.
   assert.equal(/\d+\s*photos?\s*\+\s*\d+\s*clips?/i.test(phrase), false);
   assert.match(papicBucketPhrase(1), /about 1 photograph\b/);

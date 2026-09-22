@@ -45,3 +45,25 @@ Guard `one-commission-promise.test.ts` — 5 tests, 4 sabotages red, typecheck 0
 
 SPEC IMPACT: `DECISION_LOG.md` — the 2026-09-22 ruling recorded. Applied directly per the
 2026-06-04 standing authorization.
+
+### The two pricing pages now point at each other
+
+⛔ **And a third correction, same family.** I flagged that `/pricing` fails to point a supplier at
+`/vendors`. **It never did fail** — `/pricing` has carried a "Vendor? See the free business offering
++ your plans" section with a "For vendors →" button all along.
+
+The leg that was genuinely missing is the one the owner named: **`/vendors` → `/pricing`**. A
+supplier reading their own plans had no route to the couple-facing catalogue — the prices their
+clients actually see — so the pair was a one-way street. Added, mirroring the `/pricing` pointer's
+own card, ghost button and arrow so the two read as one crossing.
+
+🔑 **The label names whose prices are on the other side.** "See pricing" would read, on `/vendors`,
+as "see MY pricing" — the page the supplier is already on. It says **"Couple pricing"**.
+
+Guard `the-two-pricing-pages-point-at-each-other.test.ts` asserts **both** legs, because I got the
+direction wrong twice by remembering rather than measuring. It also pins the claim that started all
+of this: `/vendors` renders `{m.price}` to a person, while `/pricing` computes `vendorSubs` and uses
+it **only** in the JSON-LD — asserted by count, so a third use means `/pricing` has started rendering
+supplier prices to a person and this premise has changed.
+
+4 sabotages red · typecheck 0 errors.

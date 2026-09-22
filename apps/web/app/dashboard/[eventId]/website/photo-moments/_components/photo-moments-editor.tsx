@@ -284,7 +284,7 @@ function MomentRow({
             onClick={() => onMove(-1)}
             disabled={index === 0}
             aria-label="Move up"
-            className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/80 disabled:cursor-not-allowed disabled:opacity-30"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/80 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ArrowUp className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -293,7 +293,7 @@ function MomentRow({
             onClick={() => onMove(1)}
             disabled={index === total - 1}
             aria-label="Move down"
-            className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/80 disabled:cursor-not-allowed disabled:opacity-30"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/80 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ArrowDown className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -301,7 +301,7 @@ function MomentRow({
             type="button"
             onClick={onRemove}
             aria-label="Remove moment"
-            className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
           </button>

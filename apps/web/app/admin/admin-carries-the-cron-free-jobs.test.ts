@@ -51,6 +51,7 @@ const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 /** Every cron-free job that rides on admin traffic, and what stops if it goes. */
 const JOBS = [
   { fn: 'runSocialFlush', what: 'the social auto-publish flush' },
+  { fn: 'maybeRefillPriceBands', what: 'the peer price-band refill behind every supplier’s Price-Position Meter' },
   { fn: 'runAdminDigestFlush', what: 'the admin morning digest' },
   { fn: 'maybeRecomputeSpotlightAwards', what: 'the monthly Spotlight Awards recompute' },
   { fn: 'maybeRunFraudClusterSweep', what: 'the fake-inquiry identity-cluster sweep' },

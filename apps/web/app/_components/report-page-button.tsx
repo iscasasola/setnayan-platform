@@ -34,7 +34,8 @@ export function ReportPageButton({
   label = 'Report this page',
   className,
 }: {
-  targetType: 'event' | 'user_profile' | 'chapter';
+  /** 'vendor' added 2026-09-22 (CTRL-B3 build 9) — the id is `vendor_profiles.vendor_profile_id`. */
+  targetType: 'event' | 'user_profile' | 'chapter' | 'vendor';
   targetId: string;
   label?: string;
   className?: string;

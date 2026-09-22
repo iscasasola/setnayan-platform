@@ -13,7 +13,7 @@
 
 import {
   BridgeError,
-  PAPIC_CLIP_DURATION_MS,
+  PAPIC_SNIPPET_DURATION_MS,
   type BridgeBrand,
   type BridgeStatus,
   type CameraBridge,
@@ -197,9 +197,9 @@ export class MockBridge implements CameraBridge {
     if (!Number.isFinite(opts.durationMs) || opts.durationMs <= 0) {
       throw new BridgeError('clip duration must be a positive number of ms', 'invalid_argument');
     }
-    if (opts.durationMs > PAPIC_CLIP_DURATION_MS) {
+    if (opts.durationMs > PAPIC_SNIPPET_DURATION_MS) {
       throw new BridgeError(
-        `clip duration ${opts.durationMs}ms exceeds the locked ${PAPIC_CLIP_DURATION_MS}ms Papic cap`,
+        `clip duration ${opts.durationMs}ms exceeds the locked ${PAPIC_SNIPPET_DURATION_MS}ms Papic cap`,
         'invalid_argument',
       );
     }

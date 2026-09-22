@@ -22,7 +22,7 @@
 // booked.
 import {
   PAPIC_POINTS_PER_PHOTO,
-  PAPIC_PRESERVATION_UNITS_PER_CLIP,
+  PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
 } from './papic-cameras-pure';
 
 /** Decimal GB (10^9), matching cloud-storage (R2) per-GB billing. */
@@ -235,7 +235,7 @@ export function preservationUnits(row: StoredRow): number {
   // PRICING DECISION about a different product something a reader has to infer
   // from a default argument — and the next person to make that default cheaper
   // would silently reprice preservation without ever opening this file.
-  return row.is_clip ? PAPIC_PRESERVATION_UNITS_PER_CLIP : PAPIC_POINTS_PER_PHOTO;
+  return row.is_clip ? PAPIC_PRESERVATION_UNITS_PER_SNIPPET : PAPIC_POINTS_PER_PHOTO;
 }
 
 export type AccountPreservation = {

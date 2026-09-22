@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   PAPIC_POINTS_PER_PHOTO,
-  PAPIC_PRESERVATION_UNITS_PER_CLIP,
+  PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
 } from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolvePlayRef } from '@/lib/papic-display-ref';
@@ -652,6 +652,6 @@ export async function fetchPreservationTotals(
     // The sibling counter (preservationUnits, lib/papic-storage-telemetry.ts)
     // expresses the same decision the same way, on purpose.
     keptCredits:
-      keptPhotos * PAPIC_POINTS_PER_PHOTO + keptClips * PAPIC_PRESERVATION_UNITS_PER_CLIP,
+      keptPhotos * PAPIC_POINTS_PER_PHOTO + keptClips * PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
   };
 }

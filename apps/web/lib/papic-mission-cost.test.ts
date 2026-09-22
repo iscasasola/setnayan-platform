@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import {
   papicMissionCost,
   papicCaptureCost,
-  PAPIC_POINTS_PER_CLIP,
+  PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
 } from './papic-cameras';
 
@@ -51,7 +51,7 @@ test('a mission with no kind recorded costs a photo, never nothing', () => {
 test('🚨 the figures are DERIVED from the capture cost, not re-typed', () => {
   // If someone changes what a clip costs, this test moves with it — that is the
   // point. It asserts the relationship, not the number.
-  assert.equal(papicMissionCost('clip'), PAPIC_POINTS_PER_CLIP);
+  assert.equal(papicMissionCost('clip'), PAPIC_POINTS_PER_SNIPPET);
   assert.equal(papicMissionCost('photo'), PAPIC_POINTS_PER_PHOTO);
 });
 
@@ -62,7 +62,7 @@ test('🚨 the board renders the cost, and never hard-codes it', () => {
   // The literal cost must not appear as a number in the board's own copy.
   const rendered = code.slice(code.indexOf('return ('));
   assert.ok(
-    !new RegExp(`>\\s*${PAPIC_POINTS_PER_CLIP}\\s*<`).test(rendered),
+    !new RegExp(`>\\s*${PAPIC_POINTS_PER_SNIPPET}\\s*<`).test(rendered),
     'the clip cost is hard-coded into the copy — derive it',
   );
 });

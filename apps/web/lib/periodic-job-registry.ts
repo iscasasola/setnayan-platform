@@ -41,6 +41,16 @@ export const WEEKLY_GAP_MS = 6 * 24 * 60 * 60 * 1000;
 export const UNBILLED_FEE_REPAIR_GAP_MS = 30 * 60 * 1000;
 
 /**
+ * CTRL-B3 build 5. Twice a day: peer bands move with the catalogue, not the hour.
+ *
+ * 🔑 DECLARED HERE, NOT IMPORTED FROM `price-band-refill.server.ts`. That module
+ * is `server-only`, and pulling it in here would drag the import into every
+ * consumer of this registry. The server module imports THIS constant instead —
+ * one number, and the direction of the dependency is what keeps it usable.
+ */
+export const PRICE_BAND_REFILL_GAP_MS = 12 * 60 * 60 * 1000;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -300,6 +310,20 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: UNBILLED_FEE_REPAIR_GAP_MS,
     what: 'Raising the booking-fee bill for a fee that opened but was never billed',
+    reportsCount: true,
+  },
+  {
+    /*
+      `market_price_bands` was 0 rows in production because the only caller of
+      `recompute_market_price_bands()` was a human pressing Recompute on
+      /admin/pricing. Every supplier's Price-Position Meter was therefore empty
+      since it shipped — and an empty benchmark does not look broken, it looks
+      like "not enough peer data yet", which is a sentence a supplier believes.
+    */
+    key: 'market-price-band-refill',
+    kind: 'operational',
+    gapMs: PRICE_BAND_REFILL_GAP_MS,
+    what: 'Refilling the peer price bands behind every supplier’s Price-Position Meter',
     reportsCount: true,
   },
   {

@@ -36,7 +36,7 @@ import {
   papicFreeGrantPoints,
   type PapicTierCode,
 } from './papic-tier-copy';
-import { PAPIC_FREE_CAMERA_COUNT, PAPIC_POINTS_PER_CLIP } from './papic-cameras';
+import { PAPIC_FREE_CAMERA_COUNT, PAPIC_POINTS_PER_SNIPPET } from './papic-cameras';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -78,7 +78,17 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 // "30 photos + 10 videos" · "10 photos and 3 clips" · "30 photos + 10×5s" —
 // an exact split promise is unkeepable: photos and clips share ONE points purse.
-const SPLIT_PROMISE = /\d+\s*photos?\s*(?:\+|and|·|,)\s*\d+\s*(?:×\s*\d+s|videos?|clips?)/i;
+/*
+ * 🛑 `snippets?` IS IN HERE BECAUSE A RENAME CAN DISARM A GUARD SILENTLY.
+ * The owner settled the product word as "snippet" on 2026-09-22. Had the copy
+ * been renamed without widening this alternation, "30 photos + 10 snippets"
+ * would have stopped matching — the guard would have gone green while shipping
+ * exactly the false split promise it exists to forbid, and nothing would have
+ * said so. The old words stay: copy written before the rename is still a lie.
+ * 🔑 A guard that forbids a PHRASING dies the day somebody rephrases. Every
+ * future word for the same thing belongs in this list on the day it is coined.
+ */
+const SPLIT_PROMISE = /\d+\s*photos?\s*(?:\+|and|·|,)\s*\d+\s*(?:×\s*\d+s|videos?|clips?|snippets?)/i;
 
 // A spelled free-camera count ("first 5 free", "first 5 cameras").
 const SPELLED_FREE_COUNT = /first\s+\d+\s+(?:cameras?|free)/i;
@@ -102,7 +112,7 @@ const SPELLED_POINTS = /\b\d+\s*(?:capture\s*)?points?\b(?!\s*=)/i;
 // A guardrail that only reads the sentence cannot see a lie that is computed.
 // The clip weight has ALREADY moved once (7 → 8, owner-locked 2026-07-29), so a
 // hand-written divisor is not merely wrong today, it is guaranteed to rot.
-// Divide by PAPIC_POINTS_PER_CLIP / PAPIC_POINTS_PER_PHOTO, or better, render
+// Divide by PAPIC_POINTS_PER_SNIPPET / PAPIC_POINTS_PER_PHOTO, or better, render
 // papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic at all.
 const COMPUTED_POINTS_DIVISOR = /\bpoints?[A-Za-z]*\s*\/\s*\d/i;
 
@@ -113,7 +123,7 @@ for (const rel of PAPIC_COPY_FILES) {
       m,
       null,
       `${rel} carries "${m?.[0]}". Photos and clips share ONE daily points ` +
-        `purse (1 photo = 1 pt · 1 clip = ${PAPIC_POINTS_PER_CLIP} pts), so an exact ` +
+        `purse (1 photo = 1 pt · 1 clip = ${PAPIC_POINTS_PER_SNIPPET} pts), so an exact ` +
         `"N photos + M clips" promise is false by construction. Render ` +
         `papicCapacityPhrase() / papicBucketPhrase() from lib/papic-tier-copy.ts.`,
     );
@@ -127,8 +137,8 @@ for (const rel of PAPIC_COPY_FILES) {
       `${rel} carries "${m?.[0]}". A hand-written divisor on a points value ` +
         `manufactures a capacity claim the copy regexes cannot see, and it rots ` +
         `the next time the currency moves (the clip weight is already on its ` +
-        `second value — now ${PAPIC_POINTS_PER_CLIP}). Divide by ` +
-        `PAPIC_POINTS_PER_CLIP / PAPIC_POINTS_PER_PHOTO, or render ` +
+        `second value — now ${PAPIC_POINTS_PER_SNIPPET}). Divide by ` +
+        `PAPIC_POINTS_PER_SNIPPET / PAPIC_POINTS_PER_PHOTO, or render ` +
         `papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic.`,
     );
   });
@@ -172,11 +182,12 @@ test('papicCapacityPhrase is derived — it tracks the budget, whatever it is', 
   assert.match(papicCapacityPhrase(20), /about 20 photos a day/);
   assert.match(papicCapacityPhrase(60), /about 60 photos a day/);
   assert.match(papicCapacityPhrase(70), /about 70 photos a day/);
-  // and it always discloses that clips cost more.
+  // and it always discloses that snippets cost more. The WORD is the owner's
+  // (2026-09-22, "use snippet everywhere"); the NUMBER is still derived.
   for (const pts of [20, 60, 70]) {
     assert.match(
       papicCapacityPhrase(pts),
-      new RegExp(`clip counts as ${PAPIC_POINTS_PER_CLIP}`),
+      new RegExp(`snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`),
     );
   }
   assert.match(papicCapacityPhrase(null), /unlimited/i);

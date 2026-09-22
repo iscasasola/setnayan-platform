@@ -21,7 +21,7 @@ import {
 } from './papic-one';
 import {
   papicCaptureCost,
-  PAPIC_POINTS_PER_CLIP,
+  PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
 } from './papic-cameras';
 import {
@@ -39,7 +39,7 @@ test('point currency: 1 photo = 1 credit · a Snippet = 8 credits', () => {
   // camera's dedicated bucket — two weights would mean the same 10 seconds of
   // video cost different amounts depending on which camera shot it.
   assert.equal(PAPIC_POINTS_PER_PHOTO, 1);
-  assert.equal(PAPIC_POINTS_PER_CLIP, 8);
+  assert.equal(PAPIC_POINTS_PER_SNIPPET, 8);
   assert.equal(papicCaptureCost('photo'), 1);
   assert.equal(papicCaptureCost('clip'), 8);
 });
@@ -193,7 +193,7 @@ test('rung copy takes its numbers as arguments and names what makes One differen
 test('a bucket never promises an exact photo+clip split, and discloses the clip cost', () => {
   const phrase = papicBucketPhrase(5); // the free One camera
   assert.match(phrase, /about 5 photographs/);
-  assert.match(phrase, new RegExp(`Snippet counts as ${PAPIC_POINTS_PER_CLIP}`));
+  assert.match(phrase, new RegExp(`snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`, 'i'));
   // "N photos + M clips" is unkeepable — one purse, and clips eat the photos.
   assert.equal(/\d+\s*photos?\s*\+\s*\d+\s*clips?/i.test(phrase), false);
   assert.match(papicBucketPhrase(1), /about 1 photograph\b/);

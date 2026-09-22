@@ -21,7 +21,7 @@ import { syncOneWith } from '../lib/offline/service-handlers/camera-bridge-handl
 import {
   BridgeError,
   BridgeSlotBusyError,
-  PAPIC_CLIP_DURATION_MS,
+  PAPIC_SNIPPET_DURATION_MS,
   type BridgeScheduler,
   type Unsubscribe,
 } from '../lib/camera-bridge/types';
@@ -141,14 +141,14 @@ async function main(): Promise<void> {
     await assert.rejects(() => m.triggerStill(), isBridgeError('not_connected'));
   });
 
-  await test(`mock: clip cap — ${PAPIC_CLIP_DURATION_MS}ms ok, beyond rejected (locked 5s rule)`, async () => {
+  await test(`mock: clip cap — ${PAPIC_SNIPPET_DURATION_MS}ms ok, beyond rejected (locked 5s rule)`, async () => {
     const m = new MockBridge();
     await m.connect();
-    const ok = await m.triggerClip({ durationMs: PAPIC_CLIP_DURATION_MS });
-    assert.equal(ok.durationMs, PAPIC_CLIP_DURATION_MS);
+    const ok = await m.triggerClip({ durationMs: PAPIC_SNIPPET_DURATION_MS });
+    assert.equal(ok.durationMs, PAPIC_SNIPPET_DURATION_MS);
     assert.equal(m.status, 'live', 'returns to live after the clip');
     await assert.rejects(
-      () => m.triggerClip({ durationMs: PAPIC_CLIP_DURATION_MS + 1 }),
+      () => m.triggerClip({ durationMs: PAPIC_SNIPPET_DURATION_MS + 1 }),
       isBridgeError('invalid_argument'),
     );
     await assert.rejects(() => m.triggerClip({ durationMs: 0 }), isBridgeError('invalid_argument'));

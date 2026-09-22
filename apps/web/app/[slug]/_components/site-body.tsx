@@ -105,7 +105,6 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
-import { DayOfAnnouncement } from './day-of-announcement';
 import { viewerIsEventHost } from '../_lib/site-identity';
 import type {
   AnonymousSiteIdentity,
@@ -252,8 +251,6 @@ type SiteBodyProps = {
   dayOfPhase: DayOfPhase;
   /** The host's Papic switch — the gate for the menu's camera slot, on ANY day. */
   hostCameraOpen?: boolean;
-  /** The coordinator's latest announcement, live window only. Guests only. */
-  dayOfBroadcast?: { body: string; createdAt: string } | null;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
   // `phasesEnabled` is false (the default), NONE of the phase gating below
   // changes — the page renders exactly as today. `lifecyclePhase` is only
@@ -375,7 +372,6 @@ export async function SiteBody({
   bespokeSvg,
   dayOfPhase,
   hostCameraOpen = false,
-  dayOfBroadcast = null,
   songRequestDoor = null,
   phasesEnabled,
   lifecyclePhase,
@@ -1439,9 +1435,13 @@ export async function SiteBody({
             announcement is for the people in the room, and a stranger with the
             link has no business knowing the ceremony is running late. Null
             outside the live window, so nothing stale survives the day. */}
-        {dayOfBroadcast ? (
-          <DayOfAnnouncement body={dayOfBroadcast.body} eventId={event.event_id} />
-        ) : null}
+        {/* ⛔ THE ANNOUNCEMENT IS NOT MOUNTED HERE ANY MORE (2026-09-22).
+            It lived here, and `SiteBody` is rendered by ONE of the guest
+            tree's twelve pages — so eleven of them never showed the
+            coordinator's words. It now mounts once in `[slug]/layout.tsx`,
+            which wraps all twelve. Do NOT re-add it here: two mounts would
+            double it on this page, and the layout's copy is the one that
+            reaches a guest reading their seat card. */}
         {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
             reveal. Deliberately an explicit marker rather than a bare
             `article > *` selector — `article` is used liberally in this tree

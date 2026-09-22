@@ -241,7 +241,7 @@ export function papicTopUpForQuote(
       if (!gift) return null;
       return {
         tone: 'good',
-        headline: 'That is the most Papic this booking can carry.',
+        headline: 'Papic deal · on — that is the most this booking can carry.',
         detail:
           `Your exclusive Papic deal is capped at ${sharePct()} of your booking fee` +
           (gift.capped
@@ -262,7 +262,7 @@ export function papicTopUpForQuote(
       if (!Number.isFinite(totalCentavos) || totalCentavos <= 0) {
         return {
           tone: 'info',
-          headline: 'You can add an exclusive Papic deal to this quote.',
+          headline: 'Papic deal · off — put your price in to size it.',
           cta,
           detail:
             `Free Papic photos for your couple, sized at ${sharePct()} of your booking fee and ` +
@@ -273,7 +273,7 @@ export function papicTopUpForQuote(
       if (!gift) {
         return {
           tone: 'info',
-          headline: 'This quote is too small to carry a Papic deal.',
+          headline: 'Papic deal · off — this quote is too small to carry one.',
           cta,
           detail:
             `The exclusive deal is ${sharePct()} of your booking fee, and at this price that does not ` +
@@ -283,8 +283,8 @@ export function papicTopUpForQuote(
       return {
         tone: 'info',
         headline:
-          `You can add up to ${formatGiftPhotos(gift.credits)} free Papic photos for your couple — ` +
-          `${feePesos(gift.chargeCentavos / 100)} on top of your booking fee.`,
+          `Papic deal · off — up to ${formatGiftPhotos(gift.credits)} free photos, ` +
+          `${feePesos(gift.chargeCentavos / 100)} on your fee.`,
         cta,
         detail:
           `That is the most this booking can carry: ${sharePct()} of your booking fee` +
@@ -306,7 +306,7 @@ export function papicTopUpForQuote(
        */
       return {
         tone: 'good',
-        headline: 'No Papic deal on this booking — and nothing to pay.',
+        headline: 'Papic deal · none — and nothing to pay.',
         detail:
           'Your exclusive Papic deal is a share of the booking fee you actually pay, and this ' +
           `booking's fee is waived — one of your first ${FREE_BOOKING_LIMIT} on Setnayan. Your first ` +
@@ -316,7 +316,7 @@ export function papicTopUpForQuote(
     case 'not_sourced':
       return {
         tone: 'good',
-        headline: 'No Papic deal on this booking — and nothing to pay.',
+        headline: 'Papic deal · none — and nothing to pay.',
         detail:
           'This client did not come from Setnayan, so this booking carries no booking fee — and the ' +
           'exclusive Papic deal is sized from that fee. Nothing here is billed to you.',
@@ -325,7 +325,7 @@ export function papicTopUpForQuote(
     case 'unreadable':
       return {
         tone: 'info',
-        headline: 'We could not work out the Papic you can add to this booking.',
+        headline: 'Papic deal — we could not work it out just now.',
         detail:
           'Rather than show you a number we have not checked, we would rather say so. ' +
           'Reopen this quote in a moment and it will be here.',

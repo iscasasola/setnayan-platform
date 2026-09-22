@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6443
+# facts: 6446
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     562
-#   col       4750
+#   col       4752
 #   policy    876
 #   view      8
-#   func      243
+#   func      244
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -3447,6 +3447,8 @@ col	public.platform_settings.bir_authorized_rep_title	anon=- authenticated=S
 col	public.platform_settings.bir_payor_address	anon=- authenticated=S
 col	public.platform_settings.bir_payor_name	anon=- authenticated=S
 col	public.platform_settings.bir_payor_zip	anon=- authenticated=S
+col	public.platform_settings.booking_fee_free_from	anon=- authenticated=S
+col	public.platform_settings.booking_fee_free_until	anon=- authenticated=S
 col	public.platform_settings.booking_fee_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tail_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tier1_limit_php	anon=- authenticated=S
@@ -6239,6 +6241,7 @@ func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind te
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public
+func	public.booking_fee_free_window_active(p_at timestamp with time zone)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
 func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp

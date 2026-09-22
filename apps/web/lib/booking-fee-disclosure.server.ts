@@ -17,6 +17,7 @@ import {
   type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
+import { isBookingFeeFreeWindowActive } from '@/lib/booking-fee-free-window';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -121,9 +122,48 @@ export async function resolveBookingFeeStanding(
   // schedule that figure cannot be computed — the copy would fall back to a
   // bare "Free", which is what the ruling forbids.
   const schedule = await getBookingFeeSchedule(admin);
-  return isFreeBooking(ordinal)
-    ? { kind: 'free', ordinal, ordinalIsFrozen, schedule }
-    : { kind: 'billable', ordinal, ordinalIsFrozen, schedule };
+
+  // THE FREE-5 WINS OVER A PROMOTION, and the order here mirrors the SQL arm in
+  // `booking_fee_open_lock_charge` exactly: free-5 first, window second. A
+  // booking that is already free must stay the shop's own courtesy — a window
+  // must never quietly spend one of the five during a period when everything
+  // was free anyway.
+  if (isFreeBooking(ordinal)) {
+    return { kind: 'free', ordinal, ordinalIsFrozen, schedule };
+  }
+
+  /*
+    ⚠ READ WITH THE ADMIN CLIENT, NOT THROUGH THE SQL FUNCTION. The rule that
+    WAIVES a peso is `public.booking_fee_free_window_active()`, called inside the
+    three SECURITY DEFINER functions that mint a charge. It is not itself
+    SECURITY DEFINER, so calling it as anyone but the owner would be refused the
+    `platform_settings` row by RLS and answer a confident FALSE. So the columns
+    are read here — the client is already the admin one — and judged by the pure
+    twin, whose agreement with the SQL is asserted by the db-test beside it.
+
+    🔑 A FAILED READ IS NOT "NO WINDOW". It returns `unreadable`, which the copy
+    renders as "we could not check" — telling a supplier a fee is payable when a
+    promotion may be running is exactly the class of lie this module exists to
+    stop.
+  */
+  const { data: win, error: winErr } = await admin
+    .from('platform_settings')
+    .select('booking_fee_free_from, booking_fee_free_until')
+    .eq('id', 1)
+    .maybeSingle();
+  if (winErr) {
+    logQueryError('booking-fee-disclosure: free window', winErr);
+    return { kind: 'unreadable' };
+  }
+  const window = {
+    from: (win as { booking_fee_free_from?: string | null } | null)?.booking_fee_free_from ?? null,
+    until: (win as { booking_fee_free_until?: string | null } | null)?.booking_fee_free_until ?? null,
+  };
+  if (isBookingFeeFreeWindowActive(window, new Date())) {
+    return { kind: 'promo_window', ordinal, ordinalIsFrozen, schedule, endsAt: window.until };
+  }
+
+  return { kind: 'billable', ordinal, ordinalIsFrozen, schedule };
 }
 
 /**

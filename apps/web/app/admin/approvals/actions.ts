@@ -136,6 +136,32 @@ async function executeApproved(
     return;
   }
 
+  // ── The paid journal spotlight (register LAU-20) ─────────────────────────
+  //
+  // 🔑 WITHOUT THIS BRANCH A PAID PLACEMENT COULD NEVER PUBLISH. `initiateSponsored`
+  // writes the pending row with `target_id` (the spotlight) and NO
+  // `target_user_id`, because a spotlight is not a person — the same non-user
+  // shape `approve_fraud_wipe_ban` uses above. The single-admin path refuses
+  // sponsored rows on purpose, and says so: "Sponsored placements need
+  // two-admin approval — use the sponsored queue." That queue is this page,
+  // which lists every pending row and calls this function, which fell straight
+  // through to the throw below.
+  //
+  // So the loop closed on itself: refused there, listed here, and thrown on
+  // approve. Requesting worked, and only approving failed — which is why the
+  // gap survived. Nothing in the vocabulary, the page or the CHECK was wrong;
+  // the dispatcher simply had no arm for a type the rest of the system already
+  // created.
+  if (row.action_type === 'approve_journal_spotlight') {
+    if (!row.target_id) throw new Error('Spotlight approval has no target spotlight');
+    const { error } = await admin
+      .from('journal_vendor_spotlights')
+      .update({ admin_approved_at: new Date().toISOString() })
+      .eq('spotlight_id', row.target_id);
+    if (error) throw new Error(`Spotlight approval failed: ${error.message}`);
+    return;
+  }
+
   if (!row.target_user_id) throw new Error('Request has no target user');
   const t = row.target_user_id;
 

@@ -15,6 +15,7 @@ import { applyReferralAtSignup } from '@/lib/referral-actions';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { TERMS_FIELD, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
+import { isEmailVerificationRequired } from '@/lib/email-verification';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -144,10 +145,14 @@ export async function signUp(formData: FormData) {
         );
       }
       const userId = existingUser.id;
+      // 🔒 L3. `email_confirm: true` is the documented bypass for Supabase's
+      // spam-foldering auth sender — see `lib/email-verification.ts`. Gated so
+      // the owner can require real verification once Supabase Auth points at
+      // Resend; OFF by default, so this is byte-identical to today.
       const { error: convertError } = await admin.auth.admin.updateUserById(userId, {
         email,
         password,
-        email_confirm: true,
+        ...(isEmailVerificationRequired() ? {} : { email_confirm: true }),
         user_metadata: { account_type: 'customer' },
       });
       if (convertError) {
@@ -348,7 +353,12 @@ export async function signUp(formData: FormData) {
           : Promise.resolve();
 
       const [updateResult, profileResult, emailResult] = await Promise.allSettled([
-        admin.auth.admin.updateUserById(userId, { email_confirm: true }),
+        // 🔒 L3 — same gate as the conversion path above. BOTH doors, or the
+        // one that is missed becomes the way in: a bypass on either door
+        // confirms the address just as completely.
+        isEmailVerificationRequired()
+          ? Promise.resolve(null)
+          : admin.auth.admin.updateUserById(userId, { email_confirm: true }),
         profilePromise,
         sendEmail({
           to: email,

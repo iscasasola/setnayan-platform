@@ -173,7 +173,27 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
 
   // Revoke the account membership (signed-in joiner) — no-op for accountless
   // (cookie-only) joiners, who have no event_members row.
-  await admin.from('event_members').delete().eq('event_id', eventId).eq('guest_id', guestId);
+  /*
+    🔇 THESE THREE WRITES DISCARDED THEIR ERRORS — C6, fixed 2026-09-22.
+
+    A couple presses "not on our list". If any of the three fails, the guest
+    stays on the list, keeps their seat, and possibly keeps account access to
+    the celebration — and the screen says the removal worked. A refused write
+    that renders as success is the disease this whole register is about; here
+    it hands a stranger continued access.
+
+    Each is reported with what DID and did not happen, because "removal failed"
+    after two of three succeeded would send the couple looking for a guest who
+    is half-gone.
+  */
+  const { error: memberDelErr } = await admin
+    .from('event_members')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+  if (memberDelErr) {
+    back(eventId, 'We could not revoke their access — nothing was removed. Try again, or remove them from the guest list.');
+  }
 
   // ── RELEASE THE SEAT BEFORE THE SOFT-DELETE ──────────────────────────────
   // `event_seat_assignments` has an ON DELETE CASCADE FK to `guests`, but we
@@ -197,18 +217,24 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
   // Best-effort and ordered first, matching the bulk path: a DELETE that affects
   // 0 rows is fine, and a guest row outliving a failed seat-DELETE is recoverable
   // (manual unassign) where the reverse is not.
-  await admin
+  const { error: seatDelErr } = await admin
     .from('event_seat_assignments')
     .delete()
     .eq('event_id', eventId)
     .eq('guest_id', guestId);
+  if (seatDelErr) {
+    back(eventId, 'Their access was revoked, but their seat could not be released — remove them from the seat plan.');
+  }
 
   // Soft-delete the guest row (the list + reconcile queue both filter deleted_at).
-  await admin
+  const { error: softDelErr } = await admin
     .from('guests')
     .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('guest_id', guestId)
     .eq('event_id', eventId);
+  if (softDelErr) {
+    back(eventId, 'We could not remove them from your list — their access and seat were released, but the name is still there. Try again.');
+  }
 
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);
@@ -281,38 +307,54 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
 
   // Carry the joiner's email onto the target if it has none.
   if (source?.email && !target.email) {
-    await admin
+    // 🔇 C6. A lost email is a guest the couple can no longer reach — and with
+    // 5 addresses across 146 guests, losing one is losing a fifth of them.
+    const { error: emailErr } = await admin
       .from('guests')
       .update({ email: source.email, updated_at: new Date().toISOString() })
       .eq('guest_id', targetId)
       .eq('event_id', eventId);
+    if (emailErr) {
+      back(eventId, 'Merged, but their email address was not carried over — add it from the guest list.');
+    }
   }
 
   // Move the joiner's account membership onto the target (inherit its role).
   // event_members carries the (event_id, guest_id) partial-unique backstop; the
   // target-unclaimed check above keeps this from colliding.
   if (sourceMember && !targetBinding) {
-    await admin
+    // 🔇 C6. If this fails the account is still bound to a row about to be
+    // soft-deleted, so the person silently loses access to the celebration.
+    const { error: moveErr } = await admin
       .from('event_members')
       .update({ guest_id: targetId, role: (target.role as string) ?? 'guest' })
       .eq('id', sourceMember.id);
+    if (moveErr) {
+      back(eventId, 'We could not move their account across — they may lose access. Re-invite them from the guest list.');
+    }
   }
 
   // Release the merged-away row's seat before soft-deleting it — same reason as
   // removeGuestAction above. A merge is MORE likely to strand one: the joiner was
   // gap-filled into a chair, and after the merge nobody is sitting in it.
-  await admin
+  const { error: mergeSeatErr } = await admin
     .from('event_seat_assignments')
     .delete()
     .eq('event_id', eventId)
     .eq('guest_id', sourceId);
+  if (mergeSeatErr) {
+    back(eventId, 'Merged, but the duplicate\u2019s seat was not released — check the seat plan for an empty chair.');
+  }
 
   // Soft-delete the merged-away unlisted row.
-  await admin
+  const { error: mergeDelErr } = await admin
     .from('guests')
     .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('guest_id', sourceId)
     .eq('event_id', eventId);
+  if (mergeDelErr) {
+    back(eventId, 'Merged, but the duplicate is still on your list — remove it from the guest list.');
+  }
 
   revalidatePath(backTo);
   revalidatePath(`/dashboard/${eventId}/guests`);

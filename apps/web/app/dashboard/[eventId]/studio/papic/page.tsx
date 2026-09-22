@@ -101,7 +101,6 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
-import { PapicCamerasCard } from './_components/papic-cameras-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
@@ -1029,14 +1028,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           four faces of one thing and now sit together. */}
       <HostPoolMeterCard eventId={eventId} />
       <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
-      {/* Hand credits to one camera's QR, or take unspent ones back (owner
-          2026-08-11). 🔑 Dedicated credits are a FLOOR, not a ceiling — a
-          capture spends the camera's own first and the pot pays the remainder. */}
-      <PapicCamerasCard
-        eventId={eventId}
-        error={shotsError ?? papicOneError ?? null}
-        justSet={shotsSet ?? null}
-      />
+      {/* ⛔ NO CAMERA HOLDS CREDITS OF ITS OWN — `PapicCamerasCard` WAS HERE.
+          ⚖ Two of the owner's own rulings were in direct conflict and the
+          shipped code followed the older one. 2026-08-11: *"the host can
+          dedicated a specific number of shots for a specific QR code"* — which
+          is why that card existed. 2026-09-16: *"no dedicated shots
+          individually."* Asked directly which stands, he chose 2026-09-16.
+
+          🔑 THE PAGE WAS SAYING BOTH THINGS AT ONCE. The Crew-cameras sheet
+          above reads *"Every shot draws from your shared credits"* while this
+          card, four blocks below it, handed credits to a single QR.
+
+          ⚠ DO NOT RESTORE IT FOR SYMMETRY. `paparazzi_seats` stays — a seat is
+          the camera CLAIM, not an allowance, and `app/api/upload/route.ts`
+          resolves a seatGate per seat. Only the DEDICATION went. */}
       {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
       <GuestContributionsCard eventId={eventId} />
 

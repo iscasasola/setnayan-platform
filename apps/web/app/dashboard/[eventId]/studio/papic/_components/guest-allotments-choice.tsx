@@ -33,6 +33,8 @@ import {
   suggestedAllotment,
   splitTheRest,
   summariseAllotments,
+  guestMinimumVerdict,
+  summariseMinimum,
   type AllotmentRole,
 } from '@/lib/papic-guest-allotments';
 import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../actions';
@@ -82,7 +84,7 @@ export async function GuestAllotmentsChoice({
   const { data, error } = await supabase
     .from('events')
     .select(
-      `${ALLOTMENT_STORAGE.enabled}, ${ALLOTMENT_STORAGE.everyoneElse}, ${ALLOTMENT_STORAGE.releasedAt}`,
+      `${ALLOTMENT_STORAGE.enabled}, ${ALLOTMENT_STORAGE.everyoneElse}, ${ALLOTMENT_STORAGE.releasedAt}, ${ALLOTMENT_STORAGE.floor}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -110,6 +112,8 @@ export async function GuestAllotmentsChoice({
     typeof row[ALLOTMENT_STORAGE.releasedAt] === 'string'
       ? (row[ALLOTMENT_STORAGE.releasedAt] as string)
       : null;
+  const storedFloor = row[ALLOTMENT_STORAGE.floor];
+  const floorPoints = typeof storedFloor === 'number' ? storedFloor : null;
 
   // The pot, the head count, and the allotments already chosen.
   //
@@ -226,6 +230,14 @@ export async function GuestAllotmentsChoice({
   const inputs = { pot, guestCount, named, everyoneElse, sponsors };
   const split = splitTheRest(inputs);
   const summary = summariseAllotments(inputs);
+  /*
+    ⚠ THE MINIMUM IS CHECKED AGAINST THE WHOLE POT, not the remainder after the
+    named guests — it applies to every guest INCLUDING them, raising a named
+    number that sits below it. Checking a remainder would understate what has
+    been promised.
+  */
+  const minimum = guestMinimumVerdict({ floorPoints, guestCount, pot });
+  const minimumLine = summariseMinimum(minimum);
 
   const nameOf = (g: (typeof guests)[number]) =>
     g.display_name?.trim() || [g.first_name, g.last_name].filter(Boolean).join(' ').trim() || 'Guest';
@@ -242,8 +254,14 @@ export async function GuestAllotmentsChoice({
       <form action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+        {/* ⚠ CARRY BOTH NUMBERS THROUGH EVERY FORM. `setGuestAllotments` writes
+            all three fields on one UPDATE, so a form that posts only its own box
+            silently clears the other — the switch would wipe the minimum. */}
         {enabled ? (
-          <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+          <>
+            <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+            <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+          </>
         ) : null}
         <SubmitButton className={enabled ? 'sn-btn-secondary' : 'sn-btn-primary'}>
           {enabled ? 'Turn this off' : 'Turn this on'}
@@ -271,6 +289,7 @@ export async function GuestAllotmentsChoice({
             <label className="block text-sm font-medium text-ink">
               Everyone you have not named
             </label>
+            <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="number"
@@ -300,6 +319,59 @@ export async function GuestAllotmentsChoice({
               {sponsors.length > 0
                 ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'
                 : null}
+            </p>
+          </form>
+
+          {/* ══ THE LEAST ANYBODY GETS ═══════════════════════════════════════
+              🔑 EVERY OTHER NUMBER ON THIS SHEET IS A CEILING. Until now
+              nothing guaranteed any guest anything: the pot is first come,
+              first served, and a limit caps what one person may take without
+              holding a single credit back for anybody. A couple could cap a
+              loud uncle at 40 and still have their mother arrive at 10pm to an
+              empty pot.
+
+              ⚠ AND THAT IS WHY THIS ONE IS CHECKED AND THE OTHERS ARE NOT. An
+              unreachable ceiling costs nobody anything — it simply never binds.
+              A minimum is a sentence spoken to every guest, so one the
+              celebration cannot cover is a promise broken for all of them at
+              once, discovered one at a time at the party. The shortfall is
+              NAMED, because "add 4,000 credits" is something a couple can do
+              and "that will not work" is not. */}
+          <form action={setGuestAllotments} className="space-y-2">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+            <label className="block text-sm font-medium text-ink">
+              The least anybody gets
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                name="minimum_each"
+                min={1}
+                step={1}
+                defaultValue={floorPoints ?? ''}
+                placeholder="No minimum"
+                className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
+              />
+              <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+            </div>
+            {minimumLine ? (
+              <p
+                className={`text-xs ${
+                  minimum.status === 'short' ? 'text-terracotta' : 'text-ink/55'
+                }`}
+              >
+                {minimumLine}
+              </p>
+            ) : null}
+            <p className="text-xs text-ink/55">
+              Every guest is promised at least this many credits — including anyone you have
+              named below for less, whose number rises to meet it. Leave it empty for no
+              minimum.
+              {everyoneElse !== null
+                ? ` It cannot be more than the ${everyoneElse} you set above.`
+                : ''}
             </p>
           </form>
 

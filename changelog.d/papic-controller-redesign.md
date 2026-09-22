@@ -60,3 +60,27 @@ to apply if any row already carries a learned figure.
 
 SPEC IMPACT: builds the 2026-09-22 ruling on learned recommendations, including both
 traps as recorded.
+
+## 2026-09-22 · feat(papic): every guest is promised a minimum, and the promise is payable
+
+`papic_guest_spend_ceilings.ceiling_points` is a CEILING, and the shipped `splitTheRest`
+docblock records what that means (measured 2026-09-16): nothing is held back for anybody,
+every credit is first come first served, so **nothing in the product guaranteed any guest
+anything**. A couple could cap a loud uncle at 40 and still have their mother arrive at
+10pm to an empty pot. Migration
+`20271241532112_papic_every_guest_is_promised_a_minimum.sql` adds the other half.
+
+- **A floor is a promise, so it is checked.** `minimum × guests` against what the
+  celebration holds, with the **shortfall named** — "add 4,000 credits" is actionable,
+  "that will not work" is not. It cannot be a CHECK constraint: the pot and the head count
+  both move without the column being touched, so it is re-derived every render
+  (`guestMinimumVerdict`).
+- **A floor can never exceed the ceiling** — a CHECK, not a rule in one action, because
+  there are already three writers of these two columns.
+- **A named guest is raised to the minimum too.** Ruling 7c protects a named allotment
+  from the RELEASE; it is not a licence to promise everybody 25 and hand one named guest 5.
+- **Inert on merge.** Every celebration has a NULL minimum, and the db test asserts the
+  resolver — including the shipped floor-of-one — is unchanged without one.
+
+SPEC IMPACT: the per-guest allotment model gains a floor; `splitTheRest`'s
+"suggestion engine, not an allocation" note still stands for the ceiling half.

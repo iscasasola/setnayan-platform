@@ -1726,6 +1726,10 @@ function StatusBanners({
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {allotmentError === 'bad_everyone'
             ? 'A limit of nothing is not a limit, so that number starts at 1. Leave it empty to cap them at an equal share of what is left, or name a guest to stop her taking anything.'
+            : allotmentError === 'bad_minimum'
+            ? 'A minimum of nothing is not a promise, so that number starts at 1. Leave it empty for no minimum.'
+            : allotmentError === 'minimum_above_limit'
+            ? 'The least anybody gets cannot be more than the limit you set for everyone — that would promise your guests more than you allow them to take.'
             : allotmentError === 'bad_number'
             ? 'That needs to be a whole number of credits, or empty to let it work itself out.'
             : allotmentError === 'unknown_guest'

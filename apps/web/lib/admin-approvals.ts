@@ -26,7 +26,14 @@ export type ApprovalActionType =
   // target_id carries the spotlight_id. LAU-20: a CHECK rebuild once dropped
   // this value in prod; tests/db/every-approval-type-the-code-writes-is-allowed
   // now inserts every member of this union against the replayed schema.
-  | 'approve_journal_spotlight';
+  | 'approve_journal_spotlight'
+  // Vendor Agreement § 9.1 — "Refund any single transaction > ₱25,000".
+  // Initiated from /admin/payments by the admin filling the refund form and
+  // confirmed by a second admin in /admin/approvals; never offered in the
+  // picker, because a refund only makes sense against a specific paid order.
+  // target_id carries the order_id; the amount, reason and proof ride in the
+  // payload. The threshold itself lives in lib/two-admin-promise.ts.
+  | 'approve_large_refund';
 
 /**
  * Display labels for action types that are NOT in the manual picker
@@ -38,6 +45,7 @@ const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_comp_grant: 'Approve comp grant (money)',
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
   approve_journal_spotlight: 'Publish sponsored journal spotlight',
+  approve_large_refund: 'Approve refund over ₱25,000 (money)',
 };
 
 export type ApprovalActionMeta = {

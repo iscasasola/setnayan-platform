@@ -28,7 +28,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
 import { isPasswordLeaked } from '@/lib/leaked-password';
-import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { OPEN_SHOP_ACCOUNT_ERRORS, signUpSaysEmailTaken } from './open-shop-account';
 
 export type CreateVendorAccountResult =
@@ -46,10 +45,18 @@ export async function createVendorAccountForShop(input: {
   displayName: string | null;
   /** Recorded on the new `users` row: the agreement the person just made. */
   terms: { acceptedAt: string; version: string };
-  /** The wizard's own FormData — for the Turnstile token. */
-  formData: FormData;
+  /**
+   * The Turnstile stamp, read off the wizard's FormData by `becomeVendor` — the
+   * form action the wizard posts to. It is read THERE, not here, on purpose: the
+   * repo's captcha guard (`lib/captcha-is-wired.test.ts`) pairs every form-token
+   * reader with the `<form action={…}>` that supplies it, and this function is
+   * never a form's action; it is called by one. Undefined = no widget rendered,
+   * and the signUp call below then carries no captcha field at all — identical
+   * to the pre-captcha call, exactly as `/signup` behaves.
+   */
+  captchaToken: string | undefined;
 }): Promise<CreateVendorAccountResult> {
-  const { email, password, displayName, terms, formData } = input;
+  const { email, password, displayName, terms, captchaToken } = input;
 
   // Same refusals as /signup, same sentences (OPEN_SHOP_ACCOUNT_ERRORS mirrors its
   // ERROR_COPY). The breach check fails OPEN when the service is unreachable — by
@@ -71,7 +78,8 @@ export async function createVendorAccountForShop(input: {
       // The trigger reads raw_user_meta_data->>'account_type'. A shop owner is a
       // vendor from the first row — no later self-heal needed for this path.
       data: { account_type: 'vendor' },
-      ...captchaOptions(captchaTokenFromForm(formData)),
+      // Same shape lib/turnstile's helper produces: trimmed, and the field only when a token exists.
+      ...((captchaToken ?? '').trim() ? { captchaToken: (captchaToken ?? '').trim() } : {}),
     },
   });
 
@@ -147,6 +155,12 @@ export async function createVendorAccountForShop(input: {
     return { ok: 'created-not-signed-in', email };
   }
 
+  // No captcha token here ON PURPOSE, and it is a costed line in
+  // `lib/captcha-is-wired.test.ts` (ACCEPTED_UNWIRED): a Turnstile token is
+  // single-use and `signUp` just spent this form's one token. With captcha on,
+  // this call is refused and the person lands on /login?ready=<email> — a page
+  // with a working widget — and types the password once more. Bounded, visible,
+  // never a form that does nothing.
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
   if (signInError) return { ok: 'created-not-signed-in', email };
   return { ok: true, user: { id: userId, email } };

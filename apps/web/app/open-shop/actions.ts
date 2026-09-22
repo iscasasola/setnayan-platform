@@ -26,6 +26,7 @@ import {
 } from '@/lib/open-shop-validation';
 import { decideOpenShopAccount, OPEN_SHOP_ACCOUNT_ERRORS } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
+import { captchaTokenFromForm } from '@/lib/turnstile';
 import {
   TERMS_FIELD,
   TERMS_REQUIRED_MESSAGE,
@@ -130,7 +131,10 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       // signed-in path applies further down (`display_name` established once).
       displayName: titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null,
       terms: { acceptedAt: new Date().toISOString(), version: TERMS_VERSION },
-      formData,
+      // The bot check rides in THIS form (<TurnstileField action="signup" /> in the
+      // wizard, guest only); this action is the form's target, so the token is
+      // read here — where lib/captcha-is-wired.test.ts can pair reader and widget.
+      captchaToken: captchaTokenFromForm(formData),
     });
     if (created.ok === false) {
       redirect(`/open-shop?step=${created.step}&error=` + encodeURIComponent(created.error));

@@ -13,10 +13,24 @@
  * empty list; an empty list renders NOTHING (no header, no card). The waiting
  * label degrades to a quiet "Waiting" if a timestamp is missing/unparseable, so
  * a bad date never throws on this read path.
+ *
+ * ─── CAPPED, 2026-09-22 ─────────────────────────────────────────────────────
+ * This strip renders ABOVE `<ShortlistCategories>` in `vendors/page.tsx`, and it
+ * used to `items.map(...)` the whole list. Owner: *"if i have 100 vendors and i
+ * am inquire to all… i will not be able to see the bench anymore."* Measured in
+ * the approved prototype: with 100 pending inquiries the bench began 4,806px
+ * down, against 757px capped.
+ *
+ * So the first `DEFAULT_ROW_CEILING` rows show and the rest fold into a native
+ * `<details>` — NOT a link away. Everything stays in this strip, one tap from
+ * where it was, so capping removes no access. `<details>` also needs no
+ * JavaScript, which matters because this is a `'use client'` island on a page
+ * whose other rows are plain links.
  */
 
 import Link from 'next/link';
 import { Clock, ChevronRight } from 'lucide-react';
+import { capRows, hiddenMoreLabel } from '@/lib/capped-rows';
 
 export type WaitingInquiry = {
   /** event_vendors.vendor_id — drives the detail link. */
@@ -72,12 +86,38 @@ const WFQ_CSS = `
   color:var(--mulberry);background:rgba(30, 26, 18,.08);border-radius: var(--m-r-full);padding:4px 9px;white-space:nowrap}
 .wfq .wfq-chev{color:var(--ink-soft);flex:0 0 auto}
 .wfq a:focus-visible{outline:2px solid var(--mulberry);outline-offset:2px}
+.wfq .wfq-more{margin-top:1px}
+.wfq .wfq-more>summary{list-style:none;cursor:pointer;background:var(--card);
+  border:0.5px solid var(--line);border-radius: var(--m-r-md);padding:11px 13px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.wfq .wfq-more>summary::-webkit-details-marker{display:none}
+.wfq .wfq-more[open]>summary{color:var(--ink)}
+.wfq .wfq-more>div{margin-top:7px}
 html.dark .wfq{--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--card:#2A2E36}
 html.dark .wfq .wfq-hd .wfq-i,html.dark .wfq .wfq-wait{color:#C99DB0}
 `;
 
+function WaitingRow({ it }: { it: WaitingInquiry }) {
+  return (
+    <Link href={it.href} className="wfq-row" prefetch={false}>
+      <span className="wfq-main">
+        <span className="wfq-nm">{it.name}</span>
+        {it.city ? <span className="wfq-sub">{it.city}</span> : null}
+      </span>
+      <span className="wfq-rt">
+        <span className="wfq-wait">{waitingLabel(it.waitingSince)}</span>
+        <ChevronRight className="wfq-chev" size={16} strokeWidth={1.75} aria-hidden />
+      </span>
+    </Link>
+  );
+}
+
 export function WaitingForQuotes({ items }: { items: WaitingInquiry[] }) {
   if (!items || items.length === 0) return null;
+  const { shown, hiddenCount } = capRows(items);
+  // `null` for a zero remainder, by construction — so the row below cannot
+  // render "…and 0 more" on a list of exactly the ceiling length.
+  const more = hiddenMoreLabel(hiddenCount, 'waiting for a quote');
   return (
     <section className="wfq" aria-label="Waiting for quotes">
       <style>{WFQ_CSS}</style>
@@ -86,18 +126,19 @@ export function WaitingForQuotes({ items }: { items: WaitingInquiry[] }) {
         Waiting for quotes
       </div>
       <div className="wfq-list">
-        {items.map((it) => (
-          <Link key={it.vendorId} href={it.href} className="wfq-row" prefetch={false}>
-            <span className="wfq-main">
-              <span className="wfq-nm">{it.name}</span>
-              {it.city ? <span className="wfq-sub">{it.city}</span> : null}
-            </span>
-            <span className="wfq-rt">
-              <span className="wfq-wait">{waitingLabel(it.waitingSince)}</span>
-              <ChevronRight className="wfq-chev" size={16} strokeWidth={1.75} aria-hidden />
-            </span>
-          </Link>
+        {shown.map((it) => (
+          <WaitingRow key={it.vendorId} it={it} />
         ))}
+        {more ? (
+          <details className="wfq-more">
+            <summary>{more}</summary>
+            <div className="wfq-list">
+              {items.slice(shown.length).map((it) => (
+                <WaitingRow key={it.vendorId} it={it} />
+              ))}
+            </div>
+          </details>
+        ) : null}
       </div>
     </section>
   );

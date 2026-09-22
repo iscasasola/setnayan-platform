@@ -457,7 +457,7 @@ const organizationJsonLd = {
     {
       '@type': 'ContactPoint',
       contactType: 'data protection officer',
-      email: 'iscasasolaii@gmail.com',
+      email: 'dpo@setnayan.com',
       areaServed: 'PH',
       availableLanguage: ['en', 'tl'],
     },

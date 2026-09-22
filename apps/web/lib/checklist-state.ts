@@ -37,6 +37,42 @@ export type CategoryDecision = {
 
 // vendor_status enum values (source of truth: 20260513100000_iteration_0006_vendors.sql)
 const CONSIDERING_STATUSES = ['considering'] as const
+
+/**
+ * ⚠ `shortlisted` IS NOT REACHABLE IN PRODUCTION TODAY — CTRL-B3 build 4,
+ * measured 2026-09-22.
+ *
+ * `event_vendors.status` in prod holds only `considering` (34) · `contracted`
+ * (14) · `deposit_paid` (3). **Zero rows are `shortlisted`**, and the only
+ * writer of that value — `lib/reusable-bookings.server.ts` — sits behind
+ * `NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED`, which is **absent from production**.
+ * So `one_option` and `searching` below can never be entered, and their labels
+ * ("One option found", "Comparing options") have never been rendered.
+ *
+ * 🔑 THE BRIEF OFFERED TWO ANSWERS — "make it reachable, or stop reading it" —
+ * AND BOTH ARE WRONG HERE.
+ *   · Making it reachable is flipping a production flag. That is an owner
+ *     decision about a product feature, not a change a build may make.
+ *   · Deleting these two arms would BREAK THAT FEATURE THE DAY THE FLAG IS
+ *     FLIPPED, silently: reusable bookings would mint `shortlisted` rows and
+ *     the checklist would report `not_started` about a category the couple is
+ *     actively comparing.
+ *
+ * So the third answer: make the coupling EXPLICIT and EXECUTED.
+ * `SHORTLISTED_REQUIRES_FLAG` names the dependency in one place, and
+ * `the-checklist-cannot-reach-a-dead-state.test.ts` asserts both halves — that
+ * the writer still exists, and that these states are only ever produced by rows
+ * that writer can produce. A dead branch nobody has written down is the defect;
+ * a dead branch bound to the switch that revives it is a feature waiting.
+ */
+export const SHORTLISTED_REQUIRES_FLAG = 'NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED' as const
+
+/**
+ * States that exist only while {@link SHORTLISTED_REQUIRES_FLAG} is on.
+ * Exported so a reader can ask, rather than discovering it from an empty screen.
+ */
+export const FLAG_DEPENDENT_STATES = ['one_option', 'searching'] as const
+
 const SHORTLISTED_STATUSES = ['shortlisted'] as const
 const IN_PROGRESS_STATUSES = ['contracted', 'deposit_paid'] as const
 const DONE_STATUSES = ['delivered', 'complete'] as const

@@ -130,6 +130,31 @@ export function Plan3dStage({
             <strong style={{ color: OB.text }}>{lede.strong}</strong> {lede.rest}
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
+            {/*
+              ✅ "Open as a guest" IS CORRECT HERE, AND IT IS THE LAST ONE LEFT.
+              On 2026-09-23 the same words were retired from the controller
+              (`launch/_components/hub-stage.tsx`) and from all three
+              `ctaLabel`s in `lib/event-hub-control.ts`, because those doors open
+              `/<slug>` — which mounts `<OwnerRibbon>` from a server-verified
+              capability no param can switch off, so the host got their OWN page
+              under a button promising a guest's.
+
+              THIS door is `/<slug>/venue`, and that route is different in the
+              two ways that matter. Measured on `origin/main`, 2026-09-23:
+                • `git grep -n OwnerRibbon -- 'apps/web/app/[slug]/venue'` →
+                  nothing. No ribbon, and no `SiteBody` to carry one.
+                • it reads no guest session and no seat, so it has nothing
+                  personal to withhold from a host.
+              A host opening the room sees what a guest opening it directly
+              sees. Renaming this to match its neighbours would be a FALSE fix —
+              consistency bought by making a true label vaguer.
+
+              ⚠ Same reasoning covers the eyebrow above ("As your guests see it
+              · right now"), which the controller also had to give up and this
+              stage does not. If you are here to make the two pages agree, the
+              thing to check first is whether `/[slug]/venue` has since grown a
+              ribbon or a seat read — not the wording.
+            */}
             {publicHref ? (
               <Link href={publicHref} className="inline-flex h-10 items-center gap-1.5 rounded-md px-4 text-sm font-semibold" style={{ backgroundColor: OB.cta, color: OB.page }}>
                 <Eye aria-hidden className="h-4 w-4" strokeWidth={2} /> Open as a guest

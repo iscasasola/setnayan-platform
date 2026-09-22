@@ -11,6 +11,7 @@ import {
   GuestCardBody,
   GUEST_CARD_ERROR_COPY,
 } from '../_components/guest-card-body';
+import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
 
@@ -122,6 +123,11 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}
       />
+
+      {/* The undo snackbar the card's autosave pushes to. The roster mounts its
+          own; without one here an undo on this route would restore the row and
+          show the host nothing — the failure mode the undo exists to prevent. */}
+      <UndoToastHost />
     </div>
   );
 }

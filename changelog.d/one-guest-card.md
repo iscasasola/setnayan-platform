@@ -85,3 +85,32 @@ two were re-expressed as the PROPERTY they always meant: the release action is
 asserted to sit *outside* the autosave form (it was pinned to `formAction`), and
 a side-rendering surface may now ask `eventHasSides()` itself **or** consume the
 shared loader's answer, with a vacuity check that the loader still asks.
+
+### Undo for field edits (owner, 2026-09-22: "add the undo for field edits")
+
+A Save button is a moment of consent. Autosave removed it, so a mis-tapped RSVP
+segment wrote immediately and silently — while the roster BEHIND the card had
+had an undo snackbar for its deletes since the Living Roster shipped. The
+destructive path was covered and the ordinary one was not.
+
+Reuses the shipped `pushUndo` / `UndoToastHost`; nothing new was invented. And
+because `updateGuest` writes the whole document, undo needs no inverse and no
+endpoint: it posts the PREVIOUS FormData back through the same action, so every
+column returns to what it was and the one-writer rule holds. The snackbar names
+what it is undoing ("RSVP changed", "Meal and Dietary changed").
+
+🔑 **It reaches the screen, not only the row.** Restoring the database while the
+inputs still showed the undone value would be this repo's recurring failure:
+correct data, lying screen. So the undo puts the controls back — and it cannot
+do that by assignment alone. `InvitedToChips` renders CONTROLLED checkboxes, and
+a DOM write to one is overwritten by React on its next render with the
+component's state never having changed; those are driven with a real `click()`,
+which goes through `onChange`. A `restoring` flag stops the change events a
+restore fires from re-applying what was just taken back.
+
+`UndoToastHost` is now mounted on the standalone route too — without it an undo
+there would restore the row and show the host nothing.
+
+New guard `the-autosave-can-be-taken-back.test.ts`, mutation-checked four ways
+(drop the undo call · restore a checkbox by assignment · drop the re-save
+suppression · unmount the host) — each RED, baseline restores green.

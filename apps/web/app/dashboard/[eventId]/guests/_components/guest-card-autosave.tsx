@@ -57,7 +57,16 @@ const DEBOUNCE_MS = 700;
 const NOT_A_FIELD = new Set(['quiet', 'return_to']);
 
 /** What a host calls these, for the snackbar. A name missing here is still
- *  undoable; it just counts toward "N fields" instead of being named. */
+ *  undoable; it just counts toward "N fields" instead of being named.
+ *
+ *  ⚠ THE NAME `*_LABELS` AND THE TYPE `Record<string, string>` ARE BOTH
+ *  LOAD-BEARING FOR A GUARD IN ANOTHER FILE. `tests/db/enum-literals-are-real.db.test.ts`
+ *  scans every source for `<column>: '<value>'` and would read `rsvp_status: 'RSVP'`
+ *  below as a write of an illegal enum value. It skips maps declared exactly this
+ *  way. Rename this to `FIELD_TITLES`, or drop the annotation, and that guard goes
+ *  red on correct code — 35 minutes into CI, because it runs in the DB-replay step.
+ *  This is a DISPLAY map and never a write payload; if it ever becomes one, the
+ *  guard's WRITE_CALL assertion will say so. */
 const FIELD_LABELS: Record<string, string> = {
   rsvp_status: 'RSVP',
   meal_preference: 'Meal',

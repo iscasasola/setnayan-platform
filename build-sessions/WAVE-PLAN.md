@@ -1,108 +1,71 @@
-# WAVE PLAN — rewritten on the re-measured backlog
+# WAVE PLAN — rewritten 2026-09-22 09:20 UTC, against `origin/main` **e43cbdb82**
 
-> Owner: *"re-measure the redesign backlog before planning the next bundles."* Done. This replaces
-> the 2026-09-22 03:00 version, which was planned from the register and was wrong in both directions.
+> ⚠ Re-run `build-sessions/merge-control.sh` before acting on any row. The previous version of
+> this file was planned from the register and was wrong in both directions; the one before that
+> had paths missing the `apps/web/` prefix, which manufactures false "not built" verdicts.
 >
-> Measured against `origin/main` **727b9ccb4**. ⚠ Re-run `build-sessions/merge-control.sh` before
-> acting on any row — and note the first plan's own paths were missing the `apps/web/` prefix, which
-> manufactures false "not built" verdicts.
+> 🔑 **Every row budgets the RULE 0 re-measure as the main work, not a preamble.** The last
+> re-measure turned ~24 slices into ~15, and today two more "builds" turned out to be *"the
+> thing already works, the picture of it doesn't."*
 
 ---
 
-## What the re-measure changed
+## MERGE LEDGER — what the owner is paying for
 
-| | first plan | measured |
-|---|---|---|
-| slices to build | ~24 | **~15** |
-| "the biggest slice" (a supplier is their card) | to build | ✅ **already shipped** |
-| a purchase control for Setnayan AI | to build | ✅ **already shipped** — wire the card to it |
-| three more | to build | ⚠ **completions**, not builds |
-| Papic | 4 phases | **P4 + 2 sub-items** — the rest is in #5875 |
+| PR | what is inside | armed | state |
+|---|---|---|---|
+| **#5892** `rd/wave-2` | **five builds**: chat frame · Event Hub theme · Overview counts · closing copy · one guest card (#5885) | **HELD** by the `do-not-auto-merge` label until the fold is finished | CI running |
+| **#5885** one guest card | retargeted onto `rd/wave-2`; already folded by hand at `cc7b69004` | HELD | folded |
+| **#5877** `pf/platform-floor` | seven platform bundles | yes | CI running |
+| **#5875** Papic | the spine, a per-guest minimum, a recommendation that knows the celebration | yes, **by owner instruction** | one red, cause found |
+| **#5873** free-fee window | another group's build | yes | CI running |
 
-🔑 **Roughly a third of the plan was not work.** The platform bundle measured the same thing at
-8 of 14. **Every remaining bundle budgets the RULE 0 re-measure as the main work, not a preamble.**
+**Twelve builds · four merges.** Wave 2 alone is five for one.
 
----
-
-## IN FLIGHT
-
-| PR | what | state |
-|---|---|---|
-| **#5875** | Papic redesign P1 · P2a · P2b · P3 · P3b | armed, CI finishing |
-| **#5876** | wave 1 — 4 builds | red on the sign-up captcha; **fix committed at `02ba306a9`, re-fold pending #5875** |
-| **#5877** | platform W1 | armed |
-| **#5874** | Overview "status stays in view" | draft, unarmed — **owner must look** |
-| **#5873** | free-fee window | armed |
-
-**Banked, unpushed:** the closing-copy fix (`90acb5a50`, chat session — owner approved the wording).
+🛑 **Only the trunk may be armed, and the LABEL is the only reliable hold** — the
+`enable-automerge` workflow re-arms a PR on every push, so `gh pr merge --disable-auto` gets
+undone. The danger is not the merge to `main`; it is a contributor PR auto-merging **into the
+trunk** and skipping the generated-file regeneration.
 
 ---
 
-## WAVE 2 — after #5875 and #5876 land
+## IN FLIGHT, NOT YET IN A WAVE
 
-Three disjoint neighbourhoods. The frame rides **alone** because the couple's chat panels are derived
-from the supplier's registry by import, so editing one silently changes the other.
-
-| slot | build | why it is safe here |
+| build | session | state |
 |---|---|---|
-| A | **the chat frame** — the ported v2 layout, both registries | alone in its wave by rule |
-| B | **the two Overview counts get distinct names** — "23 of 25 categories not booked" vs "27 need a decision" | `event-dashboard.tsx`; nothing else in flight touches it |
-| C | **the admin money switches** | 4 files in `admin/pricing/**`, ⚖ blocked on 3 owner answers |
+| **Your Team slice 3 — the money split** | Event Your Team | 🟢 launched. `lib/your-team.ts:173` coerces a null cost to ₱0 with `(c ?? 0)` — it lies rather than refusing |
+| **Sai copy + the progress bar** | Event Overview | 🟢 launched, `rd/sai-cta-and-the-progress-bar`. Three things: the ₱499/₱799 copy derives from the catalog, the duplicate percentage, the 0% ring |
+| **quote maker B/C/D** | Service card & quote maker | ⛔ **correctly held.** Conflicts with the chat frame on `proposal-maker.tsx`, and rewrites `messages/[threadId]/page.tsx` +120/−24. Unblocks when #5892 lands |
+| **#5874 Overview status** | Event Overview | draft, owner must look. **Conflicts with the counts build inside #5892** on `event-dashboard.tsx` — rebase after the wave |
 
-⚠ **B must land before Your Team's slice 4** (removing the two task surfaces), or a couple is left with
-one number and nothing saying which set it counts.
+## NEXT, UNSTARTED
 
-## WAVE 3
+- **Your Team slice 1** — badge counters from `unreadThreadIds`, rolled up with `includedWith == null` so one supplier on several cards counts once.
+- **Your Team slice 4** — remove the two task surfaces. ⚠ **Blocked behind the Overview counts**, which is inside #5892; landing it first leaves a couple with one number and nothing saying which set it counts.
+- **Quote maker E and F** — after #5892.
+- **ONE DOOR build 1** — the small `/signup` card. Blocked until the contested sign-up file settles.
+- **The "You" card · the card picker · the brief in the composer** — all three EXIST. They need extending, not building: the picker is a single `<select>` that *replaces* the lines and needs accumulation; the brief lives in `ChatInfoRail` beside the composer and needs moving in.
 
-- **Your Team slice 1** — badge counters from `unreadThreadIds`, rolled up with `includedWith == null`
-  so one supplier occupying several cards counts once.
-- **Your Team slice 3** — the money split. ⚠ Not merely absent: `teamMoney`'s buffer does `(c ?? 0)`,
-  so **a null price is silently ₱0 — it lies rather than refusing.**
-- **Your Team slice 4** — remove the two task surfaces (after B above).
-- **Wire the upsell card to the checkout that already ships** (`SetnayanAiComebackOffer` /
-  `InlineCheckoutDrawer`, SKU `SETNAYAN_AI`). ⚠ **Four assertions across two tests pin the stale
-  ₱499/₱799 to the literal** — they must be re-pointed at the property, not deleted.
-- **Quote maker E and F** — after the frame lands.
+## THE TWO MIGRATIONS — deliberately apart
 
-## WAVE 4 — the two migrations, deliberately apart
+`pnpm migration:new` allocates forward and two migrations must not share a wave.
 
-`pnpm migration:new` allocates forward; two migrations must not share a wave.
-
-- **ONE DOOR build 2** — consent per event. Measured: consent is `users.public_summary_consent_at`
-  with **no `events.` sibling**, and it has **eight readers** — a repoint, not a new column.
+- **ONE DOOR build 2** — consent per event. Measured: it is `users.public_summary_consent_at` with **no `events.` sibling** and **eight readers** — a repoint, not a new column.
 - **Papic P4** — per-face blur. ⚖ Worth asking whether it ships at all: 146 guests, 0 have used it.
 
-## LATER / COMPLETIONS — narrower than they look
+## GAPS NAMED, DELIBERATELY NOT FIXED
 
-- **ONE DOOR build 1** — the small `/signup` card. Blocked until the contested sign-up file settles.
-- **The "You" card** — exists; the @handle on it is read-only with a submit-time check elsewhere, and
-  the formal name is not folded.
-- **The card picker** — exists as a single `<select>` that **replaces** the lines. Needs multi-select
-  and accumulation, not a new picker.
-- **The brief in the composer** — exists in `ChatInfoRail` beside it; needs moving in, not building.
-- **Papic's two sub-items** — Drive signing in on the tap, and the 631-challenge picker.
+- **The two bench strips cannot tell a refused read from an empty one** — `vendors/page.tsx` hands both an empty array. Needs an upstream error signal.
+- **A withdrawn-but-`pending` thread still renders "Waiting for {vendor} to accept."** Behaviour, not copy; the closing-copy fix correctly did not touch that branch.
+- **`pnpm test:unit` has no `--test-concurrency` cap.** It took this machine to load 139 on 10 cores. A build item, not a discipline problem — every dispatch now names the capped form.
+- **No guard checks a baseline's FRESHNESS** — only its canonical-ness and no-loss. And a baseline can go inconsistent through a *clean* merge, which no guard sees until CI builds the merge result.
 
----
+## 🔑 ON THE OWNER'S DESK
 
-## Gaps named, deliberately not fixed
-
-- **The two bench strips cannot tell a refused read from an empty one** — `vendors/page.tsx` hands
-  both an empty array. Needs an upstream error signal.
-- **A withdrawn-but-`pending` thread still renders "Waiting for {vendor} to accept"** from a branch
-  the closing-copy fix correctly did not touch. Behaviour, not copy.
-- **`main`'s port baseline has been stale** since before this wave, and **no guard checks freshness** —
-  the baseline guards verify canonical-ness and no-loss only. #5875 fixes the file; the gap remains.
-- **Three thread states print the declined sentence** — fixed by the banked closing-copy build.
-
-## 🔑 On the owner's desk
-
-1. **Look at two prototypes** — Overview (#5874 is unarmed waiting on it) and the quote maker.
-2. **The admin money switches, three answers** — announce a promotion or let suppliers find it ·
-   refuse or warn when enforcement would lock someone out (rec: warn **and name them**) · does a
-   window need a reason field (rec: yes).
-3. **Throw the captcha switch once and sign up at `/open-shop`** — the sign-up fallback is wired and
-   has never been exercised under the condition it exists for. Only he can test it.
-4. **Every vendor photo is served from a development storage hostname**, documented as rate-limited.
-   A DNS change, his call.
-5. **Facts, not questions:** before the event the Papic credit balance now leads instead of the facts
-   strip, by his instruction — a rule was reversed, not broken.
+1. **Look at two prototypes** — Overview (redrawn today: treatment A was not what ships, so the "progress bar does not look clean" verdict was about a picture of nothing) and the quote maker. **#5874 is unarmed waiting on it.**
+2. **The Setnayan AI price sentence.** `FIRST_VENUE_SHORTLIST_UPSELL` promises *"₱499 first 28 days → ₱799 per 28 days"*. The catalog charges **₱2,499 one-time** and `SETNAYAN_AI_RENEW` is **INACTIVE**. It is mounted twice on the Overview and renders unconditionally, so it has been reaching couples. The copy fix is authorised and running. **The question is whether a ₱499/₱799 subscription is still intended** — if yes, that is a catalog job, not a code job.
+3. **The admin money switches, three answers** — announce a promotion or let suppliers find it · refuse or warn when enforcement would lock someone out (rec: warn **and name them**) · does a window need a reason field (rec: yes).
+4. **Throw the captcha switch once and sign up at `/open-shop`** — the fallback is wired and has never been exercised under the condition it exists for. Only he can test it.
+5. **Every vendor photo is served from a development storage hostname**, documented as rate-limited. A DNS change, his call.
+6. **No browser drive of the guest card as a signed-in couple** — a fresh worktree has no `.env.local`. Two things tests cannot see: whether a debounced save steals the caret mid-word on a phone, and whether tapping the peek strip returns to the roster with the row still selected.
+7. **Event Hub PRO copy understates what ships** — fixing it needs a migration.

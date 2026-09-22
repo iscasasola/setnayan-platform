@@ -17,18 +17,23 @@
  * its one action stay DoorShell's.
  */
 .velvet {
+  /*
+   * ⚠ THE MATERIAL TOKENS MOVED OUT OF THIS RULE (Event Hub themes, 2026-09-22)
+   * and now live in `app/globals.css` under
+   * `[data-invite-theme='velvet'], [data-hub-theme='velvet']`.
+   *
+   * They had to: the SITE behind this door wears the same theme now, and
+   * `themes-stay-skins.test.ts` forbids the site importing this stylesheet (no
+   * theme may reach the shared chunk). The only way both surfaces can hold ONE
+   * definition of the material is an attribute-scoped block neither of them
+   * owns. Geometry that describes DoorShell stays here — it is about the door,
+   * not about the material.
+   *
+   * `DoorShell` stamps `data-invite-theme` from `skin.themeId`, so this rule's
+   * vars resolve exactly as before.
+   */
   /* the family spine — the plate is bright cotton card, not cream */
-  --vl-paper: #fbf9f6;
-  --vl-ink: #15121a; /* 17.6:1 on paper */
-  --vl-foil: #c5a059;
-  --vl-hair: #ddd7cc;
   /* neutral oxblood fallbacks where color-mix is unavailable */
-  --vl-velvet: #2b1610;
-  --vl-veil-deep: rgba(28, 14, 10, 0.94);
-  --vl-veil-mid: rgba(28, 14, 10, 0.5);
-  --vl-veil-low: rgba(28, 14, 10, 0.72);
-  --vl-foil-ring: rgba(197, 160, 89, 0.38);
-
   background-color: var(--vl-velvet);
 }
 
@@ -38,15 +43,6 @@
  * The veil is that same velvet at three depths, so the photo is always tinted
  * THEIR colour.
  */
-@supports (color: color-mix(in oklab, red 50%, blue)) {
-  .velvet {
-    --vl-velvet: color-mix(in oklab, #0d090c 52%, var(--accent));
-    --vl-veil-deep: color-mix(in srgb, var(--vl-velvet) 94%, transparent);
-    --vl-veil-mid: color-mix(in srgb, var(--vl-velvet) 50%, transparent);
-    --vl-veil-low: color-mix(in srgb, var(--vl-velvet) 72%, transparent);
-    --vl-foil-ring: color-mix(in srgb, var(--vl-foil) 38%, transparent);
-  }
-}
 
 /* The couple's photo, held in the box. */
 .photo {

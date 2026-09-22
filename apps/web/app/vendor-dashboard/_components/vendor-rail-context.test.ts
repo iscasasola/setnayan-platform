@@ -448,7 +448,10 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // this count is the half the name loop cannot do — it catches a TENTH sweep
     // added without a line here, which the next rewrite could then drop
     // silently.
-    9,
+    // 10 since 2026-09-22: `maybeRefillPriceBands` (CTRL-B3 build 5). Mounted
+    // here as well as on /admin because the meter it feeds belongs to
+    // SUPPLIERS — an admin-only mount would make it wait for an admin page view.
+    10,
     'the count of post-response jobs changed',
   );
 });

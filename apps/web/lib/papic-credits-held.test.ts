@@ -13,7 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { papicCreditsHeld, papicVideosAffordable } from './papic-credits-held';
-import { PAPIC_POINTS_PER_CLIP, PAPIC_POINTS_PER_PHOTO } from './papic-cameras-pure';
+import { PAPIC_POINTS_PER_SNIPPET, PAPIC_POINTS_PER_PHOTO } from './papic-cameras-pure';
 
 test('a top-up STACKS on the free grant — 100 bought + 50 free holds 150', () => {
   assert.equal(papicCreditsHeld(100, 50), 150);
@@ -42,11 +42,11 @@ test('a missing or nonsense grant never produces NaN on a price surface', () => 
 
 test('videos are derived from the shipped clip weight, never a literal divisor', () => {
   assert.ok(
-    PAPIC_POINTS_PER_CLIP > PAPIC_POINTS_PER_PHOTO,
+    PAPIC_POINTS_PER_SNIPPET > PAPIC_POINTS_PER_PHOTO,
     'a ten-second video must cost more than a photograph',
   );
   const held = papicCreditsHeld(1_000, 50);
-  assert.equal(papicVideosAffordable(held, PAPIC_POINTS_PER_CLIP), Math.floor(held / PAPIC_POINTS_PER_CLIP));
+  assert.equal(papicVideosAffordable(held, PAPIC_POINTS_PER_SNIPPET), Math.floor(held / PAPIC_POINTS_PER_SNIPPET));
 });
 
 test('a zero or missing clip weight cannot divide by zero', () => {

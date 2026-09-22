@@ -89,6 +89,14 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/customer-menu.ts', ['NEXT_PUBLIC_SUITE']],
   ['lib/demo-booth-rotation.ts', ['NEXT_PUBLIC_PLAN3D_DEMO_ADS']],
   ['lib/experience-quiz.ts', ['NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED']],
+  // Converted 2026-09-22 (W1/LAU-36). The first three drifted in AFTER the
+  // 2026-08-09 pass; the fourth hand-rolled its own lenient set
+  // (`'true' || '1' || 'TRUE'`) which still missed `yes`, `on`, mixed case
+  // and — the one that matters — SURROUNDING WHITESPACE. A trailing space is
+  // invisible in the Vercel dashboard, and this flag gates whether a new
+  // account must confirm its email.
+  ['lib/email-verification.ts', ['NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION']],
+  ['lib/vendor-signup-coverage-suggest-flag.ts', ['VENDOR_SIGNUP_COVERAGE_SUGGEST_ENABLED']],
   ['lib/ghost-booths.ts', ['NEXT_PUBLIC_PLAN3D_BOOTH_ADS']],
   /* GUEST_SESSION_TOKEN_CHECK removed 2026-09-17 — the FLAG is gone, not the
      feature. It gated the guest-QR re-validation at readGuestSession's
@@ -191,7 +199,7 @@ test('no converted switch regressed to a bare string comparison', () => {
 /**
  * ⚠ THE DELIBERATE HOLDOUTS.
  *
- * These five readers stay strict ON PURPOSE. Each gates something whose "on"
+ * These SEVEN readers stay strict ON PURPOSE. Each gates something whose "on"
  * is a compliance or owner decision, so widening what counts as ON is not a
  * parsing bugfix. This test pins BOTH halves — the strict read AND the note
  * that explains it — so nobody can widen one in a later sweep without first
@@ -203,6 +211,15 @@ const HELD_STRICT: ReadonlyArray<readonly [string, string]> = [
   ['lib/device-capture-flag.ts', 'NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED'],
   ['lib/papic-fullres-drop.ts', 'PAPIC_CLIP_DROP_ENABLED'],
   ['lib/daily-email-jobs.ts', 'PAPIC_CLIP_DROP_ENABLED'],
+  // Added 2026-09-22 after a sweep wrongly converted BOTH. Each already had
+  // its own test pinning strictness, and each says why in its docblock:
+  //   category-proposal   — "C4 ships DARK … must require the exact opt-in
+  //                          string". Production has held ZERO category
+  //                          requests, so there is nothing to draft.
+  //   supplier-night-before — same shape: an unproven send, armed by the
+  //                          owner on an exact string and nothing looser.
+  ['lib/category-proposal-flag.ts', 'CATEGORY_PROPOSAL_DRAFT_ENABLED'],
+  ['lib/supplier-night-before-email-flag.ts', 'SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED'],
 ];
 
 test('the deliberate holdouts stay strict, and still say why', () => {
@@ -462,15 +479,68 @@ test('no flag is registered as BOTH converted and held strict', () => {
  * defend: a NEW flag-dark feature is entitled to ship strict and be converted
  * later by someone who checked its live value first.
  */
-test('inventory: strict flag readers still outstanding', () => {
-  const files = readdirSync(HERE).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
-  const strict: string[] = [];
-  for (const f of files) {
-    const src = codeOnly(readFileSync(join(HERE, f), 'utf8'));
-    for (const m of src.matchAll(/process\.env\.(NEXT_PUBLIC_[A-Z0-9_]+) === 'true'/g)) {
-      strict.push(`${f}:${m[1]}`);
+test('THE SET IS CLOSED — no strict env reader exists that is in neither list', () => {
+  // ── Why this replaced an "inventory" test ────────────────────────────────
+  // The previous version of this test ended with:
+  //     assert.ok(Array.isArray(strict), 'inventory computed');
+  // `Array.isArray` of an array is ALWAYS true, so it could never fail. It
+  // printed a count and gated nothing. It also scanned only `lib/` — one
+  // level, via readdirSync(HERE), so no subdirectory and none of `app/` — and
+  // its pattern matched only `NEXT_PUBLIC_*`, so every server-side flag was
+  // invisible to it.
+  //
+  // Four readers drifted in behind it and were found by hand on 2026-09-22:
+  // CATEGORY_PROPOSAL_DRAFT_ENABLED, SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED,
+  // VENDOR_SIGNUP_COVERAGE_SUGGEST_ENABLED (all server-side, so outside the
+  // old pattern) and NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION (which hand-rolled
+  // its own lenient set and so matched no pattern at all).
+  //
+  // This version walks the whole tree, matches BOTH operand orders, and fails
+  // when a flag is in neither CONVERTED nor HELD_STRICT. Adding a strict
+  // reader is now a deliberate act: register it, or convert it.
+  // Variables the CI RUNNER sets, not product switches. GitHub Actions
+  // documents these as exactly lowercase `true`, so there is no casing to be
+  // forgiving about and no dashboard where a human could mistype one. Scoped
+  // by the variable's NATURE, not by directory, so a real feature flag written
+  // strictly inside scripts/ is still caught.
+  const RUNNER_PROVIDED = new Set(['CI', 'GITHUB_ACTIONS', 'VERCEL', 'NODE_ENV']);
+  const known = new Set([...CONVERTED_FLAGS, ...HELD_STRICT_FLAGS]);
+  const offenders: string[] = [];
+  let scanned = 0;
+
+  for (const abs of walkSource(WEB)) {
+    scanned += 1;
+    const rel = abs.slice(WEB.length + 1);
+    for (const { n, text } of codeLines(readFileSync(abs, 'utf8'))) {
+      // Both operand orders — `process.env.X === 'true'` and the Yoda form.
+      // Forbidding one spelling is how a reword walks straight past a guard.
+      for (const re of [
+        /process\.env\.([A-Z0-9_]+)\s*===\s*'true'/g,
+        /'true'\s*===\s*process\.env\.([A-Z0-9_]+)/g,
+      ]) {
+        for (const m of text.matchAll(re)) {
+          const flag = m[1]!;
+          if (known.has(flag) || RUNNER_PROVIDED.has(flag)) continue;
+          offenders.push(`${rel}:${n}  ${flag}`);
+        }
+      }
     }
   }
-  console.log(`[env-flag] strict NEXT_PUBLIC readers remaining in lib/: ${strict.length}`);
-  assert.ok(Array.isArray(strict), 'inventory computed');
+
+  // Print what was searched. A zero that never looked anywhere reads exactly
+  // like a zero that looked everywhere.
+  console.log(
+    `[env-flag] closed-set sweep: ${scanned} source files, ` +
+      `${known.size} registered flags, ${offenders.length} unregistered`,
+  );
+  assert.ok(scanned > 500, `sweep must reach the tree — only ${scanned} files walked`);
+  assert.ok(known.size >= 15, `registry looks truncated — only ${known.size} flags`);
+  assert.deepEqual(
+    offenders,
+    [],
+    'A strict `=== \'true\'` reader exists that is in neither CONVERTED nor ' +
+      'HELD_STRICT.\nEither convert it to envFlagEnabled(process.env.X) and add it to ' +
+      'CONVERTED, or — if its "on" must stay narrow for a compliance reason — add it to ' +
+      'HELD_STRICT with a note saying why.\nOffenders:\n  ' + offenders.join('\n  '),
+  );
 });

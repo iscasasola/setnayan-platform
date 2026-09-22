@@ -103,6 +103,22 @@ test('a TEMPLATE default package is resolved too — the selector can say "No pa
 test('the OTHER composer still previews against its own re-summed total', () => {
   // ProposalMaker builds line items and the server re-sums them, so `netPayable`
   // IS its billable total — a different correct answer, not an exception.
+  //
+  // ⚖ RE-POINTED 2026-09-22, NOT RELAXED. This asserted the exact spelling
+  // `previewGiftForTotal(netPayable, giftBasis)`. The owner moved the gift
+  // switch onto the QUOTE ("per-quote switch" · "We want this working";
+  // migration 20271240324859), so the SECOND argument now follows this quote's
+  // switch rather than the card's basis — while the FIRST, the only one this
+  // file exists to police, is unchanged. The property asserted is still "the
+  // preview is fed the total that will be billed": it fails exactly as before
+  // if the maker ever previews against `subtotal`, `gross`, or a typed field.
   const maker = read(MAKER);
-  assert.match(maker, /previewGiftForTotal\(netPayable, giftBasis\)/);
+  const call = maker.match(/previewGiftForTotal\(\s*([A-Za-z_$][\w$]*)\s*,/);
+  assert.ok(call, 'ProposalMaker no longer calls previewGiftForTotal at all');
+  assert.equal(
+    call![1],
+    'netPayable',
+    'the maker must preview against netPayable — the figure sendCustomProposalCore re-sums to',
+  );
+  assert.doesNotMatch(maker, /previewGiftForTotal\(\s*(subtotal|gross|totalPhp|typed)/);
 });

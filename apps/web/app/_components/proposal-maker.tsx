@@ -15,6 +15,9 @@ import { formatGiftPhotos } from '@/lib/setnayan-gift';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import {
   papicTopUpForQuote,
+  standingForQuoteSwitch,
+  defaultQuoteSwitch,
+  quoteGiftSwitchCopy,
   type PapicQuoteStanding,
 } from '@/lib/papic-on-a-quote';
 
@@ -496,6 +499,23 @@ export function ProposalMaker({
   const [cardTerms, setCardTerms] = useState<string | null>(null);
   const [cardWarnings, setCardWarnings] = useState<QuoteSeedWarning[]>([]);
   const [cardTitle, setCardTitle] = useState<string>('');
+  /*
+    THE SETNAYAN GIFT ON THIS QUOTE (owner 2026-09-22: "per-quote switch", and,
+    on the switch drawn disabled in the approved prototype: "We want this
+    working"). Migration 20271240324859 puts the column on `vendor_proposals`
+    and makes `setnayan_gift_offered_on` read the ACCEPTED quote before the
+    card — so this control DECIDES the bill rather than describing the card's
+    decision.
+
+    It OPENS at what this booking already says (`defaultQuoteSwitch`). `null` —
+    no fee on this booking, an imported client, a dark fee system, an
+    unreadable ladder — stays null and renders NO switch: there is no question
+    to answer, and a switch over a gift that cannot exist is a control that
+    does nothing.
+  */
+  const [giftSwitch, setGiftSwitch] = useState<boolean | null>(() =>
+    defaultQuoteSwitch(papicStanding ?? { kind: 'silent' }),
+  );
 
   /*
     Still sitting on what the builder opened with — i.e. the supplier has not
@@ -596,9 +616,30 @@ export function ProposalMaker({
    * the SAME `bookingFeePhp` → `setnayanGiftForFee` pair the server and the SQL
    * run; it is deliberately not a local estimate.
    */
+  /*
+    THE STANDING THIS QUOTE'S SWITCH LEAVES BEHIND — one resolve, read by the
+    gift block, the Papic line and the payload, so the composer cannot promise
+    photos the switch has turned off (or withhold the ones it turned on).
+    `standingForQuoteSwitch` moves ONLY between the two eligible arms; no
+    switch conjures a gift out of a waived fee or an unreadable ladder.
+  */
+  const switchedStanding = useMemo(
+    () => (papicStanding ? standingForQuoteSwitch(papicStanding, giftSwitch) : null),
+    [papicStanding, giftSwitch],
+  );
   const gift = useMemo(
-    () => previewGiftForTotal(netPayable, giftBasis),
-    [netPayable, giftBasis],
+    /*
+      ⚠ THE BASIS FOLLOWS THE SWITCH, not the card. A basis reaches the couple's
+      promise only on `included` — exactly the server's own rule
+      (`giftBasisFrom`) — so switching off withdraws the photo count in the same
+      keystroke that stops the bill carrying it.
+    */
+    () =>
+      previewGiftForTotal(
+        netPayable,
+        switchedStanding ? (switchedStanding.kind === 'included' ? switchedStanding.basis : null) : giftBasis,
+      ),
+    [netPayable, giftBasis, switchedStanding],
   );
   const giftCopy = giftQuoteCopy(gift, 'supplier');
 
@@ -618,8 +659,8 @@ export function ProposalMaker({
    * so the ceiling and the gift can never disagree.
    */
   const papicCopy = useMemo(
-    () => (papicStanding ? papicTopUpForQuote(papicStanding, netPayable) : null),
-    [papicStanding, netPayable],
+    () => (switchedStanding ? papicTopUpForQuote(switchedStanding, netPayable) : null),
+    [switchedStanding, netPayable],
   );
 
   // Self-balancing schedule — resolved against the quote total (gross, before the
@@ -699,8 +740,14 @@ export function ProposalMaker({
         note,
         schedule: scheduleDraft,
         paymentMethodIds: selectedMethodIds,
+        /*
+          THE QUOTE'S OWN GIFT SWITCH, sent with it. `null` means this quote
+          says nothing and the booking keeps falling back to the service card —
+          never "off", which would silently retract a gift the card promises.
+        */
+        includesSetnayanGift: giftSwitch,
       }),
-    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds],
+    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch],
   );
 
   /* ── Line mutation helpers ────────────────────────────────────────────── */
@@ -1462,6 +1509,38 @@ export function ProposalMaker({
             half of that sentence — a supplier pricing a job should see the
             money going out as well as the photos going in. */}
         <BookingFeeNotice disclosure={feeCopy} />
+
+        {/* THE SWITCH THIS QUOTE CARRIES (owner 2026-09-22 — "We want this
+            working"). A REAL control: it is written onto the quote and
+            `setnayan_gift_offered_on` reads it once the couple accepts
+            (20271240324859), overriding the service card.
+
+            🔑 Rendered only where there is a question to answer.
+            `defaultQuoteSwitch` returns null on a waived fee, an imported
+            client, a dark fee system or an unreadable ladder — and a switch
+            over a gift that cannot exist is a control that does nothing. */}
+        {giftSwitch !== null ? (
+          <label
+            id="quote-setnayan-gift-switch"
+            data-testid="quote-setnayan-gift-switch"
+            className="mt-3 flex items-start gap-3 rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
+          >
+            <input
+              type="checkbox"
+              checked={giftSwitch}
+              onChange={(e) => setGiftSwitch(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-mulberry-600"
+            />
+            <span className="min-w-0">
+              {/* The words come from the lib, where the share is rendered from
+                  its constant — this component must never know the rate. */}
+              <span className="block text-sm font-semibold text-mulberry-600">
+                {quoteGiftSwitchCopy().label}
+              </span>
+              <span className="mt-0.5 block text-xs text-ink/60">{quoteGiftSwitchCopy().detail}</span>
+            </span>
+          </label>
+        ) : null}
 
         {giftCopy ? (
           <div

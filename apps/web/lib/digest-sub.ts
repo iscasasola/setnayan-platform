@@ -11,7 +11,7 @@
  *
  *   "Order placed · ref A7K2QX"        → KEEP  (a reference the couple must quote)
  *   "Order placed · payment pending"   → drop  (the row's own chip already says it)
- *   "3 categories still open"          → drop  (the count is the row's right slot)
+ *   "3 of 25 categories not booked"    → drop  (the count is the row's right slot)
  *   "Saved options waiting on a lock"  → drop  (restates the label)
  *   "1 waiting"                        → drop
  *   "Key people your ceremony needs"   → drop

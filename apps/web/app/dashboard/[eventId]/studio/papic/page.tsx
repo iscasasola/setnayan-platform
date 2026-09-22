@@ -101,6 +101,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
+import { CreditRecommendation } from './_components/credit-recommendation';
 import { PapicCamerasCard } from './_components/papic-cameras-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
@@ -410,6 +411,87 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const papicCaptureCloseLabel = formatCaptureCloseLabel(papicWindow.endIso);
   const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
 
+  /*
+    ══ WHICH PHASE THIS PAGE IS IN ═══════════════════════════════════════════
+    ⚖ Owner 2026-09-22, on the live page: *"it doesn't feel inquitive and easy
+    to manage."* Before the day this screen is a SETUP job and the money that
+    sizes it leads; on the day and after it is a RESULTS screen and the
+    photographs lead.
+
+    The approved prototype does this with ONE DOM and CSS `order`, and so does
+    this — every control keeps its place in the source, nothing is branched
+    away, and the controls bill (`nothing-was-lost-with-the-tabs.test.ts`) can
+    still see all of them.
+
+    🔑 THE FLIP IS THE EVENT DAY, NOT THE CAPTURE WINDOW. Cameras may open six
+    months early (`PAPIC_CAPTURE_MONTHS_BEFORE`), so a window that has started
+    says nothing about whether the celebration has happened. A page that
+    re-ordered itself in March because a couple switched their cameras on early
+    would be the "don't make it jump" complaint at its largest possible scale.
+
+    ⚠ THE DAY ITSELF COUNTS AS AFTER — that is the moment a couple stops setting
+    up and starts watching photographs arrive.
+  */
+  const papicPhase: 'before' | 'after' = (() => {
+    const raw = (ev.event_date as string | null) ?? null;
+    if (!raw) return 'before';
+    // Compare DATE to DATE. Parsing the stored date as an INSTANT would put a
+    // Manila wedding a day behind for anyone whose clock is west of it.
+    //
+    // ⚠ `DEFAULT_EVENT_TZ`, NOT THE VENUE'S. The venue's zone is resolved much
+    // further down this file from coordinates most events do not carry, and
+    // spending a query to move a BLOCK ORDER boundary by a few hours is not a
+    // trade worth making. Every celebration in this product is in the
+    // Philippines; when that stops being true, this is the line to change.
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: DEFAULT_EVENT_TZ }).format(
+      new Date(),
+    );
+    return raw.slice(0, 10) <= today ? 'after' : 'before';
+  })();
+
+  /**
+   * THE TEN BLOCKS, IN THE ORDER EACH PHASE WANTS THEM (owner 2026-09-22).
+   *
+   * ⚠ WRITTEN OUT, NEVER COMPUTED. Tailwind reads class names as literal text,
+   * so `order-${n}` produces a class that is never generated — the page would
+   * lose its order silently, which looks exactly like "the reorder did not
+   * ship". `the-page-reorders-itself.test.ts` asserts every one of these is a
+   * literal.
+   *
+   * ⚠ MONEY NOW SITS ABOVE THE TWO BLOCKS THAT SIZE IT, and that inversion is
+   * deliberate — it is only safe while the recommendation RECOMPUTES as
+   * coverage and allotment change. It does: the credits block derives it from
+   * the live pool config and the live head count on every render.
+   */
+  const BLOCK_ORDER = {
+    before: {
+      credits: 'order-1',
+      dates: 'order-2',
+      guests: 'order-3',
+      filter: 'order-4',
+      challenges: 'order-5',
+      wall: 'order-6',
+      gallery: 'order-7',
+      kwento: 'order-8',
+      made: 'order-9',
+      more: 'order-10',
+    },
+    after: {
+      gallery: 'order-1',
+      kwento: 'order-2',
+      made: 'order-3',
+      wall: 'order-4',
+      credits: 'order-5',
+      guests: 'order-6',
+      filter: 'order-7',
+      challenges: 'order-8',
+      dates: 'order-9',
+      more: 'order-10',
+    },
+  } as const;
+  type PapicBlock = keyof (typeof BLOCK_ORDER)['before'];
+  const ord = (key: PapicBlock) => BLOCK_ORDER[papicPhase][key];
+
   // ⚠ READ ONCE, USED TWICE. The stage needs to know whether the library is
   // empty (roll or photographs) and the facts strip on its edge reports the same
   // three numbers. Two components counting the same thing is a definition twice,
@@ -669,7 +751,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   }
 
   return (
-    <section className="space-y-7 pb-12">
+    /*
+      ⚠ FLEX COLUMN, NOT `space-y-7`. CSS `order` applies only to flex and grid
+      items, so on a block container every order class below would be inert and
+      the page would look exactly as it does today. `gap-7` reproduces
+      `space-y-7` exactly.
+    */
+    <section className="flex flex-col gap-7 pb-12">
       <Link
         href={`/dashboard/${eventId}/studio`}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
@@ -724,36 +812,69 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         preserveError={preserveError}
       />
 
-      {/* ⚠ THE STAGE — the page opens on the library, in every state.
-          Owner 2026-08-28: *"it doesn't look like a photo app control center. it
-          still feels like it is a business page."* Every product in this market
-          opens on its content; the four facts still come before anything asks
-          for a decision, they simply sit on the thing they describe now.
-          See _components/papic-stage.tsx for the reasoning and the measured
-          contrast ratios on the dark ground. */}
-      <PapicStage
-        standings={standings}
-        windowIsSet={windowIsSet}
-        windowSummary={papicWindowSummary}
-        opensInDays={papicOpensInDays}
-        uploadsOpen={uploadsOpen}
-        firstMemorySlot={
-          /* ⚠ A DOOR, NOT A SECOND PICKER. The upload sheet lives behind the
-             "Your uploads" way-in below; putting the picker here too would be a
-             second copy of a control, which is the failure this codebase pays
-             for most. This scrolls to it. */
-          <a
-            href="#ways-into-your-library"
-            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-cream"
-            style={{ backgroundColor: '#C24E25' }}
-          >
-            Add the first memory
-          </a>
-        }
-      >
-        <GalleryPreviewCard eventId={eventId} />
-      </PapicStage>
+      {/* ══ CREDITS ══════════════════════════════════════════════════
+          Money leads the setup phase, because a couple cannot size a purchase they
+          cannot see. ⚠ It sits ABOVE Coverage and Allotment, which are the two
+          blocks that size it — safe only while the recommendation RECOMPUTES from
+          the live pool config and the live head count, which it does on every
+          render. */}
+      <div className={`flex flex-col gap-7 ${ord('credits')}`}>
+      {/* ══ CREDITS — one shared pot, and the ways to add to it ═══════════════
+          Bought where the number is watched, per the drawing. The meter, the
+          ladder, handing credits to one camera, and what guests chipped in are
+          four faces of one thing and now sit together. */}
+      <HostPoolMeterCard eventId={eventId} />
+      {/* 🔑 THE RECOMMENDATION, ON THE PAGE THAT SELLS THE CREDITS. It already
+          existed (`lib/papic-credit-estimate.ts`, unit-tested) and was rendered
+          only on the couple's Home tile. It shows its own arithmetic, because
+          the two blocks that SIZE it now sit below it — an inverted order is
+          only honest while the number visibly recomputes. */}
+      <CreditRecommendation eventId={eventId} eventType={(ev.event_type as string | null) ?? null} />
+      <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
+      {/* Hand credits to one camera's QR, or take unspent ones back (owner
+          2026-08-11).
 
+          ⚠ THIS CONTROL IS RETIRED BY A LATER RULING AND IS STILL HERE ON
+          PURPOSE. Owner 2026-09-16, asked which of two of his own rulings
+          stands: *"no dedicated shots individually."* Removing the card is the
+          easy half; the hard half is `papic_dedicate_shots`, which the
+          both-ends guard then requires be DROPPED — and dropping it orphans
+          `papic_seat_allocations`, whose term is read by four live money
+          functions and nine app files. Measured, not guessed.
+
+          🔑 SO THE RETIREMENT SHIPS WHOLE, IN ITS OWN PR, rather than as the
+          tail of a bundle: half-retiring it is what turned this PR red. Until
+          then the page still says two things at once — the Crew-cameras sheet
+          says every shot draws from the shared pot while this hands credits to
+          one QR — which it has said for weeks and will say for one PR more. */}
+      <PapicCamerasCard
+        eventId={eventId}
+        error={shotsError ?? papicOneError ?? null}
+        justSet={shotsSet ?? null}
+      />
+      {/* ⛔ NO CAMERA HOLDS CREDITS OF ITS OWN — `PapicCamerasCard` WAS HERE.
+          ⚖ Two of the owner's own rulings were in direct conflict and the
+          shipped code followed the older one. 2026-08-11: *"the host can
+          dedicated a specific number of shots for a specific QR code"* — which
+          is why that card existed. 2026-09-16: *"no dedicated shots
+          individually."* Asked directly which stands, he chose 2026-09-16.
+
+          🔑 THE PAGE WAS SAYING BOTH THINGS AT ONCE. The Crew-cameras sheet
+          above reads *"Every shot draws from your shared credits"* while this
+          card, four blocks below it, handed credits to a single QR.
+
+          ⚠ DO NOT RESTORE IT FOR SYMMETRY. `paparazzi_seats` stays — a seat is
+          the camera CLAIM, not an allowance, and `app/api/upload/route.ts`
+          resolves a seatGate per seat. Only the DEDICATION went. */}
+      {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
+      <GuestContributionsCard eventId={eventId} />
+      </div>
+      {/* ══ DATES ══════════════════════════════════════════════════
+          COVERAGE — when the cameras may shoot. Named for what it gives a couple
+          rather than for the mechanism: they are buying coverage of their
+          celebration, not configuring a window. Before the dates exist this is the
+          one do-this-first card; once they are set it folds to a single row. */}
+      <div className={`flex flex-col gap-7 ${ord('dates')}`}>
       {/* ⚠ EXACTLY ONE NEXT STEP, AND IT KNOWS THE MOMENT.
           Owner, opening his own wedding's Papic page: *"entering papic inside an
           event needs to me simpler and better to manage. if I am a customer and
@@ -831,6 +952,119 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           </div>
         </section>
       ) : null}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Coverage</h2>
+        <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+          {/* The capture window, once it exists. While it is UNSET it is the
+              do-this-first card at the top instead — never both, or a couple
+              sees two identical date pickers on one page. */}
+          {windowIsSet ? (
+            <SettingRow
+              icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+              label="When your cameras can shoot"
+              value={papicWindowSummary}
+              sheetTitle="When your cameras can shoot"
+            >
+              <PapicWindowPicker
+                eventId={eventId}
+                eventType={(ev.event_type as string | null) ?? null}
+                eventDate={(ev.event_date as string | null) ?? null}
+                windowStart={(ev.papic_window_start as string | null) ?? null}
+                windowEnd={(ev.papic_window_end as string | null) ?? null}
+                windowIsSet={windowIsSet}
+                days={papicDays}
+                summary={papicWindowSummary}
+              />
+            </SettingRow>
+          ) : null}
+        </div>
+      </section>
+      </div>
+      {/* ══ GUESTS ══════════════════════════════════════════════════
+          ALLOTMENT — who may shoot, and how much each of them gets. Was "Guests'
+          shots"; the word the rest of this page now uses for the currency is
+          credits, and an allotment is what one guest is allowed of them. */}
+      <div className={`flex flex-col gap-7 ${ord('guests')}`}>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Allotment</h2>
+        <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+          <GuestCamerasChoice eventId={eventId} variant="row" />
+          <GuestAllotmentsChoice eventId={eventId} variant="row" />
+        </div>
+      </section>
+      </div>
+      {/* ══ FILTER ══════════════════════════════════════════════════
+          FILTER — the one look every photograph gets. A choice made once, so it is
+          a row showing its current answer rather than a wall of gradient cards. */}
+      <div className={`flex flex-col gap-7 ${ord('filter')}`}>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Filter</h2>
+        <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+          <SettingRow
+            icon={<Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Your Papic look"
+            value={papicStyleLabel}
+            sheetTitle="Your Papic look"
+          >
+            <p className="mb-4 text-sm text-ink/65">
+              Choose one look for your whole event. Every photo your crew and
+              guests capture gets it automatically, so your gallery feels like
+              one beautiful set.
+            </p>
+            <StylePicker eventId={eventId} current={papicStyle} />
+          </SettingRow>
+        </div>
+      </section>
+      </div>
+      {/* ══ CHALLENGES ══════════════════════════════════════════════════
+          CHALLENGES — the prompts guests are asked to shoot. */}
+      <div className={`flex flex-col gap-7 ${ord('challenges')}`}>
+      {/* ══ EXTRAS FOR THE DAY ═══════════════════════════════════════════════ */}
+      <CoupleChallengesManager eventId={eventId} />
+      <VendorChallengesApproval eventId={eventId} />
+      </div>
+      {/* ══ WALL ══════════════════════════════════════════════════
+          LIVE WALL — ⚖ MOVED UP, ABOVE THE GALLERY (owner 2026-09-22). It is a
+          SETUP job — pick a style, get the screen code — and it was sitting below
+          the results it helps produce. */}
+      <div className={`flex flex-col gap-7 ${ord('wall')}`}>
+      <LiveWallCard eventId={eventId} />
+      </div>
+      {/* ══ GALLERY ══════════════════════════════════════════════════
+          GALLERY — the library itself, the four ways media reaches it, and what the
+          couple may hide. Before the day it sits below the setup that fills it; on
+          the day and after, it leads. */}
+      <div className={`flex flex-col gap-7 ${ord('gallery')}`}>
+      {/* ⚠ THE STAGE — the page opens on the library, in every state.
+          Owner 2026-08-28: *"it doesn't look like a photo app control center. it
+          still feels like it is a business page."* Every product in this market
+          opens on its content; the four facts still come before anything asks
+          for a decision, they simply sit on the thing they describe now.
+          See _components/papic-stage.tsx for the reasoning and the measured
+          contrast ratios on the dark ground. */}
+      <PapicStage
+        standings={standings}
+        windowIsSet={windowIsSet}
+        windowSummary={papicWindowSummary}
+        opensInDays={papicOpensInDays}
+        uploadsOpen={uploadsOpen}
+        firstMemorySlot={
+          /* ⚠ A DOOR, NOT A SECOND PICKER. The upload sheet lives behind the
+             "Your uploads" way-in below; putting the picker here too would be a
+             second copy of a control, which is the failure this codebase pays
+             for most. This scrolls to it. */
+          <a
+            href="#ways-into-your-library"
+            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-cream"
+            style={{ backgroundColor: '#C24E25' }}
+          >
+            Add the first memory
+          </a>
+        }
+      >
+        <GalleryPreviewCard eventId={eventId} />
+      </PapicStage>
 
       {/* ══ FOUR WAYS INTO YOUR LIBRARY ═══════════════════════════════════════
           🔑 THIS SECTION IS WHAT REPLACED THE THREE TABS.
@@ -1023,28 +1257,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </p>
       </section>
 
-      {/* ══ CREDITS — one shared pot, and the ways to add to it ═══════════════
-          Bought where the number is watched, per the drawing. The meter, the
-          ladder, handing credits to one camera, and what guests chipped in are
-          four faces of one thing and now sit together. */}
-      <HostPoolMeterCard eventId={eventId} />
-      <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
-      {/* Hand credits to one camera's QR, or take unspent ones back (owner
-          2026-08-11). 🔑 Dedicated credits are a FLOOR, not a ceiling — a
-          capture spends the camera's own first and the pot pays the remainder. */}
-      <PapicCamerasCard
-        eventId={eventId}
-        error={shotsError ?? papicOneError ?? null}
-        justSet={shotsSet ?? null}
-      />
-      {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
-      <GuestContributionsCard eventId={eventId} />
-
-      {/* ══ MADE FROM YOUR LIBRARY ═══════════════════════════════════════════ */}
-      <RecapCard eventId={eventId} />
-      <MagazineCard eventId={eventId} />
-      <LifeFlashCard eventId={eventId} />
-
       {/* ══ YOUR PHOTOS, YOUR SAY ════════════════════════════════════════════ */}
       <VendorMediaControls eventId={eventId} />
       <section className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
@@ -1061,64 +1273,30 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </Link>
       </section>
       <PoolGalleryCard eventId={eventId} />
-
-      {/* ══ SET ONCE, CHANGE ANY TIME ════════════════════════════════════════
-          🔑 THE RULE IS HOW OFTEN YOU TOUCH IT. Made once → a row showing its
-          current answer. Come back to it → stays on the page as a card. We can
-          answer it ourselves → deleted outright (photo quality, and where the
-          photos go, both on the owner's 2026-08-26 ruling).
-
-          ⚠ NO PICKER IS REDRAWN. Each row's sheet holds the shipped control
-          exactly as it ships, lock notes and all. A row is a different DOOR to
-          the same control, never a second copy of it — and the components that
-          render nothing when there is nothing to decide still do, so no row
-          exists for a choice that cannot be made. */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">
-          Set once, change any time
-        </h2>
+      </div>
+      {/* ══ KWENTO ══════════════════════════════════════════════════
+          KWENTO — the guests' messages, and the magazine made from them. */}
+      <div className={`flex flex-col gap-7 ${ord('kwento')}`}>
+      <MagazineCard eventId={eventId} />
+      </div>
+      {/* ══ MADE ══════════════════════════════════════════════════
+          MADE FOR YOU — the films and recaps built from the library. */}
+      <div className={`flex flex-col gap-7 ${ord('made')}`}>
+      {/* ══ MADE FROM YOUR LIBRARY ═══════════════════════════════════════════ */}
+      <RecapCard eventId={eventId} />
+      <LifeFlashCard eventId={eventId} />
+      </div>
+      {/* ══ MORE ══════════════════════════════════════════════════
+          MORE — everything a couple touches once or never. ⚠ Blurred faces and
+          Google Drive keep their PANELS: one is a report the couple cannot set, the
+          other is an OAuth connect. Neither is a switch, so neither gets flattened
+          onto a row. */}
+      <div className={`flex flex-col gap-7 ${ord('more')}`}>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">More</h2>
         <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
-          {/* The capture window, once it exists. While it is UNSET it is the
-              do-this-first card at the top instead — never both, or a couple
-              sees two identical date pickers on one page. */}
-          {windowIsSet ? (
-            <SettingRow
-              icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-              label="When your cameras can shoot"
-              value={papicWindowSummary}
-              sheetTitle="When your cameras can shoot"
-            >
-              <PapicWindowPicker
-                eventId={eventId}
-                eventType={(ev.event_type as string | null) ?? null}
-                eventDate={(ev.event_date as string | null) ?? null}
-                windowStart={(ev.papic_window_start as string | null) ?? null}
-                windowEnd={(ev.papic_window_end as string | null) ?? null}
-                windowIsSet={windowIsSet}
-                days={papicDays}
-                summary={papicWindowSummary}
-              />
-            </SettingRow>
-          ) : null}
-
-          <SettingRow
-            icon={<Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            label="Your Papic look"
-            value={papicStyleLabel}
-            sheetTitle="Your Papic look"
-          >
-            <p className="mb-4 text-sm text-ink/65">
-              Choose one look for your whole event. Every photo your crew and
-              guests capture gets it automatically, so your gallery feels like
-              one beautiful set.
-            </p>
-            <StylePicker eventId={eventId} current={papicStyle} />
-          </SettingRow>
-
           <FaceTaggingChoice eventId={eventId} variant="row" />
-          <GuestCamerasChoice eventId={eventId} variant="row" />
           <UploadsOpenChoice eventId={eventId} open={uploadsOpen} variant="row" />
-          <GuestAllotmentsChoice eventId={eventId} variant="row" />
         </div>
       </section>
 
@@ -1136,11 +1314,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         driveGrant={driveGrant}
         loginEmail={user.email ?? null}
       />
-
-      {/* ══ EXTRAS FOR THE DAY ═══════════════════════════════════════════════ */}
-      <CoupleChallengesManager eventId={eventId} />
-      <VendorChallengesApproval eventId={eventId} />
-      <LiveWallCard eventId={eventId} />
 
       {/* Setup & help — folded away, as today. */}
       <details className="group sn-tile">
@@ -1173,6 +1346,29 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         pages, not here. They are made <em>for</em> your day; this library
         collects what was captured <em>of</em> it.
       </section>
+      </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       {/* ══ THE OFFERS, LAST ═════════════════════════════════════════════════
           ⚖ AN OFFER NEVER OUTRANKS THE DAY, OR THE KEEPSAKE. Both of these used
@@ -1574,7 +1770,7 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {showcaseError === 'missing_photo'
-            ? 'That clip is no longer in your gallery.'
+            ? 'That snippet is no longer in your gallery.'
             : 'Could not change that — please try again.'}
         </p>
       ) : null}
@@ -1726,6 +1922,10 @@ function StatusBanners({
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {allotmentError === 'bad_everyone'
             ? 'A limit of nothing is not a limit, so that number starts at 1. Leave it empty to cap them at an equal share of what is left, or name a guest to stop her taking anything.'
+            : allotmentError === 'bad_minimum'
+            ? 'A minimum of nothing is not a promise, so that number starts at 1. Leave it empty for no minimum.'
+            : allotmentError === 'minimum_above_limit'
+            ? 'The least anybody gets cannot be more than the limit you set for everyone — that would promise your guests more than you allow them to take.'
             : allotmentError === 'bad_number'
             ? 'That needs to be a whole number of credits, or empty to let it work itself out.'
             : allotmentError === 'unknown_guest'
@@ -2278,7 +2478,7 @@ function CaptureDefaultsSection() {
     {
       Icon: Hand,
       title: 'Locked-down by design',
-      body: 'Rear-only, 10-second clip cap, no settings for your crew to fiddle with.',
+      body: 'Rear-only, 10-second snippet cap, no settings for your crew to fiddle with.',
     },
   ];
   return (

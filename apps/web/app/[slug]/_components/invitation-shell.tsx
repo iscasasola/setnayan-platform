@@ -1,6 +1,8 @@
 import { Logo } from '@/app/_components/logo';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
+import type { InviteThemeId } from '@/lib/invite-themes';
+import { siteSkin } from './skins/site-skin';
 import {
   PahinaCoverParallax,
   PahinaMotionObserver,
@@ -21,6 +23,9 @@ import {
  */
 export function InvitationShell({
   artDirection,
+  hubTheme,
+  hubPhoto,
+  hubAccent,
   children,
   backdrop,
   rolePalette,
@@ -33,6 +38,20 @@ export function InvitationShell({
    *  daylight renders exactly today's DOM, so every existing event is
    *  byte-stable. The dark recipe is a var block in globals.css. */
   artDirection?: 'daylight' | 'candlelight' | null;
+  /**
+   * The Event Hub theme, ALREADY RESOLVED by `resolveInviteTheme` upstream —
+   * Pro ownership and the wedding fence are decided there, not here. 'house'
+   * (or undefined) renders exactly today's page: no attribute, no ground.
+   *
+   * 🔑 The caller resolves it because the gate needs an orders lookup and a
+   * profile, and a shell that took the raw column would be a second opinion
+   * about who owns what. See `lib/invite-themes.ts`.
+   */
+  hubTheme?: InviteThemeId | null;
+  /** The couple's reveal background, presigned (`lib/invite-ground.ts`), or null. */
+  hubPhoto?: string | null;
+  /** The couple's colour — ornament only, mixed into the theme's material. */
+  hubAccent?: string | null;
   children: React.ReactNode;
   /** Pahina (wave A PR-2): couple's monogram text for the header right slot —
    *  gild Fraunces italic. Falls back to the mono "Invitation" label. */
@@ -61,18 +80,58 @@ export function InvitationShell({
   customColorVars?: Record<string, string> | null;
 }) {
   const paletteVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
+  /*
+    The theme's ground + the `--accent` its material mixes with. `siteSkin`
+    returns undefined for House and for any theme upstream turned into House, so
+    everything below is a no-op for an event that never chose one.
+  */
+  const skin =
+    hubTheme && hubTheme !== 'house'
+      ? siteSkin(hubTheme, { photo: hubPhoto ?? null, accent: hubAccent ?? 'currentColor' })
+      : undefined;
+  /*
+    ⚠ `data-hub-theme` IS WITHHELD WHEN THE SKIN IS UNDEFINED, not set to
+    'house'. React omits an undefined attribute entirely, so an unthemed event
+    renders the DOM it rendered before this feature existed — the same
+    byte-safety property `artDirection`'s daylight path has, and the reason a
+    theme rollout cannot quietly restyle a page a couple already shared.
+  */
+  const hubThemeAttr = skin ? hubTheme ?? undefined : undefined;
   // Byte-safety: when there are no custom colours, `themeVars` is IDENTICAL to
   // `paletteVars` (the pre-PR-C value). Only when custom colours exist do we
   // spread them over the palette (custom wins per-role).
-  const themeVars =
+  const colourVars =
     customColorVars && Object.keys(customColorVars).length > 0
       ? { ...(paletteVars ?? {}), ...customColorVars }
       : paletteVars;
+  /*
+    🔑 THE SKIN'S `--accent` IS MERGED IN, THE THEME'S COLOURS ARE NOT. The
+    material lives in a STYLESHEET block (globals.css), deliberately: inline
+    style beats any stylesheet, so a theme expressed inline would silently
+    overwrite the couple's own mood-board palette and Pro hex colours, which
+    arrive right here. As a stylesheet the precedence falls out correct for
+    free — theme < palette < the couple's own hex. `--accent` is the one
+    exception because it IS the couple's colour, not the theme's.
+  */
+  const themeVars =
+    skin || colourVars
+      ? { ...(colourVars ?? {}), ...(skin?.style ?? {}) }
+      : undefined;
   if (fullBleed) {
     return (
       <main
-        className="min-h-dvh bg-cream text-ink"
+        /*
+          🔴 `bg-cream` IS DROPPED WHEN A GROUND IS PRESENT. It is opaque, and it
+          sits ON TOP of the fixed layer below — paint it and the theme's ground
+          is invisible on every page while every test still passes. The spatial
+          backdrop path has always done this; a skin needs it for the same
+          reason. `relative` replaces it so the content still stacks above.
+        */
+        className={`min-h-dvh text-ink ${skin ? 'relative' : 'bg-cream'} ${
+          skin?.className ?? ''
+        }`.trim()}
         data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
+        data-hub-theme={hubThemeAttr}
         style={themeVars ? (themeVars as React.CSSProperties) : undefined}
       >
         {children}
@@ -81,8 +140,11 @@ export function InvitationShell({
   }
   return (
     <main
-      className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}
+      className={`min-h-dvh text-ink ${backdrop || skin ? 'relative' : 'bg-cream'} ${
+        skin?.className ?? ''
+      }`.trim()}
       data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
+      data-hub-theme={hubThemeAttr}
       style={themeVars ? (themeVars as React.CSSProperties) : undefined}
     >
       {/* Scroll choreography (design §6). Deliberately NOT on the fullBleed

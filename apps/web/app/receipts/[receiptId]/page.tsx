@@ -159,7 +159,7 @@ export default async function ReceiptPage({ params }: Props) {
               records. It is <em>not</em> a BIR Official Receipt. The
               corresponding BIR Official Receipt (where applicable) is issued by
               Setnayan separately &mdash; please reach out to{' '}
-              {settings.business_email ?? 'support@setnayan.com'} if you need it for
+              {settings.business_email ?? 'live@setnayan.com'} if you need it for
               accounting or reimbursement.
             </p>
             <p className="font-mono text-[10px] uppercase tracking-[0.15em]">

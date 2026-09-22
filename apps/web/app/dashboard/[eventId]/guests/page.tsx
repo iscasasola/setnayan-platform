@@ -84,8 +84,8 @@ import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
 import { LensPill } from './_components/lens-pill';
 import { UndoToastHost } from './_components/undo-toast';
-import { GuestDrawerHost } from './_components/guest-drawer';
-import { GuestDetailBody } from './_components/guest-detail-body';
+import { GuestCardBody, GUEST_CARD_ERROR_COPY } from './_components/guest-card-body';
+import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   InspectorColumn,
@@ -218,6 +218,9 @@ type Props = {
      *  groupingFromParams. */
     by?: string;
     inspect?: string;
+    // The card's own invite flash, now that it opens here rather than on its
+    // own route (`error` is already declared below).
+    invite?: string;
     added?: string;
     saved?: string;
     removed?: string;
@@ -700,8 +703,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Desktop inspector selection (Inspector P2) — resolve `?inspect=<guestId>` to a
   // guest ALREADY in this page's fetched roster (no extra query). An unknown or
   // stale id renders the inspector closed (hasSelection=false), never a blank
-  // rail. The body is the SAME <GuestDetailBody> the mobile sheet renders — one
-  // body, two frames — so the desktop column can't diverge from the sheet.
+  // rail. The body is the SAME card the standalone route renders — one body,
+  // every frame — so no presentation of a guest can diverge from another.
   const inspectId = typeof search.inspect === 'string' ? search.inspect : null;
   // ⚠ RESOLVED BEFORE THE INSPECTOR, not after: the inspector body reads
   // this map, and it used to be declared below it.
@@ -744,26 +747,50 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         .map((id) => groupLabelById.get(id))
         .filter((l): l is string => Boolean(l))
     : [];
-  const inspectorBody = inspectedGuest ? (
+  /* THE CARD, not a quick view (2026-09-22). `?inspect=<guestId>` now server-
+     renders the SAME `GuestCardBody` the standalone route renders — the QR,
+     every editable field, and the remove path, in one panel that saves itself.
+     Before this, selecting a guest showed a read-only summary whose only way
+     into the form was a link called "Open full details", i.e. a page navigation
+     to change one RSVP.
+
+     `loadGuestCard` is the one extra round trip a selection costs; it is only
+     paid when a guest is actually open. */
+  const inspectedCard = inspectedGuest
+    ? await loadGuestCard(supabase, eventId, inspectedGuest.guest_id)
+    : null;
+  const inspectorBody = inspectedGuest && inspectedCard ? (
     <InspectorColumn
       eyebrow="Guest"
       title={guestDisplayName(inspectedGuest)}
-      fullHref={`/dashboard/${eventId}/guests/${inspectedGuest.guest_id}`}
-      fullLabel="Open full details"
       swapKey={inspectedGuest.guest_id}
       ariaLabel={`${guestDisplayName(inspectedGuest)} details`}
     >
-      <GuestDetailBody
-        invitationBase={invitationBase}
-        guest={inspectedGuest}
-        groupLabels={inspectedGroupLabels}
+      <GuestCardBody
         eventId={eventId}
+        data={inspectedCard}
+        invitationBase={invitationBase}
         brandedQrActive={brandedQrActive}
-        showFullDetailsLink={false}
         photoDisplayUrl={
           photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
           accountFaceByGuest[inspectedGuest.guest_id] ??
           null
+        }
+        variant="panel"
+        returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
+        errorMessage={
+          typeof search.error === 'string'
+            ? (GUEST_CARD_ERROR_COPY[search.error] ?? decodeURIComponent(search.error))
+            : null
+        }
+        inviteFlash={
+          search.invite === 'sent'
+            ? { ok: true, msg: `Sign-in link sent to ${inspectedGuest.email}.` }
+            : search.invite === 'failed'
+              ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
+              : search.invite === 'no_email'
+                ? { ok: false, msg: 'Add an email below and save it first, then send the invite.' }
+                : null
         }
       />
     </InspectorColumn>
@@ -1234,30 +1261,27 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
       />
 
-      {/* Living Roster P1 · in-page overlay hosts. UndoToastHost is the single
-          bottom snackbar for optimistic deletes; GuestDrawerHost is the right
-          slide-in quick-view a roster row opens. Both are portal-rendered
-          client islands that sit idle until acted on. */}
+      {/* UndoToastHost is the single bottom snackbar for optimistic deletes.
+          The quick-view sheet host that used to sit beside it is gone: the
+          guest card is server-rendered from `?inspect=` and presented by
+          InspectorLayout at every width. */}
       <UndoToastHost />
-      <GuestDrawerHost
-        invitationBase={invitationBase}
-        eventId={eventId}
-        brandedQrActive={brandedQrActive}
-        photoDisplayUrls={photoDisplayUrls}
-        accountFaceByGuest={accountFaceByGuest}
-      />
+
     </section>
   );
 
-  // Finder-style master ▸ detail (Inspector P2): at ≥xl the roster reflows to
-  // leave room for the sticky guest inspector rail; below xl the rail is hidden
-  // and the name triggers navigate to the standalone detail route (mobile
-  // unchanged). The whole page is the master so the rail sits beside all of the
-  // roster chrome (facet bar, capture bar, header actions), exactly like Studio.
+  // Master ▸ detail at EVERY width (2026-09-22). At ≥xl the roster reflows to
+  // leave room for a full-height card column; below xl the same server-rendered
+  // card slides in from the right and leaves the roster peeking on the left.
+  // `mobileSheet` is what makes a name open the card on a phone instead of
+  // leaving the roster for a route — it is opt-in, so Studio/Vendors/Overview
+  // keep their standalone routes.
   return (
     <InspectorLayout
       paramKey="inspect"
-      hasSelection={Boolean(inspectedGuest)}
+      className="sn-inspector-shell--card"
+      mobileSheet
+      hasSelection={Boolean(inspectorBody)}
       master={master}
       inspector={inspectorBody}
     />
@@ -1476,13 +1500,6 @@ async function fetchJoinUrl(
  * the same string `buildInvitationUrl` produces for their QR, and the string
  * an NFC tag holds. Null before the event has a slug.
  */
-async function fetchInvitationBase(eventId: string, slug: string | null): Promise<string | null> {
-  if (!slug) return null;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
-  return `${appUrl}${publicEventPath(slug, ownerSlug)}`;
-}
-
 function pickFlash(search: {
   added?: string;
   saved?: string;

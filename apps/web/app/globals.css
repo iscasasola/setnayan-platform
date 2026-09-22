@@ -2289,8 +2289,10 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
  * (tab to the left → reverse) just before `document.startViewTransition`.
  *
  * Only the named content `<main>` (`.sn-vt-page` → `view-transition-name:sn-page`)
- * slides; everything else (the fixed pill, sidebar, sticky top bar) lives in the
- * `root` snapshot, which we freeze (`animation:none`) so the chrome stays put.
+ * slides. The sidebar and the sticky top bar ride in the frozen `root` snapshot;
+ * the floating pill and its FAB carry names of their OWN (`sn-bottomnav` /
+ * `sn-navfab`) because `root` paints BENEATH `sn-page` and the pill sits inside
+ * that page's box — see the long note on those rules below.
  *
  * The slide ONLY fires when the controller actually calls `startViewTransition`
  * — i.e. mobile + motion-allowed + VT-supported + a real top-level-tab change.
@@ -2306,10 +2308,73 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
 ::view-transition-group(sn-page) {
   overflow: clip; /* clip the off-screen layer so the slide can't scroll the page */
 }
-/* Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`. */
+/*
+ * Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`.
+ *
+ * 🔑 `animation: none` ALONE DOES NOT FREEZE — IT WASHES OUT. The UA sheet puts
+ * `mix-blend-mode: plus-lighter` on every `::view-transition-old/new` so the
+ * default cross-fade (old 1→0 over new 0→1) sums to a correct blend. Cancel the
+ * animations and BOTH snapshots sit at opacity 1 — plus-lighter then ADDS two
+ * near-identical opaque images, so the whole chrome brightens for the length of
+ * the slide and drops back. On this cream palette that reads as a full-screen
+ * white flash, i.e. "the page reloaded". `mix-blend-mode: normal` paints the new
+ * snapshot OVER the old instead of summing with it, which is what "stays put"
+ * was always meant to mean.
+ */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
+  mix-blend-mode: normal;
+}
+
+/*
+ * ── THE BOTTOM BAR IS NOT IN `root` ANY MORE (2026-09-22) ─────────────────
+ * The `::view-transition` pseudo tree paints ABOVE the live document, and its
+ * groups paint in capture order: `root` first, every named group after it. So
+ * the sliding `sn-page` snapshot paints OVER everything left in `root` that its
+ * box overlaps — and the `<main>` it names carries the
+ * `pb-[calc(env(safe-area-inset-bottom)+92px)]` clearance, which is precisely
+ * the strip the floating pill and its FAB sit in. The chrome did "stay put": it
+ * stayed put UNDERNEATH the page for the whole 320ms and came back after, which
+ * on a phone reads as the bar disappearing and reloading on every tab press.
+ *
+ * 🔑 THE ASYMMETRY IS THE TELL, AND IT IS GEOMETRY, NOT LIFECYCLE. The top bar
+ * sits ABOVE `<main>`'s box at scroll-top, so it is never covered and "seems to
+ * persist"; the bottom pill is inside that box at every scroll position, so it
+ * always is. Nothing remounts in either case — no React tree changes, and the
+ * navs live in the layout, above the segment that swaps.
+ *
+ * Naming them lifts each into its own group above `sn-page`. `animation: none`
+ * + `mix-blend-mode: normal` for the same reason as `root` above.
+ *
+ * ⚠ ONE ELEMENT PER NAME, OR THE BROWSER SKIPS THE WHOLE TRANSITION. Both
+ * selectors resolve to exactly one mounted element (`bottom-nav.tsx` is the one
+ * `aria-label="Primary navigation"` in the app — nav-slide-controller.tsx keys
+ * off the same marker — and one `<NavFab>` mounts per doorway).
+ *
+ * ⚠ `.shell-topbar` IS DELIBERATELY NOT NAMED. `view-transition-name` makes an
+ * element a containing block for `position: fixed` DESCENDANTS — the trap
+ * `panood/program/program-surface.tsx` and `lib/live-studio-control.ts` both
+ * already record — and the bar hosts the account panel and the command palette.
+ * The two named here are fixed elements already, so they are already the
+ * containing block for their own descendants and nothing moves.
+ */
+nav[aria-label='Primary navigation'] {
+  view-transition-name: sn-bottomnav;
+}
+.sn-vt-fab {
+  view-transition-name: sn-navfab;
+}
+::view-transition-group(sn-bottomnav),
+::view-transition-group(sn-navfab) {
+  animation: none;
+}
+::view-transition-old(sn-bottomnav),
+::view-transition-new(sn-bottomnav),
+::view-transition-old(sn-navfab),
+::view-transition-new(sn-navfab) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 ::view-transition-old(sn-page),
 ::view-transition-new(sn-page) {
@@ -2854,14 +2919,20 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   .sn-editorial .pahina-eyebrow > [aria-hidden='true'] {
     color: rgb(var(--color-gild));
   }
+  /* `--pahina-rule-len` is themed (Event Hub themes, 2026-09-22); the fallback
+     IS today's value. ⚠ THIS NOTE IS OUTSIDE THE RULE ON PURPOSE —
+     `the-invitation-tells-the-truth.test.ts` asserts `--color-gild` appears
+     within 200 characters of the selector below, and a comment inside the
+     braces pushes it past that window. Keep prose about this rule out here. */
   .sn-editorial .pahina-eyebrow::after {
     content: '';
-    flex: 0 0 3.5rem;
+    flex: 0 0 var(--pahina-rule-len, 3.5rem);
     height: 1px;
     align-self: center;
     background: rgb(var(--color-gild) / 0.55);
   }
   .sn-editorial .pahina-plate {
+    color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
     padding: 1.25rem;
@@ -2874,6 +2945,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     inset: 0.5rem;
     border: 1px solid rgb(var(--color-ink) / 0.08);
     pointer-events: none;
+    opacity: var(--pahina-frame-opacity, 1);
   }
   .sn-editorial .pahina-rule {
     border: 0;
@@ -2889,7 +2961,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.05;
+    opacity: var(--pahina-grain-opacity, 0.05);
     mix-blend-mode: multiply;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
   }
@@ -2898,7 +2970,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      express as utilities: a ::first-letter drop cap, the gild-ruled pull quote,
      and the silk swatch's inner shading + gild pin. ────────────────────────── */
   .sn-editorial .pahina-dropcap::first-letter {
-    font-family: var(--font-pahina-display), Georgia, serif;
+    font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;
     float: left;
     font-size: 3.4em;
     line-height: 0.82;
@@ -2908,7 +2980,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     color: rgb(var(--color-gild));
   }
   .sn-editorial .pahina-quote {
-    font-family: var(--font-pahina-display), Georgia, serif;
+    font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;
     font-style: italic;
     border-left: 2px solid rgb(var(--color-gild));
     padding-left: 1.15rem;
@@ -2950,6 +3022,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     /* the one thing on the page that IS a card in real life — heavier stock:
        paper-deep, a lifted drop shadow, and the printed inner hairline */
     position: relative;
+    color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
     padding: 1.5rem;
@@ -3081,6 +3154,256 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);
   --font-mono: var(--font-editorial-mono);
+}
+
+/* ── Event Hub theme MATERIALS (owner 2026-09-22) ────────────────────────────
+   Owner: *"we have event hub themes"* — and he was right. `lib/invite-themes.ts`
+   has carried five since 2026-09-10 (House free · Capiz · Velvet · Galeriya ·
+   Abaca on Event Hub Pro), and they stopped at `/[slug]/invite`. Everything
+   BEHIND that door — save-the-date, RSVP, event, editorial, recap, pabuya, hub
+   — was still the one Clean-Editorial look. Owner ruling the same day: the site
+   wears the theme the couple already picked for their door. One choice, one
+   picker, one purchase.
+
+   🔑 WHY THE MATERIAL LIVES HERE AND NOT IN THE SKINS. Two surfaces need the
+   same palette, and `themes-stay-skins.test.ts` forbids the site importing the
+   door's stylesheet — no theme may reach the shared chunk, which is a rule worth
+   keeping. An attribute-scoped block neither surface owns is the only place ONE
+   definition can sit. These values were MOVED here verbatim out of
+   `app/[slug]/invite/_components/themes/*.module.css`, not retyped, and
+   `the-site-wears-the-doors-theme.test.ts` fails if either surface starts
+   declaring its own.
+
+   ⚠ ONLY MATERIAL MOVED. Every `--ga-pad` / `--ab-card-pad` is DoorShell's own
+   padding written down, and stayed in the door module where it belongs — it
+   describes the door, not the theme.
+
+   The `@supports` blocks are the couple's OWN COLOUR mixed into the material
+   (`--accent`), so they travel with it: without them the site would fall back to
+   a neutral while the door showed the couple's colour — one fact, two renders.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-invite-theme='capiz'],
+[data-hub-theme='capiz'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --cz-pearl-ch: 244 241 235; /* = --cz-pearl */
+  --cz-gold-ch: 197 160 89; /* = --cz-gold */
+  --cz-pearl: #f4f1eb;
+  --cz-milk: 250 247 240;
+  --cz-gold: #c5a059;
+  --cz-mullion: rgba(44, 42, 41, 0.12);
+  --cz-frame: rgba(44, 42, 41, 0.2);
+  --cz-pane-a: rgba(120, 110, 100, 0.04);
+  --cz-pane-b: rgba(120, 110, 100, 0.07);
+  --cz-pane-c: rgba(120, 110, 100, 0.03);
+  --cz-light: rgba(120, 110, 100, 0.18);
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  [data-invite-theme='capiz'],
+  [data-hub-theme='capiz'] {
+    --cz-pane-a: color-mix(in srgb, var(--accent) 6%, transparent);
+    --cz-pane-b: color-mix(in srgb, var(--accent) 11%, transparent);
+    --cz-pane-c: color-mix(in srgb, var(--accent) 4%, transparent);
+    --cz-light: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+
+[data-invite-theme='velvet'],
+[data-hub-theme='velvet'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --vl-paper-ch: 251 249 246; /* = --vl-paper */
+  --vl-ink-ch: 21 18 26; /* = --vl-ink */
+  --vl-foil-ch: 197 160 89; /* = --vl-foil */
+  --vl-hair-ch: 221 215 204; /* = --vl-hair */
+  --vl-paper: #fbf9f6;
+  --vl-ink: #15121a; /* 17.6:1 on paper */
+  --vl-foil: #c5a059;
+  --vl-hair: #ddd7cc;
+  --vl-velvet: #2b1610;
+  --vl-veil-deep: rgba(28, 14, 10, 0.94);
+  --vl-veil-mid: rgba(28, 14, 10, 0.5);
+  --vl-veil-low: rgba(28, 14, 10, 0.72);
+  --vl-foil-ring: rgba(197, 160, 89, 0.38);
+}
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  [data-invite-theme='velvet'],
+  [data-hub-theme='velvet'] {
+    --vl-velvet: color-mix(in oklab, #0d090c 52%, var(--accent));
+    --vl-veil-deep: color-mix(in srgb, var(--vl-velvet) 94%, transparent);
+    --vl-veil-mid: color-mix(in srgb, var(--vl-velvet) 50%, transparent);
+    --vl-veil-low: color-mix(in srgb, var(--vl-velvet) 72%, transparent);
+    --vl-foil-ring: color-mix(in srgb, var(--vl-foil) 38%, transparent);
+  }
+}
+
+[data-invite-theme='galeriya'],
+[data-hub-theme='galeriya'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --ga-wall-ch: 233 234 236; /* = --ga-wall */
+  --ga-rule-ch: 189 192 197; /* = --ga-rule */
+  --ga-wall: #e9eaec;
+  --ga-rule: #bdc0c5;
+}
+
+[data-invite-theme='abaca'],
+[data-hub-theme='abaca'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --ab-kraft-ch: 196 161 113; /* = --ab-kraft */
+  --ab-ink-ch: 43 33 24; /* = --ab-ink */
+  --ab-kraft: #c4a171;
+  --ab-ink: #2b2118; /* measured: 6.5:1 on bare kraft, 15.8:1 on DoorShell's card */
+  --ab-kraft-hi: #cbab7e;
+  --ab-kraft-mid: #bd9b6c;
+  --ab-kraft-lo: #ad8d61;
+}
+
+/* ── …and what each material becomes ON THE PAGE ─────────────────────────────
+   The block above is the MATERIAL, shared with the door. This one is the SITE's
+   reading of it: the same palette mapped onto the tokens the guest pages already
+   render through (`--color-*`, the display face, the twelve `pahina-*` ornament
+   switches). The door draws a card; the page draws chapters — same stock,
+   different composition.
+
+   🔑 `[data-hub-theme]` ONLY. The door must not be re-skinned by these: it has
+   its own, owner-approved composition, and the shared block above is the whole
+   of what the two surfaces agree on.
+
+   ⚠ AND THESE ARE STYLESHEET RULES, NEVER INLINE VARS. The couple's mood-board
+   palette and their Pro hex colours arrive as inline `style` on this very
+   `<main>` (`invitation-shell.tsx`), and inline beats any stylesheet — so the
+   precedence falls out right for free:
+
+       theme (here)  <  mood-board palette (inline)  <  the couple's own hex
+
+   A theme is the BASE, and anything the couple set themselves still wins on top.
+
+   ✅ THREE OF THE FOUR BRING THEIR OWN FACE, and the page takes the SAME one the
+   door uses — Velvet is Bodoni Moda over Jost, Galeriya is Schibsted Grotesk,
+   Abaca is Alfa Slab One over Oswald. Capiz brings none on purpose: its door
+   sets the seal in the house Cormorant, so the page keeps it. None of these is
+   invented here; each is the face its own design board specified.
+
+   The `--font-*-…` values are build-time hashes from `next/font`, so they cannot
+   be written in a stylesheet — `site-skin.tsx` puts the generated classes on the
+   same `<main>` and these rules only POINT at them.
+
+   🔑 AND THE IDENTITY SURVIVES A PALETTE. The couple's colours win on
+   `--color-cream`/`--color-mulberry`, but the face, the grain, the printed
+   frame, the rule length and the metal's ROLE are things a palette never touches
+   — so a Galeriya page with a blush palette is still a gallery.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* CAPIZ · Elegant — pearl stock under shell light, gold hairlines, the lattice
+   carried as a finer grain than the house paper. */
+[data-hub-theme='capiz'] {
+  --color-cream: var(--cz-pearl-ch);
+  --color-paper: var(--cz-pearl-ch);
+  --color-paper-deep: var(--cz-milk);
+  --color-veil: var(--cz-pearl-ch);
+  --color-gild: var(--cz-gold-ch);
+  --pahina-grain-opacity: 0.035;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* VELVET · Classy — the one DARK theme. The ground is velvet mixed from the
+   couple's own accent and the plates are bright cotton card on top of it, which
+   is exactly the door's arrangement at page scale.
+   🔑 THIS IS THE ONE THEME THAT MOVES `--color-ink`, and it is allowed to
+   BECAUSE it moves the paper with it: ink `#15121a` on `--vl-paper` is 17.6:1,
+   measured in the skin's own docblock. The rule the guard enforces is not "never
+   touch ink" — it is "never move ink WITHOUT the paper it is read on". */
+[data-hub-theme='velvet'] {
+  --font-display: var(--font-velvet-display);
+  --font-mono: var(--font-velvet-utility);
+  --pahina-face: var(--font-velvet-display);
+  /* 🔴 CORRECTED — THE FIRST MAPPING HAD THIS EXACTLY BACKWARDS, and only
+     looking at it on a screen showed that. Velvet is the one DARK theme: the
+     door holds a BRIGHT card ON velvet, and the page does the same at length.
+     The first version gave the page velvet's PAPER as its ground and velvet's
+     near-black INK as its text — so every chapter heading and eyebrow, i.e.
+     all the text that sits on the ground rather than on a plate, was
+     near-black on near-black. The plates looked perfect the whole time, which
+     is why it read as "working" in a thumbnail.
+     🔑 The rule it broke is the one written into `site-palette.ts`: ink and the
+     paper it is read on move TOGETHER or not at all. */
+  --color-cream: 28 22 26;
+  --color-paper: 28 22 26;
+  --color-ink: 240 234 224; /* warm cream, on the velvet — 12.2:1 at the default
+                               accent, and 5.1:1 in the worst case the ground
+                               scrim exists for (see velvet.module.css) */
+  /* The plates stay bright cotton card and carry their OWN ink. `--color-ink`
+     is the ground's, and on this theme the two are opposites — which is what
+     `--color-ink-on-plate` exists for. Every other theme leaves it unset and
+     falls back to `--color-ink`, so this is inert for them. */
+  --color-paper-deep: var(--vl-paper-ch);
+  --color-ink-on-plate: var(--vl-ink-ch); /* #15121a on #fbf9f6 — 17.6:1, the
+                                             door skin's own measurement */
+  --color-veil: var(--vl-hair-ch);
+  --color-gild: var(--vl-foil-ch);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 2.75rem;
+}
+
+/* GALERIYA · Sophisticated — a flat light wall, no metal at all, and the rule
+   doing the work. The long rule is the theme's signature, so the eyebrow's
+   hairline runs longer here than anywhere else and the printed frame comes off
+   the plates: a gallery label is not a framed card. */
+[data-hub-theme='galeriya'] {
+  --font-display: var(--font-galeriya-sans);
+  --font-mono: var(--font-galeriya-sans);
+  --pahina-face: var(--font-galeriya-sans);
+  --color-cream: var(--ga-wall-ch);
+  --color-paper: var(--ga-wall-ch);
+  --color-paper-deep: 255 255 255;
+  --color-veil: var(--ga-wall-ch);
+  --color-gild: var(--ga-rule-ch);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 0;
+  --pahina-rule-len: 6rem;
+}
+
+/* ABACA · Rugged — kraft stock, heavy grain, no metal, the plates printed on a
+   lighter pull of the same paper.
+   ⚠ `--color-ink` moves here too, and for the same reason as Velvet: the skin
+   measured `#2b2118` at 15.8:1 on the card it sits on. Kraft is NOT the plate —
+   the ground is kraft and the chapters are the lighter `--ab-kraft-hi` pull, the
+   door's own arrangement. Ink on bare kraft is 6.5:1 and never carries body
+   text here. */
+[data-hub-theme='abaca'] {
+  --font-display: var(--font-abaca-display);
+  --font-mono: var(--font-abaca-utility);
+  --pahina-face: var(--font-abaca-display);
+  --color-cream: var(--ab-kraft-ch);
+  --color-paper: var(--ab-kraft-ch);
+  --color-paper-deep: 240 227 206;
+  --color-ink: var(--ab-ink-ch);
+  --color-veil: var(--ab-kraft-ch);
+  --color-gild: var(--ab-ink-ch);
+  --pahina-grain-opacity: 0.12;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 2.25rem;
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  [data-invite-theme='abaca'],
+  [data-hub-theme='abaca'] {
+    --ab-kraft-hi: color-mix(in srgb, var(--ab-kraft) 92%, #fff0d0);
+    --ab-kraft-mid: color-mix(in srgb, var(--ab-kraft) 96%, #2b1a08);
+    --ab-kraft-lo: color-mix(in srgb, var(--ab-kraft) 86%, #2b1a08);
+  }
 }
 
 /* ---------- ambient backdrop (dashboard shell page background) ----------
@@ -3578,6 +3901,89 @@ html.dark {
 }
 .sn-inspector-fulllink:hover { text-decoration: underline; }
 .sn-inspector-body { margin-top: 14px; border-top: 1px solid var(--sn-hairline); padding-top: 16px; }
+
+/* ---------- The guest card's two frames (2026-09-22) ----------------------
+ * ONE panel per guest, opened from the roster. Owner: *"on desktop you fill the
+ * right side completely. and the scroll independently from the guest list on
+ * the left"* · *"on mobile it will peek from the left ... tap on that space it
+ * returns to the guestlist"* · *"similar to our payment page."*
+ *
+ * ⚠ SCOPED, NOT GLOBAL. `.sn-inspector-panel` is shared with Studio, Vendors
+ * and Overview, whose bodies are SHORT — giving them a full-height frame would
+ * draw a tall empty box around a six-line quick view. The fill and the extra
+ * width are opted into by `.sn-inspector-shell--card` on the guests shell only.
+ *
+ * 🔑 The independent scroll was never missing: the panel has always been
+ * `position: sticky` + `overflow-y: auto`. What it lacked was HEIGHT — the rule
+ * below is `max-height`, a cap, so a short body left dead space beneath it. */
+@media (min-width: 1280px) {
+  .sn-inspector-shell--card[data-open='true'] .sn-inspector-rail {
+    /* The card carries a real form; the default 340–420px rail collapses its
+     * two- and three-column grids to one column at every width. */
+    flex-basis: clamp(420px, 34vw, 580px);
+  }
+  .sn-inspector-shell--card .sn-inspector-panel {
+    width: clamp(420px, 34vw, 580px);
+    height: calc(100vh - 2.5rem);
+    max-height: none;
+  }
+}
+
+/* Below xl: the panel slides in from the right and stops short of the left
+ * edge. The strip that stays visible is the way back. */
+.sn-inspector-peek {
+  position: fixed;
+  inset: 0;
+  z-index: 74;
+  border: 0;
+  background: rgba(30, 26, 18, 0.4);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: sn-peek-in 0.28s var(--sn-ease) both;
+}
+.sn-inspector-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* The peek. Wide enough to read the list behind it and to be a comfortable
+   * tap target; narrow enough that the card is not cramped on a 360px phone. */
+  left: 3.5rem;
+  z-index: 75;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--sn-hairline);
+  border-radius: 24px 0 0 24px;
+  background: var(--sn-paper, #fffdf8);
+  box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
+  padding: 1.25rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
+   * animation ends, and a held transform — even the identity — makes this
+   * element the containing block for every `position: fixed` descendant, which
+   * silently unpins anything fixed inside the card. See
+   * lib/an-identity-transform-unpins-every-fixed-child.test.ts. */
+  animation: sn-sheet-in 0.32s var(--sn-ease) backwards;
+}
+@media (min-width: 1280px) {
+  /* The rail owns the card at ≥xl; the sheet must never double it. */
+  .sn-inspector-peek,
+  .sn-inspector-sheet { display: none; }
+}
+@keyframes sn-peek-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sn-sheet-in {
+  from { transform: translateX(34px); opacity: 0 }
+  to { transform: none; opacity: 1 }
+}
+
+/* A native disclosure cannot animate its height; this gives the open some
+ * motion without measuring anything. */
+/* `backwards` for the same reason as the sheet above: a `both` fill would hold
+ * `transform: none` and make every opened disclosure a containing block. */
+.gl-disc { animation: sn-disc-in 0.24s var(--sn-ease) backwards; }
+@keyframes sn-disc-in {
+  from { opacity: 0; transform: translateY(-4px) }
+  to { opacity: 1; transform: none }
+}
 
 /* Keyed body remount animation (`.sn-lens-swap`) — a gentle rise+fade as the
  * selection swaps, keyed by the selection id in InspectorColumn. */

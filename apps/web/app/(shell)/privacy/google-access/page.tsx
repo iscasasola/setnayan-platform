@@ -209,10 +209,10 @@ export default function GoogleAccessPage() {
           </Link>
           . Questions go to our Data Protection Officer at{' '}
           <a
-            href="mailto:iscasasolaii@gmail.com"
+            href="mailto:dpo@setnayan.com"
             className="text-terracotta hover:underline"
           >
-            iscasasolaii@gmail.com
+            dpo@setnayan.com
           </a>
           .
         </p>

@@ -284,6 +284,33 @@ export type WeddingTile =
   // LOGISTICS & SAFETY (tournament + large events)
   | 'referee_official'
   | 'event_medic'
+  /*
+    ── THE HOME FOR A SUPPLIER WE COULD NOT CLASSIFY (2026-09-22) ───────────
+    `misc` is the FALLBACK VendorCategory: `eventVendorCategoryForCardKind`
+    returns it for an unknown trade, and `vendorCategoryForLeaf` returns it for
+    an unknown leaf. So it is what a couple's SELF-ADDED supplier is stamped
+    with whenever we cannot name their trade.
+
+    It had no tile of its own, so `shortlist-taxonomy.ts` pinned it to
+    **`escort`** — a tier-2 tile under **Cars & transport**. Measured on
+    production 2026-09-22: `Seda Hotel` and `Saysay Live Band & Hosting` are
+    both `event_vendors.category = 'misc'` on a live wedding, which filed a
+    HOTEL and a BAND under "Cars & transport › Escort". Visible, and in the
+    last place a couple would look.
+
+    This tile is that home, and it IS `marketplace_hidden` — which is safe, and
+    I had that backwards at first. `buildShortlistFolders` qualifies all three
+    of its scope filters with `vendors.length === 0`, under a stated invariant:
+    "A COUPLE'S EXISTING PICK MUST NEVER VANISH FROM THEIR OWN SHORTLIST." So a
+    hidden tile is dropped only while EMPTY. That is exactly the behaviour this
+    tile wants: nobody can browse for "Everything else" (it holds no canonical
+    service, so it would be a fake door in the catalogue), and the moment a
+    couple files a supplier there it appears on their bench.
+
+    ⚠ It is the FIRST hidden tile — `shortlist-taxonomy.ts` still says "No tile
+    is hidden today (no-op)" beside that branch. The branch is now live.
+  */
+  | 'everything_else'
   // INSURANCE & PROTECTION
   | 'event_insurance'
   | 'personal_accident_insurance'
@@ -302,7 +329,11 @@ export type WeddingTile =
   | 'memorial_park';
 
 /**
- * ADMIN-ONLY TILES — branches a couple never sees, and never should.
+ * ADMIN-ONLY TILES — branches that are never OFFERED for browsing.
+ *
+ * ⚠ Four of the five are also never rendered to a couple at all. The fifth,
+ * `everything_else`, is: it appears on their bench the moment it holds one of
+ * their own self-added suppliers. See its entry in the set below.
  *
  * These four exist to give the ~30 deliberately-unsold canonicals under them
  * (every celebrant, the pre-marriage seminars, the marriage paperwork, the
@@ -346,6 +377,25 @@ export const ADMIN_ONLY_TILES: ReadonlySet<WeddingTile> = new Set([
   //   travel_honeymoon    OPENED · *"honeymoon planner yes"*.
   'officiants',
   'counseling_seminars',
+  /*
+    ── `everything_else` (2026-09-22) — A FILING CABINET, WITH ONE DIFFERENCE ──
+    It belongs here for the same reason the four above do: it holds no canonical
+    service, so it is a branch nobody can browse, and `taxonomy-tile-
+    reachability.test.ts` would otherwise call it a dead tile. Membership is
+    also what hides it in `fallbackSnapshot()` — closing exactly the hole this
+    docblock describes, where one hiccuped DB read would have shown it as an
+    ordinary visible branch.
+
+    ⚠ THE DIFFERENCE, STATED RATHER THAN GLOSSED: the heading above says
+    "branches a couple never sees, and never should." That is true of the other
+    four and NOT of this one. A couple sees this tile the moment one of their
+    own self-added suppliers is filed under it, because `buildShortlistFolders`
+    qualifies its hidden-tile filter with `vendors.length === 0`. Hidden means
+    "not offered for browsing" here, not "never rendered" — and that qualifier
+    is the whole reason a hotel the couple typed in is still findable.
+    `lib/a-self-added-supplier-has-a-home.test.ts` fails if it is removed.
+  */
+  'everything_else',
 ] as const);
 
 /** Tile → its parent. */
@@ -421,6 +471,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   restaurant_reservation: 'dining',
   referee_official: 'logistics_safety',
   event_medic: 'logistics_safety',
+  everything_else: 'logistics_safety',
   event_insurance: 'insurance',
   personal_accident_insurance: 'insurance',
   travel_insurance: 'insurance',
@@ -516,6 +567,8 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   // LOGISTICS & SAFETY
   'referee_official',
   'event_medic',
+  // Last within the folder — a fallback is never a suggestion.
+  'everything_else',
   // INSURANCE & PROTECTION
   'event_insurance',
   'personal_accident_insurance',
@@ -604,6 +657,7 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   restaurant_reservation: 'Restaurant (Reservation)',
   referee_official: 'Referees / Officials',
   event_medic: 'Medic / First-aid',
+  everything_else: 'Everything else',
   event_insurance: 'Event Insurance',
   personal_accident_insurance: 'Personal Accident',
   travel_insurance: 'Travel Insurance',
@@ -686,6 +740,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   restaurant_reservation: 'restaurant-reservation',
   referee_official: 'referee-official',
   event_medic: 'event-medic',
+  everything_else: 'everything-else',
   event_insurance: 'event-insurance',
   personal_accident_insurance: 'personal-accident-insurance',
   travel_insurance: 'travel-insurance',

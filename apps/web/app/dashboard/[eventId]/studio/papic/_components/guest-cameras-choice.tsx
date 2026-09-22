@@ -135,7 +135,12 @@ export async function GuestCamerasChoice({
     </>
   ) : (
     <>
-      Your guests&rsquo; cameras switch on
+      {/* “open”, not “switch on” — the interpolation already supplies its own
+          “on”, so this rendered “switch on on 2026-09-11”. Deleting one “on”
+          instead would make the date the object of “switch on”, and the null
+          branch would then need a second, different edit. open/close is this
+          picker's own vocabulary already. */}
+      Your guests&rsquo; cameras open
       {day ? ` on ${day}` : ' on your event day'} and stay on
       {dayCloseLabel
         ? ` until ${dayCloseLabel} — ${PAPIC_CAPTURE_GRACE_HOURS} hours past the end of the day`

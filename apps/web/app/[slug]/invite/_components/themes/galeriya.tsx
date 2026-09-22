@@ -53,6 +53,7 @@ const schibsted = localFont({
 
 export function galeriyaSkin({ photo, accent }: InviteSkinInput): DoorSkin {
   return {
+    themeId: 'galeriya',
     className: [styles.galeriya ?? '', schibsted.variable].join(' '),
     style: { ['--accent' as string]: accent } as React.CSSProperties,
     /*

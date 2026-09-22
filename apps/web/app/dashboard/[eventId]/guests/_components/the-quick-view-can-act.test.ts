@@ -41,6 +41,17 @@
  * because `softDeleteGuest` hard-deletes the seat assignment and only the bulk
  * path can put a seat back. It is now armed by a first tap and disarms itself.
  *
+ * ── RE-ANCHORED 2026-09-22 ─────────────────────────────────────────────────
+ * The quick view and the edit form merged into ONE card (`guest-card-body.tsx`)
+ * and `GuestDetailBody` was deleted. These assertions follow the SYMBOLS, not
+ * the old filename — a guard left pointing at a deleted component goes green by
+ * finding nothing, which is the failure this file already survived once when the
+ * remove moved into its own component.
+ *
+ * One thing got STRONGER and the wording below now says so: the roster panel and
+ * the standalone route render the SAME body, so "two doors, one rule" is no
+ * longer something to assert about two files — there is one door.
+ *
  * 🛡 Mutation-checked against the real files, failures counted, each RED:
  *  · drop the <form action={softDeleteGuest…}>       → RED
  *  · remove the isCouple branch (dangle the button)  → RED
@@ -56,7 +67,9 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BODY = stripComments(readFileSync(join(HERE, 'guest-detail-body.tsx'), 'utf8'));
+const BODY = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
+const DATA = stripComments(readFileSync(join(HERE, 'guest-card-data.ts'), 'utf8'));
+const ROSTER = stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
 // The remove moved into its own client component when the second tap was added
 // (2026-09-06). These assertions follow the action rather than the file — a test
 // that kept pointing at the body would have gone green by finding nothing.
@@ -112,33 +125,51 @@ test('an armed button disarms itself', () => {
   assert.ok(/Cancel/.test(REMOVE), 'an armed state needs a way out that is not waiting');
 });
 
-test('it posts the SAME action the full detail page posts', () => {
-  // Two doors, one rule. If these ever diverge, one of them is wrong and
-  // nothing will say which.
+test('there is ONE remove path, because there is one body', () => {
+  // Since the merge, the roster panel and the standalone route render the same
+  // component. That is the guarantee: not "two doors agree" but "one door".
   assert.ok(
-    /softDeleteGuest/.test(DETAIL),
-    'the detail page no longer uses softDeleteGuest — the baseline moved',
+    /<GuestCardBody/.test(ROSTER),
+    'the roster panel no longer renders the shared card',
+  );
+  assert.ok(
+    /<GuestCardBody/.test(DETAIL),
+    'the standalone route no longer renders the shared card — it has forked',
   );
   assert.ok(
     /softDeleteGuest/.test(REMOVE),
-    'the quick view must post the same action',
+    'the card must post the shipped action',
+  );
+  // And the card must not have grown a second, lighter delete of its own.
+  assert.equal(
+    /softDeleteGuest/.test(BODY),
+    false,
+    'the card calls the action directly — it should go through RemoveGuestConfirm',
   );
 });
 
 test('the couple gets the sentence, not a button that always fails', () => {
+  // The fact itself moved to the loader when the card gained one; the card
+  // reads it rather than re-deciding who the couple is.
   assert.ok(
     /const isCouple = guest\.role === 'bride' \|\| guest\.role === 'groom';/.test(
-      BODY,
+      DATA,
     ),
+    'the couple must still be identified once, in the loader',
+  );
+  assert.ok(
+    /isCouple \?/.test(BODY),
     'the couple must be branched before the button is rendered',
   );
   assert.ok(
     /Foundation of the event/.test(BODY),
     'and told why, in the same words the detail page uses',
   );
+  // The standalone route renders this same body, so the sentence cannot differ
+  // between the two presentations any more.
   assert.ok(
-    /Foundation of the event/.test(DETAIL),
-    'the detail page wording moved — these two should still read alike',
+    /<GuestCardBody/.test(DETAIL),
+    'the detail route must render the same body that carries the sentence',
   );
 });
 

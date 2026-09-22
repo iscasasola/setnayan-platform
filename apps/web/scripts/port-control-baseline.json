@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "23a6b30b8",
+  "generatedFromRef": "0b0957a7d",
   "routeCount": 430,
-  "destinations": 924,
-  "actions": 654,
-  "blocks": 4601,
+  "destinations": 928,
+  "actions": 657,
+  "blocks": 4621,
   "routes": {
     "/": {
       "files": [
@@ -158,6 +158,7 @@
     },
     "/(shell)/explore": {
       "files": [
+        "(shell)/explore/_components/card-headline-service.ts",
         "(shell)/explore/_components/category-tile.tsx",
         "(shell)/explore/_components/event-type-notify-form.tsx",
         "(shell)/explore/_components/explore-search-hero.tsx",
@@ -783,6 +784,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
+        "[slug]/_components/skins/site-skin.tsx",
         "[slug]/_components/song-request-card.tsx",
         "[slug]/_components/special-message-widget.tsx",
         "[slug]/_components/spotlight-card.tsx",
@@ -824,7 +826,9 @@
         "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
+        "[slug]/_lib/hub-look.ts",
         "[slug]/_lib/icon-source.ts",
+        "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
@@ -972,6 +976,7 @@
         "HeroMonogram",
         "HeroPhoto",
         "HideableWidgetRender",
+        "HubLook",
         "HubMenuButton",
         "HubPanelKey",
         "Icon",
@@ -2671,6 +2676,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
@@ -2685,6 +2691,8 @@
         "KpiStatCard",
         "Link",
         "MobileLandingGrid",
+        "RevenueSummary",
+        "Row",
         "Suspense",
         "TablePageSkeleton",
         "TransactionsLedger"
@@ -2964,6 +2972,7 @@
         "admin/pricing/_components/legacy-catalog.tsx",
         "admin/pricing/_components/papic-ladder-editor.tsx",
         "admin/pricing/_components/papic-rest-editor.tsx",
+        "admin/pricing/_components/papic-type-sizing-editor.tsx",
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
@@ -2991,10 +3000,12 @@
         "formAction",
         "ladderFormAction",
         "reactivateFormAction",
+        "recompute",
         "recomputeFunnelBands",
         "recomputePriceBands",
         "removeFormAction",
         "retireFormAction",
+        "save",
         "saveBookingFeeSchedule",
         "saveDiscountAction",
         "savePriceAction",
@@ -3015,6 +3026,7 @@
         "EmptyState",
         "Family",
         "FamilyDiscountCard",
+        "Field",
         "FieldLabel",
         "FreeWindowsSurface",
         "GridPageSkeleton",
@@ -3029,6 +3041,7 @@
         "PapicLadderEditor",
         "PapicLadderSurface",
         "PapicRestEditor",
+        "PapicTypeSizingEditor",
         "PriceBandsSurface",
         "PriceCatalogBrowser",
         "PricingSurface",
@@ -3047,6 +3060,7 @@
         "Suspense",
         "TablePageSkeleton",
         "Tag",
+        "TypeRow",
         "UnassignedTray",
         "ViewState"
       ]
@@ -5379,6 +5393,9 @@
         "dashboard/[eventId]/guests/_components/filter-popover.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-detail-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-drawer.tsx",
         "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
@@ -5421,12 +5438,18 @@
         "/dashboard/[seg]/guests/invite",
         "/dashboard/[seg]/guests/new",
         "/dashboard/[seg]/guests/quick",
+        "/dashboard/[seg]/guests?inspect=[seg]",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/custom-qr-guest"
       ],
-      "actions": [],
+      "actions": [
+        "action",
+        "inviteAction",
+        "releaseAction",
+        "updateAction"
+      ],
       "blocks": [
         "ActiveFilters",
         "AddButton",
@@ -5436,6 +5459,8 @@
         "ArrangeSheet",
         "ArrangeTh",
         "AssignSheet",
+        "AutosaveForm",
+        "AutosaveState",
         "BulkApplyForm",
         "CaptureBar",
         "ChipTrigger",
@@ -5444,23 +5469,28 @@
         "DecorativeQr",
         "DesktopCanvas",
         "DesktopRow",
+        "Disclosure",
         "Drawer",
         "EditGroupForm",
         "EditResult",
         "EmptyState",
         "EntourageOrderPanel",
         "FacetRow",
+        "Field",
         "FilterPopover",
         "FindAddRow",
+        "FormData",
         "Fragment",
         "G",
         "GridPageSkeleton",
         "GroupChipList",
         "GroupsSidebar",
-        "GuestDetailBody",
-        "GuestDrawerHost",
+        "GuestCardBody",
+        "GuestCardData",
+        "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
+        "GuestQrCard",
         "GuestRole",
         "GuestRow",
         "GuestSide",
@@ -5469,6 +5499,7 @@
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "HTMLInputElement",
         "HTMLSpanElement",
         "Icon",
@@ -5480,6 +5511,7 @@
         "InviteButton",
         "InvitePanel",
         "InvitedToBlock",
+        "InvitedToChips",
         "KebabMenu",
         "Lens",
         "LensPill",
@@ -5491,7 +5523,6 @@
         "MapActionResult",
         "MarchCell",
         "Meter",
-        "MiniChip",
         "MobileGuestCarousel",
         "MobileListRow",
         "MobileSelfJoinCard",
@@ -5530,9 +5561,11 @@
         "RsvpText",
         "Scrim",
         "SeatChip",
+        "Section",
         "SectionMoveButton",
         "Seg",
         "SegRow",
+        "Select",
         "SelectFilter",
         "SelectionBar",
         "SelfJoinDesktopRow",
@@ -5547,9 +5580,11 @@
         "Suspense",
         "SwipeToDelete",
         "Tab",
+        "TagChip",
         "TargetMeter",
         "TeamSideSelect",
         "TierHeader",
+        "Toggle",
         "UndoToastHost",
         "WalkingOrderLines"
       ]
@@ -5564,25 +5599,12 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/[seg]"
       ],
-      "actions": [
-        "deleteAction",
-        "inviteAction",
-        "releaseAction",
-        "updateAction"
-      ],
+      "actions": [],
       "blocks": [
-        "FaceBlock",
-        "FaceRecognitionExclude",
-        "Field",
         "FormPageSkeleton",
-        "InvitedToChips",
+        "GuestCardBody",
         "Link",
-        "PhotoConsent",
-        "Section",
-        "SegmentedRsvp",
-        "Select",
-        "SubmitButton",
-        "TagChip"
+        "UndoToastHost"
       ]
     },
     "/dashboard/[eventId]/guests/checkin": {
@@ -7062,6 +7084,7 @@
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
+        "dashboard/[eventId]/studio/papic/_components/credit-recommendation.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
@@ -7149,6 +7172,7 @@
         "CaptureDefaultsSection",
         "ChallengeRow",
         "CoupleChallengesManager",
+        "CreditRecommendation",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",
@@ -7873,6 +7897,7 @@
         "VendorQuickViewInspector",
         "VendorStatus",
         "WaitingForQuotes",
+        "WaitingRow",
         "WeddingFolder",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
@@ -8844,7 +8869,10 @@
         "open-shop/city-actions.ts",
         "open-shop/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/privacy",
+        "/terms"
+      ],
       "actions": [
         "becomeVendor"
       ],
@@ -8852,6 +8880,7 @@
         "AddressCheck",
         "AddressPreview",
         "CityPin",
+        "DesktopOAuthButtons",
         "DetectedCity",
         "FileUpload",
         "HTMLDivElement",
@@ -8860,10 +8889,13 @@
         "LeafletMarker",
         "LeafletModule",
         "LocatedAddress",
+        "OAuthButtonRow",
         "OpenShopWizard",
         "ServicePicker",
+        "SignInHereLink",
         "Step",
-        "SubmitButton"
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/our-story": {
@@ -9683,6 +9715,7 @@
         "NavLinksRow",
         "PackageCard",
         "PublicVendorRow",
+        "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
         "ReviewRow",
@@ -9808,6 +9841,7 @@
         "declineLock",
         "disconnectInstagram",
         "formAction",
+        "markServiceComplete",
         "null",
         "postReviewReply",
         "rejectLock",
@@ -9855,11 +9889,13 @@
         "LockRequestLapsedBody",
         "LockedBody",
         "LockedQrGenerator",
+        "MarkCompleteBody",
         "Marker",
         "MediaTile",
         "MeetingBody",
         "MessageBody",
         "NotConnected",
+        "NothingToAnswerFeed",
         "OngoingTasks",
         "PageMasthead",
         "PaymentsPausedNote",
@@ -10683,6 +10719,7 @@
         "Resolved",
         "RevealToolButton",
         "SendProposalCard",
+        "ServiceCardQuoteSeed",
         "Sheet",
         "ShutTool",
         "SnapRow",
@@ -11864,6 +11901,7 @@
       "destinations": [
         "/help",
         "/open-shop",
+        "/pricing",
         "/vendors"
       ],
       "actions": [],

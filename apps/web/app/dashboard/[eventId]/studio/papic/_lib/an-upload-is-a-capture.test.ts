@@ -16,7 +16,7 @@
  * ⚠ TWO PROPERTIES BELOW ARE NOT STYLE, THEY ARE MONEY AND SAFETY:
  *
  *   1. A CLIP'S LENGTH IS MEASURED AND REFUSED, NEVER PASSED THROUGH.
- *      `papicClipCost` bills an absent or nonsense duration at the TOP band —
+ *      `papicSnippetCost` bills an absent or nonsense duration at the TOP band —
  *      the only direction a tampered client cannot profit from — so an
  *      unmeasured clip silently overcharges a couple for their own upload.
  *   2. A CLIP ALWAYS CARRIES A POSTER. The safety screen reads a clip through
@@ -65,7 +65,7 @@ test('🚨 a clip is MEASURED and REFUSED, never passed through unmeasured', () 
   assert.ok(/probeVideo\(/.test(PICKER), 'clips are no longer measured');
   assert.ok(
     /durationMs > MAX_CLIP_MS/.test(PICKER),
-    'an over-length clip is no longer refused. papicClipCost bills an absent or nonsense duration at the TOP band, so this silently overcharges a couple for their own upload.',
+    'an over-length clip is no longer refused. papicSnippetCost bills an absent or nonsense duration at the TOP band, so this silently overcharges a couple for their own upload.',
   );
   assert.ok(
     /if \(!probe\)/.test(PICKER),

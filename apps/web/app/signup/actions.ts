@@ -14,6 +14,8 @@ import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { applyReferralAtSignup } from '@/lib/referral-actions';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { isPasswordLeaked } from '@/lib/leaked-password';
+import { TERMS_FIELD, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
+import { isEmailVerificationRequired } from '@/lib/email-verification';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -87,6 +89,20 @@ export async function signUp(formData: FormData) {
   if (!email || !password) {
     return redirect(`/signup?error=missing&next=${encodeURIComponent(next)}`);
   }
+  /*
+    🔒 THE AGREEMENT IS A GATE, NOT A HINT — CTRL-B3 build 2.
+
+    The checkbox on `/signup` carries `required`, which stops an ordinary
+    browser and stops nothing else: this is a server action reached by an HTTP
+    POST, so a form built by hand, a replayed request, or a browser with
+    validation off all arrive here with the field simply absent. An unticked
+    checkbox posts NOTHING AT ALL, which is exactly what those look like — so
+    the one state meaning "they did not agree" must be refused here, or it is
+    the state that lets everyone through.
+  */
+  if (!hasAgreedToTerms(formData.get(TERMS_FIELD))) {
+    return redirect(`/signup?error=terms_required&next=${encodeURIComponent(next)}`);
+  }
   if (password.length < 8) {
     return redirect(`/signup?error=password_too_short&next=${encodeURIComponent(next)}`);
   }
@@ -129,10 +145,14 @@ export async function signUp(formData: FormData) {
         );
       }
       const userId = existingUser.id;
+      // 🔒 L3. `email_confirm: true` is the documented bypass for Supabase's
+      // spam-foldering auth sender — see `lib/email-verification.ts`. Gated so
+      // the owner can require real verification once Supabase Auth points at
+      // Resend; OFF by default, so this is byte-identical to today.
       const { error: convertError } = await admin.auth.admin.updateUserById(userId, {
         email,
         password,
-        email_confirm: true,
+        ...(isEmailVerificationRequired() ? {} : { email_confirm: true }),
         user_metadata: { account_type: 'customer' },
       });
       if (convertError) {
@@ -314,6 +334,13 @@ export async function signUp(formData: FormData) {
                   ...(publicSummaryConsent
                     ? { public_summary_consent_at: new Date().toISOString() }
                     : {}),
+                  // Unconditional: this point is only reached because the gate
+                  // above passed, so the agreement is a fact about every account
+                  // created here. Both columns together — a timestamp alone says
+                  // somebody clicked, not what they agreed to — and the CHECK on
+                  // `users` refuses one without the other.
+                  terms_accepted_at: new Date().toISOString(),
+                  terms_version: TERMS_VERSION,
                 })
                 .eq('user_id', userId);
               if (profileErr) {
@@ -326,7 +353,12 @@ export async function signUp(formData: FormData) {
           : Promise.resolve();
 
       const [updateResult, profileResult, emailResult] = await Promise.allSettled([
-        admin.auth.admin.updateUserById(userId, { email_confirm: true }),
+        // 🔒 L3 — same gate as the conversion path above. BOTH doors, or the
+        // one that is missed becomes the way in: a bypass on either door
+        // confirms the address just as completely.
+        isEmailVerificationRequired()
+          ? Promise.resolve(null)
+          : admin.auth.admin.updateUserById(userId, { email_confirm: true }),
         profilePromise,
         sendEmail({
           to: email,

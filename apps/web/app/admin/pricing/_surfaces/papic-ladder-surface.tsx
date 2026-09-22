@@ -7,8 +7,14 @@ import {
   saveFamilyDiscount,
   savePapicLadder,
   savePapicProductPrice,
+  savePapicTypeSizing,
+  recomputePapicPoolLearning,
 } from '@/app/admin/pricing/price-control-actions';
 import { PapicLadderEditor, type PapicRungRow } from '@/app/admin/pricing/_components/papic-ladder-editor';
+import {
+  PapicTypeSizingEditor,
+  type PapicTypeSizingRow,
+} from '@/app/admin/pricing/_components/papic-type-sizing-editor';
 import {
   PapicRestEditor,
   type PapicProductRow,
@@ -42,7 +48,7 @@ export async function PapicLadderSurface(_props: Props) {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const [tierRes, catRes, settingsRes, poolRes] = await Promise.all([
+  const [tierRes, catRes, settingsRes, poolRes, learningRes, vocabRes] = await Promise.all([
     admin.from('papic_pass_tiers').select('service_code, points, is_active').eq('is_active', true),
     /*
       ⚠ THE WHOLE PAPIC FAMILY, NOT JUST THE RUNGS. Owner 2026-08-29: *"free
@@ -65,6 +71,15 @@ export async function PapicLadderSurface(_props: Props) {
       .select('free_grant_points')
       .eq('config_key', 'default')
       .maybeSingle(),
+    /*
+      WHAT EACH KIND OF CELEBRATION IS RECOMMENDED, and whether the figure in
+      force is the owner's or a learned one. Read through the RPC rather than the
+      table, so this screen and the resolver cannot disagree about which is which.
+    */
+    admin.rpc('papic_pool_learning_state'),
+    admin.from('papic_event_pool_config')
+      .select('config_key, floor_points, ceiling_points')
+      .neq('config_key', 'default'),
   ]);
 
   if (tierRes.error) logQueryError('AdminPapicLadder (tiers)', tierRes.error);
@@ -73,6 +88,8 @@ export async function PapicLadderSurface(_props: Props) {
   // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read renders as a
   // confident number that is not what the product actually gives away.
   if (poolRes.error) logQueryError('AdminPapicLadder (pool config)', poolRes.error);
+  if (learningRes.error) logQueryError('AdminPapicLadder (learning state)', learningRes.error);
+  if (vocabRes.error) logQueryError('AdminPapicLadder (type clamps)', vocabRes.error);
 
   const unreadable = Boolean(tierRes.error || catRes.error);
 
@@ -139,6 +156,58 @@ export async function PapicLadderSurface(_props: Props) {
   const freeCreditsPerEvent =
     rawFree != null && Number.isFinite(Number(rawFree)) ? Number(rawFree) : null;
 
+  /*
+    THE CLAMP TRAVELS WITH THE PER-HEAD FIGURE — on this screen too. The learning
+    RPC answers about the per-head number only, so the floor and ceiling are read
+    beside it and the three are edited as one row. A per-head box that could be
+    saved on its own would put 50 credits a head under a 5,000 floor, which is
+    the exact defect the per-type rows exist to fix.
+  */
+  const clamps = new Map<string, { floor: number; ceiling: number }>();
+  for (const c of (vocabRes.data ?? []) as {
+    config_key?: string;
+    floor_points?: number | string;
+    ceiling_points?: number | string;
+  }[]) {
+    if (!c.config_key) continue;
+    clamps.set(c.config_key, {
+      floor: Number(c.floor_points ?? 0),
+      ceiling: Number(c.ceiling_points ?? 0),
+    });
+  }
+
+  const typeSizing: PapicTypeSizingRow[] = ((learningRes.data ?? []) as {
+    config_key: string;
+    initial_per_guest: number | string;
+    stored_learned: number | string | null;
+    in_force: number | string;
+    in_force_source: string;
+    sample_size: number | string;
+    censored_count: number | string;
+    min_sample: number | string;
+    candidate: number | string | null;
+    candidate_reason: string | null;
+  }[])
+    .map((r) => ({
+      eventType: r.config_key,
+      // A key is a slug; `gala_night` reads as a title only once the underscore
+      // is gone. This is presentation of a known key, not an invented name.
+      label: r.config_key.replace(/_/g, ' '),
+      initialPerGuest: Number(r.initial_per_guest),
+      floorPoints: clamps.get(r.config_key)?.floor ?? 0,
+      ceilingPoints: clamps.get(r.config_key)?.ceiling ?? 0,
+      learnedPerGuest: r.stored_learned == null ? null : Number(r.stored_learned),
+      inForce: Number(r.in_force),
+      inForceSource:
+        r.in_force_source === 'learned' ? ('learned' as const) : ('initial' as const),
+      sampleSize: Number(r.sample_size),
+      censoredCount: Number(r.censored_count),
+      minSample: Number(r.min_sample),
+      candidate: r.candidate == null ? null : Number(r.candidate),
+      candidateReason: r.candidate_reason ?? '',
+    }))
+    .sort((a, b) => b.inForce - a.inForce || a.label.localeCompare(b.label));
+
   const discountPct =
     settingsRes.data?.papic_signup_discount_pct != null &&
     Number.isFinite(Number(settingsRes.data.papic_signup_discount_pct))
@@ -166,6 +235,12 @@ export async function PapicLadderSurface(_props: Props) {
         discountPct={discountPct}
         saveLadderAction={savePapicLadder}
         saveDiscountAction={saveFamilyDiscount}
+      />
+
+      <PapicTypeSizingEditor
+        rows={typeSizing}
+        saveAction={savePapicTypeSizing}
+        recomputeAction={recomputePapicPoolLearning}
       />
 
       <PapicRestEditor

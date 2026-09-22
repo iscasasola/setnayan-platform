@@ -24,6 +24,15 @@ import {
   OPEN_SHOP_ERRORS,
   OPEN_SHOP_LOGO_REQUIRED,
 } from '@/lib/open-shop-validation';
+import { decideOpenShopAccount, OPEN_SHOP_ACCOUNT_ERRORS } from '@/lib/open-shop-account';
+import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
+import { captchaTokenFromForm } from '@/lib/turnstile';
+import {
+  TERMS_FIELD,
+  TERMS_REQUIRED_MESSAGE,
+  TERMS_VERSION,
+  hasAgreedToTerms,
+} from '@/lib/terms-agreement';
 
 /**
  * Vendor onboarding submit (owner 2026-07-03: "create a vendor onboarding. we
@@ -90,10 +99,60 @@ const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 export async function becomeVendor(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user: sessionUser },
   } = await supabase.auth.getUser();
-  // Logged out → the existing vendor signup handles account + shop together.
-  if (!user) redirect('/signup?as=vendor');
+
+  // ── THE ACCOUNT IS CREATED INSIDE STEP 3 (owner 2026-09-22) ─────────────────
+  // This used to be `if (!user) redirect('/signup?as=vendor')`: a stranger who had
+  // filled four screens was sent to a different door and everything typed was gone.
+  // Now the wizard runs signed OUT, step 3 carries a password beside the company
+  // email, and ONE submit creates the account and then the shop. Whether to create
+  // is a pure decision (`decideOpenShopAccount`, executed by its test); creating is
+  // the I/O in `createVendorAccountForShop`, which reuses /signup's own helpers.
+  // A signed-in person is 'existing' and the password / terms fields are ignored.
+  const decision = decideOpenShopAccount({
+    hasSession: !!sessionUser,
+    email: cleanEmail(formData.get('contact_email')),
+    password: String(formData.get('password') ?? ''),
+    // ONE implementation of the agreement gate — lib/terms-agreement.ts — and its
+    // own sentence. An unticked box posts nothing at all, so absence is refusal.
+    termsAgreed: hasAgreedToTerms(formData.get(TERMS_FIELD)),
+    termsError: TERMS_REQUIRED_MESSAGE,
+  });
+  if (decision.kind === 'refuse') {
+    redirect(`/open-shop?step=${decision.step}&error=` + encodeURIComponent(decision.error));
+  }
+  let user: { id: string; email?: string | null } | null = sessionUser;
+  if (decision.kind === 'create') {
+    const created = await createVendorAccountForShop({
+      email: decision.email,
+      password: decision.password,
+      // The name typed on step 3 becomes the account's name — the same rule the
+      // signed-in path applies further down (`display_name` established once).
+      displayName: titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null,
+      terms: { acceptedAt: new Date().toISOString(), version: TERMS_VERSION },
+      // The bot check rides in THIS form (<TurnstileField action="signup" /> in the
+      // wizard, guest only); this action is the form's target, so the token is
+      // read here — where lib/captcha-is-wired.test.ts can pair reader and widget.
+      captchaToken: captchaTokenFromForm(formData),
+    });
+    if (created.ok === false) {
+      redirect(`/open-shop?step=${created.step}&error=` + encodeURIComponent(created.error));
+    }
+    if (created.ok === 'created-not-signed-in') {
+      // The account exists; the shop is not opened yet. Same landing /signup uses
+      // when its direct sign-in fails — they sign in and the wizard resumes.
+      redirect(
+        `/login?ready=${encodeURIComponent(created.email)}&next=${encodeURIComponent('/open-shop')}&as=vendor`,
+      );
+    }
+    user = created.user;
+  }
+  if (!user) {
+    // Unreachable by construction (every non-existing decision above either
+    // redirected or produced a user); kept so the type narrows honestly.
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
+  }
 
   const shopName = clean(formData.get('shop_name'));
   const logoUrl = cleanLogo(formData.get('logo_url'));

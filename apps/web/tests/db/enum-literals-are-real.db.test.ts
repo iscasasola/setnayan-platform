@@ -74,6 +74,73 @@ function code(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
+/**
+ * Remove `const <NAME>_LABELS: Record<string, string> = { … }` blocks.
+ *
+ * ⚠ A CARVE-OUT, NOT A WIDENING, and the difference is load-bearing.
+ * A label map INVERTS the relationship the matcher assumes: the KEY is the
+ * column name and the VALUE is PROSE FOR A HUMAN. `rsvp_status: 'RSVP'` in such
+ * a map is the word a host reads in an undo snackbar. It is never sent to
+ * Postgres, and textually it is indistinguishable from an insert payload.
+ *
+ * 🔑 Found when the guest-card autosave's `FIELD_LABELS` turned this guard red on
+ * CORRECT code. The alternative was to contort the label map so the matcher would
+ * not see it — which is the failure this project keeps paying for: a scanner that
+ * cannot read the correct pattern punishes the correct code and rewards the copy.
+ *
+ * Deliberately narrow: the declared type must be exactly `Record<string, string>`
+ * AND the identifier must end in `_LABELS`.
+ *
+ * ⚖ THE NAME CONDITION WAS CHALLENGED AND IT SURVIVED A MEASUREMENT. The
+ * objection was fair — anchoring on a spelling makes a correctness guard depend
+ * on how somebody named a variable, and a rename to `FIELD_TITLES` turns a
+ * correct file red 35 minutes into CI. So the broader form was tried: strip ANY
+ * module-scope `Record<string, string>` const. Measured on this tree:
+ *
+ *     any Record<string, string> const : 208
+ *     ...of those ending _LABELS       :  20
+ *
+ * and the broad form immediately hid a REAL payload —
+ * `app/dashboard/[eventId]/schedule/actions.ts` declares `const patch:
+ * Record<string, string>` and passes it to a write. Ten times the blind spot,
+ * and a live write inside it. The narrow form is kept, and the objection is
+ * answered instead by the WRITE_CALL assertion below, which fires whether or not
+ * the name matches, and by a comment at the declaration site so a renamer is
+ * told before CI tells them.
+ *
+ * It is
+ * FLOORED AND CAPPED below, so it can neither become a quiet no-op nor start
+ * eating real code, and it cannot hide a phantom anywhere else in the same file.
+ */
+const LABEL_MAP = /const\s+([A-Za-z0-9_$]*_LABELS)\s*:\s*Record<\s*string\s*,\s*string\s*>\s*=\s*\{[^}]*\}/g;
+function withoutLabelMaps(src: string): { text: string; removed: number; names: string[] } {
+  let removed = 0;
+  const names: string[] = [];
+  const text = src.replace(LABEL_MAP, (m, name: string) => {
+    removed += 1;
+    names.push(name);
+    return '\n'.repeat((m.match(/\n/g) ?? []).length);
+  });
+  return { text, removed, names };
+}
+
+/**
+ * The residual hole, closed directly: a `Record<string, string>` const that IS
+ * hoisted out and then handed to Postgres. If a stripped map's name is passed to
+ * `.insert(` / `.update(` / `.upsert(` in the same file, it was a payload after
+ * all and the carve-out must not have touched it.
+ *
+ * 🔑 THIS EXISTS BECAUSE THE FIRST VERSION ANCHORED ON THE IDENTIFIER ENDING
+ * `_LABELS`, which made a correctness guard depend on how somebody spelled a
+ * variable. Rename `FIELD_LABELS` to `FIELD_TITLES` and a correct file goes red,
+ * 35 minutes into CI — and the person who hits that under time pressure will not
+ * read this docblock, they will contort the map until the matcher stops seeing
+ * it, which is the exact outcome the carve-out was written to prevent.
+ * A guard anchored to how something is WRITTEN, rather than what it IS, fails
+ * whenever the writing changes for an unrelated reason.
+ */
+const WRITE_CALL = (name: string) => new RegExp(`\\.(insert|update|upsert)\\(\\s*${name}\\b`);
+
 test('the scan reads a real, non-trivial set of files', () => {
   assert.ok(SOURCES.length > 300, `only ${SOURCES.length} source files walked — the scan is not reaching the app`);
 });
@@ -88,12 +155,34 @@ for (const { column, enumType } of ENUM_COLUMNS) {
     const legal = new Set(rows.map((r) => r.enumlabel));
 
     const found: Array<{ file: string; value: string }> = [];
+    let labelMapsRemoved = 0;
     for (const file of SOURCES) {
-      const src = code(readFileSync(file, 'utf8'));
-      for (const m of src.matchAll(new RegExp(`${column}:\\s*'([^']+)'`, 'g'))) {
+      const raw = code(readFileSync(file, 'utf8'));
+      const stripped = withoutLabelMaps(raw);
+      labelMapsRemoved += stripped.removed;
+      for (const name of stripped.names) {
+        assert.ok(
+          !WRITE_CALL(name).test(raw),
+          `${file.slice(WEB.length + 1)}: \`${name}\` is a Record<string, string> that IS passed to a write — ` +
+            'the carve-out must not skip it. Type the payload, or inline it at the call site.',
+        );
+      }
+      for (const m of stripped.text.matchAll(new RegExp(`${column}:\\s*'([^']+)'`, 'g'))) {
         found.push({ file: file.slice(WEB.length + 1), value: m[1]! });
       }
     }
+    // A FLOOR AND A CAP ON THE CARVE-OUT. A stripper that stopped matching would
+    // hand every label map back to the scanner — noisy, but survivable. One that
+    // started matching too much would HIDE REAL WRITES — silent, and not
+    // survivable. Both directions need a number.
+    assert.ok(
+      labelMapsRemoved > 0,
+      'withoutLabelMaps() removed nothing — the pattern has stopped matching, so the carve-out proves nothing',
+    );
+    assert.ok(
+      labelMapsRemoved < 40,
+      `withoutLabelMaps() removed ${labelMapsRemoved} blocks — far more than this tree holds; it is eating real code`,
+    );
     // Vacuity: a regex that matched nothing would make the assertion below
     // trivially true — and a loop that skips everything passes.
     assert.ok(found.length > 0, `no \`${column}\` writes found at all — the pattern cannot match, so this proves nothing`);

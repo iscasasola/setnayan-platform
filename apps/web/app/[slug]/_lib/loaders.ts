@@ -131,7 +131,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -679,6 +679,13 @@ export const loadLiveLayer = cache(
     // capped to the newest dozen so a busy wall doesn't presign hundreds per
     // page view. Wall trouble must never break the wedding page → try/null.
     let liveWall: LiveWallData | null = null;
+    // 🔑 LAU-33 · `null` was doing the work of two states. It means "not owned /
+    // mirror off" AND it meant "the read failed", so a refused read rendered
+    // byte-identically to a deliberate off-state and the section just was not
+    // there. This sibling keeps every existing reader of `liveWall` unchanged
+    // (including publicAlbumHref, which routes the "Photos" button off it)
+    // while letting the page tell the truth. See lib/live-wall-read-state.ts.
+    let liveWallUnreadable = false;
     // Panood Watch-Live (owner 2026-06-12: "panood … must be on the on-the-day
     // part") — when the couple staged their watch link (events.panood_watch_url,
     // migration 20261122000000), the live page leads with the broadcast for the
@@ -861,8 +868,13 @@ export const loadLiveLayer = cache(
             challengeMeasured: snap.challengeMeasured,
           };
         }
-      } catch {
+      } catch (err) {
+        // Bound, logged AND surfaced. The error was previously discarded
+        // entirely, so this failure had no symptom anywhere — not on the page,
+        // not in Sentry. A log line alone would still have changed no pixel.
+        console.error('[live-wall] guest mirror read failed:', err);
         liveWall = null;
+        liveWallUnreadable = true;
       }
     }
 
@@ -909,6 +921,7 @@ export const loadLiveLayer = cache(
       scheduleBlocks,
       backdropConfig,
       liveWall,
+      liveWallUnreadable,
       watchLive,
       broadcastPlanned,
       publicCandidCameraActive,

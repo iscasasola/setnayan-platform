@@ -227,7 +227,11 @@ export async function maybeCatchUpAcknowledgedDeposits(userId: string): Promise<
       .from('booking_fee_charges')
       .select('event_vendor_id')
       .in('event_vendor_id', acknowledged)
-      .in('status', ['pending', 'paid', 'waived_import', 'waived_free5']);
+      // `waived_promo` counts as charged for the same reason the two waived
+      // statuses above do: the booking HAS a charge, it is simply worth ₱0.
+      // Leaving it out makes this set mean "already charged" while answering
+      // "already charged and not by a promotion".
+      .in('status', ['pending', 'paid', 'waived_import', 'waived_free5', 'waived_promo']);
     const charged = new Set(
       ((charges ?? []) as Array<{ event_vendor_id: string | null }>)
         .map((c) => c.event_vendor_id)

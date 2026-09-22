@@ -18,6 +18,10 @@ import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
 import {
+  refundNeedsTwoAdmins,
+  REFUND_TWO_ADMIN_THRESHOLD_PHP,
+} from '@/lib/two-admin-promise';
+import {
   formatPhp,
   orderGrossOwed,
   isVatInclusiveServiceKey,
@@ -1422,6 +1426,179 @@ export async function refundOrder(formData: FormData) {
     );
   }
 
+  // ── VENDOR AGREEMENT § 9.1 · a refund over ₱25,000 takes two admins ───────
+  //
+  // The clause is explicit in both directions: "Refund any single transaction
+  // > ₱25,000" is a major decision, and "Process a refund ≤ ₱25,000" is named
+  // as single-admin authority for the Disputes and Payments Handlers. So this
+  // gate is STRICT — at exactly ₱25,000 one admin is enough, and widening it
+  // would take back authority the vendor was promised.
+  //
+  // Gated HERE, after the order has been read and proved refundable, so a
+  // second admin is never asked to approve a refund against an order that is
+  // already refunded or was never paid.
+  if (refundNeedsTwoAdmins(amountPhp)) {
+    // One pending approval per order. A second press must not open a second
+    // request that two different admins could each approve.
+    const { data: alreadyPending } = await admin
+      .from('admin_approval_requests')
+      .select('approval_id')
+      .eq('action_type', 'approve_large_refund')
+      .eq('target_id', orderId)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (alreadyPending) {
+      revalidatePath('/admin/payments');
+      throw new Error(
+        `A refund for order ${orderBefore.public_id} is already waiting on a second admin — ` +
+          'open /admin/approvals rather than starting another.',
+      );
+    }
+
+    const { error: insErr } = await admin.from('admin_approval_requests').insert({
+      action_type: 'approve_large_refund',
+      target_id: orderId,
+      target_user_id: orderBefore.user_id,
+      payload: { amount_php: amountPhp, reason, proof_url: proofUrl },
+      rationale: reason,
+      initiated_by: adminUserId,
+      // 72 hours, matching the comp-grant window. A couple waiting on money
+      // should not wait on a stale request either: an expired one is re-opened
+      // deliberately rather than approved days later by someone with no memory
+      // of the dispute.
+      expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    });
+    if (insErr) throw new Error(`Could not open the refund approval: ${insErr.message}`);
+
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
+      action: 'refund_order_requested',
+      target_id: orderId,
+      actor_user_id: adminUserId,
+      metadata: {
+        public_id: orderBefore.public_id,
+        amount_php: amountPhp,
+        threshold_php: REFUND_TWO_ADMIN_THRESHOLD_PHP,
+        reason,
+      },
+    });
+    if (auditErr) {
+      console.error('[refundOrder] approval audit insert failed (non-fatal):', auditErr);
+    }
+
+    revalidatePath('/admin/payments');
+    revalidatePath('/admin/approvals');
+    // Thrown, not returned: this is the file's existing way of getting a
+    // sentence in front of the admin, and "nothing visibly happened" is the
+    // failure this whole change exists to prevent.
+    throw new Error(
+      `${formatPhp(amountPhp)} is over the ₱${REFUND_TWO_ADMIN_THRESHOLD_PHP.toLocaleString()} ` +
+        'limit in Vendor Agreement § 9.1, so it needs a second admin. The request is open in ' +
+        '/admin/approvals with your reason attached — nothing has been refunded yet.',
+    );
+  }
+
+  await applyRefund(admin, {
+    orderId,
+    orderBefore,
+    reason,
+    proofUrl,
+    amountPhp,
+    refundCentavos,
+    actingAdminId: adminUserId,
+  });
+}
+
+/**
+ * executeLargeRefund — the § 9.1 refund, run by the SECOND admin.
+ *
+ * Called only from the approvals dispatcher, which has already claimed the row
+ * atomically and enforced `decided_by <> initiated_by` (the DB constraint
+ * `admin_approval_four_eyes` enforces it again). It re-reads and re-guards the
+ * order rather than trusting the payload: the request may have sat for up to 72
+ * hours, and the order can have been refunded, cancelled or paid again since.
+ */
+export async function executeLargeRefund(
+  admin: ReturnType<typeof createAdminClient>,
+  params: {
+    orderId: string;
+    reason: string;
+    proofUrl: string | null;
+    amountPhp: number;
+    initiatedByAdminId: string;
+    confirmingAdminId: string;
+  },
+): Promise<void> {
+  const { orderId, reason, proofUrl, amountPhp, confirmingAdminId } = params;
+
+  const { data: orderBefore, error: readErr } = await admin
+    .from('orders')
+    .select(
+      'order_id, user_id, vendor_profile_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
+    )
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!orderBefore) throw new Error('Order not found — it may have been deleted since the request.');
+  if (orderBefore.status === 'refunded') {
+    throw new Error(
+      `Order ${orderBefore.public_id} was already refunded while this approval was pending.`,
+    );
+  }
+  if (!(orderBefore.status === 'paid' || orderBefore.status === 'fulfilled')) {
+    throw new Error(
+      `Order ${orderBefore.public_id} is ${orderBefore.status}, not paid or fulfilled — it cannot be refunded now.`,
+    );
+  }
+
+  await applyRefund(admin, {
+    orderId,
+    orderBefore,
+    reason,
+    proofUrl,
+    amountPhp,
+    refundCentavos: Math.round(amountPhp * 100),
+    // The audit trail records the admin who COMPLETED the refund. The initiator
+    // is on the approval row, and the dispatcher writes its own
+    // `approval_approved:` entry naming both.
+    actingAdminId: confirmingAdminId,
+  });
+}
+
+/** The order row `applyRefund` needs. Structural, so both callers' reads fit. */
+type RefundableOrder = {
+  order_id: string;
+  user_id: string | null;
+  vendor_profile_id: string | null;
+  event_id: string | null;
+  public_id: string;
+  status: string;
+  service_key: string | null;
+  requested_total_php: number | null;
+  confirmed_total_php: number | null;
+};
+
+/**
+ * The refund itself — flip, revoke entitlements, record, notify, revalidate.
+ *
+ * Extracted 2026-09-22 so the single-admin path and the two-admin path do
+ * exactly the same thing. 🔑 Two code paths for one money movement is how the
+ * approved refund quietly grows a different set of side effects from the direct
+ * one; there is one body and both doors open onto it.
+ */
+async function applyRefund(
+  admin: ReturnType<typeof createAdminClient>,
+  ctx: {
+    orderId: string;
+    orderBefore: RefundableOrder;
+    reason: string;
+    proofUrl: string | null;
+    amountPhp: number;
+    refundCentavos: number;
+    actingAdminId: string;
+  },
+): Promise<void> {
+  const { orderId, orderBefore, reason, proofUrl, amountPhp, refundCentavos, actingAdminId } = ctx;
+
   // Step 2: flip the order to refunded. Conditional WHERE guards against
   // a concurrent admin who already flipped it between the read and this
   // update (race window is small but real).
@@ -1454,7 +1631,7 @@ export async function refundOrder(formData: FormData) {
     orderId,
     eventId: orderBefore.event_id ?? null,
     serviceKey: orderBefore.service_key ?? '',
-    actorUserId: adminUserId,
+    actorUserId: actingAdminId,
   });
 
   // Step 3: insert the order_refunds audit row. The UNIQUE(order_id) index
@@ -1465,7 +1642,7 @@ export async function refundOrder(formData: FormData) {
     order_id: orderId,
     refund_amount_centavos: refundCentavos,
     reason,
-    refunded_by_admin_id: adminUserId,
+    refunded_by_admin_id: actingAdminId,
     proof_url: proofUrl,
     status: 'sent',
   });
@@ -1488,7 +1665,7 @@ export async function refundOrder(formData: FormData) {
     await admin.from('admin_audit_log').insert({
       action: 'refund_order',
       target_id: orderId,
-      actor_user_id: adminUserId,
+      actor_user_id: actingAdminId,
       metadata: {
         order_public_id: orderBefore.public_id,
         before: { status: orderBefore.status },

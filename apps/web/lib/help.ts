@@ -3,7 +3,7 @@ import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
- * PAPIC_POINTS_PER_PHOTO / PAPIC_POINTS_PER_CLIP from the capture path itself
+ * PAPIC_POINTS_PER_PHOTO / PAPIC_POINTS_PER_SNIPPET from the capture path itself
  * (lib/papic-cameras.ts). The clip weight moved 7 → 8 on 2026-07-29; help prose
  * that had typed the number would have gone quietly wrong that day, on the one
  * surface a confused couple reads. `papic-tier-copy` is pure + client-safe, so
@@ -86,7 +86,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut. See setnayan.com/pricing for current rates.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — couples pay their vendors directly and Setnayan never sits between them at checkout. Vendors pay a booking fee to Setnayan only on couples we introduce; it is charged to the vendor, never added to what a couple pays, and their own and repeat clients stay free. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -151,12 +151,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding stories publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at iscasasolaii@gmail.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding stories publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
       },
       {
         slug: 'how-to-contact-support',
         title: 'How do I contact Setnayan support?',
-        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at iscasasolaii@gmail.com.',
+        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
       },
       {
         slug: 'when-does-setnayan-launch',
@@ -624,7 +624,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-needs-two-admins',
         title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1: major decisions need two admins. That means ad-revenue activation, vendor verification override, a large refund above the policy threshold, force-majeure bulk resolution, payment-method config change, and any blanket policy update. Routine ops (review moderation, user lookup, manual help reply) stay single-admin. The exact refund threshold is set in the Vendor Agreement.',
+        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, adding a team member to the shared pool, a comp grant above the § 9.1 retail limit, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a vendor without the due-process timeline, refunding a single transaction above the § 9.1 limit, and re-publishing a previously rejected vendor application. Routine ops stay single-admin — payment reconciliation, approving a vendor verification queue item, comps and refunds at or below those limits, dispute mediation, review moderation and user lookup. Both limits are stated in § 9.1 itself, and the admin console names the exact figure at the moment you go over it.',
       },
       {
         slug: 'approving-an-action',
@@ -634,7 +634,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'routine-vs-major',
         title: 'Routine vs major — the rule of thumb',
-        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has significant financial impact above the policy threshold, or touches public trust (verification, refunds, ad activation). When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
+        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has financial impact above the limits § 9.1 states, or touches public trust. When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
       },
     ],
   },

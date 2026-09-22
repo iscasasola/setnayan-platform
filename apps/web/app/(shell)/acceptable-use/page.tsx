@@ -142,8 +142,8 @@ export default function AcceptableUsePage() {
             help center
           </Link>{' '}
           or email{' '}
-          <a href="mailto:iscasasolaii@gmail.com" className="text-terracotta hover:underline">
-            iscasasolaii@gmail.com
+          <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
+            dpo@setnayan.com
           </a>
           . We review reports promptly and remove content that violates this
           policy. Rights-holders can also use these channels for copyright

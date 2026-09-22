@@ -106,6 +106,7 @@ import {
 } from '@/lib/vendor-counts';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
 
 export const metadata: Metadata = {
   title: 'Create account',
@@ -117,6 +118,9 @@ export const metadata: Metadata = {
 const ERROR_COPY: Record<string, string> = {
   missing: 'Please enter both an email and a password.',
   password_too_short: 'Password must be at least 8 characters.',
+  // CTRL-B3 build 2 — the server's refusal needs a sentence, or a hand-built
+  // POST that skips the checkbox bounces back to a page saying nothing.
+  terms_required: TERMS_REQUIRED_MESSAGE,
   password_leaked:
     'This password has appeared in a known data breach. Please choose a different one — it only takes a moment and it protects your account.',
   blacklisted:
@@ -661,6 +665,62 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               <span>Stay signed in</span>
             </label>
 
+            {/*
+              🔴 THIS WAS BROWSEWRAP — CTRL-B3 build 2, fixed 2026-09-22.
+              "By signing up, you agree to our Terms and Privacy" sat BELOW
+              the submit button, with no checkbox and nothing required.
+              Browsewrap is materially weaker in Philippine courts and under
+              the NPC's consent standard than a clickwrap the person performs,
+              and nothing was recorded either — so there was no answer to
+              "what did they agree to, and when?"
+
+              🔑 THE BOX IS ABOVE THE SUBMIT AND UNTICKED, matching the ruling
+              already obeyed by the Stories box beside it (commit 7f933ece1:
+              "starts UNTICKED — affirmative consent, not pre-selected").
+              `required` is the browser's half; `signUp` refuses server-side,
+              because a required attribute is a hint, not a gate.
+            */}
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                lineHeight: 1.4,
+                marginBottom: 12,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                name={TERMS_FIELD}
+                required
+                style={{
+                  marginTop: 2,
+                  width: 14,
+                  height: 14,
+                  flexShrink: 0,
+                  accentColor: 'rgb(var(--color-mulberry))',
+                }}
+              />
+              <span>
+                I agree to the{' '}
+                <Link
+                  href="/terms"
+                  style={{ color: 'rgb(var(--color-mulberry))', textDecoration: 'none' }}
+                >
+                  Terms
+                </Link>{' '}
+                and{' '}
+                <Link
+                  href="/privacy"
+                  style={{ color: 'rgb(var(--color-mulberry))', textDecoration: 'none' }}
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+
             <SubmitButton
               /* The one action that creates the account. `.button-primary` is
                  #C24E25 with a cream label — 4.61:1, the same pairing every
@@ -681,21 +741,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 marginTop: 4,
               }}
             >
-              By signing up, you agree to our{' '}
-              <Link
-                href="/terms"
-                style={{ color: 'rgb(var(--color-mulberry))', textDecoration: 'none' }}
-              >
-                Terms
-              </Link>{' '}
-              and{' '}
-              <Link
-                href="/privacy"
-                style={{ color: 'rgb(var(--color-mulberry))', textDecoration: 'none' }}
-              >
-                Privacy
-              </Link>
-              .<br />
+
               We never sell your data — RA 10173 compliant.
             </div>
           </form>

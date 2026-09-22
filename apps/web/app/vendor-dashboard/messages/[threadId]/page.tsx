@@ -123,6 +123,7 @@ import {
   THREAD_STAGE_LABEL,
   THREAD_STAGE_TONE,
 } from '@/lib/vendor-thread-stage';
+import { closingCopy } from '@/lib/thread-closing-copy';
 import { fetchReasonCodes } from '@/lib/inquiry-outcomes';
 import { regionLabel } from '@/lib/region-source';
 import { eventTypeLabel } from '@/lib/demand-radar';
@@ -1676,10 +1677,20 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               {proposalNotice}
             </p>
           ) : null}
+          {/* WHO CLOSED THIS (owner 2026-09-22). This branch is the page's bare
+              `else`, so it also catches `displaced` and a withdrawn thread — it
+              told a supplier "You declined this inquiry" when the COUPLE booked
+              someone else or withdrew. One module decides for both sides;
+              `archived_at` is required because withdrawInquiry writes only that. */}
           <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
             <p className="text-sm text-ink/70">
-              You declined this inquiry. The couple has been notified and pointed to
-              other vendors.
+              {
+                closingCopy(
+                  thread,
+                  'vendor',
+                  { counterpartyLabel: coupleLabel },
+                ).sentence
+              }
             </p>
           </div>
           {/* Won & Lost Reasons (Wave 6) — even on a decline, log WHY so your

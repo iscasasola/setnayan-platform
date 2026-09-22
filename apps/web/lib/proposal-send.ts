@@ -452,6 +452,16 @@ export interface SendCustomProposalInput {
    * proportionally along the live ladder (owner 2026-09-09: "no dial").
    */
   includesSetnayanGift?: boolean | null;
+  /**
+   * The `vendor_services` leaf ids this quote was built from. `undefined`/`null`
+   * = this quote never said, and the thread falls back to its timestamp rule.
+   * `[]` is a real answer: built from no card.
+   *
+   * ⚠ ONLY THIS PATH SETS IT. `sendProposalCore` above sends a saved
+   * template/package and has no card picker, so it genuinely does not know —
+   * NULL is the honest value there, not an empty array.
+   */
+  serviceCardIds?: string[] | null;
 }
 
 const MAX_CUSTOM_LINE_ITEMS = 60;
@@ -627,6 +637,16 @@ export async function sendCustomProposalCore(
         fee, capped, proportional along the live ladder. A switch, never a dial.
       */
       includes_setnayan_gift: input.includesSetnayanGift ?? null,
+      /*
+        WHICH CARDS THIS QUOTE COVERS (migration 20271243019419). The builder
+        knew this all along and it was discarded, so the thread had to guess with
+        a timestamp — and a quote built from one card retired every other offer
+        in it.
+
+        ⚠ `?? null` and NOT `?? []`: an empty array asserts "this quote covers no
+        card", which is a decision an older client never made.
+      */
+      service_card_ids: input.serviceCardIds ?? null,
       status: 'draft',
     })
     .select('proposal_id, public_id')

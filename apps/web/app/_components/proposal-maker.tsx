@@ -757,6 +757,17 @@ export function ProposalMaker({
           never "off", which would silently retract a gift the card promises.
         */
         includesSetnayanGift: giftSwitch,
+        /*
+          WHICH SERVICE CARDS THIS QUOTE WAS BUILT FROM. The builder already
+          knows — it loaded them — and until now that was thrown away, so the
+          thread had to guess with a timestamp and retired offers no quote ever
+          covered (migration 20271243019419).
+
+          An EMPTY array is sent deliberately and means "built from no card", a
+          different thing from a quote that never said. Only a quote written by
+          an older client omits the field, and that reads as NULL.
+        */
+        serviceCardIds: cards.filter((c) => pickedCards[c.id]).map((c) => c.id),
       }),
     [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch],
   );

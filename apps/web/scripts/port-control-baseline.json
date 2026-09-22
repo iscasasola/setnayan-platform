@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "860872d04",
+  "generatedFromRef": "559bfe512",
   "routeCount": 430,
-  "destinations": 924,
+  "destinations": 925,
   "actions": 656,
-  "blocks": 4606,
+  "blocks": 4610,
   "routes": {
     "/": {
       "files": [
@@ -2673,6 +2673,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
@@ -2687,6 +2688,8 @@
         "KpiStatCard",
         "Link",
         "MobileLandingGrid",
+        "RevenueSummary",
+        "Row",
         "Suspense",
         "TablePageSkeleton",
         "TransactionsLedger"
@@ -7071,6 +7074,7 @@
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
+        "dashboard/[eventId]/studio/papic/_components/credit-recommendation.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
@@ -7156,6 +7160,7 @@
         "CaptureDefaultsSection",
         "ChallengeRow",
         "CoupleChallengesManager",
+        "CreditRecommendation",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",
@@ -9689,6 +9694,7 @@
         "NavLinksRow",
         "PackageCard",
         "PublicVendorRow",
+        "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
         "ReviewRow",
@@ -11873,6 +11879,7 @@
       "destinations": [
         "/help",
         "/open-shop",
+        "/pricing",
         "/vendors"
       ],
       "actions": [],

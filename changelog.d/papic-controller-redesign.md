@@ -216,3 +216,26 @@ no-ops on an untracked file and destroys edits to a tracked one).
 
 SPEC IMPACT: None. No product behaviour changes — four defect fixes and two guards re-pointed
 at rules the corpus already records.
+
+### 2026-09-22 · two more generated artefacts this PR owed
+
+Found by asking whether the generator-tree-drift that nearly bit `admin-jobs.generated.ts` applied
+to anything else this build touched. It did, twice — and neither was blocking CI, which is why
+they were missed.
+
+- **`supabase/security/exposure-surface.baseline.txt`** — this branch's migration
+  `20271241532112_papic_every_guest_is_promised_a_minimum.sql` adds `events.papic_guest_spend_floor_points`,
+  and `gen-exposure-baseline.ts` says in its own docblock to commit the result *in the same pull
+  request as the migration that caused it — the diff is the review*. The new fact reads
+  `anon=- authenticated=SU`: anon reaches nothing, which is what a per-guest floor on an event
+  should be. Shipping without it would have put a security-surface change through unreviewed.
+- **`apps/web/scripts/port-control-baseline.json`** — was generated from `860872d04` and had gone
+  stale for `credit-recommendation.tsx` (this branch) *and* `revenue-summary.tsx` (from `main`).
+  Regenerating from the merged tree necessarily picks up both; 924 → 925 destinations,
+  4606 → 4610 blocks.
+
+Both regenerated on the MERGED tree, and both guards re-run green against the result
+(`lint-exposure-baseline.mjs` EXIT=0, `lint-port-no-lost-controls.mjs` EXIT=0 — 430 routes /
+1581 controls / 4610 blocks).
+
+SPEC IMPACT: None.

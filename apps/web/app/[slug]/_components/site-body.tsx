@@ -406,27 +406,43 @@ export async function SiteBody({
   chaptersOnThisDay = [],
   entourage = [],
 }: SiteBodyProps) {
-  /* 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
-     Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
-     to the public bucket by `siteMediaServeRef` on the way in. They are
-     collected, deduped and signed in a single parallel pass here and handed to
-     both widget dispatchers. A frame that signed its own would make one AWS
-     round trip per section — the failure `displayUrlForStoredAsset` warns list
-     surfaces about by name.
-     ⛔ A ref that fails to sign is simply ABSENT from this map, and the frame
-     then draws the section with no background rather than an empty dark plate
-     waiting for a picture that is not coming. */
+  // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
+  // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
+  // to the public bucket by `siteMediaServeRef` on the way in. They are
+  // collected, deduped and signed in a single parallel pass here and handed to
+  // both widget dispatchers. A frame that signed its own would make one AWS
+  // round trip per section — the failure `displayUrlForStoredAsset` warns list
+  // surfaces about by name.
+  // ⛔ A ref that fails to sign is simply ABSENT from this map, and the frame
+  // then draws the section with no background rather than an empty dark plate
+  // waiting for a picture that is not coming.
+  //
+  // 🪤 LINE COMMENTS, NOT A BLOCK COMMENT, AND THAT IS NOT A STYLE CHOICE.
+  // This sits immediately after the function's opening brace. A block comment
+  // in that position is byte-identical to the opening of a JSX comment, and
+  // `the-wake-never-celebrates.test.ts` strips those with a regex that then
+  // runs on to the next closer anywhere in the file. Measured 2026-09-23: it
+  // swallowed 7,500 characters of real code, including the tone literals on
+  // line 873, and the guard reported that this file had "lost the celebratory
+  // arm" — true of what it could see, false of the file.
+  //
+  // ⚠ The first fix said so IN A BLOCK COMMENT and reproduced the bug, because
+  // writing the offending two-character pair is enough to trip the same regex.
+  // Hence the prose: never open a brace body with a block comment here, and
+  // never spell the sequence out when explaining why.
   const canvasMediaRefs = hubCanvasMediaRefs(widgets);
   const canvasMediaUrls: Record<string, string> = {};
   if (canvasMediaRefs.length > 0) {
     await Promise.all(
       canvasMediaRefs.map(async (ref) => {
-        /* 🔒 HELD AT THE SIGNER TOO, not only on the way in. `hubMediaRef`
-           already refused everything but the public bucket when the ref was
-           stored, and `every-render-read-is-pinned.test.ts` requires the check
-           to be visible HERE as well — because the next person to add a call
-           beside this one will copy what they see, and a stored value can
-           always predate a rule. One allow-list, asked twice. */
+        // 🔒 HELD AT THE SIGNER TOO, not only on the way in. `hubMediaRef`
+        // already refused everything but the public bucket when the ref was
+        // stored, and `every-render-read-is-pinned.test.ts` requires the check
+        // to be visible HERE as well — because the next person to add a call
+        // beside this one will copy what they see, and a stored value can
+        // always predate a rule. One allow-list, asked twice.
+        // (Line comments for the same reason given above: this opens a brace
+        //  body, where a block comment is indistinguishable from a JSX one.)
         const url = await displayUrlForStoredAsset(siteMediaServeRef(ref));
         if (url) canvasMediaUrls[ref] = url;
       }),

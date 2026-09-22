@@ -197,3 +197,26 @@ of the same rule sat inside that window** — deleting the light scrim left it g
 couple on a light phone got unreadable words over their own photo. It now brace-scopes each rule.
 
 SPEC IMPACT: None. No migration, no price, no locked decision.
+
+---
+
+### 6 · 🪤 A comment swallowed 7,500 characters of code
+
+The full sweep turned `the-wake-never-celebrates.test.ts` red with
+*"site-body.tsx lost the celebratory arm: 'Thank you for celebrating'"*. Both tone literals were
+present and byte-identical to `origin/main`.
+
+The guard normalises source by stripping comments, and one of its regexes removes JSX comments —
+a brace, then a block-comment opener. The new background block was written as the **first token
+inside the function body**, which is byte-identical to that pattern's start, so the regex ran on
+to the next closer later in the file and removed **7,500 characters of real code**, including the
+literals on line 873.
+
+🔑 **The message was true of what the guard could see and false of the file.** The fix is line
+comments wherever a comment is the first token after a brace.
+
+⚠ **And the first fix reproduced the bug**: it converted the comment and then *spelled the
+offending sequence out* in the prose explaining why — which tripped the same regex in a new place.
+The wording now describes it without writing it.
+
+SPEC IMPACT: None.

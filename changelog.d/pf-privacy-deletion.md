@@ -42,3 +42,51 @@ DPO contact that bounces is worse than a personal one that works.
 SPEC IMPACT: closes part of NPC filing task `t0-3`. The remaining halves of that
 task — one DSR SLA (the live page says 15 business days; the packs say 7) and one
 device-fingerprint live/off state — are NOT addressed here.
+
+## 2026-09-22 · fix(erasure): DPO_QUESTIONS exists now — it was cited twice and never written
+
+W2 / register DATA-04, DATA-01.
+
+`lib/erasure/coverage.ts` cited `DPO_QUESTIONS` **twice** — to justify that
+jointly-authored event fields are deliberately not cleared, and that
+`event_vendors` third-party PII is excluded — and the symbol **had never
+existed**. Both references arrived in the commit that mentioned them
+(`9637655d5`); `git log -S "DPO_QUESTIONS =" --all` returns nothing.
+
+Those are the two decisions a DPO actually has to defend. Under RA 10173 §16(e)
+a controller declining to erase must state the basis, and "see the document that
+does not exist" is not one. The failure was silent because **a comment cannot
+fail to compile.**
+
+The register now exists with three rows, each stating what erasure does today,
+the competing lawful interest, what a ruling for the subject would change, and
+the tables it touches. Two are the decisions the docblocks were already citing.
+The third is new, found while measuring DATA-04:
+
+⚖ **`event_vendors.deposit_proof_url` is never erased.** It is the COUPLE's own
+uploaded proof-of-deposit. It survives erasure indefinitely and is readable on
+the admin dispute and force-majeure surfaces. Severity is moderated — it is
+stored privately and served through a signed URL by `depositProofDisplayUrl`, so
+the migration comment calling it a "public URL" is **stale** — but it is couple
+PII surviving an erasure request.
+
+**Deliberately NOT resolved here.** Deleting it destroys the supplier's only
+evidence that a deposit was paid, which register row DATA-01 says must survive.
+Both interests are lawful and engineering must not pick silently in either
+direction. It is written down where the next session reads it, with the likely
+middle answer noted (a dispute window, which would need its own column).
+
+`dpo-questions-resolve.test.ts` holds the general class closed: every
+`DPO_QUESTIONS` citation in `lib/erasure/` must resolve to the symbol, the
+register must be non-empty, and a row whose "tension" restates what the code
+already does is rejected as a decision wearing a question's clothes.
+
+Proved by sabotage: a new file citing `DPO_QUESTIONS` without importing it —
+reproducing the original defect exactly — turned it red (`2 file(s) cite, 1
+dangling`), and hollowing out a question's tension turned the second test red.
+Restored, 3/3. Erasure suite unchanged: coverage 11/11, guardrail 17/17,
+completeness 41/41.
+
+SPEC IMPACT: three open erasure questions now have a home in code. Answering one
+is an owner/DPO ruling — record it in the corpus `DECISION_LOG.md`, then change
+the code and the row in the same commit.

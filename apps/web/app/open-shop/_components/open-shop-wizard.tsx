@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -22,6 +22,17 @@ import {
   type PickerLeafView,
 } from './service-picker';
 import { becomeVendor } from '../actions';
+import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
+import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
+import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
+import {
+  OPEN_SHOP_DRAFT_KEY,
+  parseOpenShopDraft,
+  serializeOpenShopDraft,
+} from '@/lib/open-shop-draft';
 
 /**
  * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic";
@@ -55,6 +66,21 @@ import { becomeVendor } from '../actions';
  * The logo upload reuses the shared <FileUpload> → R2 pattern from My Shop; the
  * primary-service labels come from the admin taxonomy (serviceLabels), falling
  * back to the in-code names.
+ *
+ * ── THE ACCOUNT IS CREATED INSIDE STEP 3 (owner 2026-09-22) ──────────────────
+ * "approved. account inside step 3." A stranger is no longer bounced to /login
+ * before seeing the wizard. With no session (`guest`), step 3 also carries a
+ * password under the company email — "You'll sign in with this" — plus Google /
+ * Apple, and ONE submit creates the account and the shop (`becomeVendor` →
+ * `decideOpenShopAccount` → `createVendorAccountForShop`). "Have an account? Sign
+ * in" opens the sign-in POPUP over the wizard (the seam, 2026-08-12): on success
+ * the server page re-renders with the account and this component keeps its state,
+ * so everything typed stays and step 3 simply changes shape. The Terms box rides
+ * on the last step for the guest path, above the one button that creates anything.
+ *
+ * Google / Apple genuinely LEAVE the page, so the typed steps are parked in a
+ * one-hour, same-tab draft (`lib/open-shop-draft.ts`, never the password) and
+ * restored when the OAuth callback lands back here as a brand-new vendor.
  */
 /** Four steps, one question each. See `validateStep` for why not six or two. */
 export type Step = 1 | 2 | 3 | 4;
@@ -74,6 +100,9 @@ export function OpenShopWizard({
   error,
   feeNotice = null,
   initialStep = 1,
+  guest = false,
+  oauth = { show: false, desktop: false },
+  signInHref = '/login?next=%2Fopen-shop&as=vendor',
 }: {
   /**
    * "Free to join, and here is when you DO pay" — composed on the server by
@@ -121,6 +150,12 @@ export function OpenShopWizard({
   /** From `?step=` — the server sends `&step=N` when it rejects a field, so the
    *  wizard resumes on that step instead of discarding what was typed. */
   initialStep?: Step;
+  /** No session: step 3 also creates the account (owner 2026-09-22). */
+  guest?: boolean;
+  /** OAuth visibility by shell, decided on the server exactly as /login does. */
+  oauth?: { show: boolean; desktop: boolean };
+  /** The no-JavaScript fallback for "Have an account? Sign in". */
+  signInHref?: string;
 }) {
   // Seeded from `?step=` so a SERVER rejection re-renders on the step that owns
   // the rejected field, instead of dumping the vendor back to the start with
@@ -196,6 +231,10 @@ export function OpenShopWizard({
       // form round-trips and drops them back with a banner.
       if (!isPhPhone(read('contact_phone'))) return OPEN_SHOP_ERRORS.contactPhoneNotPh;
       if (!isValidOpenShopEmail(read('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
+      // Same floor as /signup, same sentence — see lib/open-shop-account.ts.
+      if (guest && read('password').length < OPEN_SHOP_PASSWORD_MIN) {
+        return OPEN_SHOP_ACCOUNT_ERRORS.password;
+      }
       return null;
     }
     const el = (name: string) =>
@@ -208,11 +247,16 @@ export function OpenShopWizard({
     // The rule itself lives in `locationStepError` so it can be RUN. It used to
     // be three `if`s here, guarded by regexes over this file's own source text —
     // which notice a deletion and nothing else.
-    return locationStepError({
+    const location = locationStepError({
       hasPin: !!el('hq_latitude')?.value,
       confirmed: !!el('location_confirmed')?.value,
       city: el('location_city')?.value ?? '',
     });
+    if (location) return location;
+    // The agreement, only where an account is being CREATED. The server refuses
+    // it too (`hasAgreedToTerms`); this only saves the round trip.
+    if (guest && !el(TERMS_FIELD)?.checked) return TERMS_REQUIRED_MESSAGE;
+    return null;
   };
 
   /**
@@ -236,6 +280,9 @@ export function OpenShopWizard({
    */
   const onFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== 'Enter') return;
+    // The sign-in popup is a PORTAL: its DOM is under <body>, but React still
+    // bubbles its key events through this form. Only keys typed IN this form count.
+    if (!e.currentTarget.contains(e.target as Node)) return;
     const t = e.target as HTMLElement | null;
     const tag = t?.tagName;
     if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A') return;
@@ -266,6 +313,8 @@ export function OpenShopWizard({
    * screen the vendor cannot see.
    */
   const submitGate = (e: React.FormEvent<HTMLFormElement>) => {
+    // Same portal rule: a submit inside the sign-in popup must not be gated here.
+    if (e.target !== e.currentTarget) return;
     for (const n of [1, 2, 3, 4] as Step[]) {
       const err = validateStep(n);
       if (err) {
@@ -277,6 +326,66 @@ export function OpenShopWizard({
     }
     setBanner(null);
   };
+
+  /**
+   * Park the typed steps before Google / Apple take the page away, and restore
+   * them when the callback lands back here. The forms in <OAuthButtonRow> post to
+   * server actions; their submit bubbles to the wrapper below in React's tree.
+   */
+  const saveDraft = () => {
+    const read = (name: string) =>
+      (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
+    try {
+      sessionStorage.setItem(
+        OPEN_SHOP_DRAFT_KEY,
+        serializeOpenShopDraft({
+          step: 3,
+          shopName,
+          logoUrl,
+          service,
+          serviceLabel: pickedLabel,
+          events,
+          position: read('contact_position'),
+          phone: read('contact_phone'),
+          email: read('contact_email'),
+        }),
+      );
+    } catch {
+      // Storage refused (private mode, quota): the round trip loses the draft,
+      // which is today's behaviour, not a new failure.
+    }
+  };
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || mode !== 'create') return;
+    restoredRef.current = true;
+    let raw: string | null = null;
+    try {
+      raw = sessionStorage.getItem(OPEN_SHOP_DRAFT_KEY);
+      if (raw) sessionStorage.removeItem(OPEN_SHOP_DRAFT_KEY);
+    } catch {
+      return;
+    }
+    const d = parseOpenShopDraft(raw);
+    if (!d) return;
+    if (d.shopName) setShopName(d.shopName);
+    if (d.logoUrl) setLogoUrl(d.logoUrl);
+    if (d.service) {
+      setService(d.service);
+      setPickedLabel(d.serviceLabel);
+    }
+    if (d.events.length) setEvents(d.events);
+    const write = (name: string, value: string) => {
+      const el = formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
+      if (el && value && !el.readOnly) el.value = value;
+    };
+    write('contact_position', d.position);
+    write('contact_phone', d.phone);
+    write('contact_email', d.email);
+    setStep(d.step);
+    // Re-render dependencies are deliberately empty: this runs ONCE, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
@@ -329,6 +438,40 @@ export function OpenShopWizard({
           </p>
         )}
 
+        {/* ── STEP 3, SIGNED OUT: the account is created here (owner 2026-09-22).
+            Google / Apple and "Sign in" sit OUTSIDE the wizard's own form element:
+            the OAuth row renders its own forms (nested forms are invalid HTML and
+            the browser drops the inner one), and the sign-in link opens a portal
+            whose submit must never reach this form's gate. */}
+        {guest && step === 3 ? (
+          <div className="mt-5 space-y-3" onSubmitCapture={saveDraft}>
+            {oauth.show ? (
+              <>
+                {oauth.desktop ? (
+                  <DesktopOAuthButtons next="/open-shop" />
+                ) : (
+                  <OAuthButtonRow next="/open-shop" withAccountType defaultAccountType="vendor" />
+                )}
+                <div
+                  className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em]"
+                  style={{ color: 'var(--m-slate-3)' }}
+                >
+                  <span className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                  <span>or with email</span>
+                  <span className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                </div>
+              </>
+            ) : null}
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              This also creates your Setnayan account. Have an account?{' '}
+              <SignInHereLink href={signInHref} className="font-medium text-terracotta">
+                Sign in
+              </SignInHereLink>{' '}
+              — what you typed stays.
+            </p>
+          </div>
+        ) : null}
+
         {/* ⚠ `ref={formRef}` IS LOAD-BEARING, NOT DECORATION. `validateStep` reads
             steps 3 and 4 off this element by name. It was declared and read but
             never ATTACHED when the four-step restructure landed, so
@@ -343,6 +486,9 @@ export function OpenShopWizard({
           onKeyDown={onFormKeyDown}
           className="mt-5 space-y-4"
         >
+          {/* The bot check rides with the account creation, as on /signup.
+              Graceful-off when the site key is unset. */}
+          {guest ? <TurnstileField action="signup" /> : null}
           {/* Step 1 — always mounted so values survive step switches. */}
           {/* 1 · Your shop. Always mounted, like every panel — inputs persist across
               steps and there is ONE submit at the end. */}
@@ -609,7 +755,28 @@ export function OpenShopWizard({
                 placeholder="hello@yourstudio.ph"
                 className="input-field"
               />
+              {guest ? (
+                <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  You&rsquo;ll sign in with this.
+                </span>
+              ) : null}
             </label>
+
+            {guest ? (
+              <label className="block space-y-1">
+                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  Password<span className="ml-1 text-terracotta">*</span>
+                </span>
+                <input
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={OPEN_SHOP_PASSWORD_MIN}
+                  placeholder="At least 8 characters"
+                  className="input-field"
+                />
+              </label>
+            ) : null}
           </div>
           {/* 4 · Where you are. Its own step because the map is the one element that
               needs full attention and cannot be made smaller. */}
@@ -634,6 +801,33 @@ export function OpenShopWizard({
             </div>
           </div>
 
+
+          {/* THE AGREEMENT, where an account is being created — on the step that
+              carries the one button that creates anything, above it, UNTICKED
+              (clickwrap, CTRL-B3). `required` is the browser's half; the server
+              refuses without it (`hasAgreedToTerms`). */}
+          {guest && step === TOTAL_STEPS ? (
+            <label className="flex cursor-pointer items-start gap-2 text-sm" style={{ color: 'var(--m-ink)' }}>
+              <input
+                type="checkbox"
+                name={TERMS_FIELD}
+                required
+                className="mt-0.5 h-4 w-4 shrink-0"
+                style={{ accentColor: 'var(--m-mulberry)' }}
+              />
+              <span>
+                I agree to the{' '}
+                <a href="/terms" className="text-terracotta" target="_blank" rel="noreferrer">
+                  Terms
+                </a>{' '}
+                and{' '}
+                <a href="/privacy" className="text-terracotta" target="_blank" rel="noreferrer">
+                  Privacy Policy
+                </a>
+                .
+              </span>
+            </label>
+          ) : null}
 
           {/* One nav row for every step. Back appears from step 2; the primary
               button becomes the real submit only on the last one — a

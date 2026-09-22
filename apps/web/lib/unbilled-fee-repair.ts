@@ -87,7 +87,8 @@ export type PendingCharge = {
  *
  * ⚠ A WAIVED CHARGE IS NEVER A CANDIDATE, and that is the whole reason this is
  * a function rather than a `.filter()` at the call site. `waived_free5` (the
- * owner's first-five-free rule) and `waived_import` are ₱0 by construction and
+ * owner's first-five-free rule), `waived_import`, and `waived_promo` (a
+ * free-fee window) are ₱0 by construction and
  * correctly have no order; billing one would charge a supplier for a booking
  * the owner gave them. `paid`, `failed` and `expired` are equally out — a paid
  * charge has its bill, and a failed/expired one is not owed.

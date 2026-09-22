@@ -104,13 +104,31 @@ test('a `guest`-typed member row renders NO switcher — not a disabled one, non
   assert.doesNotMatch(html, /Coordinator/, 'no chip for a role they may not preview');
   assert.doesNotMatch(html, /viewas=/, 'and no door to one either');
   // The stage itself still paints — the gate refuses the switcher, not the page.
-  assert.match(html, /As your guests see it/);
+  // 🪤 ANCHORED ON THE ADDRESS, NOT ON THE EYEBROW. This line read
+  // `/As your guests see it/` until the stage grew a live frame that carries the
+  // owner ribbon and the eyebrow had to stop saying that. The thing being
+  // asserted was never the wording — it was "the stage rendered at all" — so it
+  // now reads the couple’s own address out of the `<h2>` the section is labelled
+  // by, which is structural and cannot be reworded out from under it.
+  assert.match(html, /setnayan\.com\//, 'the stage rendered at all');
 });
 
 test('a `guest` row cannot arm a role by hand-typing the param', async () => {
   const html = await paint({ memberType: 'guest', viewas: 'host' });
   assert.doesNotMatch(html, /View as/);
   assert.doesNotMatch(html, /Open your page/, 'the host door must not appear');
+  // 🪤 A SECOND ANCHOR, BECAUSE THE FIRST ONE IS A STRING ANYONE MAY REUSE.
+  // The stage grew a live-page button and it was briefly labelled "Open your
+  // page" — the host role's own `previewLabel` — which would have made this
+  // assertion fire on chrome that is ALWAYS painted, for every viewer, rather
+  // than on a leaked host door. The footnote below belongs to the host ROLE
+  // CARD and to nothing else on this page, so it cannot be collided with by a
+  // button somebody adds later.
+  assert.doesNotMatch(
+    html,
+    /The only role that may edit the site/,
+    'nor the host role card that door sits in',
+  );
 });
 
 test('a host sees the switcher, and the FIVE generic chips', async () => {

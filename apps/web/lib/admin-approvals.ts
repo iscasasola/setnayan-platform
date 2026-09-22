@@ -15,6 +15,7 @@ export type ApprovalActionType =
   | 'grant_team_pool'
   | 'promote_to_admin'
   | 'approve_vendor_partnership'
+  | 'approve_comp_grant'
   // Anti-fraud § 5 — the irreversible fraud wipe + permanent ban routes through
   // this gate. NOT offered in the manual new-request picker (APPROVAL_ACTIONS
   // below); initiated from /admin/fraud and confirmed by a second admin in
@@ -34,6 +35,7 @@ export type ApprovalActionType =
  */
 const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_vendor_partnership: 'Approve vendor partnership',
+  approve_comp_grant: 'Approve comp grant (money)',
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
   approve_journal_spotlight: 'Publish sponsored journal spotlight',
 };
@@ -89,5 +91,6 @@ export function approvalActionLabel(type: string): string {
 export function approvalActionBadge(type: string): string {
   if (type === 'approve_fraud_wipe_ban') return '⛔ Fraud ban';
   if (type === 'approve_vendor_partnership') return '🤝 Partnership';
+  if (type === 'approve_comp_grant') return '💸 Comp';
   return approvalActionMeta(type)?.badge ?? type;
 }

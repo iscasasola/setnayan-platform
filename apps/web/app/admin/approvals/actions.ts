@@ -114,6 +114,7 @@ async function executeApproved(
   admin: AdminClient,
   row: {
     action_type: ApprovalActionType;
+    payload?: Record<string, unknown> | null;
     target_user_id: string | null;
     target_id: string | null;
     rationale: string | null;
@@ -159,6 +160,26 @@ async function executeApproved(
       .update({ admin_approved_at: new Date().toISOString() })
       .eq('spotlight_id', row.target_id);
     if (error) throw new Error(`Spotlight approval failed: ${error.message}`);
+    return;
+  }
+
+  // A comp is money, and money takes two admins (register LAU-19). The vendor
+  // rides in target_id; the SKU and reason ride in the payload. The expiry is
+  // computed HERE, at execution, so a comp approved two days later still stacks
+  // from the expiry as it is then.
+  if (row.action_type === 'approve_comp_grant') {
+    if (!row.target_id) throw new Error('Comp approval has no target vendor');
+    if (!row.decided_by) throw new Error('Comp approval has no confirming admin');
+    const payload = (row.payload ?? {}) as { sku?: string; reason?: string };
+    if (!payload.sku) throw new Error('Comp approval has no SKU');
+    const { executeVendorSkuComp } = await import('@/app/admin/vendors/actions');
+    await executeVendorSkuComp(admin, {
+      vendorProfileId: row.target_id,
+      sku: payload.sku,
+      reason: payload.reason ?? row.rationale,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+    });
     return;
   }
 
@@ -209,7 +230,7 @@ export async function approveRequest(formData: FormData) {
     .eq('status', 'pending')
     .gt('expires_at', nowIso)
     .neq('initiated_by', userId)
-    .select('approval_id, action_type, target_user_id, target_id, rationale, initiated_by, decided_by')
+    .select('approval_id, action_type, target_user_id, target_id, payload, rationale, initiated_by, decided_by')
     .maybeSingle();
 
   if (claimErr) throw new Error(`Could not approve: ${claimErr.message}`);

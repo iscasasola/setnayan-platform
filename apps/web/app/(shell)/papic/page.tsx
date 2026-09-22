@@ -53,7 +53,7 @@ import {
   papicFreeCreditPoints,
   papicFreeCreditPromise,
 } from '@/lib/papic-free-credit-promise';
-import { PAPIC_POINTS_PER_PHOTO, PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
+import { PAPIC_POINTS_PER_PHOTO, PAPIC_POINTS_PER_SNIPPET } from '@/lib/papic-cameras-pure';
 import { setupPricePhp, hasSetupSaving, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PapicScan } from './_papic-scan';
@@ -187,7 +187,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
 const FAQ = [
   {
     q: 'What is a credit?',
-    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${PAPIC_POINTS_PER_CLIP} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, the galleries are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
+    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${PAPIC_POINTS_PER_SNIPPET} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, the galleries are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
   },
   {
     q: 'Do guests need an app?',
@@ -653,7 +653,7 @@ export default async function PapicLandingPage() {
                   <Cost n={PAPIC_POINTS_PER_PHOTO} /> a photograph
                 </li>
                 <li className="py-1 text-[0.88rem] text-[var(--m-slate-2)]">
-                  <Cost n={PAPIC_POINTS_PER_CLIP} /> a{' '}
+                  <Cost n={PAPIC_POINTS_PER_SNIPPET} /> a{' '}
                   <span className="font-medium text-[var(--m-ink)]">Snippet</span> — our ten-second
                   video, the longest there is. A shorter one costs less.
                 </li>
@@ -675,7 +675,7 @@ export default async function PapicLandingPage() {
               <PapicDial
                 rungs={anchor.rungs}
                 freeCredits={anchor.freeCredits}
-                clipCost={PAPIC_POINTS_PER_CLIP}
+                clipCost={PAPIC_POINTS_PER_SNIPPET}
                 idealPerGuest={IDEAL_PHOTOGRAPHS_PER_GUEST}
               />
             </div>

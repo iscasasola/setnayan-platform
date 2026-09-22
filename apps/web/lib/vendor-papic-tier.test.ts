@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PAPIC_CLIP_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras';
+import { PAPIC_SNIPPET_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras';
 import { stripComments } from './strip-comments';
 
 import {
@@ -48,10 +48,10 @@ test('capture points are DERIVED from the couple pool, not re-typed', () => {
   //
   // Pinned to the SHARED constant now, so the two meters cannot separate again.
   assert.equal(pointsForMedia('photo'), PAPIC_POINTS_PER_PHOTO);
-  assert.equal(pointsForMedia('clip'), PAPIC_CLIP_COST_MAX);
+  assert.equal(pointsForMedia('clip'), PAPIC_SNIPPET_COST_MAX);
   assert.equal(
     pointsSpent([{ media_type: 'photo' }, { media_type: 'clip' }, { media_type: 'photo' }]),
-    2 * PAPIC_POINTS_PER_PHOTO + PAPIC_CLIP_COST_MAX,
+    2 * PAPIC_POINTS_PER_PHOTO + PAPIC_SNIPPET_COST_MAX,
   );
   assert.equal(pointsSpent([]), 0);
 });
@@ -140,8 +140,8 @@ test('canCapture: a clip needs the VIDEO THRESHOLD first, then the points', () =
   // last clip that fits, and the first that does not. Both derived from the cap
   // and the clip cost, so a reprice moves them together.
   const CAP = 800; // credits in the ledger — since 2026-09-05 one credit is one point
-  assert.deepEqual(canCapture('lite', CAP - PAPIC_CLIP_COST_MAX, 'clip', CAP), { ok: true });
-  assert.deepEqual(canCapture('lite', CAP - PAPIC_CLIP_COST_MAX + 1, 'clip', CAP), {
+  assert.deepEqual(canCapture('lite', CAP - PAPIC_SNIPPET_COST_MAX, 'clip', CAP), { ok: true });
+  assert.deepEqual(canCapture('lite', CAP - PAPIC_SNIPPET_COST_MAX + 1, 'clip', CAP), {
     ok: false,
     reason: 'out_of_points',
   });
@@ -165,8 +165,8 @@ test('canCapture: Ltd — a clip needs a whole clip of headroom, once video is u
   }, 'ltd on its own 70 points is below the video threshold');
 
   const CAP = 800;
-  assert.deepEqual(canCapture('ltd', CAP - PAPIC_CLIP_COST_MAX, 'clip', CAP), { ok: true });
-  assert.deepEqual(canCapture('ltd', CAP - PAPIC_CLIP_COST_MAX + 1, 'clip', CAP), {
+  assert.deepEqual(canCapture('ltd', CAP - PAPIC_SNIPPET_COST_MAX, 'clip', CAP), { ok: true });
+  assert.deepEqual(canCapture('ltd', CAP - PAPIC_SNIPPET_COST_MAX + 1, 'clip', CAP), {
     ok: false,
     reason: 'out_of_points',
   });

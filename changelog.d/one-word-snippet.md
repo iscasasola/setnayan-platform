@@ -20,9 +20,8 @@ same thing.**
 
 ⚠ **Deliberately NOT renamed, and each would have been a bug:** `kind: 'clip'` and friends are
 stored values; `setnayan-clip-*.mp4` is a filename people already have; `lib/face-embed-clip` is
-the **CLIP embedding model**, nothing to do with video. Internal identifiers
-(`PAPIC_POINTS_PER_CLIP`, 26 call sites) are untouched — churning them buys no customer-visible
-gain and risks the guards pinned to those symbols.
+the **CLIP embedding model**, nothing to do with video. Internal identifiers were untouched here and
+are renamed in the follow-up (`snippet-in-the-code`) after the owner asked for them too.
 
 SPEC IMPACT: `DECISION_LOG.md` row added 2026-09-22 — the word, the half-migrated state it
 replaces, and the guard trap.

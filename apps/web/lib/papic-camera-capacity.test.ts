@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { papicBucketPhrase } from './papic-tier-copy';
-import { PAPIC_POINTS_PER_CLIP, PAPIC_CAMERA_MINI_SKU } from './papic-cameras';
+import { PAPIC_POINTS_PER_SNIPPET, PAPIC_CAMERA_MINI_SKU } from './papic-cameras';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -89,7 +89,7 @@ test('papicBucketPhrase discloses the one-purse trade-off, derived', () => {
   assert.match(phrase, /about 50 photographs/);
   assert.match(
     phrase,
-    new RegExp(`Snippet counts as ${PAPIC_POINTS_PER_CLIP}`),
+    new RegExp(`Snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`),
     'the clip weight must interpolate the constant so a reprice moves the copy',
   );
   // Never an exact split promise — photos and clips share ONE bucket.

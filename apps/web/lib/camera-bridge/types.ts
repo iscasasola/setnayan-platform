@@ -44,7 +44,7 @@ export type BridgeStatus = 'disconnected' | 'pairing' | 'live' | 'recording';
  * brand adapter can drift past the cap. (Patiktok/Panood takes are NOT clips —
  * they consume the `livePreview()` stream, never `triggerClip`.)
  */
-export const PAPIC_CLIP_DURATION_MS = 10000;
+export const PAPIC_SNIPPET_DURATION_MS = 10000;
 
 /** One live-view frame. CCAPI live view is a JPEG pull (~720p), not H.264. */
 export interface VideoFrame {
@@ -133,7 +133,7 @@ export interface CameraBridge {
 
   /**
    * Fire a fixed-duration clip (Papic file path). `durationMs` must not exceed
-   * PAPIC_CLIP_DURATION_MS — implementations MUST reject beyond-cap requests.
+   * PAPIC_SNIPPET_DURATION_MS — implementations MUST reject beyond-cap requests.
    * Gesture map: Drag-right = 5 s clip · chord = 5 s clip with light.
    */
   triggerClip(opts: { durationMs: number; light?: boolean }): Promise<CapturedFile>;

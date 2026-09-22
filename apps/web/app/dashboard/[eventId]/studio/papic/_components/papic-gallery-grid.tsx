@@ -3,7 +3,7 @@
 import { Fragment, useState } from 'react';
 import { Play, Download, Sparkles, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
-import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
+import { PAPIC_POINTS_PER_SNIPPET } from '@/lib/papic-cameras-pure';
 import {
   PRESERVATION_BLOCK_PHP,
   PRESERVATION_BLOCK_POINTS,
@@ -530,13 +530,13 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
         become smaller copies unless you choose to keep them.{' '}
         {nonePicked ? (
           <>Tap a photo to choose it. A photo is one credit; a 10-second video is{' '}
-          {PAPIC_POINTS_PER_CLIP}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
+          {PAPIC_POINTS_PER_SNIPPET}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
           credits&rsquo; worth is {formatPhp(PRESERVATION_BLOCK_PHP)} a year.</>
         ) : (
           <>
             Keeping what you have chosen would be {formatPhp(annualPhp)} a year
             {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. A photo is
-            one credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}.
+            one credit; a 10-second video is {PAPIC_POINTS_PER_SNIPPET}.
           </>
         )}{' '}
         Nothing is ever deleted — anything you don&rsquo;t choose stays in your gallery, only

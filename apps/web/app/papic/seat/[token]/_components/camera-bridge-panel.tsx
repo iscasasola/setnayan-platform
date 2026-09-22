@@ -24,7 +24,7 @@ import {
   type PairingState,
 } from '@/lib/camera-bridge/pairing-fsm';
 import {
-  PAPIC_CLIP_DURATION_MS,
+  PAPIC_SNIPPET_DURATION_MS,
   realScheduler,
   type CapturedFile,
 } from '@/lib/camera-bridge/types';
@@ -186,7 +186,7 @@ export function CameraBridgePanel({ token, seatIndex, eventId }: Props) {
         const file =
           kind === 'still'
             ? await controller.captureStill()
-            : await controller.captureClip({ durationMs: PAPIC_CLIP_DURATION_MS });
+            : await controller.captureClip({ durationMs: PAPIC_SNIPPET_DURATION_MS });
         const via: Delivered['via'] = file.pairedCameraBrand ? 'dslr' : 'phone';
         const result = await deliverCapture(deps, file, { seatIndex });
         if (result.ok) {

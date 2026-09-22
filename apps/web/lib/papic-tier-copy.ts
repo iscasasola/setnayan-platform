@@ -28,7 +28,7 @@
  * this file and take their numbers as ARGUMENTS — points from papic_pass_tiers /
  * papic_one_tiers, price from platform_retail_catalog_v2. The clip weight moved
  * with that lock: one 10-second clip is 8 points, not 7, and it is written in
- * exactly one place (PAPIC_POINTS_PER_CLIP in lib/papic-cameras-pure.ts), which is why
+ * exactly one place (PAPIC_POINTS_PER_SNIPPET in lib/papic-cameras-pure.ts), which is why
  * every sentence below interpolates it instead of spelling it.
  *
  * Deliberately framed as "about N photos (fewer if you shoot clips)" — the
@@ -43,7 +43,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   PAPIC_FREE_CAMERA_COUNT,
-  PAPIC_POINTS_PER_CLIP,
+  PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
 } from '@/lib/papic-cameras-pure';
 
@@ -334,7 +334,7 @@ export async function fetchPapicFreeGrantRead(
  * ⚠ The word is SNIPPET, owner 2026-09-22: "use snippet everywhere". It was
  * already the word on /papic and in papicPointCurrencyTerms below; these
  * older phrases still said "clip", so one product said two things. The
- * CONSTANT is still PAPIC_POINTS_PER_CLIP — an internal identifier nobody
+ * CONSTANT is still PAPIC_POINTS_PER_SNIPPET — an internal identifier nobody
  * reads, deliberately left alone rather than churn 26 call sites for no
  * customer-visible gain.
  */
@@ -343,7 +343,7 @@ export function papicCapacityPhrase(pointsPerDay: number | null): string {
   const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
   return (
     `about ${photos} photo${photos === 1 ? '' : 's'} a day — fewer if you shoot ` +
-    `snippets, since one 10-second snippet counts as ${PAPIC_POINTS_PER_CLIP}`
+    `snippets, since one 10-second snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`
   );
 }
 
@@ -423,7 +423,7 @@ export function papicOneRungPhrase(points: number, pricePhp: number): string {
 export function papicPointCurrencyTerms(): readonly [string, string] {
   return [
     `1 photo = ${PAPIC_POINTS_PER_PHOTO} credit`,
-    `a snippet (10 seconds) = ${PAPIC_POINTS_PER_CLIP} credits`,
+    `a snippet (10 seconds) = ${PAPIC_POINTS_PER_SNIPPET} credits`,
   ];
 }
 
@@ -439,6 +439,6 @@ export function papicBucketPhrase(points: number): string {
   const photos = Math.floor(points / PAPIC_POINTS_PER_PHOTO);
   return (
     `about ${photos.toLocaleString('en-PH')} photograph${photos === 1 ? '' : 's'} — fewer if ` +
-    `you shoot snippets, since a snippet counts as ${PAPIC_POINTS_PER_CLIP}`
+    `you shoot snippets, since a snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`
   );
 }

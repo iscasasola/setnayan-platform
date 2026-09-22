@@ -143,6 +143,7 @@ import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
 import type { EntourageGroup } from '@/lib/entourage';
+import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -303,6 +304,12 @@ type SiteBodyProps = {
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
+  /**
+   * LAU-33 · TRUE when the wall read was attempted and failed. Distinct from
+   * `liveWall == null`, which also means "not owned" and "mirror off" — those
+   * three were one value, so a failure rendered as a setting.
+   */
+  liveWallUnreadable?: boolean;
   /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
   /** Has the couple staged a broadcast worth ANNOUNCING before the day? The
@@ -387,6 +394,7 @@ export async function SiteBody({
   scheduleBlocks,
   backdrop,
   liveWall,
+  liveWallUnreadable = false,
   watchLive,
   broadcastPlanned = false,
   doorwayFacts = null,
@@ -1004,6 +1012,21 @@ export async function SiteBody({
                 celebration window. Same screened feed as the projector. The id is the
                 anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
                 above) — scroll-margin keeps it clear of the fixed bottom bar. */}
+            {/* 🔑 LAU-33 · THE MEASUREMENT REACHES THE RENDER. When the wall read
+                was attempted and FAILED, say so. Without this the section simply
+                was not there, which is byte-identical to "this couple does not
+                own LIVE_WALL" and to "they turned the guest mirror off" — so a
+                broken wall looked exactly like a setting, and nobody asked.
+                Same anchor id, so the event-day bar's "Photos" button still
+                lands somewhere that explains itself. */}
+            {dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
+              <section id="live-photo-wall" className="mt-10 scroll-mt-6">
+                <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
+                  {LIVE_WALL_UNREADABLE_LINE}
+                </p>
+              </section>
+            ) : null}
+
             {dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
               <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                 <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />

@@ -679,6 +679,13 @@ export const loadLiveLayer = cache(
     // capped to the newest dozen so a busy wall doesn't presign hundreds per
     // page view. Wall trouble must never break the wedding page → try/null.
     let liveWall: LiveWallData | null = null;
+    // 🔑 LAU-33 · `null` was doing the work of two states. It means "not owned /
+    // mirror off" AND it meant "the read failed", so a refused read rendered
+    // byte-identically to a deliberate off-state and the section just was not
+    // there. This sibling keeps every existing reader of `liveWall` unchanged
+    // (including publicAlbumHref, which routes the "Photos" button off it)
+    // while letting the page tell the truth. See lib/live-wall-read-state.ts.
+    let liveWallUnreadable = false;
     // Panood Watch-Live (owner 2026-06-12: "panood … must be on the on-the-day
     // part") — when the couple staged their watch link (events.panood_watch_url,
     // migration 20261122000000), the live page leads with the broadcast for the
@@ -861,8 +868,13 @@ export const loadLiveLayer = cache(
             challengeMeasured: snap.challengeMeasured,
           };
         }
-      } catch {
+      } catch (err) {
+        // Bound, logged AND surfaced. The error was previously discarded
+        // entirely, so this failure had no symptom anywhere — not on the page,
+        // not in Sentry. A log line alone would still have changed no pixel.
+        console.error('[live-wall] guest mirror read failed:', err);
         liveWall = null;
+        liveWallUnreadable = true;
       }
     }
 
@@ -909,6 +921,7 @@ export const loadLiveLayer = cache(
       scheduleBlocks,
       backdropConfig,
       liveWall,
+      liveWallUnreadable,
       watchLive,
       broadcastPlanned,
       publicCandidCameraActive,

@@ -46,7 +46,7 @@ app/admin/payments/actions.ts	discarded	from:orders.update	1
 app/admin/payments/actions.ts	discarded	from:receipts.insert	1
 app/admin/payments/actions.ts	discarded-in-try	from:admin_audit_log.insert	1
 app/admin/pricing/_surfaces/free-windows-actions.ts	discarded	from:admin_audit_log.insert	3
-app/admin/pricing/actions.ts	discarded	from:admin_audit_log.insert	12
+app/admin/pricing/actions.ts	discarded	from:admin_audit_log.insert	11
 app/admin/pricing/price-control-actions.ts	discarded	from:admin_audit_log.insert	6
 app/admin/real-stories/actions.ts	discarded	from:admin_audit_log.insert	3
 app/admin/recaps/actions.ts	discarded	from:admin_audit_log.insert	1
@@ -103,7 +103,6 @@ app/dashboard/(account)/people/dependent-actions.ts	discarded	from:dependents.de
 app/dashboard/(account)/people/dependent-actions.ts	discarded	from:dependents.update	2
 app/dashboard/(account)/people/dependent-actions.ts	discarded	from:godparents.delete	1
 app/dashboard/(account)/profile/actions.ts	discarded	from:slug_change_log.insert	1
-app/dashboard/(account)/profile/concierge/actions.ts	discarded-in-try	from:concierge_abuse_flags.insert	1
 app/dashboard/(account)/profile/face-profile-actions.ts	discarded	from:guest_face_enrollments.update	1
 app/dashboard/(account)/samahan/actions.ts	discarded	from:communities.update	1
 app/dashboard/(account)/samahan/actions.ts	discarded	from:samahan_messages.update	1
@@ -118,10 +117,6 @@ app/dashboard/[eventId]/guests/[guestId]/actions.ts	discarded	from:event_seat_as
 app/dashboard/[eventId]/guests/[guestId]/actions.ts	discarded	from:guest_face_enrollments.update	2
 app/dashboard/[eventId]/guests/[guestId]/actions.ts	discarded	from:guests.update	1
 app/dashboard/[eventId]/guests/[guestId]/actions.ts	discarded-in-try	rpc:set_guest_messages_hidden_by_faceblock	1
-app/dashboard/[eventId]/guests/claims/actions.ts	discarded	from:event_members.delete	1
-app/dashboard/[eventId]/guests/claims/actions.ts	discarded	from:event_members.update	1
-app/dashboard/[eventId]/guests/claims/actions.ts	discarded	from:event_seat_assignments.delete	2
-app/dashboard/[eventId]/guests/claims/actions.ts	discarded	from:guests.update	4
 app/dashboard/[eventId]/guests/groups-actions.ts	discarded	from:event_seat_assignments.delete	1
 app/dashboard/[eventId]/guests/groups-actions.ts	discarded	from:event_seat_assignments.upsert	1
 app/dashboard/[eventId]/guests/groups-actions.ts	discarded	from:guest_group_memberships.upsert	1
@@ -224,7 +219,6 @@ app/vendor-dashboard/packages/actions.ts	discarded	from:vendor_packages.delete	1
 app/vendor-dashboard/payment-options/actions.ts	discarded	from:vendor_payment_methods.update	1
 app/vendor-dashboard/proposals/actions.ts	discarded	from:vendor_proposal_templates.delete	1
 app/vendor-dashboard/proposals/actions.ts	discarded	from:vendor_proposals.delete	1
-app/vendor-dashboard/proposals/actions.ts	discarded	rpc:supersede_prior_vendor_proposals	1
 app/vendor-dashboard/services/actions.ts	discarded	from:vendor_service_discounts.delete	1
 app/vendor-dashboard/services/actions.ts	discarded	from:vendor_service_discounts.insert	1
 app/vendor-dashboard/services/actions.ts	discarded	from:vendor_service_inclusions.delete	1
@@ -314,7 +308,6 @@ lib/photo-delivery-release.ts	discarded-in-try	from:photo_delivery_artifacts.upd
 lib/plausibility-scanner.ts	discarded-in-try	from:integrity_flags.insert	1
 lib/plausibility-scanner.ts	discarded-in-try	from:integrity_flags.update	2
 lib/proposal-send.ts	discarded	from:vendor_proposals.delete	2
-lib/proposal-send.ts	discarded	rpc:supersede_prior_vendor_proposals	1
 lib/record-vendor-view.ts	discarded-in-try	from:vendor_profile_views.insert	1
 lib/referrals.ts	discarded	from:discount_codes.update	1
 lib/referrals.ts	discarded-in-try	from:discount_codes.update	1

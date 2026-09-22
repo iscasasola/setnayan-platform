@@ -15,6 +15,7 @@ export type ApprovalActionType =
   | 'grant_team_pool'
   | 'promote_to_admin'
   | 'approve_vendor_partnership'
+  | 'approve_comp_grant'
   // Anti-fraud § 5 — the irreversible fraud wipe + permanent ban routes through
   // this gate. NOT offered in the manual new-request picker (APPROVAL_ACTIONS
   // below); initiated from /admin/fraud and confirmed by a second admin in
@@ -25,7 +26,22 @@ export type ApprovalActionType =
   // target_id carries the spotlight_id. LAU-20: a CHECK rebuild once dropped
   // this value in prod; tests/db/every-approval-type-the-code-writes-is-allowed
   // now inserts every member of this union against the replayed schema.
-  | 'approve_journal_spotlight';
+  | 'approve_journal_spotlight'
+  // Vendor Agreement § 9.1 — "Refund any single transaction > ₱25,000".
+  // Initiated from /admin/payments by the admin filling the refund form and
+  // confirmed by a second admin in /admin/approvals; never offered in the
+  // picker, because a refund only makes sense against a specific paid order.
+  // target_id carries the order_id; the amount, reason and proof ride in the
+  // payload. The threshold itself lives in lib/two-admin-promise.ts.
+  | 'approve_large_refund'
+  // Vendor Agreement § 9.1 — "Modify Setnayan's static BDO / GCash
+  // payment-receiving account numbers". Initiated from
+  // /admin/settings/payment-methods, either by editing the account fields or
+  // by uploading a new payment QR (a QR IS a destination), and confirmed by a
+  // second admin. Never in the picker: there is nothing to propose in the
+  // abstract, only a specific new destination. No target_id — the subject is
+  // the platform_settings row; the destination rides in the payload.
+  | 'approve_payment_account_change';
 
 /**
  * Display labels for action types that are NOT in the manual picker
@@ -34,8 +50,11 @@ export type ApprovalActionType =
  */
 const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_vendor_partnership: 'Approve vendor partnership',
+  approve_comp_grant: 'Approve comp grant (money)',
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
   approve_journal_spotlight: 'Publish sponsored journal spotlight',
+  approve_large_refund: 'Approve refund over ₱25,000 (money)',
+  approve_payment_account_change: 'Change the BDO/GCash receiving account (money)',
 };
 
 export type ApprovalActionMeta = {
@@ -89,5 +108,6 @@ export function approvalActionLabel(type: string): string {
 export function approvalActionBadge(type: string): string {
   if (type === 'approve_fraud_wipe_ban') return '⛔ Fraud ban';
   if (type === 'approve_vendor_partnership') return '🤝 Partnership';
+  if (type === 'approve_comp_grant') return '💸 Comp';
   return approvalActionMeta(type)?.badge ?? type;
 }

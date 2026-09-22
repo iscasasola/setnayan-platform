@@ -490,6 +490,31 @@ type VendorCompableSku = keyof typeof VENDOR_COMPABLE_SKUS;
  * `comp_grants` row IS the audit trail here, same role `admin_audit_log`
  * plays for `setVendorTier`.
  */
+/**
+ * ── A COMP IS MONEY, SO IT TAKES TWO ADMINS (register LAU-19) ───────────────
+ *
+ * `admin_approval_requests` has enforced four eyes in the DATABASE since
+ * 2026-09-30 (`admin_approval_four_eyes`: `decided_by <> initiated_by`), and
+ * its vocabulary gated `grant_internal_account`, `grant_team_pool`,
+ * `promote_to_admin`, `approve_fraud_wipe_ban` and `approve_journal_spotlight`.
+ * Every one of those is a PRIVILEGE. None is money.
+ *
+ * 🔑 SO A SINGLE ADMIN COULD GRANT A COMP — extending a vendor's paid
+ * entitlement and writing a `comp_grants` row carrying `retail_value_centavos`
+ * — with nobody else involved. The intent was clearly there: `comp_grants` has
+ * an `approved_by` column, and this insert set it to `null` on every grant.
+ * The column was built for the second admin and never given one.
+ *
+ * This splits the one action in two, on the `executeFraudWipeBan` precedent:
+ *
+ *   issueVendorSkuComp   — validates, then OPENS an approval. Grants nothing.
+ *   executeVendorSkuComp — the whole grant, reachable only from the approvals
+ *                          dispatcher, after a DIFFERENT admin has confirmed.
+ *
+ * ⚠ The entitlement expiry is computed at EXECUTION, not at request time. A
+ * comp approved two days later must stack from the expiry as it is then —
+ * freezing the date into the payload would silently shorten the grant.
+ */
 export async function issueVendorSkuComp(formData: FormData): Promise<void> {
   const { adminUserId } = await requireAdmin();
   const vendorId = String(formData.get('vendor_id') ?? '').trim();
@@ -498,9 +523,6 @@ export async function issueVendorSkuComp(formData: FormData): Promise<void> {
   if (!Object.prototype.hasOwnProperty.call(VENDOR_COMPABLE_SKUS, sku)) {
     throw new Error('Invalid SKU.');
   }
-
-  // Same 10-char floor as setVendorTier's reason field — a one-click grant,
-  // not issueCompGrant's multi-field rationale.
   const reasonRaw = String(formData.get('reason') ?? '').trim();
   if (reasonRaw.length < 10) {
     throw new Error(
@@ -511,8 +533,84 @@ export async function issueVendorSkuComp(formData: FormData): Promise<void> {
   const admin = createAdminClient();
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('business_name, public_id, papic_challenge_expires_at')
+    .select('business_name, public_id')
     .eq('vendor_profile_id', vendorId)
+    .maybeSingle();
+  if (!vendor) throw new Error('Vendor not found.');
+
+  // One pending comp per vendor+SKU — a second press must not open a second
+  // approval that a second admin could grant twice.
+  const { data: already } = await admin
+    .from('admin_approval_requests')
+    .select('approval_id')
+    .eq('action_type', 'approve_comp_grant')
+    .eq('target_id', vendorId)
+    .eq('status', 'pending')
+    .contains('payload', { sku })
+    .maybeSingle();
+  if (already) {
+    throw new Error('A comp for this SKU is already waiting on a second admin.');
+  }
+
+  const { error: insErr } = await admin.from('admin_approval_requests').insert({
+    action_type: 'approve_comp_grant',
+    target_id: vendorId,
+    payload: { sku, reason: reasonRaw },
+    rationale: reasonRaw,
+    initiated_by: adminUserId,
+    // 72 hours, matching the sponsored-spotlight window: a comp is not
+    // time-critical, and an expired request is safer than a stale one.
+    expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+  });
+  if (insErr) throw new Error(`Could not open the approval: ${insErr.message}`);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'vendor_sku_comp_requested',
+    target_id: vendorId,
+    actor_user_id: adminUserId,
+    metadata: {
+      business_name: vendor.business_name,
+      public_id: vendor.public_id,
+      sku,
+      reason: reasonRaw,
+      status: 'pending_second_admin',
+    },
+  });
+  if (auditErr) {
+    console.error('[issueVendorSkuComp] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath('/admin/approvals');
+  const label = VENDOR_COMPABLE_SKUS[sku as VendorCompableSku].label;
+  const banner = `${vendor.business_name}: ${label} comp is waiting on a second admin.`;
+  if (wantsGiftsReturn(formData)) {
+    revalidatePath(GIFTS_RETURN_TARGET);
+    redirect(`${GIFTS_RETURN_TARGET}?banner=${encodeURIComponent(banner)}`);
+  }
+  redirect(`/admin/vendors/${vendorId}/plan?banner=${encodeURIComponent(banner)}`);
+}
+
+/**
+ * The grant itself. Called ONLY by the approvals dispatcher, after a different
+ * admin has confirmed — the four-eyes rule is enforced by the atomic claim and
+ * by `admin_approval_four_eyes` in the database, never by this function.
+ */
+export async function executeVendorSkuComp(
+  admin: ReturnType<typeof createAdminClient>,
+  input: {
+    vendorProfileId: string;
+    sku: string;
+    reason: string;
+    initiatedByAdminId: string;
+    confirmingAdminId: string;
+  },
+): Promise<void> {
+  const { vendorProfileId, sku, reason, initiatedByAdminId, confirmingAdminId } = input;
+
+  const { data: vendor } = await admin
+    .from('vendor_profiles')
+    .select('business_name, public_id, papic_challenge_expires_at')
+    .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (!vendor) throw new Error('Vendor not found.');
 
@@ -527,35 +625,36 @@ export async function issueVendorSkuComp(formData: FormData): Promise<void> {
   const { error: grantErr } = await admin
     .from('vendor_profiles')
     .update({ papic_challenge_expires_at: newExpiry })
-    .eq('vendor_profile_id', vendorId);
+    .eq('vendor_profile_id', vendorProfileId);
   if (grantErr) throw new Error(grantErr.message);
 
   const pricePhp = await fetchVendorPhotoChallengePricePhp(admin);
 
   const { error: insertErr } = await admin.from('comp_grants').insert({
     user_id: null,
-    vendor_profile_id: vendorId,
+    vendor_profile_id: vendorProfileId,
     source: 'external_promo',
     scope: 'specific_skus',
     scoped_skus: [sku],
     expiry: newExpiry,
     retail_value_centavos: pricePhp * 100,
-    rationale: reasonRaw,
-    granted_by: adminUserId,
-    approved_by: null,
+    rationale: reason,
+    granted_by: initiatedByAdminId,
+    // The column that was always null. This is what it was for.
+    approved_by: confirmingAdminId,
   });
   if (insertErr) {
     // The entitlement write already succeeded — rolling it back would take
-    // away what the admin just confirmed granting. Same "don't undo a real
+    // away what the admins just confirmed granting. Same "don't undo a real
     // grant over an audit-row failure" call issueCompGrant makes; log for
     // Sentry rather than throw.
-    console.error('[issueVendorSkuComp] comp_grants insert failed', insertErr.message);
+    console.error('[executeVendorSkuComp] comp_grants insert failed', insertErr.message);
   }
 
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'vendor_sku_comp_issued',
-    target_id: vendorId,
-    actor_user_id: adminUserId,
+    target_id: vendorProfileId,
+    actor_user_id: confirmingAdminId,
     metadata: {
       business_name: vendor.business_name,
       public_id: vendor.public_id,
@@ -563,23 +662,18 @@ export async function issueVendorSkuComp(formData: FormData): Promise<void> {
       from_expires_at: currentExpiry,
       to_expires_at: newExpiry,
       retail_value_centavos: pricePhp * 100,
-      reason: reasonRaw,
+      reason,
+      initiated_by: initiatedByAdminId,
+      approved_by: confirmingAdminId,
     },
   });
   if (auditErr) {
-    console.error('[issueVendorSkuComp] audit log insert failed', auditErr.message);
+    console.error('[executeVendorSkuComp] audit log insert failed', auditErr.message);
   }
 
-  revalidatePath(`/admin/vendors/${vendorId}/plan`);
+  revalidatePath(`/admin/vendors/${vendorProfileId}/plan`);
   revalidatePath('/admin/vendors');
-
-  const label = VENDOR_COMPABLE_SKUS[sku as VendorCompableSku].label;
-  const banner = `${vendor.business_name} comped ${label}.`;
-  if (wantsGiftsReturn(formData)) {
-    revalidatePath(GIFTS_RETURN_TARGET);
-    redirect(`${GIFTS_RETURN_TARGET}?banner=${encodeURIComponent(banner)}`);
-  }
-  redirect(`/admin/vendors/${vendorId}/plan?banner=${encodeURIComponent(banner)}`);
+  revalidatePath(GIFTS_RETURN_TARGET);
 }
 
 /**

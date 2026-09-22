@@ -119,7 +119,7 @@ test('🚨 the meter prices the selection in CREDITS, derived — never re-typed
     'a peso amount is written into the copy — derive it from the constant',
   );
   assert.ok(!/\b5,?000\b/.test(meter), 'the block size is hard-coded — derive it');
-  assert.match(meter, /PAPIC_POINTS_PER_CLIP/, 'the video credit cost must be the constant');
+  assert.match(meter, /PAPIC_POINTS_PER_SNIPPET/, 'the video credit cost must be the constant');
   assert.ok(
     !/video is \d/.test(meter),
     'the video credit cost is written into the copy — use the constant',
@@ -130,14 +130,14 @@ test('🚨 the meter prices the selection in CREDITS, derived — never re-typed
   const counter = codeOnly(LIB).slice(codeOnly(LIB).indexOf('export async function fetchPreservationTotals'));
   assert.match(
     counter,
-    /PAPIC_PRESERVATION_UNITS_PER_CLIP/,
+    /PAPIC_PRESERVATION_UNITS_PER_SNIPPET/,
     'clips must be weighted at the storage cost — an unweighted sum is not credits',
   );
   // ⚠ THE CONSTANT MOVED, THE INTENT DID NOT (2026-08-11). This asked for
   // `papicCaptureCost('clip')`. Capture is now billed BY LENGTH, and that call
   // only still returns the storage figure because a missing duration falls to
   // the ceiling — so preservation would have been resting on a default argument
-  // rather than on a decision. PAPIC_PRESERVATION_UNITS_PER_CLIP says out loud
+  // rather than on a decision. PAPIC_PRESERVATION_UNITS_PER_SNIPPET says out loud
   // that storage is billed flat and why (a stored row carries `is_clip` and no
   // duration). What this test guards is unchanged: a clip must be WEIGHTED, not
   // counted as one item.

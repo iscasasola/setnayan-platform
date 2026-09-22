@@ -20,7 +20,7 @@ import { recordSeatCapture } from '@/app/papic/actions';
  * chooses where anything lands.
  *
  * ⚠ THE CLIP LENGTH IS MEASURED HERE AND REFUSED HERE, NOT TRUNCATED.
- * `papicClipCost` bills an absent or nonsense duration at the TOP band — the
+ * `papicSnippetCost` bills an absent or nonsense duration at the TOP band — the
  * only direction a tampered client cannot profit from — so passing an
  * unmeasured clip through would silently overcharge a couple for their own
  * upload. A file over the cap is rejected in the picker, by name, before

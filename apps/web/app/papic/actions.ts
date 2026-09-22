@@ -602,7 +602,7 @@ export async function recordSeatCapture(
       // record, exactly as it already was for the flat price.
       //
       // `durationMs` is client-stamped and this file already calls it
-      // spoofable (see the clip_too_long check). papicClipCost bills an absent
+      // spoofable (see the clip_too_long check). papicSnippetCost bills an absent
       // or nonsense length at the TOP band, so the only thing a tampered client
       // can do by lying is pay MORE.
       //

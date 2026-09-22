@@ -74,7 +74,7 @@ function budgetLine(rung: ExtraCameraRung): string | null {
   // lived on this line:
   //
   //   1. A hardcoded divisor turned the budget into a clip count while the
-  //      fail-closed capture path metered a clip at PAPIC_POINTS_PER_CLIP,
+  //      fail-closed capture path metered a clip at PAPIC_POINTS_PER_SNIPPET,
   //      overstating clips ~3× on a paid camera.
   //   2. The field itself was the retired per-DAY meter, whose entry row is
   //      NULL on prod and therefore read as unbounded — so a camera the grant

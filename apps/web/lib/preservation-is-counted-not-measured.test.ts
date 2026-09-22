@@ -56,7 +56,7 @@ import {
   preservationMeter,
   type StoredRow,
 } from './papic-storage-telemetry';
-import { PAPIC_POINTS_PER_CLIP } from './papic-cameras';
+import { PAPIC_POINTS_PER_SNIPPET } from './papic-cameras';
 
 const photo = (dropped = false): StoredRow => ({
   orig_bytes: 4_000_000,
@@ -78,10 +78,10 @@ const clip = (dropped = false): StoredRow => ({
 
 test('the locked numbers are the locked numbers', () => {
   assert.equal(PRESERVATION_BLOCK_POINTS, 5_000, '₱500 buys 5,000 Papic points');
-  assert.equal(PAPIC_POINTS_PER_CLIP, 8, 'a ten-second clip costs 8 points — owner-locked 2026-07-29');
+  assert.equal(PAPIC_POINTS_PER_SNIPPET, 8, 'a ten-second clip costs 8 points — owner-locked 2026-07-29');
   assert.equal(PRESERVATION_BLOCK_PHP, 500);
   assert.equal(
-    PRESERVATION_BLOCK_POINTS / PAPIC_POINTS_PER_CLIP,
+    PRESERVATION_BLOCK_POINTS / PAPIC_POINTS_PER_SNIPPET,
     625,
     '5,000 points must buy 5,000 photos OR 625 videos — the ratio drifted',
   );
@@ -92,7 +92,7 @@ test('THE RATIO IS DERIVED, NOT RE-TYPED', () => {
   // currency every capture path already spends. A local constant here would be a
   // second copy that can drift — which is how the day-of console and the floor
   // console came to disagree about who counts as booked.
-  assert.equal(preservationUnits(clip()), PAPIC_POINTS_PER_CLIP);
+  assert.equal(preservationUnits(clip()), PAPIC_POINTS_PER_SNIPPET);
   assert.equal(preservationUnits(photo()), 1);
 });
 
@@ -127,7 +127,7 @@ test('any mix adds up — 1,000 photos + 500 videos is one block', () => {
     ...Array.from({ length: 500 }, () => clip()),
   ];
   const acct = aggregateAccountPreservation(rows);
-  assert.equal(acct.pointsHeld, 1_000 + 500 * PAPIC_POINTS_PER_CLIP); // 5,000
+  assert.equal(acct.pointsHeld, 1_000 + 500 * PAPIC_POINTS_PER_SNIPPET); // 5,000
   assert.equal(acct.blocksNeeded, 1, 'the two limbs must be interchangeable, not additive tiers');
 });
 

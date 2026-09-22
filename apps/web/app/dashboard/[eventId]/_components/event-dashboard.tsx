@@ -61,6 +61,7 @@ import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import {
   runTriggers,
   applyRestraint,
@@ -949,6 +950,27 @@ export async function EventDashboard({
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
   // internal-only `?sai=preview` render override. -------------------------
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  /*
+    THIS EVENT'S OWN SETNAYAN AI PRICE — for the free-venue-shortlist upsell,
+    which until 2026-09-22 hand-typed "₱499 first 28 days → ₱799 per 28 days"
+    while the catalog charged a one-time amount several times that, and named a
+    renewal SKU that is switched OFF. `FreeVenueShortlistOffer` is a client
+    component and cannot read the catalog, so the price is resolved HERE, on the
+    same path every other Sai surface uses, and handed down.
+
+    'regular' is not a choice — `resolveSetnayanAiDisplayPricePhp`'s own contract
+    says 'onboarding' belongs on the sign-up card and 'regular' everywhere else,
+    and it must match the context the charge path will use for the same button or
+    the screen makes a promise checkout will not keep.
+
+    Returns 0 for Tier E (Sai is not sold there) and 0 on an unreadable read; the
+    copy treats both as "no price" and omits the clause rather than printing ₱0.
+  */
+  const fullSaiPhp = await resolveSetnayanAiDisplayPricePhp(
+    supabase,
+    event.event_type as string | null,
+    'regular',
+  ).catch(() => 0);
   const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
     { paywallEnabled: aiPaywallEnabled },
@@ -1727,7 +1749,7 @@ export async function EventDashboard({
                           </span>
                         </InspectorTrigger>
                         {venueOfferInline && isSaiAssistFreeDecisionId(item.id) ? (
-                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
+                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" fullSaiPhp={fullSaiPhp} />
                         ) : null}
                       </div>
                     ))}
@@ -2678,7 +2700,7 @@ export async function EventDashboard({
           </div>
           {venueOfferAvailable && !venueOfferInline ? (
             <div className="mb-3.5">
-              <FreeVenueShortlistOffer eventId={eventId} variant="card" />
+              <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} />
             </div>
           ) : null}
           {decisionGroups.length > 0 ? (

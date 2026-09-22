@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { stageMarkFor, STAGE_RING_PX } from '@/lib/stage-mark';
 import type { ProgressStage, ProgressStageKey } from '@/lib/progress-stages';
 
 /**
@@ -96,13 +97,67 @@ export function JourneyRail({
                   ...(isCurrent ? { animation: 'sn-ring 2.6s infinite' } : {}),
                 }}
               >
-                {s.pct >= 100 ? (
-                  <span className="text-sm font-bold" style={{ color: 'var(--sn-success)' }}>
-                    ✓
-                  </span>
-                ) : (
-                  <ProgressRing pct={s.pct} size={34} stroke={4} color="var(--sn-gold-500)" />
-                )}
+                {/*
+                    ⚠ THREE STATES, THREE SHAPES — NOT ONE SHAPE IN THREE GREYS.
+                    Until 2026-09-22 a not-started stage drew a full ProgressRing
+                    whose arc is entirely hidden at 0, i.e. the TRACK circle alone:
+                    the same outline a half-finished stage draws, told apart only by
+                    colour. So one shape carried two meanings — "nothing yet" and
+                    "under way" — and on a typical event TWO of the six stages are at
+                    0, which read as things that had failed rather than things not
+                    begun. A not-started stage is now a small hollow dot: visibly a
+                    different KIND of mark, not a paler version of the same one.
+
+                    `data-stagemark` is the assertable property. A guard pins which
+                    variant renders at 0, at 1–99 and at 100 — presence of ink is not
+                    fit of ink, and a colour change is not a shape change.
+                */}
+                {(() => {
+                  /*
+                    The KIND and the SIZE both come from `lib/stage-mark.ts`, so
+                    a test can execute the rule instead of reading this JSX. The
+                    size is not decoration: a not-started mark of ring-like size
+                    is the defect again however it is coloured, and that exact
+                    sabotage passed a markup-only guard.
+                  */
+                  const mark = stageMarkFor(s.pct);
+                  if (mark.kind === 'complete') {
+                    return (
+                      <span
+                        data-stagemark="complete"
+                        className="text-sm font-bold"
+                        style={{ color: 'var(--sn-success)' }}
+                      >
+                        ✓
+                      </span>
+                    );
+                  }
+                  if (mark.kind === 'not-started') {
+                    return (
+                      <span
+                        data-stagemark="not-started"
+                        data-markpx={mark.diameterPx}
+                        aria-hidden
+                        className="block rounded-full border-2"
+                        style={{
+                          width: mark.diameterPx,
+                          height: mark.diameterPx,
+                          borderColor: 'rgba(30,26,18,.22)',
+                        }}
+                      />
+                    );
+                  }
+                  return (
+                    <span data-stagemark="partial" data-markpx={mark.diameterPx}>
+                      <ProgressRing
+                        pct={s.pct}
+                        size={STAGE_RING_PX}
+                        stroke={4}
+                        color="var(--sn-gold-500)"
+                      />
+                    </span>
+                  );
+                })()}
               </span>
               <span className="mt-2 block text-[13px] font-semibold text-ink">
                 {s.label}
@@ -117,11 +172,18 @@ export function JourneyRail({
 
       <div role="tabpanel" className="sn-tile">
         <div className="flex flex-wrap items-center justify-between gap-3">
+          {/*
+              🔑 THE NUMBER HAS ONE HOME, AND IT IS THE RAIL. This heading used to
+              repeat `{active.pct}% complete` while the rail above already printed
+              that same stage's figure in its own tab — six stages producing SEVEN
+              labels, and the duplicated one was the stage the eye is on. Neither
+              was conditional, so they were always both on screen. A screen that
+              states one fact in two places is a screen that can start disagreeing
+              with itself; the rail keeps the number because that is where all six
+              are comparable, and the panel keeps the name.
+          */}
           <h3 className="text-xl font-extrabold tracking-[-0.015em] text-ink">
             {active.label}
-            <span className="ml-2.5 font-mono text-xs font-medium text-ink/45">
-              {active.pct}% complete
-            </span>
           </h3>
           <div className="flex gap-1.5">
             <button

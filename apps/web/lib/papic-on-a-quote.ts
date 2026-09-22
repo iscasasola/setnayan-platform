@@ -29,8 +29,9 @@
  * the composer has said NOTHING about Papic at all — the supplier is never told
  * the exclusive deal exists, what its ceiling is, or where its switch lives.
  *
- * 🔑 SILENCE AND "NONE" LOOK IDENTICAL. `giftQuoteBasis` collapses four
- * distinct database answers — `card_says_no`, `not_sourced`, `free_booking`,
+ * 🔑 SILENCE AND "NONE" LOOK IDENTICAL. `giftQuoteBasis` (the sibling this
+ * replaced, deleted 2026-09-22) collapsed four distinct database answers —
+ * `card_says_no`, `not_sourced`, `free_booking`,
  * `no_booking` — into one `null`, and `null` renders nothing. That is right for
  * the gift COUNT (never promise photos a bill will not carry) and wrong for the
  * supplier's question, which is *"how much CAN I add?"*. This file keeps the
@@ -96,16 +97,18 @@ export type PapicQuoteNotice = FeeDisclosure & {
  * THE GIFT'S OWN ELIGIBILITY, DERIVED FROM THE SAME READ.
  *
  * 🔑 ONE RPC, ONE ANSWER. Before this, the thread page asked
- * `setnayan_gift_quote_applies` through `giftQuoteBasis`, which returns a basis
+ * `setnayan_gift_quote_applies` through `giftQuoteBasis` (deleted 2026-09-22),
+ * which returned a basis
  * or `null`. The Papic line needs the REASON, so it would have had to ask the
  * same question a second time — two calls that could be answered against two
  * different moments. The page now asks once, and the gift block reads its
  * answer through here.
  *
  * ⚠ THE GATE IS NOT RELAXED BY MOVING IT. A basis comes back for `included`
- * and for NOTHING else — which is exactly `giftQuoteBasis`'s contract (only
- * `'applies'`, only with a non-empty ladder). `available` deliberately does NOT
- * yield one: the card says no, so the quote must promise the couple no photos.
+ * and for NOTHING else — which was exactly `giftQuoteBasis`'s contract (only
+ * `'applies'`, only with a non-empty ladder) before that sibling was deleted on
+ * 2026-09-22. `available` deliberately does NOT yield one: the switch is off,
+ * so the quote must promise the couple no photos.
  */
 export function giftBasisFrom(standing: PapicQuoteStanding): GiftQuoteBasis | null {
   return standing.kind === 'included' ? standing.basis : null;

@@ -40,19 +40,36 @@ const SRC = () => {
  * `account_type` is one NAME shared by two radios — that is what makes it a
  * single choice, so it is counted once and asserted as a pair separately.
  */
+// ── 2026-09-22 · THE CONTRACT MOVED, ON PURPOSE (owner: "small card for signup").
+// Three names left this page and this list with them, each to a named home:
+//   • first_name · last_name  → /signup/you (the "You" card, right after the
+//     account exists — app/signup/you/page.tsx posts them to saveYou);
+//   • public_summary_consent  → the You card too, for now, couples only and in
+//     event-neutral words (owner 2026-09-22: "why is it asking about wedding?
+//     we have multiple events"); its final home is event creation, per event
+//     (build 2). The field, its value and its guardrails are unchanged.
+// The Terms box (name={TERMS_FIELD}) is pinned by terms-are-agreed-not-assumed.
 const POSTED_FIELDS = [
   'account_type',
   'email',
-  'first_name',
-  'last_name',
   'next',
   'password',
-  'public_summary_consent',
   'ref',
   'refc',
   'remember',
   'src_event',
 ] as const;
+
+test('what LEFT this page is not quietly back — it has a named home', () => {
+  const code = SRC();
+  for (const gone of ['first_name', 'last_name', 'public_summary_consent']) {
+    assert.doesNotMatch(
+      code,
+      new RegExp(`\\bname="${gone}"`),
+      `${gone} is back on /signup. It moved on 2026-09-22 to /signup/you. Put it there, not here.`,
+    );
+  }
+});
 
 test('every field the sign-up form posted is still posted', () => {
   const code = SRC();
@@ -132,7 +149,6 @@ test('the account type is decided by the shared helper, not re-derived here', ()
   // months in the first place.
   const code = SRC();
   assert.match(code, /accountTypeForSignup\(params\.as\)/, 'use the shared helper');
-  assert.match(code, /showsCoupleConsent\(params\.as\)/, 'use the shared helper');
   assert.doesNotMatch(
     code,
     /params\.as === 'vendor'/,
@@ -140,17 +156,10 @@ test('the account type is decided by the shared helper, not re-derived here', ()
   );
 });
 
-test('the couple consent block is gated on the server, not by a CSS selector', () => {
+test('no consent block on this page at all — not even a CSS-gated one', () => {
   const code = SRC();
-  assert.doesNotMatch(
-    code,
-    /data-couple-only/,
-    'The `[data-couple-only]` + `:has(input[value=\'vendor\']:checked)` pair aimed ' +
-      'at a radio that no longer exists. A selector matching nothing does not ' +
-      'fail — it silently stops hiding, showing a vendor a consent question ' +
-      'about their wedding.',
-  );
-  assert.match(code, /\{coupleConsent \? \(/, 'the consent block must be server-gated');
+  assert.doesNotMatch(code, /data-couple-only/, 'the old CSS gate must not return');
+  assert.doesNotMatch(code, /coupleConsent/, 'the consent left /signup on 2026-09-22 (now on /signup/you)');
 });
 
 test('the form still submits to the same server action', () => {
@@ -168,11 +177,11 @@ test('the bot check is still on the form', () => {
   assert.match(SRC(), /<TurnstileField/, 'TurnstileField must survive the port.');
 });
 
-test('the four typed fields keep their autocomplete hints', () => {
+test('the two typed fields keep their autocomplete hints (the name fields moved to /signup/you)', () => {
   // Not cosmetic: these are what let a phone fill the form in one tap, and a
   // restyle that rewrites the JSX is exactly where they get dropped.
   const code = SRC();
-  for (const hint of ['given-name', 'family-name', 'email', 'new-password']) {
+  for (const hint of ['email', 'new-password']) {
     assert.match(
       code,
       new RegExp(`autoComplete="${hint}"`),

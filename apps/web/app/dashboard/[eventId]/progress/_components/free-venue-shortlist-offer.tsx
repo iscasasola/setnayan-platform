@@ -26,7 +26,7 @@ import {
   FREE_VENUE_ASSIST_BADGE,
   FIRST_VENUE_SHORTLIST_OFFER_TITLE,
   FIRST_VENUE_SHORTLIST_OFFER_SUB,
-  FIRST_VENUE_SHORTLIST_UPSELL,
+  firstVenueShortlistUpsell,
   firstVenueShortlistConfirmation,
   freeVenueAssistBenchHref,
 } from '@/lib/setnayan-ai-free-assist';
@@ -41,9 +41,20 @@ type Phase =
 export function FreeVenueShortlistOffer({
   eventId,
   variant,
+  fullSaiPhp,
 }: {
   eventId: string;
   variant: 'card' | 'inline';
+  /**
+   * This event's own Setnayan AI price, resolved SERVER-SIDE from
+   * `platform_retail_catalog_v2` by the parent and handed down — never read or
+   * guessed here. Optional on purpose: `undefined`/`null`/`0` means the catalog
+   * could not be read or Sai is not sold for this event type (Tier E), and the
+   * copy then omits the price instead of inventing one. This component is
+   * `'use client'`, so it CANNOT resolve the price itself; that is the reason
+   * the prop exists rather than a fetch.
+   */
+  fullSaiPhp?: number | null;
 }) {
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
   const [working, startWorking] = useTransition();
@@ -85,7 +96,7 @@ export function FreeVenueShortlistOffer({
           <span aria-hidden className="mr-1 text-terracotta">
             ✦
           </span>
-          {firstVenueShortlistConfirmation(phase.added)}
+          {firstVenueShortlistConfirmation(phase.added, fullSaiPhp)}
         </p>
         <div className="mt-2">{benchLink('See your venue shortlist')}</div>
       </>
@@ -136,7 +147,7 @@ export function FreeVenueShortlistOffer({
           </p>
         ) : null}
         <p className="mt-2 text-[11.5px] text-ink/45">
-          {FIRST_VENUE_SHORTLIST_UPSELL}
+          {firstVenueShortlistUpsell(fullSaiPhp)}
         </p>
       </>
     );

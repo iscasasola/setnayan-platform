@@ -146,37 +146,103 @@ export function stillNeedsDecision(args: {
 /** The rail's money tiles, all in whole PHP. */
 export type TeamMoney = {
   lockedPhp: number;
+  /**
+   * How many LOCKED suppliers have no recorded price. `lockedPhp` is a real sum
+   * of the prices that exist, so a non-zero count here means the figure beside
+   * it is INCOMPLETE — the tile must say so rather than present a partial sum
+   * as a total.
+   */
+  lockedUnpriced: number;
+  /** Σ of the candidate costs that are KNOWN. Never includes a guess for a null. */
   inBuildPhp: number;
+  /**
+   * How many candidates have no recorded price. Same contract as
+   * `lockedUnpriced`: a non-zero count means `inBuildPhp` is incomplete.
+   */
+  inBuildUnpriced: number;
   budgetPhp: number | null;
   /**
    * estimated budget − locked − candidates (spec §3 PR-E). Positive = to spare,
-   * negative = over. **null when the couple has set no budget** — the tile then
-   * says so rather than showing a buffer computed against a zero that isn't real.
+   * negative = over.
+   *
+   * **null when the couple has set no budget**, and **null when any locked
+   * supplier or candidate has no recorded price** — because a buffer is a claim
+   * about what is left, and it cannot be made from a sum that is missing rows.
+   * `lockedUnpriced + inBuildUnpriced` says which case, and `bufferTile` words it.
    */
   bufferPhp: number | null;
 };
 
 /**
- * Fold the rail's three money inputs into the tile set.
+ * Fold the rail's money inputs into the tile set.
  *
  * ⚠ UNIT MISMATCH IS THE BUG THIS CENTRALISES: the locked total arrives in
  * CENTAVOS (`PlanBudgetModel.chosenCentavos`) while candidate costs and the
  * budget arrive in whole PHP (`rolled_cost_php`, `estimated_budget_centavos/100`
  * as resolved upstream). Converting in one place is why buffer can be trusted.
+ *
+ * ─── 🔑 A NULL PRICE IS NOT ₱0, AND THIS IS WHERE THAT USED TO BE LOST ──────
+ * This function read `candidateCostsPhp.reduce((s, c) => s + (c ?? 0), 0)`. A
+ * candidate whose price nobody has recorded was therefore added as **zero**: the
+ * total did not refuse and did not warn, it just came out smaller — and it is
+ * the number a couple reads to decide what they can still afford. **It lied
+ * rather than refusing.**
+ *
+ * Measured on production 2026-09-22, event 044f7e64: both locked suppliers and
+ * both candidates carry `total_cost_php = NULL`, and the page printed
+ * **"LOCKED ₱0"** and **"₱2,250,000 to spare"** beside **"₱26,499 paid"**.
+ *
+ * So: the sums here contain only prices that EXIST, the counts say how many are
+ * missing, and the buffer goes null rather than pretending. This is the shape
+ * `MeasuredGuests` uses in `lib/guests.ts` — a value plus a statement about
+ * whether it is complete — and its rule applies unchanged: **"unknown" means we
+ * do not know, NOT zero. A caller that treats it as zero has reintroduced the
+ * defect.**
+ *
+ * ⚠ `lockedCentavos` STAYS THE MONEY SOURCE, DELIBERATELY. The locked figure is
+ * summed upstream by `vendors-plan-budget.ts` (`lockedTotal`), which has the same
+ * null-swallowing shape — but it feeds the accordion, the folder headers and
+ * `/budget` too. Re-deriving the amount here from the caller's rows would move a
+ * displayed number for reasons unrelated to honesty, so this takes a COUNT
+ * instead: the figure does not change, and the screen stops presenting a partial
+ * sum as a whole one. Fixing `lockedTotal` itself is its own slice, flagged and
+ * not smuggled in here.
  */
 export function teamMoney(args: {
   lockedCentavos: number;
+  /**
+   * How many locked suppliers have no recorded price. Optional and defaulting to
+   * 0 so every existing caller keeps compiling and behaving identically; a
+   * caller that knows passes it and its tile becomes honest.
+   */
+  lockedUnpricedCount?: number;
   candidateCostsPhp: ReadonlyArray<number | null>;
   budgetPhp: number | null;
 }): TeamMoney {
+  // ⚠ `?? 0` IS CORRECT HERE, AND IS KEPT DELIBERATELY — the asymmetry with the
+  // candidate side is the whole point. `lockedCentavos` is a SUM (upstream
+  // `chosenCentavos`): its absence means "no locked rows were summed", and the
+  // total of nothing genuinely is zero. A candidate's `null` cost is the
+  // opposite — the row EXISTS and its price is unrecorded, so zero is a claim
+  // nobody made. Dropping this would also turn a runtime `undefined` into
+  // `₱NaN` on screen, which informs the couple of nothing.
   const lockedPhp = Math.round((args.lockedCentavos ?? 0) / 100);
-  const inBuildPhp = args.candidateCostsPhp.reduce<number>((s, c) => s + (c ?? 0), 0);
+  const lockedUnpriced = Math.max(0, Math.floor(args.lockedUnpricedCount ?? 0));
+  // Only the prices that exist. `null` is counted, never added.
+  const known = args.candidateCostsPhp.filter((c): c is number => c != null);
+  const inBuildPhp = known.reduce<number>((s, c) => s + c, 0);
+  const inBuildUnpriced = args.candidateCostsPhp.length - known.length;
   const budgetPhp = args.budgetPhp;
+  const anyUnpriced = lockedUnpriced + inBuildUnpriced > 0;
   return {
     lockedPhp,
+    lockedUnpriced,
     inBuildPhp,
+    inBuildUnpriced,
     budgetPhp,
-    bufferPhp: budgetPhp == null ? null : budgetPhp - lockedPhp - inBuildPhp,
+    // A buffer is a claim about what is LEFT. It cannot be made from a sum that
+    // is missing rows, so an unknown price refuses it outright.
+    bufferPhp: budgetPhp == null || anyUnpriced ? null : budgetPhp - lockedPhp - inBuildPhp,
   };
 }
 
@@ -184,10 +250,76 @@ export function teamMoney(args: {
  * The Buffer tile's copy + tone. Never a bare signed number — the couple reads
  * "to spare" / "over", which is what the prototype shows.
  */
-export function bufferTile(bufferPhp: number | null): {
+/**
+ * The note that says WHY a money tile is incomplete, or `null` when it is not.
+ *
+ * 🔑 RETURNING `null` IS THE MECHANISM, the same one `hiddenMoreLabel` uses in
+ * `lib/capped-rows.ts`: with no string there is no note, so **"0 suppliers have
+ * no price" is unrepresentable** rather than merely discouraged. A tile cannot
+ * accidentally announce a doubt it does not have.
+ *
+ * This is separate from `bufferTile`'s text because `LockTile` truncates its
+ * value line and does not truncate this one — the figure stays legible and the
+ * reason stays complete. It sits beside `lockedPhp` and `inBuildPhp` too, which
+ * have no "text" of their own to carry it: a peso figure that is missing rows
+ * must say so, or it reads as a total.
+ *
+ * ⚠ THE WORDING IS BORROWED, NOT INVENTED: `budget-truth.ts` already tells a
+ * couple a supplier "is booked but has no price recorded yet". One vocabulary
+ * for one fact — a second spelling of it reads as a second problem.
+ */
+export function unpricedNote(count: number): string | null {
+  if (!Number.isFinite(count) || count <= 0) return null;
+  const n = Math.floor(count);
+  return `${n} ${n === 1 ? 'supplier has' : 'suppliers have'} no price recorded`;
+}
+
+/**
+ * The "… in your build" subtotal, worded so a partial sum cannot pass as a whole
+ * one.
+ *
+ * Three cases, because two of them used to render identically:
+ *   • everything priced → `₱52,500`
+ *   • some priced, some not → `₱52,500 + 2 with no price recorded`
+ *   • **nothing priced at all → `No prices recorded yet`, never `₱0`**
+ *
+ * That last one is the live case on this couple's event, and "₱0" was a claim
+ * about their build that nobody had made. A subtotal is allowed to be small; it
+ * is not allowed to be a guess.
+ */
+export function subtotalLabel(php: number, unpriced: number): string {
+  const n = Number.isFinite(unpriced) ? Math.max(0, Math.floor(unpriced)) : 0;
+  const peso = `₱${Math.round(php).toLocaleString('en-PH')}`;
+  if (n === 0) return peso;
+  if (php === 0) return 'No prices recorded yet';
+  return `${peso} + ${n} with no price recorded`;
+}
+
+export function bufferTile(
+  bufferPhp: number | null,
+  /**
+   * `lockedUnpriced + inBuildUnpriced` from `teamMoney`. Optional and
+   * defaulting to 0, so existing callers are byte-identical.
+   *
+   * 🔑 THIS IS WHAT REACHES THE RENDER. A log line never changed a pixel: the
+   * count has to be in the words the couple reads, or the tile is back to
+   * looking like a complete answer.
+   */
+  unpricedCount = 0,
+): {
   text: string;
   tone: 'good' | 'over' | 'none';
 } {
+  // Order matters: "we cannot compute this" outranks "you have not set a
+  // budget", because a couple who HAS set one and sees "No budget set" would
+  // reasonably think their budget had been lost.
+  //
+  // ⚠ THE WORDS ARE SHORT ON PURPOSE. `LockTile`'s value line is `truncate`d
+  // inside a half-width grid cell, so "Not knowable — 2 suppliers have no
+  // price" would render as "Not knowable — 2 su…" and the reason — the part
+  // that makes it actionable — would be the half that got cut. The count
+  // travels beside it as an untruncated note; see `unpricedNote`.
+  if (unpricedCount > 0) return { text: 'Not knowable', tone: 'none' };
   if (bufferPhp == null) return { text: 'No budget set', tone: 'none' };
   const peso = `₱${Math.abs(Math.round(bufferPhp)).toLocaleString('en-PH')}`;
   return bufferPhp >= 0

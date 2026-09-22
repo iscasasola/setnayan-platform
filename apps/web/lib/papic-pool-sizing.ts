@@ -189,7 +189,14 @@ export async function fetchEventPoolSizing(
 
   const { data, error } = await client
     .from('papic_event_pool_config')
-    .select(POOL_CONFIG_SIZING_COLUMNS.join(', ') + ', config_key')
+    // ⚠ INLINE, NOT `POOL_CONFIG_SIZING_COLUMNS.join()`.
+    // `lib/security/select-column-scan.ts` (GUARD 2 of `pnpm lint:dup-rule`)
+    // resolves a select's column list statically; a constant-built string is
+    // invisible to it, and teaching that scanner an exception for this one call
+    // is how a ratchet stops meaning anything. The constant is still the source
+    // of truth — `papic-pool-sizing-columns-match.test.ts` fails if the literal
+    // here and the constant ever diverge, in either direction.
+    .select('points_per_guest, floor_points, ceiling_points, config_key')
     .in('config_key', keys);
 
   if (error || !data) {

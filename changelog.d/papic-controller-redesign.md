@@ -167,3 +167,52 @@ wrapper restored the exact defect and the guard stayed green. It now checks the 
 between the switch's own form and the wrapper as well.
 
 SPEC IMPACT: builds the second of the two interaction rules in the 2026-09-22 redesign row.
+
+### 2026-09-22 · CI follow-up — four fixes and two guards re-pointed
+
+Six unit tests were failing on this branch. Four were real defects in this build; **two were
+guards that had stopped describing the page**, and they are fixed as guards, not by bending
+the code to satisfy a stale assertion.
+
+- **Two `admin_audit_log.insert` calls discarded their error** (`savePapicTypeSizing`,
+  `recomputePapicPoolLearning`). Both now read `auditErr` and log without rolling back — the
+  edit already succeeded and a missing audit row is a known degradation, matching
+  `createDiscountCode`. Isolated, not a pattern: 6 inherited unread inserts already sit in
+  that same file on `main`, so this build copied a local convention.
+- **`admin-jobs.generated.ts` was stale** — the two new admin actions were never regenerated.
+  `pnpm --filter @setnayan/web admin:jobs` (319 → 321 jobs, 208 → 209 form-driven).
+- **`papic-cameras-card.tsx` left `KNOWN_DISCARDED`** now that the card is retired.
+- **The pool-sizing select is spelled out inline**, owner-ruled: *"inline the columns, don't
+  raise the ceiling."* `lib/security/select-column-scan.ts` (GUARD 2 of `pnpm lint:dup-rule`)
+  resolves column lists statically and cannot see a constant-built string; admitting this one
+  call into that ratchet is how a ratchet stops meaning anything. New
+  `lib/papic-pool-sizing-columns-match.test.ts` keeps the inlined literal and
+  `POOL_CONFIG_SIZING_COLUMNS` from drifting — inlining buys visibility and costs a second
+  source of truth, and that file is the price.
+
+**The two guards.** Both asserted SOURCE order against a page that now reorders with CSS
+`order`, and both had already been re-anchored once before.
+
+- `the-required-act-is-first.test.ts` sliced from the heading `"Four ways into your library"`
+  and looked forward for the picker's gate. The redesign moved the edit picker up into
+  Coverage, putting **both** mounts above that heading. Measured: the old rule returned FAIL on
+  the correct page **and** FAIL with the gate deleted — it answered the same thing to every
+  input. It now pairs each `<PapicWindowPicker` with the nearest *preceding*
+  `{(!?)windowIsSet ?` (the gate wraps the mount, so only a backward look sees it) and asserts
+  two mounts, each gated, gates distinct, exactly one negated. Nothing positional left to rot.
+- `an-unread-count-is-not-zero.test.ts` pinned `<PapicStage>` above the next step by
+  `indexOf`. The ten blocks are children of one `flex flex-col` carrying `order-1..10`, so DOM
+  order is not visual order. The rule was never about the stage: *a person is told where they
+  stand before anything asks them to decide*. Before the event the leading block is now the
+  credit balance, by the owner's ordering instruction — **the property holds; the block
+  carrying it changed.** It now reads `BLOCK_ORDER[phase]` and asserts the leader of each phase
+  is a standing block, that no phase assigns the same `order-N` twice, and that the two phase
+  maps are not identical (a merge collapsing them would leave the page silently not
+  rearranging).
+
+Every change above was sabotage-proved: each guard was watched going RED against a mutation of
+the property it protects, then restored from a backup copy (never `git checkout`, which
+no-ops on an untracked file and destroys edits to a tracked one).
+
+SPEC IMPACT: None. No product behaviour changes — four defect fixes and two guards re-pointed
+at rules the corpus already records.

@@ -775,7 +775,7 @@ export async function savePapicTypeSizing(
     .eq('config_key', key);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
-  await admin.from('admin_audit_log').insert({
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'papic_event_type_sizing_edit',
     target_id: key,
     actor_user_id: adminUserId,
@@ -789,6 +789,11 @@ export async function savePapicTypeSizing(
       after: { perHead: nums.points_per_guest, floor: nums.floor_points, ceiling: nums.ceiling_points },
     },
   });
+  if (auditErr) {
+    // Don't roll back — the edit above already succeeded, and a missing audit row
+    // is a known degradation, not a corruption. Same shape as createDiscountCode.
+    console.error('[savePapicTypeSizing] audit log insert failed', auditErr.message);
+  }
 
   revalidatePath('/admin/pricing');
   return {
@@ -816,12 +821,17 @@ export async function recomputePapicPoolLearning(
   if (error) return { ok: false, message: `Couldn't recompute — ${error.message}` };
 
   const changed = Array.isArray(data) ? data.length : 0;
-  await admin.from('admin_audit_log').insert({
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'papic_pool_learning_recompute',
     target_id: 'papic_event_pool_config',
     actor_user_id: adminUserId,
     metadata: { changed, rows: data ?? [] },
   });
+  if (auditErr) {
+    // Don't roll back — the edit above already succeeded, and a missing audit row
+    // is a known degradation, not a corruption. Same shape as createDiscountCode.
+    console.error('[recomputePapicPoolLearning] audit log insert failed', auditErr.message);
+  }
 
   revalidatePath('/admin/pricing');
   return {

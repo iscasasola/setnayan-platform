@@ -479,7 +479,6 @@ const discardMatches = (src: string) =>
 const KNOWN_DISCARDED: Record<string, number> = {
   // The shared-pool hint: failing to 0 can only refuse a hand-out the host
   // could have made, never permit one they could not. Logged, direction kept.
-  'app/dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx': 1,
   // `isMissingRelation(error) → []` — the table does not exist yet, so there
   // genuinely IS nothing to show. The other branch of that same function now
   // returns null and the panel says so.

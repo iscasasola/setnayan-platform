@@ -15,6 +15,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+// ⤷ 2026-09-22: the guest's edit form moved OUT of the route and into the
+// shared card both the route and the roster panel render. The route is now a
+// loader. Following the symbol, not the filename — a guard left pointing at
+// the old path would go green by finding nothing.
 import fs from 'node:fs';
 
 const read = (p: string) => fs.readFileSync(p, 'utf8');
@@ -70,7 +74,7 @@ test('the couple still receives BOTH — their own note and the guest\'s message
   const lib = read('lib/guests.ts');
   assert.match(lib, /,rsvp_status,notes,guest_note,qr_token,/, 'couple select needs both');
   assert.match(lib, /guest_note: string \| null;/);
-  const page = read('app/dashboard/[eventId]/guests/[guestId]/page.tsx');
+  const page = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
   assert.match(page, /guest\.guest_note/, "the couple must be shown the guest's message");
   assert.match(page, /never sees it/, 'the private note must say plainly that it is private');
 });
@@ -87,7 +91,7 @@ test('the couple still receives BOTH — their own note and the guest\'s message
  */
 
 test("the guest's message is not hidden inside a collapsed disclosure", () => {
-  const page = read('app/dashboard/[eventId]/guests/[guestId]/page.tsx');
+  const page = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
   const d0 = page.indexOf('<details');
   const d1 = page.indexOf('</details>');
   assert.ok(d0 > -1 && d1 > d0, 'the disclosure is gone — re-point this guard at whatever replaced it');
@@ -99,15 +103,30 @@ test("the guest's message is not hidden inside a collapsed disclosure", () => {
   );
 });
 
-test('the disclosure summary names what is actually behind it', () => {
-  const page = read('app/dashboard/[eventId]/guests/[guestId]/page.tsx');
-  const summary = page.split('\n').find((l) => l.includes('Display name · contact'));
-  assert.ok(summary, 'the disclosure summary hint is gone');
-  assert.doesNotMatch(summary!, /·\s*tags\s*·/, 'the custom-tags input was retired in 2026-05');
-  assert.doesNotMatch(
-    summary!,
-    /·\s*notes\s*$/,
-    "'notes' reads to a host as the guest's message; the drawer holds the host's own private box",
+test('each drawer row names what is actually behind it', () => {
+  /*
+    ⤷ 2026-09-22: "More details" was ONE drawer with a combined hint
+    ("Display name · contact · …"). The card split it into three named rows —
+    Name, Email & mobile, Private note — so there is no combined summary left to
+    assert. The property did not change and is asserted per row: a host must be
+    able to tell what a row holds without opening it, and must never mistake
+    their own private box for the guest's message.
+  */
+  const page = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
+  const summaries = [...page.matchAll(/summary="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(summaries.length >= 3, `the drawer rows are gone — found ${summaries.length}`);
+
+  assert.ok(
+    summaries.some((t) => /private note/i.test(t ?? '')),
+    "the drawer must say whose note it holds — 'notes' alone reads to a host as the guest's message",
   );
-  assert.match(summary!, /private note/, 'the drawer must say whose note it holds');
+  for (const t of summaries) {
+    assert.doesNotMatch(t ?? '', /·\s*tags\s*·/, 'the custom-tags input was retired in 2026-05');
+  }
+  // And the guest's own message is NOT one of them: it is read-only, and it
+  // renders in the open, which the test above this one pins.
+  assert.ok(
+    !summaries.some((t) => /message from|note from/i.test(t ?? '')),
+    "the guest's message must not be filed behind a drawer row",
+  );
 });

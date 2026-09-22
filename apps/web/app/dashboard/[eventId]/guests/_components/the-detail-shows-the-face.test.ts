@@ -1,5 +1,5 @@
 /**
- * the-detail-shows-the-face.test.ts — the guest detail renders the guest.
+ * the-detail-shows-the-face.test.ts — the guest card renders the guest.
  *
  * This screen read NO photo at all. Every guest showed initials — including one
  * whose selfie was sitting in the very row the component was already handed. It
@@ -7,6 +7,15 @@
  * who somebody is.
  *
  * Not a broken image, so no glyph gave it away. Just a face that never appeared.
+ *
+ * ── RE-ANCHORED 2026-09-22 ──────────────────────────────────────────────────
+ * The quick view and the edit form merged into one card. The body is now
+ * `guest-card-body.tsx`, and the two frames that used to be pinned here (the
+ * inspector column and the client drawer) became ONE server-rendered card with
+ * two presentations. What still has two sides — and is therefore still worth
+ * guarding — is the LOADING: the roster page resolves the face for the panel,
+ * and the standalone route resolves it for a direct hit. Wiring one and not the
+ * other is exactly how half a fix ships.
  *
  * 🛡 Mutation-checked by occurrence count, each confirmed RED.
  */
@@ -19,9 +28,9 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p: string) => stripComments(readFileSync(join(HERE, p), 'utf8'));
-const BODY = read('guest-detail-body.tsx');
-const DRAWER = read('guest-drawer.tsx');
-const PAGE = readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8');
+const BODY = read('guest-card-body.tsx');
+const ROSTER = readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8');
+const ROUTE = readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8');
 
 test('the body renders a photo when it has one, and initials when it does not', () => {
   assert.ok(/photoDisplayUrl \?/.test(BODY), 'the face must be conditional on having one');
@@ -38,62 +47,60 @@ test('it takes a RESOLVED url, never the stored column', () => {
     'The stored column is a reference, not a URL. A raw one is a broken-image glyph.',
   );
   assert.ok(
-    /photoDisplayUrl\?: string \| null/.test(BODY),
+    /photoDisplayUrl: string \| null/.test(BODY),
     'the prop must name itself a display URL, so a caller cannot mistake it',
   );
 });
 
-test('BOTH mounts pass it — the inspector and the sheet', () => {
-  // The desktop inspector and the mobile sheet render the SAME body. Wiring one
-  // and not the other is how half a fix ships.
-  //
-  // 🪤 THIS USED TO PIN THE EXACT ONE-LINE EXPRESSION, and went red the day the
-  // account-photo fallback was added — a change that made both mounts MORE
-  // correct, not less. A guard that forbids a phrasing convicts innocent code
-  // and teaches the next person to weaken it. It now asserts the PROPERTY: each
-  // mount resolves a face from the guest's own photo, and falls back to the
-  // account photo (lib/guest-account-photos.ts), whatever shape that is written
-  // in.
+test('BOTH loaders resolve a face — the roster panel and the standalone route', () => {
+  /*
+    🪤 THIS USED TO PIN THE EXACT ONE-LINE EXPRESSION, and went red the day the
+    account-photo fallback was added — a change that made both mounts MORE
+    correct, not less. A guard that forbids a phrasing convicts innocent code and
+    teaches the next person to weaken it. It asserts the PROPERTY: each loader
+    resolves a face from the guest's own photo and falls back to the linked
+    account's (lib/guest-account-photos.ts), whatever shape that is written in.
+
+    ⚖ Owner 2026-09-20: "so when users create their accounts, when they have a
+    profile photo, it will show here too" — the couple's own upload still wins.
+  */
   const propAt = (src: string) => {
     const at = src.indexOf('photoDisplayUrl={');
     return at === -1 ? null : src.slice(at, src.indexOf('}\n', at) + 1);
   };
 
-  const inspector = propAt(PAGE);
-  assert.ok(inspector, 'the desktop inspector does not pass the photo');
-  assert.match(inspector, /photoDisplayUrls\[inspectedGuest\.photo_url \?\? ''\]/);
+  const panel = propAt(ROSTER);
+  assert.ok(panel, 'the roster panel does not pass the photo');
+  assert.match(panel, /photoDisplayUrls\[inspectedGuest\.photo_url \?\? ''\]/);
   assert.match(
-    inspector,
+    panel,
     /accountFaceByGuest\[inspectedGuest\.guest_id\]/,
-    'the inspector lost the linked-account fallback',
+    'the roster panel lost the linked-account fallback',
   );
 
-  const sheet = propAt(DRAWER);
-  assert.ok(sheet, 'the mobile sheet does not pass the photo');
-  assert.match(sheet, /photoDisplayUrls\[guest\.photo_url \?\? ''\]/);
+  const route = propAt(ROUTE);
+  assert.ok(route, 'the standalone route does not pass the photo');
+  assert.match(route, /photoDisplayUrl\}/, 'the route must hand over a resolved value');
+  // The route resolves its own single guest rather than reading a page-wide map,
+  // so the property is asserted where it is computed.
   assert.match(
-    sheet,
-    /accountFaceByGuest\[guest\.guest_id\]/,
-    'the mobile sheet lost the linked-account fallback',
+    ROUTE,
+    /photoDisplayUrls\[guest\.photo_url \?\? ''\]/,
+    'the route lost the guest photo lookup',
   );
-
-  /*
-    The sheet opens from a client store carrying only the row, so the page must
-    hand BOTH maps to its host or the fallback above resolves to nothing.
-
-    🪤 ANCHORED ON <GuestDrawerHost>, NOT ON THE FILE. Two elements on this page
-    receive these maps — the roster and the drawer host. A file-level match is
-    satisfied by either, so deleting the drawer's copy passed a first draft of
-    this assertion. A guard that cannot say WHICH mount lost the prop is not
-    guarding the mount.
-  */
-  const hostAt = PAGE.indexOf('<GuestDrawerHost');
-  assert.notEqual(hostAt, -1, 'the sheet host is no longer mounted');
-  const host = PAGE.slice(hostAt, PAGE.indexOf('/>', hostAt));
-  assert.match(host, /photoDisplayUrls=\{photoDisplayUrls\}/, 'the sheet host lost the photo map');
   assert.match(
-    host,
-    /accountFaceByGuest=\{accountFaceByGuest\}/,
-    'the page does not hand the account-photo map to the sheet host',
+    ROUTE,
+    /accountPhotoRefsByGuest/,
+    'the route lost the linked-account fallback',
+  );
+});
+
+test('there is no second, unresolved face left behind', () => {
+  // The retired quick-view body used to carry its own copy of this logic. If a
+  // component starts rendering guests again from the raw column, say so here.
+  assert.equal(
+    /photo_url\}/.test(BODY),
+    false,
+    'the card must never read the stored ref directly',
   );
 });

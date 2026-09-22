@@ -388,9 +388,10 @@ function DesktopRow({
               />
             </div>
           </InspectorTrigger>
-          {/* Quick-view (P1) — desktop selects the inspector, below xl opens the
-              in-context read-only sheet (both show the same GuestDetailBody). */}
-          <QuickViewButton guest={guest} groupLabels={groupLabels} />
+          {/* The second way into the guest card. The name beside it is the
+              first; both select the same `?inspect=` card, which the layout
+              presents as a column at ≥xl and a peek sheet below. */}
+          <QuickViewButton guest={guest} />
         </div>
       </td>
       <td className="px-3 py-2.5">

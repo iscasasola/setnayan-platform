@@ -88,7 +88,11 @@ const BELOW_AA_AS_TEXT: ReadonlyArray<{
  * decorative arrows. This list only ever gets SHORTER. */
 const BILL: ReadonlyArray<readonly [string, number]> = [
   ['budget/_components/share-budget-band-toggle.tsx', 1],
-  ['guests/[guestId]/page.tsx', 3], // the Allow plus-one checkbox became the 0–4 choice (2026-09-21)
+  // ⤷ 2026-09-22: the guest's form moved out of the route and into the shared
+  // card, and the THREE privacy checkboxes that carried this became one
+  // <Toggle> component — so three billed uses became one, in a new file.
+  // Still a checkbox ACCENT (Tailwind's form colour), never text.
+  ['guests/_components/guest-card-body.tsx', 1],
   ['guests/_components/guest-list-multiselect.tsx', 3],
   ['guests/_components/mobile-guest-carousel.tsx', 1],
   ['guests/checkin/page.tsx', 1],

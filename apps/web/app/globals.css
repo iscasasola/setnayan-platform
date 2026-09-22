@@ -3902,6 +3902,89 @@ html.dark {
 .sn-inspector-fulllink:hover { text-decoration: underline; }
 .sn-inspector-body { margin-top: 14px; border-top: 1px solid var(--sn-hairline); padding-top: 16px; }
 
+/* ---------- The guest card's two frames (2026-09-22) ----------------------
+ * ONE panel per guest, opened from the roster. Owner: *"on desktop you fill the
+ * right side completely. and the scroll independently from the guest list on
+ * the left"* · *"on mobile it will peek from the left ... tap on that space it
+ * returns to the guestlist"* · *"similar to our payment page."*
+ *
+ * ⚠ SCOPED, NOT GLOBAL. `.sn-inspector-panel` is shared with Studio, Vendors
+ * and Overview, whose bodies are SHORT — giving them a full-height frame would
+ * draw a tall empty box around a six-line quick view. The fill and the extra
+ * width are opted into by `.sn-inspector-shell--card` on the guests shell only.
+ *
+ * 🔑 The independent scroll was never missing: the panel has always been
+ * `position: sticky` + `overflow-y: auto`. What it lacked was HEIGHT — the rule
+ * below is `max-height`, a cap, so a short body left dead space beneath it. */
+@media (min-width: 1280px) {
+  .sn-inspector-shell--card[data-open='true'] .sn-inspector-rail {
+    /* The card carries a real form; the default 340–420px rail collapses its
+     * two- and three-column grids to one column at every width. */
+    flex-basis: clamp(420px, 34vw, 580px);
+  }
+  .sn-inspector-shell--card .sn-inspector-panel {
+    width: clamp(420px, 34vw, 580px);
+    height: calc(100vh - 2.5rem);
+    max-height: none;
+  }
+}
+
+/* Below xl: the panel slides in from the right and stops short of the left
+ * edge. The strip that stays visible is the way back. */
+.sn-inspector-peek {
+  position: fixed;
+  inset: 0;
+  z-index: 74;
+  border: 0;
+  background: rgba(30, 26, 18, 0.4);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: sn-peek-in 0.28s var(--sn-ease) both;
+}
+.sn-inspector-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* The peek. Wide enough to read the list behind it and to be a comfortable
+   * tap target; narrow enough that the card is not cramped on a 360px phone. */
+  left: 3.5rem;
+  z-index: 75;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--sn-hairline);
+  border-radius: 24px 0 0 24px;
+  background: var(--sn-paper, #fffdf8);
+  box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
+  padding: 1.25rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
+   * animation ends, and a held transform — even the identity — makes this
+   * element the containing block for every `position: fixed` descendant, which
+   * silently unpins anything fixed inside the card. See
+   * lib/an-identity-transform-unpins-every-fixed-child.test.ts. */
+  animation: sn-sheet-in 0.32s var(--sn-ease) backwards;
+}
+@media (min-width: 1280px) {
+  /* The rail owns the card at ≥xl; the sheet must never double it. */
+  .sn-inspector-peek,
+  .sn-inspector-sheet { display: none; }
+}
+@keyframes sn-peek-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sn-sheet-in {
+  from { transform: translateX(34px); opacity: 0 }
+  to { transform: none; opacity: 1 }
+}
+
+/* A native disclosure cannot animate its height; this gives the open some
+ * motion without measuring anything. */
+/* `backwards` for the same reason as the sheet above: a `both` fill would hold
+ * `transform: none` and make every opened disclosure a containing block. */
+.gl-disc { animation: sn-disc-in 0.24s var(--sn-ease) backwards; }
+@keyframes sn-disc-in {
+  from { opacity: 0; transform: translateY(-4px) }
+  to { opacity: 1; transform: none }
+}
+
 /* Keyed body remount animation (`.sn-lens-swap`) — a gentle rise+fade as the
  * selection swaps, keyed by the selection id in InspectorColumn. */
 @keyframes sn-lens-swap {

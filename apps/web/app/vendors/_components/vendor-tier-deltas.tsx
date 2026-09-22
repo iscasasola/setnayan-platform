@@ -364,7 +364,7 @@ export function VendorTierDeltas({
                     Everything above is free, forever.{' '}
                     {isBookingFeeEnabled()
                       ? `Your first ${FREE_BOOKING_LIMIT} Setnayan-sourced bookings are free — after that`
-                      : '0% commission while we launch — after that'}{' '}
+                      : '0% commission — no booking fee while it is switched off; if it is switched on'}{' '}
                     {bookingFeeScheduleSummary()}, only on couples Setnayan
                     brings you; your own clients stay free.
                   </p>

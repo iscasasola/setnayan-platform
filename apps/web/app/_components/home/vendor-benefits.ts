@@ -8,6 +8,8 @@
  * doc + the coded caps in lib/vendor-tier-caps.ts.
  */
 
+import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
+
 export type VendorTier = 'free' | 'solo' | 'pro' | 'enterprise';
 
 export type VendorBenefit = { n: string; soon?: boolean; b: string };
@@ -85,7 +87,10 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Get paid your way',
         items: [
-          { n: '0% commission at launch', b: 'Keep 100% while we launch. After that, 5%, then 1% beyond ₱100,000 — only on couples Setnayan brings you; your own and repeat clients stay free.' },
+          // Was '0% commission at launch' with a HAND-TYPED 5% / 1% / ₱100,000 —
+          // two ways to go stale in one row, and the launch half was already
+          // false the day a supplier was billed ₱837.50. Both derive now.
+          { n: supplierCommissionShort(), b: supplierCommissionPromise() },
           { n: 'GCash or bank, your call', b: 'Couples pay you directly to your GCash/BDO. We never hold your money.' },
           { n: 'Set your price once', b: 'Publish packages and rates once; they power every quote you send.' },
           { n: 'PH-style milestone tracking', b: 'Log reservation → progress → balance with proof, the way PH couples pay.' },

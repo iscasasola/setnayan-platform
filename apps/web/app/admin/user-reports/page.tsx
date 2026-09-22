@@ -39,7 +39,8 @@ type ReportRow = {
     | 'ai_output'
     | 'event'
     | 'user_profile'
-    | 'chapter';
+    | 'chapter'
+    | 'vendor';
   target_id: string;
   reason: string;
   details: string | null;
@@ -94,6 +95,7 @@ const TARGET_PHRASE: Record<ReportRow['target_type'], string> = {
   event: 'this event page',
   user_profile: 'a public profile',
   chapter: 'a creator chapter',
+  vendor: 'a supplier’s shop',
 };
 const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   photo: 'photo',
@@ -103,6 +105,7 @@ const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   event: 'event page',
   user_profile: 'profile',
   chapter: 'chapter',
+  vendor: 'shop',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [

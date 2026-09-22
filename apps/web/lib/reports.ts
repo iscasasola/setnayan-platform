@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { isShopLive } from '@/lib/vendor-visibility';
 
 /**
  * fileReport — the shared write path behind the reusable "Report this page"
@@ -37,7 +38,10 @@ type Reason = (typeof REASONS)[number];
 
 // Only the PUBLIC-page targets are fileable through this entry. Photo /
 // user / ai_output reports have their own dedicated in-context paths.
-const PUBLIC_TARGETS = ['event', 'user_profile', 'chapter'] as const;
+// 'vendor' added 2026-09-22 (CTRL-B3 build 9): the marketplace was the only
+// public surface with no report route, which is the one place strangers meet
+// strangers and money changes hands.
+const PUBLIC_TARGETS = ['event', 'user_profile', 'chapter', 'vendor'] as const;
 type PublicTarget = (typeof PUBLIC_TARGETS)[number];
 
 export type FileReportInput = {
@@ -80,6 +84,25 @@ export async function fileReport(input: FileReportInput): Promise<FileReportResu
       .maybeSingle();
     if (!data) return { ok: false, error: 'invalid_target' };
     eventId = data.event_id as string;
+  } else if ((targetType as PublicTarget) === 'vendor') {
+    /*
+      A shop is reportable only while it is LIVE — the same posture the chapter
+      branch takes about a draft. `isShopLive` is the marketplace's own
+      predicate (public_visibility + verification_state), so a report can only
+      name a shop a couple could actually have met; an id for a hidden or
+      unverified profile is a forged target, not a grievance.
+
+      🔑 NOT `is_published` — that column is vestigial and reads FALSE on a live
+      verified shop (fixed on the v1 API in CTRL-B2 build 5a). Using it here
+      would refuse reports about exactly the shops that are findable.
+    */
+    const { data } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, public_visibility, verification_state')
+      .eq('vendor_profile_id', targetId)
+      .maybeSingle();
+    if (!data || !isShopLive(data)) return { ok: false, error: 'invalid_target' };
+    eventId = null;
   } else if ((targetType as PublicTarget) === 'chapter') {
     // The reportable surface is the LIVE chapter page — published only (a draft
     // is never publicly reachable, so a "report" of one is a forged id).

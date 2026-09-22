@@ -51,6 +51,7 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 // row it carries the Enterprise value, and it uniquely owns the Custom-only
 // rows (extra branches, nationwide reach, negotiated ceilings, domain).
 import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
+import { supplierCommissionPromise } from '@/lib/commission-promise';
 
 type Col = 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom';
 const ALL_COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
@@ -523,9 +524,11 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
           Every benefit, every tier &mdash; ~90 in all.{' '}
           &ldquo;Soon&rdquo; = in active build. Prices read the live catalog and
           are billed per 28-day cycle. Enterprise is a bounded plan; franchises &amp;
-          multi-location go Custom. 0% commission while we launch, every tier &mdash;
-          after that 5%, then 1% beyond ₱100,000, only on couples Setnayan brings you;
-          your own clients stay free.
+          multi-location go Custom.{' '}
+          {/* 🔴 "0% commission while we launch" plus a HAND-TYPED schedule:
+              two ways to go stale in one sentence, and the launch half was
+              already false. Both now derive from the bill. */}
+          {supplierCommissionPromise()}
         </p>
 
         {/* The dark "Custom · beyond Enterprise" band lived here. Hidden

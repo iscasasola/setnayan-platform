@@ -86,7 +86,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut. See setnayan.com/pricing for current rates.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — couples pay their vendors directly and Setnayan never sits between them at checkout. Vendors pay a booking fee to Setnayan only on couples we introduce; it is charged to the vendor, never added to what a couple pays, and their own and repeat clients stay free. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',

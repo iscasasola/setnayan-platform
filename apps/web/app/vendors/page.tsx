@@ -290,7 +290,7 @@ export default async function ForVendorsPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 12,
-                borderRadius: 16,
+                borderRadius: 'var(--m-r-lg)',
                 border: '1px solid var(--m-hair)',
                 background: 'var(--m-cream)',
                 padding: 20,

@@ -2079,3 +2079,36 @@ git show "${T}:supabase/security/exposure-surface.baseline.txt" | { grep -m1 '# 
 ```
 
 (note the braces in `"${T}:path"` — see the zsh modifier trap above).
+
+## 🔥 `ci.yml` HAS NO CONCURRENCY GROUP — every push to a trunk starts a FULL parallel run
+
+Measured 2026-09-22: `.github/workflows/ci.yml` declares **no `concurrency:` block**, so nothing
+is cancelled when a new commit lands. Only four workflows in the repo have one at all, and the
+two that matter here are `cancel-in-progress: false` on purpose (the prod migration group).
+
+Five commits were pushed to `rd/wave-2` in thirteen minutes — four of them **documentation
+only** — and the result was **five concurrent `ci` runs plus their `e2e` and `lighthouse`
+siblings**, none superseding the others, all competing for the same runners while four other
+PRs were waiting for them. At ~45–55 minutes each, that is most of an hour of runner time spent
+proving the same tree five times.
+
+🔑 **A trunk under CI is not a scratchpad.** Batch register and plan edits and push them ONCE,
+with the code, or after the run you care about has finished. **A doc-only commit costs a full
+CI round trip here** — the workflow cannot tell that nothing it tests has changed.
+
+✅ Ten superseded runs were cancelled by hand, keeping only the current head:
+
+```bash
+HEAD=$(git rev-parse origin/<branch>)
+gh api "repos/{owner}/{repo}/actions/runs?branch=<branch>&per_page=30" \
+  --jq '.workflow_runs[]|select(.status!="completed")|"\(.id) \(.head_sha) \(.name)"' \
+| while read id sha name; do
+    [ "$sha" != "$HEAD" ] && gh api -X POST "repos/{owner}/{repo}/actions/runs/$id/cancel"
+  done
+```
+
+⚠ **And the watcher written to replace the old one was broken on its first line**: `for n in
+$PRS` where `PRS="5873 5875 …"`. **zsh does not word-split an unquoted variable**, so `gh pr
+view` was handed one argument containing five numbers, returned nothing, and the watcher printed
+`#.-empty` for the whole board. Inline the list, or use `${=PRS}`. Third appearance of this
+exact zsh behaviour on this project in one day.

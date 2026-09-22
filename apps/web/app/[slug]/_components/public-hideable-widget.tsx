@@ -3,6 +3,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow } from '../_lib/types';
@@ -27,15 +28,7 @@ import { WhatToBringWidget } from './what-to-bring-widget';
  * fall through to `null` because they require a guest session to be
  * meaningful.
  */
-export function PublicHideableWidget({
-  words,
-  widget,
-  event,
-  scheduleBlocks,
-  isLive,
-  scheduleEstimated = false,
-  ourPhotoUrls,
-}: {
+type PublicHideableWidgetProps = {
   widget: InvitationWidgetRow;
   event: EventRow;
   /** The event type's own words, resolved ONCE by the body and threaded here
@@ -47,7 +40,32 @@ export function PublicHideableWidget({
    *  directive 2026-07-23, NEXT_PUBLIC_GUEST_NOW_TRIGGER-gated upstream). */
   scheduleEstimated?: boolean;
   ourPhotoUrls: string[];
-}) {
+  /** ref → presigned URL for section backgrounds, resolved once by SiteBody. */
+  canvasMediaUrls?: Readonly<Record<string, string>>;
+};
+
+/**
+ * 🎨 THE ANONYMOUS PATH GETS THE COUPLE'S ARRANGEMENT TOO.
+ *
+ * 🔴 It did not, for one commit. The canvas frame was written inside the OTHER
+ * dispatcher (`HideableWidgetRender`, the guest path), so a couple who arranged
+ * their page saw it and a stranger following their link saw it unarranged —
+ * with nothing red anywhere and no way to tell from the dashboard. One frame,
+ * both doors; the reasoning lives in `hub-canvas-frame.tsx`.
+ */
+export function PublicHideableWidget(props: PublicHideableWidgetProps) {
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls}>{PublicHideableWidgetBody(props)}</HubCanvasFrame>;
+}
+
+function PublicHideableWidgetBody({
+  words,
+  widget,
+  event,
+  scheduleBlocks,
+  isLive,
+  scheduleEstimated = false,
+  ourPhotoUrls,
+}: PublicHideableWidgetProps) {
   switch (widget.widget_type) {
     case 'countdown':
       // Match InvitationSite's per-widget skip — no event date, no

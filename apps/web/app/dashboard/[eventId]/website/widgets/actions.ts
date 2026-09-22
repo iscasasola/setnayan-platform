@@ -3,8 +3,10 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
+import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
   HUB_MOTION_PRESETS,
+  hubMediaRef,
   HUB_TIMELINE,
   sanitizeHubCanvas,
   type HubMotionPreset,
@@ -480,6 +482,110 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
     .eq('event_id', eventId);
 
   if (updateErr) throw new Error(`Failed to save how this section moves: ${updateErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
+}
+
+/**
+ * Set — or clear — one section's background photo.
+ *
+ * 🔒 THE REF IS HELD TO THE PUBLIC BUCKET TWICE. Once here, before it is
+ * stored, and again by `sanitizeHubCanvas` on the way out. `config_json` is
+ * couple-writable and `displayUrlForStoredAsset` signs whatever it is handed
+ * within the public bucket, so a hand-crafted POST naming
+ * `setnayan-thread-files` (payment proofs) or `setnayan-vendor-verification`
+ * (government IDs) must be refused at the door. `siteMediaServeRef` is the one
+ * allow-list, shared with the database CHECK on website media.
+ *
+ * 🔑 AND IT MUST BE A PHOTO THIS EVENT ALREADY HAS. Holding the bucket is not
+ * enough on its own: the public bucket holds every event's website media, so a
+ * ref from somebody else's wedding would pass that test. The submitted value is
+ * checked against this event's own hero and gallery before it is written.
+ *
+ * `media=''` clears it — a couple must be able to take a background back off.
+ *
+ * Form fields: event_id · widget_id · media (an `r2://` ref, or empty to clear)
+ */
+export async function setWidgetBackground(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+  const mediaRaw = formData.get('media');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing section id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+  const wanted = typeof mediaRaw === 'string' ? mediaRaw.trim() : '';
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+
+  const supabase = await createClient();
+  const [{ data: row, error: readErr }, { data: ev, error: evErr }] = await Promise.all([
+    supabase
+      .from('invitation_widgets')
+      .select('widget_id, config_json')
+      .eq('widget_id', widgetId)
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    supabase
+      .from('events')
+      .select('landing_page_hero_image_url, our_photos')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ]);
+
+  if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+  if (evErr) throw new Error(`Failed to load your photos: ${evErr.message}`);
+
+  /* The photos this couple may choose from — their own hero and their own
+     gallery, each held to the public bucket. Nothing else is selectable, so a
+     ref cannot be borrowed from another event by hand-crafting a POST. */
+  const ownRefs = new Set(
+    [
+      siteMediaServeRef(ev?.landing_page_hero_image_url),
+      ...siteMediaServeRefs(ev?.our_photos),
+    ].filter((r): r is string => Boolean(r)),
+  );
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
+
+  if (wanted.length === 0) {
+    delete canvas.media;
+  } else {
+    // The STRICTER reader, not `siteMediaServeRef` alone — that one passes a
+    // bare string through as a legacy URL, and `"1"` is not a photo.
+    const ref = hubMediaRef(wanted);
+    if (!ref || !ownRefs.has(ref)) {
+      redirect(
+        resolveReturnTo(
+          formData,
+          `/dashboard/${eventId}/website/widgets?error=not_your_photo`,
+          '?error=not_your_photo',
+        ),
+      );
+    }
+    canvas.media = ref;
+  }
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: { ...existing, canvas } })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+
+  if (updateErr) throw new Error(`Failed to save this section's background: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
   redirect(

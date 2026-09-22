@@ -131,3 +131,69 @@ the timing row appearing unasked · **the writer replacing `config_json` instead
 Auto stored as a word · dead controls for a caller that never wired the action.
 
 SPEC IMPACT: None.
+
+---
+
+### 4 · 🔴 The canvas reached one door of two — fixed
+
+`site-body.tsx` renders widgets down **two** paths: `HideableWidgetRender` for a guest, and
+`PublicHideableWidget` — a deliberate mirror — for an anonymous visitor on an open-browse event.
+Item 2 above put the canvas wrapper inside the first one only.
+
+**A couple who arranged their page would have seen it; a stranger following their link would have
+seen the page unarranged.** Nothing red, nothing different in the dashboard, and the only way to
+notice is to open your own link signed out.
+
+- one shared `HubCanvasFrame` (`app/[slug]/_components/hub-canvas-frame.tsx`), imported by both
+- `every-dispatcher-frames-the-canvas.test.ts` finds dispatchers **by what they do** — every
+  component that switches on `widget.widget_type` — not by naming two files, so a third door
+  added later cannot skip the frame quietly
+
+### 5 · Section backgrounds
+
+A section can now carry one of the couple's own photos behind it — picked from their hero and
+their gallery, in the editor rail, with **None** always offered.
+
+🔑 **The stored value is the photo's own ref, never its position in a list.** That list reorders
+whenever they add or remove a photo; a stored index would silently move a section's background
+with nothing red anywhere. This was the reason I stopped short last night, and it is what the
+`media` field now solves.
+
+🔒 **Two ownership checks, not one.** The ref is held to the **public bucket** — a `config_json` is
+couple-writable and the signer signs what it is handed, so a hand-crafted POST naming
+`setnayan-thread-files` (payment proofs) or `setnayan-vendor-verification` (government IDs) is
+refused at the door. And because the public bucket holds *every* event's website media, the ref is
+then checked against **this event's own** hero and gallery.
+
+🪤 **A guard caught a real hole in the first version.** `siteMediaServeRef` passes any non-`r2://`
+string through verbatim as a "legacy URL" — it accepts `"1"`. So a stringified list index, the
+exact mistake this field exists to prevent, would have been stored and rendered as
+`background-image: url("1")`. `hubMediaRef` is the stricter reader: a public `r2://` ref or an
+absolute `https://` URL, nothing else.
+
+⛔ **A ref that fails to sign renders NO background** — not a dark empty plate waiting for a
+picture that is not coming, which a guest reads as a broken page rather than as no photo. The
+class is set from the resolved URL, never from the stored ref.
+
+⛔ **The scrim is not decoration.** Words over an arbitrary photo can land white-on-white and this
+product cannot know what the couple uploaded, so the picture is its own layer under a gradient
+rather than a `background-image` on the frame.
+
+**Every background on a page is signed ONCE**, deduped, in a single `Promise.all` in `SiteBody` —
+the failure `displayUrlForStoredAsset`'s own docblock names for list surfaces. The ref is held to
+the public bucket **again at the signer**, which `every-render-read-is-pinned.test.ts` requires and
+which caught this in the full sweep.
+
+**Guards** — `a-section-background-is-a-ref.test.ts` (7) + `every-dispatcher-frames-the-canvas.test.ts`
+(4). Ten sabotages, including: the loose reader returning · a private bucket reaching the signer ·
+**the ownership check removed** · an unsigned ref still styled as having a picture · the scrim
+dropped · the picture drawn above the words · **the anonymous door losing the frame**.
+
+🪤 **Two of my own guards were vacuous and the sabotages caught both.** One anchored on the whole
+`<HubCanvasFrame …>` attribute list, so adding a correct second prop turned it red — a guard that
+fails when the code improves teaches the next session to weaken it. The other searched an
+1,800-character window for `linear-gradient` after the scrim's selector, and the **dark-mode copy
+of the same rule sat inside that window** — deleting the light scrim left it green while every
+couple on a light phone got unreadable words over their own photo. It now brace-scopes each rule.
+
+SPEC IMPACT: None. No migration, no price, no locked decision.

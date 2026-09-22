@@ -4,7 +4,7 @@ import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { ROLE_LABELS } from '@/lib/guests';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
-import { hasHubCanvas, hubCanvasClass, hubCanvasVars, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow, GuestRow } from '../_lib/types';
@@ -47,6 +47,8 @@ type HideableWidgetProps = {
   scheduleEstimated?: boolean;
   isLimitedPlusOne: boolean;
   ourPhotoUrls: string[];
+  /** ref → presigned URL for section backgrounds, resolved once by SiteBody. */
+  canvasMediaUrls?: Readonly<Record<string, string>>;
 };
 
 /**
@@ -196,33 +198,10 @@ function Detail({
 }
 
 /**
- * 🎨 THE CANVAS WRAPPER — one place, every widget.
- *
- * A couple's arrangement lives in `invitation_widgets.config_json` and is read
- * by `lib/hub-canvas.ts`. Rather than teach sixteen widget components about it,
- * the arrangement is put AROUND whatever the dispatcher returns: the widgets
- * stay ignorant, and there is exactly one place where a layout choice becomes
- * markup.
- *
- * ⛔ A WIDGET THAT HID ITSELF STAYS HIDDEN. Several of them return `null` —
- * Countdown with no date, Schedule with no public blocks. Wrapping a null in a
- * styled div would put an empty, animated box on the page where the widget
- * deliberately drew nothing, which is worse than the bug it would be hiding.
- *
- * ⛔ AND A COUPLE WHO ARRANGED NOTHING GETS NO WRAPPER AT ALL. `hasHubCanvas`
- * is false for an empty or unreadable `config_json`, which is every event on
- * the platform today. So this ships inert: a defect in the canvas CSS cannot
- * reach a page nobody has arranged, and the markup for those pages is
- * byte-identical to what it was before this existed.
+ * 🎨 The couple's arrangement goes around whatever the dispatcher returned.
+ * The frame itself — and the reason it is a shared file rather than a helper
+ * here — lives in `hub-canvas-frame.tsx`.
  */
 export function HideableWidgetRender(props: HideableWidgetProps) {
-  const inner = HideableWidgetBody(props);
-  if (inner === null) return null;
-  const canvas = sanitizeHubCanvas(props.widget.config_json);
-  if (!hasHubCanvas(canvas)) return inner;
-  return (
-    <div className={hubCanvasClass(canvas)} style={hubCanvasVars(canvas) as React.CSSProperties}>
-      {inner}
-    </div>
-  );
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls}>{HideableWidgetBody(props)}</HubCanvasFrame>;
 }

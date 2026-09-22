@@ -56,6 +56,7 @@ import {
   moveWidgetDown,
   moveWidgetUp,
   setSectionMode,
+  setWidgetBackground,
   setWidgetMotion,
   toggleWidgetVisibility,
 } from '../widgets/actions';
@@ -196,6 +197,15 @@ export default async function WebsiteEditorPage({
     displayFor(galleryRefs),
     displayFor([musicRef, videoRef]),
   ]);
+
+  /* 🎨 The photos a couple may use as a section background — their own hero
+     first, then their gallery, each with the display URL this page ALREADY
+     signed for the inline uploaders. No second signing pass, and no photo from
+     anywhere but this event. */
+  const photoChoices = [heroRef, ...galleryRefs]
+    .filter((ref): ref is string => Boolean(ref))
+    .map((ref) => ({ ref, url: heroDisplay[ref] ?? galleryDisplay[ref] ?? '' }))
+    .filter((p) => p.url.length > 0);
 
   // Sections manager data — the same reads the widgets sub-editor does.
   const { data: widgetsRaw, error: widgetsRawError } = await supabase
@@ -599,6 +609,8 @@ export default async function WebsiteEditorPage({
               moveDownAction={moveWidgetDown}
               setModeAction={setSectionMode}
               setMotionAction={setWidgetMotion}
+              setBackgroundAction={setWidgetBackground}
+              photoChoices={photoChoices}
             />
           ),
         },

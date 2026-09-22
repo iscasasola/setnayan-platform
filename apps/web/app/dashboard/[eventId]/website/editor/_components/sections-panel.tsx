@@ -41,6 +41,8 @@ export function SectionsPanel({
   moveDownAction,
   setModeAction,
   setMotionAction,
+  setBackgroundAction,
+  photoChoices = [],
 }: {
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
@@ -54,6 +56,12 @@ export function SectionsPanel({
   /** How this section MOVES (owner 2026-09-23). Optional so the panel keeps
    *  working for any caller that has not wired it yet. */
   setMotionAction?: (formData: FormData) => void | Promise<void>;
+  /** Set or clear one section's background photo. */
+  setBackgroundAction?: (formData: FormData) => void | Promise<void>;
+  /** The couple's own photos — hero first, then gallery — as
+   *  `{ ref, url }`. Only these are offered, and only these are accepted
+   *  server-side. */
+  photoChoices?: readonly { ref: string; url: string }[];
 }) {
   if (rows.length === 0) {
     return (
@@ -259,6 +267,79 @@ export function SectionsPanel({
                           })}
                         </div>
                       ) : null}
+                    </div>
+                  );
+                })()
+              ) : null}
+
+              {/* ══ THE BACKGROUND ══════════════════════════════════════════
+                  Chosen from photos the couple ALREADY has — their hero and
+                  their gallery. There is no uploader here on purpose: adding
+                  one per section would put a dozen client components on a page
+                  that works with no JavaScript, and they already have a place
+                  to upload. Pick here, upload there.
+
+                  🔑 THE VALUE POSTED IS THE PHOTO'S OWN REF, never its position
+                  in this list. The list reorders whenever they add or remove a
+                  photo, so a stored index would silently move a section's
+                  background with nothing red anywhere.
+
+                  ⛔ "None" is always offered. A couple must be able to take a
+                  background back off. */}
+              {setBackgroundAction && photoChoices.length > 0 ? (
+                (() => {
+                  const canvas = sanitizeHubCanvas(row.config_json);
+                  return (
+                    <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                        Background
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <form action={setBackgroundAction}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="widget_id" value={row.widget_id} />
+                          <input type="hidden" name="media" value="" />
+                          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                          <button
+                            type="submit"
+                            aria-pressed={!canvas.media}
+                            className={`inline-flex h-9 items-center rounded-md border px-2 text-[0.6rem] font-semibold ${
+                              !canvas.media
+                                ? 'border-ink bg-ink text-cream'
+                                : 'border-ink/15 bg-cream text-ink/55 hover:border-ink/30'
+                            }`}
+                          >
+                            None
+                          </button>
+                        </form>
+                        {photoChoices.map((photo) => {
+                          const on = canvas.media === photo.ref;
+                          return (
+                            <form key={photo.ref} action={setBackgroundAction}>
+                              <input type="hidden" name="event_id" value={eventId} />
+                              <input type="hidden" name="widget_id" value={row.widget_id} />
+                              <input type="hidden" name="media" value={photo.ref} />
+                              <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                              <button
+                                type="submit"
+                                aria-pressed={on}
+                                aria-label={on ? 'Current background' : 'Use this photo as the background'}
+                                className={`block h-9 w-12 overflow-hidden rounded-md border-2 ${
+                                  on ? 'border-ink' : 'border-transparent hover:border-ink/30'
+                                }`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={photo.url}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              </button>
+                            </form>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })()

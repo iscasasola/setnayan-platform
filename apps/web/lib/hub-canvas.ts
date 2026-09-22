@@ -37,6 +37,8 @@
  * later change to what "Calm" means would silently not reach them.
  */
 
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
    group `L`). `full` is the photo behind the words; `left`/`right` put the
@@ -122,6 +124,23 @@ export type HubSectionCanvas = {
   arrangement?: HubArrangement;
   focal?: HubFocalPoint;
   zoom?: HubZoom;
+  /**
+   * THE SECTION'S BACKGROUND, as a stored asset ref (`r2://bucket/key`) or a
+   * legacy absolute URL — the same TEXT shape every other website-media column
+   * holds, resolved at render by `displayUrlForStoredAsset`.
+   *
+   * 🔑 A REF, NEVER AN INDEX INTO A LIST. The couple picks from photos they
+   * already have, and that list reorders every time they add or remove one. A
+   * stored position would silently move a section's background when the gallery
+   * changed, with nothing red anywhere — a carried-but-unread value that reads
+   * like a decision. The ref identifies the photo itself.
+   *
+   * 🔒 AND IT IS HELD TO THE PUBLIC BUCKET on the way in, by the same
+   * `siteMediaServeRef` allow-list the database CHECK on website media uses. A
+   * `config_json` is couple-writable; a ref naming `setnayan-thread-files` or
+   * `setnayan-vendor-verification` must never reach the signer from here.
+   */
+  media?: string;
   preset?: HubMotionPreset;
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
@@ -172,6 +191,27 @@ const inSet = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly 
  * recognise is a value some other version of this product wrote, and guessing
  * what it meant is how two surfaces start drawing different pages.
  */
+/**
+ * A SECTION BACKGROUND, or null — STRICTER than `siteMediaServeRef` alone.
+ *
+ * 🪤 `siteMediaServeRef` passes any non-`r2://` string through VERBATIM as a
+ * "legacy URL", which is correct for the columns that still hold old absolute
+ * URLs and wrong here. Measured: it accepts `"1"`. So a stringified list index
+ * — the exact mistake this field exists to avoid — would have been stored as a
+ * background and rendered as `background-image: url("1")`, a relative request
+ * against the guest's own page.
+ *
+ * A section background is always chosen from photos the couple already has, so
+ * it is only ever an `r2://` ref in the public bucket or, for a legacy row, an
+ * absolute `https://` URL. Anything else is not a photo and is dropped.
+ */
+export function hubMediaRef(value: unknown): string | null {
+  const ref = siteMediaServeRef(value);
+  if (!ref) return null;
+  if (ref.startsWith('r2://')) return ref;          // already held to the public bucket
+  return /^https:\/\/\S+$/.test(ref) ? ref : null;
+}
+
 export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const src = raw as Record<string, unknown>;
@@ -182,6 +222,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (inSet(HUB_ARRANGEMENTS, canvas.arrangement)) out.arrangement = canvas.arrangement;
   if (inSet(HUB_FOCAL_POINTS, canvas.focal)) out.focal = canvas.focal;
   if (inSet(HUB_ZOOMS, canvas.zoom)) out.zoom = canvas.zoom;
+  const media = hubMediaRef(canvas.media);
+  if (media) out.media = media;
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
   if (inSet(HUB_IN, canvas.in)) out.in = canvas.in;
   if (inSet(HUB_OUT, canvas.out)) out.out = canvas.out;
@@ -222,9 +264,18 @@ export function focalToObjectPosition(focal: HubFocalPoint): string {
  * none. A guest on a browser without it sees the section at rest, which is the
  * resting state the page already had.
  */
-export function hubCanvasVars(canvas: HubSectionCanvas): Record<string, string> {
+export function hubCanvasVars(
+  canvas: HubSectionCanvas,
+  /** The resolved, presigned URL for `canvas.media`, when the caller has one.
+   *  Passed in rather than fetched here: signing is I/O and this module is
+   *  pure, and a page with twelve sections must sign them in ONE parallel pass
+   *  rather than twelve sequential round trips (see the note on
+   *  `displayUrlForStoredAsset`). */
+  mediaUrl?: string | null,
+): Record<string, string> {
   const m = resolveHubMotion(canvas);
   return {
+    ...(mediaUrl ? { '--hub-media': `url("${mediaUrl.replace(/"/g, '%22')}")` } : {}),
     '--hub-focal': focalToObjectPosition(canvas.focal ?? HUB_DEFAULT_FOCAL),
     '--hub-zoom': String((canvas.zoom ?? HUB_DEFAULT_ZOOM) / 100),
     '--hub-in': m.in,
@@ -242,10 +293,15 @@ export function hubCanvasVars(canvas: HubSectionCanvas): Record<string, string> 
  * section's arrangement and its motion are the only two things a stylesheet
  * needs to branch on, and every other value arrives as a custom property.
  */
-export function hubCanvasClass(canvas: HubSectionCanvas): string {
+export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): string {
   const m = resolveHubMotion(canvas);
   return [
     'hub-canvas',
+    /* 🔑 ON THE RESOLVED URL, NOT ON THE STORED REF. A ref whose signing failed
+       — a deleted object, a refused bucket — must not leave the section styled
+       as though it had a picture: that is a dark empty plate where a photo
+       should be, which reads as a broken page rather than as no photo. */
+    hasMedia ? 'hub-has-media' : 'hub-no-media',
     `hub-arr-${canvas.arrangement ?? HUB_DEFAULT_ARRANGEMENT}`,
     `hub-in-${m.in}`,
     `hub-out-${m.out}`,
@@ -271,4 +327,27 @@ export function hubCanvasClass(canvas: HubSectionCanvas): string {
  */
 export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
   return Object.keys(canvas).length > 0;
+}
+
+/**
+ * EVERY SECTION BACKGROUND ON ONE PAGE, as refs, deduped.
+ *
+ * 🔑 The point is the ONE round trip. `SiteBody` calls this once, signs the
+ * whole list in a single `Promise.all`, and hands the result down; without it
+ * each frame would sign its own and a twelve-section page would make twelve
+ * sequential calls to AWS — the failure `displayUrlForStoredAsset`'s docblock
+ * names for exactly this shape of surface.
+ *
+ * Deduped because two sections may honestly share one photo, and signing it
+ * twice would cost twice and return two different URLs for one picture.
+ */
+export function hubCanvasMediaRefs(
+  rows: readonly { config_json: unknown }[],
+): string[] {
+  const out = new Set<string>();
+  for (const row of rows) {
+    const media = sanitizeHubCanvas(row.config_json).media;
+    if (media) out.add(media);
+  }
+  return [...out];
 }

@@ -155,15 +155,20 @@ test('⛔ a section that asked for nothing carries no animation at all', () => {
   );
 });
 
-test('⛔ the wrapper never wraps a widget that hid itself, and never appears unasked', () => {
-  const src = readFileSync(
-    join(__dirname, '..', 'app', '[slug]', '_components', 'hideable-widget-render.tsx'),
-    'utf8',
-  );
-  const nullAt = src.indexOf('if (inner === null) return null;');
-  const emptyAt = src.indexOf('if (!hasHubCanvas(canvas)) return inner;');
-  const wrapAt = src.indexOf('<div className={hubCanvasClass(canvas)}');
-  assert.ok(nullAt > 0, 'a widget that returned null is let through untouched');
-  assert.ok(emptyAt > 0, 'a couple who arranged nothing gets no wrapper');
-  assert.ok(nullAt < wrapAt && emptyAt < wrapAt, 'and both checks come BEFORE the wrap');
-});
+/*
+  🪤 THE GUARD THAT USED TO SIT HERE MOVED, AND WAS NOT DELETED.
+
+  It read `hideable-widget-render.tsx` for the null check and the
+  "arranged nothing" check, by source. Both then moved into the shared
+  `hub-canvas-frame.tsx` — because there turned out to be TWO dispatchers and
+  the wrapper had only ever been written into one of them, so an anonymous
+  visitor on an open-browse event saw the page unarranged.
+
+  Its property now lives in `every-dispatcher-frames-the-canvas.test.ts`, which
+  is strictly stronger in two ways: it RENDERS the frame instead of grepping for
+  it, and it finds dispatchers by what they DO rather than by naming two files,
+  so a third door added later cannot skip the frame quietly.
+
+  A red guard can mean the design moved. Re-anchor it; never delete it to go
+  green, and never leave two copies to drift.
+*/

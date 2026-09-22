@@ -4744,6 +4744,50 @@ html:has([data-sticky-top]) {
 .hub-arr-full { max-width: none; margin-inline: 0; }
 .hub-arr-text { max-width: 58ch; margin-inline: auto; }
 
+/* ── THE SECTION BACKGROUND ────────────────────────────────────────────────
+   Two layers, and the words are ALWAYS the upper one. The picture is a
+   sibling `div`, never a parent, so the section's own spacing is identical
+   whether or not a couple set a background.
+
+   🔑 `hub-has-media` is set from the RESOLVED URL, not from the stored ref. A
+   deleted object or a refused bucket leaves the class off entirely, so the
+   section renders as a section with no background — never as a dark plate
+   waiting for a picture that is not coming, which a guest reads as a broken
+   page rather than as no photo.
+
+   ⛔ THE SCRIM IS NOT DECORATION. Words over an arbitrary photo the couple
+   chose can land white-on-white; this product cannot know what they uploaded.
+   The gradient guarantees the text keeps its contrast against ANY photo, and
+   it is why the background is a layer rather than a `background-image` on the
+   frame itself. */
+.hub-has-media { position: relative; isolation: isolate; overflow: hidden; }
+.hub-has-media > .hub-canvas-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--hub-media);
+  background-size: cover;
+  background-position: var(--hub-focal);
+  background-repeat: no-repeat;
+  transform: scale(var(--hub-zoom, 1));
+  transform-origin: var(--hub-focal);
+}
+.hub-has-media > .hub-canvas-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+}
+.hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+/* No picture, no layers, no padding change — the section is what it was. */
+.hub-no-media > .hub-canvas-body { display: contents; }
+
+@media (prefers-color-scheme: dark) {
+  .hub-has-media > .hub-canvas-media::after {
+    background: linear-gradient(to bottom, rgb(20 19 15 / 0.86), rgb(20 19 15 / 0.94));
+  }
+}
+
 @keyframes hub-in-rise   { from { opacity: 0; transform: translateY(26px); } }
 @keyframes hub-in-fade   { from { opacity: 0; } }
 @keyframes hub-in-slide  { from { opacity: 0; transform: translateX(-28px); } }

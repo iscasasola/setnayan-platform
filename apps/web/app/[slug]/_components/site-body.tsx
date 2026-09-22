@@ -123,6 +123,9 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
+import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
@@ -403,6 +406,33 @@ export async function SiteBody({
   chaptersOnThisDay = [],
   entourage = [],
 }: SiteBodyProps) {
+  /* 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
+     Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
+     to the public bucket by `siteMediaServeRef` on the way in. They are
+     collected, deduped and signed in a single parallel pass here and handed to
+     both widget dispatchers. A frame that signed its own would make one AWS
+     round trip per section — the failure `displayUrlForStoredAsset` warns list
+     surfaces about by name.
+     ⛔ A ref that fails to sign is simply ABSENT from this map, and the frame
+     then draws the section with no background rather than an empty dark plate
+     waiting for a picture that is not coming. */
+  const canvasMediaRefs = hubCanvasMediaRefs(widgets);
+  const canvasMediaUrls: Record<string, string> = {};
+  if (canvasMediaRefs.length > 0) {
+    await Promise.all(
+      canvasMediaRefs.map(async (ref) => {
+        /* 🔒 HELD AT THE SIGNER TOO, not only on the way in. `hubMediaRef`
+           already refused everything but the public bucket when the ref was
+           stored, and `every-render-read-is-pinned.test.ts` requires the check
+           to be visible HERE as well — because the next person to add a call
+           beside this one will copy what they see, and a stored value can
+           always predate a rule. One allow-list, asked twice. */
+        const url = await displayUrlForStoredAsset(siteMediaServeRef(ref));
+        if (url) canvasMediaUrls[ref] = url;
+      }),
+    );
+  }
+
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
   // OWNER LAYER · surface 1 (2026-07-26). `null` for every guest and every
@@ -818,6 +848,7 @@ export async function SiteBody({
       <PublicHideableWidget
         key={widget.widget_id}
         widget={widget}
+        canvasMediaUrls={canvasMediaUrls}
         event={event}
         words={clientWords}
         scheduleBlocks={scheduleBlocks}
@@ -1983,6 +2014,7 @@ export async function SiteBody({
                 <HideableWidgetRender
                   key={widget.widget_id}
                   widget={widget}
+                  canvasMediaUrls={canvasMediaUrls}
                   event={event}
                   guest={guest}
                   sideLabel={sideLabel}

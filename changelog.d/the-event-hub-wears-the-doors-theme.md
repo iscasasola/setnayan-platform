@@ -94,3 +94,67 @@ matched nothing; they were re-run with the occurrence count printed).
 SPEC IMPACT: `Design_Premium_Guest_Site_2026-07-25` — the guest site gains the
 theme axis it did not have, sourced from the invite themes rather than invented.
 Applied to the corpus in this commit.
+
+---
+
+## 2026-09-22 · fix(event-hub): Velvet's ground and its ink described different planes
+
+**Found by looking at the four themes on a screen — and the guard I wrote for it
+first did not catch it either, which is the part worth keeping.**
+
+Velvet is the one dark theme: the door holds a bright card ON velvet, and the
+page does the same at length. Its mapping gave the page velvet's *paper*
+(near-white) as `--color-cream` and velvet's near-black *ink* as `--color-ink`,
+while the site skin painted the velvet behind the page. So every chapter heading
+and eyebrow — all the text that sits on the ground rather than on a plate — was
+near-black on near-black. **The plates rendered perfectly throughout, which is
+why a thumbnail read as working.**
+
+🔑 **Why the obvious guard failed.** "Ink must contrast with `--color-cream`"
+**passes** on the broken version: dark ink on the light paper the token *claimed*
+is 17:1. The token and the pixels disagreed, and contrast arithmetic on a token
+can only ever see the token. I wrote that guard, ran the original mapping back
+through it, and it went green.
+
+**So the possibility was removed rather than watched.** Every site skin's
+`.ground` now paints `rgb(var(--color-cream))` — the same variable the page
+computes its ink against. They cannot describe different planes because there is
+only one of them; textures, veils and scrims still layer on top. `--color-ink-on-plate`
+is new on `.pahina-plate` / `.pahina-deckle` and falls back to `--color-ink`, so
+it is inert for every theme that does not set one — without it a dark theme's
+bright cards inherit the ground's cream ink and go blank.
+
+⚠ **And a lookahead hole in my own guard**: `\s*(?!rgb\(var\(--color-cream\)\))`
+convicted every *correct* file, because `\s*` matches zero and the engine
+backtracks the lookahead in front of the space. Replaced with a string
+comparison.
+
+## 2026-09-22 · test(event-hub): re-anchor six guards the resolution moved out from under
+
+Lifting the theme resolution into a shared file moved the path three guards
+**name** and the spelling two of them **pin**. No behaviour changed.
+
+🔑 **The `s13-is-finished` pair is the argument for LINE-keyed pardons:** one move
+made the old pardons **stale** and left the new file **unpardoned** — the same
+edit tripping the guard from both sides at once. A guard that could only fail in
+one direction would have let half of it through in silence.
+
+🔴 **And one pair reported the PRODUCT rather than itself.**
+`says-what-it-includes.test.ts` needed **both** its assertions to describe one
+event: an unadvertised guest-facing gate on `COUPLE_WEBSITE_PRO` in a new place,
+and an advertised gate whose implementation appeared to have vanished. Either
+alone would have been misread.
+
+⚠ **THE FINDING IT LEFT IS NOT FIXED HERE, AND IT IS THE OWNER'S.** The claim
+regex is deliberately unchanged — *"invite link"* is still true and all three
+claim surfaces still say it — but the **scope** is now understated: a couple
+buying Event Hub PRO gets the theme on **every page behind the door** and no
+surface says so. That is the safe direction (the copy promises less than it
+delivers, never more) and it is a real upsell left on the table. The SKU's
+description lives in a migration (`20271219583821`, `20271220364681`) and this
+branch carries **no schema change**, so widening the copy would take a migration
+wave slot this branch had just proved it does not need.
+
+SPEC IMPACT: none beyond the entry above — the corpus section already describes
+the theme axis; this is a correction inside it.
+

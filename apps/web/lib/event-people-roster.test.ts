@@ -275,11 +275,28 @@ test('the day-of announcement runs end to end: composer → row → the Event Hu
     'the guest-side reader stopped reading the announcement — the composer is writing to nobody');
 
   // 3 · AND IT IS MOUNTED. A loader nothing renders is the same absence with a
-  // longer stack trace.
-  const page = read('app/[slug]/page.tsx');
-  assert.match(page, /loadDayOfBroadcast\(/, 'the Event Hub stopped loading the announcement');
+  //     longer stack trace.
+  //
+  // ⚠ BOTH HALVES MOVED ON 2026-09-22, AND THE PROPERTY DID NOT. This used to
+  // read `page.tsx` for the load and `site-body.tsx` for the mount. That pairing
+  // WAS the bug: `SiteBody` is rendered by one of the guest tree's TWELVE pages,
+  // so eleven of them never showed the coordinator's words. Both now live in
+  // `[slug]/layout.tsx`, the only node that wraps all twelve.
+  //
+  // Re-anchored, not relaxed — this still asserts the same two things (it is
+  // loaded, and it is rendered) and adds the gate that the guest tree used to
+  // provide structurally: a layout wraps anonymous visitors too, so the
+  // guests-only ruling has to be asked for out loud.
+  const layout = read('app/[slug]/layout.tsx');
+  assert.match(layout, /loadDayOfBroadcast\(/, 'the Event Hub stopped loading the announcement');
+  assert.match(layout, /<DayOfAnnouncement/, 'the announcement is loaded and never rendered');
+  assert.match(layout, /readGuestSession\(\)/,
+    'the layout wraps anonymous visitors too — without the session read, the coordinator\u2019s words go to anyone with the link');
+
+  // And it must not have been left behind, which would double it on the landing page.
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /<DayOfAnnouncement/, 'the announcement is loaded and never rendered');
+  assert.doesNotMatch(body, /<DayOfAnnouncement/,
+    'the announcement still renders in site-body — it mounts once now, in the layout');
 });
 
 test('an announcement is for the day, and is the latest one — not a feed', () => {

@@ -509,6 +509,86 @@ export function extractAllSelectConstants(sourceRaw: string, file: string): Scop
   return out;
 }
 
+/**
+ * `export const A_COLUMNS = B_COLUMNS;` — a canonical list re-exported under a
+ * second name, with no literal of its own.
+ *
+ * 🔴 WHY THIS EXISTS. On 2026-09-22 the Event Hub theme resolution lifted into a
+ * shared module and `INVITE_LOOK_COLUMNS` became exactly this shape — the SAME
+ * string, deliberately not a copy, so the three invite doors that import it stay
+ * pointing at one list. The resolver could not follow it, and **three live
+ * `.select()` sites went dark in one commit**: T1 stopped checking them for
+ * phantom columns and only the unresolved-constant ratchet noticed.
+ *
+ * 🔑 THE ALIAS IS THE GOOD OUTCOME, AND THAT IS THE POINT. Two names for one
+ * string is precisely what this repo asks people to do instead of copying a
+ * column list — so the scanner has to understand the shape it is recommending,
+ * or it punishes the correct fix. Its own message says "fix the resolver
+ * (preferred)".
+ */
+export type SelectConstantAlias = { name: string; file: string; aliasOf: string; exported: boolean };
+
+const ALIAS_CONST_RE =
+  /(export\s+)?const\s+([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*(?::[^=]*)?=\s*([A-Z][A-Z0-9_]*_(?:SELECT|COLUMNS))\s*;/g;
+
+/** Every `const A_COLUMNS = B_COLUMNS;` in one file. */
+export function extractSelectConstantAliases(sourceRaw: string, file: string): SelectConstantAlias[] {
+  const source = stripComments(sourceRaw);
+  const out: SelectConstantAlias[] = [];
+  const re = new RegExp(ALIAS_CONST_RE.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    const name = m[2];
+    const aliasOf = m[3];
+    if (!name || !aliasOf || name === aliasOf) continue;
+    out.push({ name, file, aliasOf, exported: Boolean(m[1]) });
+  }
+  return out;
+}
+
+/**
+ * Materialise each alias against the constant it points at, so a re-exported
+ * list resolves exactly like the literal it names.
+ *
+ * ⚠ ITERATES TO A FIXED POINT, WITH A HOP CEILING. An alias may point at another
+ * alias, and a single pass would resolve only the ones that happen to sit in the
+ * right order. The ceiling is what stops `A = B; B = A;` — a cycle no compiler
+ * would accept, but this reads TEXT and must terminate on source nobody can run.
+ */
+export function resolveConstantAliases(
+  constants: readonly ScopedSelectConstant[],
+  aliases: readonly SelectConstantAlias[],
+): ScopedSelectConstant[] {
+  const out = [...constants];
+  const known = () => {
+    const sameFile = new Map<string, ScopedSelectConstant>();
+    const exported = new Map<string, ScopedSelectConstant>();
+    for (const c of out) {
+      sameFile.set(`${c.file}\u0000${c.name}`, c);
+      if (c.exported && !exported.has(c.name)) exported.set(c.name, c);
+    }
+    return { sameFile, exported };
+  };
+  let pending = [...aliases];
+  for (let hop = 0; hop < 5 && pending.length > 0; hop++) {
+    const { sameFile, exported } = known();
+    const still: SelectConstantAlias[] = [];
+    for (const a of pending) {
+      // Same-file first, then any exported one — the same scope rule
+      // `resolveConstantSelectSites` applies, and for the same reason.
+      const target = sameFile.get(`${a.file}\u0000${a.aliasOf}`) ?? exported.get(a.aliasOf);
+      if (!target) {
+        still.push(a);
+        continue;
+      }
+      out.push({ name: a.name, file: a.file, columns: target.columns, exported: a.exported });
+    }
+    if (still.length === pending.length) break; // nothing moved — the rest are cycles or dangling
+    pending = still;
+  }
+  return out;
+}
+
 export function resolveConstantSelectSites(
   constantSites: readonly ConstantSelectSite[],
   constants: readonly ScopedSelectConstant[],
@@ -566,6 +646,7 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
   const literalSites: SelectSite[] = [];
   const constantSites: ConstantSelectSite[] = [];
   const constants: ScopedSelectConstant[] = [];
+  const aliases: SelectConstantAlias[] = [];
   const refSites: RefSelectSite[] = [];
   const tableConstants: ScopedTableConstant[] = [];
 
@@ -581,6 +662,7 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
     // `export`, and they are half the declarations in this repo.
     if (src.includes('const ')) {
       constants.push(...extractAllSelectConstants(src, rel));
+      aliases.push(...extractSelectConstantAliases(src, rel));
       /*
         \u26a0 COLLECTED BEFORE THE `.from(` EARLY-EXIT, DELIBERATELY. A file can
         DECLARE the table constant and never read a table itself — which is
@@ -599,12 +681,18 @@ export function scanAllSelectSites(root: string = APP_ROOT): {
     refSites.push(...extractRefSelectSites(src, rel));
   }
 
-  const { resolved, unresolved } = resolveConstantSelectSites(constantSites, constants);
+  /*
+    Aliases are materialised BEFORE the sites are resolved — a re-exported list
+    has no literal of its own, so without this pass every site naming it is
+    reported unresolved and silently drops out of the phantom check.
+  */
+  const withAliases = resolveConstantAliases(constants, aliases);
+  const { resolved, unresolved } = resolveConstantSelectSites(constantSites, withAliases);
   const fromRefs = resolveRefSelectSites(refSites, tableConstants);
   return {
     literalSites,
     constantSites,
-    constants,
+    constants: withAliases,
     resolved,
     unresolved,
     refSites,

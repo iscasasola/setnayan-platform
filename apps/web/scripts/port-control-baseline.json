@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "23a6b30b8",
+  "generatedFromRef": "b02063e90",
   "routeCount": 430,
-  "destinations": 924,
-  "actions": 654,
-  "blocks": 4601,
+  "destinations": 925,
+  "actions": 655,
+  "blocks": 4608,
   "routes": {
     "/": {
       "files": [
@@ -158,6 +158,7 @@
     },
     "/(shell)/explore": {
       "files": [
+        "(shell)/explore/_components/card-headline-service.ts",
         "(shell)/explore/_components/category-tile.tsx",
         "(shell)/explore/_components/event-type-notify-form.tsx",
         "(shell)/explore/_components/explore-search-hero.tsx",
@@ -783,6 +784,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
+        "[slug]/_components/skins/site-skin.tsx",
         "[slug]/_components/song-request-card.tsx",
         "[slug]/_components/special-message-widget.tsx",
         "[slug]/_components/spotlight-card.tsx",
@@ -824,7 +826,9 @@
         "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
+        "[slug]/_lib/hub-look.ts",
         "[slug]/_lib/icon-source.ts",
+        "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
@@ -972,6 +976,7 @@
         "HeroMonogram",
         "HeroPhoto",
         "HideableWidgetRender",
+        "HubLook",
         "HubMenuButton",
         "HubPanelKey",
         "Icon",
@@ -2671,6 +2676,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
@@ -2685,6 +2691,8 @@
         "KpiStatCard",
         "Link",
         "MobileLandingGrid",
+        "RevenueSummary",
+        "Row",
         "Suspense",
         "TablePageSkeleton",
         "TransactionsLedger"
@@ -5459,6 +5467,7 @@
         "GroupsSidebar",
         "GuestDetailBody",
         "GuestDrawerHost",
+        "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
         "GuestRole",
@@ -9683,6 +9692,7 @@
         "NavLinksRow",
         "PackageCard",
         "PublicVendorRow",
+        "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
         "ReviewRow",
@@ -9808,6 +9818,7 @@
         "declineLock",
         "disconnectInstagram",
         "formAction",
+        "markServiceComplete",
         "null",
         "postReviewReply",
         "rejectLock",
@@ -9855,11 +9866,13 @@
         "LockRequestLapsedBody",
         "LockedBody",
         "LockedQrGenerator",
+        "MarkCompleteBody",
         "Marker",
         "MediaTile",
         "MeetingBody",
         "MessageBody",
         "NotConnected",
+        "NothingToAnswerFeed",
         "OngoingTasks",
         "PageMasthead",
         "PaymentsPausedNote",
@@ -11864,6 +11877,7 @@
       "destinations": [
         "/help",
         "/open-shop",
+        "/pricing",
         "/vendors"
       ],
       "actions": [],

@@ -2919,14 +2919,20 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   .sn-editorial .pahina-eyebrow > [aria-hidden='true'] {
     color: rgb(var(--color-gild));
   }
+  /* `--pahina-rule-len` is themed (Event Hub themes, 2026-09-22); the fallback
+     IS today's value. ⚠ THIS NOTE IS OUTSIDE THE RULE ON PURPOSE —
+     `the-invitation-tells-the-truth.test.ts` asserts `--color-gild` appears
+     within 200 characters of the selector below, and a comment inside the
+     braces pushes it past that window. Keep prose about this rule out here. */
   .sn-editorial .pahina-eyebrow::after {
     content: '';
-    flex: 0 0 3.5rem;
+    flex: 0 0 var(--pahina-rule-len, 3.5rem);
     height: 1px;
     align-self: center;
     background: rgb(var(--color-gild) / 0.55);
   }
   .sn-editorial .pahina-plate {
+    color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
     padding: 1.25rem;
@@ -2939,6 +2945,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     inset: 0.5rem;
     border: 1px solid rgb(var(--color-ink) / 0.08);
     pointer-events: none;
+    opacity: var(--pahina-frame-opacity, 1);
   }
   .sn-editorial .pahina-rule {
     border: 0;
@@ -2954,7 +2961,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.05;
+    opacity: var(--pahina-grain-opacity, 0.05);
     mix-blend-mode: multiply;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
   }
@@ -2963,7 +2970,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      express as utilities: a ::first-letter drop cap, the gild-ruled pull quote,
      and the silk swatch's inner shading + gild pin. ────────────────────────── */
   .sn-editorial .pahina-dropcap::first-letter {
-    font-family: var(--font-pahina-display), Georgia, serif;
+    font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;
     float: left;
     font-size: 3.4em;
     line-height: 0.82;
@@ -2973,7 +2980,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     color: rgb(var(--color-gild));
   }
   .sn-editorial .pahina-quote {
-    font-family: var(--font-pahina-display), Georgia, serif;
+    font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;
     font-style: italic;
     border-left: 2px solid rgb(var(--color-gild));
     padding-left: 1.15rem;
@@ -3015,6 +3022,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     /* the one thing on the page that IS a card in real life — heavier stock:
        paper-deep, a lifted drop shadow, and the printed inner hairline */
     position: relative;
+    color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
     padding: 1.5rem;
@@ -3146,6 +3154,256 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);
   --font-mono: var(--font-editorial-mono);
+}
+
+/* ── Event Hub theme MATERIALS (owner 2026-09-22) ────────────────────────────
+   Owner: *"we have event hub themes"* — and he was right. `lib/invite-themes.ts`
+   has carried five since 2026-09-10 (House free · Capiz · Velvet · Galeriya ·
+   Abaca on Event Hub Pro), and they stopped at `/[slug]/invite`. Everything
+   BEHIND that door — save-the-date, RSVP, event, editorial, recap, pabuya, hub
+   — was still the one Clean-Editorial look. Owner ruling the same day: the site
+   wears the theme the couple already picked for their door. One choice, one
+   picker, one purchase.
+
+   🔑 WHY THE MATERIAL LIVES HERE AND NOT IN THE SKINS. Two surfaces need the
+   same palette, and `themes-stay-skins.test.ts` forbids the site importing the
+   door's stylesheet — no theme may reach the shared chunk, which is a rule worth
+   keeping. An attribute-scoped block neither surface owns is the only place ONE
+   definition can sit. These values were MOVED here verbatim out of
+   `app/[slug]/invite/_components/themes/*.module.css`, not retyped, and
+   `the-site-wears-the-doors-theme.test.ts` fails if either surface starts
+   declaring its own.
+
+   ⚠ ONLY MATERIAL MOVED. Every `--ga-pad` / `--ab-card-pad` is DoorShell's own
+   padding written down, and stayed in the door module where it belongs — it
+   describes the door, not the theme.
+
+   The `@supports` blocks are the couple's OWN COLOUR mixed into the material
+   (`--accent`), so they travel with it: without them the site would fall back to
+   a neutral while the door showed the couple's colour — one fact, two renders.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-invite-theme='capiz'],
+[data-hub-theme='capiz'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --cz-pearl-ch: 244 241 235; /* = --cz-pearl */
+  --cz-gold-ch: 197 160 89; /* = --cz-gold */
+  --cz-pearl: #f4f1eb;
+  --cz-milk: 250 247 240;
+  --cz-gold: #c5a059;
+  --cz-mullion: rgba(44, 42, 41, 0.12);
+  --cz-frame: rgba(44, 42, 41, 0.2);
+  --cz-pane-a: rgba(120, 110, 100, 0.04);
+  --cz-pane-b: rgba(120, 110, 100, 0.07);
+  --cz-pane-c: rgba(120, 110, 100, 0.03);
+  --cz-light: rgba(120, 110, 100, 0.18);
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  [data-invite-theme='capiz'],
+  [data-hub-theme='capiz'] {
+    --cz-pane-a: color-mix(in srgb, var(--accent) 6%, transparent);
+    --cz-pane-b: color-mix(in srgb, var(--accent) 11%, transparent);
+    --cz-pane-c: color-mix(in srgb, var(--accent) 4%, transparent);
+    --cz-light: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+
+[data-invite-theme='velvet'],
+[data-hub-theme='velvet'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --vl-paper-ch: 251 249 246; /* = --vl-paper */
+  --vl-ink-ch: 21 18 26; /* = --vl-ink */
+  --vl-foil-ch: 197 160 89; /* = --vl-foil */
+  --vl-hair-ch: 221 215 204; /* = --vl-hair */
+  --vl-paper: #fbf9f6;
+  --vl-ink: #15121a; /* 17.6:1 on paper */
+  --vl-foil: #c5a059;
+  --vl-hair: #ddd7cc;
+  --vl-velvet: #2b1610;
+  --vl-veil-deep: rgba(28, 14, 10, 0.94);
+  --vl-veil-mid: rgba(28, 14, 10, 0.5);
+  --vl-veil-low: rgba(28, 14, 10, 0.72);
+  --vl-foil-ring: rgba(197, 160, 89, 0.38);
+}
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  [data-invite-theme='velvet'],
+  [data-hub-theme='velvet'] {
+    --vl-velvet: color-mix(in oklab, #0d090c 52%, var(--accent));
+    --vl-veil-deep: color-mix(in srgb, var(--vl-velvet) 94%, transparent);
+    --vl-veil-mid: color-mix(in srgb, var(--vl-velvet) 50%, transparent);
+    --vl-veil-low: color-mix(in srgb, var(--vl-velvet) 72%, transparent);
+    --vl-foil-ring: color-mix(in srgb, var(--vl-foil) 38%, transparent);
+  }
+}
+
+[data-invite-theme='galeriya'],
+[data-hub-theme='galeriya'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --ga-wall-ch: 233 234 236; /* = --ga-wall */
+  --ga-rule-ch: 189 192 197; /* = --ga-rule */
+  --ga-wall: #e9eaec;
+  --ga-rule: #bdc0c5;
+}
+
+[data-invite-theme='abaca'],
+[data-hub-theme='abaca'] {
+  /* Channel companions — the SAME colours above, in the space-separated form
+     `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
+     the one place the second representation is allowed to exist; the guard
+     parses both and fails if they ever disagree. */
+  --ab-kraft-ch: 196 161 113; /* = --ab-kraft */
+  --ab-ink-ch: 43 33 24; /* = --ab-ink */
+  --ab-kraft: #c4a171;
+  --ab-ink: #2b2118; /* measured: 6.5:1 on bare kraft, 15.8:1 on DoorShell's card */
+  --ab-kraft-hi: #cbab7e;
+  --ab-kraft-mid: #bd9b6c;
+  --ab-kraft-lo: #ad8d61;
+}
+
+/* ── …and what each material becomes ON THE PAGE ─────────────────────────────
+   The block above is the MATERIAL, shared with the door. This one is the SITE's
+   reading of it: the same palette mapped onto the tokens the guest pages already
+   render through (`--color-*`, the display face, the twelve `pahina-*` ornament
+   switches). The door draws a card; the page draws chapters — same stock,
+   different composition.
+
+   🔑 `[data-hub-theme]` ONLY. The door must not be re-skinned by these: it has
+   its own, owner-approved composition, and the shared block above is the whole
+   of what the two surfaces agree on.
+
+   ⚠ AND THESE ARE STYLESHEET RULES, NEVER INLINE VARS. The couple's mood-board
+   palette and their Pro hex colours arrive as inline `style` on this very
+   `<main>` (`invitation-shell.tsx`), and inline beats any stylesheet — so the
+   precedence falls out right for free:
+
+       theme (here)  <  mood-board palette (inline)  <  the couple's own hex
+
+   A theme is the BASE, and anything the couple set themselves still wins on top.
+
+   ✅ THREE OF THE FOUR BRING THEIR OWN FACE, and the page takes the SAME one the
+   door uses — Velvet is Bodoni Moda over Jost, Galeriya is Schibsted Grotesk,
+   Abaca is Alfa Slab One over Oswald. Capiz brings none on purpose: its door
+   sets the seal in the house Cormorant, so the page keeps it. None of these is
+   invented here; each is the face its own design board specified.
+
+   The `--font-*-…` values are build-time hashes from `next/font`, so they cannot
+   be written in a stylesheet — `site-skin.tsx` puts the generated classes on the
+   same `<main>` and these rules only POINT at them.
+
+   🔑 AND THE IDENTITY SURVIVES A PALETTE. The couple's colours win on
+   `--color-cream`/`--color-mulberry`, but the face, the grain, the printed
+   frame, the rule length and the metal's ROLE are things a palette never touches
+   — so a Galeriya page with a blush palette is still a gallery.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* CAPIZ · Elegant — pearl stock under shell light, gold hairlines, the lattice
+   carried as a finer grain than the house paper. */
+[data-hub-theme='capiz'] {
+  --color-cream: var(--cz-pearl-ch);
+  --color-paper: var(--cz-pearl-ch);
+  --color-paper-deep: var(--cz-milk);
+  --color-veil: var(--cz-pearl-ch);
+  --color-gild: var(--cz-gold-ch);
+  --pahina-grain-opacity: 0.035;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* VELVET · Classy — the one DARK theme. The ground is velvet mixed from the
+   couple's own accent and the plates are bright cotton card on top of it, which
+   is exactly the door's arrangement at page scale.
+   🔑 THIS IS THE ONE THEME THAT MOVES `--color-ink`, and it is allowed to
+   BECAUSE it moves the paper with it: ink `#15121a` on `--vl-paper` is 17.6:1,
+   measured in the skin's own docblock. The rule the guard enforces is not "never
+   touch ink" — it is "never move ink WITHOUT the paper it is read on". */
+[data-hub-theme='velvet'] {
+  --font-display: var(--font-velvet-display);
+  --font-mono: var(--font-velvet-utility);
+  --pahina-face: var(--font-velvet-display);
+  /* 🔴 CORRECTED — THE FIRST MAPPING HAD THIS EXACTLY BACKWARDS, and only
+     looking at it on a screen showed that. Velvet is the one DARK theme: the
+     door holds a BRIGHT card ON velvet, and the page does the same at length.
+     The first version gave the page velvet's PAPER as its ground and velvet's
+     near-black INK as its text — so every chapter heading and eyebrow, i.e.
+     all the text that sits on the ground rather than on a plate, was
+     near-black on near-black. The plates looked perfect the whole time, which
+     is why it read as "working" in a thumbnail.
+     🔑 The rule it broke is the one written into `site-palette.ts`: ink and the
+     paper it is read on move TOGETHER or not at all. */
+  --color-cream: 28 22 26;
+  --color-paper: 28 22 26;
+  --color-ink: 240 234 224; /* warm cream, on the velvet — 12.2:1 at the default
+                               accent, and 5.1:1 in the worst case the ground
+                               scrim exists for (see velvet.module.css) */
+  /* The plates stay bright cotton card and carry their OWN ink. `--color-ink`
+     is the ground's, and on this theme the two are opposites — which is what
+     `--color-ink-on-plate` exists for. Every other theme leaves it unset and
+     falls back to `--color-ink`, so this is inert for them. */
+  --color-paper-deep: var(--vl-paper-ch);
+  --color-ink-on-plate: var(--vl-ink-ch); /* #15121a on #fbf9f6 — 17.6:1, the
+                                             door skin's own measurement */
+  --color-veil: var(--vl-hair-ch);
+  --color-gild: var(--vl-foil-ch);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 2.75rem;
+}
+
+/* GALERIYA · Sophisticated — a flat light wall, no metal at all, and the rule
+   doing the work. The long rule is the theme's signature, so the eyebrow's
+   hairline runs longer here than anywhere else and the printed frame comes off
+   the plates: a gallery label is not a framed card. */
+[data-hub-theme='galeriya'] {
+  --font-display: var(--font-galeriya-sans);
+  --font-mono: var(--font-galeriya-sans);
+  --pahina-face: var(--font-galeriya-sans);
+  --color-cream: var(--ga-wall-ch);
+  --color-paper: var(--ga-wall-ch);
+  --color-paper-deep: 255 255 255;
+  --color-veil: var(--ga-wall-ch);
+  --color-gild: var(--ga-rule-ch);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 0;
+  --pahina-rule-len: 6rem;
+}
+
+/* ABACA · Rugged — kraft stock, heavy grain, no metal, the plates printed on a
+   lighter pull of the same paper.
+   ⚠ `--color-ink` moves here too, and for the same reason as Velvet: the skin
+   measured `#2b2118` at 15.8:1 on the card it sits on. Kraft is NOT the plate —
+   the ground is kraft and the chapters are the lighter `--ab-kraft-hi` pull, the
+   door's own arrangement. Ink on bare kraft is 6.5:1 and never carries body
+   text here. */
+[data-hub-theme='abaca'] {
+  --font-display: var(--font-abaca-display);
+  --font-mono: var(--font-abaca-utility);
+  --pahina-face: var(--font-abaca-display);
+  --color-cream: var(--ab-kraft-ch);
+  --color-paper: var(--ab-kraft-ch);
+  --color-paper-deep: 240 227 206;
+  --color-ink: var(--ab-ink-ch);
+  --color-veil: var(--ab-kraft-ch);
+  --color-gild: var(--ab-ink-ch);
+  --pahina-grain-opacity: 0.12;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 2.25rem;
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  [data-invite-theme='abaca'],
+  [data-hub-theme='abaca'] {
+    --ab-kraft-hi: color-mix(in srgb, var(--ab-kraft) 92%, #fff0d0);
+    --ab-kraft-mid: color-mix(in srgb, var(--ab-kraft) 96%, #2b1a08);
+    --ab-kraft-lo: color-mix(in srgb, var(--ab-kraft) 86%, #2b1a08);
+  }
 }
 
 /* ---------- ambient backdrop (dashboard shell page background) ----------

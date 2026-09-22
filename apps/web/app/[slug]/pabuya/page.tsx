@@ -1,4 +1,5 @@
 import { RoomFooter } from '../_components/room-footer';
+import { resolveHubLook, type HubLookEvent } from '../_lib/hub-look';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import { cache } from 'react';
 import Link from 'next/link';
@@ -46,7 +47,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, role_palette, landing_page_visibility, pabuya_message',
+      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -93,6 +94,21 @@ export default async function PabuyaPublicPage({
 
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
+  /*
+    THE THEME REACHES HERE TOO (owner 2026-09-22: every guest page). A couple
+    whose invitation is Capiz and whose recap is Clean-Editorial reads that as a
+    broken theme, not as a page nobody got round to. `resolveHubLook` is the one
+    opinion about which theme is live; House stamps no attribute and renders
+    exactly today's page.
+
+    ⚠ THE GROUND IS NOT DRAWN ON THIS SURFACE — only the material tokens. These
+    pages compose their own `<main>` rather than going through InvitationShell,
+    and a fixed ground behind a page that was never designed for one is a
+    change this build did not measure. The paper, the metal and the ornament
+    still move, which is what makes the surfaces agree.
+  */
+  const hubTheme = (await resolveHubLook(event as HubLookEvent)).theme;
+  const hubThemeAttr = hubTheme === 'house' ? undefined : hubTheme;
 
   /*
     ══ 🔒 AN ACCOUNT NUMBER IS NOT PUBLIC CONTENT ══════════════════════════════
@@ -190,7 +206,7 @@ export default async function PabuyaPublicPage({
   const hostName = event.display_name ?? words.theOrganizer;
 
   return (
-    <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
+    <main className="min-h-dvh bg-cream text-ink" style={wrapStyle} data-hub-theme={hubThemeAttr}>
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">

@@ -1,0 +1,77 @@
+/*
+ * GALERIYA on the PAGE — the Sophisticated theme's ground, at site scale.
+ *
+ * A gallery: the wall is flat and light, ONE hairline rule stands the full
+ * height, and everything ranges off it. On the door the couple's photo is the
+ * WORK — hung, hairlined, shadowed — rather than the wall. The page keeps that
+ * exactly: the photo is NOT painted across this ground at all.
+ *
+ * 🔑 SO THIS SKIN DELIBERATELY IGNORES `photo`. It is the only one of the four
+ * that does, and it is the design rather than an omission — a gallery whose wall
+ * is the picture has no wall. The couple's photo reaches the page through the
+ * hero the site already renders, which IS the hung work in this theme's terms.
+ *
+ * 🎨 `--ga-wall` and `--ga-rule` live once in `app/globals.css`, shared with the
+ * door. The door's `--ga-pad` / `--ga-card-pad` / `--ga-rule-gap` / `--ga-print-h`
+ * do NOT: every one of them is DoorShell's own padding written down, and they
+ * describe a card this page does not have.
+ */
+
+/*
+ * 🔴 THE GROUND IS `rgb(var(--color-cream))`, NOT THIS THEME'S OWN COLOUR TOKEN,
+ * AND THAT IS A STRUCTURAL FIX FOR A BUG THAT SHIPPED IN THIS BRANCH.
+ *
+ * Velvet's first mapping told the page its paper was `--vl-paper` (near-white)
+ * while this skin painted the velvet (near-black) behind it. Every chapter
+ * heading and eyebrow — all the text that sits on the ground rather than on a
+ * plate — was drawn in the ink chosen for the LIGHT paper, on the DARK ground.
+ * The plates rendered perfectly throughout, so a thumbnail looked right.
+ *
+ * 🔑 A GUARD COULD NOT HAVE CAUGHT IT, AND I WROTE ONE THAT DID NOT. Checking
+ * "ink contrasts with --color-cream" passes: dark ink on the light paper the
+ * token CLAIMED is 17:1. The token and the pixels disagreed, and contrast
+ * arithmetic on the token can only ever see the token.
+ *
+ * So the possibility is removed instead of watched: the ground paints the SAME
+ * variable the page computes its text colour against. They cannot disagree,
+ * because there is only one of them. Texture, veils and scrims layer ON TOP —
+ * that is what makes each theme look like itself — but the base plane is the
+ * page's own paper by construction.
+ */
+.ground {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-color: rgb(var(--color-cream));
+}
+
+/*
+ * THE RULE. On the door it stands 8px left of a `max-w-md` card. The page's
+ * column is `max-w-3xl` (48rem) widening to `max-w-5xl` and then 76rem, so the
+ * offset is expressed the way the page expresses it rather than copied as a
+ * number — the rule and the column must meet at every breakpoint or the theme's
+ * one structural gesture is visibly off.
+ */
+.rule {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(max(1rem, (100% - 48rem) / 2) - 10px);
+  width: 1px;
+  background: var(--ga-rule);
+}
+@media (min-width: 640px) {
+  .rule {
+    left: calc(max(1.5rem, (100% - 48rem) / 2) - 10px);
+  }
+}
+@media (min-width: 1280px) {
+  .rule {
+    left: calc(max(2rem, (100% - 64rem) / 2) - 12px);
+  }
+}
+@media (min-width: 1536px) {
+  .rule {
+    left: calc(max(2rem, (100% - 76rem) / 2) - 12px);
+  }
+}

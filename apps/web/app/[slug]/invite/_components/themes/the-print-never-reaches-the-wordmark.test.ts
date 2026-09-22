@@ -122,8 +122,19 @@ test('over a pure black photo the wordmark still clears AA at the lowest it has 
     `could not read the ramp out of the mask — re-anchor this guard rather than deleting it: ${stops}`,
   );
 
-  const kraft = /--ab-kraft:\s*(#[0-9a-f]{6})/i.exec(css)?.[1];
-  assert.ok(kraft, 'the kraft token is gone from the stylesheet');
+  /*
+    🪤 THE TOKEN MOVED, THE FACT DID NOT (2026-09-22). `--ab-kraft` used to be
+    declared in abaca.module.css; it now lives in globals.css under
+    `[data-invite-theme='abaca'], [data-hub-theme='abaca']`, because the Event
+    Hub pages behind this door wear the same material and cannot import this
+    stylesheet. Both files are read so this guard keeps measuring the colour
+    that actually ships, wherever it is declared — re-anchored rather than
+    relaxed, and it still fails if the token disappears entirely.
+  */
+  const kraft =
+    /--ab-kraft:\s*(#[0-9a-f]{6})/i.exec(css)?.[1] ??
+    /--ab-kraft:\s*(#[0-9a-f]{6})/i.exec(globals)?.[1];
+  assert.ok(kraft, 'the kraft token is gone from BOTH the skin stylesheet and globals.css');
   // The wordmark takes its colour from `--m-ink`; Velvet rebinds that token for
   // its own page and Abaca deliberately does not, so this is the real value.
   const ink = /--m-ink:\s*(#[0-9a-f]{6})/i.exec(globals)?.[1];

@@ -14,25 +14,22 @@
  * Gold (#C5A059, 3.37:1 on paper) is a hairline and a ring here, never a word.
  */
 .capiz {
-  --cz-pearl: #f4f1eb;
-  --cz-milk: 250 247 240;
-  --cz-gold: #c5a059;
-  --cz-mullion: rgba(44, 42, 41, 0.12);
-  --cz-frame: rgba(44, 42, 41, 0.2);
-  /* neutral pearl fallbacks where color-mix is unavailable */
-  --cz-pane-a: rgba(120, 110, 100, 0.04);
-  --cz-pane-b: rgba(120, 110, 100, 0.07);
-  --cz-pane-c: rgba(120, 110, 100, 0.03);
-  --cz-light: rgba(120, 110, 100, 0.18);
+  /*
+   * ⚠ THE MATERIAL TOKENS MOVED OUT OF THIS RULE (Event Hub themes, 2026-09-22)
+   * and now live in `app/globals.css` under
+   * `[data-invite-theme='capiz'], [data-hub-theme='capiz']`.
+   *
+   * They had to: the SITE behind this door wears the same theme now, and
+   * `themes-stay-skins.test.ts` forbids the site importing this stylesheet (no
+   * theme may reach the shared chunk). The only way both surfaces can hold ONE
+   * definition of the material is an attribute-scoped block neither of them
+   * owns. Geometry that describes DoorShell stays here — it is about the door,
+   * not about the material.
+   *
+   * `DoorShell` stamps `data-invite-theme` from `skin.themeId`, so this rule's
+   * vars resolve exactly as before.
+   */
   background: var(--cz-pearl);
-}
-@supports (color: color-mix(in srgb, red, blue)) {
-  .capiz {
-    --cz-pane-a: color-mix(in srgb, var(--accent) 6%, transparent);
-    --cz-pane-b: color-mix(in srgb, var(--accent) 11%, transparent);
-    --cz-pane-c: color-mix(in srgb, var(--accent) 4%, transparent);
-    --cz-light: color-mix(in srgb, var(--accent) 30%, transparent);
-  }
 }
 
 /* The couple's photo, a touch desaturated, as light through shell is. */

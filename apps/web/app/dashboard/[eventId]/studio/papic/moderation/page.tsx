@@ -547,7 +547,7 @@ export default async function PapicModerationPage({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={url}
-                        alt={isClip ? 'Clip from your cameras' : 'Photo from your cameras'}
+                        alt={isClip ? 'Snippet from your cameras' : 'Photo from your cameras'}
                         className={`h-full w-full object-cover ${hidden ? 'opacity-40 grayscale' : ''}`}
                       />
                     ) : (
@@ -691,7 +691,7 @@ export default async function PapicModerationPage({
                     )}
                     <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
                       <ShieldAlert aria-hidden className="h-3 w-3" strokeWidth={2} />{' '}
-                      {s.isClip ? 'Filtered clip' : 'Filtered'}
+                      {s.isClip ? 'Filtered snippet' : 'Filtered'}
                     </span>
                   </div>
                   <span className="truncate text-xs font-medium text-ink/70">{name}</span>

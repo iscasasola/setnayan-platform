@@ -3,7 +3,7 @@
 import { Fragment, useState } from 'react';
 import { Play, Download, Sparkles, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
-import { PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
+import { PAPIC_POINTS_PER_SNIPPET } from '@/lib/papic-cameras-pure';
 import {
   PRESERVATION_BLOCK_PHP,
   PRESERVATION_BLOCK_POINTS,
@@ -231,8 +231,8 @@ export function PapicGalleryGrid({
                     alt={
                       p.kind === 'clip'
                         ? p.tagged
-                          ? 'Papic gallery video clip of tagged guests'
-                          : 'Papic gallery video clip'
+                          ? 'Papic gallery snippet of tagged guests'
+                          : 'Papic gallery snippet'
                         : p.tagged
                           ? 'Papic gallery photo of tagged guests'
                           : 'Papic gallery photo'
@@ -389,7 +389,7 @@ function PapicLightbox({
             ) : (
               <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             )}
-            {saving ? 'Saving…' : 'Download clip'}
+            {saving ? 'Saving…' : 'Download snippet'}
           </button>
         ) : photo.saveUrl ? (
           <a
@@ -430,7 +430,7 @@ function ShowcaseToggle({
 }) {
   const live = approved && consented;
   const title = !approved
-    ? 'Add this clip to your public memory orb'
+    ? 'Add this snippet to your public memory orb'
     : live
       ? 'On your public memory orb — tap to remove'
       : 'Approved — waiting on guest consent before it shows';
@@ -530,13 +530,13 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
         become smaller copies unless you choose to keep them.{' '}
         {nonePicked ? (
           <>Tap a photo to choose it. A photo is one credit; a 10-second video is{' '}
-          {PAPIC_POINTS_PER_CLIP}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
+          {PAPIC_POINTS_PER_SNIPPET}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
           credits&rsquo; worth is {formatPhp(PRESERVATION_BLOCK_PHP)} a year.</>
         ) : (
           <>
             Keeping what you have chosen would be {formatPhp(annualPhp)} a year
             {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. A photo is
-            one credit; a 10-second video is {PAPIC_POINTS_PER_CLIP}.
+            one credit; a 10-second video is {PAPIC_POINTS_PER_SNIPPET}.
           </>
         )}{' '}
         Nothing is ever deleted — anything you don&rsquo;t choose stays in your gallery, only

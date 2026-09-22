@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolBarEnabled } from '@/lib/papic-pool-bar-flag';
 import { fetchHostPoolMeter } from '@/lib/papic-pool-meter';
 import {
-  PAPIC_POINTS_PER_CLIP,
+  PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
 } from '@/lib/papic-cameras';
 
@@ -80,7 +80,7 @@ export async function HostPoolMeterCard({ eventId }: { eventId: string }) {
             {PAPIC_POINTS_PER_PHOTO === 1
               ? 'a photo is 1 point'
               : `a photo is ${PAPIC_POINTS_PER_PHOTO} points`}
-            , a 10-second clip is {PAPIC_POINTS_PER_CLIP}.
+            , a 10-second clip is {PAPIC_POINTS_PER_SNIPPET}.
           </p>
         </div>
         <p className="shrink-0 text-right">

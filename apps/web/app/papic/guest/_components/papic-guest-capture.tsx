@@ -877,7 +877,7 @@ export function PapicGuestCapture({
             setSaveError(
               guestWindowRejectMessage(json.error, json.eventDay) ??
                 (res.status === 413 || json.error === 'too_large'
-                  ? 'That clip was too long or heavy to save — try a shorter one.'
+                  ? 'That snippet was too long or heavy to save — try a shorter one.'
                   : "That clip couldn't be saved — please try again."),
             );
             return;
@@ -1650,7 +1650,7 @@ export function PapicGuestCapture({
                 aria-label={
                   recording
                     ? 'Recording — release to stop'
-                    : 'Tap to take a photo, or press and hold to record a clip'
+                    : 'Tap to take a photo, or press and hold to record a snippet'
                 }
                 className={`flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 transition active:scale-95 disabled:opacity-40 ${
                   recording ? 'bg-terracotta/30' : 'bg-cream/10'
@@ -1682,7 +1682,7 @@ export function PapicGuestCapture({
                 onClick={() => (recording ? stopRecording() : void startRecording())}
                 disabled={busy || !ready || tagging}
               >
-                {recording ? 'Stop recording' : 'Record a 10-second clip'}
+                {recording ? 'Stop recording' : 'Record a 10-second snippet'}
               </button>
             </div>
           </div>

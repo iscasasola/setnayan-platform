@@ -14,14 +14,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  papicClipCost,
+  papicSnippetCost,
   papicCaptureCost,
   PAPIC_CLIP_COST_BANDS,
-  PAPIC_CLIP_COST_MAX,
+  PAPIC_SNIPPET_COST_MAX,
   PAPIC_CLIP_COST_MIN,
-  PAPIC_POINTS_PER_CLIP,
+  PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
-  PAPIC_PRESERVATION_UNITS_PER_CLIP,
+  PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
 } from './papic-cameras';
 
 /** The owner's table, second by second. */
@@ -41,7 +41,7 @@ const TABLE: ReadonlyArray<[seconds: number, credits: number]> = [
 test('the owner’s table, second by second', () => {
   for (const [seconds, credits] of TABLE) {
     assert.equal(
-      papicClipCost(seconds * 1000),
+      papicSnippetCost(seconds * 1000),
       credits,
       `${seconds}s must cost ${credits} credits`,
     );
@@ -52,8 +52,8 @@ test('nothing got more expensive — ten seconds still costs what every clip use
   // The whole change is a price CUT for short clips. If the top band ever drifts
   // above the old flat price, this stops being a cut and becomes a rise nobody
   // agreed to.
-  assert.equal(papicClipCost(10_000), PAPIC_POINTS_PER_CLIP);
-  assert.equal(PAPIC_CLIP_COST_MAX, PAPIC_POINTS_PER_CLIP);
+  assert.equal(papicSnippetCost(10_000), PAPIC_POINTS_PER_SNIPPET);
+  assert.equal(PAPIC_SNIPPET_COST_MAX, PAPIC_POINTS_PER_SNIPPET);
 });
 
 test('a photo is untouched', () => {
@@ -67,7 +67,7 @@ test('a photo is untouched', () => {
 test('it is never cheaper to shoot longer', () => {
   let prev = 0;
   for (let s = 1; s <= 10; s += 1) {
-    const cost = papicClipCost(s * 1000);
+    const cost = papicSnippetCost(s * 1000);
     assert.ok(
       cost >= prev,
       `${s}s costs ${cost}, less than the ${prev} the second before it — a shooter would be paid to record longer`,
@@ -95,10 +95,10 @@ test('chopping a clip up is never MEANINGFULLY cheaper — and the one place it 
   // incentive to game the pricing and this goes red.
   const TOLERATED = 1;
   for (let whole = 1; whole <= 10; whole += 1) {
-    const oneClip = papicClipCost(whole * 1000);
+    const oneClip = papicSnippetCost(whole * 1000);
     for (let piece = 1; piece < whole; piece += 1) {
       const pieces = Math.ceil(whole / piece);
-      const split = pieces * papicClipCost(piece * 1000);
+      const split = pieces * papicSnippetCost(piece * 1000);
       assert.ok(
         split >= oneClip - TOLERATED,
         `${whole}s costs ${oneClip} whole but only ${split} as ${pieces}×${piece}s — ` +
@@ -114,10 +114,10 @@ test('the tolerated chop is EXACTLY the 4-second one, and nothing else', () => {
   // tolerance above would otherwise absorb it in silence.
   const found: string[] = [];
   for (let whole = 1; whole <= 10; whole += 1) {
-    const oneClip = papicClipCost(whole * 1000);
+    const oneClip = papicSnippetCost(whole * 1000);
     for (let piece = 1; piece < whole; piece += 1) {
       const pieces = Math.ceil(whole / piece);
-      const split = pieces * papicClipCost(piece * 1000);
+      const split = pieces * papicSnippetCost(piece * 1000);
       if (split < oneClip) found.push(`${whole}s→${pieces}×${piece}s saves ${oneClip - split}`);
     }
   }
@@ -134,8 +134,8 @@ test('🚨 an unmeasured clip costs the MOST, never the least', () => {
   // sending nothing. Every unusable value bills the top band.
   for (const bad of [null, undefined, Number.NaN, 0, -1, -10_000, Infinity, -Infinity]) {
     assert.equal(
-      papicClipCost(bad as number | null | undefined),
-      PAPIC_CLIP_COST_MAX,
+      papicSnippetCost(bad as number | null | undefined),
+      PAPIC_SNIPPET_COST_MAX,
       `${String(bad)} must cost the top band, not the cheap one`,
     );
   }
@@ -144,19 +144,19 @@ test('🚨 an unmeasured clip costs the MOST, never the least', () => {
 test('a clip longer than the cap costs the most, it does not wrap round to cheap', () => {
   // The 10s cap is enforced elsewhere (the record seam rejects it outright).
   // Here, a value past the last band must fall off the expensive end.
-  assert.equal(papicClipCost(11_000), PAPIC_CLIP_COST_MAX);
-  assert.equal(papicClipCost(60_000), PAPIC_CLIP_COST_MAX);
-  assert.equal(papicClipCost(Number.MAX_SAFE_INTEGER), PAPIC_CLIP_COST_MAX);
+  assert.equal(papicSnippetCost(11_000), PAPIC_SNIPPET_COST_MAX);
+  assert.equal(papicSnippetCost(60_000), PAPIC_SNIPPET_COST_MAX);
+  assert.equal(papicSnippetCost(Number.MAX_SAFE_INTEGER), PAPIC_SNIPPET_COST_MAX);
 });
 
 test('seconds round UP — you pay for the second you are in', () => {
-  assert.equal(papicClipCost(1), 2, 'a single millisecond is still a first second');
-  assert.equal(papicClipCost(2_001), 3, '2.001s is a 3-second clip');
-  assert.equal(papicClipCost(2_999), 3);
-  assert.equal(papicClipCost(3_000), 3, 'exactly 3s is still 3s');
-  assert.equal(papicClipCost(3_001), 5, 'just past 3s enters the next band');
-  assert.equal(papicClipCost(6_000), 5);
-  assert.equal(papicClipCost(6_001), 8);
+  assert.equal(papicSnippetCost(1), 2, 'a single millisecond is still a first second');
+  assert.equal(papicSnippetCost(2_001), 3, '2.001s is a 3-second clip');
+  assert.equal(papicSnippetCost(2_999), 3);
+  assert.equal(papicSnippetCost(3_000), 3, 'exactly 3s is still 3s');
+  assert.equal(papicSnippetCost(3_001), 5, 'just past 3s enters the next band');
+  assert.equal(papicSnippetCost(6_000), 5);
+  assert.equal(papicSnippetCost(6_001), 8);
 });
 
 // ── the seams, and what each of them is allowed to know ────────────────────
@@ -167,17 +167,17 @@ test('the presign floor is genuinely the cheapest band', () => {
   // afford — a shot silently lost to a rounding choice.
   const cheapest = Math.min(...PAPIC_CLIP_COST_BANDS.map((b) => b.points));
   assert.equal(PAPIC_CLIP_COST_MIN, cheapest);
-  assert.equal(papicClipCost(1_000), PAPIC_CLIP_COST_MIN);
+  assert.equal(papicSnippetCost(1_000), PAPIC_CLIP_COST_MIN);
 });
 
 test('storage stays flat, and stays flat ON PURPOSE', () => {
   // preservationUnits bills from a row carrying `is_clip` and no duration, so
   // a kept video's length is unreadable. Billing storage at the cheap band
   // would under-charge every video over three seconds.
-  assert.equal(PAPIC_PRESERVATION_UNITS_PER_CLIP, PAPIC_CLIP_COST_MAX);
+  assert.equal(PAPIC_PRESERVATION_UNITS_PER_SNIPPET, PAPIC_SNIPPET_COST_MAX);
   assert.equal(
     papicCaptureCost('clip'),
-    PAPIC_CLIP_COST_MAX,
+    PAPIC_SNIPPET_COST_MAX,
     'a clip cost asked WITHOUT a duration must be the ceiling — the presign seam and preservation both rely on it',
   );
 });

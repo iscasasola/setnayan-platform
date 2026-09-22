@@ -39,7 +39,7 @@
  * admin Data Privacy control (see lib/vendor-dayof-flags.ts).
  */
 
-import { PAPIC_CLIP_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras-pure';
+import { PAPIC_SNIPPET_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras-pure';
 
 export type VendorPapicTier = 'lite' | 'ltd' | 'unli';
 export type VendorPapicMedia = 'photo' | 'clip';
@@ -66,7 +66,7 @@ export type VendorPapicMedia = 'photo' | 'clip';
  */
 export const VENDOR_PAPIC_POINTS: Record<VendorPapicMedia, number> = {
   photo: PAPIC_POINTS_PER_PHOTO,
-  clip: PAPIC_CLIP_COST_MAX,
+  clip: PAPIC_SNIPPET_COST_MAX,
 };
 
 export function pointsForMedia(media: VendorPapicMedia): number {

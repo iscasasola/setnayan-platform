@@ -39,7 +39,7 @@ export const PAPIC_MIN_PAID_CAMERAS = 1; // owner 2026-07-17 (was 5) — 1-camer
  *  derive from here via papicCaptureCost / lib/papic-tier-copy.ts, and
  *  lib/papic-copy-guardrails.test.ts fails CI if a surface re-grows a literal. */
 export const PAPIC_POINTS_PER_PHOTO = 1;
-export const PAPIC_POINTS_PER_CLIP = 8;
+export const PAPIC_POINTS_PER_SNIPPET = 8;
 
 /**
  * A VIDEO NOW COSTS WHAT ITS LENGTH COSTS (owner-locked 2026-08-11).
@@ -70,10 +70,10 @@ export const PAPIC_CLIP_COST_BANDS: readonly { maxSeconds: number; points: numbe
 /**
  * What the LONGEST clip costs — and therefore what an UNMEASURED one costs.
  *
- * Equal to PAPIC_POINTS_PER_CLIP by construction (asserted in the test), because
+ * Equal to PAPIC_POINTS_PER_SNIPPET by construction (asserted in the test), because
  * the top band is the price every clip used to pay.
  */
-export const PAPIC_CLIP_COST_MAX = PAPIC_POINTS_PER_CLIP;
+export const PAPIC_SNIPPET_COST_MAX = PAPIC_POINTS_PER_SNIPPET;
 
 /** What the SHORTEST clip costs — the floor the presign gate uses. */
 export const PAPIC_CLIP_COST_MIN = 2;
@@ -94,13 +94,13 @@ export const PAPIC_CLIP_COST_MIN = 2;
  * 3-second clip. Rounding down would make 2.9s cost the same as 2.0s and put a
  * real cliff at the band edge for anyone watching the counter.
  */
-export function papicClipCost(durationMs: number | null | undefined): number {
+export function papicSnippetCost(durationMs: number | null | undefined): number {
   if (
     typeof durationMs !== 'number' ||
     !Number.isFinite(durationMs) ||
     durationMs <= 0
   ) {
-    return PAPIC_CLIP_COST_MAX;
+    return PAPIC_SNIPPET_COST_MAX;
   }
   const seconds = Math.ceil(durationMs / 1000);
   for (const band of PAPIC_CLIP_COST_BANDS) {
@@ -108,7 +108,7 @@ export function papicClipCost(durationMs: number | null | undefined): number {
   }
   // Past the 10-second cap. The cap is enforced elsewhere (the record seam
   // rejects it outright); here it simply costs the most.
-  return PAPIC_CLIP_COST_MAX;
+  return PAPIC_SNIPPET_COST_MAX;
 }
 
 /**
@@ -123,13 +123,13 @@ export function papicClipCost(durationMs: number | null | undefined): number {
  *     a row that carries `is_clip` and no duration at all.
  *
  * Preservation staying at the ceiling is deliberate, not an oversight — see
- * PAPIC_PRESERVATION_UNITS_PER_CLIP.
+ * PAPIC_PRESERVATION_UNITS_PER_SNIPPET.
  */
 export function papicCaptureCost(
   kind: 'photo' | 'clip',
   durationMs?: number | null,
 ): number {
-  return kind === 'clip' ? papicClipCost(durationMs) : PAPIC_POINTS_PER_PHOTO;
+  return kind === 'clip' ? papicSnippetCost(durationMs) : PAPIC_POINTS_PER_PHOTO;
 }
 
 /**
@@ -146,7 +146,7 @@ export function papicCaptureCost(
  * infer a pricing decision from a default, and the next person to make the
  * default cheaper would silently reprice a ₱500 product.
  */
-export const PAPIC_PRESERVATION_UNITS_PER_CLIP = PAPIC_CLIP_COST_MAX;
+export const PAPIC_PRESERVATION_UNITS_PER_SNIPPET = PAPIC_SNIPPET_COST_MAX;
 
 /**
  * ⚠ WHAT A CHALLENGE COSTS THE COUPLE'S SHARED POOL.

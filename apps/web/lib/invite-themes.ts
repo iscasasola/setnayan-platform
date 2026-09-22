@@ -23,15 +23,45 @@
  * on its own.
  */
 
-export const INVITE_THEME_IDS = ['house', 'capiz', 'velvet', 'galeriya', 'abaca'] as const;
+export const INVITE_THEME_IDS = [
+  'house',
+  'capiz',
+  'velvet',
+  'galeriya',
+  'abaca',
+  /*
+    ── NOT YET DRAWN (owner, 2026-09-22) ────────────────────────────────────
+    Registered with `ready: false`, which is exactly what that flag is for: an
+    unready theme is never offered and never rendered, so these cost nothing
+    and need NO migration — the CHECK constraint only has to widen when a
+    couple can actually save one, and she cannot save what she is not shown.
+    Flip `ready` the day each skin lands.
+  */
+  'minimalist',
+  'fairytale',
+  'vintage',
+  'custom',
+] as const;
 export type InviteThemeId = (typeof INVITE_THEME_IDS)[number];
 
 export type InviteTheme = {
   id: InviteThemeId;
   /** What a couple sees on the picker. */
   name: string;
-  /** The owner's word for it. */
-  word: 'Generic' | 'Elegant' | 'Classy' | 'Sophisticated' | 'Rugged';
+  /**
+   * The style register, in the words a couple actually uses when they describe
+   * their wedding (owner, 2026-09-22). This REPLACED a vocabulary of Filipino
+   * materials — Capiz shell, velvet, gallery, abaca fibre — which described the
+   * designs accurately and described nothing a bride searches for. The ids stay
+   * material (`capiz`, `velvet`…); only what she READS changed.
+   *
+   * 🔑 AND THAT SPLIT IS WHY THIS WAS CHEAP. `id` is pinned by a DB CHECK
+   * constraint, eight theme files, ~48 source refs, two guards and every row a
+   * couple has already saved; `name` is one line. Renaming the ids to match
+   * would have cost a migration to rewrite live choices, for no gain a guest
+   * can see.
+   */
+  word: 'Classic' | 'Elegant' | 'Modern' | 'Minimalist' | 'Fairytale' | 'Vintage' | 'Opulent' | 'Rustic' | 'Custom';
   tier: 'free' | 'pro';
   /**
    * The onboarding feels (`events.mood_feel_key`, lib/match-criteria.ts
@@ -57,28 +87,28 @@ export type InviteTheme = {
 export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
   house: {
     id: 'house',
-    name: 'House',
-    word: 'Generic',
+    name: 'Classic',
+    word: 'Classic',
     tier: 'free',
     feels: ['others'],
     opening: 'none',
     ready: true,
-    blurb: 'Setnayan’s own door — clear, calm, nothing to set up.',
+    blurb: 'Setnayan’s own — clear, calm, nothing to set up.',
   },
   capiz: {
     id: 'capiz',
-    name: 'Capiz',
+    name: 'Elegant',
     word: 'Elegant',
     tier: 'pro',
     feels: ['timeless', 'filipiniana'],
     opening: 'veil-sheer',
     ready: true,
-    blurb: 'Your photo, seen through a capiz window, with your mark as the seal.',
+    blurb: 'Your photo seen through a capiz window, your mark as the seal.',
   },
   velvet: {
     id: 'velvet',
-    name: 'Velvet',
-    word: 'Classy',
+    name: 'Opulent',
+    word: 'Opulent',
     tier: 'pro',
     feels: ['glam', 'royalty'],
     opening: 'four-flap',
@@ -87,8 +117,8 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
   },
   galeriya: {
     id: 'galeriya',
-    name: 'Galeriya',
-    word: 'Sophisticated',
+    name: 'Modern',
+    word: 'Modern',
     tier: 'pro',
     feels: ['modern'],
     opening: 'veil-sheer',
@@ -97,13 +127,70 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
   },
   abaca: {
     id: 'abaca',
-    name: 'Abaca',
-    word: 'Rugged',
+    name: 'Rustic',
+    word: 'Rustic',
     tier: 'pro',
     feels: ['rustic', 'boho'],
     opening: 'four-flap',
     ready: true,
-    blurb: 'Your photo printed on kraft, a stamped date, the steps as tags on twine.',
+    blurb: 'Your photo printed on kraft, a stamped date, steps on twine.',
+  },
+
+  minimalist: {
+    id: 'minimalist',
+    name: 'Minimalist',
+    word: 'Minimalist',
+    tier: 'pro',
+    feels: [],
+    opening: 'none',
+    ready: false,
+    blurb: 'Almost nothing, placed exactly — paper, one rule, your names.',
+  },
+  fairytale: {
+    id: 'fairytale',
+    name: 'Fairytale',
+    word: 'Fairytale',
+    tier: 'pro',
+    feels: [],
+    opening: 'veil-sheer',
+    ready: false,
+    blurb: 'Soft light, gold leaf and a veil that lifts on your photo.',
+  },
+  vintage: {
+    id: 'vintage',
+    name: 'Vintage',
+    word: 'Vintage',
+    tier: 'pro',
+    feels: [],
+    /*
+      🇵🇭 THE MARIA CLARA DAYS (owner, 2026-09-22) — 19th-century Filipino, the
+      world of the terno and the baro't saya: piña and jusi cloth, sepia
+      albumen prints, engraved script, capiz windows and hand-fans. NOT a
+      generic American "vintage" of typewriters and kraft — that is `abaca`,
+      which already ships as Rustic.
+    */
+    opening: 'four-flap',
+    ready: false,
+    blurb: 'The Maria Clara days — piña cloth, sepia and engraved script.',
+  },
+  custom: {
+    id: 'custom',
+    name: 'Custom',
+    word: 'Custom',
+    tier: 'pro',
+    feels: [],
+    opening: 'none',
+    ready: false,
+    /*
+      ⚠ CUSTOM IS NOT A LOOK, IT IS THE ABSENCE OF ONE — the couple sets the
+      font, the background, the motion and the content themselves (owner,
+      2026-09-22). Part of it ALREADY SHIPS: Event Hub PRO carries custom
+      background and button colour plus the daylight/candlelight art direction.
+      What is missing is the face, the motion and the content controls, and a
+      base to start from. Registered here so the picker has somewhere to put
+      it; `ready` stays false until those exist.
+    */
+    blurb: 'Start from any theme, then change the lettering, colour and motion.',
   },
 };
 

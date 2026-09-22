@@ -126,10 +126,24 @@ test('the pre-selection follows the fence too, saved value included', () => {
   );
 });
 
-test('House is the one free theme, and the other four are Pro', () => {
+test('exactly one theme is free, and it is the house one', () => {
+  /*
+    🪤 THIS PINNED `length === 5` AND WENT RED WHEN THE SET GREW to nine
+    (owner, 2026-09-22: Minimalist · Fairytale · Vintage · Custom). The count
+    was never the rule — a number in a test rots exactly the way a number in a
+    document does. The RULE is the owner's, 2026-09-10: "Generic is the Free.
+    The other 4 will be the Event Hub Pro service" — i.e. ONE free theme, and
+    every other one is Pro, however many there are.
+  */
   const free = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].tier === 'free');
-  assert.deepEqual(free, ['house'], 'the owner ruled "Generic is the Free"; the other four are Event Hub Pro');
-  assert.equal(INVITE_THEME_IDS.length, 5);
+  assert.deepEqual(free, ['house'], 'the free theme is not house, or there is more than one');
+  const pro = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].tier === 'pro');
+  assert.equal(
+    free.length + pro.length,
+    INVITE_THEME_IDS.length,
+    'a theme is neither free nor pro — every one must be sold or given',
+  );
+  assert.ok(pro.length >= 1, 'no Pro theme left — the Event Hub PRO unlock sells nothing here');
 });
 
 test('every onboarding feel is suggested exactly one theme — no couple is suggested nothing', () => {
@@ -190,7 +204,7 @@ test('the picker offers only shipped skins', () => {
   );
 });
 
-test('the app and the database agree on the five names', () => {
+test('every theme a couple can actually SAVE exists in the database', () => {
   const dir = join(HERE, '..', '..', '..', 'supabase', 'migrations');
   const file = readdirSync(dir).find((f) => f.endsWith('_the_invite_link_wears_a_theme.sql'));
   assert.ok(file, 'the migration that adds events.invite_theme is gone or renamed');
@@ -198,9 +212,34 @@ test('the app and the database agree on the five names', () => {
   const m = sql.match(/invite_theme IN \(([^)]*)\)/);
   assert.ok(m, 'the CHECK constraint on invite_theme is gone');
   const inDb = (m[1] ?? '').split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
+
+  /*
+    🔑 THE INVARIANT IS "SAVEABLE", NOT "REGISTERED" — and getting that wrong is
+    what made this test red on a change that could not break anything.
+
+    A theme with `ready: false` is never offered and never rendered
+    (`themeIsAvailable`), so a couple CANNOT save one, so the database does not
+    need to know it yet. Registering a theme before its skin exists is the
+    documented path — the `ready` docblock says shipping a skin later "needs no
+    data change" — and demanding a migration for a theme nobody can choose
+    would make that path impossible.
+
+    So: every READY theme must be in the CHECK (or a real save is refused), and
+    the CHECK may name nothing the registry has never heard of (or the column
+    admits a value no code can render).
+  */
+  const saveable = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].ready);
+  const missing = saveable.filter((id) => !inDb.includes(id));
   assert.deepEqual(
-    [...inDb].sort(),
-    [...INVITE_THEME_IDS].sort(),
-    'a theme the app offers would be refused by the database, or the reverse',
+    missing,
+    [],
+    `${missing.join(', ')} is offered to couples but would be REFUSED by the database — ` +
+      'widen the CHECK in the same PR that flips `ready`',
+  );
+  const unknown = inDb.filter((id) => !(INVITE_THEME_IDS as readonly string[]).includes(id));
+  assert.deepEqual(
+    unknown,
+    [],
+    `the database admits ${unknown.join(', ')}, which no code can render`,
   );
 });

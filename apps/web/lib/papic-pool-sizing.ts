@@ -58,6 +58,7 @@ import {
 export const POOL_CONFIG_SIZING_COLUMNS = Object.freeze([
   'points_per_guest',
   'floor_points',
+  'recommend_floor_points',
   'ceiling_points',
 ] as const);
 
@@ -82,7 +83,10 @@ export const POOL_CONFIG_DEFAULT_KEY = 'default';
 export type PoolSizingRow = {
   config_key: string;
   points_per_guest: number;
+  /** The ENTITLEMENT floor — what the pool fence meters against. */
   floor_points: number;
+  /** What we RECOMMEND a couple buys. Never above `floor_points`. */
+  recommend_floor_points: number;
   ceiling_points: number;
 };
 
@@ -90,6 +94,21 @@ export type PoolSizing = Pick<
   EventPoolConfig,
   'pointsPerGuest' | 'floorPoints' | 'ceilingPoints'
 > & {
+  /**
+   * ⚠ THE FLOOR FOR A *RECOMMENDATION*, WHICH IS NOT `floorPoints`.
+   *
+   * `floorPoints` is the ENTITLEMENT — the smallest pool a celebration of this
+   * kind is metered against, and it is 5,000 for every type, exactly as it was
+   * before this dimension existed. This one is the smallest pool we SUGGEST
+   * they buy, and it is 0 for every type but a wedding.
+   *
+   * 🔑 ONE NUMBER USED TO DO BOTH JOBS, and that is precisely how the first cut
+   * of this build shipped a money change nobody asked for: lowering the floor so
+   * a 2-guest `date` was not told to buy 5,000 credits ALSO cut what a `date`
+   * was entitled to. Recommending less than the entitlement is always safe;
+   * they are separate fields so the two can never be confused again.
+   */
+  recommendFloorPoints: number;
   /**
    * WHICH ROW ANSWERED — the event type, or `'default'` when it fell back.
    * A screen may say "sized for a christening" only when this is the type;
@@ -102,6 +121,10 @@ export type PoolSizing = Pick<
 export const FALLBACK_POOL_SIZING: PoolSizing = Object.freeze({
   pointsPerGuest: DEFAULT_EVENT_POOL_CONFIG.pointsPerGuest,
   floorPoints: DEFAULT_EVENT_POOL_CONFIG.floorPoints,
+  // The fallback recommends what every event was recommended before per-type
+  // rows existed — the global floor. Falling back to 0 would quietly recommend
+  // LESS whenever the config table could not be read.
+  recommendFloorPoints: DEFAULT_EVENT_POOL_CONFIG.floorPoints,
   ceilingPoints: DEFAULT_EVENT_POOL_CONFIG.ceilingPoints,
   sizedBy: POOL_CONFIG_DEFAULT_KEY,
 });
@@ -115,10 +138,19 @@ function rowToSizing(row: PoolSizingRow): PoolSizing | null {
   const pointsPerGuest = intOrNull(row.points_per_guest);
   const floorPoints = intOrNull(row.floor_points);
   const ceilingPoints = intOrNull(row.ceiling_points);
+  // ⚠ A MISSING RECOMMENDATION FLOOR FALLS BACK TO THE ENTITLEMENT, not to 0.
+  // 0 would silently recommend less than every event was recommended yesterday.
+  const recommendFloorPoints = intOrNull(row.recommend_floor_points) ?? floorPoints;
   if (pointsPerGuest == null || floorPoints == null || ceilingPoints == null) {
     return null;
   }
-  return { pointsPerGuest, floorPoints, ceilingPoints, sizedBy: row.config_key };
+  return {
+    pointsPerGuest,
+    floorPoints,
+    recommendFloorPoints: recommendFloorPoints ?? floorPoints,
+    ceilingPoints,
+    sizedBy: row.config_key,
+  };
 }
 
 /**
@@ -164,7 +196,10 @@ export function recommendedCredits(
   return {
     ...computeEventPool(guestCount, {
       pointsPerGuest: sizing.pointsPerGuest,
-      floorPoints: sizing.floorPoints,
+      // 🔑 THE RECOMMENDATION FLOOR, NOT THE ENTITLEMENT ONE. This function
+      // answers "what should they buy", and a 2-guest `date` must not be told
+      // to buy the 5,000 credits it is merely entitled to be metered against.
+      floorPoints: sizing.recommendFloorPoints,
       ceilingPoints: sizing.ceilingPoints,
     }),
     sizedBy: sizing.sizedBy,
@@ -196,7 +231,7 @@ export async function fetchEventPoolSizing(
     // is how a ratchet stops meaning anything. The constant is still the source
     // of truth — `papic-pool-sizing-columns-match.test.ts` fails if the literal
     // here and the constant ever diverge, in either direction.
-    .select('points_per_guest, floor_points, ceiling_points, config_key')
+    .select('points_per_guest, floor_points, recommend_floor_points, ceiling_points, config_key')
     .in('config_key', keys);
 
   if (error || !data) {

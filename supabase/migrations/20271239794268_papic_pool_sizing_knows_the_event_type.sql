@@ -31,14 +31,32 @@
 -- recorded in DECISION_LOG.md. They are seeded here and **admin-editable
 -- afterwards** — this migration builds the DIMENSION, not the policy.
 --
--- ⚠ THE FLOOR/CEILING COLUMN VALUES ARE *NOT* OWNER-ACCEPTED YET. He confirmed
--- `points_per_guest` only. What is seeded is the recommendation put to him in
--- the PR body: **wedding keeps floor 5,000 / ceiling 30,000; every other type
--- gets floor 0 and the same ceiling** — the floor is REMOVED rather than
--- invented, because a per-head figure that is already type-appropriate makes it
--- redundant. If he wants different floors they are one admin edit each; nothing
--- here hardcodes them into app code.
+-- ⚠ `floor_points` WAS DOING TWO JOBS, AND THAT IS WHY THE FIRST CUT OF THIS
+-- FILE WAS WRONG. It sizes a RECOMMENDATION ("you will probably want this
+-- many") and it sets an ENTITLEMENT (`papic_event_pool_status`'s `v_base`, the
+-- fence a capture is metered against). Seeding sixteen types at 0 fixed the
+-- recommendation and, in the same stroke, QUIETLY CUT THE POOL A christening or
+-- a hangout is entitled to from 5,000 to nothing — a money change nobody asked
+-- for, in a file whose PR body claimed nothing moved.
 --
+-- ⇒ SO THE TWO JOBS GET TWO COLUMNS:
+--   • `floor_points`            — the ENTITLEMENT. Seeded 5,000 for EVERY type,
+--                                 which is exactly today's single global value,
+--                                 so no celebration of any type gains or loses
+--                                 a single credit when this applies.
+--   • `recommend_floor_points`  — what we SUGGEST a couple buy. Wedding keeps
+--                                 5,000 (a 20-guest intimate wedding is still
+--                                 recommended a real pool); every other type is
+--                                 0, because a per-head figure that is already
+--                                 type-appropriate makes a floor redundant and
+--                                 a 2-guest `date` must not be told to buy
+--                                 5,000 credits (~₱3,360) for dinner.
+--
+-- 🔑 NEITHER NUMBER IS A GUESS NOW: the entitlement is the status quo and the
+-- recommendation floor is only ever LOWER than it, so nothing a couple is
+-- entitled to or already quoted can move. The owner can still tune any of the
+-- 17 rows in /admin/pricing.
+
 -- ── 🔑 NOTHING MOVES ON MERGE, AND THAT IS THE ACCEPTANCE TEST ─────────────
 -- `wedding` is seeded 150 / 5,000 / 30,000 — **byte-identical to the live
 -- 'default' row** (measured in prod 2026-09-22). 9 of the 11 live events are
@@ -79,6 +97,25 @@
 BEGIN;
 
 -- ---------------------------------------------------------------------------
+-- 0 · The second floor — what we SUGGEST, apart from what we GRANT
+-- ---------------------------------------------------------------------------
+-- DEFAULT 5000 so the 'default' row, and any row an admin adds later without
+-- thinking about it, keeps exactly today's behaviour.
+
+ALTER TABLE public.papic_event_pool_config
+  ADD COLUMN IF NOT EXISTS recommend_floor_points INTEGER NOT NULL DEFAULT 5000
+    CHECK (recommend_floor_points >= 0);
+
+COMMENT ON COLUMN public.papic_event_pool_config.recommend_floor_points IS
+  'The smallest pool we RECOMMEND a celebration of this kind buys. ⚠ NOT '
+  '`floor_points`, which is the smallest pool it is ENTITLED to and is what '
+  'papic_event_pool_status meters against. One number used to do both jobs, and '
+  'lowering it for small event types (so a 2-guest date is not told to buy 5,000 '
+  'credits) silently cut their entitlement as well. Recommending LESS than the '
+  'entitlement is always safe; recommending more is not, so this is expected to '
+  'sit at or below floor_points.';
+
+-- ---------------------------------------------------------------------------
 -- 1 · The 17 sizing rows
 -- ---------------------------------------------------------------------------
 -- Seeded from the 'default' row so the INERT columns can never disagree with
@@ -88,14 +125,17 @@ BEGIN;
 -- That is the whole point of making these admin-editable.
 
 INSERT INTO public.papic_event_pool_config (
-  config_key, points_per_guest, floor_points, ceiling_points,
+  config_key, points_per_guest, floor_points, recommend_floor_points, ceiling_points,
   soft_stop_pct, pass_service_codes, is_active,
   camera_grant_points, free_grant_points, free_one_camera_points
 )
 SELECT
   v.event_type,
   v.per_head,
-  v.floor_pts,
+  -- THE ENTITLEMENT — the global value, unchanged, for every single type.
+  d.floor_points,
+  -- THE RECOMMENDATION FLOOR — the only one that varies.
+  v.recommend_floor,
   d.ceiling_points,
   d.soft_stop_pct, d.pass_service_codes, d.is_active,
   d.camera_grant_points, d.free_grant_points, d.free_one_camera_points
@@ -131,7 +171,7 @@ CROSS JOIN (VALUES
   ('simple_event',   50,    0),
   ('date',           50,    0),
   ('hangout',        50,    0)
-) AS v(event_type, per_head, floor_pts)
+) AS v(event_type, per_head, recommend_floor)
 WHERE d.config_key = 'default'
 ON CONFLICT (config_key) DO NOTHING;
 
@@ -165,16 +205,37 @@ BEGIN
 
   -- The acceptance test, asserted in the migration itself: a wedding must be
   -- sized EXACTLY as it is today, or a live couple's number moves on merge.
-  SELECT points_per_guest, floor_points, ceiling_points INTO v_wedding
+  SELECT points_per_guest, floor_points, recommend_floor_points, ceiling_points
+    INTO v_wedding
     FROM public.papic_event_pool_config WHERE config_key = 'wedding';
-  SELECT points_per_guest, floor_points, ceiling_points INTO v_default
+  SELECT points_per_guest, floor_points, recommend_floor_points, ceiling_points
+    INTO v_default
     FROM public.papic_event_pool_config WHERE config_key = 'default';
 
   IF v_wedding IS DISTINCT FROM v_default THEN
     RAISE EXCEPTION
-      'refusing to apply: the wedding sizing row (%/%/%) differs from default (%/%/%) — 9 of 11 live events are weddings and their recommendation would move.',
-      v_wedding.points_per_guest, v_wedding.floor_points, v_wedding.ceiling_points,
-      v_default.points_per_guest, v_default.floor_points, v_default.ceiling_points;
+      'refusing to apply: the wedding sizing row (%/%/%/%) differs from default (%/%/%/%) — 9 of 11 live events are weddings and their recommendation would move.',
+      v_wedding.points_per_guest, v_wedding.floor_points, v_wedding.recommend_floor_points, v_wedding.ceiling_points,
+      v_default.points_per_guest, v_default.floor_points, v_default.recommend_floor_points, v_default.ceiling_points;
+  END IF;
+  -- 🔑 THE ASSERTION THE FIRST CUT NEEDED AND DID NOT HAVE. Every sizing row's
+  -- ENTITLEMENT floor must equal the global one: this migration adds a
+  -- dimension to what we RECOMMEND, and it must not, in passing, change what any
+  -- celebration is entitled to.
+  PERFORM 1 FROM public.papic_event_pool_config c, public.papic_event_pool_config d
+   WHERE d.config_key = 'default' AND c.config_key <> 'default'
+     AND (c.floor_points <> d.floor_points OR c.ceiling_points <> d.ceiling_points);
+  IF FOUND THEN
+    RAISE EXCEPTION
+      'refusing to apply: a per-type row changes the ENTITLEMENT (floor/ceiling). This migration may only change what is RECOMMENDED.';
+  END IF;
+
+  -- And a recommendation may never exceed the entitlement it sits inside.
+  PERFORM 1 FROM public.papic_event_pool_config
+   WHERE recommend_floor_points > floor_points;
+  IF FOUND THEN
+    RAISE EXCEPTION
+      'refusing to apply: a row recommends a floor above the pool it is entitled to.';
   END IF;
 END $$;
 
@@ -203,17 +264,23 @@ COMMENT ON COLUMN public.papic_event_pool_config.config_key IS
 CREATE OR REPLACE FUNCTION public.papic_event_pool_sizing(
   p_event_type TEXT
 ) RETURNS TABLE (
-  points_per_guest INTEGER,
-  floor_points     INTEGER,
-  ceiling_points   INTEGER,
-  sized_by         TEXT
+  points_per_guest       INTEGER,
+  floor_points           INTEGER,
+  recommend_floor_points INTEGER,
+  ceiling_points         INTEGER,
+  sized_by               TEXT
 )
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT c.points_per_guest, c.floor_points, c.ceiling_points, c.config_key
+  -- ⚠ BOTH FLOORS ARE RETURNED AND EACH CALLER TAKES THE ONE IT MEANS.
+  -- `papic_event_pool_status` meters against `floor_points`; the couple-facing
+  -- recommendation reads `recommend_floor_points`. Collapsing them is the defect
+  -- this function was rebuilt to prevent.
+  SELECT c.points_per_guest, c.floor_points, c.recommend_floor_points,
+         c.ceiling_points, c.config_key
     FROM public.papic_event_pool_config c
    WHERE c.config_key = COALESCE(p_event_type, 'default')
       OR c.config_key = 'default'
@@ -234,10 +301,25 @@ REVOKE ALL ON FUNCTION public.papic_event_pool_sizing(TEXT)
 -- ---------------------------------------------------------------------------
 -- 4 · The fence reads the same numbers
 -- ---------------------------------------------------------------------------
--- Byte-identical to the shipped body (migration 20271184624871) except for the
--- sizing SELECT, which now goes through §3 with the event's own type. Every
--- other line — the flat-pass short circuit, the shared-grant rule, the seat
--- allocations, the soft stop — is unchanged.
+-- Byte-identical to the shipped body except for the sizing SELECT, which now
+-- goes through §3 with the event's own type. Every other line — the flat-pass
+-- short circuit, the shared-grant rule, the seat allocations, the guest
+-- give-backs, the soft stop — is unchanged.
+--
+-- 🚨 THE SHIPPED BODY IS MIGRATION 20271185813837's, NOT 20271184624871's, AND
+-- THE FIRST CUT OF THIS FILE GOT THAT WRONG. It was rebuilt from the
+-- SECOND-NEWEST definition and therefore silently DELETED the newest one's
+-- change: `+ COALESCE(v_released, 0)`, the credits guests have handed back out
+-- of their own purchases (`papic_seat_grant_releases`). The pot stopped going
+-- up when a guest gave credits back — measured as `0 !== 96` in
+-- `papic-a-guest-can-give-her-credits-back.db.test.ts`, five assertions red.
+--
+-- 🔑 A `CREATE OR REPLACE` IS A FULL OVERWRITE, SO COPYING A FUNCTION BODY IS A
+-- MERGE, AND `git diff --stat` CANNOT SEE IT. The file was new, so the diff
+-- showed only additions; nothing anywhere said a shipped behaviour had been
+-- reverted. Before re-stating a function, list EVERY migration that defines it
+-- and copy the LAST one:
+--     git grep -l 'FUNCTION public.<name>' -- supabase/migrations | sort | tail -1
 --
 -- ⚠ `soft_stop_pct` STAYS ON THE GLOBAL ROW. It is a UI warning threshold, not
 -- a sizing number, and §2's comment is the rule this obeys.
@@ -269,6 +351,7 @@ DECLARE
   v_base       INTEGER;
   v_granted    INTEGER;
   v_alloc      INTEGER;
+  v_released   INTEGER;
   v_total      INTEGER;
   v_used       INTEGER;
   v_has_flat   BOOLEAN;
@@ -294,6 +377,13 @@ BEGIN
     FROM public.papic_seat_allocations
    WHERE event_id = p_event_id;
 
+  -- What guests have given back out of their OWN bought credits. Those were
+  -- never the event's before; they are now.
+  SELECT COALESCE(SUM(points), 0)::INTEGER
+    INTO v_released
+    FROM public.papic_seat_grant_releases
+   WHERE event_id = p_event_id;
+
   SELECT e.event_type INTO v_event_type
     FROM public.events e WHERE e.event_id = p_event_id;
 
@@ -313,7 +403,7 @@ BEGIN
     v_base := 0;
   END IF;
 
-  v_total := v_base + COALESCE(v_granted, 0) - COALESCE(v_alloc, 0);
+  v_total := v_base + COALESCE(v_granted, 0) - COALESCE(v_alloc, 0) + COALESCE(v_released, 0);
 
   SELECT COALESCE(points_used, 0)
     INTO v_used

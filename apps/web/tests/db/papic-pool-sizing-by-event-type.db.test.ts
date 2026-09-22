@@ -73,8 +73,8 @@ test('THE MIGRATION APPLIED — the resolver exists and every event type is pric
 
 test('A WEDDING DID NOT MOVE — the acceptance test, in SQL', async () => {
   const same = await one<boolean>(
-    `SELECT (w.points_per_guest, w.floor_points, w.ceiling_points)
-          = (d.points_per_guest, d.floor_points, d.ceiling_points)
+    `SELECT (w.points_per_guest, w.floor_points, w.recommend_floor_points, w.ceiling_points)
+          = (d.points_per_guest, d.floor_points, d.recommend_floor_points, d.ceiling_points)
        FROM public.papic_event_pool_config w, public.papic_event_pool_config d
       WHERE w.config_key = 'wedding' AND d.config_key = 'default'`,
   );
@@ -89,6 +89,7 @@ test('A WEDDING DID NOT MOVE — the acceptance test, in SQL', async () => {
   assert.deepEqual(sized.rows[0], {
     points_per_guest: 150,
     floor_points: 5000,
+    recommend_floor_points: 5000,
     ceiling_points: 30000,
     sized_by: 'wedding',
   });
@@ -104,18 +105,33 @@ test('THE CLAMP TRAVELS WITH THE PER-HEAD FIGURE — and the SQL agrees with the
   const d = await db.query<{
     points_per_guest: number;
     floor_points: number;
+    recommend_floor_points: number;
     ceiling_points: number;
     sized_by: string;
   }>(`SELECT * FROM public.papic_event_pool_sizing('date')`);
   assert.equal(d.rows[0]!.points_per_guest, 50);
-  assert.equal(d.rows[0]!.floor_points, 0);
+  assert.equal(d.rows[0]!.recommend_floor_points, 0);
   assert.equal(d.rows[0]!.sized_by, 'date');
 
+  // 🔑 AND THE ENTITLEMENT IS UNTOUCHED. One number used to do both jobs, and
+  // lowering it for small types silently cut what they were metered against.
+  assert.equal(
+    d.rows[0]!.floor_points,
+    5000,
+    'a date must keep the entitlement floor it had before per-type rows existed',
+  );
+  const noTypeLosesEntitlement = await one<number>(
+    `SELECT COUNT(*)::int FROM public.papic_event_pool_config c, public.papic_event_pool_config d
+      WHERE d.config_key = 'default' AND c.config_key <> 'default'
+        AND (c.floor_points <> d.floor_points OR c.ceiling_points <> d.ceiling_points)`,
+  );
+  assert.equal(noTypeLosesEntitlement, 0, 'a per-type row changed the entitlement');
+
   const clamped = await one<number>(
-    `SELECT LEAST(s.ceiling_points, GREATEST(s.floor_points, 2 * s.points_per_guest))
+    `SELECT LEAST(s.ceiling_points, GREATEST(s.recommend_floor_points, 2 * s.points_per_guest))
        FROM public.papic_event_pool_sizing('date') s`,
   );
-  assert.equal(clamped, 100, 'a dinner for two must not be lifted to the wedding floor');
+  assert.equal(clamped, 100, 'a dinner for two must not be RECOMMENDED the wedding floor');
 
   // An unknown type falls back, and SAYS it fell back.
   const fb = await db.query<{ points_per_guest: number; sized_by: string }>(
@@ -213,11 +229,20 @@ test('A LEARNED FIGURE OVERRIDES THE INITIAL, AND THE ADMIN CAN SEE WHICH IS IN 
         SET learned_points_per_guest = 77, learned_sample_size = 12, learned_at = NOW()
       WHERE config_key = 'christening'`,
   );
-  const sized = await db.query<{ points_per_guest: number; floor_points: number }>(
+  const sized = await db.query<{
+    points_per_guest: number;
+    floor_points: number;
+    recommend_floor_points: number;
+  }>(
     `SELECT * FROM public.papic_event_pool_sizing('christening')`,
   );
   assert.equal(sized.rows[0]!.points_per_guest, 77, 'the learned figure is the one in force');
-  assert.equal(sized.rows[0]!.floor_points, 0, 'the floor is NOT learned — it is the owner’s shape');
+  assert.equal(sized.rows[0]!.floor_points, 5000, 'the ENTITLEMENT is never learned');
+  assert.equal(
+    sized.rows[0]!.recommend_floor_points,
+    0,
+    'neither floor is learned — both are the owner’s shape, and they are different numbers',
+  );
 
   const state = await db.query<{
     initial_per_guest: number;

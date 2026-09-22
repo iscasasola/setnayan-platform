@@ -66,7 +66,10 @@ export async function CreditRecommendation({
   const held = pool.ok && pool.status ? pool.status.totalPoints : 0;
   const verdict = papicCreditVerdict(held, guests, {
     pointsPerGuest: sizing.pointsPerGuest,
-    floorPoints: sizing.floorPoints,
+    // ⚠ THE RECOMMENDATION FLOOR. `sizing.floorPoints` is the ENTITLEMENT — what
+    // the capture fence meters against — and quoting it here would tell a couple
+    // at a small celebration to buy 5,000 credits they do not need.
+    floorPoints: sizing.recommendFloorPoints,
     ceilingPoints: sizing.ceilingPoints,
   });
   if (verdict.status === 'unknown') return null;

@@ -239,3 +239,38 @@ Both regenerated on the MERGED tree, and both guards re-run green against the re
 1581 controls / 4610 blocks).
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · fix(papic): the pot rises again when a guest gives credits back — and floor_points stops doing two jobs
+
+Two defects in the per-event-type sizing build, both mine, both caught by CI.
+
+**1 · A `CREATE OR REPLACE` silently reverted a shipped behaviour.**
+`20271239794268` restates `papic_event_pool_status`, and it was rebuilt from
+`20271184624871`'s body — the **second**-newest definition. That dropped the newest one's
+change: `+ COALESCE(v_released, 0)`, the credits guests have handed back out of their own
+purchases. The pot stopped rising when a guest gave credits back —
+`papic-a-guest-can-give-her-credits-back.db.test.ts`, `0 !== 96`, five assertions red.
+
+🔑 **Copying a function body is a MERGE, and `git diff --stat` cannot see it.** The
+migration file was new, so the diff showed additions only. Before re-stating a function:
+`git grep -l 'FUNCTION public.<name>' -- supabase/migrations | sort | tail -1`.
+A new source guard asserts the pot's total still sums every term the shipped body had.
+
+**2 · `floor_points` was doing two jobs** — sizing a RECOMMENDATION and setting the
+ENTITLEMENT the capture fence meters against. Seeding sixteen types at 0 fixed the
+recommendation and, in the same stroke, quietly cut what a christening or a hangout is
+entitled to from 5,000 to nothing. The PR body said nothing moved; for those types it
+would have.
+
+⇒ Two columns now: `floor_points` is seeded **5,000 for every type** (exactly today's
+global value, so no celebration of any type gains or loses a credit), and a new
+`recommend_floor_points` carries the per-type figure — wedding 5,000, everything else 0.
+The migration **refuses to apply** if any per-type row changes the entitlement, or if a
+row recommends a floor above the pool it is entitled to.
+
+⇒ **This also closes the open owner question** in the safest direction: the entitlement is
+the status quo and the recommendation floor is only ever lower, so nothing anybody is
+entitled to or already quoted can move. Still admin-editable per type.
+
+SPEC IMPACT: supersedes this PR's earlier "floor 0 for non-wedding types" — that changed
+an entitlement, which was never the intent.

@@ -280,18 +280,21 @@ REVOKE ALL ON FUNCTION public.papic_recompute_pool_learning()
 -- ---------------------------------------------------------------------------
 -- 5 · The resolver prefers a learned figure — and today there is never one
 -- ---------------------------------------------------------------------------
--- Identical to 20271239794268's body except for the COALESCE. `floor_points`
--- and `ceiling_points` are NOT learned: they are the owner's shape for what a
--- small or enormous celebration of this kind means, and no amount of usage data
--- makes a dinner for two want a 5,000-credit floor.
+-- Identical to 20271239794268's body except for the COALESCE. Neither floor nor
+-- the ceiling is learned: they are the owner's shape for what a small or
+-- enormous celebration of this kind means, and no amount of usage data makes a
+-- dinner for two want a 5,000-credit floor. ⚠ BOTH floors are carried through —
+-- the ENTITLEMENT (`floor_points`) and what we RECOMMEND
+-- (`recommend_floor_points`) are different numbers with different jobs.
 
 CREATE OR REPLACE FUNCTION public.papic_event_pool_sizing(
   p_event_type TEXT
 ) RETURNS TABLE (
-  points_per_guest INTEGER,
-  floor_points     INTEGER,
-  ceiling_points   INTEGER,
-  sized_by         TEXT
+  points_per_guest       INTEGER,
+  floor_points           INTEGER,
+  recommend_floor_points INTEGER,
+  ceiling_points         INTEGER,
+  sized_by               TEXT
 )
 LANGUAGE sql
 STABLE
@@ -301,6 +304,7 @@ AS $$
   SELECT
     COALESCE(c.learned_points_per_guest, c.points_per_guest),
     c.floor_points,
+    c.recommend_floor_points,
     c.ceiling_points,
     c.config_key
     FROM public.papic_event_pool_config c

@@ -272,7 +272,24 @@ export async function GuestAllotmentsChoice({
         </span>
       </form>
 
-      {enabled ? (
+      {/* ⚖ "DON'T MAKE IT JUMP" (owner 2026-09-22). This block used to be
+          `{enabled ? … : null}` — switching the limits OFF deleted every control
+          below it and moved every block after it up the page. 🔑 HIDDEN IS A
+          LAYOUT EVENT: the couple presses a switch to answer one question and
+          the whole screen rearranges under their thumb.
+
+          So the controls STAY and go QUIET. `inert` takes them out of the tab
+          order and stops every press without a `disabled` prop threaded through
+          each field, and the numbers read "No limit" / "No minimum" where the
+          figures were — which is also the honest answer to what is in force.
+
+          ⚠ NOT `hidden`, NOT `display:none`, and not a height animation. The
+          point is that nothing below moves. */}
+      <div
+        inert={!enabled}
+        aria-hidden={!enabled}
+        className={`flex flex-col gap-5 transition-opacity ${enabled ? '' : 'opacity-45'}`}
+      >
         <>
           {/* THE LIVE LINE — what the couple's choices actually add up to. */}
           <p
@@ -297,8 +314,8 @@ export async function GuestAllotmentsChoice({
                 name="everyone_else"
                 min={1}
                 step={1}
-                defaultValue={everyoneElse ?? ''}
-                placeholder={String(split.perHead)}
+                defaultValue={enabled ? everyoneElse ?? '' : ''}
+                placeholder={enabled ? String(split.perHead) : 'No limit'}
                 className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
               />
               <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
@@ -351,7 +368,7 @@ export async function GuestAllotmentsChoice({
                 name="minimum_each"
                 min={1}
                 step={1}
-                defaultValue={floorPoints ?? ''}
+                defaultValue={enabled ? floorPoints ?? '' : ''}
                 placeholder="No minimum"
                 className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
               />
@@ -450,7 +467,7 @@ export async function GuestAllotmentsChoice({
             )}
           </form>
         </>
-      ) : null}
+      </div>
     </div>
   );
 

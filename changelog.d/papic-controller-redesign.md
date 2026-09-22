@@ -143,3 +143,27 @@ generates, and CSS `order` is inert on a block container. Either one leaves the 
 source order looking exactly as it did.
 
 SPEC IMPACT: builds RULING 2 of the 2026-09-22 redesign row.
+
+## 2026-09-22 · fix(papic): a switched-off control goes quiet, it does not jump
+
+⚖ Owner: *"don't make it jump."* The allotment block was `{enabled ? … : null}` — turning
+the per-guest limits off DELETED every control below the switch and pulled every block
+after it up the page, under the couple's thumb, then rearranged again on the way back on.
+
+🔑 **Hidden is a layout event.** The controls now stay mounted and go quiet: `inert` takes
+them out of the tab order and stops every press without threading a `disabled` prop
+through each field, the opacity says so, and the number boxes read **"No limit" /
+"No minimum"** where the figures were — which is also the honest answer to what is in
+force. A stale "40" in a greyed box says the limit is 40; it is not.
+
+⚠ **This is not a ban on rendering nothing.** `GuestAllotmentsChoice` still returns null
+when guests cannot shoot at all — a control that governs nothing is worse than an absent
+one. The rule is about a control collapsing as the couple OPERATES it, and the guard
+asserts that shape rather than banning `null`.
+
+🚨 **The guard's first cut faced the wrong way** and is worth recording: it sliced FORWARD
+from the quiet wrapper, so a sabotage that put `{enabled ? (` immediately BEFORE the
+wrapper restored the exact defect and the guard stayed green. It now checks the region
+between the switch's own form and the wrapper as well.
+
+SPEC IMPACT: builds the second of the two interaction rules in the 2026-09-22 redesign row.

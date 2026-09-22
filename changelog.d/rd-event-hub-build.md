@@ -102,3 +102,32 @@ characters before the real rule, and brace-counted from a `{` belonging to nothi
 strips CSS comments before searching anything.
 
 SPEC IMPACT: None. No migration, no price, no locked decision.
+
+---
+
+### 3 · "How it moves" — the control that sets it
+
+Four named presets in the editor rail — **Still · Calm · Editorial · Cinematic** — with one
+override underneath: **Auto · Plays once · Follows the scroll**. Owner, on the eight knobs the
+first draft had: *"we still want it to be simple enough that they could customize this."*
+
+🔑 **A row of submit buttons, not a client widget.** The sections panel is a server component and
+the whole editor works with **no JavaScript** — the PH slow-4G posture the widgets editor already
+holds. The live preview sits beside it and reloads on the redirect, so a couple taps a preset and
+watches their own page change.
+
+⛔ **The timing override only appears once a preset is chosen.** Offering "Follows the scroll" on
+a section with no preset would be a control refining a decision nobody has made.
+
+⛔ **The writer MERGES `config_json`.** It is a shared bag typed `unknown` and any widget may keep
+its own settings there; writing `{ canvas }` over the top would delete them silently, visible only
+on the guest page. The action re-reads the row rather than trusting the form — a couple with two
+tabs open would otherwise post a snapshot from before their other change.
+
+**Guards** — `the-motion-control-is-real.test.ts` (6), which renders the panel and follows the
+value a button posts all the way to the class the guest page carries. Six sabotages, each breaking
+exactly its guard: a button posting the wrong preset · the pressed chip ignoring what was saved ·
+the timing row appearing unasked · **the writer replacing `config_json` instead of merging** ·
+Auto stored as a word · dead controls for a caller that never wired the action.
+
+SPEC IMPACT: None.

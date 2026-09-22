@@ -53,10 +53,11 @@ import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
 import {
-  toggleWidgetVisibility,
-  moveWidgetUp,
   moveWidgetDown,
+  moveWidgetUp,
   setSectionMode,
+  setWidgetMotion,
+  toggleWidgetVisibility,
 } from '../widgets/actions';
 import {
   computeSectionContentMap,
@@ -597,6 +598,7 @@ export default async function WebsiteEditorPage({
               moveUpAction={moveWidgetUp}
               moveDownAction={moveWidgetDown}
               setModeAction={setSectionMode}
+              setMotionAction={setWidgetMotion}
             />
           ),
         },

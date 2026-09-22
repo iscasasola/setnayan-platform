@@ -3,6 +3,18 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
+import {
+  HUB_MOTION_PRESETS,
+  HUB_TIMELINE,
+  sanitizeHubCanvas,
+  type HubMotionPreset,
+  type HubTimeline,
+} from '@/lib/hub-canvas';
+
+const isHubMotionPreset = (v: unknown): v is HubMotionPreset =>
+  typeof v === 'string' && (HUB_MOTION_PRESETS as readonly string[]).includes(v);
+const isHubTimeline = (v: unknown): v is HubTimeline =>
+  typeof v === 'string' && (HUB_TIMELINE as readonly string[]).includes(v);
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -384,6 +396,90 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
     const msg = updErr1?.message || updErr2?.message || 'Unknown swap error';
     throw new Error(`Failed to reorder widgets: ${msg}`);
   }
+
+  await revalidateForWidgetChange(eventId);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE CANVAS — how one section MOVES (owner 2026-09-23: "rails on")
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Set one section's motion preset, and optionally its timeline override.
+ *
+ * ── WHY IT MERGES INSTEAD OF WRITING ────────────────────────────────────────
+ * 🔑 `config_json` IS A SHARED BAG. It is typed `unknown` in
+ * `lib/invitation-widgets.ts` and any widget may keep its own settings there.
+ * Writing `{ canvas: … }` over the top would delete whatever else a couple had
+ * saved — silently, and only visible on their guest page. So the current row is
+ * re-read and the canvas is merged into it under its own `canvas` key, leaving
+ * every sibling key exactly as it was.
+ *
+ * ⚠ AND IT RE-READS RATHER THAN TRUSTING THE FORM. The rendered panel is a
+ * snapshot; a couple with two tabs open would otherwise post a `config_json`
+ * from before their other change. Only the fields this form owns are touched.
+ *
+ * ── "AUTO" IS AN ABSENCE ───────────────────────────────────────────────────
+ * `timeline=auto` DELETES the key rather than storing the word. An absent
+ * override means "whatever the preset says", so a later change to what
+ * "Editorial" means reaches a couple who never overrode it. Storing 'auto'
+ * would freeze today's preset body into their saved page.
+ *
+ * Form fields:
+ *   - event_id · widget_id — the row, and the gate subject
+ *   - preset               — still | calm | editorial | cinematic
+ *   - timeline             — auto | time | scrub   (optional; auto removes it)
+ */
+export async function setWidgetMotion(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+  const presetRaw = formData.get('preset');
+  const timelineRaw = formData.get('timeline');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing widget id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+
+  const supabase = await createClient();
+  const { data: row, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, config_json')
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
+
+  if (isHubMotionPreset(presetRaw)) canvas.preset = presetRaw;
+  if (timelineRaw === 'auto') delete canvas.timeline;
+  else if (isHubTimeline(timelineRaw)) canvas.timeline = timelineRaw;
+
+  const next = { ...existing, canvas };
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: next })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+
+  if (updateErr) throw new Error(`Failed to save how this section moves: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
   redirect(

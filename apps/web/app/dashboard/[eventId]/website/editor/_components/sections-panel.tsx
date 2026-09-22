@@ -3,6 +3,12 @@ import {
   WIDGET_CATALOG_BY_TYPE,
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
+import {
+  HUB_MOTION_PRESETS,
+  HUB_MOTION_PRESET_LABEL,
+  HUB_TIMELINE_LABEL,
+  sanitizeHubCanvas,
+} from '@/lib/hub-canvas';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -34,6 +40,7 @@ export function SectionsPanel({
   moveUpAction,
   moveDownAction,
   setModeAction,
+  setMotionAction,
 }: {
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
@@ -44,6 +51,9 @@ export function SectionsPanel({
   moveUpAction: (formData: FormData) => void | Promise<void>;
   moveDownAction: (formData: FormData) => void | Promise<void>;
   setModeAction: (formData: FormData) => void | Promise<void>;
+  /** How this section MOVES (owner 2026-09-23). Optional so the panel keeps
+   *  working for any caller that has not wired it yet. */
+  setMotionAction?: (formData: FormData) => void | Promise<void>;
 }) {
   if (rows.length === 0) {
     return (
@@ -171,6 +181,88 @@ export function SectionsPanel({
                   );
                 })}
               </div>
+
+              {/* ══ HOW IT MOVES ══════════════════════════════════════════
+                  Owner 2026-09-23: "we only animate the details, the functions
+                  of the event hub stay as an app. But must be presented
+                  properly." Four named presets rather than eight knobs —
+                  "we still want it to be simple enough that they could
+                  customize this" — with the one override he cared about most
+                  underneath: a timed play versus one the guest scrubs.
+
+                  🔑 IT IS A ROW OF SUBMIT BUTTONS, NOT A CLIENT WIDGET. This
+                  panel is a server component and the whole editor works with no
+                  JavaScript (the PH slow-4G posture the widgets editor already
+                  holds). The live preview beside it reloads on the redirect, so
+                  a couple taps a preset and watches their own page change.
+
+                  ⚠ AUTO IS AN ABSENCE. The Auto chip posts `timeline=auto`,
+                  which DELETES the key — so a later change to what "Editorial"
+                  means still reaches a couple who never overrode it. */}
+              {setMotionAction ? (
+                (() => {
+                  const canvas = sanitizeHubCanvas(row.config_json);
+                  const preset = canvas.preset ?? null;
+                  return (
+                    <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                        How it moves
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {HUB_MOTION_PRESETS.map((p) => (
+                          <form key={p} action={setMotionAction}>
+                            <input type="hidden" name="event_id" value={eventId} />
+                            <input type="hidden" name="widget_id" value={row.widget_id} />
+                            <input type="hidden" name="preset" value={p} />
+                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <button
+                              type="submit"
+                              aria-pressed={preset === p}
+                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.62rem] font-semibold ${
+                                preset === p
+                                  ? 'border-ink bg-ink text-cream'
+                                  : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+                              }`}
+                            >
+                              {HUB_MOTION_PRESET_LABEL[p]}
+                            </button>
+                          </form>
+                        ))}
+                      </div>
+                      {preset ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                            Timing
+                          </span>
+                          {(['auto', 'time', 'scrub'] as const).map((t) => {
+                            const on = t === 'auto' ? !canvas.timeline : canvas.timeline === t;
+                            return (
+                              <form key={t} action={setMotionAction}>
+                                <input type="hidden" name="event_id" value={eventId} />
+                                <input type="hidden" name="widget_id" value={row.widget_id} />
+                                <input type="hidden" name="preset" value={preset} />
+                                <input type="hidden" name="timeline" value={t} />
+                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                <button
+                                  type="submit"
+                                  aria-pressed={on}
+                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                    on
+                                      ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                      : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                  }`}
+                                >
+                                  {t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t]}
+                                </button>
+                              </form>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()
+              ) : null}
             </li>
           );
         })}

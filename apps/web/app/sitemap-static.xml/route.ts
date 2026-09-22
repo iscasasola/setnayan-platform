@@ -66,9 +66,24 @@ const STATIC_ROUTES: ReadonlyArray<{
   // 2026-05-28 row PR #574).
   { path: '/vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
 
-  // /open-shop — vendor onboarding ("open your shop"). Was orphaned (indexable
-  // but in no sitemap); added 2026-07-10.
-  { path: '/open-shop', lastmod: '2026-07-10', changefreq: 'monthly', priority: '0.7' },
+  // ⛔ /open-shop REMOVED 2026-09-22 (register LAU-45). It was added on
+  // 2026-07-10 as "orphaned — indexable but in no sitemap". It is not
+  // indexable: `app/open-shop/page.tsx` does
+  // `if (!user) redirect('/login?next=/open-shop&as=vendor')`, and EVERY
+  // CRAWLER IS SIGNED OUT. Measured on production the day it was removed:
+  // `/open-shop` → 307 → `/login?next=%2Fopen-shop&as=vendor`. So the sitemap
+  // pointed Google at a login page and the supplier funnel was advertised to
+  // nobody.
+  //
+  // 🔑 Nothing is lost. The PUBLIC face of that funnel is `/vendors` — the
+  // supplier pricing and pitch page, indexed below — which links onward to
+  // `/open-shop` for anyone who signs in. A sitemap lists what a stranger can
+  // READ, not every door an authenticated person can walk through.
+  //
+  // If `/open-shop` should ever be publicly viewable (a pitch above the fold,
+  // sign-in demanded only at submit), that is a product change; put it back
+  // here in the same commit that makes it anonymous-readable, and
+  // `lib/sitemap-lists-only-public-pages.test.ts` will agree.
 
   // /creators — public storyteller marketing page ("Everywhere else, they
   // watch. Here, they book."). Shipped 2026-07-16 with the Creator Economy

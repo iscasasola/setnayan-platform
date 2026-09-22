@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "99c845c4b",
+  "generatedFromRef": "7a3c98186",
   "routeCount": 430,
-  "destinations": 925,
+  "destinations": 927,
   "actions": 657,
-  "blocks": 4610,
+  "blocks": 4617,
   "routes": {
     "/": {
       "files": [
@@ -7198,6 +7198,7 @@
         "LiveWallControls",
         "MagazineCard",
         "MiniTour",
+        "PapicCamerasCard",
         "PapicGalleryGrid",
         "PapicLightbox",
         "PapicPoolCard",
@@ -7886,6 +7887,7 @@
         "VendorQuickViewInspector",
         "VendorStatus",
         "WaitingForQuotes",
+        "WaitingRow",
         "WeddingFolder",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
@@ -8857,7 +8859,10 @@
         "open-shop/city-actions.ts",
         "open-shop/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/privacy",
+        "/terms"
+      ],
       "actions": [
         "becomeVendor"
       ],
@@ -8865,6 +8870,7 @@
         "AddressCheck",
         "AddressPreview",
         "CityPin",
+        "DesktopOAuthButtons",
         "DetectedCity",
         "FileUpload",
         "HTMLDivElement",
@@ -8873,10 +8879,13 @@
         "LeafletMarker",
         "LeafletModule",
         "LocatedAddress",
+        "OAuthButtonRow",
         "OpenShopWizard",
         "ServicePicker",
+        "SignInHereLink",
         "Step",
-        "SubmitButton"
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/our-story": {
@@ -10700,6 +10709,7 @@
         "Resolved",
         "RevealToolButton",
         "SendProposalCard",
+        "ServiceCardQuoteSeed",
         "Sheet",
         "ShutTool",
         "SnapRow",

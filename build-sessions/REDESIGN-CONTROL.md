@@ -2112,3 +2112,143 @@ $PRS` where `PRS="5873 5875 …"`. **zsh does not word-split an unquoted variabl
 view` was handed one argument containing five numbers, returned nothing, and the watcher printed
 `#.-empty` for the whole board. Inline the list, or use `${=PRS}`. Third appearance of this
 exact zsh behaviour on this project in one day.
+
+## 🛑 THE CONTROLLER'S OWN `heavy-lock.sh` INSTRUCTION WAS A SILENT NO-OP — five days, 58 files
+
+**Both halves of what I have been telling every session are wrong.** Verified first-hand, not relayed:
+
+| what the prompts say | what is true |
+|---|---|
+| `build-sessions/heavy-lock.sh` | does not exist and never has. The real one is `~/Documents/Claude/Projects/heavy-lock.sh` (2,904 bytes, 2026-09-13) |
+| used as a **wrapper**: `heavy-lock.sh <command>` | it is `{acquire <label>\|release <label>\|status}`. A wrapper call hits `*)`, prints a usage line and **exits 2 without running the command** |
+
+```
+$ heavy-lock.sh echo hello
+usage: heavy-lock.sh {acquire <label>|release <label>|status}
+```
+
+🔑 **A session obeying the instruction does not get a loud 127. It gets a quiet 2 and a suite that
+never ran**, which is indistinguishable from a very fast pass — and if the call ends in a pipe, even
+the 2 is lost (`$?` after a pipeline is the last element's). One session recorded exactly this today:
+`heavy-lock.sh pnpm typecheck > tsc.log 2>&1` reported success in about a second, having compiled
+nothing.
+
+✅ **The correct form. Acquire, run and release in ONE command**, because every tool call is a new
+process and a lock cannot be carried across calls:
+
+```bash
+L=~/Documents/Claude/Projects/heavy-lock.sh
+"$L" acquire "units <label>" && { npx tsx --test --test-concurrency=4 "lib/**/*.test.ts" "app/**/*.test.ts"; rc=$?; "$L" release "units <label>"; exit $rc; }
+```
+
+`"$L" status` names the holder. Ownership is by **label**, staleness by **age** (1 h) — deliberately,
+because pids are not stable across tool calls. `release --force` exists but is only for a holder you
+know is dead. **The mechanism was never missing and is in live use** (`status` → `HELD — 'rd-sai-final'`),
+so this is a documentation failure, not an absent tool.
+
+⚠ **And do not install a second implementation.** A peer built a tested one and measured the two
+against each other on the default `/tmp/setnayan-heavy.lock`: the real script found no `owner` file,
+computed an age of 1,790,069,301 s from an empty timestamp, **declared the live lock stale and broke
+it.** Both jobs then ran concurrently while both scripts reported success. *A second lock sharing one
+directory does not add safety, it silently cancels the first.*
+
+🔑 **Upstream of the lock entirely, from the script's own header:** *do not run a full local typecheck
+when CI is already running one for the same commit* — read `gh pr view <n> --json statusCheckRollup`.
+On 2026-09-13 one redundant local `tsc` was 2 of the 3 runs that powered this machine off. A lock
+would have queued it, not prevented it.
+
+## 🔁 "RUN ALL 31 LINT GUARDS" WAS THE WRONG NOUN — and the fix is smaller, not bigger
+
+A session enumerated `find … -name "lint-*.mjs"` → 31, all green, and five sessions copied it.
+Measured on that branch:
+
+```
+.test.ts files under lib/ and app/ ............ 1708
+…of those that readFileSync a source file ....... 692   ← source guards, same class
+lint-*.mjs the sweep enumerated .................. 31
+```
+
+**It enumerated one file EXTENSION instead of one CATEGORY of check.** An accurate list of the wrong
+kind of thing is still incomplete. The session had written two `.test.ts` source guards itself that
+same session and its own sweep could not see them.
+
+⚠ **The first correction — "the sweep is `pnpm test:unit` plus the lint scripts" — is also wrong in
+practice**: that fan-out is 1,708 processes, it gets killed on this machine before it finishes, and
+the session that proposed it then ran it and was killed at exit 144.
+
+✅ **The proportionate rule, which is both correct and cheaper:** after touching a source file, re-run
+**the guards that read it**.
+
+```bash
+grep -rl "<changed-file-basename>" lib/*.test.ts app/**/*.test.ts
+```
+
+One second to find, ~18 files to run, no fan-out. **`pnpm test:unit` is a CI job, not a developer's
+verification step** — running it locally here is both antisocial and useless.
+
+## ⚖ THE COUNTED-FILE MERGE IS SILENT ONLY WHEN BOTH SIDES ADD THE SAME NUMBER OF LINES
+
+Correction to the entry above, supplied by the Papic session and measured:
+
+```
+merge base 727b9ccb4   6441/6441
+origin/main            6442/6442   (+1 line)
+branch    17b0aaa56    6442/6442   (+1 DIFFERENT line)
+MERGE                  6442/6443
+```
+
+**Both sides DID change the header — to the same value, by coincidence.** Each added exactly one
+line to a 6441 base, so each independently wrote 6442, and git took the identical header line from
+both without conflict.
+
+🔑 **So the rule is not "a counted file always merges silently wrong." It is "a counted file merges
+silently wrong exactly when the two sides' line counts coincide."** Had main added two while the
+branch added one, the header line would have differed and git would have **conflicted** — the defect
+would have announced itself. That makes it **intermittent**, which is worse than reliable, because
+it will read as flaky and get retried rather than diagnosed.
+
+⚠ **And a clean reading rots.** "I checked the other three branches" is valid only against those tips
+versus that main. `#5873` merged twenty minutes later and every count shifted. **Re-check at the
+moment each branch actually lands**, not once.
+
+✅ **One more step, which turns a regeneration from a rubber stamp into evidence: READ THE DIFF.**
+The Papic session regenerated and then looked, and the branch added exactly one capability —
+`col public.events.papic_guest_spend_floor_points anon=- authenticated=SU`, the per-guest-minimum
+grant the migration states it intends. *"Regenerate and push" would have been green either way; the
+file exists so somebody looks at the added line.*
+
+## ⚖ A SUPPLIER'S SCREEN AND A COUPLE'S SCREEN DISAGREED ABOUT A GIFT — locked ruling, shipped backwards
+
+Measured by the quote-maker session on the replayed schema, with a throwaway db-test run and deleted:
+
+```
+status=sent    switch=ON card=OFF → setnayan_gift_offered_on=false → COUPLE SEES NOTHING
+status=viewed  switch=ON card=OFF → false                          → COUPLE SEES NOTHING
+status=accepted switch=ON card=OFF → TRUE
+```
+
+The composer applies the switch locally (`standingForQuoteSwitch`); the couple's page asks the
+database, which only reads the switch once `status='accepted'`. **The supplier reads "Includes your
+Setnayan gift — 1,021 free Papic photos" and the couple deciding on that quote is shown nothing.**
+
+⚖ That is the owner's **2026-09-09 lock** read backwards: *"the NUMBER appears on the QUOTE … a gift
+named at the moment of decision closes; a gift revealed after booking is only a thank-you."*
+
+🔑 **Ruled buildable without sign-off, because restoring a lock is not a new decision.** Two
+mechanisms for one fact is the cause, so the fix carries a guard that the composer's preview and the
+couple's page resolve from **one** rule. 1,021 stays derived; no literal, including in tests.
+
+## 🔑 A PASSING TEST CAN PIN A DEFECT AS FIRMLY AS IT PINS A FIX
+
+`your-team.test.ts` asserted `candidateCostsPhp: [40_000, 12_500, null]` gives
+`bufferPhp === 300_000 - 25_000 - 52_500`. **It asserted that an unrecorded price contributes zero**,
+and it was green for as long as it existed. Prod event `044f7e64` carries `total_cost_php = NULL` on
+both locked suppliers and both candidates, so the page printed **"LOCKED ₱0"** and **"₱2,250,000 to
+spare"** beside "₱26,499 paid".
+
+Sits beside *"a refactor can take a guard's coverage away without failing that guard"*: in one the
+suite is silent, in the other it is **actively wrong and confident.**
+
+⚠ And the asymmetry the same session judged correctly, against its own reflex: `lockedCentavos ?? 0`
+**stays**, because it is a SUM and the total of nothing genuinely is zero — unlike a candidate row
+that exists with no recorded price. Removing it would also render a runtime undefined as "₱NaN".

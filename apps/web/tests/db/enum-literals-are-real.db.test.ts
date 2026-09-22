@@ -74,6 +74,35 @@ function code(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
+/**
+ * Remove `const <NAME>_LABELS: Record<string, string> = { … }` blocks.
+ *
+ * ⚠ A CARVE-OUT, NOT A WIDENING, and the difference is load-bearing.
+ * A label map INVERTS the relationship the matcher assumes: the KEY is the
+ * column name and the VALUE is PROSE FOR A HUMAN. `rsvp_status: 'RSVP'` in such
+ * a map is the word a host reads in an undo snackbar. It is never sent to
+ * Postgres, and textually it is indistinguishable from an insert payload.
+ *
+ * 🔑 Found when the guest-card autosave's `FIELD_LABELS` turned this guard red on
+ * CORRECT code. The alternative was to contort the label map so the matcher would
+ * not see it — which is the failure this project keeps paying for: a scanner that
+ * cannot read the correct pattern punishes the correct code and rewards the copy.
+ *
+ * Deliberately narrow: the declared type must be exactly `Record<string, string>`
+ * AND the identifier must end in `_LABELS`. A write payload is neither. It is
+ * FLOORED AND CAPPED below, so it can neither become a quiet no-op nor start
+ * eating real code, and it cannot hide a phantom anywhere else in the same file.
+ */
+const LABEL_MAP = /const\s+[A-Za-z0-9_]*_LABELS\s*:\s*Record<\s*string\s*,\s*string\s*>\s*=\s*\{[^}]*\}/g;
+function withoutLabelMaps(src: string): { text: string; removed: number } {
+  let removed = 0;
+  const text = src.replace(LABEL_MAP, (m) => {
+    removed += 1;
+    return '\n'.repeat((m.match(/\n/g) ?? []).length);
+  });
+  return { text, removed };
+}
+
 test('the scan reads a real, non-trivial set of files', () => {
   assert.ok(SOURCES.length > 300, `only ${SOURCES.length} source files walked — the scan is not reaching the app`);
 });
@@ -88,12 +117,26 @@ for (const { column, enumType } of ENUM_COLUMNS) {
     const legal = new Set(rows.map((r) => r.enumlabel));
 
     const found: Array<{ file: string; value: string }> = [];
+    let labelMapsRemoved = 0;
     for (const file of SOURCES) {
-      const src = code(readFileSync(file, 'utf8'));
-      for (const m of src.matchAll(new RegExp(`${column}:\\s*'([^']+)'`, 'g'))) {
+      const stripped = withoutLabelMaps(code(readFileSync(file, 'utf8')));
+      labelMapsRemoved += stripped.removed;
+      for (const m of stripped.text.matchAll(new RegExp(`${column}:\\s*'([^']+)'`, 'g'))) {
         found.push({ file: file.slice(WEB.length + 1), value: m[1]! });
       }
     }
+    // A FLOOR AND A CAP ON THE CARVE-OUT. A stripper that stopped matching would
+    // hand every label map back to the scanner — noisy, but survivable. One that
+    // started matching too much would HIDE REAL WRITES — silent, and not
+    // survivable. Both directions need a number.
+    assert.ok(
+      labelMapsRemoved > 0,
+      'withoutLabelMaps() removed nothing — the pattern has stopped matching, so the carve-out proves nothing',
+    );
+    assert.ok(
+      labelMapsRemoved < 40,
+      `withoutLabelMaps() removed ${labelMapsRemoved} blocks — far more than this tree holds; it is eating real code`,
+    );
     // Vacuity: a regex that matched nothing would make the assertion below
     // trivially true — and a loop that skips everything passes.
     assert.ok(found.length > 0, `no \`${column}\` writes found at all — the pattern cannot match, so this proves nothing`);

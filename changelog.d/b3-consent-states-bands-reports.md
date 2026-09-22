@@ -116,3 +116,25 @@ regression can no longer be masked by an ancient definition that had one.
 
 Two registries updated as their guards instructed: the admin layout's `JOBS` list and the
 vendor-rail post-response count (9 → 10).
+
+## 2026-09-22 · fix(db): the terms guard stops reverting the INSERT-escalation fix
+
+`CREATE OR REPLACE FUNCTION public.guard_users_privilege_columns()` was written
+against the function's FIRST definition (`20270814328403`) rather than its
+latest (`20271132891176`), so re-creating it silently dropped two things that
+migration had added: the `TG_OP = 'INSERT'` branch and the
+`current_user NOT IN ('authenticated','anon')` privileged clause.
+
+The trigger is `BEFORE INSERT OR UPDATE`, so with the INSERT branch gone the
+UPDATE branch's `NEW.is_internal := OLD.is_internal` wrote NULL into a NOT NULL
+column and refused **every** insert — 8 red unit tests in the Papic metering
+files, none of which this PR touches. The other half was silent: dropping that
+branch restores the DELETE-then-INSERT privilege escalation that
+`20271132891176` exists to close.
+
+Verified by sabotage: with the branch and clause removed,
+`tests/db/users-privilege-escalation.db.test.ts` goes red on all 15 checks;
+restored, 15/15 pass, and the 8 Papic tests are green again.
+
+SPEC IMPACT: None — restores behaviour already specified by migration
+20271132891176; no product decision changes.

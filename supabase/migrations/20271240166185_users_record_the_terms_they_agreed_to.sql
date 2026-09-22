@@ -53,11 +53,21 @@ ALTER TABLE public.users
 -- revoke. The revoke shipped inert and looked exactly like protection.
 --
 -- 🔑 SO THIS EXTENDS THE MECHANISM THAT ALREADY WORKS. `guard_users_privilege_
--- columns` (20270814328403) is a BEFORE UPDATE trigger that reverts privileged
--- columns for a non-privileged caller — same table, same problem, already
--- proven. Two triggers on one table racing to revert different columns is a
--- second mechanism for one rule, so the existing function is re-created with
--- two more lines rather than a sibling added beside it.
+-- columns` (20270814328403, widened to cover INSERT by 20271132891176) is a
+-- BEFORE INSERT OR UPDATE trigger that reverts privileged columns for a
+-- non-privileged caller — same table, same problem, already proven. Two
+-- triggers on one table racing to revert different columns is a second
+-- mechanism for one rule, so the existing function is re-created rather than a
+-- sibling added beside it.
+--
+-- ⚠ RE-CREATING A FUNCTION REPLACES ITS WHOLE BODY. The first version of this
+-- migration copied the 20270814328403 body and so silently deleted BOTH the
+-- `TG_OP = 'INSERT'` branch and the `current_user NOT IN (…)` clause that
+-- 20271132891176 had added. CI caught the crash half (is_internal NULL on
+-- every insert, 8 red tests); the other half — the DELETE-then-INSERT
+-- privilege escalation — would have shipped silently. Before you CREATE OR
+-- REPLACE a function, diff against its LATEST definition, never its first:
+--   git grep -l <function_name> origin/main -- supabase/migrations | sort | tail -1
 CREATE OR REPLACE FUNCTION public.guard_users_privilege_columns()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -69,9 +79,30 @@ DECLARE
 BEGIN
   privileged := (v_role IS NULL)                 -- migration / superuser / direct DB
              OR (v_role = 'service_role')        -- elevated admin client
+             OR (current_user NOT IN ('authenticated', 'anon'))
              OR public.is_admin();               -- authenticated admin session
 
   IF privileged THEN
+    RETURN NEW;
+  END IF;
+
+  -- ⛔ DO NOT DROP THIS BRANCH WHEN YOU CREATE OR REPLACE THIS FUNCTION.
+  -- The trigger is BEFORE INSERT OR UPDATE (migration 20271132891176), because
+  -- DELETE-then-INSERT was a complete bypass of the UPDATE branch below and
+  -- yielded is_admin() = true. On INSERT there is no OLD row, so the UPDATE
+  -- branch's `NEW.x := OLD.x` writes NULL into a NOT NULL column and refuses
+  -- EVERY insert. Both halves are load-bearing — one is a privilege
+  -- escalation, the other is a crash. This migration lost both once.
+  IF TG_OP = 'INSERT' THEN
+    NEW.is_internal    := FALSE;
+    NEW.is_team_member := FALSE;
+    -- A self-inserted row may not arrive carrying its own consent record.
+    -- Both NULL together satisfies users_terms_agreement_ck.
+    NEW.terms_accepted_at := NULL;
+    NEW.terms_version     := NULL;
+    IF NEW.account_type = 'admin' THEN
+      NEW.account_type := 'customer';
+    END IF;
     RETURN NEW;
   END IF;
 

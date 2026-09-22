@@ -208,6 +208,38 @@ export function defaultQuoteSwitch(
   return null;
 }
 
+/**
+ * WHAT THE SWITCH OPENS AT WHEN THE SUPPLIER IS REVISING A QUOTE THEY ALREADY SENT.
+ *
+ * 🔑 THE ORDER OF THE TWO QUESTIONS IS THE WHOLE POINT. The CURRENT booking
+ * decides whether there is a switch at all; the REPLACED quote decides its
+ * value. Never the other way round.
+ *
+ * A naive pass-through — "reopen at whatever the old quote said" — resurrects a
+ * gift on a booking that has since become waived, imported or unreadable. That
+ * fails in the direction that costs the supplier money, which is why
+ * `cardsAnswer === null` is answered first and returns before anything else is
+ * considered.
+ *
+ * @param revisionAnswer `vendor_proposals.includes_setnayan_gift` of the quote
+ *   being replaced. `undefined` = not a revision. `null` = that quote expressed
+ *   no opinion (the column is nullable by design, so NULL is a real answer
+ *   meaning "nothing was said"), and falling through to the cards is then
+ *   correct rather than lazy.
+ * @param cardsAnswer `defaultQuoteSwitch(...)` for the booking as it stands
+ *   NOW. `null` means this booking offers no switch at all.
+ *
+ * With no revision this returns `cardsAnswer` unchanged, so a first-draft quote
+ * behaves exactly as it did before this function existed.
+ */
+export function openingGiftSwitch(a: {
+  revisionAnswer: boolean | null | undefined;
+  cardsAnswer: boolean | null;
+}): boolean | null {
+  if (a.cardsAnswer === null) return null;
+  return a.revisionAnswer ?? a.cardsAnswer;
+}
+
 /** "40%" — the owner's ceiling, rendered from the constant, never typed. */
 function sharePct(): string {
   return `${GIFT_SHARE_OF_FEE_PCT}%`;

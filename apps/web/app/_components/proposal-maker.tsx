@@ -17,6 +17,7 @@ import {
   papicTopUpForQuote,
   standingForQuoteSwitch,
   defaultQuoteSwitch,
+  openingGiftSwitch,
   quoteGiftSwitchCopy,
   type PapicQuoteStanding,
 } from '@/lib/papic-on-a-quote';
@@ -512,9 +513,19 @@ export function ProposalMaker({
     unreadable ladder — stays null and renders NO switch: there is no question
     to answer, and a switch over a gift that cannot exist is a control that
     does nothing.
+
+    ON A REVISION it opens at the SUPPLIER'S OWN last answer instead of the
+    card's — `openingGiftSwitch` asks the current booking whether there is a
+    switch at all, and only then lets the replaced quote set its value. Before
+    that, every other field in this builder seeded from the revision and this
+    one did not, so "Update this quote" silently reset a decision the supplier
+    had already made, and nothing errored.
   */
   const [giftSwitch, setGiftSwitch] = useState<boolean | null>(() =>
-    defaultQuoteSwitch(papicStanding ?? { kind: 'silent' }),
+    openingGiftSwitch({
+      revisionAnswer: revision?.giftSwitch,
+      cardsAnswer: defaultQuoteSwitch(papicStanding ?? { kind: 'silent' }),
+    }),
   );
 
   /*

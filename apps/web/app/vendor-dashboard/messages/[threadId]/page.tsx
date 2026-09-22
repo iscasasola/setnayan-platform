@@ -102,6 +102,7 @@ import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import {
   seedQuoteRevision,
+  QUOTE_REVISION_SELECT,
   type QuoteRevisionSeed,
   type QuoteRevisionSource,
 } from '@/lib/quote-revision-seed';
@@ -542,9 +543,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   if (composeMode === 'quote') {
     const { data: liveQuote, error: liveQuoteErr } = await supabase
       .from('vendor_proposals')
-      .select(
-        'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids, payment_schedule',
-      )
+      // The column list is a constant in lib/quote-revision-seed.ts so a unit
+      // test can EXECUTE it — a query in a server component can only be
+      // grepped, and this read silently dropped the supplier's gift answer.
+      .select(QUOTE_REVISION_SELECT)
       .eq('event_id', thread.event_id)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .in('status', ['sent', 'viewed', 'accepted'])

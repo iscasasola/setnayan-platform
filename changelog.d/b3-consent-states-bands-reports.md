@@ -46,3 +46,47 @@ Guards: `terms-are-agreed-not-assumed.test.ts`, `the-checklist-cannot-reach-a-de
 page does not contain, and it refused loudly rather than passing vacuously — which is the only
 reason the real error underneath was found. **My checkbox had landed where the footnote was, BELOW
 the button, reproducing the exact browsewrap being fixed.**
+
+### 5 — the price meter refills itself
+
+`market_price_bands` was **0 rows in production**: written only by
+`recompute_market_price_bands()`, whose only caller was a human pressing Recompute on
+`/admin/pricing`. Every supplier's Price-Position Meter has been empty since it shipped.
+
+🔑 **An empty benchmark does not look broken** — it looks like *"not enough peer data yet"*, which a
+supplier believes. The funnel half of the same page carries a comment saying exactly that about its
+own table: the card *"could never show a band, by construction"*.
+
+⛔ **Not a cron — this repo has no scheduler, deliberately.** Mirrors `booking-fee-unbilled-repair`:
+claimed through `claim_periodic_job`, fired from `after()` on both the admin and vendor layouts.
+Dual-mounted because the meter belongs to **suppliers**, so it must not wait for an admin page view.
+
+⚠ A refused recompute **throws** rather than returning 0 — `cron_job_runs` records the claim, not the
+outcome, so a swallowed error would be indistinguishable from a healthy run over an empty catalogue.
+And the gap constant is declared **in** the registry and imported **by** the server module: the other
+direction would drag `server-only` into every consumer of the registry.
+
+### 9 — a couple can report a shop
+
+`ReportPageButton` accepted `event | user_profile | chapter`, `PublicPageActions` is never mounted
+under `app/v/`, and the live CHECK had **no vendor value**. The marketplace — the one public surface
+where strangers meet strangers and money changes hands — was the only one with no report route.
+
+⚠ **The CHECK was re-listed from the LIVE constraint**, read with `pg_get_constraintdef` on
+2026-09-22, not from an older migration: a retyped vocabulary silently drops whatever was added
+since, and the failure only appears against real rows. The guard asserts all seven prior values
+survive and exactly one is added.
+
+A shop is reportable only while `isShopLive` — a hidden or unverified id is a forged target, the same
+posture the chapter branch takes about a draft. **Not `is_published`**, which reads FALSE on a live
+verified shop and would refuse reports about exactly the findable ones.
+
+**Both ends:** the button is mounted directly on the shop footer (not through `PublicPageActions`,
+which hardcodes `targetType="event"`), and `/admin/user-reports` names the new type — in **both** of
+its exhaustive Records.
+
+**21 sabotages red across the four builds.** Typecheck 0 errors.
+🪤 Typecheck found a **second** exhaustive Record my guard had missed; the guard now counts both, so a
+third fails locally rather than in CI. And two assertion windows had to be sized to a *measured* gap:
+`stripComments` replaces a comment with whitespace rather than removing it, so a well-documented
+branch pushes its own code 800+ characters apart.

@@ -73,6 +73,7 @@ import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
 import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
 import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
+import { ReportPageButton } from '@/app/_components/report-page-button';
 import {
   buildVendorVenueEvents,
   fetchViewerVenue,
@@ -3317,6 +3318,32 @@ export async function renderVendorBySlug({
           </p>
           <p>
             Vendor ID · <span className="font-mono">{vendor.public_id}</span>
+          </p>
+          {/*
+            🔴 A COUPLE HAD NO WAY TO REPORT A SHOP — CTRL-B3 build 9, 2026-09-22.
+            `PublicPageActions` carries Share + Report on the celebration page
+            and `/u/*`, but is never mounted under `app/v/`, and the report
+            vocabulary had no vendor value at all. So the marketplace — the one
+            public surface where strangers meet strangers and money changes
+            hands — was the only one with no route.
+
+            🔑 THE BUTTON IS MOUNTED DIRECTLY, NOT THROUGH `PublicPageActions`,
+            because that component hardcodes `targetType="event"`. Threading a
+            new prop through it would put a second meaning into a shared
+            component for one caller; the button already takes the type.
+
+            ⚠ BOTH ENDS. A report with no desk is a tray badge reaching nobody —
+            `/admin/user-reports` now names this target type, and
+            `a-couple-can-report-a-shop.test.ts` asserts the filing path and the
+            desk together.
+          */}
+          <p className="pt-1">
+            <ReportPageButton
+              targetType="vendor"
+              targetId={vendor.vendor_profile_id}
+              label="Report this shop"
+              className="inline-flex min-h-[44px] items-center text-ink/45 hover:text-ink/70"
+            />
           </p>
         </footer>
       </article>

@@ -11,6 +11,7 @@ import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -344,6 +345,11 @@ export default async function VendorDashboardLayout({
   // billed has been told nothing is owed and has no reason to open this page,
   // so a per-visitor sweep would reach everyone except the shops it is for.
   after(() => maybeRunUnbilledFeeRepair().catch(() => {}));
+  // CTRL-B3 build 5. Dual-mounted like the repair above, and for the same
+  // reason: the meter this feeds belongs to SUPPLIERS, so it must not depend
+  // on an admin opening one particular screen. `claim_periodic_job` makes the
+  // second mount free — whichever surface is loaded first takes the window.
+  after(() => maybeRefillPriceBands().catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

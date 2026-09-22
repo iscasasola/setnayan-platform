@@ -42,6 +42,15 @@ const SITE_DIR = join(WEB, 'app', '[slug]', '_components', 'skins');
 /** Every theme that actually paints — House is the bare page by design. */
 const PAINTED = INVITE_THEME_IDS.filter((id) => id !== 'house');
 
+/** Every `[data-hub-theme='id'] { … }` body — the SITE's reading of a material. */
+function cssBlocksFor(id: string): string[] {
+  const out: string[] = [];
+  for (const m of CSS.matchAll(new RegExp(`\\[data-hub-theme='${id}'\\][^{]*\\{([^}]*)\\}`, 'g'))) {
+    out.push(m[1] ?? '');
+  }
+  return out;
+}
+
 /** The material prefix each theme's tokens use. */
 const PREFIX: Record<string, string> = {
   capiz: 'cz',
@@ -276,6 +285,156 @@ test('the opaque paper yields to the ground — or the theme renders as nothing'
       /\bskin\b[^`]*\?\s*'relative'\s*:\s*'bg-cream'/,
       `branch ${i} paints bg-cream regardless of the skin — it is opaque and sits ON the ` +
         "ground, so the theme would render as nothing while every other assertion here passes",
+    );
+  }
+});
+
+test('every theme keeps its text readable on BOTH the ground and the plates', () => {
+  /*
+    🔴 THE DEFECT THIS EXISTS FOR SHIPPED IN THIS BRANCH AND WAS FOUND BY LOOKING
+    AT A SCREEN, not by any test here.
+
+    Velvet's first mapping took the skin's near-black ink onto a light ground —
+    correct for its PLATES, and catastrophic for every chapter heading and
+    eyebrow, which sit on the ground. Near-black on near-black. The plates
+    rendered perfectly the whole time, so a thumbnail looked right and eight
+    other assertions in this file stayed green.
+
+    🪤 THE FIRST VERSION OF THIS GUARD WAS A PHRASING RULE — "a theme that moves
+    --color-ink must also declare --color-ink-on-plate" — and it convicted ABACA,
+    which is correct: its ground and its plates share one dark ink because both
+    its papers are light. A rule about which DECLARATIONS are present cannot tell
+    the difference. So this measures the two contrasts instead, which is the
+    thing that actually has to be true and is what would have caught Velvet.
+  */
+  const material = new Map<string, string>();
+  for (const m of CSS.matchAll(/^\s*(--(?:cz|vl|ga|ab)-[a-z-]+(?:-ch)?):\s*([^;]+);/gm)) {
+    material.set(m[1]!, m[2]!.trim());
+  }
+
+  /** `251 248 243`, or `var(--vl-paper-ch)` resolved one level into the material. */
+  function channels(raw: string | undefined, where: string): [number, number, number] {
+    assert.ok(raw, `${where}: nothing to resolve`);
+    let v = raw!.trim();
+    const ref = /^var\((--[a-z-]+)\)$/.exec(v);
+    if (ref) {
+      const looked = material.get(ref[1]!);
+      assert.ok(looked, `${where}: ${ref[1]} is read but never declared — it resolves to empty`);
+      v = looked!.trim();
+    }
+    const n = /^(\d+)\s+(\d+)\s+(\d+)$/.exec(v);
+    assert.ok(n, `${where}: "${v}" is not space-separated channels`);
+    return [Number(n![1]), Number(n![2]), Number(n![3])];
+  }
+
+  const lin = (c: number) => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = ([r, g, b]: [number, number, number]) =>
+    0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const ratio = (a: [number, number, number], b: [number, number, number]) => {
+    const la = lum(a);
+    const lb = lum(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  };
+
+  // The house values, for any role a theme leaves alone.
+  const HOUSE = { ink: '30 34 41', cream: '255 255 255', paperDeep: '241 241 240' };
+
+  let measured = 0;
+  for (const id of PAINTED) {
+    const body = cssBlocksFor(id).join('\n');
+    const decl = (name: string) =>
+      new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(body)?.[1]?.trim();
+
+    const ink = channels(decl('--color-ink') ?? HOUSE.ink, `${id} --color-ink`);
+    const cream = channels(decl('--color-cream') ?? HOUSE.cream, `${id} --color-cream`);
+    const plateInk = channels(
+      decl('--color-ink-on-plate') ?? decl('--color-ink') ?? HOUSE.ink,
+      `${id} plate ink`,
+    );
+    const plate = channels(decl('--color-paper-deep') ?? HOUSE.paperDeep, `${id} --color-paper-deep`);
+
+    const onGround = ratio(ink, cream);
+    const onPlate = ratio(plateInk, plate);
+    measured += 2;
+
+    assert.ok(
+      onGround >= 4.5,
+      `${id}: text on the GROUND is ${onGround.toFixed(2)}:1 — this is the failure that shipped, ` +
+        'and it is invisible in a thumbnail because the plates still look right',
+    );
+    assert.ok(
+      onPlate >= 4.5,
+      `${id}: text on the PLATES is ${onPlate.toFixed(2)}:1 — a dark theme with a bright card ` +
+        'needs --color-ink-on-plate, or the card inherits the ground\'s ink and goes blank',
+    );
+  }
+  assert.equal(measured, PAINTED.length * 2, `measured ${measured} pairs, expected ${PAINTED.length * 2}`);
+});
+
+test('a plate reads its own ink, so a dark theme can hold a bright card', () => {
+  const css = CSS;
+  for (const rule of ['pahina-plate', 'pahina-deckle']) {
+    const m = new RegExp(`\\.sn-editorial \\.${rule} \\{([^}]*)\\}`).exec(css);
+    assert.ok(m, `${rule} is gone — re-anchor this guard rather than deleting it`);
+    assert.match(
+      m[1]!,
+      /color:\s*rgb\(var\(--color-ink-on-plate, var\(--color-ink\)\)\)/,
+      `${rule} no longer takes --color-ink-on-plate — Velvet's bright cards would inherit ` +
+        'the dark ground\'s cream ink and go blank',
+    );
+  }
+});
+
+test('no site skin paints its own ground colour — the page\'s paper is the only one', () => {
+  /*
+    🔴 THE STRUCTURAL HALF OF THE VELVET BUG, and the reason the contrast test
+    above could not catch it on its own.
+
+    Velvet's mapping claimed a near-white paper while its skin painted near-black
+    behind the page. Contrast arithmetic on the TOKEN reads 17:1 and passes; the
+    pixels were unreadable. A token and a stylesheet disagreeing about the same
+    plane is not something a colour calculation can see.
+
+    So the possibility is removed rather than watched: every ground paints
+    `rgb(var(--color-cream))`, the same variable the page computes its ink
+    against. Textures, veils and scrims layer on top — that is what makes each
+    theme look like itself — but the base plane is the page's own paper by
+    construction, and cannot drift from it.
+
+    ⚠ This bans a ground COLOUR, not a ground. `background-image` is untouched:
+    the lattice, the veil, the kraft pull and the hung rule are all still theirs.
+  */
+  const dir = SITE_DIR;
+  const sheets = readdirSync(dir).filter((f) => f.endsWith('.module.css'));
+  assert.equal(sheets.length, 4, `expected 4 site skins, found ${sheets.length}`);
+  for (const sheet of sheets) {
+    const src = stripComments(readFileSync(join(dir, sheet), 'utf8'));
+    const ground = /\.ground \{([^}]*)\}/.exec(src);
+    assert.ok(ground, `${sheet} has no .ground rule — re-anchor this guard rather than deleting it`);
+    assert.match(
+      ground[1]!,
+      /background-color:\s*rgb\(var\(--color-cream\)\)/,
+      `${sheet}'s .ground does not paint rgb(var(--color-cream)) — its ground and the page's ` +
+        'ink would be free to describe different planes, which is exactly what shipped',
+    );
+    /*
+      🪤 THE FIRST VERSION USED A NEGATIVE LOOKAHEAD — `\s*(?!rgb\(var\(--color-cream\)\))`
+      — and it convicted every correct file. `\s*` can match ZERO characters, so
+      the engine backtracks, puts the lookahead in front of the SPACE, sees that
+      " rgb(…" is not "rgb(…", and matches the very value it was written to
+      exempt. A lookahead behind a variable-width match is a lookahead you can
+      step around. So the values are parsed and compared as strings instead.
+    */
+    const own = [...ground[1]!.matchAll(/background(?:-color)?:([^;]+);/g)]
+      .map((m) => m[1]!.trim())
+      .filter((v) => v !== 'rgb(var(--color-cream))');
+    assert.deepEqual(
+      own,
+      [],
+      `${sheet}'s .ground paints a second base colour of its own`,
     );
   }
 });

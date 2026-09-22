@@ -31,11 +31,32 @@
  * afford the ink. Two themes, two reasons, one outcome: the ground is stock.
  */
 
+/*
+ * 🔴 THE GROUND IS `rgb(var(--color-cream))`, NOT THIS THEME'S OWN COLOUR TOKEN,
+ * AND THAT IS A STRUCTURAL FIX FOR A BUG THAT SHIPPED IN THIS BRANCH.
+ *
+ * Velvet's first mapping told the page its paper was `--vl-paper` (near-white)
+ * while this skin painted the velvet (near-black) behind it. Every chapter
+ * heading and eyebrow — all the text that sits on the ground rather than on a
+ * plate — was drawn in the ink chosen for the LIGHT paper, on the DARK ground.
+ * The plates rendered perfectly throughout, so a thumbnail looked right.
+ *
+ * 🔑 A GUARD COULD NOT HAVE CAUGHT IT, AND I WROTE ONE THAT DID NOT. Checking
+ * "ink contrasts with --color-cream" passes: dark ink on the light paper the
+ * token CLAIMED is 17:1. The token and the pixels disagreed, and contrast
+ * arithmetic on the token can only ever see the token.
+ *
+ * So the possibility is removed instead of watched: the ground paints the SAME
+ * variable the page computes its text colour against. They cannot disagree,
+ * because there is only one of them. Texture, veils and scrims layer ON TOP —
+ * that is what makes each theme look like itself — but the base plane is the
+ * page's own paper by construction.
+ */
 .ground {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-color: var(--ab-kraft);
+  background-color: rgb(var(--color-cream));
 }
 
 .stock {

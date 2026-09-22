@@ -2867,6 +2867,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     background: rgb(var(--color-gild) / 0.55);
   }
   .sn-editorial .pahina-plate {
+    color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
     padding: 1.25rem;
@@ -2956,6 +2957,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
     /* the one thing on the page that IS a card in real life — heavier stock:
        paper-deep, a lifted drop shadow, and the printed inner hairline */
     position: relative;
+    color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
     padding: 1.5rem;
@@ -3262,10 +3264,28 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --font-display: var(--font-velvet-display);
   --font-mono: var(--font-velvet-utility);
   --pahina-face: var(--font-velvet-display);
-  --color-cream: var(--vl-paper-ch);
-  --color-paper: var(--vl-paper-ch);
-  --color-paper-deep: 255 255 255;
-  --color-ink: var(--vl-ink-ch);
+  /* 🔴 CORRECTED — THE FIRST MAPPING HAD THIS EXACTLY BACKWARDS, and only
+     looking at it on a screen showed that. Velvet is the one DARK theme: the
+     door holds a BRIGHT card ON velvet, and the page does the same at length.
+     The first version gave the page velvet's PAPER as its ground and velvet's
+     near-black INK as its text — so every chapter heading and eyebrow, i.e.
+     all the text that sits on the ground rather than on a plate, was
+     near-black on near-black. The plates looked perfect the whole time, which
+     is why it read as "working" in a thumbnail.
+     🔑 The rule it broke is the one written into `site-palette.ts`: ink and the
+     paper it is read on move TOGETHER or not at all. */
+  --color-cream: 28 22 26;
+  --color-paper: 28 22 26;
+  --color-ink: 240 234 224; /* warm cream, on the velvet — 12.2:1 at the default
+                               accent, and 5.1:1 in the worst case the ground
+                               scrim exists for (see velvet.module.css) */
+  /* The plates stay bright cotton card and carry their OWN ink. `--color-ink`
+     is the ground's, and on this theme the two are opposites — which is what
+     `--color-ink-on-plate` exists for. Every other theme leaves it unset and
+     falls back to `--color-ink`, so this is inert for them. */
+  --color-paper-deep: var(--vl-paper-ch);
+  --color-ink-on-plate: var(--vl-ink-ch); /* #15121a on #fbf9f6 — 17.6:1, the
+                                             door skin's own measurement */
   --color-veil: var(--vl-hair-ch);
   --color-gild: var(--vl-foil-ch);
   --pahina-grain-opacity: 0;

@@ -55,7 +55,7 @@ const rendered = source
 /** Collapse JSX whitespace so a phrase split across lines still matches. */
 const flat = rendered.replace(/\s+/g, ' ');
 
-const REMOVED = [
+const REMOVED: ReadonlyArray<readonly [string, string]> = [
   ['decisions: the link instruction', 'each one links to its room'],
   ['decisions: the free-state twin', 'Choices only you can make'],
   ['coming up: the sub-line', 'Nothing to decide — just what lands when'],
@@ -75,7 +75,7 @@ const REMOVED = [
   valuable for announcing that something is empty; it is valuable for the FIRST
   STEP it names. So each anchor is that first step.
 */
-const KEPT_ENDOWED = [
+const KEPT_ENDOWED: ReadonlyArray<readonly [string, string]> = [
   ['team, empty', 'start with the ones that book out first'],
   ['conversations, empty', 'when a vendor replies, it lands right here'],
   ['services, empty', 'the Studio has everything for the day'],

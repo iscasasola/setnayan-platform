@@ -103,7 +103,7 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
 
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--m-paper)' }}>
-      <div className="home-reskin-ov" role="dialog" aria-modal="true" aria-label="Your profile">
+      <div className="home-reskin-ov">
         <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
           <div className="hr-ov-eyebrow">You</div>
           <h1 className="hr-ov-title">How should we call you?</h1>

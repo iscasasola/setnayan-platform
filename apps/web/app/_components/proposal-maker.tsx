@@ -41,6 +41,7 @@ import {
   type QuoteSeedLine,
 } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
 import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-service-card';
+import type { QuoteEventBrief } from '@/lib/quote-event-brief';
 import {
   QUOTE_STAGES,
   nextStage,
@@ -307,6 +308,7 @@ export function ProposalMaker({
   coupleName,
   packages = [],
   cards = [],
+  brief = null,
   coupleCrewProvider = null,
   paymentMethods = [],
   viewerPromo = null,
@@ -395,6 +397,15 @@ export function ProposalMaker({
    * decides exactly what a card overrides and what the supplier keeps).
    */
   cards?: QuoteCardOption[];
+  /**
+   * STEP 1 · KNOW THE EVENT — what Setnayan can tell the supplier while they
+   * price (owner 2026-09-22: "the vendor must see the basic information we can
+   * provide to them"). Built on the server by `briefForQuote` from the SAME
+   * rows the customer rail shows, plus the stage-1 facts (area, asked-for,
+   * budget band, style, locked categories) and — only under an enforced fee —
+   * the names of what is withheld. Null → the step shows guests & hours only.
+   */
+  brief?: QuoteEventBrief | null;
   /** When the couple has booked a crew-meal marketplace service, the provider name (enables the offset banner). */
   coupleCrewProvider?: string | null;
   /** The vendor's published payment methods (§ 9) — the couple sees the picked subset. */
@@ -655,7 +666,7 @@ export function ProposalMaker({
       ? 'off'
       : null;
   const stageSummary = stageSummaries({
-    eventLine: coupleName?.trim() || null,
+    eventLine: brief?.eventLine ?? (coupleName?.trim() || null),
     pax,
     hours,
     cardsLine: pickedCardLabels.length ? pickedCardLabels.join(' + ') : null,
@@ -910,6 +921,33 @@ export function ProposalMaker({
 
       {/* ── STEP 1 · KNOW THE EVENT ─────────────────────────────────────── */}
       <QuoteStage {...stageProps('know')}>
+      {/* THEIR EVENT — the rail's rows plus the stage-1 facts, beside the quote. */}
+      {brief ? (
+        <div data-testid="quote-event-brief" className="space-y-2 border-b border-ink/10 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className={lbl}>Their event</span>
+            <a href={brief.fullBriefHref} className="text-[11px] text-terracotta-700 underline hover:text-terracotta">
+              Full brief ›
+            </a>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+            {brief.rows.map((r) => (
+              <div key={r.label} className="contents">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45 pt-0.5">{r.label}</dt>
+                <dd className={`text-right ${r.unknown ? 'text-ink/45' : 'text-ink'}`}>
+                  {r.value}
+                  {r.note ? <span className="text-ink/45"> · {r.note}</span> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {brief.withheld ? (
+            <p data-testid="quote-brief-withheld" className="text-[11px] text-ink/55">
+              <span className="font-medium text-ink/70">{brief.withheld.headline}</span> {brief.withheld.detail}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {/* Header — seeded pax/hours (rule 0) */}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-4">
         <div className="min-w-0">

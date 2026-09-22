@@ -334,8 +334,8 @@ export default function TermsPage() {
             help center
           </Link>
           . For data and privacy matters, contact our Data Protection Officer at{' '}
-          <a href="mailto:iscasasolaii@gmail.com" className="text-terracotta hover:underline">
-            iscasasolaii@gmail.com
+          <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
+            dpo@setnayan.com
           </a>
           .
         </p>

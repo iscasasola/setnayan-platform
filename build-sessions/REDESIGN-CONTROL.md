@@ -2040,3 +2040,42 @@ class; the path matches nothing. Re-run as `"app/**/<name>.test.ts"` → **6 tes
 
 🔑 It was caught only because the count was printed and read. **A zero from a harness is not
 evidence** — and this one is in the memory file, was known, and still nearly passed as a green.
+
+## 🔴 A GENERATED FILE CAN GO INCONSISTENT THROUGH A **CLEAN** MERGE — measured, #5875
+
+`supabase/security/exposure-surface.baseline.txt` carries a header that **counts its own body**.
+Measured on 2026-09-22 with `git merge-tree --write-tree`, the same tree GitHub builds:
+
+```
+main    header=6442  body=6442   ✅
+branch  header=6442  body=6442   ✅   ← the session's regeneration was correct
+MERGE   header=6442  body=6443   🔴   ← what CI actually ran
+```
+
+Both sides added a line to the body **in different places**, so git kept both — an ordinary
+clean text merge. Both sides left the header **identical**, so there was nothing to conflict on.
+The union counts itself wrongly and **git reported no conflict at all.**
+
+🔑 **Each branch was internally consistent and their merge was not.** A conflict would have
+warned somebody. This is the silent version, and it is exactly why the session's local
+regenerate passed while CI failed *on the same commit* — both were right, about different trees.
+
+✅ **The fix is ordering, not content:** `git merge origin/main` FIRST, regenerate SECOND. A
+regeneration performed before the merge describes a body that no longer exists. Never patch the
+header by hand — the count is an output, and a hand-corrected header passes the guard while
+being something no generator produced.
+
+**Every other branch in flight was checked for the same defect** rather than assumed clean:
+`rd/wave-2` 6442/6442 · `#5873` 6445/6445 · `#5877` 6442/6442 — all consistent. Only the branch
+that regenerated *while behind a main that had also regenerated* was exposed.
+
+⚠ This sharpens the existing rule. "Regenerate on the merged tree" was already written here;
+what was missing is that **a clean merge is one of the ways the tree stops being the one you
+generated from.** Re-check with:
+
+```bash
+T=$(git merge-tree --write-tree origin/main origin/<branch> | head -1)
+git show "${T}:supabase/security/exposure-surface.baseline.txt" | { grep -m1 '# facts:'; }
+```
+
+(note the braces in `"${T}:path"` — see the zsh modifier trap above).

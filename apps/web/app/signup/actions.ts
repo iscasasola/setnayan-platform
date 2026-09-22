@@ -16,6 +16,7 @@ import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { TERMS_FIELD, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
 import { isEmailVerificationRequired } from '@/lib/email-verification';
+import { signupLanding } from '@/lib/signup-landing';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -499,7 +500,10 @@ export async function signUp(formData: FormData) {
     });
     await applyRememberChoice();
     if (!signInError) {
-      return redirect(next);
+      // Couples meet the You card first (display name · @account name · formal
+      // name · phone · photo), carrying `next`; vendors go straight to
+      // /open-shop, whose step 3 asks the name. lib/signup-landing.ts decides.
+      return redirect(signupLanding({ accountType, next }));
     }
     return redirect(
       `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,

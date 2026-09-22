@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "23a6b30b8",
-  "routeCount": 430,
-  "destinations": 924,
-  "actions": 654,
-  "blocks": 4601,
+  "generatedFromRef": "3e8189026",
+  "routeCount": 431,
+  "destinations": 927,
+  "actions": 656,
+  "blocks": 4616,
   "routes": {
     "/": {
       "files": [
@@ -158,6 +158,7 @@
     },
     "/(shell)/explore": {
       "files": [
+        "(shell)/explore/_components/card-headline-service.ts",
         "(shell)/explore/_components/category-tile.tsx",
         "(shell)/explore/_components/event-type-notify-form.tsx",
         "(shell)/explore/_components/explore-search-hero.tsx",
@@ -825,6 +826,7 @@
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/icon-source.ts",
+        "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
@@ -2671,6 +2673,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
@@ -2685,6 +2688,8 @@
         "KpiStatCard",
         "Link",
         "MobileLandingGrid",
+        "RevenueSummary",
+        "Row",
         "Suspense",
         "TablePageSkeleton",
         "TransactionsLedger"
@@ -5459,6 +5464,7 @@
         "GroupsSidebar",
         "GuestDetailBody",
         "GuestDrawerHost",
+        "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
         "GuestRole",
@@ -7873,6 +7879,7 @@
         "VendorQuickViewInspector",
         "VendorStatus",
         "WaitingForQuotes",
+        "WaitingRow",
         "WeddingFolder",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
@@ -8844,7 +8851,10 @@
         "open-shop/city-actions.ts",
         "open-shop/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/privacy",
+        "/terms"
+      ],
       "actions": [
         "becomeVendor"
       ],
@@ -8852,6 +8862,7 @@
         "AddressCheck",
         "AddressPreview",
         "CityPin",
+        "DesktopOAuthButtons",
         "DetectedCity",
         "FileUpload",
         "HTMLDivElement",
@@ -8860,10 +8871,13 @@
         "LeafletMarker",
         "LeafletModule",
         "LocatedAddress",
+        "OAuthButtonRow",
         "OpenShopWizard",
         "ServicePicker",
+        "SignInHereLink",
         "Step",
-        "SubmitButton"
+        "SubmitButton",
+        "TurnstileField"
       ]
     },
     "/our-story": {
@@ -9412,13 +9426,29 @@
       ],
       "blocks": [
         "DesktopOAuthButtons",
-        "FormField",
         "Link",
         "OAuthButtonRow",
         "Sk",
         "SubmitButton",
-        "TurnstileField",
-        "Wordmark"
+        "TurnstileField"
+      ]
+    },
+    "/signup/you": {
+      "files": [
+        "signup/you/_components/account-name-field.tsx",
+        "signup/you/actions.ts",
+        "signup/you/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "saveYou"
+      ],
+      "blocks": [
+        "AccountNameCheck",
+        "AccountNameField",
+        "FileUpload",
+        "Link",
+        "SubmitButton"
       ]
     },
     "/site-editor/[eventId]": {
@@ -9683,6 +9713,7 @@
         "NavLinksRow",
         "PackageCard",
         "PublicVendorRow",
+        "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
         "ReviewRow",
@@ -9808,6 +9839,7 @@
         "declineLock",
         "disconnectInstagram",
         "formAction",
+        "markServiceComplete",
         "null",
         "postReviewReply",
         "rejectLock",
@@ -9855,11 +9887,13 @@
         "LockRequestLapsedBody",
         "LockedBody",
         "LockedQrGenerator",
+        "MarkCompleteBody",
         "Marker",
         "MediaTile",
         "MeetingBody",
         "MessageBody",
         "NotConnected",
+        "NothingToAnswerFeed",
         "OngoingTasks",
         "PageMasthead",
         "PaymentsPausedNote",
@@ -10683,6 +10717,7 @@
         "Resolved",
         "RevealToolButton",
         "SendProposalCard",
+        "ServiceCardQuoteSeed",
         "Sheet",
         "ShutTool",
         "SnapRow",
@@ -11864,6 +11899,7 @@
       "destinations": [
         "/help",
         "/open-shop",
+        "/pricing",
         "/vendors"
       ],
       "actions": [],

@@ -5,6 +5,7 @@ import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
+import { isBrandNewAccount, youHref } from '@/lib/signup-landing';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -19,6 +20,11 @@ export async function GET(request: NextRequest) {
   // app/login/actions.ts — never a second copy of the line, which is how Google
   // sign-in and password sign-in came to be two answers to one question.
   const fallbackNext = signInDestination(rawNext);
+  // Where a SUCCESSFUL exchange lands. A brand-new CUSTOMER account (created
+  // within the OAuth window, not promoted to vendor) meets the You card first,
+  // carrying `fallbackNext` — the same stop the email/password door makes
+  // (lib/signup-landing.ts). Everyone else lands on `fallbackNext` as before.
+  let landing = fallbackNext;
   // Vendor-signup intent, round-tripped by oauth-actions.ts (?as=vendor).
   const intent = url.searchParams.get('as');
 
@@ -78,6 +84,12 @@ export async function GET(request: NextRequest) {
           // failed promotion must NEVER 500 the login.
         }
       }
+      if (
+        accountType === 'customer' &&
+        isBrandNewAccount({ createdAt: data.user?.created_at, now: Date.now() })
+      ) {
+        landing = youHref(fallbackNext);
+      }
     }
 
     /*
@@ -133,5 +145,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(back);
   }
 
-  return NextResponse.redirect(new URL(fallbackNext, url.origin));
+  return NextResponse.redirect(new URL(landing, url.origin));
 }

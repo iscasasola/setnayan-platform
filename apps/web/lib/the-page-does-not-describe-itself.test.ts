@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { stripComments } from './strip-comments';
 
 /*
   THE OVERVIEW STOPS DESCRIBING WHAT IS ALREADY ON IT (owner-approved 2026-09-22).
@@ -31,26 +32,25 @@ const source = readFileSync(DASHBOARD, 'utf8');
  * regressions.
  */
 /*
-  ⚠ THE FIRST CUT OF THIS STRIPPER ATE 45% OF THE FILE AND THIS GUARD CAUGHT IT.
+  ⚠ TWO STRIPPERS WERE HAND-ROLLED HERE BEFORE THIS LINE WAS WRITTEN. Neither
+  survived, and the repo already had the answer.
 
-  It began with a dedicated JSX-comment pass, `/\{\s*\/\*[\s\S]*?\*\/\s*\}/`.
-  That looks precise and is a trap: when a bare block comment sits just inside
-  an expression brace — `preview={ /_* note *_/ x ? null : (…) }` (underscores
-  here only so this comment does not close itself), which this PR
-  wrote four of — the `\{\s*\/\*` half matches, the lazy middle stops at that
-  comment's `*\/`, the trailing `\s*\}` fails, and the engine BACKTRACKS to the
-  next `*\/` that does have a `}` after it. Everything in between disappears,
-  including two endowed empty states, and the guard reported them as deleted
-  when they were sitting right there in the file.
+  The first was `/\{\s*\/\*[\s\S]*?\*\/\s*\}/` for JSX comments. With a block
+  comment just inside an expression brace — which this PR wrote four of — the
+  trailing brace fails to match, the engine backtracks to the next `*` `/` that
+  does have one, and everything between vanishes. It ate 45% of this file and
+  then reported two endowed empty states as deleted while they sat in the source.
 
-  One rule instead: a block comment is a block comment, wherever it sits. The
-  leftover empty braces are then swept up. The last test in this file pins the
-  stripper against real content so it cannot quietly over-match again.
+  The second was the two-replace regex. `lint-one-comment-stripper` rejected it
+  by name, and `lib/strip-comments.ts` explains why in detail: `/*` inside a
+  STRING opens a comment that never existed — `accept="image/*"` alone blanked
+  5,104 lines across 1,031 files when a guard shipped with that regex.
+
+  🔑 THE FIX CANNOT BE A BETTER REGEX — deciding whether `/` starts a comment
+  needs to know whether you are inside a string, and that is lexing. So this
+  uses the ONE string-aware stripper, like every other source-scanning guard.
 */
-const rendered = source
-  .replace(/\/\*[\s\S]*?\*\//g, '') // every block comment, JSX or not
-  .replace(/^\s*\/\/.*$/gm, '') // line comments
-  .replace(/\{\s*\}/g, ''); // braces the comments left behind
+const rendered = stripComments(source);
 
 /** Collapse JSX whitespace so a phrase split across lines still matches. */
 const flat = rendered.replace(/\s+/g, ' ');
@@ -116,30 +116,36 @@ test('the facts that look like description are still said', () => {
   assert.equal(masking, 1, 'stated once as a global footnote, never per-card legalese');
 });
 
-test('the stripper removes comments and NOTHING ELSE', () => {
-  // Without this, the tests above read their own PR's explanations as rendered
-  // copy, and pass — or fail — for the wrong reason.
+test('the shared stripper removes comments and NOTHING ELSE', () => {
+  // Without this, the tests above read this PR's own explanations as rendered
+  // copy and pass — or fail — for the wrong reason.
   assert.ok(
     source.includes('each one links to its room'),
     'the source DOES still quote the removed line, in a comment',
   );
   assert.ok(!flat.includes('each one links to its room'), 'and the stripper removes it');
 
-  // …and it must not take real code with it. A comment sitting just inside an
-  // expression brace is the exact shape that made the first cut over-match.
-  const sample = `preview={
-    /* a note */
-    n > 1 ? null : (<p>KEEP THIS LINE</p>)
-  }`;
-  const stripped = sample
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\{\s*\}/g, '');
-  assert.ok(stripped.includes('KEEP THIS LINE'), 'a brace-adjacent comment must not swallow its sibling');
-  assert.ok(!stripped.includes('a note'), 'the comment itself still goes');
+  // The two hazards that killed the hand-rolled versions, pinned as fixtures.
+  const braceAdjacent = stripComments(
+    'preview={\n  /* a note */\n  n > 1 ? null : (<p>KEEP ME</p>)\n}',
+  );
+  assert.ok(braceAdjacent.includes('KEEP ME'), 'a brace-adjacent comment must not swallow its sibling');
+  assert.ok(!braceAdjacent.includes('a note'), 'the comment itself still goes');
 
-  // Sanity on the real file: comments are most of it, but not all of it.
-  const removedPct = Math.round(((source.length - rendered.length) / source.length) * 100);
-  console.log(`  stripper removed ${removedPct}% of the file`);
-  assert.ok(removedPct < 60, `stripper removed ${removedPct}% — it is eating code again`);
+  const slashInString = stripComments('const a = "image/*"; const KEEP = 1; /** doc */');
+  assert.ok(slashInString.includes('const KEEP = 1'), 'a slash-star inside a STRING is not a comment');
+
+  /*
+    ⚠ MEASURE INK, NOT LENGTH. `stripComments` blanks a comment to whitespace of
+    the SAME LENGTH, to keep line and column positions usable by its callers —
+    so `source.length - rendered.length` is always 0 and a percentage built on
+    it asserts nothing at all. The first version of this line did exactly that
+    and printed "stripper removed 0% of the file" while claiming to be a
+    ceiling. Count the non-whitespace characters instead.
+  */
+  const ink = (t: string) => t.replace(/\s/g, '').length;
+  const removedPct = Math.round(((ink(source) - ink(rendered)) / ink(source)) * 100);
+  console.log(`  stripper removed ${removedPct}% of the file's non-whitespace`);
+  assert.ok(removedPct > 5, `only ${removedPct}% removed — the stripper is not running`);
+  assert.ok(removedPct < 70, `${removedPct}% removed — the stripper is eating code`);
 });

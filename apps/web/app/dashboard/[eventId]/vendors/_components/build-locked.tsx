@@ -33,6 +33,8 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { lockedGroupIdsOf, type PlansRowPick } from '@/lib/plans-panel';
 import {
   bufferTile,
+  subtotalLabel,
+  unpricedNote,
   stillNeedsDecision,
   teamMoney,
   type TeamDecisionInput,
@@ -238,13 +240,23 @@ export function BuildLocked({
     );
   }
 
-  const toLockTotal = toLockRows.reduce((s, r) => s + (r.cost ?? 0), 0);
   const money = teamMoney({
     lockedCentavos: model.chosenCentavos,
+    // 🔑 A SUPPLIER WITH NO RECORDED PRICE IS COUNTED, NOT GUESSED AT ₱0.
+    // Measured on production 2026-09-22, event 044f7e64: both locked suppliers
+    // and both candidates carry `total_cost_php = NULL`, and this section
+    // printed "LOCKED ₱0" and "₱2,250,000 to spare" beside "₱26,499 paid".
+    // `teamMoney` now sums only the prices that exist and reports the rest;
+    // these two lines are what carries that to the screen.
+    lockedUnpricedCount: lockedRows.filter((r) => r.cost == null).length,
     candidateCostsPhp: toLockRows.map((r) => r.cost),
     budgetPhp: summary?.budgetPhp ?? null,
   });
-  const buffer = bufferTile(money.bufferPhp);
+  const buffer = bufferTile(money.bufferPhp, money.lockedUnpriced + money.inBuildUnpriced);
+  // ⚠ ONE SUM, NOT TWO. This was a second `reduce` over the same rows with the
+  // same `?? 0`, so the heading and the tile could disagree after either was
+  // edited. The heading now reads the same derivation the tile does.
+  const toLockTotal = money.inBuildPhp;
 
   // ── The section pieces. Declared once, then ORDERED per flag below — flag OFF
   // keeps today's exact sequence (heading → tiles → ready-to-lock → locked-in);
@@ -255,16 +267,34 @@ export function BuildLocked({
     <div className="grid grid-cols-2 gap-3">
       <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
       <LockTile k="Location" v={summary?.region ?? '—'} />
-      <LockTile k="Locked" v={pesoFromPhp(money.lockedPhp) ?? '—'} accent />
+      <LockTile
+        k="Locked"
+        v={pesoFromPhp(money.lockedPhp) ?? '—'}
+        accent
+        note={unpricedNote(money.lockedUnpriced)}
+      />
       {/* "STILL TO LOCK", NOT "IN BUILD" (S19, 2026-09-18). This figure is
           `teamMoney().inBuildPhp` — the sum of `toLockRows`, i.e. build picks
           NOT yet locked. A locked supplier leaves that list, so right after a
           lock the tile read "In build ₱0" beside "Locked ₱10,170" — as though
           the build were empty, when the locked supplier IS the build. The
           number was always right; the label claimed more than it measures. */}
-      <LockTile k="Still to lock" v={pesoFromPhp(money.inBuildPhp) ?? '—'} />
+      <LockTile
+        k="Still to lock"
+        v={pesoFromPhp(money.inBuildPhp) ?? '—'}
+        note={unpricedNote(money.inBuildUnpriced)}
+      />
       <LockTile k="Budget" v={pesoFromPhp(money.budgetPhp) ?? '—'} />
-      <LockTile k="Buffer" v={buffer.text} tone={buffer.tone} />
+      {/* The Buffer tile REFUSES while anything is unpriced: a buffer is a
+          claim about what is left, and it cannot be made from a sum that is
+          missing rows. The note says how many, so "Not knowable" is a fact the
+          couple can act on rather than a shrug. */}
+      <LockTile
+        k="Buffer"
+        v={buffer.text}
+        tone={buffer.tone}
+        note={unpricedNote(money.lockedUnpriced + money.inBuildUnpriced)}
+      />
     </div>
   ) : (
     <div className="grid grid-cols-2 gap-3">
@@ -292,7 +322,12 @@ export function BuildLocked({
             <h3 className="font-display text-lg italic text-ink/85">
               {replan ? 'In your build — ready to lock' : 'Ready to lock'}
             </h3>
-            <span className="text-xs text-ink/55">{pesoFromPhp(toLockTotal)} in your build</span>
+            {/* Same figure as the "Still to lock" tile, and it may not round a
+                missing price down to ₱0 either — `subtotalLabel` says
+                "No prices recorded yet" rather than inventing a total. */}
+            <span className="text-xs text-ink/55">
+              {subtotalLabel(toLockTotal, money.inBuildUnpriced)} in your build
+            </span>
           </div>
           {readyRows.map((r) => (
             <div
@@ -316,11 +351,7 @@ export function BuildLocked({
                     sit at different widths and the column does not line up.
                     Right-alignment alone does not fix that; the FIGURES have to
                     be equal-width. */}
-                    {pesoFromPhp(r.cost) && (
-                      <span className="text-sm font-medium tabular-nums text-ink/75">
-                        {pesoFromPhp(r.cost)}
-                      </span>
-                    )}
+                    <RowPrice cost={r.cost} />
                     {/* One candidate off the build. Vendor-scoped, never a lock. */}
                     <TeamRemoveCandidate
                       eventId={eventId}
@@ -330,11 +361,7 @@ export function BuildLocked({
                     />
                   </span>
                 ) : (
-                  pesoFromPhp(r.cost) && (
-                    <span className="shrink-0 text-sm font-medium tabular-nums text-ink/75">
-                      {pesoFromPhp(r.cost)}
-                    </span>
-                  )
+                  <RowPrice cost={r.cost} shrink />
                 )}
               </div>
               {/* The ONE lock path — conflict gate, date-lock modal, milestone
@@ -415,11 +442,7 @@ export function BuildLocked({
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2.5">
-                    {pesoFromPhp(r.cost) && (
-                      <span className="text-sm font-medium tabular-nums text-ink/75">
-                        {pesoFromPhp(r.cost)}
-                      </span>
-                    )}
+                    <RowPrice cost={r.cost} />
                     {/* The word the After-phase menu promises, finally attached to
                         the supplier it is about. Offered ONLY where the window is
                         genuinely open — a prompt the product would then refuse is
@@ -621,17 +644,57 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
   );
 }
 
+/**
+ * A row's price — or the fact that there isn't one.
+ *
+ * ─── WHY THIS COMPONENT EXISTS ──────────────────────────────────────────────
+ * All three row surfaces here rendered `{pesoFromPhp(r.cost) && (<span>…)}`,
+ * which draws **nothing at all** when the price is null. On this couple's live
+ * event that is every row: a column of supplier names with an empty space where
+ * the money goes, indistinguishable from free, from ₱0, and from a layout bug.
+ * It is also what made the tiles' "2 suppliers have no price recorded"
+ * unverifiable — the note said how many, and no row said which.
+ *
+ * 🔑 Absence is a fact about the data, and a screen that draws nothing has
+ * declined to state it. Stating it is the whole job.
+ */
+function RowPrice({ cost, shrink = false }: { cost: number | null; shrink?: boolean }) {
+  const text = pesoFromPhp(cost);
+  return (
+    <span
+      className={[
+        shrink ? 'shrink-0' : null,
+        'text-sm font-medium tabular-nums',
+        // The absence is quieter than a price, but it is THERE. Muted, never
+        // hidden — this whole component exists because it was drawn as nothing.
+        text ? 'text-ink/75' : 'italic text-ink/45',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {text ?? 'No price recorded'}
+    </span>
+  );
+}
+
 function LockTile({
   k,
   v,
   accent = false,
   tone,
+  note = null,
 }: {
   k: string;
   v: string;
   accent?: boolean;
   /** PR-E Buffer tile only: success when there's room, danger when over. */
   tone?: 'good' | 'over' | 'none';
+  /**
+   * `unpricedNote(...)` — why this figure is incomplete, or `null` when it is
+   * not. Rendered UNTRUNCATED below the value, because the value line is
+   * `truncate`d in a half-width cell and a cut-off reason is no reason at all.
+   */
+  note?: string | null;
 }) {
   const toneClass =
     tone === 'over' ? 'text-danger-700' : tone === 'good' ? 'text-success-700' : null;
@@ -643,6 +706,7 @@ function LockTile({
       >
         {v}
       </div>
+      {note && <div className="mt-0.5 text-[11px] leading-snug text-ink/55">{note}</div>}
     </div>
   );
 }

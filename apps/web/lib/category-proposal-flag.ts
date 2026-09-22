@@ -19,6 +19,8 @@
  * they do today: the supplier's request lands in the same queue and the admin
  * sees the same four buttons. Nothing about the supplier's path is gated on it.
  */
+
+import { envFlagEnabled } from './env-flag';
 export function isCategoryProposalDraftEnabled(): boolean {
-  return process.env.CATEGORY_PROPOSAL_DRAFT_ENABLED === 'true';
+  return envFlagEnabled(process.env.CATEGORY_PROPOSAL_DRAFT_ENABLED);
 }

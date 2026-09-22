@@ -15,6 +15,8 @@
  * sensitive, the same posture as the CSAM hash-match flag — never the
  * `!== 'false'` shape used for safe, already-proven cleanup jobs.
  */
+
+import { envFlagEnabled } from './env-flag';
 export function isSupplierNightBeforeEmailEnabled(): boolean {
-  return process.env.SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED === 'true';
+  return envFlagEnabled(process.env.SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED);
 }

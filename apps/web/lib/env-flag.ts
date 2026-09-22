@@ -42,6 +42,27 @@
  * Converting any of those is a compliance/owner decision, not a bugfix. The
  * same rule binds the next one: read the site, then convert.
  *
+ * ── THE 2026-09-22 PASS (W1 / register LAU-36) ───────────────────────────────
+ * Four more readers had drifted in since 2026-08-09 and were converted:
+ *   CATEGORY_PROPOSAL_DRAFT_ENABLED · SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED
+ *   VENDOR_SIGNUP_COVERAGE_SUGGEST_ENABLED · NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION
+ *
+ * 🔑 THEY DRIFTED IN BECAUSE THE GUARD WAS AN ALLOWLIST, NOT A CLOSED SET.
+ * `env-flag.test.ts` checked that every REGISTERED flag behaved, and ended with
+ * an "inventory" test whose final assertion was `assert.ok(Array.isArray(...))`
+ * — always true, so it could never fail. It also walked only `lib/` (one level)
+ * and matched only `NEXT_PUBLIC_*`, so three server-side flags were outside its
+ * pattern and the fourth hand-rolled its own lenient set and matched nothing.
+ *
+ * That test is now a closed-set gate: it walks the whole tree (~4,100 files),
+ * matches both operand orders, and FAILS when a strict reader is in neither
+ * CONVERTED nor HELD_STRICT. Adding a strict reader is now a deliberate act.
+ *
+ * ⚠ The fourth one is why this matters beyond tidiness. It gates whether a new
+ * account must confirm its email, and its hand-rolled set
+ * (`'true' || '1' || 'TRUE'`) did not trim whitespace. A trailing space is
+ * invisible in the Vercel dashboard, and would have read as OFF.
+ *
  * ── WHAT THIS IS NOT FOR ─────────────────────────────────────────────────────
  * Kill-switches written `!== 'false'` (default ON) are a DIFFERENT shape, and
  * running them through this reader would INVERT their default. And form-field

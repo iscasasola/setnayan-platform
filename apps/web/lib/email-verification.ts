@@ -15,16 +15,32 @@
  * before Supabase Auth points at Resend would break **every new signup on the
  * platform**, immediately, for everyone.
  *
- * 🔑 SO THIS SHIPS OFF, AND THE DEFAULT IS TODAY'S BEHAVIOUR. Merging this
- * changes nothing. The flag is the owner's to flip, AFTER the Supabase Auth
- * SMTP change in `OWNER_ACTIONS.md` Phase 2 — and the order matters: flipped
- * first, nobody can sign in.
+ * ✅ LIVE SINCE 2026-09-22. The flag is set to `true` in Vercel Production and
+ * Supabase Auth now sends through Resend (`smtp.resend.com`, sender
+ * `noreply@setnayan.com`). Verified end to end, not inferred: a real
+ * `/recover` returned 200 with an empty error in `auth_logs` and the mail
+ * arrived in a human inbox, not spam.
+ *
+ * 🪤 WHAT WENT WRONG ON THE WAY, because the next person will meet it. The
+ * flag was set in Vercel ~20 minutes BEFORE the code that reads it reached
+ * `main`, and for that window it did nothing at all — signup kept
+ * auto-confirming. **A flag set in production is not a flag in force.**
+ * Neither `vercel env ls` nor a green `deploy-prod` can tell you whether the
+ * reader shipped; only `git grep` on `origin/main` plus a served deploy can.
+ *
+ * 🪤 And separately: the SMTP password had never saved (the field was empty
+ * and Save stayed greyed), so for that same window every auth mail failed with
+ * SMTP `535 "Authentication credentials invalid"` while `deploy-prod`, the
+ * drift monitor and the migration ledger were all green. The mailer is
+ * dashboard config — no deploy, ledger or drift check can see it. Re-measure
+ * by firing `/recover` and reading `auth_logs`, never by reading a status page.
  *
  * ⚠ `RESEND_API_KEY` being set is NOT the same thing. That is Setnayan's own
- * transactional mail (20 deliveries accepted). Supabase Auth has its OWN sender
- * configured in the Supabase dashboard, and it is that one which must be
- * pointed at Resend. Conflating the two is how this would get flipped early.
+ * transactional mail. Supabase Auth has its OWN sender configured in the
+ * Supabase dashboard. Conflating the two is how this got flipped early.
  */
+
+import { envFlagEnabled } from './env-flag';
 
 /**
  * Must a new account confirm its email before it can sign in?
@@ -35,8 +51,9 @@
  * to receive its confirmation mail.
  */
 export function isEmailVerificationRequired(): boolean {
-  const v = process.env.NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION;
-  return v === 'true' || v === '1' || v === 'TRUE';
+  // Inlined literally, not via a local: Next.js replaces the exact
+  // `process.env.NEXT_PUBLIC_*` expression at build time by static analysis.
+  return envFlagEnabled(process.env.NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION);
 }
 
 /**

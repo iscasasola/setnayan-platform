@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "23a6b30b8",
+  "generatedFromRef": "727b9ccb4",
   "routeCount": 430,
-  "destinations": 924,
-  "actions": 654,
-  "blocks": 4601,
+  "destinations": 926,
+  "actions": 655,
+  "blocks": 4608,
   "routes": {
     "/": {
       "files": [
@@ -158,6 +158,7 @@
     },
     "/(shell)/explore": {
       "files": [
+        "(shell)/explore/_components/card-headline-service.ts",
         "(shell)/explore/_components/category-tile.tsx",
         "(shell)/explore/_components/event-type-notify-form.tsx",
         "(shell)/explore/_components/explore-search-hero.tsx",
@@ -825,6 +826,7 @@
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/icon-source.ts",
+        "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
@@ -2671,6 +2673,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
         "admin/money/page.tsx"
@@ -2685,6 +2688,8 @@
         "KpiStatCard",
         "Link",
         "MobileLandingGrid",
+        "RevenueSummary",
+        "Row",
         "Suspense",
         "TablePageSkeleton",
         "TransactionsLedger"
@@ -5379,6 +5384,9 @@
         "dashboard/[eventId]/guests/_components/filter-popover.tsx",
         "dashboard/[eventId]/guests/_components/find-add-row.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-detail-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-drawer.tsx",
         "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
@@ -5421,12 +5429,18 @@
         "/dashboard/[seg]/guests/invite",
         "/dashboard/[seg]/guests/new",
         "/dashboard/[seg]/guests/quick",
+        "/dashboard/[seg]/guests?inspect=[seg]",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/custom-qr-guest"
       ],
-      "actions": [],
+      "actions": [
+        "action",
+        "inviteAction",
+        "releaseAction",
+        "updateAction"
+      ],
       "blocks": [
         "ActiveFilters",
         "AddButton",
@@ -5436,6 +5450,8 @@
         "ArrangeSheet",
         "ArrangeTh",
         "AssignSheet",
+        "AutosaveForm",
+        "AutosaveState",
         "BulkApplyForm",
         "CaptureBar",
         "ChipTrigger",
@@ -5444,12 +5460,14 @@
         "DecorativeQr",
         "DesktopCanvas",
         "DesktopRow",
+        "Disclosure",
         "Drawer",
         "EditGroupForm",
         "EditResult",
         "EmptyState",
         "EntourageOrderPanel",
         "FacetRow",
+        "Field",
         "FilterPopover",
         "FindAddRow",
         "Fragment",
@@ -5457,10 +5475,12 @@
         "GridPageSkeleton",
         "GroupChipList",
         "GroupsSidebar",
-        "GuestDetailBody",
-        "GuestDrawerHost",
+        "GuestCardBody",
+        "GuestCardData",
+        "GuestListFinalizedContext.Provider",
         "GuestListMultiselect",
         "GuestMindMap",
+        "GuestQrCard",
         "GuestRole",
         "GuestRow",
         "GuestSide",
@@ -5469,6 +5489,7 @@
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "HTMLInputElement",
         "HTMLSpanElement",
         "Icon",
@@ -5480,6 +5501,7 @@
         "InviteButton",
         "InvitePanel",
         "InvitedToBlock",
+        "InvitedToChips",
         "KebabMenu",
         "Lens",
         "LensPill",
@@ -5491,7 +5513,6 @@
         "MapActionResult",
         "MarchCell",
         "Meter",
-        "MiniChip",
         "MobileGuestCarousel",
         "MobileListRow",
         "MobileSelfJoinCard",
@@ -5530,9 +5551,11 @@
         "RsvpText",
         "Scrim",
         "SeatChip",
+        "Section",
         "SectionMoveButton",
         "Seg",
         "SegRow",
+        "Select",
         "SelectFilter",
         "SelectionBar",
         "SelfJoinDesktopRow",
@@ -5547,9 +5570,11 @@
         "Suspense",
         "SwipeToDelete",
         "Tab",
+        "TagChip",
         "TargetMeter",
         "TeamSideSelect",
         "TierHeader",
+        "Toggle",
         "UndoToastHost",
         "WalkingOrderLines"
       ]
@@ -5564,25 +5589,11 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/[seg]"
       ],
-      "actions": [
-        "deleteAction",
-        "inviteAction",
-        "releaseAction",
-        "updateAction"
-      ],
+      "actions": [],
       "blocks": [
-        "FaceBlock",
-        "FaceRecognitionExclude",
-        "Field",
         "FormPageSkeleton",
-        "InvitedToChips",
-        "Link",
-        "PhotoConsent",
-        "Section",
-        "SegmentedRsvp",
-        "Select",
-        "SubmitButton",
-        "TagChip"
+        "GuestCardBody",
+        "Link"
       ]
     },
     "/dashboard/[eventId]/guests/checkin": {
@@ -9683,6 +9694,7 @@
         "NavLinksRow",
         "PackageCard",
         "PublicVendorRow",
+        "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
         "ReviewRow",
@@ -9808,6 +9820,7 @@
         "declineLock",
         "disconnectInstagram",
         "formAction",
+        "markServiceComplete",
         "null",
         "postReviewReply",
         "rejectLock",
@@ -9855,11 +9868,13 @@
         "LockRequestLapsedBody",
         "LockedBody",
         "LockedQrGenerator",
+        "MarkCompleteBody",
         "Marker",
         "MediaTile",
         "MeetingBody",
         "MessageBody",
         "NotConnected",
+        "NothingToAnswerFeed",
         "OngoingTasks",
         "PageMasthead",
         "PaymentsPausedNote",
@@ -11864,6 +11879,7 @@
       "destinations": [
         "/help",
         "/open-shop",
+        "/pricing",
         "/vendors"
       ],
       "actions": [],

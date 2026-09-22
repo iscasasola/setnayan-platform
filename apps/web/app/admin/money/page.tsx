@@ -25,6 +25,7 @@ import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { TablePageSkeleton } from '@/components/skeletons';
 import { TransactionsLedger } from './_components/transactions-ledger';
+import { RevenueSummary } from './_components/revenue-summary';
 
 export const metadata = { title: 'Money' };
 
@@ -54,6 +55,11 @@ export default async function AdminMoneyHub() {
     <>
       {/* Streamed: the settings grid below is static and paints immediately,
           so a slow ledger read never holds up the rest of the page. */}
+      {/* M16 — the page called Money now says what has been earned. It was a
+          nav landing of cards; the owner could not state revenue without SQL. */}
+      <Suspense fallback={<TablePageSkeleton />}>
+        <RevenueSummary />
+      </Suspense>
       <Suspense fallback={<TablePageSkeleton />}>
         <TransactionsLedger />
       </Suspense>

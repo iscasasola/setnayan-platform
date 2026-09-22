@@ -83,6 +83,7 @@ test('the comp REQUEST path grants nothing — it only opens an approval', () =>
 
 test('the comp EXECUTOR is reachable only from the approvals dispatcher', () => {
   const SKIP = new Set(['node_modules', '.next', 'dist']);
+  const generated = /\.generated\.tsx?$/;
   const callers: string[] = [];
   let scanned = 0;
 
@@ -98,9 +99,24 @@ test('the comp EXECUTOR is reachable only from the approvals dispatcher', () => 
       scanned += 1;
       const rel = abs.slice(WEB.length + 1);
       if (rel === VENDORS) continue; // its definition
-      if (stripComments(readFileSync(abs, 'utf8')).includes('executeVendorSkuComp')) {
-        callers.push(rel);
+      const body = stripComments(readFileSync(abs, 'utf8'));
+      if (!body.includes('executeVendorSkuComp')) continue;
+
+      // 🪤 A GENERATED REGISTRY NAMES THE FUNCTION; IT DOES NOT CALL IT.
+      // `lib/admin-map/admin-jobs.generated.ts` lists every exported admin
+      // function as DATA — `"name": "executeVendorSkuComp"` — so adding the
+      // executor made this guard report a second door that does not exist.
+      // Found when the generator was re-run after the money gate shipped.
+      //
+      // Excluded by SHAPE, not by filename: the name must appear only as a
+      // JSON value. If a generated file ever contains a real invocation, the
+      // `(` check below still catches it.
+      if (generated.test(rel)) {
+        const asData = /"name":\s*"executeVendorSkuComp"/.test(body);
+        const asCall = /executeVendorSkuComp\s*\(/.test(body);
+        if (asData && !asCall) continue;
       }
+      callers.push(rel);
     }
   };
   walk(join(WEB, 'app'));

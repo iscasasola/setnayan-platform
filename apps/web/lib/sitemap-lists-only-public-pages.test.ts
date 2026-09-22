@@ -109,20 +109,32 @@ test('every page the sitemap advertises is readable signed out', () => {
   );
 });
 
-test('the guard can see a gate — it is matched against the real open-shop page', () => {
-  // The page this defect was found on still has its gate; it is simply no
-  // longer advertised. If this stops matching, the pattern above has drifted
-  // and the sweep would pass by seeing nothing.
-  const openShop = join(WEB, 'app/open-shop/page.tsx');
-  assert.ok(existsSync(openShop), 'app/open-shop/page.tsx has moved — re-aim this guard');
-  assert.match(
-    stripComments(readFileSync(openShop, 'utf8')),
-    ANON_REDIRECT,
-    'the anonymous-redirect pattern no longer matches the page it was written from, so the ' +
-      'sweep above proves nothing',
-  );
-  assert.ok(
-    !sitemapPaths().includes('/open-shop'),
-    '/open-shop is advertised again — it still bounces a crawler to /login',
-  );
+test('the matcher can actually see a gate — proven on a sample, not on a page', () => {
+  // ⚠ RE-ANCHORED 2026-09-22. This used to prove the matcher works by running
+  // it against the REAL `app/open-shop/page.tsx`, which then contained
+  // `if (!user) redirect('/login…')`. Hours later the owner's ONE DOOR ruling
+  // removed that redirect — the account is created inside step 3 now — and this
+  // test went red on a correct tree.
+  //
+  // 🔑 A GUARD'S "CAN IT FAIL" PROOF MUST NOT DEPEND ON A PAGE SOMEBODY IS
+  // ALLOWED TO CHANGE. The product moved and the guard's evidence moved with
+  // it. Samples cannot be superseded by a ruling.
+  const gated = [
+    "if (!user) redirect('/login?next=/x')",
+    'if (!user) { redirect("/login") }',
+    'if (!session) redirect(`/login`)',
+  ];
+  for (const sample of gated) {
+    assert.match(sample, ANON_REDIRECT, `should match: ${sample}`);
+  }
+
+  // And must NOT match things that are not an anonymous-visitor gate.
+  const ungated = [
+    "if (row?.business_name) redirect('/vendor-dashboard/shop')",
+    "redirect('/login')",                      // unconditional, not a !user gate
+    "if (!user) return null;",                  // a gate that renders, not redirects
+  ];
+  for (const sample of ungated) {
+    assert.doesNotMatch(sample, ANON_REDIRECT, `should NOT match: ${sample}`);
+  }
 });

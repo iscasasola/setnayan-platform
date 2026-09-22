@@ -286,3 +286,50 @@ exported `executeVendorSkuComp`, so the admin job map went 319 → 320. Ran
 `pnpm --filter @setnayan/web admin:jobs` as the failure message says.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · fix: two guards met the Redesign wave in CI
+
+`#5876` landed four Redesign builds while this bundle was in flight. The trial
+merge was clean — **no conflict** — but CI builds the MERGE RESULT, and two
+guards went red there. Neither was a conflict and neither side did anything
+wrong; two true facts met.
+
+**1 · The comp executor's "one caller" guard counted a REGISTRY as a door — and
+that was mine, not the wave's.** `lib/admin-map/admin-jobs.generated.ts` lists
+every exported admin function as DATA (`"name": "executeVendorSkuComp"`), and I
+regenerated it an hour earlier after the money gate added that export. My own
+guard then read the registry entry as a second way in.
+
+Excluded **by shape, not by filename**: in a `*.generated.*` file the name must
+appear only as a JSON value, and a real invocation still fails. Proved both ways
+— adding `executeVendorSkuComp(...)` INSIDE the generated file turns it red, and
+so does a new importer in ordinary code.
+
+🔑 That assertion is the four-eyes property itself. If the executor is reachable
+by a second path, a single admin can still grant a comp and the gate is
+decorative — so it was fixed rather than relaxed.
+
+**2 · `/open-shop` is PUBLIC again, so it goes back in the sitemap.** Earlier
+today I removed it because `app/open-shop/page.tsx` did
+`if (!user) redirect('/login…')` and production served a **307** to a crawler.
+The owner's ONE DOOR ruling removed that redirect — the account is created inside
+step 3 of the wizard now. Re-measured on production: **200**, with 1,032
+characters of the real wizard and no sign-in wall.
+
+🔑 **Both decisions were right against the tree in front of them.** The premise
+changed, not the reasoning. The route is restored with that history written
+beside it.
+
+**And the guard's self-test is re-anchored.** It proved the matcher worked by
+running it against the REAL open-shop page — so when the owner changed that page,
+a correct tree went red. **A guard's "can it fail" proof must not depend on a
+page somebody is allowed to change.** It now matches three gated samples and
+three ungated ones, including the near-misses `if (!user) return null` and an
+unconditional `redirect('/login')`. Samples cannot be superseded by a ruling.
+
+Generators re-run on the merged tree: admin jobs (320), unread-error baseline,
+exposure baseline (**unchanged, 6442 facts**, header 4749 = body 4749). The four
+migration-sensitive db guards pass: anon-rpc 6/6, exposure-freeze 6/6,
+ugat-schema-claims 3/3, ugat-concept-coverage 3/3.
+
+SPEC IMPACT: None.

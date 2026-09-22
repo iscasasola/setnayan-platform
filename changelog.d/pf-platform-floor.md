@@ -103,3 +103,25 @@ SPEC IMPACT: None.
 OWNER ACTION: refresh the snapshot — `export SUPABASE_DB_URL='postgresql://...'`
 then `pnpm --filter @setnayan/web schema:snapshot`, and commit
 `supabase/security/prod-schema.snapshot.txt`.
+
+## 2026-09-22 · feat(schema-snapshot): refresh without pasting a production password
+
+The snapshot generator hard-required `SUPABASE_DB_URL` and exited otherwise, so
+the only way to refresh the production schema snapshot was to paste a raw
+production database password into a shell — where it lands in history, and where
+copying it around is the actual risk, not the connection.
+
+`supabase link` already solves this: the CLI holds the credential in the OS
+keychain and `supabase login` authenticates through the browser.
+
+**The parser was already ready.** `extractRows` was written to handle BOTH CLI
+output shapes — `--db-url` prints one envelope object, `--linked` prints the
+boundary and rows as separate top-level values — and its docblock says so. Only
+the invocation hardcoded `--db-url`. This wires the branch the parser already
+anticipated.
+
+`SUPABASE_DB_URL` still wins when both are available: CI and one-off recovery
+need an explicit target. The failure message now names both routes, with the
+`read -rs` form for the URL path so the password stays out of shell history.
+
+SPEC IMPACT: None.

@@ -34,8 +34,10 @@ import {
 import {
   sendCustomProposalFromChat,
   loadPackageLinesForQuote,
+  loadServiceCardLinesForQuote,
   type QuoteSeedLine,
 } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
+import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-service-card';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 
 /**
@@ -90,6 +92,25 @@ export type ProposalPaymentMethodOption = {
   provider: string | null;
   /** Approved + shown → publishable by default; else the vendor can still pick it but it's flagged. */
   publishable: boolean;
+};
+
+/**
+ * ONE OF THE SHOP'S SERVICE CARDS, as the "Your cards" picker offers it
+ * (owner 2026-09-22: *"load 1 or multiple service cards combined"*). The
+ * label is the card's title or its kind in the shop's own words — resolved
+ * on the server through `cardKindLabeller`, never the raw key.
+ */
+export type QuoteCardOption = {
+  id: string;
+  label: string;
+  /** "from ₱X" as the card advertises it, or null when unpriced. */
+  fromPhp: number | null;
+  /** Priced extras on the card; ticking one adds it as a line. */
+  addons: { id: number; label: string; fromPhp: number | null }[];
+  /** "Comes with" — the kinds this card bundles, as the wizard's links name them. */
+  comesWith: string[];
+  /** The card's Setnayan-gift switch — shown, not yet a control on the quote (slice G). */
+  giftOn: boolean;
 };
 
 /** One manual installment row in the editor (peso/percent-facing). */
@@ -191,6 +212,7 @@ export function ProposalMaker({
   requestedHours = 8,
   coupleName,
   packages = [],
+  cards = [],
   coupleCrewProvider = null,
   paymentMethods = [],
   viewerPromo = null,
@@ -270,6 +292,15 @@ export function ProposalMaker({
   requestedHours?: number;
   coupleName?: string | null;
   packages?: { id: string; name: string }[];
+  /**
+   * THE SHOP'S SERVICE CARDS — the seed every real shop can use. Measured
+   * 2026-09-22: production holds 0 packages and 0 templates, so the picker
+   * above never rendered for anyone; the two live cards were unreachable.
+   * Picking one or several REPLACES the lines with what the cards say and
+   * sets crew / travel / discount / schedule from them (`applyCardSeedToDraft`
+   * decides exactly what a card overrides and what the supplier keeps).
+   */
+  cards?: QuoteCardOption[];
   /** When the couple has booked a crew-meal marketplace service, the provider name (enables the offset banner). */
   coupleCrewProvider?: string | null;
   /** The vendor's published payment methods (§ 9) — the couple sees the picked subset. */
@@ -344,6 +375,18 @@ export function ProposalMaker({
   const [note, setNote] = useState(revision?.note ?? '');
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [seeding, startSeed] = useTransition();
+  // "Your cards": which of the shop's cards this quote is built from, which of
+  // their add-ons are ticked, and what the last seed said about the event.
+  const [pickedCards, setPickedCards] = useState<Record<string, boolean>>({});
+  const [chosenAddons, setChosenAddons] = useState<Record<number, boolean>>({});
+  // The reason beside the Discount field ("Booked 3+ months ahead · −10%") — the
+  // card's, applied (owner 2026-09-22). Cleared the moment the supplier types
+  // over the figure, so a hand-edited discount is never captioned as the card's.
+  const [discountReason, setDiscountReason] = useState<string | null>(null);
+  // The card's reservation terms, shown under the schedule it seeded.
+  const [cardTerms, setCardTerms] = useState<string | null>(null);
+  const [cardWarnings, setCardWarnings] = useState<QuoteSeedWarning[]>([]);
+  const [cardTitle, setCardTitle] = useState<string>('');
 
   /*
     Still sitting on what the builder opened with — i.e. the supplier has not
@@ -409,7 +452,7 @@ export function ProposalMaker({
               detail: viewerPromo.terms,
               amount_centavos: -discountC,
             }
-          : { label: 'Discount', detail: null, amount_centavos: -discountC },
+          : { label: 'Discount', detail: discountReason, amount_centavos: -discountC },
       );
     } else if (viewerPromo) {
       // No peso amount entered yet — still reflect the promised promo on the
@@ -428,7 +471,7 @@ export function ProposalMaker({
       });
     }
     return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
-  }, [items, crew, transport, discountPhp, pax, hours, viewerPromo]);
+  }, [items, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo]);
 
   /**
    * THE GIFT, RE-PRICED AS THEY TYPE — and what it costs them.
@@ -593,6 +636,60 @@ export function ProposalMaker({
     });
   }
 
+  /**
+   * RE-SEED FROM THE PICKED CARDS. Every change to the pick or the ticked
+   * add-ons re-reads the cards on the server (the event date and the card's
+   * sibling rows are read there, never trusted from here) and hands the seed
+   * to `applyCardSeedToDraft`, which decides what the card overrides.
+   */
+  function reseedFromCards(nextPicked: Record<string, boolean>, nextAddons: Record<number, boolean>) {
+    const ids = cards.filter((c) => nextPicked[c.id]).map((c) => c.id);
+    if (ids.length === 0) {
+      setDiscountReason(null);
+      setCardTerms(null);
+      setCardWarnings([]);
+      setCardTitle('');
+      return;
+    }
+    startSeed(async () => {
+      const seed = await loadServiceCardLinesForQuote({
+        threadId,
+        vendorServiceIds: ids,
+        chosenAddonIds: Object.entries(nextAddons)
+          .filter(([, on]) => on)
+          .map(([id]) => Number(id)),
+        pax,
+        hours,
+      });
+      if (!seed) return;
+      const after = applyCardSeedToDraft(seed, {
+        crew,
+        transport,
+        discountPhp,
+        coupleProvidesCrewMeal: Boolean(coupleCrewProvider),
+      });
+      setItems(after.lines.map((l) => ({ ...l, key: nextKey() })));
+      setCrew(after.crew);
+      setTransport(after.transport);
+      setDiscountPhp(after.discountPhp);
+      setDiscountReason(after.discountReason);
+      if (after.schedule) setInstallments(after.schedule.map((d) => ({ ...d, key: nextSchedKey() })));
+      setCardTerms(after.terms);
+      setCardWarnings(seed.warnings);
+      setCardTitle(after.title);
+    });
+  }
+  const toggleCard = (id: string) => {
+    const next = { ...pickedCards, [id]: !pickedCards[id] };
+    setPickedCards(next);
+    reseedFromCards(next, chosenAddons);
+  };
+  const toggleAddon = (id: number) => {
+    const next = { ...chosenAddons, [id]: !chosenAddons[id] };
+    setChosenAddons(next);
+    reseedFromCards(pickedCards, next);
+  };
+
   /*
     Undo my edits — back to what the builder OPENED at, not back to the inquiry
     count. Reset that jumped to a different number than the one the supplier
@@ -705,6 +802,95 @@ export function ProposalMaker({
           </label>
         </div>
       </div>
+
+      {/* YOUR CARDS — the shop's service cards seed the quote (owner 2026-09-22).
+          One or several; each contributes its priced line, its freebies and the
+          add-ons ticked under it. Mounted ONCE, and only when the shop has a card. */}
+      {cards.length > 0 ? (
+        <div data-testid="quote-card-picker" className="space-y-2 border-b border-ink/10 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className={lbl}>Your cards</span>
+            <span className="text-[11px] text-ink/45">
+              {seeding ? 'Loading…' : 'Pick one or more · sets the lines, terms and discount'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {cards.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggleCard(c.id)}
+                disabled={seeding}
+                aria-pressed={Boolean(pickedCards[c.id])}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${
+                  pickedCards[c.id]
+                    ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                    : 'border-ink/15 bg-white text-ink/70 hover:border-ink/40'
+                }`}
+              >
+                {pickedCards[c.id] ? '✓ ' : '+ '}
+                {c.label}
+                {c.fromPhp != null ? (
+                  <span className="text-ink/45">· from {formatCentavos(toCentavos(c.fromPhp))}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+          {cards
+            .filter((c) => pickedCards[c.id] && (c.addons.length > 0 || c.comesWith.length > 0))
+            .map((c) => (
+              <div key={`x-${c.id}`} className="flex flex-wrap items-center gap-1.5 pl-1 text-[11px] text-ink/55">
+                <span>{c.label}:</span>
+                {c.addons.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => toggleAddon(a.id)}
+                    disabled={seeding}
+                    aria-pressed={Boolean(chosenAddons[a.id])}
+                    className={`rounded-full border px-2 py-0.5 ${
+                      chosenAddons[a.id]
+                        ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                        : 'border-ink/15 bg-white hover:border-ink/40'
+                    }`}
+                  >
+                    {chosenAddons[a.id] ? '✓ ' : '+ '}
+                    {a.label}
+                    {a.fromPhp != null ? ` · +${formatCentavos(toCentavos(a.fromPhp))}` : ''}
+                  </button>
+                ))}
+                {c.comesWith.map((w) => {
+                  // "Comes with" names a KIND; offer the shop's card of that kind when there is one.
+                  const other = cards.find((o) => o.id !== c.id && o.label === w && !pickedCards[o.id]);
+                  return other ? (
+                    <button
+                      key={`cw-${other.id}`}
+                      type="button"
+                      onClick={() => toggleCard(other.id)}
+                      disabled={seeding}
+                      className="rounded-full border border-dashed border-ink/25 bg-white px-2 py-0.5 hover:border-ink/40"
+                    >
+                      comes with {other.label} · add
+                    </button>
+                  ) : (
+                    <span key={`cw-${w}`}>comes with {w}</span>
+                  );
+                })}
+              </div>
+            ))}
+          {cardWarnings.length > 0 ? (
+            <p data-testid="quote-card-warnings" className="text-[11px] text-warn-900">
+              {cardWarnings
+                .map((w) =>
+                  w.kind === 'lead_time'
+                    ? `Their date is ${Math.floor(w.monthsAway)} months out — your card recommends ${w.recommendedMonths}.`
+                    : `Inside your last-minute window — a ${w.pct}% surcharge line was added.`,
+                )
+                .join(' ')}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Bundle picker (optional) */}
       {packages.length > 0 ? (
@@ -1017,7 +1203,14 @@ export function ProposalMaker({
           <span className="font-serif tabular-nums">{formatCentavos(subtotal)}</span>
         </div>
         <div className="flex items-center justify-between text-sm text-ink/60">
-          <span>{viewerPromo ? 'Discount · viewer promo' : 'Discount'}</span>
+          <span>
+            {viewerPromo ? 'Discount · viewer promo' : 'Discount'}
+            {discountReason ? (
+              <span data-testid="quote-discount-reason" className="ml-1 text-[11px] text-terracotta-700">
+                · {discountReason}
+              </span>
+            ) : null}
+          </span>
           <span className="flex items-center gap-1">
             ₱
             <input
@@ -1025,7 +1218,11 @@ export function ProposalMaker({
               min={0}
               step={500}
               value={discountPhp}
-              onChange={(e) => setDiscountPhp(Number(e.target.value) || 0)}
+              onChange={(e) => {
+                setDiscountPhp(Number(e.target.value) || 0);
+                // A hand-edited figure is the supplier's, not the card's.
+                setDiscountReason(null);
+              }}
               aria-label="Discount"
               className={`${numField} w-24`}
             />
@@ -1102,6 +1299,12 @@ export function ProposalMaker({
             </span>
           )}
         </div>
+
+        {cardTerms ? (
+          <p data-testid="quote-card-terms" className="text-[11px] text-ink/55">
+            From your card: {cardTerms}
+          </p>
+        ) : null}
 
         {installments.map((r, i) => {
           const resolved = schedule.installments[i];
@@ -1331,7 +1534,7 @@ export function ProposalMaker({
               maxLength={160}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Auto-titled if blank"
+              placeholder={cardTitle || 'Auto-titled if blank'}
               className={`${field} w-full`}
             />
           </label>

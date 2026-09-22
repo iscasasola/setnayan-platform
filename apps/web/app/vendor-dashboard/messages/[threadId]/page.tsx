@@ -57,6 +57,8 @@ import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { fetchAddonsByService } from '@/lib/vendor-service-addons';
+import type { QuoteCardOption } from '@/app/_components/proposal-maker';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
 import {
@@ -448,6 +450,45 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       label: s.title?.trim() || kindLabel(s.category),
     }));
 
+  /**
+   * THE SHOP'S CARDS FOR THE QUOTE (owner 2026-09-22: "load 1 or multiple
+   * service cards combined"). Every ACTIVE card — not the offer list above,
+   * which hides cards already on the thread: a quote is usually for exactly
+   * the card the couple asked about. Add-ons and "comes with" ride along so
+   * the picker can offer them; the seed itself is read again on the server
+   * when a card is picked (`loadServiceCardLinesForQuote`).
+   */
+  const activeServices = ownServices.filter((s) => s.is_active);
+  const activeIds = activeServices.map((s) => s.vendor_service_id);
+  const [addonsByService, linkRows] = await Promise.all([
+    fetchAddonsByService(supabase, activeIds),
+    activeIds.length > 0
+      ? supabase
+          .from('vendor_service_links')
+          .select('vendor_service_id, linked_label')
+          .in('vendor_service_id', activeIds)
+          .order('display_order', { ascending: true })
+      : Promise.resolve({ data: null }),
+  ]);
+  const comesWith = new Map<string, string[]>();
+  for (const r of ((linkRows as { data: { vendor_service_id: string; linked_label: string | null }[] | null }).data ?? [])) {
+    if (!r.linked_label) continue;
+    comesWith.set(r.vendor_service_id, [...(comesWith.get(r.vendor_service_id) ?? []), r.linked_label]);
+  }
+  const quoteCards: QuoteCardOption[] = activeServices.map((s) => ({
+    id: s.vendor_service_id,
+    label: s.title?.trim() || kindLabel(s.category),
+    fromPhp:
+      s.pricing_basis === 'per_pax'
+        ? s.per_pax_price_php
+        : s.pricing_basis === 'per_hour'
+          ? s.hour_base_php
+          : s.starting_price_php,
+    addons: (addonsByService.get(s.vendor_service_id) ?? []).map((a) => ({ id: a.id, label: a.label, fromPhp: a.from_price_php })),
+    comesWith: comesWith.get(s.vendor_service_id) ?? [],
+    giftOn: Boolean(s.includes_setnayan_gift),
+  }));
+
   const proposalTemplates = (
     (tplRes.data ?? []) as {
       template_id: string;
@@ -727,6 +768,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           livePax={headerPax ?? null}
           coupleName={coupleLabel}
           packages={proposalPackages}
+          cards={quoteCards}
           paymentMethods={proposalPaymentMethods}
           revision={quoteRevision}
           viewerPromo={

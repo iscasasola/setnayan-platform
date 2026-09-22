@@ -404,3 +404,66 @@ export function quoteFromServiceCards(input: QuoteFromCardsInput): ServiceCardQu
     title: input.cards.map((c) => c.label.trim()).filter(Boolean).join(' + '),
   };
 }
+
+/* ── The builder's side: what a seed changes in the draft, and what it leaves ── */
+
+/** The builder's editable pieces a card seed may touch. Peso-facing, like the inputs. */
+export type QuoteDraftForSeed = {
+  crew: { mode: 'included' | 'charge' | 'offset'; size: number; perHeadPhp: number };
+  transport: { mode: 'included' | 'flat' | 'distance'; flatPhp: number };
+  discountPhp: number;
+  /** The couple has booked a crew-meal service — the builder's `offset` case. */
+  coupleProvidesCrewMeal: boolean;
+};
+
+export type QuoteDraftAfterSeed = {
+  lines: QuoteSeedLine[];
+  crew: QuoteDraftForSeed['crew'];
+  transport: QuoteDraftForSeed['transport'];
+  discountPhp: number;
+  /** The reason beside the Discount field, and the detail on the couple's Discount line. Null = typed by hand. */
+  discountReason: string | null;
+  schedule: InstallmentDraft[] | null;
+  terms: string | null;
+  title: string;
+};
+
+/**
+ * APPLY A CARD SEED TO THE DRAFT — the one place that decides what the card
+ * overrides and what the supplier keeps. Pure, so the builder cannot get it
+ * wrong in JSX and a test can execute every branch.
+ *
+ *   · lines           — REPLACED by the seed (the same contract the package seed has had since
+ *                       2026-07-13: "seeds the line items — you can still edit each one")
+ *   · crew            — the MODE comes from the card; the size only when the card states one;
+ *                       the per-head price is NEVER the card's (it has none) — the draft's stays.
+ *                       ⚖ A couple who booked a crew-meal service keeps `offset`, whatever the
+ *                       card says: their booking is the newer fact.
+ *   · transport       — from the card when it says anything; the flat fee only when it states one.
+ *   · discount        — the card's, WITH its reason (owner 2026-09-22: "apply the discount");
+ *                       a card with no applicable discount leaves the field as it was and the
+ *                       reason empty — a hand-typed figure is never silently zeroed.
+ *   · schedule/terms  — the card's rows when it has any; else the draft keeps its own.
+ */
+export function applyCardSeedToDraft(seed: ServiceCardQuoteSeed, draft: QuoteDraftForSeed): QuoteDraftAfterSeed {
+  const crew = seed.crew
+    ? {
+        mode: draft.coupleProvidesCrewMeal ? ('offset' as const) : seed.crew.mode,
+        size: seed.crew.size ?? draft.crew.size,
+        perHeadPhp: draft.crew.perHeadPhp,
+      }
+    : draft.crew;
+  const transport = seed.transport
+    ? { mode: seed.transport.mode, flatPhp: seed.transport.mode === 'flat' ? seed.transport.flatPhp : draft.transport.flatPhp }
+    : draft.transport;
+  return {
+    lines: seed.lines,
+    crew,
+    transport,
+    discountPhp: seed.discount ? seed.discount.php : draft.discountPhp,
+    discountReason: seed.discount ? seed.discount.reason : null,
+    schedule: seed.schedule ? seed.schedule.manual : null,
+    terms: seed.schedule?.terms ?? null,
+    title: seed.title,
+  };
+}

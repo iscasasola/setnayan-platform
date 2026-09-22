@@ -306,3 +306,62 @@ test('6 · a per-pax card seeds a per-guest line and a per-hour card a per-hour 
   assert.equal(linePhp(perHour.lines[0]!, 200, 8), 25000, '₱20,000 + 2 h × ₱2,500');
   // sabotage: map every basis to 'flat' → RED
 });
+
+/* ── 7 · slice B: what a seed changes in the builder's draft, and what it leaves ── */
+
+import { applyCardSeedToDraft } from './quote-from-service-card';
+
+const DRAFT = {
+  crew: { mode: 'charge' as const, size: 5, perHeadPhp: 350 },
+  transport: { mode: 'included' as const, flatPhp: 2000 },
+  discountPhp: 1234,
+  coupleProvidesCrewMeal: false,
+};
+
+test('7a · the seed REPLACES the lines, sets the crew MODE, keeps the draft\'s per-head price and size when the card states none', () => {
+  const seed = run([input({ card: card({ crew_meal_required: true, crew_meal_included: false, crew_size: null }) })]);
+  const after = applyCardSeedToDraft(seed, DRAFT);
+  assert.equal(after.lines.length, 1);
+  assert.deepEqual(after.crew, { mode: 'charge', size: 5, perHeadPhp: 350 });
+  const sized = applyCardSeedToDraft(run([input({ card: card({ crew_size: 8 }) })]), DRAFT);
+  assert.equal(sized.crew.size, 8, 'a stated crew size wins');
+  assert.equal(sized.crew.perHeadPhp, 350, 'the per-head price is never the card\'s');
+  // sabotage: `perHeadPhp: seed.crew.perHeadPhp ?? 0` → RED
+});
+
+test('7b · a couple who booked a crew-meal service keeps OFFSET whatever the card says', () => {
+  const after = applyCardSeedToDraft(run([input()]), { ...DRAFT, crew: { ...DRAFT.crew, mode: 'offset' }, coupleProvidesCrewMeal: true });
+  assert.equal(after.crew.mode, 'offset');
+  // sabotage: drop the coupleProvidesCrewMeal branch → RED
+});
+
+test('7c · the card\'s discount REPLACES the field with its reason; no applicable discount leaves a hand-typed figure alone', () => {
+  const applied = applyCardSeedToDraft(run([input({ discounts: earlyBooking })]), DRAFT);
+  assert.equal(applied.discountPhp, 3500);
+  assert.ok(applied.discountReason && applied.discountReason.length > 0);
+  const kept = applyCardSeedToDraft(run([input()]), DRAFT);
+  assert.equal(kept.discountPhp, 1234, 'the supplier\'s own figure survives a card with no discount');
+  assert.equal(kept.discountReason, null);
+  // sabotage: `discountPhp: seed.discount?.php ?? 0` → RED on `kept`
+});
+
+test('7d · transport: the card\'s flat fee lands; an "included" card keeps the draft\'s remembered fee for later', () => {
+  const flat = applyCardSeedToDraft(run([input({ card: card({ transport_flat_fee_php: 2500 }) })]), DRAFT);
+  assert.deepEqual(flat.transport, { mode: 'flat', flatPhp: 2500 });
+  const incl = applyCardSeedToDraft(run([input({ card: card({ transport_included: true }) })]), DRAFT);
+  assert.deepEqual(incl.transport, { mode: 'included', flatPhp: 2000 });
+});
+
+test('7e · the schedule and terms come only from a card that has them; otherwise the draft keeps its own (null = untouched)', () => {
+  const none = applyCardSeedToDraft(run([input()]), DRAFT);
+  assert.equal(none.schedule, null);
+  assert.equal(none.terms, null);
+  const withRows = applyCardSeedToDraft(
+    run([input({ schedule: [{ seq: 0, label: 'Reservation', amount_kind: 'percent', percent_bps: 3000, amount_centavos: null, due_anchor: 'on_lock', due_offset_days: 0, cancellation_terms: null, downpayment_non_refundable: true, refund_window_days: null, no_show_forfeit: false }] })]),
+    DRAFT,
+  );
+  assert.equal(withRows.schedule?.length, 1);
+  assert.equal(withRows.terms, 'Reservation non-refundable');
+  assert.equal(withRows.title, 'Live band');
+  // sabotage: return `schedule: seed.schedule?.manual ?? []` → RED on `none`
+});

@@ -46,3 +46,57 @@ leaving the flag computed and returned turned the render test red, which is the
 assertion that keeps this from becoming a boolean nobody draws. Restored, 7/7.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · fix(download): signing is not notarization, and Gatekeeper knows
+
+W6 / register DSK-6.
+
+`/download` told visitors **"Signed & notarized by Apple"**, and its First-launch
+card said *"Because Setnayan is notarized by Apple, it opens like any trusted Mac
+app — no right-click, no Gatekeeper workarounds."* Both branched on `mac.signed`.
+
+Measured against the live build — the exact file `/api/download/mac` serves:
+
+```
+xcrun stapler validate → "does not have a ticket stapled to it"
+spctl -a -t open -vv   → "rejected"
+                         source=Unnotarized Developer ID
+                         origin=Developer ID Application: … (P95JPDWWB3)
+```
+
+The build IS signed. It is NOT notarized. `spctl` reports both in the same
+breath because they are different facts: signing says who built it, notarization
+says Apple scanned it — and **Gatekeeper only stops warning for the second.**
+
+🔑 **ONE BOOLEAN CARRIED TWO CLAIMS, and the copy asserted the stronger one.**
+`release.json` says `"signed": true` and nothing else; it never claimed
+notarization. The page invented it. Same disease as `liveWall = null` carrying
+three meanings (LAU-33, fixed in this same bundle).
+
+What a couple met: *"cannot be opened because Apple cannot check it for malicious
+software"*, in their wedding week, on a page that had just promised the opposite
+and told them to double-click.
+
+`notarized` is now its own field, **absent ⇒ false**, never inferred from
+`signed` — the build workflow does not notarize today, so the page now correctly
+shows the honest branch it already had ("Not yet notarized by Apple … right-click
+and choose Open").
+
+🪤 **The guard found a second instance I had missed.** I fixed the two badge
+claims and the guard still failed: the First-launch INSTRUCTIONS were also gated
+on `signed`. Those are the ones a couple actually follows, so they mattered most.
+
+⚠ `stapler` and `spctl` are macOS-only and need the binary; CI has neither. The
+guard therefore holds the SHAPE — "notarized" may only appear inside a branch
+gated on `notarized`, and the parser must default it false. Flipping the claim
+requires setting a field whose docblock says how to verify it first.
+
+Proved by sabotage: re-branching the hero on `signed`; inferring
+`notarized: v.signed === true` in the parser; and "fixing" it by deleting the
+honest sentence — each turned a different test red. Restored, 5/5.
+
+Also measured, and **already resolved**: register DSK-8 says `/api/download/*`
+answers 503. Both routes now 302 to R2 and serve real builds — a 2,823,382-byte
+`.dmg` and a 3,076,096-byte `.msi` — and the sizes the page prints are accurate.
+
+SPEC IMPACT: None — the page now says what is true of the file it hands over.

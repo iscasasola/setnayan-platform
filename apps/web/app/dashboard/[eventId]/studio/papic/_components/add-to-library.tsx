@@ -161,7 +161,7 @@ export function AddToLibrary({ token }: { token: string }) {
         const cap = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
 
         if (!isVideo && !file.type.startsWith('image/')) {
-          set({ state: 'refused', detail: 'Only photos and video clips can go in your library.' });
+          set({ state: 'refused', detail: 'Only photos and snippets can go in your library.' });
           continue;
         }
         if (file.size > cap) {
@@ -178,7 +178,7 @@ export function AddToLibrary({ token }: { token: string }) {
             if (!probe) {
               set({
                 state: 'refused',
-                detail: 'This clip could not be read in your browser — try converting it first.',
+                detail: 'This snippet could not be read in your browser — try converting it first.',
               });
               continue;
             }
@@ -230,9 +230,9 @@ export function AddToLibrary({ token }: { token: string }) {
       <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-cream/50 px-4 py-8 text-center hover:border-ink/35">
         <Upload aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />
         <span className="text-sm font-medium text-ink">
-          {busy ? 'Adding…' : 'Choose photos or clips'}
+          {busy ? 'Adding…' : 'Choose photos or snippets'}
         </span>
-        <span className="text-xs text-ink/55">Clips up to 10 seconds</span>
+        <span className="text-xs text-ink/55">Snippets up to 10 seconds</span>
         <input
           ref={inputRef}
           type="file"
@@ -286,7 +286,7 @@ function readable(code: string | undefined): string {
     case 'capture_window_closed':
       return 'Your camera dates have finished.';
     case 'clip_too_long':
-      return 'That clip is longer than 10 seconds.';
+      return 'That snippet is longer than 10 seconds.';
     // The switch is now read on the SERVER too, so this refusal is reachable —
     // a stale page, a second tab, or a call that never went near the button. It
     // names the control, which is on this same screen.

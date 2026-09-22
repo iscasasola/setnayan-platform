@@ -78,7 +78,17 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 // "30 photos + 10 videos" · "10 photos and 3 clips" · "30 photos + 10×5s" —
 // an exact split promise is unkeepable: photos and clips share ONE points purse.
-const SPLIT_PROMISE = /\d+\s*photos?\s*(?:\+|and|·|,)\s*\d+\s*(?:×\s*\d+s|videos?|clips?)/i;
+/*
+ * 🛑 `snippets?` IS IN HERE BECAUSE A RENAME CAN DISARM A GUARD SILENTLY.
+ * The owner settled the product word as "snippet" on 2026-09-22. Had the copy
+ * been renamed without widening this alternation, "30 photos + 10 snippets"
+ * would have stopped matching — the guard would have gone green while shipping
+ * exactly the false split promise it exists to forbid, and nothing would have
+ * said so. The old words stay: copy written before the rename is still a lie.
+ * 🔑 A guard that forbids a PHRASING dies the day somebody rephrases. Every
+ * future word for the same thing belongs in this list on the day it is coined.
+ */
+const SPLIT_PROMISE = /\d+\s*photos?\s*(?:\+|and|·|,)\s*\d+\s*(?:×\s*\d+s|videos?|clips?|snippets?)/i;
 
 // A spelled free-camera count ("first 5 free", "first 5 cameras").
 const SPELLED_FREE_COUNT = /first\s+\d+\s+(?:cameras?|free)/i;
@@ -172,11 +182,12 @@ test('papicCapacityPhrase is derived — it tracks the budget, whatever it is', 
   assert.match(papicCapacityPhrase(20), /about 20 photos a day/);
   assert.match(papicCapacityPhrase(60), /about 60 photos a day/);
   assert.match(papicCapacityPhrase(70), /about 70 photos a day/);
-  // and it always discloses that clips cost more.
+  // and it always discloses that snippets cost more. The WORD is the owner's
+  // (2026-09-22, "use snippet everywhere"); the NUMBER is still derived.
   for (const pts of [20, 60, 70]) {
     assert.match(
       papicCapacityPhrase(pts),
-      new RegExp(`clip counts as ${PAPIC_POINTS_PER_CLIP}`),
+      new RegExp(`snippet counts as ${PAPIC_POINTS_PER_CLIP}`),
     );
   }
   assert.match(papicCapacityPhrase(null), /unlimited/i);

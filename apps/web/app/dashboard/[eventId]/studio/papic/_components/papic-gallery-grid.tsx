@@ -231,8 +231,8 @@ export function PapicGalleryGrid({
                     alt={
                       p.kind === 'clip'
                         ? p.tagged
-                          ? 'Papic gallery video clip of tagged guests'
-                          : 'Papic gallery video clip'
+                          ? 'Papic gallery snippet of tagged guests'
+                          : 'Papic gallery snippet'
                         : p.tagged
                           ? 'Papic gallery photo of tagged guests'
                           : 'Papic gallery photo'
@@ -389,7 +389,7 @@ function PapicLightbox({
             ) : (
               <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             )}
-            {saving ? 'Saving…' : 'Download clip'}
+            {saving ? 'Saving…' : 'Download snippet'}
           </button>
         ) : photo.saveUrl ? (
           <a
@@ -430,7 +430,7 @@ function ShowcaseToggle({
 }) {
   const live = approved && consented;
   const title = !approved
-    ? 'Add this clip to your public memory orb'
+    ? 'Add this snippet to your public memory orb'
     : live
       ? 'On your public memory orb — tap to remove'
       : 'Approved — waiting on guest consent before it shows';

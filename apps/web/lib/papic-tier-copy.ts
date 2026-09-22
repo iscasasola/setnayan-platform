@@ -326,17 +326,24 @@ export async function fetchPapicFreeGrantRead(
 /**
  * The honest capacity sentence for a points budget.
  *
- * NOT "N photos + M clips" — the budget is one purse, so clips eat into the
- * photo count. "about N photos a day, or fewer if you shoot clips — a 10-second
- * clip counts as 7" is the true shape, and it stays true whether the budget is
- * 20 points or 60.
+ * NOT "N photos + M snippets" — the budget is one purse, so snippets eat into
+ * the photo count. "about N photos a day, or fewer if you shoot snippets — a
+ * 10-second snippet counts as 8" is the true shape, and it stays true whether
+ * the budget is 20 points or 60.
+ *
+ * ⚠ The word is SNIPPET, owner 2026-09-22: "use snippet everywhere". It was
+ * already the word on /papic and in papicPointCurrencyTerms below; these
+ * older phrases still said "clip", so one product said two things. The
+ * CONSTANT is still PAPIC_POINTS_PER_CLIP — an internal identifier nobody
+ * reads, deliberately left alone rather than churn 26 call sites for no
+ * customer-visible gain.
  */
 export function papicCapacityPhrase(pointsPerDay: number | null): string {
-  if (pointsPerDay == null) return 'unlimited photos and 10-second clips, every day';
+  if (pointsPerDay == null) return 'unlimited photos and 10-second snippets, every day';
   const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
   return (
     `about ${photos} photo${photos === 1 ? '' : 's'} a day — fewer if you shoot ` +
-    `clips, since one 10-second clip counts as ${PAPIC_POINTS_PER_CLIP}`
+    `snippets, since one 10-second snippet counts as ${PAPIC_POINTS_PER_CLIP}`
   );
 }
 
@@ -416,7 +423,7 @@ export function papicOneRungPhrase(points: number, pricePhp: number): string {
 export function papicPointCurrencyTerms(): readonly [string, string] {
   return [
     `1 photo = ${PAPIC_POINTS_PER_PHOTO} credit`,
-    `a Snippet (10-second video) = ${PAPIC_POINTS_PER_CLIP} credits`,
+    `a snippet (10 seconds) = ${PAPIC_POINTS_PER_CLIP} credits`,
   ];
 }
 
@@ -424,13 +431,14 @@ export function papicPointCurrencyTerms(): readonly [string, string] {
  * The honest capacity sentence for a LIFETIME bucket of points (a Papic One
  * camera, or the shared pool) as opposed to a per-day budget.
  *
- * Same "one purse" honesty as papicCapacityPhrase: an exact "N photos + M clips"
- * promise is unkeepable, because spending points on clips takes them from photos.
+ * Same "one purse" honesty as papicCapacityPhrase: an exact "N photos + M
+ * snippets" promise is unkeepable, because spending points on snippets takes
+ * them from photos.
  */
 export function papicBucketPhrase(points: number): string {
   const photos = Math.floor(points / PAPIC_POINTS_PER_PHOTO);
   return (
     `about ${photos.toLocaleString('en-PH')} photograph${photos === 1 ? '' : 's'} — fewer if ` +
-    `you shoot video, since a Snippet counts as ${PAPIC_POINTS_PER_CLIP}`
+    `you shoot snippets, since a snippet counts as ${PAPIC_POINTS_PER_CLIP}`
   );
 }

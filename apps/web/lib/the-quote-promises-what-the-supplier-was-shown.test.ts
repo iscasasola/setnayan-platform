@@ -102,18 +102,20 @@ const page = readFileSync(join(ROOT, 'app/proposals/[publicId]/page.tsx'), 'utf8
 
 test('the COUPLE\'s side resolves through the shared pair, and reads the quote\'s own switch', () => {
   /*
-    ⚠ SCOPED TO `quoteSetnayanGift`'S OWN BODY, for the reason
-    `the-gift-reaches-the-couple.test.ts` already states about this file: the
-    sibling `giftQuoteBasis` below it repeats the same eligibility shape —
-    including the `applies !== 'applies'` early return this fix removes — and a
-    match there must not stand in for this one. (That sibling has NO live
-    caller today; it is reported for separate removal, not widened into here.)
+    Scoped to `quoteSetnayanGift`'s own body so a neighbour cannot answer for it.
+
+    ⚖ The sibling this originally dodged — `giftQuoteBasis`, which repeated the
+    same eligibility shape including the `applies !== 'applies'` early return
+    this fix removes — has since been DELETED in this branch: it had no caller
+    and kept the old rule alive in the same file as the new one. The bound is
+    kept anyway, as "the next top-level export or the end of the file", because
+    the next function added here would recreate the hazard silently.
   */
   const from = server.indexOf('export async function quoteSetnayanGift');
   assert.ok(from > 0, 'quoteSetnayanGift no longer exists under this name');
-  const to = server.indexOf('export async function', from + 1);
-  assert.ok(to > from, 'there is a function after it to bound the slice');
-  const body = server.slice(from, to);
+  const nextExport = server.indexOf('\nexport ', from + 1);
+  const body = nextExport > from ? server.slice(from, nextExport) : server.slice(from);
+  assert.ok(body.includes('setnayan_gift_quote_applies'), 'the slice really contains the function under test');
 
   assert.match(body, /standingForQuoteSwitch\(\s*standingForGiftArm\(arm,/, 'the one rule, in order');
   assert.match(body, /giftBasisFrom\(standing\)/, 'and the unchanged contract that gates the promise');

@@ -87,14 +87,23 @@ test('the quote’s count comes from the shared derivation, not a local formula'
   const src = code('lib/setnayan-gift.server.ts');
   assert.match(src, /rpc\('setnayan_gift_quote_applies'/);
 
-  // Scope to quoteSetnayanGift itself — giftQuoteBasis (the composer's basis,
-  // a sibling function below it) repeats the same eligibility shape, and a
-  // match there must not stand in for this one.
+  /*
+    Scope to quoteSetnayanGift itself, so a match in a neighbour cannot stand in
+    for this one.
+
+    ⚖ 2026-09-22: this used to REQUIRE a following `export async function` to
+    bound the slice, because `giftQuoteBasis` sat below and repeated the same
+    eligibility shape. That sibling has been deleted (it had no caller and
+    carried the pre-2026-09-22 rule beside the new one), so quoteSetnayanGift is
+    now last in the file and the hard requirement would fail on a file that is
+    perfectly correct. The bound is now "the next top-level export, or the end
+    of the file" — still a real boundary the moment anything is added after it.
+  */
   const fnStart = src.indexOf('export async function quoteSetnayanGift');
   assert.ok(fnStart > 0, 'quoteSetnayanGift no longer exists under this name');
-  const nextFn = src.indexOf('export async function', fnStart + 1);
-  assert.ok(nextFn > fnStart, 'there is a function after quoteSetnayanGift to bound the slice');
-  const body = src.slice(fnStart, nextFn);
+  const nextExport = src.indexOf('\nexport ', fnStart + 1);
+  const body = nextExport > fnStart ? src.slice(fnStart, nextExport) : src.slice(fnStart);
+  assert.ok(body.includes('setnayan_gift_quote_applies'), 'the slice really contains the function under test');
 
   // The PROPERTY, not the phrasing: a refused eligibility read must still
   // return null — a logged reason in between is fine, a count is not. Allow

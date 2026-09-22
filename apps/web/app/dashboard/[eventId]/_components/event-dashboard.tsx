@@ -81,6 +81,10 @@ import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import {
+  decisionsCountNoun,
+  notBookedLabel,
+} from '@/lib/two-counts-two-names';
+import {
   rankMarkFor,
   splitDecisionsAndDates,
 } from '@/lib/a-date-is-not-a-decision';
@@ -1122,10 +1126,13 @@ export async function EventDashboard({
     {
       id: 'book',
       title: 'Book a vendor',
-      sub:
-        remainingTaskCount === 1
-          ? '1 category still open'
-          : `${remainingTaskCount} categories still open`,
+      /*
+        Was "N categories still open" — no denominator, and the same word the
+        digest used two inches away for a different set. `notBookedLabel` shows
+        the set this number is drawn from: the event-type-scoped categories
+        that count toward lockable, i.e. `totalLockableCategories`.
+      */
+      sub: notBookedLabel(remainingTaskCount, totalLockableCategories),
       items: byKind('start'),
     },
     {
@@ -2483,7 +2490,11 @@ export async function EventDashboard({
                     <CountUp value={openDecisionCount} delayMs={300} />
                   </b>
                   <span className="text-[12.5px] text-ink/55">
-                    {openDecisionCount === 1 ? 'open decision' : 'open decisions'}
+                    {/* Was "open decision(s)". The eyebrow above already says
+                        "Needs you this week", so the count states its noun and
+                        stops — and stops sharing a word with the category
+                        count, which means something else entirely. */}
+                    {decisionsCountNoun(openDecisionCount)}
                     {aiActive && openDecisionCount > 0 ? ' · ranked' : ''}
                     {/* The dates did not vanish when they stopped being decisions —
                         they are named here so the smaller number cannot read as

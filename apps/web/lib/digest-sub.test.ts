@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { digestSubWorthShowing } from './digest-sub';
+import { notBookedLabel } from './two-counts-two-names';
 
 test('keeps a line carrying a reference the couple must quote', () => {
   assert.equal(digestSubWorthShowing('Order placed · ref A7K2QX'), true);
@@ -25,14 +26,38 @@ test('keeps a line carrying a date, in either register', () => {
 test('drops the lines that only restate the row — every one of these ships today', () => {
   for (const sub of [
     'Order placed · payment pending',
-    '3 categories still open',
-    '1 category still open',
+    /*
+      ⚠ GENERATED, NOT TYPED. The book group's sub used to be the literals
+      '3 categories still open' / '1 category still open'. On 2026-09-22 it moved
+      into `notBookedLabel` (two counts were sharing the word "open"), and a
+      hand-typed fixture here would have kept asserting about a sentence the app
+      can no longer produce — under a test title that says these ship TODAY.
+      Reading it from the module is what makes the title true, and what makes a
+      future rewording arrive here on its own instead of silently bypassing this
+      drop and printing the count twice on the panel.
+    */
+    notBookedLabel(3, 25),
+    notBookedLabel(1, 25),
+    notBookedLabel(1, 1),
+    notBookedLabel(4, 0),
+    notBookedLabel(0, 25),
+    notBookedLabel(0, 0),
     'Saved options waiting on a lock',
     '1 waiting',
     '4 waiting',
     'Key people your ceremony needs',
   ]) {
     assert.equal(digestSubWorthShowing(sub), false, `should drop: ${sub}`);
+  }
+});
+
+test('the lines this panel USED to render are still dropped — history, not fixture rot', () => {
+  /*
+    Kept deliberately, and labelled as history so nobody reads them as current
+    copy: an old row cached in a rendered payload must not start reappearing.
+  */
+  for (const sub of ['3 categories still open', '1 category still open']) {
+    assert.equal(digestSubWorthShowing(sub), false, `should still drop: ${sub}`);
   }
 });
 

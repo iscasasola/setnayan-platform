@@ -137,3 +137,46 @@ test('/privacy still publishes a DPO contact at all — the fix must not delete 
       'way to pass the check above — an unreachable controller is its own violation.',
   );
 });
+
+/**
+ * ── ONE ADDRESS, ONE DECLARATION (added 2026-09-22) ─────────────────────────
+ *
+ * `support@setnayan.com` was declared **five times independently** —
+ * `ANNIVERSARY_SUPPORT_EMAIL`, `GODCHILD_SUPPORT_EMAIL`, `STD_SUPPORT_EMAIL`,
+ * `RENEWAL_SUPPORT_EMAIL` and `SUPPORT_EMAIL` — and published in the unsubscribe
+ * instructions of anniversary emails, godchild reminders, save-the-dates and
+ * renewal notices.
+ *
+ * 🔑 THAT IS THE DRIFT `contact-addresses.ts` EXISTS TO END, caught in the act.
+ * The DPO address had drifted the other way (one value, 22 copies, wrong); this
+ * is the same value with five owners, which is how it becomes wrong in some of
+ * them. Each is now a re-export, so the literal lives in one place.
+ *
+ * ⚖ AND A QUESTION THIS MAKES ANSWERABLE, rather than answering it:
+ * `setnayan.com` receives mail via iCloud+ Custom Email Domain, and the owner's
+ * address list shows **3 of 3 used** — `live@`, `dpo@`, `noreply@`. No
+ * `support@`. iCloud+ *can* have a catch-all, so this may still deliver; it may
+ * also bounce, which would mean the unsubscribe route in four kinds of email
+ * goes nowhere. One place to check, and one place to change it.
+ */
+test('support@ is declared once, not once per feature', () => {
+  const owners: string[] = [];
+  for (const rel of [
+    'lib/anniversary-emails-core.ts',
+    'lib/godchild-reminder-emails.ts',
+    'lib/save-the-date-emails-core.ts',
+    'lib/subscription-renewal-emails.ts',
+  ]) {
+    const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));
+    // A literal address here means this file owns a second copy of the value.
+    if (/=\s*'support@setnayan\.com'/.test(src)) owners.push(rel);
+  }
+  console.log(`[published-contacts] ${owners.length} file(s) re-declare the support literal`);
+  assert.deepEqual(
+    owners,
+    [],
+    'A feature module declares the support address itself instead of re-exporting SUPPORT_EMAIL ' +
+      'from lib/contact-addresses.ts. It was five copies once; that is how one of them ends up ' +
+      'wrong while the others look fine.\n  ' + owners.join('\n  '),
+  );
+});

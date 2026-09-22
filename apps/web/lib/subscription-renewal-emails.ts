@@ -1,5 +1,6 @@
 import 'server-only';
 import { renderBrandedEmail } from '@/lib/email-template';
+import { SUPPORT_EMAIL } from './contact-addresses';
 
 // Renewal-reminder email (owner 2026-07-10 · recurring-billing scaffold).
 //
@@ -13,7 +14,10 @@ import { renderBrandedEmail } from '@/lib/email-template';
 // buildRenewalReminderEmail() is pure + side-effect-free (the 'server-only' guard
 // keeps it off the client bundle, mirroring the other email modules).
 
-export const RENEWAL_SUPPORT_EMAIL = 'support@setnayan.com';
+// Re-exported from the ONE module that owns published addresses.
+// This was an independent copy of the same literal — the fifth of five.
+// See lib/contact-addresses.ts for why that matters.
+export const RENEWAL_SUPPORT_EMAIL = SUPPORT_EMAIL;
 
 export type RenewalReminderParts = {
   /** Buyer's display name (couple or vendor); falls back to "there". */

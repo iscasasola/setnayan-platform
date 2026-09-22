@@ -167,3 +167,30 @@ been observed; it is in memory as `tsc-full-project-killed-by-sandbox`.)
 All five guards added in this bundle re-run green afterwards.
 
 SPEC IMPACT: None.
+
+## 2026-09-22 · fix(contacts): one support address, not one per feature
+
+`support@setnayan.com` was declared **five times independently** —
+`ANNIVERSARY_SUPPORT_EMAIL`, `GODCHILD_SUPPORT_EMAIL`, `STD_SUPPORT_EMAIL`,
+`RENEWAL_SUPPORT_EMAIL` and `SUPPORT_EMAIL` — and published in the unsubscribe
+instructions of anniversary emails, godchild reminders, save-the-dates and
+renewal notices.
+
+🔑 **That is the drift `lib/contact-addresses.ts` exists to end, caught in the
+act.** The DPO address had drifted the other way — one value, 22 copies, and the
+wrong one. This is the same value with five owners, which is how it becomes
+wrong in some of them and right in the rest. Each is now a re-export, so every
+caller keeps its name and the literal lives in one place.
+
+⚖ **AND A QUESTION THIS MAKES ANSWERABLE rather than answering.** `setnayan.com`
+receives mail via iCloud+ Custom Email Domain, and the owner's address list shows
+**3 of 3 used** — `live@`, `dpo@`, `noreply@`. There is no `support@`. iCloud+
+*can* have a catch-all, so this may still deliver; it may also bounce, in which
+case the unsubscribe route in four kinds of email goes nowhere. **Not changed on
+a guess** — one place to check now, and one place to change it.
+
+Proved by sabotage: re-declaring the literal in `anniversary-emails-core.ts` —
+the exact original shape — turned the guard red (`1 file(s) re-declare`).
+Restored, 4/4. `save-the-date-emails-core.test.ts` 8/8 unchanged.
+
+SPEC IMPACT: None.

@@ -2105,7 +2105,39 @@ export async function EventDashboard({
 
   const inspectorMaster = (
     <div className="relative">
-      <div className="space-y-10">
+      {/*
+        ── STATUS STAYS IN VIEW (owner-approved 2026-09-22) ──────────────────
+
+        One column on a phone, two from lg up: the FLOW on the left at full
+        width, and the day + the numbers pinned on the right.
+
+        The desktop page measured 3,165px. Everything that tells a couple where
+        they stand — the date, the countdown, the locked share, the budget, the
+        guest split — sat in the first screen and was gone for the other 2,200.
+        Sticky is the whole change: the flow gets the width, status never
+        leaves.
+
+        🔒 THE COUNCIL'S ORDER IS UNCHANGED. STATUS → ACT → NAVIGATE is still
+        what the page reads top-to-bottom on a phone, and still the DOM order
+        here — the aside is written before the flow, so a screen reader and a
+        narrow viewport both meet status first. Two columns is a presentation of
+        that order, not a replacement for it.
+
+        ⚠ MOBILE IS UNTOUCHED BY DESIGN. The grid lives in `globals.css`
+        behind a min-width, and `space-y-10` stays the phone rhythm. A change
+        to the phone stack would be a different decision, and this is not it.
+
+        🛑 IT YIELDS TO THE INSPECTOR, AND THAT IS NOT OPTIONAL. This page
+        ALREADY has a sticky right column: `.sn-inspector-rail` opens at ≥1280
+        and takes clamp(340px, 30vw, 420px) + 24px while the master reflows to
+        what is left. Two permanent right columns do not fit — at 1280, content
+        is about 1,038px, and 1,038 − 364 − 364 leaves roughly 310px of flow.
+        So the stylesheet switches this grid back to one column whenever
+        `.sn-inspector-shell[data-open='true']` is an ancestor. Status pins when
+        the inspector is shut (the common case) and steps aside when it opens.
+        The prototype this came from did not model the inspector at all.
+      */}
+      <div className="sn-overview-cols space-y-10">
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <header className="sn-reveal pt-1">
           <p className="text-[13px] text-ink/55">
@@ -2138,993 +2170,1007 @@ export async function EventDashboard({
          *  let the focal and the tile disagree on whether a date is set. One
          *  obsidian per view (§ 1.3): glass on the day itself. Focal blooms last.
          *  Blur budget (§ 1.6): focal(1) + digest(1) + ≤4 minis + chrome(2) ≤ 8. */}
-        <section aria-label={`The ${eventWord} day`} className="!mt-6">
-          <div className="grid items-start gap-4 lg:grid-cols-2">
-            {/* LEFT — the Big Day focal */}
-            {/* WARM EDITORIAL restyle (§ 2.4). The focal's SURFACE is no longer
-             *  styled here: `.sn-tile-dark` itself became a solid ink card in the
-             *  app-wide skin swap, so this page just uses the class.
-             *
-             *  ⚠ THIS BLOCK USED TO STYLE IT INLINE, and the reason it gave was
-             *  measured and found wrong: it said `.sn-tile-dark` "has 20+ consumers
-             *  … restyling the shared class would repaint surfaces this port has
-             *  not reviewed". It has SEVEN, and every one of them is the focal card
-             *  of its own surface (admin home · here · the day-of card · vendor
-             *  on-the-day ×2 · vendor overview · vendor performance). Seven surfaces
-             *  wanting one treatment is a class, not seven copies of the same hexes.
-             *
-             *  Inlining also silently dropped two things the class provides: the
-             *  `--m-*` token remap that lets a card nested in the dark sidebar
-             *  follow the sidebar, and the hover lift. Only the HEADLINE colours
-             *  stay here — those are per-surface, exactly as the skin swap said. */}
-            <div
-              className={`relative overflow-hidden sn-bloom ${
-                focalDark ? 'sn-tile-dark' : 'sn-tile'
-              }`}
-            >
-              {/* Full-bleed inside the card's 18px padding. Decorative only —
-                  every fact below is real text, so nothing depends on it. */}
-              <div className="relative -mx-[18px] -mt-[18px] mb-4 h-28 overflow-hidden">
-                <EventScene
-                  eventId={eventId}
-                  eventType={eventType}
-                  photoSrc={typeHeroSrc}
-                  ownPhotoSrc={ownHeroSrc}
-                  muted={eventHasHappened}
-                />
-                {/* The card's own ink, brought up over the foot of the photo so
-                    the eyebrow underneath never sits against a bright frame. */}
-                <span
-                  aria-hidden
-                  className="absolute inset-x-0 bottom-0 h-14"
-                  style={{
-                    background: focalDark
-                      ? 'linear-gradient(to top, var(--m-ink), transparent)'
-                      : 'linear-gradient(to top, var(--m-paper), transparent)',
-                  }}
-                />
-              </div>
-              <p className="sn-eye">
-                <CalendarClock aria-hidden strokeWidth={1.75} />
-                The {eventWord} day
-              </p>
-              <div className="mt-3 min-w-0">
-                <h2
-                  className="text-[22px] font-extrabold leading-tight tracking-[-0.015em]"
-                  style={{ color: focalHeadColor }}
-                >
-                  {focalDateLabel}
-                </h2>
-                {/* Locked line + numeral both derive from `hasFirmDate` — they
-                 *  can no longer disagree ("locked" vs "no firm date yet"). */}
-                {/* D-8 · MONO IS FOR DIGITS. This line is prose — a venue
-                    name, or "The date is locked" — and Space Mono makes a
-                    sentence read like a serial number. The mono lines that
-                    remain on this card all carry a figure. */}
-                <p className="mt-1 truncate text-xs" style={{ color: focalSubColor }}>
-                  {focalVenue
-                    ? focalVenue
-                    : hasFirmDate
-                      ? 'The date is locked'
-                      : event.event_date
-                        ? 'Target date — not locked yet'
-                        : 'No firm date yet'}
-                </p>
-              </div>
-              {hasFirmDate ? (
-                <div className="mt-4 flex items-baseline gap-2">
-                  <b
-                    className="font-mono text-[46px] font-bold leading-none tracking-[-0.02em]"
-                    style={{ color: focalHeadColor }}
-                  >
-                    {daysOut === null
-                      ? '—'
-                      : daysOut === 0
-                        ? 'Today'
-                        : daysOut < 0
-                          ? Math.abs(daysOut)
-                          : <CountUp value={daysOut} delayMs={700} />}
-                  </b>
-                  <span
-                    className="text-[13px] font-semibold"
-                    style={{ color: focalDark ? 'rgba(243,236,223,.7)' : 'var(--sn-ink-500)' }}
-                  >
-                    {daysOut === 0
-                      ? 'it all happens now'
-                      : daysOut !== null && daysOut < 0
-                        ? Math.abs(daysOut) === 1
-                          ? 'day ago'
-                          : 'days ago'
-                        : 'days to go'}
-                  </span>
-                </div>
-              ) : (
-                <p className="mt-4 text-[13px]" style={{ color: focalSubColor }}>
-                  {event.event_date
-                    ? 'Narrow to a single day to start your countdown.'
-                    : 'Your countdown begins the moment your date is set.'}
-                </p>
-              )}
-              {/* % planned — gold bar, date-independent (vendor-categories locked).
-                  ⚠ HIDDEN ONCE THE CELEBRATION HAS HAPPENED. A shimmering
-                  progress bar is a promise that the number can still go up.
-                  For the owner's Movie Night it read a shimmering 0%, the
-                  morning after a night that went fine. */}
-              {eventHasHappened ? null : (
-                <>
+        {/* STATUS — pinned from lg up. `top-24` clears the sticky app chrome. */}
+        <aside
+          aria-label="At a glance"
+          className="sn-overview-status space-y-4"
+        >
+          <section aria-label={`The ${eventWord} day`} className="!mt-6">
+            {/* Was `lg:grid-cols-2` — the focal beside the digest. In a 21rem
+                sticky column two columns would be ~10rem each, so this is a
+                single stack now and the SIDE-BY-SIDE moved up a level: the
+                focal's neighbour is the flow, not the digest. */}
+            <div className="grid items-start gap-4">
+              {/* LEFT — the Big Day focal */}
+              {/* WARM EDITORIAL restyle (§ 2.4). The focal's SURFACE is no longer
+               *  styled here: `.sn-tile-dark` itself became a solid ink card in the
+               *  app-wide skin swap, so this page just uses the class.
+               *
+               *  ⚠ THIS BLOCK USED TO STYLE IT INLINE, and the reason it gave was
+               *  measured and found wrong: it said `.sn-tile-dark` "has 20+ consumers
+               *  … restyling the shared class would repaint surfaces this port has
+               *  not reviewed". It has SEVEN, and every one of them is the focal card
+               *  of its own surface (admin home · here · the day-of card · vendor
+               *  on-the-day ×2 · vendor overview · vendor performance). Seven surfaces
+               *  wanting one treatment is a class, not seven copies of the same hexes.
+               *
+               *  Inlining also silently dropped two things the class provides: the
+               *  `--m-*` token remap that lets a card nested in the dark sidebar
+               *  follow the sidebar, and the hover lift. Only the HEADLINE colours
+               *  stay here — those are per-surface, exactly as the skin swap said. */}
               <div
-                className="sn-bar mt-3.5 h-1.5 overflow-hidden rounded-full"
-                style={{
-                  background: focalDark ? 'rgba(255,255,255,.14)' : 'rgba(30,26,18,.08)',
-                }}
+                className={`relative overflow-hidden sn-bloom ${
+                  focalDark ? 'sn-tile-dark' : 'sn-tile'
+                }`}
               >
-                <i
-                  className="relative block h-full overflow-hidden rounded-full"
-                  style={{ width: `${lockedInPct}%`, background: 'var(--sn-gold-300)' }}
-                >
+                {/* Full-bleed inside the card's 18px padding. Decorative only —
+                    every fact below is real text, so nothing depends on it. */}
+                <div className="relative -mx-[18px] -mt-[18px] mb-4 h-28 overflow-hidden">
+                  <EventScene
+                    eventId={eventId}
+                    eventType={eventType}
+                    photoSrc={typeHeroSrc}
+                    ownPhotoSrc={ownHeroSrc}
+                    muted={eventHasHappened}
+                  />
+                  {/* The card's own ink, brought up over the foot of the photo so
+                      the eyebrow underneath never sits against a bright frame. */}
                   <span
                     aria-hidden
-                    className="absolute inset-y-0 w-2/5"
+                    className="absolute inset-x-0 bottom-0 h-14"
                     style={{
-                      background:
-                        'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)',
-                      animation: 'sn-shimmer 2.8s var(--sn-ease-out) 1.6s 1 both',
+                      background: focalDark
+                        ? 'linear-gradient(to top, var(--m-ink), transparent)'
+                        : 'linear-gradient(to top, var(--m-paper), transparent)',
                     }}
                   />
-                </i>
-              </div>
-              <p
-                className="mt-2 font-mono text-[10px]"
-                style={{ color: focalDark ? 'rgba(243,236,223,.55)' : 'var(--sn-ink-500)' }}
-              >
-                <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
-                  {Math.round(lockedInPct)}%
-                </b>{' '}
-                locked in
-              </p>
-                </>
-              )}
-
-              {/* AI: the Sai briefing sentence + chips, inside the focal. */}
-              {aiActive ? (
-                <>
-                  <div
-                    className="my-4 h-px"
-                    style={{
-                      background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
-                    }}
-                  />
-                  <p className="sn-eye">
-                    <Sparkles aria-hidden strokeWidth={1.75} />
-                    Sai · your briefing
-                  </p>
-                  <p
-                    className="mt-2 max-w-[60ch] text-[15px] font-semibold leading-snug"
+                </div>
+                <p className="sn-eye">
+                  <CalendarClock aria-hidden strokeWidth={1.75} />
+                  The {eventWord} day
+                </p>
+                <div className="mt-3 min-w-0">
+                  <h2
+                    className="text-[22px] font-extrabold leading-tight tracking-[-0.015em]"
                     style={{ color: focalHeadColor }}
                   >
-                    {cockpitModel.briefing.sentence}
+                    {focalDateLabel}
+                  </h2>
+                  {/* Locked line + numeral both derive from `hasFirmDate` — they
+                   *  can no longer disagree ("locked" vs "no firm date yet"). */}
+                  {/* D-8 · MONO IS FOR DIGITS. This line is prose — a venue
+                      name, or "The date is locked" — and Space Mono makes a
+                      sentence read like a serial number. The mono lines that
+                      remain on this card all carry a figure. */}
+                  <p className="mt-1 truncate text-xs" style={{ color: focalSubColor }}>
+                    {focalVenue
+                      ? focalVenue
+                      : hasFirmDate
+                        ? 'The date is locked'
+                        : event.event_date
+                          ? 'Target date — not locked yet'
+                          : 'No firm date yet'}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {daysOut !== null && daysOut >= 0 ? (
-                      <span
-                        className="rounded-full px-3 py-1 text-xs font-semibold"
-                        style={focalChipStyle}
-                      >
-                        {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
-                      </span>
-                    ) : null}
-                    {/* D-6 · THE FRACTION IS GONE — IT WAS THE BAR'S NUMBER
-                        IN ANOTHER COSTUME. The gold bar directly above already
-                        reports the locked share, and the briefing sentence
-                        beside it opens with the same figure in words. A third
-                        rendering of one fact reads as three facts and makes the
-                        card feel busier than the wedding is. The chips that
-                        remain each say something nothing else on the card
-                        says: how long is left, and what is most urgent. */}
-                    {topPriorityTask ? (
-                      <span
-                        className="rounded-full px-3 py-1 text-xs font-semibold"
-                        style={focalChipStyle}
-                      >
-                        Most urgent: {topPriorityTask.title.toLowerCase()}
-                      </span>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-
-              {/* AI: "The Watch" — the attention rows, moved INTO the focal's
-               *  lower half (was a standalone section below). Each row keeps its
-               *  #3265 desktop inspector trigger (w:<dedupeKey>); below xl it's
-               *  inert, matching a no-action row. This is what fills the tall
-               *  focal in the AI state. */}
-              {/* AI: "The Watch" — the attention rows, inside the focal's lower half.
-                *  Each row keeps its #3265 desktop inspector trigger (w:<dedupeKey>);
-                *  below xl it's inert, matching a no-action row.
-                *
-                *  § 4 E2 — ON A PHONE THIS FOLDS. The AI focal is tall, and on <lg it
-                *  pushed "Needs you this week" below the fold — the one panel a couple
-                *  opens the app for. Nine months out the briefing is reassurance; the
-                *  digest is the job. Open by default when anything is a `guard`, so a
-                *  real warning is never hidden behind a tap.
-                *
-                *  ⚠ TWO BRANCHES, NOT ONE ELEMENT NEUTRALISED BY CSS. Forcing a single
-                *  <details> open at ≥lg leaves its <summary> clickable and focusable
-                *  while doing nothing visible — a dead control, which this repo treats
-                *  as a defect. Two branches is also the pattern already used for the
-                *  sidebar/bottom-nav split. `watchItems` is capped at 4, so the cost is
-                *  at most four rows of duplicate markup and no duplicate DOM ids —
-                *  `inspectId` is a query param, not an id. */}
-              {aiActive && watchItems.length > 0 ? (
-                <>
-                  <div
-                    className="my-4 h-px"
-                    style={{
-                      background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
-                    }}
-                  />
-                  {/* Phone — a real disclosure. */}
-                  <details className="lg:hidden" open={watchHasGuard}>
-                    <summary className="sn-eye cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                      <Sparkles aria-hidden strokeWidth={1.75} />
-                      Setnayan AI · The Watch · {watchItems.length}
-                    </summary>
-                  <div className="mt-1">
-                    {watchItems.map(({ intervention, copy }) => {
-                      const watchColor =
-                        intervention.category === 'guard'
-                          ? 'var(--sn-info)'
-                          : 'var(--sn-gold-600)';
-                      return (
-                        <InspectorTrigger
-                          key={intervention.dedupeKey}
-                          inspectId={`w:${intervention.dedupeKey}`}
-                          className="mt-2 flex w-full gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-                        >
-                          <span
-                            aria-hidden
-                            className="mt-1.5 h-2 w-2 flex-none rounded-full"
-                            style={{ background: focalDark ? 'var(--sn-gold-300)' : watchColor }}
-                          />
-                          <span className="min-w-0">
-                            <span
-                              className="block text-[10px] font-bold uppercase tracking-[0.13em]"
-                              style={{ color: focalDark ? 'var(--sn-gold-300)' : watchColor }}
-                            >
-                              {intervention.category === 'guard' ? 'Guard' : 'Secretary'}
-                            </span>
-                            <span
-                              className="mt-0.5 block whitespace-pre-line text-[12.5px] leading-snug"
-                              style={{
-                                color: focalDark ? 'rgba(243,236,223,.82)' : 'var(--sn-ink-700)',
-                              }}
-                            >
-                              {copy}
-                            </span>
-                          </span>
-                        </InspectorTrigger>
-                      );
-                    })}
-                  </div>
-                  <p
-                    className="mt-3 text-[10.5px]"
-                    style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
-                  >
-                    Sai fires a few alerts a week at most — deduped, most-urgent first.
-                  </p>
-                  </details>
-
-                  {/* Laptop — never folds. */}
-                  <div className="hidden lg:block">
-                  <p className="sn-eye">
-                    <Sparkles aria-hidden strokeWidth={1.75} />
-                    Setnayan AI · The Watch
-                  </p>
-                  <div className="mt-1">
-                    {watchItems.map(({ intervention, copy }) => {
-                      const watchColor =
-                        intervention.category === 'guard'
-                          ? 'var(--sn-info)'
-                          : 'var(--sn-gold-600)';
-                      return (
-                        <InspectorTrigger
-                          key={intervention.dedupeKey}
-                          inspectId={`w:${intervention.dedupeKey}`}
-                          className="mt-2 flex w-full gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-                        >
-                          <span
-                            aria-hidden
-                            className="mt-1.5 h-2 w-2 flex-none rounded-full"
-                            style={{ background: focalDark ? 'var(--sn-gold-300)' : watchColor }}
-                          />
-                          <span className="min-w-0">
-                            <span
-                              className="block text-[10px] font-bold uppercase tracking-[0.13em]"
-                              style={{ color: focalDark ? 'var(--sn-gold-300)' : watchColor }}
-                            >
-                              {intervention.category === 'guard' ? 'Guard' : 'Secretary'}
-                            </span>
-                            <span
-                              className="mt-0.5 block whitespace-pre-line text-[12.5px] leading-snug"
-                              style={{
-                                color: focalDark ? 'rgba(243,236,223,.82)' : 'var(--sn-ink-700)',
-                              }}
-                            >
-                              {copy}
-                            </span>
-                          </span>
-                        </InspectorTrigger>
-                      );
-                    })}
-                  </div>
-                  <p
-                    className="mt-3 text-[10.5px]"
-                    style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
-                  >
-                    Sai fires a few alerts a week at most — deduped, most-urgent first.
-                  </p>
-                  </div>
-                </>
-              ) : null}
-            </div>
-
-            {/* RIGHT — decisions digest (ACT) + 2×2 live minis (NAVIGATE) */}
-            <div className="flex flex-col gap-3.5">
-              <div className="sn-tile">
-                <p className="sn-eye">
-                  <ListChecks aria-hidden strokeWidth={1.75} />
-                  {/* "this week" is a deadline, and after the celebration there
-                      is no week left to meet it in. What remains is genuinely
-                      still open — a bill, a document — so it is named that. */}
-                  {eventHasHappened ? 'Still open' : 'Needs you this week'}
-                </p>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <b className="font-mono text-[30px] font-bold leading-none text-ink">
-                    <CountUp value={openDecisionCount} delayMs={300} />
-                  </b>
-                  <span className="text-[12.5px] text-ink/55">
-                    {openDecisionCount === 1 ? 'open decision' : 'open decisions'}
-                    {aiActive && openDecisionCount > 0 ? ' · ranked' : ''}
-                    {/* The dates did not vanish when they stopped being decisions —
-                        they are named here so the smaller number cannot read as
-                        "we lost six things". */}
-                    {datesCount > 0
-                      ? ` · ${datesCount} ${datesCount === 1 ? 'date' : 'dates'} coming`
-                      : ''}
-                  </span>
                 </div>
-                {/*
-                  ── ONE LIST, NOT A PREVIEW OF ITSELF (owner-approved 2026-09-22) ──
-
-                  This tile used to print `flatDecisions.slice(0, 3)` — the first
-                  three rows of the Decisions board that sits a few hundred
-                  pixels below it, followed by "All N decisions ↗", an anchor to
-                  a list already on the same screen. Measured on the live page
-                  2026-09-22: "Lock your coordinator" rendered THREE times (here,
-                  in "Today's one thing", and on the board), "Papic Guest 500"
-                  twice here and a third time inside Your services.
-
-                  The council's own de-dup rule says the bento is STATUS and the
-                  board is ACT. A preview of the board is the board, in the
-                  status slot. So the tile keeps the NUMBER and loses the rows.
-
-                  🔑 THE RSVP ROW STAYS, AND IT IS NOT A DUPLICATE. It is
-                  deliberately not a cockpit decision and deliberately not in
-                  `openDecisionCount` (the note that used to sit inside this
-                  block, preserved below) — the board has never carried it, so
-                  dropping the preview would have dropped its only home.
-
-                  ⚠ AND IT WAS NESTED IN THE WRONG BRANCH. The row lived inside
-                  `flatDecisions.length > 0`, so an event with no open decisions
-                  but seventy-seven unanswered invitations read "Nothing needs a
-                  decision right now" and said nothing about the RSVPs. It is now
-                  a sibling of that branch, not a child of it.
-                */}
-                {openDecisionCount > 0 ? (
-                  <a
-                    href="#decisions"
-                    className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold"
-                    style={{ color: 'rgb(var(--color-link))' }}
-                  >
-                    {openDecisionCount === 1 ? 'Open the decision' : 'Open the list'} ↗
-                  </a>
+                {hasFirmDate ? (
+                  <div className="mt-4 flex items-baseline gap-2">
+                    <b
+                      className="font-mono text-[46px] font-bold leading-none tracking-[-0.02em]"
+                      style={{ color: focalHeadColor }}
+                    >
+                      {daysOut === null
+                        ? '—'
+                        : daysOut === 0
+                          ? 'Today'
+                          : daysOut < 0
+                            ? Math.abs(daysOut)
+                            : <CountUp value={daysOut} delayMs={700} />}
+                    </b>
+                    <span
+                      className="text-[13px] font-semibold"
+                      style={{ color: focalDark ? 'rgba(243,236,223,.7)' : 'var(--sn-ink-500)' }}
+                    >
+                      {daysOut === 0
+                        ? 'it all happens now'
+                        : daysOut !== null && daysOut < 0
+                          ? Math.abs(daysOut) === 1
+                            ? 'day ago'
+                            : 'days ago'
+                          : 'days to go'}
+                    </span>
+                  </div>
                 ) : (
-                  <p className="mt-2 text-[13px] text-ink/55">
-                    Nothing needs a decision right now — your plan keeps moving on its own.
+                  <p className="mt-4 text-[13px]" style={{ color: focalSubColor }}>
+                    {event.event_date
+                      ? 'Narrow to a single day to start your countdown.'
+                      : 'Your countdown begins the moment your date is set.'}
                   </p>
                 )}
-                {/* EXTEND (§ 2.2) — unanswered RSVPs. Not a cockpit decision, so it
-                 *  deliberately does NOT enter `decisionGroups` or `openDecisionCount`:
-                 *  that number means "cockpit decisions + payments" and corrupting a
-                 *  shipped number's definition is worse than the row is worth.
-                 *
-                 *  🔑 HONESTY GATE — `rsvpRepliesStarted`. A roster nobody has invited
-                 *  yet must never be nagged that "141 haven't replied"; before the first
-                 *  reply arrives, silence is the truthful state. (An explicit
-                 *  "invitations sent" signal would be the better gate, but
-                 *  `computeGuestStats` has none — this is the conservative substitute,
-                 *  not a guess dressed as one.)
-                 *
-                 *  And it stops after the celebration: chasing a reply to an invitation
-                 *  to a party that is over is the purest version of the owner's complaint. */}
-                {shouldChaseRsvps({
-                  eventHasHappened,
-                  pending: stats.pending,
-                  repliesStarted: rsvpRepliesStarted,
-                }) ? (
-                  <Link
-                    href={`${base}/guests`}
-                    className="mt-3 flex min-h-[44px] items-center gap-3 border-t px-1 py-3 transition-colors hover:bg-ink/[0.03]"
-                    style={{ borderColor: '#EDE8DE' }}
+                {/* % planned — gold bar, date-independent (vendor-categories locked).
+                    ⚠ HIDDEN ONCE THE CELEBRATION HAS HAPPENED. A shimmering
+                    progress bar is a promise that the number can still go up.
+                    For the owner's Movie Night it read a shimmering 0%, the
+                    morning after a night that went fine. */}
+                {eventHasHappened ? null : (
+                  <>
+                <div
+                  className="sn-bar mt-3.5 h-1.5 overflow-hidden rounded-full"
+                  style={{
+                    background: focalDark ? 'rgba(255,255,255,.14)' : 'rgba(30,26,18,.08)',
+                  }}
+                >
+                  <i
+                    className="relative block h-full overflow-hidden rounded-full"
+                    style={{ width: `${lockedInPct}%`, background: 'var(--sn-gold-300)' }}
                   >
                     <span
                       aria-hidden
-                      className="h-2 w-2 flex-none rounded-full"
-                      // gold = "waiting on people" in the § 2.1 dot vocabulary.
-                      style={{ background: 'var(--sn-gold-500)' }}
+                      className="absolute inset-y-0 w-2/5"
+                      style={{
+                        background:
+                          'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)',
+                        animation: 'sn-shimmer 2.8s var(--sn-ease-out) 1.6s 1 both',
+                      }}
                     />
-                    <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">
-                      <span className="font-mono font-bold">{stats.pending}</span>{' '}
-                      {stats.pending === 1 ? 'guest hasn' : 'guests haven'}&rsquo;t replied yet
-                    </span>
-                    <span className="flex-none text-[13.5px] text-ink/45">&rarr;</span>
-                  </Link>
+                  </i>
+                </div>
+                <p
+                  className="mt-2 font-mono text-[10px]"
+                  style={{ color: focalDark ? 'rgba(243,236,223,.55)' : 'var(--sn-ink-500)' }}
+                >
+                  <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
+                    {Math.round(lockedInPct)}%
+                  </b>{' '}
+                  locked in
+                </p>
+                  </>
+                )}
+
+                {/* AI: the Sai briefing sentence + chips, inside the focal. */}
+                {aiActive ? (
+                  <>
+                    <div
+                      className="my-4 h-px"
+                      style={{
+                        background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
+                      }}
+                    />
+                    <p className="sn-eye">
+                      <Sparkles aria-hidden strokeWidth={1.75} />
+                      Sai · your briefing
+                    </p>
+                    <p
+                      className="mt-2 max-w-[60ch] text-[15px] font-semibold leading-snug"
+                      style={{ color: focalHeadColor }}
+                    >
+                      {cockpitModel.briefing.sentence}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {daysOut !== null && daysOut >= 0 ? (
+                        <span
+                          className="rounded-full px-3 py-1 text-xs font-semibold"
+                          style={focalChipStyle}
+                        >
+                          {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
+                        </span>
+                      ) : null}
+                      {/* D-6 · THE FRACTION IS GONE — IT WAS THE BAR'S NUMBER
+                          IN ANOTHER COSTUME. The gold bar directly above already
+                          reports the locked share, and the briefing sentence
+                          beside it opens with the same figure in words. A third
+                          rendering of one fact reads as three facts and makes the
+                          card feel busier than the wedding is. The chips that
+                          remain each say something nothing else on the card
+                          says: how long is left, and what is most urgent. */}
+                      {topPriorityTask ? (
+                        <span
+                          className="rounded-full px-3 py-1 text-xs font-semibold"
+                          style={focalChipStyle}
+                        >
+                          Most urgent: {topPriorityTask.title.toLowerCase()}
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
+
+                {/* AI: "The Watch" — the attention rows, moved INTO the focal's
+                 *  lower half (was a standalone section below). Each row keeps its
+                 *  #3265 desktop inspector trigger (w:<dedupeKey>); below xl it's
+                 *  inert, matching a no-action row. This is what fills the tall
+                 *  focal in the AI state. */}
+                {/* AI: "The Watch" — the attention rows, inside the focal's lower half.
+                  *  Each row keeps its #3265 desktop inspector trigger (w:<dedupeKey>);
+                  *  below xl it's inert, matching a no-action row.
+                  *
+                  *  § 4 E2 — ON A PHONE THIS FOLDS. The AI focal is tall, and on <lg it
+                  *  pushed "Needs you this week" below the fold — the one panel a couple
+                  *  opens the app for. Nine months out the briefing is reassurance; the
+                  *  digest is the job. Open by default when anything is a `guard`, so a
+                  *  real warning is never hidden behind a tap.
+                  *
+                  *  ⚠ TWO BRANCHES, NOT ONE ELEMENT NEUTRALISED BY CSS. Forcing a single
+                  *  <details> open at ≥lg leaves its <summary> clickable and focusable
+                  *  while doing nothing visible — a dead control, which this repo treats
+                  *  as a defect. Two branches is also the pattern already used for the
+                  *  sidebar/bottom-nav split. `watchItems` is capped at 4, so the cost is
+                  *  at most four rows of duplicate markup and no duplicate DOM ids —
+                  *  `inspectId` is a query param, not an id. */}
+                {aiActive && watchItems.length > 0 ? (
+                  <>
+                    <div
+                      className="my-4 h-px"
+                      style={{
+                        background: focalDark ? 'rgba(255,255,255,.12)' : 'rgba(30,26,18,.08)',
+                      }}
+                    />
+                    {/* Phone — a real disclosure. */}
+                    <details className="lg:hidden" open={watchHasGuard}>
+                      <summary className="sn-eye cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                        <Sparkles aria-hidden strokeWidth={1.75} />
+                        Setnayan AI · The Watch · {watchItems.length}
+                      </summary>
+                    <div className="mt-1">
+                      {watchItems.map(({ intervention, copy }) => {
+                        const watchColor =
+                          intervention.category === 'guard'
+                            ? 'var(--sn-info)'
+                            : 'var(--sn-gold-600)';
+                        return (
+                          <InspectorTrigger
+                            key={intervention.dedupeKey}
+                            inspectId={`w:${intervention.dedupeKey}`}
+                            className="mt-2 flex w-full gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                          >
+                            <span
+                              aria-hidden
+                              className="mt-1.5 h-2 w-2 flex-none rounded-full"
+                              style={{ background: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                            />
+                            <span className="min-w-0">
+                              <span
+                                className="block text-[10px] font-bold uppercase tracking-[0.13em]"
+                                style={{ color: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                              >
+                                {intervention.category === 'guard' ? 'Guard' : 'Secretary'}
+                              </span>
+                              <span
+                                className="mt-0.5 block whitespace-pre-line text-[12.5px] leading-snug"
+                                style={{
+                                  color: focalDark ? 'rgba(243,236,223,.82)' : 'var(--sn-ink-700)',
+                                }}
+                              >
+                                {copy}
+                              </span>
+                            </span>
+                          </InspectorTrigger>
+                        );
+                      })}
+                    </div>
+                    <p
+                      className="mt-3 text-[10.5px]"
+                      style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
+                    >
+                      Sai fires a few alerts a week at most — deduped, most-urgent first.
+                    </p>
+                    </details>
+
+                    {/* Laptop — never folds. */}
+                    <div className="hidden lg:block">
+                    <p className="sn-eye">
+                      <Sparkles aria-hidden strokeWidth={1.75} />
+                      Setnayan AI · The Watch
+                    </p>
+                    <div className="mt-1">
+                      {watchItems.map(({ intervention, copy }) => {
+                        const watchColor =
+                          intervention.category === 'guard'
+                            ? 'var(--sn-info)'
+                            : 'var(--sn-gold-600)';
+                        return (
+                          <InspectorTrigger
+                            key={intervention.dedupeKey}
+                            inspectId={`w:${intervention.dedupeKey}`}
+                            className="mt-2 flex w-full gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                          >
+                            <span
+                              aria-hidden
+                              className="mt-1.5 h-2 w-2 flex-none rounded-full"
+                              style={{ background: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                            />
+                            <span className="min-w-0">
+                              <span
+                                className="block text-[10px] font-bold uppercase tracking-[0.13em]"
+                                style={{ color: focalDark ? 'var(--sn-gold-300)' : watchColor }}
+                              >
+                                {intervention.category === 'guard' ? 'Guard' : 'Secretary'}
+                              </span>
+                              <span
+                                className="mt-0.5 block whitespace-pre-line text-[12.5px] leading-snug"
+                                style={{
+                                  color: focalDark ? 'rgba(243,236,223,.82)' : 'var(--sn-ink-700)',
+                                }}
+                              >
+                                {copy}
+                              </span>
+                            </span>
+                          </InspectorTrigger>
+                        );
+                      })}
+                    </div>
+                    <p
+                      className="mt-3 text-[10.5px]"
+                      style={{ color: focalDark ? 'rgba(243,236,223,.5)' : 'var(--sn-ink-500)' }}
+                    >
+                      Sai fires a few alerts a week at most — deduped, most-urgent first.
+                    </p>
+                    </div>
+                  </>
                 ) : null}
               </div>
 
-              {miniTiles.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3.5">{miniTiles}</div>
-              ) : null}
+              {/* RIGHT — decisions digest (ACT) + 2×2 live minis (NAVIGATE) */}
+              <div className="flex flex-col gap-3.5">
+                <div className="sn-tile">
+                  <p className="sn-eye">
+                    <ListChecks aria-hidden strokeWidth={1.75} />
+                    {/* "this week" is a deadline, and after the celebration there
+                        is no week left to meet it in. What remains is genuinely
+                        still open — a bill, a document — so it is named that. */}
+                    {eventHasHappened ? 'Still open' : 'Needs you this week'}
+                  </p>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <b className="font-mono text-[30px] font-bold leading-none text-ink">
+                      <CountUp value={openDecisionCount} delayMs={300} />
+                    </b>
+                    <span className="text-[12.5px] text-ink/55">
+                      {openDecisionCount === 1 ? 'open decision' : 'open decisions'}
+                      {aiActive && openDecisionCount > 0 ? ' · ranked' : ''}
+                      {/* The dates did not vanish when they stopped being decisions —
+                          they are named here so the smaller number cannot read as
+                          "we lost six things". */}
+                      {datesCount > 0
+                        ? ` · ${datesCount} ${datesCount === 1 ? 'date' : 'dates'} coming`
+                        : ''}
+                    </span>
+                  </div>
+                  {/*
+                    ── ONE LIST, NOT A PREVIEW OF ITSELF (owner-approved 2026-09-22) ──
+
+                    This tile used to print `flatDecisions.slice(0, 3)` — the first
+                    three rows of the Decisions board that sits a few hundred
+                    pixels below it, followed by "All N decisions ↗", an anchor to
+                    a list already on the same screen. Measured on the live page
+                    2026-09-22: "Lock your coordinator" rendered THREE times (here,
+                    in "Today's one thing", and on the board), "Papic Guest 500"
+                    twice here and a third time inside Your services.
+
+                    The council's own de-dup rule says the bento is STATUS and the
+                    board is ACT. A preview of the board is the board, in the
+                    status slot. So the tile keeps the NUMBER and loses the rows.
+
+                    🔑 THE RSVP ROW STAYS, AND IT IS NOT A DUPLICATE. It is
+                    deliberately not a cockpit decision and deliberately not in
+                    `openDecisionCount` (the note that used to sit inside this
+                    block, preserved below) — the board has never carried it, so
+                    dropping the preview would have dropped its only home.
+
+                    ⚠ AND IT WAS NESTED IN THE WRONG BRANCH. The row lived inside
+                    `flatDecisions.length > 0`, so an event with no open decisions
+                    but seventy-seven unanswered invitations read "Nothing needs a
+                    decision right now" and said nothing about the RSVPs. It is now
+                    a sibling of that branch, not a child of it.
+                  */}
+                  {openDecisionCount > 0 ? (
+                    <a
+                      href="#decisions"
+                      className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-bold"
+                      style={{ color: 'rgb(var(--color-link))' }}
+                    >
+                      {openDecisionCount === 1 ? 'Open the decision' : 'Open the list'} ↗
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-[13px] text-ink/55">
+                      Nothing needs a decision right now — your plan keeps moving on its own.
+                    </p>
+                  )}
+                  {/* EXTEND (§ 2.2) — unanswered RSVPs. Not a cockpit decision, so it
+                   *  deliberately does NOT enter `decisionGroups` or `openDecisionCount`:
+                   *  that number means "cockpit decisions + payments" and corrupting a
+                   *  shipped number's definition is worse than the row is worth.
+                   *
+                   *  🔑 HONESTY GATE — `rsvpRepliesStarted`. A roster nobody has invited
+                   *  yet must never be nagged that "141 haven't replied"; before the first
+                   *  reply arrives, silence is the truthful state. (An explicit
+                   *  "invitations sent" signal would be the better gate, but
+                   *  `computeGuestStats` has none — this is the conservative substitute,
+                   *  not a guess dressed as one.)
+                   *
+                   *  And it stops after the celebration: chasing a reply to an invitation
+                   *  to a party that is over is the purest version of the owner's complaint. */}
+                  {shouldChaseRsvps({
+                    eventHasHappened,
+                    pending: stats.pending,
+                    repliesStarted: rsvpRepliesStarted,
+                  }) ? (
+                    <Link
+                      href={`${base}/guests`}
+                      className="mt-3 flex min-h-[44px] items-center gap-3 border-t px-1 py-3 transition-colors hover:bg-ink/[0.03]"
+                      style={{ borderColor: '#EDE8DE' }}
+                    >
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 flex-none rounded-full"
+                        // gold = "waiting on people" in the § 2.1 dot vocabulary.
+                        style={{ background: 'var(--sn-gold-500)' }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">
+                        <span className="font-mono font-bold">{stats.pending}</span>{' '}
+                        {stats.pending === 1 ? 'guest hasn' : 'guests haven'}&rsquo;t replied yet
+                      </span>
+                      <span className="flex-none text-[13.5px] text-ink/45">&rarr;</span>
+                    </Link>
+                  ) : null}
+                </div>
+
+                {miniTiles.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3.5">{miniTiles}</div>
+                ) : null}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </aside>
 
-        {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
-         *  glass tile below the top grid. */}
-        {/* ── Today's one thing, as a CARD — the FALLBACK, not the default ──
-         *  Renders only when the Decisions board does NOT carry the task
-         *  (`oneThingRowId === null`) — the group surfaced with an outstanding
-         *  ask, so the cockpit pushed no row for it. In every ordinary state
-         *  the task is a named row on the board above and this is absent,
-         *  which is what stops one task being drawn twice on one page. */}
-        {aiActive && topPriorityTask && !oneThingRowId ? (
-          <div className="sn-tile relative !mt-4 flex flex-wrap items-center gap-4 overflow-hidden">
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-x-4 top-0 h-px"
-              style={{
-                background:
-                  'linear-gradient(90deg, transparent, var(--sn-gold-500), transparent)',
-              }}
-            />
-            <span
-              className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-mono text-lg font-bold"
-              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-            >
-              1
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="sn-eye">Today&rsquo;s one thing</p>
-              <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">
-                {topPriorityTask.title}
-              </p>
-              <p className="mt-0.5 text-[13px] text-ink/60">
-                {topPriorityTask.whyItMatters}
-              </p>
-            </div>
-            <Link
-              href={topPriorityTask.ctaHref}
-              /* D-4 · THE ONE FILLED ACTION ON THIS SCREEN, AND IT IS THE
-                 ACTION COLOUR. Gold is the atelier's decorative slot; the CTA
-                 terracotta lives in the `mulberry` token (#C24E25 — the slot
-                 names are inherited and backwards, which is exactly why this
-                 is spelled out). White on it measures 4.76:1, over the AA
-                 floor. Every other call to action on the page steps down to
-                 an outline, so "do this now" means one thing here.
-                 ⚠ There is no rule making solid gold a premium signature —
-                 that was checked in the decision log before changing it. The
-                 only premium signature on record is the six monogram effects
-                 (2026-07-17), which say nothing about buttons. */
-              className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
-              style={{ background: 'rgb(var(--color-mulberry))', color: '#FFFFFF' }}
-            >
-              {topPriorityTask.ctaLabel}
-            </Link>
-          </div>
-        ) : null}
+        {/* THE FLOW — full width on the left from lg up. */}
+        <div className="sn-overview-flow space-y-10">
 
-        {/* ── Home-injected overlays (cultural / set-date) ─────────────────
-         *   Rendered between the bento and the journey rail via the
-         *   `slotAfterBento` slot so the Muslim / Chinese / set-date cards
-         *   land in the right visual place on the event Home. Null on the
-         *   standalone dashboard. */}
-        {slotAfterBento ? (
-          <div className="space-y-4 !mt-6">{slotAfterBento}</div>
-        ) : null}
-
-        {/* ── Decisions board ──────────────────────────────────────────────
-         *  Reordered above the Journey rail (owner-approved 2026-07-12 council
-         *  verdict): the doorstep now leads with the daily JOB — status
-         *  (bento) → act (decisions) → navigate (the band) — and the narrative
-         *  Journey rail moves BELOW the band as reassurance, not the top task.
-         *  The hero line still greets ("you're in the {stage} stage") so no
-         *  emotional pacing is lost. */}
-        <section id="decisions" aria-label="Decisions" className="scroll-mt-20">
-          <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="sn-sec">{spark}Decisions waiting on you</h2>
-            <span
-              className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
-              style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-            >
-              {openDecisionCount} open
-            </span>
-            {/* "each one links to its room" describes a link the reader can
-                see, and the free line said nothing the heading does not. What
-                survives is the one FACT here: Sai chose the order. */}
-            {aiActive ? (
-              <p className="sn-sec-sub">Ranked by what closes soonest.</p>
-            ) : null}
-          </div>
-          {venueOfferAvailable && !venueOfferInline ? (
-            <div className="mb-3.5">
-              <FreeVenueShortlistOffer eventId={eventId} variant="card" />
+          {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
+           *  glass tile below the top grid. */}
+          {/* ── Today's one thing, as a CARD — the FALLBACK, not the default ──
+           *  Renders only when the Decisions board does NOT carry the task
+           *  (`oneThingRowId === null`) — the group surfaced with an outstanding
+           *  ask, so the cockpit pushed no row for it. In every ordinary state
+           *  the task is a named row on the board above and this is absent,
+           *  which is what stops one task being drawn twice on one page. */}
+          {aiActive && topPriorityTask && !oneThingRowId ? (
+            <div className="sn-tile relative !mt-4 flex flex-wrap items-center gap-4 overflow-hidden">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-4 top-0 h-px"
+                style={{
+                  background:
+                    'linear-gradient(90deg, transparent, var(--sn-gold-500), transparent)',
+                }}
+              />
+              <span
+                className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-mono text-lg font-bold"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
+              >
+                1
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="sn-eye">Today&rsquo;s one thing</p>
+                <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">
+                  {topPriorityTask.title}
+                </p>
+                <p className="mt-0.5 text-[13px] text-ink/60">
+                  {topPriorityTask.whyItMatters}
+                </p>
+              </div>
+              <Link
+                href={topPriorityTask.ctaHref}
+                /* D-4 · THE ONE FILLED ACTION ON THIS SCREEN, AND IT IS THE
+                   ACTION COLOUR. Gold is the atelier's decorative slot; the CTA
+                   terracotta lives in the `mulberry` token (#C24E25 — the slot
+                   names are inherited and backwards, which is exactly why this
+                   is spelled out). White on it measures 4.76:1, over the AA
+                   floor. Every other call to action on the page steps down to
+                   an outline, so "do this now" means one thing here.
+                   ⚠ There is no rule making solid gold a premium signature —
+                   that was checked in the decision log before changing it. The
+                   only premium signature on record is the six monogram effects
+                   (2026-07-17), which say nothing about buttons. */
+                className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
+                style={{ background: 'rgb(var(--color-mulberry))', color: '#FFFFFF' }}
+              >
+                {topPriorityTask.ctaLabel}
+              </Link>
             </div>
           ) : null}
-          {decisionGroups.length > 0 ? (
-            <div className="grid gap-3.5 lg:grid-cols-2">
-              {decisionGroups.map((group, gi) => renderDecisionGroup(group, gi))}
-            </div>
-          ) : (
-            <div className="sn-tile text-sm text-ink/55">
-              Nothing needs a decision right now — your plan keeps moving on its own.
-            </div>
-          )}
-          {/* Doorway to the full planning checklist — the only in-UI entry point
-           *  to /checklist since the standalone checklist card was removed. */}
-          <div className="mt-3.5 flex flex-wrap items-center gap-2 text-sm">
-            <Link
-              href={`${base}/checklist`}
-              className="font-semibold hover:underline"
-              style={{ color: 'rgb(var(--color-link))' }}
-            >
-              View your full checklist →
-            </Link>
-            {/* § 2.3b — completion chip. Absent when the checklist has never been
-             *  seeded OR the read failed: both arrive as "no completed items", and
-             *  "0% done" would state a fact about their planning that nobody
-             *  measured. A finished list turns green rather than staying gold —
-             *  gold in this kit means "waiting on you", which 100% is not. */}
-            {checklistProgress ? (
-              (() => {
-                const pct = Math.round((checklistProgress.done / checklistProgress.total) * 100);
-                const complete = pct >= 100;
-                return (
-                  <span
-                    className="inline-flex flex-none items-center rounded-lg px-2 py-0.5 font-mono text-[11px] font-bold"
-                    style={
-                      complete
-                        ? { color: 'var(--sn-success)', background: '#E9EEE3' }
-                        : { color: 'var(--sn-gold-800)', background: 'rgba(169,131,75,.12)' }
-                    }
-                  >
-                    {pct}% done
-                  </span>
-                );
-              })()
-            ) : null}
-          </div>
-        </section>
 
-        {/* ── Coming up — the dates, under their own heading ────────────────
-         *  Owner-approved 2026-09-22: a recommended deadline or a scheduled
-         *  block is not a decision. These rows used to sit INSIDE the board
-         *  above, which is what made "9 open decisions" out of four.
-         *
-         *  🔑 NOTHING MOVED BUT THE HEADING. Same `datesGroup`, same rows,
-         *  same `renderDecisionGroup`, same inspector ids (`d:u:…`) and the
-         *  same hrefs — so a link that worked yesterday still works, and the
-         *  desktop inspector still resolves them (see the `datesGroup` arm of
-         *  the `?inspect=` lookup).
-         *
-         *  Unranked ON PURPOSE (`gi = null`): these are in DATE order, not in
-         *  Sai's order, so the group shows its count rather than a priority
-         *  number it did not earn.
-         *
-         *  ⚠ STILL AI-ONLY, AND THAT IS UNCHANGED, NOT A NEW DECISION.
-         *  `deadlineGroup` has been gated on `aiActive` since it shipped; a
-         *  free event sees no dates block at all. Giving the free page a dates
-         *  rail would hand over part of what Setnayan AI sells, which is an
-         *  owner call — flagged, not taken here. */}
-        {datesGroup ? (
-          <section id="coming-up" aria-label="Coming up" className="scroll-mt-20 !mt-6">
+          {/* ── Home-injected overlays (cultural / set-date) ─────────────────
+           *   Rendered between the bento and the journey rail via the
+           *   `slotAfterBento` slot so the Muslim / Chinese / set-date cards
+           *   land in the right visual place on the event Home. Null on the
+           *   standalone dashboard. */}
+          {slotAfterBento ? (
+            <div className="space-y-4 !mt-6">{slotAfterBento}</div>
+          ) : null}
+
+          {/* ── Decisions board ──────────────────────────────────────────────
+           *  Reordered above the Journey rail (owner-approved 2026-07-12 council
+           *  verdict): the doorstep now leads with the daily JOB — status
+           *  (bento) → act (decisions) → navigate (the band) — and the narrative
+           *  Journey rail moves BELOW the band as reassurance, not the top task.
+           *  The hero line still greets ("you're in the {stage} stage") so no
+           *  emotional pacing is lost. */}
+          <section id="decisions" aria-label="Decisions" className="scroll-mt-20">
             <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="sn-sec">{spark}Coming up</h2>
+              <h2 className="sn-sec">{spark}Decisions waiting on you</h2>
               <span
                 className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
                 style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
               >
-                {datesCount} {datesCount === 1 ? 'date' : 'dates'}
+                {openDecisionCount} open
               </span>
+              {/* "each one links to its room" describes a link the reader can
+                  see, and the free line said nothing the heading does not. What
+                  survives is the one FACT here: Sai chose the order. */}
+              {aiActive ? (
+                <p className="sn-sec-sub">Ranked by what closes soonest.</p>
+              ) : null}
             </div>
-            <div className="grid gap-3.5 lg:grid-cols-2">
-              {renderDecisionGroup(datesGroup, null)}
-            </div>
-          </section>
-        ) : null}
-
-        {/* ── Meanwhile — a delivery is waiting ──────────────────────────
-         *  Renders ONLY when a vendor has delivered something still
-         *  unacknowledged. Absent data ⇒ absent section, never an empty shell.
-         *
-         *  There is no per-card dismiss state and no new action: "Confirm
-         *  receipt" in the vendor workspace is the shipped, explicit dismissal
-         *  (the idempotent `acknowledge_handover` RPC), so acknowledging there
-         *  clears this here. One mechanism, one place.
-         *
-         *  The thumbnail is a HATCHED PLACEHOLDER on purpose — a handover
-         *  payload is a link or a file, not a resolvable preview, so nothing is
-         *  presigned here and no image is faked.
-         *
-         *  ⚠ The frame's sample copy read "Your prenup photos arrived — 84 from
-         *  Studio Hiraya". Neither the count nor the media kind is derivable
-         *  from this row, so the copy claims only what it knows. */}
-        {latestHandover ? (
-          <section aria-label="Meanwhile" className="!mt-6">
-            <p className="sn-eye">Meanwhile</p>
-            <div
-              className="mt-2 p-4"
-              style={{
-                borderRadius: 'var(--m-r-md)',
-                background: 'rgb(var(--color-cream))',
-                border: '1px solid #E1DCD1',
-                boxShadow: '0 1px 3px rgba(30,26,18,0.06)',
-              }}
-            >
+            {venueOfferAvailable && !venueOfferInline ? (
+              <div className="mb-3.5">
+                <FreeVenueShortlistOffer eventId={eventId} variant="card" />
+              </div>
+            ) : null}
+            {decisionGroups.length > 0 ? (
+              <div className="grid gap-3.5 lg:grid-cols-2">
+                {decisionGroups.map((group, gi) => renderDecisionGroup(group, gi))}
+              </div>
+            ) : (
+              <div className="sn-tile text-sm text-ink/55">
+                Nothing needs a decision right now — your plan keeps moving on its own.
+              </div>
+            )}
+            {/* Doorway to the full planning checklist — the only in-UI entry point
+             *  to /checklist since the standalone checklist card was removed. */}
+            <div className="mt-3.5 flex flex-wrap items-center gap-2 text-sm">
               <Link
-                href={`${base}/vendors/${latestHandover.event_vendor_id}/workspace`}
-                className="flex min-h-[44px] items-center gap-3"
+                href={`${base}/checklist`}
+                className="font-semibold hover:underline"
+                style={{ color: 'rgb(var(--color-link))' }}
               >
-                <span
-                  aria-hidden
-                  className="h-11 w-11 flex-none"
-                  style={{
-                    borderRadius: 'var(--m-r-sm)',
-                    border: '1px solid #E1DCD1',
-                    background:
-                      'repeating-linear-gradient(-45deg,#EFE8DA,#EFE8DA 6px,#E6DECB 6px,#E6DECB 12px)',
-                  }}
-                />
-                <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: '#6E6A62' }}>
-                  {latestHandover.kind === 'gallery_link'
-                    ? `${handoverVendorName} delivered your gallery.`
-                    : latestHandover.kind === 'file'
-                      ? `${handoverVendorName} sent you a file${
-                          latestHandover.label ? ` — ${latestHandover.label}` : ''
-                        }.`
-                      : `${handoverVendorName} left you a note.`}{' '}
-                  <span className="font-semibold" style={{ color: 'rgb(var(--color-link))' }}>
-                    {latestHandover.kind === 'gallery_link'
-                      ? 'Look →'
-                      : latestHandover.kind === 'file'
-                        ? 'Open →'
-                        : 'Read →'}
-                  </span>
-                </span>
+                View your full checklist →
               </Link>
-              {handovers.length > 1 ? (
-                <p className="mt-2 text-[12px]" style={{ color: '#8A857B' }}>
-                  +{handovers.length - 1} more waiting in your vendor rooms.
-                </p>
+              {/* § 2.3b — completion chip. Absent when the checklist has never been
+               *  seeded OR the read failed: both arrive as "no completed items", and
+               *  "0% done" would state a fact about their planning that nobody
+               *  measured. A finished list turns green rather than staying gold —
+               *  gold in this kit means "waiting on you", which 100% is not. */}
+              {checklistProgress ? (
+                (() => {
+                  const pct = Math.round((checklistProgress.done / checklistProgress.total) * 100);
+                  const complete = pct >= 100;
+                  return (
+                    <span
+                      className="inline-flex flex-none items-center rounded-lg px-2 py-0.5 font-mono text-[11px] font-bold"
+                      style={
+                        complete
+                          ? { color: 'var(--sn-success)', background: '#E9EEE3' }
+                          : { color: 'var(--sn-gold-800)', background: 'rgba(169,131,75,.12)' }
+                      }
+                    >
+                      {pct}% done
+                    </span>
+                  );
+                })()
               ) : null}
             </div>
           </section>
-        ) : null}
 
-        {/* ── Around your event ────────────────────────────────────────── */}
-        <section aria-label="Around your event">
-          <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="sn-sec">{spark}Around your event</h2>
-          </div>
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            {/* Hosts — every account managing this event. The add-host entry
-             *  moved here from the account switcher (owner 2026-07-12) so the
-             *  couple sees who can run their event right on the Overview;
-             *  the full invite/permission surface stays at /hosts. */}
-            <ExpandCard
-              cardClassName="sn-tile"
-              title="Hosts"
-              badge={
-                <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
-                  {hostAccounts.length}{' '}
-                  {hostAccounts.length === 1 ? 'account' : 'accounts'}
-                </span>
-              }
-              fullHref={`${base}/hosts`}
-              fullLabel="Add a host"
-              preview={
-                /* A collapsed card's preview used to REPEAT the count already
-                   in its own header and add "expand to see …" — an instruction
-                   for a disclosure the reader is looking at. That is the "dead
-                   teaser" the 2026-07-12 council named. The ENDOWED EMPTY state
-                   below it stays: it carries a fact and a first step, which is
-                   what Phase 2 shipped it for. */
-                hostAccounts.length > 1 ? null : (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {eventHasHappened
-                      ? `It was just you running this ${eventWord}.`
-                      : `It’s just you so far — invite your partner, family, or a coordinator to plan this ${eventWord} together.`}
-                  </p>
-                )
-              }
-            >
-              {hostAccounts.length > 1
-                ? hostAccounts.map((account) => (
-                    <div
-                      key={account.key}
-                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                    >
-                      <span className="min-w-0 truncate font-semibold text-ink">
-                        {account.name}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-ink/50">
-                        {account.roleLabel}
-                      </span>
-                      <span
-                        className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={
-                          account.state === 'invited'
-                            ? chipToneStyle.warm
-                            : chipToneStyle.ok
-                        }
-                      >
-                        {account.state}
-                      </span>
-                    </div>
-                  ))
-                : null}
-            </ExpandCard>
-
-            {/* Your team — vendor-bearing types only. On a vendor-free type the
-             *  whole card is a doorway to a marketplace that does not exist:
-             *  its empty state read "start with the ones that book out first:
-             *  your venue and catering" and its CTA linked to /vendors, which
-             *  the nav already hides for exactly this reason. */}
-            {marketplaceEnabled ? (
-            <ExpandCard
-              cardClassName="sn-tile"
-              title="Your team"
-              badge={
-                /* Event-type-scoped: the "of 21" denominator is the wedding
-                 *  plan-group count — wrong for a debut/christening/corporate
-                 *  host, so non-weddings show a plain booked count until their
-                 *  per-type category map ships. */
-                <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
-                  {!vendorsMeasured
-                    ? 'not loaded'
-                    : eventType === 'wedding'
-                      ? `${lockedVendorCount} of ${totalLockableCategories} booked`
-                      : `${teamVendors.length} ${teamVendors.length === 1 ? 'vendor' : 'vendors'} booked`}
-                </span>
-              }
-              fullHref={`${base}/vendors`}
-              fullLabel="Manage vendors"
-              preview={
-                !vendorsMeasured ? (
-                  // "No vendors booked yet" to a couple with a booked venue is
-                  // not a neutral default — it invites them to start work they
-                  // have already done, and it renders identically either way.
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    We couldn&rsquo;t load your suppliers just now. Nothing has
-                    changed &mdash; refresh to try again.
-                  </p>
-                ) : teamVendors.length > 0 ? null : (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {eventHasHappened
-                      ? 'No suppliers were booked through Setnayan for this one.'
-                      : 'No vendors booked yet — start with the ones that book out first: your venue and catering.'}
-                  </p>
-                )
-              }
-            >
-              {teamVendors.length > 0
-                ? teamVendors.map((v) => (
-                    <div
-                      key={v.vendor_id}
-                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                    >
-                      <span className="min-w-0 truncate font-semibold text-ink">
-                        {v.vendor_name}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-ink/50">
-                        {String(v.category).replace(/_/g, ' ')}
-                      </span>
-                      <span
-                        className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={chipToneStyle.ok}
-                      >
-                        {(v.status ?? 'contracted').replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                  ))
-                : null}
-            </ExpandCard>
-            ) : null}
-
-            {/* Conversations — unread count is THIS event's vendor threads
-             *  (see fetchEventUnreadCounts above), so the copy never claims
-             *  false urgency on a fresh, vendor-less couple. The identity-
-             *  masking note moved to one global footnote below the grid. */}
-            <article className="sn-tile relative">
-              <div className="mb-2 flex items-center gap-2.5">
-                <MessageSquare
-                  aria-hidden
-                  className="h-4 w-4 flex-none"
-                  strokeWidth={1.75}
-                  style={{ color: 'var(--sn-gold-600)' }}
-                />
-                <h3 className="text-[16.5px] font-extrabold tracking-[-0.015em] text-ink">
-                  Conversations
-                </h3>
-                {unreadCount > 0 ? (
-                  <span
-                    className="rounded-full px-2 py-0.5 text-[11.5px] font-bold"
-                    style={chipToneStyle.warm}
-                  >
-                    {unreadCount} unread
-                  </span>
-                ) : null}
-                <Link
-                  href={`${base}/messages`}
-                  aria-label="Open threads"
-                  className="ml-auto whitespace-nowrap text-xs font-bold"
-                  style={{ color: 'var(--sn-gold-700)' }}
+          {/* ── Coming up — the dates, under their own heading ────────────────
+           *  Owner-approved 2026-09-22: a recommended deadline or a scheduled
+           *  block is not a decision. These rows used to sit INSIDE the board
+           *  above, which is what made "9 open decisions" out of four.
+           *
+           *  🔑 NOTHING MOVED BUT THE HEADING. Same `datesGroup`, same rows,
+           *  same `renderDecisionGroup`, same inspector ids (`d:u:…`) and the
+           *  same hrefs — so a link that worked yesterday still works, and the
+           *  desktop inspector still resolves them (see the `datesGroup` arm of
+           *  the `?inspect=` lookup).
+           *
+           *  Unranked ON PURPOSE (`gi = null`): these are in DATE order, not in
+           *  Sai's order, so the group shows its count rather than a priority
+           *  number it did not earn.
+           *
+           *  ⚠ STILL AI-ONLY, AND THAT IS UNCHANGED, NOT A NEW DECISION.
+           *  `deadlineGroup` has been gated on `aiActive` since it shipped; a
+           *  free event sees no dates block at all. Giving the free page a dates
+           *  rail would hand over part of what Setnayan AI sells, which is an
+           *  owner call — flagged, not taken here. */}
+          {datesGroup ? (
+            <section id="coming-up" aria-label="Coming up" className="scroll-mt-20 !mt-6">
+              <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="sn-sec">{spark}Coming up</h2>
+                <span
+                  className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
+                  style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
                 >
-                  Open threads →
-                </Link>
-              </div>
-              {/* The unread COUNT is already the card's own badge; saying it
-                  again in a sentence and adding "open to catch up" is the same
-                  dead-teaser shape as the cards above. Silence when there is
-                  something to read, the endowed line when there is not. */}
-              {unreadCount > 0 ? null : (
-                <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                  All caught up — when a vendor replies, it lands right here.
-                </p>
-              )}
-            </article>
-
-            {/* Your services */}
-            <ExpandCard
-              cardClassName="sn-tile"
-              title="Your services"
-              badge={
-                <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
-                  {serviceRows.length} {serviceRows.length === 1 ? 'order' : 'orders'}
+                  {datesCount} {datesCount === 1 ? 'date' : 'dates'}
                 </span>
-              }
-              fullHref={`${base}/orders`}
-              fullLabel="Open orders"
-              preview={
-                serviceRows.length > 0 ? null : (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {eventHasHappened
-                      ? 'Nothing was ordered for this one.'
-                      : 'Nothing ordered yet — the Studio has everything for the day, from your monogram to save-the-dates and live streaming.'}
-                  </p>
-                )
-              }
-            >
-              {serviceRows.length > 0
-                ? serviceRows.map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                    >
-                      <span className="min-w-0 flex-1 truncate font-semibold text-ink">
-                        {row.label}
-                      </span>
-                      <span
-                        className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={chipToneStyle[row.tone]}
-                      >
-                        {row.status}
-                      </span>
-                    </div>
-                  ))
-                : null}
-            </ExpandCard>
+              </div>
+              <div className="grid gap-3.5 lg:grid-cols-2">
+                {renderDecisionGroup(datesGroup, null)}
+              </div>
+            </section>
+          ) : null}
 
-            {/* Schedule — the couple's OWN day-of program (event_schedule_blocks),
-             *  NOT the deadline/reminder stream. So the "Schedule" title now
-             *  reflects the ceremony/reception timeline the couple builds under
-             *  /schedule and that the day-of grid goes live with. */}
-            <ExpandCard
-              cardClassName="sn-tile"
-              title="Schedule"
-              fullHref={`${base}/schedule?view=journey`}
-              fullLabel="See full schedule"
-              preview={
-                schedulePreview.isEmpty ? (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    {eventHasHappened
-                      ? 'No program was set for this one.'
-                      : 'No program yet — map out your ceremony & reception, and your guests follow the timeline live on the day.'}
+          {/* ── Meanwhile — a delivery is waiting ──────────────────────────
+           *  Renders ONLY when a vendor has delivered something still
+           *  unacknowledged. Absent data ⇒ absent section, never an empty shell.
+           *
+           *  There is no per-card dismiss state and no new action: "Confirm
+           *  receipt" in the vendor workspace is the shipped, explicit dismissal
+           *  (the idempotent `acknowledge_handover` RPC), so acknowledging there
+           *  clears this here. One mechanism, one place.
+           *
+           *  The thumbnail is a HATCHED PLACEHOLDER on purpose — a handover
+           *  payload is a link or a file, not a resolvable preview, so nothing is
+           *  presigned here and no image is faked.
+           *
+           *  ⚠ The frame's sample copy read "Your prenup photos arrived — 84 from
+           *  Studio Hiraya". Neither the count nor the media kind is derivable
+           *  from this row, so the copy claims only what it knows. */}
+          {latestHandover ? (
+            <section aria-label="Meanwhile" className="!mt-6">
+              <p className="sn-eye">Meanwhile</p>
+              <div
+                className="mt-2 p-4"
+                style={{
+                  borderRadius: 'var(--m-r-md)',
+                  background: 'rgb(var(--color-cream))',
+                  border: '1px solid #E1DCD1',
+                  boxShadow: '0 1px 3px rgba(30,26,18,0.06)',
+                }}
+              >
+                <Link
+                  href={`${base}/vendors/${latestHandover.event_vendor_id}/workspace`}
+                  className="flex min-h-[44px] items-center gap-3"
+                >
+                  <span
+                    aria-hidden
+                    className="h-11 w-11 flex-none"
+                    style={{
+                      borderRadius: 'var(--m-r-sm)',
+                      border: '1px solid #E1DCD1',
+                      background:
+                        'repeating-linear-gradient(-45deg,#EFE8DA,#EFE8DA 6px,#E6DECB 6px,#E6DECB 12px)',
+                    }}
+                  />
+                  <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: '#6E6A62' }}>
+                    {latestHandover.kind === 'gallery_link'
+                      ? `${handoverVendorName} delivered your gallery.`
+                      : latestHandover.kind === 'file'
+                        ? `${handoverVendorName} sent you a file${
+                            latestHandover.label ? ` — ${latestHandover.label}` : ''
+                          }.`
+                        : `${handoverVendorName} left you a note.`}{' '}
+                    <span className="font-semibold" style={{ color: 'rgb(var(--color-link))' }}>
+                      {latestHandover.kind === 'gallery_link'
+                        ? 'Look →'
+                        : latestHandover.kind === 'file'
+                          ? 'Open →'
+                          : 'Read →'}
+                    </span>
+                  </span>
+                </Link>
+                {handovers.length > 1 ? (
+                  <p className="mt-2 text-[12px]" style={{ color: '#8A857B' }}>
+                    +{handovers.length - 1} more waiting in your vendor rooms.
                   </p>
-                ) : (
-                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                    Your ceremony &amp; reception timeline — expand to see it.
-                  </p>
-                )
-              }
-            >
-              {schedulePreview.isEmpty ? null : (
-                <>
-                  {schedulePreview.display.map((block) => (
-                    <div
-                      key={block.block_id}
-                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                    >
-                      <span
-                        className="flex h-6 min-w-[24px] flex-none items-center justify-center rounded-full px-1 font-mono text-[10.5px] font-bold"
-                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-                      >
-                        {shortDate.format(new Date(block.start_at))}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-semibold text-ink">
-                        {block.label}
-                      </span>
-                      <span className="whitespace-nowrap text-[11px] text-ink/45">
-                        {scheduleBlockLabelFor(block.block_type, eventType)}
-                      </span>
-                    </div>
-                  ))}
-                  {schedulePreview.moreCount > 0 ? (
-                    <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
-                      +{schedulePreview.moreCount} more{' '}
-                      {schedulePreview.moreCount === 1 ? 'block' : 'blocks'} in your
-                      timeline
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {/* ── Around your event ────────────────────────────────────────── */}
+          <section aria-label="Around your event">
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="sn-sec">{spark}Around your event</h2>
+            </div>
+            <div className="grid gap-3.5 sm:grid-cols-2">
+              {/* Hosts — every account managing this event. The add-host entry
+               *  moved here from the account switcher (owner 2026-07-12) so the
+               *  couple sees who can run their event right on the Overview;
+               *  the full invite/permission surface stays at /hosts. */}
+              <ExpandCard
+                cardClassName="sn-tile"
+                title="Hosts"
+                badge={
+                  <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
+                    {hostAccounts.length}{' '}
+                    {hostAccounts.length === 1 ? 'account' : 'accounts'}
+                  </span>
+                }
+                fullHref={`${base}/hosts`}
+                fullLabel="Add a host"
+                preview={
+                  /* A collapsed card's preview used to REPEAT the count already
+                     in its own header and add "expand to see …" — an instruction
+                     for a disclosure the reader is looking at. That is the "dead
+                     teaser" the 2026-07-12 council named. The ENDOWED EMPTY state
+                     below it stays: it carries a fact and a first step, which is
+                     what Phase 2 shipped it for. */
+                  hostAccounts.length > 1 ? null : (
+                    <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                      {eventHasHappened
+                        ? `It was just you running this ${eventWord}.`
+                        : `It’s just you so far — invite your partner, family, or a coordinator to plan this ${eventWord} together.`}
                     </p>
-                  ) : null}
-                </>
-              )}
-            </ExpandCard>
-          </div>
-          {/* Band footer — ONE global identity-masking note (replaces the
-           *  per-card 'never a personal profile' legalese that used to repeat
-           *  on the Conversations card) + the sole couple-UI entry to the full
-           *  /activity feed (kept reachable after the Budget nav's `activity`
-           *  child was removed in #3055). */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink/5 pt-3 text-[11.5px] text-ink/45">
-            <span>
-              Vendors always appear by company — never a personal profile.
-            </span>
-            <Link
-              href={`${base}/activity`}
-              className="ml-auto whitespace-nowrap font-bold"
-              style={{ color: 'rgb(var(--color-link))' }}
-            >
-              See all recent activity →
-            </Link>
-          </div>
-        </section>
+                  )
+                }
+              >
+                {hostAccounts.length > 1
+                  ? hostAccounts.map((account) => (
+                      <div
+                        key={account.key}
+                        className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                      >
+                        <span className="min-w-0 truncate font-semibold text-ink">
+                          {account.name}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-ink/50">
+                          {account.roleLabel}
+                        </span>
+                        <span
+                          className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+                          style={
+                            account.state === 'invited'
+                              ? chipToneStyle.warm
+                              : chipToneStyle.ok
+                          }
+                        >
+                          {account.state}
+                        </span>
+                      </div>
+                    ))
+                  : null}
+              </ExpandCard>
 
-        {/* ── Journey rail — moved BELOW the band per the council verdict.
-         *  Narrative reassurance ("Read your progress"), endowed so a fresh
-         *  event never reads 0%, but no longer occupies the daily-job slot
-         *  above the Decisions board. */}
-        <section aria-label="Event progress">
-          <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="sn-sec">{spark}Read your progress</h2>
-          </div>
-          <JourneyRail
-            stages={stageModel.stages}
-            currentKey={stageModel.currentKey}
-            aiActive={aiActive}
-          />
-        </section>
-        {/* The "Sai on watch" section moved INTO the Big-Day focal's lower half
-         *  (top grid, above) so the tall focal is filled and the watch lives in
-         *  one place. Its #3265 inspector triggers travelled with it. */}
+              {/* Your team — vendor-bearing types only. On a vendor-free type the
+               *  whole card is a doorway to a marketplace that does not exist:
+               *  its empty state read "start with the ones that book out first:
+               *  your venue and catering" and its CTA linked to /vendors, which
+               *  the nav already hides for exactly this reason. */}
+              {marketplaceEnabled ? (
+              <ExpandCard
+                cardClassName="sn-tile"
+                title="Your team"
+                badge={
+                  /* Event-type-scoped: the "of 21" denominator is the wedding
+                   *  plan-group count — wrong for a debut/christening/corporate
+                   *  host, so non-weddings show a plain booked count until their
+                   *  per-type category map ships. */
+                  <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
+                    {!vendorsMeasured
+                      ? 'not loaded'
+                      : eventType === 'wedding'
+                        ? `${lockedVendorCount} of ${totalLockableCategories} booked`
+                        : `${teamVendors.length} ${teamVendors.length === 1 ? 'vendor' : 'vendors'} booked`}
+                  </span>
+                }
+                fullHref={`${base}/vendors`}
+                fullLabel="Manage vendors"
+                preview={
+                  !vendorsMeasured ? (
+                    // "No vendors booked yet" to a couple with a booked venue is
+                    // not a neutral default — it invites them to start work they
+                    // have already done, and it renders identically either way.
+                    <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                      We couldn&rsquo;t load your suppliers just now. Nothing has
+                      changed &mdash; refresh to try again.
+                    </p>
+                  ) : teamVendors.length > 0 ? null : (
+                    <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                      {eventHasHappened
+                        ? 'No suppliers were booked through Setnayan for this one.'
+                        : 'No vendors booked yet — start with the ones that book out first: your venue and catering.'}
+                    </p>
+                  )
+                }
+              >
+                {teamVendors.length > 0
+                  ? teamVendors.map((v) => (
+                      <div
+                        key={v.vendor_id}
+                        className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                      >
+                        <span className="min-w-0 truncate font-semibold text-ink">
+                          {v.vendor_name}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-ink/50">
+                          {String(v.category).replace(/_/g, ' ')}
+                        </span>
+                        <span
+                          className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+                          style={chipToneStyle.ok}
+                        >
+                          {(v.status ?? 'contracted').replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    ))
+                  : null}
+              </ExpandCard>
+              ) : null}
+
+              {/* Conversations — unread count is THIS event's vendor threads
+               *  (see fetchEventUnreadCounts above), so the copy never claims
+               *  false urgency on a fresh, vendor-less couple. The identity-
+               *  masking note moved to one global footnote below the grid. */}
+              <article className="sn-tile relative">
+                <div className="mb-2 flex items-center gap-2.5">
+                  <MessageSquare
+                    aria-hidden
+                    className="h-4 w-4 flex-none"
+                    strokeWidth={1.75}
+                    style={{ color: 'var(--sn-gold-600)' }}
+                  />
+                  <h3 className="text-[16.5px] font-extrabold tracking-[-0.015em] text-ink">
+                    Conversations
+                  </h3>
+                  {unreadCount > 0 ? (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[11.5px] font-bold"
+                      style={chipToneStyle.warm}
+                    >
+                      {unreadCount} unread
+                    </span>
+                  ) : null}
+                  <Link
+                    href={`${base}/messages`}
+                    aria-label="Open threads"
+                    className="ml-auto whitespace-nowrap text-xs font-bold"
+                    style={{ color: 'var(--sn-gold-700)' }}
+                  >
+                    Open threads →
+                  </Link>
+                </div>
+                {/* The unread COUNT is already the card's own badge; saying it
+                    again in a sentence and adding "open to catch up" is the same
+                    dead-teaser shape as the cards above. Silence when there is
+                    something to read, the endowed line when there is not. */}
+                {unreadCount > 0 ? null : (
+                  <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                    All caught up — when a vendor replies, it lands right here.
+                  </p>
+                )}
+              </article>
+
+              {/* Your services */}
+              <ExpandCard
+                cardClassName="sn-tile"
+                title="Your services"
+                badge={
+                  <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
+                    {serviceRows.length} {serviceRows.length === 1 ? 'order' : 'orders'}
+                  </span>
+                }
+                fullHref={`${base}/orders`}
+                fullLabel="Open orders"
+                preview={
+                  serviceRows.length > 0 ? null : (
+                    <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                      {eventHasHappened
+                        ? 'Nothing was ordered for this one.'
+                        : 'Nothing ordered yet — the Studio has everything for the day, from your monogram to save-the-dates and live streaming.'}
+                    </p>
+                  )
+                }
+              >
+                {serviceRows.length > 0
+                  ? serviceRows.map((row) => (
+                      <div
+                        key={row.id}
+                        className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                      >
+                        <span className="min-w-0 flex-1 truncate font-semibold text-ink">
+                          {row.label}
+                        </span>
+                        <span
+                          className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+                          style={chipToneStyle[row.tone]}
+                        >
+                          {row.status}
+                        </span>
+                      </div>
+                    ))
+                  : null}
+              </ExpandCard>
+
+              {/* Schedule — the couple's OWN day-of program (event_schedule_blocks),
+               *  NOT the deadline/reminder stream. So the "Schedule" title now
+               *  reflects the ceremony/reception timeline the couple builds under
+               *  /schedule and that the day-of grid goes live with. */}
+              <ExpandCard
+                cardClassName="sn-tile"
+                title="Schedule"
+                fullHref={`${base}/schedule?view=journey`}
+                fullLabel="See full schedule"
+                preview={
+                  schedulePreview.isEmpty ? (
+                    <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                      {eventHasHappened
+                        ? 'No program was set for this one.'
+                        : 'No program yet — map out your ceremony & reception, and your guests follow the timeline live on the day.'}
+                    </p>
+                  ) : (
+                    <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
+                      Your ceremony &amp; reception timeline — expand to see it.
+                    </p>
+                  )
+                }
+              >
+                {schedulePreview.isEmpty ? null : (
+                  <>
+                    {schedulePreview.display.map((block) => (
+                      <div
+                        key={block.block_id}
+                        className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                      >
+                        <span
+                          className="flex h-6 min-w-[24px] flex-none items-center justify-center rounded-full px-1 font-mono text-[10.5px] font-bold"
+                          style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
+                        >
+                          {shortDate.format(new Date(block.start_at))}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-semibold text-ink">
+                          {block.label}
+                        </span>
+                        <span className="whitespace-nowrap text-[11px] text-ink/45">
+                          {scheduleBlockLabelFor(block.block_type, eventType)}
+                        </span>
+                      </div>
+                    ))}
+                    {schedulePreview.moreCount > 0 ? (
+                      <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
+                        +{schedulePreview.moreCount} more{' '}
+                        {schedulePreview.moreCount === 1 ? 'block' : 'blocks'} in your
+                        timeline
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </ExpandCard>
+            </div>
+            {/* Band footer — ONE global identity-masking note (replaces the
+             *  per-card 'never a personal profile' legalese that used to repeat
+             *  on the Conversations card) + the sole couple-UI entry to the full
+             *  /activity feed (kept reachable after the Budget nav's `activity`
+             *  child was removed in #3055). */}
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink/5 pt-3 text-[11.5px] text-ink/45">
+              <span>
+                Vendors always appear by company — never a personal profile.
+              </span>
+              <Link
+                href={`${base}/activity`}
+                className="ml-auto whitespace-nowrap font-bold"
+                style={{ color: 'rgb(var(--color-link))' }}
+              >
+                See all recent activity →
+              </Link>
+            </div>
+          </section>
+
+          {/* ── Journey rail — moved BELOW the band per the council verdict.
+           *  Narrative reassurance ("Read your progress"), endowed so a fresh
+           *  event never reads 0%, but no longer occupies the daily-job slot
+           *  above the Decisions board. */}
+          <section aria-label="Event progress">
+            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="sn-sec">{spark}Read your progress</h2>
+            </div>
+            <JourneyRail
+              stages={stageModel.stages}
+              currentKey={stageModel.currentKey}
+              aiActive={aiActive}
+            />
+          </section>
+          {/* The "Sai on watch" section moved INTO the Big-Day focal's lower half
+           *  (top grid, above) so the tall focal is filled and the watch lives in
+           *  one place. Its #3265 inspector triggers travelled with it. */}
+        </div>
       </div>
     </div>
   );

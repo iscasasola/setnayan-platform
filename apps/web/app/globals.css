@@ -4297,3 +4297,57 @@ html:active-view-transition .sn-page-enter { animation: none; }
 html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
 }
+
+/*
+ * ── EVENT OVERVIEW · STATUS STAYS IN VIEW (owner-approved 2026-09-22) ───────
+ *
+ * One column on a phone; from 1280 the flow takes the width on the left and the
+ * day + the numbers pin on the right. The desktop page measured 3,165px and
+ * everything that tells a couple where they stand lived in the first screen.
+ *
+ * WHY 1280 AND NOT 1024: the split has to clear the app rail AND leave the
+ * decision groups their two columns. At 1024 the content box is roughly 780px,
+ * so 780 − 364 would leave about 416px of flow — narrower than the two-up
+ * group cards it has to hold. At 1280 it is about 1,038 − 364 = 674px, which
+ * is what the board has today.
+ *
+ * 🛑 AND IT YIELDS TO THE INSPECTOR. `.sn-inspector-rail` already claims the
+ * right side at this exact breakpoint, up to 420px + 24px, while the master
+ * reflows. Two permanent right columns leave about 310px of flow at 1280, so
+ * when the inspector is open this grid collapses back to a single column and
+ * the status block simply sits in the stack. One right column at a time.
+ */
+@media (min-width: 1280px) {
+  .sn-overview-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 21rem;
+    column-gap: 1.75rem;
+    align-items: start;
+  }
+  .sn-overview-cols > * {
+    margin-top: 0 !important;
+  }
+  .sn-overview-cols > header {
+    grid-column: 1 / -1;
+  }
+  .sn-overview-flow {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .sn-overview-status {
+    grid-column: 2;
+    grid-row: 2;
+    position: sticky;
+    top: 6rem;
+  }
+  /* The inspector owns the right side when it is open — see the note above. */
+  .sn-inspector-shell[data-open='true'] .sn-overview-cols {
+    display: block;
+  }
+  .sn-inspector-shell[data-open='true'] .sn-overview-status {
+    position: static;
+  }
+  .sn-inspector-shell[data-open='true'] .sn-overview-cols > * + * {
+    margin-top: 2.5rem !important;
+  }
+}

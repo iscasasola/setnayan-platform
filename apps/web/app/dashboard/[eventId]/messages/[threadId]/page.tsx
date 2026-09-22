@@ -12,6 +12,7 @@ import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
+import { closingCopy } from '@/lib/thread-closing-copy';
 import { resolveLivePax } from '@/lib/pax';
 import { parseThreadView } from '@/lib/thread-view';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -362,6 +363,21 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // declined-state copy when the vendor left one. Anonymity is preserved: the
   // resolved label is the vendor's screen_name pre-reveal, never a name leak.
   const declineReason = thread.decline_reason?.trim() || null;
+
+  /*
+    WHO CLOSED THIS, AND THEREFORE WHAT IT SAYS (owner 2026-09-22). The branch
+    below used to end in a bare `else`, so a couple who WITHDREW their own
+    inquiry was told "{vendor} isn't available for your date" and offered
+    alternatives. One module decides for both sides — see lib/thread-closing-copy.ts,
+    executed by lib/thread-closing-copy.test.ts.
+    ⚠ `archived_at` is REQUIRED here: withdrawInquiry writes only that column and
+    never touches inquiry_status, so a withdrawal is invisible to a status read.
+  */
+  const closing = closingCopy(
+    thread,
+    'couple',
+    { counterpartyLabel: vendorLabel, declineReason },
+  );
 
   // "See similar vendors" hand-off (inquiry-followthrough 2026-06-16): deep-link
   // to the matching plan group on the Services surface so the couple lands in
@@ -716,35 +732,28 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
               </div>
             ) : (
               <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
-                <p className="text-sm text-ink">
-                  {declineReason ? (
-                    <>
-                      {vendorLabel} declined this inquiry.{' '}
-                      <span className="font-semibold">Why:</span> &ldquo;{declineReason}
-                      &rdquo; Browse similar vendors to keep your options open.
-                    </>
-                  ) : (
-                    <>
-                      {vendorLabel} isn&rsquo;t available for your date. Browse similar
-                      vendors to keep your options open.
-                    </>
-                  )}
-                </p>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href={similarVendorsHref}
-                    className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-                  >
-                    See similar vendors
-                  </Link>
-                  <form action={withdrawInquiry}>
-                    <input type="hidden" name="event_id" value={eventId} />
-                    <input type="hidden" name="thread_id" value={threadId} />
-                    <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">
-                      Withdraw inquiry
-                    </SubmitButton>
-                  </form>
-                </div>
+                <p className="text-sm text-ink">{closing.sentence}</p>
+                {closing.showSimilarVendors || closing.showWithdraw ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {closing.showSimilarVendors ? (
+                      <Link
+                        href={similarVendorsHref}
+                        className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+                      >
+                        See similar vendors
+                      </Link>
+                    ) : null}
+                    {closing.showWithdraw ? (
+                      <form action={withdrawInquiry}>
+                        <input type="hidden" name="event_id" value={eventId} />
+                        <input type="hidden" name="thread_id" value={threadId} />
+                        <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">
+                          Withdraw inquiry
+                        </SubmitButton>
+                      </form>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             )
           }

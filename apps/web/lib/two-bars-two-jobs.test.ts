@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { SEARCH_SCOPES } from './search-scope';
+
 /**
  * TWO SEARCH BOXES CAN COEXIST — THEY MAY NOT MAKE THE SAME PROMISE.
  *
@@ -73,9 +75,25 @@ test('the in-page marketplace box does not advertise a global search', () => {
 test('the two boxes do not promise the same noun', () => {
   const inPage = inPagePlaceholder(TAXONOMY).toLowerCase();
 
-  const top = /'(Search [^']*?)'/.exec(TOPBAR);
-  assert.ok(top?.[1], 'could not find the top bar placeholder — re-aim this guard');
-  const topWords = top[1].toLowerCase();
+  /*
+    ⚠ RE-AIMED 2026-09-23, AND IT NOW READS THE REAL VALUES. This used to pull
+    the top bar's placeholder out of the component source with
+    `/'(Search [^']*?)'/`. That worked only while the words were a hard-coded
+    literal in the JSX; they now come from `SEARCH_SCOPES`, because the box
+    announces WHICH PLACE it is pointed at (owner 2026-09-23). The regex found
+    nothing and the guard fired its own "re-aim this guard" message — which is
+    exactly what a guard keyed on a spelling should do, and why this one now
+    imports the module instead.
+
+    🔑 STRONGER THAN BEFORE, NOT WEAKER. It used to check ONE string. It now
+    checks EVERY scope's placeholder, long and short — so a scope added later
+    cannot reintroduce the collision on a screen nobody re-tested.
+  */
+  const topPlaceholders = Object.values(SEARCH_SCOPES).flatMap((s) => [
+    s.placeholder.toLowerCase(),
+    s.shortPlaceholder.toLowerCase(),
+  ]);
+  assert.ok(topPlaceholders.length > 0, 'no scope placeholders — re-aim this guard');
 
   /*
     The overlap that actually confused a person: BOTH naming the people who
@@ -83,11 +101,13 @@ test('the two boxes do not promise the same noun', () => {
     both lead with it while sitting on the same screen.
   */
   for (const noun of ['vendor', 'supplier']) {
-    assert.ok(
-      !(inPage.includes(noun) && topWords.includes(noun)),
-      `Both search boxes now promise "${noun}" — top: "${topWords}", ` +
-        `in-page: "${inPage}". That is the exact duplication the owner ` +
-        'reported: one control drawn twice.',
-    );
+    for (const topWords of topPlaceholders) {
+      assert.ok(
+        !(inPage.includes(noun) && topWords.includes(noun)),
+        `Both search boxes now promise "${noun}" — top: "${topWords}", ` +
+          `in-page: "${inPage}". That is the exact duplication the owner ` +
+          'reported: one control drawn twice.',
+      );
+    }
   }
 });

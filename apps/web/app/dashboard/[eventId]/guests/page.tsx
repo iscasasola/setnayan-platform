@@ -913,9 +913,23 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           link); RosterTabs' docblock lists them. The one thing removed is the
           duplicate: before the event "Invite guests" and the Share dropdown
           both handed out the same link, and are one "Share the link" tab now.
-          Desktop only, exactly as the actions were (`hidden … lg:flex`) —
-          phones keep the carousel's own header. */}
-      <div className="hidden lg:block">
+          ⚠ THIS ROW USED TO BE `hidden lg:block`, AND THAT HID THE WEDDING
+          MARCH FROM EVERY PHONE. Owner 2026-09-23: *"the guest list on mobile
+          mode is different from the desktop mode. seems like the mobile mode
+          was not edited properly."* He was right, and it was worse than
+          different: `rosterDoors` is the ONLY thing that emits `?gview=walk`,
+          and `mobile-guest-carousel.tsx` emits `gview: null` or reads
+          `gview === 'map'` — it never links to the walk view at all. So on a
+          phone there was no control that could reach the processional; the
+          only way in was to type the URL, which is how he got there.
+          🔑 THE MOBILE DESIGN ALREADY EXISTED — IT WAS SWITCHED OFF. RosterTabs
+          was built for the phone and its docblock says so: the row is a
+          snap carousel measured at 380px, with an 8px edge fade so a cut word
+          reads as "more", and "Arrange the room" is an icon on mobile because
+          the owner asked for exactly that on 2026-09-20 ("just make this an
+          icon on mobile same row as roster wedding march and share the link").
+          All of that shipped behind `hidden`. */}
+      <div>
         <RosterTabs
           eventId={eventId}
           view={gview}

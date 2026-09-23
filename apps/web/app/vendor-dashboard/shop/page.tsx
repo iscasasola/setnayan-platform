@@ -101,6 +101,7 @@ import {
 
 import { ManageTiles } from './_components/manage-tiles';
 import { ShopRail, ShopDoorSection } from './_components/shop-rail';
+import { CouldNotLoad } from './_components/could-not-load';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
 import { VerifySection, type VerifySummary } from './_components/verify-section';
 import { readContactStamps } from './inline-docs-actions';
@@ -193,6 +194,13 @@ type ShopData = {
   igConnection: VendorIgConnectionStatus | null;
   igMedia: VendorIgMediaRow[];
   reviewOptions: { id: string; label: string }[];
+  /* Set when the read FAILED, as opposed to legitimately returning nothing.
+     A panel that cannot tell these apart tells the supplier their shop is
+     empty when it is not — see the note beside the probes. */
+  teamNamesUnavailable: boolean;
+  logoUnavailable: boolean;
+  igUnavailable: boolean;
+  reviewOptionsUnavailable: boolean;
   editorialOptions: { id: string; label: string }[];
   completionPct: number;
   verify: VerifySummary;
@@ -563,12 +571,38 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   }
 
+  /*
+   * 🔑 WHAT COULD NOT BE LOADED, AS OPPOSED TO WHAT IS NOT THERE.
+   *
+   * Every optional read below degrades to an empty value so one hiccup cannot
+   * blank My Shop — that part is right and stays. What was wrong is that the
+   * empty value it degrades to is BYTE-IDENTICAL to a supplier who genuinely
+   * has no logo, no reviews and no Instagram. The comment beside
+   * `logoDisplayMap` said so in as many words: failures collapse "exactly like
+   * a vendor who hasn't set those yet".
+   *
+   * So each probe whose result a supplier can SEE now records that it failed,
+   * and the panel says so instead of rendering as emptiness. Logging alone
+   * would not have been enough — a log line never changed a pixel, and they
+   * would still be looking at a shop that appears empty.
+   *
+   * ⚠ Only probes whose failure is otherwise INDISTINGUISHABLE get a flag. The
+   * portfolio thumbnails do not: the page knows how many keys it asked for, so
+   * a short list is already visible without being announced.
+   */
+  let teamNamesUnavailable = false;
+  let logoUnavailable = false;
+  let igUnavailable = false;
+  let reviewOptionsUnavailable = false;
+
   // Attach email/display_name (Pattern A — other users' identity needs the
   // admin client). Fail-soft: keep the rows nameless rather than crash.
   let enrichedTeam: TeamMember[];
   try {
     enrichedTeam = await enrichTeamWithUsers(createAdminClient(), team);
-  } catch {
+  } catch (err) {
+    logQueryError('VendorShopPage.enrichTeam', err, { vendorId, members: team.length });
+    teamNamesUnavailable = team.length > 0;
     enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
   }
 
@@ -585,7 +619,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     if (profile.logo_url && logoDisplayUrl) {
       logoDisplayMap = { [profile.logo_url]: logoDisplayUrl };
     }
-  } catch {
+  } catch (err) {
+    logQueryError('VendorShopPage.logoDisplayUrl', err, { vendorId, hasLogo: !!profile.logo_url });
+    logoUnavailable = !!profile.logo_url;
     logoDisplayMap = {};
   }
   // The Hero avatar shows the uploaded logo when present (owner 2026-07-02),
@@ -642,7 +678,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         try {
           const url = await displayUrlForStoredAsset(key);
           return url ? { key, url } : null;
-        } catch {
+        } catch (err) {
+          logQueryError('VendorShopPage.portfolioThumb', err, { vendorId, key });
           return null;
         }
       }),
@@ -672,7 +709,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   try {
     igConnection = await fetchVendorIgConnection(vendorId);
     igMedia = igConnection ? await fetchVendorIgMediaForOwner(vendorId) : [];
-  } catch {
+  } catch (err) {
+    logQueryError('VendorShopPage.instagram', err, { vendorId });
+    igUnavailable = true;
     igConnection = null;
     igMedia = [];
   }
@@ -692,7 +731,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         : `${r.rating_overall}★`;
       return { id: r.review_id, label: `${name} · ${snippet}` };
     });
-  } catch {
+  } catch (err) {
+    logQueryError('VendorShopPage.reviewOptions', err, { vendorId });
+    reviewOptionsUnavailable = true;
     reviewOptions = [];
   }
 
@@ -705,7 +746,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       vendorId,
       profile.services ?? [],
     );
-  } catch {
+  } catch (err) {
+    logQueryError('VendorShopPage.coverageSuggestion', err, { vendorId });
     pendingCoverageSuggestion = null;
   }
 
@@ -741,6 +783,10 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     igConnection,
     igMedia,
     reviewOptions,
+    teamNamesUnavailable,
+    logoUnavailable,
+    igUnavailable,
+    reviewOptionsUnavailable,
     editorialOptions,
     completionPct,
     verify,
@@ -1105,11 +1151,13 @@ async function ShopHome({
               galleryVideoLinks={data.galleryVideoLinks}
               igConfigured={data.igConfigured}
               igConnection={data.igConnection}
+              igUnavailable={data.igUnavailable}
+              reviewsUnavailable={data.reviewOptionsUnavailable}
               igMedia={data.igMedia}
               igFlash={igFlash}
             />
           }
-          teamPanel={<TeamPanel members={data.team} />}
+          teamPanel={<TeamPanel members={data.team} namesUnavailable={data.teamNamesUnavailable} />}
           branchPanel={
             <BranchPanel
               city={data.city}
@@ -1389,6 +1437,11 @@ function HeroCard({
             Add your shop name and we&rsquo;ll give you your web address.
           </p>
         )}
+        {/* The logo the supplier uploaded could not be presigned. Without this
+            the hero silently falls back to initials — exactly what a shop with
+            NO logo looks like — so they are told their branding was lost when
+            it was not. */}
+        {data.logoUnavailable ? <CouldNotLoad what="your logo" /> : null}
       </div>
 
       <CompletenessRing pct={data.completionPct} />
@@ -1508,10 +1561,19 @@ function StatTile({
 
 /* ─── Inline panels (rendered server-side, hosted by ManageTiles) ───────── */
 
-function TeamPanel({ members }: { members: TeamMember[] }) {
+function TeamPanel({
+  members,
+  namesUnavailable,
+}: {
+  members: TeamMember[];
+  /* The rows loaded; the NAMES behind them did not. Without this the panel
+     renders a team of blanks and looks like nobody filled their details in. */
+  namesUnavailable?: boolean;
+}) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-ink/55">Any admin can manage the team.</p>
+      {namesUnavailable ? <CouldNotLoad what="your team's names and emails" /> : null}
 
       <ul className="space-y-2">
         {members.length === 0 ? (

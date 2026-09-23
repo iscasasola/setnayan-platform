@@ -23,7 +23,9 @@
  */
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -54,6 +56,14 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/orders';
+import {
+  UNREAD_UNKNOWN,
+  cardUnread,
+  rollupUnread,
+  unreadBadgeAria,
+  unreadBadgeLabel,
+  type BenchUnread,
+} from '@/lib/bench-unread';
 import {
   STANDING_LABEL,
   standingRollUp,
@@ -416,6 +426,19 @@ html.dark .slcat .bench-mkt-results{background:#2A2E36}
 html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
+/* The unread counter (owner 2026-09-22). Inline beside the name it belongs to,
+   never absolutely positioned: a corner badge would sit on top of the card photo
+   and of the existing .pcorner ("Featured" / "Asked"), which already owns that
+   corner. Equal-width figures so 1 and 11 are the same width down a list.
+   NOTE: no backticks anywhere in here - this comment lives INSIDE the SLCAT_CSS
+   template literal, and a backtick would end the literal and make the rest of
+   the stylesheet parse as code. That is exactly how this shipped broken once. */
+.slcat .unrd{display:inline-flex;align-items:center;justify-content:center;
+  min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:999px;
+  background:var(--terracotta-700,#9c4221);color:#fff;
+  font-family:var(--sans);font-weight:700;font-size:10.5px;line-height:1;
+  font-variant-numeric:tabular-nums;vertical-align:middle;flex:0 0 auto}
+.slcat .cat-l .unrd,.slcat .fold-meta .unrd{margin-left:7px}
 .slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
 .slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
@@ -1029,6 +1052,52 @@ function BenchRollUp({ folders, standings }: { folders: ShortlistFolder[]; stand
   );
 }
 
+/* ═══ THE UNREAD BADGE ══════════════════════════════════════════════════════
+   Owner 2026-09-22: *"make a badge counter on the category/ cards"*, counting
+   **messages** ("1. messages").
+
+   Carried by context rather than threaded as a prop through FIVE card call sites
+   (three `<VendorCard>`, two `<InlineMoreCard>`). Two consumers, not five
+   hand-offs, so a call site cannot be the one that silently forgets it.
+
+   🔑 THE DEFAULT IS `UNREAD_UNKNOWN`, i.e. `measured: false`, DELIBERATELY. If a
+   provider is ever missing, every badge disappears — it does not render "0". An
+   absent provider must not be able to tell a couple their inbox is clear. */
+const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
+
+/** One supplier's unread count. Shows on linked copies too — see `bench-unread.ts`. */
+function UnreadBadge({ threadId }: { threadId: string | null }) {
+  const n = cardUnread(useContext(UnreadCtx), threadId);
+  const label = unreadBadgeLabel(n);
+  if (label == null) return null;
+  return (
+    <span className="unrd" aria-label={unreadBadgeAria(n) ?? undefined}>
+      {label}
+    </span>
+  );
+}
+
+/**
+ * A category's or folder's unread total, counting each SUPPLIER once.
+ *
+ * Both heads use this one component, so a folder total and its categories cannot
+ * be derived two different ways and disagree.
+ */
+function UnreadRollupBadge({
+  vendors,
+}: {
+  vendors: ReadonlyArray<{ threadId: string | null; includedWith: string | null }>;
+}) {
+  const n = rollupUnread(vendors, useContext(UnreadCtx));
+  const label = unreadBadgeLabel(n);
+  if (label == null) return null;
+  return (
+    <span className="unrd" aria-label={unreadBadgeAria(n) ?? undefined}>
+      {label}
+    </span>
+  );
+}
+
 function VendorCard({
   v,
   reason,
@@ -1144,6 +1213,7 @@ function VendorCard({
       </span>
       <span className="meta">
         <span className="vn">{v.name}</span>
+        <UnreadBadge threadId={v.threadId} />
         {v.city ? (
           <span className="sub">
             <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
@@ -1476,6 +1546,7 @@ function InlineMoreCard({
         </span>
         <span className="meta">
           <span className="vn">{v.name}</span>
+          <UnreadBadge threadId={v.threadId} />
           {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string,
               and without this line a couple reads it as a fake listing. Same
               sentence the full sheet shows, for the same reason. */}
@@ -1545,6 +1616,7 @@ function InlineMoreCard({
 export function ShortlistCategories({
   folders,
   eventId,
+  unread,
   initialOpenTile = null,
   savedRequirementCanonicalByTile = {},
   coveredByTile = {},
@@ -1558,6 +1630,16 @@ export function ShortlistCategories({
   benchArrangement,
   standings = {},
 }: {
+  /**
+   * Unread messages per chat thread for this event, and whether we know them.
+   *
+   * ⚠ PAIRS, NOT A `Map`. This file's own `teamCalendar` prop states the rule:
+   * a Set "crosses to the client as an array and is rebuilt there rather than
+   * trusted to survive the boundary". Same treatment here, rebuilt below.
+   *
+   * Absent → `measured: false` → no badge anywhere. Never a zero.
+   */
+  unread?: { pairs: ReadonlyArray<readonly [string, number]>; measured: boolean };
   folders: ShortlistFolder[];
   eventId: string;
   /**
@@ -2501,7 +2583,16 @@ export function ShortlistCategories({
     }
   };
 
+  // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
+  // `measured: false` when the prop is absent, so a page that has not plumbed
+  // the read shows NO badges rather than a screenful of zeros.
+  const benchUnread = useMemo<BenchUnread>(
+    () => ({ countByThread: new Map(unread?.pairs ?? []), measured: unread?.measured === true }),
+    [unread],
+  );
+
   return (
+    <UnreadCtx.Provider value={benchUnread}>
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
       {/* The remove confirm. It must live INSIDE the rendered tree or
@@ -2835,12 +2926,14 @@ export function ShortlistCategories({
                     {fsum.more > 0 ? (
                       <span className="s ad">{FOLDER_SUMMARY_MORE(fsum.more)}</span>
                     ) : null}
+                    <UnreadRollupBadge vendors={folder.tiles.flatMap((x) => x.vendors)} />
                   </span>
                 ) : (
                   <span className={`fold-meta${folder.pickCount > 0 ? ' has' : ''}`}>
                     {folder.pickCount > 0
                       ? `${folder.pickCount} considering`
                       : `${folder.tiles.length} categories`}
+                    <UnreadRollupBadge vendors={folder.tiles.flatMap((x) => x.vendors)} />
                   </span>
                 )}
                 <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
@@ -3025,6 +3118,7 @@ export function ShortlistCategories({
                               <CatIcon size={15} strokeWidth={1.7} />
                             </span>
                             <span className="cat-nm">{t.label}</span>
+                            <UnreadRollupBadge vendors={t.vendors} />
                           </span>
                           <span className="cat-rt">
                             {/* Free first-venue-shortlist carve-out (owner
@@ -3639,5 +3733,6 @@ export function ShortlistCategories({
         )
       ) : null}
     </div>
+    </UnreadCtx.Provider>
   );
 }

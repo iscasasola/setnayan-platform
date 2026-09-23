@@ -92,11 +92,28 @@ test('⭐ one page signs every background ONCE, deduped', () => {
 test('⛔ a ref that FAILED to sign renders no background — not an empty plate', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubCanvasFrame } = await import('../app/[slug]/_components/hub-canvas-frame');
+/*
+  🪤 THE FRAME IS LOOSENED FOR `createElement`, AND IT TOOK TWO RED CI RUNS TO
+  GET RIGHT. `react/no-children-prop` (an ERROR here) forbids `{ children }` in
+  the props object; `HubCanvasFrame`'s props type REQUIRES `children`, so moving
+  it to the third argument left the props object incomplete and tsc refused the
+  overload. Lint and tsc each rejected the other's fix.
+
+  In JSX there is no tension — `<HubCanvasFrame …>{child}</HubCanvasFrame>`
+  satisfies both — but these guards are `.ts`, not `.tsx`. So the component is
+  cast to a loose function type for the harness only: children go as arguments
+  (lint) and the props object no longer owes a `children` (tsc).
+
+  ⚠ The lesson is not the cast. It is that fixing ONE of the two checks and
+  pushing burned a fifty-minute round trip; they have to be run together.
+*/
+const Frame = HubCanvasFrame as unknown as React.FunctionComponent<Record<string, unknown>>;
+
   const widget = { widget_id: 'W1', event_id: 'E1', widget_type: 'countdown', config_json: { canvas: { media: PUBLIC } } } as never;
 
   // The map is empty — a deleted object, a refused bucket, a signing outage.
   const unsigned = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget, mediaUrls: {} }, React.createElement('p', null, 'hi')),
+    React.createElement(Frame, { widget, mediaUrls: {} }, React.createElement('p', null, 'hi')),
   );
   assert.match(unsigned, /hub-no-media/, 'the section says it has no picture');
   assert.doesNotMatch(unsigned, /hub-canvas-media/, 'and draws no layer for one');
@@ -106,7 +123,7 @@ test('⛔ a ref that FAILED to sign renders no background — not an empty plate
   // And with a URL, the picture is drawn.
   const signed = renderToStaticMarkup(
     React.createElement(
-      HubCanvasFrame,
+      Frame,
       { widget, mediaUrls: { [PUBLIC]: 'https://example.test/a.jpg?sig=1' } },
       React.createElement('p', null, 'hi'),
     ),

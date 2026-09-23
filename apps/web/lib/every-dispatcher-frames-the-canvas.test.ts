@@ -82,13 +82,30 @@ test('⛔ the frame still refuses a null child and an un-arranged couple', async
   (globalThis as unknown as { React: unknown }).React = React;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubCanvasFrame } = await import('../app/[slug]/_components/hub-canvas-frame');
+/*
+  🪤 THE FRAME IS LOOSENED FOR `createElement`, AND IT TOOK TWO RED CI RUNS TO
+  GET RIGHT. `react/no-children-prop` (an ERROR here) forbids `{ children }` in
+  the props object; `HubCanvasFrame`'s props type REQUIRES `children`, so moving
+  it to the third argument left the props object incomplete and tsc refused the
+  overload. Lint and tsc each rejected the other's fix.
+
+  In JSX there is no tension — `<HubCanvasFrame …>{child}</HubCanvasFrame>`
+  satisfies both — but these guards are `.ts`, not `.tsx`. So the component is
+  cast to a loose function type for the harness only: children go as arguments
+  (lint) and the props object no longer owes a `children` (tsc).
+
+  ⚠ The lesson is not the cast. It is that fixing ONE of the two checks and
+  pushing burned a fifty-minute round trip; they have to be run together.
+*/
+const Frame = HubCanvasFrame as unknown as React.FunctionComponent<Record<string, unknown>>;
+
   const row = (config: unknown) =>
     ({ widget_id: 'W1', event_id: 'E1', widget_type: 'countdown', config_json: config } as never);
 
   // A widget that hid itself must not become an empty animated box.
   assert.equal(
     renderToStaticMarkup(
-      React.createElement(HubCanvasFrame, { widget: row({ canvas: { preset: 'calm' } }) }, null),
+      React.createElement(Frame, { widget: row({ canvas: { preset: 'calm' } }) }, null),
     ),
     '',
     'a null child renders nothing at all — no wrapper div',
@@ -96,14 +113,14 @@ test('⛔ the frame still refuses a null child and an un-arranged couple', async
 
   // A couple who arranged nothing gets markup identical to having no frame.
   const bare = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget: row(null) }, React.createElement('p', null, 'hi')),
+    React.createElement(Frame, { widget: row(null) }, React.createElement('p', null, 'hi')),
   );
   assert.equal(bare, '<p>hi</p>', 'no wrapper, no classes — byte-identical to before the canvas existed');
 
   // And one who did arrange gets the frame.
   const framed = renderToStaticMarkup(
     React.createElement(
-      HubCanvasFrame,
+      Frame,
       { widget: row({ canvas: { preset: 'cinematic' } }) },
       React.createElement('p', null, 'hi'),
     ),

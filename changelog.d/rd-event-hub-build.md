@@ -662,3 +662,20 @@ repo's known false alarm: the aggregator treats `skipped` as failure, so a genui
 is reported beside the real cause. The real cause was the lint.
 
 SPEC IMPACT: None.
+
+### 16b · …and the lint fix broke the typecheck
+
+The fix above moved `children` out of the props object — and `tsc` then failed at the **same five
+lines**, because `HubCanvasFrame`'s props type *requires* `children`, so a props object without it
+no longer matched `createElement`'s overload.
+
+🔴 **Lint and tsc each rejected the other's fix, and each rejection cost a fifty-minute round
+trip.** `typecheck + lint` is one CI check; fixing half of it and pushing is how a branch spends an
+afternoon.
+
+In a `.tsx` file there is no tension — JSX children satisfy both. These guards are `.ts`, so the
+component is cast to a loose function type **for the harness only**: children go as arguments
+(lint) and the props object no longer owes a `children` (tsc). Both run clean together before this
+push, which is the actual fix.
+
+SPEC IMPACT: None.

@@ -77,6 +77,7 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './port-controls.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '..');
@@ -417,7 +418,46 @@ function cssRulePairings(rawCss, resolveColor) {
   // Comments first, or a `/* ... { ... } ... */` block is parsed as a rule and
   // its prose becomes a selector. The first cut reported three "failures" whose
   // selector was the inside of a comment explaining an unrelated fix.
-  const css = rawCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  //
+  // 🔑 THE REPO'S ONE STRIPPER, not a private regex — `lint-one-comment-stripper`
+  // blocks a second copy, and this file had grown one. It is also more accurate:
+  // a `.replace(…, '')` DELETES the comment and shifts every index after it, so
+  // the reported line was wrong by however much comment preceded it —
+  // `.m-btn-orange` was announced at :399 and lives at :1370. `stripComments`
+  // blanks in place, so a character offset still points at the same character in
+  // the RAW file.
+  //
+  // ⚠ THE SCAN HAS A BLIND SPOT, AND IT IS RULE-SHAPED, NOT TEXT-SHAPED.
+  // A rule whose background carries `url(...)` is dropped entirely by the
+  // `gradient|url\(|transparent|...` skip below, because the `background`
+  // shorthand then no longer resolves to a single colour. **Quoted or
+  // unquoted makes no difference** — the rule never reaches the measurement,
+  // so its colour pair is never checked.
+  //
+  // 🔑 THIS IS NOT A STRIPPER PROBLEM, AND AN EARLIER VERSION OF THIS NOTE SAID
+  // IT WAS. The tempting theory is that a JS stripper eats an unquoted
+  // `url(https://…)` as a line comment. It does not explain anything here: a
+  // QUOTED url is skipped too, which no stripper touches. Isolated 2026-09-23
+  // with a four-case fixture — `color`+`background-color` convicts, adding an
+  // unquoted url does not, adding a QUOTED url does not, plain hex convicts
+  // again. A language-correct CSS stripper would not close this hole.
+  //
+  // Today NO rule in the tree both carries a `url()` and sets a colour pair, so
+  // nothing is being missed. It fails silently the day one does. Re-measure —
+  // this prints 0 today and finds a seeded one, so a zero here is a
+  // measurement and not a silence:
+  //
+  //   node -e '
+  //     const {readFileSync}=require("fs"),{execSync}=require("child_process");
+  //     for (const f of execSync("find apps/web/app apps/web/components -name \"*.css\"")
+  //            .toString().split("\n").filter(Boolean)) {
+  //       const css=readFileSync(f,"utf8").replace(/\/\*[\s\S]*?\*\//g,"");
+  //       for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g))
+  //         if (/background(-color)?\s*:[^;]*url\(/i.test(m[2]) &&
+  //             /(^|;)\s*color\s*:/i.test(m[2])) console.log(f+" \u00b7 "+m[1].trim());
+  //     }'
+  //
+  const css = stripComments(rawCss);
   const BLOCK = /([^{}]+)\{([^{}]*)\}/g;
   const decl = (body, prop) => {
     const m = body.match(new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)', 'i'));
@@ -443,6 +483,15 @@ function cssRulePairings(rawCss, resolveColor) {
     // hover over a dark navbar then reads as white-on-white — a confident 1.00:1
     // that is pure artefact. Skipping is honest; guessing the backdrop is not.
     if (/rgba?\([^)]*,\s*0?\.\d+\s*\)|\/\s*0?\.\d+\s*\)/.test(bgRaw)) continue;
+    /*
+     * ⚠ `m.index` IS NOT THE RULE. The selector group is `[^{}]+`, so it starts
+     * at the character after the PREVIOUS rule's `}` and swallows the blanked
+     * comment block in between. Reporting it puts the reader 24 lines above the
+     * rule, inside the comment explaining it. Offset to the first non-space
+     * character — the selector itself — which is exact because the stripper
+     * blanks in place.
+     */
+    const selIndex = m.index + Math.max(0, m[1].search(/\S/));
     for (const selRaw of m[1].split(',')) {
       const sel = selRaw.trim();
       if (!sel || sel.startsWith('@') || sel.startsWith('%')) continue;
@@ -464,7 +513,7 @@ function cssRulePairings(rawCss, resolveColor) {
       const label = resolveColor(labelRaw);
       if (!fill || !label) continue;
       out.push({
-        index: m.index,
+        index: selIndex,
         fill: { name: sel + via + ' background', rgb: fill },
         label: { name: labelRaw.trim(), rgb: label },
       });

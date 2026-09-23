@@ -1345,8 +1345,30 @@ html.subnav-docked [data-shell-main] {
   .m-btn-primary:hover { background: var(--m-mulberry-2); }
   .m-btn-primary:disabled { background: var(--m-mulberry-3); opacity: .5; cursor: not-allowed; }
   /* Champagne accent buttons — for secondary actions + highlights (token name --m-orange kept for back-compat) */
-  .m-btn-orange { background: var(--m-orange); color: #fff; }
-  .m-btn-orange:hover { background: var(--m-orange-2); }
+  /*
+   * THE PUBLIC HALF OF THE SAME FIX (owner, 2026-09-23: "darken it").
+   * This button is the CTA on /vendors and /creators — "Open your shop",
+   * "Talk to us". Measured, label #fff:
+   *   --m-orange      #A9834B  3.48:1   ← was resting. AA needs 4.5.
+   *   --m-orange-2    #8A6B39  4.95:1   ← resting now
+   *   --m-orange-deep #5C4726  8.81:1   ← hover now
+   *
+   * 🔑 TWO LADDERS, ONE COLOUR. `--m-orange` and `--sn-gold-500` are SEPARATE
+   * variables that both hold #A9834B, as are `--m-orange-2`/`--sn-gold-700` and
+   * `--m-orange-deep`/`--sn-gold-800`. The dashboard fix above moved the sn-
+   * rungs and could not reach this rule. They can drift apart later, so each
+   * ladder needs its own fix — this is the second of two, not a duplicate.
+   *
+   * 🔑 THE FILL MOVED, NOT THE TOKEN. `--m-orange` is also a focus ring, a
+   * border and a blob across the marketing pages; darkening the token would
+   * repaint all of them to fix one button.
+   *
+   * ⚠ AND THE HOVER MOVED TOO. The old hover (#8A6B39) already cleared 4.5, so
+   * leaving it would have made hovering the only readable state — the shape
+   * that hid the dashboard button for months.
+   */
+  .m-btn-orange { background: var(--m-orange-2); color: #fff; }
+  .m-btn-orange:hover { background: var(--m-orange-deep); }
   /* Ink button — retained for rare dark-CTA contexts where mulberry isn't appropriate */
   .m-btn-ink { background: var(--m-ink); color: var(--m-paper); }
   .m-btn-ink:hover { background: var(--m-slate); }
@@ -1386,10 +1408,29 @@ html.subnav-docked [data-shell-main] {
     background: var(--m-paper);
     color: var(--m-slate);
   }
+  /*
+   * The champagne pill (owner, 2026-09-23 — the second of the two he ruled on).
+   * Label #8A6B39 on the #F3ECDF wash read 4.21:1, a near miss under the 4.5
+   * floor. 12px text, so no large-text exemption applies.
+   *
+   * 🔑 HERE THE LABEL MOVES, NOT THE FILL — the OPPOSITE of `.m-btn-orange`
+   * above, and deliberately. On the button the label was already white and the
+   * fill was the problem; the guard's own advice ("fix the FILL, not the label")
+   * is written for that case, where swapping white for cream buys ~0.1. This is
+   * the mirror: dark text on a pale wash, where the wash IS the component's
+   * identity and the text is what can move. --m-orange-deep buys 3.3 and reads
+   * 7.50:1.
+   *
+   * Not a new pairing — `--m-orange-deep` on `--m-orange-4` already ships in
+   * vendor-grow-sections, data-privacy and npc-checklist. This makes the pill
+   * match what is already on the page rather than inventing a tone.
+   *
+   * No `:hover` rule exists for this pill, so there is no second state to clear.
+   */
   .m-pill-orange {
     background: var(--m-orange-4);
     border-color: var(--m-orange-3);
-    color: var(--m-orange-2);
+    color: var(--m-orange-deep);
   }
 
   .m-hi {

@@ -225,3 +225,47 @@ right.
 capiz panes, sprigs, playbill ornaments, `cqw` sizing). This change is the decision layer only.
 
 SPEC IMPACT: None.
+
+---
+
+## 2026-09-23 · feat(profile): the past shelf stops at a screenful
+
+Approved: a first screenful of past celebrations, then one control — **"Show all 14"**.
+
+`pastShelf()` caps at **6** — two full rows at the two-column breakpoint, so the cap lands on a row
+edge rather than mid-row at either width; a number that cuts a row in half looks like a rendering
+fault rather than a deliberate stop. The label states the **total**, not the remainder: "Show all 14"
+is a promise about the shelf, where "Show 8 more" asks the reader to do arithmetic to learn the same
+thing.
+
+⛔ **NOT A PAGINATOR** — no new state, no route, no second query. The split already sorts Past
+newest-first, so a plain cap always keeps the celebrations that matter most.
+
+⛔ **AND THE POSTERS DO NOT SHRINK AS THE LIST GROWS.** Making each memory smaller to fit more of
+them turns a wall of celebrations back into the list of rows this redesign exists to remove.
+
+It degrades at both ends with no special case: at 1 there is no control (his page today), at exactly
+6 there is still none because nothing is hidden, at 7 it appears, and at 40 there is still exactly
+one.
+
+### Two corrections the guards caught, both deliberate reversals
+
+🪤 **A CONTRAST FIGURE MEANS NOTHING WITHOUT THE COLOUR IT IS AGAINST.** Two sessions computed "gold
+on ink" and got 4.46 and 3.66 — **both right**, against `--sn-ink-900` #1B1A17 and `--m-ink` #2C2A29
+respectively. The one that governs is the ink the poster actually sets type in: **3.66**. The
+conclusion is unchanged and firmer — gold carries neither white (3.90) nor ink — but 4.46 reads as
+"nearly passing" and 3.66 does not. The comment now names the ink and the test pins it.
+
+🔒 **`std_film_accent_hex` came back, and the guard caught the reversal.** It was dropped when the
+cover art carried the colour; the approved poster design makes the accent **the sheet itself**. A
+column that stopped paying for itself started again when the design changed. `site_bg_color` and
+`site_button_color` never came back.
+
+🔑 **And `invite_theme` left the banned list with its reason attached.** It is `anon=-`, exactly like
+`moodboard_theme_name` — the marker that got that one refused. The difference: `invite_theme` is
+already rendered on the couple's own public site, so a visitor can see it by opening the celebration.
+**Same marker, opposite answers — the grant governs direct reads, not secrecy.** The guard now
+asserts the justification itself: if `hub-look.ts` ever stops reading `invite_theme`, it stops being
+public information and this select is no longer entitled to it.
+
+SPEC IMPACT: None.

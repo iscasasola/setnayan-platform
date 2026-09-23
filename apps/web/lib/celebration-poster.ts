@@ -21,10 +21,17 @@
  * makes room."* Measured with this repo's own `contrastRatio`:
  *
  *   wine #9a244f   white on it 7.67   → sheet
- *   gold #9b7e00   white on it 3.90   → moon   (and 4.46 on ink: it can hold
- *                                               NEITHER, which is exactly why
- *                                               the art gives the words their
- *                                               own white ground)
+ *   gold #9b7e00   white on it 3.90   → moon
+ *
+ * ⚠ GOLD FAILS AGAINST INK TOO, AND NAME THE INK OR THE NUMBER MISLEADS. Against
+ * `--m-ink` #2C2A29 — the ink the poster actually sets type in — it is **3.66**.
+ * Against `--sn-ink-900` #1B1A17 it is 4.46. Two sessions computed it against
+ * different inks and got different figures; both were right and the conclusion
+ * is the same, but 4.46 reads as "nearly passing" and 3.66 does not. The one
+ * that governs is the ink the type is set in: 3.66.
+ *
+ * So gold carries NEITHER white nor ink, which is exactly why the art gives the
+ * words their own white ground rather than tinting the sheet a little darker.
  *
  * ⛔ THE FIX IS NEVER A DIFFERENT GOLD. His accent is his accent — it is the
  * colour he chose for his own Save-the-Date film. A poster that "solves"

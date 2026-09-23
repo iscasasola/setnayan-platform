@@ -96,14 +96,49 @@ test('🔒 NO PRIVATE COLUMN reaches the public profile select', () => {
   assert.ok(start >= 0, 'EVENT_FIELDS moved — re-point this guard');
   const fields = src.slice(start, src.indexOf(';', start));
 
-  const privateCols = ['invite_theme', 'moodboard_theme_name', 'story_cover_kind', 'story_cover_ref', 'role_palette'];
-  // Dropped deliberately: the cover carries colour, so these stopped paying.
-  const droppedCols = ['std_film_accent_hex', 'site_bg_color', 'site_button_color'];
+  /*
+    ⚠ `invite_theme` LEFT THIS LIST ON 2026-09-23, AND THE REASON IS THE RULE.
+    It is `anon=-`, exactly like `moodboard_theme_name` — the marker that got
+    that one refused. But `invite_theme` is ALREADY rendered on the couple's own
+    public site (`app/[slug]/_lib/hub-look.ts`, plus the public recap and pabuya
+    pages), so a visitor can already see it by opening the celebration. The
+    grant governs direct PostgREST reads, not secrecy.
+
+    🔑 SAME MARKER, OPPOSITE ANSWERS. `moodboard_theme_name` is `anon=-` AND
+    rendered nowhere public — it stays banned. The test below is what decides:
+    not "is it granted", but "can a visitor already see it".
+  */
+  const privateCols = ['moodboard_theme_name', 'story_cover_kind', 'story_cover_ref', 'role_palette'];
+  /*
+    ⚠ `std_film_accent_hex` CAME BACK ON 2026-09-23 AND THAT IS NOT A DRIFT.
+    It was dropped when the cover art carried the colour — an accent edge was a
+    second answer to a settled question. Then the owner approved the poster
+    design, where the accent IS the sheet: wine #9a244f and gold #9b7e00 are the
+    posters. A column that stopped paying for itself started again when the
+    design changed, and the guard caught the reversal, which is the point.
+
+    `site_bg_color` and `site_button_color` never came back — still unused.
+  */
+  const droppedCols = ['site_bg_color', 'site_button_color'];
   const leaked = privateCols.filter((c) => fields.includes(c));
   console.log(`  private columns in the public select: ${leaked.length} — ${JSON.stringify(leaked)}`);
   assert.deepEqual(leaked, [], 'a non-anon-readable column is on a public read');
 
   assert.ok(fields.includes('std_theme'), "the card's typeface column is missing");
+
+  /*
+    And the allowed-because-already-public one must STAY justified: if
+    `invite_theme` ever stops being read by a public surface, it stops being
+    public information and this select is no longer entitled to it.
+  */
+  if (fields.includes('invite_theme')) {
+    const hubLook = readFileSync(path.join(process.cwd(), 'app/[slug]/_lib/hub-look.ts'), 'utf8');
+    assert.ok(
+      hubLook.includes('invite_theme'),
+      'invite_theme is on a public read here but no longer rendered on the public event site — ' +
+        'the justification for exposing it has gone',
+    );
+  }
   const stillThere = droppedCols.filter((c) => fields.includes(c));
   console.log(`  columns dropped as not paying: ${droppedCols.length - stillThere.length}/${droppedCols.length}`);
   assert.deepEqual(stillThere, [], 'a column the cover made redundant is back on a public read');

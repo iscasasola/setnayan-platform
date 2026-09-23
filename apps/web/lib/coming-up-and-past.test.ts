@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { splitComingUpAndPast, type SplittableEvent } from './coming-up-and-past';
+import { PAST_FIRST_SCREENFUL, pastShelf, splitComingUpAndPast, type SplittableEvent } from './coming-up-and-past';
 
 /*
   COMING UP vs PAST — owner 2026-09-23: "split coming up from past".
@@ -118,4 +118,37 @@ test('both sections are gated on having cards, and share ONE card renderer', () 
   assert.ok(page.includes('splitComingUpAndPast(listed, manilaTodayISO())'),
     'the page must delegate the split and the clock');
   assert.ok(!/event_date\s*[<>]/.test(page), 'the page is comparing dates itself');
+});
+
+test('the past shelf caps at a screenful and offers ONE control', () => {
+  const many = Array.from({ length: 14 }, (_, i) => `m${i}`);
+  const shelf = pastShelf(many);
+  console.log(`  14 past → shown ${shelf.shown.length}, hidden ${shelf.hidden}, label "${shelf.moreLabel}"`);
+  assert.equal(shelf.shown.length, PAST_FIRST_SCREENFUL);
+  assert.equal(shelf.hidden, 8);
+  assert.equal(shelf.moreLabel, 'Show all 14', 'the label states the total, not the remainder');
+});
+
+test('it degrades at both ends with no special case', () => {
+  // His page today: one past celebration, so no control at all.
+  const one = pastShelf(['Movie Night']);
+  assert.deepEqual(one.shown, ['Movie Night']);
+  assert.equal(one.hidden, 0);
+  assert.equal(one.moreLabel, null, 'nothing is hidden, so nothing offers to reveal it');
+
+  assert.equal(pastShelf([]).moreLabel, null);
+  // exactly at the cap — still no control, because nothing is hidden
+  assert.equal(pastShelf(Array.from({ length: PAST_FIRST_SCREENFUL }, (_, i) => i)).moreLabel, null);
+  // one over — the control appears
+  assert.equal(pastShelf(Array.from({ length: PAST_FIRST_SCREENFUL + 1 }, (_, i) => i)).hidden, 1);
+  // and at 40 there is still exactly ONE control
+  assert.equal(pastShelf(Array.from({ length: 40 }, (_, i) => i)).moreLabel, 'Show all 40');
+});
+
+test('the cap lands on a row edge, and a nonsense limit cannot break it', () => {
+  assert.equal(PAST_FIRST_SCREENFUL % 2, 0, 'an odd cap cuts a row in half at two columns');
+  for (const bad of [0, -3, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const s = pastShelf(Array.from({ length: 10 }, (_, i) => i), bad);
+    assert.equal(s.shown.length, PAST_FIRST_SCREENFUL, `limit ${bad} broke the shelf`);
+  }
 });

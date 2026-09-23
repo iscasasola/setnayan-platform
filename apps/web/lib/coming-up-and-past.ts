@@ -92,3 +92,52 @@ export function splitComingUpAndPast<T extends SplittableEvent>(
 
   return { comingUp, past };
 }
+
+/**
+ * How many past celebrations a first screenful shows before the rest go behind
+ * one control.
+ *
+ * Six: two full rows at the two-column breakpoint, so the cap lands on a row
+ * edge rather than mid-row at either width. A number that cuts a row in half
+ * looks like a rendering fault rather than a deliberate stop.
+ */
+export const PAST_FIRST_SCREENFUL = 6;
+
+export type PastShelf<T> = {
+  /** What renders immediately. */
+  shown: T[];
+  /** How many more exist. `0` means no control — nothing is hidden. */
+  hidden: number;
+  /** The control's label, or `null` when there is nothing to reveal. */
+  moreLabel: string | null;
+};
+
+/**
+ * Cap the past shelf at a first screenful.
+ *
+ * ⛔ WHAT THIS DELIBERATELY IS NOT. Not a paginator — no new state, no route,
+ * no second query; the split already sorts Past newest-first, so a simple cap
+ * always keeps the celebrations that matter most and the rest are one control
+ * away. And **the posters do not shrink as the list grows**: making each
+ * memory smaller to fit more of them turns a wall of celebrations back into the
+ * list of rows this redesign exists to remove.
+ *
+ * It degrades at both ends without a special case: at 1 there is no control, at
+ * 40 there is still exactly one.
+ */
+export function pastShelf<T>(
+  past: readonly T[],
+  limit: number = PAST_FIRST_SCREENFUL,
+): PastShelf<T> {
+  const cap = Number.isFinite(limit) && limit > 0 ? Math.trunc(limit) : PAST_FIRST_SCREENFUL;
+  if (past.length <= cap) {
+    return { shown: [...past], hidden: 0, moreLabel: null };
+  }
+  return {
+    shown: past.slice(0, cap),
+    hidden: past.length - cap,
+    // The total, not the remainder: "Show all 14" is a promise about the shelf,
+    // where "Show 8 more" asks the reader to do arithmetic to learn the same thing.
+    moreLabel: `Show all ${past.length}`,
+  };
+}

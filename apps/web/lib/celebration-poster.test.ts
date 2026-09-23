@@ -23,6 +23,14 @@ test('his three print three different sheets', () => {
   console.log(`  Claire ${a.sheet} (white ${a.whiteOnAccent?.toFixed(2)}) · Maria ${b.sheet} (white ${b.whiteOnAccent?.toFixed(2)}) · Movie ${c.sheet}`);
   assert.equal(a.sheet, 'sheet', 'wine carries white type directly');
   assert.equal(b.sheet, 'moon', 'gold cannot carry a letter, so the art makes room');
+  /*
+    ⚠ A CONTRAST FIGURE MEANS NOTHING WITHOUT THE COLOUR IT IS AGAINST. Gold is
+    3.90 on white and 3.66 on `--m-ink` #2C2A29 (the ink the poster sets type
+    in) — but 4.46 on `--sn-ink-900` #1B1A17. Two sessions quoted different
+    numbers for "gold on ink" and both were right. Pinned against the ink that
+    actually governs, so the figure cannot drift into "nearly passing".
+  */
+  assert.ok(b.whiteOnAccent! < 4.5, 'gold fails on white');
   assert.equal(c.sheet, 'letterpress', 'no accent is a style, not a failure');
   assert.equal(new Set([a.sheet, b.sheet, c.sheet]).size, 3);
 });

@@ -292,6 +292,10 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   // The quote's own Setnayan-gift switch (owner 2026-09-22). `null` = the quote
   // says nothing and the booking keeps falling back to the service card.
   let includesSetnayanGift: boolean | null = null;
+  // Which service cards the quote was built from. `null` = an older client that
+  // never said, which the thread reads as "fall back to the timestamp rule".
+  // `[]` is a real answer: built from no card.
+  let serviceCardIds: string[] | null = null;
   try {
     const parsed = JSON.parse(String(formData.get('payload') ?? '{}')) as {
       lineItems?: ProposalLineItem[];
@@ -301,6 +305,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
       schedule?: unknown;
       paymentMethodIds?: string[];
       includesSetnayanGift?: boolean | null;
+      serviceCardIds?: unknown;
     };
     lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
     validUntil = parsed.validUntil ?? null;
@@ -311,6 +316,12 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     // Only a real boolean is a decision; anything else leaves the card deciding.
     includesSetnayanGift =
       typeof parsed.includesSetnayanGift === 'boolean' ? parsed.includesSetnayanGift : null;
+    // An ARRAY is the statement — including an empty one. Anything else (absent,
+    // a string, junk) is "never said", so the reader keeps today's behaviour
+    // rather than asserting the quote covered nothing.
+    serviceCardIds = Array.isArray(parsed.serviceCardIds)
+      ? parsed.serviceCardIds.filter((v): v is string => typeof v === 'string' && v.length > 0)
+      : null;
   } catch {
     redirect(`${back}?notice=proposal_failed`);
   }
@@ -324,6 +335,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     schedule,
     paymentMethodIds,
     includesSetnayanGift,
+    serviceCardIds,
   });
 
   if (!result.ok) {

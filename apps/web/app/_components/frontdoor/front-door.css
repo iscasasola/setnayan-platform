@@ -1826,6 +1826,24 @@ h2.fd-sechead,
    3.06:1). Terracotta is also the CTA colour under the palette lock, and
    this header is not a control. Ink carries the same emphasis with the
    weight and size doing the work, and no headroom to lose. */
+/* THE EVENT'S MARK, ABOVE ITS NAME (owner 2026-09-23: *"on top of this, show
+   the logo/monogram of the event"*).
+
+   🔑 IT IS NOT INSIDE `.fd-rctx`, AND THAT IS THE POINT. The name is prose and
+   the 1279 block below hides all of this rail's prose at the 72px icon strip.
+   A mark is the one thing that still answers "which event am I in" once the
+   words are gone, so it keeps its own element and survives that width —
+   putting it inside the name row would have deleted it there silently, the
+   same shape as a `hidden lg:block` that quietly removes a feature.
+
+   No colour is declared: `EventMonogram` carries the couple's own ink, and a
+   rail-side override would be a second answer to what their mark looks like. */
+.fd[data-chrome='app'] .fd-rctx-mark {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px 0;
+}
+
 .fd[data-chrome='app'] .fd-rctx {
   padding: 9px 12px 2px;
   font-size: 13px;
@@ -1862,6 +1880,14 @@ h2.fd-sechead,
   .fd[data-chrome='app'] .fd-rctx,
   .fd[data-chrome='app'] .fd-rlabel-sub {
     display: none;
+  }
+
+  /* The MARK stays — it is an icon, and this strip is icons only. Centred,
+     because at 72px a left-padded badge reads as misaligned against the rows
+     under it, which centre their own glyphs. */
+  .fd[data-chrome='app'] .fd-rctx-mark {
+    justify-content: center;
+    padding: 10px 2px 2px;
   }
 
   /* 🪤 THESE LIVE HERE, IN THE EXISTING BLOCK, AND THAT IS THE POINT. Adding a

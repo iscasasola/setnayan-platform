@@ -30,8 +30,6 @@ app/admin/ugat/_components/ugat-console.css · .ug-nd-ic
 app/admin/ugat/_components/ugat-console.css · .ug-restoggle button.on
 app/admin/ugat/_components/ugat-console.css · .ug-stale
 app/dashboard/[eventId]/suite/_components/suite-vignette.module.css · .qrBadge span
-app/globals.css · .m-btn-orange
-app/globals.css · .m-pill-orange
 app/globals.css · .sn-badge-going
 app/globals.css · .sn-badge-verified
 app/globals.css · .sn-btn-ghost:hover

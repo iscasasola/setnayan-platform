@@ -74,3 +74,44 @@ by the type rather than a CHECK, the accepted loss of the bold *"Why:"*, and the
 (a withdrawn-but-`pending` thread still rendering *"Waiting for {vendor} to accept"*). Iteration
 `0019_communications` does not specify closing copy, so no iteration edit and **no pandoc regen is
 owed** — checked rather than assumed.
+
+## 2026-09-23 · fix(chat): a withdrawn conversation offers nothing
+
+Owner, 2026-09-23: **"fix the withdrawn wording now since you're free."** He reversed his own
+"later" after the deferral's only reason — nobody has ever withdrawn an inquiry, so nobody has
+seen it — stopped applying.
+
+⚠ **It was not a wording fix.** `withdrawInquiry` writes only `archived_at`, so a withdrawn thread
+is still `inquiry_status = 'pending'` and both pages reached their PENDING arm on a conversation
+the couple had already closed:
+
+- the couple kept a **working composer** (`pending && canFollowUpWhilePending`), or was shown
+  *"Waiting for {vendor} to accept"* with a **Withdraw inquiry** button for an inquiry already
+  withdrawn;
+- the supplier was shown **Accept inquiry**.
+
+🔴 **And the accept would have succeeded.** `acceptInquiry` never reads `archived_at`; it goes
+straight to `.update({ inquiry_status: 'accepted' })`. `sendChatMessage` does not read it either.
+**The wording was the symptom; the screens were offering the wrong acts.**
+
+`isThreadClosed()` joins `lib/thread-closing-copy.ts` and is asked **before** the status on both
+pages — the couple's `composerOpen` and pending arm, the supplier's pending **and accepted** arms
+(a couple may withdraw after accepting). New guard
+`apps/web/lib/a-withdrawn-thread-offers-nothing.test.ts` executes the rule **and** pins the gating
+in both pages, scanning every `pending ?` occurrence rather than the first, and asserting neither
+page re-derives "closed" from `archived_at` itself.
+
+Sabotages watched red: couple composer drops the check · couple pending arm drops it · supplier
+pending arm drops it · `isThreadClosed` always false. Runner probed with a failing assertion first.
+`tsc` exit 0 — and because that run was 12s (incremental), an injected type error was used to prove
+the fast path still goes red in this worktree: `exit=2 · 1 error`.
+
+⛔ **NOT DONE, NEEDS AN OWNER:** the server still permits it. `acceptInquiry` and `sendChatMessage`
+accept a withdrawn thread, against this repo's own standard for the sibling case (*"a stale page
+pressing Lock anyway is refused with nothing written"*). A UI gate leaves an already-open page able
+to accept a withdrawn inquiry. Untouched because `lib/chat-actions.ts` is shared and a server
+refusal is a behaviour change whose blast radius — the auto-reply bot, `'system'` senders — was not
+traced. Zero withdrawals exist in production, so nothing is at risk today.
+
+SPEC IMPACT: None beyond the row already added for the closing copy (corpus `7950e5d`), which named
+this as the open item.

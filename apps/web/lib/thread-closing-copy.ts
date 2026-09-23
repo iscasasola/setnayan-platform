@@ -123,6 +123,24 @@ export function resolveClosingKind(input: ClosingInput): ClosingKind {
   }
 }
 
+/**
+ * IS THIS CONVERSATION OVER? The one predicate both pages gate their controls on.
+ *
+ * ⚠ **A WITHDRAWN THREAD IS STILL `inquiry_status = 'pending'`**, because
+ * `withdrawInquiry` writes only `archived_at`. So a page that branches on the
+ * status alone reaches its PENDING arm and offers the actions of a live
+ * inquiry on a conversation the couple already closed:
+ *   · the couple got a working composer, or "Waiting for {vendor} to accept"
+ *     with a **Withdraw inquiry** button for an inquiry already withdrawn;
+ *   · the supplier got **Accept inquiry**, on an inquiry that no longer exists.
+ *
+ * Both pages now ask this BEFORE they look at the status, so a closed thread
+ * falls through to its closing sentence instead of pretending to be live.
+ */
+export function isThreadClosed(input: ClosingInput): boolean {
+  return resolveClosingKind(input) !== 'open';
+}
+
 /** Trimmed, or null. A blank reason must not render empty quote marks. */
 function cleanReason(reason: string | null | undefined): string | null {
   const t = (reason ?? '').trim();

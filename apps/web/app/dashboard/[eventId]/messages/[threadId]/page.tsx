@@ -12,7 +12,7 @@ import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
-import { closingCopy } from '@/lib/thread-closing-copy';
+import { closingCopy, isThreadClosed } from '@/lib/thread-closing-copy';
 import { resolveLivePax } from '@/lib/pax';
 import { parseThreadView } from '@/lib/thread-view';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -564,8 +564,17 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     390 → 391px, 1440 → 453px — against 32px at every width before #5584.
   */
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
+  /*
+    ⚠ A WITHDRAWN THREAD IS STILL `pending` — withdrawInquiry writes only
+    `archived_at`. Without this the couple kept a working composer on a
+    conversation they had closed themselves. Asked BEFORE the status, so a
+    closed thread falls through to its closing sentence. One predicate, shared
+    with the supplier's page — lib/thread-closing-copy.ts.
+  */
+  const threadClosed = isThreadClosed(thread);
   const composerOpen =
     !blocked &&
+    !threadClosed &&
     (thread.inquiry_status === 'accepted' ||
       (thread.inquiry_status === 'pending' && canFollowUpWhilePending));
   // Which of the two tools this box carries. Neither is mounted when it would
@@ -717,7 +726,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   }
                 />
               </div>
-            ) : thread.inquiry_status === 'pending' ? (
+            ) : thread.inquiry_status === 'pending' && !threadClosed ? (
               <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
                 <p className="text-sm text-ink">
                   <span className="font-semibold">Follow-up sent.</span> Waiting for{' '}

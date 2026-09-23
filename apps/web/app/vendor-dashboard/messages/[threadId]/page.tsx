@@ -115,7 +115,7 @@ import {
   THREAD_STAGE_LABEL,
   THREAD_STAGE_TONE,
 } from '@/lib/vendor-thread-stage';
-import { closingCopy } from '@/lib/thread-closing-copy';
+import { closingCopy, isThreadClosed } from '@/lib/thread-closing-copy';
 import { fetchReasonCodes } from '@/lib/inquiry-outcomes';
 import { regionLabel } from '@/lib/region-source';
 import { eventTypeLabel } from '@/lib/demand-radar';
@@ -1412,7 +1412,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
                   : 'You can no longer message in this conversation.'}
               </div>
-            ) : thread.inquiry_status === 'accepted' ? (
+            ) : thread.inquiry_status === 'accepted' && !isThreadClosed(thread) ? (
               <div className="space-y-1.5">
                 {proposalNotice ? (
                   <p className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
@@ -1434,7 +1434,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   }
                 />
               </div>
-                  ) : thread.inquiry_status === 'pending' ? (
+                  ) : thread.inquiry_status === 'pending' && !isThreadClosed(thread) ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
             <span className="font-semibold">New inquiry.</span> Accept to reply,

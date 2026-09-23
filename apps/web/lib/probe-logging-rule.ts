@@ -108,6 +108,93 @@ function enclosingTryStart(src: string, catchAt: number): number | null {
   return i === -1 ? null : i;
 }
 
+/**
+ * The OTHER family: a rejection handled on the promise, not in a `try`.
+ *
+ *   fetchThing().catch(() => [])
+ *   builder.then((r) => r.count ?? 0, () => 0)
+ *
+ * 🔑 THE FIRST VERSION OF THIS GUARD COULD NOT SEE ANY OF THESE, and said the
+ * page was clean while eleven of them sat in it. A guard that names a SHAPE
+ * reports clean about the half it was taught to look at. That is the same
+ * failure as the indentation hole one level up: there a form escaped, here a
+ * whole family did.
+ *
+ * ⚠ It cannot see the third family at all, and that is stated rather than
+ * hidden: `.then((r) => r.count ?? 0)` on a supabase builder never rejects —
+ * the failure arrives through the SUCCESS path as a null that `?? 0` turns
+ * into a confident zero. No handler exists to inspect. That one is caught by
+ * using `SoftReadLog.count`, not by this rule, and the assertion message says
+ * so rather than letting a clean run imply it was checked.
+ */
+export function silentPromiseHandlers(source: string): number[] {
+  const src = stripComments(source);
+  const out: number[] = [];
+
+  // `.catch(` with a handler that logs nothing.
+  const CATCH = /\.catch\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = CATCH.exec(src))) {
+    const body = balancedParen(src, src.indexOf('(', m.index));
+    if (!LOGGERS.test(body)) out.push(src.slice(0, m.index).split('\n').length);
+  }
+
+  // `.then(onOk, onErr)` — only the SECOND argument is a failure handler.
+  const THEN = /\.then\s*\(/g;
+  while ((m = THEN.exec(src))) {
+    const args = balancedParen(src, src.indexOf('(', m.index));
+    const rejectArm = splitTopLevel(args.slice(1, -1));
+    if (rejectArm.length < 2) continue; // one-arg .then() handles no failure
+    if (!LOGGERS.test(rejectArm[1])) out.push(src.slice(0, m.index).split('\n').length);
+  }
+
+  return [...new Set(out)].sort((a, b) => a - b);
+}
+
+/** Text of the (...) group opening at `open`, quote-aware. Fails closed. */
+function balancedParen(src: string, open: number): string {
+  if (open < 0) return src;
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = open; i < src.length; i += 1) {
+    const c = src[i];
+    if (quote) {
+      if (c === '\\') { i += 1; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') { quote = c; continue; }
+    if (c === '(') depth += 1;
+    else if (c === ')') {
+      depth -= 1;
+      if (depth === 0) return src.slice(open, i + 1);
+    }
+  }
+  return src.slice(open);
+}
+
+/** Split an argument list on TOP-LEVEL commas only. */
+function splitTopLevel(args: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let i = 0; i < args.length; i += 1) {
+    const c = args[i];
+    if (quote) {
+      if (c === '\\') { i += 1; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') { quote = c; continue; }
+    if ('([{'.includes(c)) depth += 1;
+    else if (')]}'.includes(c)) depth -= 1;
+    else if (c === ',' && depth === 0) { out.push(args.slice(start, i)); start = i + 1; }
+  }
+  out.push(args.slice(start));
+  return out;
+}
+
 /** Just the ones that swallow without a word. */
 export function silentProbes(source: string): number[] {
   return probeSites(source).filter((p) => !p.logs).map((p) => p.line);

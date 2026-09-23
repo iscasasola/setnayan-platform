@@ -19,7 +19,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { probeSites, silentProbes } from './probe-logging-rule';
+import { probeSites, silentProbes, silentPromiseHandlers } from './probe-logging-rule';
 
 const WEB = join(import.meta.dirname, '..');
 
@@ -91,11 +91,68 @@ test('the rule finds every probe, not just the silent ones', () => {
   );
 });
 
+
+test('the rule sees the PROMISE family too, not just try/catch', () => {
+  /*
+    🔑 THE FIRST VERSION OF THIS GUARD DID NOT. It matched `} catch {` only, and
+    reported My Shop clean while TWELVE `.catch(() => [])` / `.then(ok, () => 0)`
+    handlers sat in the same file swallowing the supplier's own statistics.
+  */
+  assert.deepEqual(silentPromiseHandlers('load().catch(() => [])'), [1]);
+  assert.deepEqual(
+    silentPromiseHandlers('load().catch((e) => { logQueryError("X", e); return []; })'),
+    [],
+    'a .catch that logs is not a finding',
+  );
+  assert.deepEqual(
+    silentPromiseHandlers('q.then((r) => r.count ?? 0, () => 0)'),
+    [1],
+    'the SECOND argument to .then is a rejection handler and this one says nothing',
+  );
+  assert.deepEqual(
+    silentPromiseHandlers('p.then((r) => r.length)'),
+    [],
+    'a one-argument .then handles no failure, so it is not a silent handler',
+  );
+  assert.deepEqual(
+    silentPromiseHandlers('p.then((r) => f(a, b), () => { logQueryError("X"); return 0; })'),
+    [],
+    'a comma INSIDE the success arm must not be read as the argument separator',
+  );
+});
+
+test('the guard is measured against the tree it was written for', () => {
+  /*
+    🔴 A ZERO IS ONLY WORTH SOMETHING IF THE RULE CAN FIND ONE. Both families are
+    asserted to be empty in the watched files above — this pins that the rule
+    still MATCHES, by running it over the pre-fix source committed alongside as a
+    fixture would be ideal; short of that, the unit fixtures above are the floor.
+
+    ⚠ WHAT THIS GUARD CANNOT SEE, stated so a clean run does not imply it was
+    checked: `.then((r) => r.count ?? 0)` on a supabase builder NEVER REJECTS.
+    The failure arrives through the success path as a null that `?? 0` turns into
+    a confident zero, and there is no handler to inspect. That family is closed
+    by using `SoftReadLog.count` / `.rpcNumber`, which read `error`, not by this
+    rule. A guard that quietly implies otherwise is worse than no guard.
+  */
+  const src = readFileSync(join(WEB, WATCHED[0]), 'utf8');
+  assert.ok(probeSites(src).length >= 10, 'try/catch matching has stopped working');
+  assert.ok(
+    // \b on BOTH sides: a bare /SoftReadLog/ also matches `SoftReadLogX`, so a
+    // sabotage that renamed the import sailed through this very assertion.
+    /\bSoftReadLog\b/.test(src),
+    'My Shop no longer uses SoftReadLog — the supabase-count family it closes is ' +
+      'invisible to this rule, so dropping it would remove the only thing checking ' +
+      'that family while this guard still reported green',
+  );
+});
+
 test('no probe in My Shop swallows without leaving a trail', () => {
   const offenders: string[] = [];
   for (const rel of WATCHED) {
     const src = readFileSync(join(WEB, rel), 'utf8');
-    for (const line of silentProbes(src)) offenders.push(`${rel}:${line}`);
+    for (const line of silentProbes(src)) offenders.push(`${rel}:${line} (try/catch)`);
+    for (const line of silentPromiseHandlers(src)) offenders.push(`${rel}:${line} (promise handler)`);
   }
 
   assert.deepEqual(

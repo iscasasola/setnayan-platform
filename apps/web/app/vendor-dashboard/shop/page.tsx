@@ -102,6 +102,7 @@ import {
 import { ManageTiles } from './_components/manage-tiles';
 import { ShopRail, ShopDoorSection } from './_components/shop-rail';
 import { CouldNotLoad } from './_components/could-not-load';
+import { SoftReadLog } from '@/lib/soft-read';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
 import { VerifySection, type VerifySummary } from './_components/verify-section';
 import { readContactStamps } from './inline-docs-actions';
@@ -218,6 +219,12 @@ type ShopData = {
   reviewCount: number;
   savedByCouples: number;
   storiesTagged: number;
+  /*
+   * Labels of the optional reads that FAILED on this render (see lib/soft-read).
+   * A tile consults this before printing a number, because 0 and "could not be
+   * read" are different claims and only one of them is about the supplier.
+   */
+  unreadable: string[];
   recapClips: number;
   teamMembers: number;
   /** Sub-line for the Team tile — how many more seats the plan allows. */
@@ -347,6 +354,25 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
 
   const weekStart = startOfWeekIso();
 
+  /*
+   * 🔑 EVERY OPTIONAL READ BELOW USED TO FAIL INTO A ZERO, AND A ZERO ON A
+   * PERFORMANCE TILE IS A CLAIM.
+   *
+   * "Saved by couples: 0", "rating 0", "views this week: 0" are not blanks.
+   * They assert that nobody saved this shop, nobody rated it and nobody looked
+   * at it — and the supplier cannot tell that apart from the truth. An error
+   * says the system failed; a zero says THEY failed. That is the worse of the
+   * two to be wrong about.
+   *
+   * ⚠ `soft.count` / `soft.rpcNumber` exist because a supabase builder does
+   * NOT reject: it RESOLVES with `{ count: null, error }`. The old
+   * `.then(r => r.count ?? 0, () => 0)` had a rejection arm that almost never
+   * ran, and the real failure arrived through the SUCCESS path as a null that
+   * `?? 0` turned into a confident zero. Adding a logger to that handler would
+   * have instrumented the branch that does not fire.
+   */
+  const soft = new SoftReadLog('VendorShopPage');
+
   const [
     verifyApp,
     reviewStats,
@@ -360,43 +386,45 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // Latest verification application — feeds the Get-verified stepper + the
     // Hero "N of 3" pill. Cheap read (no presigns — those stay lazy on Step 1
     // expand). Null when the vendor has never started.
-    fetchLatestApplication(supabase, vendorId).catch(() => null),
-    fetchReviewStats(supabase, vendorId).catch(() => ({
+    soft.read('latestApplication', () => fetchLatestApplication(supabase, vendorId), null),
+    soft.read('reviewStats', () => fetchReviewStats(supabase, vendorId), {
       avg_rating_overall: 0,
       total_count: 0,
-    })),
-    supabase
-      .rpc('count_saves_for_vendor', { p_vendor_profile_id: vendorId })
-      .then((r) => (typeof r.data === 'number' ? r.data : 0), () => 0),
-    supabase
-      .from('vendor_profile_views')
-      .select('view_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorId)
-      .gte('viewed_at', weekStart)
-      .then((r) => r.count ?? 0, () => 0),
+    }),
+    soft.rpcNumber('savedByCouples', () =>
+      supabase.rpc('count_saves_for_vendor', { p_vendor_profile_id: vendorId }),
+    ),
+    soft.count('profileViewsWeek', () =>
+      supabase
+        .from('vendor_profile_views')
+        .select('view_id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendorId)
+        .gte('viewed_at', weekStart),
+    ),
     // Service-role ORDER reader (branch rows still run under the caller's RLS).
     // A shop's second manager cannot see the order its owner paid, so without
     // this a live branch reads back to them as "Pending payment" — and that
     // status is now what decides whether the branch is public and usable.
-    fetchVendorBranches(supabase, vendorId, createAdminClient()).catch(() => []),
-    fetchVendorTeam(supabase, vendorId).catch(() => [] as VendorTeamMemberRow[]),
+    soft.read('branches', () => fetchVendorBranches(supabase, vendorId, createAdminClient()), []),
+    soft.read('team', () => fetchVendorTeam(supabase, vendorId), [] as VendorTeamMemberRow[]),
     // LEFT ON THE POOL READ: these eventIds become the "Featured editorials"
     // picker, i.e. what this shop publishes about itself. Same reason as
     // real-stories — a public claim needs the pool row, not the handshake.
-    fetchVendorPoolBookings(supabase, vendorId).catch(() => []),
-    supabase
-      .from('vendor_partnerships')
-      .select('id', { count: 'exact', head: true })
-      .eq('recommended_vendor_id', vendorId)
-      .eq('status', 'accepted')
-      .eq('is_active', true)
-      .then((r) => r.count ?? 0, () => 0),
+    soft.read('poolBookings', () => fetchVendorPoolBookings(supabase, vendorId), []),
+    soft.count('partnerships', () =>
+      supabase
+        .from('vendor_partnerships')
+        .select('id', { count: 'exact', head: true })
+        .eq('recommended_vendor_id', vendorId)
+        .eq('status', 'accepted')
+        .eq('is_active', true),
+    ),
   ]);
 
   const eventIds = bookings.map((b) => b.eventId);
   const [stories, recapCount] = await Promise.all([
-    loadVendorFeaturedStories(eventIds).catch(() => []),
-    loadVendorRecaps(eventIds).then((r) => r.length, () => 0),
+    soft.read('featuredStories', () => loadVendorFeaturedStories(eventIds), []),
+    soft.read('recaps', () => loadVendorRecaps(eventIds).then((r) => r.length), 0),
   ]);
   const storiesTagged = stories.length;
   // Picker options for the Pro "Featured editorials" control (id = event_id).
@@ -560,8 +588,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   };
   if (isTierAtLeast(tier, 'enterprise')) {
     const [fee, settings] = await Promise.all([
-      fetchBranchFeePhp(supabase).catch(() => BRANCH_FEE_PHP),
-      fetchPlatformSettings(supabase).catch(() => null),
+      soft.read('branchFee', () => fetchBranchFeePhp(supabase), BRANCH_FEE_PHP),
+      soft.read('platformSettings', () => fetchPlatformSettings(supabase), null),
     ]);
     branchFeePhp = fee;
     if (settings) {
@@ -801,11 +829,12 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     sameDayAvailable,
     socialFeatureOptOut,
     socialAlreadyFeatured,
-    profileViewsWeek: viewsRes,
+    profileViewsWeek: viewsRes ?? 0,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
-    savedByCouples: savesRes,
+    savedByCouples: savesRes ?? 0,
     storiesTagged,
+    unreadable: soft.labels,
     recapClips: recapCount,
     teamMembers: team.length,
     teamSub,
@@ -820,7 +849,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     branchFeePhp,
     branchAutoRadius: branchAutoRadiusKm(),
     branchPay,
-    recommendedByShops: partnershipsRes,
+    recommendedByShops: partnershipsRes ?? 0,
     team: enrichedTeam,
   };
 }
@@ -907,6 +936,18 @@ async function ShopHome({
 
   // Canonical vendor URL is the bare-root alias (www.setnayan.com/{slug}); the
   // /v/{slug} route still resolves but the editor surfaces the clean address.
+  /*
+   * Did the number behind this tile actually get read?
+   *
+   * 🪤 TAKES THE UPSTREAM LABELS TOO, AND THAT IS THE POINT. `featuredStories`
+   * and `recaps` consume the ids that `poolBookings` produced. When that read
+   * fails it degrades to `[]`, so both of those then SUCCEED and correctly
+   * return nothing — their own probes are honest, and their tiles would print a
+   * truthful-looking 0 caused by a failure two steps upstream. A failure marker
+   * has to travel with the DATA, not sit on the probe that reported it.
+   */
+  const cantRead = (...labels: string[]) => labels.some((l) => data.unreadable.includes(l));
+
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
 
@@ -936,36 +977,42 @@ async function ShopHome({
         <h2 className="sr-only">How you&rsquo;re doing</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile
+            unavailable={cantRead('profileViewsWeek')}
             icon={<Eye className="h-4 w-4" strokeWidth={1.75} />}
             value={nf.format(data.profileViewsWeek)}
             label="Profile views"
             sub="this week"
           />
           <StatTile
+            unavailable={cantRead('reviewStats')}
             icon={<Star className="h-4 w-4" strokeWidth={1.75} />}
             value={data.reviewCount > 0 ? data.rating.toFixed(1) : '—'}
             label="Reviews"
             sub={`${nf.format(data.reviewCount)} review${data.reviewCount === 1 ? '' : 's'}`}
           />
           <StatTile
+            unavailable={cantRead('savedByCouples')}
             icon={<Heart className="h-4 w-4" strokeWidth={1.75} />}
             value={nf.format(data.savedByCouples)}
             label="Saved"
             sub="couples saved you"
           />
           <StatTile
+            unavailable={cantRead('featuredStories', 'poolBookings')}
             icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
             value={nf.format(data.storiesTagged)}
             label="Stories"
             sub="editorials tagged"
           />
           <StatTile
+            unavailable={cantRead('recaps', 'poolBookings')}
             icon={<Images className="h-4 w-4" strokeWidth={1.75} />}
             value={data.recapClips > 0 ? nf.format(data.recapClips) : '—'}
             label="Recap"
             sub="day-of clips"
           />
           <StatTile
+            unavailable={cantRead('partnerships')}
             icon={<Handshake className="h-4 w-4" strokeWidth={1.75} />}
             value={nf.format(data.recommendedByShops)}
             label="Recommend"
@@ -1157,7 +1204,13 @@ async function ShopHome({
               igFlash={igFlash}
             />
           }
-          teamPanel={<TeamPanel members={data.team} namesUnavailable={data.teamNamesUnavailable} />}
+          teamPanel={
+            <TeamPanel
+              members={data.team}
+              namesUnavailable={data.teamNamesUnavailable}
+              listUnavailable={cantRead('team')}
+            />
+          }
           branchPanel={
             <BranchPanel
               city={data.city}
@@ -1532,11 +1585,19 @@ function StatTile({
   value,
   label,
   sub,
+  unavailable,
 }: {
   icon: React.ReactNode;
   value: string;
   label: string;
   sub: string;
+  /*
+   * 🔑 THE READ FAILED, SO THERE IS NO NUMBER — as opposed to the number being
+   * zero. Printing `0` here would assert that nobody saved this shop, nobody
+   * rated it and nobody looked at it. An error blames the system; a zero blames
+   * the supplier, and only one of those can be wrong in a way that hurts.
+   */
+  unavailable?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center text-center">
@@ -1549,11 +1610,14 @@ function StatTile({
         </span>
         {label}
       </span>
-      <p className="mt-1 font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
-        {value}
+      <p
+        className="mt-1 font-mono text-2xl font-bold"
+        style={{ color: unavailable ? 'var(--m-slate-3)' : 'var(--m-ink)' }}
+      >
+        {unavailable ? '–' : value}
       </p>
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        {sub}
+        {unavailable ? "couldn't load — not a zero" : sub}
       </p>
     </div>
   );
@@ -1564,16 +1628,25 @@ function StatTile({
 function TeamPanel({
   members,
   namesUnavailable,
+  listUnavailable,
 }: {
   members: TeamMember[];
   /* The rows loaded; the NAMES behind them did not. Without this the panel
      renders a team of blanks and looks like nobody filled their details in. */
   namesUnavailable?: boolean;
+  /* The ROWS themselves could not be read — so `members` is empty for a reason
+     that has nothing to do with the supplier, and "No team members yet" would
+     be a lie rather than an empty state. */
+  listUnavailable?: boolean;
 }) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-ink/55">Any admin can manage the team.</p>
-      {namesUnavailable ? <CouldNotLoad what="your team's names and emails" /> : null}
+      {listUnavailable ? (
+        <CouldNotLoad what="your team" />
+      ) : namesUnavailable ? (
+        <CouldNotLoad what="your team's names and emails" />
+      ) : null}
 
       <ul className="space-y-2">
         {members.length === 0 ? (

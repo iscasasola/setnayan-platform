@@ -41,6 +41,7 @@ export const VENUE_TYPES = [
   'temple',
   'restaurant',
   'multi_purpose_hall',
+  'events_place',
 ] as const;
 export type VenueType = (typeof VENUE_TYPES)[number];
 

@@ -55,6 +55,8 @@ const DB_ENUM_VALUES = [
   'restaurant',
   'multi_purpose_hall',
   'temple',
+  // 20271245297061 (2026-09-23) — owner: "Where is the event place."
+  'events_place',
 ] as const;
 
 /**

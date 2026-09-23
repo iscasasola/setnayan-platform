@@ -8,6 +8,9 @@ import { resolvePublicProfile } from '@/lib/public-profile';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { resolveCelebrationIdentity } from '@/lib/celebration-card-identity';
+import { initialsFor } from '@/lib/conversation-list';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { renderableImageSrc } from '@/lib/event-card-art';
 import { formatEventDate } from '@/lib/events';
 import { ReportPageButton } from '@/app/_components/report-page-button';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
@@ -168,6 +171,28 @@ export default async function AccountProfilePage({ params }: Props) {
   const isOwnerPreview = enabled ? false : await isSignedInHolder(user.user_id);
   if (!enabled && !isOwnerPreview) notFound();
 
+  /*
+    ── THE ACCOUNT'S FACE ─────────────────────────────────────────────────────
+    ⚖ Owner 2026-09-23, asked directly whether turning the public profile on
+    counts as consent to publish the photo: *"yes, turning it on is the
+    consent"*. So it is gated on `enabled` and nothing else — an owner PREVIEW
+    of a switched-OFF profile deliberately shows no photo, because the consent
+    is the switch and the switch is off.
+
+    THREE THINGS THE STORED VALUE IS NOT:
+      • not an <img src> — it is `r2://bucket/key`, and handing that to an <img>
+        renders a broken-image glyph. `displayUrlForStoredAsset` is the app's own
+        resolver (it fails closed for a non-public bucket, so a private ref
+        yields null and the initials show).
+      • not trusted — `renderableImageSrc` re-checks the RESULT, the same guard
+        the event hero goes through, because this is a public page.
+      • not the common case — 16 of 17 accounts have no photo. The initials disc
+        is what almost everyone sees; the photo is the enhancement.
+  */
+  const photoSrc = enabled
+    ? renderableImageSrc(await displayUrlForStoredAsset(user.profile_photo_url))
+    : null;
+
   // Creator "Adventure Chapter" (CP-3; user-native): a profile with published
   // chapters IS a timeline of them, not just an event picker. Creator is now
   // user-native — having >=1 published chapter is what makes the account a
@@ -271,6 +296,14 @@ export default async function AccountProfilePage({ params }: Props) {
           </div>
         ) : null}
         <header className="uprof-head">
+          <span className="uprof-avatar" aria-hidden>
+            {photoSrc ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={photoSrc} alt="" className="uprof-avatar-img" decoding="async" />
+            ) : (
+              <span className="uprof-avatar-initials">{initialsFor(heading)}</span>
+            )}
+          </span>
           <h1 className="m-serif uprof-name">{heading}</h1>
           {hasChapters ? (
             <div className="uprof-badge-row">
@@ -788,6 +821,25 @@ const UPROF_CSS = `
     text-align: center;
   }
 
+  .uprof-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 88px;
+    height: 88px;
+    margin: 0 auto 0.9rem;
+    border-radius: var(--m-r-full, 999px);
+    overflow: hidden;
+    background: var(--m-paper-2, #F4F2EC);
+    border: 1px solid var(--m-line, #E1DCD1);
+  }
+  .uprof-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .uprof-avatar-initials {
+    font-family: var(--font-display), Georgia, serif;
+    font-size: 2rem;
+    letter-spacing: .04em;
+    color: var(--m-orange, #A9834B);
+  }
   .uprof-head { text-align: center; margin-bottom: clamp(2.25rem, 5vw, 3.25rem); }
   .uprof-name {
     font-size: clamp(2.4rem, 7vw, 4rem);

@@ -148,3 +148,43 @@ test('🪤 the inlined CSS carries no backtick — it is a template literal', ()
   // the detector can fail
   assert.equal(('a `b` c'.match(/`/g) ?? []).length, 2);
 });
+
+test('⚖ two consents about one photo stay two', () => {
+  /*
+    The public page shows the photo because the owner ruled that turning the
+    public profile ON *is* the consent (2026-09-23). `share_profile_photo_with_hosts`
+    is a DIFFERENT consent with a NARROWER audience — "the couple running an
+    event you have joined" — which is opt-in and defaults to OFF (2026-09-20).
+
+    🔑 The failure this prevents is one column doing two jobs: if the public
+    path ever reads or writes the hosts flag, the narrower consent silently
+    starts meaning something wider than the person agreed to.
+  */
+  const pub = stripComments(
+    readFileSync(path.join(process.cwd(), 'lib/public-profile.ts'), 'utf8'),
+  );
+  const hostsFlag = (pub.match(/share_profile_photo_with_hosts/g) ?? []).length;
+  console.log(`  hosts-consent references in the public path (code, comments stripped): ${hostsFlag}`);
+  assert.equal(hostsFlag, 0, 'the public profile path must not touch the hosts consent');
+  assert.ok(pub.includes('profile_photo_url'), 'the photo column must be selected');
+
+  /*
+    And the switch has to SAY what it publishes, because it is now the consent
+    itself rather than a setting that happens to be public.
+  */
+  const toggle = stripComments(
+    readFileSync(path.join(process.cwd(), 'app/dashboard/(account)/profile/page.tsx'), 'utf8'),
+  );
+  /*
+    🪤 ANCHORED ON `help={`, NOT ON THE FIRST `/u/${currentSlug`. The first
+    match in that file is `publicProfileUrl` on an unrelated line, so slicing
+    from it measured the wrong string and this assertion failed against correct
+    code. A guard anchored on the first match faces the wrong cell.
+  */
+  const at = toggle.indexOf('help={`${publicHost}/u/');
+  assert.ok(at >= 0, 'the public-profile toggle help text moved — re-point this guard');
+  const line = toggle.slice(at, toggle.indexOf('`}', at));
+  console.log(`  toggle help: ${line.slice(line.indexOf('·')).slice(0, 72)}…`);
+  assert.match(line, /profile photo/i, 'the public-profile toggle does not mention the photo');
+  assert.match(line, /celebrations/i, 'it must still say what it always said');
+});

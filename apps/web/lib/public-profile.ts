@@ -46,6 +46,8 @@ export type PublicProfileUser = {
   display_name: string | null;
   slug: string | null;
   public_profile_enabled: boolean | null;
+  /** The stored ref — an `r2://…` object or a passthrough URL, NOT an <img src>. */
+  profile_photo_url: string | null;
   /** Public aggregate audience numbers (no graph exposure). */
   followers_count: number;
   profile_view_count: number;
@@ -138,7 +140,21 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
   const { data: userRow } = await admin
     .from('users')
     .select(
-      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count',
+      /*
+        ⚖ `profile_photo_url` IS ON A PUBLIC READ, BY OWNER RULING 2026-09-23.
+        Asked whether turning the public profile ON counts as consent to publish
+        the photo, he answered: "yes, turning it on is the consent". So the
+        switch is the consent, and the page shows the face of an account that
+        opted in.
+
+        ⛔ `share_profile_photo_with_hosts` IS NOT READ HERE AND MUST NOT BE.
+        It is a SEPARATE, NARROWER consent — "whether the couple running an event
+        you have joined may see your photo" — opt-in, defaulting to OFF, owner
+        2026-09-20. Two consents about one photo with different audiences stay
+        two; folding them would make one column do two jobs and quietly widen
+        the narrower one.
+      */
+      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url',
     )
     .ilike('slug', userSlug)
     .maybeSingle();
@@ -149,6 +165,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
     slug: (userRow.slug as string | null) ?? null,
     public_profile_enabled:
       (userRow.public_profile_enabled as boolean | null) ?? null,
+    profile_photo_url: (userRow.profile_photo_url as string | null) ?? null,
     followers_count: Number(userRow.followers_count ?? 0),
     profile_view_count: Number(userRow.profile_view_count ?? 0),
   };

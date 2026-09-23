@@ -72,3 +72,55 @@ a backtick in the warning. A guard now asserts zero backticks and zero `${}` ins
 cheap, and invisible to everything else.
 
 SPEC IMPACT: None — no locked decision, SKU or price. This renders identity the couple already chose.
+
+---
+
+## 2026-09-23 · feat(profile): the account's own face, and a switch that says what it publishes
+
+Owner, selecting the initials disc: ***"use the profile photo of the account"***. The shipped page
+had no avatar at all — the disc he pointed at was in the prototype — so this adds one: the photo
+when there is one, the initials when there is not. **16 of 17 accounts have no photo**, so the disc
+is the common case and the photo is the enhancement, not the other way round.
+
+⚖ **THE CONSENT QUESTION WAS ASKED AND ANSWERED BEFORE ANYTHING WAS BUILT.** `profile_photo_url` is
+`anon=S`, so the database would have allowed this silently. But the only adjacent consent —
+`share_profile_photo_with_hosts` — is scoped to *"the couple running an event you have joined"*,
+opt-in, defaulting to OFF (owner 2026-09-20). **A grant is not a consent**, and no mechanism in this
+repo asks "did they agree to THIS audience". Put to the owner directly; his words: ***"yes, turning
+it on is the consent"***. So the photo is gated on `public_profile_enabled` and nothing else — and
+an owner PREVIEW of a switched-off profile deliberately shows no photo, because the consent is the
+switch and the switch is off.
+
+🔑 **AND THE SWITCH NOW SAYS SO.** Its help text promised *"lists only celebrations you've made
+public"* and said nothing about a face. Under this ruling that sentence is **part of the consent**,
+not a description of it, so it now reads *"shows your name, your profile photo and the celebrations
+you've made public."* Somebody turning it on to share a wedding list should not discover afterwards
+that it published their photo.
+
+⛔ **TWO CONSENTS ABOUT ONE PHOTO STAY TWO.** `share_profile_photo_with_hosts` is not read, not
+written and not folded in — its file is untouched. A guard asserts **zero** references to it in the
+public path (comments stripped) and that the toggle's text still names the photo. The failure it
+prevents is one column doing two jobs: the moment the public path reads the hosts flag, the narrower
+consent silently starts meaning something wider than the person agreed to.
+
+**The stored value is not an `<img src>`** — it is `r2://bucket/key`. It goes through the app's own
+`displayUrlForStoredAsset` (which fails closed for a non-public bucket, so a private ref yields null
+and the initials show), and the RESULT then goes through `renderableImageSrc`, the same guard the
+event hero uses, because this is a public page.
+
+Two watched sabotages, each red, both files restored to verified hashes: fold the hosts consent into
+the public select → the two-consents guard fires, printing the reference count; revert the toggle
+wording → it fires on the text.
+
+🪤 **The new guard failed against correct code on its first run.** It anchored on the first
+`/u/${currentSlug}` in the profile page — which is an unrelated `publicProfileUrl` line — and so
+measured the wrong string. Re-anchored on `help={`. A guard anchored on the first match faces the
+wrong cell.
+
+🪤 **And my sabotage backups keyed on `basename`**, so `app/u/[userSlug]/page.tsx` and
+`app/dashboard/(account)/profile/page.tsx` shared one backup slot. Nothing was lost here — checked
+rather than assumed — but it is the same shape as the mutation run that once overwrote a guest list
+with a booth. Key on the full path.
+
+SPEC IMPACT: None in code terms, but the ruling is recorded — public profile ON is consent to publish
+the account photo (owner 2026-09-23), distinct from the hosts consent of 2026-09-20.

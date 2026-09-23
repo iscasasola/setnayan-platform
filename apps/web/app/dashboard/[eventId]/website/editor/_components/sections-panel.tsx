@@ -17,6 +17,7 @@ import {
   HUB_FOCAL_POINTS,
   HUB_MOTION_PRESETS,
   HUB_MOTION_PRESET_LABEL,
+  HUB_SEQUENCE_LABEL,
   HUB_TIMELINE_LABEL,
   HUB_ZOOMS,
   focalToObjectPosition,
@@ -283,6 +284,46 @@ export function SectionsPanel({
                                   }`}
                                 >
                                   {t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t]}
+                                </button>
+                              </form>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      {/* ══ HOW ITS PARTS ARRIVE ═══════════════════════════
+                          Owner, 2026-09-23, asked for this directly. The parts
+                          of a section — its small label, its heading, its words
+                          — can arrive together or in turn.
+
+                          🔑 ONE CHOICE, NOT ONE PER PART. Every part could have
+                          its own effect; that is a control surface no couple
+                          would finish, and it is the fastest way to a page that
+                          looks worse than the default. The order they arrive in
+                          is the part a guest actually feels. */}
+                      {preset ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                            Parts
+                          </span>
+                          {(['auto', 'together', 'one_after_another'] as const).map((q) => {
+                            const on = q === 'auto' ? !canvas.sequence : canvas.sequence === q;
+                            return (
+                              <form key={q} action={setMotionAction}>
+                                <input type="hidden" name="event_id" value={eventId} />
+                                <input type="hidden" name="widget_id" value={row.widget_id} />
+                                <input type="hidden" name="preset" value={preset} />
+                                <input type="hidden" name="sequence" value={q} />
+                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                <button
+                                  type="submit"
+                                  aria-pressed={on}
+                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                    on
+                                      ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                      : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                  }`}
+                                >
+                                  {q === 'auto' ? 'Auto' : HUB_SEQUENCE_LABEL[q]}
                                 </button>
                               </form>
                             );

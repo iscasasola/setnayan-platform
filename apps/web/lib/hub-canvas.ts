@@ -78,6 +78,29 @@ export const HUB_DURING = ['still', 'lift'] as const;
 /** `time` plays once on arrival; `scrub` follows the scroll and reverses. */
 export const HUB_TIMELINE = ['time', 'scrub'] as const;
 export const HUB_STAGGER = [0, 0.12, 0.25] as const;
+
+/* ── HOW THE PARTS OF A SECTION ARRIVE ─────────────────────────────────────
+   Owner, 2026-09-23, asked for this directly and it is the point of the
+   element scope: a section can arrive as ONE SLAB, or its parts — the small
+   label, the heading, the words, the list — can arrive in turn.
+
+   🔑 THE PARTS NEEDED NO MARKING. Measured on the rendered DOM, every widget
+   returns a single `<section>` whose DIRECT CHILDREN are exactly its parts
+   (the love story has four, a custom section two). So "one after another"
+   addresses `.hub-canvas-body > * > *` and not one widget component had to
+   change. `every-widget-is-one-section.test.ts` holds that shape: a widget
+   that returned two top-level nodes would make this selector address the
+   wrong level, silently. */
+export const HUB_SEQUENCES = ['together', 'one_after_another'] as const;
+export type HubSequence = (typeof HUB_SEQUENCES)[number];
+
+export const HUB_SEQUENCE_LABEL: Record<HubSequence, string> = {
+  together: 'All at once',
+  one_after_another: 'One part after another',
+};
+
+/** How many parts get their own delay before the sequence stops deepening. */
+export const HUB_SEQUENCE_DEPTH = 8;
 export const HUB_DURATION = [0.6, 1.1, 1.8] as const;
 
 export type HubIn = (typeof HUB_IN)[number];
@@ -149,10 +172,13 @@ export type HubSectionCanvas = {
   timeline?: HubTimeline;
   stagger?: number;
   duration?: number;
+  /** Do the section's parts arrive together, or in turn? */
+  sequence?: HubSequence;
 };
 
 /** What the preset means, once nothing is left to interpret. */
 export type HubResolvedMotion = {
+  sequence: HubSequence;
   in: HubIn;
   out: HubOut;
   during: HubDuring;
@@ -170,10 +196,10 @@ export type HubResolvedMotion = {
  * in and chose "Fade" keeps Fade.
  */
 export const HUB_PRESET_BODY: Record<HubMotionPreset, HubResolvedMotion> = {
-  still: { in: 'none', out: 'none', during: 'still', timeline: 'time', stagger: 0, duration: 0.6 },
-  calm: { in: 'fade', out: 'fade', during: 'still', timeline: 'time', stagger: 0.12, duration: 1.1 },
-  editorial: { in: 'rise', out: 'lift', during: 'still', timeline: 'scrub', stagger: 0.12, duration: 1.1 },
-  cinematic: { in: 'slide', out: 'shrink', during: 'lift', timeline: 'scrub', stagger: 0.25, duration: 1.8 },
+  still: { sequence: 'together', in: 'none', out: 'none', during: 'still', timeline: 'time', stagger: 0, duration: 0.6 },
+  calm: { sequence: 'together', in: 'fade', out: 'fade', during: 'still', timeline: 'time', stagger: 0.12, duration: 1.1 },
+  editorial: { sequence: 'one_after_another', in: 'rise', out: 'lift', during: 'still', timeline: 'scrub', stagger: 0.12, duration: 1.1 },
+  cinematic: { sequence: 'one_after_another', in: 'slide', out: 'shrink', during: 'lift', timeline: 'scrub', stagger: 0.25, duration: 1.8 },
 };
 
 export const HUB_DEFAULT_PRESET: HubMotionPreset = 'calm';
@@ -229,6 +255,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (inSet(HUB_OUT, canvas.out)) out.out = canvas.out;
   if (inSet(HUB_DURING, canvas.during)) out.during = canvas.during;
   if (inSet(HUB_TIMELINE, canvas.timeline)) out.timeline = canvas.timeline;
+  if (inSet(HUB_SEQUENCES, canvas.sequence)) out.sequence = canvas.sequence;
   if (inSet(HUB_STAGGER, canvas.stagger)) out.stagger = canvas.stagger as number;
   if (inSet(HUB_DURATION, canvas.duration)) out.duration = canvas.duration as number;
   return out;
@@ -238,6 +265,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
 export function resolveHubMotion(canvas: HubSectionCanvas): HubResolvedMotion {
   const body = HUB_PRESET_BODY[canvas.preset ?? HUB_DEFAULT_PRESET];
   return {
+    sequence: canvas.sequence ?? body.sequence,
     in: canvas.in ?? body.in,
     out: canvas.out ?? body.out,
     during: canvas.during ?? body.during,
@@ -288,18 +316,19 @@ export function hubCanvasVars(
     '--hub-in-kf': m.in === 'none' ? 'none' : `hub-in-${m.in}`,
     '--hub-out-kf': m.out === 'none' ? 'none' : `hub-out-${m.out}`,
     '--hub-duration': `${m.duration}s`,
+    /* 🔑 `--hub-stagger` IS EMITTED AGAIN, and this time a rule reads it. It was
+       withdrawn when the frame held one child and there was nothing to stagger;
+       the parts turned out to be the section's own direct children, so the gap
+       between them is now a real measurement rather than a stored intention.
+       Still absent — not zero — when the parts arrive together, so no rule can
+       quietly apply a delay of nothing. */
+    ...(m.sequence === 'one_after_another' ? { '--hub-stagger': `${m.stagger}s` } : {}),
     /* Scrubbed motion is driven by the thumb and must stay linear, or it reads
        as lag. A timed arrival gets a real ease — this is the whole difference
        between "smooth" and "mechanical" at the same duration. */
     '--hub-ease': m.timeline === 'scrub' ? 'linear' : 'cubic-bezier(0.22, 0.61, 0.36, 1)',
   };
-  /* ⛔ `--hub-stagger` IS DELIBERATELY NOT EMITTED, and `resolveHubMotion` still
-     carries it. Staggering means animating a section's CHILDREN at offsets, and
-     a widget hands this frame ONE child; there is nothing to stagger yet. It
-     was emitted once, read by no rule, and that is a value that looks like a
-     setting and is not — `every-hub-var-is-read.test.ts` now fails the build on
-     any emitted `--hub-*` that no rule consumes. It comes back with the build
-     that gives a section its own elements. */
+
 }
 
 /**
@@ -317,6 +346,7 @@ export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): stri
        as though it had a picture: that is a dark empty plate where a photo
        should be, which reads as a broken page rather than as no photo. */
     hasMedia ? 'hub-has-media' : 'hub-no-media',
+    `hub-seq-${m.sequence === 'one_after_another' ? 'parts' : 'whole'}`,
     `hub-arr-${canvas.arrangement ?? HUB_DEFAULT_ARRANGEMENT}`,
     `hub-in-${m.in}`,
     `hub-out-${m.out}`,

@@ -12,11 +12,13 @@ import {
 import {
   HUB_FOCAL_POINTS,
   HUB_MOTION_PRESETS,
+  HUB_SEQUENCES,
   HUB_ZOOMS,
   hubMediaRef,
   HUB_TIMELINE,
   sanitizeHubCanvas,
   type HubMotionPreset,
+  type HubSequence,
   type HubTimeline,
 } from '@/lib/hub-canvas';
 
@@ -24,6 +26,8 @@ const isHubMotionPreset = (v: unknown): v is HubMotionPreset =>
   typeof v === 'string' && (HUB_MOTION_PRESETS as readonly string[]).includes(v);
 const isHubTimeline = (v: unknown): v is HubTimeline =>
   typeof v === 'string' && (HUB_TIMELINE as readonly string[]).includes(v);
+const isHubSequence = (v: unknown): v is HubSequence =>
+  typeof v === 'string' && (HUB_SEQUENCES as readonly string[]).includes(v);
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -479,6 +483,13 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   if (isHubMotionPreset(presetRaw)) canvas.preset = presetRaw;
   if (timelineRaw === 'auto') delete canvas.timeline;
   else if (isHubTimeline(timelineRaw)) canvas.timeline = timelineRaw;
+
+  /* Do the section's parts arrive together, or in turn? Same Auto rule as the
+     timing above: the word 'auto' DELETES the key, so a couple who never chose
+     follows the preset and moves with it if the preset ever changes. */
+  const sequenceRaw = formData.get('sequence');
+  if (sequenceRaw === 'auto') delete canvas.sequence;
+  else if (isHubSequence(sequenceRaw)) canvas.sequence = sequenceRaw;
 
   const next = { ...existing, canvas };
 

@@ -411,3 +411,49 @@ shipped type still accepted, and `custom_7` refused by the database.
 
 SPEC IMPACT: None — but the **custom-section ceiling** is now answered in the shape of the schema
 (six). If the owner wanted a different number, that is a one-line change in two places.
+
+---
+
+### 11 · The parts of a section arrive in turn (Build 6 · the element scope)
+
+Owner, 2026-09-23, asked for element-level animation directly: **"something I really want."**
+
+A section can arrive as one slab, or its parts — the small label, the heading, the words, the list
+— can arrive in turn. One control: **Auto · All at once · One part after another.**
+
+🔑 **It needed no changes to any of the thirteen widget components, and that was measured rather
+than assumed.** I first estimated this as a thirteen-file change, because the markup grammar is not
+consistent (the dress code has four eyebrows and six headings; the love story has one of each). But
+rendering them showed the real shape: **every widget returns one `<section>` whose direct children
+are exactly its parts** — four for the love story, two for a custom section. So the sequence
+addresses `.hub-canvas-body > * > *` and nothing else had to move.
+
+⚠ **That level is load-bearing, so it has its own guard.** A widget returning *two* top-level nodes
+would shift the selector one level down: the wrong things animate, in the wrong order, and nothing
+goes red — the page still renders and the classes are still right.
+`every-widget-is-one-section.test.ts` renders each widget and counts, because a fragment is
+invisible in JSX and obvious in the DOM.
+
+🔑 **`--hub-stagger` is real at last.** It was withdrawn two commits ago as a value no rule read —
+correctly, because the frame held one child and there was nothing to stagger. The parts turned out
+to be the section's own children, so the gap between them is now a measurement rather than a stored
+intention. It stays **absent, not zero**, when the parts arrive together.
+
+⛔ **Exactly one level is ever animated.** `hub-seq-whole` and `hub-seq-parts` are exclusive: both
+would multiply two opacities, and a part at 0.5 inside a block at 0.5 reads as 0.25 — the section
+arrives muddy.
+
+⚠ **CSS cannot do arithmetic on `nth-child`**, so the eight delays are written out. Eight is
+deliberate: the deepest section measured has four parts, and a ninth arriving with the eighth's gap
+is a far better failure than a section whose tail never appears.
+
+**Guards** — `every-widget-is-one-section.test.ts` (5) + additions to three existing files. Six
+sabotages: **a widget returning two top-level nodes** · both levels animating · the parts losing
+their gaps · a Still section sequencing anyway · the stagger emitted when it means nothing · a
+widget starting to mark its own parts.
+
+⚠ **One framing correction, recorded because it shaped the earlier design notes:** I had been
+citing Canva's Page · Element · Text model as the reference. The owner has never used Canva — that
+comparison was mine, not his, and `the-canvas-has-rails-on` should be read with that in mind.
+
+SPEC IMPACT: None.

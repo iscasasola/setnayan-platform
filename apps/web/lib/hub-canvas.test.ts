@@ -134,10 +134,13 @@ test('⭐ the choices reach the RENDER as custom properties and classes', () => 
   assert.equal(vars['--hub-in-kf'], 'hub-in-slide', 'the keyframe NAME, so one rule serves every pair');
   assert.equal(vars['--hub-out-kf'], 'hub-out-shrink');
   assert.equal(vars['--hub-ease'], 'linear', 'a scrubbed section follows the thumb — an ease would read as lag');
+  // Cinematic sequences its parts, so the gap between them is a real value now.
+  assert.equal(vars['--hub-stagger'], '0.25s', 'the gap between parts, in CSS units');
+  const together = hubCanvasVars({ preset: 'calm' });
   assert.equal(
-    '--hub-stagger' in vars,
+    '--hub-stagger' in together,
     false,
-    'not emitted while no rule reads it — a var nothing consumes is a dead setting',
+    'ABSENT — not zero — when the parts arrive together, so no rule can apply a delay of nothing',
   );
   const cls = hubCanvasClass(c);
   assert.match(cls, /\bhub-arr-right\b/);
@@ -182,4 +185,31 @@ test('⭐ every preset is a DIFFERENT page, and every legal value is accepted', 
   assert.equal(seen.size, HUB_MOTION_PRESETS.length, 'four presets, four different bodies');
   assert.equal(HUB_PRESET_BODY.still.in, 'none', '"Still" is genuinely still');
   assert.equal(HUB_PRESET_BODY.still.during, 'still');
+});
+
+test('⭐ the parts arrive in turn, or all at once — and the class says which', () => {
+  // Owner, 2026-09-23, asked for this directly: a section can arrive as one
+  // slab, or its parts can arrive in turn.
+  assert.match(hubCanvasClass({ preset: 'editorial' }), /\bhub-seq-parts\b/);
+  assert.match(hubCanvasClass({ preset: 'calm' }), /\bhub-seq-whole\b/);
+  // And a couple may override the preset either way.
+  assert.match(hubCanvasClass({ preset: 'calm', sequence: 'one_after_another' }), /\bhub-seq-parts\b/);
+  assert.match(hubCanvasClass({ preset: 'cinematic', sequence: 'together' }), /\bhub-seq-whole\b/);
+  // The two classes are exclusive: both levels animating would multiply two
+  // opacities and the section would arrive muddy.
+  for (const p of HUB_MOTION_PRESETS) {
+    const cls = hubCanvasClass({ preset: p });
+    assert.equal(
+      [/\bhub-seq-parts\b/, /\bhub-seq-whole\b/].filter((r) => r.test(cls)).length,
+      1,
+      `${p} must name exactly one level`,
+    );
+  }
+});
+
+test('⛔ a sequence this product did not write is dropped, and the preset stands', () => {
+  assert.equal(sanitizeHubCanvas({ canvas: { sequence: 'staggered' } }).sequence, undefined);
+  assert.equal(sanitizeHubCanvas({ canvas: { sequence: 1 } }).sequence, undefined);
+  assert.equal(sanitizeHubCanvas({ canvas: { sequence: 'together' } }).sequence, 'together');
+  assert.equal(resolveHubMotion({ preset: 'editorial' }).sequence, 'one_after_another');
 });

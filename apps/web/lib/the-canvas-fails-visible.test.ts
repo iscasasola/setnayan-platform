@@ -153,11 +153,18 @@ test('🔒 nothing outside the gates sets opacity or a transform on a .hub- rule
 
 test('⛔ a section that asked for nothing carries no animation at all', () => {
   // "Still" must not leave a fill-mode behind that could pin a state.
-  assert.match(
-    canvasBlock(),
-    /\.hub-in-none\.hub-out-none\s*>\s*\.hub-canvas-body\s*\{[^}]*animation:\s*none/,
-    'the all-off combination turns the animation off, and drops its layer hint',
-  );
+  // 🪤 The selector grew a second arm when the parts learned to animate: the
+  // all-off rule must silence BOTH levels, or a section set to Still would
+  // still have its parts arriving one by one. Anchored on the declaration and
+  // on both arms, not on the exact text of one selector.
+  const block = canvasBlock();
+  const m = /\.hub-in-none\.hub-out-none[^{]*\{([^}]*)\}/.exec(block);
+  assert.ok(m, 'the all-off rule exists');
+  assert.match(m[1] ?? '', /animation:\s*none/, 'it turns the animation off');
+  assert.match(m[1] ?? '', /will-change:\s*auto/, 'and drops the layer hint');
+  const selector = block.slice(block.indexOf('.hub-in-none'), block.indexOf('{', block.indexOf('.hub-in-none')));
+  assert.match(selector, /\.hub-canvas-body\s*,/, 'the block level is silenced');
+  assert.match(selector, /\.hub-canvas-body\s*>\s*\*\s*>\s*\*/, 'and so are the parts');
 });
 
 test('⛔ THE ANIMATED LAYER MUST GENERATE A BOX — never `display: contents`', () => {

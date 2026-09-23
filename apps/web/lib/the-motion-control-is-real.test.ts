@@ -186,3 +186,54 @@ test('⛔ the crop writer refuses a section with no background, server-side too'
   // carry the photo would clear it on every tap.
   assert.doesNotMatch(body.slice(0, body.indexOf('export async function', 10)), /name="media"|formData\.get\('media'\)/);
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE PARTS — owner 2026-09-23: "something I really want"
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('⭐ the couple can choose how the parts arrive, and take it back to Auto', async () => {
+  const html = await paint([row({ config_json: { canvas: { preset: 'calm' } } })]);
+  assert.match(html, /Parts/, 'the control is offered once a preset is chosen');
+  for (const v of ['auto', 'together', 'one_after_another']) {
+    assert.match(html, new RegExp(`name="sequence" value="${v}"`), `"${v}" must be reachable`);
+  }
+  // Auto is pressed while they have not overridden the preset.
+  const tags = [...html.matchAll(/<form[\s\S]*?<\/form>/g)]
+    .filter((f) => f[0].includes('name="sequence"'));
+  const pressed = tags.filter((f) => f[0].includes('aria-pressed="true"'));
+  assert.equal(pressed.length, 1, 'exactly one is pressed');
+  assert.match(pressed[0]?.[0] ?? '', /value="auto"/, 'and it is Auto until they choose');
+});
+
+test('⛔ the control appears only once a preset is chosen', async () => {
+  const none = await paint([row()]);
+  assert.doesNotMatch(none, /name="sequence"/, 'nothing to refine yet');
+});
+
+test('⛔ a chosen sequence comes back pressed, and every posted value survives', async () => {
+  const html = await paint([
+    row({ config_json: { canvas: { preset: 'calm', sequence: 'one_after_another' } } }),
+  ]);
+  const forms = [...html.matchAll(/<form[\s\S]*?<\/form>/g)]
+    .map((m) => m[0])
+    .filter((f) => f.includes('name="sequence"'));
+  const pressed = forms.filter((f) => f.includes('aria-pressed="true"'));
+  assert.equal(pressed.length, 1);
+  assert.match(pressed[0] ?? '', /value="one_after_another"/);
+  // …and the value the button posts reaches the class the guest page carries.
+  assert.match(
+    hubCanvasClass(sanitizeHubCanvas({ canvas: { preset: 'calm', sequence: 'one_after_another' } })),
+    /\bhub-seq-parts\b/,
+  );
+});
+
+test('⛔ the writer treats "auto" as an absence, like every other override', () => {
+  const src = readFileSync(
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'widgets', 'actions.ts'),
+    'utf8',
+  );
+  const at = src.indexOf('export async function setWidgetMotion');
+  const body = src.slice(at, src.indexOf('export async function', at + 10));
+  assert.match(body, /if \(sequenceRaw === 'auto'\) delete canvas\.sequence;/, 'Auto deletes the key');
+  assert.match(body, /isHubSequence\(sequenceRaw\)/, 'and anything unknown is simply not stored');
+});

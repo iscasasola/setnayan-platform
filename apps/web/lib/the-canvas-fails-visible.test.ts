@@ -26,7 +26,10 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import {
   HUB_ARRANGEMENTS,
+  HUB_DIRECTIONS,
   hubCanvasVars,
+  hubInKeyframe,
+  hubOutKeyframe,
   HUB_DURING,
   HUB_IN,
   HUB_MOTION_PRESETS,
@@ -258,3 +261,103 @@ test('⛔ no rule branches on a class the contract can never emit', () => {
   A red guard can mean the design moved. Re-anchor it; never delete it to go
   green, and never leave two copies to drift.
 */
+
+test('⛔ EVERY keyframe the contract can COMPOSE exists in the stylesheet', () => {
+  /*
+    🔴 THE FAILURE THIS EXISTS FOR IS TOTAL SILENCE. `--hub-in-kf` carries a
+    keyframe NAME composed from two axes — the effect and the direction. If the
+    composition can produce a name `globals.css` does not declare, the browser
+    resolves `animation-name: hub-in-move-below` to nothing: no error, no
+    warning, no console line. The section simply does not move, and the editor
+    still shows the couple's choice as saved.
+
+    A rule per pair would have made this impossible and caused a worse bug
+    instead (same specificity, later one wins, two of Cinematic's three choices
+    silently dropped). So the composition stays, and this walks EVERY
+    combination it can produce.
+  */
+  const declared = new Set(
+    [...CSS.matchAll(/@keyframes\s+([a-z0-9-]+)/g)].map((m) => m[1] as string),
+  );
+  assert.ok(declared.size >= 10, `precondition: the stylesheet declares keyframes (${declared.size})`);
+
+  const missing: string[] = [];
+  let checked = 0;
+  for (const i of HUB_IN) {
+    for (const d of HUB_DIRECTIONS) {
+      const name = hubInKeyframe({ in: i, inFrom: d });
+      checked += 1;
+      if (name !== 'none' && !declared.has(name)) missing.push(`in ${i}/${d} → ${name}`);
+    }
+  }
+  for (const o of HUB_OUT) {
+    for (const d of HUB_DIRECTIONS) {
+      const name = hubOutKeyframe({ out: o, outTo: d });
+      checked += 1;
+      if (name !== 'none' && !declared.has(name)) missing.push(`out ${o}/${d} → ${name}`);
+    }
+  }
+  assert.ok(checked >= 30, `anti-vacuity: every combination was walked (${checked})`);
+  assert.deepEqual(missing, [], `composed but never declared — these animate NOTHING, silently:\n${missing.join('\n')}`);
+});
+
+test('⛔ "move" never touches opacity — that is the whole point of the pair', () => {
+  // Owner: "move and fade out OR JUST MOVE OUT". If the move-only keyframes
+  // faded too, the second half of that sentence would be unreachable while
+  // every control still looked right.
+  /*
+    🪤 BRACE-COUNTED, NOT `\n}`-TERMINATED. The first version matched a keyframe
+    body up to a closing brace ON ITS OWN LINE — and these are written on one
+    line each, so it matched none of them and the count assertion was the only
+    thing that noticed. A parser that silently finds nothing makes every
+    per-body assertion below vacuously true.
+  */
+  const bodies = new Map<string, string>();
+  for (const m of CSS.matchAll(/@keyframes\s+([a-z0-9-]+)\s*\{/g)) {
+    const open = (m.index ?? 0) + m[0].length - 1;
+    let depth = 0;
+    for (let i = open; i < CSS.length; i += 1) {
+      if (CSS[i] === '{') depth += 1;
+      else if (CSS[i] === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          bodies.set(m[1] as string, CSS.slice(open + 1, i));
+          break;
+        }
+      }
+    }
+  }
+  assert.ok(bodies.size >= 10, `precondition: keyframe bodies were parsed (${bodies.size})`);
+  let moveOnly = 0;
+  for (const [name, body] of bodies) {
+    if (!/^hub-(in|out)-move-/.test(name)) continue;
+    moveOnly += 1;
+    assert.doesNotMatch(body, /opacity/, `${name} fades — "just move" must not`);
+    assert.match(body, /translate3d/, `${name} must actually travel`);
+  }
+  assert.equal(moveOnly, 8, 'four directions in, four out');
+  // And the paired fade variants DO fade, or the pair is one thing twice.
+  let moveFade = 0;
+  for (const [name, body] of bodies) {
+    if (!/^hub-(in|out)-movefade-/.test(name)) continue;
+    moveFade += 1;
+    assert.match(body, /opacity/, `${name} must fade`);
+    assert.match(body, /translate3d/, `${name} must also travel`);
+  }
+  assert.equal(moveFade, 8);
+});
+
+test('⛔ each direction genuinely goes a different way', () => {
+  // Four names that all translate the same way would be four controls doing
+  // one thing — and the couple would never know which they had chosen.
+  const offsets = new Map<string, string>();
+  for (const m of CSS.matchAll(/@keyframes\s+hub-in-move-([a-z]+)\s*\{[^}]*translate3d\(([^)]*)\)/g)) {
+    offsets.set(m[1] as string, (m[2] as string).replace(/\s+/g, ''));
+  }
+  assert.equal(offsets.size, 4, 'all four directions are declared');
+  assert.equal(new Set(offsets.values()).size, 4, 'and no two of them travel the same way');
+  assert.match(offsets.get('below') ?? '', /^0,\d/, 'below starts lower down');
+  assert.match(offsets.get('above') ?? '', /^0,-/, 'above starts higher up');
+  assert.match(offsets.get('left') ?? '', /^-/, 'left starts to the left');
+  assert.match(offsets.get('right') ?? '', /^\d/, 'right starts to the right');
+});

@@ -4794,12 +4794,41 @@ html:has([data-sticky-top]) {
   }
 }
 
-@keyframes hub-in-rise    { from { opacity: 0; transform: translate3d(0, 26px, 0); } }
+/* ── THE KEYFRAMES ─────────────────────────────────────────────────────────
+   Owner, 2026-09-23: *"different stories fade in while entering from different
+   areas and move and fade out or just move out"*.
+
+   Two axes — WHAT it does and WHICH WAY — so "move without fading" is a value
+   rather than a missing keyframe. `move` never touches `opacity`; `movefade`
+   does. The names are composed by `hubInKeyframe` / `hubOutKeyframe` in
+   `lib/hub-canvas.ts` and delivered as `--hub-in-kf` / `--hub-out-kf`, so ONE
+   rule per timeline serves every combination and none can shadow another.
+
+   The direction names say where the section IS at the far end: an entrance
+   starts there, a departure ends there. One vocabulary, one fact.
+
+   Only `opacity` and `transform` — both compositor properties, so nothing here
+   triggers layout or paint. */
 @keyframes hub-in-fade    { from { opacity: 0; } }
-@keyframes hub-in-slide   { from { opacity: 0; transform: translate3d(-28px, 0, 0); } }
 @keyframes hub-out-fade   { to   { opacity: 0; } }
-@keyframes hub-out-lift   { to   { opacity: 0; transform: translate3d(0, -26px, 0); } }
-@keyframes hub-out-shrink { to   { opacity: 0; transform: scale(0.965); } }
+@keyframes hub-out-settle { to   { opacity: 0; transform: scale(0.965); } }
+@keyframes hub-in-move-below      { from { transform: translate3d(0, 26px, 0); } }
+@keyframes hub-in-move-above      { from { transform: translate3d(0, -26px, 0); } }
+@keyframes hub-in-move-left      { from { transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-in-move-right      { from { transform: translate3d(28px, 0, 0); } }
+@keyframes hub-in-movefade-below  { from { opacity: 0; transform: translate3d(0, 26px, 0); } }
+@keyframes hub-in-movefade-above  { from { opacity: 0; transform: translate3d(0, -26px, 0); } }
+@keyframes hub-in-movefade-left  { from { opacity: 0; transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-in-movefade-right  { from { opacity: 0; transform: translate3d(28px, 0, 0); } }
+@keyframes hub-out-move-below     { to   { transform: translate3d(0, 26px, 0); } }
+@keyframes hub-out-move-above     { to   { transform: translate3d(0, -26px, 0); } }
+@keyframes hub-out-move-left     { to   { transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-out-move-right     { to   { transform: translate3d(28px, 0, 0); } }
+@keyframes hub-out-movefade-below { to   { opacity: 0; transform: translate3d(0, 26px, 0); } }
+@keyframes hub-out-movefade-above { to   { opacity: 0; transform: translate3d(0, -26px, 0); } }
+@keyframes hub-out-movefade-left { to   { opacity: 0; transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-out-movefade-right { to   { opacity: 0; transform: translate3d(28px, 0, 0); } }
+
 @keyframes hub-during-lift {
   from { transform: scale(var(--hub-zoom, 1)) translate3d(0, 2.5%, 0); }
   to   { transform: scale(var(--hub-zoom, 1)) translate3d(0, -2.5%, 0); }

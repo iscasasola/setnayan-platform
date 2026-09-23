@@ -457,3 +457,47 @@ citing Canva's Page · Element · Text model as the reference. The owner has nev
 comparison was mine, not his, and `the-canvas-has-rails-on` should be read with that in mind.
 
 SPEC IMPACT: None.
+
+---
+
+### 12 · Directions — "enter from different areas… or just move out"
+
+Owner, 2026-09-23: *"so we can make different stories fade in while entering from different areas
+and move and fade out or just move out"*.
+
+🔴 **The vocabulary could not say that.** It had `rise` (from below, always fading) and `slide`
+(from the left, always fading): **direction and fade were welded together**, so "just move out, no
+fade" was not a hard option — it was an *absent* one. Every control looked right and half the
+sentence was unreachable.
+
+**Now two axes.** What it does — *Already there · Fade · Move · Move and fade* (and *Settle back*
+on the way out) — and which way — *below · above · left · right*. Ten entrances and ten departures
+out of two small controls, and **move-without-fading is a value** rather than a missing keyframe.
+
+One direction vocabulary for both ends, because it is one fact: an entrance **starts** where the
+departure **ends**. Only the words the couple reads differ (*From below* / *Downward*).
+
+⛔ **A direction is dropped where it means nothing.** A "from the left" kept beside a plain fade is
+a setting the couple can change with no effect on anything. Enforced twice on purpose — the writer
+refuses to store it and the reader refuses to keep it — so the two ends cannot disagree, and the
+editor does not paint the row either.
+
+**Guards** — three new in `the-canvas-fails-visible.test.ts`, four in
+`the-motion-control-is-real.test.ts`. Six sabotages, each breaking exactly its guard:
+
+- 🔴 **a composed keyframe name that nothing declares** — the silent one. `--hub-in-kf` carries a
+  name built from two axes; a name `globals.css` does not have resolves to nothing, with **no
+  error, no warning, no console line.** The section does not move and the editor still shows the
+  choice as saved. The guard walks every combination the composition can produce.
+- "just move" quietly gaining a fade · two directions travelling the same way · a direction stored
+  beside a fade · the direction row painted for a fade · the writer keeping one the effect cannot use.
+
+🪤 **Two of my own mistakes, both caught by a machine rather than by review.** The keyframe parser
+matched a body only up to a closing brace *on its own line*, and these are written one per line —
+so it found none of them, and every per-body assertion under it was vacuously true; it now
+brace-counts. And a helper named `row` **shadowed the widget row it sat inside**, so
+`row.widget_id` resolved to a function — `tsc` caught it, but a JavaScript-only refactor would have
+posted `undefined` as every widget id.
+
+SPEC IMPACT: None. The old `rise`/`slide`/`lift`/`shrink` values are replaced outright rather than
+carried, because nothing in production holds either field — the canvas has never merged.

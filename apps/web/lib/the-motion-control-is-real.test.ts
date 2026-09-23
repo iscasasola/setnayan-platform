@@ -20,6 +20,7 @@ import {
   HUB_MOTION_PRESETS,
   HUB_MOTION_PRESET_LABEL,
   hubCanvasClass,
+  hubCanvasVars,
   sanitizeHubCanvas,
 } from './hub-canvas';
 import type { InvitationWidgetRow } from './invitation-widgets';
@@ -236,4 +237,67 @@ test('⛔ the writer treats "auto" as an absence, like every other override', ()
   const body = src.slice(at, src.indexOf('export async function', at + 10));
   assert.match(body, /if \(sequenceRaw === 'auto'\) delete canvas\.sequence;/, 'Auto deletes the key');
   assert.match(body, /isHubSequence\(sequenceRaw\)/, 'and anything unknown is simply not stored');
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIRECTIONS — owner: "fade in while entering from different areas and move
+   and fade out or just move out"
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('⭐ every entrance and departure the owner described is reachable', async () => {
+  const html = await paint([row({ config_json: { canvas: { preset: 'calm' } } })]);
+  assert.match(html, /Comes in/);
+  assert.match(html, /Goes out/);
+  // "just move out" — the half the old vocabulary could not express at all.
+  assert.match(html, /name="out" value="move"/, 'move away WITHOUT fading must be pickable');
+  assert.match(html, /name="out" value="move_fade"/, 'and move away WITH a fade');
+  assert.match(html, /name="in" value="fade"/);
+  assert.match(html, /name="in" value="move_fade"/);
+});
+
+test('⛔ a direction is offered only when the effect TRAVELS', async () => {
+  // A "from the left" beside a plain fade is a control that changes nothing.
+  const fading = await paint([row({ config_json: { canvas: { preset: 'calm', in: 'fade', out: 'fade' } } })]);
+  assert.doesNotMatch(fading, /name="in_from"/, 'a fade has no direction');
+  assert.doesNotMatch(fading, /name="out_to"/);
+
+  const moving = await paint([
+    row({ config_json: { canvas: { preset: 'calm', in: 'move', inFrom: 'right', out: 'move', outTo: 'left' } } }),
+  ]);
+  assert.match(moving, /name="in_from" value="right"/);
+  assert.match(moving, /name="out_to" value="left"/);
+  for (const d of ['below', 'above', 'left', 'right']) {
+    assert.match(moving, new RegExp(`name="in_from" value="${d}"`), `${d} must be reachable`);
+  }
+});
+
+test('⛔ the writer refuses to store a direction that means nothing', () => {
+  const src = readFileSync(
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'widgets', 'actions.ts'),
+    'utf8',
+  );
+  const at = src.indexOf('export async function setWidgetMotion');
+  const body = src.slice(at, src.indexOf('export async function', at + 10));
+  assert.match(body, /if \(!hubInMoves\(inRaw\)\) delete canvas\.inFrom;/, 'a non-travelling entrance drops its direction');
+  assert.match(body, /if \(!hubOutMoves\(outRaw\)\) delete canvas\.outTo;/);
+  assert.match(body, /hubInMoves\(\(canvas\.in as HubIn \| undefined\) \?\? 'none'\)/, 'and one is only accepted when it travels');
+});
+
+test('⛔ the chain holds: the button posts it, the contract keeps it, a keyframe exists', () => {
+  // The whole point. A value that survives sanitising but composes a keyframe
+  // name nothing declares animates NOTHING, with no error anywhere.
+  const css = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
+  for (const d of ['below', 'above', 'left', 'right'] as const) {
+    for (const what of ['move', 'move_fade'] as const) {
+      const c = sanitizeHubCanvas({ canvas: { preset: 'calm', in: what, inFrom: d } });
+      assert.equal(c.in, what);
+      assert.equal(c.inFrom, d, `${what} from ${d} must survive the round trip`);
+      const kf = hubCanvasVars(c)['--hub-in-kf'];
+      assert.ok(css.includes(`@keyframes ${kf}`), `${kf} is composed but never declared`);
+    }
+  }
+  // …and a fade keeps no direction, so it can never compose a directional name.
+  const faded = sanitizeHubCanvas({ canvas: { preset: 'calm', in: 'fade', inFrom: 'left' } });
+  assert.equal(faded.inFrom, undefined);
+  assert.equal(hubCanvasVars(faded)['--hub-in-kf'], 'hub-in-fade');
 });

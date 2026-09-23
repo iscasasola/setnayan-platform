@@ -10,14 +10,22 @@ import {
   sanitizeCustomSection,
 } from '@/lib/custom-sections';
 import {
+  HUB_DIRECTIONS,
   HUB_FOCAL_POINTS,
+  HUB_IN,
   HUB_MOTION_PRESETS,
+  HUB_OUT,
+  hubInMoves,
+  hubOutMoves,
   HUB_SEQUENCES,
   HUB_ZOOMS,
   hubMediaRef,
   HUB_TIMELINE,
   sanitizeHubCanvas,
+  type HubDirection,
+  type HubIn,
   type HubMotionPreset,
+  type HubOut,
   type HubSequence,
   type HubTimeline,
 } from '@/lib/hub-canvas';
@@ -28,6 +36,12 @@ const isHubTimeline = (v: unknown): v is HubTimeline =>
   typeof v === 'string' && (HUB_TIMELINE as readonly string[]).includes(v);
 const isHubSequence = (v: unknown): v is HubSequence =>
   typeof v === 'string' && (HUB_SEQUENCES as readonly string[]).includes(v);
+const isHubIn = (v: unknown): v is HubIn =>
+  typeof v === 'string' && (HUB_IN as readonly string[]).includes(v);
+const isHubOut = (v: unknown): v is HubOut =>
+  typeof v === 'string' && (HUB_OUT as readonly string[]).includes(v);
+const isHubDirection = (v: unknown): v is HubDirection =>
+  typeof v === 'string' && (HUB_DIRECTIONS as readonly string[]).includes(v);
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -490,6 +504,36 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   const sequenceRaw = formData.get('sequence');
   if (sequenceRaw === 'auto') delete canvas.sequence;
   else if (isHubSequence(sequenceRaw)) canvas.sequence = sequenceRaw;
+
+  /* ── HOW IT COMES IN, HOW IT GOES OUT, AND WHICH WAY ──────────────────────
+     Owner, 2026-09-23: "different stories fade in while entering from different
+     areas and move and fade out or just move out".
+
+     ⛔ A DIRECTION IS DROPPED WHEN THE EFFECT DOES NOT TRAVEL. `sanitizeHubCanvas`
+     enforces the same rule on the way out, so the two ends cannot disagree —
+     but doing it here as well means a stored config never carries a "from the
+     left" beside a plain fade, which would be a saved setting with no effect. */
+  const inRaw = formData.get('in');
+  if (inRaw === 'auto') { delete canvas.in; delete canvas.inFrom; }
+  else if (isHubIn(inRaw)) {
+    canvas.in = inRaw;
+    if (!hubInMoves(inRaw)) delete canvas.inFrom;
+  }
+  const inFromRaw = formData.get('in_from');
+  if (isHubDirection(inFromRaw) && hubInMoves((canvas.in as HubIn | undefined) ?? 'none')) {
+    canvas.inFrom = inFromRaw;
+  }
+
+  const outRaw = formData.get('out');
+  if (outRaw === 'auto') { delete canvas.out; delete canvas.outTo; }
+  else if (isHubOut(outRaw)) {
+    canvas.out = outRaw;
+    if (!hubOutMoves(outRaw)) delete canvas.outTo;
+  }
+  const outToRaw = formData.get('out_to');
+  if (isHubDirection(outToRaw) && hubOutMoves((canvas.out as HubOut | undefined) ?? 'none')) {
+    canvas.outTo = outToRaw;
+  }
 
   const next = { ...existing, canvas };
 

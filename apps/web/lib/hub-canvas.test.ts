@@ -65,7 +65,9 @@ test('⛔ a value this product did not write is DROPPED, never rounded into plac
     zoom: 137,                // between two legal values
     preset: 'dramatic',       // a preset that never existed
     in: 'RISE',
+    inFrom: 'sideways',
     out: 'explode',
+    outTo: 'diagonally',
     during: 'spin',
     timeline: 'onScroll',
     stagger: 0.2,             // near 0.25, and not it
@@ -103,9 +105,9 @@ test('⛔ "Auto" is never stored — it is the absence of the key', () => {
 test('⭐ so a couple on Auto MOVES when the preset body changes, and one who chose does not', () => {
   // The whole reason absence beats a literal. Simulated by reading the body.
   const onAuto = sanitizeHubCanvas({ preset: 'calm' });
-  const chose = sanitizeHubCanvas({ preset: 'calm', in: 'slide' });
+  const chose = sanitizeHubCanvas({ preset: 'calm', in: 'move_fade' });
   assert.equal(resolveHubMotion(onAuto).in, HUB_PRESET_BODY.calm.in, 'follows the preset');
-  assert.equal(resolveHubMotion(chose).in, 'slide', 'keeps their own answer');
+  assert.equal(resolveHubMotion(chose).in, 'move_fade', 'keeps their own answer');
 });
 
 /* ══ THE KEYPAD ════════════════════════════════════════════════════════ */
@@ -131,8 +133,9 @@ test('⭐ the choices reach the RENDER as custom properties and classes', () => 
   assert.equal(vars['--hub-focal'], '0% 100%', 'the crop the couple chose');
   assert.equal(vars['--hub-zoom'], '1.5');
   assert.equal(vars['--hub-duration'], '1.8s', 'from the preset, already in CSS units');
-  assert.equal(vars['--hub-in-kf'], 'hub-in-slide', 'the keyframe NAME, so one rule serves every pair');
-  assert.equal(vars['--hub-out-kf'], 'hub-out-shrink');
+  // Cinematic enters moving-and-fading from the left and settles back on exit.
+  assert.equal(vars['--hub-in-kf'], 'hub-in-movefade-left', 'the composed NAME, so one rule serves every pair');
+  assert.equal(vars['--hub-out-kf'], 'hub-out-settle');
   assert.equal(vars['--hub-ease'], 'linear', 'a scrubbed section follows the thumb — an ease would read as lag');
   // Cinematic sequences its parts, so the gap between them is a real value now.
   assert.equal(vars['--hub-stagger'], '0.25s', 'the gap between parts, in CSS units');

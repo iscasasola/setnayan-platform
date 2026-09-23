@@ -16,8 +16,18 @@ import {
   HUB_DEFAULT_ZOOM,
   HUB_FOCAL_POINTS,
   HUB_MOTION_PRESETS,
+  HUB_DIRECTIONS,
+  HUB_IN,
+  HUB_IN_DIRECTION_LABEL,
+  HUB_IN_LABEL,
   HUB_MOTION_PRESET_LABEL,
+  HUB_OUT,
+  HUB_OUT_DIRECTION_LABEL,
+  HUB_OUT_LABEL,
   HUB_SEQUENCE_LABEL,
+  hubInMoves,
+  hubOutMoves,
+  resolveHubMotion,
   HUB_TIMELINE_LABEL,
   HUB_ZOOMS,
   focalToObjectPosition,
@@ -290,6 +300,82 @@ export function SectionsPanel({
                           })}
                         </div>
                       ) : null}
+                      {/* ══ COMES IN · GOES OUT, AND WHICH WAY ═════════════
+                          Owner, 2026-09-23: "different stories fade in while
+                          entering from different areas and move and fade out or
+                          just move out".
+
+                          🔑 TWO AXES, NOT ONE LIST. What it does, and which
+                          way. The old vocabulary welded them together — `rise`
+                          was always from below and always faded — so "just move
+                          out" was not a hard option, it was an ABSENT one.
+
+                          ⛔ THE DIRECTION ROW APPEARS ONLY WHEN THE EFFECT
+                          TRAVELS. A "from the left" beside a plain fade is a
+                          control the couple can change with no effect on
+                          anything, which is the defect this build exists to
+                          remove. The writer drops it too, so the two ends
+                          cannot disagree. */}
+                      {preset ? (
+                        (() => {
+                          const m = resolveHubMotion(canvas);
+                          // 🪤 `chipRow`, not `row`. The first name shadowed the
+                          // WIDGET row this whole block sits inside, so
+                          // `row.widget_id` resolved to the helper function.
+                          // tsc caught it; a JS-only refactor would have posted
+                          // `undefined` as every widget id.
+                          const chipRow = (
+                            label: string,
+                            name: string,
+                            values: readonly string[],
+                            labels: Record<string, string>,
+                            current: string,
+                            isAuto: boolean,
+                          ) => (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                {label}
+                              </span>
+                              {(['auto', ...values] as const).map((v) => {
+                                const on = v === 'auto' ? isAuto : !isAuto && current === v;
+                                return (
+                                  <form key={v} action={setMotionAction}>
+                                    <input type="hidden" name="event_id" value={eventId} />
+                                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                                    <input type="hidden" name="preset" value={preset} />
+                                    <input type="hidden" name={name} value={v} />
+                                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                    <button
+                                      type="submit"
+                                      aria-pressed={on}
+                                      className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                        on
+                                          ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                          : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                      }`}
+                                    >
+                                      {v === 'auto' ? 'Auto' : (labels[v] ?? v)}
+                                    </button>
+                                  </form>
+                                );
+                              })}
+                            </div>
+                          );
+                          return (
+                            <>
+                              {chipRow('Comes in', 'in', HUB_IN, HUB_IN_LABEL, m.in, !canvas.in)}
+                              {hubInMoves(m.in)
+                                ? chipRow('From', 'in_from', HUB_DIRECTIONS, HUB_IN_DIRECTION_LABEL, m.inFrom, !canvas.inFrom)
+                                : null}
+                              {chipRow('Goes out', 'out', HUB_OUT, HUB_OUT_LABEL, m.out, !canvas.out)}
+                              {hubOutMoves(m.out)
+                                ? chipRow('Toward', 'out_to', HUB_DIRECTIONS, HUB_OUT_DIRECTION_LABEL, m.outTo, !canvas.outTo)
+                                : null}
+                            </>
+                          );
+                        })()
+                      ) : null}
+
                       {/* ══ HOW ITS PARTS ARRIVE ═══════════════════════════
                           Owner, 2026-09-23, asked for this directly. The parts
                           of a section — its small label, its heading, its words

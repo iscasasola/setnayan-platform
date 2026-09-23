@@ -72,12 +72,89 @@ export const HUB_MOTION_PRESET_LABEL: Record<HubMotionPreset, string> = {
    Every list below is the prototype's, label for label. `out` exists because
    the owner corrected an earlier draft that had ruled it out: a TIMED exit
    fights the reader, but a SCRUBBED one is the handoff to the next section. */
-export const HUB_IN = ['rise', 'fade', 'slide', 'none'] as const;
-export const HUB_OUT = ['none', 'fade', 'lift', 'shrink'] as const;
+/* ── WHAT AN ARRIVAL OR A DEPARTURE DOES, AND WHICH WAY ────────────────────
+   Owner, 2026-09-23: *"so we can make different stories fade in while entering
+   from different areas and move and fade out or just move out"*.
+
+   🔴 THE FIRST VOCABULARY COULD NOT SAY THAT. It had `rise` (from below, always
+   fading) and `slide` (from the left, always fading) — direction and fade were
+   WELDED TOGETHER, so "just move out, no fade" was not expressible at all. Not
+   hard to reach: absent from the vocabulary.
+
+   🔑 SO THEY ARE TWO AXES. WHAT it does, and WHICH WAY. Four ways × two
+   move-effects gives ten entrances and ten departures out of two small
+   controls, and "move without fading" is one of them because it is a value
+   rather than a missing keyframe.
+
+   Nothing in production holds either field — the canvas has never merged — so
+   this replaces the old list outright rather than carrying it. */
+export const HUB_IN = ['none', 'fade', 'move', 'move_fade'] as const;
+export const HUB_OUT = ['none', 'fade', 'move', 'move_fade', 'settle'] as const;
 export const HUB_DURING = ['still', 'lift'] as const;
 /** `time` plays once on arrival; `scrub` follows the scroll and reverses. */
 export const HUB_TIMELINE = ['time', 'scrub'] as const;
+
+/**
+ * WHERE THE SECTION IS AT THE FAR END OF THE MOVE.
+ *
+ * One vocabulary for both ends, because it is one fact: an entrance STARTS
+ * there and a departure ENDS there. Only the words the couple reads differ,
+ * which is why there are two label maps and one list.
+ */
+export const HUB_DIRECTIONS = ['below', 'above', 'left', 'right'] as const;
+export type HubDirection = (typeof HUB_DIRECTIONS)[number];
+
+export type HubIn = (typeof HUB_IN)[number];
+export type HubOut = (typeof HUB_OUT)[number];
+export type HubDuring = (typeof HUB_DURING)[number];
+export type HubTimeline = (typeof HUB_TIMELINE)[number];
+
+export const HUB_IN_LABEL: Record<HubIn, string> = {
+  none: 'Already there',
+  fade: 'Fade in',
+  move: 'Move in',
+  move_fade: 'Move in and fade',
+};
+export const HUB_OUT_LABEL: Record<HubOut, string> = {
+  none: 'Stay put',
+  fade: 'Fade away',
+  move: 'Move away',
+  move_fade: 'Move away and fade',
+  settle: 'Settle back',
+};
+export const HUB_IN_DIRECTION_LABEL: Record<HubDirection, string> = {
+  below: 'From below',
+  above: 'From above',
+  left: 'From the left',
+  right: 'From the right',
+};
+export const HUB_OUT_DIRECTION_LABEL: Record<HubDirection, string> = {
+  below: 'Downward',
+  above: 'Upward',
+  left: 'To the left',
+  right: 'To the right',
+};
+
+/** Does this effect travel? Only then is a direction anything but noise. */
+export function hubInMoves(v: HubIn): boolean {
+  return v === 'move' || v === 'move_fade';
+}
+export function hubOutMoves(v: HubOut): boolean {
+  return v === 'move' || v === 'move_fade';
+}
+
 export const HUB_STAGGER = [0, 0.12, 0.25] as const;
+export const HUB_DURATION = [0.6, 1.1, 1.8] as const;
+
+export const HUB_TIMELINE_LABEL: Record<HubTimeline, string> = {
+  time: 'Plays once',
+  scrub: 'Follows the scroll',
+};
+export const HUB_DURING_LABEL: Record<HubDuring, string> = {
+  still: 'Still',
+  lift: 'Slow lift',
+};
+
 
 /* ── HOW THE PARTS OF A SECTION ARRIVE ─────────────────────────────────────
    Owner, 2026-09-23, asked for this directly and it is the point of the
@@ -101,33 +178,6 @@ export const HUB_SEQUENCE_LABEL: Record<HubSequence, string> = {
 
 /** How many parts get their own delay before the sequence stops deepening. */
 export const HUB_SEQUENCE_DEPTH = 8;
-export const HUB_DURATION = [0.6, 1.1, 1.8] as const;
-
-export type HubIn = (typeof HUB_IN)[number];
-export type HubOut = (typeof HUB_OUT)[number];
-export type HubDuring = (typeof HUB_DURING)[number];
-export type HubTimeline = (typeof HUB_TIMELINE)[number];
-
-export const HUB_IN_LABEL: Record<HubIn, string> = {
-  rise: 'Rise',
-  fade: 'Fade',
-  slide: 'Slide',
-  none: 'None',
-};
-export const HUB_OUT_LABEL: Record<HubOut, string> = {
-  none: 'Stay put',
-  fade: 'Fade away',
-  lift: 'Lift away',
-  shrink: 'Settle back',
-};
-export const HUB_DURING_LABEL: Record<HubDuring, string> = {
-  still: 'Still',
-  lift: 'Slow lift',
-};
-export const HUB_TIMELINE_LABEL: Record<HubTimeline, string> = {
-  time: 'Plays once',
-  scrub: 'Follows the scroll',
-};
 
 /** 1–9, reading like a phone keypad: 1 top-left, 5 centre, 9 bottom-right. */
 export const HUB_FOCAL_POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
@@ -167,7 +217,11 @@ export type HubSectionCanvas = {
   preset?: HubMotionPreset;
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
+  /** Where it comes FROM. Ignored, and not stored, unless `in` travels. */
+  inFrom?: HubDirection;
   out?: HubOut;
+  /** Where it goes TO. Ignored, and not stored, unless `out` travels. */
+  outTo?: HubDirection;
   during?: HubDuring;
   timeline?: HubTimeline;
   stagger?: number;
@@ -180,7 +234,9 @@ export type HubSectionCanvas = {
 export type HubResolvedMotion = {
   sequence: HubSequence;
   in: HubIn;
+  inFrom: HubDirection;
   out: HubOut;
+  outTo: HubDirection;
   during: HubDuring;
   timeline: HubTimeline;
   stagger: number;
@@ -196,10 +252,10 @@ export type HubResolvedMotion = {
  * in and chose "Fade" keeps Fade.
  */
 export const HUB_PRESET_BODY: Record<HubMotionPreset, HubResolvedMotion> = {
-  still: { sequence: 'together', in: 'none', out: 'none', during: 'still', timeline: 'time', stagger: 0, duration: 0.6 },
-  calm: { sequence: 'together', in: 'fade', out: 'fade', during: 'still', timeline: 'time', stagger: 0.12, duration: 1.1 },
-  editorial: { sequence: 'one_after_another', in: 'rise', out: 'lift', during: 'still', timeline: 'scrub', stagger: 0.12, duration: 1.1 },
-  cinematic: { sequence: 'one_after_another', in: 'slide', out: 'shrink', during: 'lift', timeline: 'scrub', stagger: 0.25, duration: 1.8 },
+  still:     { sequence: 'together',          in: 'none',      inFrom: 'below', out: 'none',      outTo: 'above', during: 'still', timeline: 'time',  stagger: 0,    duration: 0.6 },
+  calm:      { sequence: 'together',          in: 'fade',      inFrom: 'below', out: 'fade',      outTo: 'above', during: 'still', timeline: 'time',  stagger: 0.12, duration: 1.1 },
+  editorial: { sequence: 'one_after_another', in: 'move_fade', inFrom: 'below', out: 'move_fade', outTo: 'above', during: 'still', timeline: 'scrub', stagger: 0.12, duration: 1.1 },
+  cinematic: { sequence: 'one_after_another', in: 'move_fade', inFrom: 'left',  out: 'settle',    outTo: 'above', during: 'lift',  timeline: 'scrub', stagger: 0.25, duration: 1.8 },
 };
 
 export const HUB_DEFAULT_PRESET: HubMotionPreset = 'calm';
@@ -253,6 +309,11 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
   if (inSet(HUB_IN, canvas.in)) out.in = canvas.in;
   if (inSet(HUB_OUT, canvas.out)) out.out = canvas.out;
+  /* ⛔ A DIRECTION IS ONLY STORED WHERE IT MEANS SOMETHING. A "from the left"
+     kept beside a plain fade is a setting the couple can change with no effect
+     on anything — the defect this build exists to remove, in miniature. */
+  if (inSet(HUB_DIRECTIONS, canvas.inFrom) && hubInMoves(out.in ?? 'none')) out.inFrom = canvas.inFrom;
+  if (inSet(HUB_DIRECTIONS, canvas.outTo) && hubOutMoves(out.out ?? 'none')) out.outTo = canvas.outTo;
   if (inSet(HUB_DURING, canvas.during)) out.during = canvas.during;
   if (inSet(HUB_TIMELINE, canvas.timeline)) out.timeline = canvas.timeline;
   if (inSet(HUB_SEQUENCES, canvas.sequence)) out.sequence = canvas.sequence;
@@ -267,12 +328,35 @@ export function resolveHubMotion(canvas: HubSectionCanvas): HubResolvedMotion {
   return {
     sequence: canvas.sequence ?? body.sequence,
     in: canvas.in ?? body.in,
+    inFrom: canvas.inFrom ?? body.inFrom,
     out: canvas.out ?? body.out,
+    outTo: canvas.outTo ?? body.outTo,
     during: canvas.during ?? body.during,
     timeline: canvas.timeline ?? body.timeline,
     stagger: canvas.stagger ?? body.stagger,
     duration: canvas.duration ?? body.duration,
   };
+}
+
+/**
+ * THE KEYFRAME NAME, composed from the two axes.
+ *
+ * 🔑 One rule in `globals.css` reads these, so every combination of effect and
+ * direction is one selector. The alternative — a rule per pair — is what
+ * silently dropped two of Cinematic's three choices when they had the same
+ * specificity and the later one won.
+ */
+export function hubInKeyframe(m: Pick<HubResolvedMotion, 'in' | 'inFrom'>): string {
+  if (m.in === 'none') return 'none';
+  if (m.in === 'fade') return 'hub-in-fade';
+  return `hub-in-${m.in === 'move_fade' ? 'movefade' : 'move'}-${m.inFrom}`;
+}
+
+export function hubOutKeyframe(m: Pick<HubResolvedMotion, 'out' | 'outTo'>): string {
+  if (m.out === 'none') return 'none';
+  if (m.out === 'fade') return 'hub-out-fade';
+  if (m.out === 'settle') return 'hub-out-settle';
+  return `hub-out-${m.out === 'move_fade' ? 'movefade' : 'move'}-${m.outTo}`;
 }
 
 /** `object-position` for a 1–9 focal point. 1 is top-left, 5 centre, 9 bottom-right. */
@@ -313,8 +397,8 @@ export function hubCanvasVars(
        same specificity, so the later one won and took `animation-name` with it,
        and `.hub-during-lift` (one class) lost to both. A control whose effect
        is decided by source order is not a control. */
-    '--hub-in-kf': m.in === 'none' ? 'none' : `hub-in-${m.in}`,
-    '--hub-out-kf': m.out === 'none' ? 'none' : `hub-out-${m.out}`,
+    '--hub-in-kf': hubInKeyframe(m),
+    '--hub-out-kf': hubOutKeyframe(m),
     '--hub-duration': `${m.duration}s`,
     /* 🔑 `--hub-stagger` IS EMITTED AGAIN, and this time a rule reads it. It was
        withdrawn when the frame held one child and there was nothing to stagger;

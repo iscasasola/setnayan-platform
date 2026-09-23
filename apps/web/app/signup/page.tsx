@@ -156,11 +156,19 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
     <main style={{ minHeight: '100dvh', background: 'var(--m-paper)' }}>
       <div className="home-reskin-ov">
         <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
-          <Link href="/" className="hr-ov-x" aria-label="Close">
-            ✕
-          </Link>
-          <div className="hr-ov-eyebrow">New here</div>
-          <h1 className="hr-ov-title">Create your account.</h1>
+          {/* No ✕: this is a page of its own with nothing behind it (the same
+              mistake as aria-modal, one layer up — overlay chrome on a page).
+              The way out is the browser and the Sign-in link below. */}
+          <div className="hr-ov-eyebrow">User account</div>
+          <h1 className="hr-ov-title">Create your user account.</h1>
+          {/* THE OWNER'S OWN SENTENCE (2026-09-23): "enter your email address and
+              create your password. or directly sign in with Google or Apple." The
+              card is ordered the way he said it: email + password first, then
+              Google / Apple as the direct sign-in. */}
+          <p className="hr-ov-sub">
+            Enter your email address and create your password
+            {showOAuth ? ' — or sign in directly with Google or Apple.' : '.'}
+          </p>
 
           {errorMessage ? (
             <p role="alert" className="hr-si-banner hr-si-banner--error">
@@ -187,25 +195,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {/* OAuth above the email form, same components and gate as /login.
-              `withAccountType` carries the URL's decision so a vendor signing up
-              with Google is filed as a vendor. */}
-          {showOAuth ? (
-            <div className="hr-si-oauth">
-              {desktopOAuth ? (
-                <DesktopOAuthButtons next={next} />
-              ) : (
-                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} />
-              )}
-            </div>
-          ) : null}
-
-          {showOAuth ? (
-            <div className="hr-si-or">
-              <span>or sign up with email</span>
-            </div>
-          ) : null}
-
           <form action={signUp} className="hr-si-form">
             <input type="hidden" name="next" value={next} />
             <TurnstileField action="signup" />
@@ -217,7 +206,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
             <div className="hr-si-field">
               <label htmlFor="hr-su-email" className="hr-si-label">
-                Email
+                Email address
               </label>
               <input
                 id="hr-su-email"
@@ -233,7 +222,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </div>
             <div className="hr-si-field">
               <label htmlFor="hr-su-password" className="hr-si-label">
-                Password
+                Create your password
               </label>
               <input
                 id="hr-su-password"
@@ -274,9 +263,28 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </div>
 
             <SubmitButton className="hr-si-submit" pendingLabel="Creating account…">
-              Create account · free
+              Create user account · free
             </SubmitButton>
           </form>
+
+          {/* Google / Apple are a DIRECT SIGN-IN, not a second way to sign up —
+              so they sit BELOW the email form, under a divider that says so.
+              Same components and shell gate as /login; `withAccountType` carries
+              the URL's decision so a vendor arriving by Google is filed as one. */}
+          {showOAuth ? (
+            <div className="hr-si-or">
+              <span>or sign in directly with</span>
+            </div>
+          ) : null}
+          {showOAuth ? (
+            <div className="hr-si-oauth">
+              {desktopOAuth ? (
+                <DesktopOAuthButtons next={next} verb="Sign in with" />
+              ) : (
+                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} verb="Sign in with" />
+              )}
+            </div>
+          ) : null}
 
           <div className="hr-si-foot">
             Have an account?{' '}

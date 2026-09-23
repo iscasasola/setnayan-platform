@@ -157,9 +157,9 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
             ) : (
               <div className="hr-si-field">
                 <span className="hr-si-label">Account name</span>
-                <p style={{ margin: 0, fontSize: 14 }}>
+                <p style={{ margin: 0 }}>
                   @{currentSlug}{' '}
-                  <span style={{ fontSize: 12, color: 'var(--hr-grey)' }}>
+                  <span className="hr-si-hint">
                     · change it under Profile &amp; settings › Privacy › Public profile
                   </span>
                 </p>
@@ -169,9 +169,9 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
             {/* The formal name, folded — a <details> needs no script and opens
                 itself when a part is already filled in. */}
             <details open={!formalEmpty} className="hr-si-field">
-              <summary style={{ cursor: 'pointer', fontSize: 14 }}>
+              <summary style={{ cursor: 'pointer' }}>
                 Full name{' '}
-                <span style={{ fontSize: 12, color: 'var(--hr-grey)' }}>
+                <span className="hr-si-hint">
                   · for guest lists and invitations · optional
                 </span>
               </summary>

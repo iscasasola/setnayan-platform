@@ -1868,90 +1868,23 @@ export async function setCapturePreserved(formData: FormData) {
 }
 
 /**
- * HAND SHOTS TO ONE CAMERA'S QR — or take the unspent ones back.
+ * ⛔ `setCameraShots` WAS HERE, AND IT IS GONE WITH THE RPC IT CALLED.
  *
- * The control the owner asked for on 2026-08-11: *"the host can dedicated a
- * specific number of shots for a specific QR code. and the rest can be
- * distributed to the rest"*. Papic is one product now — you buy shots, and this
- * is where you decide which of them belong to one camera alone.
+ * ⚖ Owner 2026-09-16 (*"no dedicated shots individually"*), re-confirmed
+ * 2026-09-22 against a question naming this control specifically. It posted to
+ * `papic_dedicate_shots`, which moved credits out of the shared pot onto one
+ * QR code; both the function and `papic_seat_allocations` are DROPPED by
+ * migration `20271243295861`.
  *
- * ── IT POSTS A TARGET, NOT A DELTA ─────────────────────────────────────────
- * `shots` is what the camera should hold when this is done, not how many to
- * add. That is what makes lowering it the way you take shots back — giving and
- * taking are the same call, so neither can be the one somebody forgot to build.
- * It also makes a double-submit harmless, which matters on a form a host will
- * tap twice on a bad venue connection.
+ * ⚠ THE FREE CAMERA GRANT IS A DIFFERENT MECHANISM AND STAYS —
+ * `papic_event_point_grants.seat_id`, written by `papic_grant_camera_points`,
+ * which references neither of the dropped objects. A camera still carries a
+ * balance of its own, just not one the couple handed it.
  *
- * ── WHAT THIS ACTION DOES *NOT* DECIDE ─────────────────────────────────────
- * Every rule about whether the move is allowed lives in `papic_dedicate_shots`,
- * under a row lock, in one transaction: the pot must still hold what is being
- * handed out, the camera cannot drop below what it has already shot, and the
- * camera must belong to this event. None of that is re-implemented here.
- * Deriving the same arithmetic twice is how a screen and a ledger come to
- * disagree — and the screen is the one people believe.
- *
- * SEC-4 holds trivially: nothing about money crosses the wire. The browser
- * posts a camera and a count of shots the couple already owns.
+ * 🔑 Held by `no-camera-holds-its-own-credits.test.ts`: no surface under
+ * `app/` may name the dropped RPC, so this cannot quietly come back.
  */
-export async function setCameraShots(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const fail = (code: string): never =>
-    redirect(`${back}?shots_error=${encodeURIComponent(code)}`);
-
-  const seatId = String(formData.get('seat_id') ?? '').trim();
-  if (!seatId) fail('unknown_camera');
-
-  const raw = String(formData.get('shots') ?? '').trim();
-  const shots = Number(raw);
-  // A blank box is not zero. Reading it as zero would silently pull every shot
-  // off a camera because somebody cleared the field to retype it.
-  if (raw === '' || !Number.isFinite(shots) || shots < 0 || !Number.isInteger(shots)) {
-    fail('bad_number');
-  }
-
-  const admin = createAdminClient();
-  const { error } = await admin.rpc('papic_dedicate_shots', {
-    p_event_id: eventId,
-    p_seat_id: seatId,
-    p_points: shots,
-    p_actor: user!.id,
-  });
-
-  if (error) {
-    // 🔑 THE REFUSAL HAS TO REACH THE SCREEN. The database refuses with a
-    // specific reason; dropping it here would leave the host looking at a
-    // number that did not change and no idea why — which is indistinguishable
-    // from a button that does nothing. The three the function can raise are
-    // mapped; anything else is reported as itself rather than swallowed.
-    const message = String(error.message ?? '');
-    if (/does not belong to this event/.test(message)) fail('unknown_camera');
-    if (/still shared/.test(message)) fail('not_enough_left');
-    if (/already taken/.test(message)) fail('already_shot');
-    console.error('[papic] setCameraShots failed:', {
-      event_id: eventId,
-      seat_id: seatId,
-      error: message,
-    });
-    fail('failed');
-  }
-
-  revalidatePath(back);
-  redirect(`${back}?shots_set=${shots}`);
-}
 
 /**
  * THE COUPLE'S NUMBERS — the switch, the number for everyone else, one named

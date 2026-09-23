@@ -187,159 +187,111 @@ test('free is a flat 50 — no fourth camera armed with its own 5', async () => 
 
 // ── handing shots out ──────────────────────────────────────────────────────
 
-test('handing shots to a camera moves them out of the shared pot, exactly', async () => {
-  const { eventId, seatId, startShared } = await seedEvent(1_000);
-  assert.equal(await dedicated(seatId), 0);
-
-  const got = await one<number>(`SELECT public.papic_dedicate_shots($1, $2, $3)`, [
-    eventId,
-    seatId,
-    200,
-  ]);
-
-  assert.equal(got, 200);
-  assert.equal(await dedicated(seatId), 200, "the camera's own balance must rise by exactly the hand-out");
+/*
+ * ══ 2026-09-23 · NINE TESTS RETIRED — THE HOST'S HAND-OUT IS GONE ═══════════
+ *
+ * ⚖ Owner 2026-09-16 (*"no dedicated shots individually"*), re-confirmed
+ * 2026-09-22 against a question naming this control rather than the category.
+ * `papic_dedicate_shots` and `papic_seat_allocations` are DROPPED by migration
+ * 20271243295861.
+ *
+ * These nine measured the hand-out itself and cannot run without it:
+ *   • handing shots to a camera moves them out of the shared pot, exactly
+ *   • taking shots back returns them to the pot
+ *   • setting the same target twice changes nothing the second time
+ *   • you cannot hand out shots the event does not still have
+ *   • you cannot take back shots the camera has already taken
+ *   • a camera from another event cannot be handed this event's shots
+ *   • a hand-out makes the pool stand down for that camera, so a shot is never
+ *     billed twice
+ *   • handing out the whole pot does not make the event look like it has no
+ *     Papic at all
+ *   • the allocations table is not reachable by a session role
+ *
+ * 🔑 THEY ARE LISTED RATHER THAN DELETED SILENTLY. Every one was a real property
+ * of a real money mover, and the list is what tells a later session that the
+ * removal was a decision and what it covered — the same rule the controls bill
+ * in `_lib/nothing-was-lost-with-the-tabs.test.ts` follows.
+ *
+ * ⚠ ONE OF THEM DOES NOT SIMPLY VANISH. *"A hand-out makes the pool stand down
+ * for that camera, so a shot is never billed twice"* was a ZERO-SUM property —
+ * the one failure with no visible symptom. It survives as the same property on
+ * the mechanism that remains: a camera's own GRANT makes the pool stand down,
+ * which `papic-dedicated-is-a-floor.db.test.ts` measures on every capture.
+ *
+ * The ladder tests above are untouched — they never used the hand-out.
+ */
+test('the hand-out machinery is gone, and gone together', async () => {
+  /*
+    Both halves, because dropping only the function leaves a table no writer can
+    reach (`ugat-both-ends` refuses exactly that), and dropping only the table
+    leaves a function that fails at runtime.
+  */
+  const fn = await one<number>(
+    `SELECT COUNT(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'papic_dedicate_shots'`,
+  );
+  assert.equal(fn, 0, 'papic_dedicate_shots is back');
   assert.equal(
-    await sharedRemaining(eventId),
-    startShared - 200,
-    'ZERO-SUM: what the camera gained, the pot must have lost. An unchanged pot means the same 200 shots can be spent twice — once by the camera and once by everyone else.',
+    await one<boolean>(`SELECT to_regclass('public.papic_seat_allocations') IS NULL`),
+    true,
+    'papic_seat_allocations is back',
   );
+
+  // 🚨 AND NO FUNCTION STILL READS THE DROPPED TABLE. A plpgsql body is only
+  // text to Postgres, so DROP TABLE does not refuse on account of one — it
+  // would simply fail the first time somebody called it.
+  const stragglers = await one<number>(
+    `SELECT COUNT(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.prokind = 'f'
+        AND regexp_replace(pg_get_functiondef(p.oid), '--[^' || chr(10) || ']*', '', 'g')
+              ILIKE '%papic_seat_allocations%'`,
+  );
+  assert.equal(stragglers, 0, 'a function still references the dropped table');
 });
 
-test('taking shots back returns them to the pot', async () => {
-  const { eventId, seatId, startShared } = await seedEvent(1_000);
-  await one(`SELECT public.papic_dedicate_shots($1, $2, 300)`, [eventId, seatId]);
-  assert.equal(await sharedRemaining(eventId), startShared - 300);
-
-  await one(`SELECT public.papic_dedicate_shots($1, $2, 50)`, [eventId, seatId]);
-
-  assert.equal(await dedicated(seatId), 50);
+test('⚖ but the FREE camera grant stayed — the owner said it should', async () => {
+  /*
+    The half a careless retirement takes out with the other. Measured in prod
+    2026-09-23: 4 rows, 20 points, all `source = 'camera_grant'`. A camera still
+    carries a balance of its own; what is gone is the COUPLE handing one out.
+  */
   assert.equal(
-    await sharedRemaining(eventId),
-    startShared - 50,
-    'lowering the target IS the inverse — a hand-out that cannot be undone strands the shots on the wrong QR forever',
-  );
-});
-
-test('setting the same target twice changes nothing the second time', async () => {
-  const { eventId, seatId, startShared } = await seedEvent(1_000);
-  await one(`SELECT public.papic_dedicate_shots($1, $2, 400)`, [eventId, seatId]);
-  await one(`SELECT public.papic_dedicate_shots($1, $2, 400)`, [eventId, seatId]);
-
-  assert.equal(await dedicated(seatId), 400);
-  assert.equal(
-    await sharedRemaining(eventId),
-    startShared - 400,
-    'a TARGET must be idempotent — a double-tap that charged the pot twice is a delta wearing a target’s clothes',
-  );
-});
-
-test('you cannot hand out shots the event does not still have', async () => {
-  const { eventId, seatId, startShared } = await seedEvent(100);
-  await assert.rejects(
-    () =>
-      db.query(`SELECT public.papic_dedicate_shots($1, $2, $3)`, [
-        eventId,
-        seatId,
-        startShared + 1,
-      ]),
-    new RegExp(`only ${startShared} shots are still shared`),
-    'refusing must be loud — a silent clamp leaves the host unsure which number is real',
-  );
-  assert.equal(await dedicated(seatId), 0, 'a refused hand-out must move nothing at all');
-  assert.equal(await sharedRemaining(eventId), startShared);
-});
-
-test('you cannot take back shots the camera has already taken', async () => {
-  const { eventId, seatId, startShared } = await seedEvent(1_000);
-  await one(`SELECT public.papic_dedicate_shots($1, $2, 300)`, [eventId, seatId]);
-
-  // the camera shoots 120 of its own
-  await db.query(
-    `INSERT INTO public.papic_seat_point_usage (seat_id, points_used) VALUES ($1, 120)`,
-    [seatId],
-  );
-
-  await assert.rejects(
-    () => db.query(`SELECT public.papic_dedicate_shots($1, $2, 50)`, [eventId, seatId]),
-    /already taken 120 shots/,
-  );
-
-  // …but coming down to exactly what was spent is allowed.
-  assert.equal(
-    await one<number>(`SELECT public.papic_dedicate_shots($1, $2, 120)`, [eventId, seatId]),
-    120,
-  );
-  assert.equal(await sharedRemaining(eventId), startShared - 120);
-});
-
-test('a camera from another event cannot be handed this event’s shots', async () => {
-  const mine = await seedEvent(1_000);
-  const theirs = await seedEvent(1_000);
-
-  await assert.rejects(
-    () => db.query(`SELECT public.papic_dedicate_shots($1, $2, 100)`, [mine.eventId, theirs.seatId]),
-    /does not belong to this event/,
-    'a seat id is not a capability — without this guard one host drains another host’s pot',
-  );
-  assert.equal(await sharedRemaining(mine.eventId), mine.startShared);
-  assert.equal(await dedicated(theirs.seatId), 0);
-});
-
-test('a hand-out makes the pool stand down for that camera, so a shot is never billed twice', async () => {
-  const { eventId, seatId, startShared } = await seedEvent(1_000);
-  await one(`SELECT public.papic_dedicate_shots($1, $2, 200)`, [eventId, seatId]);
-
-  // The capture is booked through the ONE live gate, papic_reserve_capture_split
-  // (the -1-returning papic_reserve_event_points_for_seat this used to call was
-  // dropped 2026-09-18, S37). A shot the camera can pay for out of its own
-  // hand-out must come entirely from there: any pool_spent here is the
-  // double-spend this whole design exists to prevent, and one that leaves no
-  // trace anywhere.
-  const r = await db.query<{ ok: boolean; dedicated_spent: number; pool_spent: number }>(
-    `SELECT ok, dedicated_spent, pool_spent FROM public.papic_reserve_capture_split($1, $2, 1)`,
-    [seatId, eventId],
-  );
-  assert.deepEqual(
-    { ok: r.rows[0]!.ok, d: Number(r.rows[0]!.dedicated_spent), p: Number(r.rows[0]!.pool_spent) },
-    { ok: true, d: 1, p: 0 },
+    await one<boolean>(`SELECT to_regclass('public.papic_event_point_grants') IS NOT NULL`),
+    true,
+    'the free camera grant ledger is gone',
   );
   assert.equal(
-    await sharedRemaining(eventId),
-    startShared - 200,
-    'the shared pot must not have moved',
+    await one<boolean>(`SELECT to_regclass('public.paparazzi_seats') IS NOT NULL`),
+    true,
+    'paparazzi_seats is gone — a seat is the camera CLAIM, not an allowance',
   );
-});
+  assert.equal(
+    await one<boolean>(`SELECT to_regclass('public.papic_seat_grant_releases') IS NOT NULL`),
+    true,
+    'the guest give-back ledger is gone — that is the opposite direction and it stays',
+  );
 
-test('handing out the whole pot does not make the event look like it has no Papic at all', async () => {
-  const { eventId, seatId, startShared } = await seedEvent(1_000);
-  await one(`SELECT public.papic_dedicate_shots($1, $2, $3)`, [eventId, seatId, startShared]);
-
-  const row = await db.query<{ applies: boolean; granted_points: number; total_points: number }>(
-    `SELECT applies, granted_points, total_points FROM public.papic_event_pool_status($1)`,
+  // And a camera funded by a grant still reports its own balance.
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type) VALUES ('Free camera', 'birthday')
+     RETURNING event_id`,
+  );
+  const eventId = ev.rows[0]!.event_id;
+  const seat = await db.query<{ seat_id: string }>(
+    `INSERT INTO public.paparazzi_seats (event_id, seat_index, sku_code, claim_qr_token, tier)
+     VALUES ($1, 950, 'PAPIC_CAMERA_FREE', 'handout-retired-seat', 'free') RETURNING seat_id`,
     [eventId],
   );
-  assert.equal(
-    row.rows[0]!.applies,
-    true,
-    'granted_points is this function’s test for "does this event have a pool product"; subtracting hand-outs from it would flip a fully-allocated event to applies=false and report the pool as non-existent on an event that had just paid for it',
+  const seatId = seat.rows[0]!.seat_id;
+  await db.query(
+    `INSERT INTO public.papic_event_point_grants (event_id, seat_id, points, source, note)
+     VALUES ($1, $2, 20, 'camera_grant', 'the free Papic One camera')`,
+    [eventId, seatId],
   );
   assert.equal(
-    row.rows[0]!.granted_points,
-    startShared,
-    'granted means what was BOUGHT (plus the free grant) — it must not move when shots are handed out',
+    await one<number>(`SELECT public.papic_seat_dedicated_points($1)`, [seatId]),
+    20,
+    'a camera can still carry credits of its own — just not ones the couple handed it',
   );
-  assert.equal(row.rows[0]!.total_points, 0, 'total means what is still SHARED');
-});
-
-test('the allocations table is not reachable by a session role', async () => {
-  for (const role of ['anon', 'authenticated']) {
-    assert.equal(
-      await one<boolean>(`SELECT has_table_privilege($1, 'public.papic_seat_allocations', 'SELECT')`, [
-        role,
-      ]),
-      false,
-      `${role} can read papic_seat_allocations — every table in public ships OPEN and the REVOKE was missed`,
-    );
-  }
 });

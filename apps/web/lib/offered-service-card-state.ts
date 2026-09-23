@@ -74,17 +74,71 @@ export function offeredServiceCardState(
 }
 
 /**
+ * THE CARDS A QUOTE WAS BUILT FROM, when it says.
+ *
+ * `vendor_proposals.service_card_ids` (migration 20271243019419) is a JSON array
+ * of `vendor_services` leaf ids, and it is NULLABLE on purpose. Three states,
+ * and they are genuinely different:
+ *
+ *   null / unreadable  this quote never said — it predates the column. We do
+ *                      not know what it covered, so it must still count.
+ *   []                 a real statement: built from no card at all. It covers
+ *                      nothing, so it supersedes no offer.
+ *   ['A', 'B']         it covers exactly those.
+ *
+ * Returns `null` for "never said" so the caller can tell it apart from `[]`.
+ */
+export function quoteCoversCards(raw: unknown): string[] | null {
+  if (raw == null) return null;
+  let value = raw;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null; // unreadable is "never said", never "covers nothing"
+    }
+  }
+  if (!Array.isArray(value)) return null;
+  return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
+}
+
+/**
  * The newest `created_at` among the thread's quote messages, or null.
  * Kept here, beside the rule that consumes it, so the caller cannot invent a
  * second way of deciding which quote is newest.
+ *
+ * ── WHY IT TAKES A CARD (2026-09-22) ───────────────────────────────────────
+ * Without one this answers "the newest quote ANYWHERE in this thread", and the
+ * ruling's mitigation then fails in the direction it was written to prevent.
+ * Measured on the shipped rule: a supplier offers a photography card and a video
+ * card, quotes for photography only, and BOTH offers go grey reading "Replaced
+ * by a quote" — the video offer is retired by a quote that never covered it, and
+ * a view the owner said must not be destroyed is destroyed.
+ *
+ * ⚖ THE FALLBACK KEEPS THIS FILE'S OWN RISK REASONING. A quote that never said
+ * which cards it covered STILL counts, exactly as before. Of the two possible
+ * mistakes — a stale offer shown as live, or a live offer marked as history —
+ * only the first can make someone act on the wrong number, so silence must not
+ * make an offer look live again. Passing no card reproduces the old behaviour
+ * exactly, which is why the existing caller and its tests are untouched.
  */
 export function latestQuoteAtFrom(
-  messages: ReadonlyArray<{ proposal_id?: string | null; created_at?: string | null }>,
+  messages: ReadonlyArray<{
+    proposal_id?: string | null;
+    created_at?: string | null;
+    service_card_ids?: unknown;
+  }>,
+  forCardId?: string | null,
 ): string | null {
   let bestRaw: string | null = null;
   let bestMs = -Infinity;
   for (const m of messages) {
     if (!m.proposal_id) continue;
+    if (forCardId) {
+      const covers = quoteCoversCards(m.service_card_ids);
+      // null = never said -> still counts. A real list must contain this card.
+      if (covers !== null && !covers.includes(forCardId)) continue;
+    }
     const t = ms(m.created_at);
     if (t === null) continue;
     if (t > bestMs) {

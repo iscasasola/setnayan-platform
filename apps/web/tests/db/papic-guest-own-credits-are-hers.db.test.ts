@@ -463,40 +463,22 @@ test('🚨 a clip paid 2-from-her and 6-from-the-pot meters SIX against the ceil
 
 // ══ 5 · ⚖ WHAT DELIBERATELY STILL COUNTS ══════════════════════════════════
 
-test('⚖ credits the HOST handed her camera still count — that is the couple’s own pot money', async () => {
-  const eventId = await seedPoolEvent(5000);
-  const guestId = await seedGuest(eventId, 'HandedTo');
-  const seatId = await seedOwnCamera(eventId, guestId);
-  await nameGuestAt(eventId, guestId, 20);
-
-  // papic_dedicate_shots moves the couple's OWN pot credits onto one QR. The
-  // owner's ruling is about "a guest who BUYS credits"; this migration does not
-  // widen it, and this test is here so the boundary is a decision on the record
-  // rather than an accident nobody measured.
-  await db.query(`SELECT public.papic_dedicate_shots($1, $2, 200)`, [eventId, seatId]);
-  assert.equal(
-    await one<number>(`SELECT public.papic_seat_dedicated_points($1)`, [seatId]),
-    200,
-    'PRECONDITION: the host hand-out must have landed',
-  );
-  assert.equal(
-    await selfFunded(guestId),
-    0,
-    'she paid for none of it, so none of it is exempt from the couple’s own limit',
-  );
-
-  for (let i = 1; i <= 20; i += 1) {
-    assert.equal((await shootOwnCamera(eventId, guestId, seatId)).status, 'ok', `capture ${i} refused`);
-  }
-  const refused = await shootOwnCamera(eventId, guestId, seatId);
-  assert.equal(
-    refused.status,
-    'quota_exhausted',
-    'the tightest gate wins: a couple who both name her at 20 and hand her 200 have given ' +
-      'two contradictory instructions, and the ceiling is the one this migration was told to keep',
-  );
-});
-
+/*
+ * ⛔ TEST RETIRED 2026-09-23: "credits the HOST handed her camera still count —
+ * that is the couple's own pot money".
+ *
+ * Its whole subject was the host hand-out, and `papic_dedicate_shots` /
+ * `papic_seat_allocations` are DROPPED (migration 20271243295861 — owner
+ * 2026-09-16, re-confirmed 2026-09-22). The couple can no longer put their own
+ * pot money onto one camera, so the boundary it drew — *"the owner's ruling is
+ * about a guest who BUYS credits; this does not widen it"* — cannot be crossed.
+ *
+ * 🔑 THE BOUNDARY IS NOW STRUCTURAL rather than measured, which is stronger, and
+ * it is not lost: the remaining tests in this file still prove that only HER
+ * PURCHASE exempts her — "somebody ELSE's purchase on her camera exempts
+ * nothing" below, and the seat-filter test, which now seeds the FREE camera
+ * grant as its not-her-money balance because that is the only kind left.
+ */
 test('⚖ somebody ELSE’s purchase on her camera exempts nothing', async () => {
   const eventId = await seedPoolEvent(5000);
   const her = await seedGuest(eventId, 'Her');
@@ -592,10 +574,19 @@ test('🛡 her purchase on a DIFFERENT camera exempts nothing — the seat filte
   await guestBuysForHerself(eventId, guestId, seatA, 50);
   await db.query(`UPDATE public.paparazzi_seats SET revoked_at = NOW() WHERE seat_id = $1`, [seatA]);
 
-  // Camera B: her live camera, holding 200 the HOST handed it — the couple's
-  // own pot money, which is deliberately NOT exempt.
+  // Camera B: her live camera, holding 200 it did NOT get from her — the FREE
+  // camera grant, which is deliberately not exempt because she did not pay for it.
+  //
+  // ⛔ WAS the host's hand-out (`papic_dedicate_shots`), retired with migration
+  // 20271243295861. It was scenery: what this test needs is a balance on camera B
+  // that is not HER PURCHASE, and the free camera grant is exactly that — and is
+  // the only such balance that can still exist.
   const seatB = await seedOwnCamera(eventId, guestId);
-  await db.query(`SELECT public.papic_dedicate_shots($1, $2, 200)`, [eventId, seatB]);
+  await db.query(
+    `INSERT INTO public.papic_event_point_grants (event_id, seat_id, points, source, note)
+     VALUES ($1, $2, 200, 'camera_grant', 'the free camera — not her purchase')`,
+    [eventId, seatB],
+  );
   await nameGuestAt(eventId, guestId, 20);
 
   assert.equal(

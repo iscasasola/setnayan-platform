@@ -44,6 +44,7 @@ export default async function LoginPage({
         showOAuth={view.showOAuth}
         desktopOAuth={view.desktopOAuth}
         errorMessage={view.errorMessage}
+        provider={view.provider}
         justSignedUpEmail={view.justSignedUpEmail}
         readyEmail={view.readyEmail}
         prefilledEmail={view.prefilledEmail}

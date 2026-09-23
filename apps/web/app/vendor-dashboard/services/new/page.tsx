@@ -19,7 +19,7 @@ import {
   resolveCoverageLabels,
 } from '@/lib/vendor-coverages';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
-import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
@@ -220,7 +220,7 @@ export default async function NewServiceCardPage() {
     )
     .filter((n): n is string => typeof n === 'string' && n.length > 0);
 
-  const eventTypeOptions = (await getEventTypeVocab().catch(() => [])).map((e) => ({
+  const eventTypeOptions = (await getVendorServableEventTypes().catch(() => [])).map((e) => ({
     key: e.key,
     label: e.label,
   }));

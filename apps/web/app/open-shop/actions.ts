@@ -8,7 +8,7 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { buildBusinessAlagaInsert, isAlreadyRecorded } from '@/lib/business-alaga';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
 import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
@@ -313,7 +313,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // event-typeless (the column is NOT NULL). The wizard seeds its checkboxes
   // from the shop's current event_types, so a re-run reflects — never clobbers —
   // a richer set the vendor set in the coverage editor.
-  const eventVocabKeys = new Set((await getEventTypeVocab()).map((e) => e.key));
+  const eventVocabKeys = new Set((await getVendorServableEventTypes()).map((e) => e.key));
   const submittedEventTypes = formData
     .getAll('event_types')
     .filter((v): v is string => typeof v === 'string')

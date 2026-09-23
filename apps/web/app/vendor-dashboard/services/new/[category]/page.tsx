@@ -19,7 +19,7 @@ import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { buildLeafIndex, isCoverageLeafKind } from '@/lib/service-card-kind';
 import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { buildCanvasInitialFromCard } from '@/lib/vendor-card-copy';
-import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 
 export const metadata = { title: 'Add a service' };
@@ -202,7 +202,7 @@ export default async function NewServicePage({
         )
       : null);
   const eventTypeOptions = canvas
-    ? (await getEventTypeVocab().catch(() => [])).map((e) => ({
+    ? (await getVendorServableEventTypes().catch(() => [])).map((e) => ({
         key: e.key,
         label: e.label,
       }))

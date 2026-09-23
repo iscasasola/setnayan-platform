@@ -97,7 +97,7 @@ import {
   getCoverageTaxonomy,
   resolveCoverageLabels,
 } from '@/lib/vendor-coverages';
-import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { buildServiceCardCongrats } from '@/lib/service-card-congrats';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
@@ -236,7 +236,7 @@ export async function VendorServicesManager({
       fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
       getCoverageTaxonomy().catch(() => []),
       resolveCoverageLabels().catch(() => null),
-      getEventTypeVocab().catch(() => []),
+      getVendorServableEventTypes().catch(() => []),
     ]);
   const serviceCountByCoverage = services.reduce<Record<number, number>>(
     (m, s) => {

@@ -53,8 +53,10 @@ import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
 import {
+  addCustomSection,
   moveWidgetDown,
   moveWidgetUp,
+  saveCustomSection,
   setSectionMode,
   setWidgetBackground,
   setWidgetCrop,
@@ -236,6 +238,9 @@ export default async function WebsiteEditorPage({
     supabase,
     eventId,
     event as Parameters<typeof computeSectionContentMap>[2],
+    // The couple's own sections keep their words on their OWN row, so the rows
+    // have to travel with the event for the map to know whether one is empty.
+    allWidgets,
   );
 
   // Public schedule blocks — the same set guests see (source of truth stays
@@ -613,6 +618,8 @@ export default async function WebsiteEditorPage({
               setMotionAction={setWidgetMotion}
               setBackgroundAction={setWidgetBackground}
               setCropAction={setWidgetCrop}
+              saveCustomAction={saveCustomSection}
+              addCustomAction={addCustomSection}
               photoChoices={photoChoices}
             />
           ),

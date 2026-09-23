@@ -124,6 +124,7 @@ import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
@@ -527,6 +528,14 @@ export async function SiteBody({
     special_message: Boolean(event.special_message),
     what_to_bring: Boolean(event.what_to_bring),
     countdown: Boolean(event.event_date),
+    // The couple's own sections: their words are on their own rows, not on the
+    // event. A slot that exists but is empty is dropped from the widened list;
+    // one that was never added contributes no key, and `hasContent` fails open.
+    ...Object.fromEntries(
+      widgets
+        .filter((w) => isCustomSectionType(w.widget_type))
+        .map((w) => [w.widget_type, customSectionHasContent(w.config_json)]),
+    ),
   };
 
   // THE phase spine — computed once, consumed by every gate below. See

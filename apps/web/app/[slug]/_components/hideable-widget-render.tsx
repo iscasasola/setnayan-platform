@@ -4,6 +4,7 @@ import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { ROLE_LABELS } from '@/lib/guests';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { CustomSectionWidget } from './custom-section-widget';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -152,6 +153,17 @@ function HideableWidgetBody({
 
     case 'our_photos':
       return <OurPhotosWidget urls={ourPhotoUrls} />;
+
+    // The couple's own sections. One case for all six: the words live in the
+    // row's own `config_json`, so the slot number is only which SEAT it takes
+    // in the order, never what it says. An empty one renders null.
+    case 'custom_1':
+    case 'custom_2':
+    case 'custom_3':
+    case 'custom_4':
+    case 'custom_5':
+    case 'custom_6':
+      return <CustomSectionWidget config={widget.config_json} />;
 
     case 'our_love_story':
       return <OurLoveStoryWidget config={event.love_story} />;

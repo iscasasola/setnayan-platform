@@ -365,3 +365,49 @@ for the eight unselected faces and failed for the chosen one; and the guard firs
 SPEC IMPACT: None — the fonts are a new Pro control, not a change to a locked decision. Build 7's
 "four undrawn themes" claim should be struck from the plan; Build 5 needs an owner answer about
 the Google Picker credentials.
+
+---
+
+### 10 · A section the couple writes themselves (plan's Build 4)
+
+Owner, 2026-09-23: *"they can add a blank screen in between, to create content on the website as
+well, correct?"*
+
+**"In between" is the whole requirement, and it is why these are widgets and not a table.**
+`invitation_widgets.display_order` is what puts a section between two others. A separate table
+would carry its own order, and the two would have to be interleaved by something — a second source
+of truth for one fact. So a custom section IS a widget, and it inherits **everything already
+built**: move up / move down, the Auto · Shown · Hidden three-state, the phase fence, and every
+piece of tonight's canvas — background photo, focal point, motion preset.
+
+🔑 **The ceiling is a shape, not a rule somebody remembers.** The table is
+`UNIQUE (event_id, widget_type)`, so several sections need several types: **six fixed slots**. A
+seventh cannot be created by any path, including a hand-crafted POST, because the database CHECK
+does not name one. That also answers the open ceiling question structurally — six was the plan's
+own recommendation, and if the owner raises it the change is one list and one CHECK, together.
+
+⛔ **Nothing is seeded.** Six empty rows on every event would be six empty rows in every couple's
+editor forever, for a feature most will never use. A row exists once somebody presses *Add*.
+
+⛔ **A heading with no words is not a section.** It renders `null`, so the canvas frame stays off
+it too — a title over a blank reads to a guest as a broken page.
+
+⛔ **The words are text, never markup.** `config_json` is host-writable; the body goes into a text
+node with `whitespace-pre-line`, and there is no `dangerouslySetInnerHTML` anywhere on the path.
+
+**Guards** — `a-section-of-your-own.test.ts` (9). Five sabotages: publish on a heading alone ·
+render the words as markup · report an unadded slot as empty · replace `config_json` and lose the
+arrangement · add a seventh slot.
+
+🪤 **Two of my own guards were wrong again, and the sabotages caught both.** One forbade the
+substring `onerror=` anywhere in the output — but the couple's words are a *text node*, so those
+characters appear escaped and inert, and the guard failed on a page that was completely safe; it
+now parses the emitted tags and asserts no element or attribute the couple opened. The other was a
+**phrasing ban** (`CUSTOM_SECTION_TYPES.map|forEach`) that a `for…of` sabotage walked straight
+past; `customSectionContentMap` is now exported and asked what it returns.
+
+Migration `20271242789193` widens the `widget_type` CHECK and proves both directions: every
+shipped type still accepted, and `custom_7` refused by the database.
+
+SPEC IMPACT: None — but the **custom-section ceiling** is now answered in the shape of the schema
+(six). If the owner wanted a different number, that is a one-line change in two places.

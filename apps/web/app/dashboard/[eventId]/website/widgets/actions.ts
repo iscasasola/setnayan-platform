@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
+  isCustomSectionType,
+  nextFreeCustomSlot,
+  sanitizeCustomSection,
+} from '@/lib/custom-sections';
+import {
   HUB_FOCAL_POINTS,
   HUB_MOTION_PRESETS,
   HUB_ZOOMS,
@@ -670,4 +675,118 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
   redirect(
     resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
   );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE COUPLE'S OWN SECTIONS (owner 2026-09-23)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Add a section — take the next free slot, at the bottom of the order.
+ *
+ * ⛔ THE SEVENTH IS REFUSED, and the refusal says so. Six is the shape, not a
+ * rule: `CUSTOM_SECTION_TYPES` has six names and the database CHECK names the
+ * same six, so a hand-crafted POST cannot make a seventh either.
+ *
+ * 🔑 IT INSERTS RATHER THAN SEEDS. Six empty rows on every event would be six
+ * empty rows in every couple's editor forever, for a feature most will never
+ * use — so a row exists only once somebody asks for one.
+ */
+export async function addCustomSection(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) redirect('/dashboard');
+  const eventId = eventIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+  const supabase = await createClient();
+
+  const { data: rows, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_type, display_order')
+    .eq('event_id', eventId);
+  if (readErr) throw new Error(`Failed to read your sections: ${readErr.message}`);
+
+  // 🔑 A REFUSED READ MUST NOT LOOK LIKE AN EMPTY ONE. `rows` is null only on an
+  // error we already threw on; an empty array genuinely means no sections.
+  const used = (rows ?? []).map((r) => String(r.widget_type));
+  const slot = nextFreeCustomSlot(used);
+  if (!slot) {
+    redirect(
+      resolveReturnTo(
+        formData,
+        `/dashboard/${eventId}/website/widgets?error=no_free_section`,
+        '?error=no_free_section',
+      ),
+    );
+  }
+
+  const bottom = (rows ?? []).reduce((max, r) => Math.max(max, Number(r.display_order) || 0), 0);
+  const { error: insertErr } = await supabase.from('invitation_widgets').insert({
+    event_id: eventId,
+    widget_type: slot,
+    display_order: bottom + 1,
+    is_visible: true,
+    is_always_on: false,
+  });
+  if (insertErr) throw new Error(`Failed to add a section: ${insertErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
+}
+
+/**
+ * Save one custom section's heading and words.
+ *
+ * ⛔ MERGES `config_json`, like every other writer here — the canvas (the
+ * background, the crop, the motion) lives in the same bag, and a couple who
+ * edited their words must not lose the arrangement they chose.
+ *
+ * The title is optional: a couple who wants a bare passage between two sections
+ * should not have to invent a heading for it.
+ */
+export async function saveCustomSection(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) redirect('/dashboard');
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing section id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+  const supabase = await createClient();
+
+  const { data: row, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, widget_type, config_json')
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) throw new Error(`Failed to load the section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+  if (!isCustomSectionType(row.widget_type)) {
+    // Words belong only to a slot that HAS words. Writing them onto a shipped
+    // section would put a paragraph nothing renders inside its config.
+    throw new Error('That section is not one you write yourself.');
+  }
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const custom = sanitizeCustomSection({
+    title: formData.get('title'),
+    body: formData.get('body'),
+  });
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: { ...existing, custom } })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+  if (updateErr) throw new Error(`Failed to save your section: ${updateErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
 }

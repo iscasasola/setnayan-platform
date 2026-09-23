@@ -4,6 +4,14 @@ import {
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
 import {
+  customSectionEditorLabel,
+  isCustomSectionType,
+  nextFreeCustomSlot,
+  sanitizeCustomSection,
+  CUSTOM_BODY_MAX,
+  CUSTOM_TITLE_MAX,
+} from '@/lib/custom-sections';
+import {
   HUB_DEFAULT_FOCAL,
   HUB_DEFAULT_ZOOM,
   HUB_FOCAL_POINTS,
@@ -48,6 +56,8 @@ export function SectionsPanel({
   setMotionAction,
   setBackgroundAction,
   setCropAction,
+  saveCustomAction,
+  addCustomAction,
   photoChoices = [],
 }: {
   eventId: string;
@@ -70,6 +80,10 @@ export function SectionsPanel({
   photoChoices?: readonly { ref: string; url: string }[];
   /** Move the crop of a section's background photo. */
   setCropAction?: (formData: FormData) => void | Promise<void>;
+  /** Save one of the couple's own sections. */
+  saveCustomAction?: (formData: FormData) => void | Promise<void>;
+  /** Take the next free slot. Hidden once all six are in use. */
+  addCustomAction?: (formData: FormData) => void | Promise<void>;
 }) {
   if (rows.length === 0) {
     return (
@@ -294,6 +308,58 @@ export function SectionsPanel({
 
                   ⛔ "None" is always offered. A couple must be able to take a
                   background back off. */}
+              {/* ══ THE COUPLE'S OWN WORDS ═══════════════════════════════
+                  Only for a slot they added. A heading is optional — somebody
+                  who wants a bare passage between two sections should not have
+                  to invent a title for it — and an empty body means the section
+                  never reaches a guest, because `Auto` follows content and a
+                  heading over a blank reads as a broken page. */}
+              {saveCustomAction && isCustomSectionType(row.widget_type) ? (
+                (() => {
+                  const { title, body } = sanitizeCustomSection(row.config_json);
+                  return (
+                    <form
+                      action={saveCustomAction}
+                      className="mt-2 space-y-1.5 border-t border-dashed border-ink/10 pt-2"
+                    >
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="widget_id" value={row.widget_id} />
+                      <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                      <label htmlFor={`custom-title-${row.widget_id}`} className="sr-only">
+                        Heading for {customSectionEditorLabel(row.widget_type)}
+                      </label>
+                      <input
+                        id={`custom-title-${row.widget_id}`}
+                        name="title"
+                        type="text"
+                        maxLength={CUSTOM_TITLE_MAX}
+                        defaultValue={title}
+                        placeholder="Heading (optional)"
+                        className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.74rem] text-ink placeholder:text-ink/40"
+                      />
+                      <label htmlFor={`custom-body-${row.widget_id}`} className="sr-only">
+                        Words for {customSectionEditorLabel(row.widget_type)}
+                      </label>
+                      <textarea
+                        id={`custom-body-${row.widget_id}`}
+                        name="body"
+                        rows={3}
+                        maxLength={CUSTOM_BODY_MAX}
+                        defaultValue={body}
+                        placeholder="Your own words — this section stays hidden until you write something."
+                        className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[0.74rem] leading-relaxed text-ink placeholder:text-ink/40"
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[0.65rem] font-semibold text-cream"
+                      >
+                        Save this section
+                      </button>
+                    </form>
+                  );
+                })()
+              ) : null}
+
               {setBackgroundAction && photoChoices.length > 0 ? (
                 (() => {
                   const canvas = sanitizeHubCanvas(row.config_json);
@@ -446,6 +512,31 @@ export function SectionsPanel({
           );
         })}
       </ul>
+
+      {/* ══ ADD ONE ═══════════════════════════════════════════════════════
+          🔑 SIX IS A SHAPE, NOT A RULE SOMEBODY REMEMBERS. The control simply
+          stops being offered once every slot is taken, and the database CHECK
+          names the same six — so there is no seventh to create, by this button
+          or by a hand-crafted POST. It says WHY it is gone rather than sitting
+          there refusing. */}
+      {addCustomAction ? (
+        nextFreeCustomSlot(rows.map((r) => r.widget_type)) ? (
+          <form action={addCustomAction} className="mt-2">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+            <button
+              type="submit"
+              className="inline-flex h-7 items-center rounded-full border border-dashed border-ink/25 px-3 text-[0.68rem] font-medium text-ink/70 hover:border-ink/45"
+            >
+              + Add a section of your own
+            </button>
+          </form>
+        ) : (
+          <p className="mt-2 text-[0.66rem] text-ink/45">
+            You have all six of your own sections. Clear one you are not using to add another.
+          </p>
+        )
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { CustomSectionWidget } from './custom-section-widget';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -120,6 +121,17 @@ function PublicHideableWidgetBody({
       // Couple-curated gallery (Increment A.4) — event-level, no PII, so it
       // renders on the anonymous path too. Resolved display URLs threaded in.
       return <OurPhotosWidget urls={ourPhotoUrls} />;
+
+    // The couple's own sections. One case for all six: the words live in the
+    // row's own `config_json`, so the slot number is only which SEAT it takes
+    // in the order, never what it says. An empty one renders null.
+    case 'custom_1':
+    case 'custom_2':
+    case 'custom_3':
+    case 'custom_4':
+    case 'custom_5':
+    case 'custom_6':
+      return <CustomSectionWidget config={widget.config_json} />;
 
     case 'our_love_story':
       return <OurLoveStoryWidget config={event.love_story} />;

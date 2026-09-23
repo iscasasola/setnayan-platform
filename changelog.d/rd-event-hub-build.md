@@ -769,3 +769,151 @@ unambiguously server, and they are where a client call actually reaches a custom
 page heavily, and the owner hit it while looking at the editor I had asked him to look at.
 
 SPEC IMPACT: None.
+
+## 2026-09-23 · fix(event-hub-controller): VIEW AS stops reloading the page, and the stage uses the width
+
+Owner, looking at `/launch`: *"clicking here refreshes the whole page, it should only refresh the
+lower part since that is the one that changes"*, and *"the page should directly fill the whole
+body and use the space."* Both were true.
+
+**The reload.** Each VIEW AS chip was a `<Link href="?viewas=…">`. Pressing one re-ran the entire
+server page — re-resolved the event, re-signed every background URL, and re-mounted the live
+miniature — to swap a paragraph of description. The six reads are now `sr-only` radios in one
+`<fieldset>` with the chips as their `<label htmlFor>`, all six cards rendered, and CSS revealing
+the checked one. Nothing navigates, so **the miniature is never touched**. `?viewas=` stays an
+honest deep link: the server still marks that role's radio `checked`.
+
+**The width.** The figure is a two-column grid at `lg` — miniature left, description right — the
+same shape `plan3d-stage.tsx` already uses, rather than a narrow centred frame with dead space
+either side.
+
+🪤 **THE KEYBOARD RING WAS WRITTEN WITH `+` AND COULD ONLY EVER BE WRONG.** `+` is the *adjacent*
+sibling, and only the LAST of six radios sits next to the chip row — so focusing any of the first
+five drew no ring at all, and focusing the sixth ringed **all six chips at once**. Valid CSS,
+matching selector, one reachable state, and that state is the broken one. Each radio now names its
+own label.
+
+🔑 **AND THE SIX EXISTING OBSERVATIONS WENT VACUOUS THE MOMENT THE MECHANISM CHANGED.** They
+asserted "paint with `viewas=coordinator`, the coordinator's words appear" — true of every role
+now that all six cards are in the DOM. They read one card at a time by `data-viewas` and assert the
+armed role is the one *checked*. **A guard that keeps passing after the thing under it changed is
+not a guard; it is a sentence about the past.**
+
+**Guards** — in `view-as-reaches-the-render.test.ts`: exactly one read is armed and it is the one
+`?viewas=` asked for · no chip is behind a link · every rendered read has both a reveal rule and a
+focus rule in `globals.css`, and no `.hub-viewas input:checked +` / `:focus-visible +` rule exists.
+Sabotage-proven seven ways: arming the wrong role fails five, restoring an `href` fails one,
+deleting one reveal rule fails one, and reinstating the adjacent-sibling rule fails one.
+
+## 2026-09-23 · fix(admin): the Picker key reached the page but not its own form
+
+`page.tsx` built the card's field list from the registry and **dropped `ownForm`** on the way. The
+flag, the second form, and the one-column writer were all in place and all correct; without that
+one line the key simply rejoined the batch form, which posts every field at once pre-filled with
+the RESOLVED value — so adding the Picker key would have copied Google Drive's env-sourced client
+id and both redirect URIs into the database, where they would win from then on. Identical values
+that day; a later change in Vercel silently not applying. **Owner raised this exact risk twice.**
+
+🔑 **Three of the fix's four parts are invisible when the fourth is missing** — it still compiles,
+still type-checks, still renders a card that looks right.
+
+**Guard** — `an-own-form-key-never-joins-the-batch.test.ts`, four properties, each sabotage-proven:
+the Picker key is still marked `ownForm` in the registry · **every** block in `page.tsx` that maps
+`configFields` forwards it (anchored per block — the two card sections are identical code, and a
+file-wide count of 1 passes while one card is wrong) · the card filters in both directions and the
+lone form reaches `saveOAuthField` · `saveOAuthConfig` skips own-form fields so it cannot NULL a
+field that was never posted.
+
+🪤 The registry carries `server-only`, so the guard reads it as source — importing it throws
+`MODULE_NOT_FOUND` under `tsx --test`.
+
+SPEC IMPACT: None.
+
+## 2026-09-23 · feat(event-hub-controller): the address is editable on /launch, and checked live
+
+Owner, with the `<h2>` selected: *"should be editable here. and verified if it is available."*
+
+**RULE 0 first, and it answered the whole request.** `SlugField` has shipped on the invitation page
+for months — a 300ms-debounced check against `/api/slugs/check`, suggestion chips when a word is
+taken, and the copy for reserved / invalid / still-forwarding — and `updateEventSlug` behind it
+asks `findSlugConflict`, **the one availability answer for the one namespace** weddings, shops and
+people all share at `setnayan.com/{word}`. The delta was mounting it, not drawing it. A second
+address field here would have been a second opinion about who owns `/maria-and-jomar`, and the two
+would eventually have disagreed about a printed invitation.
+
+🪤 **BUT MOUNTING IT SOMEWHERE ELSE BROKE IT, AND THE BREAK LOOKED LIKE SUCCESS.** All seven of the
+action's redirects named `/dashboard/{id}/invitation` literally. On `/launch` that is a save that
+works and then teleports — the couple presses Save, the address is correct, and the page they were
+on is gone. The failure landings are worse: the error copy arrives on a page that has no idea what
+it is about. The action now takes a landing as a **NAME** (`lib/slug-return.ts`), and the map
+builds the URL — a bound argument is encoded and handed to the browser, so redirecting to one as a
+path is an open redirect waiting to be replayed. A key that is not in the record cannot produce a
+URL at all.
+
+🔴 **AND THE LIVE CHECK FAILED IN SILENCE.** A non-ok response or a dropped connection left the
+previous verdict standing, the spinner stopped, and Save never lit. A couple typing a perfectly
+free address saw a grey button and **no reason on earth for it**. Refusing is right — `canSave`
+requires an affirmative `available`, never the absence of a refusal — but refusing without saying
+so is the house disease in its smallest form. There is now an `unverified` state that reaches the
+render: *"We couldn't check that address just now — Save stays off until we can."*
+
+**Guard** — `the-address-is-editable-here.test.ts`, seven properties: the field renders pre-filled
+with the couple's own address · it renders for a couple who has NO address yet, which is the one
+moment they are actually being asked to act · the stage still paints bare, so a test may mount it
+without a server action · `/launch` binds `'launch'` and the invitation page binds `'invitation'` ·
+no landing inside the action names a page literally · the stage grows no idea of its own about what
+is free (`slugs/check`, `findSlugConflict`, `SLUG_FORMAT` all absent from it) · an unanswered check
+says so. Sabotage-proven four ways; binding the wrong landing, letting one redirect go literal,
+restoring the silent branch and unmounting the field each fail exactly the tests that name them.
+
+SPEC IMPACT: None.
+
+## 2026-09-23 · fix(admin): the lone-field save read no error, and the jobs checklist went stale
+
+Two CI failures on `d888a0947`, both from the `saveOAuthField` writer, **both caught by guards that
+already existed** — and both of a kind a completed local unit run would have caught in minutes
+instead of a 45-minute round trip. I had pushed before mine finished. That is the whole lesson.
+
+**`a-database-error-is-never-ignored` fired.** The write was
+`await admin.from('platform_settings').update({…}).eq('id', 1)` with no `const { error }`.
+⚠ Supabase **resolves** `{ error }` — it does not throw — so a failed write would have redirected
+`?saved=1` and told the owner his Picker key was stored when it was not. `.select('id')` on top of
+that: an UPDATE matching **zero rows returns no error at all**, so a write against a missing
+settings row reports success just as loudly. Both are now read, and the page has a `save_failed`
+banner whose copy names **what is still true** — *"nothing on this card changed; whatever was
+working before is still working"* — not only what failed.
+
+**`admin-jobs-are-generated` fired** with `added: ['saveOAuthField']`. 🔑 The admin-jobs scan reads
+exported **server actions**, not only routes, so a new action in an existing `app/admin/**` folder
+makes the committed checklist stale without touching a single page. Regenerated with
+`pnpm admin:jobs`.
+
+🪤 **And the PR page blamed a Rust crate this branch does not touch.** The annotation read *"native
+encoder tests failed"*: in `ci.yml` the two non-`continue-on-error` steps make every later step
+`skipped`, and the fail-closed aggregator names the skip. The real failing step was **Unit tests**,
+eleven steps earlier. Find it with
+`gh run view <id> --json jobs --jq '.jobs[]|select(.conclusion=="failure")'` — the one step marked
+`failure` is the cause; everything `skipped` after it is consequence.
+
+SPEC IMPACT: None.
+
+## 2026-09-23 · fix(event-hub-controller): the VIEW AS classes leave the `hub-` namespace
+
+`the-canvas-fails-visible.test.ts` failed with **"styled but never emitted: hub-viewas-card,
+hub-viewas-chip"**. It asks the canvas the opposite question — *is any rule branching on a class
+the contract can never emit?* — because dead CSS reads as a feature. Its window is
+`CSS.slice(indexOf('.hub-canvas'))`, **the canvas banner to the end of the file**, so every
+`.hub-*` class written below it is measured against the canvas vocabulary. Mine were real and
+emitted, just not by the canvas.
+
+⛔ **The fix is the NAME, never the guard.** The two classes and the six radio ids are now
+`sn-viewas-*`, matching `sn-top-label` and `sn-range` already in that file, and a comment at the
+block says why so the next person does not rename them back. Inside `globals.css` after that
+banner, `hub-` means the canvas contract.
+
+🔑 **This was caught by a run I had already killed.** The suite's process kept going after
+`TaskStop` stopped its wrapper and wrote its summary anyway — `# fail 1` — for a tree state I had
+moved past. The current run had not reached that file yet and was reporting zero failures. Without
+that orphan summary this would have been the next red CI round.
+
+SPEC IMPACT: None.

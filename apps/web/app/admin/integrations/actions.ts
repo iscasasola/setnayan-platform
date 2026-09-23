@@ -317,7 +317,18 @@ export async function saveOAuthField(formData: FormData): Promise<void> {
   }
 
   const admin = createAdminClient();
-  await admin.from('platform_settings').update({ [field.column]: val }).eq('id', 1);
+  // ⚠ SUPABASE RESOLVES `{ error }` — IT DOES NOT THROW, so an unread error here
+  // is a key the owner is told we stored and did not. And `.select()` on top of
+  // that: an UPDATE matching ZERO rows returns no error at all, so without it a
+  // write against a missing settings row reports success just as loudly.
+  const { data: rows, error } = await admin
+    .from('platform_settings')
+    .update({ [field.column]: val })
+    .eq('id', 1)
+    .select('id');
+  if (error || !rows || rows.length === 0) {
+    redirect('/admin/integrations?error=save_failed');
+  }
 
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?saved=1');

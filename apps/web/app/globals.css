@@ -5003,3 +5003,116 @@ html:has([data-sticky-top]) {
      this only matters if some future path sets it another way. */
   .pahina-js [data-magic-traveller] { transform: none; will-change: auto; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   VIEW AS — six reads, one shown, nothing navigates
+   (owner 2026-09-23: "it should only refresh the lower part")
+   ════════════════════════════════════════════════════════════════════════════
+
+   Each chip was a `<Link>` carrying `?viewas=`, so pressing one re-ran the
+   whole server page — the facts, the stage cards, the day-of list — and
+   re-signed every background URL, to swap one description. The miniature above
+   it re-mounted with it, which meant the couple's own page reloaded inside the
+   frame every time they pressed a chip.
+
+   🔑 ALL SIX CARDS ARE RENDERED SERVER-SIDE AND THIS PICKS ONE. Native radios,
+   so it needs no JavaScript — the property the `<Link>` version existed for —
+   and nothing navigates, so the iframe is never touched.
+
+   ⚠ THE HIDING IS THE DEFAULT AND THE SHOWING IS THE RULE, deliberately the
+   opposite way round from the canvas's fail-visible motion. Here a browser that
+   somehow matched nothing would show SIX stacked descriptions rather than none:
+   noisy, not broken, and a reader can still read every one. Hiding by default
+   with no way to show would be the unreadable failure, and that is why
+   `display: block` is what the `:checked` rule adds. */
+/* 🪤 THESE ARE `sn-`, NOT `hub-`, AND THE PREFIX IS LOAD-BEARING.
+   `lib/the-canvas-fails-visible.test.ts` asks the opposite question of the
+   canvas — "is any rule here branching on a class the contract can NEVER
+   emit?" — and its window is `CSS.slice(indexOf('.hub-canvas'))`, i.e. from the
+   canvas banner to the END OF THE FILE. So every `.hub-*` class written below
+   that banner is measured against the canvas vocabulary, and these two were
+   named `hub-viewas-card` / `hub-viewas-chip` at first and failed it: styled,
+   real, emitted by `hub-stage.tsx` — and not canvas classes at all.
+   ⛔ The fix is the NAME, never the guard. Inside globals.css after that
+   banner, `hub-` means the canvas contract; a controller class takes the
+   house `sn-` prefix (`sn-top-label`, `sn-range` beside it). */
+.sn-viewas-card { display: none; }
+#sn-viewas-host:checked ~ div .sn-viewas-card[data-viewas='host'] { display: block; }
+#sn-viewas-coordinator:checked ~ div .sn-viewas-card[data-viewas='coordinator'] { display: block; }
+#sn-viewas-supplier:checked ~ div .sn-viewas-card[data-viewas='supplier'] { display: block; }
+#sn-viewas-guest:checked ~ div .sn-viewas-card[data-viewas='guest'] { display: block; }
+#sn-viewas-named_guest:checked ~ div .sn-viewas-card[data-viewas='named_guest'] { display: block; }
+#sn-viewas-stranger:checked ~ div .sn-viewas-card[data-viewas='stranger'] { display: block; }
+
+.sn-viewas-chip { transition: background-color .12s ease, color .12s ease; }
+#sn-viewas-host:checked ~ div .sn-viewas-chip[for='sn-viewas-host'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-coordinator:checked ~ div .sn-viewas-chip[for='sn-viewas-coordinator'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-supplier:checked ~ div .sn-viewas-chip[for='sn-viewas-supplier'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-guest:checked ~ div .sn-viewas-chip[for='sn-viewas-guest'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-named_guest:checked ~ div .sn-viewas-chip[for='sn-viewas-named_guest'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-stranger:checked ~ div .sn-viewas-chip[for='sn-viewas-stranger'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+
+/* A keyboard user must still see which chip has focus — the radio itself is
+   `sr-only`, so the ring has to be drawn on its label.
+
+   🪤 THIS WAS WRITTEN AS `input:focus-visible + div .sn-viewas-chip` AND IT
+   RANG THE WRONG CHIPS. `+` is the ADJACENT sibling, and only the LAST of the
+   six radios sits next to the chip row — so focusing any of the first five drew
+   no ring at all, and focusing the sixth ringed all six at once. The rule ran,
+   the CSS was valid, and the one state it could show was the one state that is
+   wrong. Each radio has to name its own label, the same way the checked rules
+   above do. */
+#sn-viewas-host:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-host'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-coordinator:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-coordinator'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-supplier:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-supplier'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-guest:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-guest'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-named_guest:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-named_guest'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-stranger:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-stranger'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}

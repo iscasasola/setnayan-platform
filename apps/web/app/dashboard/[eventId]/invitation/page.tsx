@@ -205,7 +205,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
     ? publicEventUrl(appUrl, event.slug, ownerSlug)
     : null;
 
-  const slugAction = updateEventSlug.bind(null, eventId);
+  const slugAction = updateEventSlug.bind(null, eventId, 'invitation');
   const monoAction = updateMonogram.bind(null, eventId);
 
   // Render a single preview-size QR using the first guest's token so the

@@ -105,6 +105,14 @@ test("the vendor allowlist derives the list, and hasn't gone back to typing it",
 
 test('the couple can actually choose every one of them', () => {
   const src = read('app/dashboard/[eventId]/details/_components/governed-fields.tsx');
+  // Since 2026-09-23 the reception picker is DERIVED from VENUE_SETTINGS (the
+  // way the ceremony picker already was), so every legal value is offered by
+  // construction and a hand-written copy cannot drift. Accept that shape; a
+  // re-typed list is still checked value by value below.
+  if (/VENUE_OPTIONS[^=]*=\s*VENUE_SETTINGS\.map\(/.test(src)) {
+    assert.ok(src.includes('VENUE_SETTING_LABEL[value]'), 'the derived picker must label from the shared map');
+    return;
+  }
   for (const setting of VENUE_SETTINGS) {
     assert.ok(
       src.includes(`value: '${setting}'`),
@@ -160,20 +168,21 @@ test('the labels themselves are complete and human', () => {
  * here does not fail — it passes while checking a file the database no longer
  * reflects, which is the quietest way for a guard to stop guarding.
  */
-const CONSTRAINT_MIGRATION = readFileSync(
-  join(
-    REPO,
-    'supabase',
-    'migrations',
+const CONSTRAINT_MIGRATIONS: Readonly<Record<string, string>> = {
+  // reception: events_place widening, 2026-09-23 (owner: "Where is the event place")
+  events_venue_setting_check: '20271244482831_venue_setting_events_place.sql',
+  // ceremony: unchanged since the 2026-09-03 split
+  events_ceremony_venue_setting_check:
     '20271197508087_ceremony_venue_setting_and_reception_venue_narrowed.sql',
-  ),
-  'utf8',
-);
+};
+const migrationFor = (name: string): string =>
+  readFileSync(join(REPO, 'supabase', 'migrations', CONSTRAINT_MIGRATIONS[name] ?? ''), 'utf8');
 
 /** Only the ADD CONSTRAINT body, so prose in the header block cannot satisfy a
  *  membership check. Both constraints name every value they allow as
  *  `'value'::text` inside their own ARRAY[…]. */
 function constraintBody(name: string): string {
+  const CONSTRAINT_MIGRATION = migrationFor(name);
   const start = CONSTRAINT_MIGRATION.indexOf(`ADD CONSTRAINT ${name}`);
   assert.notEqual(start, -1, `${name} is not (re)stated in the pinned migration.`);
   const end = CONSTRAINT_MIGRATION.indexOf(');', start);

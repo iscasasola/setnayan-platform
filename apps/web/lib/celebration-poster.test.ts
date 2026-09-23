@@ -75,11 +75,27 @@ test('a theme earns its ornament only on a coloured sheet', () => {
   assert.equal(claire.capiz, true);
   assert.deepEqual(claire.credits, ['Botanical', 'Capiz']);
 
-  // Maria chose a typeface theme, not botanical — no sprigs, and one credit.
+  /*
+    ⛔ MARIA'S SHEET CREDITS NOTHING, AND THIS ASSERTION CHANGED THE DAY THE
+    ARTWORK FIRST RENDERED. Her `std_theme` is the literal string 'default', so
+    the old rule printed "DEFAULT" in spaced caps across the foot of her gold
+    poster — visible in the first render of the approved design, and obviously
+    wrong beside a prototype whose gold poster carries no credit line at all.
+
+    🔑 'default' IS A STORED VALUE, NOT A CHOICE OF ART. The credit line names
+    art the reader can SEE; the default theme changes nothing on the sheet, so
+    there is nothing to name. Same rule the sprigs already followed.
+  */
   const maria = resolvePoster(MARIA);
   assert.equal(maria.sprigs, false);
   assert.equal(maria.capiz, false);
-  assert.deepEqual(maria.credits, ['Default']);
+  assert.deepEqual(maria.credits, [], 'the default theme is not a credit');
+
+  // …and a NAMED theme still credits, or the rule above would just be "never".
+  assert.deepEqual(
+    resolvePoster({ std_film_accent_hex: '#9a244f', std_theme: 'heritage' }).credits,
+    ['Heritage'],
+  );
 });
 
 test('an unknown or malformed accent prints letterpress, never a broken sheet', () => {
@@ -96,8 +112,15 @@ test('an unknown theme earns no ornament and no credit it cannot show', () => {
   const p = resolvePoster({ std_film_accent_hex: '#9a244f', std_theme: 'nonsense', invite_theme: 'nonsense' });
   assert.equal(p.sprigs, false, 'only botanical draws sprigs');
   assert.equal(p.capiz, false, 'only capiz draws panes');
-  // the credit still names what the couple chose, because they did choose it
-  assert.deepEqual(p.credits, ['Nonsense', 'Nonsense']);
+  /*
+    ⚠ ONE CREDIT, NOT TWO, AND THE ASYMMETRY IS THE POINT. An unknown
+    `std_theme` falls through `resolveStdTheme` to 'default' — so no typeface
+    on the sheet actually differs, and naming it would credit art the reader
+    cannot see. An unknown `invite_theme` is different: it is printed verbatim
+    because nothing about the invite theme is derived from a fixed table here,
+    and a couple who typed their own theme name did choose that word.
+  */
+  assert.deepEqual(p.credits, ['Nonsense']);
 });
 
 test('⚖ a photograph never gets the moon — owner 2026-09-23', () => {

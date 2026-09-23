@@ -108,7 +108,7 @@ test('both sections are gated on having cards, and share ONE card renderer', () 
   assert.match(page, /comingUp\.length > 0 \? \(/, 'Coming up is not gated on having cards');
   assert.match(page, /pastEvents\.length > 0 \? \(/, 'Past is not gated on having cards');
 
-  const renders = (page.match(/\.map\(renderCelebration\)/g) ?? []).length;
+  const renders = (page.match(/\.map\(renderCelebration\(/g) ?? []).length;
   const definitions = (page.match(/const renderCelebration =/g) ?? []).length;
   console.log(`  card renderer: ${definitions} definition, ${renders} call sites`);
   assert.equal(definitions, 1, 'two card renderers is the defect arriving from the other side');
@@ -119,6 +119,20 @@ test('both sections are gated on having cards, and share ONE card renderer', () 
     how the sections drift into two different cards.
   */
   assert.equal(renders, 3, 'every list must use the one renderer');
+
+  /*
+    ⚠ AND EACH CALL SITE MUST NAME ITS OWN SECTION. The renderer takes the
+    section so the status sash can exist on Coming up and be absent from Past —
+    the ONE mark that distinguishes an invitation from a memory. A past list
+    rendered with 'coming-up' would label a finished wedding "Up next", and the
+    count above would still be 3. Two of the three are Past.
+  */
+  const comingCalls = (page.match(/renderCelebration\('coming-up'\)/g) ?? []).length;
+  const pastCalls = (page.match(/renderCelebration\('past'\)/g) ?? []).length;
+  console.log(`  call sites by section: coming-up ${comingCalls} · past ${pastCalls}`);
+  assert.equal(comingCalls, 1, 'Coming up must be the only coming-up list');
+  assert.equal(pastCalls, 2, 'both Past lists — the screenful and the remainder — must say past');
+  assert.equal(comingCalls + pastCalls, renders, 'a call site names no section');
 
   // the split is delegated, not re-derived here
   assert.ok(page.includes('splitComingUpAndPast(listed, manilaTodayISO())'),

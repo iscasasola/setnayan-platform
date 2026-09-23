@@ -6,8 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolvePublicProfile } from '@/lib/public-profile';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
-import { EventMonogram } from '@/app/_components/event-monogram';
 import { resolveCelebrationIdentity } from '@/lib/celebration-card-identity';
+import { resolvePoster } from '@/lib/celebration-poster';
+import {
+  posterDate,
+  posterWords,
+  sashLabel,
+} from '@/lib/celebration-poster-words';
 import { pastShelf, splitComingUpAndPast } from '@/lib/coming-up-and-past';
 import { manilaTodayISO } from '@/lib/event-board';
 import { initialsFor } from '@/lib/conversation-list';
@@ -265,68 +270,223 @@ export default async function AccountProfilePage({ params }: Props) {
   const pastShown = pastShelf(pastEvents);
 
   /*
-    ONE CARD, RENDERED BY BOTH SECTIONS. Extracted when the Coming-up/Past
+    ONE POSTER, RENDERED BY BOTH SECTIONS. Extracted when the Coming-up/Past
     split landed so the two sections cannot drift into two different cards —
     which is the defect the split exists to fix, arriving from the other side.
-    Section-level difference is carried by the SECTION, never by a second copy
-    of this markup.
-  */
-  const renderCelebration = (event: (typeof listed)[number]) => {
-              const meta = [event.venue_name, formatEventDate(event.event_date)]
-                .filter(Boolean)
-                .join(' · ');
-              /*
-                  THE CARD WEARS THE CELEBRATION (owner 2026-09-23: "the event
-                  cards look non events"). It used to read the hero and the
-                  monogram and nothing else — and since none of his three events
-                  has a hero, every card took the monogram branch, where every
-                  `monogram_color` is the same default. Three celebrations, three
-                  identical discs.
+    Section-level difference is carried by the SECTION and by the sash, never by
+    a second copy of this markup.
 
-                  `resolveCelebrationIdentity` reads the look the couple ALREADY
-                  chose: their Save-the-Date typeface and their own accent. It
-                  invents nothing and reads no private column.
-              */
-              const identity = resolveCelebrationIdentity(event);
-              return (
-                <li key={event.event_id}>
-                  <Link
-                    href={`/u/${canonicalSlug}/${event.slug}`}
-                    className="uprof-card"
-                    data-identity={identity.hasOwnIdentity ? 'own' : 'none'}
-                  >
-                    {identity.heroUrl ? (
-                      <span className="uprof-cover">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={identity.heroUrl}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="uprof-cover-img"
-                        />
-                      </span>
+    THE ARTWORK IS A TRANSLATION of the approved prototype
+    (`build-sessions/prototypes/public_profile_icecasa_FABLE3_2026-09-23.html`),
+    not a reinterpretation of it. Four sheets, chosen by `resolvePoster`:
+    a photograph when the couple uploaded one, a white moon when their accent
+    cannot carry a letter, white type straight on the accent when it can, and a
+    letterpress playbill when there is no accent at all.
+
+    🔑 EACH POSTER IS ITS OWN CONTAINER (`container-type: inline-size`) and every
+    size inside it is in `cqw`, so the composition scales as a printed object
+    does. A poster that reflows into a card is not a poster.
+  */
+  const renderCelebration = (section: 'coming-up' | 'past') => {
+    /* Named rather than returned anonymously: an arrow that returns JSX reads
+       to eslint as a component definition, and an unnamed one fails
+       react/display-name. It is a render callback, not a component. */
+    const renderOne = (event: (typeof listed)[number], index: number) => {
+      /*
+          THE CARD WEARS THE CELEBRATION (owner 2026-09-23: "the event cards
+          look non events"). It used to read the hero and the monogram and
+          nothing else — and since none of his three events has a hero, every
+          card took the monogram branch, where every `monogram_color` is the
+          same default. Three celebrations, three identical discs.
+
+          `resolveCelebrationIdentity` reads the look the couple ALREADY chose.
+          The owner kept it when the poster design landed — "keep the typeface"
+          — so the names on every sheet are set in the celebration's own
+          Save-the-Date font rather than in one house serif.
+      */
+      const identity = resolveCelebrationIdentity(event);
+
+      /*
+          ⚠ THE SHEET IS DECIDED FROM WHAT CAN ACTUALLY BE DRAWN.
+          `renderableImageSrc` refuses anything that is not https or
+          root-relative, so the url is resolved FIRST and the resolved one is
+          what `resolvePoster` reads. Handing it the raw column instead would
+          answer `photograph` for an image this page then declines to render,
+          and the celebration would print as a dark sheet with nothing on it —
+          a flag in an object is not ink in the pixels.
+      */
+      const heroSrc = renderableImageSrc(identity.heroUrl);
+      const poster = resolvePoster({ ...event, landing_page_hero_image_url: heroSrc });
+      const words = posterWords(event.display_name, event.monogram_text);
+      const when = posterDate(event.event_date, event.event_date_precision);
+      const sash = sashLabel(section, index, Boolean(when.date));
+
+      // The accent reaches the CSS as one custom property; every coloured rule
+      // is written against it, so no hex is ever hard-coded for one couple.
+      const sheetStyle = poster.accentHex
+        ? ({ '--uprof-accent': poster.accentHex } as React.CSSProperties)
+        : undefined;
+
+      // The moon and the playbill stack the two names with the ampersand on its
+      // own line; the coloured sheet sets "& Claire" as the second line, under
+      // a monogram that is already saying the same thing. Both are the
+      // prototype's, and both read from ONE `words`.
+      const stacked = poster.sheet === 'moon' || poster.sheet === 'letterpress';
+
+      const names = (
+        <h3 className={`${identity.fontCls} uprof-names`} data-step={words.step}>
+          {words.kind === 'pair' ? (
+            stacked ? (
+              <>
+                <span className="uprof-nm">{words.left}</span>
+                <span className="uprof-amp">&amp;</span>
+                <span className="uprof-nm">{words.right}</span>
+              </>
+            ) : (
+              <>
+                <span className="uprof-nm">{words.left}</span>
+                <span className="uprof-nm">
+                  <i className="uprof-amp-in">&amp;</i> {words.right}
+                </span>
+              </>
+            )
+          ) : (
+            words.lines.map((line, i) => (
+              <span className="uprof-nm" key={`${line}-${i}`}>
+                {line}
+              </span>
+            ))
+          )}
+        </h3>
+      );
+
+      /* The date, in two lines — and NEITHER is printed when the celebration
+         does not know it. `posterDate` drops the weekday below day precision,
+         which is not hypothetical: a prod row carries a full `event_date` under
+         `event_date_precision = 'year'`. */
+      const whenLines =
+        when.date || when.weekday ? (
+          <span className="uprof-when">
+            {when.weekday ? <span className="uprof-wd">{when.weekday}</span> : null}
+            {when.date ? <span className="font-display uprof-dt">{when.date}</span> : null}
+          </span>
+        ) : null;
+
+      return (
+        <li key={event.event_id}>
+          <Link
+            href={`/u/${canonicalSlug}/${event.slug}`}
+            className="uprof-poster"
+            style={sheetStyle}
+            data-sheet={poster.sheet}
+            data-identity={identity.hasOwnIdentity ? 'own' : 'none'}
+          >
+            {/* THE SASH IS FIRST IN READING ORDER and is the one mark the house
+                adds to a couple's poster — the same shape, in paper-white, on
+                every sheet that carries one. A memory carries none. */}
+            {sash ? (
+              <span className="uprof-sash">
+                <span>{sash}</span>
+              </span>
+            ) : null}
+
+            {poster.sheet === 'photograph' && heroSrc ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroSrc}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="uprof-pimg"
+                />
+                <span className="uprof-scrim" aria-hidden="true" />
+              </>
+            ) : null}
+
+            {poster.capiz ? <span className="uprof-capiz" aria-hidden="true" /> : null}
+            {poster.sprigs ? (
+              <>
+                <PosterSprig side="l" />
+                <PosterSprig side="r" />
+              </>
+            ) : null}
+            {poster.sheet === 'sheet' ? (
+              <span className="uprof-veil" aria-hidden="true" />
+            ) : null}
+
+            <span className="uprof-pframe" aria-hidden="true" />
+
+            {poster.sheet === 'moon' ? (
+              /* Gold carries neither white nor ink, so the art makes room: a
+                 white disc nearly the width of the sheet holds every word.
+                 ⛔ The fix is never a different gold — his accent is his. */
+              <span className="uprof-moon">
+                <span className="uprof-moon-in">
+                  {names}
+                  <span className="uprof-rule" aria-hidden="true" />
+                  {whenLines}
+                </span>
+              </span>
+            ) : poster.sheet === 'letterpress' ? (
+              /* No accent, no theme, no photograph. So: house stock, ink and
+                 type — a playbill. Plainness as intent, and it must look as
+                 finished as the other three rather than like a failed sheet. */
+              <span className="uprof-bill">
+                <span className="uprof-orn" aria-hidden="true">
+                  <i />
+                  <b />
+                  <i />
+                </span>
+                {names}
+                <span className="uprof-bar" aria-hidden="true" />
+                {whenLines}
+                <span className="uprof-orn" aria-hidden="true">
+                  <i />
+                  <b />
+                  <i />
+                </span>
+              </span>
+            ) : (
+              <>
+                {poster.sheet === 'sheet' && words.kind === 'pair' && words.monogram ? (
+                  <span className="uprof-mono" aria-hidden="true">
+                    {words.monogram.kind === 'initials' ? (
+                      <>
+                        {words.monogram.left}
+                        <i>&amp;</i>
+                        {words.monogram.right}
+                      </>
                     ) : (
-                      <span className="uprof-mark">
-                        <EventMonogram event={event} size="lg" />
-                      </span>
+                      words.monogram.text
                     )}
-                    <span className="uprof-body">
-                      {/* The event's OWN typeface, from its STD theme — the
-                          class comes from the shipped STD_THEMES table, never
-                          re-typed here. */}
-                      <span className={`${identity.fontCls} uprof-title`}>
-                        {event.display_name?.trim() || 'Celebration'}
-                      </span>
-                      {meta ? <span className="uprof-meta">{meta}</span> : null}
-                    </span>
-                    {/* THE CHEVRON IS GONE. A `›` is list-row chrome: it says
-                        "next item in a settings list", which is precisely what
-                        made a celebration read as a row. The whole card is the
-                        link; it needs no arrow to say so. */}
-                  </Link>
-                </li>
-              );
+                  </span>
+                ) : null}
+                <span className="uprof-txt">
+                  {names}
+                  <span className="uprof-rule" aria-hidden="true" />
+                  {whenLines}
+                </span>
+              </>
+            )}
+
+            {/* The themes became the art, so they are NAMED at the foot the way
+                a film poster carries credits — never shown as chips. */}
+            {poster.credits.length > 0 ? (
+              <span className="uprof-credits">{poster.credits.join(' · ')}</span>
+            ) : null}
+            {poster.sheet === 'moon' ? (
+              <span className="uprof-thread" aria-hidden="true">
+                <i />
+                <b />
+                <i />
+              </span>
+            ) : null}
+          </Link>
+        </li>
+      );
+    };
+    return renderOne;
   };
 
   const mode: 'gallery' | 'stories' | 'empty' =
@@ -470,13 +630,13 @@ export default async function AccountProfilePage({ params }: Props) {
             {comingUp.length > 0 ? (
               <section className="uprof-section">
                 <h2 className="uprof-section-head">Coming up</h2>
-                <ul className="uprof-grid">{comingUp.map(renderCelebration)}</ul>
+                <ul className="uprof-grid">{comingUp.map(renderCelebration('coming-up'))}</ul>
               </section>
             ) : null}
             {pastEvents.length > 0 ? (
               <section className="uprof-section uprof-past">
                 <h2 className="uprof-section-head">Past celebrations</h2>
-                <ul className="uprof-grid">{pastShown.shown.map(renderCelebration)}</ul>
+                <ul className="uprof-grid">{pastShown.shown.map(renderCelebration('past'))}</ul>
                 {/*
                     A PLAIN <details>, SO THE REST IS ONE TAP AND NO JAVASCRIPT.
                     This page is ISR-cached and the rest of it is server-rendered;
@@ -489,7 +649,7 @@ export default async function AccountProfilePage({ params }: Props) {
                   <details className="uprof-more">
                     <summary className="uprof-more-btn">{pastShown.moreLabel}</summary>
                     <ul className="uprof-grid uprof-more-grid">
-                      {pastEvents.slice(pastShown.shown.length).map(renderCelebration)}
+                      {pastEvents.slice(pastShown.shown.length).map(renderCelebration('past'))}
                     </ul>
                   </details>
                 ) : null}
@@ -747,6 +907,47 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
   );
 }
 
+/**
+ * A botanical sprig — the ornament the `botanical` STD theme earns on a
+ * coloured sheet. Drawn twice per poster, the right one mirrored.
+ *
+ * ⚠ NO `<defs>` AND NO `<use>`, DELIBERATELY. The prototype defined the leaf
+ * once and referenced it by id — and had to call the second copy `leaf2`
+ * because two sprigs on one sheet already collided. A page renders up to
+ * fourteen posters, so every id would repeat across the document and every
+ * `<use href="#leaf">` would resolve to whichever one came first. The leaves
+ * are identical, so the collision happens to look right, which is exactly what
+ * makes it the kind of thing nobody finds. Five repeated paths cost nothing
+ * and cannot collide.
+ */
+function PosterSprig({ side }: { side: 'l' | 'r' }) {
+  const leaf = 'M0 0 C 5 -9, 16 -13, 26 -9 C 19 -1, 9 3, 0 0 Z';
+  return (
+    <svg
+      className={`uprof-sprig uprof-sprig-${side}`}
+      viewBox="0 0 150 130"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <g
+        fill="rgba(255,255,255,.16)"
+        stroke="#fff"
+        strokeOpacity=".8"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M10 120 Q 50 90 130 20" fill="none" />
+        <path d={leaf} transform="translate(32.5 102.5) rotate(-100)" />
+        <path d={leaf} transform="translate(54.1 84.9) rotate(20)" />
+        <path d={leaf} transform="translate(78.9 64.1) rotate(-100)" />
+        <path d={leaf} transform="translate(106.9 40.1) rotate(20)" />
+        <path d={leaf} transform="translate(130 20) rotate(-40)" />
+      </g>
+    </svg>
+  );
+}
+
 const UPROF_CSS = `
   /* "Days you were both there" — rendered by the MutualDays client island.
      The island is a separate file, so these classes are its only styling; keep
@@ -775,8 +976,11 @@ const UPROF_CSS = `
     gap: 0.9rem;
     padding: 0.95rem 1.1rem;
     border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
-    /* The same token as .uprof-card — a shared day is a card
-       in the same stack, so it must not round differently from its neighbours. */
+    /* The same radius token as .uprof-empty, its actual neighbour in this
+       column. ⚠ This comment used to point at .uprof-card, the celebration
+       card — which the poster artwork replaced, and a poster rounds at 4px
+       like a printed sheet. The token is still right; the reason given for it
+       had stopped being true. */
     border-radius: var(--m-r-lg, 22px);
     background: color-mix(in srgb, #FFFFFF 60%, transparent);
     text-decoration: none;
@@ -1022,69 +1226,284 @@ const UPROF_CSS = `
     margin: 0 0 0.85rem;
   }
   .uprof-past .uprof-section-head { color: var(--m-slate-3, #8A857B); }
-  .uprof-past .uprof-card { padding: 0.85rem 1rem; }
-  .uprof-past .uprof-title { font-size: 1.05rem; }
-  .uprof-past .uprof-mark { transform: scale(0.82); transform-origin: left center; }
-  .uprof-past .uprof-cover { width: 56px; height: 56px; }
 
+  /* ──────────────────────────────────────────────────────────────────────
+     THE WALL. Translated from the approved prototype, FABLE3 2026-09-23.
+
+     Every size inside a poster is in cqw against the poster's own width, so
+     the whole composition scales as a printed object. It is NOT responsive
+     typography: nothing here reads the viewport, only the sheet.
+     ────────────────────────────────────────────────────────────────────── */
   .uprof-grid {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.9rem;
+    gap: 1.4rem;
   }
-  @media (min-width: 640px) {
-    .uprof-grid { grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+  @media (min-width: 600px) { .uprof-grid { grid-template-columns: repeat(2, 1fr); gap: 1.3rem; } }
+  @media (min-width: 1000px) { .uprof-grid { grid-template-columns: repeat(3, 1fr); gap: 1.4rem; } }
+
+  /* Past is quieter and smaller — the SECTION carries the difference, which is
+     the whole point of the split. Note this is a fixed treatment: the posters
+     do not shrink further as the shelf grows, because a memory that shrinks to
+     fit more memories is a list of rows again.
+
+     ⚠ A FLOOR, NOT A COLUMN COUNT, AND THE DIFFERENCE IS THE WHOLE RULE. This
+     was four fixed columns for one render, and at that width the composition
+     came apart: the type floors are absolute (max(16px, 5.2cqw) and friends,
+     the prototype's own), so below roughly 210cqw the date stops scaling with
+     the sheet and starts overflowing it. "20 August 2026" wrapped out of the
+     frame on a Movie Night memory. auto-fill with a minimum means the shelf
+     drops a column instead of breaking a poster. */
+  @media (min-width: 600px) {
+    .uprof-past .uprof-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
   }
 
-  .uprof-card {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    height: 100%;
-    padding: 1.1rem 1.2rem;
-    background: #fff;
-    border: 1px solid var(--m-line, #E2DED4);
-    border-radius: var(--m-r-lg, 22px);
-    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
+  .uprof-poster {
+    position: relative;
+    display: block;
     text-decoration: none;
     color: inherit;
-    transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    border-radius: 4px;
+    container-type: inline-size;
+    box-shadow: 0 1px 0 rgba(44,42,41,.05), 0 20px 44px -26px rgba(44,42,41,.55);
+    transition: transform .18s ease, box-shadow .18s ease;
+
+    /* ⚠ THE DEFAULT THEME'S FACE IS A GROTESQUE ON THIS PAGE, AND THAT IS NOT
+       WHAT THE COUPLE PICKED. STD_THEMES maps the default theme to
+       font-display because on the couple's OWN site — inside .sn-editorial
+       — that variable is Cormorant, the editorial serif they chose their
+       Save-the-Date in. The 2026-07-12 reskin repointed --font-display at
+       Hanken Grotesk at :root, so the SAME class outside that scope renders
+       their wedding name in a sans. The prototype's whole composition is set
+       in a serif, and Maria & Jose would have printed in a UI face.
+
+       So the poster remaps the one variable for ITSELF, the same way
+       .sn-editorial does for the guest tree — no root change, no new class
+       on the page, and nothing leaks past this element. Every other themed
+       face (font-playfair · font-caslon · font-vidaloka · font-script)
+       already points at its own loaded font and is untouched.
+
+       ⛔ Do NOT "fix" this by hard-coding a family in the name rules — that
+       flattens all five themes back to one face, which is the defect
+       resolveCelebrationIdentity exists to prevent. */
+    --font-display: var(--font-editorial-display, var(--font-hanken));
   }
-  .uprof-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--m-orange, #A9834B);
-    box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
+  .uprof-poster:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 30px 54px -26px rgba(44,42,41,.6);
+  }
+  .uprof-poster:focus-visible { outline: 3px solid var(--sn-gold-500, #A9834B); outline-offset: 4px; }
+  @media (prefers-reduced-motion: reduce) {
+    .uprof-poster, .uprof-poster:hover { transition: none; transform: none; }
+  }
+  .uprof-poster h3 { margin: 0; font-weight: inherit; }
+  .uprof-pframe { position: absolute; inset: 14px; pointer-events: none; }
+  .uprof-pframe::after { content: ""; position: absolute; inset: 4px; }
+
+  /* The status sash: paper-white, across the top-left corner, real text, first
+     in reading order. Identical on every sheet that carries one — a memory
+     carries none, and an undated celebration carries none either. */
+  .uprof-sash {
+    position: absolute; top: 0; left: 0;
+    width: 150px; height: 150px;
+    overflow: hidden; z-index: 4; pointer-events: none;
+  }
+  .uprof-sash span {
+    position: absolute; left: -60px; top: 36px; width: 240px;
+    padding: 8px 0; text-align: center; transform: rotate(-45deg);
+    background: var(--m-paper, #FFFFFF);
+    font-size: 12px; font-weight: 700; letter-spacing: .22em;
+    text-transform: uppercase; line-height: 1;
+    box-shadow: 0 2px 6px rgba(0,0,0,.22);
+    color: var(--m-ink, #2C2A29);
   }
 
-  .uprof-cover {
-    flex: 0 0 auto;
-    width: 68px;
-    height: 68px;
-    border-radius: var(--m-r-md, 14px);
-    overflow: hidden;
-    background: var(--m-ivory, #EDEAE0);
+  /* ⛔ NO font-family IN THE NAME RULES. The celebration's own Save-the-Date
+     typeface arrives as a utility class on this element (owner: "keep the
+     typeface"), and a font-family here would out-specify it and flatten every
+     celebration back to one face — which is the exact defect the typeface was
+     added to fix. The date line below is deliberately house serif. */
+  .uprof-names { line-height: 1; letter-spacing: -.005em; display: block; }
+  .uprof-nm { display: block; }
+  .uprof-amp { display: block; font-style: italic; }
+  .uprof-amp-in { font-style: italic; }
+  .uprof-rule { display: block; height: 1px; margin-left: auto; margin-right: auto; }
+  .uprof-when { display: block; }
+  .uprof-wd {
+    display: block;
+    font-size: max(10.5px, 2.9cqw);
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    font-weight: 600;
   }
-  .uprof-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .uprof-mark { flex: 0 0 auto; display: inline-flex; }
+  .uprof-dt { display: block; font-size: max(16px, 5.2cqw); line-height: 1.15; }
 
-  .uprof-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1 1 auto; }
-  .uprof-title {
-    font-size: 1.3rem;
-    line-height: 1.15;
-    color: var(--m-ink, #1B1A17);
-    overflow: hidden;
-    text-overflow: ellipsis;
+  /* ── the moon: an accent that cannot carry a letter ─────────────────────
+     Measured, not chosen: white on his gold is 3.90 and ink on it is 3.66, so
+     the sheet carries NEITHER. The art gives the words their own white ground
+     rather than nudging his colour until it passes. */
+  .uprof-poster[data-sheet="moon"] {
+    background:
+      linear-gradient(160deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 46%, rgba(0,0,0,.14) 100%),
+      var(--uprof-accent, #9b7e00);
   }
-  .uprof-meta {
-    font-size: 0.85rem;
-    color: var(--m-slate-2, #6A6E76);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .uprof-poster[data-sheet="moon"] .uprof-pframe { border: 1px solid rgba(255,255,255,.6); }
+  .uprof-poster[data-sheet="moon"] .uprof-pframe::after { border: 1px solid rgba(255,255,255,.26); }
+  .uprof-poster[data-sheet="moon"] .uprof-sash span { color: var(--sn-gold-800, #5C4726); }
+  .uprof-moon {
+    position: absolute; left: 50%; top: 12cqw; transform: translateX(-50%);
+    width: 78cqw; aspect-ratio: 1; border-radius: 50%;
+    background: var(--m-paper, #FFFFFF);
+    color: var(--m-ink, #2C2A29);
+    display: grid; place-items: center; text-align: center; padding: 8cqw;
+    box-shadow: 0 0 0 6px rgba(255,255,255,.24), 0 26px 44px -22px rgba(0,0,0,.5);
   }
+  .uprof-moon::before {
+    content: ""; position: absolute; inset: 8px; border-radius: 50%;
+    border: 1px solid var(--sn-gold-300, #CBA766); pointer-events: none;
+  }
+  .uprof-moon-in { display: block; }
+  .uprof-moon .uprof-names { font-size: 13.5cqw; }
+  .uprof-moon .uprof-names[data-step="md"] { font-size: 10.5cqw; }
+  .uprof-moon .uprof-names[data-step="sm"] { font-size: 8cqw; }
+  .uprof-moon .uprof-amp { font-size: 8cqw; color: var(--sn-gold-800, #5C4726); margin: 1.2cqw 0; }
+  .uprof-moon .uprof-rule {
+    width: 34%; background: var(--sn-gold-300, #CBA766);
+    margin-top: 4.5cqw; margin-bottom: 3cqw;
+  }
+  .uprof-moon .uprof-wd { color: var(--m-slate-2, #6E6A62); }
+  .uprof-moon .uprof-dt { color: var(--m-ink, #2C2A29); margin-top: 1cqw; }
+  .uprof-thread {
+    position: absolute; left: 0; right: 0; top: 111cqw;
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+  }
+  .uprof-thread i { width: 6px; height: 6px; background: #fff; transform: rotate(45deg); }
+  .uprof-thread b { width: 22cqw; height: 1px; background: rgba(255,255,255,.85); }
+
+  /* ── the coloured sheet: an accent that CAN carry white ─────────────────
+     White on his wine is 7.67, so the type sits straight on the ground. */
+  .uprof-poster[data-sheet="sheet"] {
+    background:
+      radial-gradient(120% 70% at 50% 22%, rgba(255,255,255,.10), rgba(255,255,255,0) 60%),
+      linear-gradient(180deg, rgba(0,0,0,0) 42%, rgba(0,0,0,.24) 100%),
+      var(--uprof-accent, #9a244f);
+    color: #fff;
+  }
+  .uprof-poster[data-sheet="sheet"] .uprof-pframe { border: 1px solid rgba(255,255,255,.3); }
+  .uprof-poster[data-sheet="sheet"] .uprof-pframe::after { border: 1px solid rgba(255,255,255,.12); }
+  .uprof-poster[data-sheet="sheet"] .uprof-sash span { color: var(--uprof-accent, #9a244f); }
+  .uprof-capiz {
+    position: absolute; inset: 0; opacity: .9;
+    background-image:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0) 66%),
+      linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px);
+    background-size: 11cqw 11cqw;
+    -webkit-mask-image: linear-gradient(180deg, #000 0 44%, rgba(0,0,0,0) 70%);
+    mask-image: linear-gradient(180deg, #000 0 44%, rgba(0,0,0,0) 70%);
+  }
+  .uprof-sprig { position: absolute; width: 44cqw; height: 38cqw; }
+  .uprof-sprig-l { left: -3cqw; top: 26cqw; }
+  .uprof-sprig-r { right: -3cqw; top: 26cqw; transform: scaleX(-1); }
+  /* The veil fades the accent back INTO itself behind the monogram. The
+     transparent end is the same colour at zero alpha, never the CSS-wide
+     "transparent" keyword, which some engines interpolate through transparent-black and leave
+     a grey halo around the mark. */
+  .uprof-veil {
+    position: absolute; left: 50%; top: 44cqw; transform: translate(-50%, -50%);
+    width: 78cqw; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%,
+      var(--uprof-accent, #9a244f) 0 36%,
+      color-mix(in srgb, var(--uprof-accent, #9a244f), transparent 100%) 70%);
+  }
+  .uprof-mono {
+    position: absolute; left: 0; right: 0; top: 44cqw; transform: translateY(-50%);
+    text-align: center; color: #fff;
+    font-size: 34cqw; line-height: 1; letter-spacing: .02em;
+  }
+  .uprof-mono i { font-style: italic; font-size: .6em; position: relative; top: -.06em; margin: 0 .03em; }
+  .uprof-txt { position: absolute; left: 8cqw; right: 8cqw; bottom: 14cqw; text-align: center; }
+  .uprof-txt .uprof-names { font-size: 10.5cqw; line-height: 1.06; }
+  .uprof-txt .uprof-names[data-step="md"] { font-size: 8.5cqw; }
+  .uprof-txt .uprof-names[data-step="sm"] { font-size: 7cqw; }
+  .uprof-txt .uprof-amp-in { color: var(--sn-gold-100, #F3ECDF); }
+  .uprof-txt .uprof-rule {
+    width: 28%; background: rgba(255,255,255,.75);
+    margin-top: 3.6cqw; margin-bottom: 3cqw;
+  }
+  .uprof-txt .uprof-dt { margin-top: 1cqw; }
+  .uprof-credits {
+    position: absolute; left: 0; right: 0; bottom: 4.4cqw; text-align: center;
+    font-size: max(10.5px, 2.7cqw); letter-spacing: .32em;
+    text-transform: uppercase; color: #fff;
+  }
+
+  /* ── the photograph: the couple's own hero ──────────────────────────────
+     Owner ruled 2026-09-23, asked in plain terms: a real photo is DARKENED
+     behind the words, never covered by the white moon. The moon is a
+     colour-legibility device and a photograph has no single colour to measure;
+     a scrim works on any picture, which is why it is the one used here. */
+  .uprof-poster[data-sheet="photograph"] { background: var(--m-ink, #2C2A29); color: #fff; }
+  .uprof-pimg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: block;
+  }
+  .uprof-scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg,
+      rgba(0,0,0,.34) 0%, rgba(0,0,0,.12) 34%, rgba(0,0,0,.62) 78%, rgba(0,0,0,.78) 100%);
+  }
+  .uprof-poster[data-sheet="photograph"] .uprof-pframe { border: 1px solid rgba(255,255,255,.34); }
+  .uprof-poster[data-sheet="photograph"] .uprof-pframe::after { border: 1px solid rgba(255,255,255,.14); }
+  .uprof-poster[data-sheet="photograph"] .uprof-sash span { color: var(--m-ink, #2C2A29); }
+  .uprof-poster[data-sheet="photograph"] .uprof-txt { text-shadow: 0 1px 14px rgba(0,0,0,.5); }
+
+  /* ── the letterpress playbill: no accent at all ─────────────────────────
+     Plainness as intent, not a failure to find a colour. Six prod weddings
+     land here, so this is the commonest sheet and it has to look as finished
+     as the other three. */
+  .uprof-poster[data-sheet="letterpress"] {
+    background:
+      repeating-linear-gradient(45deg, rgba(44,42,41,.035) 0 1px, transparent 1px 7px),
+      var(--m-paper-2, #F4F2EC);
+    color: var(--m-ink, #2C2A29);
+    outline: 1px solid var(--m-line, #E1DCD1);
+    outline-offset: -1px;
+  }
+  .uprof-poster[data-sheet="letterpress"] .uprof-pframe { border: 3px solid var(--m-ink, #2C2A29); }
+  .uprof-poster[data-sheet="letterpress"] .uprof-pframe::after { border: 1px solid var(--m-ink, #2C2A29); }
+  .uprof-bill {
+    position: absolute; inset: 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 5cqw;
+  }
+  .uprof-orn { display: flex; align-items: center; gap: 2cqw; }
+  .uprof-orn i { width: 6px; height: 6px; background: var(--m-ink, #2C2A29); transform: rotate(45deg); }
+  .uprof-orn b { width: 14cqw; height: 1px; background: var(--m-ink, #2C2A29); }
+  .uprof-bill .uprof-names {
+    font-weight: 700; line-height: .92; letter-spacing: .02em; text-transform: uppercase;
+    margin: 5cqw 0 4.5cqw;
+    text-shadow: 0 1px 0 rgba(255,255,255,.75);
+    font-size: 19cqw;
+  }
+  /* The step is the title's own length, measured in the words module — a
+     six-word name set at 19cqw runs off the sheet. */
+  .uprof-bill .uprof-names[data-step="lg"] { font-size: 14cqw; }
+  .uprof-bill .uprof-names[data-step="md"] { font-size: 10cqw; }
+  .uprof-bill .uprof-names[data-step="sm"] { font-size: 7.5cqw; }
+  .uprof-bill .uprof-amp { font-size: .55em; font-weight: 400; margin: .12em 0; }
+  .uprof-bar {
+    width: 100%; height: 7px;
+    border-top: 3px solid var(--m-ink, #2C2A29);
+    border-bottom: 1px solid var(--m-ink, #2C2A29);
+  }
+  .uprof-bill .uprof-wd { color: var(--m-slate-2, #6E6A62); margin-top: 4.5cqw; }
+  .uprof-bill .uprof-dt { font-size: max(20px, 7cqw); margin-top: 1cqw; margin-bottom: 5cqw; }
 
   .uprof-empty {
     text-align: center;

@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import type { EventDatePrecision } from '@/lib/events';
 import {
   resolveProfile as resolveEventTypeProfile,
   surfaceEnabled,
@@ -46,6 +47,10 @@ export type PublicProfileEvent = {
      carry one today, so adding it is behaviour-neutral now and correct the
      first time somebody sets a range — the same reasoning that module records. */
   event_end_date: string | null;
+  /* How much of `event_date` is actually known. The poster refuses to print a
+     weekday below day precision — see EVENT_FIELDS for the live prod row that
+     makes this a correctness column rather than a nicety. */
+  event_date_precision: EventDatePrecision | null;
 };
 
 export type PublicProfileUser = {
@@ -96,17 +101,33 @@ export type ResolvedPublicProfile = {
  * governs direct PostgREST reads, not secrecy. Adding it here exposes nothing a
  * visitor cannot already see by opening the celebration itself.
  *
+ * `event_date_precision` joined 2026-09-23 with the poster artwork, and it is
+ * a CORRECTNESS column, not a decorative one. The poster sets the weekday on
+ * its own line — and prod holds a row where that would be a fabrication:
+ *
+ *     Song Desk Test Night   event_date 2026-08-01   event_date_precision year
+ *
+ * A real, complete-looking date under a precision saying only the year is
+ * known. Without this column the poster announces a Saturday nobody chose.
+ * `anon=SIU` — already fully public.
+ *
  * `site_bg_color` and `site_button_color` were tried and
  * REMOVED: the cover carries the colour now, so an accent edge was a second
  * answer to a question already answered, and every column on a public read has
  * to pay for itself.
  *
- * ⛔ `invite_theme`, `moodboard_theme_name` and `story_cover_kind`/`_ref` are
- * deliberately NOT here — all four are `anon=-` in that baseline. Two of them
- * would have looked good on the card; they are private fields.
+ * ⛔ `moodboard_theme_name` and `story_cover_kind`/`_ref` are deliberately NOT
+ * here — all three are `anon=-` in that baseline. One of them would have looked
+ * good on the card; they are private fields.
+ *
+ * ⚠ THAT BAN LIST USED TO NAME `invite_theme` TOO, four paragraphs after the
+ * one above explaining why it had been ADDED. Both were true when written and
+ * the later change did not reach the earlier list, so one docblock said a
+ * column was present and absent at once — and a reader checking the ban would
+ * have found it in `EVENT_FIELDS` and had to guess which half was current.
  */
 const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, std_theme, std_film_accent_hex, invite_theme, event_end_date';
+  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, std_theme, std_film_accent_hex, invite_theme, event_end_date, event_date_precision';
 
 /** The minimum an event row must carry to be put through the public gate. */
 export type PublicGateEventFields = {

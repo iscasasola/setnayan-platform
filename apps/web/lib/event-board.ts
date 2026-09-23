@@ -192,7 +192,15 @@ export function manilaTodayISO(now: Date = new Date()): string {
  * a guess must not move somebody's celebration onto the Finished shelf.
  */
 export function isFinishedEvent(
-  event: Pick<EventWithRole, 'event_date' | 'archived'> & {
+  event: Pick<EventWithRole, 'event_date'> & {
+    /* ⚠ NULLABLE, because the COLUMN is. `EventWithRole.archived` is typed
+       `boolean`, but `events.archived` is nullable and the public profile reads
+       it as `boolean | null` — so a caller holding a real row could not pass it
+       in. The body below has always treated null as "not archived" (a falsy
+       check, not an equality); only the signature disagreed, and it blocked
+       `splitComingUpAndPast` from compiling at all. Widening the type changes
+       no behaviour and no existing caller. */
+    archived: boolean | null;
     event_end_date?: string | null;
   },
   todayISO: string,

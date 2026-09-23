@@ -158,8 +158,22 @@ export function resolvePoster(event: PosterInput): Poster {
   const sprigs = themeChosen && resolveStdTheme(event.std_theme) === 'botanical';
   const capiz = inviteChosen && event.invite_theme!.trim().toLowerCase() === 'capiz';
 
+  /*
+    ⛔ "DEFAULT" IS NOT A CREDIT. `std_theme = 'default'` is a real stored value
+    — `themeChosen` is true for it — but it names the house face, not an art
+    direction, and a film poster crediting "Default" reads as debug output that
+    escaped. Seen on Maria & Jose's gold sheet the first time these rendered:
+    the prototype's gold poster carries no credit line at all, and with this
+    exclusion it does not, which is how the translation was checked.
+
+    The rule is the same one `sprigs` already follows — a credit names art the
+    reader can SEE. Nothing on the sheet changes for a default theme, so there
+    is nothing to name.
+  */
+  const namedTheme = themeChosen && resolveStdTheme(event.std_theme) !== 'default';
+
   const credits = [
-    themeChosen ? creditName(event.std_theme!) : '',
+    namedTheme ? creditName(event.std_theme!) : '',
     inviteChosen ? creditName(event.invite_theme!) : '',
   ].filter(Boolean);
 

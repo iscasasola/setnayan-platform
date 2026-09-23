@@ -319,3 +319,74 @@ half — **one DEFINITION is the property**; a second definition is how the sect
 different cards.
 
 SPEC IMPACT: None.
+
+## 2026-09-23 · feat(profile): the celebration posters are drawn
+
+Owner: ***"okay. do that. build the poster."*** The four sheets `resolvePoster` has been choosing
+between since this morning now actually render. Translated from
+`build-sessions/prototypes/public_profile_icecasa_FABLE3_2026-09-23.html` — **not reinterpreted**:
+the frame, the corner sash, the moon, the capiz panes, the sprigs, the veil, the playbill ornaments
+and the credit line are the prototype's, in `cqw` against each poster's own container, so the
+composition scales as a printed object rather than reflowing into a card.
+
+### The words needed their own module, because the prototype hand-typed them
+
+`lib/celebration-poster-words.ts` — the names, the monogram, the two date lines and the sash. The
+designer knew three events; real rows are not so tidy, and **one of them is a live trap**:
+
+    display_name                           event_date   event_date_precision
+    Song Desk Test Night (SONGDESK TEST)   2026-08-01   year
+
+A real, complete-looking date under a precision saying only the year is known. Formatting the column
+alone would have announced *"Saturday · 1 August 2026"* about a celebration scheduled to the year.
+**The precision is part of the date, never a display option** — so the weekday exists only at day
+precision, and four dateless prod weddings print no date block rather than a placeholder.
+`event_date_precision` joined the public select for that reason and no other; it is `anon=SIU`.
+
+**An undated celebration is never crowned "Up next" either.** `splitComingUpAndPast` files a dateless
+wedding under coming-up and sorts it last, so on a profile holding only those, index 0 is undated —
+a sash keyed on position alone would have manufactured the label out of the sort order.
+
+### Two defects the first render showed, that no test would have
+
+- **The gold poster credited "DEFAULT"** in spaced caps across its foot. `std_theme = 'default'` is a
+  stored value, not a choice of art — and the prototype's gold poster carries no credit line at all.
+  A credit names art the reader can SEE; the default theme changes nothing on the sheet.
+- **The Past shelf squeezed posters below the width their composition needs.** The type floors are
+  absolute (`max(16px, 5.2cqw)`, the prototype's own), so under about 210px the date stops scaling
+  with the sheet and overflows it — *"20 August 2026"* wrapped out of a Movie Night memory. Four fixed
+  columns became `auto-fill` with a 210px minimum: the shelf drops a column instead of breaking a
+  poster. Checked at 170 · 190 · 210 · 240 · 300px.
+
+### ⚠ The default theme's face is a grotesque on this page, and that is not what the couple picked
+
+`STD_THEMES` maps the `default` theme to `font-display` because on the couple's **own** site — inside
+`.sn-editorial` — that variable is Cormorant, the editorial serif their Save-the-Date is set in. The
+2026-07-12 reskin repointed `--font-display` at Hanken Grotesk at `:root`, so the same class outside
+that scope renders a wedding name in a UI face. Maria & Jose would have printed in a grotesque on a
+gold-and-white wedding poster. The poster remaps the one variable **for itself**, the way
+`.sn-editorial` does for the guest tree — no root change, nothing leaks past the element, and the
+four other themed faces already point at their own loaded fonts. Hard-coding a family in the name
+rules would flatten all five themes back to one, which is the defect `resolveCelebrationIdentity`
+exists to prevent.
+
+### Also caught while here
+
+- **`isFinishedEvent` could not compile against a real row.** Its parameter typed `archived` as
+  `boolean` while the column is nullable — the body has always treated null as "not archived", so
+  only the signature disagreed, and it blocked `splitComingUpAndPast` from type-checking at all.
+  Widened; no behaviour and no caller changes. (`tsc` was red on `main`-bound code before this.)
+- **`public-profile.ts` said `invite_theme` was both present and banned**, four paragraphs apart in
+  one docblock. Both halves were true when written; the later change never reached the earlier list.
+- **No `<defs>`/`<use>` in the sprig.** The prototype needed a second id (`leaf2`) because two sprigs
+  on one sheet already collided; a page renders up to fourteen posters, so every id would repeat and
+  every reference would resolve to the first. The leaves are identical, so it would have *looked*
+  right — which is what makes it the kind of thing nobody finds.
+- The backtick guard on `UPROF_CSS` **caught a real one again**: two backticks in a new CSS comment,
+  which end the template literal. `tsx --test` reads that file as text and never compiles it.
+
+Three watched sabotages, each red, each restored and re-verified green: a Past list rendered as
+`'coming-up'` (a finished wedding sashed "Up next"), `posterDate` ignoring precision, and `'default'`
+credited again.
+
+SPEC IMPACT: None.

@@ -17,6 +17,7 @@
 import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
+import { parseProviderParam, type KnownProvider } from '@/lib/sign-in-door';
 
 export type LoginSearchParams = {
   error?: string;
@@ -30,10 +31,14 @@ export type LoginSearchParams = {
    * preselecting the vendor radio via /signup?as=vendor.
    */
   as?: string;
+  /** Set by the sign-in action after a failed password attempt on a Google/Apple-only account. */
+  provider?: string;
 };
 
 export type LoginView = {
   errorMessage: string | null;
+  /** The door the account actually uses (only with an errorMessage). */
+  provider: KnownProvider | null;
   justSignedUpEmail: string | null;
   readyEmail: string | null;
   prefilledEmail: string;
@@ -45,6 +50,7 @@ export type LoginView = {
 
 export async function getLoginView(params: LoginSearchParams): Promise<LoginView> {
   const errorMessage = params.error ? decodeURIComponent(params.error) : null;
+  const provider = errorMessage ? parseProviderParam(params.provider) : null;
   const justSignedUpEmail = params.check_email
     ? decodeURIComponent(params.check_email)
     : null;
@@ -68,6 +74,7 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
 
   return {
     errorMessage,
+    provider,
     justSignedUpEmail,
     readyEmail,
     prefilledEmail,

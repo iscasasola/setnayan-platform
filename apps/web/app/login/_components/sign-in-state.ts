@@ -11,6 +11,7 @@ import type { SignInInPlaceState } from '../actions';
 
 export const SIGN_IN_IN_PLACE_INITIAL: SignInInPlaceState = {
   error: null,
+  provider: null,
   ok: false,
   attempt: 0,
 };

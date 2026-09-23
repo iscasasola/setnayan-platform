@@ -917,3 +917,69 @@ moved past. The current run had not reached that file yet and was reporting zero
 that orphan summary this would have been the next red CI round.
 
 SPEC IMPACT: None.
+
+### 14 · Magic Move is REACHABLE — the half that was missing for a day
+
+Owner, twice: *"make magic move reachable"*, then *"add it to the editor as well"*. **The repo's
+own guard had already said the same thing about the same file, within the hour**, and it is what
+turned PR #5904 red:
+
+```
+[other] component-no-mount  app/[slug]/_components/magic-move.tsx
+    no runtime importer in any source file
+component-no-mount: mount it from a page, or delete it.
+```
+
+Its message closes the lazy exit in the same breath — *"Do NOT add a line to
+`ugat-both-ends.baseline.txt`; that file is the debt we inherited."* So the CI fix and the owner's
+instruction were **one job**.
+
+🔑 **A MECHANISM NOBODY MOUNTS IS INDISTINGUISHABLE FROM ONE NOBODY WROTE.** Entry 13 above shipped
+the script, the CSS and a test — and three files in the whole tree mentioned Magic Move, two of them
+its own source and its own test. Every test in `the-mark-travels-or-sits-still` passed while nobody
+on earth could see the feature.
+
+**The six joins.** `events.site_magic_traveller` (migration `20271243462207`, copied line for line
+from `site_font_key` including the per-column GRANT, the `events_host` rebuild computed from the
+grants, and the proofs — NULL means nothing travels, no default, no backfill) · the **mount**, third
+after the two scripts already in `invitation-shell.tsx` because it measures rects in both · the
+**berth**, the sticky header's own monogram, reserving exactly the space the mark lands in · the
+**traveller**, stamped on the hero's mark SLOT so one wrapper covers both the designed mark and the
+fallback circle — *not* inside `HeroMonogram`, which the wall projection, Save-the-Date and the
+recap also use and which have no berth · the **control**, a Magic Move fieldset in `pro-panels.tsx`
+beside the fonts · the **save**, `updateSiteColors`, same tri-state as the typeface.
+
+🪤 **THREE BUGS FOUND BUILDING IT, TWO OF WHICH WOULD HAVE SHIPPED SILENT.**
+
+- **`display: contents` on the traveller cannot move.** It generates no box, so it takes no
+  `transform` — the rule would have matched, all three custom properties would have been written,
+  and the mark would have sat perfectly still with nothing anywhere reporting a fault. It is `block`.
+- **The berth rule was UNGATED** — `[data-magic-berth] { visibility: hidden; }`. The berth is the
+  header's own monogram, so every reduced-motion guest, every blocked bundle and every 2s self-heal
+  lost it from the header entirely. That contradicted the contract three lines above it in the same
+  file.
+- **`const` is not hoisted**, and the two ends sit ~1,500 lines apart in one function. Declaring the
+  value beside `<InvitationShell>`, where it reads most naturally, throws a ReferenceError on every
+  guest page.
+
+⛔ **AND ONE GUARD REWRITTEN RATHER THAN SATISFIED.** `bottom-edge.test.ts` asserted `labels === 2`
+and went red on a change that kept its property: the berth is a THIRD right-hand label and carries
+`sn-top-label` like the two before it. It now asserts the property — every span rendering a
+right-hand label carries the class — which is **stricter**: the old count passed happily with the
+berth bare, because the other two still summed to two. (Rule 7: an anchor is a string, never a
+number.)
+
+**Guards** — 8 reachability tests appended to `the-mark-travels-or-sits-still.test.ts`, five
+sabotage-proven: unmount the script · make the traveller `display:contents` · ungate the berth ·
+drop the tri-state · drop the column from the guest SELECT. Plus two on the rewritten label guard,
+one of which **the old form could not fail**.
+
+🪤 A sabotage run reported `# pass 0 # fail 0` and I nearly read it as green — `--test` with
+`app/[slug]/...` in the path matches NOTHING, because brackets defeat the glob. Use `app/**/name.test.ts`.
+
+**Verified before pushing, all five this time** — the three red CI rounds today were each a check
+missing from this set: tsc 0 · whole-app lint 0 · 17/17 repo guards · unit 18,322 (0 fail) · **DB
+3,035/3,035 with `ok 2699 - every connection has both ends`**, the exact test that failed CI.
+Exposure baseline regenerated: one new fact, `events.site_magic_traveller  anon=- authenticated=SU`.
+
+SPEC IMPACT: None.

@@ -58,7 +58,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { isRailFocused, type RailFocus } from './rail-focus';
+import { isRailFocused, type RailFocus, type RailFocusIcon } from './rail-focus';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
@@ -603,6 +603,18 @@ function Count({ value }: { value?: number | null }) {
  * and the icon falls back to Lucide's own 24px with nothing to notice. The
  * same shape as every other "a sentence is not a mechanism" note in this repo.
  */
+/**
+ * The drawings a focused rail's way-back row may wear, by name.
+ *
+ * 🔴 THIS MAP IS THE BOUNDARY. See `RailFocusIcon` for what happened when the
+ * component travelled instead of its name: a 500 on every page inside an
+ * event. Everything here is imported by THIS client module, so nothing has to
+ * be serialised.
+ */
+const FOCUS_ICONS: Record<RailFocusIcon, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+  events: LayoutGrid,
+};
+
 function RailIcon({
   as: Icon,
 }: {
@@ -1358,7 +1370,7 @@ export function FrontDoorShell({
                the default, and a caller whose destination has an icon of its
                own passes it (the events row does — owner 2026-09-23). */
             <Link href={focus.href} className="fd-row">
-              <RailIcon as={focus.icon ?? ArrowLeft} />
+              <RailIcon as={focus.icon ? FOCUS_ICONS[focus.icon] : ArrowLeft} />
               <span className="fd-label-text">{focus.label}</span>
               <span className="fd-icon-caption">{focus.caption}</span>
             </Link>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ClipboardList, LayoutGrid } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -497,7 +497,7 @@ export default async function EventLayout({ children, params }: Props) {
           href: '/dashboard',
           label: 'Events',
           caption: 'Events',
-          icon: LayoutGrid,
+          icon: 'events',
         }}
         railContext={
           <EventRailContext

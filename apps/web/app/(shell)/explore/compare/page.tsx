@@ -14,6 +14,7 @@ import {
 import {
   parseVisibility,
   isBookable,
+  PUBLIC_SURFACE_VISIBILITIES,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -192,7 +193,12 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
     .in('vendor_profile_id', ids)
     // 🔒 Owner 2026-07-27 — verified only; `coming_soon` is retired. This
     // surface is reachable anonymously, so it must not be looser than /explore.
-    .in('public_visibility', ['verified'])
+    // ⚠ ASKED, NOT RE-TYPED. This used to spell the list itself. It gave the
+    // same answer as the shared gate, which is exactly why it was safe to leave
+    // and exactly why it would not have followed the gate the day the gate
+    // learned a second condition — a shop gone from /explore and still on this
+    // page, with nothing failing to say so.
+    .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
     // PR-B — drop UNVERIFIED vendors from this public compare surface
     // (anonymous viewers reach it). Demo rows are admitted at the query level
     // so the admin demo-mode carve-out below still works; the demo-mode gate
@@ -789,10 +795,10 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                 gate here would hide a working inquiry path from any verified
                 vendor who simply never typed an address into that box, which is
                 the hiding the owner just ruled out. Every row that reaches this
-                point is bookable BY CONSTRUCTION — the query is
-                `.in('public_visibility', ['verified'])` (line 184) and the
-                post-fetch filter keeps only `verification_state === 'verified'`
-                (line 228) — so re-deriving `isBookable` here would look like a
+                point is bookable BY CONSTRUCTION — the query filters on
+                `PUBLIC_SURFACE_VISIBILITIES` and the post-fetch filter keeps
+                only `verification_state === 'verified'` — so re-deriving
+                `isBookable` here would look like a
                 check while checking nothing.
 
                 FAILED READ vs GENUINE ZERO: this row adds NO read of its own, on

@@ -27,7 +27,9 @@ const WEB = join(import.meta.dirname, '..');
 const WATCHED = [
   'app/vendor-dashboard/shop/page.tsx',
   'app/vendor-dashboard/shop/_components/website-editor.tsx',
-];
+  // `as const` so WATCHED[0] is a known string rather than `string | undefined`.
+  // Proving it in the type, not asserting it away with `!`.
+] as const;
 
 test('the rule tells a logged probe from a silent one', () => {
   assert.deepEqual(silentProbes('const x = 1;'), [], 'no try/catch, nothing to say');

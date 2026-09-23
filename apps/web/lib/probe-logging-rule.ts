@@ -143,9 +143,12 @@ export function silentPromiseHandlers(source: string): number[] {
   const THEN = /\.then\s*\(/g;
   while ((m = THEN.exec(src))) {
     const args = balancedParen(src, src.indexOf('(', m.index));
-    const rejectArm = splitTopLevel(args.slice(1, -1));
-    if (rejectArm.length < 2) continue; // one-arg .then() handles no failure
-    if (!LOGGERS.test(rejectArm[1])) out.push(src.slice(0, m.index).split('\n').length);
+    // ⚠ HANDLED, not asserted. A length check does not narrow an index access,
+    // and `rejectArm[1]!` would have silenced the compiler on the one case this
+    // function exists to reason about — a `.then()` with no failure arm.
+    const rejectArm = splitTopLevel(args.slice(1, -1))[1];
+    if (rejectArm === undefined) continue; // one-arg .then() handles no failure
+    if (!LOGGERS.test(rejectArm)) out.push(src.slice(0, m.index).split('\n').length);
   }
 
   return [...new Set(out)].sort((a, b) => a - b);
@@ -181,6 +184,9 @@ function splitTopLevel(args: string): string[] {
   let start = 0;
   for (let i = 0; i < args.length; i += 1) {
     const c = args[i];
+    // The loop bound makes this unreachable; proving it beats asserting it, and
+    // an `args[i]!` here would also silence a real off-by-one if one appeared.
+    if (c === undefined) break;
     if (quote) {
       if (c === '\\') { i += 1; continue; }
       if (c === quote) quote = null;
@@ -198,13 +204,4 @@ function splitTopLevel(args: string): string[] {
 /** Just the ones that swallow without a word. */
 export function silentProbes(source: string): number[] {
   return probeSites(source).filter((p) => !p.logs).map((p) => p.line);
-}
-
-/** Parse a baseline file: one `path:line` reason-carrying entry per line. */
-export function parseProbeBaseline(text: string): string[] {
-  return text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith('#'))
-    .map((l) => l.split(/\s+/)[0]);
 }

@@ -35,7 +35,11 @@ import {
   verificationSubmitMissing,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
-import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
+import {
+  fetchReviewStats,
+  fetchReviewsForVendorWithCouple,
+  type ReviewStatsRow,
+} from '@/lib/reviews';
 import {
   fetchVendorBranches,
   fetchBranchFeePhp,
@@ -387,10 +391,19 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // Hero "N of 3" pill. Cheap read (no presigns — those stay lazy on Step 1
     // expand). Null when the vendor has never started.
     soft.read('latestApplication', () => fetchLatestApplication(supabase, vendorId), null),
-    soft.read('reviewStats', () => fetchReviewStats(supabase, vendorId), {
-      avg_rating_overall: 0,
-      total_count: 0,
-    }),
+    /*
+     * 🔑 `null`, NOT A ZEROED ROW. The old `.catch(() => ({…: 0}))` widened the
+     * type and handed every consumer a fabricated stats row that is
+     * indistinguishable from a real shop with no reviews. Padding the fallback
+     * out to a full `ReviewStatsRow` of zeroes to satisfy the compiler would
+     * have undone this whole change — the tile would print a confident 0 again.
+     * The Reviews tile already consults `cantRead('reviewStats')`.
+     */
+    soft.read<ReviewStatsRow | null>(
+      'reviewStats',
+      () => fetchReviewStats(supabase, vendorId),
+      null,
+    ),
     soft.rpcNumber('savedByCouples', () =>
       supabase.rpc('count_saves_for_vendor', { p_vendor_profile_id: vendorId }),
     ),
@@ -830,8 +843,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     socialFeatureOptOut,
     socialAlreadyFeatured,
     profileViewsWeek: viewsRes ?? 0,
-    rating: Number(reviewStats.avg_rating_overall) || 0,
-    reviewCount: Number(reviewStats.total_count) || 0,
+    rating: Number(reviewStats?.avg_rating_overall ?? 0) || 0,
+    reviewCount: Number(reviewStats?.total_count ?? 0) || 0,
     savedByCouples: savesRes ?? 0,
     storiesTagged,
     unreadable: soft.labels,

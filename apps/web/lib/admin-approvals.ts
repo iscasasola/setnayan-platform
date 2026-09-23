@@ -41,7 +41,13 @@ export type ApprovalActionType =
   // second admin. Never in the picker: there is nothing to propose in the
   // abstract, only a specific new destination. No target_id — the subject is
   // the platform_settings row; the destination rides in the payload.
-  | 'approve_payment_account_change';
+  | 'approve_payment_account_change'
+  // Vendor Agreement § 9.1 — "Mid-quarter price change on any in-app SKU".
+  // Initiated from /admin/pricing when a save changes what a customer pays,
+  // confirmed by a second admin. Never in the picker: there is nothing to
+  // propose in the abstract, only a specific new price on a specific SKU.
+  // target_id carries the service_code; the figures ride in the payload.
+  | 'approve_retail_price_change';
 
 /**
  * Display labels for action types that are NOT in the manual picker
@@ -55,6 +61,7 @@ const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_journal_spotlight: 'Publish sponsored journal spotlight',
   approve_large_refund: 'Approve refund over ₱25,000 (money)',
   approve_payment_account_change: 'Change the BDO/GCash receiving account (money)',
+  approve_retail_price_change: 'Change what a customer pays for a SKU (money)',
 };
 
 export type ApprovalActionMeta = {

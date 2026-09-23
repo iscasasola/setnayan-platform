@@ -18,6 +18,7 @@ import { manilaTodayISO } from '@/lib/event-board';
 import { initialsFor } from '@/lib/conversation-list';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { renderableImageSrc } from '@/lib/event-card-art';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { formatEventDate } from '@/lib/events';
 import { ReportPageButton } from '@/app/_components/report-page-button';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
@@ -270,6 +271,44 @@ export default async function AccountProfilePage({ params }: Props) {
   const pastShown = pastShelf(pastEvents);
 
   /*
+    🖼 THE POSTER IS THE COUPLE'S OWN HUB HERO. Owner, 2026-09-23: ***"these are
+    not the actual posters okay? we will get them from their event hub hero
+    widget."*** The hub's hero is `events.landing_page_hero_image_url`, the same
+    column `app/[slug]/_lib/loaders.ts` feeds to `HeroBackgroundMedia`.
+
+    🔴 AND IT COULD NEVER HAVE RESOLVED HERE. That column does not hold a URL
+    despite its name: `website/hero-photo/actions.ts` REFUSES any value that
+    does not start with `r2://`, so what is stored is a bucket ref. The old
+    card put the raw column straight into an <img src> and the poster handed it
+    to `renderableImageSrc`, which correctly refuses a non-https string — so a
+    couple who HAD uploaded a hero got either a broken image or a silent fall
+    through to a derived sheet. No prod event carries a hero today, so nothing
+    on screen was wrong yet, and nothing would ever have said so.
+
+    🔒 TWO STEPS, THE SAME TWO THE HUB USES, and the first one is security not
+    tidiness: this page is PUBLIC and the column is couple-writable, so
+    `siteMediaServeRef` refuses a ref naming any bucket but the public one —
+    a value pointed at payment proofs or IDs must resolve to nothing rather
+    than to a signed link. Then `displayUrlForStoredAsset` presigns the key
+    (24h) or passes a legacy absolute URL through verbatim.
+
+    ⏱ Resolved HERE, not in the renderer, because signing is async and the
+    renderer is a synchronous `.map` callback. 24h links inside a page revalidated
+    every 60s never go stale in cache.
+  */
+  const heroByEvent = new Map<string, string | null>(
+    await Promise.all(
+      listed.map(
+        async (e) =>
+          [
+            e.event_id,
+            await displayUrlForStoredAsset(siteMediaServeRef(e.landing_page_hero_image_url)),
+          ] as const,
+      ),
+    ),
+  );
+
+  /*
     ONE POSTER, RENDERED BY BOTH SECTIONS. Extracted when the Coming-up/Past
     split landed so the two sections cannot drift into two different cards —
     which is the defect the split exists to fix, arriving from the other side.
@@ -307,15 +346,16 @@ export default async function AccountProfilePage({ params }: Props) {
       const identity = resolveCelebrationIdentity(event);
 
       /*
-          ⚠ THE SHEET IS DECIDED FROM WHAT CAN ACTUALLY BE DRAWN.
-          `renderableImageSrc` refuses anything that is not https or
-          root-relative, so the url is resolved FIRST and the resolved one is
-          what `resolvePoster` reads. Handing it the raw column instead would
-          answer `photograph` for an image this page then declines to render,
-          and the celebration would print as a dark sheet with nothing on it —
-          a flag in an object is not ink in the pixels.
+          ⚠ THE SHEET IS DECIDED FROM WHAT CAN ACTUALLY BE DRAWN — the SIGNED
+          url out of `heroByEvent`, never the stored ref. `renderableImageSrc`
+          is the last gate (https or root-relative only), and `resolvePoster`
+          reads what survives it. Handing it the raw column would answer
+          `photograph` for an image this page then declines to render, and the
+          celebration would print as a dark sheet with nothing on it — a flag
+          in an object is not ink in the pixels. That is not hypothetical here:
+          the raw column is an `r2://` ref and this is exactly how it failed.
       */
-      const heroSrc = renderableImageSrc(identity.heroUrl);
+      const heroSrc = renderableImageSrc(heroByEvent.get(event.event_id) ?? null);
       const poster = resolvePoster({ ...event, landing_page_hero_image_url: heroSrc });
       const words = posterWords(event.display_name, event.monogram_text);
       const when = posterDate(event.event_date, event.event_date_precision);

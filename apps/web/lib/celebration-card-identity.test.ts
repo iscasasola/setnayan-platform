@@ -223,3 +223,63 @@ test('⚖ two consents about one photo stay two', () => {
   assert.match(line, /profile photo/i, 'the public-profile toggle does not mention the photo');
   assert.match(line, /celebrations/i, 'it must still say what it always said');
 });
+
+test('🖼 the poster reads the hub hero through the SIGNER, never the raw column', () => {
+  /*
+    Owner, 2026-09-23: ***"these are not the actual posters okay? we will get
+    them from their event hub hero widget."*** The hub's hero is
+    `events.landing_page_hero_image_url` — and that column does NOT hold a url
+    despite its name. `app/dashboard/[eventId]/website/hero-photo/actions.ts`
+    refuses any value that does not start with `r2://`, so what is stored is a
+    bucket ref that only `displayUrlForStoredAsset` can turn into something a
+    browser will fetch.
+
+    🔴 THE FAILURE THIS PREVENTS ALREADY SHIPPED, INVISIBLY. The old card put
+    the raw column into an <img src>; the poster handed it to
+    `renderableImageSrc`, which refuses a non-https string. A couple who had
+    uploaded a hero got a broken image or a silent fall-through to a derived
+    sheet. Zero prod events carry a hero today, so NOTHING ON SCREEN WAS WRONG
+    and no test could have gone red — the defect was waiting for the first
+    upload.
+
+    🔒 And `siteMediaServeRef` is not tidiness. This page is public and the
+    column is couple-writable, so a ref naming a PRIVATE bucket (payment
+    proofs, IDs, chat files) must resolve to nothing rather than to a signed
+    link. The guest hub applies exactly this pair for exactly this reason.
+  */
+  const page = stripComments(
+    readFileSync(path.join(process.cwd(), 'app/u/[userSlug]/page.tsx'), 'utf8'),
+  );
+
+  const signed = (page.match(/displayUrlForStoredAsset\(\s*siteMediaServeRef\(/g) ?? []).length;
+  console.log(`  hero resolutions going signer(gate(...)): ${signed}`);
+  assert.ok(signed >= 1, 'the hero must be signed through the public-bucket gate');
+
+  /*
+    🪤 PROPERTY, NOT PHRASING: the raw column may appear only where it is being
+    HANDED to that gate, or being OVERWRITTEN with the resolved url on its way
+    into `resolvePoster`. Any other mention is the ref escaping toward a
+    renderer. Anchoring on "is there an <img src={identity.heroUrl}>" would be
+    walked past by any rename.
+  */
+  const mentions = [...page.matchAll(/landing_page_hero_image_url/g)].map((m) => {
+    const line = page.slice(page.lastIndexOf('\n', m.index!) + 1, page.indexOf('\n', m.index!));
+    return line.trim();
+  });
+  console.log(`  raw-column mentions in the page: ${mentions.length}`);
+  for (const line of mentions) {
+    const handedToTheGate = line.includes('siteMediaServeRef(');
+    const overwritten = /landing_page_hero_image_url:\s*heroSrc/.test(line);
+    assert.ok(
+      handedToTheGate || overwritten,
+      `the stored r2:// ref reaches a renderer unsigned: ${line}`,
+    );
+  }
+  // the detector can fail: a bare use would be caught by neither branch
+  assert.equal(
+    ['src={event.landing_page_hero_image_url}'].filter(
+      (l) => l.includes('siteMediaServeRef(') || /landing_page_hero_image_url:\s*heroSrc/.test(l),
+    ).length,
+    0,
+  );
+});

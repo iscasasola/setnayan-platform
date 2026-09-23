@@ -390,3 +390,40 @@ Three watched sabotages, each red, each restored and re-verified green: a Past l
 credited again.
 
 SPEC IMPACT: None.
+
+## 2026-09-23 · fix(profile): the poster is the couple's hub hero, and it could never resolve
+
+Owner, on the derived sheets: ***"these are not the actual posters okay? we will get them from their
+event hub hero widget."***
+
+The hub's hero is `events.landing_page_hero_image_url` — the same column
+`app/[slug]/_lib/loaders.ts` feeds to `HeroBackgroundMedia`. **That column does not hold a URL
+despite its name.** `app/dashboard/[eventId]/website/hero-photo/actions.ts` refuses any value that
+does not start with `r2://`, so what is stored is a bucket ref that only `displayUrlForStoredAsset`
+can turn into something a browser will fetch.
+
+🔴 **So the hero could never have reached this page, and the failure was already shipped.** The old
+celebration card put the raw column into an `<img src>`; today's poster handed it to
+`renderableImageSrc`, which correctly refuses a non-https string. A couple who HAD uploaded a hero
+got a broken image or a silent fall-through to a derived sheet. **Zero prod events carry a hero, so
+nothing on screen was wrong and no test could have gone red** — the defect was waiting for the first
+upload.
+
+Now resolved the way the guest hub resolves it, in two steps, the first of which is security rather
+than tidiness: `siteMediaServeRef` refuses a ref naming any bucket but the public one — this page is
+public and the column is couple-writable, so a value pointed at payment proofs or IDs must resolve to
+**nothing**, never to a signed link — then `displayUrlForStoredAsset` presigns the key (24h) or
+passes a legacy absolute URL through verbatim. Signing is async and the renderer is a synchronous
+`.map` callback, so the heroes resolve once into a map before rendering.
+
+The guard asserts a PROPERTY, not a phrasing: `landing_page_hero_image_url` may appear in the page
+only where it is being handed to the gate, or being overwritten with the resolved url on its way into
+`resolvePoster`. Any other mention is the ref escaping toward a renderer. Sabotage — restoring the
+old `renderableImageSrc(event.landing_page_hero_image_url)` — goes red and names the line.
+
+⚠ **Still open for the owner:** with the hero wired, a celebration that HAS one prints the
+photograph. All 12 prod events have none, so every poster on his profile today is still a derived
+sheet. Whether those sheets stay as the no-hero fallback, or a celebration without a hub hero should
+show something else entirely, is his call and is not decided here.
+
+SPEC IMPACT: None.

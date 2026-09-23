@@ -61,12 +61,14 @@ import Link from 'next/link';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
+import { EventMonogram } from '@/app/_components/event-monogram';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
 
 export function EventRailContext({
   eventId,
   eventName,
+  eventMonogram,
   navSlots,
   hideKeys,
   websiteEnabled,
@@ -79,6 +81,33 @@ export function EventRailContext({
   /** Already resolved server-side, and never blank — see the layout's
    *  `plaqueName`, which falls back to the event type for an unnamed draft. */
   eventName: string;
+  /**
+   * The event's OWN mark, above its name. Owner 2026-09-23, pointing at the
+   * `.fd-rctx` name row: *"on top of this, show the logo/monogram of the
+   * event"*.
+   *
+   * 🔑 THE SHAPE `EventMonogram` ALREADY TAKES, passed whole rather than
+   * re-derived here. It resolves an uploaded / bespoke SVG, then the couple's
+   * designed lockup, then the lettered badge — three cases this component has
+   * no business re-deciding, and a fourth answer to "what is this event's
+   * mark" is exactly the drift this rail was built to stop.
+   *
+   * ⚠ `monogram_custom_svg` MUST ARRIVE ALREADY GATED. `EventMonogram` reads
+   * that one column, and both SVG columns are host-writable through PostgREST
+   * — the layout passes `resolveEventMonogramSvg(event)`, the read-time gate
+   * (SEC-3, `lib/monogram-svg-safe.ts`), never the raw column.
+   *
+   * Optional: omitted ⇒ the name renders alone, exactly as it did before.
+   */
+  eventMonogram?: {
+    display_name: string | null;
+    monogram_text: string | null;
+    monogram_color: string | null;
+    monogram_frame_key?: string | null;
+    monogram_font_key?: string | null;
+    monogram_style?: string | null;
+    monogram_custom_svg?: string | null;
+  } | null;
   navSlots?: Record<string, NavSlotLite>;
   hideKeys?: string[];
   websiteEnabled?: boolean;
@@ -166,6 +195,24 @@ export function EventRailContext({
           the "Back to events" row directly above this group — since 2026-09-21
           the rail FOCUSES on the event (owner) and that row is the only one
           above it. */}
+      {/*
+        THE EVENT'S MARK, ABOVE ITS NAME (owner 2026-09-23). Its own element,
+        NOT a child of `.fd-rctx` — and that is the whole design decision here.
+        `.fd-rctx` is prose, so the stylesheet hides it at the 72px icon strip
+        (1024–1279px) along with every other word in the rail. A mark is not
+        prose: it is the one thing still saying WHICH event you are standing in
+        once the names are gone, so it keeps its own element, survives that
+        width and centres there.
+
+        The badge is already `aria-hidden`. The event's name is this group's
+        accessible label and sits directly under it, so a screen reader hearing
+        the initials first would only hear the same thing twice.
+      */}
+      {eventMonogram ? (
+        <div className="fd-rctx-mark">
+          <EventMonogram event={eventMonogram} size="sm" shape="square" />
+        </div>
+      ) : null}
       <div className="fd-rctx">{eventName}</div>
 
       {groups.map((group) => (

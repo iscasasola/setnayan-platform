@@ -7,9 +7,21 @@
  * for its spelling.
  */
 
+import type { LucideIcon } from 'lucide-react';
+
 export type RailFocus = {
   href: string;
   label: string;
+  /**
+   * The drawing on the way-back row. Defaults to `ArrowLeft`.
+   *
+   * 🔑 IT EXISTS BECAUSE ONE OF THE FOUR ROWS IS NOT A "BACK" (owner
+   * 2026-09-23, on the events row: *"icon does not need to show a back
+   * button, keep the events icons"*). "My Home" from HQ, the shop or an
+   * account spoke still reads as a way back and keeps the arrow; the events
+   * row is named after where it GOES, so it wears that place's own icon.
+   */
+  icon?: LucideIcon;
   /** The word under the icon on the 72px strip. */
   caption: string;
   /** Narrow focus to these path prefixes; absent ⇒ every URL of the layout. */

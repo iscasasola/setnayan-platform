@@ -615,3 +615,29 @@ module contaminated. It strips comments now.
 
 SPEC IMPACT: None. Exposure freeze: one fact added, `platform_settings.google_picker_api_key
 anon=- authenticated=S`.
+
+---
+
+### 15 · Merged `origin/main` — the baseline is regenerated, never patched
+
+Nineteen commits landed on main while this branch was being built, and the conflict was the one
+that collides with **every** sibling PR: `supabase/security/exposure-surface.baseline.txt`.
+
+🔑 **It is a generated file and its own header says so** — *"regenerate it rather than patching
+it"*. Hand-merging two lists of facts produces a file that agrees with neither tree, and the guard
+compares against exactly that file. So main's copy was taken wholesale and the baseline was
+regenerated from the merged tree.
+
+The diff is then the honest one: **main's 6,447 facts plus this branch's two**, and nothing else.
+
+```
++ col  public.events.site_font_key                  anon=- authenticated=SU
++ col  public.platform_settings.google_picker_api_key  anon=- authenticated=S
+```
+
+⚠ **A resolved conflict is not a verified tree.** Re-run against the merged 19 commits: `tsc`
+clean · all 33 blocking guards clean · **102** tests across the eleven suites this branch added ·
+the db guards with all three migrations replayed (exposure freeze, events column privileges, both
+Ugat maps).
+
+SPEC IMPACT: None.

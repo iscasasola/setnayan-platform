@@ -83,33 +83,35 @@ not a silence. Closing the hole properly means parsing the colour out of the
 shorthand, which is a change to the guard's own design and belongs with whoever
 owns it, not smuggled into a contrast fix.
 
-### The pill, ruled on separately
+### The pill — DELETED, on the owner's ruling
 
 `.m-pill-orange` was left alone in the first cut of this branch — different
-pairing, different component, and the ruling had been about buttons. The owner
-was asked and said yes, so it is fixed here: label `--m-orange-2` →
-`--m-orange-deep` on the same `--m-orange-4` wash, **4.21:1 → 7.50:1**. 12px
-text, so no large-text exemption applies. No `:hover` rule exists, so there is
-no second state to clear.
+pairing, different component, and the ruling had been about buttons. It was then
+put to the owner and fixed: label `--m-orange-2` -> `--m-orange-deep` on the same
+`--m-orange-4` wash, **4.21:1 -> 7.50:1**.
 
-**🔑 Here the LABEL moves, not the fill — the opposite of the button, and on
-purpose.** The guard's own advice ("fix the FILL, not the label") is written for
-white-on-gold, where swapping white for cream buys about 0.1. This is the
-mirror case: dark text on a pale wash, where the wash *is* the component's
-identity and the text is what can move. Not a new pairing either —
-`--m-orange-deep` on `--m-orange-4` already ships in `vendor-grow-sections`,
-`admin/data-privacy` and `npc-checklist`.
+**Then the measurement that changed the answer: nothing renders it.** `.m-pill`
+and `.m-pill-orange` had **zero usages** — the only matches for the name in the
+whole tree were the CSS definition itself, the contrast baseline entry and this
+changelog. No dynamic class construction. The fix was correct and invisible: it
+repaired a component no page mounts.
 
-### 🛑 …and nothing renders it
+Put to the owner as such, who ruled **"remove the pill"** (2026-09-23). Both
+rules are deleted here, along with the docblock that explained the fix. The
+contrast pairing goes with them, so the guard has one less rule to judge rather
+than one more rule that passes.
 
-`.m-pill-orange` and its base `.m-pill` have **zero usages in the tree** — three
-matches for the name repo-wide, and they are the CSS definition, the baseline
-entry and this changelog. No dynamic class construction either. So this fix is
-correct and invisible: it repairs a component no page mounts.
+🔑 **A rule that passes a guard is not a rule that earns its place.** The pill
+would have gone on passing the contrast check forever, correct and unmounted,
+because a guard can only judge the rules it is given — it cannot ask whether
+anything renders them. Re-measure before reviving it:
 
-Fixed rather than deleted because that is what was asked, and because a fixed
-rule costs nothing. **Deleting the pill is the better answer and it is an owner
-call, not a build one** — flagged, not taken.
+```bash
+git grep -n "m-pill" -- apps/web    # 0 matches is the post-deletion state
+```
+
+`--m-orange-deep` survives the deletion — it is still used by `.m-btn-orange`'s
+hover, `vendor-grow-sections`, `admin/data-privacy` and `npc-checklist`.
 
 ### What is still baselined after these two removals — 50 → 48
 

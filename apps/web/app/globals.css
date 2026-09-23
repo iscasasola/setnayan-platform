@@ -1397,42 +1397,6 @@ html.subnav-docked [data-shell-main] {
     box-shadow: var(--m-shadow-md);
   }
 
-  .m-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 11px;
-    border-radius: var(--m-r-full);
-    border: 1px solid var(--m-line);
-    font-size: 12px;
-    background: var(--m-paper);
-    color: var(--m-slate);
-  }
-  /*
-   * The champagne pill (owner, 2026-09-23 — the second of the two he ruled on).
-   * Label #8A6B39 on the #F3ECDF wash read 4.21:1, a near miss under the 4.5
-   * floor. 12px text, so no large-text exemption applies.
-   *
-   * 🔑 HERE THE LABEL MOVES, NOT THE FILL — the OPPOSITE of `.m-btn-orange`
-   * above, and deliberately. On the button the label was already white and the
-   * fill was the problem; the guard's own advice ("fix the FILL, not the label")
-   * is written for that case, where swapping white for cream buys ~0.1. This is
-   * the mirror: dark text on a pale wash, where the wash IS the component's
-   * identity and the text is what can move. --m-orange-deep buys 3.3 and reads
-   * 7.50:1.
-   *
-   * Not a new pairing — `--m-orange-deep` on `--m-orange-4` already ships in
-   * vendor-grow-sections, data-privacy and npc-checklist. This makes the pill
-   * match what is already on the page rather than inventing a tone.
-   *
-   * No `:hover` rule exists for this pill, so there is no second state to clear.
-   */
-  .m-pill-orange {
-    background: var(--m-orange-4);
-    border-color: var(--m-orange-3);
-    color: var(--m-orange-deep);
-  }
-
   .m-hi {
     background: linear-gradient(transparent 65%, var(--m-orange-3) 65%);
     padding: 0 2px;

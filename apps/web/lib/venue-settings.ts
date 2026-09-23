@@ -247,12 +247,9 @@ export const CEREMONY_VENUE_SETTING_SHORT_LABEL: Record<CeremonyVenueSetting, st
  */
 export const VENUE_SETTING_TO_DIRECTORY_TYPE: Partial<Record<VenueSetting, string>> = {
   banquet_hall: 'hotel_ballroom',
-  // The directory has no `events_place` yet (its `multi_purpose_hall` is a
-  // barangay/civic hall, not a commercial events place). Until the directory
-  // learns the word, an events-place couple is recommended the nearest
-  // commercial function space — the hotel ballroom — which is exactly what
-  // they were shown before 2026-09-23, when their pick was stored AS one.
-  events_place: 'hotel_ballroom',
+  // Its own directory type since 20271245297061. NOT `multi_purpose_hall`,
+  // which its migration defines as church halls / school auditoriums.
+  events_place: 'events_place',
   restaurant: 'restaurant',
   garden: 'garden',
   beach: 'beach',

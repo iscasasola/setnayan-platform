@@ -73,6 +73,7 @@ import {
 import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 const BUCKET = 'moodboard-library';
 
@@ -126,12 +127,25 @@ async function fetchShopTier(
  *     quota silently reverts to account-wide, which is the exact regression
  *     this session exists to fix.
  */
+/*
+ * 🛑 RETURNS `null` WHEN THE COUNT COULD NOT BE READ — it used to return 0.
+ *
+ * This is not a display value. It is the USED side of a quota gate, and 0 means
+ * "this supplier has used none of their cap". So a failed read did not show a
+ * wrong number; it silently RAISED THE CAP and let the upload through. The
+ * query did not even destructure `error`, so nothing could tell.
+ *
+ * ⚠ A gate is the one place a soft failure must fail CLOSED. Everywhere else
+ * today the honest answer was to decline to say; here the honest answer is to
+ * decline to allow — an upload refused with a reason costs the supplier a
+ * retry, and a cap silently lifted costs whatever the cap exists to protect.
+ */
 async function countBackCatalogue(
   admin: ReturnType<typeof createAdminClient>,
   vendorProfileId: string,
   slot: string,
-): Promise<number> {
-  const { count } = await admin
+): Promise<number | null> {
+  const { count, error } = await admin
     .from('moodboard_library_assets')
     .select('asset_id', { count: 'exact', head: true })
     .eq('vendor_profile_id', vendorProfileId)
@@ -139,6 +153,13 @@ async function countBackCatalogue(
     .eq('asset_subtype', slot)
     .is('source_event_id', null)
     .is('retired_at', null);
+  if (error) {
+    logQueryError('moodboardLibrary.countBackCatalogue', error, {
+      vendorProfileId,
+      slot,
+    });
+    return null;
+  }
   return count ?? 0;
 }
 
@@ -322,14 +343,19 @@ export async function uploadStylistAsset(
 
     const tier = await fetchShopTier(admin, profile.vendor_profile_id);
     const mode: GalleryUploadMode = 'back_catalogue';
+    const used = await countBackCatalogue(admin, profile.vendor_profile_id, slot.slotKey);
+    if (used === null) {
+      // Fail CLOSED: we cannot prove this upload is inside the cap, so we do not
+      // allow it. Passing 0 here would have read as "none used" and lifted the
+      // cap entirely.
+      throw new Error(
+        "We couldn't check your gallery allowance just now — please try that upload again in a moment.",
+      );
+    }
     const quota = backCatalogueQuotaVerdict({
       mode,
       cap: tierCaps(tier).galleryBackCatalogPhotosPerCategory,
-      backCatalogueUsed: await countBackCatalogue(
-        admin,
-        profile.vendor_profile_id,
-        slot.slotKey,
-      ),
+      backCatalogueUsed: used,
       categoryLabel: GALLERY_SLOT_LABEL[slot.slotKey] ?? 'that category',
     });
     if (!quota.allowed) throw new Error(quota.message);

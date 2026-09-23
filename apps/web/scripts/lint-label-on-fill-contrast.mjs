@@ -74,7 +74,8 @@
  *   node scripts/lint-label-on-fill-contrast.mjs
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { stripComments } from './port-controls.mjs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -375,6 +376,133 @@ function resolveColor(raw) {
   }
   return null;
 }
+/** Every `.css` under the scanned trees — `walk` is hardcoded to `.tsx`. */
+function walkCss(dir, out = []) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    if (entry === 'node_modules' || entry === '.next' || entry.startsWith('.')) continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) walkCss(full, out);
+    else if (entry.endsWith('.css')) out.push(full);
+  }
+  return out;
+}
+
+/**
+ * PAIRINGS DECLARED IN CSS ITSELF — `.x { background: var(--gold); color: #fff }`.
+ *
+ * WHY THIS EXISTS. Until 2026-09-23 this guard read Tailwind classes, style
+ * objects and inline styles, all of them in `.tsx`. A pairing written as a CSS
+ * RULE was invisible to it, and one sat in the tree the whole time:
+ * `.app-surface .button-primary` painted #FFFDF8 on --sn-gold-500, 3.42:1, on
+ * every primary button in the supplier dashboard. It was found by eye, months
+ * late. Reading `.css` for VARIABLES while never reading it for PAIRINGS was the
+ * blind spot.
+ *
+ * AND THE STATE RULE INHERITS ITS LABEL. `.x:hover { background: … }` sets no
+ * colour; the text still comes from `.x`. That button failed at rest (3.42) AND
+ * on hover (4.39), so a scan reading only blocks that declare BOTH properties
+ * would have caught one of the two - and would pass a button that reads at rest
+ * and fails the moment a thumb lands on it, which nobody screenshots. So a
+ * background-only state rule is paired with its base selector's colour.
+ *
+ * Innermost-block matching steps over `@media` and `@layer` wrappers without
+ * needing to understand them.
+ */
+function cssRulePairings(rawCss, resolveColor) {
+  // Comments first, or a block comment containing braces is parsed as a rule and
+  // its prose becomes a selector. The first cut reported three "failures" whose
+  // selector was the inside of a comment explaining an unrelated fix.
+  //
+  // 🔑 THE REPO'S ONE STRIPPER, not a local regex — `lint-one-comment-stripper`
+  // caught the hand-rolled version here and was right to. It is quote-aware, so
+  // the `http://` inside globals.css's quoted `url("data:image/svg+xml,…")`
+  // survives; a naive line-comment pass would have eaten the rest of that line.
+  const css = stripComments(rawCss);
+  const BLOCK = /([^{}]+)\{([^{}]*)\}/g;
+  const decl = (body, prop) => {
+    const m = body.match(new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)', 'i'));
+    return m ? m[1].trim() : null;
+  };
+  const colorOf = new Map();
+  let m;
+  while ((m = BLOCK.exec(css))) {
+    const c = decl(m[2], 'color');
+    if (!c) continue;
+    for (const sel of m[1].split(',')) colorOf.set(sel.trim(), c);
+  }
+  const out = [];
+  BLOCK.lastIndex = 0;
+  while ((m = BLOCK.exec(css))) {
+    const body = m[2];
+    const bgRaw = decl(body, 'background') ?? decl(body, 'background-color');
+    if (!bgRaw) continue;
+    if (/gradient|url\(|transparent|none|inherit|currentcolor/i.test(bgRaw)) continue;
+    // A TRANSLUCENT fill cannot be measured from the stylesheet alone: what shows
+    // through is whatever the element happens to sit on, which this file cannot
+    // know. `resolveColor` composites low alpha onto the PAGE, and a white 8%
+    // hover over a dark navbar then reads as white-on-white — a confident 1.00:1
+    // that is pure artefact. Skipping is honest; guessing the backdrop is not.
+    if (/rgba?\([^)]*,\s*0?\.\d+\s*\)|\/\s*0?\.\d+\s*\)/.test(bgRaw)) continue;
+    for (const selRaw of m[1].split(',')) {
+      const sel = selRaw.trim();
+      if (!sel || sel.startsWith('@') || sel.startsWith('%')) continue;
+      // WCAG 1.4.3 exempts INACTIVE controls, so a greyed-out button is not a
+      // failure — measuring it would bury the real ones under noise that can
+      // never legitimately be fixed. (`.m-btn-primary:disabled` reads 1.63:1 and
+      // is CORRECT: that is what "you cannot press this" looks like.)
+      if (/:disabled\b|\[disabled\]|\[aria-disabled=/i.test(sel)) continue;
+      let labelRaw = decl(body, 'color');
+      let via = '';
+      if (!labelRaw) {
+        const base = sel.replace(/:(hover|focus|focus-visible|active|disabled)\b/g, '').trim();
+        if (base === sel) continue;
+        labelRaw = colorOf.get(base);
+        if (!labelRaw) continue;
+        via = ' (label inherited from ' + base + ')';
+      }
+      const fill = resolveColor(bgRaw);
+      const label = resolveColor(labelRaw);
+      if (!fill || !label) continue;
+      out.push({
+        index: m.index,
+        fill: { name: sel + via + ' background', rgb: fill },
+        label: { name: labelRaw.trim(), rgb: label },
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * KNOWN CSS-RULE PAIRINGS THAT ALREADY FAIL, one `file · selector` per line.
+ *
+ * The `.tsx` side of this guard has always been green and stays BLOCKING with no
+ * baseline. The CSS-rule scan is new (2026-09-23) and found 50 pre-existing
+ * failures across eight files nobody was asked to fix. Failing the build on all
+ * of them would have got the scan reverted within a day, and a reverted guard
+ * catches nothing — so they are recorded instead, and the list may only SHRINK.
+ *
+ * ⚠ KEYED ON SELECTOR, NEVER ON LINE NUMBER. A line number rots the moment the
+ * file is edited and takes the entry's meaning with it.
+ */
+const BASELINE_FILE = join(__dirname, 'label-contrast.baseline.txt');
+const baseline = new Set();
+try {
+  for (const line of readFileSync(BASELINE_FILE, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (t && !t.startsWith('#')) baseline.add(t);
+  }
+} catch {
+  /* absent baseline = everything blocks, which is the safe direction */
+}
+const baselineSeen = new Set();
+
 const palette = readTailwindPalette(cssVars);
 const failures = [];
 let checked = 0;
@@ -414,7 +542,54 @@ for (const dir of SCAN_DIRS) {
   }
 }
 
+// The CSS rules themselves - the blind spot that hid a 3.42:1 button for months.
+for (const dir of ['app', 'components', 'styles']) {
+  for (const file of walkCss(join(WEB_ROOT, dir))) {
+    const css = readFileSync(file, 'utf8');
+    const rel = relative(WEB_ROOT, file);
+    for (const pair of cssRulePairings(css, resolveColor)) {
+      checked++;
+      const ratio = contrast(pair.fill.rgb, pair.label.rgb);
+      if (ratio >= AA_NORMAL_TEXT) continue;
+      const key = `${rel} · ${pair.fill.name.replace(/ background$/, '')}`;
+      if (baseline.has(key)) {
+        baselineSeen.add(key);
+        continue;
+      }
+      failures.push({ rel, line: lineOf(css, pair.index), ratio, key, ...pair });
+    }
+  }
+}
+
 const hex = (rgb) => '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+// `node lint-label-on-fill-contrast.mjs --write-baseline` after fixing some, so
+// the list shrinks deliberately rather than by hand-editing.
+if (process.argv.includes('--write-baseline')) {
+  const keys = [...new Set([...baselineSeen, ...failures.filter((f) => f.key).map((f) => f.key)])].sort();
+  writeFileSync(
+    BASELINE_FILE,
+    '# CSS-rule label-on-fill pairings that already failed when the CSS scan was\n' +
+      '# added (2026-09-23). Keyed `file · selector` — NEVER a line number.\n' +
+      '# This list may only SHRINK. Regenerate with --write-baseline after fixing.\n' +
+      keys.join('\n') + '\n',
+  );
+  console.log(`baseline written: ${keys.length} known CSS-rule failure(s)`);
+  process.exit(0);
+}
+
+// An entry that no longer fails is a fix nobody recorded — make it visible so the
+// list cannot quietly keep entries that have already been repaired.
+const stale = [...baseline].filter((k) => !baselineSeen.has(k));
+if (stale.length) {
+  console.error(
+    `\n✖ ${stale.length} baseline entr(ies) no longer fail — they were fixed. ` +
+      `Remove them so the list keeps meaning something:\n`,
+  );
+  for (const k of stale) console.error(`  ${k}`);
+  console.error('\n  node apps/web/scripts/lint-label-on-fill-contrast.mjs --write-baseline\n');
+  process.exit(1);
+}
 
 if (failures.length) {
   console.error(

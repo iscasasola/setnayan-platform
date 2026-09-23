@@ -56,34 +56,23 @@ import {
 
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 
-/**
- * event_type → short badge. Filipino term where one is well established
- * (kasal · binyag · kaarawan · anibersaryo), else an uppercased English label —
- * matching the owner mockup (KASAL / BINYAG / DEBUT). Extend as verticals grow.
- *
- * ⚠ MOVED HERE FROM `(launcher)/page.tsx` (2026-08-14), which now imports it
- * back. It is not duplicated: the board cards and the palette must badge one
- * event with one word, and two copies is how they stop.
- */
-export const EVENT_TYPE_BADGE: Record<string, string> = {
-  wedding: 'KASAL',
-  christening: 'BINYAG',
-  baptism: 'BINYAG',
-  debut: 'DEBUT',
-  birthday: 'KAARAWAN',
-  anniversary: 'ANIBERSARYO',
-};
+/*
+  THE EVENT VOCABULARY MOVED to `lib/event-vocabulary.ts` and is re-exported
+  here, so every existing importer (`(launcher)/page.tsx`) is untouched.
 
-export function eventTypeBadge(type: string): string {
-  return (
-    EVENT_TYPE_BADGE[type] ??
-    type
-      .split(/[_\s]+/)
-      .filter(Boolean)
-      .join(' ')
-      .toUpperCase()
-  );
-}
+  🔑 IT LEFT BECAUSE THIS MODULE IS `server-only`. Nothing in it could be
+  called by a test, so the rule that badge words and searchable words must not
+  drift apart could only ever have been "checked" by matching the comment that
+  explains it. It is a pure function over a string and a date; it belongs where
+  a guard can run it.
+*/
+export {
+  EVENT_TYPE_BADGE,
+  EVENT_TYPE_TERMS,
+  eventTypeBadge,
+  eventSearchTerms,
+} from '@/lib/event-vocabulary';
+import { eventSearchTerms, eventTypeBadge, parseEventDate } from '@/lib/event-vocabulary';
 
 /**
  * Short "Mon D" date matching the mockup (tz-safe, date-only).
@@ -94,14 +83,11 @@ export function eventTypeBadge(type: string): string {
  * (`DECISION_LOG.md` 2026-08-04).
  */
 export function shortDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return null;
-  return new Date(
-    Number(m[1]),
-    Number(m[2]) - 1,
-    Number(m[3]),
-  ).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // ONE PARSER for this column — see `parseEventDate`. A second copy of the
+  // field-by-field rule here is how the UTC off-by-one comes back.
+  return (
+    parseEventDate(iso)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? null
+  );
 }
 
 /** Best-effort place for the meta line. venue_name when set, else a leading
@@ -186,6 +172,8 @@ export const resolveCommandItems = cache(
               href,
               kind: 'event',
               icon: 'calendar',
+              // The words the DATA has — never the words the card renders.
+              terms: eventSearchTerms(e.event_type, e.event_date, place, stance),
             };
           }),
       ];

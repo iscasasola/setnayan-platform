@@ -559,18 +559,35 @@ test('the palette carries the marketplace as an escape row', () => {
   const bar = code(
     read(join(APP, 'dashboard', '(launcher)', '_components', 'home-command-bar.tsx')),
   );
+  /*
+    ⚠ RE-AIMED 2026-09-23, AND DELIBERATELY NOT LOOSENED. This used to assert
+    the literal call `marketplaceEscapeItem(query)` and the exact line
+    `const escape = …; return escape ? [...own, escape] : own;`. The row now
+    carries the SCOPE too (`marketplaceEscapeItem(query, scope)`), so a guard
+    keyed on the old spelling went red while the property it protects was
+    perfectly intact — the shape this repo names "guard a property, never a
+    phrasing".
+
+    What is asserted is the PROPERTY, in three parts that a reword cannot slip
+    past but a real regression cannot satisfy: the row is built from the live
+    query, it is appended AFTER the filtered list, and the filtered list is
+    never what produced it.
+  */
   assert.ok(
-    /marketplaceEscapeItem\(query\)/.test(bar),
-    'The palette no longer offers the marketplace escape row. One search now ' +
-      'has to answer both questions.',
+    /marketplaceEscapeItem\(\s*query\b/.test(bar),
+    'The palette no longer offers the escape row. One search now has to ' +
+      'answer both questions — and a narrowed box with no way out is worse ' +
+      'than one that never narrowed.',
   );
   assert.ok(
-    /const escape = marketplaceEscapeItem\(query\);\s*return escape \? \[\.\.\.own, escape\] : own;/.test(
-      bar,
-    ),
+    /\[\s*\.\.\.own\s*,\s*escape\s*\]/.test(bar),
     'The escape row must be APPENDED AFTER filtering. Passed through the ' +
       'filter it disappears whenever nothing local matches — which is the one ' +
       'moment it exists for.',
+  );
+  assert.ok(
+    !/\.filter\([^)]*marketplaceEscapeItem/.test(bar),
+    'The escape row is being run through the filter — see above.',
   );
 });
 

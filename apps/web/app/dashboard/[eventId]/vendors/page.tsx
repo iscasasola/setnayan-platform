@@ -33,6 +33,8 @@ import {
   isVendorNameRevealed,
 } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
+import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
+import { benchUnreadFrom } from '@/lib/bench-unread';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
@@ -1822,6 +1824,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     />
   ) : null;
 
+  // ── The unread counter on every team card (owner 2026-09-22: *"make a badge
+  // counter on the category/ cards"*, counting **messages** — "1. messages").
+  //
+  // 🔑 THE SAME READ THE SUPPLIER'S "Unread" DOT USES, at a finer resolution.
+  // `readUnreadChatCountsByThread` pages to the server's exact count and reports
+  // `error` / `complete`; `benchUnreadFrom` folds both into one `measured` flag,
+  // and an unmeasured read renders NO badge rather than a zero — a badge is
+  // exactly the surface where "we could not check" and "your inbox is clear"
+  // draw the same blank space.
+  //
+  // Couple RLS client + this user: `notifications` is user-scoped, and the
+  // couple's chat notification carries `/dashboard/<eventId>/messages/<threadId>`
+  // so the thread id is the last segment, same as the supplier's.
+  const unreadRead = await readUnreadChatCountsByThread(supabase, user.id);
+  const benchUnread = benchUnreadFrom(unreadRead);
+
   const shortlistMaster = (
     <>
       {aiOfferBanner}
@@ -1843,6 +1861,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
+        // Pairs, not a Map — this component's own `teamCalendar` prop states the
+        // rule: a Set/Map "crosses to the client as an array and is rebuilt there
+        // rather than trusted to survive the boundary".
+        unread={{ pairs: [...benchUnread.countByThread], measured: benchUnread.measured }}
         // ── Where each supplier stands · one sentence per card, plus the
         // page's roll-up. Derived once on the server (lib/supplier-standing.ts)
         // and passed down; the component renders it and decides nothing.

@@ -1530,7 +1530,38 @@ export function ProposalMaker({
             Owner 2026-09-15 on the gift: "show both." The fee is the other
             half of that sentence — a supplier pricing a job should see the
             money going out as well as the photos going in. */}
-        <BookingFeeNotice disclosure={feeCopy} />
+        {/*
+          ONE BOX, ROWS INSIDE IT — the shape the approved prototype draws:
+
+            <div class="rows">            ← one border, one radius, overflow hidden
+              <div class="row">…fee…</div>
+              <div class="row">…Papic…</div>
+            </div>
+
+          Each of these four carried its OWN border and `mt-3`, so the composer
+          showed the owner FOUR bordered cards with gaps where he expected one
+          box divided by hairlines. The row shape without its container is half
+          the change, and from outside it reads as nothing having happened —
+          the visual weight is all in the borders.
+
+          ⚠ The container is HERE and not in `BookingFeeNotice` because two of
+          its four children are not that component: the gift switch and the
+          gift block are this file's own markup. The notice takes
+          `framed={false}` so it can sit inside; every other surface mounts it
+          standalone and is unchanged.
+
+          ⚠ AND IT MUST NOT RENDER EMPTY. All four children can be null at once
+          (no fee on this booking, no switch to answer, no gift, no ceiling) and
+          a bordered box with nothing in it is a defect the old stack could not
+          have — each card was its own `null`.
+        */}
+        {feeCopy || giftSwitch !== null || giftCopy || papicCopy ? (
+          <div
+            data-testid="quote-money-rows"
+            className="mt-3 divide-y divide-ink/10 overflow-hidden rounded-2xl border"
+            style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
+          >
+        <BookingFeeNotice disclosure={feeCopy} framed={false} />
 
         {/* THE SWITCH THIS QUOTE CARRIES (owner 2026-09-22 — "We want this
             working"). A REAL control: it is written onto the quote and
@@ -1545,7 +1576,7 @@ export function ProposalMaker({
           <label
             id="quote-setnayan-gift-switch"
             data-testid="quote-setnayan-gift-switch"
-            className="mt-3 flex items-start gap-3 rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
+            className="flex items-start gap-3 bg-mulberry-600/5 px-3 py-2.5"
           >
             <input
               type="checkbox"
@@ -1567,7 +1598,7 @@ export function ProposalMaker({
         {giftCopy ? (
           <div
             data-testid="compose-setnayan-gift"
-            className="mt-3 rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
+            className="bg-mulberry-600/5 px-3 py-2.5"
           >
             <p className="text-sm font-semibold text-mulberry-600">{giftCopy.headline}</p>
             <p className="mt-0.5 text-xs text-ink/60">{giftCopy.detail}</p>
@@ -1585,7 +1616,10 @@ export function ProposalMaker({
           testId="papic-quote-notice"
           disclosure={papicCopy}
           cta={papicCopy?.cta}
+          framed={false}
         />
+          </div>
+        ) : null}
       </div>
 
       </QuoteStage>

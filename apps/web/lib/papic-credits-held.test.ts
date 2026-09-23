@@ -70,12 +70,28 @@ test('the dial actually USES the shared rule — it does not re-add inline', asy
     'utf8',
   ).replace(/\/\*[\s\S]*?\*\//g, '');
 
+  /* ⚠ THE FLOOR WAS 3 AND IS NOW 1, and the two that went were not lost —
+     they were the recommendation SEARCH and the recommendation LABEL, deleted
+     2026-09-23 with the dial's suggested rung (owner: "until a data is
+     collected, nothing to recommend"). What remains is the headline total,
+     which is the only place this dial still states a credit figure.
+
+     🔑 LOWERING A FLOOR IS NORMALLY HOW A RATCHET DIES, so the floor is not
+     doing the work alone any more. The rule this file exists for — every
+     displayed total goes through the shared helper rather than showing `bought`
+     raw — is asserted directly below, against each call site. If the
+     recommendation returns with measured usage behind it, its call sites must
+     come back through `papicCreditsHeld` too and this floor rises again. */
   const uses = (dial.match(/papicCreditsHeld\(/g) ?? []).length;
   assert.ok(
-    uses >= 3,
-    `The credit dial calls papicCreditsHeld ${uses} time(s). It needs it for the ` +
-      'headline total, the recommendation search and the recommendation label — ' +
-      'a missing one means that surface silently dropped the free grant.',
+    uses >= 1,
+    `The credit dial calls papicCreditsHeld ${uses} time(s) — the headline total ` +
+      'must go through it, or the surface silently drops the free grant.',
+  );
+  assert.ok(
+    !/\{\s*bought\s*\}|>\s*\{bought\}/.test(dial),
+    'the dial renders `bought` directly somewhere — that is the exact "simplification" ' +
+      'this file exists to catch: it drops the free grant and just looks like a smaller number',
   );
   assert.match(
     dial,

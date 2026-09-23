@@ -95,8 +95,14 @@ test('the label does not promise a destination before the save has run', () => {
   // Where the picture went is only knowable after the fact, so the resting
   // label must not name a place.
   const buttonLabel = /{phase === 'working' \? '[^']*' : '([^']*)'}/.exec(src);
-  assert.ok(buttonLabel, 'could not find the save button label to check');
-  const resting = buttonLabel[1];
+  const resting = buttonLabel?.[1];
+  // assert.fail returns never, so `resting` is a string below. An absent match
+  // must FAIL here rather than coalesce to '' — an empty string would sail
+  // through the destination check and report a pass for a guard that found
+  // nothing to look at.
+  if (typeof resting !== 'string' || resting.length === 0) {
+    assert.fail('could not find the save button label to check — has the button been renamed?');
+  }
   assert.ok(
     !/gallery|photos|files/i.test(resting),
     `the resting button label ("${resting}") names a destination. Which one the ` +

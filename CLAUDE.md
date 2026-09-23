@@ -389,6 +389,60 @@ decision covers Postgres `cron.job` and Vercel crons — the 22 periodic jobs th
 traffic through `claim_periodic_job`. Workflow schedules are in-pattern;
 `deploy-drift-monitor.yml` already uses one. Do not "fix" this as a violation.
 
+### 🪤 `preview/<name>` IS A HALF-RULE — three more gates, all silent
+
+All three were found by sessions after the rule landed, and **every one fails as a preview that
+never appears rather than an error.** The branch pushes, checks go green, and the URL simply does
+not exist — the same shape as a CONFLICTING PR reporting zero failing and zero running.
+
+**1 · The tip commit must touch a watched path.** `preview/*` does not build unconditionally; it
+falls through to
+`git diff --quiet HEAD^ HEAD -- apps/web packages/shared package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json`.
+So a branch carrying only a prototype under `build-sessions/prototypes/` builds **nothing**. And it
+is `HEAD^ HEAD` — **the last commit only, not the branch** — so real work in commit 1 with a
+changelog fragment as commit 2 also builds nothing. ⚠ **Adding the fragment last is exactly what the
+doc contract asks for**, which makes this easy to do by accident.
+
+**2 · Vercel keys deployments on the COMMIT, not the branch.** Re-pushing an already-deployed SHA
+under a `preview/` name produces **no deployment at all** — not skipped, nothing; the branch name is
+never evaluated. **An empty commit does not fix it** either: it exits the changed-paths test clean
+and is skipped. What works:
+
+```bash
+git checkout -B preview/<name> <sha> && git commit --amend --no-edit   # new SHA, same content+parent
+git push --force-with-lease origin "HEAD:refs/heads/preview/<name>"
+```
+
+**3 · The `ignoreCommand` comes from each deployment's OWN commit, not from `main`.** Branches cut
+before `7a6191b8e` carry the OLD rule and **keep building previews** until they merge or rebase. So
+the saving phases in; it is not instant, and which half of the fleet is migrated depends on when
+each branch was cut. Check with
+`git show origin/<branch>:apps/web/vercel.json | grep -c 'preview/\*'`.
+
+### ✅ A branch push fires NO GitHub checks — but `preview/*` still costs
+
+`ci.yml` is `push: branches:[main]` + `pull_request` + `workflow_dispatch`. Verified against a real
+branch: `gh run list --branch rd/…` → **0 runs**. **Checks begin when the PR opens.**
+
+```
+push rd/* or claude/*  → 0 GitHub runs · Vercel CANCELED   = free
+push preview/*         → 0 GitHub runs · Vercel BUILDING   = a build, the expensive kind
+open a PR              → full CI (free, public repo)
+merge to main          → a production build
+```
+
+🔑 **"Push freely" is true for `rd/*` and FALSE for `preview/*`** — and `preview/*` is the prefix
+anyone reaches for when they want to show the owner something. State it that way round or the cost
+fix gets undone by the advice that follows it.
+
+### ⏭ Merged is not applied, now that publishing is batched
+
+Once production publishes on a schedule, **"merged" and "applied" come apart.** Any task shaped
+*"regenerate X from prod after Y merges"* — `prod-schema.snapshot.txt` above all — must wait for the
+publish or trigger `deploy-prod` by hand. **The honest gate is to ask prod whether the object is
+actually there**, never to infer it from a green merge:
+`select to_regclass('public.<thing>')`.
+
 ### ⏭ OPEN, NOT DONE — the build machine
 
 `resourceConfig.buildMachineSelection` is **`elastic`** (measured via

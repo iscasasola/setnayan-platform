@@ -128,3 +128,151 @@ test('⭐ both ends are named by the contract, not by a string in the script', (
   assert.match(SCRIPT, /\[data-magic-berth\]/);
   assert.match(CSS, /\[data-magic-berth\] \{[^}]*visibility:\s*hidden/, 'the berth holds space and draws nothing');
 });
+
+/* ════════════════════════════════════════════════════════════════════════════
+   AND IT HAS TO BE REACHABLE — the half that was missing for a whole day.
+
+   🔴 EVERY TEST ABOVE PASSED WHILE NOBODY COULD EVER SEE THIS. The mechanism
+   shipped on 2026-09-23 with no column, no mount, no control: three files that
+   mentioned Magic Move, and two of them were the feature's own source and this
+   test. `tests/db/ugat-both-ends.db.test.ts` is what caught it, and its wording
+   is the rule —
+
+       [other] component-no-mount  app/[slug]/_components/magic-move.tsx
+           no runtime importer in any source file
+       component-no-mount: mount it from a page, or delete it.
+
+   — with the escape hatch closed in the same breath: "Do NOT add a line to
+   tests/db/ugat-both-ends.baseline.txt; that file is the debt we inherited."
+
+   🔑 A MECHANISM NOBODY MOUNTS IS INDISTINGUISHABLE FROM ONE NOBODY WROTE.
+   The tests below assert the JOIN — the column, both ends of the flight, the
+   script, and the switch a couple presses — because each half is silent about
+   the other. A traveller with no berth gives up and writes a console line; a
+   berth with no traveller is a gap in the header nobody can explain; a control
+   with no column saves nothing and says "Saved".
+   ════════════════════════════════════════════════════════════════════════════ */
+
+const WEB = join(__dirname, '..');
+const src = (...p: string[]) => stripComments(readFileSync(join(WEB, ...p), 'utf8'));
+
+const SHELL = src('app', '[slug]', '_components', 'invitation-shell.tsx');
+const BODY = src('app', '[slug]', '_components', 'site-body.tsx');
+const HERO = src('app', '[slug]', '_components', 'editorial', 'editorial-content.tsx');
+const PANEL = src('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'pro-panels.tsx');
+const SAVE = src('app', 'dashboard', '[eventId]', 'website', 'colors', 'actions.ts');
+
+test('⛔ the script is MOUNTED — this is the test the guard asked for', () => {
+  assert.match(SHELL, /import \{ MagicMove \} from '\.\/magic-move'/, 'the shell must import it');
+  assert.match(
+    SHELL,
+    /magicTraveller \? <MagicMove \/> : null/,
+    'and render it — only when a couple armed it, but really render it',
+  );
+});
+
+test('⛔ both ends exist, and the page reads the column ONCE to set them', () => {
+  // One read, two ends. Two reads is two chances for one end to be armed and
+  // the other not, and neither failure is loud.
+  const reads = [...BODY.matchAll(/sanitizeMagicTraveller\(/g)];
+  assert.equal(reads.length, 1, `site-body must read the column exactly once, saw ${reads.length}`);
+  assert.match(BODY, /magicTraveller=\{magicTraveller\}/, 'and hand the SAME value onward');
+  assert.equal(
+    [...BODY.matchAll(/magicTraveller=\{magicTraveller\}/g)].length,
+    2,
+    'to both ends — the shell (berth + script) and the editorial hero (traveller)',
+  );
+
+  // 🪤 `const` is not hoisted and the two call sites are ~1,500 lines apart, so
+  // a declaration that merely LOOKS well-placed throws on every render.
+  const declared = BODY.indexOf('const magicTraveller =');
+  const firstUse = BODY.indexOf('magicTraveller={magicTraveller}');
+  assert.ok(declared > 0 && firstUse > 0, 'precondition: both are present');
+  assert.ok(
+    declared < firstUse,
+    'the declaration sits AFTER its first use — a ReferenceError on every guest page',
+  );
+});
+
+test(`⛔ the berth is real, and it is the header's own monogram`, () => {
+  assert.match(SHELL, new RegExp(MAGIC_BERTH_ATTR), 'the shell must stamp the berth attribute');
+  assert.match(
+    SHELL,
+    /monogramText && magicTraveller === 'mark'/,
+    'armed only when there is a mark to receive AND a couple asked for it',
+  );
+  // An unarmed page keeps the plain monogram branch it always had.
+  assert.match(SHELL, /\) : monogramText \? \(/, 'the original branch must survive underneath');
+});
+
+test('⛔ the traveller is stamped at the SLOT, and has a box to transform', () => {
+  assert.match(HERO, new RegExp(MAGIC_TRAVELLER_ATTR), 'the hero must stamp the traveller');
+  // 🪤 `display: contents` generates NO BOX, so it takes no transform: the rule
+  // would match, every property would be written, and the mark would sit
+  // perfectly still with nothing reporting a fault.
+  assert.doesNotMatch(
+    HERO,
+    new RegExp(`${MAGIC_TRAVELLER_ATTR}[^>]*className="contents"`),
+    'a display:contents traveller cannot move, and fails silently',
+  );
+  assert.match(
+    HERO,
+    new RegExp(`${MAGIC_TRAVELLER_ATTR} className="block"`),
+    'it needs a real box for the transform and for getBoundingClientRect',
+  );
+  // Both implementations of the slot must sit inside the one wrapper.
+  const at = HERO.indexOf(MAGIC_TRAVELLER_ATTR);
+  const wrapped = HERO.slice(at, at + 600);
+  assert.match(wrapped, /HeroMonogram/, 'the designed mark travels');
+  assert.match(wrapped, /<Monogram text=/, 'and so does the fallback circle');
+});
+
+test('⛔ a couple can turn it on, and can take it back', () => {
+  assert.match(PANEL, /name="site_magic_traveller"/, 'the editor needs the control');
+  const radios = [...PANEL.matchAll(/name="site_magic_traveller"/g)];
+  assert.ok(radios.length >= 2, `an off option and at least one traveller, saw ${radios.length}`);
+  assert.match(PANEL, /value=""\n\s*defaultChecked=\{!magicTraveller\}/, '"nothing travels" posts the clear');
+  assert.match(PANEL, /MAGIC_TRAVELLERS\.map/, 'the options come from the contract, not a retyped list');
+  assert.match(PANEL, /MAGIC_TRAVELLER_LABEL/, 'and so does their copy');
+});
+
+test('⛔ the save writes it, and an absent field leaves it alone', () => {
+  assert.match(SAVE, /sanitizeMagicTraveller/, 'the action must sanitize, never repair');
+  assert.match(
+    SAVE,
+    /magic !== undefined \? \{ site_magic_traveller: magic \} : \{\}/,
+    'the tri-state: absent leaves the column untouched',
+  );
+  // The colours sub-page posts this same action without the control. Without
+  // absent-means-unchanged, every colour save would switch a couple's motion off.
+  assert.match(SAVE, /magicRaw === ''\n?\s*\? null/, "and `''` clears it back to nothing");
+});
+
+test('⛔ the column is in every SELECT that has to carry it', () => {
+  const loaders = src('app', '[slug]', '_lib', 'loaders.ts');
+  assert.match(loaders, /site_magic_traveller/, 'the guest page cannot honour what it never read');
+  const editor = src('app', 'dashboard', '[eventId]', 'website', 'editor', 'page.tsx');
+  assert.match(editor, /site_magic_traveller/, 'and the editor cannot show the saved state');
+  assert.match(
+    editor,
+    /magicTraveller=\{/,
+    'the editor must hand it to the panel, or the radio always reads "nothing travels"',
+  );
+});
+
+test('⛔ and the BERTH stops hiding when the script does not run', () => {
+  // 🔴 This rule was ungated. The berth is the header's own monogram, so hidden
+  // unconditionally, every reduced-motion guest lost it from the header and
+  // nothing said so — a fail-INVISIBLE at the quiet end of a fail-visible
+  // feature.
+  assert.match(
+    CSS,
+    new RegExp(`\\.pahina-js \\[${MAGIC_BERTH_ATTR}\\]`),
+    'the hiding must be gated on the same flag as the movement',
+  );
+  assert.doesNotMatch(
+    CSS,
+    new RegExp(`(^|\\n)\\s*\\[${MAGIC_BERTH_ATTR}\\]\\s*\\{`),
+    'an ungated berth rule deletes the monogram for anyone whose script never ran',
+  );
+});

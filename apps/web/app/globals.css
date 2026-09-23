@@ -4993,10 +4993,19 @@ html:has([data-sticky-top]) {
   will-change: transform;
 }
 
-/* The empty box it travels into. It occupies space so the bar's layout is
-   settled before anything is measured, and it draws nothing — the mark itself
-   is the only ink either end. */
-[data-magic-berth] { visibility: hidden; }
+/* The box it travels into. It occupies space so the bar's layout is settled
+   before anything is measured, and it draws nothing — the mark itself is the
+   only ink either end.
+
+   🔴 THIS RULE WAS UNGATED, AND THAT CONTRADICTED THE CONTRACT DIRECTLY ABOVE.
+   The berth is the header's own monogram, reserving exactly the space the mark
+   will land in. Hidden unconditionally, a guest whose script never ran — every
+   reduced-motion guest, every blocked bundle, every 2s self-heal — lost the
+   monogram from the header entirely and nothing said so. "No flag, no travel,
+   and the mark sits where the layout puts it" has to include this end too.
+   ⛔ So the hiding lives behind the SAME flag as the movement. Without it the
+   header keeps its monogram exactly as it did before this feature existed. */
+.pahina-js [data-magic-berth] { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   /* Belt and braces: RootFlag already withholds the flag for these guests, so

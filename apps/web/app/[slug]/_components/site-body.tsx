@@ -125,6 +125,7 @@ import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
+import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
@@ -431,6 +432,24 @@ export async function SiteBody({
   // writing the offending two-character pair is enough to trip the same regex.
   // Hence the prose: never open a brace body with a block comment here, and
   // never spell the sequence out when explaining why.
+  /* ✈ MAGIC MOVE — READ ONCE, HERE, FOR BOTH ENDS.
+     The shell owns the berth in the sticky header; `EditorialContent` owns the
+     mark that flies into it, and the two are hundreds of lines apart in this
+     one function. Two separate reads of one column is two chances for one end
+     to be armed and the other not — and both failures are quiet: a traveller
+     with no berth gives up and writes a console line, a berth with no traveller
+     is a gap in the header nobody can explain.
+     🪤 IT ALSO HAS TO BE DECLARED ABOVE ITS FIRST USE, not beside the shell it
+     reads most obviously for. `const` is not hoisted, and the editorial call
+     sits ~1,500 lines earlier — a declaration next to `<InvitationShell>` looks
+     right and throws a ReferenceError on every render.
+     ⛔ Sanitized, never repaired: a value this product did not write came from
+     somewhere else, and a guess at what it meant would put motion on a wedding
+     page nobody asked for. Cast inline like `site_font_key` — the PostgREST row
+     type does not declare the column. */
+  const magicTraveller = sanitizeMagicTraveller(
+    (event as { site_magic_traveller?: unknown }).site_magic_traveller,
+  );
   const canvasMediaRefs = hubCanvasMediaRefs(widgets);
   const canvasMediaUrls: Record<string, string> = {};
   if (canvasMediaRefs.length > 0) {
@@ -750,6 +769,8 @@ export async function SiteBody({
             a supplier who worked the day.
           */
           viewer={storyViewer}
+          /* ✈ The other end of the same column the shell reads above. */
+          magicTraveller={magicTraveller}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
@@ -2231,6 +2252,7 @@ export async function SiteBody({
       fullBleed={plan.fullBleed}
       hideWatermark={proWatermarkHidden}
       customColorVars={siteColorVars}
+      magicTraveller={magicTraveller}
     >
       {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the
           shell, which is both identity trees and every lifecycle phase.

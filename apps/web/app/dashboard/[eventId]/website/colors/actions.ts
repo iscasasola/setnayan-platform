@@ -23,6 +23,7 @@
  * writes nothing.
  */
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -85,6 +86,19 @@ export async function updateSiteColors(
   const fontRaw = formData.get('site_font_key');
   const font =
     typeof fontRaw === 'string' ? (fontRaw === '' ? null : sanitizeHubFontKey(fontRaw)) : undefined;
+  /* ✈ MAGIC MOVE, saved on the same row by the same action.
+     Same tri-state as the face above and for the same reason: `undefined` (the
+     field was not on this form) leaves the column alone, `''` clears it back to
+     "nothing travels", a known value is written. The colours sub-page posts
+     this action WITHOUT this control, so without the absent-means-unchanged
+     rule every colour save would silently switch a couple's motion off. */
+  const magicRaw = formData.get('site_magic_traveller');
+  const magic =
+    typeof magicRaw === 'string'
+      ? magicRaw === ''
+        ? null
+        : sanitizeMagicTraveller(magicRaw)
+      : undefined;
   const art =
     artRaw === 'candlelight' || artRaw === 'daylight' ? (artRaw as string) : null;
 
@@ -96,6 +110,7 @@ export async function updateSiteColors(
       site_button_color: button,
       ...(art ? { site_art_direction: art } : {}),
       ...(font !== undefined ? { site_font_key: font } : {}),
+      ...(magic !== undefined ? { site_magic_traveller: magic } : {}),
     })
     .eq('event_id', eventId)
     .select('slug')

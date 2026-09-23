@@ -206,6 +206,7 @@ function VendorSlotInput({
           bucket="vendor-verification"
           pathPrefix={`vendors/${vendorProfileId}/verification/${slot.key}`}
           name="r2_ref"
+          unsavedHint={null}
           currentValue={seedValue}
           initialDisplayUrls={seedDisplayUrls}
           multiple
@@ -237,6 +238,7 @@ function VendorSlotInput({
         bucket="vendor-verification"
         pathPrefix={`vendors/${vendorProfileId}/verification/${slot.key}`}
         name="r2_ref"
+        unsavedHint={null}
         currentValue={seedValue[0] ?? null}
         initialDisplayUrls={seedDisplayUrls}
         maxSizeMB={15}

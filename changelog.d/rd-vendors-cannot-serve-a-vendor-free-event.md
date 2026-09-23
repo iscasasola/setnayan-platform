@@ -1,0 +1,11 @@
+## 2026-09-23 · fix(vendors): a supplier cannot claim an event type that has no marketplace
+
+Owner, 2026-09-23: *"simple event will not show on the events they serve because simple event does not have a vendor."* Measured on prod the same day: `simple_event` is active and enabled, its profile says `marketplace_enabled = FALSE` (the 0053 vendor-free design), and every supplier-side picker still listed it — the open-shop wizard's "Events you serve", `/vendor-dashboard/services/new` (+ `/new/[category]`), the coverage editor — and both validators accepted it. One shop had already ticked it: a box no couple can ever search by.
+
+- **`getVendorServableEventTypes()`** (lib/event-types-db.ts) — the active vocab minus every type whose `event_type_profiles.marketplace_enabled` is FALSE, through the pure rule in `lib/vendor-servable-event-types.ts`. Gated on the **column**, never the name, so the next vendor-free type needs no code change. The shared `getEventTypeVocab()` is untouched: the couple side (create-event, launcher, explore, event dashboard) must keep a vendor-free type creatable.
+- Six supplier-side readers switched: `open-shop/page.tsx` + `actions.ts`, `services/new/page.tsx` + `new/[category]/page.tsx`, `services-manager.tsx`, `coverage-actions.ts` (`parseEventTypes`). `vendor-invite/[slug]` keeps the vocab — it only resolves a label for a key it was given.
+- Fails toward the profile's own fallback: if the profiles read errors, each type resolves through `resolveProfile` (which degrades to its code fallback), so a DB hiccup never re-opens the picker to a vendor-free type.
+- `lib/vendor-servable-event-types.test.ts` EXECUTES the rule (column not name; missing flag = DEFAULT TRUE; order and `enabled` untouched) and READS the six callers. Sabotage watched red: `coverage-actions.ts` moved back onto `getEventTypeVocab`.
+- ⚠ **Data, not fixed:** one live `vendor_profiles` row and one `vendor_coverages` row still carry `simple_event` (re-measure: `select count(*) from vendor_profiles where 'simple_event' = any(event_types)`). Stripping a supplier's claimed coverage is the owner's call; the picker will simply not offer it again.
+
+SPEC IMPACT: None (enforces the 0053 `marketplace_enabled` design on the supplier side).

@@ -28,7 +28,7 @@
  */
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { MarchButton } from './march-button';
 import { WalkingOrderLines, type MarchSlot } from './walking-order-lines';
 import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { moveEntourageSection, resetEntourageSections } from '../march-actions';
@@ -49,10 +49,7 @@ import {
 } from '@/lib/entourage';
 import { guestFullName, ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { roleGroupOf } from '@/lib/role-groups';
-import {
-  clearEntourageOrder,
-  moveInEntourageOrder,
-} from '../entourage-order-actions';
+import { clearEntourageOrder } from '../entourage-order-actions';
 
 /**
  * Which printed roles this dashboard view covers.
@@ -182,15 +179,15 @@ export async function EntourageOrderPanel({
       </header>
 
       {canArrangeSections && sectionsAreArranged(savedSections) ? (
-        <form action={resetEntourageSections.bind(null, eventId)} className="mt-2">
-          <SubmitButton
+        <p className="mt-2">
+          <MarchButton
+            run={resetEntourageSections.bind(null, eventId)}
             className="text-[11px] text-ink/45 underline-offset-2 hover:text-ink/70 hover:underline"
             pendingLabel="Resetting…"
-            overlay={false}
           >
             Put the sections back in the usual order
-          </SubmitButton>
-        </form>
+          </MarchButton>
+        </p>
       ) : null}
 
       <div className="mt-3 space-y-4">
@@ -221,18 +218,25 @@ export async function EntourageOrderPanel({
                 </h3>
               </div>
               {lines.some((ln) => ln.some((h) => typeof h?.order === 'number')) ? (
-                <form action={clearEntourageOrder.bind(null, eventId, key)}>
-                  <SubmitButton
+                <span>
+                  <MarchButton
+                    run={clearEntourageOrder.bind(null, eventId, key)}
                     className="text-[11px] text-ink/45 underline-offset-2 hover:text-ink/70 hover:underline"
                     pendingLabel="Resetting…"
-                    overlay={false}
                   >
                     Reset
-                  </SubmitButton>
-                </form>
+                  </MarchButton>
+                </span>
               ) : null}
             </div>
 
+            {/* ⚖ Owner 2026-09-23 — the Move ↑/↓ arrows used to be built HERE,
+                as one <form> per arrow, and handed down as a children ARRAY
+                the island drew by index. They now live inside the island: a
+                form action redirects, which reloads the page and loses the
+                couple's place, and an array indexed by the island's optimistic
+                order binds each arrow to whoever USED to stand there while a
+                move is in flight. */}
             <WalkingOrderLines
               eventId={eventId}
               groupKey={key}
@@ -241,30 +245,9 @@ export async function EntourageOrderPanel({
                 leadId: line[0]?.id ?? line[1]?.id ?? `${key}-${i}`,
                 cells: [<LineCell key="l" half={line[0]} />, <LineCell key="r" half={line[1]} />],
                 label: [line[0]?.name, line[1]?.name].filter(Boolean).join(' and ') || 'Blank line',
-                slots: [slotFor(lines, key, line, 0), slotFor(lines, key, line, 1)],
+                  slots: [slotFor(lines, key, line, 0), slotFor(lines, key, line, 1)],
               }))}
-            >
-              {lines.map((line, i) => (
-                /* The always-available path — plain forms, no JavaScript
-                   required. The drag layer above never replaces these. */
-                <span key={line[0]?.id ?? line[1]?.id ?? i} className="inline-flex">
-                  <MoveButton
-                    eventId={eventId}
-                    guestId={line[0]?.id ?? line[1]?.id ?? null}
-                    groupKey={key}
-                    direction="up"
-                    disabled={i === 0}
-                  />
-                  <MoveButton
-                    eventId={eventId}
-                    guestId={line[0]?.id ?? line[1]?.id ?? null}
-                    groupKey={key}
-                    direction="down"
-                    disabled={i === lines.length - 1}
-                  />
-                </span>
-              ))}
-            </WalkingOrderLines>
+            />
           </div>
         ))}
       </div>
@@ -353,56 +336,12 @@ function SectionMoveButton({
     );
   }
   return (
-    <form action={moveEntourageSection.bind(null, eventId, groupKey, direction)}>
-      <SubmitButton
-        className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/45 hover:bg-ink/5 hover:text-ink"
-        aria-label={`Move the ${label} section ${direction}`}
-        pendingLabel=""
-        overlay={false}
-      >
-        <Icon className="h-3 w-3" strokeWidth={2} />
-      </SubmitButton>
-    </form>
-  );
-}
-
-function MoveButton({
-  eventId,
-  guestId,
-  groupKey,
-  direction,
-  disabled,
-}: {
-  eventId: string;
-  guestId: string | null;
-  groupKey: string;
-  direction: 'up' | 'down';
-  disabled: boolean;
-}) {
-  const Icon = direction === 'up' ? ArrowUp : ArrowDown;
-  // The end of the list keeps a disabled control rather than none, so the
-  // buttons do not shuffle sideways as the order changes — the one thing that
-  // would make a column of arrows hard to use with a thumb.
-  if (!guestId || disabled) {
-    return (
-      <span
-        aria-hidden
-        className="inline-flex h-7 w-7 flex-none items-center justify-center rounded text-ink/15"
-      >
-        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-      </span>
-    );
-  }
-  return (
-    <form action={moveInEntourageOrder.bind(null, eventId, guestId, groupKey, direction)}>
-      <SubmitButton
-        className="inline-flex h-7 w-7 flex-none items-center justify-center rounded text-ink/45 hover:bg-ink/5 hover:text-ink"
-        aria-label={`Move this line ${direction}`}
-        pendingLabel=""
-        overlay={false}
-      >
-        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-      </SubmitButton>
-    </form>
+    <MarchButton
+      run={moveEntourageSection.bind(null, eventId, groupKey, direction)}
+      className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/45 hover:bg-ink/5 hover:text-ink"
+      aria-label={`Move the ${label} section ${direction}`}
+    >
+      <Icon className="h-3 w-3" strokeWidth={2} aria-hidden />
+    </MarchButton>
   );
 }

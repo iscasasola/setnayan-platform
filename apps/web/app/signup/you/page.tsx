@@ -126,6 +126,7 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
                   bucket="media"
                   pathPrefix={`profile-photo/${user.id}`}
                   name="profile_photo_url"
+                  unsavedHint="press Done below"
                   currentValue={storedPhoto}
                   initialDisplayUrls={photoDisplayMap}
                   maxSizeMB={2}

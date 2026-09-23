@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "31411fd3f",
+  "generatedFromRef": "85ccc0e38",
   "routeCount": 431,
   "destinations": 927,
   "actions": 657,
-  "blocks": 4624,
+  "blocks": 4626,
   "routes": {
     "/": {
       "files": [
@@ -5408,6 +5408,7 @@
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
         "dashboard/[eventId]/guests/_components/lens-pill.tsx",
         "dashboard/[eventId]/guests/_components/live-search.tsx",
+        "dashboard/[eventId]/guests/_components/march-button.tsx",
         "dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx",
         "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
@@ -5522,7 +5523,9 @@
         "LockedChip",
         "MPill",
         "MapActionResult",
+        "MarchButton",
         "MarchCell",
+        "MarchResult",
         "Meter",
         "MobileGuestCarousel",
         "MobileListRow",
@@ -5530,7 +5533,7 @@
         "MobileTree",
         "Mode",
         "ModeSeg",
-        "MoveButton",
+        "MoveArrow",
         "NewGroupForm",
         "NewGroupInlineForm",
         "NotSharedWithYou",

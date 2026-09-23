@@ -26,18 +26,31 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from '@/lib/strip-comments';
+
 const ROOT = join(__dirname, '..', '..', '..');
 const SURFACES: Array<[name: string, path: string]> = [
   ['the palette dropdown', join(ROOT, 'app/dashboard/(launcher)/_components/home-command-bar.tsx')],
   ['the results page', join(ROOT, 'app/_components/frontdoor/front-door-results.tsx')],
 ];
 
-/** ⚠ COMMENTS STRIPPED, AND THIS GUARD WOULD CONVICT ITSELF WITHOUT IT. Both
- *  files now carry a comment QUOTING the old inline haystack in order to
- *  explain why it is gone — so an unstripped scan would find the banned
- *  pattern in the very paragraph recording its removal. */
-const strip = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/**
+ * ⚠ COMMENTS STRIPPED, AND THIS GUARD WOULD CONVICT ITSELF WITHOUT IT. Both
+ * files now carry a comment QUOTING the old inline haystack in order to
+ * explain why it is gone — so an unstripped scan would find the banned pattern
+ * in the very paragraph recording its removal.
+ *
+ * 🔑 THE REPO'S ONE STRIPPER, NOT A HAND-ROLLED PAIR OF `.replace()` CALLS.
+ * The obvious two-liner strips BLOCK comments first, so a `//` line containing
+ * a block opener — `content-type video/*`, which this codebase writes
+ * constantly — opens a comment that never existed and swallows everything to
+ * the next real close. That is silent in the direction that matters here:
+ * every assertion below is a NEGATIVE (`!BANNED.test(code)`), so an
+ * over-eager strip makes them pass against a blank. `lint-one-comment-
+ * stripper.mjs` blocks a second implementation for exactly this reason, and it
+ * caught this file.
+ */
+const strip = stripComments;
 
 test('the fixtures are real, and stripping actually removed the prose', () => {
   for (const [name, path] of SURFACES) {

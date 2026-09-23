@@ -243,6 +243,23 @@ async function executeApproved(
     return;
   }
 
+  // § 9.1 — what a customer is charged. The SKU rides in target_id; the new
+  // figures ride in the payload and are never re-read from a form, so the two
+  // admins cannot end up agreeing to different prices.
+  if (row.action_type === 'approve_retail_price_change') {
+    if (!row.target_id) throw new Error('Price approval has no target SKU');
+    if (!row.decided_by) throw new Error('Price approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Price approval has no initiating admin');
+    if (!row.payload) throw new Error('Price approval has no payload');
+    const { executeRetailPriceChange } = await import('@/app/admin/pricing/actions');
+    await executeRetailPriceChange(admin, {
+      payload: row.payload,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+    });
+    return;
+  }
+
   if (!row.target_user_id) throw new Error('Request has no target user');
   const t = row.target_user_id;
 

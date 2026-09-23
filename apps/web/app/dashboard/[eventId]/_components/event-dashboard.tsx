@@ -90,7 +90,6 @@ import {
 } from '@/lib/a-date-is-not-a-decision';
 import { shouldChaseRsvps } from '@/lib/one-decision-list-not-two';
 import { findTodaysOneThingRowId } from '@/lib/todays-one-thing-is-row-one';
-import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
   InspectorLayout,
@@ -1103,45 +1102,29 @@ export async function EventDashboard({
     };
   });
 
-  /*
-    ── IS THAT ENOUGH? (owner 2026-08-30) ──────────────────────────────────
-    "1,240 credits left" says nothing to anyone who does not already know what
-    a credit buys. The verdict turns the balance into the answer the number was
-    standing in for, and it recommends a top-up ONLY when the event is actually
-    short — the owner's words: "if their count is good, then do not recommend."
+  /* ⛔ THE CREDIT VERDICT IS GONE UNTIL THERE IS DATA (owner, 2026-09-23).
+     *"we will also collect data of how much photo is used for an event and that
+     will indicate what credits is ideal for that event and that is the
+     recommendation. until a data is collected, nothing to recommend."*
 
-    Costs no query: `guests` and `papicHome` are both already resolved in the
-    batch above.
+     `papicCreditVerdict` compared the balance against guests × a per-head
+     figure nobody had measured, so BOTH its answers were guesses — "short
+     ~N credits" and "enough for your event" alike. The second is not the safe
+     half: telling a couple they have enough is the same unmeasured claim
+     pointing the other way.
 
-    🔑 NOTHING HERE INVENTS A NUMBER (owner 2026-08-31: "don't guess"). What an
-    event needs is the OWNER-CONFIGURED pool formula — clamp(guests ×
-    points_per_guest, floor, ceiling) — and the verdict just compares the
-    balance against it. An earlier cut of this carried its own "6 photos + 1
-    clip per guest" assumption; that was a guess on a surface that tells couples
-    to spend money, and it is gone.
+     🔑 It is not enough to drop the words. The verdict also pre-filled the
+     top-up QUANTITY in the purchase link (`?topup=<shortfall>`), which chose
+     how much money a couple was about to spend. That is the shape the owner
+     rejected in one word on 2026-08-31 ("don't guess") over
+     `DEFAULT_CAPTURE_MIX` — a number sizing a top-up with no measurement
+     behind it. `lib/the-recommendation-waits-for-data.test.ts` holds this.
 
-    ⚠ BUT THIS CALL PASSES NO CONFIG, SO IT IS NOT READING `papic_event_pool_config`.
-    It gets `DEFAULT_EVENT_POOL_CONFIG`, the formula's last-resort fallbacks.
-    Today they are byte-identical to the live row (150 / 5,000 / 30,000 —
-    measured against prod 2026-09-12), so the figure is the owner's and matches
-    what the capture fence enforces. It stays true only while both are edited
-    together. Loading the row here costs one indexed single-row read and would
-    make "admin-editable without a deploy" true of this surface — an owner call,
-    flagged rather than taken. The tripwire is in lib/papic-credit-estimate.test.ts.
-
-    ⚠ IT REPORTS THE GAP, NOT A RUNG. Naming a purchasable figure needs the live
-    16-rung `PAPIC_GUEST*` pool ladder, which is admin-editable catalog data and
-    is NOT loaded on this surface. The board's row therefore states the shortfall
-    and links to /studio/papic, where `PapicPoolCard` already reads that ladder
-    and its stepper picks the rung.
-
-    Resolved HERE, above the decisions board, because both the board's top-up
-    row and the mini-tile's verdict line below read it — one computation, so
-    the two can never disagree about whether the event is short.
-  */
-  const papicVerdict = papicHome
-    ? papicCreditVerdict(papicHome.shotsLeft, guests.length)
-    : null;
+     WHAT BRINGS IT BACK: `papic_event_pool_usage.points_used` is the right
+     source, but it is CENSORED — it records what an event was ALLOWED to
+     spend, not what it wanted. A mean over it reads near-zero and is just a
+     new guess. Whatever returns needs a stated minimum sample and a stated
+     method. */
 
   const groupsUnordered: DecisionGroupView[] = ([
     {
@@ -1273,32 +1256,6 @@ export async function EventDashboard({
     Deep-links with the recommended figure so the Papic page can open on the
     right rung instead of making them work it out again.
   */
-  // 🔒 Not in the store shell: the row deep-links to /studio/papic, which
-  // middleware would bounce to /web-only there — a "Top up" that lands on
-  // "not in the app" is a dead end, not a door. See lib/store-shell.ts.
-  if (papicVerdict?.status === 'short' && !(await isStoreShellRequest())) {
-    const payGroup = groupsUnordered.find((g) => g.id === 'pay');
-    const papicRow: DecisionItemView = {
-      id: 'papic:topup',
-      label: 'Top up Papic credits',
-      sub: `About ${papicVerdict.shortfall.toLocaleString('en-PH')} more covers your guest list`,
-      // The row's own sub-line already carries the figure, so a chip would say
-      // the same thing twice — the D-5 rule this board already follows.
-      chip: null,
-      chipTone: 'calm',
-      ctaLabel: 'Top up',
-      href: `${base}/studio/papic?topup=${papicVerdict.shortfall}`,
-    };
-    if (payGroup) payGroup.items.push(papicRow);
-    else
-      groupsUnordered.push({
-        id: 'pay',
-        title: 'Settle a payment',
-        sub: 'Money waiting on you',
-        items: [papicRow],
-      });
-  }
-
   // 'deadline' is listed in BOTH orders on purpose: `order.indexOf` returns -1
   // for an unlisted id, which would sort it ABOVE everything else. Leaving it
   // out of the free order would make a stray group jump to the top of the board.
@@ -2058,21 +2015,6 @@ export async function EventDashboard({
               ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
               : 'photos gathered'}
       </span>
-      {/* The verdict rides UNDER the existing line rather than replacing it —
-       *  the balance is still the fact; this is what it means. Silent on
-       *  'unknown' (no guest count yet), so a brand-new event is never told it
-       *  is short of anything. */}
-      {papicVerdict && papicVerdict.status !== 'unknown' ? (
-        <span
-          className={`mt-0.5 block text-[11.5px] font-medium ${
-            papicVerdict.status === 'covered' ? 'text-ink/55' : 'text-terracotta-700'
-          }`}
-        >
-          {papicVerdict.status === 'covered'
-            ? 'enough for your event'
-            : `short ~${papicVerdict.shortfall.toLocaleString('en-PH')} credits`}
-        </span>
-      ) : null}
       {miniFoot('Open Papic')}
     </Link>
   ) : null;

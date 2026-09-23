@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "85ccc0e38",
+  "generatedFromRef": "b6d8836ee",
   "routeCount": 431,
   "destinations": 927,
   "actions": 657,
-  "blocks": 4626,
+  "blocks": 4623,
   "routes": {
     "/": {
       "files": [
@@ -5408,7 +5408,6 @@
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
         "dashboard/[eventId]/guests/_components/lens-pill.tsx",
         "dashboard/[eventId]/guests/_components/live-search.tsx",
-        "dashboard/[eventId]/guests/_components/march-button.tsx",
         "dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx",
         "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
@@ -5523,9 +5522,7 @@
         "LockedChip",
         "MPill",
         "MapActionResult",
-        "MarchButton",
         "MarchCell",
-        "MarchResult",
         "Meter",
         "MobileGuestCarousel",
         "MobileListRow",
@@ -5533,7 +5530,7 @@
         "MobileTree",
         "Mode",
         "ModeSeg",
-        "MoveArrow",
+        "MoveButton",
         "NewGroupForm",
         "NewGroupInlineForm",
         "NotSharedWithYou",
@@ -7087,7 +7084,6 @@
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
-        "dashboard/[eventId]/studio/papic/_components/credit-recommendation.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
@@ -7173,7 +7169,6 @@
         "CaptureDefaultsSection",
         "ChallengeRow",
         "CoupleChallengesManager",
-        "CreditRecommendation",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",

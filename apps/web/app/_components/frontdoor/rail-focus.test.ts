@@ -47,7 +47,11 @@ test('the rule: focus applies in the app, signed in, on its paths only', () => {
 
 test('all five sections pass focus back to /dashboard', () => {
   const layouts: Array<[string, RegExp]> = [
-    ['app/dashboard/[eventId]/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'Back to events'/],
+    /* 'Events', not 'Back to events' — owner 2026-09-23. The icon is pinned
+       too: this row is the ONE of the four that is named after where it
+       goes rather than what it does, so it carries the events drawing
+       instead of the default arrow. */
+    ['app/dashboard/[eventId]/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'Events',\s*caption: 'Events',\s*icon: LayoutGrid,?\s*\}\}/],
     ['app/vendor-dashboard/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home'/],
     ['app/admin/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home'/],
     ['app/dashboard/(account)/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home',[\s\S]{0,60}paths: ACCOUNT_FOCUS_PATHS/],

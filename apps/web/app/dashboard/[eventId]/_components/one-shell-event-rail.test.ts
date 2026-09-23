@@ -378,3 +378,69 @@ test('the 72px icon strip drops the event name with the other words', () => {
       'name renders into a 72px column and overflows the rail.',
   );
 });
+
+/* ══ 8 · THE EVENT'S MARK SITS ABOVE ITS NAME ═══════════════════════════════
+   Owner 2026-09-23, pointing at the `.fd-rctx` name row: *"on top of this,
+   show the logo/monogram of the event"*.
+
+   🔑 ALL THREE ASSERTIONS ARE ABOUT THINGS THAT FAIL QUIETLY. The mark going
+   missing renders a rail that is merely plainer; the mark rendering an
+   UNGATED column renders a host-written `<svg>` into other people's chrome;
+   and the mark being swept into the 72px strip's `display: none` empties the
+   one width where it matters most — names hidden, icons only — of anything
+   saying which event you are standing in. None of the three throws. */
+
+test('the event rail renders the monogram ABOVE the name, not inside it', () => {
+  const src = code(readFileSync(RAIL, 'utf8'));
+  assert.match(
+    src,
+    /<EventMonogram\b/,
+    "The event rail no longer draws the event's mark (owner 2026-09-23).",
+  );
+  const mark = src.indexOf('fd-rctx-mark');
+  const name = src.indexOf('className="fd-rctx"');
+  assert.ok(mark >= 0, 'the mark lost its own `.fd-rctx-mark` element');
+  assert.ok(name >= 0, 'the event name row is gone');
+  assert.ok(
+    mark < name,
+    'The mark must come BEFORE the name — "on top of this" is a position, and ' +
+      'below the name it reads as belonging to the section under it instead.',
+  );
+});
+
+test('the mark survives the 72px icon strip that hides the name', () => {
+  const src = readFileSync(CSS, 'utf8');
+  assert.match(src, /\.fd-rctx-mark\b/, 'no `.fd-rctx-mark` rule at all — the mark is unstyled.');
+  /*
+    THE PROPERTY, NOT THE POSITION: no rule anywhere may hide it. Written this
+    way because the failure it guards is a SELECTOR LIST edit — `.fd-rctx` and
+    `.fd-rctx-mark` are one token apart, and adding the mark to the strip's
+    existing `display: none` list looks like tidying two related selectors
+    together.
+  */
+  for (const rule of src.match(/[^{}]+\{[^}]*\}/g) ?? []) {
+    const selector = rule.slice(0, rule.indexOf('{'));
+    if (!/\.fd-rctx-mark\b/.test(selector)) continue;
+    assert.doesNotMatch(
+      rule,
+      /display\s*:\s*none/,
+      'The event mark is hidden by `' + selector.trim() + '`. At the 72px ' +
+        'strip the names are already gone, so hiding the mark too leaves ' +
+        'nothing naming the event you are inside.',
+    );
+  }
+});
+
+test('the layout hands the mark through the read-time SVG gate, never raw', () => {
+  const src = code(readFileSync(LAYOUT, 'utf8'));
+  assert.match(src, /eventMonogram=\{/, "The layout stopped passing the event's mark to the rail.");
+  assert.match(
+    src,
+    /monogram_custom_svg:\s*resolveEventMonogramSvg\(/,
+    'SEC-3: `events.monogram_custom_svg` and `monogram_uploaded_svg` are ' +
+      'host-writable through PostgREST, and `EventMonogram` feeds that column ' +
+      'straight into a data-URI. It must arrive from resolveEventMonogramSvg ' +
+      '(which also applies uploaded-outranks-bespoke precedence), never read ' +
+      'off the row.',
+  );
+});

@@ -255,6 +255,7 @@ function NewFlagForm({
             bucket="thread-files"
             pathPrefix={`events/${eventId}/disputes/incoming`}
             name="evidence_refs"
+            unsavedHint="press File flag below"
             multiple
             maxFiles={5}
             maxSizeMB={10}

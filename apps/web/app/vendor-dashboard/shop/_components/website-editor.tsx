@@ -711,6 +711,7 @@ function GalleryMedia({
           bucket="media"
           pathPrefix={`vendors/${vendorProfileId}/portfolio`}
           name="portfolio_r2_keys"
+          unsavedHint="press Save below"
           currentValue={portfolioRefs}
           initialDisplayUrls={portfolioDisplayMap}
           multiple

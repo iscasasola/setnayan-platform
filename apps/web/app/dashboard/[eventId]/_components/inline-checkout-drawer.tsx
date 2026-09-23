@@ -696,6 +696,7 @@ export function InlineCheckoutDrawer({
                       maxSizeMB={5}
                       acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
                       name="screenshot_ref"
+                      unsavedHint="press Submit request below"
                       label="Payment screenshot · required"
                       variant="wide"
                       onChange={(v) => {

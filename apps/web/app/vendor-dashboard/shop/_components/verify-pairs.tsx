@@ -454,6 +454,7 @@ function PaperSide({
         bucket="vendor-verification"
         pathPrefix={`vendors/${vendorProfileId}/verification/${pair.slotKey}`}
         name="r2_ref"
+        unsavedHint={null}
         currentValue={current}
         initialDisplayUrls={seedDisplayUrls}
         maxSizeMB={15}

@@ -508,6 +508,7 @@ export function OpenShopWizard({
                 bucket="media"
                 pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
                 name="logo_url"
+                unsavedHint="it goes in when you open your shop"
                 currentValue={logoUrl || null}
                 initialDisplayUrls={logoDisplayMap ?? {}}
                 onChange={(v) =>

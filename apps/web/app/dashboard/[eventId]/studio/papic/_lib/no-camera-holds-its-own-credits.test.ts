@@ -34,20 +34,36 @@ import { stripComments } from '@/lib/strip-comments';
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const APP = join(PAPIC, '..', '..', '..', '..');
 const ROOT = join(APP, '..', '..', '..');
+const WEB = join(APP, '..');
 const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
 
-/** Every non-test source file under `app/`. */
-function appSources(): string[] {
+/**
+ * Every source file under `app/`, `lib/` and `tests/` — INCLUDING tests.
+ *
+ * 🪤 THE FIRST CUT WALKED `app/` ONLY, AND EXCLUDED TESTS, AND BOTH EXCLUSIONS
+ * HID THE SAME FILE. `tests/db/seat-capture-is-atomic.db.test.ts` seeded a row
+ * into `papic_seat_allocations` and never named `papic_dedicate_shots` — so a
+ * function-shaped sweep could not see it either. Two blind spots pointing the
+ * same way, and it took a peer reading the failure list to find it.
+ *
+ * ⚠ A FIXTURE IS A CALLER. A test that INSERTs into a dropped table fails at
+ * run time exactly as production code would; excluding tests from a
+ * "nothing references this" guard is excluding the files most likely to.
+ */
+function scannedSources(): string[] {
   const SKIP = new Set(['node_modules', '.next', '.git']);
   const out: string[] = [];
-  (function walk(dir: string) {
+  const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {
       if (SKIP.has(name)) continue;
       const p = join(dir, name);
       if (statSync(p).isDirectory()) walk(p);
-      else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(p);
+      else if (/\.(ts|tsx)$/.test(name)) out.push(p);
     }
-  })(APP);
+  };
+  walk(APP);
+  walk(join(WEB, 'lib'));
+  walk(join(WEB, 'tests'));
   return out;
 }
 
@@ -68,7 +84,7 @@ test('the promise it contradicted is still on the page', () => {
   );
 });
 
-test('NO SURFACE UNDER app/ NAMES THE DROPPED RPC OR TABLE', () => {
+test('NOTHING UNDER app/, lib/ OR tests/ NAMES THE DROPPED RPC OR TABLE', () => {
   /*
     ⚠ EVERY MATCH IS COUNTED AND THE COUNT IS PRINTED. A guard anchored on the
     first hit faces the wrong cell, and a zero from a harness that searched the
@@ -77,19 +93,59 @@ test('NO SURFACE UNDER app/ NAMES THE DROPPED RPC OR TABLE', () => {
     These are DROPPED in the database now, so a surviving reference is not a
     style question — it is a runtime failure waiting for a caller.
   */
-  const files = appSources();
-  assert.ok(files.length > 500, `searched only ${files.length} files — the walk is wrong`);
+  const files = scannedSources();
+  assert.ok(files.length > 800, `searched only ${files.length} files — the walk is wrong`);
+
+  /*
+    ⚠ FOUR FILES NAME THESE OBJECTS ON PURPOSE, AND EACH CARRIES ITS REASON.
+    They assert the objects are GONE — `to_regclass(...) IS NULL`,
+    `proname = 'papic_dedicate_shots'`, or an `assert.rejects` around the exact
+    call that used to work. A guard cannot tell "calls it" from "proves it
+    cannot be called" by matching a name, so the distinction is written down
+    rather than guessed.
+
+    🔑 THIS LIST MAY ONLY SHRINK. A new entry needs the same kind of reason
+    beside it, not a path — and if one of these stops asserting the absence, it
+    belongs back under the guard.
+  */
+  const ALLOWED = new Map([
+    [
+      'lib/a-guest-release-uses-the-right-primitive.test.ts',
+      'the pre-existing BAN test: it names the RPC to assert the guest surface never reaches for it',
+    ],
+    [
+      'tests/db/papic-a-grant-cannot-be-released.db.test.ts',
+      "the #5028 autopsy: asserts the function is gone and that the exact call now rejects",
+    ],
+    [
+      'tests/db/papic-a-guest-can-give-her-credits-back.db.test.ts',
+      'asserts structurally that only her own credits can be on a camera — the table and function are absent',
+    ],
+    [
+      'tests/db/papic-one-product-hand-out.db.test.ts',
+      'asserts the hand-out machinery is gone, and gone together',
+    ],
+  ]);
 
   const hits: string[] = [];
   for (const f of files) {
+    // This guard names both objects as DATA.
+    if (f.endsWith('no-camera-holds-its-own-credits.test.ts')) continue;
+    if ([...ALLOWED.keys()].some((k) => f.endsWith(k))) continue;
     const src = stripComments(readFileSync(f, 'utf8'));
     for (const gone of ['papic_dedicate_shots', 'papic_seat_allocations']) {
       const n = (src.match(new RegExp(gone, 'g')) ?? []).length;
       if (n > 0) hits.push(`${relative(APP, f)} → ${gone} (${n})`);
     }
   }
-  console.log(`[no-camera-holds-its-own-credits] ${files.length} files under app/ searched`);
-  assert.deepEqual(hits, [], 'a surface names something this migration dropped:\n  ' + hits.join('\n  '));
+  console.log(
+    `[no-camera-holds-its-own-credits] ${files.length} files under app/, lib/ and tests/ searched`,
+  );
+  assert.deepEqual(
+    hits,
+    [],
+    'something still names an object this migration dropped — a fixture counts:\n  ' + hits.join('\n  '),
+  );
 });
 
 test('🚨 THE FREE CAMERA GRANT SURVIVED — it is what the owner said should STAY', () => {

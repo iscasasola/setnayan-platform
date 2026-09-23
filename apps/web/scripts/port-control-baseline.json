@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a51662a72",
+  "generatedFromRef": "31411fd3f",
   "routeCount": 431,
   "destinations": 927,
   "actions": 657,
-  "blocks": 4625,
+  "blocks": 4624,
   "routes": {
     "/": {
       "files": [
@@ -6228,8 +6228,7 @@
       "blocks": [
         "FirstVenueShortlistResult",
         "Link",
-        "Phase",
-        "ProgressRing"
+        "Phase"
       ]
     },
     "/dashboard/[eventId]/refer": {

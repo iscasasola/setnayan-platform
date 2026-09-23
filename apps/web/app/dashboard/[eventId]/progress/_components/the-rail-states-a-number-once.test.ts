@@ -1,35 +1,32 @@
 /**
- * THE RAIL STATES A NUMBER ONCE, AND A NOT-STARTED STAGE IS ITS OWN SHAPE.
+ * THE RAIL STATES A NUMBER ONCE — TREATMENT B (owner-picked 2026-09-23).
  *
  * ────────────────────────────────────────────────────────────────────────────
- * Two defects the owner saw as one ("progress bar does not look clean"), both
- * measured on the shipped component rather than on a drawing of it:
+ * The owner chose B from three treatments: ONE rail, six stops, one percentage.
+ * His reason, relayed by the controller: A repeats the same number twice, and C
+ * hides how far along they are overall; B shows the whole journey and states one
+ * number.
  *
- *  1 · SIX STAGES PRODUCED SEVEN PERCENTAGE LABELS. `{s.pct}% complete` rendered
- *      for every stage inside the map, and `{active.pct}% complete` rendered
- *      AGAIN in the tabpanel heading below. Neither was conditional, so both
- *      were always on screen — and the duplicated one was the stage the eye is
- *      on. A screen stating one fact in two places is a screen that can start
- *      disagreeing with itself.
+ * This file used to guard treatment A — six ringed nodes, each with its own
+ * "% complete", plus a seventh repeat in the panel heading. Those assertions are
+ * GONE rather than adapted, because describing A would make this suite green
+ * against a rail that no longer exists. What survives is the PROPERTY the owner
+ * actually picked, restated for what ships:
  *
- *  2 · ONE SHAPE CARRIED TWO MEANINGS. At 0 the `ProgressRing`'s arc is fully
- *      hidden, so it drew the TRACK circle alone — the same outline a
- *      half-finished stage draws, told apart only by colour. Two of a typical
- *      event's six stages sit at 0, and they read as things that had FAILED
- *      rather than things not begun.
+ *   1 · exactly ONE percentage is visible, and it belongs to the current stage
+ *   2 · every stage still carries its figure for a screen reader
+ *   3 · three states, three SHAPES — a not-started stop is a different KIND of
+ *       mark, not the same one in a paler grey
+ *   4 · the rail's head sits where the stated rule puts it, not where a mock did
  *
  * 🔑 THIS MOUNTS THE COMPONENT AND READS THE EMITTED HTML. A source grep cannot
- * count what renders: the duplicate lived in two different expressions
- * (`s.pct` and `active.pct`), so searching for a string would have found two
- * matches whether or not both ever reached a screen, and a file-level match
- * cannot count components at all. Presence of ink is not fit of ink — these
- * assertions say WHICH variant is drawn at 0, at 1–99 and at 100, and HOW MANY
- * times a number appears.
+ * count what renders: the old duplicate lived in two different expressions, and
+ * the figure now appears in BOTH an aria-label and (once) as visible text — a
+ * string search cannot tell those apart, and the distinction is the whole test.
  *
  * 🪤 `globalThis.React` IS SET BEFORE THE DYNAMIC IMPORT AND IS NOT TIDINESS TO
- * BE REMOVED. tsconfig sets `"jsx": "preserve"`, so `tsx` compiles these
- * components to the CLASSIC runtime — bare `React.createElement` with no import
- * of its own — and a static import would hoist above the assignment. Precedent:
+ * BE REMOVED. tsconfig sets `"jsx": "preserve"`, so tsx compiles to the CLASSIC
+ * runtime and a static import would hoist above the assignment. Precedent:
  * `app/pay/[reference]/_components/one-stage-at-a-time.test.ts`.
  * ────────────────────────────────────────────────────────────────────────────
  */
@@ -37,22 +34,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import type { ProgressStage, ProgressStageKey } from '@/lib/progress-stages';
+import { railHeadPercent } from '@/lib/stage-mark';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
-/*
-  🪤 EVERY COMPONENT IMPORT STAYS DYNAMIC AND INSIDE A FUNCTION. A top-level
-  `await import()` fails outright here — tsx compiles this file to CJS and
-  esbuild refuses top-level await — and a STATIC import would hoist above the
-  `globalThis.React` assignment above, which the classic JSX runtime needs.
-  Same shape as `app/pay/[reference]/_components/one-stage-at-a-time.test.ts`.
-*/
-
-/**
- * Six stages with DISTINCT non-zero percentages on purpose: a repeated figure
- * would confound the occurrence counts below, and "exactly one" is the whole
- * claim. Two zeros, because two zeros is what a real event carries.
- */
+/** DISTINCT non-zero percentages: a repeated figure would confound the counts. */
 function stages(): ProgressStage[] {
   const mk = (key: string, label: string, pct: number): ProgressStage =>
     ({ key, label, pct, done: [], todo: [], aiNote: null }) as unknown as ProgressStage;
@@ -77,96 +63,122 @@ async function paint(
   );
 }
 
-const count = (haystack: string, needle: string): number =>
-  haystack.split(needle).length - 1;
-
-/**
- * A percentage label, counted at its TAG BOUNDARY.
- *
- * 🪤 THE SUBSTRING TRAP THIS TEST FELL INTO ON ITS FIRST RUN. `"100% complete"`
- * CONTAINS `"0% complete"`, so a bare substring count reported three zero-labels
- * where the rail draws two — and it would equally have hidden a real duplicate
- * behind a neighbouring number. The label always renders as the text of its own
- * element, so the closing `>` before it is the boundary that makes the count
- * mean what it says.
- */
-const labelCount = (html: string, pct: number): number => count(html, `>${pct}% complete`);
+const count = (h: string, n: string): number => h.split(n).length - 1;
+/** VISIBLE percentages only — the text of an element, never an attribute. */
+const visiblePcts = (h: string): string[] => h.match(/>\s*\d+% complete/g) ?? [];
 
 test('the rail renders at all — so every count below means something', async () => {
   const html = await paint();
   assert.ok(html.length > 500, `suspiciously small render (${html.length} chars)`);
-  assert.ok(html.includes('Inviting'), 'the current stage name is missing');
-  assert.ok(html.includes('You are here'), 'the current-stage marker is missing');
-});
-
-test('the ACTIVE stage states its percentage exactly once', async () => {
-  const html = await paint();
-  const active = labelCount(html, 23);
-  console.log(`  "23% complete" (the active stage) rendered ${active} time(s)`);
-  assert.equal(active, 1, 'the active stage prints its number more than once');
-});
-
-test('…and so does every other stage — six stages, six labels, not seven', async () => {
-  const html = await paint();
-  const labels = count(html, '% complete');
-  console.log(`  total "% complete" labels: ${labels} for 6 stages`);
-  assert.equal(labels, 6, 'a seventh percentage label is on screen');
-  for (const pct of [100, 41, 23, 7]) {
-    assert.equal(labelCount(html, pct), 1, `${pct}% appears more than once`);
+  for (const label of ['Dreaming', 'Booking', 'Inviting', 'Finalizing', 'Wedding day', 'After']) {
+    assert.ok(html.includes(label), `stop missing: ${label}`);
   }
-  assert.equal(labelCount(html, 0), 2, 'the two not-started stages each label once');
-  // …and the boundary is doing real work: the naive count is provably different.
-  assert.equal(count(html, '0% complete'), 3, 'the 100% label contains a 0% substring');
+  assert.equal(count(html, 'data-railfill'), 1, 'the one rail is missing');
+  assert.equal(count(html, 'data-railhead'), 1, 'the rail head is missing');
 });
 
-test('the duplicate returns if the heading repeats it — the guard can fail', () => {
+test('🔑 exactly ONE percentage is visible, and it is the current stage’s', async () => {
+  const html = await paint();
+  const shown = visiblePcts(html);
+  console.log(`  visible percentages: ${shown.length} → ${JSON.stringify(shown)}`);
+  assert.equal(shown.length, 1, 'treatment B shows one number; this shows more');
   /*
-    The counter must be able to say 2. Proven against a string that contains the
-    duplicate, so a green "exactly once" above is evidence rather than an
-    artefact of a counter that only ever returns 1.
+    Destructured rather than indexed: `noUncheckedIndexedAccess` types shown[0]
+    as `string | undefined`, and `assert.equal(length, 1)` above does not narrow
+    it — the compiler has no way to connect the two. `tsx --test` strips types
+    instead of checking them, so the per-file run was green while `tsc` was not.
+    Passing tests are not a compile.
   */
-  const withDupe = '<b>23% complete</b><h3>Inviting <span>23% complete</span></h3>';
-  assert.equal(labelCount(withDupe, 23), 2);
-  // and the boundary does not lose a legitimate label
-  assert.equal(labelCount('<span>7% complete</span>', 7), 1);
+  const [visible] = shown;
+  assert.ok(visible, 'no visible percentage at all');
+  assert.match(visible, /23% complete/, 'the visible number is not the current stage’s');
+});
+
+test('…and the counter can say more than one — so that green is evidence', () => {
+  const two = '<b>23% complete</b><span>41% complete</span>';
+  assert.equal(visiblePcts(two).length, 2);
+  // an attribute is NOT a visible label, which is the distinction under test
+  assert.equal(visiblePcts('<button aria-label="Dreaming, 100% complete">x</button>').length, 0);
+});
+
+test('every stage still carries its figure for a screen reader', async () => {
+  /*
+    Hiding five numbers from the SCREEN must not hide them from someone who
+    cannot see the bar. And the one visible figure is aria-hidden, so the current
+    stop is not announced twice — the duplicate defect in an a11y costume.
+  */
+  const html = await paint();
+  const expected: Array<[string, number]> = [
+    ['Dreaming', 100], ['Booking', 41], ['Inviting', 23],
+    ['Finalizing', 7], ['Wedding day', 0], ['After', 0],
+  ];
+  for (const [label, pct] of expected) {
+    assert.ok(
+      html.includes(`aria-label="${label}, ${pct}% complete"`),
+      `${label} is not announced with its figure`,
+    );
+  }
+  console.log(`  aria-labelled stops: ${expected.length} · visible figures: ${visiblePcts(html).length}`);
+  assert.ok(html.includes('aria-hidden="true"'), 'the visible figure must be aria-hidden');
 });
 
 test('three states, three SHAPES — not one shape in three greys', async () => {
   const html = await paint();
-  const notStarted = count(html, 'data-stagemark="not-started"');
-  const partial = count(html, 'data-stagemark="partial"');
-  const complete = count(html, 'data-stagemark="complete"');
-  console.log(`  stage marks — not-started: ${notStarted} · partial: ${partial} · complete: ${complete}`);
-  assert.equal(complete, 1, 'exactly one stage is at 100');
-  assert.equal(partial, 3, 'three stages are between 1 and 99');
-  assert.equal(notStarted, 2, 'two stages are at 0');
-  assert.equal(notStarted + partial + complete, 6, 'every stage carries exactly one mark');
+  const n = (k: string) => count(html, `data-stagemark="${k}"`);
+  console.log(`  stops — not-started: ${n('not-started')} · partial: ${n('partial')} · complete: ${n('complete')}`);
+  assert.equal(n('complete'), 1, 'one stage is at 100');
+  assert.equal(n('partial'), 3, 'three stages are between 1 and 99');
+  assert.equal(n('not-started'), 2, 'two stages are at 0');
+  assert.equal(n('complete') + n('partial') + n('not-started'), 6, 'every stop carries one mark');
 });
 
-test('a not-started stage draws NO ring — the shape differs, not just the colour', async () => {
+test('a not-started stop is SMALLER, not merely paler', async () => {
   /*
-    ⚠ THE POINT OF THE FIX, ASSERTED STRUCTURALLY. `ProgressRing` emits an
-    <svg>; a 0% stage must not. Counting svgs proves the 0 case is a different
-    KIND of mark rather than the same ring in a paler grey, which a colour
-    assertion could never distinguish.
+    The sabotage that beat the first version of this guard was a ring-sized pale
+    circle: same shape, same size, different colour — and a markup assertion
+    could not see it, because the difference is a NUMBER. The sizes come from
+    lib/stage-mark.ts and are emitted as data-markpx so they can be read here.
   */
   const html = await paint();
-  const svgs = count(html, '<svg');
-  console.log(`  <svg> rings drawn: ${svgs} (expected 3 — the 1–99 stages only)`);
-  assert.equal(svgs, 3, 'a not-started or complete stage is still drawing a ring');
+  const px = [...html.matchAll(/data-stagemark="([\w-]+)" data-markpx="(\d+)"/g)]
+    .map((m) => [m[1], Number(m[2])] as [string, number]);
+  const notStarted = px.filter(([k]) => k === 'not-started').map(([, v]) => v);
+  const others = px.filter(([k]) => k !== 'not-started').map(([, v]) => v);
+  console.log(`  not-started px: ${JSON.stringify(notStarted)} · others: ${JSON.stringify(others)}`);
+  assert.ok(notStarted.length > 0 && others.length > 0, 'nothing to compare — did the attrs move?');
+  assert.ok(
+    Math.max(...notStarted) < Math.min(...others),
+    'a not-started stop is not smaller than every started one',
+  );
 });
 
-test('an all-zero event draws six dots and no rings at all', async () => {
-  /*
-    The brand-new event — the state where the old behaviour was worst, because
-    every stage was a full grey circle and the whole rail read as six failures.
-  */
+test('an all-zero event: six dots, no figure but the current one', async () => {
   const zeroed = stages().map((s) => ({ ...s, pct: 0 }));
   const html = await paint(zeroed, 'dreaming' as ProgressStageKey);
-  console.log(
-    `  all-zero event — dots: ${count(html, 'data-stagemark="not-started"')} · rings: ${count(html, '<svg')}`,
-  );
+  console.log(`  all-zero — dots: ${count(html, 'data-stagemark="not-started"')} · visible figures: ${visiblePcts(html).length}`);
   assert.equal(count(html, 'data-stagemark="not-started"'), 6);
-  assert.equal(count(html, '<svg'), 0, 'a zeroed rail must draw no progress rings');
-  assert.equal(count(html, '% complete'), 6, 'the labels still state the stage figures');
+  const [only] = visiblePcts(html);
+  assert.equal(visiblePcts(html).length, 1, 'still exactly one number');
+  assert.ok(only, 'no visible percentage at all');
+  assert.match(only, /0% complete/);
+});
+
+test('the rail head sits where the RULE puts it, not where a mock did', async () => {
+  /*
+    Executed, because the position is the one number in this treatment nobody
+    could otherwise re-derive: head = (index + pct/100) / (stops - 1).
+  */
+  assert.equal(railHeadPercent(0, 0, 6), 0, 'the first stop at 0% is the left end');
+  assert.equal(railHeadPercent(5, 100, 6), 100, 'the last stop finished is the right end');
+  assert.equal(railHeadPercent(2, 0, 6), 40, 'stop 3 of 6 sits at 2/5');
+  assert.equal(railHeadPercent(1, 100, 6), 40, 'a finished stage lands on the NEXT stop');
+  assert.ok(Math.abs(railHeadPercent(2, 23, 6) - 44.6) < 0.001, 'advanced into the gap by its own pct');
+  // degenerate inputs cannot produce NaN or a width outside 0–100
+  for (const [i, p, c] of [[0, 0, 0], [0, 0, 1], [-5, -5, 6], [99, 999, 6], [2, NaN, 6]] as Array<[number, number, number]>) {
+    const v = railHeadPercent(i, p, c);
+    assert.ok(Number.isFinite(v) && v >= 0 && v <= 100, `railHeadPercent(${i},${p},${c}) = ${v}`);
+  }
+  // and it is actually rendered
+  const html = await paint();
+  assert.ok(html.includes('width:44.6%') || html.includes('width: 44.6%'), 'the fill does not use the rule');
 });

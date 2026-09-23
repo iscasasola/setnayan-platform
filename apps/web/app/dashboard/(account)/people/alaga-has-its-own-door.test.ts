@@ -28,6 +28,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from '@/lib/strip-comments';
+
 const SECTION_PATH = join(__dirname, '_components', 'dependents-section.tsx');
 const SECTION = readFileSync(SECTION_PATH, 'utf8');
 const PAGE = readFileSync(join(__dirname, 'page.tsx'), 'utf8');
@@ -38,9 +40,15 @@ const PAGE = readFileSync(join(__dirname, 'page.tsx'), 'utf8');
  * match would be satisfied by the paragraph explaining the button even if the
  * button itself were deleted. A rule mentioned in prose is not a rule the page
  * renders — the sibling guard in this folder learned the same lesson.
+ *
+ * 🔑 THE REPO'S ONE STRIPPER, NOT A HAND-ROLLED PAIR OF `.replace()` CALLS.
+ * The obvious two-liner strips BLOCK comments first, so a `//` line carrying a
+ * block opener — `content-type video/*`, which this codebase writes constantly
+ * — opens a comment that never existed and swallows everything to the next
+ * real close. `lint-one-comment-stripper.mjs` blocks a second implementation
+ * for that reason, and it caught this file.
  */
-const strip = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 
 const SECTION_CODE = strip(SECTION);
 const PAGE_CODE = strip(PAGE);

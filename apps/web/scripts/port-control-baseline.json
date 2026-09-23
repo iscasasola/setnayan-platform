@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "31411fd3f",
+  "generatedFromRef": "b6d8836ee",
   "routeCount": 431,
   "destinations": 927,
   "actions": 657,
-  "blocks": 4624,
+  "blocks": 4623,
   "routes": {
     "/": {
       "files": [
@@ -7084,7 +7084,6 @@
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
-        "dashboard/[eventId]/studio/papic/_components/credit-recommendation.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
@@ -7170,7 +7169,6 @@
         "CaptureDefaultsSection",
         "ChallengeRow",
         "CoupleChallengesManager",
-        "CreditRecommendation",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",

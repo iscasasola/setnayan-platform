@@ -44,6 +44,13 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// ⚠ THE REPO'S ONE STRIPPER, NOT A HAND-ROLLED REGEX. A naive
+// `/\/\*[\s\S]*?\*\//g` treats a LINE comment containing `/*` as opening a
+// block comment, blanks everything to the next real `*/`, and the guard then
+// asserts against a blank and PASSES. `lint-one-comment-stripper.mjs` exists to
+// stop exactly that, and it caught this file.
+import { stripComments } from './security/source-text';
+
 const WEB = dirname(fileURLToPath(import.meta.url)).replace(/\/lib$/, '');
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -76,9 +83,8 @@ test('🚨 no module turns a guest count into a credit figure to quote', () => {
 
   for (const symbol of ['recommendedCredits', 'papicCreditVerdict', 'estimateCreditsNeeded']) {
     const offenders = SOURCES.filter((f) => {
-      const src = readFileSync(f, 'utf8');
       // A mention inside a comment is the record of the removal, not a use.
-      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      const code = stripComments(readFileSync(f, 'utf8'));
       return new RegExp(`\\b${symbol}\\b`).test(code);
     });
     assert.deepEqual(
@@ -97,9 +103,7 @@ test('🚨 no purchase link arrives with the quantity already chosen', () => {
   // wrong; what is allowed is no pre-filled quantity at all.
   const offenders: string[] = [];
   for (const f of SOURCES) {
-    const code = readFileSync(f, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
+    const code = stripComments(readFileSync(f, 'utf8'));
     if (/[?&]topup=/.test(code)) offenders.push(f.slice(WEB.length + 1));
   }
   assert.deepEqual(

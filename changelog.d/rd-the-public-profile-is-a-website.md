@@ -124,3 +124,57 @@ with a booth. Key on the full path.
 
 SPEC IMPACT: None in code terms, but the ruling is recorded — public profile ON is consent to publish
 the account photo (owner 2026-09-23), distinct from the hosts consent of 2026-09-20.
+
+---
+
+## 2026-09-23 · feat(profile): coming up, and past
+
+Owner: ***"split coming up from past"***, after asking ***"why do we see the 2 upcoming events as
+well?"***
+
+🔑 **HIS QUESTION WAS UPSTREAM OF THE LAYOUT.** He was not asking for two headings — he had noticed
+that **an invitation and a memory were drawn identically**. Two identical grids under two headings
+would satisfy the words and miss the point. So the difference lives at SECTION level: Coming up
+leads at full weight; Past is smaller, quieter and set back. The title keeps its ink colour in both
+— a memory should be calm, not hard to read.
+
+There was no date filter at all before this: the gate was public-visibility AND the type's `website`
+surface, nothing more.
+
+⛔ **THE SPLIT DOES NOT COMPARE DATES.** `isFinishedEvent` in `lib/event-board.ts` is already the
+product's answer to "is this over", and it reasons about three things this module would otherwise
+re-derive: `archived` (finished whatever the date says), `event_end_date` (a multi-day celebration
+is not finished on its first morning — the same value the full-res retention floor reads), and a
+NULL date (not finished, so a dateless celebration sits under Coming up, which falls out of the
+existing rule rather than being a special case invented here).
+
+⛔ **AND IT DOES NOT DECIDE WHAT "TODAY" IS.** `manilaTodayISO()` does, because these are Philippine
+celebrations and a wedding is upcoming until it is over **where it happens**. `lib/event-board.ts`
+records a live bug from exactly this: the board's shelf boundary and the countdown on the same card
+once reduced "now" with two different clocks and disagreed between Manila 00:00 and 08:00.
+
+**One new column, `event_end_date`** (`anon=S`, already publicly readable). **Zero prod events carry
+one today**, so it is behaviour-neutral now and correct the first time somebody sets a range — the
+same reasoning `isFinishedEvent`'s own docblock records.
+
+**Order is part of the answer:** Coming up is soonest-first, because the next thing is the useful
+thing, and a dateless celebration sorts last since it cannot be next; Past is newest-first, because
+a memory is read backwards from now.
+
+**A section renders only when it has cards.** A couple with nothing behind them must never meet an
+empty "Past celebrations" heading — that reads as a page that failed rather than a life that has not
+happened yet.
+
+**Both sections call ONE card renderer**, extracted in this change. Two copies of the card is how
+the split would recreate the very defect it exists to fix, arriving from the other side; a guard
+asserts one definition and two call sites.
+
+Three watched sabotages, each red, both files restored to verified hashes. 🔑 **The first is the
+instructive one:** replacing `isFinishedEvent` with a direct date comparison **still produces the
+right answer for his page** — Movie Night behind, two weddings ahead — while silently breaking
+multi-day and archived events. A fixture that happens to pass is why the delegation matters.
+
+⚠ Verified against his real data: **Movie Night (20 Aug 2026) is already past**, so his own profile
+exercises the split immediately — one card below, two above.
+
+SPEC IMPACT: None — no locked decision, SKU or price.

@@ -8,6 +8,8 @@ import { resolvePublicProfile } from '@/lib/public-profile';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { resolveCelebrationIdentity } from '@/lib/celebration-card-identity';
+import { splitComingUpAndPast } from '@/lib/coming-up-and-past';
+import { manilaTodayISO } from '@/lib/event-board';
 import { initialsFor } from '@/lib/conversation-list';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { renderableImageSrc } from '@/lib/event-card-art';
@@ -259,6 +261,73 @@ export default async function AccountProfilePage({ params }: Props) {
   // public celebrations, incl. archived); the single-ongoing case only reaches
   // here for the owner preview, where we still list it rather than redirect.
   const listed = ongoing.length >= 2 ? ongoing : publicWebsiteEvents;
+  const { comingUp, past: pastEvents } = splitComingUpAndPast(listed, manilaTodayISO());
+
+  /*
+    ONE CARD, RENDERED BY BOTH SECTIONS. Extracted when the Coming-up/Past
+    split landed so the two sections cannot drift into two different cards —
+    which is the defect the split exists to fix, arriving from the other side.
+    Section-level difference is carried by the SECTION, never by a second copy
+    of this markup.
+  */
+  const renderCelebration = (event: (typeof listed)[number]) => {
+              const meta = [event.venue_name, formatEventDate(event.event_date)]
+                .filter(Boolean)
+                .join(' · ');
+              /*
+                  THE CARD WEARS THE CELEBRATION (owner 2026-09-23: "the event
+                  cards look non events"). It used to read the hero and the
+                  monogram and nothing else — and since none of his three events
+                  has a hero, every card took the monogram branch, where every
+                  `monogram_color` is the same default. Three celebrations, three
+                  identical discs.
+
+                  `resolveCelebrationIdentity` reads the look the couple ALREADY
+                  chose: their Save-the-Date typeface and their own accent. It
+                  invents nothing and reads no private column.
+              */
+              const identity = resolveCelebrationIdentity(event);
+              return (
+                <li key={event.event_id}>
+                  <Link
+                    href={`/u/${canonicalSlug}/${event.slug}`}
+                    className="uprof-card"
+                    data-identity={identity.hasOwnIdentity ? 'own' : 'none'}
+                  >
+                    {identity.heroUrl ? (
+                      <span className="uprof-cover">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={identity.heroUrl}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="uprof-cover-img"
+                        />
+                      </span>
+                    ) : (
+                      <span className="uprof-mark">
+                        <EventMonogram event={event} size="lg" />
+                      </span>
+                    )}
+                    <span className="uprof-body">
+                      {/* The event's OWN typeface, from its STD theme — the
+                          class comes from the shipped STD_THEMES table, never
+                          re-typed here. */}
+                      <span className={`${identity.fontCls} uprof-title`}>
+                        {event.display_name?.trim() || 'Celebration'}
+                      </span>
+                      {meta ? <span className="uprof-meta">{meta}</span> : null}
+                    </span>
+                    {/* THE CHEVRON IS GONE. A `›` is list-row chrome: it says
+                        "next item in a settings list", which is precisely what
+                        made a celebration read as a row. The whole card is the
+                        link; it needs no arrow to say so. */}
+                  </Link>
+                </li>
+              );
+  };
+
   const mode: 'gallery' | 'stories' | 'empty' =
     ongoing.length >= 2 ? 'gallery' : listed.length > 0 ? 'stories' : 'empty';
 
@@ -378,66 +447,38 @@ export default async function AccountProfilePage({ params }: Props) {
           {subtitle ? <p className="uprof-sub">{subtitle}</p> : null}
         </header>
 
-        {listed.length > 0 ? (
-          <ul className="uprof-grid">
-            {listed.map((event) => {
-              const meta = [event.venue_name, formatEventDate(event.event_date)]
-                .filter(Boolean)
-                .join(' · ');
-              /*
-                  THE CARD WEARS THE CELEBRATION (owner 2026-09-23: "the event
-                  cards look non events"). It used to read the hero and the
-                  monogram and nothing else — and since none of his three events
-                  has a hero, every card took the monogram branch, where every
-                  `monogram_color` is the same default. Three celebrations, three
-                  identical discs.
+        {/*
+            ── COMING UP · PAST (owner 2026-09-23: "split coming up from past") ──
+            He asked "why do we see the 2 upcoming events as well?" — which was
+            not a request for two headings. He had noticed that an INVITATION and
+            a MEMORY were drawn identically. So the sections read as different
+            things: Coming up leads the page at full size; Past is quieter and
+            smaller, something to look back at. Two identical grids under two
+            headings would satisfy the words and miss the point.
 
-                  `resolveCelebrationIdentity` reads the look the couple ALREADY
-                  chose: their Save-the-Date typeface and their own accent. It
-                  invents nothing and reads no private column.
-              */
-              const identity = resolveCelebrationIdentity(event);
-              return (
-                <li key={event.event_id}>
-                  <Link
-                    href={`/u/${canonicalSlug}/${event.slug}`}
-                    className="uprof-card"
-                    data-identity={identity.hasOwnIdentity ? 'own' : 'none'}
-                  >
-                    {identity.heroUrl ? (
-                      <span className="uprof-cover">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={identity.heroUrl}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="uprof-cover-img"
-                        />
-                      </span>
-                    ) : (
-                      <span className="uprof-mark">
-                        <EventMonogram event={event} size="lg" />
-                      </span>
-                    )}
-                    <span className="uprof-body">
-                      {/* The event's OWN typeface, from its STD theme — the
-                          class comes from the shipped STD_THEMES table, never
-                          re-typed here. */}
-                      <span className={`${identity.fontCls} uprof-title`}>
-                        {event.display_name?.trim() || 'Celebration'}
-                      </span>
-                      {meta ? <span className="uprof-meta">{meta}</span> : null}
-                    </span>
-                    {/* THE CHEVRON IS GONE. A `›` is list-row chrome: it says
-                        "next item in a settings list", which is precisely what
-                        made a celebration read as a row. The whole card is the
-                        link; it needs no arrow to say so. */}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+            "Is this over" is `isFinishedEvent` via `splitComingUpAndPast` —
+            archived, multi-day and dateless already have ONE answer in this
+            product. "Today" is Manila's, because a wedding is upcoming until it
+            is over where it happens.
+
+            A section renders ONLY when it has cards: a couple with nothing
+            behind them must never meet an empty "Past celebrations" heading.
+        */}
+        {listed.length > 0 ? (
+          <>
+            {comingUp.length > 0 ? (
+              <section className="uprof-section">
+                <h2 className="uprof-section-head">Coming up</h2>
+                <ul className="uprof-grid">{comingUp.map(renderCelebration)}</ul>
+              </section>
+            ) : null}
+            {pastEvents.length > 0 ? (
+              <section className="uprof-section uprof-past">
+                <h2 className="uprof-section-head">Past celebrations</h2>
+                <ul className="uprof-grid">{pastEvents.map(renderCelebration)}</ul>
+              </section>
+            ) : null}
+          </>
         ) : hasChapters ? null : (
           <div className="uprof-empty">
             <p className="uprof-empty-title">Nothing public to show yet</p>
@@ -927,6 +968,28 @@ const UPROF_CSS = `
     font-size: 0.98rem;
     color: var(--m-slate, #4F535B);
   }
+
+  /* ── COMING UP vs PAST ──────────────────────────────────────────────────
+     His complaint was that an invitation and a memory were drawn identically,
+     so the DIFFERENCE lives here, at section level, rather than in a second
+     copy of the card. Coming up keeps full weight and leads. Past is smaller,
+     quieter and set back — still legible, never greyed into unreadability:
+     the title keeps its ink colour and only the surrounding weight changes,
+     because a memory should be calm, not hard to read. */
+  .uprof-section { margin-bottom: clamp(1.75rem, 4vw, 2.75rem); }
+  .uprof-section-head {
+    font-family: var(--font-display), Georgia, serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--m-slate-2, #6A6E76);
+    margin: 0 0 0.85rem;
+  }
+  .uprof-past .uprof-section-head { color: var(--m-slate-3, #8A857B); }
+  .uprof-past .uprof-card { padding: 0.85rem 1rem; }
+  .uprof-past .uprof-title { font-size: 1.05rem; }
+  .uprof-past .uprof-mark { transform: scale(0.82); transform-origin: left center; }
+  .uprof-past .uprof-cover { width: 56px; height: 56px; }
 
   .uprof-grid {
     list-style: none;

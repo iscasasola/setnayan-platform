@@ -427,3 +427,42 @@ sheet. Whether those sheets stay as the no-hero fallback, or a celebration witho
 show something else entirely, is his call and is not decided here.
 
 SPEC IMPACT: None.
+
+## 2026-09-23 · fix(profile): the poster's mark is the event's own logo, not one this code invents
+
+Owner, on where the poster comes from: ***"on the event hub. we have the first widget as the hero
+widget. this is where the logo, names, and other information can be found. can place a background
+photo or snippet."***
+
+Measured, not assumed: `hero` **is** `WIDGET_TYPES[0]` in `lib/invitation-widgets.ts` (16 widgets,
+hero first), and its background is the pair of columns the previous commit wired — the photo
+(`landing_page_hero_image_url`) and the "snippet" (`landing_page_hero_video_r2_key`, which carries an
+extra gate because an unscreened couple upload must not reach a guest, SEC-6/D16). So the hero
+resolution landed in the right place.
+
+🔴 **The LOGO did not.** `lib/celebration-poster-words.ts` hand-rolled the initials with a
+letters-only regex, while `deriveMonogram` + `splitInitials` have been shipping that exact answer to
+the dashboard chip, the landing hero and the QR-centre overlay all along. **Two derivations of one
+fact**, and the new one was the worse of the two: it kept the `(SONGDESK TEST)` parenthetical that
+`deriveMonogram` strips, and it split only on `&` where the shipped one also handles `and`, `+`, `/`
+and a hyphen. Replaced with the shipped pair.
+
+The test that pinned this now says so: it used to assert `Ana & 123` yields **no** mark, because the
+letters-only regex refused `1`. The product's own answer is `A & 1`, and that is what the couple sees
+on every other surface. **If that mark is wrong it is wrong in ONE place** — `lib/monogram.ts` — and a
+poster quietly showing something different is how two mechanisms start disagreeing about a couple's
+own logo.
+
+⚠ **Still not drawn, and deliberately so:** the poster sets the initials as type, not the couple's
+DESIGNED mark. `EventMonogram` renders the real thing — chosen font, ink colour, gold filigree frame
+for the `framed` lockup — and one prod event carries an uploaded SVG. On a photograph or the
+letterpress sheet that mark would sit correctly; on wine or gold its own ink is unknown and a dark
+mark authored for a pale website would vanish. Owner asked, not assumed.
+
+⏭ **And a second home for the hero photo is arriving.** PR #5904 (`rd/event-hub-build`, built, merging
+as this was written) gives every hub section its own background via
+`invitation_widgets.config_json.media` plus a 3×3 focal point — `hubMediaRef` is *stricter* than
+`siteMediaServeRef`, refusing even the legacy non-`r2://` passthrough. Once merged, the poster should
+read the hero section's own photo first and fall back to `landing_page_hero_image_url`.
+
+SPEC IMPACT: None.

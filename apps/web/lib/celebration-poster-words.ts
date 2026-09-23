@@ -38,6 +38,7 @@
  */
 
 import type { EventDatePrecision } from './events';
+import { deriveMonogram, splitInitials } from './monogram';
 
 /* ───────────────────────────── names ───────────────────────────── */
 
@@ -116,12 +117,6 @@ function stackTitle(title: string): string[] {
   return lines;
 }
 
-/** The first letter of a name, uppercased. `''` when there is no letter. */
-function initial(name: string): string {
-  const match = name.match(/\p{L}/u);
-  return match ? match[0]!.toUpperCase() : '';
-}
-
 /**
  * What this celebration's poster is called.
  *
@@ -157,8 +152,22 @@ export function posterWords(
     const left = parts[0]!.trim();
     const right = parts[1]!.trim();
     if (left && right) {
-      const a = initial(left);
-      const b = initial(right);
+      /*
+        ⛔ THE MARK IS THE EVENT'S OWN, NOT ONE THIS MODULE INVENTS. Owner,
+        2026-09-23, on where the poster comes from: ***"we have the first
+        widget as the hero widget. this is where the logo, names, and other
+        information can be found."***
+
+        🔴 AN EARLIER CUT OF THIS FILE HAND-ROLLED THE INITIALS — a regex for
+        the first letter of each side — while `deriveMonogram` had been
+        shipping that answer to the dashboard chip, the landing hero and the
+        QR-centre overlay all along, and `splitInitials` had been pulling the
+        pair out of it. Two derivations of one fact is how they come to
+        disagree, and mine was the worse one: it kept "(SONGDESK TEST)" that
+        `deriveMonogram` strips, and it split only on "&" where the shipped one
+        also handles "and", "+", "/" and a hyphen.
+      */
+      const [a, b] = splitInitials(deriveMonogram(name));
       return {
         kind: 'pair',
         left,

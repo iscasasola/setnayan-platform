@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { posterDate, posterWords, sashLabel } from './celebration-poster-words';
+import { deriveMonogram } from './monogram';
 
 /*
   THE CASES ARE PRODUCTION ROWS, READ 2026-09-23 — not fixtures invented to
@@ -95,12 +96,30 @@ test("⚠ a couple's own monogram outranks the derived one AND is never sliced",
   assert.deepEqual(blank.kind === 'pair' && blank.monogram, { kind: 'initials', left: 'M', right: 'J' });
 });
 
-test('a name with no letter yields no monogram rather than half of one', () => {
-  // `A & 123` would derive "A" alone — and `A <i>&</i>` reads as broken art.
+test('⛔ the mark is the shipped one, even where this module would have chosen differently', () => {
+  /*
+    🔴 THIS ASSERTION USED TO SAY `null`, AND THAT WAS THE BUG. An earlier cut
+    hand-rolled the initials with a letters-only regex, so "Ana & 123" produced
+    no mark at all. `deriveMonogram` — already drawing the dashboard chip, the
+    landing hero and the QR-centre overlay — answers "A & 1", and that is what
+    the couple sees on every OTHER surface in the product.
+
+    🔑 A SECOND DERIVATION OF ONE FACT IS THE DEFECT, not the rule it disagrees
+    about. If "A & 1" is the wrong mark it is wrong in ONE place and
+    `lib/monogram.ts` is where it gets fixed; a poster quietly showing
+    something different is how two mechanisms start disagreeing about a
+    couple's own logo.
+  */
   const w = posterWords('Ana & 123');
   console.log(`  Ana & 123 → monogram ${JSON.stringify(w.kind === 'pair' && w.monogram)}`);
-  assert.equal(w.kind, 'pair', 'it is still two sides of a name');
-  assert.equal(w.kind === 'pair' && w.monogram, null);
+  assert.deepEqual(w.kind === 'pair' && w.monogram, { kind: 'initials', left: 'A', right: '1' });
+
+  // The parenthetical the shipped derivation strips and mine kept:
+  assert.equal(deriveMonogram('Song Desk Test Night (SONGDESK TEST)'), 'S');
+
+  // A one-name celebration still has no PAIR to draw — the null branch lives.
+  const solo = posterWords('Movie & ');
+  assert.equal(solo.kind, 'title', 'nothing on one side is not a pair');
 });
 
 test('a pair carries a size step too — the letterpress sets it in the title slot', () => {

@@ -1,5 +1,6 @@
 'use client';
 
+import { HUB_FONTS, hubFontPreviewStack } from '@/lib/hub-fonts';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
@@ -69,6 +70,7 @@ export function ColorsPanel({
   bgColor,
   buttonColor,
   artDirection,
+  fontKey = null,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
@@ -77,6 +79,8 @@ export function ColorsPanel({
   buttonColor: string | null;
   /** Pahina art direction (PR-5b) — 'candlelight' is the dark direction. */
   artDirection: 'daylight' | 'candlelight' | null;
+  /** The couple's saved typeface, or null for the theme's own. */
+  fontKey?: string | null;
 }) {
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
@@ -129,6 +133,59 @@ export function ColorsPanel({
               <span>
                 <span className="block text-[0.72rem] font-medium text-ink">{label}</span>
                 <span className="block text-[0.66rem] leading-tight text-ink/45">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* ══ THE TYPEFACE ═════════════════════════════════════════════════
+          Owner's Pro list names "Custom Fonts". A FIXED list, because
+          `next/font` resolves at build time: every face here is already served
+          from our own origin, so choosing one costs a guest nothing and cannot
+          fail. A couple-uploaded file would mean a runtime `@font-face` against
+          R2 on a guest's first paint and a face that fails to load SILENTLY —
+          the page simply set in something else, with nothing logged.
+
+          🔑 EACH NAME IS SET IN ITS OWN FACE. A list of font names all rendered
+          in the same type tells the couple nothing; this is the one control on
+          the page where the label IS the preview.
+
+          ⛔ "The theme's own" is always first and always available — a couple
+          must be able to take a choice back. It posts `''`, which the action
+          reads as "clear", distinct from an absent field meaning "unchanged". */}
+      <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
+        <legend className="sr-only">Typeface</legend>
+        <p className="text-[0.72rem] font-semibold text-ink/80">Typeface</p>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5">
+            <input
+              type="radio"
+              name="site_font_key"
+              value=""
+              defaultChecked={!fontKey}
+            />
+            <span className="text-[0.72rem] text-ink/70">The theme&rsquo;s own</span>
+          </label>
+          {HUB_FONTS.map((f) => (
+            <label
+              key={f.key}
+              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5"
+            >
+              <input
+                type="radio"
+                name="site_font_key"
+                value={f.key}
+                defaultChecked={fontKey === f.key}
+              />
+              <span className="min-w-0">
+                <span
+                  className="block truncate text-[0.95rem] leading-tight text-ink"
+                  style={{ fontFamily: hubFontPreviewStack(f.key) }}
+                >
+                  {f.label}
+                </span>
+                <span className="block text-[0.62rem] leading-tight text-ink/45">{f.note}</span>
               </span>
             </label>
           ))}

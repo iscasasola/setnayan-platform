@@ -309,3 +309,59 @@ the whole `transform` and a zoomed, drifting layer must carry both in one functi
 13 in `hub-canvas.test.ts`. Nine more sabotages, each breaking exactly its guard.
 
 SPEC IMPACT: None.
+
+---
+
+### 9 · Custom fonts (plan's Build 3) — and two builds that turned out not to exist
+
+**Build 7 — "the four themes never drawn" — is already shipped.** `lib/invite-themes.ts` has
+carried five themes since 2026-09-10 (House free · Capiz · Velvet · Galeriya · Abaca on Pro), the
+hub wears the door's theme since 2026-09-22 (`app/[slug]/_lib/hub-look.ts`), and every one of them
+is drawn: a `.module.css` per theme for the door plus a shared material block in `globals.css`,
+already held by `the-site-wears-the-doors-theme.test.ts` (8 assertions, green). **The "nine hub
+themes" list is an old document's vocabulary that never became the registry.** Whether four more
+themes should be designed is a commission, not a build.
+
+**Build 5 — "Drive as a source" — is half-shipped in the other direction.** `/api/oauth/drive/
+{start,callback,disconnect}`, a connect card, a Google-access privacy page and a
+`drive_copy_artifacts` table all exist: Drive is wired as a **destination** (copy the couple's
+photos *to* their Drive). Picking a photo *from* Drive needs the Google **Picker**, which needs a
+browser API key and an app id this session cannot verify are configured — and a picker that opens
+onto nothing is worse than a door that honestly says Not built. Flagged, not faked.
+
+**So this item is Build 3, custom fonts.** A fixed list of nine faces the app **already loads**.
+
+🔑 **A fixed list, not an upload, and that is the honest version.** `next/font` resolves at build
+time; every face here is served from our own origin, so choosing one costs a guest nothing and
+cannot fail. A couple-uploaded file would mean a runtime `@font-face` against R2 on a guest's
+first paint, an unanswered licensing question, and **a face that fails to load silently** — the
+page simply set in something else, with nothing logged.
+
+⛔ **Every entry is checked against `app/layout.tsx`.** A key naming a variable the app does not
+declare renders as the fallback stack with no error anywhere: the couple picks Cinzel and gets
+Georgia on their own wedding page, while the dashboard says Cinzel.
+
+**Where it goes.** `--pahina-face` is the hook that already exists — two themes override it — so
+the couple's choice is the same override, merged into the **same Pro-gated bag as the colours**
+rather than threaded as a second prop. A theme carries colour; this carries type; no material is
+re-declared. An unset face contributes `{}`, so a couple who never chose gets byte-identical
+markup.
+
+**The column** (`events.site_font_key`) follows `20271219583821` exactly: one `ALTER TABLE` per
+statement, a closed CHECK, `GRANT SELECT` + `GRANT UPDATE` to `authenticated` only, the
+`events_host` rebuild lifted verbatim, and a `DO $$` block that proves all of it. The exposure
+freeze added **one** fact: `public.events.site_font_key anon=- authenticated=SU`.
+
+**Guards** — `hub-fonts-are-loaded.test.ts` (9). Five sabotages: offer a face that never loads ·
+escape the Pro gate · let an absent field clear a saved face · drift the CHECK from the list ·
+repair a stored value instead of dropping it.
+
+🪤 **Three traps in the guard itself, all recorded:** a `'use client'` module's named exports land
+under `.default` when dynamically imported under `tsx` (React's only complaint is "Element type is
+invalid"); React emits `checked=""` **between** `name` and `value`, so an adjacency regex passed
+for the eight unselected faces and failed for the chosen one; and the guard first looked for
+`var(--font-display)` in `globals.css` when its consumer is `tailwind.config.ts`.
+
+SPEC IMPACT: None — the fonts are a new Pro control, not a change to a locked decision. Build 7's
+"four undrawn themes" claim should be struck from the plan; Build 5 needs an owner answer about
+the Google Picker credentials.

@@ -22,6 +22,7 @@
  * brand default for that role). Anything malformed bounces with an error and
  * writes nothing.
  */
+import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -74,6 +75,16 @@ export async function updateSiteColors(
   // the same data-wipe trap the editor's shared-fields rule exists to prevent —
   // absent field ⇒ column untouched.
   const artRaw = formData.get('site_art_direction');
+  /* 🔤 THE COUPLE'S OWN FACE, saved beside their colours.
+     Same row, same action, same Pro gate — a face is part of the look, and a
+     second form would be a second place for the two to disagree about whether
+     the couple has customised anything.
+     ⛔ `''` CLEARS it back to the theme's own face. An absent field means
+     "leave unchanged", exactly as `site_art_direction` does, so a save from a
+     surface that does not carry this control cannot silently reset it. */
+  const fontRaw = formData.get('site_font_key');
+  const font =
+    typeof fontRaw === 'string' ? (fontRaw === '' ? null : sanitizeHubFontKey(fontRaw)) : undefined;
   const art =
     artRaw === 'candlelight' || artRaw === 'daylight' ? (artRaw as string) : null;
 
@@ -84,6 +95,7 @@ export async function updateSiteColors(
       site_bg_color: bg,
       site_button_color: button,
       ...(art ? { site_art_direction: art } : {}),
+      ...(font !== undefined ? { site_font_key: font } : {}),
     })
     .eq('event_id', eventId)
     .select('slug')

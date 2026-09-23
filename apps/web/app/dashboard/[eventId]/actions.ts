@@ -903,6 +903,7 @@ type GovernedFieldResult =
 // lives in ALLOWED_CEREMONY_VENUE_SETTINGS below.
 const ALLOWED_VENUE_SETTINGS = [
   'banquet_hall',
+  'events_place',
   'restaurant',
   'garden',
   'beach',

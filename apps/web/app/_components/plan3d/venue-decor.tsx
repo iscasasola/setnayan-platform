@@ -1380,6 +1380,12 @@ export function archetypeFor(venueSetting: string | null | undefined): VenueArch
     // costs no new drawing. Reversing it is one line if the owner disagrees.
     case 'destination':
       return 'beach';
+    // EVENTS PLACE — a standalone function hall. Drawn as the ballroom shell ON
+    // PURPOSE (a hall is a hall); named here so it is a decision, not a
+    // fall-through. Its own look (lower ceiling, no chandelier tier) is a
+    // drawing task, not a vocabulary one — see venue-archetype-coverage.test.ts.
+    case 'events_place':
+      return 'banquet_hall';
     case 'banquet_hall':
     case 'ballroom':
     case 'hotel':

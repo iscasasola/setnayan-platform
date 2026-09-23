@@ -34,6 +34,10 @@ import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
 import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
+import {
+  RECEPTION_PICK_TO_VENUE_SETTING,
+  venueSettingForReceptionPicks,
+} from '@/lib/reception-pick-to-venue-setting';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -140,23 +144,10 @@ function deriveMixedColumns(faith: string[]): {
     concrete.find((f) => f !== 'chinese') ?? concrete[0] ?? 'catholic';
   return { ceremonyType, secondary };
 }
-// Fallback when the couple skipped the reception "setting" pick. The CHECK
-// constraint requires a value for wedding events; the couple refines it later.
-const DEFAULT_VENUE = 'banquet_hall';
-
-// Reception "setting" pref (screen-10 multi-pick) → events.venue_setting enum.
-// The couple's first reception setting seeds venue_setting (which drives the
-// marketplace reception filter). No clean enum for events-place / private-
-// restaurant → banquet_hall (an indoor function space).
-const RECEPTION_TO_VENUE_SETTING: Record<string, string> = {
-  setting_ballroom: 'banquet_hall',
-  setting_events_place: 'banquet_hall',
-  setting_heritage: 'heritage',
-  setting_restaurant: 'banquet_hall',
-  setting_garden: 'garden',
-  setting_beach: 'beach',
-  setting_resort: 'destination',
-};
+// Reception "setting" pref (screen-10 multi-pick) → events.venue_setting.
+// The table and the default live in lib/reception-pick-to-venue-setting.ts —
+// every pick maps to ITS OWN value now (owner 2026-09-23: "Where is the event
+// place"); the old map here sent events place AND restaurant to banquet_hall.
 
 // FINE reception venue type — the precise pick before the coarse venue_setting
 // collapse above (hotel / events place / restaurant all → banquet_hall there).
@@ -485,10 +476,7 @@ export async function commitOnboardingWedding(
 
   // venue_setting from the couple's first reception "setting" pick (drives the
   // marketplace reception filter); fall back to banquet_hall if none picked.
-  const venueSetting =
-    (payload.receptionSettings ?? [])
-      .map((k) => RECEPTION_TO_VENUE_SETTING[k])
-      .find((v): v is string => Boolean(v)) ?? DEFAULT_VENUE;
+  const venueSetting = venueSettingForReceptionPicks(payload.receptionSettings ?? []);
 
   // Normalize legacy 'nolimit' value (pre-fix localStorage cache) → DB canonical 'no_limit'.
   const budgetBand = payload.budgetBand === 'nolimit' ? 'no_limit' : payload.budgetBand;
@@ -955,9 +943,9 @@ export async function searchOnboardingReceptionVenues(input: {
   // venue_setting (coarse) + venue_type (fine) from the couple's first reception
   // "setting" pick (screen-10); null → no filter, show all reception venues.
   const firstSetting = (input.receptionSettings ?? []).find(
-    (k) => Boolean(RECEPTION_TO_VENUE_SETTING[k]),
+    (k) => Boolean(RECEPTION_PICK_TO_VENUE_SETTING[k]),
   );
-  const venueSetting = firstSetting ? RECEPTION_TO_VENUE_SETTING[firstSetting]! : null;
+  const venueSetting = firstSetting ? RECEPTION_PICK_TO_VENUE_SETTING[firstSetting]! : null;
   const venueType = firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
 
   const admin = createAdminClient();
@@ -1124,9 +1112,9 @@ export async function getOnboardingVendorCounts(input: {
         : 'catholic';
   }
   const firstSetting = (input.receptionSettings ?? []).find(
-    (k) => Boolean(RECEPTION_TO_VENUE_SETTING[k]),
+    (k) => Boolean(RECEPTION_PICK_TO_VENUE_SETTING[k]),
   );
-  const venueSetting = firstSetting ? RECEPTION_TO_VENUE_SETTING[firstSetting]! : null;
+  const venueSetting = firstSetting ? RECEPTION_PICK_TO_VENUE_SETTING[firstSetting]! : null;
   const venueType = firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
 
   // Picked categories → canonical service union (same resolver the Services-tab

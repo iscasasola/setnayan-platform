@@ -19,6 +19,8 @@ import {
   CEREMONY_VENUE_SETTINGS,
   CEREMONY_VENUE_SETTING_LABEL,
   CEREMONY_VENUE_SETTING_SHORT_LABEL,
+  VENUE_SETTINGS,
+  VENUE_SETTING_LABEL,
 } from '@/lib/venue-settings';
 import type { ConflictField, ConflictService } from '@/lib/personalization-conflicts';
 
@@ -88,15 +90,12 @@ const CHINESE_SECONDARY_KEY = 'chinese';
 // on 2026-09-03: it is a CEREMONY venue and now appears in the row below
 // (migration 20271197508087 narrowed the CHECK to match, so offering it here
 // would be a valid-looking form with a save the database refuses).
-const VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'banquet_hall', label: 'Banquet hall' },
-  { value: 'restaurant', label: 'Restaurant' },
-  { value: 'garden', label: 'Garden' },
-  { value: 'beach', label: 'Beach' },
-  { value: 'destination', label: 'Destination' },
-  { value: 'heritage', label: 'Heritage venue' },
-  { value: 'outdoor_tent', label: 'Outdoor / tent' },
-];
+// DERIVED from the shared vocabulary (lib/venue-settings.ts), the same way the
+// ceremony list below is — a hand-written copy is how `events_place` went
+// missing here while the couple's onboarding offered it (owner 2026-09-23).
+const VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = VENUE_SETTINGS.map(
+  (value) => ({ value, label: VENUE_SETTING_LABEL[value] }),
+);
 
 // CEREMONY venue — where the couple marries. DERIVED from the shared
 // vocabulary rather than re-typed, so a value added to the CHECK cannot become

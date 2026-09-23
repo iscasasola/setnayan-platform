@@ -73,6 +73,7 @@ const ALLOWED_CEREMONIES = ALLOWED_CEREMONY_VALUES;
 // then rejects.
 const ALLOWED_VENUES = [
   'banquet_hall',
+  'events_place',
   'restaurant',
   'garden',
   'beach',

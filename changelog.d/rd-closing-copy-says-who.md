@@ -115,3 +115,41 @@ traced. Zero withdrawals exist in production, so nothing is at risk today.
 
 SPEC IMPACT: None beyond the row already added for the closing copy (corpus `7950e5d`), which named
 this as the open item.
+
+## 2026-09-23 · fix(chat/db): the server refuses a withdrawn conversation too
+
+The UI gate above hides the controls; this closes the hole underneath it. A page already open when
+the couple withdrew could still post, and `acceptInquiry` never read `archived_at` — it went
+straight to `.update({ inquiry_status: 'accepted' })` and **the write succeeded.**
+
+`20271243991251_withdrawn_thread_refuses_writes.sql` — two **RESTRICTIVE** policies, because a
+permissive one only ORs with the existing grant and refuses nothing. Both of this schema's existing
+refusals are restrictive (`chat_messages_block_guard`, `chat_threads_follow_gate`).
+
+⚖ **The thread rule is checked on the NEW row, deliberately.** A `using` clause would refuse every
+update to a withdrawn thread — including the couple re-adding the vendor, which un-withdraws it by
+setting `archived_at` back to NULL. There is a test for exactly that.
+
+**Why RLS and not TypeScript:** `chat_messages` has NINE insert sites. A guard in `sendChatMessage`
+would be a fix that looks complete and leaves eight doors open.
+
+**Why the bot is unaffected — by mechanism, not by care.** Audited at the CALL SITE, because a
+file's imports do not name the query's client (`chat-send.ts` holds `admin` at :183/:384 and the
+user client at :355, which is the one that inserts). User-client writers are refused; the
+auto-reply bot and `'system'` notes write as service role and are not subject to RLS at all.
+
+Proved by `apps/web/tests/db/a-withdrawn-thread-refuses-writes.db.test.ts` — 6/6, as a real
+`authenticated` session, **including the two that would show the guard doing harm**: the live
+thread still takes both writes, and un-withdrawing still works. **Neutralised once**: with both
+policies dropped inside a rolled-back transaction the same attacks land, so "refused" means the
+guard. Required Ugat map tests 6/6.
+
+🪤 **Four fixture bugs, zero policy bugs — and one of them is worth keeping.** The insert was denied
+with a flat `permission denied for table chat_messages` because it named `sender_role` and
+`sender_user_id`: `authenticated` holds INSERT on **14 columns** and deliberately not on the sender
+fields, which a trigger stamps. **A missing GRANT refuses exactly like a policy does**, so the
+assertions now require the refusal to name the policy and to NOT be a permission error. The other
+three: the signup trigger already creates a vendor profile; one thread per (event, vendor) pair; and
+an uncaught throw where the guard had in fact fired correctly.
+
+SPEC IMPACT: None. Same ruling as the row already in the corpus (`7950e5d`).

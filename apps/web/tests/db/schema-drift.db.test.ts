@@ -55,8 +55,15 @@
  * not arise here.
  *
  * ── HONEST LIMITS ──────────────────────────────────────────────────────────
- *  1. COLUMN EXISTENCE ONLY. Types, defaults, nullability, constraints and
- *     indexes are NOT compared. This is a real hole and it hides real bugs:
+ *  1. EXISTENCE AND NULLABILITY. Types, DEFAULTS, constraints and indexes are
+ *     NOT compared.
+ *     ⚠ This paragraph used to say nullability was not compared either. That
+ *     stopped being true when the [notnull] section was added — it IS compared,
+ *     with its own floor (MIN_NOTNULL) so a truncated section cannot silently
+ *     disable that half. Corrected 2026-09-22 (register LAU-29, "its docs stop
+ *     lying"): a limits paragraph that overstates the hole teaches people to
+ *     distrust the guard, which is the same damage as one that understates it.
+ *     Still a real hole, and it hides real bugs:
  *     `manual_payment_logs.items_ordered` is declared `JSONB` and is `text[]`
  *     in prod, and `admin_audit_log.target_id` is declared `UUID` by a dead
  *     stub and is `TEXT` in prod. Neither is visible here. Widening to types
@@ -608,4 +615,72 @@ test('THE CHECK: every migration production applied actually landed', () => {
         '\n',
     );
   }
+});
+
+/**
+ * ── IS THE PROD HALF STILL PROD? (register LAU-28, added 2026-09-22) ─────────
+ *
+ * 🔑 THIS GUARD CAN BE GREEN AND BLIND AT THE SAME TIME. It replays the
+ * migrations listed in the snapshot's own [ledger] and compares them to the
+ * snapshot's own [columns]. Both halves come from the SAME file, so an old
+ * snapshot is perfectly self-consistent — it verifies that an old ledger
+ * produces an old prod, and says nothing whatever about anything applied since.
+ *
+ * Measured 2026-09-22: the snapshot's ledger held 1351 versions while prod's
+ * ledger and the repo both held 1475. **124 migrations were outside the
+ * comparison**, including every `CREATE TABLE IF NOT EXISTS` no-op they might
+ * contain — which is the exact bug class this file exists to catch. Nothing was
+ * red, because staleness had no symptom.
+ *
+ * So the freshness itself is now asserted. The repo's migration count is the
+ * honest local proxy for prod's ledger: the pipeline applies every committed
+ * file with `db push --include-all`, so the two track each other, and no
+ * production credential is needed here (the same trade the rest of this file
+ * makes).
+ */
+// 40 — roughly a fortnight of migrations at this repo's rate.
+//
+// This was briefly 160 (the 124 of debt measured on 2026-09-22 plus headroom),
+// because clearing it needed a production credential and a red required check
+// would have blocked every bundle. The owner refreshed the snapshot the same
+// day and the gap is 0, so the allowance goes back to something that means
+// something. `gap` grows by one per migration merged; when this fires, the
+// answer is the refresh in the message, never a bigger number here.
+//
+// Refreshing no longer needs a pasted password — `supabase link` once, then
+// `pnpm --filter @setnayan/web schema:snapshot`.
+const LEDGER_GAP_CEILING = 40;
+
+test('the prod snapshot is fresh enough to still be about production', () => {
+  // `snapshot` is the module-level value parsed in `before`; the orphan
+  // direction (a ledger version with no file) already has its own test above,
+  // so this one only measures the gap.
+  const repoMigrations = fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql')).length;
+  const gap = repoMigrations - snapshot.ledger.length;
+
+  console.log(
+    `[schema-drift] snapshot ledger ${snapshot.ledger.length} · repo migrations ` +
+      `${repoMigrations} · gap ${gap} (ceiling ${LEDGER_GAP_CEILING})`,
+  );
+
+  // Floors first: a zero from a broken read must not read as freshness.
+  assert.ok(repoMigrations > 1000, `only ${repoMigrations} migration files found — wrong cwd?`);
+  assert.ok(snapshot.ledger.length > 1000, `snapshot ledger has ${snapshot.ledger.length} rows`);
+  assert.ok(
+    gap >= 0,
+    `the snapshot lists ${-gap} versions the repo does not have. That is the ORPHAN direction — ` +
+      `see the 'every migration in the snapshot ledger still exists as a file' test, and run ` +
+      `scripts/migration-doctor.mjs. Do NOT regenerate over it.`,
+  );
+  assert.ok(
+    gap <= LEDGER_GAP_CEILING,
+    `the prod snapshot is ${gap} migrations behind the repo, so this guard is comparing an old ` +
+      `ledger to an old prod and cannot see drift introduced since.\n` +
+      `Refresh it (needs the production URL, so this is an OWNER action):\n` +
+      `  export SUPABASE_DB_URL='postgresql://...'\n` +
+      `  pnpm --filter @setnayan/web schema:snapshot\n` +
+      `Then commit supabase/security/prod-schema.snapshot.txt.`,
+  );
 });

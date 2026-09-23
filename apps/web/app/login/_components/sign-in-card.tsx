@@ -34,6 +34,7 @@ import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
+import { providerNextStep, type KnownProvider } from '@/lib/sign-in-door';
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */
@@ -44,6 +45,8 @@ export type SignInCardProps = {
   desktopOAuth: boolean;
   /** Route-only status banners; null/absent on the marketing overlay. */
   errorMessage?: string | null;
+  /** Route-only: the door the account uses, from ?provider= (the in-place action carries its own). */
+  provider?: KnownProvider | null;
   justSignedUpEmail?: string | null;
   readyEmail?: string | null;
   prefilledEmail?: string;
@@ -77,6 +80,7 @@ export function SignInCard({
   showOAuth,
   desktopOAuth,
   errorMessage = null,
+  provider = null,
   justSignedUpEmail = null,
   readyEmail = null,
   prefilledEmail = '',
@@ -113,6 +117,8 @@ export function SignInCard({
     five, so it happens HERE, where they all converge.
   */
   const shownError = humanAuthError(inPlace ? state.error : errorMessage);
+  // Only meaningful beside a refusal; a stale ?provider= without an error is ignored.
+  const shownProvider: KnownProvider | null = shownError ? (inPlace ? state.provider : provider) : null;
 
   return (
     <>
@@ -125,6 +131,10 @@ export function SignInCard({
       {shownError ? (
         <p role="alert" className="hr-si-banner hr-si-banner--error">
           {shownError}
+          {/* A Google/Apple-only account was told its door (lib/sign-in-door):
+              name the button — and, on the phone shell where the buttons are
+              hidden, where to find one. Never "wrong password". */}
+          {shownProvider ? <> {providerNextStep(shownProvider, showOAuth)}</> : null}
         </p>
       ) : null}
 

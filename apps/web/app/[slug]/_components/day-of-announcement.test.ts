@@ -23,25 +23,49 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const CARD = readFileSync(join(HERE, 'day-of-announcement.tsx'), 'utf8');
 const SITE = readFileSync(join(HERE, 'site-body.tsx'), 'utf8');
 const LOADERS = readFileSync(join(HERE, '..', '_lib', 'loaders.ts'), 'utf8');
+/** The announcement moved to the layout on 2026-09-22 — it is the only node
+ *  that wraps all twelve guest pages. See the layout's own docblock. */
+const LAYOUT = readFileSync(join(HERE, '..', 'layout.tsx'), 'utf8');
 
 test('announcement · GUESTS only — a stranger with the link never sees it', () => {
-  // The render must sit inside guestTree, after it, not before. An announcement
-  // is for the people in the room; "the ceremony is running late" is not for
-  // whoever was forwarded the URL.
-  const guestTreeStart = SITE.indexOf('const guestTree =');
-  const renderAt = SITE.indexOf('<DayOfAnnouncement');
-  assert.ok(guestTreeStart > 0, 'guestTree not found — the scan is pointed wrong');
-  assert.ok(renderAt > 0, 'the announcement is not rendered at all');
-  assert.ok(
-    renderAt > guestTreeStart,
-    'the announcement renders OUTSIDE the guest tree — that would show it to anonymous visitors',
+  /*
+    THE RULING IS UNCHANGED; ONLY THE MECHANISM MOVED. An announcement is for
+    the people in the room — "the ceremony is running late" is not for whoever
+    was forwarded the URL.
+
+    Until 2026-09-22 this was enforced STRUCTURALLY: the mount sat inside
+    `site-body.tsx`'s guest tree, which an anonymous visitor never reaches. That
+    also meant it reached ONE of the twelve guest pages, so it moved to
+    `[slug]/layout.tsx` — which wraps everyone, anonymous visitors included. A
+    layout has no guest tree to hide inside, so the gate must now be ASKED FOR,
+    and this test is what stops it being dropped.
+  */
+  assert.ok(LAYOUT.includes('<DayOfAnnouncement'), 'the announcement is not rendered at all');
+  assert.match(
+    LAYOUT,
+    /readGuestSession\(\)/,
+    'the layout must read the guest session — without it the coordinator\u2019s words go to anyone with the link',
   );
-  // And it must not have been added to the anonymous tree too.
-  const anonStart = SITE.indexOf('const anonymousTree =');
-  const anonSlice = SITE.slice(anonStart, guestTreeStart);
+  assert.match(
+    LAYOUT,
+    /session\?\.event_id === event\.event_id/,
+    'the session must be for THIS event — one wedding\u2019s guest must not read another\u2019s announcements',
+  );
+  // And the render must actually be behind that verdict, not merely near it.
+  const gateAt = LAYOUT.indexOf('isThisEventsGuest');
+  const renderAt = LAYOUT.indexOf('<DayOfAnnouncement');
+  assert.ok(gateAt > 0 && gateAt < renderAt, 'the guest gate must precede the render');
+  assert.match(
+    LAYOUT,
+    /broadcast = isThisEventsGuest/,
+    'the broadcast must be NULL for a non-guest, not merely hidden by CSS',
+  );
+
+  // ⛔ AND IT MUST NOT HAVE BEEN LEFT BEHIND IN site-body TOO. Two mounts would
+  // double it on the landing page, and the second copy would not carry the gate.
   assert.ok(
-    !anonSlice.includes('<DayOfAnnouncement'),
-    'the announcement also renders in the anonymous tree',
+    !SITE.includes('<DayOfAnnouncement'),
+    'the announcement still renders in site-body — it now mounts once, in the layout',
   );
 });
 

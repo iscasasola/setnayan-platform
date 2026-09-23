@@ -16,6 +16,8 @@ import assert from 'node:assert/strict';
 
 import {
   bufferTile,
+  subtotalLabel,
+  unpricedNote,
   deepLinkTileForGroup,
   stillNeedsDecision,
   teamMoney,
@@ -39,12 +41,132 @@ const row = (over: Partial<TeamDecisionInput> & { groupId: string }): TeamDecisi
 test('teamMoney folds centavos→PHP once and subtracts both layers', () => {
   const m = teamMoney({
     lockedCentavos: 25_000_00,
-    candidateCostsPhp: [40_000, 12_500, null],
+    candidateCostsPhp: [40_000, 12_500],
     budgetPhp: 300_000,
   });
   assert.equal(m.lockedPhp, 25_000);
   assert.equal(m.inBuildPhp, 52_500);
+  assert.equal(m.inBuildUnpriced, 0);
+  assert.equal(m.lockedUnpriced, 0);
   assert.equal(m.bufferPhp, 300_000 - 25_000 - 52_500);
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A NULL PRICE IS NOT ₱0 — and this test file used to say it was
+   ═══════════════════════════════════════════════════════════════════════════
+
+   🪤 THE DEFECT WAS PINNED BY A PASSING TEST. The case above was written
+   `candidateCostsPhp: [40_000, 12_500, null]` asserting
+   `bufferPhp === 300_000 - 25_000 - 52_500` — i.e. it asserted that a candidate
+   whose price nobody has recorded contributes **zero**, and it was green. The
+   `null` has been removed from that case (it is now about the arithmetic it was
+   named for) and the behaviour it accidentally blessed is the subject of the
+   tests below.
+
+   🔑 A guard can hold a defect in place as firmly as it holds a fix. Before
+   changing a derivation, read what its own tests already promise.
+
+   Measured on production 2026-09-22, event 044f7e64 (a live wedding): both
+   locked suppliers and both candidates carry `total_cost_php = NULL`, so the
+   section printed **LOCKED ₱0** and **₱2,250,000 to spare** beside
+   **₱26,499 paid**. The numbers below are that event. */
+
+test('🪤 an unpriced candidate is COUNTED, never added as ₱0', () => {
+  const m = teamMoney({
+    lockedCentavos: 40_000_00,
+    candidateCostsPhp: [12_500, null, null],
+    budgetPhp: 300_000,
+  });
+  assert.equal(m.inBuildPhp, 12_500, 'only the price that exists is summed');
+  assert.equal(m.inBuildUnpriced, 2, 'the two unknowns are reported, not absorbed');
+  assert.equal(
+    m.bufferPhp,
+    null,
+    'a buffer cannot be computed from a sum that is missing rows — null, not 247,500',
+  );
+});
+
+test('🪤 the live production shape: everything unpriced, nothing claimed', () => {
+  // 2 locked suppliers and 2 candidates, all with total_cost_php = NULL,
+  // against the couple's real ₱2,250,000 budget.
+  const m = teamMoney({
+    lockedCentavos: 0,
+    lockedUnpricedCount: 2,
+    candidateCostsPhp: [null, null],
+    budgetPhp: 2_250_000,
+  });
+  assert.equal(m.lockedUnpriced, 2);
+  assert.equal(m.inBuildUnpriced, 2);
+  assert.equal(m.inBuildPhp, 0, 'zero KNOWN prices sum to zero — that part is honest');
+  assert.equal(m.bufferPhp, null, 'the screen said "₱2,250,000 to spare". It did not know that.');
+  // And the words the couple actually reads:
+  assert.deepEqual(bufferTile(m.bufferPhp, m.lockedUnpriced + m.inBuildUnpriced), {
+    text: 'Not knowable',
+    tone: 'none',
+  });
+  assert.equal(unpricedNote(m.lockedUnpriced + m.inBuildUnpriced), '4 suppliers have no price recorded');
+  assert.equal(subtotalLabel(m.inBuildPhp, m.inBuildUnpriced), 'No prices recorded yet');
+});
+
+test('🪤 an unpriced LOCKED supplier makes the buffer refuse too', () => {
+  // Every candidate is priced; the doubt is entirely on the locked side.
+  const m = teamMoney({
+    lockedCentavos: 10_170_00,
+    lockedUnpricedCount: 1,
+    candidateCostsPhp: [40_000],
+    budgetPhp: 300_000,
+  });
+  assert.equal(m.lockedPhp, 10_170, 'the locked FIGURE does not move — it is summed upstream');
+  assert.equal(m.lockedUnpriced, 1);
+  assert.equal(m.bufferPhp, null);
+  assert.equal(unpricedNote(m.lockedUnpriced), '1 supplier has no price recorded');
+});
+
+test('a fully priced team still gets its buffer — the refusal is not a blanket', () => {
+  // The regression that would make this fix useless: refusing always.
+  const m = teamMoney({
+    lockedCentavos: 30_000_00,
+    lockedUnpricedCount: 0,
+    candidateCostsPhp: [48_000, 40_000],
+    budgetPhp: 200_000,
+  });
+  assert.equal(m.bufferPhp, 82_000);
+  assert.deepEqual(bufferTile(m.bufferPhp, m.lockedUnpriced + m.inBuildUnpriced), {
+    text: '₱82,000 to spare',
+    tone: 'good',
+  });
+  assert.equal(unpricedNote(0), null, 'no doubt → no note at all');
+  assert.equal(subtotalLabel(m.inBuildPhp, 0), '₱88,000');
+});
+
+test('unpricedNote refuses to announce a doubt it does not have', () => {
+  // 🔑 The same mechanism as hiddenMoreLabel in lib/capped-rows.ts: with no
+  // string there is no note, so "0 suppliers have no price recorded" is
+  // unrepresentable rather than merely discouraged.
+  for (const n of [0, -1, -4, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(unpricedNote(n), null, `unpricedNote(${String(n)}) must be null`);
+  }
+  assert.equal(unpricedNote(1), '1 supplier has no price recorded', 'singular');
+  assert.equal(unpricedNote(2), '2 suppliers have no price recorded', 'plural');
+  assert.equal(unpricedNote(2.9), '2 suppliers have no price recorded', 'floors, never "2.9 suppliers"');
+});
+
+test('subtotalLabel never renders ₱0 for "we do not know"', () => {
+  assert.equal(subtotalLabel(52_500, 0), '₱52,500');
+  assert.equal(subtotalLabel(52_500, 2), '₱52,500 + 2 with no price recorded');
+  // 🪤 The live case. "₱0" is a claim about their build that nobody made.
+  assert.equal(subtotalLabel(0, 2), 'No prices recorded yet');
+  // A genuinely empty build is still ₱0 — there is nothing unknown about it.
+  assert.equal(subtotalLabel(0, 0), '₱0');
+});
+
+test('"Not knowable" outranks "No budget set" when both are true', () => {
+  // A couple who HAS set a budget and sees "No budget set" would reasonably
+  // think their budget was lost. The doubt about prices is the nearer fact.
+  const m = teamMoney({ lockedCentavos: 0, candidateCostsPhp: [null], budgetPhp: null });
+  assert.equal(m.bufferPhp, null);
+  assert.equal(bufferTile(m.bufferPhp, m.inBuildUnpriced).text, 'Not knowable');
+  assert.equal(bufferTile(null, 0).text, 'No budget set', 'and with no doubt, the old words stand');
 });
 
 test('teamMoney: no budget set → buffer is null, NOT zero', () => {
@@ -60,10 +182,11 @@ test('teamMoney: overspending yields a NEGATIVE buffer (never clamped)', () => {
   assert.equal(m.bufferPhp, -50_000);
 });
 
-test('teamMoney: empty candidate list totals zero', () => {
+test('teamMoney: empty candidate list totals zero — and doubts nothing', () => {
   const m = teamMoney({ lockedCentavos: 0, candidateCostsPhp: [], budgetPhp: 100_000 });
   assert.equal(m.inBuildPhp, 0);
-  assert.equal(m.bufferPhp, 100_000);
+  assert.equal(m.inBuildUnpriced, 0, 'no rows means no unknowns — an empty build is knowable');
+  assert.equal(m.bufferPhp, 100_000, 'so the buffer must still compute');
 });
 
 // ── bufferTile ─────────────────────────────────────────────────────────────

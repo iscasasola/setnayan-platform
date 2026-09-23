@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 319 jobs, 208 of them form-driven, as of 2672206ef.
+// that performs it. 324 jobs, 209 of them form-driven, as of 799d0c0a5.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -1028,6 +1028,33 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "executeLargeRefund",
+    "phrase": "execute large refund",
+    "ownerPath": "/admin/payments",
+    "resolvedPath": "/admin/payments",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "executePaymentAccountChange",
+    "phrase": "execute payment account change",
+    "ownerPath": "/admin/settings",
+    "resolvedPath": "/admin/settings",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "executeVendorSkuComp",
+    "phrase": "execute vendor sku comp",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "fetchUgatCounts",
     "phrase": "fetch ugat counts",
     "ownerPath": "/admin/ugat",
@@ -1445,6 +1472,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "phrase": "recompute funnel bands",
     "ownerPath": "/admin/price-bands",
     "resolvedPath": "/admin/price-bands",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "recomputePapicPoolLearning",
+    "phrase": "recompute papic pool learning",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2522,6 +2558,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "refusedWhenEmpty": [
       "service_code",
       "regular_price_php"
+    ],
+    "destructive": false
+  },
+  {
+    "name": "savePapicTypeSizing",
+    "phrase": "save papic type sizing",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "config_key"
+    ],
+    "refusedWhenEmpty": [
+      "config_key"
     ],
     "destructive": false
   },

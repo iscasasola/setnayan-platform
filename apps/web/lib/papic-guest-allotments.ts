@@ -100,6 +100,17 @@ export const ALLOTMENT_STORAGE = {
   everyoneElse: 'papic_guest_spend_ceiling_points',
   /** `events` — stamped when the rest is opened to everyone. NULL = held back. */
   releasedAt: 'papic_guest_spend_ceiling_released_at',
+  /**
+   * `events` — the LEAST any guest may spend. NULL = no minimum.
+   *
+   * ⚠ IT IS THE OPPOSITE SEMANTIC TO EVERY OTHER KEY HERE, which is why it gets
+   * the word `floor`: those are ceilings, the most somebody may take. This is a
+   * promise, the least they are guaranteed. A ceiling nobody reaches costs
+   * nothing; a floor the pot cannot cover is a lie told to every guest at once,
+   * so it is the one number on this control whose payability is checked — see
+   * {@link guestMinimumVerdict}.
+   */
+  floor: 'papic_guest_spend_floor_points',
   /** One row per NAMED guest. ⛔ RLS-on and REVOKEd from anon and authenticated
    *  — never reachable from a browser. Server-side reads go through the admin
    *  client, which service_role still holds. */
@@ -233,6 +244,80 @@ export function suggestedAllotment(role: AllotmentRole, perHead: number): number
   return Math.ceil(perHead * (ROLE_MULTIPLIER[role] ?? 1));
 }
 
+/**
+ * IS THE MINIMUM PAYABLE? — pure, and the reason the minimum needed a build.
+ *
+ * ── WHY A CEILING NEEDED NO SUCH CHECK AND A FLOOR DOES ────────────────────
+ * A ceiling is a LIMIT. Set it higher than the pot can reach and nothing
+ * happens: it simply never binds, and nobody was told anything. A MINIMUM is a
+ * SENTENCE SPOKEN TO EVERY GUEST — "you will get at least this many" — so a
+ * minimum the celebration cannot cover is not an inert setting, it is a promise
+ * broken simultaneously for all of them, discovered one at a time at the party.
+ *
+ * So the arithmetic is stated rather than assumed: `minimum × guests` against
+ * what the celebration holds, with the SHORTFALL named. A couple who is 4,000
+ * credits short can buy 4,000 credits; a couple told only "that will not work"
+ * can do nothing with the sentence.
+ *
+ * ⚠ THIS CANNOT LIVE IN A CHECK CONSTRAINT and it would be worse if it did.
+ * Both inputs move without the minimum being touched — a top-up raises the pot,
+ * an RSVP raises the head count — so a constraint would either refuse a save
+ * that is about to become affordable or pass a save that stops being
+ * affordable the next minute. It is re-derived on every render.
+ *
+ * 🔑 IT COMPARES AGAINST THE WHOLE POT, NOT THE REMAINDER after the named
+ * guests. The minimum applies to every guest INCLUDING the named ones — it
+ * raises a named number that sits below it — so the promise is genuinely
+ * `guests × minimum`, and checking it against a remainder would understate what
+ * has been promised.
+ */
+export type MinimumVerdict =
+  /** No minimum set. Say nothing at all. */
+  | { status: 'none' }
+  /** The celebration can cover it. */
+  | { status: 'payable'; promised: number; pot: number }
+  /** It cannot: `shortfall` credits would have to be added. */
+  | { status: 'short'; promised: number; pot: number; shortfall: number }
+  /** Not knowable yet — no guests, or no pot to compare against. */
+  | { status: 'unknown' };
+
+export function guestMinimumVerdict(i: {
+  /** The couple's minimum, or null when they have not set one. */
+  floorPoints: number | null;
+  /** How many guests are on the list. */
+  guestCount: number;
+  /** Everything the celebration holds. */
+  pot: number;
+}): MinimumVerdict {
+  if (i.floorPoints == null) return { status: 'none' };
+  if (!Number.isFinite(i.floorPoints) || i.floorPoints <= 0) return { status: 'none' };
+  if (!Number.isFinite(i.guestCount) || i.guestCount <= 0) return { status: 'unknown' };
+  if (!Number.isFinite(i.pot) || i.pot < 0) return { status: 'unknown' };
+
+  const promised = Math.floor(i.floorPoints) * Math.floor(i.guestCount);
+  const pot = Math.floor(i.pot);
+  if (promised <= pot) return { status: 'payable', promised, pot };
+  return { status: 'short', promised, pot, shortfall: promised - pot };
+}
+
+/**
+ * The line under the minimum box. Empty string when there is nothing to say —
+ * a control that narrates its own silence is noise.
+ */
+export function summariseMinimum(v: MinimumVerdict): string {
+  switch (v.status) {
+    case 'none':
+    case 'unknown':
+      return '';
+    case 'payable':
+      return `Promising ${v.promised.toLocaleString('en-PH')} credits in total, and this celebration holds ${v.pot.toLocaleString('en-PH')}.`;
+    case 'short':
+      // 🔑 THE SHORTFALL, NAMED. "That will not work" is not something a couple
+      // can act on; "add 4,000 credits" is.
+      return `This promises ${v.promised.toLocaleString('en-PH')} credits between your guests and the celebration holds ${v.pot.toLocaleString('en-PH')} — ${v.shortfall.toLocaleString('en-PH')} short. Lower the minimum, or add ${v.shortfall.toLocaleString('en-PH')} credits.`;
+  }
+}
+
 export type SplitInputs = {
   /** Everything the celebration holds to give away. */
   pot: number;
@@ -264,7 +349,11 @@ export type SplitInputs = {
  * ⚠ THIS IS A SUGGESTION ENGINE, NOT AN ALLOCATION — measured 2026-09-16.
  *
  * `papic_guest_spend_ceilings.ceiling_points` is a CEILING: the most one guest
- * may take. `papic_event_pool_status` subtracts `papic_seat_allocations` from
+ * may take. ⚠ UPDATED 2026-09-23: it used to say the pool "subtracts
+ * `papic_seat_allocations`" — that table and its mover are DROPPED (migration
+ * 20271243295861, owner: no dedicated shots individually), so the pool no
+ * longer subtracts anything of the kind. The point below is UNCHANGED and is
+ * why this note stays: `papic_event_pool_status` takes nothing out of
  * the shared pot and NOTHING ELSE — no named guest's number is ever held back
  * for her. Every credit comes out of the one pot, first come first served, and
  * a guest who arrives late finds whatever is left regardless of her number.

@@ -121,18 +121,33 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
 // and both have been dropped — so there is no switch here to find, and per-event
 // is not a configuration any more. Do not re-add one.
 
-// ── Per-EVENT ₱499-intro / ₱799-renewal pricing flag (owner 2026-07-02) ──────
+// ── Per-EVENT Setnayan AI pricing flag (owner 2026-07-02) ────────────────────
+//
+// ⚠ CORRECTED 2026-09-22 — THIS COMMENT DESCRIBED A MODEL THE CODE DOES NOT
+// IMPLEMENT. It said TRUE means "the ₱499-first-28-days then ₱799-per-28-day-cycle
+// model is live (the intro/renewal charge + the per-event window are honored)".
+// The flag is TRUE in production and no such model exists: the renewal SKU is
+// INACTIVE, and nothing anywhere charges those amounts. A stale comment on a
+// live money flag is how the same two numbers ended up in rendered copy on the
+// Overview (see lib/setnayan-ai-free-assist.ts, fixed in the same change).
+//
+// WHAT IT ACTUALLY SELECTS — the catalog ROW, never a rule and never a price:
+//   • TRUE  → the event is priced from its own TIER's row
+//             (AI_TIER_SKU[tier] · lib/setnayan-ai-type-pricing.ts).
+//   • FALSE → everything falls back to the flat `SETNAYAN_AI` row.
+//   • NULL / unreadable → FALSE, the conservative choice.
+// Either way the amount comes from `platform_retail_catalog_v2`, and BOTH the
+// displayed price and the charged price go through the one switch
+// (`resolveSetnayanAiDisplayPricePhp`) so they cannot disagree.
+//
+// 🔑 NO AMOUNT IS NAMED HERE ON PURPOSE. A docblock that quotes prices becomes a
+// second price list — the exact cure setnayan-ai-type-pricing.ts wrote down after
+// its own header carried prices that had not been true for months. Re-measure:
+//   select service_code, retail_price_php, billing_period, is_active
+//     from platform_retail_catalog_v2 where service_code like 'SETNAYAN_AI%';
 //
 // DB-first, no env fallback, uncached — same shape as
-// resolveSetnayanAiPaywallEnabled.
-// platform_settings.setnayan_ai_per_event_pricing_enabled is TRI-STATE:
-//   • NULL  → OFF (today's behaviour — the ₱499 flat per-event unlock).
-//   • TRUE  → the ₱499-first-28-days then ₱799-per-28-day-cycle model is live
-//             (the intro/renewal charge + the per-event window are honored).
-//   • FALSE → off.
-// Default OFF on any read error (column absent pre-migration) — the conservative,
-// byte-identical-to-today choice. Flip from /admin/integrations at go-live, once
-// the buy-flow wiring + copy ship AND the Wave-1 guard is live (so ₱799 is earned).
+// resolveSetnayanAiPaywallEnabled. Flip from /admin/integrations.
 export async function resolveSetnayanAiPerEventPricingEnabled(): Promise<boolean> {
   try {
     const admin = createAdminClient();

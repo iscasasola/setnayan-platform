@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react';
+import { resolveHubLook } from '../_lib/hub-look';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { formatEventDate } from '@/lib/events';
 import type { MonogramConfig } from '@/lib/monogram';
@@ -45,10 +46,20 @@ export async function PrivateLanding({
   // couple's guests…". Wedding → 'wedding'/'the couple', so a wedding reads
   // byte-identically; every other type finally names itself.
   const words = await eventWordsFor(event.event_type);
+  /*
+    ⚠ THE PRIVATE LANDING IS THEMED TOO, and that is deliberate rather than
+    thorough. It is the FIRST thing anyone sees on a private event — an
+    unthemed "this page is private" in front of a themed everything-else is the
+    half-themed product that reads as a broken theme.
+  */
+  const hubLook = await resolveHubLook(event);
   return (
     <InvitationShell
       rolePalette={event.role_palette}
       artDirection={event.site_art_direction ?? null}
+      hubTheme={hubLook.theme}
+      hubPhoto={hubLook.photo}
+      hubAccent={hubLook.accent}
       hideWatermark={proWatermarkHidden}
       customColorVars={siteColorVars}
     >

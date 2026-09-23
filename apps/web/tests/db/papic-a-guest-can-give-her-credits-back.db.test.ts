@@ -51,9 +51,8 @@ const RELEASABLE = BOUGHT - SHOT; // 96
 async function seed({
   bought = BOUGHT,
   shot = SHOT,
-  allocated = 0,
   pool = POOL,
-}: { bought?: number; shot?: number; allocated?: number; pool?: number } = {}) {
+}: { bought?: number; shot?: number; pool?: number } = {}) {
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type)
      VALUES ('Give-back test', 'birthday') RETURNING event_id`,
@@ -82,9 +81,6 @@ async function seed({
       [eventId, seatId, bought],
     );
   }
-  if (allocated > 0) {
-    await one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, allocated]);
-  }
   if (shot > 0) {
     await db.query(
       `INSERT INTO public.papic_seat_point_usage (seat_id, points_used) VALUES ($1, $2)`,
@@ -101,13 +97,11 @@ async function seed({
  * traceable to HER purchase — `papic_guest_self_funded_spend` joins through it,
  * so a grant without an order is invisible to the ceiling.
  */
-async function seedNamedBuyerWithHandout({
+async function seedNamedBuyer({
   bought,
-  allocated,
   shot,
 }: {
   bought: number;
-  allocated: number;
   shot: number;
 }) {
   seatCounter += 1;
@@ -150,9 +144,6 @@ async function seedNamedBuyerWithHandout({
      VALUES ($1, $2, 'topup_order', $3, $4, 'keep them for me')`,
     [eventId, bought, orderId, seatId],
   );
-  if (allocated > 0) {
-    await one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, allocated]);
-  }
   if (shot > 0) {
     await db.query(
       `INSERT INTO public.papic_seat_point_usage (seat_id, points_used) VALUES ($1, $2)`,
@@ -235,18 +226,18 @@ test('what she already SHOT can never come back', async () => {
 });
 
 test('a camera that has shot MORE than it bought has nothing of its own left to give', async () => {
-  // Host handed 200 on top of her 137; she has shot 300 — more than she bought.
-  const { eventId, seatId } = await seed({ bought: 137, allocated: 200, shot: 300 });
+  // She bought 137 and has shot 300 — more than she bought.
+  // ⛔ WAS `allocated: 200` — the host's hand-out, now unreachable (migration
+  // 20271243295861). The property is unchanged and does not need it: her own
+  // 137 are entirely consumed by a 300-shot spend, so she has nothing to give.
+  const { eventId, seatId } = await seed({ bought: 137, shot: 300 });
   const potBefore = Number(await pot(eventId));
   const dedBefore = Number(await dedicated(seatId));
   const moved = Number(await release(eventId, seatId));
   assert.equal(
     moved,
     0,
-    'her own 137 are entirely consumed by a 300-shot spend, so she has nothing ' +
-      'left to give. The 37 still unspent on this camera belong to the COUPLE — ' +
-      "they are the tail of the host's 200 hand-out, and giving them back would " +
-      'return the couple their own money as though it were a gift.',
+    'her own 137 are entirely consumed by a 300-shot spend, so she has nothing left to give.',
   );
   assert.equal(Number(await dedicated(seatId)), dedBefore, 'nothing moves');
   assert.equal(Number(await pot(eventId)), potBefore);
@@ -254,48 +245,49 @@ test('a camera that has shot MORE than it bought has nothing of its own left to 
 
 // ── whose money is it ──────────────────────────────────────────────────────
 
-test("she cannot give away the HOST's hand-out — that is the couple's own money", async () => {
-  // Nothing bought; the host handed her camera 200; she has shot 20.
-  const { eventId, seatId } = await seed({ bought: 0, allocated: 200, shot: 20 });
-  const potBefore = Number(await pot(eventId));
-  const dedBefore = Number(await dedicated(seatId));
+/*
+ * ⛔ TWO TESTS RETIRED HERE, 2026-09-23, AND THE REASON IS RECORDED RATHER THAN
+ * THE TESTS DELETED QUIETLY.
+ *
+ *   • "she cannot give away the HOST's hand-out — that is the couple's own money"
+ *   • "with BOTH a hand-out and a purchase, only her own share moves"
+ *
+ * Both seeded a HOST HAND-OUT alongside her purchase. `papic_dedicate_shots`
+ * and `papic_seat_allocations` are DROPPED (migration 20271243295861 — owner
+ * 2026-09-16, re-confirmed 2026-09-22 against a question naming the control),
+ * so the couple can no longer put their own pot money onto one camera and those
+ * scenarios cannot occur.
+ *
+ * 🔑 THE PROPERTY THEY HELD IS NOW STRUCTURAL, WHICH IS STRICTLY STRONGER THAN A
+ * TEST: a camera's balance can only be a GRANT, and a grant is hers. "She cannot
+ * give away the host's money" is true because the host has no way to put money
+ * there. The test below asserts exactly that, so the claim is still MEASURED and
+ * not merely asserted in prose.
+ *
+ * ⚠ The attribution rule those tests also exercised — her spend counts against
+ * her OWN purchase first — is untouched and is still covered by "what she
+ * already SHOT can never come back" above and by the table-driven contract
+ * below.
+ */
+test('only her own credits can be on a camera at all — the host has no way in', async () => {
+  const { eventId, seatId } = await seed({ bought: 137, shot: 41 });
 
+  // The hand-out's storage is gone, so there is no second kind of balance.
+  const tableGone = await one(
+    `SELECT to_regclass('public.papic_seat_allocations') IS NULL`,
+  );
+  assert.equal(tableGone, true, 'papic_seat_allocations is back — the host can hand out again');
+
+  const fnGone = await one(
+    `SELECT COUNT(*)::int = 0 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'papic_dedicate_shots'`,
+  );
+  assert.equal(fnGone, true, 'papic_dedicate_shots is back — the mover returned');
+
+  // And with only her own money on the camera, the contract is the plain one.
   const moved = Number(await release(eventId, seatId));
-
-  assert.equal(moved, 0, 'she has no bought credits, so she has nothing to give back');
-  assert.equal(Number(await dedicated(seatId)), dedBefore, 'the hand-out stays on her camera');
-  assert.equal(
-    Number(await pot(eventId)),
-    potBefore,
-    'and the pot does not double-count money it already lent out — the host ' +
-      'takes a hand-out back with papic_dedicate_shots, not this',
-  );
+  assert.equal(moved, 96, 'her unspent own credits, 137 - 41');
 });
-
-test('with BOTH a hand-out and a purchase, only her own share moves', async () => {
-  const { eventId, seatId } = await seed({ bought: 137, allocated: 200, shot: 41 });
-  const potBefore = Number(await pot(eventId));
-  const moved = Number(await release(eventId, seatId));
-  assert.equal(
-    moved,
-    96,
-    'her own UNSPENT credits are 137 - 41 = 96, and dedicated-minus-spend is ' +
-      '296, so the FIRST ceiling binds.\n' +
-      '⚠ NOT 137. Her 41 shots are attributed to her own purchase first — the ' +
-      'same attribution papic_guest_self_funded_spend makes with LEAST(spent, ' +
-      'paid). Letting her give back all 137 would make the couple\'s hand-out ' +
-      'silently pay for shots she took with her own money, and leave her a ' +
-      'ceiling exemption for credits she no longer owns. Measured, not reasoned.',
-  );
-  assert.equal(
-    Number(await dedicated(seatId)),
-    337 - 96,
-    "the host's 200 and her own already-shot 41 are still on her camera",
-  );
-  assert.equal(Number(await pot(eventId)) - potBefore, +96);
-});
-
-// ── pressing it twice ──────────────────────────────────────────────────────
 
 test('a second press moves nothing — idempotent by construction, not by a guard', async () => {
   const { eventId, seatId } = await seed();
@@ -393,13 +385,21 @@ test("PR #5038's pre-written contract passes against the real primitive", async 
  */
 test('the number shown and the number moved are always the same number', async () => {
   const shapes = [
-    { bought: 137, shot: 41, allocated: 0, expect: 96 }, // ordinary
-    { bought: 137, shot: 0, allocated: 0, expect: 137 }, // shot nothing
-    { bought: 137, shot: 137, allocated: 0, expect: 0 }, // shot everything
-    { bought: 0, shot: 20, allocated: 200, expect: 0 }, // host's money only
-    { bought: 137, shot: 41, allocated: 200, expect: 96 }, // both: her UNSPENT own share
-    { bought: 137, shot: 300, allocated: 200, expect: 0 }, // both: her own is all gone
-    { bought: 1, shot: 0, allocated: 0, expect: 1 }, // the smallest real gift
+    { bought: 137, shot: 41, expect: 96 }, // ordinary
+    { bought: 137, shot: 0, expect: 137 }, // shot nothing
+    { bought: 137, shot: 137, expect: 0 }, // shot everything
+    { bought: 0, shot: 20, expect: 0 }, // nothing of her own to give
+    { bought: 137, shot: 300, expect: 0 }, // her own is all gone
+    { bought: 1, shot: 0, expect: 1 }, // the smallest real gift
+    /*
+      ⛔ THREE ROWS CARRIED `allocated: 200` — the host's hand-out — AND ARE GONE
+      WITH IT (migration 20271243295861). Two of them are kept above with the
+      hand-out removed, because the hand-out was never what they measured: the
+      answer depends only on her own bought-minus-shot. The third, "host's money
+      only" (bought 0, allocated 200), had no other content and is retired — a
+      camera can no longer hold money that is not hers, which the structural
+      test above asserts directly.
+    */
   ];
 
   for (const s of shapes) {
@@ -443,11 +443,10 @@ test('the number shown and the number moved are always the same number', async (
  * buying her a walk through the couple's own limit.
  */
 test('credits she gave back stop earning her an exemption from the couple’s ceiling', async () => {
-  const { eventId, seatId, guestId } = await seedNamedBuyerWithHandout({
-    bought: 137,
-    allocated: 200,
-    shot: 41,
-  });
+  const { eventId, seatId, guestId } = await seedNamedBuyer({ bought: 137, shot: 41 });
+  // ⛔ WAS ALSO `allocated: 200` — the host's hand-out. It was scenery here, not
+  // the subject: this test is about HER exemption, and a hand-out can no longer
+  // exist (migration 20271243295861).
   const selfFunded = () =>
     one<number>(`SELECT public.papic_guest_self_funded_spend($1)`, [guestId]);
 

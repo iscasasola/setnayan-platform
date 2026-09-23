@@ -237,6 +237,34 @@ test('no NEW Supabase call leaves its error unread', () => {
   // Fixed entries are reported, not failed: a ratchet that turns main red
   // because a peer PR FIXED something punishes the fix. Lower the count here
   // when you pay one down, or regenerate with UPDATE_UNREAD_ERROR_BASELINE=1.
+  //
+  // ── BUT THE SLACK IS BOUNDED (added 2026-09-22, W1 / LAU-30) ──────────────
+  // 🔑 A STALE BASELINE ENTRY IS NOT NEUTRAL — IT IS PERMISSION. The baseline
+  // is a ceiling per `file · kind · target`. When the real count drops to 0 and
+  // the entry stays at 1, that file may acquire a genuinely unread error later
+  // and this guard stays GREEN, because the count never exceeds the stale
+  // ceiling. Reporting-only meant nobody ever lowered one.
+  //
+  // Measured: 8 entries (11 units) had silently gone stale in the 4 days since
+  // this baseline was inherited on 2026-09-18 — including 4 paid down by the
+  // very PR that fixed them (#5872) without lowering them here.
+  //
+  // So: still never fail on a SINGLE fix — that would punish the fix, which the
+  // paragraph above is right about — but fail once the drift is large enough
+  // that the debt list has stopped describing the tree. Regenerating is one
+  // command and the message says it.
   const paid = [...base].filter(([k, n]) => (counts.get(k) ?? 0) < n).map(([k]) => k.replace(/\t/g, ' '));
-  if (paid.length) console.log(`# ${paid.length} baseline entries are now paid down — lower them:\n#   ${paid.join('\n#   ')}`);
+  const PAID_DOWN_CEILING = 12;
+  console.log(
+    `# unread-error baseline: ${base.size} entries, ${paid.length} paid down ` +
+      `(ceiling ${PAID_DOWN_CEILING})`,
+  );
+  if (paid.length) console.log(`#   ${paid.join('\n#   ')}`);
+  assert.ok(
+    paid.length <= PAID_DOWN_CEILING,
+    `${paid.length} baseline entries are stale — the list has stopped describing the tree.\n` +
+      `A stale entry is PERMISSION: that file can acquire a real unread error and stay green.\n` +
+      `Fix: pnpm --filter @setnayan/web exec env UPDATE_UNREAD_ERROR_BASELINE=1 node --test --import tsx lib/a-database-error-is-never-ignored.test.ts\n` +
+      `Stale:\n  ` + paid.join('\n  '),
+  );
 });

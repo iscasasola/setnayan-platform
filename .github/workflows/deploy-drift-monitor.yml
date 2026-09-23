@@ -130,4 +130,8 @@ jobs:
         if: steps.gate.outputs.enabled == 'true'
         run: |
           set -o pipefail
-          node scripts/deploy-drift-doctor.mjs | tee "$GITHUB_STEP_SUMMARY"
+          # --grace-min 285 because deploys are BATCHED 6x/day (deploy-prod.yml,
+          # cron '7 */4 * * *'): 240 min between runs + build + hook latency. The
+          # default 20 was right when every merge deployed; with batching it would
+          # alarm on every cycle and the alarm would stop meaning anything.
+          node scripts/deploy-drift-doctor.mjs --grace-min 285 | tee "$GITHUB_STEP_SUMMARY"

@@ -194,7 +194,32 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // in the .update() call below so it's left untouched).
   const invited_to_blocks = parseInvitedToBlocks(formData);
 
-  const backTo = `/dashboard/${eventId}/guests/${guestId}`;
+  /**
+   * AUTOSAVE (2026-09-22). The guest card has no Save button — it posts this
+   * same action, with this same full FormData, on a debounce. Two fields tell
+   * us so:
+   *
+   *   `quiet`     — on SUCCESS, revalidate and RETURN instead of redirecting.
+   *                 A redirect on every pause remounts the form and throws the
+   *                 caret away mid-word. Errors still redirect, because an error
+   *                 has to be seen, and losing focus to show it is the right
+   *                 trade. Absent (the standalone route) = behave exactly as
+   *                 before.
+   *   `return_to` — where an error lands, so a failed save appears on the card
+   *                 the host is looking at rather than on some other page.
+   *
+   * ⚠ `return_to` arrives from a form and is therefore untrusted: it is pinned
+   * to this event's own guest routes, so it can never be turned into an open
+   * redirect. Anything else falls back to the standalone detail route.
+   */
+  const quiet = clean(formData.get('quiet')) === '1';
+  const detailRoute = `/dashboard/${eventId}/guests/${guestId}`;
+  const requestedReturn = clean(formData.get('return_to'));
+  const backTo =
+    requestedReturn.startsWith(`/dashboard/${eventId}/guests`) &&
+    !requestedReturn.startsWith('//')
+      ? requestedReturn
+      : detailRoute;
 
   if (!first_name || !last_name) {
     return redirect(`${backTo}?error=missing_name`);
@@ -561,6 +586,11 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     prevGuest.faceblock_enabled !== faceblock_enabled ||
     prevGuest.face_recognition_excluded !== face_recognition_excluded;
   if (consentMoved) await everyCopyIsNowStale(eventId);
+
+  // Autosave: the card stays open and the caret stays where it was. The paths
+  // that matter were already revalidated above, so there is nothing left to do
+  // but stop — and NOT redirect.
+  if (quiet) return;
 
   // Owner directive 2026-05-22: when information is saved on guest,
   // it needs to return to guest list. The guests list page consumes

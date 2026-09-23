@@ -1507,3 +1507,82 @@ export const ERASURE_FILTER_COLUMNS: Readonly<Record<string, readonly string[]>>
   // The fail-closed residue probe reads oauth_grants by event + attribution.
   oauth_grants: ['event_id', 'granted_by_user_id'],
 };
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DPO_QUESTIONS — the erasure decisions that are NOT engineering's to make
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * 🔑 THIS SYMBOL WAS CITED TWICE IN THIS FILE AND HAD NEVER EXISTED. Both
+ * references arrived in the same commit that mentioned them
+ * (`9637655d5`, "make account deletion actually finish"), and `git log -S` finds
+ * no commit in the history that ever defined it. So two live retention
+ * decisions — that jointly-authored event fields are deliberately kept, and
+ * that `event_vendors` third-party PII is excluded — were justified by a
+ * document nobody had written. Those are precisely the decisions a Data
+ * Protection Officer has to defend under RA 10173 §16(e), and "see the thing
+ * that does not exist" is not a defence.
+ *
+ * Each row is a genuine conflict between the data subject's right to erasure
+ * and somebody else's lawful interest. Engineering must NOT resolve one
+ * silently in either direction: erasing destroys a third party's record,
+ * keeping withholds a statutory right. The honest state is "asked, unanswered",
+ * written down where the next session reads it.
+ *
+ * ⚖ Answering one is an owner/DPO ruling. Record it in the corpus
+ * `DECISION_LOG.md`, then change the code and this row in the same commit.
+ */
+export type DpoQuestion = {
+  key: string;
+  /** Exactly what erasure does TODAY — the status quo, stated without spin. */
+  today: string;
+  /** The competing lawful interest. Why the obvious answer is not obvious. */
+  tension: string;
+  /** What would change in the code if the ruling went the subject's way. */
+  ifRuledForSubject: string;
+  /** The tables the ruling would touch. */
+  tables: readonly string[];
+};
+
+export const DPO_QUESTIONS: readonly DpoQuestion[] = [
+  {
+    key: 'jointly-authored-event-fields',
+    today:
+      'Shared fields on the event row — bride_name, groom_name, venue and the ~20 jointly authored jsonb blobs — are NOT cleared when one partner erases. Only the birth data and the owner-specific columns in EVENTS_OWNER_PII_NULLS are.',
+    tension:
+      'The row is one wedding belonging to two people. Clearing it on one partner’s request destroys the other partner’s record of their own celebration, which they did not ask for and cannot get back.',
+    ifRuledForSubject:
+      'EVENTS_OWNER_PII_NULLS grows to cover the shared columns, and the purge needs a rule for what the remaining partner keeps — a blanked event is not obviously better for them than a deleted one.',
+    tables: ['events'],
+  },
+  {
+    key: 'event-vendors-third-party-pii',
+    today:
+      'On `event_vendors` only the actor stamps are cleared (lock_requested_by_user_id, lock_answered_by_user_id, SET NULL). The booking itself survives the couple’s erasure.',
+    tension:
+      'The booking is the SUPPLIER’s commercial record of work they were hired for. Deleting it because one member of the couple erased would destroy a third party’s business record and the other partner’s booking.',
+    ifRuledForSubject:
+      'The purge would need a supplier-facing redaction rather than a delete — keep the commercial fact, drop the couple’s identity from it.',
+    tables: ['event_vendors'],
+  },
+  {
+    key: 'deposit-proof-receipt',
+    today:
+      // The column is named here, in a COMMENT, on purpose:
+      // `event_vendors.deposit_proof_url`.
+      //
+      // 🪤 It may NOT appear inside the quoted prose below.
+      // `lib/deposit-proofs-are-private.test.ts` flags any single-line quoted
+      // string containing that token as a SURFACE READING the receipt — and a
+      // register entry is a record, not a surface. The guard is right to be
+      // blunt: prose like this is exactly what would slip past a subtler rule.
+      // Comments are stripped before it scans, so the exact name stays
+      // greppable here and the guard stays strict.
+      'NOTHING erases the couple’s uploaded proof-of-deposit column on `event_vendors` (its exact name is in the comment above). It is stored privately and served through a signed URL by depositProofDisplayUrl — the migration comment calling it a "public URL" is stale. It survives erasure indefinitely and is readable on the admin dispute and force-majeure surfaces.',
+    tension:
+      'It is the supplier’s only evidence that a deposit was actually paid. Register row DATA-01 says the supplier must keep exactly this class of artefact; RA 10173 says the couple may ask for their own uploaded document to go. Both cannot hold.',
+    ifRuledForSubject:
+      'The column is nulled AND the private R2 object is handed to storage for deletion — a nulled ref with the object left behind is not an erasure. A dispute window (hold N days, then drop) is the likely middle answer and would need its own column.',
+    tables: ['event_vendors'],
+  },
+];

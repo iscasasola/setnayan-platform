@@ -479,7 +479,12 @@ const discardMatches = (src: string) =>
 const KNOWN_DISCARDED: Record<string, number> = {
   // The shared-pool hint: failing to 0 can only refuse a hand-out the host
   // could have made, never permit one they could not. Logged, direction kept.
-  'app/dashboard/[eventId]/studio/papic/_components/papic-cameras-card.tsx': 1,
+  //
+  // ⛔ AND OUT AGAIN, FOR GOOD THIS TIME. The entry was dropped when the
+  // retirement first shipped, restored when that retirement was withdrawn from
+  // PR #5875, and is removed again now the file is deleted along with
+  // `papic_dedicate_shots` and `papic_seat_allocations` (20271243295861).
+  // A ratchet entry is bookkeeping about a file that EXISTS; this one does not.
   // `isMissingRelation(error) → []` — the table does not exist yet, so there
   // genuinely IS nothing to show. The other branch of that same function now
   // returns null and the panel says so.

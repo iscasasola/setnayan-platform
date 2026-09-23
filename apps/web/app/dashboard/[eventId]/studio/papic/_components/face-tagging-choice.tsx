@@ -119,14 +119,27 @@ export async function FaceTaggingChoice({
 
   if (variant === 'row') {
     return (
+      /*
+        ⚖ THE SWITCH IS ON THE ROW (owner 2026-09-22: *"set the toggles here if
+        it only needs toggle switches"*). This sheet held exactly one control,
+        so opening it was two taps to do what one could — and the row already
+        showed the answer.
+
+        🔑 THE ROW IS STILL A DOOR, and that is not a hedge. The sheet holds the
+        EXPLANATION — that guests choose this for themselves, that nothing is
+        stored unless they agree, and what turning it off does to them. A switch
+        about somebody else's face with no way to read what it means is a worse
+        control than a sheet, so the switch is ADDED to the row and the door is
+        kept.
+      */
       <SettingRow
         icon={<ScanFace aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
         label="Finding people in photos"
         value={declined ? 'Off' : 'On'}
         sheetTitle="Finding people in photos"
+        switchControl={control}
       >
         <p className="mb-4 text-sm text-ink/65">{explanation}</p>
-        {control}
       </SettingRow>
     );
   }

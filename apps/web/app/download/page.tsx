@@ -133,7 +133,7 @@ export default async function DownloadPage() {
                   v{release!.version} · {macSizeLabel} · Apple Silicon · Released {release!.publishedAt}
                   {windows ? ` · Windows build ${winSizeLabel}` : ''}
                 </p>
-                {mac.signed ? (
+                {mac.notarized ? (
                   <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
                     <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                     Signed &amp; notarized by Apple
@@ -198,7 +198,7 @@ export default async function DownloadPage() {
                 icon={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
                 title="Trusted & always signed in"
                 body={
-                  mac?.signed
+                  mac?.notarized
                     ? 'Signed with an Apple Developer ID and notarized by Apple. Sign in once — it remembers you after that.'
                     : 'Signed, and it remembers you after the first sign-in. This build is not Apple-notarized yet, so macOS asks once on first launch — see “First launch” below.'
                 }
@@ -259,10 +259,25 @@ export default async function DownloadPage() {
           <RevealGroup stagger={0.1}>
             <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
               <Note data-reveal-item label="First launch">
+                {/*
+                  🔴 GATED ON `notarized`, NOT `signed` (register DSK-6, fixed
+                  2026-09-22). Gatekeeper's behaviour is decided by
+                  NOTARIZATION, not by a signature — `spctl` reports both facts
+                  separately, and against the live build it said
+                  `origin=Developer ID Application` (signed) AND
+                  `source=Unnotarized Developer ID` (not notarized) in the same
+                  breath.
+
+                  These are the instructions a couple actually follows. Branched
+                  on `signed`, this told them to "just double-click" a build
+                  macOS refuses to open, and the paragraph below it explained the
+                  reason as "because Setnayan is notarized by Apple" — which was
+                  not true of the file the button hands them.
+                */}
                 <h3 className="text-xl font-semibold tracking-[-0.01em] text-ink">
-                  {mac?.signed ? 'Just double-click to open.' : 'One extra click, first time only.'}
+                  {mac?.notarized ? 'Just double-click to open.' : 'One extra click, first time only.'}
                 </h3>
-                {mac?.signed ? (
+                {mac?.notarized ? (
                   <>
                     <p className="mt-3 text-ink/65">
                       Because Setnayan is notarized by Apple, it opens like any trusted

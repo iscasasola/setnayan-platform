@@ -266,12 +266,25 @@ test('the DOOR asks the fence too — the only one that protects an already-save
     type changed — the row is already there. This read is the one that turns it
     back into House with no write, and it is the one a guest actually meets.
   */
-  const look = read('app/[slug]/invite/_lib/load-invite-look.ts');
-  assert.match(look, /resolveWeddingOnlyParts\(p\)\.save_the_date_film/, 'the door no longer asks the fence');
+  /*
+    🪤 RE-ANCHORED 2026-09-22 — THE RESOLUTION MOVED, THE FENCE DID NOT. The
+    Event Hub pages behind the door wear the same theme now, so "which theme is
+    this event wearing" became a two-surface fact and lifted into
+    `app/[slug]/_lib/hub-look.ts`; `load-invite-look.ts` adds only the door's
+    skin on top. Every assertion below is unchanged — they just read the file
+    that now holds the answer, which is what a guard pinned to a LOCATION has to
+    do when the location is the thing that moved.
+
+    ⚠ The door being the surface a guest MEETS is still the point: this read is
+    the only one that can turn an already-saved Capiz back into House when the
+    celebration's type changed after the save, and now it protects the page too.
+  */
+  const look = read('app/[slug]/_lib/hub-look.ts');
+  assert.match(look, /resolveWeddingOnlyParts\(p\)\.save_the_date_film/, 'the resolver no longer asks the fence');
   assert.match(
     look,
     /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
-    'an unreadable profile opens a paid theme on the door — an unmeasured type is not a wedding',
+    'an unreadable profile opens a paid theme — an unmeasured type is not a wedding',
   );
   assert.match(
     look,
@@ -285,7 +298,7 @@ test('the DOOR asks the fence too — the only one that protects an already-save
 test('the fence is the reveal’s, not a second copy of it', () => {
   // 🛑 The reveal's WHEN is one rule (cinematicRevealPlays). Nothing here may
   // restate it: this is the TYPE question, asked of the same profile answer.
-  for (const rel of [ACTIONS, PAGE, 'app/[slug]/invite/_lib/load-invite-look.ts']) {
+  for (const rel of [ACTIONS, PAGE, 'app/[slug]/invite/_lib/load-invite-look.ts', 'app/[slug]/_lib/hub-look.ts']) {
     const src = read(rel);
     assert.doesNotMatch(src, /cinematicRevealPlays|getLifecyclePhase/, `${rel} is re-deriving WHEN a reveal plays`);
     assert.doesNotMatch(src, /event_type === 'wedding'|=== 'wedding'/, `${rel} hardcodes the event type instead of asking the profile`);
@@ -304,10 +317,22 @@ test('no invite door names a look column twice in its own select', () => {
     column twice. This is a silent-shape defect — nothing throws locally — so it
     is pinned rather than remembered.
   */
-  const COLUMNS = /export const INVITE_LOOK_COLUMNS =\s*\n?\s*'([^']*)'/.exec(
-    read('app/[slug]/invite/_lib/load-invite-look.ts'),
+  /*
+    🪤 `INVITE_LOOK_COLUMNS` IS NOW A RE-EXPORT of `HUB_LOOK_COLUMNS` — the same
+    string, not a copy, because the Event Hub pages need the identical set. The
+    literal lives in `hub-look.ts`, so that is where this reads it; the
+    re-export is asserted separately below so a silent rename cannot leave the
+    three doors importing nothing.
+  */
+  const COLUMNS = /export const HUB_LOOK_COLUMNS =\s*\n?\s*'([^']*)'/.exec(
+    read('app/[slug]/_lib/hub-look.ts'),
   );
-  assert.ok(COLUMNS, 'INVITE_LOOK_COLUMNS is gone or reshaped');
+  assert.ok(COLUMNS, 'HUB_LOOK_COLUMNS is gone or reshaped');
+  assert.match(
+    read('app/[slug]/invite/_lib/load-invite-look.ts'),
+    /export const INVITE_LOOK_COLUMNS = HUB_LOOK_COLUMNS;/,
+    'the doors\' own name no longer points at the one column list',
+  );
   const carried = COLUMNS[1]!.split(',').map((c) => c.trim());
   assert.ok(carried.length >= 6, `the column list scanned as ${carried.length} — the guard is looking at nothing`);
 

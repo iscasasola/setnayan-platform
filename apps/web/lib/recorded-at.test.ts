@@ -1,5 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+// ⤷ 2026-09-22: the guest's edit form moved OUT of the route and into the
+// shared card both the route and the roster panel render. The route is now a
+// loader. Following the symbol, not the filename — a guard left pointing at
+// the old path would go green by finding nothing.
 import { formatRecordedAt } from './recorded-at';
 
 test('a stamp is read in the event’s clock, not the machine’s', () => {
@@ -52,7 +56,7 @@ function code(src: string): string {
 }
 const here = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 const GUESTS = here('lib/guests.ts');
-const PAGE = code(here('app/dashboard/[eventId]/guests/[guestId]/page.tsx'));
+const PAGE = code(here('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'));
 
 test('the column is selected, or nothing can ever render it', () => {
   const literal = /const GUEST_FIELDS =\s*\n?\s*'([^']+)'/.exec(GUESTS)?.[1];
@@ -72,7 +76,10 @@ test('🪤 appending it did not break the guest/couple column split guard', () =
 });
 
 test('the host is shown it, through the pinned formatter', () => {
-  assert.match(PAGE, /formatRecordedAt\(guest\.rsvp_responded_at\)/, 'the value is not read');
+  // The call moved to the card's loader when the card gained one; the RENDER
+  // stayed with the card. Both halves are still asserted, each where it lives.
+  const LOADER = code(here('app/dashboard/[eventId]/guests/_components/guest-card-data.ts'));
+  assert.match(LOADER, /formatRecordedAt\(guest\.rsvp_responded_at\)/, 'the value is not read');
   assert.match(PAGE, /Answer recorded \{recordedAt\}/, 'the value is read and never displayed');
   assert.doesNotMatch(
     PAGE,
@@ -141,7 +148,7 @@ test("🔴 the COUPLE'S OWN row never shows an answer date", () => {
   // never an answer. Printed under "Answer recorded", one sentence after "always
   // attending", it contradicts the sentence above it with something that was
   // never an answer.
-  const page = code(here('app/dashboard/[eventId]/guests/[guestId]/page.tsx'));
+  const page = code(here('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'));
   const at = page.indexOf('Answer recorded');
   assert.ok(at > -1, 'the line is gone');
   const block = page.slice(Math.max(0, at - 200), at);

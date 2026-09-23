@@ -32,8 +32,16 @@
  *
  * # Why the bucket half matters so much
  *
- * `setnayan-media` is the ONLY bucket bound to the public R2 host
- * (`R2_PUBLIC_URL` → `media.setnayan.com`); `publicUrlFor()` / `r2PublicUrl()`
+ * `setnayan-media` is the ONLY bucket bound to the public R2 host.
+ * ⚠ THAT HOST IS `pub-37d64fe618584c2981a88610a55dd439.r2.dev`, NOT
+ * `media.setnayan.com`. This line named the latter for months; measured in
+ * the Cloudflare dashboard 2026-09-22, `setnayan-media` has NO custom domain
+ * and its Public Development URL is the only public path. `media.setnayan.com`
+ * does not resolve, and the owner ruled 2026-09-05 that it is not being set
+ * up. The security reasoning below is unaffected — it turns on the bucket
+ * being public, not on which hostname serves it — but a reader checking this
+ * claim against DNS would have found nothing and doubted the rest.
+ * `publicUrlFor()` / `r2PublicUrl()`
  * serve it unsigned to anonymous visitors by design (vendor photos, booth art,
  * hero frames). Presigning a media key therefore discloses nothing the public
  * host does not already disclose to anyone holding the key.

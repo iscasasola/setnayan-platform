@@ -17,6 +17,7 @@
 // another file's allowlist staying correct.
 import 'server-only';
 
+import Link from 'next/link';
 import { Coins } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -33,6 +34,8 @@ import {
   suggestedAllotment,
   splitTheRest,
   summariseAllotments,
+  guestMinimumVerdict,
+  summariseMinimum,
   type AllotmentRole,
 } from '@/lib/papic-guest-allotments';
 import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../actions';
@@ -82,7 +85,7 @@ export async function GuestAllotmentsChoice({
   const { data, error } = await supabase
     .from('events')
     .select(
-      `${ALLOTMENT_STORAGE.enabled}, ${ALLOTMENT_STORAGE.everyoneElse}, ${ALLOTMENT_STORAGE.releasedAt}`,
+      `${ALLOTMENT_STORAGE.enabled}, ${ALLOTMENT_STORAGE.everyoneElse}, ${ALLOTMENT_STORAGE.releasedAt}, ${ALLOTMENT_STORAGE.floor}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -110,6 +113,8 @@ export async function GuestAllotmentsChoice({
     typeof row[ALLOTMENT_STORAGE.releasedAt] === 'string'
       ? (row[ALLOTMENT_STORAGE.releasedAt] as string)
       : null;
+  const storedFloor = row[ALLOTMENT_STORAGE.floor];
+  const floorPoints = typeof storedFloor === 'number' ? storedFloor : null;
 
   // The pot, the head count, and the allotments already chosen.
   //
@@ -226,6 +231,14 @@ export async function GuestAllotmentsChoice({
   const inputs = { pot, guestCount, named, everyoneElse, sponsors };
   const split = splitTheRest(inputs);
   const summary = summariseAllotments(inputs);
+  /*
+    ⚠ THE MINIMUM IS CHECKED AGAINST THE WHOLE POT, not the remainder after the
+    named guests — it applies to every guest INCLUDING them, raising a named
+    number that sits below it. Checking a remainder would understate what has
+    been promised.
+  */
+  const minimum = guestMinimumVerdict({ floorPoints, guestCount, pot });
+  const minimumLine = summariseMinimum(minimum);
 
   const nameOf = (g: (typeof guests)[number]) =>
     g.display_name?.trim() || [g.first_name, g.last_name].filter(Boolean).join(' ').trim() || 'Guest';
@@ -242,8 +255,14 @@ export async function GuestAllotmentsChoice({
       <form action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+        {/* ⚠ CARRY BOTH NUMBERS THROUGH EVERY FORM. `setGuestAllotments` writes
+            all three fields on one UPDATE, so a form that posts only its own box
+            silently clears the other — the switch would wipe the minimum. */}
         {enabled ? (
-          <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+          <>
+            <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+            <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+          </>
         ) : null}
         <SubmitButton className={enabled ? 'sn-btn-secondary' : 'sn-btn-primary'}>
           {enabled ? 'Turn this off' : 'Turn this on'}
@@ -253,7 +272,24 @@ export async function GuestAllotmentsChoice({
         </span>
       </form>
 
-      {enabled ? (
+      {/* ⚖ "DON'T MAKE IT JUMP" (owner 2026-09-22). This block used to be
+          `{enabled ? … : null}` — switching the limits OFF deleted every control
+          below it and moved every block after it up the page. 🔑 HIDDEN IS A
+          LAYOUT EVENT: the couple presses a switch to answer one question and
+          the whole screen rearranges under their thumb.
+
+          So the controls STAY and go QUIET. `inert` takes them out of the tab
+          order and stops every press without a `disabled` prop threaded through
+          each field, and the numbers read "No limit" / "No minimum" where the
+          figures were — which is also the honest answer to what is in force.
+
+          ⚠ NOT `hidden`, NOT `display:none`, and not a height animation. The
+          point is that nothing below moves. */}
+      <div
+        inert={!enabled}
+        aria-hidden={!enabled}
+        className={`flex flex-col gap-5 transition-opacity ${enabled ? '' : 'opacity-45'}`}
+      >
         <>
           {/* THE LIVE LINE — what the couple's choices actually add up to. */}
           <p
@@ -271,14 +307,15 @@ export async function GuestAllotmentsChoice({
             <label className="block text-sm font-medium text-ink">
               Everyone you have not named
             </label>
+            <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="number"
                 name="everyone_else"
                 min={1}
                 step={1}
-                defaultValue={everyoneElse ?? ''}
-                placeholder={String(split.perHead)}
+                defaultValue={enabled ? everyoneElse ?? '' : ''}
+                placeholder={enabled ? String(split.perHead) : 'No limit'}
                 className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
               />
               <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
@@ -303,12 +340,84 @@ export async function GuestAllotmentsChoice({
             </p>
           </form>
 
+          {/* ══ THE LEAST ANYBODY GETS ═══════════════════════════════════════
+              🔑 EVERY OTHER NUMBER ON THIS SHEET IS A CEILING. Until now
+              nothing guaranteed any guest anything: the pot is first come,
+              first served, and a limit caps what one person may take without
+              holding a single credit back for anybody. A couple could cap a
+              loud uncle at 40 and still have their mother arrive at 10pm to an
+              empty pot.
+
+              ⚠ AND THAT IS WHY THIS ONE IS CHECKED AND THE OTHERS ARE NOT. An
+              unreachable ceiling costs nobody anything — it simply never binds.
+              A minimum is a sentence spoken to every guest, so one the
+              celebration cannot cover is a promise broken for all of them at
+              once, discovered one at a time at the party. The shortfall is
+              NAMED, because "add 4,000 credits" is something a couple can do
+              and "that will not work" is not. */}
+          <form action={setGuestAllotments} className="space-y-2">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+            <label className="block text-sm font-medium text-ink">
+              The least anybody gets
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                name="minimum_each"
+                min={1}
+                step={1}
+                defaultValue={enabled ? floorPoints ?? '' : ''}
+                placeholder="No minimum"
+                className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
+              />
+              <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+            </div>
+            {minimumLine ? (
+              <p
+                className={`text-xs ${
+                  minimum.status === 'short' ? 'text-terracotta' : 'text-ink/55'
+                }`}
+              >
+                {minimumLine}
+              </p>
+            ) : null}
+            <p className="text-xs text-ink/55">
+              Every guest is promised at least this many credits — including anyone you have
+              named below for less, whose number rises to meet it. Leave it empty for no
+              minimum.
+              {everyoneElse !== null
+                ? ` It cannot be more than the ${everyoneElse} you set above.`
+                : ''}
+            </p>
+          </form>
+
           {/* NAMING GUESTS — the real new control. */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-ink">Give someone their own number</p>
+            {/* ⚖ THE COUPLE DOES NOT ADD GUESTS HERE (owner, 2026-09-22, asked
+                exactly that on this screen: *"how to add guests?"*). THIS LIST
+                IS THE GUEST LIST — the same people, read from the same table —
+                so a second way to add somebody would be a second place their
+                name could exist. The panel says so, and carries the door.
+
+                🔑 A DEAD END IS THE DEFECT, NOT THE ABSENCE OF A CONTROL. The
+                honest answer to "how do I add a guest" is a link to where guests
+                are added, not an Add button that writes a second roster. */}
+            <p className="text-xs text-ink/55">
+              These are the people on your guest list — you add and remove them{' '}
+              <Link
+                href={`/dashboard/${eventId}/guests`}
+                className="font-medium text-mulberry underline-offset-2 hover:underline"
+              >
+                on your guest list
+              </Link>
+              , and whoever is there appears here.
+            </p>
             {guests.length === 0 ? (
               <p className="text-xs text-ink/55">
-                Your guest list is empty. Add guests and you can name them here.
+                Your guest list is empty. Add guests there and you can name them here.
               </p>
             ) : (
               /*
@@ -358,7 +467,7 @@ export async function GuestAllotmentsChoice({
             )}
           </form>
         </>
-      ) : null}
+      </div>
     </div>
   );
 

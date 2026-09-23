@@ -3237,3 +3237,50 @@ html.hr-snap {
 .home-reskin-ov .sn-signin-terra .hr-ov-eyebrow {
   color: #b04722;
 }
+
+/* ── ONE TYPE SCALE FOR THE SIGN-IN · CREATE-ACCOUNT · YOU CARDS ─────────────
+   Owner, 2026-09-23, on the /signup preview: "font sizes feel inconsistent."
+   MEASURED on setnayan.com/login (computed font-size of every text node) before
+   any rule was touched — below the title the card ran FIVE sizes:
+     10px   field labels, the "or continue with email" divider
+     10.5px the eyebrow
+     12.5px "Stay signed in", every link, the footer
+     13.5px the sub line
+     14px   inputs, the OAuth buttons, the submit
+   and on /signup the Terms row sits OUTSIDE `.hr-si-row` (which is where the
+   12.5px came from), so it inherited a SIXTH size and sat directly above a
+   "Stay signed in" row set smaller. Two type systems stacked: the borrowed
+   heading scale, then whatever each rule happened to say.
+   Now FOUR steps, and every text node on the card is on one of them:
+     the title's clamp · 14px body (sub, inputs, buttons, banners, plain text)
+     · 13px secondary (checkbox rows, links, footer, hints)
+     · 10.5px mono caps (eyebrow, field labels, the divider)
+   Scoped under `.sn-signin-terra` — the variant /login, the seam panel, /signup
+   and /signup/you all wear — so the other overlays keep their own scale.
+   `.hr-si-hint` is the one class for small helper text (the You card's
+   "· optional", "for guest lists and invitations", the @name verdict), so a
+   hint can never be sized inline again. ─────────────────────────────────── */
+.home-reskin-ov .hr-ov-card.sn-signin-terra {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.home-reskin-ov .sn-signin-terra .hr-ov-sub {
+  font-size: 14px;
+}
+.home-reskin-ov .sn-signin-terra .hr-si-label,
+.home-reskin-ov .sn-signin-terra .hr-si-or span {
+  font-size: 10.5px;
+}
+.home-reskin-ov .sn-signin-terra .hr-si-row,
+.home-reskin-ov .sn-signin-terra .hr-si-remember,
+.home-reskin-ov .sn-signin-terra .hr-si-foot,
+.home-reskin-ov .sn-signin-terra .hr-si-hint {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.home-reskin-ov .sn-signin-terra .hr-si-hint {
+  color: var(--hr-grey);
+}
+.home-reskin-ov .sn-signin-terra .hr-si-banner {
+  font-size: 14px;
+}

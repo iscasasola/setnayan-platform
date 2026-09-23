@@ -24,7 +24,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const ACTIONS = 'app/dashboard/[eventId]/guests/[guestId]/actions.ts';
-const PAGE = 'app/dashboard/[eventId]/guests/[guestId]/page.tsx';
+// ⤷ 2026-09-22: the guest's edit form moved OUT of the route and into the
+// shared card both the route and the roster panel render. The route is now a
+// loader. Following the symbol, not the filename — a guard left pointing at
+// the old path would go green by finding nothing.
+const PAGE = 'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx';
 const read = (p: string) => fs.readFileSync(p, 'utf8');
 
 function releaseBody(): string {
@@ -92,9 +96,24 @@ test('authorisation is the RLS session client, matching the sibling delete actio
 test('the couple actually has a button, and it is not a nested form', () => {
   const p = read(PAGE);
   assert.match(p, /releaseGuestClaim/, 'the page must import the action');
-  assert.match(p, /formAction=\{releaseAction\}/, 'must use formAction on the shared form');
   assert.match(p, /Take this seat back/);
-  // The repo lints against nested forms; the delete uses formAction for the
-  // same reason. A <form action={releaseAction}> here would fail that lint.
-  assert.doesNotMatch(p, /<form action=\{releaseAction\}/, 'must not nest a form');
+  /*
+    ⤷ 2026-09-22: this used to require `formAction={releaseAction}` on the ONE
+    form the page had. The card now has an autosaving form, and a destructive
+    action must not ride on it — a debounce firing while a host reaches for
+    "Take this seat back" is not a race worth having. It gets its own <form>.
+
+    The rule was never "use formAction"; it was "do not nest a form". So that is
+    what is asserted now: the release form exists and sits OUTSIDE the autosave
+    form, which is a structural fact, not a phrasing.
+  */
+  assert.match(p, /<form action=\{releaseAction\}/, 'the release needs a form of its own');
+  const closeAutosave = p.indexOf('</AutosaveForm>');
+  const releaseForm = p.indexOf('<form action={releaseAction}');
+  assert.ok(closeAutosave > -1, 'the autosave form is gone — re-derive this check');
+  assert.ok(
+    releaseForm > closeAutosave,
+    'the release form is nested inside the autosave form — the repo lints against that, ' +
+      'and a nested form posts the wrong action',
+  );
 });

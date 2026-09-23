@@ -85,6 +85,7 @@ import { OurStory } from './our-story';
    See that function's docblock for what the old one-input version got wrong. */
 
 import { GuestColumnCard } from './guest-column-card';
+import { resolveHubLook } from '../_lib/hub-look';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
 import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
@@ -104,7 +105,6 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
-import { DayOfAnnouncement } from './day-of-announcement';
 import { viewerIsEventHost } from '../_lib/site-identity';
 import type {
   AnonymousSiteIdentity,
@@ -142,6 +142,7 @@ import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
 import type { EntourageGroup } from '@/lib/entourage';
+import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -250,8 +251,6 @@ type SiteBodyProps = {
   dayOfPhase: DayOfPhase;
   /** The host's Papic switch — the gate for the menu's camera slot, on ANY day. */
   hostCameraOpen?: boolean;
-  /** The coordinator's latest announcement, live window only. Guests only. */
-  dayOfBroadcast?: { body: string; createdAt: string } | null;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
   // `phasesEnabled` is false (the default), NONE of the phase gating below
   // changes — the page renders exactly as today. `lifecyclePhase` is only
@@ -302,6 +301,12 @@ type SiteBodyProps = {
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
+  /**
+   * LAU-33 · TRUE when the wall read was attempted and failed. Distinct from
+   * `liveWall == null`, which also means "not owned" and "mirror off" — those
+   * three were one value, so a failure rendered as a setting.
+   */
+  liveWallUnreadable?: boolean;
   /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
   /** Has the couple staged a broadcast worth ANNOUNCING before the day? The
@@ -367,7 +372,6 @@ export async function SiteBody({
   bespokeSvg,
   dayOfPhase,
   hostCameraOpen = false,
-  dayOfBroadcast = null,
   songRequestDoor = null,
   phasesEnabled,
   lifecyclePhase,
@@ -386,6 +390,7 @@ export async function SiteBody({
   scheduleBlocks,
   backdrop,
   liveWall,
+  liveWallUnreadable = false,
   watchLive,
   broadcastPlanned = false,
   doorwayFacts = null,
@@ -1003,6 +1008,21 @@ export async function SiteBody({
                 celebration window. Same screened feed as the projector. The id is the
                 anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
                 above) — scroll-margin keeps it clear of the fixed bottom bar. */}
+            {/* 🔑 LAU-33 · THE MEASUREMENT REACHES THE RENDER. When the wall read
+                was attempted and FAILED, say so. Without this the section simply
+                was not there, which is byte-identical to "this couple does not
+                own LIVE_WALL" and to "they turned the guest mirror off" — so a
+                broken wall looked exactly like a setting, and nobody asked.
+                Same anchor id, so the event-day bar's "Photos" button still
+                lands somewhere that explains itself. */}
+            {dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
+              <section id="live-photo-wall" className="mt-10 scroll-mt-6">
+                <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
+                  {LIVE_WALL_UNREADABLE_LINE}
+                </p>
+              </section>
+            ) : null}
+
             {dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
               <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                 <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
@@ -1415,9 +1435,13 @@ export async function SiteBody({
             announcement is for the people in the room, and a stranger with the
             link has no business knowing the ceremony is running late. Null
             outside the live window, so nothing stale survives the day. */}
-        {dayOfBroadcast ? (
-          <DayOfAnnouncement body={dayOfBroadcast.body} eventId={event.event_id} />
-        ) : null}
+        {/* ⛔ THE ANNOUNCEMENT IS NOT MOUNTED HERE ANY MORE (2026-09-22).
+            It lived here, and `SiteBody` is rendered by ONE of the guest
+            tree's twelve pages — so eleven of them never showed the
+            coordinator's words. It now mounts once in `[slug]/layout.tsx`,
+            which wraps all twelve. Do NOT re-add it here: two mounts would
+            double it on this page, and the layout's copy is the one that
+            reaches a guest reading their seat card. */}
         {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
             reveal. Deliberately an explicit marker rather than a bare
             `article > *` selector — `article` is used liberally in this tree
@@ -2130,10 +2154,21 @@ export async function SiteBody({
     );
   };
 
+  /*
+    THE EVENT HUB'S THEME — the one the couple already chose for their invite
+    door (owner 2026-09-22). `resolveHubLook` owns the gating, so this is the
+    only opinion on the page about which theme is live; a Pro theme whose unlock
+    lapsed comes back as House here exactly as it does on the door.
+  */
+  const hubLook = await resolveHubLook(event);
+
   return (
     <InvitationShell
       monogramText={event.monogram_text}
       artDirection={event.site_art_direction ?? null}
+      hubTheme={hubLook.theme}
+      hubPhoto={hubLook.photo}
+      hubAccent={hubLook.accent}
       backdrop={backdrop}
       rolePalette={event.role_palette}
       fullBleed={plan.fullBleed}

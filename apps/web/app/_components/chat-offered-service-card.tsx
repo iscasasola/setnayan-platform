@@ -46,8 +46,18 @@ type State =
 export function ChatOfferedServiceCard({
   messageId,
   fallbackBody,
+  superseded = false,
+  supersededNote = null,
 }: {
   messageId: string;
+  /**
+   * A quote replaced this offer (owner 2026-09-22). The card is KEPT — dimmed,
+   * labelled, and carrying nothing to act on — because "replaces" does not mean
+   * "deletes" and removing it would destroy a view. Decided by
+   * `lib/offered-service-card-state.ts`; this component only draws it.
+   */
+  superseded?: boolean;
+  supersededNote?: string | null;
   /** The message's own text — shown while loading and if the card can't load. */
   fallbackBody: string;
 }) {
@@ -103,7 +113,15 @@ export function ChatOfferedServiceCard({
       hasCover: c.coverUrl !== null,
     };
     return (
-      <div className="w-full max-w-[92%] space-y-2">
+      <div
+        className={`w-full max-w-[92%] space-y-2${superseded ? ' opacity-60' : ''}`}
+        data-superseded={superseded ? 'true' : undefined}
+      >
+        {superseded && supersededNote ? (
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            {supersededNote}
+          </p>
+        ) : null}
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
           Offered service
         </p>
@@ -136,7 +154,15 @@ export function ChatOfferedServiceCard({
   }
 
   return (
-    <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
+    <div
+      className={`w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3${superseded ? ' opacity-60' : ''}`}
+      data-superseded={superseded ? 'true' : undefined}
+    >
+      {superseded && supersededNote ? (
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          {supersededNote}
+        </p>
+      ) : null}
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
         Offered service
       </p>

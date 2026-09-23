@@ -57,6 +57,14 @@ import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { fetchAddonsByService } from '@/lib/vendor-service-addons';
+import type { QuoteCardOption } from '@/app/_components/proposal-maker';
+import { briefForQuote } from '@/lib/quote-event-brief';
+import { fetchBudgetBands } from '@/lib/budget-bands-read';
+import { bandMedianPerHeadPhp } from '@/lib/budget-band-money';
+import { isFeeUnlocksEventEnabled } from '@/lib/event-access-stage';
+import { FEEL_OPTIONS } from '@/lib/match-criteria';
+import { CEREMONY_TYPE_TO_FAITH } from '@/lib/taxonomy-filters';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
 import {
@@ -94,6 +102,7 @@ import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import {
   seedQuoteRevision,
+  QUOTE_REVISION_SELECT,
   type QuoteRevisionSeed,
   type QuoteRevisionSource,
 } from '@/lib/quote-revision-seed';
@@ -283,7 +292,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // notFound) is what authorises the bypass.
     paxAdmin
       .from('events')
-      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at')
+      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type')
       .eq('event_id', thread.event_id)
       .maybeSingle(),
     // Server-rendered first batch (SSR + SEO). Realtime takes over from here.
@@ -449,6 +458,45 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       label: s.title?.trim() || kindLabel(s.category),
     }));
 
+  /**
+   * THE SHOP'S CARDS FOR THE QUOTE (owner 2026-09-22: "load 1 or multiple
+   * service cards combined"). Every ACTIVE card — not the offer list above,
+   * which hides cards already on the thread: a quote is usually for exactly
+   * the card the couple asked about. Add-ons and "comes with" ride along so
+   * the picker can offer them; the seed itself is read again on the server
+   * when a card is picked (`loadServiceCardLinesForQuote`).
+   */
+  const activeServices = ownServices.filter((s) => s.is_active);
+  const activeIds = activeServices.map((s) => s.vendor_service_id);
+  const [addonsByService, linkRows] = await Promise.all([
+    fetchAddonsByService(supabase, activeIds),
+    activeIds.length > 0
+      ? supabase
+          .from('vendor_service_links')
+          .select('vendor_service_id, linked_label')
+          .in('vendor_service_id', activeIds)
+          .order('display_order', { ascending: true })
+      : Promise.resolve({ data: null }),
+  ]);
+  const comesWith = new Map<string, string[]>();
+  for (const r of ((linkRows as { data: { vendor_service_id: string; linked_label: string | null }[] | null }).data ?? [])) {
+    if (!r.linked_label) continue;
+    comesWith.set(r.vendor_service_id, [...(comesWith.get(r.vendor_service_id) ?? []), r.linked_label]);
+  }
+  const quoteCards: QuoteCardOption[] = activeServices.map((s) => ({
+    id: s.vendor_service_id,
+    label: s.title?.trim() || kindLabel(s.category),
+    fromPhp:
+      s.pricing_basis === 'per_pax'
+        ? s.per_pax_price_php
+        : s.pricing_basis === 'per_hour'
+          ? s.hour_base_php
+          : s.starting_price_php,
+    addons: (addonsByService.get(s.vendor_service_id) ?? []).map((a) => ({ id: a.id, label: a.label, fromPhp: a.from_price_php })),
+    comesWith: comesWith.get(s.vendor_service_id) ?? [],
+    giftOn: Boolean(s.includes_setnayan_gift),
+  }));
+
   const proposalTemplates = (
     (tplRes.data ?? []) as {
       template_id: string;
@@ -495,9 +543,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   if (composeMode === 'quote') {
     const { data: liveQuote, error: liveQuoteErr } = await supabase
       .from('vendor_proposals')
-      .select(
-        'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids, payment_schedule',
-      )
+      // The column list is a constant in lib/quote-revision-seed.ts so a unit
+      // test can EXECUTE it — a query in a server component can only be
+      // grepped, and this read silently dropped the supplier's gift answer.
+      .select(QUOTE_REVISION_SELECT)
       .eq('event_id', thread.event_id)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .in('status', ['sent', 'viewed', 'accepted'])
@@ -676,6 +725,76 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     hasQuote: threadHasQuote({ stage: railStage, liveQuoteTotalPhp }),
   });
 
+  // ── The customer summary and the quote's step-1 brief are built BEFORE the
+  // tools mount: `toolNodes` is JSX created eagerly, and it carries the brief. ──
+  // Service/category of the inquiry — the first recorded interest chip (the
+  // same source the interest chips + cross-sell already use on this page).
+  const firstInterest = existingInterests[0];
+  const railService = firstInterest
+    ? (await interestLabeller(paxAdmin, [firstInterest]))(firstInterest)
+    : null;
+
+  // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
+  // the rows cannot disagree with each other or with the header above them.
+  const customerSummary = buildCustomerEventSummary({
+    hostName: customerPlan.hostName,
+    eventTypeLabel: event?.event_type ? eventTypeLabel(event.event_type) : null,
+    eventName: event?.display_name ?? null,
+    createdAt: event?.created_at ?? null,
+    targetDate: event?.event_date ?? null,
+    pax: headerPax ?? null,
+    paxAtInquiry: thread.pax_at_inquiry ?? null,
+    dateDemandNote: vendorDateDemandNote(dateDemand),
+    location: inquiryCity,
+    lockedVendors: customerPlan.locked,
+    totalVendors: customerPlan.total,
+    lockedCategoryLabels: customerPlan.lockedCategories,
+  });
+
+  /**
+   * STEP 1 OF THE QUOTE — what Setnayan can tell this supplier while they price
+   * (owner 2026-09-22). The rail's rows verbatim + the stage-1 facts of the
+   * 2026-09-20 ruling: AREA (never the venue), asked-for, budget band (+ live
+   * per-head median), style, locked categories.
+   *
+   * ⛔ THE CONVERSATION NEVER KNOWS THE FEE GATE (`the-fee-unlocks-the-event`
+   * guard: the thread page must not import the gate resolver). This page
+   * gates nothing; it only decides whether step 1 NAMES the withheld fields —
+   * so the stage here is derived from the flag alone: enforced and not yet
+   * booked ⇒ 'quoting'; otherwise 'unlocked', which prints no such line. With
+   * the flag off (production, 2026-09-22) nothing is withheld and nothing is
+   * announced. The rows themselves come from the rail, never from the RPC.
+   */
+  const budgetBands = event?.budget_band
+    ? await fetchBudgetBands(paxAdmin).catch((): Awaited<ReturnType<typeof fetchBudgetBands>> => [])
+    : [];
+  const briefStage: 'quoting' | 'unlocked' =
+    isFeeUnlocksEventEnabled() && !THREAD_STAGE_HAS_AGREEMENT[railStage] ? 'quoting' : 'unlocked';
+  const bandSlug = (event?.budget_band as string | null | undefined) ?? null;
+  const bandRow = bandSlug
+    ? budgetBands.find((b) => b.value === (bandSlug === 'nolimit' ? 'no_limit' : bandSlug)) ?? null
+    : null;
+  const feelLabel = FEEL_OPTIONS.find((o) => o.value === (event?.mood_feel_key as string | null | undefined))?.label ?? null;
+  const ceremonyLabel =
+    (event?.ceremony_type as string | null | undefined)
+      ? (CEREMONY_TYPE_TO_FAITH[event!.ceremony_type as string] ??
+        (event!.ceremony_type === 'civil' ? 'Civil' : null))
+      : null;
+  const quoteBrief = briefForQuote({
+    eventId: thread.event_id,
+    eventTypeLabel: event?.event_type ? eventTypeLabel(event.event_type) : null,
+    // The rail's own Target date row — one formatting site, not a third
+    // (`one-long-date-everywhere` counts them); null when the rail says Not set yet.
+    targetDateLabel: customerSummary.facts.find((f) => f.label === 'Target date' && !f.unknown)?.value ?? null,
+    area: regionLabel(event?.region) ?? null,
+    facts: customerSummary.facts,
+    askedFor: railService,
+    budgetBand: bandRow ? { label: bandRow.label, perHeadPhp: bandMedianPerHeadPhp(budgetBands, bandSlug) } : null,
+    styleLabels: [feelLabel, ceremonyLabel].filter((v): v is string => Boolean(v)),
+    lockedCategories: customerSummary.lockedCategories,
+    stage: briefStage,
+  });
+
   /**
    * THE TOOLS, MOUNTED ONCE AND CLOSED.
    *
@@ -728,6 +847,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           livePax={headerPax ?? null}
           coupleName={coupleLabel}
           packages={proposalPackages}
+          cards={quoteCards}
+          brief={quoteBrief}
           paymentMethods={proposalPaymentMethods}
           revision={quoteRevision}
           viewerPromo={
@@ -819,12 +940,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // column. Two copies is how one screen comes to show `CI` beside another
   // showing `C`.
   const railInitials = initialsFor(coupleLabel);
-  // Service/category of the inquiry — the first recorded interest chip (the
-  // same source the interest chips + cross-sell already use on this page).
-  const firstInterest = existingInterests[0];
-  const railService = firstInterest
-    ? (await interestLabeller(paxAdmin, [firstInterest]))(firstInterest)
-    : null;
   const decisionGuestCounts = paxProposalsToGuestCounts(paxProposals, Date.now());
 
   // PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
@@ -913,23 +1028,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     meeting: standingExtras?.meeting ?? null,
     // THE ONE guestCounts object this page reads its headcounts from.
     guestCounts,
-  });
-
-  // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
-  // the rows cannot disagree with each other or with the header above them.
-  const customerSummary = buildCustomerEventSummary({
-    hostName: customerPlan.hostName,
-    eventTypeLabel: event?.event_type ? eventTypeLabel(event.event_type) : null,
-    eventName: event?.display_name ?? null,
-    createdAt: event?.created_at ?? null,
-    targetDate: event?.event_date ?? null,
-    pax: headerPax ?? null,
-    paxAtInquiry: thread.pax_at_inquiry ?? null,
-    dateDemandNote: vendorDateDemandNote(dateDemand),
-    location: inquiryCity,
-    lockedVendors: customerPlan.locked,
-    totalVendors: customerPlan.total,
-    lockedCategoryLabels: customerPlan.lockedCategories,
   });
 
   const railProps = {

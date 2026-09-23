@@ -32,6 +32,31 @@ const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
  */
 const code = (p: string) => stripComments(read(p));
 
+/**
+ * The body of the `{ … }` block that opens at `from`, found by matching braces.
+ *
+ * ⚠ THIS REPLACED `src.slice(from, from + 600)`, WHICH WENT RED ON A COMMENT.
+ * A seven-line explanation was added inside the branch (the quote-replaces-offer
+ * rule, owner 2026-09-22) and pushed `<ChatOfferedServiceCard` to offset 715.
+ * The mount was still there, still the only one in the file; the WINDOW could no
+ * longer see it. A fixed character count fails in both directions — too short and
+ * it misses the thing it guards, too long and it reads the NEXT branch and calls
+ * that a pass. A brace-matched block is the actual unit the assertion means.
+ */
+function blockAfter(src: string, from: number): string {
+  const open = src.indexOf('{', from);
+  if (open === -1) return src.slice(from);
+  let depth = 0;
+  for (let i = open; i < src.length; i += 1) {
+    if (src[i] === '{') depth += 1;
+    else if (src[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return src.slice(from, i + 1);
+    }
+  }
+  return src.slice(from);
+}
+
 const CORE = 'lib/offer-service-core.ts';
 const STREAM = 'app/_components/chat-message-stream.tsx';
 const CARD = 'app/_components/chat-offered-service-card.tsx';
@@ -96,9 +121,17 @@ test('the message stream renders the card on the marker', () => {
   assert.match(src, /import \{ ChatOfferedServiceCard \}/);
   const branch = src.indexOf('if (m.offered_service_id)');
   assert.notEqual(branch, -1, 'the stream must branch on the marker');
-  const body = src.slice(branch, branch + 600);
+  const body = blockAfter(src, branch);
   assert.match(body, /<ChatOfferedServiceCard/, 'and mount the card there');
   assert.match(body, /fallbackBody=/, 'passing the body so a slow card still reads as an offer');
+  // Exactly one mount, in the whole file. The brace-matched window above cannot be
+  // too SHORT; this is what stops it being too LONG — a window that ran past the
+  // branch would happily count a neighbour's card and call the join proved.
+  assert.equal(
+    src.split('<ChatOfferedServiceCard').length - 1,
+    1,
+    'the card mounts exactly once, inside the marker branch',
+  );
   // The branch must sit ABOVE the plain-bubble path, or an offer renders twice
   // or not at all.
   assert.ok(

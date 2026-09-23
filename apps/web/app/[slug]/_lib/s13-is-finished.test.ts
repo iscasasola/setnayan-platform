@@ -124,12 +124,21 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
     why: 'The Pro-tier helper import. The rest of this file — its rendered stand-in included — stays under the scan.',
   },
   {
-    file: 'invite/_lib/load-invite-look.ts',
+    /*
+      🪤 THE FILE MOVED, THE PARDON FOLLOWED IT — 2026-09-22. These two lines were
+      keyed on `invite/_lib/load-invite-look.ts` until the Event Hub pages began
+      wearing the same theme as the door. "Which theme is this event wearing" then
+      became a two-surface fact and lifted into `_lib/hub-look.ts`; the door's
+      loader now adds only its skin on top and imports neither helper.
+      Both pardons stay LINE-keyed, so the new file is under the scan for
+      everything else — including anything added to it tomorrow.
+    */
+    file: '_lib/hub-look.ts',
     snippet: "from '@/lib/couple-website-pro'",
-    why: 'The Pro-tier helper import — the invite themes are Event Hub Pro (owner 2026-09-10). A loader that renders nothing; every other line stays under the scan.',
+    why: 'The Pro-tier helper import — the themes are Event Hub Pro (owner 2026-09-10). A resolver that renders nothing; every other line stays under the scan.',
   },
   {
-    file: 'invite/_lib/load-invite-look.ts',
+    file: '_lib/hub-look.ts',
     snippet: "from '@/lib/wedding-only-parts'",
     why:
       'The WEDDING-ONLY-PARTS import, and the word is in the MODULE NAME — this is the ' +

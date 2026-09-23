@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6441
+# facts: 6447
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     562
-#   col       4748
+#   col       4753
 #   policy    876
 #   view      8
-#   func      243
+#   func      244
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2121,6 +2121,7 @@ col	public.events.papic_guest_capture_early	anon=- authenticated=S
 col	public.events.papic_guest_spend_ceiling_on	anon=- authenticated=SU
 col	public.events.papic_guest_spend_ceiling_points	anon=- authenticated=SU
 col	public.events.papic_guest_spend_ceiling_released_at	anon=- authenticated=SU
+col	public.events.papic_guest_spend_floor_points	anon=- authenticated=SU
 col	public.events.papic_ltd_cap_php	anon=S authenticated=S
 col	public.events.papic_mini_cap_php	anon=S authenticated=S
 col	public.events.papic_quality_tier	anon=SIU authenticated=SIU
@@ -3446,6 +3447,8 @@ col	public.platform_settings.bir_authorized_rep_title	anon=- authenticated=S
 col	public.platform_settings.bir_payor_address	anon=- authenticated=S
 col	public.platform_settings.bir_payor_name	anon=- authenticated=S
 col	public.platform_settings.bir_payor_zip	anon=- authenticated=S
+col	public.platform_settings.booking_fee_free_from	anon=- authenticated=S
+col	public.platform_settings.booking_fee_free_until	anon=- authenticated=S
 col	public.platform_settings.booking_fee_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tail_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tier1_limit_php	anon=- authenticated=S
@@ -4807,6 +4810,7 @@ col	public.vendor_proposal_templates.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_proposal_templates.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_proposals.created_at	anon=SIU authenticated=SIU
 col	public.vendor_proposals.event_id	anon=SIU authenticated=SIU
+col	public.vendor_proposals.includes_setnayan_gift	anon=SIU authenticated=SIU
 col	public.vendor_proposals.line_items	anon=SIU authenticated=SIU
 col	public.vendor_proposals.merge_snapshot	anon=SIU authenticated=SIU
 col	public.vendor_proposals.payment_method_ids	anon=SIU authenticated=SIU
@@ -4818,6 +4822,7 @@ col	public.vendor_proposals.rendered_terms	anon=SIU authenticated=SIU
 col	public.vendor_proposals.resolved_at	anon=SIU authenticated=SIU
 col	public.vendor_proposals.resolved_by_user_id	anon=SIU authenticated=SIU
 col	public.vendor_proposals.sent_at	anon=SIU authenticated=SIU
+col	public.vendor_proposals.service_card_ids	anon=SIU authenticated=SIU
 col	public.vendor_proposals.status	anon=SIU authenticated=SIU
 col	public.vendor_proposals.template_id	anon=SIU authenticated=SIU
 col	public.vendor_proposals.title	anon=SIU authenticated=SIU
@@ -6237,6 +6242,7 @@ func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind te
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public
+func	public.booking_fee_free_window_active(p_at timestamp with time zone)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
 func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp

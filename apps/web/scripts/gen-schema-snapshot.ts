@@ -101,19 +101,42 @@ function extractRows<T>(raw: string): T[] {
 }
 
 function query<T>(sql: string): T[] {
+  // TWO WAYS IN, and the linked one exists so nobody has to handle a raw
+  // production password to refresh a snapshot.
+  //
+  //   1. `supabase link` (preferred) — the CLI holds the credential in the OS
+  //      keychain. Nothing is pasted into a shell, so nothing reaches shell
+  //      history, and no human ever copies the password around.
+  //   2. SUPABASE_DB_URL — still honoured, and still wins when both are
+  //      available, because CI and one-off recovery need an explicit target.
+  //
+  // `extractRows` above already parses BOTH output shapes: --db-url prints one
+  // envelope object, --linked prints the boundary and rows as separate
+  // top-level values. That was written before this branch existed, so the
+  // parser has always been ready; only the invocation was not.
   const dbUrl = process.env.SUPABASE_DB_URL;
-  if (!dbUrl) {
+  const linked = fs.existsSync(path.join(REPO_ROOT, 'supabase', '.temp', 'project-ref'));
+
+  if (!dbUrl && !linked) {
     console.error(
-      '✗ SUPABASE_DB_URL is not set. This generator reads PRODUCTION and cannot run without it.\n' +
-        '  export SUPABASE_DB_URL=\'postgresql://...\'',
+      '✗ No way to reach production. This generator reads PRODUCTION and cannot run without one.\n' +
+        '\n  EITHER link the project once (no password pasted into a shell):\n' +
+        '    supabase login                 # opens your browser\n' +
+        '    supabase link --project-ref njrupjnvkjkitfctetvi\n' +
+        '\n  OR pass the URL explicitly, keeping it out of shell history:\n' +
+        "    read -rs 'SUPABASE_DB_URL?Connection string: ' && export SUPABASE_DB_URL",
     );
     process.exit(1);
   }
-  const raw = execFileSync(
-    'supabase',
-    ['db', 'query', '--db-url', dbUrl, '-o', 'json', sql],
-    { encoding: 'utf8', timeout: 120_000, maxBuffer: 64 * 1024 * 1024 },
-  );
+
+  const args = dbUrl
+    ? ['db', 'query', '--db-url', dbUrl, '-o', 'json', sql]
+    : ['db', 'query', '--linked', '-o', 'json', sql];
+  const raw = execFileSync('supabase', args, {
+    encoding: 'utf8',
+    timeout: 120_000,
+    maxBuffer: 64 * 1024 * 1024,
+  });
   return extractRows<T>(raw);
 }
 

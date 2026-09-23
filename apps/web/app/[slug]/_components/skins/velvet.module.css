@@ -1,0 +1,111 @@
+/*
+ * VELVET on the PAGE — the Classy theme's ground, at site scale.
+ *
+ * The one DARK theme of the five. The door holds a bright card on velvet; the
+ * page does the same thing at length — the ground is velvet mixed from the
+ * couple's own accent, and every chapter plate is bright cotton card on top of
+ * it. That arrangement is the design, not an adaptation of it.
+ *
+ * 🎨 The material (`--vl-*`, including the oklab mix that takes the couple's
+ * colour into the velvet) lives once in `app/globals.css` under
+ * `[data-invite-theme='velvet'], [data-hub-theme='velvet']`, shared with the
+ * door. Declaring a `--vl-*` here would fork it, and is guarded against.
+ *
+ * 🪤 THE DOOR'S DEEP BAND RUNS TO A FIXED 320px AND THIS ONE DOES NOT. That
+ * figure exists because DoorShell centres one card in `min-h-dvh` and the band
+ * has to reach whatever height the wordmark floats to. A page has no such
+ * single element — it scrolls — so the band is proportional here. Copying 320px
+ * across would have put a hard horizontal seam a third of the way down every
+ * long page.
+ */
+
+/*
+ * 🔴 THE GROUND IS `rgb(var(--color-cream))`, NOT THIS THEME'S OWN COLOUR TOKEN,
+ * AND THAT IS A STRUCTURAL FIX FOR A BUG THAT SHIPPED IN THIS BRANCH.
+ *
+ * Velvet's first mapping told the page its paper was `--vl-paper` (near-white)
+ * while this skin painted the velvet (near-black) behind it. Every chapter
+ * heading and eyebrow — all the text that sits on the ground rather than on a
+ * plate — was drawn in the ink chosen for the LIGHT paper, on the DARK ground.
+ * The plates rendered perfectly throughout, so a thumbnail looked right.
+ *
+ * 🔑 A GUARD COULD NOT HAVE CAUGHT IT, AND I WROTE ONE THAT DID NOT. Checking
+ * "ink contrasts with --color-cream" passes: dark ink on the light paper the
+ * token CLAIMED is 17:1. The token and the pixels disagreed, and contrast
+ * arithmetic on the token can only ever see the token.
+ *
+ * So the possibility is removed instead of watched: the ground paints the SAME
+ * variable the page computes its text colour against. They cannot disagree,
+ * because there is only one of them. Texture, veils and scrims layer ON TOP —
+ * that is what makes each theme look like itself — but the base plane is the
+ * page's own paper by construction.
+ */
+.ground {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-color: rgb(var(--color-cream));
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.veil {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(60vw 40vh at 50% 32vh, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(90vw 40vh at 50% 100%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 70%),
+    linear-gradient(
+      180deg,
+      var(--vl-veil-deep) 0,
+      var(--vl-veil-deep) 22%,
+      var(--vl-veil-low) 52%,
+      var(--vl-veil-low) 84%,
+      var(--vl-veil-deep) 100%
+    );
+}
+
+/*
+ * 🔴 THE SCRIM — a flat 30% #0d090c over the veil, and it is the only part of
+ * this theme that is NOT in the door's design. It is here because of something
+ * the page has and the door does not: TEXT ON THE GROUND.
+ *
+ * `--vl-velvet` is `color-mix(in oklab, #0d090c 52%, var(--accent))` — the
+ * couple's own colour is half of it. That is the whole charm of the theme and it
+ * also means the velvet's LIGHTNESS is not ours to know. A couple who picks a
+ * pale accent gets a mid-grey ground, and the door survives that because the
+ * only lettering on its ground is a 25px/800 wordmark (large text, AA 3:1). A
+ * page sets chapter headings and loose editorial prose on it, so the floor is
+ * 4.5:1.
+ *
+ * MEASURED — warm cream type #F0EAE0 on the ground, worst case throughout: a
+ * PURE-WHITE accent (the lightest velvet a couple can make) over a WHITE photo:
+ *
+ *     no scrim                →  ground (137,135,136)   3.00:1  ✗
+ *     scrim 0.20              →  ground (112,110,111)   4.25:1  ✗
+ *     scrim 0.30  (this file) →  ground  (99, 97, 99)   5.13:1  ✓
+ *     scrim 0.40              →  ground  (87, 84, 86)   6.22:1
+ *
+ * With any ordinary dark accent the scrim is invisible — it deepens a ground
+ * that was already deep. It only does work in the case that would otherwise be
+ * unreadable, which is the point.
+ */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 9, 12, 0.3);
+}
+
+/*
+ * ⚠ THE PLATES ARE NOT RELYING ON ANY OF THIS. `--color-paper-deep` is pure
+ * white for this theme (globals.css), so every `pahina-plate` and
+ * `pahina-deckle` is a bright card carrying ink at 17.6:1 — the door skin's own
+ * measurement. The scrim exists for the text BETWEEN the plates, which is the
+ * only part a ground can actually make unreadable.
+ */

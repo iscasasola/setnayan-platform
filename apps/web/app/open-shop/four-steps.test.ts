@@ -27,6 +27,11 @@ const PAGE = readFileSync('app/open-shop/page.tsx', 'utf8');
 // The city + address inputs live in CityPin, not the wizard — a field the
 // wizard validates may legitimately be rendered by a child component.
 const CITY_PIN = readFileSync('app/open-shop/_components/city-pin.tsx', 'utf8');
+// The account-creation refusals (owner 2026-09-22) live in a pure module; its
+// catalogue keys are read so a NEW refusal there cannot ship without a step here.
+const ACCOUNT_MODULE = readFileSync('lib/open-shop-account.ts', 'utf8')
+  .split('OPEN_SHOP_ACCOUNT_ERRORS = {')[1]!
+  .split('} as const;')[0]!;
 
 /** Which step each shared error string belongs to. */
 const OWNS: Record<string, number> = {
@@ -43,14 +48,28 @@ const OWNS: Record<string, number> = {
   contactPhoneNotPh: 3,
   contactEmail: 3,
   locationCity: 4,
+  // The account is created inside step 3 (owner 2026-09-22): every refusal about
+  // the password or the email's account belongs to the screen that asked for
+  // them. lib/open-shop-account.ts owns these strings; the step is owned HERE.
+  password: 3,
+  passwordLeaked: 3,
+  blacklisted: 3,
+  emailTaken: 3,
+  accountFailed: 3,
 };
 
 test('META: every error the action redirects with is accounted for here', () => {
   // Without this, a NEW rejection could be added with no step and this suite
   // would keep passing — it would simply never look at it.
-  const used = new Set(
-    [...ACTIONS.matchAll(/OPEN_SHOP_ERRORS\.([A-Za-z]+)/g)].map((m) => m[1]!),
-  );
+  // Both catalogues: the wizard's field errors and the account-creation errors.
+  // A `decision.error` / `created.error` redirect carries its step from the pure
+  // module, so the catalogue scan below also covers the strings that module
+  // hands the action, by reading the module's own key list.
+  const used = new Set([
+    ...[...ACTIONS.matchAll(/OPEN_SHOP_ERRORS\.([A-Za-z]+)/g)].map((m) => m[1]!),
+    ...[...ACTIONS.matchAll(/OPEN_SHOP_ACCOUNT_ERRORS\.([A-Za-z]+)/g)].map((m) => m[1]!),
+    ...[...ACCOUNT_MODULE.matchAll(/^  ([A-Za-z]+):\s*$|^  ([A-Za-z]+): '/gm)].map((m) => (m[1] ?? m[2])!),
+  ]);
   const unmapped = [...used].filter((k) => !(k in OWNS));
   assert.deepEqual(
     unmapped,
@@ -64,7 +83,7 @@ test('each rejection carries the step that owns its field', () => {
   const wrong: string[] = [];
   for (const [key, step] of Object.entries(OWNS)) {
     const re = new RegExp(
-      `redirect\\(\\s*'/open-shop\\?([^']*)'\\s*\\+\\s*encodeURIComponent\\(OPEN_SHOP_ERRORS\\.${key}\\)`,
+      `redirect\\(\\s*'/open-shop\\?([^']*)'\\s*\\+\\s*encodeURIComponent\\(OPEN_SHOP_(?:ACCOUNT_)?ERRORS\\.${key}\\)`,
     );
     const m = re.exec(ACTIONS);
     if (!m) continue; // not every string is used on a redirect path
@@ -310,4 +329,25 @@ test('a slow reply for an older pin cannot overwrite a newer one', () => {
     'pin resolutions have no generation token — the spot tapped first can win over ' +
       'the spot tapped second',
   );
+});
+
+test('the action forwards the pure module’s step, never a hard-coded one, for account refusals', () => {
+  // `decideOpenShopAccount` and `createVendorAccountForShop` each return the step
+  // that owns the refused field (executed by lib/open-shop-account.test.ts). The
+  // action must carry THAT step into the redirect — a literal here would let the
+  // module say 4 while the wizard lands on 3.
+  assert.match(ACTIONS, /redirect\(`\/open-shop\?step=\$\{decision\.step\}&error=` \+ encodeURIComponent\(decision\.error\)\)/);
+  assert.match(ACTIONS, /redirect\(`\/open-shop\?step=\$\{created\.step\}&error=` \+ encodeURIComponent\(created\.error\)\)/);
+});
+
+test('signed out, the wizard asks for a password on step 3 and the agreement on the last step — and only then', () => {
+  // Both live INSIDE the `guest` gate: a signed-in vendor is never asked to agree
+  // again or to choose a password for an account they already have.
+  const pw = WIZARD.indexOf('name="password"');
+  assert.notEqual(pw, -1, 'no password field');
+  assert.ok(/\{guest \? \(\s*<label[^]*?name="password"/.test(WIZARD), 'the password field is not gated on `guest`');
+  assert.ok(/\{guest && step === TOTAL_STEPS \? \([^]*?name=\{TERMS_FIELD\}/.test(WIZARD), 'the terms box is not gated on `guest` + the last step');
+  // and the box is UNTICKED — no defaultChecked anywhere near it (clickwrap, CTRL-B3)
+  const termsBlock = WIZARD.slice(WIZARD.indexOf('name={TERMS_FIELD}'), WIZARD.indexOf('name={TERMS_FIELD}') + 200);
+  assert.equal(termsBlock.includes('defaultChecked'), false, 'the agreement is pre-ticked');
 });

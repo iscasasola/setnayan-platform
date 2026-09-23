@@ -202,7 +202,11 @@ test('after Lock, the couple has a next step on the Vendors page', () => {
 
 test('the tile says what it measures — build picks NOT yet locked', () => {
   const locked = read(BUILD_LOCKED);
-  assert.match(locked, /<LockTile k="Still to lock" v=\{pesoFromPhp\(money\.inBuildPhp\)/);
+  // ⚠ Whitespace-tolerant DELIBERATELY: the tile gained a `note` prop (2026-09-22,
+  // the unpriced count) and prettier split it over four lines, which broke this
+  // assertion while the property it guards was still true. The property is the
+  // LABEL and the FIGURE, not their line breaks.
+  assert.match(locked, /k="Still to lock"\s+v=\{pesoFromPhp\(money\.inBuildPhp\)/);
   assert.doesNotMatch(locked, /k="In build"/, '"In build ₱0" beside a locked supplier is back');
 });
 

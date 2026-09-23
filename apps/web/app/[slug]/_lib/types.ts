@@ -115,6 +115,11 @@ export type EventRow = {
   /** Pahina art direction (migration 20271003190000). 'candlelight' flips the
    *  guest site to the dark direction; absent/'daylight' = today's look. */
   site_art_direction?: 'daylight' | 'candlelight' | null;
+  /** The theme the couple chose on their invite door (events.invite_theme,
+   *  migration 20271219583821). The SITE wears it too since 2026-09-22 — read
+   *  it through `resolveHubLook`, never raw: the Pro unlock and the
+   *  weddings-only fence both gate it, and either can lapse after a save. */
+  invite_theme?: string | null;
   site_bg_color?: string | null;
   site_button_color?: string | null;
   // Couple's love story (events.love_story JSONB, written at onboarding; also
@@ -278,6 +283,12 @@ export type EventMedia = {
 /** `loadLiveLayer` — public schedule + RSVP-era backdrop config + live-window
  *  Watch-Live / Live Photo Wall + the anonymous event-day chrome inputs. */
 export type LiveLayerData = {
+  /**
+   * LAU-33 · TRUE when the live-wall read was ATTEMPTED and failed. Distinct
+   * from `liveWall === null`, which also means "not owned" and "mirror off" —
+   * those three were one value, so a failure rendered as a setting.
+   */
+  liveWallUnreadable?: boolean;
   scheduleBlocks: ScheduleBlockRow[];
   backdropConfig: RsvpBackdropConfig | null;
   liveWall: LiveWallData | null;

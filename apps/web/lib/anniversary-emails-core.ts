@@ -10,6 +10,7 @@
 // weaker guard, it is no guard.
 import { renderBrandedEmail } from '@/lib/email-template';
 import { articleFor, type EventWords } from '@/app/[slug]/_lib/event-words';
+import { SUPPORT_EMAIL } from './contact-addresses';
 
 // Anniversary "on this day" re-engagement email (PR-G).
 //
@@ -55,7 +56,10 @@ import { articleFor, type EventWords } from '@/app/[slug]/_lib/event-words';
 // `anniversary-emails.test.ts` pins its literal strings. If a future edit moves
 // what a couple reads, that test fails rather than the change shipping quietly.
 
-export const ANNIVERSARY_SUPPORT_EMAIL = 'support@setnayan.com';
+// Re-exported from the ONE module that owns published addresses.
+// This was an independent copy of the same literal — the fifth of five.
+// See lib/contact-addresses.ts for why that matters.
+export const ANNIVERSARY_SUPPORT_EMAIL = SUPPORT_EMAIL;
 
 /**
  * The words this module needs, and no more.

@@ -19,7 +19,6 @@ import {
 import type { ReactNode } from 'react';
 import { fetchChecklistProgress } from '@/lib/checklist';
 import { eventDateToEpoch, type MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { digestSubWorthShowing } from '@/lib/digest-sub';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -61,6 +60,7 @@ import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import {
   runTriggers,
   applyRestraint,
@@ -80,6 +80,10 @@ import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import {
+  decisionsCountNoun,
+  notBookedLabel,
+} from '@/lib/two-counts-two-names';
 import {
   rankMarkFor,
   splitDecisionsAndDates,
@@ -945,6 +949,27 @@ export async function EventDashboard({
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
   // internal-only `?sai=preview` render override. -------------------------
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  /*
+    THIS EVENT'S OWN SETNAYAN AI PRICE — for the free-venue-shortlist upsell,
+    which until 2026-09-22 hand-typed "₱499 first 28 days → ₱799 per 28 days"
+    while the catalog charged a one-time amount several times that, and named a
+    renewal SKU that is switched OFF. `FreeVenueShortlistOffer` is a client
+    component and cannot read the catalog, so the price is resolved HERE, on the
+    same path every other Sai surface uses, and handed down.
+
+    'regular' is not a choice — `resolveSetnayanAiDisplayPricePhp`'s own contract
+    says 'onboarding' belongs on the sign-up card and 'regular' everywhere else,
+    and it must match the context the charge path will use for the same button or
+    the screen makes a promise checkout will not keep.
+
+    Returns 0 for Tier E (Sai is not sold there) and 0 on an unreadable read; the
+    copy treats both as "no price" and omits the clause rather than printing ₱0.
+  */
+  const fullSaiPhp = await resolveSetnayanAiDisplayPricePhp(
+    supabase,
+    event.event_type as string | null,
+    'regular',
+  ).catch(() => 0);
   const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
     { paywallEnabled: aiPaywallEnabled },
@@ -1122,10 +1147,13 @@ export async function EventDashboard({
     {
       id: 'book',
       title: 'Book a vendor',
-      sub:
-        remainingTaskCount === 1
-          ? '1 category still open'
-          : `${remainingTaskCount} categories still open`,
+      /*
+        Was "N categories still open" — no denominator, and the same word the
+        digest used two inches away for a different set. `notBookedLabel` shows
+        the set this number is drawn from: the event-type-scoped categories
+        that count toward lockable, i.e. `totalLockableCategories`.
+      */
+      sub: notBookedLabel(remainingTaskCount, totalLockableCategories),
       items: byKind('start'),
     },
     {
@@ -1720,7 +1748,7 @@ export async function EventDashboard({
                           </span>
                         </InspectorTrigger>
                         {venueOfferInline && isSaiAssistFreeDecisionId(item.id) ? (
-                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
+                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" fullSaiPhp={fullSaiPhp} />
                         ) : null}
                       </div>
                     ))}
@@ -2483,7 +2511,11 @@ export async function EventDashboard({
                     <CountUp value={openDecisionCount} delayMs={300} />
                   </b>
                   <span className="text-[12.5px] text-ink/55">
-                    {openDecisionCount === 1 ? 'open decision' : 'open decisions'}
+                    {/* Was "open decision(s)". The eyebrow above already says
+                        "Needs you this week", so the count states its noun and
+                        stops — and stops sharing a word with the category
+                        count, which means something else entirely. */}
+                    {decisionsCountNoun(openDecisionCount)}
                     {aiActive && openDecisionCount > 0 ? ' · ranked' : ''}
                     {/* The dates did not vanish when they stopped being decisions —
                         they are named here so the smaller number cannot read as
@@ -2667,7 +2699,7 @@ export async function EventDashboard({
           </div>
           {venueOfferAvailable && !venueOfferInline ? (
             <div className="mb-3.5">
-              <FreeVenueShortlistOffer eventId={eventId} variant="card" />
+              <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} />
             </div>
           ) : null}
           {decisionGroups.length > 0 ? (

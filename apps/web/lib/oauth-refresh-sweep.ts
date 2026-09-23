@@ -53,7 +53,7 @@ import {
   refreshDriveAccessToken,
 } from '@/lib/papic-drive';
 import { refreshPoolChannelGrants } from '@/lib/live-studio-channel-grants';
-import { openStoredToken, sealToken } from '@/lib/oauth-token-vault';
+import { needsSealing, openStoredToken, sealToken } from '@/lib/oauth-token-vault';
 
 export type RefreshSummary = {
   scanned: number;
@@ -189,12 +189,33 @@ export async function runOAuthRefreshSweep(): Promise<OAuthRefreshResult | { err
     const expiresAt = new Date(
       Date.now() + refreshed.expires_in * 1000,
     ).toISOString();
+    /*
+      🔒 RE-SEAL THE REFRESH TOKEN ON THE WAY PAST (2026-09-22, register LAU-6).
+      This update already writes the row and `refreshToken` is already open —
+      it had to be, to call Google above. Leaving it out is what kept the
+      LONG-LIVED secret in plaintext while the hourly one got sealed.
+
+      Measured in production the day this was added: 0 of 5 access tokens were
+      plaintext (this sweep had been sealing them since it was registered) and
+      5 of 5 refresh tokens still matched `1//%` — Google plaintext, readable in
+      every backup. The access token dies in an hour; the refresh token is the
+      one that grants ongoing access to a couple's YouTube and Drive.
+
+      `needsSealing` keeps this idempotent: once a row is sealed the field is
+      omitted, so a sealed value is never re-encrypted and a row that is already
+      fine costs nothing.
+    */
+    const resealRefresh = needsSealing(grant.refresh_token as string | null)
+      ? { refresh_token: sealToken(refreshToken) }
+      : {};
+
     await admin
       .from('oauth_grants')
       .update({
         access_token: sealToken(refreshed.access_token),
         access_token_expires_at: expiresAt,
         last_refreshed_at: new Date().toISOString(),
+        ...resealRefresh,
       })
       .eq('grant_id', grantId);
     summary.refreshed += 1;

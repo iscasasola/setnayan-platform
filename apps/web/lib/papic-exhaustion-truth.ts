@@ -226,7 +226,9 @@ export function arrivalTally(
       // ⛔ "THE SHOTS", NEVER "YOUR CREDITS". Measured in production: not one
       // of `papic_event_pool_status`, `papic_capture_points_available` or
       // `papic_camera_points_remaining` reads `papic_guest_spend_ceilings` — the
-      // pool subtracts `papic_seat_allocations` and nothing else. A guest's
+      // pool subtracted `papic_seat_allocations` and nothing else — that table
+      // is DROPPED (20271243295861) and the subtraction with it, which changes
+      // no number because every row was 0. A guest's
       // ceiling is a LIMIT on what she may take and it holds NOTHING back for
       // her: every credit comes out of one shared pot, first come first served,
       // and a named guest can arrive to find it empty and her number worth

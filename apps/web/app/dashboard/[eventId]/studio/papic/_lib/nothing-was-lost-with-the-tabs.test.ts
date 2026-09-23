@@ -77,7 +77,22 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'LiveWallCard',
   'MagazineCard',
   'MiniTour',
-  'PapicCamerasCard',
+  // ⛔ REMOVED DELIBERATELY, 2026-09-23 — and this is what "deleting a line here
+  // is a decision" looks like when the decision is the owner's, twice.
+  //
+  // ⚖ 2026-09-16: *"no dedicated shots individually"*, over his own 2026-08-11
+  // ruling that created this card. Re-confirmed 2026-09-22 against a question
+  // naming THIS control rather than the category — an earlier asking said
+  // "dedicated camera credits", which names two mechanisms at once, and its
+  // answer ("should stay") was about the FREE camera grant.
+  //
+  // 🔑 It was the page's own contradiction: the Crew-cameras sheet says every
+  // shot draws from the shared pot while this card handed credits to one QR.
+  //
+  // The control is gone AND so is its machinery — `papic_dedicate_shots` and
+  // `papic_seat_allocations` are dropped (migration 20271243295861), so it
+  // cannot be re-added by restoring a file. `no-camera-holds-its-own-credits.test.ts`
+  // holds both halves, including that the FREE camera grant survived.
   'PapicGalleryGrid',
   'PapicPoolCard',
   'PapicWindowPicker',

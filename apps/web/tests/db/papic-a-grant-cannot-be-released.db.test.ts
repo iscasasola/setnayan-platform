@@ -122,82 +122,92 @@ const allocation = (seatId: string) =>
     [seatId],
   );
 
-test('her credits really are all grants — the allocation column is untouched', async () => {
+/*
+ * ══ 2026-09-23 · THE PRIMITIVE THIS FILE IS THE AUTOPSY OF IS NOW GONE ══════
+ *
+ * ⚖ Owner 2026-09-16 (*"no dedicated shots individually"*), re-confirmed
+ * 2026-09-22 against a question naming the control: `papic_dedicate_shots` and
+ * `papic_seat_allocations` are DROPPED by migration 20271243295861.
+ *
+ * 🔑 THE FINDING ABOVE IS NOT REPEALED — IT IS PROMOTED. The four measurements
+ * that used to live here drove the function directly to show it moved credits
+ * the wrong way on a grant-funded camera. That defect is now IMPOSSIBLE rather
+ * than merely measured, which is strictly stronger than a test: there is no
+ * function to reach for and no allocation column to reach into.
+ *
+ * ⚠ SO THE PROSE ABOVE STAYS AND THE ASSERTIONS CHANGE. The autopsy is the
+ * institutional memory of a live money defect on a surface real guests reach
+ * (PR #5028, `NEXT_PUBLIC_PAPIC_GUEST_BUY` ON in production); deleting it
+ * because the code is gone would throw away the reason anybody knows not to
+ * rebuild it. What is measured now is that it CANNOT come back, and that the
+ * right primitive still satisfies the contract on the very camera shape that
+ * broke — `seedGrantFundedCamera` is unchanged, so the fixture that exposed the
+ * defect is the fixture that proves the repair.
+ */
+
+test('her credits really are all grants — the allocation column never existed for her', async () => {
   const { seatId } = await seedGrantFundedCamera();
   assert.equal(
     Number(await dedicated(seatId)),
     BOUGHT,
-    'the camera should hold exactly what she bought',
+    'her whole balance is a GRANT — that is what made #5028 possible',
   );
   assert.equal(
-    Number(await allocation(seatId)),
-    0,
-    'a bought credit must NOT create an allocation row — if this fails the ' +
-      'funding model changed and everything below is measuring the wrong thing',
+    await one<boolean>(`SELECT to_regclass('public.papic_seat_allocations') IS NULL`),
+    true,
+    'the allocation column is back — the left/right distinction #5028 turned on has returned',
   );
 });
 
-test('THE #5028 DEFECT: releasing a grant-funded camera moved credits the WRONG WAY, on both sides', async () => {
-  const { eventId, seatId } = await seedGrantFundedCamera();
+test('🚨 THE #5028 DEFECT IS NOW UNREACHABLE — the wrong tool no longer exists', async () => {
+  /*
+    The defect was: call `papic_dedicate_shots(event, seat, her_spend)` on a
+    grant-funded camera, and its TARGET arithmetic takes the GIVING branch —
+    moving credits the wrong way on both sides of the ledger.
 
+    You cannot make that call any more.
+
+    Sabotage: re-create the function in the migration and watch this go red.
+  */
+  const gone = await one<number>(
+    `SELECT COUNT(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'papic_dedicate_shots'`,
+  );
+  assert.equal(gone, 0, 'papic_dedicate_shots is back — the #5028 primitive has returned');
+
+  const { eventId, seatId } = await seedGrantFundedCamera();
+  await assert.rejects(
+    () => one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, SHOT]),
+    /does not exist/,
+    'the exact call app/papic/buy/actions.ts made must not resolve',
+  );
+});
+
+test('and the RIGHT primitive still meets the contract on the camera shape that broke', async () => {
+  /*
+    🔑 THE HALF THAT WOULD BE EASY TO LOSE. Proving the wrong tool is gone says
+    nothing about whether the right one still works. `papic_release_seat_grants`
+    is what the owner asked for once he was shown what the feature was, and this
+    is the same grant-funded camera that exposed #5028.
+  */
+  const { eventId, seatId } = await seedGrantFundedCamera();
   const dedBefore = Number(await dedicated(seatId));
   const potBefore = Number(await pot(eventId));
 
-  // The UI's own arithmetic at the time: `dedicated - spent`, computed in
-  // TypeScript. That helper is gone; the figure is now read from
-  // `papic_seat_releasable_grants` instead. Restated here as a literal so this
-  // autopsy keeps measuring what #5028 actually did.
-  assert.equal(dedBefore - SHOT, RELEASABLE, 'the button read "Give 96 to the celebration"');
+  const moved = Number(
+    await one<number>(`SELECT public.papic_release_seat_grants($1, $2, NULL)`, [eventId, seatId]),
+  );
 
-  // EXACTLY the call app/papic/buy/actions.ts made: target = her own spend.
-  await one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, SHOT]);
-
-  const dedAfter = Number(await dedicated(seatId));
-  const potAfter = Number(await pot(eventId));
-
-  // ── the measurement that removal rests on ───────────────────────────────
+  assert.equal(moved, RELEASABLE, 'only her UNSPENT own credits move — 137 bought, 41 shot');
   assert.equal(
-    dedAfter - dedBefore,
-    +SHOT,
-    'her balance ROSE by her spend — the giving branch ran, because a target ' +
-      'of 41 against an allocation of 0 is a POSITIVE delta',
+    Number(await dedicated(seatId)),
+    dedBefore - RELEASABLE,
+    'her camera goes DOWN by what moved — the direction #5028 got backwards',
   );
   assert.equal(
-    potAfter - potBefore,
-    -SHOT,
-    "and the couple's shared pot FELL by the same amount — every other guest " +
-      'at the event shoots from that pot, so this is not pot-neutral',
-  );
-
-  // Stated as absolutes too, so the failure message names real figures.
-  assert.equal(dedAfter, BOUGHT + SHOT, 'dedicated 137 -> 178');
-  assert.equal(Number(await allocation(seatId)), SHOT, 'an allocation of 41 was invented');
-
-  // Nothing about it releases: the direction is inverted, not merely short.
-  assert.ok(
-    dedAfter > dedBefore,
-    'a RELEASE that increases the balance is the defect, restated',
-  );
-});
-
-test('a second press is a no-op — which is why this was never noticed by pressing twice', async () => {
-  const { eventId, seatId } = await seedGrantFundedCamera();
-  await one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, SHOT]);
-  const dedOnce = Number(await dedicated(seatId));
-  const potOnce = Number(await pot(eventId));
-
-  await one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, SHOT]);
-  assert.equal(Number(await dedicated(seatId)), dedOnce, 'target now equals current — no delta');
-  assert.equal(Number(await pot(eventId)), potOnce, 'so the pot does not move either');
-});
-
-test('and the obvious repair — "just pass a negative" — is refused outright', async () => {
-  const { eventId, seatId } = await seedGrantFundedCamera();
-  await assert.rejects(
-    () => one(`SELECT public.papic_dedicate_shots($1, $2, $3, NULL)`, [eventId, seatId, -RELEASABLE]),
-    /bad arguments/,
-    'p_points < 0 is rejected at the top of the function, so a negative target ' +
-      'is not a way in either — the primitive genuinely cannot express this move',
+    Number(await pot(eventId)),
+    potBefore + RELEASABLE,
+    'and the shared pot goes UP by exactly the same amount — zero-sum',
   );
 });
 
@@ -212,8 +222,10 @@ test('and the obvious repair — "just pass a negative" — is refused outright'
  * the importing suite, and the contract has to seed into the CALLER'S replayed
  * database rather than this file's.
  *
- * ⚠ THIS FILE STAYS EXACTLY AS IT IS. `papic_dedicate_shots` is still the
- * wrong tool for that job and still misbehaves on a grant-funded camera in
- * precisely the way measured above; the new primitive does not repair it and
- * was never meant to. These four tests are what stops it being re-proposed.
+ * ⚠ UPDATED 2026-09-23. This file used to end "THIS FILE STAYS EXACTLY AS IT
+ * IS … these four tests are what stops it being re-proposed." It cannot be
+ * re-proposed now: `papic_dedicate_shots` is DROPPED. The tests above assert
+ * that it is gone and that the right primitive still satisfies the contract on
+ * the same grant-funded camera — the fixture that exposed the defect is the one
+ * that proves the repair.
  */

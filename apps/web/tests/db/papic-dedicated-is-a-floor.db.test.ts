@@ -94,7 +94,27 @@ async function seed(granted: number, dedicated: number) {
   );
   const seatId = seat.rows[0]!.seat_id;
   if (dedicated > 0) {
-    await one(`SELECT public.papic_dedicate_shots($1,$2,$3)`, [eventId, seatId, dedicated]);
+    /*
+      ⚖ FUNDED BY A SEAT GRANT, NOT BY THE COUPLE'S HAND-OUT. `papic_dedicate_shots`
+      is dropped (migration 20271243295861 — owner: "no dedicated shots
+      individually"), and with it the only way the COUPLE could put credits on one
+      camera. A camera can still carry credits of its own: the FREE Papic One
+      camera grant, which the owner said "should stay", is a
+      `papic_event_point_grants` row with a `seat_id` set — the shape
+      `papic_grant_camera_points` writes, and exactly what
+      `tests/db/papic-release-contract.ts` already seeds.
+
+      🔑 THE PROPERTY UNDER TEST IS UNCHANGED — a camera spends its OWN credits
+      first and the pot pays the remainder. Only where those credits came from
+      moved. What is gone is the hand-out's side effect of DEDUCTING them from
+      the shared pot; a grant is additional, so `poolStart` is read after this
+      and the assertions below are deltas against it.
+    */
+    await db.query(
+      `INSERT INTO public.papic_event_point_grants (event_id, seat_id, points, source, note)
+       VALUES ($1, $2, $3, 'admin', 'the free camera grant — this camera''s own credits')`,
+      [eventId, seatId, dedicated],
+    );
   }
   return { eventId, seatId, poolStart: await poolLeft(eventId) };
 }

@@ -200,9 +200,29 @@ export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
         placeholder: 'https://www.setnayan.com/api/oauth/photo-delivery/callback',
         validate: 'url',
       },
+      {
+        /* 🔑 PUBLIC BY DESIGN, and it sits with the other public fields for
+           that reason. The Picker is Google's script running in a browser and
+           it reads this key off the page.
+           ⚠ WHOSE browser: the COUPLE'S, in the website editor. The Picker is
+           a dashboard control, so this never reaches a guest — but anyone
+           signed in can read it out of their own page, which is why the key's
+           own referrer and API restrictions carry the weight.
+           It is deliberately NOT a `secretColumn`: encrypting a value we then
+           publish is theatre, and putting it in the deny-by-default secrets
+           table beside the OAuth CLIENT SECRET — which must never reach a
+           browser — would file two opposite things in one drawer.
+           ⚠ The Cloud PROJECT NUMBER the Picker also needs is not here: it is
+           already the numeric prefix of the Client ID above, and storing it
+           twice would let the two drift. */
+        column: 'google_picker_api_key',
+        env: 'GOOGLE_PICKER_API_KEY',
+        label: 'Picker API key (public — sent to the browser)',
+        placeholder: 'AIza…',
+      },
     ],
     guidance:
-      'One shared Google OAuth client powers both Papic and Photo Delivery — register BOTH redirect URIs against it.',
+      'One shared Google OAuth client powers both Papic and Photo Delivery — register BOTH redirect URIs against it. The Picker key below is a BROWSER key: restrict it to the setnayan.com referrers and to the Google Picker API alone, because guests can read it off the page.',
   },
   {
     id: 'tiktok',
@@ -314,3 +334,5 @@ export const ALL_SECRET_COLUMNS: readonly string[] = [
   MAYA_INTEGRATION.publicKeyColumn,
   MAYA_INTEGRATION.secretKeyColumn,
 ];
+
+export { projectNumberFromClientId } from './project-number';

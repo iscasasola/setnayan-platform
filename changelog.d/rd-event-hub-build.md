@@ -559,3 +559,59 @@ now parses every rule and checks the selector.
 SPEC IMPACT: None yet — the mechanism only. **The owner's authorisation for script on the guest
 page (2026-09-23) is a standing decision worth recording in the corpus** when the feature is
 switched on.
+
+---
+
+### 14 · The Picker key has a home — and it is not the secrets drawer
+
+Owner enabled the Google Picker API and created a browser key on 2026-09-23. The field it goes in
+now exists on `/admin/integrations`, on the Google Drive card he already uses.
+
+🔑 **Registry-driven, so the card needed no code.** `OAuthCard` renders `configFields` generically
+and `saveOAuthConfig` iterates the same list as its write allowlist. One registry entry and one
+column, and the field appears, saves and is gated — a page change would have been a redraw of
+something that already worked.
+
+## 🔒 Two Google credentials, two drawers, and only one mistake is recoverable
+
+The Drive card now carries values that travel to **opposite** places:
+
+| | goes to | stored |
+|---|---|---|
+| OAuth **client secret** | never a browser | encrypted, `platform_integration_secrets` (deny-by-default) |
+| Picker **API key** | a browser, by design | plain, `platform_settings` (public config) |
+
+Encrypting a key we then publish is theatre. Publishing a client secret means rotating it and
+**re-authorising every couple**. So the filing is guarded rather than trusted: no migration may add
+a picker column to the secrets table, and the Drive integration's `secretColumn` must still be the
+OAuth secret alone.
+
+⚠ **A false claim I wrote and then corrected in the same commit.** Three of these docblocks said the
+key is "handed to the **guest's** browser". It is not — the Picker is a **dashboard** control, used
+by the couple in the website editor. The exposure baseline agrees: `anon=-`, `authenticated=S`. It
+is still public in the sense that matters (anyone signed in reads it off their own page, so the
+referrer and API restrictions carry the weight), but "every guest" would have been a wrong fact the
+next reader inherited. Caught by reading the baseline the freeze printed.
+
+⛔ **No project-number column.** The Picker needs the Cloud project number, and it is already here:
+a Google client id is `<project number>-<random>.apps.googleusercontent.com`, and the client id is
+in this same table. A second column would be a second source of truth for one fact, free to drift
+the moment the client is rotated — and the drift shows as a Picker that refuses to open, with both
+values looking perfectly plausible in the console. It is derived.
+
+🪤 **The pure rule lives outside `registry.ts`**, which imports `server-only` and therefore throws
+before a single assertion can run. A decision filed behind that import is a decision nothing can
+hold down; the registry re-exports it so callers never see the split.
+
+⛔ **No `NEXT_PUBLIC_*`.** Those are inlined at build time, so setting one in Vercel changes nothing
+until the next deploy — and rotating the key would mean a rebuild before the site worked again.
+
+**Guards** — `the-picker-key-is-not-a-secret.test.ts` (5), which sweeps **every** migration rather
+than just this one.
+
+🪤 **And a matcher fired on the documentation of the fix, for the third time this session:** the
+server-only check found those words in the docblock *explaining* the split and called the pure
+module contaminated. It strips comments now.
+
+SPEC IMPACT: None. Exposure freeze: one fact added, `platform_settings.google_picker_api_key
+anon=- authenticated=S`.

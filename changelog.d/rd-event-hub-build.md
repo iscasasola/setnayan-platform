@@ -501,3 +501,61 @@ posted `undefined` as every widget id.
 
 SPEC IMPACT: None. The old `rise`/`slide`/`lift`/`shrink` values are replaced outright rather than
 carried, because nothing in production holds either field — the canvas has never merged.
+
+---
+
+### 13 · Magic Move — one element that travels (mechanism, off by default)
+
+Owner, 2026-09-23: *"the idea is like how keynote's magic move operate"*, and then *"yes, magic
+move can use javascript"*.
+
+Everything else in the canvas is a **handover**: one section fades out, the next fades in. This is
+the other thing — a single element stays on screen and **moves between two places** as the guest
+scrolls. The couple's mark leaves the top of the page and arrives, smaller, in the bar that follows
+them down. No second copy, no cross-fade; the same mark the whole way.
+
+🔑 **That is why it needs script**, and why it was asked rather than assumed. Two elements handing
+over is pure CSS. One element travelling between two **laid-out** places needs both measured at
+runtime, and only the browser knows where they are.
+
+⚠ **A correction I had been repeating all session: the guest page already runs script.**
+`pahina-motion.tsx` ships three inline scripts as *server components* — no client bundle, no
+hydration — for the scroll reveal and the hero parallax. Magic Move joins them and copies their
+contract exactly rather than introducing anything.
+
+🔒 **The script writes three custom properties and nothing else** — never a transform, never a
+class. One CSS rule turns them into movement, and that rule is gated on `.pahina-js`, which three
+independent paths already remove (no IntersectionObserver, reduced motion, a 2s self-heal). No flag
+→ no rule → the mark is exactly where the layout puts it. **The defaults are the identity**, so a
+page that has the flag but never ran the measurer is byte-identical to one that never had it.
+
+🪤 **The lesson from the file next door is built in.** `pahina-motion.tsx`'s safety net once
+concluded *"nothing to observe"* **while the page was still streaming** — finding nothing was a lie
+at that instant, not a fact — and silently suppressed the scroll reveal on every public invitation
+**for seven weeks**. So this never gives up on a first empty look while the document is parsing: it
+retries on `DOMContentLoaded` and on a timer, and if it really is empty it writes one line naming
+what its selector saw.
+
+🪤 **And one of its own:** `getBoundingClientRect` returns the *transformed* box, so reading the
+traveller mid-flight feeds its own output back in and the value runs away. The resting rect is
+captured with the transform explicitly zeroed, and only re-captured on resize.
+
+⛔ **It ships OFF.** Nothing travels until a couple chooses it, so every page on the platform today
+renders byte-identically — no attribute, no script, no rule that matches. **This is the first thing
+on the guest page that moves an element across the viewport, and it wants a real phone and the
+owner's eyes before it is anybody's default.**
+
+**Guards** — `the-mark-travels-or-sits-still.test.ts` (8). Seven sabotages, each breaking exactly
+its guard: **the transform rule losing its flag** (the stranding one) · the script setting a
+transform directly · a default that is no longer the identity · giving up during streaming · reading
+the rect mid-flight · reduced motion no longer stilling it · a traveller on by default.
+
+🪤 **A guard of mine was wrong again and its own sabotage found it.** The "no ungated transform"
+check forbade `[data-magic-traveller] {` preceded by a non-word character — and the **space** in
+`.pahina-js [data-magic-traveller]` is a non-word character, so it flagged the correctly-gated rule.
+A negative assertion that cannot tell the safe shape from the dangerous one is worse than none. It
+now parses every rule and checks the selector.
+
+SPEC IMPACT: None yet — the mechanism only. **The owner's authorisation for script on the guest
+page (2026-09-23) is a standing decision worth recording in the corpus** when the feature is
+switched on.

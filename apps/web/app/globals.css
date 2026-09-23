@@ -4966,3 +4966,40 @@ html:has([data-sticky-top]) {
     }
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MAGIC MOVE — one element that travels, instead of two that hand over
+   (owner 2026-09-23: "like how keynote's magic move operate")
+   ════════════════════════════════════════════════════════════════════════════
+
+   🔒 GATED ON `.pahina-js`, LIKE THE PARALLAX ABOVE, AND FOR THE SAME REASON.
+   The script writes only `--magic-dx` / `--magic-dy` / `--magic-k`; this rule
+   is the only thing that turns them into movement. Reduced motion, a missing
+   IntersectionObserver, a blocked bundle or the 2s self-heal each remove the
+   flag, this rule stops matching, and the mark sits exactly where the layout
+   puts it. There is no half-state and nothing to un-stick.
+
+   🔑 THE DEFAULTS ARE THE IDENTITY. `translate3d(0,0,0) scale(1)` is where the
+   element already is, so the rule is inert until the script has measured
+   something — a page that matched the flag but never ran the measurer is
+   byte-identical to one that never had it.
+
+   ⚠ `will-change` IS DECLARED HERE, not by the script. A hint the script set
+   would outlive the flag being removed and leave a promoted layer behind for
+   nothing. */
+.pahina-js [data-magic-traveller] {
+  transform: translate3d(var(--magic-dx, 0px), var(--magic-dy, 0px), 0) scale(var(--magic-k, 1));
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* The empty box it travels into. It occupies space so the bar's layout is
+   settled before anything is measured, and it draws nothing — the mark itself
+   is the only ink either end. */
+[data-magic-berth] { visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Belt and braces: RootFlag already withholds the flag for these guests, so
+     this only matters if some future path sets it another way. */
+  .pahina-js [data-magic-traveller] { transform: none; will-change: auto; }
+}

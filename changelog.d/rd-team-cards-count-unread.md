@@ -66,3 +66,31 @@ question at EVENT resolution via the `unread_message_threads_by_event()` RPC, fo
 It is a third derivation of "unread" and it graceful-degrades to an empty map, so a refused read
 there renders as "no unread" on the launcher — the same defect this slice fixes on the bench. Not
 touched here because it is a different surface with a different reader; registered as its own item.
+
+### Correction, on CI's evidence — the badge is NOT on the search-result card
+
+CI's `typecheck + lint` failed with **one** error, and it was a real design mistake:
+
+```
+shortlist-categories.tsx(1549,36): error TS2339:
+  Property 'threadId' does not exist on type 'CategoryVendorResult'.
+```
+
+`InlineMoreCard` renders a `CategoryVendorResult` — a **marketplace search result** for the inline
+"More in {category}" row — and that type carries **no thread, inquiry, unread or chat field at all**,
+because these are vendors the couple has not added yet. **A vendor with no conversation has no unread
+messages to count.** So the badge does not belong there, and widening a search-result type with a
+DB-backed thread id so a discovery card could wear a badge would be a new feature, not this one. The
+supplier's real bench card (`VendorCard`) carries it.
+
+The guard asserted **2** mounts and was wrong. It now asserts **1**, and asserts the reason in BOTH
+directions — the supplier card must have it, the search card must not — because a bare "expect 1"
+would be satisfied by putting the badge on the wrong card. Corrected on the evidence, not by flipping
+a number to go green.
+
+⚠ **Everything else in that CI run was green** — production build, playwright e2e, lighthouse, bundle
+size, secret scan, exposure baseline, migration timestamp guard and every lint guard.
+
+🔑 **CI found this in one free round trip after three local typechecks were OOM-killed** (exit 144, no
+summary lines) while two other worktrees ran nine typechecks between them. The local full run was
+never going to happen; pushing was what produced the answer.

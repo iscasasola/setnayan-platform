@@ -1546,7 +1546,16 @@ function InlineMoreCard({
         </span>
         <span className="meta">
           <span className="vn">{v.name}</span>
-          <UnreadBadge threadId={v.threadId} />
+          {/* ⚠ NO UNREAD BADGE HERE, AND THAT IS THE RIGHT ANSWER, not a
+              limitation. This card renders a `CategoryVendorResult` — a
+              MARKETPLACE SEARCH result for the inline "More in {category}" row —
+              and that type carries no thread, inquiry, unread or chat field at
+              all, because these are vendors the couple has not added yet. A
+              vendor with no conversation has no unread messages to count.
+              tsc caught the badge here (TS2339 on `v.threadId`); widening a
+              search-result type with a DB-backed thread id so a discovery card
+              could wear a badge would be a new feature, not this one. The
+              supplier's REAL bench card (`VendorCard`) carries it. */}
           {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string,
               and without this line a couple reads it as a fake listing. Same
               sentence the full sheet shows, for the same reason. */}

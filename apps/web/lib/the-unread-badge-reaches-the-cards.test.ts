@@ -48,20 +48,39 @@ test('the page READS the unread counts and hands them down', () => {
   );
 });
 
-test('🪤 BOTH card variants carry the badge — counted, not spot-checked', () => {
-  // Three <VendorCard> and two <InlineMoreCard> call sites share two components.
-  // A sabotage that landed 2→1 would stay green against a single assert.match.
-  assert.equal(count(BENCH, /<UnreadBadge threadId=\{v\.threadId\} \/>/g), 2, 'VendorCard AND InlineMoreCard');
-  // Anchored per component, so the two are not interchangeable.
-  for (const fn of ['function VendorCard(', 'function InlineMoreCard(']) {
+test('🪤 the badge is on the SUPPLIER card and NOT on the search-result card', () => {
+  /* ⚠ THIS ASSERTED 2 AND IT WAS WRONG — corrected on CI's evidence, not by
+     flipping a number to go green. `InlineMoreCard` renders a
+     `CategoryVendorResult`: a MARKETPLACE SEARCH result for the inline "More in
+     {category}" row, whose type carries no thread, inquiry, unread or chat field
+     at all, because these are vendors the couple has not added yet. A vendor with
+     no conversation cannot have unread messages. tsc caught it (TS2339 on
+     `v.threadId` at the InlineMoreCard call site) after three local typechecks
+     were OOM-killed and the answer came from CI instead.
+
+     🔑 So the count is 1, and the reason is asserted in BOTH directions — the
+     supplier card must HAVE it and the search card must NOT — because a bare
+     "expect 1" would be satisfied by putting the badge on the wrong one. */
+  assert.equal(count(BENCH, /<UnreadBadge threadId=\{v\.threadId\} \/>/g), 1, 'exactly one card type carries it');
+
+  const bodyOf = (fn: string) => {
     const from = BENCH.indexOf(fn);
-    assert.ok(from > 0, `${fn} must exist`);
-    // Window ends at the next top-level function, so this cannot borrow the next
-    // component's badge and call it this one's.
+    assert.ok(from > 0, `${fn} must exist — repoint this guard if it was renamed`);
+    // Window ends at the next top-level function so it cannot borrow the next
+    // component's markup and call it this one's.
     const next = BENCH.indexOf('\nfunction ', from + 1);
-    const body = BENCH.slice(from, next > 0 ? next : undefined);
-    assert.match(body, /<UnreadBadge threadId=\{v\.threadId\} \/>/, `${fn} lost its badge`);
-  }
+    return BENCH.slice(from, next > 0 ? next : undefined);
+  };
+  assert.match(
+    bodyOf('function VendorCard('),
+    /<UnreadBadge threadId=\{v\.threadId\} \/>/,
+    'the supplier card lost its badge',
+  );
+  assert.doesNotMatch(
+    bodyOf('function InlineMoreCard('),
+    /<UnreadBadge/,
+    'a marketplace search result has no conversation — badging it needs a new read, not a wider type',
+  );
 });
 
 test('🪤 the tile head and BOTH folder-head branches carry the deduped rollup', () => {
@@ -135,6 +154,8 @@ test('🪤 the stylesheet literal holds no backtick — it cannot, and once did'
 test('the badge renders its own words from the shared helpers, and is reachable', () => {
   // Both badge components must go through unreadBadgeLabel (which returns null
   // for 0 and for unmeasured) rather than interpolating a number.
+  // Two badge COMPONENTS (UnreadBadge + UnreadRollupBadge), each wording itself
+  // through the shared helpers. This counts the components, not the mount sites.
   assert.equal(count(BENCH, /unreadBadgeLabel\(/g), 2, 'one per badge component');
   assert.equal(count(BENCH, /unreadBadgeAria\(/g), 2, 'every badge is announced');
   assert.match(BENCH, /if \(label == null\) return null;/, 'no string → no badge');

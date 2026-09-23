@@ -36,6 +36,9 @@ export type PublicProfileEvent = {
   monogram_frame_key: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
+  /* The celebration's own typeface — see EVENT_FIELDS for why this one column
+     and not the three private ones. Read by `resolveCelebrationIdentity`. */
+  std_theme: string | null;
 };
 
 export type PublicProfileUser = {
@@ -55,8 +58,30 @@ export type ResolvedPublicProfile = {
   publicWebsiteEvents: PublicProfileEvent[];
 };
 
+/*
+ * ⚠ THIS SELECT FEEDS A PUBLIC PAGE. Every column here must be anon-readable —
+ * check `supabase/security/exposure-surface.baseline.txt` before adding one.
+ *
+ * ONE identity column — `std_theme`, added 2026-09-23 — and the count is
+ * deliberate. The cover art needs ZERO new columns: `eventCardTreatment()` in
+ * lib/event-card-art.ts derives a stable wash and crop from the `event_id` this
+ * select already carries. What the cover cannot do is tell his two WEDDINGS
+ * apart: measured, they land on hues 204 and 214, ten degrees from each other,
+ * so both read blue side by side. `std_theme` is the couple's own Save-the-Date
+ * typeface, and two blue covers in different fonts read as two celebrations
+ * where two blue covers in one font read as a rendering bug.
+ *
+ * `std_film_accent_hex`, `site_bg_color` and `site_button_color` were tried and
+ * REMOVED: the cover carries the colour now, so an accent edge was a second
+ * answer to a question already answered, and every column on a public read has
+ * to pay for itself.
+ *
+ * ⛔ `invite_theme`, `moodboard_theme_name` and `story_cover_kind`/`_ref` are
+ * deliberately NOT here — all four are `anon=-` in that baseline. Two of them
+ * would have looked good on the card; they are private fields.
+ */
 const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
+  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, std_theme';
 
 /** The minimum an event row must carry to be put through the public gate. */
 export type PublicGateEventFields = {

@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolvePublicProfile } from '@/lib/public-profile';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { resolveCelebrationIdentity } from '@/lib/celebration-card-identity';
 import { formatEventDate } from '@/lib/events';
 import { ReportPageButton } from '@/app/_components/report-page-button';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
@@ -350,15 +351,31 @@ export default async function AccountProfilePage({ params }: Props) {
               const meta = [event.venue_name, formatEventDate(event.event_date)]
                 .filter(Boolean)
                 .join(' · ');
-              const hero = event.landing_page_hero_image_url?.trim();
+              /*
+                  THE CARD WEARS THE CELEBRATION (owner 2026-09-23: "the event
+                  cards look non events"). It used to read the hero and the
+                  monogram and nothing else — and since none of his three events
+                  has a hero, every card took the monogram branch, where every
+                  `monogram_color` is the same default. Three celebrations, three
+                  identical discs.
+
+                  `resolveCelebrationIdentity` reads the look the couple ALREADY
+                  chose: their Save-the-Date typeface and their own accent. It
+                  invents nothing and reads no private column.
+              */
+              const identity = resolveCelebrationIdentity(event);
               return (
                 <li key={event.event_id}>
-                  <Link href={`/u/${canonicalSlug}/${event.slug}`} className="uprof-card">
-                    {hero ? (
+                  <Link
+                    href={`/u/${canonicalSlug}/${event.slug}`}
+                    className="uprof-card"
+                    data-identity={identity.hasOwnIdentity ? 'own' : 'none'}
+                  >
+                    {identity.heroUrl ? (
                       <span className="uprof-cover">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={hero}
+                          src={identity.heroUrl}
                           alt=""
                           loading="lazy"
                           decoding="async"
@@ -371,14 +388,18 @@ export default async function AccountProfilePage({ params }: Props) {
                       </span>
                     )}
                     <span className="uprof-body">
-                      <span className="m-serif uprof-title">
+                      {/* The event's OWN typeface, from its STD theme — the
+                          class comes from the shipped STD_THEMES table, never
+                          re-typed here. */}
+                      <span className={`${identity.fontCls} uprof-title`}>
                         {event.display_name?.trim() || 'Celebration'}
                       </span>
                       {meta ? <span className="uprof-meta">{meta}</span> : null}
                     </span>
-                    <span aria-hidden className="uprof-chev">
-                      &rsaquo;
-                    </span>
+                    {/* THE CHEVRON IS GONE. A `›` is list-row chrome: it says
+                        "next item in a settings list", which is precisely what
+                        made a celebration read as a row. The whole card is the
+                        link; it needs no arrow to say so. */}
                   </Link>
                 </li>
               );
@@ -912,19 +933,6 @@ const UPROF_CSS = `
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .uprof-chev {
-    flex: 0 0 auto;
-    font-size: 1.5rem;
-    line-height: 1;
-    color: var(--m-slate-2, #6A6E76);
-    opacity: .5;
-    transition: transform .18s cubic-bezier(.2,.7,.2,1), color .18s, opacity .18s;
-  }
-  .uprof-card:hover .uprof-chev {
-    transform: translateX(3px);
-    color: var(--m-orange, #A9834B);
-    opacity: 1;
   }
 
   .uprof-empty {

@@ -895,6 +895,7 @@ function UploadBlock({
         bucket="vendor-contracts"
         pathPrefix={`paperwork/${eventId}/${documentType}`}
         name="document_r2_key"
+        unsavedHint="press Save scan below"
         label="Upload scan"
         help="PDF or photo of the document. PNG, JPEG, WebP, HEIC, or PDF up to 20 MB."
         maxSizeMB={20}

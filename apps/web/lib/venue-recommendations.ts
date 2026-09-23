@@ -414,6 +414,10 @@ export function venueSettingToDirectoryType(setting: string): string | null {
   switch (setting) {
     case 'banquet_hall':
       return 'hotel_ballroom';
+    // events_place → the nearest commercial function space the directory knows
+    // (see VENUE_SETTING_TO_DIRECTORY_TYPE in venue-settings.ts for why).
+    case 'events_place':
+      return 'hotel_ballroom';
     case 'restaurant':
       return 'restaurant';
     case 'garden':

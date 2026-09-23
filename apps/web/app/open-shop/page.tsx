@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
-import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OpenShopWizard } from './_components/open-shop-wizard';
 import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
@@ -91,7 +91,7 @@ export default async function OpenShopPage({
   // marketplace ?event_type= filter + the My Shop coverage editor read). Without
   // this signal a new shop is stuck at the column default ['wedding'] and is
   // invisible for every non-wedding event it actually serves.
-  const eventTypeOptions = (await getEventTypeVocab()).map((e) => ({
+  const eventTypeOptions = (await getVendorServableEventTypes()).map((e) => ({
     key: e.key,
     label: e.label,
     emoji: e.emoji,

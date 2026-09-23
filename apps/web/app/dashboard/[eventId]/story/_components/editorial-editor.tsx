@@ -1014,6 +1014,7 @@ export function EditorialEditor({
               bucket="media"
               pathPrefix={`editorial/${eventId}/hero`}
               name="editorial_hero_upload"
+              unsavedHint="it goes in when you choose Draft, Guests only or Published"
               acceptedTypes={EDITORIAL_IMAGE_TYPES}
               maxSizeMB={10}
               compressImage
@@ -1031,6 +1032,7 @@ export function EditorialEditor({
               bucket="media"
               pathPrefix={`editorial/${eventId}/gallery`}
               name="editorial_gallery_uploads"
+              unsavedHint="it goes in when you choose Draft, Guests only or Published"
               multiple
               maxFiles={GALLERY_UPLOADS_MAX}
               acceptedTypes={EDITORIAL_IMAGE_TYPES}

@@ -643,6 +643,7 @@ function LaterInstallment({
               reads it as `proof_r2_key`. */}
           <FileUpload
             name="proof_r2_key"
+            unsavedHint="press Record payment below"
             bucket="thread-files"
             pathPrefix={`payment-proof/events/${eventId}`}
             maxSizeMB={5}

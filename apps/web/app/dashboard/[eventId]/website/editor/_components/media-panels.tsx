@@ -73,6 +73,7 @@ export function HeroPhotoPanel({
         bucket="media"
         pathPrefix={`events/${eventId}/landing-page-hero`}
         name="hero_image_url"
+        unsavedHint="press Save below"
         multiple={false}
         maxSizeMB={10}
         acceptedTypes={IMAGE_TYPES}
@@ -107,6 +108,7 @@ export function GalleryPanel({
         bucket="media"
         pathPrefix={`events/${eventId}/our-photos`}
         name="photos"
+        unsavedHint="press Save below"
         multiple
         maxFiles={maxFiles}
         maxSizeMB={10}
@@ -152,6 +154,7 @@ export function SiteChromePanel({
         bucket="media"
         pathPrefix={`events/${eventId}/site-music`}
         name="bg_music_url"
+        unsavedHint="press Save below"
         multiple={false}
         maxSizeMB={20}
         acceptedTypes={AUDIO_TYPES}
@@ -174,6 +177,7 @@ export function SiteChromePanel({
           bucket="media"
           pathPrefix={`events/${eventId}/landing-page-hero-video`}
           name="hero_video_url"
+          unsavedHint="press Save below"
           multiple={false}
           maxSizeMB={100}
           acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}

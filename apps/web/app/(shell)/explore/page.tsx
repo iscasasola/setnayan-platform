@@ -472,13 +472,14 @@ const PAGE_SIZE = 24;
 // RECEPTION_VENUE_FACETS literal below needs to satisfy its own
 // readonly-of-{key,label,combined} shape.
 const VENUE_SETTING_LABEL = {
-  banquet_hall: 'Hotel Ballroom / Banquet Hall',
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
   restaurant: 'Restaurant',
-  garden: 'Garden Estate',
+  garden: 'Garden',
   beach: 'Beach',
-  destination: 'Destination Resort',
-  heritage: 'Heritage / Hacienda',
-  outdoor_tent: 'Outdoor Tent',
+  destination: 'Resort / destination',
+  heritage: 'Heritage venue',
+  outdoor_tent: 'Outdoor tent',
   civil_registrar: "Civil Registrar's Office",
 } as const;
 
@@ -486,7 +487,8 @@ const VENUE_SETTING_LABEL = {
 // setting"). Same literal-key shape so the banner doesn't have to defend
 // against undefined.
 const VENUE_SETTING_SHORT_LABEL = {
-  banquet_hall: 'Banquet hall',
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
   restaurant: 'Restaurant',
   garden: 'Garden',
   beach: 'Beach',
@@ -941,7 +943,7 @@ function parseFilters(
   //   • '1' / 'on' / absent   → venueDefault='on',  venueFacet=null
   //   • <facet_key>           → venueDefault='on',  venueFacet=<facet_key>
   const VENUE_FACET_KEYS = new Set([
-    'banquet_hall', 'garden', 'beach', 'destination',
+    'banquet_hall', 'events_place', 'restaurant', 'garden', 'beach', 'destination',
     'heritage', 'outdoor_tent', 'civil_registrar',
   ]);
   const rawVenue = (raw.venue ?? '').trim();

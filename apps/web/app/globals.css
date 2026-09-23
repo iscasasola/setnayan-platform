@@ -1345,8 +1345,30 @@ html.subnav-docked [data-shell-main] {
   .m-btn-primary:hover { background: var(--m-mulberry-2); }
   .m-btn-primary:disabled { background: var(--m-mulberry-3); opacity: .5; cursor: not-allowed; }
   /* Champagne accent buttons — for secondary actions + highlights (token name --m-orange kept for back-compat) */
-  .m-btn-orange { background: var(--m-orange); color: #fff; }
-  .m-btn-orange:hover { background: var(--m-orange-2); }
+  /*
+   * THE PUBLIC HALF OF THE SAME FIX (owner, 2026-09-23: "darken it").
+   * This button is the CTA on /vendors and /creators — "Open your shop",
+   * "Talk to us". Measured, label #fff:
+   *   --m-orange      #A9834B  3.48:1   ← was resting. AA needs 4.5.
+   *   --m-orange-2    #8A6B39  4.95:1   ← resting now
+   *   --m-orange-deep #5C4726  8.81:1   ← hover now
+   *
+   * 🔑 TWO LADDERS, ONE COLOUR. `--m-orange` and `--sn-gold-500` are SEPARATE
+   * variables that both hold #A9834B, as are `--m-orange-2`/`--sn-gold-700` and
+   * `--m-orange-deep`/`--sn-gold-800`. The dashboard fix above moved the sn-
+   * rungs and could not reach this rule. They can drift apart later, so each
+   * ladder needs its own fix — this is the second of two, not a duplicate.
+   *
+   * 🔑 THE FILL MOVED, NOT THE TOKEN. `--m-orange` is also a focus ring, a
+   * border and a blob across the marketing pages; darkening the token would
+   * repaint all of them to fix one button.
+   *
+   * ⚠ AND THE HOVER MOVED TOO. The old hover (#8A6B39) already cleared 4.5, so
+   * leaving it would have made hovering the only readable state — the shape
+   * that hid the dashboard button for months.
+   */
+  .m-btn-orange { background: var(--m-orange-2); color: #fff; }
+  .m-btn-orange:hover { background: var(--m-orange-deep); }
   /* Ink button — retained for rare dark-CTA contexts where mulberry isn't appropriate */
   .m-btn-ink { background: var(--m-ink); color: var(--m-paper); }
   .m-btn-ink:hover { background: var(--m-slate); }
@@ -1373,23 +1395,6 @@ html.subnav-docked [data-shell-main] {
   button.m-card:hover {
     transform: translateY(-3px);
     box-shadow: var(--m-shadow-md);
-  }
-
-  .m-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 11px;
-    border-radius: var(--m-r-full);
-    border: 1px solid var(--m-line);
-    font-size: 12px;
-    background: var(--m-paper);
-    color: var(--m-slate);
-  }
-  .m-pill-orange {
-    background: var(--m-orange-4);
-    border-color: var(--m-orange-3);
-    color: var(--m-orange-2);
   }
 
   .m-hi {
@@ -3765,12 +3770,35 @@ html.dark {
    * render byte-identical. Scoping the recipe under `.app-surface` (dashboard
    * root only) re-points every dashboard CTA/input to the kit's gold recipe
    * while leaving excluded scopes on their existing base rule. */
+  /*
+   * THE DASHBOARD'S PRIMARY BUTTON — darkened so its label can be read
+   * (owner, 2026-09-23: "darken it").
+   *
+   * Measured, label #FFFDF8:
+   *   gold-500 #A9834B  3.42:1   ← was the resting fill. AA needs 4.5.
+   *   gold-600 #95713D  4.39:1   ← was the hover. Also under the floor.
+   *   gold-700 #8A6B39  4.87:1   ← resting now
+   *   gold-800 #5C4726  8.66:1   ← hover now
+   *
+   * 🔑 THE FILL MOVED, NOT THE TOKEN. `--sn-gold-500` is also a border, a ring
+   * and a shadow in ~14 other files; darkening the token would repaint all of
+   * them to fix two buttons. Only the two rules that put TEXT on the gold move.
+   * The box-shadow below deliberately keeps gold-500 — nothing is read on it.
+   *
+   * ⚠ AND THE HOVER HAD TO MOVE TOO. It failed at rest and failed on hover, and
+   * a fix that only touched the resting state would have left the same defect
+   * one interaction away — that shape is exactly why this survived so long.
+   *
+   * ⚠ The 700→800 step is a big jump because his ladder has no rung between
+   * #8A6B39 and #5C4726. If it reads too dark on the hover, the answer is a new
+   * mid tone, which is a design call and his, not a build decision.
+   */
   .app-surface .button-primary {
-    background: var(--sn-gold-500);
+    background: var(--sn-gold-700);
     color: #fffdf8;
   }
   .app-surface .button-primary:hover {
-    background: var(--sn-gold-600);
+    background: var(--sn-gold-800);
     transform: translateY(-2px);
     box-shadow: 0 14px 26px -12px var(--sn-gold-500);
   }
@@ -4020,8 +4048,9 @@ html.dark {
   transition: transform var(--sn-dur-control) var(--sn-ease),
               box-shadow var(--sn-dur-control), background var(--sn-dur-control);
 }
-.sn-btn-primary { background: var(--sn-gold-500); color: #FFFDF8; }
-.sn-btn-primary:hover { background: var(--sn-gold-600); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+/* Same pairing, same fix — see the note above `.app-surface .button-primary`. */
+.sn-btn-primary { background: var(--sn-gold-700); color: #FFFDF8; }
+.sn-btn-primary:hover { background: var(--sn-gold-800); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
 .sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
 .sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
 .sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }

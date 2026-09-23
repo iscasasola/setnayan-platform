@@ -18,80 +18,44 @@
  *      new lead's surname sorts — the move would work and the line would
  *      still land somewhere nobody dropped it. Pinning writes the order the
  *      couple is LOOKING at, so it changes nothing on screen. (Not atomic
- *      with step 4, and that is fine for the same reason
- *      `setEntourageLineOrder` gives: a half-written order is still a valid
- *      order.)
+ *      with step 4, and that is fine: a half-written order is still a valid
+ *      order. It is now ONE statement, so "half-written" needs a crash
+ *      mid-statement rather than a dropped connection between row 7 and 8.)
  *   4. ONE SQL call does the move itself, atomically — see migration
  *      `wedding_march_join_and_swap`.
+ *
+ * ── ⚖ OWNER 2026-09-23 — THESE NO LONGER `redirect()` EITHER ───────────────
+ * *"when i add the second person to pair with them, the screen becomes black
+ * and stops loading."* · *"we want them to move and pair people easily and
+ * fast."* Both of these ended every path — success AND refusal — in a
+ * `redirect()` back to `?gview=walk&…`, so a pair cost a full page load and
+ * the couple was thrown back to the top of a 29-line processional. They return
+ * a `MarchResult` now and the island says it in place. See
+ * `entourage-order-actions.ts` for the measurement.
+ *
+ * 🔑 THE RULE IS STILL ASKED, AND ITS ANSWER IS STILL OBEYED. A refusal that
+ * used to travel as `?error=<sentence>` is now the returned `reason` — the
+ * same sentence, reaching the same couple, without the navigation.
  *
  * ⛔ Touches no chair. The seat plan is a different ordering on purpose.
  */
 
-import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireHostMembership } from '@/lib/host-gate';
 import {
+  MARCH_READ_FAILED,
+  pinLineOrder,
+  readMarchLines,
+  revalidateMarch,
+} from '@/lib/entourage-write';
+import {
   ENTOURAGE_COLUMNS,
-  ENTOURAGE_GROUP_KEYS,
   entourageLines,
   orderedGroupKeys,
   type EntourageGuestRow,
-  type EntourageRow,
 } from '@/lib/entourage';
 import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
-
-/** Back to the Wedding March, never the roster — see entourage-order-actions. */
-function backToMarch(eventId: string, params: Record<string, string>): string {
-  const q = new URLSearchParams({ gview: 'walk', ...params });
-  return `/dashboard/${eventId}/guests?${q.toString()}`;
-}
-
-async function readGroup(eventId: string, groupKey: string) {
-  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
-    redirect(backToMarch(eventId, { error: 'That part of the entourage does not exist.' }));
-  }
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('guests')
-    .select(ENTOURAGE_COLUMNS)
-    .eq('event_id', eventId)
-    .is('deleted_at', null);
-  if (error) {
-    redirect(backToMarch(eventId, { error: 'The Wedding March could not be read just now, so nothing was changed.' }));
-  }
-  return { supabase, lines: entourageLines((data ?? []) as EntourageGuestRow[], groupKey) };
-}
-
-/** Step 3 — give every line the number it already appears at. */
-async function pinOrder(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  eventId: string,
-  lines: readonly EntourageRow[],
-): Promise<void> {
-  const unplaced = lines.some((ln) => ln.every((h) => !h || typeof h.order !== 'number'));
-  if (!unplaced) return;
-  for (const [index, line] of lines.entries()) {
-    for (const half of line) {
-      if (!half?.id || half.order === index) continue;
-      const { error } = await supabase
-        .from('guests')
-        .update({ entourage_order: index, updated_at: new Date().toISOString() })
-        .eq('event_id', eventId)
-        .eq('guest_id', half.id);
-      if (error) {
-        redirect(backToMarch(eventId, { error: 'The Wedding March could not be saved just now, so nothing was changed.' }));
-      }
-    }
-  }
-}
-
-function done(eventId: string, params: Record<string, string>): never {
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  revalidatePath('/[slug]', 'layout');
-  redirect(backToMarch(eventId, params));
-}
+import type { MarchResult } from '@/lib/march-result';
 
 /** Someone takes the empty place beside `anchorId`. */
 export async function joinEntourageLine(
@@ -99,19 +63,26 @@ export async function joinEntourageLine(
   groupKey: string,
   anchorId: string,
   joinerId: string,
-): Promise<void> {
-  const { supabase, lines } = await readGroup(eventId, groupKey);
-  const verdict = joinVerdict(lines, groupKey, anchorId, joinerId);
-  if (!verdict.ok) redirect(backToMarch(eventId, { error: verdict.reason }));
+): Promise<MarchResult> {
+  const read = await readMarchLines(eventId, groupKey);
+  if (!read.ok) return read;
+  const { supabase, lines } = read;
 
-  await pinOrder(supabase, eventId, lines);
+  const verdict = joinVerdict(lines, groupKey, anchorId, joinerId);
+  if (!verdict.ok) return { ok: false, reason: verdict.reason };
+
+  const pinned = await pinLineOrder(supabase, eventId, lines);
+  if (!pinned.ok) return pinned;
+
   const { error } = await supabase.rpc('join_entourage_line', {
     p_event_id: eventId,
     p_anchor: anchorId,
     p_joiner: joinerId,
   });
-  if (error) redirect(backToMarch(eventId, { error: 'That pairing did not go through — nothing was changed.' }));
-  done(eventId, { paired: '2' });
+  if (error) return { ok: false, reason: 'That pairing did not go through — nothing was changed.' };
+
+  await revalidateMarch(eventId);
+  return { ok: true, written: 2 };
 }
 
 /** Two names trade places — partners and spots. */
@@ -120,19 +91,26 @@ export async function swapEntouragePlaces(
   groupKey: string,
   aId: string,
   bId: string,
-): Promise<void> {
-  const { supabase, lines } = await readGroup(eventId, groupKey);
-  const verdict = swapVerdict(lines, groupKey, aId, bId);
-  if (!verdict.ok) redirect(backToMarch(eventId, { error: verdict.reason }));
+): Promise<MarchResult> {
+  const read = await readMarchLines(eventId, groupKey);
+  if (!read.ok) return read;
+  const { supabase, lines } = read;
 
-  await pinOrder(supabase, eventId, lines);
+  const verdict = swapVerdict(lines, groupKey, aId, bId);
+  if (!verdict.ok) return { ok: false, reason: verdict.reason };
+
+  const pinned = await pinLineOrder(supabase, eventId, lines);
+  if (!pinned.ok) return pinned;
+
   const { error } = await supabase.rpc('swap_entourage_places', {
     p_event_id: eventId,
     p_a: aId,
     p_b: bId,
   });
-  if (error) redirect(backToMarch(eventId, { error: 'That swap did not go through — nothing was changed.' }));
-  done(eventId, { swapped: '2' });
+  if (error) return { ok: false, reason: 'That swap did not go through — nothing was changed.' };
+
+  await revalidateMarch(eventId);
+  return { ok: true, written: 2 };
 }
 
 /* ── SECTIONS ──────────────────────────────────────────────────────────────
@@ -149,37 +127,38 @@ export async function moveEntourageSection(
   eventId: string,
   groupKey: string,
   direction: 'up' | 'down',
-): Promise<void> {
+): Promise<MarchResult> {
   await requireHostMembership(eventId);
-  const { full, visible } = await readAllGroups(eventId);
-  const next = nextSectionOrder(full, visible, groupKey, direction);
-  if (!next) redirect(backToMarch(eventId, {}));
-  await writeSectionOrder(eventId, next);
-  done(eventId, { sections: '1' });
+  const read = await readAllGroups(eventId);
+  if (!read.ok) return read;
+  const next = nextSectionOrder(read.full, read.visible, groupKey, direction);
+  // Nowhere to go is not an error — the first section has nothing above it.
+  if (!next) return { ok: true, written: 0 };
+  return writeSectionOrder(eventId, next);
 }
 
-export async function resetEntourageSections(eventId: string): Promise<void> {
+export async function resetEntourageSections(eventId: string): Promise<MarchResult> {
   await requireHostMembership(eventId);
-  await writeSectionOrder(eventId, null);
-  done(eventId, { sections: 'reset' });
+  return writeSectionOrder(eventId, null);
 }
 
-async function readAllGroups(eventId: string): Promise<{ full: string[]; visible: Set<string> }> {
+async function readAllGroups(
+  eventId: string,
+): Promise<{ ok: true; full: string[]; visible: Set<string> } | { ok: false; reason: string }> {
   const admin = createAdminClient();
   const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }] = await Promise.all([
     admin.from('events').select('entourage_section_order').eq('event_id', eventId).maybeSingle(),
     admin.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
   ]);
-  if (evErr || rowsErr || !ev) {
-    redirect(backToMarch(eventId, { error: 'The Wedding March could not be read just now, so nothing was changed.' }));
-  }
+  if (evErr || rowsErr || !ev) return { ok: false, reason: MARCH_READ_FAILED };
+
   const saved = (ev as { entourage_section_order: string[] | null }).entourage_section_order;
   const all = (rows ?? []) as EntourageGuestRow[];
   const full = orderedGroupKeys(saved);
-  return { full, visible: new Set(full.filter((k) => entourageLines(all, k).length > 0)) };
+  return { ok: true, full, visible: new Set(full.filter((k) => entourageLines(all, k).length > 0)) };
 }
 
-async function writeSectionOrder(eventId: string, order: string[] | null): Promise<void> {
+async function writeSectionOrder(eventId: string, order: string[] | null): Promise<MarchResult> {
   const admin = createAdminClient();
   // A zero-row UPDATE returns no error — count the rows, or "saved" is a guess.
   const { data, error } = await admin
@@ -188,6 +167,8 @@ async function writeSectionOrder(eventId: string, order: string[] | null): Promi
     .eq('event_id', eventId)
     .select('event_id');
   if (error || !data || data.length === 0) {
-    redirect(backToMarch(eventId, { error: 'The new section order was not saved — nothing was changed.' }));
+    return { ok: false, reason: 'The new section order was not saved — nothing was changed.' };
   }
+  await revalidateMarch(eventId);
+  return { ok: true, written: data.length };
 }

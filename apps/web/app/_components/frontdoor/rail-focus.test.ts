@@ -50,8 +50,13 @@ test('all five sections pass focus back to /dashboard', () => {
     /* 'Events', not 'Back to events' — owner 2026-09-23. The icon is pinned
        too: this row is the ONE of the four that is named after where it
        goes rather than what it does, so it carries the events drawing
-       instead of the default arrow. */
-    ['app/dashboard/[eventId]/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'Events',\s*caption: 'Events',\s*icon: LayoutGrid,?\s*\}\}/],
+       instead of the default arrow.
+
+       🔴 IT IS THE NAME `'events'`, NOT `LayoutGrid`. This line used to pin
+       the component, which is what the layout then passed across a
+       server→client boundary — a 500 on every page inside an event. See
+       `RailFocusIcon`. */
+    ['app/dashboard/[eventId]/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'Events',\s*caption: 'Events',\s*icon: 'events',?\s*\}\}/],
     ['app/vendor-dashboard/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home'/],
     ['app/admin/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home'/],
     ['app/dashboard/(account)/layout.tsx', /focus=\{\{\s*href: '\/dashboard',\s*label: 'My Home',[\s\S]{0,60}paths: ACCOUNT_FOCUS_PATHS/],
@@ -100,4 +105,65 @@ test('the account menu switches on exactly the focus paths', () => {
   assert.match(s, /resolveLibraryView\(/);
   assert.match(s, /LENSES\.map/);
   assert.match(s, /KEPT\.map/);
+});
+
+/**
+ * 🔴 THE REGRESSION THIS FILE NOW OWNS — production, 2026-09-23.
+ *
+ * `RailFocus` is built in SERVER layouts and read by `front-door-shell.tsx`,
+ * which is `'use client'`. The `icon` field was typed `LucideIcon`, so the
+ * event layout passed `icon: LayoutGrid` — the component object — and React
+ * refused to serialise it:
+ *
+ *   Functions cannot be passed directly to Client Components…
+ *   {$$typeof: …, render: function, displayName: …}
+ *
+ * The throw was in `dashboard/[eventId]/layout.tsx`, so EVERY page inside an
+ * event 500'd: Overview, Guests, Seat plan, all of them, for about an hour.
+ *
+ * 🔑 A TYPE IS NOT A GUARD. `icon?: LucideIcon` did not merely permit the
+ * mistake, it INVITED it — the contract asked for exactly the thing that
+ * cannot travel. So this pins the shape, not one spelling of it: the field
+ * takes a NAME, the shell owns the map, and no focus call site hands over a
+ * bare identifier.
+ */
+test('🔴 no rail focus hands a COMPONENT across the server→client boundary', () => {
+  const contract = code('app/_components/frontdoor/rail-focus.ts');
+  assert.doesNotMatch(
+    contract,
+    /icon\?:\s*LucideIcon/,
+    'RailFocus.icon is typed as a component again — a server layout cannot send one to the client shell',
+  );
+  assert.match(
+    contract,
+    /icon\?:\s*RailFocusIcon/,
+    'RailFocus.icon no longer takes a name',
+  );
+
+  // The shell — a client module — owns the name → drawing map.
+  const shell = code('app/_components/frontdoor/front-door-shell.tsx');
+  assert.match(shell, /const FOCUS_ICONS: Record<RailFocusIcon,/, 'the shell no longer maps the name to a drawing');
+  assert.match(
+    shell,
+    /focus\.icon \? FOCUS_ICONS\[focus\.icon\] : ArrowLeft/,
+    'the way-back row no longer resolves the name on the client side',
+  );
+
+  // And no caller reaches for a component, in any layout that focuses the rail.
+  for (const rel of [
+    'app/dashboard/[eventId]/layout.tsx',
+    'app/dashboard/(account)/layout.tsx',
+    'app/admin/layout.tsx',
+    'app/vendor-dashboard/layout.tsx',
+  ]) {
+    const src = code(rel);
+    const at = src.indexOf('focus={{');
+    if (at === -1) continue;
+    const call = src.slice(at, src.indexOf('}}', at) + 2);
+    assert.doesNotMatch(
+      call,
+      /icon:\s*[A-Z][A-Za-z0-9_]*\s*[,}]/,
+      `${rel} passes a bare component as focus.icon — that cannot cross to the client shell`,
+    );
+  }
 });

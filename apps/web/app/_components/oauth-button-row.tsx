@@ -84,6 +84,14 @@ type Props = {
    * to 'customer'.
    */
   defaultAccountType?: 'customer' | 'vendor';
+  /**
+   * The words before the provider name. Default "Continue with" (every door
+   * today); /signup passes "Sign in with" because there the buttons are a
+   * direct sign-in beside a create-a-password form (owner 2026-09-23:
+   * "or directly sign in with Google or Apple"), and "Continue" under a
+   * sign-up heading read as a second way to sign up.
+   */
+  verb?: string;
 };
 
 // Button chrome — Clean Editorial alabaster/obsidian, used on the greige /login
@@ -148,6 +156,7 @@ export function OAuthButtonRow({
   next,
   withAccountType = false,
   defaultAccountType = 'customer',
+  verb = 'Continue with',
 }: Props) {
   // All providers off → render nothing. /login + /signup also use
   // ANY_OAUTH_ENABLED to drop the divider line when there's no row.
@@ -184,7 +193,7 @@ export function OAuthButtonRow({
           {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Google…">
             <GoogleGIcon />
-            Continue with Google
+            {verb} Google
           </SubmitButton>
         </form>
       ) : null}
@@ -194,7 +203,7 @@ export function OAuthButtonRow({
           {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Apple…">
             <AppleIcon fill={appleFill} />
-            Continue with Apple
+            {verb} Apple
           </SubmitButton>
         </form>
       ) : null}
@@ -204,7 +213,7 @@ export function OAuthButtonRow({
           {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Facebook…">
             <FacebookIcon />
-            Continue with Facebook
+            {verb} Facebook
           </SubmitButton>
         </form>
       ) : null}

@@ -355,6 +355,40 @@ they all merged normally.** Skipping a preview cannot stall a merge.
    the cheap place. Verify with `gh repo view --json visibility`. A session once told the owner
    Actions was the bigger cost; he corrected it.
 
+### Merging and PUBLISHING are separate events (2026-09-23)
+
+`deploy-prod.yml` no longer runs on every push to `main`. It runs **6×/day**
+(`cron: '7 */4 * * *'`) plus `workflow_dispatch`. Sessions merge as fast as CI allows; the site
+publishes in batches. ~15 production builds/day → ≤6.
+
+🔑 **Nothing waits for "its own" deploy.** Every run publishes EVERYTHING merged since the last
+one, so a merge rides the next cadence instead of queuing for a build of its own. **Unmerged work
+is completely unaffected** — PRs merge the moment their checks are green, exactly as before. The
+only thing that changed is when the live site catches up.
+
+**Migrations batch the same way and stay ordered.** `supabase db push --include-all` applies every
+pending file in prefix order, once, *before* the single deploy. Code still never outruns its
+schema — both lag together, which is the safe direction.
+
+**`workflow_dispatch` is the "publish now" button.** Use it whenever the wait is not acceptable:
+a fix the owner is waiting on, anything user-visible, anything he asked to see live.
+
+Two guards make this safe, and both fail in the direction that keeps the site fresh:
+
+- **`deployed-prod` tag** — the commit the last successful run published. A scheduled run with no
+  new commits skips the build entirely. ⚠ **A MISSING tag means DEPLOY, never SKIP** — the first
+  run has no marker, and failing closed there would freeze production with nothing red anywhere.
+  The tag moves *only* after the hook is accepted; moving it on a failed run would silently drop
+  that batch.
+- **`--grace-min 285`** on `deploy-drift-doctor.mjs` (was the default 20). 240 min between runs +
+  build + hook latency. Left at 20 it would alarm every single cycle, and **an alarm that always
+  fires stops being an alarm** — which is worse than no monitor at all.
+
+⚠ **This is a GITHUB ACTIONS schedule, not an application cron.** The repo's "no scheduler"
+decision covers Postgres `cron.job` and Vercel crons — the 22 periodic jobs that ride request
+traffic through `claim_periodic_job`. Workflow schedules are in-pattern;
+`deploy-drift-monitor.yml` already uses one. Do not "fix" this as a violation.
+
 ### ⏭ OPEN, NOT DONE — the build machine
 
 `resourceConfig.buildMachineSelection` is **`elastic`** (measured via

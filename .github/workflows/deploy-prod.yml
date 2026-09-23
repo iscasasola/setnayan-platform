@@ -118,14 +118,39 @@ name: deploy-prod
 # db push FAILS, the deploy never triggers (fail-closed — far safer than today's
 # deploy-anyway race).
 
+# ─── BATCHED, NOT PER-MERGE (2026-09-23) ─────────────────────────────
+# This used to run on every push to main. 100% of the Vercel bill is Build CPU
+# Minutes, and every production build is one of them — ~15/day against ~37
+# merges/day. Merging and PUBLISHING are now separate events: sessions merge as
+# fast as CI allows, and the site publishes on a cadence, six times a day.
+#
+# 🔑 NOTHING WAITS FOR "ITS OWN" DEPLOY. Each run publishes EVERYTHING merged
+# since the last one, so a merge rides the next cadence rather than queueing for
+# a build of its own. Migrations batch the same way and stay ordered —
+# `db push --include-all` applies every pending file in prefix order, once,
+# before the single deploy. Code still never outruns its schema.
+#
+# ⚠ `workflow_dispatch` is the "publish now" button. Use it whenever the wait is
+# not acceptable — a fix the owner is waiting on, anything user-visible.
+#
+# ⚠ THIS IS A GITHUB ACTIONS SCHEDULE, NOT AN APPLICATION CRON. The repo's
+# "no scheduler" decision is about Postgres `cron.job` / Vercel crons — the 22
+# periodic jobs that ride request traffic via `claim_periodic_job`. Workflow
+# schedules are in-pattern here; deploy-drift-monitor.yml already uses one.
 on:
-  push:
-    branches: [main]
+  schedule:
+    # 6×/day. :07 rather than :00 — the top of the hour is when every scheduled
+    # workflow on GitHub queues at once. Also off deploy-drift-monitor's :17, so
+    # the monitor never samples a deploy still in flight.
+    - cron: '7 */4 * * *'
   workflow_dispatch:
 
 # Share the supabase-migrations concurrency group so this and the legacy
 # workflow never run `db push` against prod at the same time (they SERIALIZE;
 # a half-applied set is worse than a queued run, so cancel-in-progress is false).
+permissions:
+  contents: write   # moves the `deployed-prod` marker tag after a successful deploy
+
 concurrency:
   group: supabase-migrations-prod
   cancel-in-progress: false
@@ -196,18 +221,52 @@ jobs:
 
       # Apply BEFORE deploy. --include-all matches supabase-migrations.yml so an
       # out-of-order tail still applies; idempotent / no-op when nothing pends.
-      - name: Apply pending migrations (db push) — BEFORE deploy
+      # A scheduled run that publishes an unchanged tree is a build nobody asked
+      # for, and a build is the entire bill. `deployed-prod` marks the commit the
+      # last successful run published; if main has not moved past it, stop.
+      #
+      # ⚠ A MISSING TAG MEANS "DEPLOY", NEVER "SKIP" — the first run after this
+      # lands has no marker, and failing closed here would leave production
+      # frozen with nothing red anywhere.
+      - name: Is there anything new to publish?
+        id: newwork
         if: steps.gate.outputs.enabled == 'true'
+        run: |
+          if ! git rev-parse -q --verify refs/tags/deployed-prod >/dev/null; then
+            echo "no deployed-prod marker yet — publishing (fail OPEN)."
+            echo "any=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          n=$(git rev-list --count deployed-prod..HEAD)
+          echo "commits since the last publish: $n"
+          git log --oneline deployed-prod..HEAD | head -20
+          if [ "$n" -eq 0 ]; then
+            echo "nothing new — skipping the build."
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply pending migrations (db push) — BEFORE deploy
+        if: steps.gate.outputs.enabled == 'true' && steps.newwork.outputs.any == 'true'
         run: supabase db push --include-all --yes
 
       # Only reached when db push SUCCEEDED (fail-closed). Trigger the Vercel
       # production build+deploy for the now-migrated commit. -f → curl exits
       # non-zero on an HTTP error so a failed hook reddens the run.
       - name: Trigger Vercel production deploy (post-migration)
-        if: steps.gate.outputs.enabled == 'true'
+        if: steps.gate.outputs.enabled == 'true' && steps.newwork.outputs.any == 'true'
         run: |
           echo "Migrations applied — triggering Vercel production deploy of the migrated commit."
           curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL" -o /dev/null -w "Vercel deploy hook → HTTP %{http_code}\n"
+
+      # Only after the hook was accepted. The tag is what the next scheduled run
+      # compares against, so moving it on a FAILED run would silently skip work.
+      - name: Move the `deployed-prod` marker
+        if: steps.gate.outputs.enabled == 'true' && steps.newwork.outputs.any == 'true'
+        run: |
+          git tag -f deployed-prod "$GITHUB_SHA"
+          git push -f origin refs/tags/deployed-prod
+          echo "deployed-prod → $GITHUB_SHA"
 
       - name: Show migration history
         if: always() && steps.gate.outputs.enabled == 'true'

@@ -1,0 +1,93 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  POSTER_TEXT_MIN,
+  normalizeAccent,
+  resolvePoster,
+  type PosterInput,
+} from './celebration-poster';
+
+/*
+  WHICH POSTER A CELEBRATION PRINTS.
+
+  His three events, values read out of production — because the approved design
+  was drawn for THESE, and a fixture invented to suit the code proves only that
+  the code suits itself.
+*/
+const CLAIRE: PosterInput = { std_film_accent_hex: '#9a244f', std_theme: 'botanical', invite_theme: 'capiz' };
+const MARIA: PosterInput = { std_film_accent_hex: '#9b7e00', std_theme: 'default', invite_theme: null };
+const MOVIE: PosterInput = { std_film_accent_hex: null, std_theme: null, invite_theme: null };
+
+test('his three print three different sheets', () => {
+  const a = resolvePoster(CLAIRE), b = resolvePoster(MARIA), c = resolvePoster(MOVIE);
+  console.log(`  Claire ${a.sheet} (white ${a.whiteOnAccent?.toFixed(2)}) · Maria ${b.sheet} (white ${b.whiteOnAccent?.toFixed(2)}) · Movie ${c.sheet}`);
+  assert.equal(a.sheet, 'sheet', 'wine carries white type directly');
+  assert.equal(b.sheet, 'moon', 'gold cannot carry a letter, so the art makes room');
+  assert.equal(c.sheet, 'letterpress', 'no accent is a style, not a failure');
+  assert.equal(new Set([a.sheet, b.sheet, c.sheet]).size, 3);
+});
+
+test('🔑 the moon is decided by CONTRAST, not by the colour being gold', () => {
+  /*
+    The rule has to hold for a colour nobody has seen yet. A dark teal must get
+    a sheet and a pale lemon must get a moon, without either being named here.
+  */
+  const darkTeal = resolvePoster({ std_film_accent_hex: '#0b3d3b' });
+  const paleLemon = resolvePoster({ std_film_accent_hex: '#f5e97a' });
+  console.log(`  dark teal ${darkTeal.whiteOnAccent!.toFixed(2)} → ${darkTeal.sheet} · pale lemon ${paleLemon.whiteOnAccent!.toFixed(2)} → ${paleLemon.sheet}`);
+  assert.equal(darkTeal.sheet, 'sheet');
+  assert.equal(paleLemon.sheet, 'moon');
+  assert.ok(darkTeal.whiteOnAccent! >= POSTER_TEXT_MIN);
+  assert.ok(paleLemon.whiteOnAccent! < POSTER_TEXT_MIN);
+});
+
+test('the boundary sits exactly at AA for normal text', () => {
+  // A name on a sheet is reading matter. Just-passing gets a sheet, just-failing a moon.
+  const values = [3.9, 4.49, 4.5, 7.67];
+  for (const v of values) {
+    const expected = v >= POSTER_TEXT_MIN ? 'sheet' : 'moon';
+    assert.equal(expected, v >= 4.5 ? 'sheet' : 'moon', `threshold drifted at ${v}`);
+  }
+  assert.equal(POSTER_TEXT_MIN, 4.5);
+});
+
+test('a theme earns its ornament only on a coloured sheet', () => {
+  /*
+    Sprigs and capiz panes are white at low opacity — on house stock they would
+    be invisible, and a credit naming art nobody can see is worse than none.
+  */
+  const themedButPlain = resolvePoster({ std_film_accent_hex: null, std_theme: 'botanical', invite_theme: 'capiz' });
+  assert.equal(themedButPlain.sheet, 'letterpress');
+  assert.equal(themedButPlain.sprigs, false);
+  assert.equal(themedButPlain.capiz, false);
+  assert.deepEqual(themedButPlain.credits, [], 'it must not name art it cannot show');
+
+  const claire = resolvePoster(CLAIRE);
+  assert.equal(claire.sprigs, true);
+  assert.equal(claire.capiz, true);
+  assert.deepEqual(claire.credits, ['Botanical', 'Capiz']);
+
+  // Maria chose a typeface theme, not botanical — no sprigs, and one credit.
+  const maria = resolvePoster(MARIA);
+  assert.equal(maria.sprigs, false);
+  assert.equal(maria.capiz, false);
+  assert.deepEqual(maria.credits, ['Default']);
+});
+
+test('an unknown or malformed accent prints letterpress, never a broken sheet', () => {
+  for (const bad of ['red', 'rgb(0,0,0)', '#12', '#1234567', 'javascript:alert(1)', '', '   ', null, undefined]) {
+    const p = resolvePoster({ std_film_accent_hex: bad as string | null });
+    assert.equal(p.sheet, 'letterpress', `accepted ${JSON.stringify(bad)}`);
+    assert.equal(p.accentHex, null);
+  }
+  assert.equal(normalizeAccent('#9A244F'), '#9a244f');
+  assert.equal(normalizeAccent(' #abc '), '#aabbcc');
+});
+
+test('an unknown theme earns no ornament and no credit it cannot show', () => {
+  const p = resolvePoster({ std_film_accent_hex: '#9a244f', std_theme: 'nonsense', invite_theme: 'nonsense' });
+  assert.equal(p.sprigs, false, 'only botanical draws sprigs');
+  assert.equal(p.capiz, false, 'only capiz draws panes');
+  // the credit still names what the couple chose, because they did choose it
+  assert.deepEqual(p.credits, ['Nonsense', 'Nonsense']);
+});

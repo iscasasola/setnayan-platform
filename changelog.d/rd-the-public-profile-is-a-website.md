@@ -178,3 +178,50 @@ multi-day and archived events. A fixture that happens to pass is why the delegat
 exercises the split immediately — one card below, two above.
 
 SPEC IMPACT: None — no locked decision, SKU or price.
+
+---
+
+## 2026-09-23 · feat(profile): which poster a celebration prints
+
+Translating the approved prototype (`build-sessions/prototypes/public_profile_icecasa_FABLE3_2026-09-23.html`,
+three owner iterations). `lib/celebration-poster.ts` decides which of the three sheets a celebration
+prints — the sheets are his, the CHOICE between them is derivable so a fourth celebration gets the
+right one without anybody hand-assigning it.
+
+| sheet | when | what it is |
+|---|---|---|
+| `letterpress` | no accent | ink on house stock — **plainness as intent**, not a failure |
+| `moon` | accent cannot carry a letter | a white disc holds every word, in ink |
+| `sheet` | accent can | white type directly on the colour |
+
+🔑 **THE CHOICE IS CONTRAST, NOT TASTE**, and the prototype's own CSS says so: *"Gold cannot carry
+text, so the art makes room."* Measured with this repo's `contrastRatio`: wine `#9a244f` carries
+white at **7.67** → sheet; gold `#9b7e00` at **3.90** → moon, and it fails on ink too (**4.46**), so
+it can hold *neither* — which is exactly why the art gives the words their own white ground. The
+threshold is WCAG AA for normal text: a name set on a sheet is reading matter.
+
+⛔ **THE FIX IS NEVER A DIFFERENT GOLD.** His accent is the colour he chose for his own
+Save-the-Date film; a poster that "solves" contrast by nudging the hue has taken his decision away
+from him. A sabotage that darkens gold to pass is one of the three below, and it fires.
+
+**A theme earns its ornament only on a coloured sheet.** Sprigs and capiz panes are white at low
+opacity — on house stock they would be invisible, and a credit line naming art nobody can see is
+worse than no credit. So a themed-but-plain celebration prints plain and says nothing it cannot show.
+
+**Two more columns, deliberately: `std_film_accent_hex` and `invite_theme`.** The earlier "one column"
+call was wrong for this design — the posters are BUILT on the accent, and `capiz` is what draws
+Indalecio & Claire's panes. ⚠ **`invite_theme` is `anon=-`, unlike the other two, and that was
+checked rather than waved through:** it is already selected by `app/[slug]/_lib/hub-look.ts` and the
+public recap and pabuya pages, so it is already rendered on the couple's own public site. The grant
+governs direct PostgREST reads, not secrecy — adding it here exposes nothing a visitor cannot see by
+opening the celebration itself. The exposure freeze was re-run deliberately for both and passes.
+
+Three watched sabotages, each red, file restored to a verified hash. 🔑 **The first repeats a pattern
+worth naming:** hard-coding `#9b7e00 → moon` instead of measuring **still produces the right answer
+for all three of his events**, and breaks the moment a pale colour appears. Right-for-his-data is not
+right.
+
+⏭ **STILL TO TRANSLATE:** the markup and CSS of the three sheets themselves (frame, sash, moon,
+capiz panes, sprigs, playbill ornaments, `cqw` sizing). This change is the decision layer only.
+
+SPEC IMPACT: None.

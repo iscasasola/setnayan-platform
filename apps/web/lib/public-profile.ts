@@ -39,6 +39,8 @@ export type PublicProfileEvent = {
   /* The celebration's own typeface — see EVENT_FIELDS for why this one column
      and not the three private ones. Read by `resolveCelebrationIdentity`. */
   std_theme: string | null;
+  std_film_accent_hex: string | null;
+  invite_theme: string | null;
   /* The last day of a celebration that spans several days. `isFinishedEvent`
      reads it so a multi-day event is not "past" on its morning. Zero prod rows
      carry one today, so adding it is behaviour-neutral now and correct the
@@ -82,7 +84,19 @@ export type ResolvedPublicProfile = {
  * "split coming up from past"): `isFinishedEvent` needs it to avoid calling a
  * multi-day celebration finished on its first morning. Also `anon=S`.
  *
- * `std_film_accent_hex`, `site_bg_color` and `site_button_color` were tried and
+ * `std_film_accent_hex` and `invite_theme` joined 2026-09-23 for the approved
+ * poster design: the sheet colour IS the accent (wine #9a244f, gold #9b7e00),
+ * and `invite_theme` ('capiz') is what draws the panes. They are not decoration
+ * — without them every poster falls to the same house stock.
+ *
+ * ⚠ `invite_theme` IS `anon=-` IN THE BASELINE, UNLIKE THE OTHER TWO, and that
+ * was checked rather than waved through. It is already rendered on the couple's
+ * own PUBLIC site — `app/[slug]/_lib/hub-look.ts` selects it, as do the public
+ * recap and pabuya pages — so the information is public already and the grant
+ * governs direct PostgREST reads, not secrecy. Adding it here exposes nothing a
+ * visitor cannot already see by opening the celebration itself.
+ *
+ * `site_bg_color` and `site_button_color` were tried and
  * REMOVED: the cover carries the colour now, so an accent edge was a second
  * answer to a question already answered, and every column on a public read has
  * to pay for itself.
@@ -92,7 +106,7 @@ export type ResolvedPublicProfile = {
  * would have looked good on the card; they are private fields.
  */
 const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, std_theme, event_end_date';
+  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, std_theme, std_film_accent_hex, invite_theme, event_end_date';
 
 /** The minimum an event row must carry to be put through the public gate. */
 export type PublicGateEventFields = {

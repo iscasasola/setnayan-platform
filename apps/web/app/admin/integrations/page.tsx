@@ -164,6 +164,21 @@ export default async function AdminIntegrationsPage({
           was saved. Check the values and try again.
         </p>
       ) : null}
+      {/* A LONE-FIELD SAVE THAT DID NOT LAND. Supabase resolves `{ error }` rather
+          than throwing, and an UPDATE matching zero rows returns no error at all
+          — so without this the page said "Saved" and the key was not there. The
+          copy has to name what is still true, not only what failed. */}
+      {error === 'save_failed' ? (
+        <p
+          role="alert"
+          className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> That key
+          wasn&rsquo;t saved, so nothing on this card changed — whatever was working before
+          is still working. Try again; if it keeps failing, the platform settings row may be
+          missing.
+        </p>
+      ) : null}
       {error === 'secret_write' ? (
         <p
           role="alert"
@@ -343,6 +358,9 @@ export default async function AdminIntegrationsPage({
                 placeholder: field.placeholder,
                 value: dbVal || envVal,
                 fromEnv: !dbVal && Boolean(envVal),
+                // Drop this and the key joins the all-at-once form, which
+                // copies every env-sourced sibling into the database.
+                ownForm: field.ownForm,
               };
             });
             return (
@@ -371,6 +389,9 @@ export default async function AdminIntegrationsPage({
                 placeholder: field.placeholder,
                 value: dbVal || envVal,
                 fromEnv: !dbVal && Boolean(envVal),
+                // Drop this and the key joins the all-at-once form, which
+                // copies every env-sourced sibling into the database.
+                ownForm: field.ownForm,
               };
             });
             return (

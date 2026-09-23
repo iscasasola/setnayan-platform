@@ -17,7 +17,13 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { ATTIRE_STYLES, isAttireStyle, type RoleAttireMap } from '@/lib/role-dress-code';
+import {
+  ATTIRE_STYLES,
+  isAttireStyle,
+  sanitizeCallTime,
+  type RoleAttireMap,
+  type RoleAttireRule,
+} from '@/lib/role-dress-code';
 import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { getCurrentUser } from '@/lib/auth';
@@ -106,6 +112,11 @@ export async function updateDressCode(
   const roleKeys = formData.getAll('role_key').map((v) => String(v));
   const roleStyles = formData.getAll('role_style').map((v) => String(v));
   const roleNotes = formData.getAll('role_note').map((v) => String(v));
+  // ⏰ The fourth parallel array (owner 2026-09-23). `sanitizeCallTime` accepts
+  // `HH:MM` and NOTHING else — a half-read "7" repaired into 07:00 is a wrong
+  // alarm, which is worse than no alarm. An unreadable value drops to null and
+  // the role simply carries no time.
+  const roleCallTimes = formData.getAll('role_call_time').map((v) => String(v));
   const roles: RoleAttireMap = {};
   for (let i = 0; i < roleKeys.length; i += 1) {
     const key = roleKeys[i] ?? '';
@@ -113,7 +124,11 @@ export async function updateDressCode(
     if (!key || roleLabel(key as GuestRole) === null) continue;
     if (!isAttireStyle(style)) continue; // '' = not set → no entry
     const note = (roleNotes[i] ?? '').trim().slice(0, 120);
-    roles[key as GuestRole] = note ? { style, note } : { style };
+    const callTime = sanitizeCallTime(roleCallTimes[i]);
+    const rule: RoleAttireRule = { style };
+    if (note) rule.note = note;
+    if (callTime) rule.callTime = callTime;
+    roles[key as GuestRole] = rule;
   }
   void ATTIRE_STYLES;
 

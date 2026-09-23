@@ -18,6 +18,7 @@
 // the results IN as arguments. The service-role admin client is cookie-free and
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
+import { hubFontVars } from '@/lib/hub-fonts';
 import { plusOneSeats } from '@/lib/guests';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
 import { cache } from 'react';
@@ -131,7 +132,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -407,12 +408,28 @@ export const loadMedia = cache(
     // buildCustomSiteColorVars returns null when both columns are NULL, so a
     // non-Pro OR unset event yields `siteColorVars = null` → InvitationShell adds
     // no override → the page renders byte-identically to today (inert contract).
-    const siteColorVars = proWatermarkHidden
-      ? buildCustomSiteColorVars(
-          event.site_bg_color as string | null,
-          event.site_button_color as string | null,
-        )
+    //
+    // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG AND THE SAME GATE.
+    // `hubFontVars` contributes `--pahina-face` / `--font-display`, which
+    // `globals.css` and `tailwind.config.ts` already read; a theme's MATERIAL
+    // (its colour tokens) is untouched, because a theme carries colour and this
+    // carries type. Merged into `siteColorVars` rather than threaded as a new
+    // prop: it is delivered to the same element, under the same Pro check, and
+    // a second prop would be a second place for the two to disagree.
+    // ⛔ An unset face contributes `{}`, so a couple who never chose one gets
+    // markup byte-identical to before this existed — and `null` still means
+    // "add no style attribute at all".
+    const proSiteVars = proWatermarkHidden
+      ? {
+          ...(buildCustomSiteColorVars(
+            event.site_bg_color as string | null,
+            event.site_button_color as string | null,
+          ) ?? {}),
+          ...hubFontVars((event as { site_font_key?: unknown }).site_font_key),
+        }
       : null;
+    const siteColorVars =
+      proSiteVars && Object.keys(proSiteVars).length > 0 ? proSiteVars : null;
 
     // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
     // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at

@@ -26,6 +26,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { WidgetType } from '@/lib/invitation-widgets';
+import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 
 /**
  * The event columns the content signals read. Callers that already loaded the
@@ -97,6 +98,17 @@ export async function computeSectionContentMap(
   supabase: SupabaseClient,
   eventId: string,
   event: SectionContentEvent,
+  /**
+   * The event's widget rows, when the caller already has them.
+   *
+   * 🔑 A CUSTOM SECTION'S CONTENT IS ON ITS OWN ROW, not on `events`. Every
+   * other signal here comes off the event, so the rows are optional and an
+   * absent list simply contributes no custom keys — and `hasContent` fails
+   * OPEN for a key it was never given, so a caller that does not pass them sees
+   * the slots as present rather than as empty. Being shown a section you wrote
+   * is the safe side of that fence.
+   */
+  widgets?: readonly { widget_type: string; config_json: unknown }[],
 ): Promise<Partial<Record<WidgetType, boolean>>> {
   const { count, error: scheduleCountError } = await supabase
     .from('event_schedule_blocks')
@@ -132,5 +144,27 @@ export async function computeSectionContentMap(
     special_message: Boolean(event.special_message),
     what_to_bring: Boolean(event.what_to_bring),
     countdown: Boolean(event.event_date),
+    ...customSectionContentMap(widgets),
   };
+}
+
+/**
+ * Which of the couple's own sections actually have words in them.
+ *
+ * ⛔ Only for rows that EXIST. A slot the couple has never added contributes no
+ * key at all, so `hasContent`'s fail-open leaves it alone; writing `false` for
+ * all six would tell the editor that six sections are empty when five of them
+ * were never created, and `setSectionMode('shown')` would then refuse with
+ * "add its content first" for a section that is not there.
+ */
+export function customSectionContentMap(
+  widgets?: readonly { widget_type: string; config_json: unknown }[],
+): Partial<Record<WidgetType, boolean>> {
+  if (!widgets) return {};
+  const out: Partial<Record<WidgetType, boolean>> = {};
+  for (const row of widgets) {
+    if (!isCustomSectionType(row.widget_type)) continue;
+    out[row.widget_type] = customSectionHasContent(row.config_json);
+  }
+  return out;
 }

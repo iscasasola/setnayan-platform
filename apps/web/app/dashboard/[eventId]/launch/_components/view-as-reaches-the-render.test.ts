@@ -29,6 +29,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -140,50 +142,141 @@ test('a host sees the switcher, and the FIVE generic chips', async () => {
   assert.match(html, /The stage above becomes their page/);
 });
 
+/*
+  🪤 EVERY READ IS NOW IN THE DOM, SO "THE ARMED ROLE SHOWS X" IS VACUOUS.
+
+  The chips used to be `<Link href=?viewas=…>`, so one read rendered and the
+  others did not — and "paint with viewas=coordinator, assert the coordinator's
+  words appear" was a real observation. Owner, 2026-09-23: *"clicking here
+  refreshes the whole page"*. It does: a chip re-ran the entire server page and
+  re-signed every background URL to swap one description, reloading the
+  miniature with it.
+
+  So all six cards are rendered and CSS reveals the checked one. Which means
+  each assertion below would now pass whatever role was armed — the words are
+  always present. Two things keep them honest:
+
+    · `armedCard(html, role)` reads ONLY that role's card, by its
+      `data-viewas` attribute, so an assertion cannot be satisfied by a
+      neighbour's copy;
+    · `checkedRole(html)` asserts the armed role is the one whose radio is
+      checked — which is what the CSS acts on, and the only thing that decides
+      what a person sees.
+
+  A guard that keeps passing after the mechanism underneath it changed is not a
+  guard; it is a sentence about the past.
+*/
+
+/** One role's card, alone — never the whole page. */
+function armedCard(html: string, role: string): string {
+  const open = html.indexOf(`data-viewas="${role}"`);
+  assert.ok(open > 0, `no card was rendered for '${role}'`);
+  const next = html.indexOf('data-viewas="', open + 10);
+  return html.slice(open, next > 0 ? next : undefined);
+}
+
+/** The role whose radio the server marked checked — what CSS reveals. */
+function checkedRole(html: string): string | null {
+  const m = /id="sn-viewas-([a-z_]+)"[^>]*checked/.exec(html);
+  return m ? (m[1] as string) : null;
+}
+
+test('⛔ every read the page renders has a CSS rule that can reveal it', async () => {
+  // The cards are `display: none` by default. A role added to the switcher with
+  // no `:checked` rule beside it is not a broken layout — it is a card that can
+  // never appear, on a page that still renders perfectly.
+  const css = readFileSync(join(process.cwd(), 'app', 'globals.css'), 'utf8');
+  const html = await paint({ memberType: 'couple' });
+  const rendered = [...html.matchAll(/data-viewas="([a-z_]+)"/g)].map((m) => m[1] as string);
+  assert.ok(rendered.length >= 5, `only ${rendered.length} reads rendered`);
+  for (const role of new Set(rendered)) {
+    assert.ok(
+      css.includes(`#sn-viewas-${role}:checked ~ div .sn-viewas-card[data-viewas='${role}']`),
+      `'${role}' renders a card that no rule can ever show`,
+    );
+    assert.ok(
+      css.includes(`#sn-viewas-${role}:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-${role}']`),
+      `'${role}' gives a keyboard user no visible focus`,
+    );
+  }
+  // 🪤 `+` is the ADJACENT sibling: only the LAST radio touches the chip row,
+  // so one written that way rings all six chips, and only from one radio.
+  assert.doesNotMatch(
+    css,
+    /\.sn-viewas input:(checked|focus-visible)\s*\+/,
+    'an adjacent-sibling rule here fires for exactly the wrong radio',
+  );
+});
+
+test('⛔ exactly one read is armed, and it is the one the param asked for', async () => {
+  const html = await paint({ memberType: 'couple', viewas: 'coordinator' });
+  assert.equal(checkedRole(html), 'coordinator', '?viewas= is still an honest deep link');
+  const checked = [...html.matchAll(/id="sn-viewas-[a-z_]+"[^>]*checked/g)];
+  assert.equal(checked.length, 1, 'two armed reads would show two cards stacked');
+});
+
+test('⛔ pressing a chip navigates nowhere — no read is behind a link', async () => {
+  // The whole point of the change: one press must not re-run the server page.
+  const html = await paint({ memberType: 'couple' });
+  assert.doesNotMatch(html, /href="[^"]*viewas=/, 'a chip that navigates reloads the miniature');
+  assert.match(html, /type="radio"[^>]*name="sn-viewas"/, 'they are radios now');
+  assert.match(html, /<label[^>]*for="sn-viewas-host"/, 'and the chips are their labels');
+});
+
 // ── THE SIX OBSERVATIONS ───────────────────────────────────────────────────
 
 test('OBSERVATION 1 · You — their own page, as themselves', async () => {
   const html = await paint({ memberType: 'couple', viewas: 'host' });
-  assert.match(html, /Your own page, as yourself/);
-  assert.match(html, /href="\/maria-and-jomar"[^>]*target="_blank"/);
-  assert.match(html, /The only role that may edit the site/);
+  assert.equal(checkedRole(html), 'host');
+  const card = armedCard(html, 'host');
+  assert.match(card, /Your own page, as yourself/);
+  assert.match(card, /href="\/maria-and-jomar"[^>]*target="_blank"/);
+  assert.match(card, /The only role that may edit the site/);
 });
 
 test('OBSERVATION 2 · Coordinator — two floor powers, and no site editor', async () => {
   const html = await paint({ memberType: 'couple', viewas: 'coordinator' });
-  assert.match(html, /A host key/);
-  assert.match(html, /announcements/i);
-  assert.match(html, /advance the running order/i);
-  assert.match(html, /Cannot edit the site itself/);
-  assert.match(html, /hired/i, 'a coordinator you HIRED is a supplier, not this');
+  assert.equal(checkedRole(html), 'coordinator');
+  const card = armedCard(html, 'coordinator');
+  assert.match(card, /A host key/);
+  assert.match(card, /announcements/i);
+  assert.match(card, /advance the running order/i);
+  assert.match(card, /Cannot edit the site itself/);
+  assert.match(card, /hired/i, 'a coordinator you HIRED is a supplier, not this');
 });
 
 test('OBSERVATION 3 · Supplier — the desk, never a guest surface, refused pabuya', async () => {
   const html = await paint({ memberType: 'couple', viewas: 'supplier' });
-  assert.match(html, /call sheet/i);
-  assert.match(html, /No gifts page\. A supplier is not a guest/);
-  assert.match(html, /cannot advance it/i);
+  assert.equal(checkedRole(html), 'supplier');
+  const card = armedCard(html, 'supplier');
+  assert.match(card, /call sheet/i);
+  assert.match(card, /No gifts page\. A supplier is not a guest/);
+  assert.match(card, /cannot advance it/i);
   // No fabricated door: a booking cannot be minted for a preview.
-  assert.doesNotMatch(html, /viewas=supplier"[^>]*target="_blank"/);
+  assert.doesNotMatch(card, /target="_blank"/, 'the supplier card offers no door at all');
 });
 
 test('OBSERVATION 4 · Guest — the seat FINDER, opening the stage they are on', async () => {
   const html = await paint({ memberType: 'couple', viewas: 'guest' });
-  assert.match(html, /seat finder/i);
+  assert.equal(checkedRole(html), 'guest');
+  const card = armedCard(html, 'guest');
+  assert.match(card, /seat finder/i);
   // 14 days out, the guests are on the invitation — so the door opens there.
-  assert.match(html, /href="\/maria-and-jomar\?phase=rsvp"/);
-  assert.match(html, /you cannot un-be the host/i, 'the preview is honest about its own limit');
+  assert.match(card, /href="\/maria-and-jomar\?phase=rsvp"/);
+  assert.match(card, /you cannot un-be the host/i, 'the preview is honest about its own limit');
 });
 
 test('OBSERVATION 5 · Stranger — nothing, no hint, and NO signed-in door', async () => {
   const html = await paint({ memberType: 'couple', viewas: 'stranger' });
-  assert.match(html, /What somebody who found the link sees/);
-  assert.match(html, /not a hint/i);
-  assert.match(html, /private window/i);
+  assert.equal(checkedRole(html), 'stranger');
+  const card = armedCard(html, 'stranger');
+  assert.match(card, /What somebody who found the link sees/);
+  assert.match(card, /not a hint/i);
+  assert.match(card, /private window/i);
   assert.doesNotMatch(
-    html,
-    /href="\/maria-and-jomar[^"]*"[^>]*target="_blank"[^>]*>[\s\S]{0,120}Open the stage/,
-    'a stranger preview must never carry the host session',
+    card,
+    /target="_blank"/,
+    'a stranger preview must never carry the host session — so it offers no door',
   );
 });
 

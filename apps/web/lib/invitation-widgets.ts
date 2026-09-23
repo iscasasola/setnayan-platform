@@ -31,6 +31,12 @@ import { envFlagEnabled } from '@/lib/env-flag';
  * even though the iteration 0004 spec text references only 11 widget
  * types. Spec doc and engineering are aligned via this lib.
  */
+import {
+  CUSTOM_SECTION_TYPES,
+  customSectionEditorLabel,
+  type CustomSectionType,
+} from '@/lib/custom-sections';
+
 export const WIDGET_TYPES = [
   'hero',
   'greeting',
@@ -48,6 +54,13 @@ export const WIDGET_TYPES = [
   'what_to_bring',
   'our_photos',
   'our_love_story',
+  /* ── THE COUPLE'S OWN SECTIONS (owner 2026-09-23) ───────────────────────
+     Six fixed slots, not an unbounded list, because this table is
+     `UNIQUE (event_id, widget_type)` — several sections therefore need
+     several TYPES. They are widgets so that "a blank screen IN BETWEEN" is
+     one ordering rather than two; see `lib/custom-sections.ts` for the whole
+     reasoning, including why the ceiling is a shape and not a rule. */
+  ...CUSTOM_SECTION_TYPES,
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -100,7 +113,46 @@ export type WidgetCatalogEntry = {
  * display_order. The catalog is the catalog; the DB rows are the
  * runtime state.
  */
+const EVERY_PHASE: LifecyclePhase[] = ['save_the_date', 'rsvp', 'event', 'editorial'];
+
+/* 🪤 BUILT WITH A TYPED ACCUMULATOR, NOT `Object.fromEntries`. That helper
+   widens the key to `string` and infers `never[]` for an empty array literal,
+   so the resulting object overlaps with `Record<CustomSectionType, …>` in
+   neither direction and `as` refuses it outright. A declared `const` plus a
+   loop gets the type right at the point of assignment and needs no cast at
+   all — which also means a slot added to `CUSTOM_SECTION_TYPES` cannot be
+   missed here silently. */
+const CUSTOM_PHASES: Record<CustomSectionType, LifecyclePhase[]> = {
+  custom_1: EVERY_PHASE,
+  custom_2: EVERY_PHASE,
+  custom_3: EVERY_PHASE,
+  custom_4: EVERY_PHASE,
+  custom_5: EVERY_PHASE,
+  custom_6: EVERY_PHASE,
+};
+
+/** Each custom section sits after every shipped hideable widget by default; the
+ *  couple then moves it where they want it. `spotlightPhases` is empty because
+ *  a section they wrote is never promoted over the ones the product ships. */
+const CUSTOM_SPOTLIGHT: Record<CustomSectionType, WidgetSpotlightSpec> = {
+  custom_1: { weight: 60, spotlightPhases: [] },
+  custom_2: { weight: 61, spotlightPhases: [] },
+  custom_3: { weight: 62, spotlightPhases: [] },
+  custom_4: { weight: 63, spotlightPhases: [] },
+  custom_5: { weight: 64, spotlightPhases: [] },
+  custom_6: { weight: 65, spotlightPhases: [] },
+};
+
+const CUSTOM_CATALOG: WidgetCatalogEntry[] = CUSTOM_SECTION_TYPES.map((t) => ({
+  type: t,
+  label: customSectionEditorLabel(t),
+  description: 'A section you write yourself — a heading and your own words.',
+  is_always_on: false,
+  editor_subroute: null,
+}));
+
 export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
+  ...CUSTOM_CATALOG,
   {
     type: 'hero',
     label: 'Hero',
@@ -384,6 +436,7 @@ export const STD_THRESHOLD_DAYS = 90;
  * widget type without a phase mapping is a type error).
  */
 export const WIDGET_PHASES: Record<WidgetType, LifecyclePhase[]> = {
+  ...CUSTOM_PHASES,
   hero: ['save_the_date', 'rsvp', 'event', 'editorial'],
   greeting: ['rsvp'],
   qr_card: ['rsvp', 'event'],
@@ -590,6 +643,7 @@ export type WidgetSpotlightSpec = {
 };
 
 export const WIDGET_SPOTLIGHT: Record<WidgetType, WidgetSpotlightSpec> = {
+  ...CUSTOM_SPOTLIGHT,
   // Always-on chrome — never in the widened hideable list, weight is nominal.
   hero: { weight: 0, spotlightPhases: [] },
   greeting: { weight: 1, spotlightPhases: [] },

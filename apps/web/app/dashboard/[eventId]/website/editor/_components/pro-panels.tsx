@@ -1,5 +1,11 @@
 'use client';
 
+import { HUB_FONTS, hubFontPreviewStack } from '@/lib/hub-fonts';
+import {
+  MAGIC_TRAVELLERS,
+  MAGIC_TRAVELLER_LABEL,
+  MAGIC_TRAVELLER_NOTE,
+} from '@/lib/magic-move';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
@@ -69,6 +75,8 @@ export function ColorsPanel({
   bgColor,
   buttonColor,
   artDirection,
+  fontKey = null,
+  magicTraveller = null,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
@@ -77,6 +85,10 @@ export function ColorsPanel({
   buttonColor: string | null;
   /** Pahina art direction (PR-5b) — 'candlelight' is the dark direction. */
   artDirection: 'daylight' | 'candlelight' | null;
+  /** The couple's saved typeface, or null for the theme's own. */
+  fontKey?: string | null;
+  /** Which element travels as a guest scrolls, or null for nothing. */
+  magicTraveller?: string | null;
 }) {
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
@@ -133,6 +145,121 @@ export function ColorsPanel({
             </label>
           ))}
         </div>
+      </fieldset>
+
+      {/* ══ THE TYPEFACE ═════════════════════════════════════════════════
+          Owner's Pro list names "Custom Fonts". A FIXED list, because
+          `next/font` resolves at build time: every face here is already served
+          from our own origin, so choosing one costs a guest nothing and cannot
+          fail. A couple-uploaded file would mean a runtime `@font-face` against
+          R2 on a guest's first paint and a face that fails to load SILENTLY —
+          the page simply set in something else, with nothing logged.
+
+          🔑 EACH NAME IS SET IN ITS OWN FACE. A list of font names all rendered
+          in the same type tells the couple nothing; this is the one control on
+          the page where the label IS the preview.
+
+          ⛔ "The theme's own" is always first and always available — a couple
+          must be able to take a choice back. It posts `''`, which the action
+          reads as "clear", distinct from an absent field meaning "unchanged". */}
+      <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
+        <legend className="sr-only">Typeface</legend>
+        <p className="text-[0.72rem] font-semibold text-ink/80">Typeface</p>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5">
+            <input
+              type="radio"
+              name="site_font_key"
+              value=""
+              defaultChecked={!fontKey}
+            />
+            <span className="text-[0.72rem] text-ink/70">The theme&rsquo;s own</span>
+          </label>
+          {HUB_FONTS.map((f) => (
+            <label
+              key={f.key}
+              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5"
+            >
+              <input
+                type="radio"
+                name="site_font_key"
+                value={f.key}
+                defaultChecked={fontKey === f.key}
+              />
+              <span className="min-w-0">
+                <span
+                  className="block truncate text-[0.95rem] leading-tight text-ink"
+                  style={{ fontFamily: hubFontPreviewStack(f.key) }}
+                >
+                  {f.label}
+                </span>
+                <span className="block text-[0.62rem] leading-tight text-ink/45">{f.note}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* ══ MAGIC MOVE ═══════════════════════════════════════════════════
+          Owner, 2026-09-23: element animation is *"something I really want"*,
+          and *"the idea is like how keynote's magic move operate"*.
+
+          🔑 IT IS A DIFFERENT KIND OF MOTION FROM THE CANVAS, and the copy has
+          to say so. Everything in "How it moves" is a HANDOVER — one section
+          fades out, the next fades in. This is one element staying on screen
+          and travelling between two real places. A couple reading "animation"
+          twice in one editor would reasonably expect them to be the same knob.
+
+          ⛔ "Nothing travels" is first, always available, and posts `''` — the
+          action reads that as "clear", distinct from an absent field meaning
+          "unchanged", exactly as the typeface above does. A couple must be able
+          to take this back, and this is the first motion on the guest page that
+          moves an element ACROSS the viewport. */}
+      <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
+        <legend className="sr-only">Magic Move</legend>
+        <p className="text-[0.72rem] font-semibold text-ink/80">Magic Move</p>
+        <p className="mt-0.5 text-[0.62rem] leading-snug text-ink/45">
+          One thing stays on screen and travels as your guests scroll — not a fade from one
+          section to the next.
+        </p>
+        <div className="mt-1.5 grid gap-1.5">
+          <label className="flex cursor-pointer items-start gap-1.5 rounded-md border border-ink/12 px-2 py-1.5">
+            <input
+              type="radio"
+              name="site_magic_traveller"
+              value=""
+              defaultChecked={!magicTraveller}
+              className="mt-0.5"
+            />
+            <span className="text-[0.72rem] text-ink/70">Nothing travels</span>
+          </label>
+          {MAGIC_TRAVELLERS.map((t) => (
+            <label
+              key={t}
+              className="flex cursor-pointer items-start gap-1.5 rounded-md border border-ink/12 px-2 py-1.5"
+            >
+              <input
+                type="radio"
+                name="site_magic_traveller"
+                value={t}
+                defaultChecked={magicTraveller === t}
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block text-[0.72rem] leading-tight text-ink">
+                  {MAGIC_TRAVELLER_LABEL[t]}
+                </span>
+                <span className="block text-[0.62rem] leading-snug text-ink/45">
+                  {MAGIC_TRAVELLER_NOTE[t]}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[0.62rem] leading-snug text-ink/45">
+          Guests who have asked their phone for less motion see it sit still instead — nothing
+          is lost, it simply stays where it is.
+        </p>
       </fieldset>
 
       <SaveButton />

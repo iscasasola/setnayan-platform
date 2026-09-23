@@ -4732,3 +4732,425 @@ html:active-view-transition .sn-page-enter { animation: none; }
 html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE EVENT HUB CANVAS — a couple's own arrangement, drawn with CSS only
+   (owner 2026-09-23: "rails on"; contract in lib/hub-canvas.ts)
+   ════════════════════════════════════════════════════════════════════════════
+
+   🔒 FAIL-VISIBLE BY CONSTRUCTION, the same property `.pahina-js` above buys a
+   different way. Every rule that can HIDE anything lives inside BOTH
+   `@supports (animation-timeline: view())` and
+   `@media (prefers-reduced-motion: no-preference)`. A browser without
+   scroll-driven animations, a guest who asked for less motion, or a future
+   refactor that drops the wrapper all land on the same outcome: the section
+   renders at rest, fully visible, exactly as it did before any of this existed.
+   There is no half-state and nothing to un-stick.
+
+   🔑 NO SCRIPT CROSSES TO THE GUEST PAGE. The editor is the only place
+   JavaScript runs. `animation-timeline` needs none, which is the whole reason
+   the motion was specified this way rather than as an IntersectionObserver.
+
+   ⚠ THE WRAPPER ONLY EXISTS FOR A COUPLE WHO ARRANGED SOMETHING. `hasHubCanvas`
+   is false for an empty `config_json` — which is every event today — so these
+   rules match nothing at all until somebody uses the editor.
+
+   ⛔ WHAT IS DELIBERATELY NOT HERE YET: `--hub-focal` and `--hub-zoom` are
+   carried by the contract and are NOT applied below, because nothing in a
+   widget is marked as the section's media yet. A control that stored a value
+   and moved no pixels would be the exact defect this build exists to remove,
+   so the editor does not offer them either. They land with per-section
+   backgrounds, and the contract is already the right shape for it.
+   Likewise the LEFT / RIGHT arrangements: splitting a section into a photo
+   column and a words column needs the widget to expose two slots, and today it
+   exposes one. `full` and `text` are the two that are honest right now. */
+
+.hub-canvas { display: block; }
+/* `full` is the default and is stated rather than implied: the contract emits
+   this class, and a class the CSS does not mention is indistinguishable from a
+   control that moves no pixels. It explicitly un-does any narrowing a parent
+   or a previous choice applied. */
+.hub-arr-full { max-width: none; margin-inline: 0; }
+.hub-arr-text { max-width: 58ch; margin-inline: auto; }
+
+/* ── THE SECTION BACKGROUND ────────────────────────────────────────────────
+   Two layers, and the words are ALWAYS the upper one. The picture is a
+   sibling `div`, never a parent, so the section's own spacing is identical
+   whether or not a couple set a background.
+
+   🔑 `hub-has-media` is set from the RESOLVED URL, not from the stored ref. A
+   deleted object or a refused bucket leaves the class off entirely, so the
+   section renders as a section with no background — never as a dark plate
+   waiting for a picture that is not coming, which a guest reads as a broken
+   page rather than as no photo.
+
+   ⛔ THE SCRIM IS NOT DECORATION. Words over an arbitrary photo the couple
+   chose can land white-on-white; this product cannot know what they uploaded.
+   The gradient guarantees the text keeps its contrast against ANY photo, and
+   it is why the background is a layer rather than a `background-image` on the
+   frame itself. */
+.hub-has-media { position: relative; isolation: isolate; overflow: hidden; }
+.hub-has-media > .hub-canvas-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--hub-media);
+  background-size: cover;
+  background-position: var(--hub-focal);
+  background-repeat: no-repeat;
+  transform: scale(var(--hub-zoom, 1));
+  transform-origin: var(--hub-focal);
+}
+.hub-has-media > .hub-canvas-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+}
+.hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+/* No picture, no padding change — the section keeps the spacing it had.
+   🔴 `display: block`, NOT `display: contents`. A `contents` box is not
+   generated at all, and an element that generates no box CANNOT BE ANIMATED —
+   so every section without a background photo would have silently lost its
+   arrival and its handoff the moment the motion moved onto this layer. It is a
+   bare block with no padding, margin or background, so it changes nothing a
+   guest can see; it just exists enough to animate. */
+.hub-no-media > .hub-canvas-body { display: block; }
+
+@media (prefers-color-scheme: dark) {
+  .hub-has-media > .hub-canvas-media::after {
+    background: linear-gradient(to bottom, rgb(20 19 15 / 0.86), rgb(20 19 15 / 0.94));
+  }
+}
+
+/* ── THE KEYFRAMES ─────────────────────────────────────────────────────────
+   Owner, 2026-09-23: *"different stories fade in while entering from different
+   areas and move and fade out or just move out"*.
+
+   Two axes — WHAT it does and WHICH WAY — so "move without fading" is a value
+   rather than a missing keyframe. `move` never touches `opacity`; `movefade`
+   does. The names are composed by `hubInKeyframe` / `hubOutKeyframe` in
+   `lib/hub-canvas.ts` and delivered as `--hub-in-kf` / `--hub-out-kf`, so ONE
+   rule per timeline serves every combination and none can shadow another.
+
+   The direction names say where the section IS at the far end: an entrance
+   starts there, a departure ends there. One vocabulary, one fact.
+
+   Only `opacity` and `transform` — both compositor properties, so nothing here
+   triggers layout or paint. */
+@keyframes hub-in-fade    { from { opacity: 0; } }
+@keyframes hub-out-fade   { to   { opacity: 0; } }
+@keyframes hub-out-settle { to   { opacity: 0; transform: scale(0.965); } }
+@keyframes hub-in-move-below      { from { transform: translate3d(0, 26px, 0); } }
+@keyframes hub-in-move-above      { from { transform: translate3d(0, -26px, 0); } }
+@keyframes hub-in-move-left      { from { transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-in-move-right      { from { transform: translate3d(28px, 0, 0); } }
+@keyframes hub-in-movefade-below  { from { opacity: 0; transform: translate3d(0, 26px, 0); } }
+@keyframes hub-in-movefade-above  { from { opacity: 0; transform: translate3d(0, -26px, 0); } }
+@keyframes hub-in-movefade-left  { from { opacity: 0; transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-in-movefade-right  { from { opacity: 0; transform: translate3d(28px, 0, 0); } }
+@keyframes hub-out-move-below     { to   { transform: translate3d(0, 26px, 0); } }
+@keyframes hub-out-move-above     { to   { transform: translate3d(0, -26px, 0); } }
+@keyframes hub-out-move-left     { to   { transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-out-move-right     { to   { transform: translate3d(28px, 0, 0); } }
+@keyframes hub-out-movefade-below { to   { opacity: 0; transform: translate3d(0, 26px, 0); } }
+@keyframes hub-out-movefade-above { to   { opacity: 0; transform: translate3d(0, -26px, 0); } }
+@keyframes hub-out-movefade-left { to   { opacity: 0; transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-out-movefade-right { to   { opacity: 0; transform: translate3d(28px, 0, 0); } }
+
+@keyframes hub-during-lift {
+  from { transform: scale(var(--hub-zoom, 1)) translate3d(0, 2.5%, 0); }
+  to   { transform: scale(var(--hub-zoom, 1)) translate3d(0, -2.5%, 0); }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* ══ ONE RULE PER TIMELINE, KEYFRAMES BY CUSTOM PROPERTY ═══════════════
+       🔴 NOT a rule per in×out pair. That was sixteen selectors of the same
+       specificity, and the later one won: `.hub-tl-scrub.hub-out-shrink`
+       overwrote `.hub-tl-scrub.hub-in-slide`'s `animation-name`, and
+       `.hub-during-lift` (one class) lost to both. Cinematic is in:slide,
+       during:lift, out:shrink — and TWO of its three choices never rendered.
+       A control whose effect depends on source order is not a control.
+
+       `--hub-in-kf` / `--hub-out-kf` carry the keyframe names from
+       `lib/hub-canvas.ts`, so every combination is one rule and none of them
+       can shadow another.
+
+       ⚡ SMOOTHNESS: only `opacity` and `transform` are ever animated — both
+       compositor properties, so nothing here triggers layout or paint. The
+       translations are `translate3d` to keep the layer promoted, and
+       `will-change` is declared on the two elements that actually move rather
+       than on the frame, so a page of sections does not hold a dozen idle
+       layers. */
+
+    /* ══ ONE PART AFTER ANOTHER ═══════════════════════════════════════════
+       Owner, 2026-09-23, asked for this directly: a section can arrive as one
+       slab, or its parts can arrive in turn.
+
+       🔑 THE PARTS ARE `.hub-canvas-body > * > *` — the grandchildren. Measured
+       on the RENDERED DOM, not guessed: every widget returns a single
+       `<section>` whose direct children are exactly its parts (the love story
+       has four, a custom section two). Not one widget component had to change,
+       which is the whole reason this was cheap.
+       ⚠ The level is load-bearing. A widget that returned TWO top-level nodes
+       would make this address their children instead of themselves, and the
+       wrong things would animate — silently. `every-widget-is-one-section.test.ts`
+       holds the shape.
+
+       🔑 WHEN THE PARTS ANIMATE, THE BLOCK DOES NOT. Both would mean two
+       opacities multiplying — a part at 0.5 inside a block at 0.5 reads as 0.25
+       and the section arrives muddy. The `hub-seq-whole` / `hub-seq-parts`
+       classes are exclusive, so exactly one level is ever animated.
+
+       ⚠ CSS CANNOT DO ARITHMETIC ON `nth-child`, so the delays are written out.
+       Eight is deliberate: the deepest section measured has four parts, and a
+       ninth arriving with the eighth's delay is a far better failure than a
+       section whose tail never appears. */
+
+    /* PLAYS ONCE — a real, time-based arrival. It runs on load rather than on
+       approach, which is the honest cost of having no script on the guest
+       page; in exchange the duration is a real duration and the easing is a
+       real ease, instead of a scrub pretending to be one. */
+    .hub-seq-whole.hub-tl-time > .hub-canvas-body {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) both;
+      will-change: opacity, transform;
+    }
+
+    /* FOLLOWS THE SCROLL — two animations on two ranges that cannot overlap:
+       the arrival owns `entry`, the handoff owns `exit`. The owner's
+       correction, built: a TIMED exit fights the reader, a scrubbed one is the
+       handoff to the next section and reverses under their own thumb. */
+    .hub-seq-whole.hub-tl-scrub > .hub-canvas-body {
+      animation-name: var(--hub-in-kf, none), var(--hub-out-kf, none);
+      animation-timeline: view(), view();
+      animation-range: entry 0% entry 92%, exit 8% exit 100%;
+      animation-fill-mode: both, both;
+      animation-timing-function: linear, linear;
+      will-change: opacity, transform;
+    }
+
+
+    /* The parts carry the arrival, each a little after the one above it. */
+    .hub-seq-parts > .hub-canvas-body > * > * {
+      animation-name: var(--hub-in-kf, none);
+      animation-fill-mode: both;
+      will-change: opacity, transform;
+    }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > * {
+      animation-duration: var(--hub-duration, 1.1s);
+      animation-timing-function: var(--hub-ease, ease-out);
+    }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(2) { animation-delay: calc(var(--hub-stagger) * 1); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(3) { animation-delay: calc(var(--hub-stagger) * 2); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(4) { animation-delay: calc(var(--hub-stagger) * 3); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(5) { animation-delay: calc(var(--hub-stagger) * 4); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger) * 5); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger) * 6); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(8) { animation-delay: calc(var(--hub-stagger) * 7); }
+
+    /* Scrubbed, the gap is a RANGE offset rather than a delay: a scroll-driven
+       animation has no time to be delayed by, so each part simply starts a
+       little further into the section's entry. */
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
+      animation-timeline: view();
+      animation-range: entry 0% entry 92%;
+      animation-timing-function: linear;
+    }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { animation-range: entry 4% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { animation-range: entry 8% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { animation-range: entry 12% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { animation-range: entry 16% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { animation-range: entry 20% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { animation-range: entry 24% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { animation-range: entry 28% entry 92%; }
+
+    /* ── DURING: the PICTURE drifts, never the words ──────────────────────
+       🔑 It lives on the media layer on purpose. Put on the same element as
+       the arrival it would fight it for `transform` at every instant where
+       their ranges overlap — and `cover` overlaps both `entry` and `exit`, so
+       they always overlap. Two layers, two transforms, no conflict, and the
+       result reads as depth rather than as a page that will not settle.
+
+       It composes the zoom INTO its own keyframes (`scale(var(--hub-zoom))`)
+       because an animation replaces the whole `transform`, so a media layer
+       that is both zoomed and drifting must carry both in one function list or
+       the zoom disappears the moment the animation starts.
+
+       ⚠ A section with no photo has nothing to drift. `during` is a preset
+       value and not a control the couple sets, so nothing claims otherwise. */
+    .hub-during-lift.hub-has-media > .hub-canvas-media {
+      animation: hub-during-lift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+      will-change: transform;
+    }
+
+    /* A section that asked for nothing is not animated at all — no name, no
+       fill mode, nothing that can get stuck, and no promoted layer. */
+    .hub-in-none.hub-out-none > .hub-canvas-body,
+    .hub-in-none.hub-out-none > .hub-canvas-body > * > * {
+      animation: none;
+      will-change: auto;
+    }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MAGIC MOVE — one element that travels, instead of two that hand over
+   (owner 2026-09-23: "like how keynote's magic move operate")
+   ════════════════════════════════════════════════════════════════════════════
+
+   🔒 GATED ON `.pahina-js`, LIKE THE PARALLAX ABOVE, AND FOR THE SAME REASON.
+   The script writes only `--magic-dx` / `--magic-dy` / `--magic-k`; this rule
+   is the only thing that turns them into movement. Reduced motion, a missing
+   IntersectionObserver, a blocked bundle or the 2s self-heal each remove the
+   flag, this rule stops matching, and the mark sits exactly where the layout
+   puts it. There is no half-state and nothing to un-stick.
+
+   🔑 THE DEFAULTS ARE THE IDENTITY. `translate3d(0,0,0) scale(1)` is where the
+   element already is, so the rule is inert until the script has measured
+   something — a page that matched the flag but never ran the measurer is
+   byte-identical to one that never had it.
+
+   ⚠ `will-change` IS DECLARED HERE, not by the script. A hint the script set
+   would outlive the flag being removed and leave a promoted layer behind for
+   nothing. */
+.pahina-js [data-magic-traveller] {
+  transform: translate3d(var(--magic-dx, 0px), var(--magic-dy, 0px), 0) scale(var(--magic-k, 1));
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* The box it travels into. It occupies space so the bar's layout is settled
+   before anything is measured, and it draws nothing — the mark itself is the
+   only ink either end.
+
+   🔴 THIS RULE WAS UNGATED, AND THAT CONTRADICTED THE CONTRACT DIRECTLY ABOVE.
+   The berth is the header's own monogram, reserving exactly the space the mark
+   will land in. Hidden unconditionally, a guest whose script never ran — every
+   reduced-motion guest, every blocked bundle, every 2s self-heal — lost the
+   monogram from the header entirely and nothing said so. "No flag, no travel,
+   and the mark sits where the layout puts it" has to include this end too.
+   ⛔ So the hiding lives behind the SAME flag as the movement. Without it the
+   header keeps its monogram exactly as it did before this feature existed. */
+.pahina-js [data-magic-berth] { visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Belt and braces: RootFlag already withholds the flag for these guests, so
+     this only matters if some future path sets it another way. */
+  .pahina-js [data-magic-traveller] { transform: none; will-change: auto; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   VIEW AS — six reads, one shown, nothing navigates
+   (owner 2026-09-23: "it should only refresh the lower part")
+   ════════════════════════════════════════════════════════════════════════════
+
+   Each chip was a `<Link>` carrying `?viewas=`, so pressing one re-ran the
+   whole server page — the facts, the stage cards, the day-of list — and
+   re-signed every background URL, to swap one description. The miniature above
+   it re-mounted with it, which meant the couple's own page reloaded inside the
+   frame every time they pressed a chip.
+
+   🔑 ALL SIX CARDS ARE RENDERED SERVER-SIDE AND THIS PICKS ONE. Native radios,
+   so it needs no JavaScript — the property the `<Link>` version existed for —
+   and nothing navigates, so the iframe is never touched.
+
+   ⚠ THE HIDING IS THE DEFAULT AND THE SHOWING IS THE RULE, deliberately the
+   opposite way round from the canvas's fail-visible motion. Here a browser that
+   somehow matched nothing would show SIX stacked descriptions rather than none:
+   noisy, not broken, and a reader can still read every one. Hiding by default
+   with no way to show would be the unreadable failure, and that is why
+   `display: block` is what the `:checked` rule adds. */
+/* 🪤 THESE ARE `sn-`, NOT `hub-`, AND THE PREFIX IS LOAD-BEARING.
+   `lib/the-canvas-fails-visible.test.ts` asks the opposite question of the
+   canvas — "is any rule here branching on a class the contract can NEVER
+   emit?" — and its window is `CSS.slice(indexOf('.hub-canvas'))`, i.e. from the
+   canvas banner to the END OF THE FILE. So every `.hub-*` class written below
+   that banner is measured against the canvas vocabulary, and these two were
+   named `hub-viewas-card` / `hub-viewas-chip` at first and failed it: styled,
+   real, emitted by `hub-stage.tsx` — and not canvas classes at all.
+   ⛔ The fix is the NAME, never the guard. Inside globals.css after that
+   banner, `hub-` means the canvas contract; a controller class takes the
+   house `sn-` prefix (`sn-top-label`, `sn-range` beside it). */
+.sn-viewas-card { display: none; }
+#sn-viewas-host:checked ~ div .sn-viewas-card[data-viewas='host'] { display: block; }
+#sn-viewas-coordinator:checked ~ div .sn-viewas-card[data-viewas='coordinator'] { display: block; }
+#sn-viewas-supplier:checked ~ div .sn-viewas-card[data-viewas='supplier'] { display: block; }
+#sn-viewas-guest:checked ~ div .sn-viewas-card[data-viewas='guest'] { display: block; }
+#sn-viewas-named_guest:checked ~ div .sn-viewas-card[data-viewas='named_guest'] { display: block; }
+#sn-viewas-stranger:checked ~ div .sn-viewas-card[data-viewas='stranger'] { display: block; }
+
+.sn-viewas-chip { transition: background-color .12s ease, color .12s ease; }
+#sn-viewas-host:checked ~ div .sn-viewas-chip[for='sn-viewas-host'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-coordinator:checked ~ div .sn-viewas-chip[for='sn-viewas-coordinator'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-supplier:checked ~ div .sn-viewas-chip[for='sn-viewas-supplier'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-guest:checked ~ div .sn-viewas-chip[for='sn-viewas-guest'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-named_guest:checked ~ div .sn-viewas-chip[for='sn-viewas-named_guest'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-stranger:checked ~ div .sn-viewas-chip[for='sn-viewas-stranger'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+
+/* A keyboard user must still see which chip has focus — the radio itself is
+   `sr-only`, so the ring has to be drawn on its label.
+
+   🪤 THIS WAS WRITTEN AS `input:focus-visible + div .sn-viewas-chip` AND IT
+   RANG THE WRONG CHIPS. `+` is the ADJACENT sibling, and only the LAST of the
+   six radios sits next to the chip row — so focusing any of the first five drew
+   no ring at all, and focusing the sixth ringed all six at once. The rule ran,
+   the CSS was valid, and the one state it could show was the one state that is
+   wrong. Each radio has to name its own label, the same way the checked rules
+   above do. */
+#sn-viewas-host:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-host'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-coordinator:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-coordinator'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-supplier:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-supplier'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-guest:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-guest'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-named_guest:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-named_guest'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-stranger:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-stranger'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}

@@ -9,7 +9,14 @@ type CheckResult =
   | { status: 'available'; slug: string }
   | { status: 'taken'; suggestions: string[] }
   | { status: 'invalid_format'; reason: string }
-  | { status: 'reserved'; reason: string };
+  | { status: 'reserved'; reason: string }
+  /* 🔴 THE ANSWER NEVER CAME. Not a verdict about the word — a verdict about
+     the LOOKUP. It used to be nothing at all: a non-ok response or a dropped
+     connection left the previous state standing, the spinner stopped, and Save
+     simply never lit. A couple typing a perfectly free address saw a grey
+     button and no reason on earth for it. Refusing is right; refusing in
+     silence is the bug. */
+  | { status: 'unverified' };
 
 type Props = {
   eventId: string;
@@ -44,7 +51,11 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
         if (res.ok) {
           const json = (await res.json()) as CheckResult;
           setCheck(json);
+        } else {
+          setCheck({ status: 'unverified' });
         }
+      } catch {
+        setCheck({ status: 'unverified' });
       } finally {
         setBusy(false);
       }
@@ -128,7 +139,7 @@ function StatusBadge({
   } else if (check.status === 'taken' || check.status === 'reserved') {
     tone = 'text-danger-700';
     Icon = X;
-  } else if (check.status === 'invalid_format') {
+  } else if (check.status === 'invalid_format' || check.status === 'unverified') {
     tone = 'text-warn-700';
     Icon = AlertTriangle;
   }
@@ -162,6 +173,14 @@ function StatusLine({ check }: { check: CheckResult | null }) {
   }
   if (check.status === 'reserved') {
     return <p className="mt-1 text-xs text-danger-700">{check.reason}</p>;
+  }
+  if (check.status === 'unverified') {
+    return (
+      <p className="mt-1 text-xs text-warn-700">
+        We couldn&rsquo;t check that address just now — Save stays off until we can. Try again in a
+        moment.
+      </p>
+    );
   }
   return null;
 }

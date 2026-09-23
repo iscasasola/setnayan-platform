@@ -194,6 +194,24 @@ export function DressCodeWidget({
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
             You are {mine.roleLabel ?? 'in the entourage'}
           </p>
+          {/* ⏰ THE CALL TIME SITS ABOVE THE OUTFIT, AND THAT IS THE POINT.
+              Owner, 2026-09-23, on what a ninang needs: “what she needs most is
+              her call time”. Putting it under the swatch and the hex would have
+              made the thing she needs most the last thing she reaches. It reads
+              before the outfit because she can decide what to wear later and
+              cannot decide when to leave the house later.
+
+              Absent when unset — never “TBA” and never a guessed hour. Same
+              rule the style already follows: this product telling a sponsor the
+              wrong time is worse than telling her nothing. */}
+          {mine.callTime ? (
+            <p className="text-base leading-snug text-ink">
+              <span className="font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/55">
+                Call time
+              </span>{' '}
+              <span className="font-pahina text-2xl font-light tracking-tight">{mine.callTime}</span>
+            </p>
+          ) : null}
           <div className="flex items-center gap-4">
             {mine.hex ? (
               <span

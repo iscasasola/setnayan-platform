@@ -8,6 +8,9 @@
  * celebration gets the right sheet without anybody hand-assigning one.
  *
  * ── THE THREE SHEETS ───────────────────────────────────────────────────────
+ *   photograph   the couple uploaded a hero. It fills the sheet, a veil darkens
+ *                it, and the type sits on top in white. **Nothing derived beats
+ *                the real photograph.**
  *   letterpress  no accent at all. Ink on house stock, heavy rule, stacked
  *                caps. **Plainness as intent** — this is Movie Night, a third
  *                of his page, and the case most likely to look broken if it is
@@ -15,6 +18,17 @@
  *   moon         an accent that cannot carry a letter. A white disc nearly the
  *                sheet's width holds every word, in ink.
  *   sheet        an accent that can. White type directly on the colour.
+ *
+ * ⚖ A PHOTOGRAPH NEVER GETS THE MOON — owner ruled 2026-09-23, asked in plain
+ * terms whether a real photo should be darkened behind the words or keep the
+ * white circle floating over it. He chose the darkened photo.
+ *
+ * 🔑 THE MOON IS A COLOUR-LEGIBILITY DEVICE, NOT PART OF THE COUPLE'S IDENTITY.
+ * That is what his answer settles. It exists because a measured colour could
+ * carry neither white nor ink — and **a photograph has no single contrast to
+ * measure**, so the threshold rule below cannot extend to it. A scrim can:
+ * `event-card-art.ts` already validated the veil for all 360 hues at four scrim
+ * depths against both a pure-white and a pure-black photograph.
  *
  * 🔑 THE CHOICE BETWEEN `moon` AND `sheet` IS CONTRAST, NOT TASTE, and the
  * prototype says so in its own CSS comment: *"Gold cannot carry text, so the art
@@ -47,9 +61,11 @@ export const POSTER_TEXT_MIN = 4.5;
 
 const WHITE: Rgb = [255, 255, 255];
 
-export type PosterSheet = 'letterpress' | 'moon' | 'sheet';
+export type PosterSheet = 'photograph' | 'letterpress' | 'moon' | 'sheet';
 
 export type PosterInput = {
+  /** The couple's own hero. When it exists it IS the poster. */
+  landing_page_hero_image_url?: string | null;
   std_film_accent_hex?: string | null;
   std_theme?: string | null;
   invite_theme?: string | null;
@@ -98,6 +114,27 @@ function creditName(raw: string): string {
  */
 export function resolvePoster(event: PosterInput): Poster {
   const accentHex = normalizeAccent(event.std_film_accent_hex);
+
+  /*
+    THE PHOTOGRAPH OUTRANKS EVERYTHING, INCLUDING THE ACCENT. A couple who
+    uploaded a hero gets it, veiled, whatever colour they also chose — and the
+    accent is still reported so the frame and sash can carry it, but it no
+    longer decides the sheet. There is deliberately NO branch here that keeps
+    the moon over a photograph: the owner ruled it out, so leaving one would be
+    a dead path a later reader would wonder about.
+  */
+  const heroUrl = event.landing_page_hero_image_url?.trim() || null;
+  if (heroUrl) {
+    const hrgb = accentHex ? rgbOfHex(accentHex) : null;
+    return {
+      sheet: 'photograph',
+      accentHex,
+      whiteOnAccent: hrgb ? contrastRatio(hrgb, WHITE) : null,
+      sprigs: false,
+      capiz: false,
+      credits: [],
+    };
+  }
   const rgb = accentHex ? rgbOfHex(accentHex) : null;
   const whiteOnAccent = rgb ? contrastRatio(rgb, WHITE) : null;
 

@@ -112,7 +112,13 @@ test('both sections are gated on having cards, and share ONE card renderer', () 
   const definitions = (page.match(/const renderCelebration =/g) ?? []).length;
   console.log(`  card renderer: ${definitions} definition, ${renders} call sites`);
   assert.equal(definitions, 1, 'two card renderers is the defect arriving from the other side');
-  assert.equal(renders, 2, 'both sections must use it');
+  /*
+    THREE call sites since the past cap landed: Coming up, the first screenful of
+    Past, and the remainder behind "Show all N". The number matters less than the
+    DEFINITION count above — one renderer is the property; a second definition is
+    how the sections drift into two different cards.
+  */
+  assert.equal(renders, 3, 'every list must use the one renderer');
 
   // the split is delegated, not re-derived here
   assert.ok(page.includes('splitComingUpAndPast(listed, manilaTodayISO())'),
@@ -151,4 +157,26 @@ test('the cap lands on a row edge, and a nonsense limit cannot break it', () => 
     const s = pastShelf(Array.from({ length: 10 }, (_, i) => i), bad);
     assert.equal(s.shown.length, PAST_FIRST_SCREENFUL, `limit ${bad} broke the shelf`);
   }
+});
+
+test('the page actually USES the cap — a module nothing calls is not a feature', () => {
+  /*
+    🔑 THIS GUARD EXISTS BECAUSE I SHIPPED THE MODULE AND FORGOT THE PAGE.
+    `pastShelf` was written, tested and pushed while `app/u/[userSlug]/page.tsx`
+    still rendered every past celebration — a well-tested module nothing runs,
+    which is exactly the defect that got `lib/digest-sub.ts` deleted this week.
+    The tests were green and the cap did not exist on screen.
+  */
+  const page = stripComments(
+    readFileSync(path.join(process.cwd(), 'app/u/[userSlug]/page.tsx'), 'utf8'),
+  );
+  assert.ok(page.includes('pastShelf(pastEvents)'), 'the page must ask for the shelf');
+  assert.ok(page.includes('pastShown.shown.map'), 'the page must render the capped list, not all of it');
+  assert.ok(page.includes('pastShown.moreLabel'), 'the reveal control must be gated on there being more');
+  // the full list must still be reachable — capped is not truncated
+  assert.ok(
+    page.includes('pastEvents.slice(pastShown.shown.length)'),
+    'the hidden celebrations must still render behind the control',
+  );
+  console.log('  page wiring: shelf asked for, capped list rendered, remainder reachable');
 });

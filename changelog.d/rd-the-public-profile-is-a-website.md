@@ -269,3 +269,53 @@ asserts the justification itself: if `hub-look.ts` ever stops reading `invite_th
 public information and this select is no longer entitled to it.
 
 SPEC IMPACT: None.
+
+---
+
+## 2026-09-23 · feat(profile): a photograph is the poster — and the past cap is actually wired
+
+⚖ **Owner ruled, asked in plain terms — the day a couple uploads a real photo, do we darken the
+photo behind the words, or keep the white circle floating over it? He chose the darkened photo.**
+
+So a hero outranks everything: it fills the sheet, the veil darkens it, the type sits on top in
+white. The accent is still reported so the frame and sash can carry it, but it no longer decides the
+sheet, and the ornaments do not print over somebody's photograph.
+
+🔑 **THE MOON IS A COLOUR-LEGIBILITY DEVICE, NOT PART OF THE COUPLE'S IDENTITY** — that is what his
+answer settles. It exists because a measured colour carried neither white nor ink. **A photograph has
+no single contrast to measure**, so the threshold rule cannot extend to it; a scrim can, and
+`event-card-art.ts` already validated the veil for all 360 hues at four scrim depths against both a
+pure-white and a pure-black photograph.
+
+⛔ **The moon-over-a-photo branch is REMOVED, not left switchable.** He ruled it out, so keeping a
+reachable path would be a dead branch a later reader would wonder about. A test asserts it exhaustively
+— **20 accent × theme combinations, every one `photograph`** — so the ruling stays true when somebody
+adds a fourth sheet.
+
+### 🔴 AND THE PAST CAP WAS NOT ACTUALLY LIVE
+
+`pastShelf()` was written, tested and **pushed** one commit earlier while `app/u/[userSlug]/page.tsx`
+still rendered every past celebration. **A well-tested module nothing calls** — precisely the defect
+that got `lib/digest-sub.ts` deleted this week, committed by the same session that deleted it, two
+days later. The tests were green and the cap did not exist on screen; I reported it to the owner as
+done.
+
+Now wired, with a guard that asserts the PAGE calls it: the shelf is asked for, the capped list is
+what renders, the control is gated on there being more, and **the remainder still renders behind it**
+— capped is not truncated.
+
+The reveal is a plain `<details>`, so it costs **no JavaScript**: this page is ISR-cached and
+otherwise fully server-rendered, a client island would be the only script on it, and the hidden
+celebrations would drop out of the HTML a search engine or reader-mode sees. `<details>` hides
+rendered cards rather than withholding them.
+
+Three watched sabotages, each red, both files restored to verified hashes and `dirty=` printed:
+keep the moon over a gold couple's photo → the ruling tests fire; render every past celebration again
+→ the wiring guard fires; hide the remainder → the same guard fires, because capped and truncated are
+different things.
+
+🪤 The one-renderer guard went from 2 call sites to 3 and had to be updated. The count is the weaker
+half — **one DEFINITION is the property**; a second definition is how the sections drift into two
+different cards.
+
+SPEC IMPACT: None.

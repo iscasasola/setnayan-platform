@@ -8,7 +8,7 @@ import { resolvePublicProfile } from '@/lib/public-profile';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { resolveCelebrationIdentity } from '@/lib/celebration-card-identity';
-import { splitComingUpAndPast } from '@/lib/coming-up-and-past';
+import { pastShelf, splitComingUpAndPast } from '@/lib/coming-up-and-past';
 import { manilaTodayISO } from '@/lib/event-board';
 import { initialsFor } from '@/lib/conversation-list';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -262,6 +262,7 @@ export default async function AccountProfilePage({ params }: Props) {
   // here for the owner preview, where we still list it rather than redirect.
   const listed = ongoing.length >= 2 ? ongoing : publicWebsiteEvents;
   const { comingUp, past: pastEvents } = splitComingUpAndPast(listed, manilaTodayISO());
+  const pastShown = pastShelf(pastEvents);
 
   /*
     ONE CARD, RENDERED BY BOTH SECTIONS. Extracted when the Coming-up/Past
@@ -475,7 +476,23 @@ export default async function AccountProfilePage({ params }: Props) {
             {pastEvents.length > 0 ? (
               <section className="uprof-section uprof-past">
                 <h2 className="uprof-section-head">Past celebrations</h2>
-                <ul className="uprof-grid">{pastEvents.map(renderCelebration)}</ul>
+                <ul className="uprof-grid">{pastShown.shown.map(renderCelebration)}</ul>
+                {/*
+                    A PLAIN <details>, SO THE REST IS ONE TAP AND NO JAVASCRIPT.
+                    This page is ISR-cached and the rest of it is server-rendered;
+                    a client island to reveal six more memories would be the only
+                    script on the page, and it would leave the hidden ones out of
+                    the HTML a search engine or a reader-mode sees. The cards are
+                    RENDERED either way — `details` only hides them.
+                */}
+                {pastShown.moreLabel ? (
+                  <details className="uprof-more">
+                    <summary className="uprof-more-btn">{pastShown.moreLabel}</summary>
+                    <ul className="uprof-grid uprof-more-grid">
+                      {pastEvents.slice(pastShown.shown.length).map(renderCelebration)}
+                    </ul>
+                  </details>
+                ) : null}
               </section>
             ) : null}
           </>
@@ -976,6 +993,25 @@ const UPROF_CSS = `
      quieter and set back — still legible, never greyed into unreadability:
      the title keeps its ink colour and only the surrounding weight changes,
      because a memory should be calm, not hard to read. */
+  .uprof-more { margin-top: 0.9rem; }
+  .uprof-more-btn {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.82rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--m-slate-2, #6A6E76);
+    padding: 0.55rem 1rem;
+    border: 1px solid var(--m-line, #E1DCD1);
+    border-radius: var(--m-r-full, 999px);
+  }
+  .uprof-more-btn::-webkit-details-marker { display: none; }
+  .uprof-more-btn:hover { color: var(--m-ink, #2C2A29); border-color: var(--m-orange, #A9834B); }
+  .uprof-more[open] .uprof-more-btn { margin-bottom: 1.1rem; }
+  .uprof-more-grid { margin-top: 0; }
+
   .uprof-section { margin-bottom: clamp(1.75rem, 4vw, 2.75rem); }
   .uprof-section-head {
     font-family: var(--font-display), Georgia, serif;

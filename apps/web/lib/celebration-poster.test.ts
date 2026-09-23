@@ -99,3 +99,59 @@ test('an unknown theme earns no ornament and no credit it cannot show', () => {
   // the credit still names what the couple chose, because they did choose it
   assert.deepEqual(p.credits, ['Nonsense', 'Nonsense']);
 });
+
+test('⚖ a photograph never gets the moon — owner 2026-09-23', () => {
+  /*
+    Asked in plain terms whether a real photo should be darkened behind the words
+    or keep the white circle floating over it, he chose the darkened photo.
+
+    🔑 THE MOON IS A COLOUR-LEGIBILITY DEVICE, NOT PART OF THE IDENTITY. It
+    exists because a measured colour carried neither white nor ink. A photograph
+    has NO single contrast to measure, so the threshold rule cannot extend to it
+    — which is why a scrim, already validated for 360 hues against white and
+    black photos, is the right answer and the moon is not.
+  */
+  const goldWithPhoto = resolvePoster({
+    landing_page_hero_image_url: 'https://cdn.example/hero.jpg',
+    std_film_accent_hex: '#9b7e00',   // the very accent that earns a moon
+    std_theme: 'botanical',
+    invite_theme: 'capiz',
+  });
+  console.log(`  gold + photo → ${goldWithPhoto.sheet} (accent still ${goldWithPhoto.accentHex})`);
+  assert.equal(goldWithPhoto.sheet, 'photograph', 'the photo outranks the accent');
+  assert.notEqual(goldWithPhoto.sheet, 'moon', 'the moon must be unreachable over a photo');
+
+  // The accent survives for the frame and sash, it just stops deciding the sheet.
+  assert.equal(goldWithPhoto.accentHex, '#9b7e00');
+
+  // Ornaments belong to a printed sheet, not over somebody's photograph.
+  assert.equal(goldWithPhoto.sprigs, false);
+  assert.equal(goldWithPhoto.capiz, false);
+  assert.deepEqual(goldWithPhoto.credits, []);
+});
+
+test('NO accent and NO theme can put the moon over a photograph', () => {
+  /*
+    Exhaustive rather than illustrative: whatever a couple has chosen, a hero
+    means `photograph`. This is the assertion that keeps the ruling true when
+    somebody later adds a fourth sheet.
+  */
+  const accents = [null, '#9b7e00', '#9a244f', '#f5e97a', 'nonsense'];
+  const themes = [null, 'botanical', 'default', 'nonsense'];
+  let checked = 0;
+  for (const a of accents) {
+    for (const t of themes) {
+      const p = resolvePoster({
+        landing_page_hero_image_url: '  https://cdn.example/h.jpg ',
+        std_film_accent_hex: a,
+        std_theme: t,
+        invite_theme: 'capiz',
+      });
+      checked++;
+      assert.equal(p.sheet, 'photograph', `accent=${a} theme=${t} escaped the photograph path`);
+    }
+  }
+  console.log(`  combinations checked: ${checked}, all photograph`);
+  // …and a blank string is not a photograph.
+  assert.notEqual(resolvePoster({ landing_page_hero_image_url: '   ', std_film_accent_hex: '#9b7e00' }).sheet, 'photograph');
+});

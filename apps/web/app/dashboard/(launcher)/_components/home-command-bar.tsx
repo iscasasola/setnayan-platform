@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Search,
   Sparkles,
@@ -20,6 +20,8 @@ import {
 import { useModalA11y, anyModalOpen } from '@/lib/use-modal-a11y';
 import { commandKeyClaimed } from '@/lib/command-key-claim';
 import { marketplaceEscapeItem } from '@/app/_components/frontdoor/command-escape';
+import { KIND_LABEL, matchesCommandQuery } from '@/lib/command-match';
+import { itemInScope, resolveSearchScope } from '@/lib/search-scope';
 
 /**
  * HomeCommandBar — the launcher's DETERMINISTIC "search or jump" bar
@@ -64,6 +66,9 @@ export type HomeCommandItem = {
   sublabel: string;
   href: string;
   kind: 'event' | 'space' | 'action';
+  /** Searchable words that are never rendered — see `lib/command-match.ts`.
+   *  This is how typing "wedding" finds a KASAL-badged event. */
+  terms?: string;
   /** Icon key — resolved to a Lucide glyph client-side (RSC boundary rule:
    *  never pass component functions from server to client). */
   icon:
@@ -96,11 +101,10 @@ const ICONS = {
   heart: Heart,
 } as const;
 
-const KIND_LABEL: Record<HomeCommandItem['kind'], string> = {
-  event: 'Event',
-  space: 'Space',
-  action: 'Go to',
-};
+/* KIND_LABEL MOVED to `lib/command-match.ts` and is imported back. It used to
+   live here, which is exactly why the results page — unable to import from a
+   'use client' module — matched without it and silently returned fewer of your
+   own things than this dropdown did. */
 
 /**
  * `variant` — 'bar' is the original full-width block (unchanged default, so any
@@ -146,18 +150,37 @@ export function HomeCommandBar({
     delete it whenever the typed words match nothing local — which is the one
     moment it exists for.
   */
+  /*
+    🔑 THE SEARCH FOLLOWS THE PLACE (owner 2026-09-23). The scope comes from
+    the URL, resolved by `lib/search-scope.ts` through the SHIPPED
+    most-specific-wins rule the rail already uses — not from a second path
+    matcher, and not from a prop, because this component mounts twice (the
+    laptop bar and the phone row) and a prop threaded through the shell would
+    be two chances to hand it different answers.
+
+    ⚠ THIS IS NOT THE "winner resolved per component" MISTAKE `rail-active-
+    key.tsx` warns about. That one is several components ranking DIFFERENT row
+    sets and each lighting its own winner. Here one question is asked over one
+    row set, and the two mounts of this component are the same component
+    reading the same pathname — they cannot disagree.
+  */
+  const scope = resolveSearchScope(usePathname());
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const own = !q
-      ? items
-      : items.filter((i) =>
-          `${i.label} ${i.sublabel} ${KIND_LABEL[i.kind]}`
-            .toLowerCase()
-            .includes(q),
-        );
-    const escape = marketplaceEscapeItem(query);
+    // Scope first, query second. WHICH ROWS EXIST is decided before anything
+    // is matched — which is why widening what `terms` matches inside a row
+    // cannot leak: a row outside the place was never a candidate.
+    const here = items.filter((i) => itemInScope(i.kind, scope.key));
+    const own = here.filter((i) => matchesCommandQuery(i, query));
+    /*
+      🔑 APPENDED AFTER THE FILTER, NEVER THROUGH IT. Passing it through would
+      delete it whenever the typed words match nothing local — which is the one
+      moment it exists for. It also carries the scope, so a narrowed box always
+      offers the step OUT rather than a dead end.
+    */
+    const escape = marketplaceEscapeItem(query, scope);
     return escape ? [...own, escape] : own;
-  }, [items, query]);
+  }, [items, query, scope]);
 
   // Clamp the highlight when the filtered list shrinks.
   const safeHighlight = Math.min(highlight, Math.max(0, filtered.length - 1));
@@ -249,11 +272,16 @@ export function HomeCommandBar({
           strokeWidth={1.75}
         />
         <span className="flex-1 truncate text-sm text-[color:var(--sn-ink-500)]">
-          <span className="sm:hidden">Search</span>
+          {/* 🔑 THE BOX ANNOUNCES WHERE IT IS POINTED, BEFORE ANYONE TYPES —
+              the half of the Shopee pattern nobody would infer from "narrow
+              the results" (owner 2026-09-23). This read a single hard-coded
+              "Search events, people, vendors" on EVERY screen, from Discover
+              to inside a wedding: it promised two nouns this index cannot
+              resolve as rows, hid the two it answers well, and said nothing
+              about which place you were standing in. */}
+          <span className="sm:hidden">{scope.shortPlaceholder}</span>
           <span className="hidden sm:inline">
-            {rail
-              ? 'Search events, people, vendors'
-              : 'Search events, people, vendors — or jump to a task'}
+            {rail ? scope.placeholder : `${scope.placeholder} — or jump to a task`}
           </span>
         </span>
         <kbd
@@ -294,9 +322,12 @@ export function HomeCommandBar({
                   setHighlight(0);
                 }}
                 onKeyDown={onInputKeyDown}
-                placeholder="Search your events, spaces & more"
+                placeholder={scope.placeholder}
                 className="flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/40"
-                aria-label="Search your events, spaces and account"
+                /* The trigger and the field must say the SAME thing: a box that
+                   announces one scope and then opens a dialog promising another
+                   is worse than one that says nothing. */
+                aria-label={scope.placeholder}
               />
               <kbd className="rounded-md border border-[color:var(--sn-line)] bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[color:var(--sn-ink-400)]">
                 esc

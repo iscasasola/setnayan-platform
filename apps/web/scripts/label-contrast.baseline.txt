@@ -1,0 +1,53 @@
+# CSS-rule label-on-fill pairings that already failed when the CSS scan was
+# added (2026-09-23). Keyed `file · selector` — NEVER a line number.
+# This list may only SHRINK. Regenerate with --write-baseline after fixing.
+app/[slug]/invite/_components/themes/capiz.module.css · .seal
+app/_components/frontdoor/front-door.css · .fd-ava
+app/_components/frontdoor/front-door.css · .fd-avatar
+app/_components/home/home-reskin.css · .home-reskin .hr-mcal .hr-on
+app/_components/home/home-reskin.css · .home-reskin .hr-mchip.hr-warn
+app/_components/home/home-reskin.css · .home-reskin .hr-pw-bar .hr-u
+app/_components/home/home-reskin.css · .home-reskin-ov .hr-tier-free
+app/_components/home/home-reskin.css · .home-reskin-ov .hr-tier-pro
+app/_components/home/home-reskin.css · .home-reskin-ov .hr-vb-legend
+app/_components/home/home-reskin.css · .home-reskin-ov .hr-vd-card .hr-ic
+app/admin/ugat/_components/ugat-console.css · .ug-actbtn.dashed
+app/admin/ugat/_components/ugat-console.css · .ug-badge.fixed
+app/admin/ugat/_components/ugat-console.css · .ug-badge.gold
+app/admin/ugat/_components/ugat-console.css · .ug-badge.ok
+app/admin/ugat/_components/ugat-console.css · .ug-badge.report
+app/admin/ugat/_components/ugat-console.css · .ug-empty
+app/admin/ugat/_components/ugat-console.css · .ug-etable th
+app/admin/ugat/_components/ugat-console.css · .ug-fix-chip.done
+app/admin/ugat/_components/ugat-console.css · .ug-fix-chip.needsowner
+app/admin/ugat/_components/ugat-console.css · .ug-fix-chip.queued
+app/admin/ugat/_components/ugat-console.css · .ug-hb-ct
+app/admin/ugat/_components/ugat-console.css · .ug-jb-chain
+app/admin/ugat/_components/ugat-console.css · .ug-lab .ug-n
+app/admin/ugat/_components/ugat-console.css · .ug-nd-cat
+app/admin/ugat/_components/ugat-console.css · .ug-nd-hd
+app/admin/ugat/_components/ugat-console.css · .ug-nd-ic
+app/admin/ugat/_components/ugat-console.css · .ug-restoggle button.on
+app/admin/ugat/_components/ugat-console.css · .ug-stale
+app/dashboard/[eventId]/suite/_components/suite-vignette.module.css · .qrBadge span
+app/globals.css · .m-btn-orange
+app/globals.css · .m-pill-orange
+app/globals.css · .sn-badge-going
+app/globals.css · .sn-badge-verified
+app/globals.css · .sn-btn-ghost:hover
+app/globals.css · .sn-chip.selected
+app/onboarding/_shared/date-calendar.css · .sn-datecal .calday.heat-4
+app/onboarding/wedding/_styles/onboarding.css · .onbw .aikeep-bens .ic
+app/onboarding/wedding/_styles/onboarding.css · .onbw .byo-ic
+app/onboarding/wedding/_styles/onboarding.css · .onbw .fvs-hrs
+app/onboarding/wedding/_styles/onboarding.css · .onbw .lovebadge
+app/onboarding/wedding/_styles/onboarding.css · .onbw .loveglyph
+app/onboarding/wedding/_styles/onboarding.css · .onbw .mark
+app/onboarding/wedding/_styles/onboarding.css · .onbw .mir-chip
+app/onboarding/wedding/_styles/onboarding.css · .onbw .onb-music.on
+app/onboarding/wedding/_styles/onboarding.css · .onbw .pickcatlbl .ct
+app/onboarding/wedding/_styles/onboarding.css · .onbw .shortpill
+app/onboarding/wedding/_styles/onboarding.css · .onbw .svccard.sel .svcck
+app/onboarding/wedding/_styles/onboarding.css · .onbw .tag.cond
+app/onboarding/wedding/_styles/onboarding.css · .onbw .vbadge.gold
+app/onboarding/wedding/_styles/onboarding.css · .onbw .whydate .wdemand.d4

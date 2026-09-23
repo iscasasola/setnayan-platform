@@ -26,7 +26,6 @@ import {
   POOL_CONFIG_DEFAULT_KEY,
   POOL_CONFIG_GLOBAL_COLUMNS,
   pickPoolSizing,
-  recommendedCredits,
   type PoolSizingRow,
 } from './papic-pool-sizing';
 import { computeEventPool, DEFAULT_EVENT_POOL_CONFIG } from './papic-event-pool';
@@ -66,58 +65,19 @@ const DATE_ROW: PoolSizingRow = {
 
 const ROWS = [DEFAULT_ROW, WEDDING_ROW, DATE_ROW];
 
-test('A LIVE WEDDING IS QUOTED THE SAME NUMBER BEFORE AND AFTER — the acceptance test', () => {
-  /*
-    Before this build every event resolved to the global row. After it, a
-    wedding resolves to its own. The two must agree for every headcount, or a
-    couple opens their page and the figure has moved under them.
+/* ⛔ TWO TESTS WERE HERE and they went with `recommendedCredits()` (2026-09-23):
+   "A LIVE WEDDING IS QUOTED THE SAME NUMBER BEFORE AND AFTER" and "THE CLAMP
+   TRAVELS WITH THE PER-HEAD FIGURE". Both asserted the quoted figure — 146 ×
+   150 = 21,900, and a dinner for two not being quoted a wedding's floor.
 
-    146 is the live guest count measured in prod 2026-09-22 and is called out
-    because it is the number a human can check on the screen.
-  */
-  for (const guests of [1, 20, 33, 146, 150, 200, 400, 5_000]) {
-    const before = computeEventPool(guests, DEFAULT_EVENT_POOL_CONFIG).basePoints;
-    const after = recommendedCredits(guests, pickPoolSizing(ROWS, 'wedding')!).basePoints;
-    assert.equal(after, before, `${guests}-guest wedding must not move`);
-  }
-  assert.equal(recommendedCredits(146, pickPoolSizing(ROWS, 'wedding')!).basePoints, 21_900);
-});
+   They were good tests of arithmetic nobody had measured. The owner's ruling
+   removed the quote itself, so there is no figure left to assert; keeping them
+   would mean keeping the function solely to satisfy them. The rule that
+   replaced them is `lib/the-recommendation-waits-for-data.test.ts`, which
+   asserts no surface renders a per-guest-derived credit figure at all.
 
-test('THE CLAMP TRAVELS WITH THE PER-HEAD FIGURE — a dinner for two is not a wedding', () => {
-  /*
-    🛑 THE BUG THIS BUILD EXISTS TO AVOID. With the global floor still in force,
-    a 2-guest date at 50/head computes 100 and is clamped UP to 5,000 — roughly
-    ₱3,360 of credits recommended for two people at dinner.
-
-    Sabotage to watch this go red: in the migration's seed, give `date` a
-    floor of 5000 instead of 0.
-  */
-  const date = pickPoolSizing(ROWS, 'date')!;
-  assert.equal(date.pointsPerGuest, 50);
-  assert.equal(
-    date.recommendFloorPoints,
-    0,
-    'a small event type must not be RECOMMENDED the wedding floor',
-  );
-  assert.equal(
-    date.floorPoints,
-    5_000,
-    'and it must not LOSE the entitlement it already had — that is a different number',
-  );
-
-  const two = recommendedCredits(2, date);
-  assert.equal(two.rawPoints, 100);
-  assert.equal(two.basePoints, 100, 'the floor must not lift a dinner for two to 5,000');
-  assert.equal(two.flooredUp, false);
-
-  // And the mistake really is a mistake: the per-head figure alone, against the
-  // global clamp, produces the absurd number.
-  assert.equal(
-    computeEventPool(2, { ...DEFAULT_EVENT_POOL_CONFIG, pointsPerGuest: 50 }).basePoints,
-    5_000,
-    'sanity: per-head alone + the global floor IS the broken answer',
-  );
-});
+   ⚠ The clamp itself is NOT untested — `pickPoolSizing` and the per-type rows
+   are still covered by the three tests below and by the db replay. */
 
 test('THE MIGRATION PRICES EVERY EVENT TYPE, AND ONLY WEDDING KEEPS A FLOOR', () => {
   /*

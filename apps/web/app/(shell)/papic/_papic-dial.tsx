@@ -22,9 +22,15 @@
  * figure — and this file is on its list. Do not hand-write a number, and do not
  * divide a credit total by a literal: derive from `clipCost`.
  *
- * ⚠ `idealPerGuest` IS THE ONE NUMBER THAT IS NOT READ OUT OF THE PRODUCT, and
- * it is deliberately a single prop rather than a table read, because the
- * product has no opinion to read yet. See the note at its call site.
+ * ⚠ THIS FILE USED TO CARRY THE ONE NUMBER NOT READ OUT OF THE PRODUCT —
+ * `idealPerGuest`, passed in as 15, sizing a suggested rung. Its own docblock
+ * admitted it was there "because the product has no opinion to read yet".
+ * It is gone (owner 2026-09-23: *"until a data is collected, nothing to
+ * recommend"*), and so is the marker it drew. **The dial now describes what the
+ * visitor has SELECTED and never suggests what to select.**
+ *
+ * `lib/the-recommendation-waits-for-data.test.ts` holds that; the guardrail
+ * above still forbids a hand-written photo or clip figure either way.
  */
 
 import { useState } from 'react';
@@ -56,14 +62,12 @@ export function PapicDial({
   rungs,
   freeCredits,
   clipCost,
-  idealPerGuest,
 }: {
   rungs: readonly PapicRung[];
   freeCredits: number;
   /** Credits a ten-second clip costs — the top band, derived, never typed. */
   clipCost: number;
   /** How many photographs a guest is assumed to take. Owner-tunable. */
-  idealPerGuest: number;
 }) {
   // Start at "buy nothing". The free grant is the page's lead, so the dial
   // opens on it rather than on a price.
@@ -77,21 +81,9 @@ export function PapicDial({
   const bought = rung.bought;
   const total = papicCreditsHeld(bought, freeCredits);
 
-  // The recommendation: the smallest rung that clears "every guest takes about
-  // N photographs". Marked on the gauge so the dial has an opinion rather than
-  // presenting sixteen equivalent choices.
-  const want = guests * idealPerGuest;
-  const idealIdx = (() => {
-    const hit = rungs.findIndex((r) => papicCreditsHeld(r.bought, freeCredits) >= want);
-    return hit < 0 ? rungs.length - 1 : hit;
-  })();
-  const ideal = rungs[idealIdx]!;
-  const onIdeal = at === idealIdx;
-
   const each = total / guests;
   const nice = each >= 10 ? Math.round(each) : Math.round(each * 10) / 10;
   const pct = rungs.length > 1 ? (at / (rungs.length - 1)) * 100 : 0;
-  const idealPct = rungs.length > 1 ? (idealIdx / (rungs.length - 1)) * 100 : 0;
 
   return (
     <div className="rounded-2xl border border-[var(--m-line)] px-4 py-6 text-center sm:px-6">
@@ -219,43 +211,26 @@ export function PapicDial({
           className="block h-full rounded-sm bg-[var(--m-orange-2)] transition-[width] duration-150"
           style={{ width: `${pct}%` }}
         />
-        <i
-          aria-hidden
-          className="absolute -top-1 h-[11px] w-[2px] -translate-x-px rounded-sm bg-[var(--m-mulberry)]"
-          style={{ left: `${idealPct}%` }}
-        />
       </div>
 
-      <p className="mt-3 rounded-xl bg-[rgb(44_42_41/0.04)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
-        {onIdeal ? (
-          <>
-            <b className="font-semibold text-[var(--m-ink)]">
-              This is the one most celebrations your size want.
-            </b>{' '}
-            Enough for every one of {count(guests)} guests to take about {idealPerGuest}{' '}
-            photographs.
-          </>
-        ) : (
-          <>
-            For {count(guests)} guests we would point you at{' '}
-            <b className="font-mono font-semibold tabular-nums text-[var(--m-ink)]">
-              {count(papicCreditsHeld(ideal.bought, freeCredits))} credits
-            </b>
-            {ideal.peso === 0 ? (
-              ' — free'
-            ) : (
-              <>
-                {' — '}
-                <span className="font-mono tabular-nums">
-                  {peso(ideal.setupPeso ?? ideal.peso)}
-                </span>
-                {ideal.setupPeso !== null ? ' while you set up' : ''}
-              </>
-            )}. That
-            is about {idealPerGuest} photographs from every guest.
-          </>
-        )}
-      </p>
+      {/* ⛔ THE "WE WOULD POINT YOU AT N CREDITS" PANEL WAS HERE, with a mulberry
+          marker on the gauge above it. Both are gone — owner 2026-09-23:
+          *"until a data is collected, nothing to recommend."*
+
+          It read the smallest rung clearing `guests × IDEAL_PHOTOGRAPHS_PER_GUEST`,
+          and that constant was 15 — invented. This file's own docblock said so:
+          "the ONE number that is NOT read out of the product … the product has
+          no opinion to read yet."
+
+          🔑 NOTHING FACTUAL WAS LOST. The line further down still says what the
+          SELECTED rung gives — "Spread across the room, that is about N
+          photographs" — which is arithmetic on the visitor's own inputs, not an
+          opinion about what they should buy. What is gone is us choosing for
+          them.
+
+          ⚠ CONVERSION-FACING, AND FLAGGED AS SUCH: a visitor now picks from
+          sixteen rungs with no steer. That is the ruling, and it was raised with
+          the owner before this shipped rather than after. */}
 
       {/*
         THE FEAR THIS ANSWERS, and why it sits INSIDE the dial rather than under

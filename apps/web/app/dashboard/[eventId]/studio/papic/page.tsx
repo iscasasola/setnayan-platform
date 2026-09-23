@@ -101,7 +101,6 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
-import { CreditRecommendation } from './_components/credit-recommendation';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
@@ -823,12 +822,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           ladder, handing credits to one camera, and what guests chipped in are
           four faces of one thing and now sit together. */}
       <HostPoolMeterCard eventId={eventId} />
-      {/* 🔑 THE RECOMMENDATION, ON THE PAGE THAT SELLS THE CREDITS. It already
-          existed (`lib/papic-credit-estimate.ts`, unit-tested) and was rendered
-          only on the couple's Home tile. It shows its own arithmetic, because
-          the two blocks that SIZE it now sit below it — an inverted order is
-          only honest while the number visibly recomputes. */}
-      <CreditRecommendation eventId={eventId} eventType={(ev.event_type as string | null) ?? null} />
+      {/* ⛔ THE CREDIT RECOMMENDATION WAS HERE, AND IT WAITS FOR DATA.
+
+          ⚖ Owner 2026-09-23: *"we will also collect data of how much photo is
+          used for an event and that will indicate what credits is ideal for
+          that event and that is the recommendation. until a data is collected,
+          nothing to recommend."*
+
+          It read "146 guests × 150 credits = 21,900" — arithmetic a couple
+          could argue with, which was its virtue, but the 150 was never
+          measured. Showing the working does not make the input true.
+
+          🔑 THE BALANCE STAYS. `HostPoolMeterCard` above and `PapicPoolCard`
+          below still say what this event HAS and what it has SPENT — those are
+          facts. What is gone is the opinion about what it SHOULD hold.
+          `lib/the-recommendation-waits-for-data.test.ts` keeps it gone. */}
       <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
       {/* ⛔ NO CAMERA HOLDS CREDITS THE COUPLE GAVE IT — `PapicCamerasCard` WAS HERE.
 

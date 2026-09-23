@@ -127,17 +127,35 @@ test('THE OWNER’S TWO MOVES ARE THE ONES THAT SHIPPED', () => {
     'after the day the live wall is still running, so it comes before the money',
   );
 
-  // ⚠ MONEY ABOVE THE BLOCKS THAT SIZE IT is deliberate and is only safe while
-  // the recommendation recomputes — so the recommendation must be ON this page.
+  // ⚠ MONEY ABOVE THE BLOCKS THAT SIZE IT is deliberate — the owner's own
+  // ordering: *"the top one needs to be the credits purchase and running
+  // credits / Then Coverage / Then alotment"*.
   assert.ok(
     before.get('credits')! < before.get('dates')! &&
       before.get('credits')! < before.get('guests')!,
     'the inversion the brief describes is not in force',
   );
+
+  /* 🔑 THIS USED TO ASSERT `<CreditRecommendation`, AND THE REASON MATTERED:
+     the inversion was said to be "only honest while the recommendation
+     recomputes". The recommendation is gone (owner 2026-09-23 — nothing to
+     recommend until usage data exists), so that justification went with it.
+
+     ⚠ The order did NOT go with it, because it never rested on the
+     recommendation — it is the owner's own instruction, quoted above. What
+     keeps the inversion honest now is that the top block still carries a LIVE
+     BALANCE rather than a static figure: `HostPoolMeterCard` reads what the
+     event holds and `PapicPoolCard` what it has spent. Both are facts and both
+     move. Deleting the assertion outright would have left the inversion
+     unguarded; this asserts what actually makes it honest today. */
   assert.match(
     PAGE,
-    /<CreditRecommendation\b/,
-    'credits sits above coverage and allotment, which is only honest while the recommendation is on the page and recomputes',
+    /<HostPoolMeterCard\b/,
+    'the credits block no longer carries a live balance, so nothing up there recomputes and the inversion is not honest',
+  );
+  assert.ok(
+    !/<CreditRecommendation\b/.test(PAGE),
+    'the credit recommendation is back on the page — it may not return until there is measured usage to derive it from (owner 2026-09-23)',
   );
 });
 

@@ -179,32 +179,24 @@ export function pickPoolSizing(
   return fallback ? rowToSizing(fallback) : null;
 }
 
-/**
- * What this celebration is recommended, with the arithmetic that produced it.
- *
- * 🔑 THE DERIVATION IS RETURNED, NOT JUST THE TOTAL. The credits block on the
- * Papic controller shows its own sums — "146 guests × 150 = 21,900" — and a
- * screen cannot show working it was never given. `EventPoolDerivation` already
- * carries `rawPoints`, `flooredUp` and `cappedDown`, which is precisely the
- * difference between "you need 5,000" and "you need 5,000, because the floor
- * lifted your 100".
- */
-export function recommendedCredits(
-  guestCount: number,
-  sizing: PoolSizing,
-): EventPoolDerivation & { sizedBy: string } {
-  return {
-    ...computeEventPool(guestCount, {
-      pointsPerGuest: sizing.pointsPerGuest,
-      // 🔑 THE RECOMMENDATION FLOOR, NOT THE ENTITLEMENT ONE. This function
-      // answers "what should they buy", and a 2-guest `date` must not be told
-      // to buy the 5,000 credits it is merely entitled to be metered against.
-      floorPoints: sizing.recommendFloorPoints,
-      ceilingPoints: sizing.ceilingPoints,
-    }),
-    sizedBy: sizing.sizedBy,
-  };
-}
+/* ⛔ `recommendedCredits()` WAS HERE — deleted 2026-09-23, owner's ruling.
+
+   *"we will also collect data of how much photo is used for an event and that
+   will indicate what credits is ideal for that event and that is the
+   recommendation. until a data is collected, nothing to recommend."*
+
+   It returned clamp(guests × points_per_guest, recommendFloorPoints, ceiling)
+   and showed its working — "146 guests × 150 = 21,900". The working was real;
+   the 150 was never measured against a single finished celebration.
+
+   ⚠ `fetchEventPoolSizing()` below is DELIBERATELY KEPT even though nothing
+   imports it today. It reads config and renders nothing, so it is not the
+   thing the ruling forbids — and it is the reader a data-derived
+   recommendation will need. Its inlined `.select()` is also the subject of
+   `papic-pool-sizing-columns-match.test.ts`; deleting the function would have
+   taken that guard's subject with it. Judgement flagged, not hidden: if the
+   owner would rather carry no unused export, delete both together. */
+
 
 /**
  * Read the two candidate rows in ONE round trip and resolve them.

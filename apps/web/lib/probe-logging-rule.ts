@@ -45,32 +45,67 @@ const LOGGERS = /\blogQueryError\s*\(|\bconsole\.(?:error|warn)\s*\(|\bcaptureEx
  */
 export function probeSites(source: string): ProbeSite[] {
   const src = stripComments(source);
-  const lines = src.split('\n');
   const out: ProbeSite[] = [];
+  const CATCH = /\}\s*catch\s*(?:\([^)]*\))?\s*\{/g;
 
-  for (let i = 0; i < lines.length; i += 1) {
-    if (!/\}\s*catch\s*(?:\([^)]*\))?\s*\{/.test(lines[i])) continue;
-
-    // Walk back to this catch's own `try {`. Nested probes: the nearest
-    // unmatched `try` above is the right one, and a `try` on the same line as
-    // the catch (single-line form) still counts.
-    let j = i;
-    while (j > 0 && !/\btry\s*\{/.test(lines[j])) j -= 1;
-
-    // The catch body runs to the closing brace at the catch's own indentation.
-    const indent = lines[i].length - lines[i].trimStart().length;
-    let k = i + 1;
-    while (k < lines.length) {
-      const l = lines[k];
-      if (l.trim() === '}' && l.length - l.trimStart().length === indent) break;
-      k += 1;
-    }
-
-    const tryBlock = lines.slice(j, i + 1).join('\n');
-    const catchBody = lines.slice(i, Math.min(k + 1, lines.length)).join('\n');
-    out.push({ line: i + 1, logs: LOGGERS.test(tryBlock) || LOGGERS.test(catchBody) });
+  let m: RegExpExecArray | null;
+  while ((m = CATCH.exec(src))) {
+    const braceAt = src.indexOf('{', m.index + m[0].length - 1);
+    const body = balancedBlock(src, braceAt);
+    const tryStart = enclosingTryStart(src, m.index);
+    const tryBlock = tryStart === null ? '' : src.slice(tryStart, m.index);
+    out.push({
+      line: src.slice(0, m.index).split('\n').length,
+      logs: LOGGERS.test(body) || LOGGERS.test(tryBlock),
+    });
   }
   return out;
+}
+
+/**
+ * The text of the block that opens at `open`, by BRACE COUNTING.
+ *
+ * 🪤 THIS REPLACED AN INDENTATION SCAN, AND THE OLD ONE SHIPPED A HOLE. It
+ * found the catch body by walking forward to the next `}` at the catch's own
+ * indentation — which, for a single-line `try { … } catch { … }`, is not the
+ * catch's brace at all but the enclosing function's, hundreds of lines later.
+ * The body then swallowed unrelated code, any `logQueryError` in it counted,
+ * and a freshly added silent probe was reported as LOGGED. Caught by sabotage:
+ * the multi-line form went red and the one-line form stayed green.
+ *
+ * Quoted regions are skipped so a brace inside a string or a className does not
+ * unbalance the count. Comments are already blanked by the caller.
+ * Fails CLOSED: an unbalanced block returns the rest of the file rather than
+ * an empty string, so a parse failure cannot read as "no logger found" —
+ * it reads as "logger found", which is the direction that surfaces a bug in
+ * this rule as a passing probe rather than as a false accusation.
+ */
+function balancedBlock(src: string, open: number): string {
+  if (open < 0) return src;
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = open; i < src.length; i += 1) {
+    const c = src[i];
+    if (quote) {
+      if (c === '\\') { i += 1; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') { quote = c; continue; }
+    if (c === '{') depth += 1;
+    else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) return src.slice(open, i + 1);
+    }
+  }
+  return src.slice(open);
+}
+
+/** Offset of the `try` this catch belongs to — the nearest one above it. */
+function enclosingTryStart(src: string, catchAt: number): number | null {
+  const before = src.slice(0, catchAt);
+  const i = before.lastIndexOf('try');
+  return i === -1 ? null : i;
 }
 
 /** Just the ones that swallow without a word. */

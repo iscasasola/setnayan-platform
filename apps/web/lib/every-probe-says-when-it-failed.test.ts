@@ -54,6 +54,23 @@ test('the rule tells a logged probe from a silent one', () => {
     'a probe that already logged the error object inside the try has left its trail',
   );
 
+  // 🪤 THE SHAPE THAT ONCE SLIPPED THROUGH. A single-line try/catch defeated the
+  // indentation scan this rule used to do: the "catch body" ran on to the
+  // enclosing function's closing brace, and any logger down there counted as
+  // this probe's. It went green while a silent probe sat in the file.
+  assert.deepEqual(
+    silentProbes(['let v = null;', 'try { v = await load(); } catch { v = null; }', 'logQueryError("elsewhere", e);'].join('\n')),
+    [2],
+    'a one-line try/catch must not borrow a logger from further down the file',
+  );
+
+  // The same shape, legitimately logging on its own line.
+  assert.deepEqual(
+    silentProbes(['try { v = await load(); } catch { logQueryError("X", e); v = null; }'].join('\n')),
+    [],
+    'a one-line catch that really does log is not a finding',
+  );
+
   // 🔑 THE ONE THAT MATTERS. Every file here discusses logQueryError in prose.
   assert.deepEqual(
     silentProbes(

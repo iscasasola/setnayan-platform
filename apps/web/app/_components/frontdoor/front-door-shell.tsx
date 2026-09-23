@@ -476,12 +476,21 @@ type Props = {
   /**
    * Admin-resolved labels, `getNavSlotMap()`.
    *
-   * ⚠ APPLIED IN THE APP VARIANT ONLY, deliberately. On `/` the events row
-   * reads "Back to your events" — a sentence chosen for someone standing
-   * OUTSIDE their own app (see the row's own note below), not the registry's
-   * "Events". That divergence already ships and is intentional; piping the
-   * registry into the public page would silently revert it. Inside the app,
-   * where the row is a plain destination, the registry wins.
+   * ⚠ APPLIED IN THE APP VARIANT ONLY — and the reason it was is GONE.
+   * This gate existed to protect one deliberate divergence: on `/` the events
+   * row used to read "Back to your events" rather than the registry's
+   * "Events". The owner retired that on 2026-09-23 (*"it should only always
+   * say Events regardless where you are"*), so no row diverges by design any
+   * more.
+   *
+   * 🔑 WHAT THE GATE STILL DOES, stated rather than left implied: no caller
+   * passes `navLabels` on the public page today (only `app-rail-shell` does),
+   * so dropping it would change nothing on screen — and keeping it means an
+   * ADMIN RENAME reaches the signed-in rail and not `/`. Every row's fallback
+   * equals its registry default, so the two agree until somebody renames a
+   * slot. Piping the registry into the public page is a CALLER change, not a
+   * shell change, and is not done here: the public page would then take a
+   * nav-registry read it does not take today.
    */
   navLabels?: RailNavLabels;
   /**
@@ -1345,10 +1354,11 @@ export function FrontDoorShell({
         >
           {focused && focus ? (
             /* THE WAY BACK — the only row above the section's own menu. The
-               arrow is the same drawing the front door's "Back to your events"
-               row uses; the words say where it goes. */
+               words say where it goes, and so does the drawing: the arrow is
+               the default, and a caller whose destination has an icon of its
+               own passes it (the events row does — owner 2026-09-23). */
             <Link href={focus.href} className="fd-row">
-              <RailIcon as={ArrowLeft} />
+              <RailIcon as={focus.icon ?? ArrowLeft} />
               <span className="fd-label-text">{focus.label}</span>
               <span className="fd-icon-caption">{focus.caption}</span>
             </Link>
@@ -1422,35 +1432,41 @@ export function FrontDoorShell({
             <>
               <div className="fd-rlabel">My Home</div>
               {/*
-                🔑 "BACK TO YOUR EVENTS", NOT "EVENTS" — the seam's own words
-                (`FRONT_DOOR_AND_SEAM_FINAL` §3.6). A signed-in person on the
-                public site is a VISITOR HERE, not an ex-member: they pressed
-                the wordmark to come out and read, and this row is the way
-                back in. "Events" describes a list; "Back to your events"
-                describes what pressing it does for someone who is standing
-                outside their own app. Same destination, same count — the
-                sentence is the whole change, and it is the reason the trip
-                reads as a round trip rather than as two products.
-              */}
-              {/*
-                🔑 THE ARROW AND THE SENTENCE ARE FOR PEOPLE STANDING OUTSIDE.
-                "Back to your events" is the seam's own wording, and it is
-                right on `/`: you pressed the wordmark, you came out to read,
-                and this is the way back in. Inside the app it would be a lie —
-                you are already in, there is nothing to go back to — so the app
-                variant says what the row IS, under whatever name an admin has
-                given it in the nav registry. Same href, same count.
+                🔑 ONE WORD, EVERYWHERE: "Events". Owner 2026-09-23, on the
+                signed-in rail: *"it should only always say Events regardless
+                where you are"*, on the icon: *"icon does not need to show a
+                back button, keep the events icons"*, and — pointing at this
+                row's in-app rendering, `LayoutGrid` + "Events" — *"keep it
+                consistently like this"*.
+
+                ⚠ THIS REVERSES `FRONT_DOOR_AND_SEAM_FINAL` §3.6, deliberately,
+                and the old reasoning is left readable rather than deleted so
+                nobody re-applies it from the spec: this row read "Back to your
+                events" behind an ArrowLeft on `/`, on the argument that a
+                signed-in person out on the public site is a VISITOR here and
+                the row is their way back in. The sentence and the arrow were
+                two halves of one idea, so both go — a back arrow beside the
+                word "Events" promises a return trip the row does not make from
+                inside the app.
+
+                🔁 AND THE SAME WORD WENT ON THE FOCUS ROW, which is the other
+                half of this fix: inside an event the rail collapses and draws
+                `focus` instead of these rows, and it said "Back to events"
+                under its own arrow. Fixing one and not the other would have
+                left the rule half-true at exactly the width the owner was
+                looking at. See `app/dashboard/[eventId]/layout.tsx`.
+
+                🔑 THE FALLBACK MUST EQUAL THE REGISTRY LABEL for this slot
+                (`customer.account.events` = "Events"). `slotLabel` applies the
+                registry in the app variant only, so the fallback is what the
+                PUBLIC page renders — when they diverge, one row says two words
+                on two pages with nothing thrown. `front-door-invariants.test`
+                pins them equal, for every registry-named row.
               */}
               <Link href="/dashboard" {...rowProps('events')}>
-                  {/* THE ARROW IS THE SENTENCE'S OTHER HALF. Outside the app
-                      this row says "Back to your events" and points BACK; inside
-                      it names the board. The icon has always followed the words
-                      and still does — only the drawing changed. */}
-                  <RailIcon as={inApp ? LayoutGrid : ArrowLeft} />
+                  <RailIcon as={LayoutGrid} />
                   <span className="fd-label-text">
-                    {inApp
-                      ? slotLabel(RAIL_SLOT.events, 'Your events')
-                      : 'Back to your events'}
+                    {slotLabel(RAIL_SLOT.events, 'Events')}
                   </span>
                   <span className="fd-icon-caption">Events</span>
                   <Count value={account.eventCount} />

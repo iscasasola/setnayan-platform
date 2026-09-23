@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a51662a72",
+  "generatedFromRef": "b6d8836ee",
   "routeCount": 431,
   "destinations": 927,
   "actions": 657,
-  "blocks": 4625,
+  "blocks": 4623,
   "routes": {
     "/": {
       "files": [
@@ -6228,8 +6228,7 @@
       "blocks": [
         "FirstVenueShortlistResult",
         "Link",
-        "Phase",
-        "ProgressRing"
+        "Phase"
       ]
     },
     "/dashboard/[eventId]/refer": {
@@ -7085,7 +7084,6 @@
     "/dashboard/[eventId]/studio/papic": {
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
-        "dashboard/[eventId]/studio/papic/_components/credit-recommendation.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
@@ -7171,7 +7169,6 @@
         "CaptureDefaultsSection",
         "ChallengeRow",
         "CoupleChallengesManager",
-        "CreditRecommendation",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",

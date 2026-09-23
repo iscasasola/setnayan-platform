@@ -75,9 +75,9 @@
  */
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { stripComments } from './port-controls.mjs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stripComments } from './port-controls.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '..');
@@ -415,7 +415,7 @@ function walkCss(dir, out = []) {
  * needing to understand them.
  */
 function cssRulePairings(rawCss, resolveColor) {
-  // Comments first, or a `/* ... { ... } ... */` block is parsed as a rule and
+  // Comments first, or a block comment containing braces is parsed as a rule and
   // its prose becomes a selector. The first cut reported three "failures" whose
   // selector was the inside of a comment explaining an unrelated fix.
   //
@@ -457,6 +457,10 @@ function cssRulePairings(rawCss, resolveColor) {
   //             /(^|;)\s*color\s*:/i.test(m[2])) console.log(f+" \u00b7 "+m[1].trim());
   //     }'
   //
+  //
+  // And it is quote-aware, which matters here: the `http://` inside globals.css's
+  // quoted `url("data:image/svg+xml,…")` survives. A naive line-comment pass
+  // would have eaten the rest of that line.
   const css = stripComments(rawCss);
   const BLOCK = /([^{}]+)\{([^{}]*)\}/g;
   const decl = (body, prop) => {

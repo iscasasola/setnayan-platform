@@ -202,39 +202,54 @@ test('the Marketplace row is gated on the same condition as its category group',
 
    🔑 This is a guard over TWO FILES that must agree. A check that only read
    the shell could never have seen it — the shell alone is self-consistent. */
-test('the rail fallback for the marketplace row equals its nav-registry label', () => {
-  const registry = readFileSync(
-    join(APP, '..', 'lib', 'nav-registry-defaults.ts'),
-    'utf8',
-  );
+/* ⤴ WIDENED 2026-09-23 FROM ONE ROW TO EVERY REGISTRY-NAMED ROW. It was
+   written for the marketplace row alone, and the events row then shipped the
+   very defect it describes, in the other direction: its fallback read "Your
+   events" while its registry label read "Events", so the public page and the
+   signed-in rail named one destination two ways for weeks. A guard aimed at
+   ONE row cannot see the next row make the same mistake — the table is the
+   fix, and a row added to `RAIL_SLOT` without a line here is the next gap. */
+const REGISTRY_NAMED_ROWS = [
+  { railKey: 'find', slot: 'customer.account.marketplace' },
+  { railKey: 'events', slot: 'customer.account.events' },
+  { railKey: 'alaala', slot: 'customer.account.library' },
+] as const;
 
-  // The slot the row renders through, read from the shell rather than retyped.
-  const slotKey = /find:\s*'([^']+)'/.exec(SHELL_CODE)?.[1];
-  assert.equal(
-    slotKey,
-    'customer.account.marketplace',
-    'RAIL_SLOT.find no longer names the account marketplace slot',
-  );
+for (const row of REGISTRY_NAMED_ROWS) {
+  test(`the rail fallback for the ${row.railKey} row equals its nav-registry label`, () => {
+    /* 🪤 COMMENTS STRIPPED FIRST, or this guard's window depends on how much
+       PROSE an entry carries. The alaala slot sits under ~30 lines of its own
+       rename history, which pushed its `label:` past any fixed character
+       window — a guard that passes or fails on comment length is not reading
+       the code. */
+    const registry = code(
+      readFileSync(join(APP, '..', 'lib', 'nav-registry-defaults.ts'), 'utf8'),
+    );
 
-  // The registry entry for that key, and the label it carries.
-  const entry = new RegExp(
-    `key:\\s*"${slotKey}"[\\s\\S]{0,400}?label:\\s*"([^"]+)"`,
-  ).exec(registry);
-  assert.ok(entry, `no nav-registry default found for ${slotKey}`);
+    // The slot the row renders through, read from the shell rather than retyped.
+    const slotKey = new RegExp(`${row.railKey}:\\s*'([^']+)'`).exec(SHELL_CODE)?.[1];
+    assert.equal(slotKey, row.slot, `RAIL_SLOT.${row.railKey} no longer names ${row.slot}`);
 
-  // The fallback passed alongside that slot in the shell.
-  const fallback = new RegExp(
-    `slotLabel\\(\\s*RAIL_SLOT\\.find\\s*,\\s*'([^']+)'\\s*\\)`,
-  ).exec(SHELL_CODE)?.[1];
-  assert.ok(fallback, 'the marketplace row no longer renders through slotLabel');
+    // The registry entry for that key, and the label it carries.
+    const entry = new RegExp(
+      `key:\\s*"${slotKey}"[\\s\\S]{0,400}?label:\\s*"([^"]+)"`,
+    ).exec(registry);
+    assert.ok(entry, `no nav-registry default found for ${slotKey}`);
 
-  assert.equal(
-    fallback,
-    entry![1],
-    `the front page would say "${fallback}" and the signed-in rail "${entry![1]}" ` +
-      'for the SAME row and the SAME destination. One word or the other — not both.',
-  );
-});
+    // The fallback passed alongside that slot in the shell.
+    const fallback = new RegExp(
+      `slotLabel\\(\\s*RAIL_SLOT\\.${row.railKey}\\s*,\\s*'([^']+)'\\s*\\)`,
+    ).exec(SHELL_CODE)?.[1];
+    assert.ok(fallback, `the ${row.railKey} row no longer renders through slotLabel`);
+
+    assert.equal(
+      fallback,
+      entry![1],
+      `the front page would say "${fallback}" and the signed-in rail "${entry![1]}" ` +
+        'for the SAME row and the SAME destination. One word or the other — not both.',
+    );
+  });
+}
 
 /* ── 4 · A ZERO IS NEVER SHOWN FOR AN UNKNOWN ─────────────────────────────
    The whole page is written against this. `null` must reach a "couldn't load"

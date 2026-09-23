@@ -46,6 +46,7 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { resolveStoryCover } from '@/lib/story-cover';
 import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { resolveVendorDisplayName } from '@/lib/vendors';
+import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
 
 /**
  * A credited vendor surfaced on a Real Story card (Style-Twin Discovery): the
@@ -354,7 +355,25 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           .select(
             'vendor_profile_id, business_name, business_slug, logo_url, tier_state, name_revealed_at, screen_name, services, location_city, verification_state',
           )
-          .in('vendor_profile_id', profileIds);
+          .in('vendor_profile_id', profileIds)
+          /*
+            🔴 THIS FILTER WAS MISSING ENTIRELY, AND IT WAS A LIVE DEFECT — not a
+            gap opened by anything new. This query reads through the ADMIN client,
+            which sees every row regardless of RLS, and it asked about
+            `verification_state` but never about `public_visibility`. So a shop set
+            to `hidden` kept a CLICKABLE credit on Real Stories and in the journal:
+            gone from search, gone from its own page, and still linked from a story.
+
+            🔑 A shop that asked to be hidden was still being advertised, and no
+            screen said so. An admin-client read owes the visibility question
+            itself — RLS is not there to catch it.
+
+            The chip is built from a LIVE read of this row (name, slug, logo are
+            fetched here, never stored on the story), so this filter is also the
+            whole of the reversal: restore the shop and the credit returns with no
+            backfill.
+          */
+          .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[]);
         // Resolve each eligible profile's logo once (not per story).
         const profMap = new Map<string, ShowcaseVendorCredit>();
         // Canonical service categories per credited profile (facet source).

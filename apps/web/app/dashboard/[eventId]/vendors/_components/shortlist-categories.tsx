@@ -434,7 +434,7 @@ html.dark .slcat .bench-search{background:#2A2E36}
    template literal, and a backtick would end the literal and make the rest of
    the stylesheet parse as code. That is exactly how this shipped broken once. */
 .slcat .unrd{display:inline-flex;align-items:center;justify-content:center;
-  min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:999px;
+  min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:var(--m-r-full);
   background:var(--terracotta-700,#9c4221);color:#fff;
   font-family:var(--sans);font-weight:700;font-size:10.5px;line-height:1;
   font-variant-numeric:tabular-nums;vertical-align:middle;flex:0 0 auto}

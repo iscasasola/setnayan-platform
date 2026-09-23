@@ -94,3 +94,12 @@ size, secret scan, exposure baseline, migration timestamp guard and every lint g
 🔑 **CI found this in one free round trip after three local typechecks were OOM-killed** (exit 144, no
 summary lines) while two other worktrees ran nine typechecks between them. The local full run was
 never going to happen; pushing was what produced the answer.
+
+### Second CI round trip — `lint radius tokens`
+
+`border-radius:999px` on the badge is an ad-hoc radius. The repo routes every corner through
+`--m-r-*`; this file already uses `var(--m-r-full)` 25 times. Changed to the token.
+
+🔑 **I should have caught this locally and did not.** The ~33 blocking guards are plain node scripts
+that run in seconds — unlike `tsc`, they cost this Mac nothing, and the machine being saturated was
+no reason to skip them. Full sweep now run locally: **33/33 pass**.

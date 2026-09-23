@@ -590,9 +590,21 @@ test('the events row says Events everywhere, and never points back', () => {
     /label: 'Back to events'/,
     'the rail\'s focused row still says "Back to events" inside an event',
   );
+  /* 🔴 THE DRAWING IS NAMED, NOT HANDED OVER (production outage 2026-09-23).
+     This used to pin `icon: LayoutGrid` — the component — which is exactly
+     what the SERVER layout then tried to pass to `front-door-shell.tsx`, a
+     client module. React refused to serialise it and every page inside an
+     event 500'd. The row must still carry the same drawing as the events row
+     elsewhere; it now says so by NAME, and the shell resolves it. Both halves
+     are checked, so "same drawing" is still proved, not assumed. */
+  assert.match(
+    code(read('_components/frontdoor/front-door-shell.tsx')),
+    /events: LayoutGrid,/,
+    'the shell no longer maps the focus name to the events drawing',
+  );
   assert.match(
     layout,
-    /label: 'Events',[\s\S]{0,80}icon: LayoutGrid/,
+    /label: 'Events',[\s\S]{0,80}icon: 'events'/,
     'the focused row must carry the same word AND the same drawing as the ' +
       'events row on every other surface.',
   );

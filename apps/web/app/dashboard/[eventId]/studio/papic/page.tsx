@@ -5,7 +5,6 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
   AlertCircle,
-  ArrowLeft,
   Camera,
   Hand,
   Sparkles,
@@ -756,14 +755,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       `space-y-7` exactly.
     */
     <section className="flex flex-col gap-7 pb-12">
-      <Link
-        href={`/dashboard/${eventId}/studio`}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to add-ons
-      </Link>
-
       {/*
         ⚖ NAME AND PROMISE, BUT NO PRICE — AND THE ABSENCE IS THE DECISION.
         The brief asked every buy page to open with "product name, one-line

@@ -13,8 +13,25 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 //
 // Layout breakpoints:
 //   - phone/tablet (< 1024): full-width bottom sheet, rounded top corners,
-//     max 90vh, respects `env(safe-area-inset-bottom)` so the bottom of
-//     the sheet sits above the home indicator on notched iPhones.
+//     sitting ABOVE the floating bottom nav — not under it.
+//
+//     🚨 IT USED TO END AT THE VIEWPORT BOTTOM, AND THE NAV SAT ON TOP OF IT.
+//     Owner, 2026-09-23, on the capture-window sheet: *"i can no longer update
+//     it again. under the bottom nav"* — the Save button was behind the pill,
+//     so a window that had been set could never be changed. Reported on three
+//     separate sheets in a row; one bug, not three.
+//
+//     The clearance is the nav's own geometry, not a guess: `bottom-nav.tsx`
+//     is `fixed bottom-[calc(env(safe-area-inset-bottom)+12px)]` with a 64px
+//     bar (its `NavShell` stage sets `height: 64` explicitly), so it occupies
+//     `safe-area + 76px`. 88px leaves a 12px gap. The panel's max height is
+//     reduced by the same amount, or a tall sheet would simply clip off the
+//     TOP instead — the same defect pointing the other way.
+//
+//     ⚠ Z-INDEX IS NOT THE FIX. The sheet is already `z-50` against the nav's
+//     `z-30`; it was never hidden behind it, it was rendered UNDERNEATH it in
+//     the layout. Raising z would put the sheet over the nav and leave the
+//     couple with two competing bars.
 //   - lg+ (>= 1024): right-docked drawer, full height, rounded left corners
 //     (mobile pattern → desktop pattern per the "platform-appropriate
 //     patterns" responsive memory).
@@ -98,7 +115,7 @@ export function Sheet({
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledById}
-      className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none"
+      className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center pb-[calc(env(safe-area-inset-bottom)+88px)] lg:items-stretch lg:justify-end lg:pb-0 focus:outline-none"
     >
       {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
           users get a focusable affordance, not just a div with onClick. */}
@@ -111,7 +128,7 @@ export function Sheet({
 
       {/* Sheet body */}
       <div
-        className={`${rise ? 'sn-rise ' : ''}relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
+        className={`${rise ? 'sn-rise ' : ''}relative flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-104px)] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
           wide ? 'lg:w-[min(34rem,92vw)]' : 'lg:w-[22rem]'
         }`}
       >
@@ -142,7 +159,7 @@ export function Sheet({
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
-        <div className="flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)]">
+        <div className="flex-1 overflow-y-auto pb-4 lg:pb-[max(env(safe-area-inset-bottom),16px)]">
           {children}
         </div>
       </div>

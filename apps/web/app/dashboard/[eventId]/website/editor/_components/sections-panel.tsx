@@ -4,9 +4,14 @@ import {
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
 import {
+  HUB_DEFAULT_FOCAL,
+  HUB_DEFAULT_ZOOM,
+  HUB_FOCAL_POINTS,
   HUB_MOTION_PRESETS,
   HUB_MOTION_PRESET_LABEL,
   HUB_TIMELINE_LABEL,
+  HUB_ZOOMS,
+  focalToObjectPosition,
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
 
@@ -42,6 +47,7 @@ export function SectionsPanel({
   setModeAction,
   setMotionAction,
   setBackgroundAction,
+  setCropAction,
   photoChoices = [],
 }: {
   eventId: string;
@@ -62,6 +68,8 @@ export function SectionsPanel({
    *  `{ ref, url }`. Only these are offered, and only these are accepted
    *  server-side. */
   photoChoices?: readonly { ref: string; url: string }[];
+  /** Move the crop of a section's background photo. */
+  setCropAction?: (formData: FormData) => void | Promise<void>;
 }) {
   if (rows.length === 0) {
     return (
@@ -340,6 +348,96 @@ export function SectionsPanel({
                           );
                         })}
                       </div>
+
+                      {/* ══ THE CROP ════════════════════════════════════════
+                          Only once a photo is actually set. A focal point with
+                          nothing to crop moves no pixels, and a control that
+                          stores a decision with no effect is the exact defect
+                          this build exists to remove — so it is not painted,
+                          and `setWidgetCrop` refuses it server-side too.
+
+                          🔑 THE KEYPAD SITS ON THE PHOTO. Nine transparent
+                          buttons over a thumbnail of their own picture, so the
+                          couple is choosing a point on the image rather than
+                          decoding "top-left" from a word. The live preview
+                          beside the rail then reloads with the real crop.
+
+                          ⚠ It is a 3×3 POINT, never a pixel offset — the page
+                          is 375px on a phone and 1440px on a laptop, and a
+                          stored offset would be a bug waiting for a guest
+                          (owner 2026-09-23: "rails on"). */}
+                      {setCropAction && canvas.media ? (
+                        (() => {
+                          const current = photoChoices.find((p) => p.ref === canvas.media);
+                          const focal = canvas.focal ?? HUB_DEFAULT_FOCAL;
+                          const zoom = canvas.zoom ?? HUB_DEFAULT_ZOOM;
+                          return (
+                            <div className="mt-2">
+                              <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                What to keep in frame
+                              </p>
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className="relative h-[72px] w-[96px] shrink-0 overflow-hidden rounded-md border border-ink/15 bg-ink/5 bg-cover"
+                                  style={
+                                    current
+                                      ? {
+                                          backgroundImage: `url("${current.url}")`,
+                                          backgroundPosition: focalToObjectPosition(focal),
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+                                    {HUB_FOCAL_POINTS.map((f) => (
+                                      <form key={f} action={setCropAction} className="contents">
+                                        <input type="hidden" name="event_id" value={eventId} />
+                                        <input type="hidden" name="widget_id" value={row.widget_id} />
+                                        <input type="hidden" name="focal" value={f} />
+                                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                        <button
+                                          type="submit"
+                                          aria-pressed={focal === f}
+                                          aria-label={`Keep area ${f} of 9 in frame`}
+                                          className={`border border-white/35 ${
+                                            focal === f ? 'bg-white/70' : 'hover:bg-white/25'
+                                          }`}
+                                        />
+                                      </form>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                    How close
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {HUB_ZOOMS.map((z) => (
+                                      <form key={z} action={setCropAction}>
+                                        <input type="hidden" name="event_id" value={eventId} />
+                                        <input type="hidden" name="widget_id" value={row.widget_id} />
+                                        <input type="hidden" name="zoom" value={z} />
+                                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                        <button
+                                          type="submit"
+                                          aria-pressed={zoom === z}
+                                          className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.58rem] ${
+                                            zoom === z
+                                              ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                              : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                          }`}
+                                        >
+                                          {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
+                                        </button>
+                                      </form>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : null}
                     </div>
                   );
                 })()

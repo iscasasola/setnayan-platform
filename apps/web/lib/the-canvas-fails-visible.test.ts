@@ -26,6 +26,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import {
   HUB_ARRANGEMENTS,
+  hubCanvasVars,
   HUB_DURING,
   HUB_IN,
   HUB_MOTION_PRESETS,
@@ -91,9 +92,16 @@ test('🔒 every animation binding on a .hub- selector is inside BOTH gates', ()
   const guarded = guardedRegion();
   assert.match(guarded, /prefers-reduced-motion:\s*no-preference/, 'the second gate is inside the first');
 
-  // Each `animation-name:` in the canvas block, with the selector it belongs to.
-  const bindings = [...block.matchAll(/animation-name\s*:/g)].map((m) => m.index ?? -1);
-  assert.ok(bindings.length >= 6, `expected several bindings, found ${bindings.length}`);
+  /* Every place an animation is BOUND — the longhand and the shorthand both.
+     🪤 This counted only `animation-name:` and expected six of them, which was
+     really a count of the sixteen-rule cross-product that used to live here.
+     When that collapsed into one rule per timeline (driven by
+     `--hub-in-kf`/`--hub-out-kf`), the guard went red for the code getting
+     BETTER — and a guard that punishes an improvement teaches the next session
+     to delete it. It now counts bindings of either form and asserts the
+     PROPERTY: wherever they are, they are inside both gates. */
+  const bindings = [...block.matchAll(/\banimation(-name)?\s*:/g)].map((m) => m.index ?? -1);
+  assert.ok(bindings.length >= 3, `expected several bindings, found ${bindings.length}`);
 
   const guardedStart = block.indexOf(guarded);
   const guardedEnd = guardedStart + guarded.length;
@@ -126,42 +134,104 @@ test('🔒 nothing outside the gates sets opacity or a transform on a .hub- rule
   );
 });
 
-test('⭐ every class the contract can emit has a rule — no orphan choices', () => {
-  const block = canvasBlock();
-  // A control that stores a value and moves no pixels is the defect this whole
-  // build exists to remove. If the contract can emit a class, the CSS must know it.
-  const emitted = new Set<string>();
-  for (const preset of HUB_MOTION_PRESETS) {
-    for (const arr of HUB_ARRANGEMENTS) {
-      for (const cls of hubCanvasClass({ preset, arrangement: arr }).split(' ')) emitted.add(cls);
-    }
-  }
-  for (const v of HUB_IN) emitted.add(`hub-in-${v}`);
-  for (const v of HUB_OUT) emitted.add(`hub-out-${v}`);
-  for (const v of HUB_DURING) emitted.add(`hub-during-${v}`);
-  for (const v of HUB_TIMELINE) emitted.add(`hub-tl-${v}`);
+/*
+  🪤 THE TEST THAT STOOD HERE ASKED THE WRONG DIRECTION.
 
-  const missing = [...emitted].filter((c) => !block.includes(`.${c}`));
-  // The ones that are KNOWINGLY not drawn yet, each named in the CSS comment
-  // with the reason: left/right need two slots a widget does not expose.
-  const declaredUnbuilt = ['hub-arr-left', 'hub-arr-right'];
-  assert.ok(declaredUnbuilt.length > 0);
-  assert.match(
-    RAW,
-    /LEFT \/ RIGHT arrangements/,
-    'an unbuilt arrangement must be named in the CSS as unbuilt, not silently absent',
-  );
-  const unexplained = missing.filter((c) => !declaredUnbuilt.includes(c));
-  assert.deepEqual(unexplained, [], 'every other class the contract emits is drawn');
-});
+  It required a CSS rule for every class `hubCanvasClass` emits. That was right
+  while each in/out choice WAS a class with its own rule. Those sixteen rules
+  are gone — they were the bug (same specificity, later one wins, two of
+  Cinematic's three choices silently dropped) — and the choice now travels as
+  `--hub-in-kf` / `--hub-out-kf`. The state classes remain as an honest
+  description of what a section is doing, and a description does not owe anyone
+  a rule.
+
+  What DOES matter is asked by the two tests below, in both directions: every
+  VAR the contract emits must be read by a rule (a var nothing consumes is a
+  dead setting), and no rule may branch on a class the contract cannot emit (a
+  selector that can never match is dead CSS that reads as a feature).
+*/
 
 test('⛔ a section that asked for nothing carries no animation at all', () => {
   // "Still" must not leave a fill-mode behind that could pin a state.
   assert.match(
     canvasBlock(),
-    /\.hub-in-none\.hub-out-none\.hub-during-still\s*\{[^}]*animation-name:\s*none/,
-    'the all-off combination turns the animation off by name',
+    /\.hub-in-none\.hub-out-none\s*>\s*\.hub-canvas-body\s*\{[^}]*animation:\s*none/,
+    'the all-off combination turns the animation off, and drops its layer hint',
   );
+});
+
+test('⛔ THE ANIMATED LAYER MUST GENERATE A BOX — never `display: contents`', () => {
+  /*
+    🔴 MEASURED ON THIS BRANCH. When the motion moved off the frame and onto
+    `.hub-canvas-body`, the no-media rule still read `display: contents` — and a
+    `contents` box is not generated at all, so it CANNOT BE ANIMATED. Every
+    section without a background photo would have silently lost its arrival and
+    its handoff. The markup was right, the classes were right, the vars were
+    right, and nothing moved.
+
+    A sabotage that put `contents` back left every other guard in this file
+    green, which is why this one exists.
+  */
+  const bodies = [...CSS.matchAll(/\.hub-canvas-body\s*\{([^}]*)\}/g)].map((m) => m[1] ?? '');
+  assert.ok(bodies.length > 0, 'precondition: the body layer is styled');
+  for (const body of bodies) {
+    assert.doesNotMatch(
+      body,
+      /display\s*:\s*contents/,
+      'the layer that carries the animation must generate a box',
+    );
+  }
+  // And the same for the media layer, which carries the drift.
+  for (const m of [...CSS.matchAll(/\.hub-canvas-media\s*\{([^}]*)\}/g)]) {
+    assert.doesNotMatch(m[1] ?? '', /display\s*:\s*(contents|none)/);
+  }
+});
+
+test('⛔ every custom property the contract EMITS is read by a rule', () => {
+  /*
+    🔑 THE GUARD THE FIRST VERSION WAS MISSING, and it would have caught two.
+    `--hub-duration` and `--hub-stagger` were emitted on every arranged section
+    and read by NOTHING: two values from the preset that looked like settings
+    and moved no pixels. That is the same defect as a dead control, one layer
+    down, and invisible from the dashboard because the markup looked right.
+
+    A var that nothing consumes is either a bug or a promise; both must be
+    resolved before it ships, not after.
+  */
+  const emitted = new Set<string>();
+  for (const preset of HUB_MOTION_PRESETS) {
+    for (const url of [null, 'https://example.test/a.jpg']) {
+      for (const k of Object.keys(hubCanvasVars({ preset, focal: 3, zoom: 120 }, url))) {
+        emitted.add(k);
+      }
+    }
+  }
+  assert.ok(emitted.size >= 5, `precondition: the contract emits several vars (${emitted.size})`);
+  const unread = [...emitted].filter((v) => !CSS.includes(`var(${v}`));
+  assert.deepEqual(unread, [], `emitted and read by no rule: ${unread.join(', ')}`);
+});
+
+test('⛔ no rule branches on a class the contract can never emit', () => {
+  // The other direction: a selector for a class nothing produces is a rule
+  // that can never match — dead CSS that reads as a feature.
+  const emitted = new Set<string>();
+  for (const preset of HUB_MOTION_PRESETS) {
+    for (const arrangement of HUB_ARRANGEMENTS) {
+      for (const hasMedia of [true, false]) {
+        for (const c of hubCanvasClass({ preset, arrangement }, hasMedia).split(' ')) emitted.add(c);
+      }
+    }
+  }
+  emitted.add('hub-canvas-media');
+  emitted.add('hub-canvas-body');
+  for (const v of HUB_IN) emitted.add(`hub-in-${v}`);
+  for (const v of HUB_OUT) emitted.add(`hub-out-${v}`);
+  for (const v of HUB_DURING) emitted.add(`hub-during-${v}`);
+  for (const v of HUB_TIMELINE) emitted.add(`hub-tl-${v}`);
+
+  const used = new Set([...canvasBlock().matchAll(/\.(hub-[a-z0-9-]+)/g)].map((m) => m[1] as string));
+  const orphanRules = [...used].filter((c) => !emitted.has(c));
+  assert.deepEqual(orphanRules, [], `styled but never emitted: ${orphanRules.join(', ')}`);
 });
 
 /*

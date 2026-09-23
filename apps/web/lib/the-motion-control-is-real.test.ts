@@ -42,6 +42,9 @@ function row(over: Partial<InvitationWidgetRow> = {}): InvitationWidgetRow {
   } as InvitationWidgetRow;
 }
 
+const PHOTO = 'r2://setnayan-media/events/E1/our-photos/a.jpg';
+const CHOICES = [{ ref: PHOTO, url: 'https://example.test/a.jpg' }] as const;
+
 async function paint(rows: InvitationWidgetRow[], withMotion = true): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SectionsPanel } = await import(
@@ -56,6 +59,12 @@ async function paint(rows: InvitationWidgetRow[], withMotion = true): Promise<st
       moveUpAction: noop,
       moveDownAction: noop,
       setModeAction: noop,
+      // The background picker and the crop under it are always wired in this
+      // harness: the crop's own gate is the PHOTO, and a test that satisfied
+      // it by withholding the action would prove nothing about the photo.
+      setBackgroundAction: noop,
+      setCropAction: noop,
+      photoChoices: CHOICES,
       ...(withMotion ? { setMotionAction: noop } : {}),
     }),
   );
@@ -132,4 +141,48 @@ test('⛔ a caller that has not wired the action gets no dead controls', async (
   const html = await paint([row()], false);
   assert.doesNotMatch(html, /How it moves/, 'no heading for a control that cannot post');
   assert.match(html, /Auto/, 'precondition: the rest of the panel still renders');
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE CROP — only where there is something to crop
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('⛔ no photo, no crop controls — a focal point with nothing to crop moves nothing', async () => {
+  const withPhoto = await paint([
+    row({ config_json: { canvas: { preset: 'calm', media: PHOTO } } }),
+  ]);
+  const without = await paint([row({ config_json: { canvas: { preset: 'calm' } } })]);
+  assert.match(withPhoto, /What to keep in frame/, 'the keypad is offered once a photo is set');
+  assert.doesNotMatch(without, /What to keep in frame/, 'and withheld while there is none');
+  assert.doesNotMatch(without, /name="focal"/, 'not even a hidden one');
+});
+
+test('⭐ all nine focal points and all three distances are offered', async () => {
+  const html = await paint([
+    row({ config_json: { canvas: { preset: 'calm', media: PHOTO } } }),
+  ]);
+  for (let f = 1; f <= 9; f += 1) {
+    assert.match(html, new RegExp(`name="focal" value="${f}"`), `focal ${f} must be reachable`);
+  }
+  for (const z of [100, 120, 150]) {
+    assert.match(html, new RegExp(`name="zoom" value="${z}"`));
+  }
+  assert.match(html, /aria-label="Keep area 1 of 9 in frame"/, 'and each is named for a screen reader');
+});
+
+test('⛔ the crop writer refuses a section with no background, server-side too', () => {
+  const src = readFileSync(
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'widgets', 'actions.ts'),
+    'utf8',
+  );
+  const at = src.indexOf('export async function setWidgetCrop');
+  assert.ok(at > 0, 'the action exists');
+  const body = src.slice(at);
+  assert.match(body, /if \(!canvas\.media\) \{/, 'a crop with nothing to crop is refused');
+  assert.match(body, /requireHostMembershipOrThrow/, 'and only a host may write it');
+  assert.match(body, /\.\.\.existing, canvas/, 'merging, never replacing, config_json');
+  // 🔑 Its OWN action, not a third field on setWidgetBackground — that one reads
+  // an empty `media` as "take the background off", so a crop form that did not
+  // carry the photo would clear it on every tap.
+  assert.doesNotMatch(body.slice(0, body.indexOf('export async function', 10)), /name="media"|formData\.get\('media'\)/);
 });

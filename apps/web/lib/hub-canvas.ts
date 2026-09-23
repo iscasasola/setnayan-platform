@@ -278,13 +278,28 @@ export function hubCanvasVars(
     ...(mediaUrl ? { '--hub-media': `url("${mediaUrl.replace(/"/g, '%22')}")` } : {}),
     '--hub-focal': focalToObjectPosition(canvas.focal ?? HUB_DEFAULT_FOCAL),
     '--hub-zoom': String((canvas.zoom ?? HUB_DEFAULT_ZOOM) / 100),
-    '--hub-in': m.in,
-    '--hub-out': m.out,
-    '--hub-during': m.during,
-    '--hub-timeline': m.timeline,
-    '--hub-stagger': `${m.stagger}s`,
+    /* The KEYFRAME NAMES, not the choice words. One rule in `globals.css` reads
+       these, instead of a rule per in×out pair — sixteen of them, which is how
+       the first version silently dropped two of Cinematic's three choices:
+       `.hub-tl-scrub.hub-out-shrink` and `.hub-tl-scrub.hub-in-slide` have the
+       same specificity, so the later one won and took `animation-name` with it,
+       and `.hub-during-lift` (one class) lost to both. A control whose effect
+       is decided by source order is not a control. */
+    '--hub-in-kf': m.in === 'none' ? 'none' : `hub-in-${m.in}`,
+    '--hub-out-kf': m.out === 'none' ? 'none' : `hub-out-${m.out}`,
     '--hub-duration': `${m.duration}s`,
+    /* Scrubbed motion is driven by the thumb and must stay linear, or it reads
+       as lag. A timed arrival gets a real ease — this is the whole difference
+       between "smooth" and "mechanical" at the same duration. */
+    '--hub-ease': m.timeline === 'scrub' ? 'linear' : 'cubic-bezier(0.22, 0.61, 0.36, 1)',
   };
+  /* ⛔ `--hub-stagger` IS DELIBERATELY NOT EMITTED, and `resolveHubMotion` still
+     carries it. Staggering means animating a section's CHILDREN at offsets, and
+     a widget hands this frame ONE child; there is nothing to stagger yet. It
+     was emitted once, read by no rule, and that is a value that looks like a
+     setting and is not — `every-hub-var-is-read.test.ts` now fails the build on
+     any emitted `--hub-*` that no rule consumes. It comes back with the build
+     that gives a section its own elements. */
 }
 
 /**

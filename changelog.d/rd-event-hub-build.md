@@ -240,3 +240,72 @@ own is a **debt list that may only shrink**, and this change adds nothing to it.
 All 33 blocking guards run clean locally.
 
 SPEC IMPACT: None.
+
+---
+
+### 8 · Focal point and zoom — and the motion reworked for smoothness
+
+Owner: *"add the focal point and zoom controls"*, then *"make sure the animations are smooth and
+clean"*. Reviewing the motion for the second turned up **three real faults in what had already
+shipped on this branch**.
+
+**The controls.** A 3×3 keypad drawn **over a thumbnail of the couple's own photo** — so they pick
+a point on the picture rather than decode "top-left" from a word — plus three distances (*As it
+is · Closer · Closest*). Zero JavaScript, and the live preview beside the rail reloads with the
+real crop.
+
+⛔ **They appear only once a photo is set**, and `setWidgetCrop` refuses a crop on a section with
+no background server-side too. A focal point with nothing to crop moves no pixels.
+
+🔑 **Its own action, not a third field on `setWidgetBackground`** — that one reads an empty `media`
+as "take the background off", so a crop form that did not carry the photo would have cleared it on
+every tap.
+
+#### 🔴 Fault 1 — two of Cinematic's three choices never rendered
+
+The motion was a rule per in×out pair. `.hub-tl-scrub.hub-out-shrink` and
+`.hub-tl-scrub.hub-in-slide` have the **same specificity**, so the later one won and took
+`animation-name` with it; `.hub-during-lift` (one class) lost to both. **Cinematic is in:slide,
+during:lift, out:shrink — and only the shrink happened.**
+
+Now one rule per timeline, with the keyframe names carried by `--hub-in-kf` / `--hub-out-kf`. Every
+combination is one rule and none can shadow another. *A control whose effect depends on source
+order is not a control.*
+
+#### 🔴 Fault 2 — two preset values were read by nothing
+
+`--hub-duration` and `--hub-stagger` were emitted on every arranged section and consumed by **no
+rule**. "Plays once" was also a scrub pretending to be one, so duration could not apply.
+
+- **Plays once** is now a real time-based animation with a real duration and a real ease
+  (`cubic-bezier(0.22, 0.61, 0.36, 1)`); **Follows the scroll** stays `linear`, because a scrubbed
+  section follows the thumb and an ease there reads as lag. That is the whole difference between
+  smooth and mechanical at one duration.
+- `--hub-stagger` is **no longer emitted**: staggering means animating a section's children, and a
+  widget hands the frame one child. It returns with the build that gives sections their own
+  elements.
+- **New guard, both directions:** every `--hub-*` the contract emits must be read by a rule, and
+  no rule may branch on a class the contract cannot emit.
+
+#### 🔴 Fault 3 — `display: contents` cannot be animated
+
+Moving the motion onto `.hub-canvas-body` met a no-media rule that still said
+`display: contents`. **A `contents` box is not generated, so it cannot be animated** — every
+section without a background photo would have silently lost its arrival and its handoff. Markup
+right, classes right, vars right, nothing moving. A sabotage that put it back left every other
+guard green, which is why it now has one of its own.
+
+#### Smoothness, deliberately
+
+Only `opacity` and `transform` are ever animated — both compositor properties, so nothing triggers
+layout or paint. Translations are `translate3d`, `will-change` sits on the two elements that
+actually move rather than on every frame, and **the drift lives on the picture, never the words**:
+on one element it would fight the arrival for `transform` at every instant, since `cover` overlaps
+both `entry` and `exit`. Two layers, two transforms, no conflict — depth instead of a page that
+will not settle. The drift composes the zoom into its own keyframes, because an animation replaces
+the whole `transform` and a zoomed, drifting layer must carry both in one function list.
+
+**Guards** — 6 in `the-canvas-fails-visible.test.ts`, 9 in `the-motion-control-is-real.test.ts`,
+13 in `hub-canvas.test.ts`. Nine more sabotages, each breaking exactly its guard.
+
+SPEC IMPACT: None.

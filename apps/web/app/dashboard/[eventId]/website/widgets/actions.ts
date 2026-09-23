@@ -5,7 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
+  HUB_FOCAL_POINTS,
   HUB_MOTION_PRESETS,
+  HUB_ZOOMS,
   hubMediaRef,
   HUB_TIMELINE,
   sanitizeHubCanvas,
@@ -586,6 +588,83 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
     .eq('event_id', eventId);
 
   if (updateErr) throw new Error(`Failed to save this section's background: ${updateErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
+}
+
+/**
+ * Set how the section's background photo is CROPPED — the focal point and how
+ * far in it sits.
+ *
+ * 🔑 ITS OWN ACTION, not a third field on `setWidgetBackground`. That action
+ * reads an EMPTY `media` as "take the background off", so a crop form that did
+ * not carry the photo would clear it on every tap — a control that quietly
+ * undoes the thing it is adjusting.
+ *
+ * ⛔ AND IT REFUSES A SECTION WITH NO PHOTO. A focal point with nothing to crop
+ * moves no pixels, and storing one would be a saved decision with no effect —
+ * the defect this whole build exists to remove. The editor does not paint the
+ * controls in that state either; this is the same rule, server-side.
+ *
+ * Form fields: event_id · widget_id · focal (1–9) · zoom (100 | 120 | 150)
+ */
+export async function setWidgetCrop(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing section id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+
+  const supabase = await createClient();
+  const { data: row, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, config_json')
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
+
+  if (!canvas.media) {
+    redirect(
+      resolveReturnTo(
+        formData,
+        `/dashboard/${eventId}/website/widgets?error=no_background`,
+        '?error=no_background',
+      ),
+    );
+  }
+
+  const focalRaw = Number(formData.get('focal'));
+  const zoomRaw = Number(formData.get('zoom'));
+  if ((HUB_FOCAL_POINTS as readonly number[]).includes(focalRaw)) canvas.focal = focalRaw;
+  if ((HUB_ZOOMS as readonly number[]).includes(zoomRaw)) canvas.zoom = zoomRaw;
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: { ...existing, canvas } })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+
+  if (updateErr) throw new Error(`Failed to save the crop: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
   redirect(

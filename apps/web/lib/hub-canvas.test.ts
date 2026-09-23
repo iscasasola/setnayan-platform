@@ -131,11 +131,30 @@ test('⭐ the choices reach the RENDER as custom properties and classes', () => 
   assert.equal(vars['--hub-focal'], '0% 100%', 'the crop the couple chose');
   assert.equal(vars['--hub-zoom'], '1.5');
   assert.equal(vars['--hub-duration'], '1.8s', 'from the preset, already in CSS units');
-  assert.equal(vars['--hub-stagger'], '0.25s');
+  assert.equal(vars['--hub-in-kf'], 'hub-in-slide', 'the keyframe NAME, so one rule serves every pair');
+  assert.equal(vars['--hub-out-kf'], 'hub-out-shrink');
+  assert.equal(vars['--hub-ease'], 'linear', 'a scrubbed section follows the thumb — an ease would read as lag');
+  assert.equal(
+    '--hub-stagger' in vars,
+    false,
+    'not emitted while no rule reads it — a var nothing consumes is a dead setting',
+  );
   const cls = hubCanvasClass(c);
   assert.match(cls, /\bhub-arr-right\b/);
   assert.match(cls, /\bhub-tl-scrub\b/, 'cinematic follows the scroll');
   assert.match(cls, /\bhub-during-lift\b/);
+});
+
+test('⭐ a TIMED section gets a real ease; a scrubbed one stays linear', () => {
+  // The whole difference between "smooth" and "mechanical" at one duration.
+  assert.match(hubCanvasVars({ preset: 'calm' })['--hub-ease'] ?? '', /cubic-bezier/);
+  assert.equal(hubCanvasVars({ preset: 'editorial' })['--hub-ease'], 'linear');
+});
+
+test('⭐ "None" becomes the keyframe `none`, not a missing name', () => {
+  const v = hubCanvasVars({ preset: 'still' });
+  assert.equal(v['--hub-in-kf'], 'none', 'so the one rule that reads it stays valid');
+  assert.equal(v['--hub-out-kf'], 'none');
 });
 
 test('⭐ an EMPTY config still draws a whole section — never a blank one', () => {

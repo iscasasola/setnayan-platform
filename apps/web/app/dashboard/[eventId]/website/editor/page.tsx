@@ -57,6 +57,7 @@ import {
   moveWidgetUp,
   setSectionMode,
   setWidgetBackground,
+  setWidgetCrop,
   setWidgetMotion,
   toggleWidgetVisibility,
 } from '../widgets/actions';
@@ -610,6 +611,7 @@ export default async function WebsiteEditorPage({
               setModeAction={setSectionMode}
               setMotionAction={setWidgetMotion}
               setBackgroundAction={setWidgetBackground}
+              setCropAction={setWidgetCrop}
               photoChoices={photoChoices}
             />
           ),

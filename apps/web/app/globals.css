@@ -4779,8 +4779,14 @@ html:has([data-sticky-top]) {
   background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
 }
 .hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
-/* No picture, no layers, no padding change — the section is what it was. */
-.hub-no-media > .hub-canvas-body { display: contents; }
+/* No picture, no padding change — the section keeps the spacing it had.
+   🔴 `display: block`, NOT `display: contents`. A `contents` box is not
+   generated at all, and an element that generates no box CANNOT BE ANIMATED —
+   so every section without a background photo would have silently lost its
+   arrival and its handoff the moment the motion moved onto this layer. It is a
+   bare block with no padding, margin or background, so it changes nothing a
+   guest can see; it just exists enough to animate. */
+.hub-no-media > .hub-canvas-body { display: block; }
 
 @media (prefers-color-scheme: dark) {
   .hub-has-media > .hub-canvas-media::after {
@@ -4788,58 +4794,86 @@ html:has([data-sticky-top]) {
   }
 }
 
-@keyframes hub-in-rise   { from { opacity: 0; transform: translateY(26px); } }
-@keyframes hub-in-fade   { from { opacity: 0; } }
-@keyframes hub-in-slide  { from { opacity: 0; transform: translateX(-28px); } }
-@keyframes hub-out-fade  { to   { opacity: 0; } }
-@keyframes hub-out-lift  { to   { opacity: 0; transform: translateY(-26px); } }
-@keyframes hub-out-shrink{ to   { opacity: 0; transform: scale(0.965); } }
-@keyframes hub-during-lift { from { transform: translateY(14px); } to { transform: translateY(-14px); } }
+@keyframes hub-in-rise    { from { opacity: 0; transform: translate3d(0, 26px, 0); } }
+@keyframes hub-in-fade    { from { opacity: 0; } }
+@keyframes hub-in-slide   { from { opacity: 0; transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-out-fade   { to   { opacity: 0; } }
+@keyframes hub-out-lift   { to   { opacity: 0; transform: translate3d(0, -26px, 0); } }
+@keyframes hub-out-shrink { to   { opacity: 0; transform: scale(0.965); } }
+@keyframes hub-during-lift {
+  from { transform: scale(var(--hub-zoom, 1)) translate3d(0, 2.5%, 0); }
+  to   { transform: scale(var(--hub-zoom, 1)) translate3d(0, -2.5%, 0); }
+}
 
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
-    .hub-canvas {
-      animation-timeline: view();
-      animation-fill-mode: both;
-      animation-timing-function: linear;
-      animation-duration: auto;
+    /* ══ ONE RULE PER TIMELINE, KEYFRAMES BY CUSTOM PROPERTY ═══════════════
+       🔴 NOT a rule per in×out pair. That was sixteen selectors of the same
+       specificity, and the later one won: `.hub-tl-scrub.hub-out-shrink`
+       overwrote `.hub-tl-scrub.hub-in-slide`'s `animation-name`, and
+       `.hub-during-lift` (one class) lost to both. Cinematic is in:slide,
+       during:lift, out:shrink — and TWO of its three choices never rendered.
+       A control whose effect depends on source order is not a control.
+
+       `--hub-in-kf` / `--hub-out-kf` carry the keyframe names from
+       `lib/hub-canvas.ts`, so every combination is one rule and none of them
+       can shadow another.
+
+       ⚡ SMOOTHNESS: only `opacity` and `transform` are ever animated — both
+       compositor properties, so nothing here triggers layout or paint. The
+       translations are `translate3d` to keep the layer promoted, and
+       `will-change` is declared on the two elements that actually move rather
+       than on the frame, so a page of sections does not hold a dozen idle
+       layers. */
+
+    /* PLAYS ONCE — a real, time-based arrival. It runs on load rather than on
+       approach, which is the honest cost of having no script on the guest
+       page; in exchange the duration is a real duration and the easing is a
+       real ease, instead of a scrub pretending to be one. */
+    .hub-tl-time > .hub-canvas-body {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) both;
+      will-change: opacity, transform;
     }
 
-    /* PLAYS ONCE — the whole arrival happens while the section is entering, so
-       by the time it is fully on screen it is finished and simply stays. It
-       still technically scrubs, and that is not a cheat: a reader who scrolls
-       back up sees it play backwards, which is what every scroll-driven page
-       does and what a guest expects from the gesture. */
-    .hub-tl-time.hub-in-rise  { animation-name: hub-in-rise;  animation-range: entry 0% entry 100%; }
-    .hub-tl-time.hub-in-fade  { animation-name: hub-in-fade;  animation-range: entry 0% entry 100%; }
-    .hub-tl-time.hub-in-slide { animation-name: hub-in-slide; animation-range: entry 0% entry 100%; }
+    /* FOLLOWS THE SCROLL — two animations on two ranges that cannot overlap:
+       the arrival owns `entry`, the handoff owns `exit`. The owner's
+       correction, built: a TIMED exit fights the reader, a scrubbed one is the
+       handoff to the next section and reverses under their own thumb. */
+    .hub-tl-scrub > .hub-canvas-body {
+      animation-name: var(--hub-in-kf, none), var(--hub-out-kf, none);
+      animation-timeline: view(), view();
+      animation-range: entry 0% entry 92%, exit 8% exit 100%;
+      animation-fill-mode: both, both;
+      animation-timing-function: linear, linear;
+      will-change: opacity, transform;
+    }
 
-    /* FOLLOWS THE SCROLL — the owner's correction, and the reason `out` exists
-       at all. He was right that a TIMED exit fights the reader; a scrubbed one
-       is the handoff to the next section, driven entirely by their own thumb.
-       `cover` spans the section's whole pass across the viewport, so in and out
-       are two halves of one journey rather than two competing animations. */
-    .hub-tl-scrub.hub-in-rise  { animation-name: hub-in-rise;  animation-range: entry 0% entry 90%; }
-    .hub-tl-scrub.hub-in-fade  { animation-name: hub-in-fade;  animation-range: entry 0% entry 90%; }
-    .hub-tl-scrub.hub-in-slide { animation-name: hub-in-slide; animation-range: entry 0% entry 90%; }
+    /* ── DURING: the PICTURE drifts, never the words ──────────────────────
+       🔑 It lives on the media layer on purpose. Put on the same element as
+       the arrival it would fight it for `transform` at every instant where
+       their ranges overlap — and `cover` overlaps both `entry` and `exit`, so
+       they always overlap. Two layers, two transforms, no conflict, and the
+       result reads as depth rather than as a page that will not settle.
 
-    /* The exit rides its own timeline on a child-free pseudo-layer so it cannot
-       fight the entrance for the same property: entrance owns `entry`, exit
-       owns `exit`, and the two ranges never overlap. */
-    .hub-tl-scrub.hub-out-fade,
-    .hub-tl-scrub.hub-out-lift,
-    .hub-tl-scrub.hub-out-shrink { animation-composition: replace; }
-    .hub-tl-scrub.hub-out-fade   { animation-name: hub-in-fade,  hub-out-fade;   animation-range: entry 0% entry 90%, exit 10% exit 100%; }
-    .hub-tl-scrub.hub-out-lift   { animation-name: hub-in-fade,  hub-out-lift;   animation-range: entry 0% entry 90%, exit 10% exit 100%; }
-    .hub-tl-scrub.hub-out-shrink { animation-name: hub-in-fade,  hub-out-shrink; animation-range: entry 0% entry 90%, exit 10% exit 100%; }
+       It composes the zoom INTO its own keyframes (`scale(var(--hub-zoom))`)
+       because an animation replaces the whole `transform`, so a media layer
+       that is both zoomed and drifting must carry both in one function list or
+       the zoom disappears the moment the animation starts.
 
-    /* "Slow lift" — the one DURING motion. It runs across the full pass and is
-       deliberately small: 28px over a whole screen-height of scrolling reads as
-       depth, and anything larger reads as a page that will not sit still. */
-    .hub-during-lift { animation-name: hub-during-lift; animation-range: cover 0% cover 100%; }
+       ⚠ A section with no photo has nothing to drift. `during` is a preset
+       value and not a control the couple sets, so nothing claims otherwise. */
+    .hub-during-lift.hub-has-media > .hub-canvas-media {
+      animation: hub-during-lift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+      will-change: transform;
+    }
 
     /* A section that asked for nothing is not animated at all — no name, no
-       fill mode, nothing to get stuck in. */
-    .hub-in-none.hub-out-none.hub-during-still { animation-name: none; animation-fill-mode: none; }
+       fill mode, nothing that can get stuck, and no promoted layer. */
+    .hub-in-none.hub-out-none > .hub-canvas-body {
+      animation: none;
+      will-change: auto;
+    }
   }
 }

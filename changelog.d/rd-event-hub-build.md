@@ -641,3 +641,24 @@ the db guards with all three migrations replayed (exposure freeze, events column
 Ugat maps).
 
 SPEC IMPACT: None.
+
+---
+
+### 16 · 🪤 A clean lint that was not the lint CI runs
+
+CI's `typecheck + lint` went red on `react/no-children-prop` — **an error in this repo** — at five
+call sites in test files, after every local lint this session had passed.
+
+The cause: every check used `next lint --file …` on the handful of files just edited. **CI runs
+`pnpm lint` over the whole app.** A targeted run is evidence about the files you named and nothing
+else, and it reads exactly like a clean full run — which is what makes it expensive, because the
+failure arrives fifty minutes later from CI with the PR already queued.
+
+Fixed by passing children as arguments (`createElement(Cmp, props, ...children)`) rather than as a
+prop, and by running `npm run lint` — the whole app, the way CI does — before pushing. Clean.
+
+⚠ The same job also printed **"native encoder tests failed (outcome: skipped)"**, which is the
+repo's known false alarm: the aggregator treats `skipped` as failure, so a genuinely skipped step
+is reported beside the real cause. The real cause was the lint.
+
+SPEC IMPACT: None.

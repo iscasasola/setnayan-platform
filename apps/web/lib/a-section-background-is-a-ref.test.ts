@@ -96,7 +96,7 @@ test('⛔ a ref that FAILED to sign renders no background — not an empty plate
 
   // The map is empty — a deleted object, a refused bucket, a signing outage.
   const unsigned = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget, mediaUrls: {}, children: React.createElement('p', null, 'hi') }),
+    React.createElement(HubCanvasFrame, { widget, mediaUrls: {} }, React.createElement('p', null, 'hi')),
   );
   assert.match(unsigned, /hub-no-media/, 'the section says it has no picture');
   assert.doesNotMatch(unsigned, /hub-canvas-media/, 'and draws no layer for one');
@@ -105,11 +105,11 @@ test('⛔ a ref that FAILED to sign renders no background — not an empty plate
 
   // And with a URL, the picture is drawn.
   const signed = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, {
-      widget,
-      mediaUrls: { [PUBLIC]: 'https://example.test/a.jpg?sig=1' },
-      children: React.createElement('p', null, 'hi'),
-    }),
+    React.createElement(
+      HubCanvasFrame,
+      { widget, mediaUrls: { [PUBLIC]: 'https://example.test/a.jpg?sig=1' } },
+      React.createElement('p', null, 'hi'),
+    ),
   );
   assert.match(signed, /hub-has-media/);
   assert.match(signed, /hub-canvas-media/);

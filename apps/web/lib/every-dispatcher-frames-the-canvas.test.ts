@@ -88,7 +88,7 @@ test('⛔ the frame still refuses a null child and an un-arranged couple', async
   // A widget that hid itself must not become an empty animated box.
   assert.equal(
     renderToStaticMarkup(
-      React.createElement(HubCanvasFrame, { widget: row({ canvas: { preset: 'calm' } }), children: null }),
+      React.createElement(HubCanvasFrame, { widget: row({ canvas: { preset: 'calm' } }) }, null),
     ),
     '',
     'a null child renders nothing at all — no wrapper div',
@@ -96,16 +96,17 @@ test('⛔ the frame still refuses a null child and an un-arranged couple', async
 
   // A couple who arranged nothing gets markup identical to having no frame.
   const bare = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget: row(null), children: React.createElement('p', null, 'hi') }),
+    React.createElement(HubCanvasFrame, { widget: row(null) }, React.createElement('p', null, 'hi')),
   );
   assert.equal(bare, '<p>hi</p>', 'no wrapper, no classes — byte-identical to before the canvas existed');
 
   // And one who did arrange gets the frame.
   const framed = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, {
-      widget: row({ canvas: { preset: 'cinematic' } }),
-      children: React.createElement('p', null, 'hi'),
-    }),
+    React.createElement(
+      HubCanvasFrame,
+      { widget: row({ canvas: { preset: 'cinematic' } }) },
+      React.createElement('p', null, 'hi'),
+    ),
   );
   assert.match(framed, /class="hub-canvas [^"]*hub-tl-scrub/);
   assert.match(framed, /<p>hi<\/p>/);

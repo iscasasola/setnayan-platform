@@ -213,3 +213,63 @@ test('⛔ EMPTY IS A PROMISE — an event with nothing set shows the page it wil
   assert.match(html, /Set your link/, 'and one lit thing to press');
   assert.doesNotMatch(html, /nothing here|no page yet|not created/i, 'never an apology');
 });
+
+/* ═════════════════════════════════════════════════════════════════════════
+   THE MINIATURE — the controller looks at the page instead of describing it
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** The frame's `src`, or null when no frame was painted at all. */
+function frameSrc(html: string): string | null {
+  // 🪤 `m?.[1] ?? null`, not `m ? m[1] : null`. `noUncheckedIndexedAccess`
+  // types a capture group as `string | undefined`, and the second form returns
+  // that `undefined` — which `assert.equal(frameSrc(html), null)` would then
+  // FAIL on for the right reason and the wrong value. tsc caught it.
+  const m = /<iframe\b[^>]*\bsrc="([^"]*)"/.exec(html);
+  return m?.[1] ?? null;
+}
+
+test('⭐ THE MINIATURE · the stage paints the page, at the SAME address as its button', async () => {
+  const html = await paint({ eventDate: '2026-12-18', nowMs: NOW });
+  assert.equal(
+    frameSrc(html),
+    '/maria-and-jomar',
+    'the frame is the couple\u2019s own address — no ?phase=, no ?as=, no ?editor=1',
+  );
+  // The door beneath it must agree. Two addresses on one card is the bug this
+  // whole component exists to not have.
+  assert.match(html, /href="\/maria-and-jomar"/, 'the button opens what the frame shows');
+  assert.match(html, /pointer-events-none/, 'it is a picture, not a second app');
+  assert.match(html, /tabIndex="-1"|tabindex="-1"/, 'and it is out of the tab order');
+});
+
+test('⭐ THE MINIATURE · the ribbon is NAMED, and the eyebrow never claims a guest\u2019s eye', async () => {
+  const html = await paint({ eventDate: '2026-12-18', nowMs: NOW });
+  assert.match(html, /That strip across the top is yours alone/, 'the ribbon is explained where it is seen');
+  assert.doesNotMatch(
+    html,
+    /As your guests see it/,
+    'the frame carries the owner ribbon, so this label would be false in the pixels',
+  );
+  assert.doesNotMatch(
+    html,
+    /Open as a guest/,
+    'and so would a button that opens the host\u2019s own signed-in page',
+  );
+});
+
+test('⛔ THE GUARD · a REFUSED read paints NO frame — not an empty one, none', async () => {
+  const html = await paint({ eventDate: null, nowMs: NOW, measured: false, slug: null });
+  assert.equal(frameSrc(html), null, 'a frame here is a picture of a page we never confirmed');
+  assert.match(html, /could not reach your event/, 'it still says what happened');
+});
+
+test('⛔ THE GUARD · no address yet — the card stays, the frame does not', async () => {
+  // Non-vacuity in the other direction: the frame is gated on the SLUG as well
+  // as on the read, and losing the slug must not blank the stage with it.
+  const html = await paint({ eventDate: '2026-12-18', nowMs: NOW, slug: null });
+  assert.equal(frameSrc(html), null, 'there is no page to photograph yet');
+  assert.match(html, /Save-the-Date/, 'but the page it will become is still drawn');
+  assert.match(html, /In 107 days/, 'with its countdown');
+  assert.match(html, /Set your link/, 'and one lit thing to press');
+  assert.doesNotMatch(html, /That strip across the top/, 'and no ribbon note for a frame that is absent');
+});

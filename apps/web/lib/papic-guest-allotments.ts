@@ -349,7 +349,11 @@ export type SplitInputs = {
  * ⚠ THIS IS A SUGGESTION ENGINE, NOT AN ALLOCATION — measured 2026-09-16.
  *
  * `papic_guest_spend_ceilings.ceiling_points` is a CEILING: the most one guest
- * may take. `papic_event_pool_status` subtracts `papic_seat_allocations` from
+ * may take. ⚠ UPDATED 2026-09-23: it used to say the pool "subtracts
+ * `papic_seat_allocations`" — that table and its mover are DROPPED (migration
+ * 20271243295861, owner: no dedicated shots individually), so the pool no
+ * longer subtracts anything of the kind. The point below is UNCHANGED and is
+ * why this note stays: `papic_event_pool_status` takes nothing out of
  * the shared pot and NOTHING ELSE — no named guest's number is ever held back
  * for her. Every credit comes out of the one pot, first come first served, and
  * a guest who arrives late finds whatever is left regardless of her number.

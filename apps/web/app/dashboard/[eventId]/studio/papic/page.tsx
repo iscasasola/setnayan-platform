@@ -102,7 +102,6 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { CreditRecommendation } from './_components/credit-recommendation';
-import { PapicCamerasCard } from './_components/papic-cameras-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
@@ -831,41 +830,22 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           only honest while the number visibly recomputes. */}
       <CreditRecommendation eventId={eventId} eventType={(ev.event_type as string | null) ?? null} />
       <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
-      {/* Hand credits to one camera's QR, or take unspent ones back (owner
-          2026-08-11).
+      {/* ⛔ NO CAMERA HOLDS CREDITS THE COUPLE GAVE IT — `PapicCamerasCard` WAS HERE.
 
-          ⚠ THIS CONTROL IS RETIRED BY A LATER RULING AND IS STILL HERE ON
-          PURPOSE. Owner 2026-09-16, asked which of two of his own rulings
-          stands: *"no dedicated shots individually."* Removing the card is the
-          easy half; the hard half is `papic_dedicate_shots`, which the
-          both-ends guard then requires be DROPPED — and dropping it orphans
-          `papic_seat_allocations`, whose term is read by four live money
-          functions and nine app files. Measured, not guessed.
+          ⚖ Owner 2026-09-16: *"no dedicated shots individually."* Re-confirmed
+          2026-09-22 against a question that names THIS control rather than the
+          category: *"that control is still live today — should it come off, or
+          did 'should stay' mean it stays too?"* → off.
 
-          🔑 SO THE RETIREMENT SHIPS WHOLE, IN ITS OWN PR, rather than as the
-          tail of a bundle: half-retiring it is what turned this PR red. Until
-          then the page still says two things at once — the Crew-cameras sheet
-          says every shot draws from the shared pot while this hands credits to
-          one QR — which it has said for weeks and will say for one PR more. */}
-      <PapicCamerasCard
-        eventId={eventId}
-        error={shotsError ?? papicOneError ?? null}
-        justSet={shotsSet ?? null}
-      />
-      {/* ⛔ NO CAMERA HOLDS CREDITS OF ITS OWN — `PapicCamerasCard` WAS HERE.
-          ⚖ Two of the owner's own rulings were in direct conflict and the
-          shipped code followed the older one. 2026-08-11: *"the host can
-          dedicated a specific number of shots for a specific QR code"* — which
-          is why that card existed. 2026-09-16: *"no dedicated shots
-          individually."* Asked directly which stands, he chose 2026-09-16.
+          🔑 IT WAS THE PAGE'S OWN CONTRADICTION. The Crew-cameras sheet above
+          reads *"Every shot draws from your shared credits"* while this card,
+          four blocks below it, handed credits to a single QR.
 
-          🔑 THE PAGE WAS SAYING BOTH THINGS AT ONCE. The Crew-cameras sheet
-          above reads *"Every shot draws from your shared credits"* while this
-          card, four blocks below it, handed credits to a single QR.
-
-          ⚠ DO NOT RESTORE IT FOR SYMMETRY. `paparazzi_seats` stays — a seat is
-          the camera CLAIM, not an allowance, and `app/api/upload/route.ts`
-          resolves a seatGate per seat. Only the DEDICATION went. */}
+          ⚠ DO NOT RESTORE IT FOR SYMMETRY, AND DO NOT CONFUSE IT WITH THE FREE
+          CAMERA. `papic_event_point_grants.seat_id` — the free Papic One camera
+          grant — STAYS; the owner said so in the same breath. A camera still
+          carries a balance of its own, just not one the couple handed it.
+          `paparazzi_seats` stays too: a seat is the camera CLAIM. */}
       {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
       <GuestContributionsCard eventId={eventId} />
       </div>

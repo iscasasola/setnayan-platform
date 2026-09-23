@@ -9,6 +9,8 @@ import { stampLastLogin } from '@/lib/login-activity';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { captureEvent } from '@/lib/analytics';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
+import { CREDENTIALS_REFUSAL, explainFailedSignIn, type KnownProvider } from '@/lib/sign-in-door';
+import { lookupSignInDoor } from '@/lib/sign-in-door.server';
 
 /**
  * "Stay signed in" cookie downgrade.
@@ -71,7 +73,8 @@ function downgradeSupabaseCookiesToSessionOnly(
  * navigate to it, or ignore it and stay put.
  */
 async function exchangeCredentials(formData: FormData): Promise<
-  { ok: true; destination: string } | { ok: false; error: string; fallbackNext: string }
+  | { ok: true; destination: string }
+  | { ok: false; error: string; provider: KnownProvider | null; fallbackNext: string }
 > {
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
@@ -88,7 +91,7 @@ async function exchangeCredentials(formData: FormData): Promise<
   const fallbackNext = rawNext;
 
   if (!email || !password) {
-    return { ok: false, error: 'missing', fallbackNext };
+    return { ok: false, error: 'missing', provider: null, fallbackNext };
   }
 
   const supabase = await createClient();
@@ -102,7 +105,15 @@ async function exchangeCredentials(formData: FormData): Promise<
   });
 
   if (error) {
-    return { ok: false, error: error.message, fallbackNext };
+    // ── WHICH DOOR? Asked only NOW — after GoTrue refused — and only for the
+    // credentials refusal (owner 2026-09-23: reveal the provider only after a
+    // failed attempt; anything earlier confirms an account to a prober). A
+    // Google-only account is told its door instead of "wrong password", a
+    // lookup that could not run says it could not tell, and an unknown email
+    // gets the ordinary sentence — see lib/sign-in-door.ts.
+    const door = CREDENTIALS_REFUSAL.test(error.message) ? await lookupSignInDoor(email) : null;
+    const explained = explainFailedSignIn({ authMessage: error.message, door });
+    return { ok: false, error: explained.message, provider: explained.provider, fallbackNext };
   }
 
   if (!remember) {
@@ -165,7 +176,8 @@ export async function signInWithPassword(formData: FormData) {
   const result = await exchangeCredentials(formData);
   if (!result.ok) {
     return redirect(
-      `/login?error=${encodeURIComponent(result.error)}&next=${encodeURIComponent(result.fallbackNext)}`,
+      `/login?error=${encodeURIComponent(result.error)}&next=${encodeURIComponent(result.fallbackNext)}` +
+        (result.provider ? `&provider=${result.provider}` : ''),
     );
   }
   return redirect(result.destination);
@@ -174,6 +186,8 @@ export async function signInWithPassword(formData: FormData) {
 export type SignInInPlaceState = {
   /** Null until a submit has actually failed. */
   error: string | null;
+  /** The door the account actually uses, when the refusal was "no such password" (lib/sign-in-door). */
+  provider: KnownProvider | null;
   /** True only after the credentials were actually accepted by Supabase. */
   ok: boolean;
   /** Bumped on every completed submit so a repeated identical failure still
@@ -221,6 +235,7 @@ export async function signInInPlace(
         result.error === 'missing'
           ? 'Enter your email and your password.'
           : result.error,
+      provider: result.provider,
       ok: false,
       attempt,
     };
@@ -233,5 +248,5 @@ export async function signInInPlace(
     nothing behind it. Returning a destination nobody navigates to would be a
     value that looks like a decision and is not one.
   */
-  return { error: null, ok: true, attempt };
+  return { error: null, provider: null, ok: true, attempt };
 }

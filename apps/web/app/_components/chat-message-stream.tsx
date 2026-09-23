@@ -95,6 +95,13 @@ type ProposalCardData = {
   totalCentavos: number;
   status: string;
   /**
+   * `vendor_proposals.service_card_ids` — which service cards this quote was
+   * built from. `undefined` while the fetch is in flight or refused, which the
+   * supersession rule reads as "never said" and falls back on. See
+   * lib/offered-service-card-state.ts.
+   */
+  serviceCardIds?: unknown;
+  /**
    * The inclusions, so the quote reads in the conversation without a round
    * trip. They used to live only in the pinned card above the list — the one
    * whose height crushed the conversation to 32px on a phone.
@@ -314,6 +321,25 @@ export function ChatMessageStream({
   // on exactly that card. This says the difference.
   const [cardsDegraded, setCardsDegraded] = useState(false);
   const [proposalCards, setProposalCards] = useState<Record<string, ProposalCardData>>({});
+
+  /**
+   * Each quote message paired with the cards that quote was built from, so the
+   * supersession rule can ask "did THIS quote cover THIS card?".
+   *
+   * Built once per render rather than per offered card: a thread with several
+   * offers would otherwise rebuild the whole list for each one. The ids live on
+   * the fetched proposal, not on the message, so they are joined here and the
+   * rule in lib/offered-service-card-state.ts stays pure.
+   */
+  const quoteCoverage = useMemo(
+    () =>
+      messages.map((m) => ({
+        proposal_id: m.proposal_id,
+        created_at: m.created_at,
+        service_card_ids: m.proposal_id ? proposalCards[m.proposal_id]?.serviceCardIds : undefined,
+      })),
+    [messages, proposalCards],
+  );
   useEffect(() => {
     // S5 · EVERY quote id, refetched whenever the message set changes — not
     // "each id once". A new quote landing over realtime SUPERSEDES the one
@@ -331,7 +357,9 @@ export function ChatMessageStream({
       // waiting, and neither of them can tell anything went wrong.
       const { data, error } = await supabase
         .from('vendor_proposals')
-        .select('proposal_id, public_id, title, total_centavos, status, resolved_at, line_items')
+        .select(
+          'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, service_card_ids',
+        )
         .in('proposal_id', ids);
       if (cancelled) return;
       if (error || !data) {
@@ -349,6 +377,7 @@ export function ChatMessageStream({
           total_centavos: number;
           status: string;
           line_items: ProposalLineItem[] | null;
+          service_card_ids: unknown;
         }[]) {
           next[p.proposal_id] = {
             resolvedAt: p.resolved_at,
@@ -357,6 +386,7 @@ export function ChatMessageStream({
             totalCentavos: p.total_centavos,
             status: p.status,
             lineItems: p.line_items ?? [],
+            serviceCardIds: p.service_card_ids,
           };
         }
         return next;
@@ -1411,9 +1441,17 @@ export function ChatMessageStream({
                card only draws what it is handed. `latestQuoteAtFrom` is the one
                way to say which quote is newest, so the caller cannot invent a
                second. */
+            /* Only a quote BUILT FROM THIS CARD replaces it. Without the
+               card id this asks "the newest quote anywhere in the thread", and
+               a supplier who offers photography and video, then quotes for
+               photography, retires the video offer too — a view the ruling
+               says must not be destroyed. `service_card_ids` is undefined
+               while the proposal fetch is in flight or refused, which the rule
+               reads as "never said" and falls back on, so a slow or degraded
+               read can only keep TODAY's behaviour, never resurrect an offer. */
             const offerState = offeredServiceCardState({
               offeredAt: m.created_at,
-              latestQuoteAt: latestQuoteAtFrom(messages),
+              latestQuoteAt: latestQuoteAtFrom(quoteCoverage, m.offered_service_id),
             });
             return (
               <li key={m.message_id} className="flex justify-center">

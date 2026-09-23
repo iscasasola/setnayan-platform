@@ -582,7 +582,8 @@ export async function submitPapicGuestPayment(formData: FormData) {
  * 🔑 PR #5028 shipped this on `papic_dedicate_shots` and it went LIVE moving
  * credits the wrong way on both sides of the ledger — her balance UP by her own
  * spend, the couple's shared pot DOWN by the same. That function owns
- * `papic_seat_allocations` (the HOST's hand-out layer) and cannot reach a
+ * `papic_seat_allocations` (the HOST's hand-out layer — both DROPPED on
+ * 2026-09-23, so this cannot be rebuilt on it even by accident) and cannot reach a
  * guest's GRANT. Removed by #5038; rebuilt here on
  * `papic_release_seat_grants` (migration 20271185813837), which can.
  *

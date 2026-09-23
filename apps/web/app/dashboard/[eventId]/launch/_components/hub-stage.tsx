@@ -49,8 +49,13 @@ export const OB = {
  *
  * ⚠ EMPTY IS A PROMISE, NOT AN APOLOGY (design § 4.4). An event with nothing set
  * yet is shown THE PAGE IT WILL BECOME plus its countdown — never a sentence
- * apologising for being empty, and never a stranger's wedding as a sample. The
- * only thing that silences the miniature is a read that did not happen.
+ * apologising for being empty, and never a stranger's wedding as a sample.
+ *
+ * TWO THINGS SILENCE THE MINIATURE, AND ONLY TWO: a read that did not happen
+ * (`channelName === null`), which withdraws the whole card; and an event with
+ * no address yet (`slug === null`), which keeps the card and its countdown but
+ * draws no frame — there is no page to photograph. Neither is an apology and
+ * neither is a zero. Held by `hub-stage-renders.test.ts`.
  */
 /**
  * ● full · ◐ partial or read-only · ○ nothing, on purpose — the § 3.2 key.
@@ -108,7 +113,7 @@ export function HubStage({
           className="font-mono text-[10px] font-bold uppercase tracking-[0.16em]"
           style={{ color: OB.gold }}
         >
-          As your guests see it · right now
+          Your page · right now
         </p>
         <div className="space-y-1">
           <h2
@@ -123,9 +128,51 @@ export function HubStage({
           </p>
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5" style={{ backgroundColor: OB.card }}>
-          {channelName ? (
-            <>
+        {/* ══ THE MINIATURE — the page itself, not a sentence about it ══
+            The docblock on this component has promised a miniature since it was
+            written. What actually stood here was PROSE — "Day-of · the running
+            order, live" — so the controller described a page it had never once
+            looked at, which is the house disease with a nicer typeface.
+
+            🔑 IT IS THE SAME ADDRESS AS THE BUTTON UNDER IT. `/{slug}`: no
+            `?phase=`, no `?as=`, no `?editor=1`. If the page's own resolution
+            ever disagrees with the stage we computed, the frame SHOWS the
+            disagreement rather than letting the caption paper over it.
+
+            ⚠ THE OWNER RIBBON RIDES THIS FRAME, and that is why the eyebrow
+            above no longer says "as your guests see it". A host cannot stop
+            being signed in, and `buildOwnerRibbon` gates on the server-verified
+            capability ALONE — no param, no cookie, no prop a caller may set
+            (`lib/owner-ribbon.ts`, owner-locked 2026-07-26). Inventing a
+            hide-the-ribbon param to make a label true would be weakening a
+            locked gate to win an argument with a caption. So the frame is
+            labelled as the host's own view and the caption names the strip.
+
+            Phone width and CLIPPED, never scaled: the page is already
+            responsive, so a 420px frame renders the real mobile layout at 1:1
+            instead of a transform that lies about type size. Same reason
+            `website/editor/_components/editor-shell.tsx` opens on `max-w-[430px]`.
+
+            It is INERT — `inert` + `tabIndex={-1}` + `pointer-events-none`. A
+            picture of the page; the lit button beneath it is the door. */}
+        {channelName ? (
+          <figure className="m-0 overflow-hidden rounded-xl" style={{ backgroundColor: OB.card }}>
+            {slug ? (
+              <div
+                className="relative mx-auto h-[300px] w-full max-w-[420px] overflow-hidden sm:h-[380px]"
+                style={{ borderBottom: `1px solid ${OB.hairline}` }}
+              >
+                <iframe
+                  src={`/${slug}`}
+                  title={`Your page as it stands right now — ${channelName}`}
+                  loading="lazy"
+                  inert
+                  tabIndex={-1}
+                  className="pointer-events-none absolute left-0 top-0 h-[780px] w-full border-0"
+                />
+              </div>
+            ) : null}
+            <figcaption className="p-4 sm:p-5">
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className="inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em]"
@@ -148,21 +195,52 @@ export function HubStage({
               <p className="mt-1 max-w-prose text-sm" style={{ color: OB.soft }}>
                 {channelBlurb}
               </p>
-            </>
-          ) : (
-            /* NOT "you have no page". We could not read the event, so we say
-               exactly that and nothing more. */
+              {slug ? (
+                <p className="mt-2 max-w-prose text-[11.5px]" style={{ color: OB.soft }}>
+                  That strip across the top is yours alone — you are signed in, so your page
+                  knows you. Your guests never see it.
+                </p>
+              ) : null}
+            </figcaption>
+          </figure>
+        ) : (
+          /* NOT "you have no page". We could not read the event, so we say
+             exactly that and nothing more — and we draw NO frame, because a
+             frame here would be a picture of a page we never confirmed. */
+          <div className="rounded-xl p-4 sm:p-5" style={{ backgroundColor: OB.card }}>
             <p className="max-w-prose text-sm" style={{ color: OB.soft }}>
               We could not reach your event just now, so we are not going to guess which page your
               guests are seeing. Nothing has been lost.
             </p>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {slug ? (
-            /* A real round trip to the public site, in a new tab — this is the
-               couple looking at their own address the way a guest does. */
+/* A real round trip to the public site, in a new tab — the same
+               address the frame above is showing.
+
+               🔴 IT SAID "Open as a guest", AND IT DOES NOT OPEN AS A GUEST.
+               The host's session travels with the click and `buildOwnerRibbon`
+               lights the ribbon from a server-verified capability, so what
+               opens is the host's own page. The frame above now shows that
+               plainly, which made the old label a contradiction a couple could
+               see in one glance.
+
+               🪤 AND IT IS NOT "Open your page", WHICH WAS THE FIRST FIX AND
+               DISARMED A GATE. That exact string is the host role's own
+               `previewLabel` in `lib/event-hub-control.ts`, and
+               `view-as-reaches-the-render.test.ts` uses it to prove a
+               `guest`-typed member cannot arm the host view by hand-typing
+               `?viewas=host`. Borrowing it put the same words on a button that
+               is ALWAYS painted, so the guard's failing case and its passing
+               case emitted the same HTML — it caught this on the first run.
+               A name collision reads as agreement and is not.
+
+               ⚠ THE SAME LABEL IS STILL WRONG ON THREE OTHER SURFACES
+               (`plan3d-stage.tsx` and two `ctaLabel`s in `event-hub-control.ts`,
+               one of them pinned by a guard). That is a vocabulary sweep, not
+               this change, and it is flagged rather than half-done. */
             <a
               href={`/${slug}`}
               target="_blank"
@@ -171,7 +249,7 @@ export function HubStage({
               style={{ backgroundColor: OB.cta, color: OB.page }}
             >
               <Eye aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Open as a guest
+              Open the live page
             </a>
           ) : null}
           <Link

@@ -357,6 +357,41 @@ export type HubNextStep = {
  * ⛔ And on the day it names the day, never a purchase — friction and offers
  * both lose to the ceremony.
  */
+/*
+  🔴 "Open as a guest" — RETIRED HERE 2026-09-23, AND IT WAS NOT A STYLE CALL.
+
+  All three steps below that used it carry `ctaPath: ''`, which
+  `launch/page.tsx` renders as `/<slug>` in a new tab. The host's session travels
+  with that click, `site-body.tsx` mounts `<OwnerRibbon>`, and `buildOwnerRibbon`
+  lights it from the server-verified capability ALONE — no query param, no
+  cookie, no prop a caller may set (`lib/owner-ribbon.ts`, owner-locked
+  2026-07-26). So what opened was the HOST's page with the host's ribbon across
+  the top, under a button promising a guest's view.
+
+  ⛔ THE FIX IS THE LABEL, NEVER THE GATE. A "hide the ribbon" param would be
+  weakening a locked capability check to win an argument with a caption. The
+  words moved; the gate did not.
+
+  🔑 AND THE LABEL WAS NOT THE ONLY PLACE THE CLAIM LIVED. Two steps repeated it
+  in their own prose — "Look at the page the way a guest does" and "Look at the
+  day the way your guests will see it" — so renaming the button alone would have
+  left the same promise on screen in a larger typeface.
+
+  ⚠ "Open your page" IS NOT AVAILABLE. It is the host role's own `previewLabel`
+  further down this file, and `view-as-reaches-the-render.test.ts` uses that
+  exact string to prove a `guest`-typed `event_members` row cannot arm the host
+  view by hand-typing `?viewas=host`. Putting it on chrome that is always painted
+  makes that guard's failing case emit the same HTML as its passing case —
+  measured, in this repo, one PR ago. "Open the live …" is the house idiom
+  already in use ("Open the live hub", "Open the live desk").
+
+  ✅ `plan3d-stage.tsx` KEEPS "Open as a guest", deliberately. Its door is
+  `/<slug>/venue`, and that route mounts no `OwnerRibbon` and no `SiteBody`
+  (`git grep -n OwnerRibbon -- 'apps/web/app/[slug]/venue'` → nothing), nor does
+  it read the viewer's seat. A host opening the room sees what a guest opening it
+  directly sees. The reasoning above simply does not reach it, and renaming it to
+  match would have been a false fix.
+*/
 export function resolveHubNextStep(
   standing: HubStanding,
   event: HubEventRead,
@@ -383,7 +418,7 @@ export function resolveHubNextStep(
       headline: 'It is the day.',
       blurb:
         'Everything below is one press — no confirmations, nothing to buy. Your page has already turned itself over to the day.',
-      ctaLabel: 'Open as a guest',
+      ctaLabel: 'Open the live page',
       ctaPath: '',
     };
   }
@@ -437,10 +472,10 @@ export function resolveHubNextStep(
     */
     return {
       key: 'preview',
-      headline: 'Look at the page the way a guest does.',
+      headline: 'Look at the page your guests are opening.',
       blurb:
         'The guest list has not been shared with you, so the replies are not yours to see. Everything else on this page is.',
-      ctaLabel: 'Open as a guest',
+      ctaLabel: 'Open the live page',
       ctaPath: '',
     };
   }
@@ -491,8 +526,8 @@ export function resolveHubNextStep(
     key: 'ready',
     headline: 'Every reply is in.',
     blurb:
-      'Your list is settled. Look at the day the way your guests will see it, and change anything that reads wrong.',
-    ctaLabel: 'Open as a guest',
+      'Your list is settled. Look at the page your guests will open, and change anything that reads wrong.',
+    ctaLabel: 'Open the live page',
     ctaPath: '',
   };
 }

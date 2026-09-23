@@ -227,14 +227,32 @@ async function seedFundedSeat(dedicatedPoints: number): Promise<Fixture> {
   const seatId = seat.rows[0]!.seat_id;
 
   if (dedicatedPoints > 0) {
-    // An allocation, not a grant: `papic_event_pool_status` counts only SHARED
-    // grants (seat_id IS NULL) and subtracts allocations, so this is what moves
-    // credits out of the pot and onto this camera — zero-sum, exactly as the
-    // hand-out screen does it.
+    /*
+      ⚖ A SEAT-SCOPED GRANT — the FREE Papic One camera. This used to be an
+      ALLOCATION (the couple's hand-out), which moved credits OUT of the pot and
+      onto this camera, zero-sum. `papic_dedicate_shots` and
+      `papic_seat_allocations` are dropped (migration 20271243295861, owner:
+      "no dedicated shots individually"), so the only way a camera carries
+      credits of its own now is a `papic_event_point_grants` row with `seat_id`
+      set — the shape `papic_grant_camera_points` writes.
+
+      🔑 THE ASSERTIONS BELOW ARE UNAFFECTED, AND IT IS WORTH SAYING WHY, because
+      the two funding models are NOT arithmetically identical: an allocation left
+      `dedicated + poolLeft` equal to the original pot, while a grant is
+      ADDITIONAL (`papic_event_pool_status` sums only `seat_id IS NULL`, so the
+      pot does not fall). Both fields are MEASURED after seeding, never
+      hard-coded, so `dedicated + poolLeft` is still exactly "everything the
+      camera and the pot hold between them" under either model — which is the
+      only thing test 6's `cost` is built from.
+
+      ⚠ DELETING THE FUNDING ALTOGETHER WOULD NOT DO. Test 6 asserts
+      `dedicated > 0` precisely so it cannot pass vacuously, and a camera with no
+      credits of its own would leave its own leg unexercised.
+    */
     await db.query(
-      `INSERT INTO public.papic_seat_allocations (seat_id, event_id, points)
-       VALUES ($1, $2, $3)`,
-      [seatId, eventId, dedicatedPoints],
+      `INSERT INTO public.papic_event_point_grants (event_id, seat_id, points, source, note)
+       VALUES ($1, $2, $3, 'camera_grant', 'the free camera — this camera''s own credits')`,
+      [eventId, seatId, dedicatedPoints],
     );
   }
 

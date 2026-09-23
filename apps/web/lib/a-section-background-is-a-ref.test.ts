@@ -198,3 +198,70 @@ test('⛔ a value the contract emits for the picture is never the string "undefi
   assert.equal('--hub-media' in hubCanvasVars(c, null), false);
   assert.match(hubCanvasClass(c, false), /\bhub-no-media\b/);
 });
+
+test('🔒 the background layer is CHILDLESS — a lingering transform must strand nothing', async () => {
+  /*
+    🔴 WHY THIS IS A GUARD AND NOT A COMMENT. The drift animation on the media
+    layer uses `fill-mode: both`, so a transform stays applied after the scroll
+    range ends — and per CSS spec ANY transform on an ancestor becomes the
+    containing block for its `position: fixed` descendants. That is exactly the
+    bug `lingering-transform.baseline.txt` exists for: an identity transform on
+    the in-shell page wrapper silently unpinned every fixed overlay in the app,
+    and a coach-mark's buttons ended up 341px below the fold.
+
+    This layer is listed in that baseline as harmless, and the entry's whole
+    justification is that it has NO CHILDREN. So the childlessness is asserted
+    here rather than asserted in prose — a baseline whose reason nothing checks
+    is a baseline that rots.
+
+    ⚠ `both` is not swappable for `backwards`: the couple's zoom is composed
+    INTO the keyframes, because an animation replaces the whole transform. Drop
+    the forwards half and the photo jumps back to 1x the moment the range ends.
+  */
+  const src = readFileSync(
+    join(__dirname, '..', 'app', '[slug]', '_components', 'hub-canvas-frame.tsx'),
+    'utf8',
+  );
+  assert.match(
+    src,
+    /<div aria-hidden className="hub-canvas-media" \/>/,
+    'the media layer must stay self-closing — anything inside it could be position:fixed',
+  );
+
+  // And in the rendered DOM, not only in the source.
+  // 🪤 `Frame` is declared inside the OTHER test's scope, where the dynamic
+  // import lives. Importing it again here is cheap (the module is cached) and
+  // keeps each test self-contained — a shared alias between two async tests is
+  // a hoisting question nobody should have to answer while reading a guard.
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { HubCanvasFrame: Raw } = await import('../app/[slug]/_components/hub-canvas-frame');
+  const Layer = Raw as unknown as React.FunctionComponent<Record<string, unknown>>;
+  const html = renderToStaticMarkup(
+    React.createElement(
+      Layer,
+      {
+        widget: {
+          widget_id: 'W1',
+          event_id: 'E1',
+          widget_type: 'countdown',
+          config_json: { canvas: { media: PUBLIC } },
+        },
+        mediaUrls: { [PUBLIC]: 'https://example.test/a.jpg' },
+      },
+      React.createElement('p', null, 'hi'),
+    ),
+  );
+  const layer = /<div[^>]*class="hub-canvas-media"[^>]*>([\s\S]*?)<\/div>/.exec(html);
+  assert.ok(html.includes('hub-canvas-media'), 'the layer renders');
+  assert.equal((layer?.[1] ?? '').trim(), '', 'and it renders empty');
+
+  const baseline = readFileSync(
+    join(__dirname, '..', 'scripts', 'lingering-transform.baseline.txt'),
+    'utf8',
+  );
+  assert.match(
+    baseline,
+    /\.hub-during-lift\.hub-has-media > \.hub-canvas-media :: hub-during-lift/,
+    'the rule is declared harmless in the baseline, with its reason beside it',
+  );
+});

@@ -679,3 +679,48 @@ component is cast to a loose function type **for the harness only**: children go
 push, which is the actual fix.
 
 SPEC IMPACT: None.
+
+---
+
+### 17 · Two real failures the unit suite caught, and both were mine
+
+CI's third red was **not** tsc or lint this time — it was the unit suite, which I had not re-run
+after merging main. Two genuine failures, both introduced by this branch.
+
+#### A privacy decision the guard refused to guess
+
+`public-widget-allowlist.test.ts`: *"widget type 'custom_1' is unclassified — add it to
+PUBLIC_WIDGET_ALLOWLIST (privacy decision) or the excluded set."*
+
+The allowlist's own rule is **event-level data only, no per-guest fields**. A custom section is
+text the couple typed into their editor: no name, no seat, no RSVP, nothing read from a session —
+the same class as `special_message` and `our_love_story`, both already on it. And it is the
+couple's choice twice over: a section reaches a stranger only if they turned open-browse on, wrote
+something in it, and left it visible.
+
+So the six are allow-listed, **and the byte-exact pin moved from 10 to 16 with the reasoning beside
+it** — that pin moving is precisely how the decision gets noticed, and `⚠ if a custom section ever
+gains a per-guest field, those six come straight back out` is written where it will be read.
+
+#### A lingering transform, and the bug it can cause
+
+`an-identity-transform-unpins-every-fixed-child.test.ts`: the drift uses `fill-mode: both`, so a
+transform stays applied after the scroll range ends — and **any transform on an ancestor becomes
+the containing block for its `position: fixed` descendants.** That guard exists because an
+*identity* transform on the in-shell page wrapper once silently unpinned every fixed overlay in the
+app, and a coach-mark's buttons ended up 341px below the fold.
+
+Here it is harmless, and the reason is provable: the media layer is a **childless** self-closing
+`div`, so it has no descendants at all. Recorded in `lingering-transform.baseline.txt` with that
+reason — and **the childlessness is now a guard**, in the source *and* in the rendered DOM, because
+a baseline whose reason nothing checks is a baseline that rots.
+
+⚠ `both` is not swappable for `backwards`: the couple's zoom is composed into the keyframes,
+because an animation replaces the whole transform. Drop the forwards half and the photo jumps back
+to 1× the moment the range ends.
+
+🪤 **Third round trip, third lesson in the same family.** `tsc`, `pnpm lint` and the unit suite are
+three different checks and I had been running one at a time. All three run together before this
+push.
+
+SPEC IMPACT: None. The allowlist change is a privacy decision, recorded above and in the file.

@@ -75,6 +75,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { stripComments } from './port-controls.mjs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -414,10 +415,15 @@ function walkCss(dir, out = []) {
  * needing to understand them.
  */
 function cssRulePairings(rawCss, resolveColor) {
-  // Comments first, or a `/* ... { ... } ... */` block is parsed as a rule and
+  // Comments first, or a block comment containing braces is parsed as a rule and
   // its prose becomes a selector. The first cut reported three "failures" whose
   // selector was the inside of a comment explaining an unrelated fix.
-  const css = rawCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  //
+  // 🔑 THE REPO'S ONE STRIPPER, not a local regex — `lint-one-comment-stripper`
+  // caught the hand-rolled version here and was right to. It is quote-aware, so
+  // the `http://` inside globals.css's quoted `url("data:image/svg+xml,…")`
+  // survives; a naive line-comment pass would have eaten the rest of that line.
+  const css = stripComments(rawCss);
   const BLOCK = /([^{}]+)\{([^{}]*)\}/g;
   const decl = (body, prop) => {
     const m = body.match(new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)', 'i'));

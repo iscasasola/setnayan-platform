@@ -54,4 +54,15 @@ pages on my own reading.** Baselined and surfaced.
 
 `✓ 1697 pairing(s) checked` (was 1523 — the CSS scan added ~174).
 
+⚠ **AND THE GUARD I WROTE WAS CAUGHT BY ANOTHER GUARD, correctly.** `cssRulePairings` hand-rolled
+`rawCss.replace(/\/\*[\s\S]*?\*\//g, '')` to strip comments, and `lint-one-comment-stripper` exists to
+stop exactly that. **The irony is the point: I reasoned about how a two-replace stripper mangles
+comments while writing one.** Now uses the repo's `stripComments` from `scripts/port-controls.mjs`.
+
+🔑 **Proved the swap changed nothing rather than assuming it:** the guard reports the same
+`1697 pairing(s)` and the 50-entry baseline is **byte-identical** before and after. Also checked the
+one real risk — `stripComments` removes `//` to end of line, which CSS does not have — and the only
+unquoted-looking `//` in the tree is inside globals.css's **quoted** `url("data:image/svg+xml,…http://…")`,
+which the stripper skips because it is quote-aware.
+
 SPEC IMPACT: None — a fill shade and a guard's window. No copy, no layout, no behaviour.

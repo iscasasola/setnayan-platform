@@ -1,22 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  NOT_STARTED_MAX_RATIO,
-  STAGE_DOT_PX,
-  STAGE_RING_PX,
+  RAIL_STOP_PX,
+  notStartedIsSmallest,
+  railHeadPercent,
   stageMarkFor,
 } from './stage-mark';
 
 /*
-  THREE STATES, THREE SHAPES — EXECUTED, INCLUDING THE SIZE.
+  THREE STATES, THREE SHAPES — EXECUTED, INCLUDING THE SIZES.
 
-  🔑 WHY THE SIZE IS ASSERTED HERE AND NOT IN THE MARKUP TEST. The rail's own
-  guard checks that a not-started stage emits no <svg>. A sabotage that redrew
-  the not-started mark as a RING-SIZED pale circle — a <span>, not an <svg> —
-  passed that guard with the defect fully restored: the same full outline, the
-  same size, distinguished from a real progress ring only by colour. A markup
-  guard cannot see that, because the difference is a number. So the number lives
-  in a pure module and is run.
+  🔑 WHY THE SIZE IS ASSERTED HERE AND NOT ONLY IN THE MARKUP TEST. A sabotage
+  that redrew the not-started mark at the same size as a started one passed a
+  markup guard checking only which element was emitted: the defect was fully
+  restored — same shape, same size, distinguished by colour alone — and every
+  assertion stayed green. A markup guard cannot see a defect whose difference is
+  a NUMBER. So the numbers live in a pure module and are run.
+
+  ⚠ RE-POINTED 2026-09-23 for treatment B. The old floor was a ratio against a
+  34px ring; B has no rings, so that ratio was measuring a constant nothing
+  rendered. The rule is now "the not-started dot is strictly smaller than every
+  other stop", which is the property the shipped marks actually have.
 */
 
 test('each band resolves to its own kind of mark', () => {
@@ -28,51 +32,57 @@ test('each band resolves to its own kind of mark', () => {
   assert.equal(stageMarkFor(101).kind, 'complete');
 });
 
-test('a bad percentage reads as not-started, never as a full ring', () => {
-  // A negative or non-finite pct is a bad read. "Not started" is the honest
-  // rendering of one; a full ring would state completion nobody measured.
-  for (const bad of [-1, -100, Number.NaN, -Number.POSITIVE_INFINITY]) {
+test('a bad percentage reads as not-started, never as complete', () => {
+  /*
+    A negative or non-finite pct is a broken read. Failing toward "not started"
+    understates; failing toward "complete" would tell a couple a phase was
+    finished on the strength of a number nobody computed. +Infinity included on
+    purpose — it looks like "past 100" and is not.
+  */
+  for (const bad of [-1, -100, Number.NaN, -Infinity, Number.POSITIVE_INFINITY]) {
     assert.equal(stageMarkFor(bad).kind, 'not-started', `pct ${bad}`);
   }
+});
+
+test('🔒 the not-started stop is a DIFFERENT SIZE, not a different grey', () => {
+  const ns = RAIL_STOP_PX['not-started'];
+  const others = [RAIL_STOP_PX.current, RAIL_STOP_PX.complete, RAIL_STOP_PX.partial];
+  console.log(`  not-started ${ns}px · others ${JSON.stringify(others)}px`);
+  assert.ok(ns > 0, 'a not-started stop must still draw something — absence is not a mark');
+  assert.ok(notStartedIsSmallest(), 'the not-started dot is not smaller than every started one');
+  assert.ok(Math.min(...others) - ns >= 2, 'a 1px difference is not a visible difference');
+});
+
+test('the floor can actually fail — so the green above is evidence', () => {
   /*
-    ⚠ +Infinity IS NOT "COMPLETE", AND THIS TEST ASSERTED THAT IT WAS UNTIL IT
-    RAN. The reasoning looked sound — Infinity is "at or past 100" — but the
-    module coerces every NON-FINITE value to 0 BEFORE banding, so +Infinity
-    reads as not-started. The module is right and the assertion was wrong:
-    Infinity is not a measurement of 100%, it is a broken read, and drawing a ✓
-    for it would tell a couple a stage was finished on the strength of a number
-    nobody computed. Failing toward "not started" understates; failing toward
-    "complete" lies.
+    The sabotage that beat the markup guard, expressed as arithmetic against the
+    real table: equalise the sizes and the rule must break. If this ever passes
+    with equal sizes, `notStartedIsSmallest` has stopped meaning anything.
   */
-  assert.equal(stageMarkFor(Number.POSITIVE_INFINITY).kind, 'not-started');
-});
-
-test('🔒 the not-started mark is a DIFFERENT SIZE, not a different grey', () => {
-  const dot = stageMarkFor(0).diameterPx;
-  const ring = stageMarkFor(50).diameterPx;
-  const ratio = dot / ring;
-  console.log(`  not-started ${dot}px · partial ${ring}px · ratio ${ratio.toFixed(3)} (max ${NOT_STARTED_MAX_RATIO.toFixed(3)})`);
-  assert.ok(ring > 0, 'an under-way stage must draw something');
-  assert.ok(dot > 0, 'a not-started stage must draw something — absence is not a mark');
-  assert.ok(
-    ratio <= NOT_STARTED_MAX_RATIO,
-    `the not-started mark is ${ratio.toFixed(2)} of the ring — at that size it reads as ` +
-      'a ring that failed to fill, which is the defect this rule exists to prevent',
-  );
-  // Pin the constants themselves so a silent widening has to be deliberate.
-  assert.equal(ring, STAGE_RING_PX);
-  assert.equal(dot, STAGE_DOT_PX);
-});
-
-test('the ratio floor can actually fail — so the green above is evidence', () => {
-  // The sabotage that beat the markup guard, expressed as arithmetic.
-  const ringSizedDot = STAGE_RING_PX;
-  assert.ok(
-    ringSizedDot / STAGE_RING_PX > NOT_STARTED_MAX_RATIO,
-    'a ring-sized dot must violate the ratio — otherwise this rule is vacuous',
+  const equalised = { current: 10, complete: 10, partial: 10, 'not-started': 10 };
+  const { 'not-started': ns, ...rest } = equalised;
+  assert.equal(
+    Object.values(rest).every((v) => ns < v),
+    false,
+    'equal sizes must violate the rule',
   );
 });
 
-test('a complete stage draws a glyph, not a shape', () => {
-  assert.equal(stageMarkFor(100).diameterPx, 0, 'the tick is text; it has no diameter');
+test('the rail head sits where the RULE puts it', () => {
+  assert.equal(railHeadPercent(0, 0, 6), 0, 'first stop at 0% is the left end');
+  assert.equal(railHeadPercent(5, 100, 6), 100, 'last stop finished is the right end');
+  assert.equal(railHeadPercent(2, 0, 6), 40, 'stop 3 of 6 sits at 2/5');
+  assert.equal(railHeadPercent(1, 100, 6), 40, 'a finished stage lands on the NEXT stop');
+  assert.ok(Math.abs(railHeadPercent(2, 52, 6) - 50.4) < 1e-9, 'advanced into the gap by its own pct');
+});
+
+test('no input can push the head outside the bar', () => {
+  const cases: Array<[number, number, number]> = [
+    [0, 0, 0], [0, 0, 1], [-5, -5, 6], [99, 999, 6], [2, Number.NaN, 6],
+    [2, Number.POSITIVE_INFINITY, 6], [Number.NaN, 50, 6], [2, 50, Number.NaN],
+  ];
+  for (const [i, p, c] of cases) {
+    const v = railHeadPercent(i, p, c);
+    assert.ok(Number.isFinite(v) && v >= 0 && v <= 100, `railHeadPercent(${i},${p},${c}) = ${v}`);
+  }
 });

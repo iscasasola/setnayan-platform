@@ -89,12 +89,15 @@ function makeShowcaseVideoValidator(
 
 export function ShowcaseMediaFields({
   vendorProfileId,
+  unsavedHint,
   videoCurrent,
   photosCurrent,
   displayUrls,
   onClipDurationSeconds,
 }: {
   vendorProfileId: string;
+  /** Threaded to both uploads — this wrapper is inside the PARENT's form and only the parent knows its button. */
+  unsavedHint: string | null;
   /** Existing r2 refs when editing; null/empty on create. */
   videoCurrent?: string | null;
   photosCurrent?: string[];
@@ -136,6 +139,7 @@ export function ShowcaseMediaFields({
         bucket="media"
         pathPrefix={`vendors/${vendorProfileId}/services/showcase`}
         name="showcase_photo_r2_keys"
+        unsavedHint={unsavedHint}
         multiple
         maxFiles={5}
         maxSizeMB={5}
@@ -153,6 +157,7 @@ export function ShowcaseMediaFields({
         bucket="media"
         pathPrefix={`vendors/${vendorProfileId}/services/showcase`}
         name="showcase_video_r2_key"
+        unsavedHint={unsavedHint}
         maxSizeMB={200}
         acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
         compressVideo

@@ -1677,6 +1677,7 @@ export function CanvasMaker({
               bucket="media"
               pathPrefix={`vendors/${vendorProfileId}/services`}
               name="primary_photo_r2_key"
+              unsavedHint="press Publish service or Save as draft below"
               maxSizeMB={5}
               acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
               watermark
@@ -1689,6 +1690,7 @@ export function CanvasMaker({
           </Field>
           <ShowcaseMediaFields
             vendorProfileId={vendorProfileId}
+            unsavedHint="press Publish service or Save as draft below"
             onClipDurationSeconds={onClipDurationSeconds}
             videoCurrent={initial?.showcaseVideoR2Key ?? null}
             photosCurrent={initial?.showcasePhotoR2Keys}

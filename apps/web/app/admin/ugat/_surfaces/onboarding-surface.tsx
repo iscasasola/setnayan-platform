@@ -110,6 +110,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
               bucket="media"
               pathPrefix="onboarding/background-music"
               name="bg_music_url"
+              unsavedHint="press Save background music below"
               multiple
               maxFiles={ONBOARDING_MUSIC_MAX_TRACKS}
               maxSizeMB={40}

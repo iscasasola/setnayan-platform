@@ -444,6 +444,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             bucket="media"
             pathPrefix={`profile-photo/${user.id}`}
             name="profile_photo_url"
+            unsavedHint="press Save below"
             currentValue={storedPhoto}
             initialDisplayUrls={photoDisplayMap}
             maxSizeMB={2}

@@ -1143,6 +1143,7 @@ export async function VendorServicesManager({
                             bucket="media"
                             pathPrefix={`vendors/${profile.vendor_profile_id}/services`}
                             name="primary_photo_r2_key"
+                            unsavedHint="press Save changes below"
                             maxSizeMB={5}
                             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
                             watermark
@@ -1274,6 +1275,7 @@ export async function VendorServicesManager({
                         <InclusionsEditor initial={inclusionsToDrafts(svcInclusions)} />
                         <ShowcaseMediaFields
                           vendorProfileId={profile.vendor_profile_id}
+                          unsavedHint="press Save changes below"
                           videoCurrent={svc.showcase_video_r2_key}
                           photosCurrent={svc.showcase_photo_r2_keys}
                           displayUrls={showcaseDisplayUrls}
@@ -1670,6 +1672,7 @@ function AddServiceForm({
           bucket="media"
           pathPrefix={`vendors/${vendorProfileId}/services`}
           name="primary_photo_r2_key"
+          unsavedHint="press Add service below"
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           watermark
@@ -1747,7 +1750,7 @@ function AddServiceForm({
       ) : null}
       <DiscountsEditor initial={[]} />
       <InclusionsEditor initial={[]} />
-      <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
+      <ShowcaseMediaFields vendorProfileId={vendorProfileId} unsavedHint="press Add service below" />
       <SetnayanGiftField idPrefix={`new-${addCategory}`} giftOn={false} />
       <div className="flex items-center justify-between">
         <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>

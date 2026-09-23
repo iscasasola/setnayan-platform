@@ -118,6 +118,25 @@ export const OAUTH_SPECS = {
 export interface OAuthConfigField {
   /** platform_settings column == the form field name. */
   column: string;
+  /**
+   * Render this field in its OWN form, saved on its own.
+   *
+   * 🔑 WHY ANY FIELD WOULD WANT THAT. The shared form posts every field at
+   * once, and each card shows the RESOLVED value — the database value if there
+   * is one, otherwise the env var. So pressing Save to change ONE field copies
+   * every env-sourced sibling into the database, and from then on the database
+   * wins. Nothing breaks the same day (the values are identical), but a later
+   * change to that env var in Vercel would silently not apply.
+   *
+   * ⚠ That is fine when a person came to edit the whole client config. It is
+   * NOT fine for a field somebody adds later, alone, to a card whose other
+   * fields are working and env-sourced — which is exactly the Picker key on a
+   * live Google Drive card. Owner raised it twice; this is the fix.
+   *
+   * A field marked here is saved by `saveOAuthField`, which writes THAT COLUMN
+   * AND NOTHING ELSE.
+   */
+  ownForm?: true;
   /** env var the resolver falls back to (shown as the current value when DB is unset). */
   env: string;
   label: string;
@@ -219,6 +238,10 @@ export const OAUTH_INTEGRATIONS: readonly OAuthIntegrationDef[] = [
         env: 'GOOGLE_PICKER_API_KEY',
         label: 'Picker API key (public — sent to the browser)',
         placeholder: 'AIza…',
+        /* Saved alone. The client id and both redirect URIs on this card are
+           env-sourced on a LIVE Google Drive integration; adding a key must not
+           quietly move them into the database. */
+        ownForm: true,
       },
     ],
     guidance:

@@ -724,3 +724,48 @@ three different checks and I had been running one at a time. All three run toget
 push.
 
 SPEC IMPACT: None. The allowlist change is a privacy decision, recorded above and in the file.
+
+---
+
+### 18 · 🔴 The website editor was returning 500 in production — two causes, one page
+
+The owner pressed **Edit the page** on `/launch` and got *"Something on our end didn't work."*
+Reference `2184633741`. Pulled the real error rather than guessing:
+
+```
+Attempted to call done() from the server but done is on the client.
+route: /dashboard/[eventId]/website/editor      digest: 2184633741
+```
+
+`done()` and `todo()` are two-line pure helpers — and they were exported from `editor-shell.tsx`,
+which carries **`'use client'`**, while the **server** page called them **seventeen times**.
+
+🔑 **A `'use client'` file is a boundary, not a folder.** A component may be *rendered* across it; a
+plain function may not be *called* across it. Types are fine — they are erased.
+
+⛔ **And it only fails in production.** `next dev`, `tsc` and the unit suite all pass; a client
+export is a real function in dev and a *reference* in a production build. The first thing anybody
+sees is a customer on a 500.
+
+**The guard immediately found a second one on the same page** — `launchPhaseLabel` from
+`media-panels.tsx`, also `'use client'`. **Fixing only the first would have left the editor
+broken**, and nothing would have said so until the next customer pressed the button.
+
+Both helpers now live in server-safe modules (`rail-rows.ts`, `launch-phase-choices.ts`), and
+**neither is re-exported from its old path** — a re-export would make the broken import work again
+and put the trap straight back.
+
+**Guard** — `a-server-page-calls-no-client-function.test.ts`: every route entry (`page.tsx`,
+`layout.tsx`, `route.ts`) is checked for a callable import from a client module. Sabotage-proven by
+restoring the original import; it names both offences.
+
+🪤 **The guard's first version was too wide and I narrowed it rather than shipping the noise.** It
+swept every file without `'use client'` — but a plain module imported only *by* client components
+joins the client graph and may use hooks quite legally (`brand-marks.tsx` → `useBrandMark`), and a
+`.test.ts` runs in node where the boundary does not exist. Route entries are the files that are
+unambiguously server, and they are where a client call actually reaches a customer.
+
+⚠ **This was pre-existing on `main`, not introduced by this branch** — but this branch touches that
+page heavily, and the owner hit it while looking at the editor I had asked him to look at.
+
+SPEC IMPACT: None.

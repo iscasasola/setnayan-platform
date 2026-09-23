@@ -6,7 +6,13 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
-import { EditorShell, done, todo, type RailGroup } from './_components/editor-shell';
+import { EditorShell, type RailGroup } from './_components/editor-shell';
+/* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
+   file is `'use client'`, and calling a client export from this server page is
+   what returned a 500 for the whole editor (production 2026-09-23, digest
+   2184633741). A component may be RENDERED across that boundary; a function may
+   not be CALLED across it. */
+import { done, todo } from './_components/rail-rows';
 import { TextPanel } from './_components/text-panel';
 import {
   invitationWordsDraft,
@@ -35,12 +41,11 @@ import {
   StdPanel,
   EditorialPanel,
 } from './_components/authoring-panels';
-import {
-  LaunchPhasePanel,
+import {LaunchPhasePanel,
   OpenBrowsePanel,
   RsvpBackdropPanel,
-  launchPhaseLabel,
-} from './_components/media-panels';
+  } from './_components/media-panels';
+import { launchPhaseLabel } from './_components/launch-phase-choices';
 import { clearRsvpBackdrop, saveRsvpBackdrop, setLaunchPhase, setOpenBrowse } from './actions';
 import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';
 import { updateOurStory } from '../our-story/actions';

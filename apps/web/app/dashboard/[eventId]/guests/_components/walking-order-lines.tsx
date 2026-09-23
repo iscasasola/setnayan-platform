@@ -75,7 +75,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
-import { moveInEntourageOrder, setEntourageLineOrder } from '../entourage-order-actions';
+import { setEntourageLineOrder } from '../entourage-order-actions';
 import { joinEntourageLine, swapEntouragePlaces } from '../march-actions';
 import type { MarchResult } from '@/lib/march-result';
 
@@ -121,6 +121,9 @@ export function WalkingOrderLines({
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const committed = useRef<string[]>(lines.map((l) => l.leadId));
+  /** The order on screen, which the drain below chases. See `persist`. */
+  const desired = useRef<string[]>(lines.map((l) => l.leadId));
+  const inFlight = useRef(false);
 
   // The server is the source of truth: when it sends a new order (somebody
   // else moved a line, or our own save landed), take it.
@@ -128,6 +131,7 @@ export function WalkingOrderLines({
     const next = lines.map((l) => l.leadId);
     if (next.join() !== committed.current.join()) {
       committed.current = next;
+      desired.current = next;
       setOrder(next);
     }
   }, [lines]);
@@ -188,21 +192,44 @@ export function WalkingOrderLines({
    * server acknowledged and the reason is printed. A refusal that silently kept
    * the new order on screen would tell the couple their processional says
    * something it does not.
+   *
+   * ── 🪤 ONE WRITE AT A TIME, AND IT ALWAYS POSTS THE LATEST ────────────────
+   * The owner's whole ask is to move people FAST, which means tapping ↑ again
+   * before the last tap has landed. Firing one request per tap races: five
+   * single-step "move him up" calls, each resolved against its own fresh read,
+   * can interleave and settle somewhere nobody chose — and the screen would go
+   * on showing the order he tapped for. So a tap only updates `desired`, and
+   * this drains it: at most one request in flight, each posting the WHOLE
+   * sequence currently on screen. Two taps during one write collapse into one
+   * write of the final order, and the last thing posted is always what he is
+   * looking at.
    */
-  function persist(next: string[], run: () => Promise<MarchResult>) {
-    const previous = committed.current;
+  function persist(next: string[]) {
     setProblem(null);
     setOrder(next);
-    start(async () => {
-      const result = await run();
-      if (!result.ok) {
-        setOrder(previous);
-        setProblem(result.reason);
-        setSay(result.reason);
-        return;
+    desired.current = next;
+    start(drainOrder);
+  }
+
+  async function drainOrder() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      while (desired.current.join() !== committed.current.join()) {
+        const target = desired.current;
+        const result = await setEntourageLineOrder(eventId, groupKey, target);
+        if (!result.ok) {
+          setOrder(committed.current);
+          desired.current = committed.current;
+          setProblem(result.reason);
+          setSay(result.reason);
+          return;
+        }
+        committed.current = target;
       }
-      committed.current = next;
-    });
+    } finally {
+      inFlight.current = false;
+    }
   }
 
   /** Move ↑ / Move ↓ — the always-available path, now without a page load. */
@@ -213,12 +240,13 @@ export function WalkingOrderLines({
     const next = [...order];
     next.splice(to, 0, next.splice(from, 1)[0]!);
     setSay(`${byId.get(id)?.label ?? 'Line'} is now ${to + 1} of ${next.length} in ${groupLabel}.`);
-    /* Named by GUEST, exactly like the form did: the server finds the line that
-       person stands on against its own fresh read, so a line that moved under
-       us is refused rather than mistaken for its neighbour. */
-    persist(next, () =>
-      moveInEntourageOrder(eventId, id, groupKey, delta === -1 ? 'up' : 'down'),
-    );
+    /* Posts the whole sequence, exactly like the drag does — NOT "move this
+       person one step". A single-step request means something only against the
+       list the server happens to read, and two of them in flight mean it twice
+       against two different lists. `setEntourageLineOrder` still refuses a
+       sequence that does not name this group's lines exactly once, so a list
+       that gained or lost a line while we were tapping is caught, not obeyed. */
+    persist(next);
   }
 
   /** The keyboard grab: ↑/↓ shuffle on screen, Space commits the whole order. */
@@ -233,7 +261,7 @@ export function WalkingOrderLines({
   }
 
   function commit(next: string[]) {
-    persist(next, () => setEntourageLineOrder(eventId, groupKey, next));
+    persist(next);
   }
 
   function onKey(e: React.KeyboardEvent, id: string) {

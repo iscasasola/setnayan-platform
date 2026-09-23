@@ -53,47 +53,19 @@ import { createClient } from '@/lib/supabase/server';
 import { ENTOURAGE_GROUP_KEYS, entourageGroupOfRole, type EntourageRow } from '@/lib/entourage';
 import type { MarchResult } from '@/lib/march-result';
 
-export type MoveDirection = 'up' | 'down';
-
-/**
- * Move one line one place within its printed group.
- *
- * ⚖ OWNER 2026-09-20 — A PAIR MOVES AS ONE LINE. This takes a group key where
- * it used to take a ROLE, and that is the whole change: ninong and ninang are
- * two different roles, so ordering each role separately could not express a
- * pair at all. Moving her up moved her past other ninangs while he stayed put.
- *
- * ⛔ NOTHING HERE TOUCHES event_seat_assignments OR seating_priority. The
- * processional and the seat plan are two orderings on purpose; moving a pair
- * up the aisle must never move a chair.
- */
-export async function moveInEntourageOrder(
-  eventId: string,
-  guestId: string,
-  groupKey: string,
-  direction: MoveDirection,
-): Promise<MarchResult> {
-  const read = await readMarchLines(eventId, groupKey);
-  if (!read.ok) return read;
-  const { supabase, lines } = read;
-
-  const from = lines.findIndex((ln) => ln.some((half) => half?.id === guestId));
-  if (from === -1) return { ok: false, reason: MARCH_STALE };
-  const to = direction === 'up' ? from - 1 : from + 1;
-  // The end of the list is not an error — it is simply nowhere to go.
-  if (to < 0 || to >= lines.length) return { ok: true, written: 0 };
-
-  const next = [...lines];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved!);
-
-  const result = await writeLineOrder(supabase, eventId, next);
-  if (result.ok) await revalidateMarch(eventId);
-  return result;
-}
-
 /**
  * Set a whole group's line order at once, from an explicit sequence.
+ *
+ * ⚖ 2026-09-23 — THE ONLY ORDER ACTION NOW. There used to be a second,
+ * `moveInEntourageOrder(eventId, guestId, groupKey, 'up' | 'down')`, behind the
+ * ↑/↓ forms. A single-step request means something only against the list the
+ * SERVER happens to read, and the owner's ask is to move people fast, i.e. to
+ * tap ↑ again before the last tap has landed — several single-step moves in
+ * flight resolve against different reads and settle somewhere nobody chose,
+ * while the screen goes on showing the order he tapped for. The arrows post the
+ * whole sequence now, exactly like the drag, and the island keeps one write in
+ * flight. An uncalled `'use server'` export is still a live HTTP endpoint, so
+ * it was removed rather than left behind.
  *
  * 🔑 IT TAKES LEAD IDS, NOT POSITIONS. A position is only meaningful against
  * the order the client happened to be looking at; if the roster moved under

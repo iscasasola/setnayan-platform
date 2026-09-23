@@ -1717,6 +1717,31 @@ h2.fd-sechead,
      because there the rail and the feed share one cream page; here the
      content sits on the app's warm wash and the rail needs an edge. */
   border-right: 1px solid var(--fd-line);
+  /* 🔴 AND THE EDGE MUST REACH THE BOTTOM. `.fd-body` is a grid whose row is
+     sized by its TALLEST item, and on a short page that is the content column,
+     not the rail. The rail (`align-items: normal` ⇒ stretch) then took the
+     content's height and the cream and the hairline simply STOPPED partway
+     down the screen, leaving the rest of the left column painted with nothing.
+     Measured on the live app 2026-09-23, `/dashboard/samahan` in a 1204px
+     window: content column 549px, rail 549px, `unpaintedBelowRail` 594px —
+     the border ran 45% of the way down and quit. It tracked page length
+     exactly (`/dashboard` 1143 = full · `/dashboard/library` 984 ·
+     `/dashboard/people` 896 · `/dashboard/samahan` 549), which is why it read
+     as "the sidebar sometimes has a line and mostly does not".
+
+     🔑 THIS IS THE PARTNER OF THE `max-height` THE BASE RULE ALREADY SETS.
+     One without the other only ever clamps in one direction: `max-height`
+     stopped the rail on a LONG page, and nothing stopped the row collapsing on
+     a SHORT one. Same expression on purpose — a rail that is exactly
+     `100vh - var(--fd-bar)` fills its column at every page length.
+
+     ⚠ IT CANNOT INTRODUCE A SCROLLBAR, and that was checked rather than
+     assumed: `.fd` has exactly two children (`.fd-topwrap` 61px + `.fd-body`)
+     with nothing after them at any level, and `.app-surface` already carries
+     `min-height: 100dvh`. So 61 + (100vh - 61) lands exactly on the height the
+     surface was already reserving. Re-measure with
+     `document.querySelector('.fd').children` before changing this. */
+  min-height: calc(100vh - var(--fd-bar));
   /* ⚠ THE `top: 0; max-height: 100vh` OVERRIDE THAT SAT HERE IS GONE
      (2026-08-14). It existed because "there is no top bar in this variant",
      and there is one now — the shared bar. Left in place the rail would slide
@@ -1947,6 +1972,32 @@ h2.fd-sechead,
      below the z-100 toast layer, which is `pointer-events: none` anyway. */
   .fd[data-chrome='app'] .fd-rail {
     z-index: 60;
+    /* THE DRAWER FILLS THE WHOLE SCREEN — the same rule as the desktop rail,
+       stated in this surface's own terms. Owner, 2026-09-23: *"this also
+       applies to the hamburger menu on mobile view, since it serves the same
+       purpose."*
+
+       Above this breakpoint the rail is a grid item that must fill its COLUMN,
+       so its floor is `100vh - var(--fd-bar)` — it starts below the bar. Here
+       it is an off-canvas drawer pinned `top: 0; bottom: 0`, so it starts at
+       the top of the screen and its floor is the FULL viewport. Carrying the
+       desktop expression down would leave the drawer one bar-height short of
+       the bottom; carrying nothing down (this read `min-height: 0` until the
+       owner's note) says "no floor here", which is the desktop defect's
+       premise, not its fix.
+
+       ⚠ IT IS DELIBERATELY NOT A NO-OP-BY-LUCK. Measured live on a 375×812
+       viewport, 2026-09-23: the open drawer is 280×812 with `gapBelow: 0`,
+       because `top: 0; bottom: 0` already sizes it. This floor changes nothing
+       TODAY and exists for the day someone drops one of those two anchors —
+       at which point the drawer would size to its content and the left edge
+       would stop halfway down a phone, which is exactly the defect this
+       changeset fixed on the desktop rail.
+
+       `dvh`, not `vh`: on a phone `100vh` is the tallest the viewport ever
+       gets, so a `vh` floor would push the drawer under the browser's own
+       chrome while it is on screen. */
+    min-height: 100dvh;
   }
   .fd[data-chrome='app'] .fd-scrim {
     z-index: 59;

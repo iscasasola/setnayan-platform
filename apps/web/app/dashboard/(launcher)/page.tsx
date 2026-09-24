@@ -2,22 +2,18 @@ import {
   Suspense,
   type ReactNode,
   type ComponentType,
-  type CSSProperties,
 } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   Store,
   ShieldCheck,
-  Plus,
   ArrowUpRight,
   Wand2,
-  AlertCircle,
   Users,
   Clapperboard,
   Heart,
   HeartHandshake,
-  MapPin,
   Baby,
   Mail,
   CalendarClock,
@@ -65,12 +61,17 @@ import {
 } from '@/lib/event-decisions';
 import { getAdminQueueDigest, ADMIN_QUEUE_META } from '@/lib/admin/queue-counts';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ProgressRing } from '@/app/_components/progress-ring';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import {
+  CollectionCard,
+  CollectionGrid,
+  NewThingTile,
+  collectionMarkClass,
+  type CollectionAttention,
+} from '@/app/_components/collection-card';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { CountUp } from '@/app/_components/count-up';
 import { EventCardMenu } from './_components/event-card-menu';
 /*
   ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
@@ -1058,7 +1059,7 @@ export default async function LauncherPage({
             itself the morning after.
           </p>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <CollectionGrid>
           {happeningNow.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
@@ -1073,7 +1074,7 @@ export default async function LauncherPage({
               />
             </BoardCardWithMenu>
           ))}
-        </div>
+        </CollectionGrid>
       </section>
 
       <section
@@ -1094,7 +1095,7 @@ export default async function LauncherPage({
         </SectionLabel>
         <ClashNotice clashes={clashes} />
         {/* DESKTOP grid (proto .evrow — 4 columns on the wide canvas). */}
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <CollectionGrid>
           {upcoming.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
@@ -1110,7 +1111,7 @@ export default async function LauncherPage({
             </BoardCardWithMenu>
           ))}
           <NewEventCard delay={0.5 + upcoming.length * 0.08} />
-        </div>
+        </CollectionGrid>
         {/* THE ONES THEY PUT AWAY — only when asked for. Muted, and each still
             carries its own ⋯ menu, because the one thing a person wants here is
             "bring it back", which is exactly what that menu already offers on an
@@ -1120,7 +1121,7 @@ export default async function LauncherPage({
             <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--sn-ink-400)]">
               Put away
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <CollectionGrid>
               {putAway.map((event, i) => (
                 <BoardCardWithMenu key={event.event_id} event={event}>
                   <GlassEventCard
@@ -1136,7 +1137,7 @@ export default async function LauncherPage({
                   />
                 </BoardCardWithMenu>
               ))}
-            </div>
+            </CollectionGrid>
           </div>
         ) : null}
         {/* ⚠ THE ALL-EVENTS SUBSCRIPTION BLOCK STOOD HERE AND IS RETIRED
@@ -1234,7 +1235,7 @@ export default async function LauncherPage({
                 refused read cannot vouch for, is not this shelf's call to make. */}
             {/* DESKTOP — the same glass cards, muted scene, reading
                 "Celebrated". */}
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <CollectionGrid>
               {unwritten.map((event, i) => (
                 <BoardCardWithMenu key={event.event_id} event={event} finished>
                   <GlassEventCard
@@ -1255,7 +1256,7 @@ export default async function LauncherPage({
                   />
                 </BoardCardWithMenu>
               ))}
-            </div>
+            </CollectionGrid>
           </>
         )}
       </section>
@@ -1291,7 +1292,7 @@ export default async function LauncherPage({
               : 'This is where the celebrations you have written up live.'}
           </p>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <CollectionGrid>
           {written.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event} finished>
               <GlassEventCard
@@ -1307,7 +1308,7 @@ export default async function LauncherPage({
               />
             </BoardCardWithMenu>
           ))}
-        </div>
+        </CollectionGrid>
         {/* ⚠ ONLY WHEN THERE IS SOMETHING TO READ. "These days are told"
             beside an empty shelf names days that are not there.
             🔑 THIS LINE USED TO SAY "chapters" AND POINT AT THE STORYTELLER.
@@ -1543,79 +1544,6 @@ function StanceChip({ stance }: { stance: EventStance }) {
 }
 
 /**
- * The press + hover affordances. Stripped from a card that has nowhere to go —
- * see CardShell. Kept as one list so "which classes make this look pressable"
- * has a single answer.
- */
-const PRESSABLE_CLASSES = ['sn-press', 'sn-lift-4'] as const;
-
-/**
- * …and every `hover:` variant, because a named list is a bill you keep paying.
- * The first cut stripped the two classes above and left `hover:border-mulberry/30`
- * on the desktop card, so a dead card still lit its border under the pointer.
- * Anything that changes on hover is an affordance.
- */
-const isHoverAffordance = (c: string) => c.startsWith('hover:');
-
-/**
- * A board card is a LINK when there is somewhere to send this person, and an
- * INERT panel when there is not — inert in look as well as in behaviour.
- *
- * 🪤 An INVITED event whose host has never opened a public page has no guest
- * surface at all — and one prod event is in exactly that state. The old card
- * would have linked to `/dashboard/<id>`, which admits organisers only, so the
- * person told they belong would have been shown a 404. Rendering the card
- * without a link is the honest version: they ARE invited, there is just nothing
- * to open yet, and `deriveEventView`'s `closedReason` puts that on the card.
- *
- * 🚨 AND THE FIRST CUT OF THIS SHELL WAS A DEAD CONTROL THAT LOOKED ALIVE.
- * It passed the caller's `className` straight through to the `<div>`, and that
- * string carries `sn-press` (`:active { scale: 0.97 }`) and `sn-lift-4`
- * (`:hover { translateY(-4px) }`) — both plain class selectors in globals.css,
- * so they fire on a div exactly as on a link. The card lifted when you pointed
- * at it and squashed when you pressed it, and then did nothing. Found by an
- * adversarial pass over my own merged work, 2026-08-13; the `cursor` never
- * changed (those rules cover buttons and anchors only), which made it quieter
- * still. **A control that animates under your finger has promised something.**
- */
-function CardShell({
-  href,
-  className,
-  style,
-  children,
-}: {
-  /** `null` renders an inert card (see the block above) — used ONLY when the
-   *  destination genuinely does not exist yet (an invited guest whose host
-   *  hasn't opened a public address). Never pass null to mean "use the
-   *  default" — callers that want the default simply don't override it. */
-  href: string | null;
-  className: string;
-  style?: CSSProperties;
-  children: ReactNode;
-}) {
-  if (!href) {
-    const inert = className
-      .split(/\s+/)
-      .filter(
-        (c) =>
-          !(PRESSABLE_CLASSES as readonly string[]).includes(c) &&
-          !isHoverAffordance(c),
-      )
-      .join(' ');
-    return (
-      <div className={inert} style={style}>
-        {children}
-      </div>
-    );
-  }
-  return (
-    <Link href={href} className={className} style={style}>
-      {children}
-    </Link>
-  );
-}
-
-/**
  * One EVENTS glass card (owner-approved final design 2026-07-15). A frosted
  * panel over the warm paper — the Atelier + macOS-glass language (owner-locked
  * 2026-07-12) — carrying the same signals as the old timeline node: badge ·
@@ -1683,24 +1611,28 @@ function GlassEventCard({
   const showRing = pct != null && stance !== 'invited' && !finished;
   const resolvedHref = storyHref ?? href;
 
+  /*
+    THE CARD IS THE COLLECTION CARD (build-sessions/STANDARD-collection-card.md,
+    step 1). This function is now only PLANNING'S SLOT MAPPING — which event
+    fact fills which slot. How a card is laid out lives in
+    `@/app/_components/collection-card`, and the no-fork guard keeps it there.
+  */
   return (
-    <CardShell
+    <CollectionCard
       href={resolvedHref}
-      className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex h-full min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
-        finished ? 'opacity-75 hover:opacity-100' : ''
-      }`}
-      style={{ animationDelay: `${0.5 + index * 0.08}s` }}
-    >
-      {/* THE SCENE (prototype `events()` → `.top`): the event's hero, scrimmed,
-          with the type badge, the monogram floating over the band's edge, and
-          the event's NAME + PLACE set on it — the thing that makes an event
-          imaginable instead of a stripe (owner 2026-07-30). The couple's OWN
-          hero when they have one; otherwise the same type hero (+ gradient
-          fallback) the create-event picker uses, under the per-event treatment
-          that keeps two events of one type from reading as the same
-          photograph. Nothing new is invented, and a type with no asset gets
-          its deterministic branded gradient, never another type's photo. */}
-      <div className="relative h-32 shrink-0 sm:h-36">
+      inertReason={closedReason}
+      muted={finished}
+      index={index}
+      reserveMenuCorner={hasMenu}
+      /* THE SCENE (prototype `events()` → `.top`): the event's hero, scrimmed —
+         the thing that makes an event imaginable instead of a stripe (owner
+         2026-07-30). The couple's OWN hero when they have one; otherwise the
+         same type hero (+ gradient fallback) the create-event picker uses,
+         under the per-event treatment that keeps two events of one type from
+         reading as the same photograph. Nothing new is invented, and a type
+         with no asset gets its deterministic branded gradient, never another
+         type's photo. */
+      cover={
         <EventScene
           eventId={event.event_id}
           eventType={event.event_type}
@@ -1708,21 +1640,14 @@ function GlassEventCard({
           ownPhotoSrc={ownHeroSrc}
           muted={finished}
         />
-        {/* Type badge + STANCE, one row: what kind of event this is, and which
-            side of it you are on. */}
-        <div
-          className={`absolute left-3 top-3 flex flex-wrap items-center gap-1.5 ${
-            hasMenu ? 'max-w-[calc(100%-3.75rem)]' : 'max-w-[calc(100%-1.5rem)]'
-          }`}
-        >
-          <span className="inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
-            {badge}
-          </span>
-          {stance ? <StanceChip stance={stance} /> : null}
-        </div>
-        {/* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
-            lettered). Uploaded outranks custom per app-wide precedence;
-            EventMonogram only reads monogram_custom_svg, so resolve it here. */}
+      }
+      /* Type badge + STANCE, one row: what kind of event this is, and which
+         side of it you are on. */
+      kicker={stance ? [badge, <StanceChip stance={stance} key="stance" />] : [badge]}
+      /* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
+         lettered). Uploaded outranks custom per app-wide precedence;
+         EventMonogram only reads monogram_custom_svg, so resolve it here. */
+      mark={
         <EventMonogram
           event={{
             ...event,
@@ -1731,79 +1656,29 @@ function GlassEventCard({
           }}
           size="lg"
           shape="square"
-          className="absolute -bottom-4 right-3 border-2 border-white/80 shadow-[var(--sn-sh-tile)]"
+          className={collectionMarkClass}
         />
-        {/* Name + place ON the scene. `right-[4.75rem]` keeps them clear of the
-            monogram that overhangs the band's bottom-right corner. Place is
-            omitted (never guessed) when the event has neither a venue name nor
-            an address. */}
-        <div className="absolute inset-x-3 bottom-2.5 right-[4.75rem] min-w-0">
-          <p className="flex items-center gap-1.5 text-[15px] font-extrabold text-white drop-shadow-[0_1px_6px_rgba(23,22,15,0.6)]">
-            {event.is_primary ? (
-              <span
-                aria-hidden
-                className="shrink-0 text-xs text-[color:var(--sn-terra)]"
-              >
-                ★
-              </span>
-            ) : null}
-            <span className="truncate">{event.display_name}</span>
-          </p>
-          {place ? (
-            <p className="flex items-center gap-1 text-[11.5px] text-white/75">
-              <MapPin aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
-              <span className="truncate">{place}</span>
-            </p>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-4 pt-5">
-        <p className="truncate text-[12.5px] text-[color:var(--sn-ink-500)]">
-          {dateLabel ?? 'Date to be set'}
-        </p>
-        {/* THE COUNTER (owner 2026-08-20). Above the progress row so it is the
-            first thing read after the date — what is waiting outranks how far
-            along the plan is. Absent entirely when nothing waits. */}
-        <EventAttention summary={summary} stance={stance} />
-        <div className="mt-auto flex items-center gap-2.5 pt-1">
-          {showRing ? (
-            <ProgressRing
-              pct={pct as number}
-              size={44}
-              stroke={4.5}
-              trackColor="rgb(var(--color-ink) / 0.08)"
-              sweep={{ delayMs: 600 + 150 * index }}
-              className="rounded-full shadow-[0_6px_16px_-8px_rgba(30,26,18,0.3)]"
-            >
-              {/* Frosted inner disc behind the label (proto .ring inner). */}
-              <span
-                aria-hidden
-                className="absolute inset-[4.5px] rounded-full bg-white/[0.78] backdrop-blur-[6px]"
-              />
-              <span className="relative font-mono text-[10px] font-bold text-ink">
-                <CountUp value={pct as number} suffix="%" delayMs={600 + 150 * index} />
-                {/* The ring is the ONE place the figure prints (the old
-                    "N% planned" text beside it was the D-6 double-print);
-                    this keeps the word for screen readers. */}
-                <span className="sr-only"> planned</span>
-              </span>
-            </ProgressRing>
-          ) : null}
-          <div className="min-w-0">
-            <p className="truncate text-[12.5px] font-bold text-ink">{status}</p>
-            {keptNote ? (
-              <p className="truncate text-[11px] text-ink/45">{keptNote}</p>
-            ) : null}
-            {/* Why this card does not open. Rendered whenever there is no
-                destination, on EVERY shelf — a silent dead card reads as the
-                app being broken or the couple having pulled their page. */}
-            {closedReason ? (
-              <p className="text-[11px] leading-snug text-ink/45">{closedReason}</p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </CardShell>
+      }
+      starred={event.is_primary}
+      title={event.display_name}
+      /* Omitted (never guessed) when the event has neither a venue name nor an
+         address. */
+      place={place}
+      meta={dateLabel ?? 'Date to be set'}
+      /* THE COUNTER (owner 2026-08-20). Above the progress row so it is the
+         first thing read after the date — what is waiting outranks how far
+         along the plan is. Absent entirely when nothing waits. */
+      attention={eventAttention(summary, stance)}
+      progress={{
+        pct: showRing ? (pct as number) : undefined,
+        remainder: status,
+        // The ring is the ONE place the figure prints (the old "N% planned"
+        // text beside it was the D-6 double-print); this keeps the word for
+        // screen readers.
+        srLabel: 'planned',
+        note: keptNote,
+      }}
+    />
   );
 }
 
@@ -1930,71 +1805,14 @@ function deriveEventView(
  */
 
 /**
- * The "needs a decision now" line — a gold pill naming the top pending
- * action (+ "· N more" when other kinds are also waiting). Named, not a bare
- * count badge, so the couple knows WHAT before they click (owner 2026-07-10).
- * Reused on the vendor shop + admin HQ cards, and on every event card.
+ * The event-card counter — Planning's fill for the collection card's ONE
+ * attention row, or nothing at all.
  *
- * ─── `count` — THE TOTAL, LEADING (owner 2026-08-20) ────────────────────────
- * The owner asked for "a counter on the event card", having watched a banner
- * say "9 things need you" for one event while the rest said nothing. So the
- * event cards pass `count` and the pill leads with that whole number.
- *
- * 🔑 IT LEADS WITH THE NUMBER AND STILL NAMES THE ACTION, because BOTH owner
- * rulings are live and neither cancels the other: 2026-07-10 asked for a named
- * line rather than a bare badge ("so the couple knows WHAT before they click"),
- * and 2026-08-20 asked for the count to be visible per event. A bare "9" would
- * satisfy the new instruction by breaking the old one. The number is first so
- * that it survives truncation on the narrowest card — the label is what gives
- * way when there is no room, never the count.
- */
-function AttentionPill({
-  label,
-  more = 0,
-  count,
-}: {
-  label: string;
-  more?: number;
-  /** Total waiting on this surface. Omitted → the original label-only pill. */
-  count?: number;
-}) {
-  return (
-    <span className="flex items-center gap-1.5 rounded-lg bg-[color:var(--sn-warning-soft)] px-[9px] py-[5px] text-[color:var(--sn-warning)]">
-      <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
-      {count != null ? (
-        /*
-          🚨 THE TOTAL NEEDS ITS OWN NOUN, AND THE FIRST CUT DID NOT GIVE IT ONE.
-          `summarizeEventDecisions` returns a label that is ALREADY COUNT-LED —
-          "3 payments to settle" — so printing the total straight before it
-          rendered "9 3 payments to settle", and "3 3 payments to settle"
-          whenever one kind was the only kind waiting. Two numbers in a row with
-          nothing between them, on the pill the owner asked for by name.
-
-          "need you" is what makes the first number a TOTAL and the second one a
-          BREAKDOWN. It is also the banner's own word, so the count reads as the
-          same fact that used to sit at the top of the page.
-        */
-        <span className="shrink-0 font-mono text-[12px] font-bold leading-none">
-          {count} need you
-        </span>
-      ) : null}
-      <span className="truncate text-[11px] font-bold">
-        {count != null ? <span className="opacity-60">· </span> : null}
-        {label}
-        {/* `· N more` is SUPPRESSED once the total is shown: the total already
-            counts the remainder (9 = 3 + 6), so keeping both prints the same
-            arithmetic twice and invites the reader to add them again. */}
-        {more > 0 && count == null ? (
-          <span className="font-mono font-normal opacity-70"> · {more} more</span>
-        ) : null}
-      </span>
-    </span>
-  );
-}
-
-/**
- * The event-card counter — `AttentionPill` fed from a card's own decision
- * summary, or nothing at all.
+ * The row itself (the amber pill, "N need you", the rule that the total leads
+ * only when it says something the label does not) is the collection card's
+ * `CollectionAttentionRow` now; see its docblock for the owner's "9 need you ·
+ * 9 tasks overdue" and "9 3 payments to settle" history. This function only
+ * decides WHICH numbers Planning hands it.
  *
  * ─── THE TWO WAYS THIS MUST STAY SILENT ────────────────────────────────────
  * 1. NO SUMMARY, NO PILL. `decisionByEvent` is keyed on the organiser's ACTIVE
@@ -2009,43 +1827,24 @@ function AttentionPill({
  *    the same error as printing "% planned" on a card for somebody else's
  *    plan, which `deriveEventView` already refuses to do.
  */
-function EventAttention({
-  summary,
-  stance,
-}: {
-  summary: EventDecisionSummary | undefined;
-  stance: EventStance | null;
-}) {
-  if (!summary || summary.total <= 0 || !summary.top) return null;
-  if (stance === 'invited') return null;
+function eventAttention(
+  summary: EventDecisionSummary | undefined,
+  stance: EventStance | null,
+): CollectionAttention | undefined {
+  if (!summary || summary.total <= 0 || !summary.top) return undefined;
+  if (stance === 'invited') return undefined;
   /*
-    🔴 THE TOTAL IS ONLY SHOWN WHEN IT SAYS SOMETHING THE LABEL DOES NOT.
-
-    Owner, looking at his own home screen: the card read
-    **"9 need you · 9 tasks overdue"** — nine, twice.
-
-    This is the second costume of the bug fixed the day before. That one was
-    "9 3 payments to settle", where the two numbers DIFFERED and ran together
-    with nothing between them. The noun ("need you") fixed the collision but not
-    the REPETITION: when everything waiting is a single kind, the total and the
-    top action's count are the same number, and the pill states it twice.
-
-    `summarizeEventDecisions` always returns a count-led label, so when
-    `total === top.count` the label alone is the whole truth — "9 tasks overdue"
-    says how many AND what. The total earns its place only when it is larger,
-    i.e. when other kinds are waiting that the label cannot name.
-
-    🔑 A SUMMARY THAT REPEATS ITSELF READS AS A BUG EVEN WHEN THE NUMBER IS
-    RIGHT. The owner did not have to check anything to see it was wrong.
+    `count` is the TOTAL waiting and `labelCount` is what the count-led label
+    already says ("9 tasks overdue"). The row prints the total ahead of the
+    label only when `count > labelCount` — other kinds are waiting that the
+    label cannot name — so one kind of thing never reads as the same number
+    twice.
   */
-  const otherKinds = Math.max(0, summary.total - summary.top.count);
-  return (
-    <AttentionPill
-      count={otherKinds > 0 ? summary.total : undefined}
-      label={summary.top.label}
-      more={0}
-    />
-  );
+  return {
+    count: summary.total,
+    label: summary.top.label,
+    labelCount: summary.top.count,
+  };
 }
 
 /**
@@ -2117,19 +1916,11 @@ function BoardCardWithMenu({
  * (not a page of content to preview), so this stays a navigation. At base a
  * compact dashed ROW (proto .mghost — a light footer to the Events block);
  * from `sm` the dashed ghost card with the same footprint as an event card
- * (proto .evghost — bare gold plus, no circle).
+ * (proto .evghost — bare gold plus, no circle). The tile itself is the
+ * collection standard's `NewThingTile`; Planning supplies where and what.
  */
 function NewEventCard({ delay = 0 }: { delay?: number }) {
-  return (
-    <Link
-      href="/dashboard/create-event"
-      className="sn-press sn-reveal group flex flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-ink/20 bg-white/[0.35] px-4 py-3.5 text-[13px] font-bold text-[color:var(--sn-ink-500)] transition-[color,background-color,border-color,transform] duration-200 hover:-translate-y-[3px] hover:border-terracotta hover:bg-white/50 hover:text-[color:var(--sn-gold-700)] sm:min-h-[196px] sm:flex-col sm:rounded-2xl sm:p-4"
-      style={{ animationDelay: `${delay}s` }}
-    >
-      <Plus aria-hidden className="h-[22px] w-[22px] text-[color:var(--sn-gold-600)]" />
-      New event
-    </Link>
-  );
+  return <NewThingTile href="/dashboard/create-event" label="New event" delay={delay} />;
 }
 
 type SpaceCardProps = {

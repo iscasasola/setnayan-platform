@@ -39,10 +39,19 @@ test('the board card never scores a finished celebration and never prints the fi
     !page.includes('% planned`'),
     'an "N% planned" text label is back beside the ring that already prints N% — the D-6 double print',
   );
-  // And the figure still reaches screen readers as a planning number.
+  // And the figure still reaches screen readers as a planning number. Since
+  // 2026-09-24 the ring is drawn by the collection card (the standard, step 1):
+  // Planning hands it the noun, and the card prints it sr-only after the figure.
+  // Both halves are pinned — either one alone leaves a bare percentage.
   assert.match(
     page,
-    /sr-only"> planned</,
-    'the ring lost its sr-only "planned" suffix — a screen reader now hears a bare percentage',
+    /srLabel: 'planned'/,
+    'the board stopped handing the ring its "planned" noun — a screen reader now hears a bare percentage',
+  );
+  const card = stripped('../../_components/collection-card.tsx');
+  assert.match(
+    card,
+    /<span className="sr-only">\{` \$\{progress\.srLabel\}`\}<\/span>/,
+    'the collection card no longer prints the ring’s sr-only noun',
   );
 });

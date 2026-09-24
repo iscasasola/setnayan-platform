@@ -1,6 +1,7 @@
 /**
  * rail-data.ts — everything the SHARED rail needs from the server: who is
- * looking, the Studio group, and the marketplace folders.
+ * looking and the Studio group. (The marketplace folders left with the
+ * in-event "Browse by category" group, 2026-09-24.)
  *
  * EXTRACTED FROM `front-door.tsx` 2026-08-13 (One Shell slice 0), unchanged in
  * behaviour. It moved because the rail now renders in two places — the public
@@ -22,12 +23,6 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents } from '@/lib/events';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import {
-  WEDDING_FOLDER_LABEL,
-  WEDDING_FOLDER_SLUG,
-  type WeddingFolder,
-} from '@/lib/taxonomy';
-import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 
 import { resolveProfile, type EventTypeProfile } from '@/lib/event-type-profile';
 import { STUDIO_APPS } from '@/lib/studio-apps';
@@ -45,23 +40,7 @@ export {
   RAIL_TOOLS,
 } from '@/lib/studio-rail';
 
-import type { FrontDoorAccount, RailFolder, RailTool } from './front-door-shell';
-
-/**
- * One marketplace folder, as the rail renders it.
- *
- * Shared for the same reason the account resolver is: the count beside each
- * name is a promise, and two copies of this mapping is two chances for the
- * public page and the signed-in page to quote different numbers for the same
- * category.
- */
-export function toRailFolder(f: WeddingFolder): RailFolder {
-  return {
-    slug: WEDDING_FOLDER_SLUG[f],
-    label: WEDDING_FOLDER_LABEL[f],
-    count: FOLDER_SERVICE_COUNT[f] ?? 0,
-  };
-}
+import type { FrontDoorAccount, RailTool } from './front-door-shell';
 
 /**
  * The Studio group — ONE ROW PER PRODUCT, TWO BEHAVIOURS.

@@ -86,7 +86,10 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/anon-onboarding.ts', ['NEXT_PUBLIC_ANON_ONBOARDING_ENABLED']],
   ['lib/booth-studio-flag.ts', ['NEXT_PUBLIC_BOOTH_STUDIO_ENABLED']],
   ['lib/chibi-config.ts', ['NEXT_PUBLIC_FIGURE_CHIBI']],
-  ['lib/customer-menu.ts', ['NEXT_PUBLIC_SUITE']],
+  /* 🔄 MOVED 2026-09-24 (event menu by moment). `lib/customer-menu.ts` no
+     longer re-reads NEXT_PUBLIC_SUITE — its Suite row takes `SUITE_NAV_ON` and
+     `studioHubHref` from `lib/studio-hub.ts`, already listed below, the same
+     move the rail builder made on 2026-08-21. */
   ['lib/demo-booth-rotation.ts', ['NEXT_PUBLIC_PLAN3D_DEMO_ADS']],
   ['lib/experience-quiz.ts', ['NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED']],
   // Converted 2026-09-22 (W1/LAU-36). The first three drifted in AFTER the

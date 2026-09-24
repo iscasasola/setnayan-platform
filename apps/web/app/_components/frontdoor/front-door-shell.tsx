@@ -15,8 +15,8 @@
  * ─── THE RAIL'S FIVE GROUPS, IN ORDER ────────────────────────────────────
  *   1 · Destinations   Home · Marketplace (signed in only)
  *   2 · THE ACCOUNT SLOT  ← second, above the categories
- *   3 · Browse by category  the five visible folders + Show more (signed in
- *                           only) — the shortcuts INTO the Marketplace row
+ *   3 · (Browse by category — REMOVED 2026-09-24; it drew only inside an
+ *        event, where Your Team is the one supplier row)
  *   4 · Studio         the seven tools
  *   5 · Small print    + a copyright line
  *
@@ -96,8 +96,6 @@ import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 */
 import {
   ArrowLeft,
-  ChevronDown,
-  ChevronUp,
   Compass,
   LayoutGrid,
   PenLine,
@@ -114,7 +112,6 @@ import {
   second hand-typed map here is how a rail and a page start disagreeing about
   what "Venues & churches" looks like, so this imports the one that exists.
 */
-import { folderIcon } from '@/lib/taxonomy-icons';
 
 /**
  * How long the off-canvas drawer takes to slide, in milliseconds.
@@ -214,12 +211,6 @@ const RAIL_DRAWER_MS = 200;
  * only one-press home on mobile (its own docblock calls that load-bearing)
  * and its phone search. One bar, one cluster, nothing mounted twice.
  */
-
-export type RailFolder = {
-  slug: string;
-  label: string;
-  count: number;
-};
 
 export type RailTool = {
   /** Stable id from `lib/studio-apps.ts`. Also the React key. */
@@ -343,8 +334,6 @@ const RAIL_SLOT = {
 
 type Props = {
   account: FrontDoorAccount;
-  visibleFolders: ReadonlyArray<RailFolder>;
-  moreFolders: ReadonlyArray<RailFolder>;
   tools: ReadonlyArray<RailTool>;
   /**
    * Planner, Builder and Together sit above Studio, same row grammar. See
@@ -627,38 +616,8 @@ function RailIcon({
   );
 }
 
-/**
- * One marketplace category row.
- *
- * Extracted from the single `folders.map` this file used to run, because the
- * five always-visible categories and the nine behind "Show more" now live in
- * two different places in the tree — the extra nine sit inside the `.fd-reveal`
- * panel that animates its own height. Two copies of the row would be two
- * answers to what a category row looks like, free to drift the first time one
- * of them gains a badge.
- *
- * ⚠ THE PARAMETER IS `f` ON PURPOSE, and renaming it breaks a shipped guard.
- * `rail-icons-are-icons.test.ts` pins the literal `folderIcon(f.slug)` — the
- * rule that a category row reads the shared taxonomy map instead of a
- * hand-typed one, so the rail and the Explore strip cannot start disagreeing
- * about what a category looks like. The extraction kept the name the map it
- * replaced already used, rather than widening a guard to fit a tidier word.
- */
-function FolderRow({ f }: { f: RailFolder }) {
-  return (
-    <Link href={`/explore?folder=${encodeURIComponent(f.slug)}`} className="fd-row">
-      <RailIcon as={folderIcon(f.slug)} />
-      <span className="fd-label-text">{f.label}</span>
-      <span className="fd-icon-caption">{f.label}</span>
-      <span className="fd-ct fd-mono">{f.count}</span>
-    </Link>
-  );
-}
-
 export function FrontDoorShell({
   account,
-  visibleFolders,
-  moreFolders,
   tools: toolsIn,
   plannerTools: plannerToolsIn = [],
   builderTools: builderToolsIn = [],
@@ -689,7 +648,6 @@ export function FrontDoorShell({
   */
   const [railClosing, setRailClosing] = useState(false);
   const railCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
@@ -835,7 +793,8 @@ export function FrontDoorShell({
     focuses on /dashboard/library and not on /dashboard/profile, and a layout
     does not re-render between its own pages, so only this client component
     knows which it is. It says it the way the guard asks — by the list.
-    Studio stays inside an event, where its rows open THAT event's tools.
+    Inside an event the caller already hands `tools` in EMPTY (2026-09-24):
+    each product is a row at its moment in the event menu instead.
   */
   const tools = focused && !insideEvent ? [] : toolsIn;
   const plannerTools = focused ? [] : plannerToolsIn;
@@ -1004,15 +963,6 @@ export function FrontDoorShell({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuOpen]);
-
-  /*
-    ⚠ THE EXTRA CATEGORIES ARE NO LONGER CONCATENATED IN AND OUT OF THE LIST.
-    They render always, inside a `.fd-reveal` panel that animates its own
-    height — a list that is rebuilt on every toggle has nothing to animate,
-    because the rows the browser would tween are brand-new elements. The panel
-    goes `visibility: hidden` at the end of the collapse, so the rows leave the
-    tab order exactly as they did when they were unmounted.
-  */
 
   /*
     THE BAR, DEFINED ONCE. The app variant wraps it in the sticky
@@ -1680,71 +1630,14 @@ export function FrontDoorShell({
             </RailActiveKeyProvider>
           ) : null}
 
-          {/* 3 · MARKETPLACE — signed-in AND inside an event only (owner
-              2026-08-22: *"marketplace is best shown inside an event, not
-              when they just logged in"*). REVERSES the 2026-08-12 furniture
-              rule below, which this replaces: the group used to show on the
-              front door / My Events board and collapse away the moment a
-              `railContext` pushed in (an event, the admin console, the
-              vendor dashboard). `insideEvent` is narrower than `railContext`
-              on purpose — the admin console and the vendor dashboard also
-              push a context, and neither is a couple's supplier marketplace.
-
-              🔄 STUDIO NO LONGER COLLAPSES WITH IT — see section 4. */}
-          {account.signedIn ? (
-            /*
-              NESTED, NOT `&& insideEvent`, deliberately — same reasoning as
-              before the reversal: the shipped guard pins this gate as the
-              literal `{account.signedIn ?`, so folding a second condition
-              into the same expression would blind it while reading as a
-              tidier line. The collapse is a separate question, so it keeps
-              its own branch.
-            */
-            insideEvent ? (
-            <div className="fd-rgroup">
-              <div className="fd-rdiv" />
-              {/* NOT "Marketplace" — that is the row above, and the same word
-                  twice in one rail reads as two different places. These are
-                  shortcuts INTO it (`/explore?folder=…`). See the header. */}
-              <div className="fd-rlabel">Browse by category</div>
-              {visibleFolders.map((f) => (
-                <FolderRow key={f.slug} f={f} />
-              ))}
-              {/*
-                THE EXTRA CATEGORIES, ALWAYS RENDERED AND ANIMATED OPEN.
-                `id` + `aria-controls` on the button below are what tell a
-                screen reader which panel the press opened — the button used to
-                rebuild the list around itself and announce nothing.
-              */}
-              <div
-                id={`${railId}-more`}
-                className="fd-reveal"
-                data-open={moreOpen ? 'true' : 'false'}
-              >
-                <div className="fd-reveal-in">
-                  {moreFolders.map((f) => (
-                    <FolderRow key={f.slug} f={f} />
-                  ))}
-                </div>
-              </div>
-              <button
-                type="button"
-                className="fd-row"
-                aria-expanded={moreOpen}
-                aria-controls={`${railId}-more`}
-                onClick={() => setMoreOpen((v) => !v)}
-              >
-                <RailIcon as={moreOpen ? ChevronUp : ChevronDown} />
-                <span className="fd-label-text">
-                  {moreOpen
-                    ? 'Show fewer'
-                    : `Show more — ${moreFolders.length} more`}
-                </span>
-                <span className="fd-icon-caption">More</span>
-              </button>
-            </div>
-            ) : null
-          ) : null}
+          {/* 3 · "BROWSE BY CATEGORY" IS GONE (owner 2026-09-24, event menu
+              by moment). It rendered ONLY inside an event, and it opened
+              `/explore?folder=…` — the public directory, which knows nothing
+              of this event's date, budget or open positions. Owner: *"we
+              already have your team as where they search, negotiate and
+              build their suppliers."* Inside an event, finding a supplier is
+              the event menu's Your Team row. Removed, not renamed: a second
+              find row would be a second door to the same job. */}
 
           {/* 3b · PLANNER / BUILDER / TOGETHER — the free tools, above Studio.
               Same row grammar Studio uses (icon + name + one line), so these

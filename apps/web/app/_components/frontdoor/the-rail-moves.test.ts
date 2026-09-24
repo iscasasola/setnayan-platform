@@ -64,70 +64,30 @@ function rule(selector: string): string {
   return CSS.slice(at, CSS.indexOf('}', at));
 }
 
-/* ─── 1 · "SHOW MORE" EXPANDS AND COLLAPSES, AND SHUTS THE TAB ORDER ────── */
+/* ─── 1 · "SHOW MORE" IS RETIRED WITH ITS CATEGORIES (2026-09-24) ─────────
+   The reveal panel existed for one list: the nine extra categories under
+   "Browse by category", a group that drew only inside an event. The owner
+   removed it there (*"we already have your team as where they search,
+   negotiate and build their suppliers"*), so the panel, its toggle and its
+   CSS went with it. What this pins now is the half that could come back
+   WRONG: a reveal that returns without the rules that made it correct. */
 
-test('the reveal panel leaves the tab order when it is shut', () => {
-  const shut = rule('.fd-reveal');
-  assert.match(
-    shut,
-    /visibility:\s*hidden/,
-    'The collapsed reveal panel does not go `visibility: hidden`. Clipping a ' +
-      'row does not unfocus it — Tab would walk a keyboard visitor through ' +
-      'nine invisible category links sitting behind the "Show more" button.',
-  );
-  assert.match(
-    shut,
-    /visibility 0s var\(--sn-dur-elem\)/,
-    'The visibility flip is not delayed to the END of the collapse, so it ' +
-      'clips the animation it is riding on and the panel vanishes instead of ' +
-      'closing.',
-  );
-  assert.match(
-    rule(".fd-reveal[data-open='true']"),
-    /visibility:\s*visible/,
-    'The open reveal panel never becomes visible — the rows would animate ' +
-      'open and stay unreachable.',
-  );
-});
-
-test('the reveal panel can actually close', () => {
-  assert.match(
-    rule('.fd-reveal-in'),
-    /min-height:\s*0/,
-    "`.fd-reveal-in` lost `min-height: 0`. A grid item's automatic minimum " +
-      'size is its content, so the 0fr track never reaches zero and the panel ' +
-      'never shuts — while still looking animated.',
-  );
-  for (const sel of ['.fd-reveal', ".fd-reveal[data-open='true']"]) {
-    assert.match(
-      rule(sel),
-      /transition:[^;]*grid-template-rows/,
-      `${sel} does not transition \`grid-template-rows\`, so one direction of ` +
-        'the toggle is a jump cut.',
+test('a reveal panel does not come back without the rules that made it correct', () => {
+  if (!/className="fd-reveal"/.test(SHELL)) {
+    assert.equal(
+      CSS.indexOf('.fd-reveal {'),
+      -1,
+      '`.fd-reveal` CSS is left styling nothing — the panel it animated is gone.',
     );
+    return;
   }
-});
-
-test('the extra categories are rendered always, not concatenated in', () => {
-  assert.doesNotMatch(
-    SHELL,
-    /const folders = moreOpen/,
-    'The rail is back to rebuilding one list around the toggle. Rows created ' +
-      'by the press are brand-new elements with nothing to tween — there is ' +
-      'no animation to have.',
-  );
-  const panel = SHELL.slice(SHELL.indexOf('className="fd-reveal"'));
-  assert.ok(
-    panel.indexOf('moreFolders.map') !== -1 &&
-      panel.indexOf('moreFolders.map') < panel.indexOf('</div>'),
-    'The extra categories are not inside the `.fd-reveal` panel.',
-  );
+  const shut = rule('.fd-reveal');
+  assert.match(shut, /visibility:\s*hidden/, 'A collapsed reveal must leave the tab order.');
+  assert.match(rule('.fd-reveal-in'), /min-height:\s*0/, 'A reveal that cannot close.');
   assert.match(
     SHELL,
-    /aria-expanded=\{moreOpen\}[\s\S]{0,120}aria-controls=/,
-    'The "Show more" button announces nothing. It rebuilt the list around ' +
-      'itself before; a panel needs `aria-expanded` + `aria-controls` or the ' +
-      'press is silent to a screen reader.',
+    /aria-expanded=\{[^}]+\}[\s\S]{0,120}aria-controls=/,
+    'A reveal toggle that announces nothing to a screen reader.',
   );
 });
 
@@ -200,12 +160,12 @@ test('the group that pushes in arrives with motion', () => {
   );
   assert.equal(
     (SHELL.match(/className="fd-rgroup"/g) ?? []).length,
-    6,
-    'Expected exactly six animated rail groups — the context group, Browse ' +
-      'by category, Planner, Builder, Together, and Studio. Planner/Builder/ ' +
-      'Together (added above Studio, free-tools-rail.ts) arrive the same way ' +
-      'the context group does; a group that arrives without one is the only ' +
-      'one that still snaps.',
+    5,
+    'Expected exactly five animated rail groups — the context group, Planner, ' +
+      'Builder, Together, and Studio ("Browse by category" was removed ' +
+      '2026-09-24). Planner/Builder/Together (added above Studio, ' +
+      'free-tools-rail.ts) arrive the same way the context group does; a ' +
+      'group that arrives without one is the only one that still snaps.',
   );
 });
 

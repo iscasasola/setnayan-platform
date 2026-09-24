@@ -16,6 +16,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+import { railToolsSignedIn } from '@/lib/studio-rail';
+import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventRailContext } from './_components/event-rail-context';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import {
@@ -325,6 +327,23 @@ export default async function EventLayout({ children, params }: Props) {
   // branch returns before that filter, so a hideKeys entry would hide nothing.
   const seatingEnabled = surfaceEnabled(profile, 'seating');
 
+  /*
+    THE EVENT'S STUDIO PRODUCTS, AS PLAIN DATA (owner 2026-09-24 — the Studio
+    heading is dissolved; each product sits at its moment in the ONE event
+    menu, marked ✦). The same function the shell's Studio group used, so the
+    per-kind gating (`addOnOfferedForEvent`) and the Suite-grid parity it pins
+    are unchanged — `count: 1` because this IS the one event.
+
+    🛑 KEY · HREF · NAME ONLY. This list is handed to three client components
+    (the rail, the bottom bar, the moment strip). A `LucideIcon` or any other
+    function crossing that boundary threw "Functions cannot be passed directly
+    to Client Components" and took production down for ~7 hours on 2026-09-23.
+    Each client side resolves its own icon from the row's key.
+  */
+  const studioRows: EventStudioRow[] = railToolsSignedIn({ eventId, count: 1, profile }).map(
+    (t) => ({ key: t.key, href: t.href, name: t.name }),
+  );
+
   const tr = makeT(locale);
 
   /*
@@ -442,6 +461,8 @@ export default async function EventLayout({ children, params }: Props) {
     slug: (event.slug as string | null) ?? null,
     guestCount,
     phase,
+    seatingEnabled,
+    studioRows,
   };
 
   return (
@@ -480,7 +501,8 @@ export default async function EventLayout({ children, params }: Props) {
         */
         contextMatchRows={eventRailMatchRows(eventRailInputs)}
         /* FOCUS (owner 2026-09-21): inside an event the rail is the event —
-           its menu, its Studio, its suppliers — and one row back to the
+           its one menu (by moment, 2026-09-24 — the Studio
+           products and Your Team live inside it) and one row back to the
            events board.
 
            🔑 THE ROW IS NAMED "Events", NOT "Back to events" (owner
@@ -595,7 +617,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside the rail's content column so it
           doesn't inherit it. */}
-      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} />
+      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} />
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
           the locked BottomNav pill, never a 7th tab. Floats above the pill's
           right end, hides when the docked SubNav is up + in the After phase. */}
@@ -611,7 +633,7 @@ export default async function EventLayout({ children, params }: Props) {
           the server-built panel, and the bottom nav collapses to icons-only while
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} seatingEnabled={seatingEnabled} slug={(event.slug as string | null) ?? null} />
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} seatingEnabled={seatingEnabled} studioRows={studioRows} slug={(event.slug as string | null) ?? null} />
     </>
   );
 }

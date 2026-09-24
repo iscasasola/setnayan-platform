@@ -36,33 +36,24 @@
  */
 
 import {
-  Home, Users, Compass, Sparkles, Palette,
-  // Studio children:
-  Gem, Globe, Camera, Eye,
-  // Day-of phase icons:
-  QrCode, LayoutGrid, CalendarClock,
-  // After phase icons:
-  Star, Images,
+  Home, Users, Compass, Sparkles, Palette, Gem, Globe, Camera, QrCode, Images,
+  Newspaper, Wallet, Music, Crown, CalendarDays, Armchair, Box, Radio,
+  Clapperboard, Grid2x2, Gift,
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { BUDGET_BUILD_TABS, TAB_META, tabLabel } from './budget-build';
 import { isExploreReplanEnabled } from './explore-replan-flag';
-import { envFlagEnabled } from '@/lib/env-flag';
+import { SUITE_NAV_ON, studioHubHref } from './studio-hub';
 
-/**
- * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
- * slot REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — same flag that
- * un-404s /dashboard/[eventId]/suite). NEXT_PUBLIC_* is inlined into the client
- * bundle at build time, so this neutral module reads the same value on server +
- * client (no hydration split). Mirrors: customer-nav-config.ts (desktop rail) +
- * lib/nav-registry-defaults.ts (registry label default).
- */
-const SUITE_NAV_ON = envFlagEnabled(process.env.NEXT_PUBLIC_SUITE);
+/* The Suite doorway flag + href come from `lib/studio-hub.ts` — one branch,
+   read by every surface (it used to be re-typed here). */
 
 export type CustomerMenuKey =
   // Plan phase
   | 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget'
+  // Papic — a tab in every phase (owner 2026-09-24, "the life source")
+  | 'papic'
   // Day-of phase
   | 'now' | 'checkin' | 'seats' | 'schedule'
   // After phase
@@ -160,140 +151,397 @@ export type CustomerMenuCtx = {
    *  the unified website editor, which carries its own "View live" link); the
    *  field stays because callers pass it and future children may use it. */
   slug?: string | null;
+  /** The event's Studio products as plain data — see `EventMenuCtx`. */
+  studioRows?: EventMenuCtx['studioRows'];
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE EVENT MENU, BY MOMENT — ONE SECTIONED TREE (owner 2026-09-24)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Owner: *"realign what the sidebar of an event is and the bottom nav and
+   hamburger menu on mobile mode so everything is easier to access by its flow.
+   like finding the logo maker at the bottom feels so far."* Binding drawing:
+   `build-sessions/prototypes/event_menu_by_moment_2026-09-24.html`.
+
+   🔑 THERE WERE TWO TREES, AND THIS IS NOW THE ONLY ONE. The phone's bar read
+   `buildCustomerMenuTree` (below); the desktop rail and the ☰ drawer read
+   `buildCustomerNavGroups` (`customer-nav-config.ts`); and the shell drew
+   "Browse by category" and a Studio group of its own on top of both. Every
+   one of those now reads THIS function: `buildCustomerNavGroups` is a
+   projection of these sections (icon NAMES → components), the phone bar picks
+   its five tabs out of these rows by key, and the phone's moment strip is one
+   of these sections. A third builder is the failure mode, not an option.
+
+   THE SHAPE — one structure for every event type (owner: *"the other event
+   will change accordingly. since wedding has all features"*):
+
+     event   → Details (the event's name row; renamed from Personalization)
+     spine   → Overview · Papic ✦ · Galleries · Editorial (after only) — no heading
+     Book    → Your Team · Budget
+     Look    → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
+     Invite  → Guests · Hosts · Event Hub Controller
+     The day → Schedule · Check-in (day-of only) · Seat plan · 3D Plan ✦ ·
+               Live Studio ✦ · Patiktok ✦
+     end     → Setnayan AI ✦ · (any future product) · Suite · Refer a couple
+
+   The existing event-type gating DROPS rows a kind lacks (hideKeys, the
+   website/seating surfaces, and the product rows `railToolsSignedIn` already
+   filtered through `addOnOfferedForEvent`); a section left empty is dropped,
+   so its heading never renders over nothing.
+
+   🔒 EVERY KEY IS THE KEY IT WAS. `home`, `guests`, `explore`, `studio`,
+   `launch`, `budget`, `refer`, `personalization`, `seat`, `schedule`,
+   `galleries`, `editorial`, `hosts` drive registry slots, localStorage state,
+   badges and hideKeys, and every one of those fails SILENTLY on a rename. Only
+   the words moved: Personalization→Details · All services→Suite. The phone's
+   own words moved in the same pass (Now→Overview · Seats→Seat plan ·
+   Review→Your Team), so one page has one word on every surface.
+*/
+
+/** An icon NAME. The tree carries names, never components: the product rows
+ *  arrive from a SERVER layout, and a `LucideIcon` handed across the
+ *  server→client boundary threw *"Functions cannot be passed directly to Client
+ *  Components"* and took production down for ~7 hours on 2026-09-23. Each
+ *  client surface resolves the name through `EVENT_MENU_ICONS` on its own side
+ *  of the boundary — the `RailFocusIcon` pattern. */
+export type EventMenuIconName =
+  | 'overview' | 'papic' | 'galleries' | 'editorial'
+  | 'team' | 'budget'
+  | 'mood-board' | 'logo' | 'pakanta'
+  | 'guests' | 'hosts' | 'hub'
+  | 'schedule' | 'checkin' | 'seat' | 'plan3d' | 'live' | 'patiktok'
+  | 'ai' | 'suite' | 'refer' | 'details' | 'product';
+
+export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
+  overview: Home,
+  papic: Camera,
+  galleries: Images,
+  editorial: Newspaper,
+  team: Compass,
+  budget: Wallet,
+  'mood-board': Palette,
+  logo: Gem,
+  pakanta: Music,
+  guests: Users,
+  hosts: Crown,
+  hub: Globe,
+  schedule: CalendarDays,
+  checkin: QrCode,
+  seat: Armchair,
+  plan3d: Box,
+  live: Radio,
+  patiktok: Clapperboard,
+  ai: Sparkles,
+  suite: Grid2x2,
+  refer: Gift,
+  details: Sparkles,
+  product: Sparkles,
+};
+
+export type EventMenuRow = {
+  key: string;
+  label: string;
+  href: string;
+  icon: EventMenuIconName;
+  /** Active-state prefix for the rail (defaults to `href`). */
+  matchPrefix?: string;
+  /** A Studio product — drawn with its ✦ at its moment, not under a heading. */
+  studio?: boolean;
+};
+
+export type EventMenuSectionKey = 'event' | 'spine' | 'book' | 'look' | 'invite' | 'day' | 'end';
+
+export type EventMenuSection = {
+  key: EventMenuSectionKey;
+  /** '' = no heading (the event row, the spine and the end of the list). */
+  label: string;
+  rows: EventMenuRow[];
+};
+
+/** One Studio product row, as PLAIN DATA — exactly what `railToolsSignedIn`
+ *  already returns (key · href · name), already gated for the event type. */
+export type EventStudioRow = { key: string; href: string; name: string };
+
+export type EventMenuCtx = {
+  phase?: MenuLifecyclePhase;
+  hideKeys?: string[];
+  websiteEnabled?: boolean;
+  /** ⚠ UNDEFINED MEANS SHOW — only an explicit `false` drops Seat plan. */
+  seatingEnabled?: boolean;
+  /**
+   * The event's Studio products, from `railToolsSignedIn({eventId, count: 1,
+   * profile})` in `layout.tsx`. Placed by KEY (see `STUDIO_PLACEMENT`).
+   * Undefined → no product rows: this module is imported by client components
+   * and must not pull the whole add-on catalogue into their bundle to guess.
+   * `the-event-menu-is-one-tree.test.ts` fails if the layout stops passing it.
+   */
+  studioRows?: ReadonlyArray<EventStudioRow>;
 };
 
 /**
- * The canonical customer-menu tree for an event — now **5 top menus** (owner
- * 2026-06-17 folded Design INTO Studio): Home · Guests · Explore · Studio ·
- * Budget. Children: Guests (routed, from `guest-journey.ts`) · Explore (tabs,
- * from `budget-build.ts`) · Studio (anchor sections — Setnayan AI · Website ·
- * Capture · Branding, scrolling the regrouped /add-ons hub) · Budget (anchor
- * scroll-sections). Home children: Overview + Checklist (routed). (The `design` key remains
- * in CustomerMenuKey but no longer renders a menu — /design redirects to Studio.)
+ * WHERE EACH STUDIO PRODUCT SITS (its icon here; its moment is its entry in
+ * `SECTION_ORDER` below) — by key, so the Suite's catalogue stays the
+ * one list of products and this stays the one list of moments.
+ *
+ *   papic                        → the spine, under Overview (owner 2026-09-24:
+ *                                  *"papic is the life source of setnayan. it
+ *                                  is where we collect photos and make
+ *                                  memories"*)
+ *   mood-board · palogo · pakanta → Look
+ *   pa3d · panood · patiktok      → The day
+ *   setnayan-ai                   → the end of the list
+ *   pawebsite                     → DROPPED: the one-door ruling (2026-09-02)
+ *                                  sends it to /launch, which Invite's Event
+ *                                  Hub Controller row already opens
+ *   __all__                       → DROPPED: the `studio` row IS the Suite row
+ *   anything else                 → the END, so a future product is never
+ *                                  silently lost
+ */
+const STUDIO_PLACEMENT: Record<string, EventMenuIconName | 'drop'> = {
+  papic: 'papic',
+  'mood-board': 'mood-board',
+  palogo: 'logo',
+  pakanta: 'pakanta',
+  pa3d: 'plan3d',
+  panood: 'live',
+  patiktok: 'patiktok',
+  'setnayan-ai': 'ai',
+  pawebsite: 'drop',
+  __all__: 'drop',
+};
+
+/**
+ * The order each moment reads in — and, for a product, WHICH moment: a
+ * product key listed here is placed; one listed nowhere goes to `__unknown__`
+ * at the end. (One list decides placement. A second `section` field beside it
+ * was tried and was decorative — moving Logo Maker there changed nothing.)
+ * Keys absent from the tree are skipped.
+ */
+const SECTION_ORDER: Record<Exclude<EventMenuSectionKey, 'event'>, string[]> = {
+  spine: ['home', 'papic', 'galleries', 'editorial'],
+  book: ['explore', 'budget'],
+  look: ['mood-board', 'palogo', 'pakanta'],
+  invite: ['guests', 'hosts', 'launch'],
+  day: ['schedule', 'checkin', 'seat', 'pa3d', 'panood', 'patiktok'],
+  end: ['setnayan-ai', '__unknown__', 'studio', 'refer'],
+};
+
+const SECTION_LABEL: Record<EventMenuSectionKey, string> = {
+  event: '',
+  spine: '',
+  book: 'Book',
+  look: 'Look',
+  invite: 'Invite',
+  day: 'The day',
+  end: '',
+};
+
+/**
+ * THE tree. Every event-menu surface reads this — see the block above.
+ */
+export function buildEventMenuSections(
+  eventId: string,
+  ctx: EventMenuCtx = {},
+): EventMenuSection[] {
+  const base = `/dashboard/${eventId}`;
+  const phase = ctx.phase ?? 'plan';
+  const hide = new Set(ctx.hideKeys ?? []);
+
+  const rows = new Map<string, EventMenuRow>();
+  const put = (r: EventMenuRow) => rows.set(r.key, r);
+
+  put({ key: 'personalization', label: 'Details', href: `${base}/details`, icon: 'details' });
+  // Sentinel matchPrefix: every other event route shares `${base}/`, so only
+  // the exact pathname === href branch may light Overview.
+  put({ key: 'home', label: 'Overview', href: base, icon: 'overview', matchPrefix: '__home__' });
+  // Galleries in EVERY phase, directly under Papic: it is where Papic's photos
+  // land, and the page already says "collecting" before the first one.
+  put({ key: 'galleries', label: 'Galleries', href: `${base}/galleries`, icon: 'galleries' });
+  if (phase === 'after') {
+    put({ key: 'editorial', label: 'Editorial', href: `${base}/story`, icon: 'editorial' });
+  }
+  put({ key: 'explore', label: 'Your Team', href: `${base}/vendors`, icon: 'team' });
+  put({ key: 'budget', label: 'Budget', href: `${base}/budget`, icon: 'budget' });
+  put({ key: 'guests', label: 'Guests', href: `${base}/guests`, icon: 'guests' });
+  put({ key: 'hosts', label: 'Hosts', href: `${base}/hosts`, icon: 'hosts' });
+  // THE EVENT HUB CONTROLLER — one row, one word, every phase. Gated on the
+  // website surface on the rail AND the phone alike (the two used to disagree
+  // for the day-of and after bars). `matchPrefix` claims the /website family:
+  // the editor and Editorial maker are this controller's own doors.
+  if (ctx.websiteEnabled) {
+    put({ key: 'launch', label: 'Event Hub Controller', href: `${base}/launch`, icon: 'hub', matchPrefix: `${base}/website` });
+  }
+  put({ key: 'schedule', label: 'Schedule', href: `${base}/schedule`, icon: 'schedule' });
+  // Check-in appears in The day WHEN the day comes — on the laptop too now.
+  if (phase === 'dayof') {
+    put({ key: 'checkin', label: 'Check-in', href: `${base}/guests/checkin`, icon: 'checkin' });
+  }
+  // 🪑 Gated on the seating surface on the rail too (it used to gate only the
+  // phone's day-of tab), so a kind whose /seating redirects gets no dead row.
+  if (ctx.seatingEnabled !== false) {
+    put({ key: 'seat', label: 'Seat plan', href: `${base}/seating`, icon: 'seat' });
+  }
+  put({ key: 'studio', label: SUITE_NAV_ON ? 'Suite' : 'Studio', href: studioHubHref(eventId), icon: 'suite' });
+  put({ key: 'refer', label: 'Refer a couple', href: `${base}/refer`, icon: 'refer' });
+
+  const unknown: EventMenuRow[] = [];
+  for (const t of ctx.studioRows ?? []) {
+    const icon = STUDIO_PLACEMENT[t.key];
+    if (icon === 'drop') continue;
+    const placed = Object.values(SECTION_ORDER).some((keys) => keys.includes(t.key));
+    const row: EventMenuRow = {
+      key: t.key,
+      label: t.name,
+      href: t.href,
+      icon: icon ?? 'product',
+      studio: true,
+    };
+    if (placed) put(row);
+    else unknown.push(row);
+  }
+
+  const pick = (keys: string[]): EventMenuRow[] =>
+    keys.flatMap((k) => {
+      if (k === '__unknown__') return unknown.filter((r) => !hide.has(r.key));
+      const r = rows.get(k);
+      return r && !hide.has(k) ? [r] : [];
+    });
+
+  const sections: EventMenuSection[] = [
+    { key: 'event', label: SECTION_LABEL.event, rows: pick(['personalization']) },
+    ...(Object.keys(SECTION_ORDER) as Array<keyof typeof SECTION_ORDER>).map((key) => ({
+      key,
+      label: SECTION_LABEL[key],
+      rows: pick(SECTION_ORDER[key]),
+    })),
+  ];
+  // An empty moment hides its heading — dropped here so no surface can draw
+  // a heading over nothing.
+  return sections.filter((s) => s.rows.length > 0);
+}
+
+/** Every row of the tree, in reading order. */
+export function eventMenuRows(sections: EventMenuSection[]): EventMenuRow[] {
+  return sections.flatMap((s) => s.rows);
+}
+
+/**
+ * THE MOMENT STRIP (phone only) — the section the current page belongs to.
+ *
+ * Longest-prefix over every row's match (its `matchPrefix`, else its `href`),
+ * so `/seating/lab` finds 3D Plan in The day, not Seat plan by accident of
+ * order. Overview is excluded (it is the event's front page, not a moment), as
+ * is the event's Details row. A moment with a single row is not a strip.
+ */
+export function eventMomentForPath(
+  pathname: string,
+  sections: EventMenuSection[],
+): EventMenuSection | null {
+  let best: { section: EventMenuSection; len: number } | null = null;
+  for (const section of sections) {
+    if (section.key === 'event') continue;
+    for (const r of section.rows) {
+      if (r.key === 'home') continue;
+      for (const m of [r.href.split('?')[0], r.matchPrefix].filter(Boolean) as string[]) {
+        if (pathname === m || pathname.startsWith(`${m}/`)) {
+          if (!best || m.length > best.len) best = { section, len: m.length };
+        }
+      }
+    }
+  }
+  if (!best || best.section.rows.length < 2) return null;
+  return best.section;
+}
+
+/**
+ * The phone's bottom bar — FIVE TABS PICKED OUT OF THE ONE TREE, per phase:
+ *
+ *   plan  → Overview · Papic · Your Team · Guests · Event Hub Controller
+ *   dayof → Overview · Papic · Check-in · Event Hub Controller · Schedule
+ *   after → Overview · Papic · Galleries · Your Team · Event Hub Controller
+ *
+ * Every label and href comes from `buildEventMenuSections`, so a tab and its ☰
+ * row can never say two words for one page. Only the phone-only extras live
+ * here: the broad `activeMatch` that lights a tab, and the Explore takeover's
+ * docked children while the replan flag is off.
+ *
+ * 🔑 Papic replaces the Suite tab (planning) and the Seats tab (day-of) — both
+ * stay one tap away in ☰, Seat plan also in The day's strip. The Studio
+ * anchor dock (Setnayan AI · Website · Capture · Branding) is retired with the
+ * Suite tab that carried it: its four anchors are rows at their moments now.
+ *
+ * 🔒 THE KEYS DID NOT MOVE: the day-of Overview is still `now` and the after
+ * Your Team is still `review`, because the registry slots
+ * `customer.bottom-nav.now` / `.review` key off them. Their WORDS moved.
  */
 export function buildCustomerMenuTree(
   eventId: string,
   ctx: CustomerMenuCtx = {},
 ): CustomerMenu[] {
-  // Phase takeover: Day-of and After replace the planning menu entirely.
-  // These menus carry no children (no sectionMatch) so the docked sub-nav
-  // returns null for them — only the bottom nav reads this path. The bottom nav
-  // overlays the admin nav-registry slot `customer.bottom-nav.<key>` on each tab
-  // below (day-of: now/checkin/seats/launch/schedule · after:
-  // home/review/launch/galleries — all present in NAV_SLOT_DEFAULTS), so
-  // /admin/menus renames/re-icons reach these rosters just like the plan tabs.
-  if (ctx.phase === 'dayof') {
-    const base = `/dashboard/${eventId}`;
-    return [
-      { key: 'now',      label: 'Now',       icon: Home,          href: base,                              activeMatch: base,                              activeMatchExact: true  },
-      { key: 'checkin',  label: 'Check-in',  icon: QrCode,        href: `${base}/guests/checkin`,          activeMatch: `${base}/guests/checkin`                                  },
-      // 🪑 Omitted for a kind with no 'seating' surface — its /seating room
-      // redirects, so the tab would be a link that bounces. `!== false` keeps
-      // an un-taught caller (and every seating kind) byte-identical.
-      ...(ctx.seatingEnabled !== false
-        ? [{ key: 'seats' as const, label: 'Seats', icon: LayoutGrid, href: `${base}/seating`, activeMatch: `${base}/seating` }]
-        : []),
-      // Position 4 — the slot this roster ALREADY spent on the Event Hub, under
-      // the name "Services". Same route, same position; only the word changes.
-      { key: 'launch',   label: 'Event Hub Controller', icon: Globe,         href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
-      { key: 'schedule', label: 'Schedule',  icon: CalendarClock, href: `${base}/schedule`,                activeMatch: `${base}/schedule`                                        },
-    ];
-  }
-  if (ctx.phase === 'after') {
-    const base = `/dashboard/${eventId}`;
-    return [
-      // Overview (was mislabelled 'Home' — the Home→Overview rename missed this
-      // after-phase branch; the plan-phase menu + the registry default are
-      // 'Overview'). Key + route + exact-match unchanged.
-      { key: 'home',      label: 'Overview', icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
-      // ?tab=build — the SHIPPED deep link (2026-06-12) onto "Your team", the
-      // section listing the suppliers who actually worked the day, each with
-      // its review chip. Plain /vendors landed on the browsing bench: a word
-      // meaning "tell us how they did" opening a shop directory.
-      { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors?tab=build`,       activeMatch: `${base}/vendors`                                         },
-      // Position 3 — was "Editorial" pointing straight at the maker. The maker
-      // is a DOOR INSIDE the controller (its S5 "The story" row), and the
-      // desktop rail keeps its own /story row, so nothing is
-      // orphaned: `a-finished-event-shows-its-summary.test.ts` still holds that
-      // door open, which is the 2026-08-21 lesson this must not undo.
-      { key: 'launch',    label: 'Event Hub Controller', icon: Globe,     href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
-      { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
-    ];
-  }
-
   const base = `/dashboard/${eventId}`;
+  const phase = ctx.phase ?? 'plan';
+  const sections = buildEventMenuSections(eventId, ctx);
+  const byKey = new Map(eventMenuRows(sections).map((r) => [r.key, r]));
 
-  const planningMenus: CustomerMenu[] = [
-    {
-      key: 'home',
-      // Renamed Home → Overview (owner-approved product naming; matches the
-      // design prototype + the desktop sidebar). Key + route + exact-match
-      // unchanged — the bottom-nav registry slot `customer.bottom-nav.home`
-      // carries the same rename.
-      label: 'Overview',
-      icon: Home,
-      href: base,
-      // Overview is a plain menu — no docked sub-nav (owner 2026-07-10: the menu
-      // doesn't need checklist/schedule/messages/contracts). /checklist stays in
-      // activeMatch so arriving there (from the dashboard task cards) still lights
-      // Overview; the surface itself is reachable from the dashboard body.
-      activeMatch: [base, `${base}/checklist`],
+  const tab = (
+    rowKey: string,
+    extra: Partial<CustomerMenu> & { key?: CustomerMenuKey } = {},
+  ): CustomerMenu[] => {
+    const r = byKey.get(rowKey);
+    if (!r) return [];
+    return [
+      {
+        key: (extra.key ?? rowKey) as CustomerMenuKey,
+        label: r.label,
+        icon: EVENT_MENU_ICONS[r.icon],
+        href: r.href,
+        activeMatch: r.matchPrefix && r.matchPrefix !== '__home__' ? [r.href, r.matchPrefix] : r.href,
+        ...extra,
+      },
+    ];
+  };
+
+  const overview = (key: 'home' | 'now') =>
+    tab('home', {
+      key,
+      activeMatch: phase === 'plan' ? [base, `${base}/checklist`] : base,
       activeMatchExact: true,
-    },
-    {
-      key: 'guests',
-      label: 'Guests',
-      icon: Users,
-      href: `${base}/guests`,
-      // Guests is a plain menu — no docked sub-nav / no sidebar submenu (owner
-      // 2026-07-10: the guest-journey stages Build·Invite·Confirm·Seat·Day-of·
-      // Event-QR are now integrated into the single Guests page; Seat still opens
-      // from within Guests and stays in activeMatch). Mirrors the Overview menu
-      // above (plain, childless). The FULL activeMatch is kept so /seating,
-      // /event-qr, and /hosts still light the Guests item.
-      // `/people` — the roster ABOVE the five people routes — lights Guests
-      // too. It is not a sixth menu: it is the view onto the ones that exist,
-      // and giving it its own tab would imply a surface that competes with them.
-      activeMatch: [
-        `${base}/guests`,
-        `${base}/seating`,
-        `${base}/plan3d`,
-        `${base}/event-qr`,
-        `${base}/hosts`,
-        `${base}/people`,
-      ],
-    },
-    {
-      key: 'explore',
-      // Renamed Explore → Merkado (owner-approved product naming; matches the
-      // design prototype + the desktop sidebar). Key + route (/vendors) + match
-      // unchanged — the bottom-nav registry slot `customer.bottom-nav.explore`
-      // carries the same rename.
-      label: 'Your Team',
-      icon: Compass,
-      href: `${base}/vendors`,
+    });
+  const papic = tab('papic');
+  const launch = tab('launch', { activeMatch: `${base}/launch` });
+
+  if (phase === 'dayof') {
+    return [
+      ...overview('now'),
+      ...papic,
+      ...tab('checkin'),
+      ...launch,
+      ...tab('schedule'),
+    ];
+  }
+  if (phase === 'after') {
+    return [
+      ...overview('home'),
+      ...papic,
+      ...tab('galleries'),
+      // ?tab=build — the SHIPPED deep link (2026-06-12) onto "Your team", the
+      // suppliers who actually worked the day, each with its review chip. The
+      // after moment is a count on that page, not a second name for it.
+      ...tab('explore', { key: 'review', href: `${base}/vendors?tab=build`, activeMatch: `${base}/vendors` }),
+      ...launch,
+    ];
+  }
+
+  return [
+    ...overview('home'),
+    ...papic,
+    ...tab('explore', {
       activeMatch: `${base}/vendors`,
       // THE MOBILE DOCK IS GONE under the Explore replan
-      // (Explore_Integration_BUILD_SPEC_2026-07-29 §5; owner complaint #1 —
-      // *"why is the subnav still present?"*). The Coverage Strip is the
-      // navigator now, and the four chips each had a replacement: Shortlist was
-      // a no-op (the page opens there), Build is the mobile team summary chip,
-      // Budget lives in the sidebar's "Also in this event" + the Overview
-      // checklist, Plans is reachable by scroll + its own disclosure.
-      //
-      // Emitting `children`/`sectionMatch` ONLY while the flag is OFF is what
-      // keeps the flag an honest kill-switch: with no children,
-      // `customer-section-subnav.tsx` returns null on /vendors (`inSection`
-      // is `children.length > 0`), while Studio's anchor dock and the Guests
-      // journey dock are untouched. Side benefit: the global bottom nav
-      // un-collapses back to icons+labels here, because it shrinks only while
-      // `html.subnav-docked` is set. The `?tab=` deep link and the
-      // `BB_TAB_EVENT` bus are NOT part of this — `ServicesTakeover` owns both
-      // and still honours them.
-      //
-      // The takeover sub-nav shows on the ROOT only (matches the old isTakeoverRoot
-      // exact check) — /vendors/categories, /packages, vendor detail are their own
-      // pages and must NOT dock the takeover tabs.
+      // (Explore_Integration_BUILD_SPEC_2026-07-29 §5). Emitting children ONLY
+      // while the flag is OFF keeps the flag an honest kill-switch. The
+      // takeover sub-nav shows on the ROOT only.
       ...(isExploreReplanEnabled()
         ? {}
         : {
@@ -302,120 +550,28 @@ export function buildCustomerMenuTree(
             subnavLabel: 'Services sections',
             children: BUDGET_BUILD_TABS.map((t) => ({
               key: t,
-              // Label via tabLabel() so the Explore-Replan "Plans" rename (PR-F)
-              // reaches the docked sub-nav; the KEY/tab/slotKey below stay 'compare'.
               label: tabLabel(t),
               icon: TAB_META[t].icon,
               kind: 'tab' as const,
               tab: t,
-              // Legacy area name `budget-subnav` = the Explore takeover tabs (the
-              // feature shipped as "Budget Build"); the slots already exist.
               slotKey: `customer.budget-subnav.${t}`,
             })),
           }),
-    },
-    {
-      // SUITE SWAP (owner 2026-07-19: name locked = "Suite"; nav doorway
-      // REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — the same flag that
-      // un-404s /dashboard/[eventId]/suite). Flag ON → this tab is the Suite
-      // doorway (`${base}/suite`); flag OFF → Studio exactly as today. KEY stays
-      // 'studio' (stable: hideKeys gating + the customer.bottom-nav.studio
-      // registry slot key off it — that slot's code default carries the same
-      // flag-gated rename in lib/nav-registry-defaults.ts). /studio routes stay
-      // reachable either way — activeMatch keeps every studio prefix so a
-      // deep-linked /studio page still lights this tab, and sectionMatch stays
-      // on the /studio hub so its docked anchor sub-nav keeps working there.
-      key: 'studio',
-      label: SUITE_NAV_ON ? 'Suite' : 'Studio',
-      icon: Sparkles,
-      href: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
-      // Studio ABSORBED Design (owner 2026-06-17 customer-menu redesign → 5 menus,
-      // no standalone Design tab; /design redirects here). activeMatch covers the
-      // former Design routes too so the Studio tab lights across them (+ /suite
-      // when the Suite doorway is on).
+    }),
+    // Guests lights across the people rooms it has always covered — Seat plan
+    // and Hosts have rows of their own in ☰, but the TAB is the people room.
+    ...tab('guests', {
       activeMatch: [
-        ...(SUITE_NAV_ON ? [`${base}/suite`] : []),
-        `${base}/studio`,
-        `${base}/design`,
-        `${base}/monogram`,
+        `${base}/guests`,
+        `${base}/seating`,
+        `${base}/plan3d`,
+        `${base}/event-qr`,
+        `${base}/hosts`,
+        `${base}/people`,
       ],
-      // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
-      // the regrouped /add-ons hub (lib/add-ons-catalog.ts studioGroup + the
-      // SECTIONS ids). Exact /add-ons only: the anchors live on the hub; add-on
-      // detail pages (/studio/papic …) are their own surfaces.
-      sectionMatch: `${base}/studio`,
-      sectionMatchExact: true,
-      subnavLabel: 'Studio sections',
-      children: [
-        { key: 'setnayan-ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai', slotKey: 'customer.studio-subnav.setnayan-ai' },
-        // 'website' anchor — only when the event type enables the 'website'
-        // surface (its hub section is gated the same way; the anchor would scroll
-        // to nothing otherwise). Wedding enables it → byte-identical.
-        ...(ctx.websiteEnabled
-          ? [{ key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' }]
-          : []),
-        { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture', slotKey: 'customer.studio-subnav.capture' },
-        { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding', slotKey: 'customer.studio-subnav.branding' },
-        // "Event page" (owner 2026-06-26 "host should see the same event page we
-        // created") — a ROUTE child (the others are on-page anchors): tapping it
-        // navigates to /event-page, which resolves the slug + redirects to the
-        // live /[slug]. The mixed kind is fine — the dock dispatches per `kind`
-        // (route → router.push; anchor → scroll). On the /studio hub no path
-        // prefixes /event-page, so routeKey stays null and an anchor keeps the
-        // active highlight (this child never false-lights).
-        ...(ctx.websiteEnabled
-          ? [{ key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' }]
-          : []),
-        /* ⛔ THE "Launch" CHILD IS RETIRED (2026-09-02, EH3).
-           It was the THIRD name the phone gave the Event Hub — "Launch" here,
-           "Services" in day-of, "Editorial" after — and the couple's own guests
-           taught them none of the three. The Hub is now a TOP-LEVEL menu below,
-           present in every phase, so relabelling this child would have printed
-           "Event Hub" twice on one screen instead of once.
-           🚪 THE EDITOR STILL HAS DOORS, which is the half that fails silently:
-           the controller's S5 row "The page itself" (`launch/page.tsx`) opens
-           `/website/editor`, and `HubStage`'s `editHref` is the same address.
-           Its `customer.studio-subnav.launch` registry default retires in this
-           same commit. */
-      ],
-    },
-    /* 5 · THE EVENT HUB — position 5, the plan phase's half of the one slot.
-       Design § 1.2 Placement: *"position 4 in day-of, position 3 in after, and a
-       new position 5 in plan (where GO LIVE is the desktop section's only
-       member)"*. The desktop rail has carried this row in every phase since
-       2026-06-28; the phone carried it only as a Studio sub-nav child called
-       "Launch", so on a phone in the months BEFORE the day — when the
-       save-the-date and the invitation ARE the product — the Hub was two taps
-       deep behind a word for something else.
-
-       🔒 Same key, same label, same href as the day-of and after rosters above.
-       That is the whole point, and `one-menu-word-in-all-three-phases.test.ts`
-       fails if any one of the three drifts.
-
-       Gated on `websiteEnabled` exactly like the desktop rail's `launchItem` —
-       an event kind with no 'website' surface gets no Hub row on either
-       surface, and the two must not disagree about that. */
-    ...(ctx.websiteEnabled
-      ? [
-          {
-            key: 'launch' as const,
-            label: 'Event Hub Controller',
-            icon: Globe,
-            href: `${base}/launch`,
-            activeMatch: `${base}/launch`,
-          },
-        ]
-      : []),
-    // Budget top-menu REMOVED 2026-07-10 (owner): the budget now lives inside the
-    // Merkado (Explore → Vendors takeover, Build · Budget · Compare), so a
-    // standalone menu item was redundant. The full budget surface
-    // (`${base}/budget`) stays reachable from the Merkado's Budget tab
-    // ("Open budget & payments") + direct links — only the nav entry is gone.
+    }),
+    ...launch,
   ];
-
-  return ctx.hideKeys?.length
-    ? planningMenus.filter((m) => !ctx.hideKeys!.includes(m.key))
-    : planningMenus;
 }
 
 /** True when the pathname sits inside a menu's docked-sub-nav SECTION (narrow

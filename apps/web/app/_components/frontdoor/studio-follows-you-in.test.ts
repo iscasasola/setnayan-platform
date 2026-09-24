@@ -25,6 +25,21 @@
  *       in the RAIL only. The same builder feeds the phone's bottom bar, which
  *       carries no Studio group — take it out there and a phone loses its only
  *       door to the shelf.
+ *
+ * 🔄 THE FORM CHANGED 2026-09-24 — THE CONCEPT DID NOT (owner, "event menu by
+ * moment"). *"papic is the life source of setnayan"* · Logo Maker at row 26 of
+ * 27 *"feels so far"*. The Studio HEADING is dissolved inside an event: each
+ * product is a row at its MOMENT in the event's own menu, marked ✦. So the
+ * 2026-08-21 promise — the products do not disappear when you open a wedding,
+ * and they open THAT wedding — is now kept by the event menu, and these tests
+ * pin it there:
+ *   1 · every product the Studio group would have drawn is a row in the event
+ *       menu, and the shell does NOT also draw the group (listed once);
+ *   2 · the shelf has exactly one door, the event menu's `studio` row, now
+ *       called "Suite" (the group's "All services" row is dropped, not kept
+ *       beside it);
+ *   3 · "Browse by category" is gone inside an event (owner: Your Team is
+ *       where couples search, negotiate and build).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -69,58 +84,56 @@ const LAYOUT = code(read('app', 'dashboard', '[eventId]', 'layout.tsx'));
 
 const EVENT_ID = 'S89E-ABCDEFGHJK';
 
-/* ── 1 · THE GROUP STAYS ──────────────────────────────────────────────────── */
+/* ── 1 · THE PRODUCTS STAY — AT THEIR MOMENTS ─────────────────────────── */
 
-test('the Studio group is not gated on the absence of an event context', () => {
+test('inside an event every Studio product is still a row, at its moment', () => {
+  const tools = railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile: WEDDING_PROFILE });
+  const studioRows = tools.map((t) => ({ key: t.key, href: t.href, name: t.name }));
+  const menu = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
+  const rows = menu.flatMap((g) => g.items);
   /*
-    🔑 ANCHOR ON THE GROUP'S OWN HEADING, NOT ON THE FILE. The rail has three
-    animated groups and two of them ARE gated this way on purpose (Marketplace
-    collapses; the context group renders only when there is one). A file-level
-    search for `railContext ? null` therefore matches whatever this test is
-    trying to forbid AND two things it must not touch — it could never fail.
-    So: find the heading, then read only the code immediately before it.
+    Every product row the group would have drawn, minus the two the ruling
+    folds into an existing row: `pawebsite` (one door → the Event Hub
+    Controller row) and `__all__` (the `studio` row IS the Suite).
   */
-  const at = SHELL.indexOf('Studio <small>the things you make</small>');
-  assert.ok(at > -1, 'the Studio group heading is gone from the rail');
-
-  const before = SHELL.slice(Math.max(0, at - 400), at);
+  for (const t of tools) {
+    if (t.key === 'pawebsite' || t.key === '__all__') continue;
+    const row = rows.find((r) => r.key === t.key);
+    assert.ok(row, `${t.key} vanished from the event menu when the Studio group dissolved`);
+    assert.equal(row!.href, t.href, `${t.key} no longer opens THIS wedding's tool`);
+    assert.equal(row!.studio, true, `${t.key} lost its ✦ — it is a Studio product`);
+  }
   assert.ok(
-    !/railContext\s*\?\s*null/.test(before),
-    'the Studio group is collapsed again when a wedding is open — the exact ' +
-      'thing the owner objected to on 2026-08-21. Saw: ...' + before.slice(-120),
-  );
-  assert.ok(
-    !/!\s*railContext/.test(before),
-    'the Studio group is gated on there being no event context',
+    !rows.some((r) => r.key === 'pawebsite' || r.key === '__all__'),
+    'a folded product row came back beside the row it was folded into',
   );
 });
 
-test('the Marketplace category group shows only inside an event', () => {
+test('the shell does not ALSO draw the Studio group inside an event', () => {
   /*
-    REVERSED 2026-08-22 — owner: *"marketplace is best shown inside an event,
-    not when they just logged in."* This used to assert the opposite polarity
-    (collapse INSIDE an event, show on the front door / board). The group now
-    gates on `insideEvent`, not `railContext` — the admin console and the
-    vendor dashboard also push a `railContext` and must NOT show a couple's
-    supplier marketplace, which a bare `railContext ?` gate would have done.
+    Listed once. The event layout names its event (`studioEventId`), and the
+    rail's caller hands the group an EMPTY list for it — said by the list, per
+    `the-rail-renders-what-it-is-handed.test.ts`, never by a second gate at the
+    group's render boundary.
   */
-  const at = SHELL.indexOf('>Browse by category<');
-  assert.ok(at > -1, 'the category group label is missing');
-  // 260, not 700: the unrelated `railContext ? (<div>{railContext}</div>) :
-  // null` context-group wrapper (section 2b) sits just above this group, and
-  // a wider window would match ITS railContext instead of this group's own
-  // gate — a false pass on the "no railContext" assertion below.
-  const before = SHELL.slice(Math.max(0, at - 260), at);
-  assert.ok(
-    /insideEvent\s*\?/.test(before),
-    'the Marketplace category group is not gated on insideEvent — it must ' +
-      'show only inside a specific event, not on the front door or board',
+  const shellHost = code(read('app', '_components', 'frontdoor', 'app-rail-shell.tsx'));
+  assert.match(
+    shellHost,
+    /tools=\{\s*studioEventId\s*\?\s*\[\]\s*:/,
+    'inside an event the shell draws the Studio group again — every product ' +
+      'would be listed twice, once at its moment and once under a heading the ' +
+      'owner dissolved (2026-09-24)',
   );
-  assert.ok(
-    !/railContext/.test(before),
-    'the Marketplace category group is still reading railContext — the admin ' +
-      'console and vendor dashboard would then show it too',
-  );
+});
+
+test('"Browse by category" is not drawn inside an event', () => {
+  /*
+    REVERSED AGAIN 2026-09-24 — owner: *"we already have your team as where
+    they search, negotiate and build their suppliers."* This test pinned the
+    group to `insideEvent` (2026-08-22); inside an event is the only place it
+    ever drew, so removing it there removes it.
+  */
+  assert.equal(SHELL.indexOf('Browse by category'), -1, 'the category group is back in the rail');
 });
 
 /* ── 2 · THE ROWS OPEN *THAT* EVENT ───────────────────────────────────────── */
@@ -132,6 +145,12 @@ test('the event layout tells the rail which wedding is open', () => {
     'the event layout stopped naming its own event, so the Studio rows fall ' +
       'back to guessing — and somebody with two weddings gets sent to the ' +
       'board to pick while already standing inside one.',
+  );
+  assert.match(
+    LAYOUT,
+    /railToolsSignedIn\(\{\s*eventId,\s*count:\s*1,\s*profile\s*\}\)/,
+    'the event layout no longer builds the product rows for THIS event — the ' +
+      'event menu would lose every ✦ row with nothing thrown',
   );
 });
 
@@ -210,29 +229,33 @@ test('with no event there is no shelf row, because there is no shelf', () => {
   );
 });
 
-test('the shelf is not called Studio twice in one rail', () => {
+test('the event menu has exactly one door to the shelf, and it is called Suite or Studio once', () => {
   /*
-    🔑 THE FILTER IS ASSERTED BY ITS EFFECT, NOT BY ITS SPELLING. A first cut
-    matched the string `key !== 'studio'` in the source, which a rename to a
-    constant would have quietly defeated while still working. This walks the
-    real builder's output through the real predicate instead.
+    🔄 2026-09-24. This used to pin the rail DROPPING the event menu's `studio`
+    row, because the shell's Studio group ended in an "All services" row to
+    the same page. The group is dissolved inside an event, so the rule turns
+    round: the `studio` row STAYS — it is now the only door — and the group's
+    `__all__` row is the one dropped. Measured on the builder's real output.
   */
-  assert.match(
-    CTX,
-    /items:\s*g\.items\.filter\(\(i\) => i\.key !== 'studio'\)/,
-    'the event rail no longer drops the hub row, so the rail now carries both ' +
-      'a row and a group heading for the same shelf',
-  );
-
-  // …and the row it drops is one the shared builder really produces, so the
-  // filter cannot quietly become a no-op against a renamed key.
-  const keys = buildCustomerNavGroups(EVENT_ID).flatMap((g) =>
-    g.items.map((i) => i.key),
+  const tools = railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile: WEDDING_PROFILE });
+  const rows = buildCustomerNavGroups(EVENT_ID, {
+    websiteEnabled: true,
+    studioRows: tools.map((t) => ({ key: t.key, href: t.href, name: t.name })),
+  }).flatMap((g) => g.items);
+  const doors = rows.filter((r) => r.href === studioHubHref(EVENT_ID));
+  assert.deepEqual(
+    doors.map((r) => r.key),
+    ['studio'],
+    'the shelf must have exactly one door in the event menu — the `studio` row',
   );
   assert.ok(
-    keys.includes('studio'),
-    'the builder no longer produces a `studio` row — the rail filter is now ' +
-      'dead code, and the PHONE has lost its only door to the shelf',
+    !rows.some((r) => r.label === STUDIO_HUB_ALL_LABEL),
+    `"${STUDIO_HUB_ALL_LABEL}" is back beside the Suite row — two words for one page`,
+  );
+  assert.ok(
+    !/i\.key !== 'studio'/.test(CTX),
+    'the event rail drops its `studio` row again — with the Studio group gone ' +
+      'the desktop rail would have NO door to the shelf',
   );
 });
 
@@ -246,12 +269,13 @@ test('nobody hand-types the /suite ↔ /studio branch a second time', () => {
     calls something else, with nothing thrown.
   */
   const rail = code(read('lib', 'studio-rail.ts'));
-  const nav = code(
-    read('app', 'dashboard', '[eventId]', '_components', 'customer-nav-config.ts'),
-  );
+  /* 🔄 2026-09-24: the event menu's Suite row is built in the ONE tree,
+     `lib/customer-menu.ts`; `customer-nav-config.ts` is now only its rail
+     projection, so the resolver check follows the row to where it lives. */
+  const nav = code(read('lib', 'customer-menu.ts'));
   for (const [name, src] of [
     ['studio-rail.ts', rail],
-    ['customer-nav-config.ts', nav],
+    ['customer-menu.ts', nav],
   ] as const) {
     assert.ok(
       /studioHubHref\(/.test(src),

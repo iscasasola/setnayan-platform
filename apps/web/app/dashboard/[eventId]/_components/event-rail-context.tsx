@@ -20,13 +20,18 @@
  *
  * ─── NOTHING HERE IS A NEW IA ────────────────────────────────────────────
  * The rows, their order, their labels, their routes and their gating all come
- * from `buildCustomerNavGroups` — the SSOT the desktop sidebar and (through
- * `lib/customer-menu.ts`) the phone's bottom bar already read. Three named
- * sections ship today and are reproduced exactly:
+ * from `buildCustomerNavGroups` — the rail's projection of the ONE sectioned
+ * tree in `lib/customer-menu.ts` (`buildEventMenuSections`), which the phone's
+ * bottom bar and moment strip read too. By moment (owner 2026-09-24):
  *
- *   Plan                → Overview · Guests · Marketplace · Studio
- *   Go live             → Launch            (gated on the website surface)
- *   Also in this event  → Schedule · Seat plan · Budget
+ *   (name row)  → Details
+ *   (spine)     → Overview · Papic ✦ · Galleries · Editorial (after)
+ *   Book        → Your Team · Budget
+ *   Look        → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
+ *   Invite      → Guests · Hosts · Event Hub Controller
+ *   The day     → Schedule · Check-in (day-of) · Seat plan · 3D Plan ✦ ·
+ *                 Live Studio ✦ · Patiktok ✦
+ *   (end)       → Setnayan AI ✦ · Suite · Refer a couple
  *
  * 🔒 EVERY ROW IS A PLAIN LEAF — "solid menu with no submenus" (owner-locked
  * 2026-07-15). `NavItem.children` is deliberately NOT rendered here. Sub-
@@ -34,9 +39,8 @@
  * body), and the phone keeps its docked sub-nav. A rail that expands children
  * would reverse that lock silently while looking like a nicety.
  *
- * 🔒 BUDGET IS NOT A TOP-LEVEL MENU (owner removed it 2026-07-10). It appears
- * under "Also in this event" as a quiet flat link — which is where it already
- * lives in the shipped rail — never promoted back into Plan.
+ * 🔒 BUDGET IS NOT A MAIN ROOM (owner 2026-07-10). It is a quiet row under
+ * Book, beside the people you pay — never a phone tab.
  *
  * ─── WHICH ROW IS LIT — DECIDED ABOVE, READ HERE (2026-08-23) ────────────
  * This component no longer resolves anything. The shell draws the Studio group
@@ -61,6 +65,7 @@ import Link from 'next/link';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
+import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
@@ -76,6 +81,8 @@ export function EventRailContext({
   slug,
   guestCount,
   phase,
+  seatingEnabled,
+  studioRows,
 }: {
   eventId: string;
   /** Already resolved server-side, and never blank — see the layout's
@@ -118,6 +125,11 @@ export function EventRailContext({
    *  phase the builder relabels the first section and adds the Editorial +
    *  Galleries rows — see `buildCustomerNavGroups`. Omitted ⇒ 'plan'. */
   phase?: MenuLifecyclePhase;
+  /** Gates the Seat plan row. Undefined ⇒ shown. */
+  seatingEnabled?: boolean;
+  /** The event's Studio products as PLAIN DATA (key · href · name) — see
+   *  `EventRailInputs.studioRows`. Placed at their moments by the one tree. */
+  studioRows?: ReadonlyArray<EventStudioRow>;
 }) {
   /*
     THE SAME BUILDER AND THE SAME REGISTRY OVERLAY THE SIDEBAR USES.
@@ -141,32 +153,25 @@ export function EventRailContext({
       slug,
       guestCount,
       phase,
+      seatingEnabled,
+      studioRows,
     }),
     navSlots,
   );
 
   /*
-    ─── THE SERVICES SHELF IS NOT LISTED TWICE ──────────────────────────────
-    Owner, 2026-08-21: the Studio group must stay in the rail inside an event.
-    It now sits a few rows below this one, headed "Studio", carrying the named
-    products and ending in an "All services" row that opens this exact page.
+    ─── THE SUITE ROW STAYS NOW (2026-09-24) ────────────────────────────────
+    This used to drop the `studio` row, because the shell drew a Studio group
+    below whose "All services" row opened the same page. That group is
+    dissolved — its products are rows at their moments in THIS menu — so the
+    row, now called "Suite", is the only door to the shelf and closes the list.
 
-    So this row — labelled "Studio" or "Suite" depending on the flag — would be
-    the same destination under a second name, directly above a heading using
-    the first. The shell's own Marketplace note records why that is forbidden:
-    the same word twice in one rail is two different places in the reader's
-    head, and here the two words are worse than one repeated.
-
-    🔒 THE BUILDER IS NOT TOUCHED, AND THAT IS DELIBERATE. It is the SSOT for
-    the phone's bottom bar too, and the phone carries NO Studio group — take
-    the row out there and a phone loses its only door to the shelf. This drops
-    it from the DESKTOP RAIL, where the group replaces it, and nowhere else.
-    `lib/customer-menu.test.ts` still pins 'studio' in the phone's keys.
+    The event's Details row is not drawn as a row: it IS the event's name row
+    (the `event` group), so the place you are in opens its own facts.
   */
-  const groups = groupsWithHub.map((g) => ({
-    ...g,
-    items: g.items.filter((i) => i.key !== 'studio'),
-  }));
+  const detailsRow =
+    groupsWithHub.find((g) => g.key === 'event')?.items.find((i) => i.key === 'personalization') ?? null;
+  const groups = groupsWithHub.filter((g) => g.key !== 'event');
 
   /*
     ─── WHICH ROW IS LIT IS NOT DECIDED HERE ANY MORE (2026-08-23) ──────────
@@ -213,7 +218,28 @@ export function EventRailContext({
           <EventMonogram event={eventMonogram} size="sm" shape="square" />
         </div>
       ) : null}
-      <div className="fd-rctx">{eventName}</div>
+      {/*
+        THE EVENT'S NAME OPENS ITS DETAILS (owner 2026-09-24 — the rail's
+        Personalization row, renamed Details, moved onto the name). Names,
+        date, venue and budget are facts ABOUT the event, so they open from
+        the event's name: that is where a person looks to change "our wedding".
+        Still no way OUT of the event here — that is the Events row above.
+        Falls back to the plain name if the row is ever absent (hidden by an
+        admin or a future gate), rather than a link to nowhere.
+      */}
+      {detailsRow ? (
+        <Link
+          href={detailsRow.href}
+          className="fd-rctx fd-rctx-link fd-mrow"
+          data-on={activeKey === detailsRow.key ? 'true' : 'false'}
+          aria-current={activeKey === detailsRow.key ? 'page' : undefined}
+        >
+          <span className="fd-rctx-name">{eventName}</span>
+          <span className="fd-rctx-sub">{detailsRow.label} ›</span>
+        </Link>
+      ) : (
+        <div className="fd-rctx">{eventName}</div>
+      )}
 
       {groups.map((group) => (
         <div key={group.key}>
@@ -222,7 +248,16 @@ export function EventRailContext({
               Event drops Marketplace; an admin can hide a row). */}
           {group.items.length === 0 ? null : (
             <>
-              <div className="fd-rlabel fd-rsub">{group.label}</div>
+              {/* The spine and the end of the list carry no heading — an
+                  empty label draws nothing rather than an empty eyebrow. */}
+              {group.label ? (
+                <div className="fd-rlabel fd-rsub">
+                  {group.label}
+                  {/* "now" on The day while it is the day — the drawing's
+                      marker, so the moment you are in reads as current. */}
+                  {group.key === 'day' && phase === 'dayof' ? <small>now</small> : null}
+                </div>
+              ) : null}
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const on = activeKey === item.key;
@@ -230,7 +265,7 @@ export function EventRailContext({
                   <Link
                     key={item.key}
                     href={item.href}
-                    className="fd-row"
+                    className="fd-row fd-mrow"
                     /* `data-on` is the style hook the stylesheet already reads;
                        `aria-current` is the half a screen reader gets. A rail
                        that only LOOKS right is only half right. Both come from
@@ -241,7 +276,14 @@ export function EventRailContext({
                     <span className="fd-gi" aria-hidden="true">
                       <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
                     </span>
-                    <span className="fd-label-text">{item.label}</span>
+                    <span className="fd-label-text">
+                      {item.label}
+                      {/* ✦ — a Studio product, sitting at its moment. The
+                          heading that used to say so is dissolved. */}
+                      {item.studio ? (
+                        <span className="fd-spark" aria-hidden="true">✦</span>
+                      ) : null}
+                    </span>
                     <span className="fd-icon-caption">{item.label}</span>
                     {item.badge ? (
                       <>

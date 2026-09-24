@@ -398,19 +398,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 2,
   },
-  {
-    key: "customer.bottom-nav.studio",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
-    route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
-    label: SUITE_NAV_ON ? "Suite" : "Studio",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Sparkles",
-    customRef: null,
-    sortOrder: 3,
-  },
+  // ⛔ `customer.bottom-nav.studio` RETIRED 2026-09-24. Papic replaced the
+  // Suite tab on the planning bar (owner); the Suite stays in ☰ as the list's
+  // closing row, governed by `customer.sidebar.studio` below.
   {
     key: "customer.sidebar.studio",
     scope: "customer",
@@ -531,7 +521,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]",
-    label: "Now",
+    // One page, one word (2026-09-24): the day-of tab said "Now" for the same
+    // address every other phase calls Overview. KEY stays `now`.
+    label: "Overview",
     labelKind: "literal",
     iconKind: "custom",
     lucideName: null,
@@ -550,15 +542,24 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 11,
   },
+  // ⛔ `customer.bottom-nav.seats` RETIRED 2026-09-24 (event menu by moment).
+  // Papic took the day-of Seats slot (owner: *"papic is the life source of
+  // setnayan"*); Seat plan stays in ☰ and in The day's moment strip under the
+  // one word the laptop already used. Left here it would keep /admin/menus
+  // offering a rename for a tab that no longer renders.
+  //
+  // PAPIC — a bottom-bar tab in ALL THREE phases (owner 2026-09-24). Its KEY
+  // is `papic`, matching the tab key in lib/customer-menu.ts, because
+  // customer-bottom-nav.tsx looks the slot up as `customer.bottom-nav.${key}`.
   {
-    key: "customer.bottom-nav.seats",
+    key: "customer.bottom-nav.papic",
     scope: "customer",
     area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/seating",
-    label: "Seats",
+    route: "/dashboard/[eventId]/studio/papic",
+    label: "Papic",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "LayoutGrid",
+    lucideName: "Camera",
     customRef: null,
     sortOrder: 12,
   },
@@ -608,10 +609,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    label: "Review",
+    // Merged into Your Team (2026-09-24) — it opened /vendors?tab=build, which
+    // IS Your Team. KEY stays `review`; only the word and glyph moved.
+    label: "Your Team",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Star",
+    lucideName: "Compass",
     customRef: null,
     sortOrder: 15,
   },
@@ -1088,72 +1091,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // through to the child's CODE default label/icon — so it renders identically
   // to today; it simply stops being admin-editable. That is the intended trade:
   // the dock is not coming back.
-  // Studio docked sub-nav — the 4 sections of the /add-ons hub (customer-menu
-  // redesign 2026-06-17). The mobile <SubNav> overlays these admin overrides on
-  // its code defaults (lib/customer-menu.ts child.slotKey).
-  {
-    key: "customer.studio-subnav.setnayan-ai",
-    scope: "customer",
-    area: "studio-subnav",
-    route: "/dashboard/[eventId]/studio#studio-ai",
-    label: "Setnayan AI",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Gem",
-    customRef: null,
-    sortOrder: 0,
-  },
-  {
-    key: "customer.studio-subnav.website",
-    scope: "customer",
-    area: "studio-subnav",
-    route: "/dashboard/[eventId]/studio#studio-website",
-    label: "Event Hub",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Globe",
-    customRef: null,
-    sortOrder: 1,
-  },
-  {
-    key: "customer.studio-subnav.capture",
-    scope: "customer",
-    area: "studio-subnav",
-    route: "/dashboard/[eventId]/studio#studio-capture",
-    label: "Capture",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Camera",
-    customRef: null,
-    sortOrder: 2,
-  },
-  {
-    key: "customer.studio-subnav.branding",
-    scope: "customer",
-    area: "studio-subnav",
-    route: "/dashboard/[eventId]/studio#studio-branding",
-    label: "Branding",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Palette",
-    customRef: null,
-    sortOrder: 3,
-  },
-  {
-    // "Event page" — a ROUTE child in the Studio docked sub-nav (the others
-    // are on-page anchors). Taps through to /event-page → the live /[slug].
-    // Owner 2026-06-26 "host should see the same event page we created".
-    key: "customer.studio-subnav.event-page",
-    scope: "customer",
-    area: "studio-subnav",
-    route: "/dashboard/[eventId]/event-page",
-    label: "Event page",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Eye",
-    customRef: null,
-    sortOrder: 4,
-  },
+  // ⛔ THE STUDIO DOCKED SUB-NAV SLOTS ARE RETIRED 2026-09-24
+  // (`customer.studio-subnav.setnayan-ai` · `.website` · `.capture` ·
+  // `.branding` · `.event-page`). The dock rode on the phone's Suite tab, which
+  // Papic replaced; each anchor became a row at its moment instead (Setnayan
+  // AI → end · Website/Event page → Event Hub Controller · Capture → Papic /
+  // Live Studio / Patiktok · Branding → Look). No surface reads them now.
   // ⛔ `customer.studio-subnav.launch` RETIRED 2026-09-02 (EH3). Its Studio
   // docked-sub-nav child was the THIRD name the phone gave the Event Hub, and
   // the Hub is now a top-level menu in every phase (lib/customer-menu.ts), so

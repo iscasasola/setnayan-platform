@@ -10,9 +10,9 @@
  * So this MOUNTS the stage — three phases, real emitted HTML — and reads what a
  * person would actually see:
  *
- *   107 days out ..... "Save-the-Date" is the live channel, "Stage 1 of 4"
- *   today ............ "Day-of", "Stage 3 of 4"
- *   last month ....... "Editorial", "Stage 4 of 4"
+ *   107 days out ..... Save the Date is the live stage, "Stage 1 of 4"
+ *   today ............ On the Day, "Stage 3 of 4"
+ *   last month ....... Post Event, "Stage 4 of 4"
  *
  * and then the case with no visible difference at all: a refused read must NOT
  * emit a zero, a countdown, or a stage number.
@@ -35,6 +35,12 @@ const MNL = 'Asia/Manila';
 const at = (iso: string) => new Date(iso).getTime();
 
 type Mod = typeof import('./hub-stage');
+
+/* The stage's words come from ONE record (owner's set, 2026-09-24). Read them
+   from it, so a relabel is a one-line change there and never a silent pass
+   here — a hard-coded old label in a `doesNotMatch` would go vacuous. */
+import { PUBLIC_STAGE_LABELS as W } from '@/lib/public-site-stage-labels';
+const re = (s: string) => new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 type Control = typeof import('@/lib/event-hub-control');
 
 async function paint(opts: {
@@ -46,6 +52,8 @@ async function paint(opts: {
   guestsShared?: boolean;
   invited?: number;
   replied?: number;
+  /** `?stage=` — the "When" switch's deep link. */
+  stage?: string;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubStage }: Mod = await import('./hub-stage');
@@ -68,27 +76,24 @@ async function paint(opts: {
   };
   const standing = control.resolveHubStanding(read, opts.nowMs);
   const facts = control.resolveHubFacts(read, guests, opts.nowMs);
-  const idx = PUBLIC_SITE_PAGES.findIndex((p) => p.phaseParam === standing.stage);
-  const channel = idx >= 0 ? PUBLIC_SITE_PAGES[idx] : null;
 
   return renderToStaticMarkup(
     React.createElement(HubStage, {
       slug: read.slug,
       standing,
       facts,
-      channelName: channel?.name ?? null,
-      channelBlurb: channel?.blurb ?? null,
-      channelIndex: channel ? idx + 1 : null,
-      channelCount: PUBLIC_SITE_PAGES.length,
+      livePhase: standing.stage,
+      initialPhase: control.resolveHubStageSelection({ param: opts.stage, live: standing.stage }),
+      stages: PUBLIC_SITE_PAGES.map((p) => ({ phase: p.phaseParam, blurb: p.blurb })),
       editHref: '/dashboard/E1/website/editor',
+      workroomHref: '/dashboard/E1/story',
       /* VIEW AS is OFF in this harness on purpose. These observations are about
          the STAGE — the four channels and the four facts — and an empty offer
          list is exactly what a viewer the gate refused gets, so the stage is
          proved to stand on its own with no switcher under it. The switcher's
          own six reads are `view-as-reaches-the-render.test.ts` beside this. */
-      roles: [],
+      rolesByPhase: {},
       armedRole: null,
-      roleHrefBase: '/dashboard/E1/launch',
     }),
   );
 }
@@ -118,35 +123,54 @@ function factCells(html: string): Record<string, string> {
   return out;
 }
 
+/**
+ * THE "WHEN" SWITCH, chip by chip — which stage is LIVE (carries "Active now")
+ * and which is PICKED (aria-pressed). Read per element, never off the whole
+ * page: all four stage names are always painted now, so "the page mentions
+ * Day-of" says nothing about which stage is live.
+ */
+function whenChips(html: string): { live: string[]; picked: string[]; all: string[] } {
+  const chips = [...html.matchAll(/<button\b[^>]*data-phase="([a-z_]+)"[^>]*>([\s\S]*?)<\/button>/g)];
+  const all = chips.map((m) => m[1] as string);
+  const live = chips.filter((m) => /data-live="true"/.test(m[0]) && /Active now/.test(m[2] ?? '')).map((m) => m[1] as string);
+  const picked = chips.filter((m) => /aria-pressed="true"/.test(m[0])).map((m) => m[1] as string);
+  return { live, picked, all };
+}
+
 /** What an UNKNOWN cell renders as, exactly. */
 const EM_DASH = '\u2014';
 
 test('⭐ OBSERVATION 1 · 107 days out — the save-the-date is on the stage', async () => {
   const html = await paint({ eventDate: '2026-12-18', nowMs: NOW });
-  assert.match(html, /Save-the-Date/, 'the live channel is named');
+  assert.match(html, re(W.save_the_date), 'the live channel is named');
   assert.match(html, /Stage 1 of 4/);
   assert.match(html, /Active now/);
   assert.match(html, /In 107 days/, 'the countdown reaches the eye');
   assert.match(html, /61 of 90 in/);
   assert.match(html, /29 have not replied/);
   assert.match(html, /setnayan\.com\/maria-and-jomar/);
-  assert.doesNotMatch(html, /Day-of|Editorial/, 'and no other channel claims to be live');
+  const chips = whenChips(html);
+  assert.deepEqual(chips.all, ['save_the_date', 'rsvp', 'event', 'editorial'], 'all four stages are on the switch');
+  assert.deepEqual(chips.live, ['save_the_date'], 'and no other stage claims to be live');
+  assert.deepEqual(chips.picked, ['save_the_date'], 'the switch opens on today\u2019s stage');
+  assert.equal((html.match(/Active now/g) ?? []).length, 2, 'the live chip, and the caption of the stage it opened on');
 });
 
 test('⭐ OBSERVATION 2 · the day itself — the day-of page is on the stage', async () => {
   const html = await paint({ eventDate: '2026-09-02', nowMs: at('2026-09-02T15:00:00+08:00') });
-  assert.match(html, /Day-of/);
+  assert.match(html, re(W.event));
   assert.match(html, /Stage 3 of 4/);
   assert.match(html, /Today/, 'the countdown says the day, not a number of days');
-  assert.doesNotMatch(html, /Save-the-Date/);
+  assert.deepEqual(whenChips(html).live, ['event'], 'the day itself is the ONE live stage');
+  assert.deepEqual(whenChips(html).picked, ['event']);
 });
 
 test('⭐ OBSERVATION 3 · last month — the story is on the stage', async () => {
   const html = await paint({ eventDate: '2026-08-02', nowMs: NOW });
-  assert.match(html, /Editorial/);
+  assert.match(html, re(W.editorial));
   assert.match(html, /Stage 4 of 4/);
   assert.match(html, /31 days ago/, 'never a bare negative number');
-  assert.doesNotMatch(html, /Day-of/);
+  assert.deepEqual(whenChips(html).live, ['editorial'], 'the after-story is the ONE live stage');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -157,7 +181,8 @@ test('⭐ THE GUARD · a REFUSED event read paints no stage, no number, no count
   const html = await paint({ eventDate: null, nowMs: NOW, measured: false, slug: null });
   assert.doesNotMatch(html, /Stage \d of 4/, 'a stage number here is a claim about their event');
   assert.doesNotMatch(html, /Active now/);
-  assert.doesNotMatch(html, /Save-the-Date/, 'the first stage is what a null date resolves to — not what this event is');
+  assert.doesNotMatch(html, re(W.save_the_date), 'the first stage is what a null date resolves to — not what this event is');
+  assert.deepEqual(whenChips(html).all, [], 'no When switch — picking a stage of an event we could not read is a guess');
   assert.match(html, /could not reach your event/, 'it says what happened instead');
   const cells = factCells(html);
   assert.equal(cells.Stage, EM_DASH, 'the stage cell says "unknown", in the cell itself');
@@ -208,7 +233,7 @@ test('⭐ a delegate without the guest list is told so, on the stage', async () 
 
 test('⛔ EMPTY IS A PROMISE — an event with nothing set shows the page it will become', async () => {
   const html = await paint({ eventDate: '2026-12-18', nowMs: NOW, slug: null, invited: 0, replied: 0 });
-  assert.match(html, /Save-the-Date/, 'the page it will become is drawn, not withheld');
+  assert.match(html, re(W.save_the_date), 'the page it will become is drawn, not withheld');
   assert.match(html, /In 107 days/, 'with its countdown');
   assert.match(html, /Set your link/, 'and one lit thing to press');
   assert.doesNotMatch(html, /nothing here|no page yet|not created/i, 'never an apology');
@@ -268,8 +293,56 @@ test('⛔ THE GUARD · no address yet — the card stays, the frame does not', a
   // as on the read, and losing the slug must not blank the stage with it.
   const html = await paint({ eventDate: '2026-12-18', nowMs: NOW, slug: null });
   assert.equal(frameSrc(html), null, 'there is no page to photograph yet');
-  assert.match(html, /Save-the-Date/, 'but the page it will become is still drawn');
+  assert.match(html, re(W.save_the_date), 'but the page it will become is still drawn');
   assert.match(html, /In 107 days/, 'with its countdown');
   assert.match(html, /Set your link/, 'and one lit thing to press');
   assert.doesNotMatch(html, /That strip across the top/, 'and no ribbon note for a frame that is absent');
 });
+
+/* ═════════════════════════════════════════════════════════════════════════
+   WHO × WHEN — the four stage cards folded into the stage (owner 2026-09-24:
+   "this 2 can integrate to each other"). The cards carried two doors each;
+   those doors now follow the PICKED stage, and these hold that they do.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+test('⭐ WHEN · a picked stage reaches the FRAME, the caption and the Preview door', async () => {
+  // 14 days out: RSVP is live. The couple picks Editorial.
+  const html = await paint({ eventDate: '2026-09-16', nowMs: NOW, stage: 'editorial' });
+  const chips = whenChips(html);
+  assert.deepEqual(chips.live, ['rsvp'], 'picking a stage does not move "Active now"');
+  assert.deepEqual(chips.picked, ['editorial'], 'the deep link opens the stage it names');
+  assert.equal(frameSrc(html), '/maria-and-jomar?phase=editorial', 'the frame asks for the picked stage');
+  assert.match(
+    html,
+    /href="\/maria-and-jomar\?phase=editorial"[^>]*target="_blank"[^>]*data-stage-preview="editorial"/,
+    'ONE Preview door, for the stage picked, in a new tab — what each card used to carry',
+  );
+  assert.match(html, /Stage 4 of 4/, 'the caption names the picked stage');
+});
+
+test('⭐ WHEN · Editorial picked ⇒ the workroom door, same tab, into the SHIPPED route', async () => {
+  const html = await paint({ eventDate: '2026-09-16', nowMs: NOW, stage: 'editorial' });
+  const door = /<a\b[^>]*href="\/dashboard\/E1\/story"[^>]*>[\s\S]*?<\/a>/.exec(html)?.[0];
+  assert.ok(door, 'Editorial\u2019s "Open the workroom" door moved here with the card');
+  assert.match(door, /Open the workroom/);
+  assert.doesNotMatch(door, /target="_blank"/, 'a workroom is opened, not previewed in a new tab');
+});
+
+test('⛔ WHEN · any other stage picked ⇒ NO workroom door', async () => {
+  for (const stage of ['save_the_date', 'rsvp', 'event']) {
+    const html = await paint({ eventDate: '2026-09-16', nowMs: NOW, stage });
+    assert.doesNotMatch(html, /Open the workroom/, `the workroom door leaked onto ${stage}`);
+    assert.match(
+      html,
+      new RegExp(`href="/maria-and-jomar\\?phase=${stage}"[^>]*data-stage-preview="${stage}"`),
+      `and ${stage}\u2019s own Preview door is there instead`,
+    );
+  }
+});
+
+test('⛔ WHEN · a stage the switch does not have opens on TODAY\u2019s, never on a guess', async () => {
+  const html = await paint({ eventDate: '2026-09-16', nowMs: NOW, stage: 'bogus' });
+  assert.deepEqual(whenChips(html).picked, ['rsvp']);
+  assert.equal(frameSrc(html), '/maria-and-jomar', 'today\u2019s stage is the bare address, pin and all');
+});
+

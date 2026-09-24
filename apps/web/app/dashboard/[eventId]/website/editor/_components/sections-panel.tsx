@@ -38,6 +38,15 @@ import {
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
 import { canvasHasMotion } from '@/lib/hub-look-pro';
+import {
+  HUB_AUTO_SPEEDS,
+  HUB_AUTO_SPEED_LABEL,
+  HUB_DEFAULT_AUTO_SPEED,
+  HUB_TRANSITIONS,
+  HUB_TRANSITION_HINT,
+  HUB_TRANSITION_LABEL,
+  resolveTransition,
+} from '@/lib/hub-scenes';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -70,6 +79,7 @@ export function SectionsPanel({
   moveDownAction,
   setModeAction,
   setMotionAction,
+  transitionLocked = false,
   setBackgroundAction,
   setCropAction,
   saveCustomAction,
@@ -78,6 +88,8 @@ export function SectionsPanel({
   ownsPro = true,
   customLock = null,
   lookLock = null,
+  videoChoice = null,
+  colorChoices = [],
 }: {
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
@@ -91,12 +103,26 @@ export function SectionsPanel({
   /** How this section MOVES (owner 2026-09-23). Optional so the panel keeps
    *  working for any caller that has not wired it yet. */
   setMotionAction?: (formData: FormData) => void | Promise<void>;
+  /**
+   * TRUE when the event does not own Event Hub Pro: Scrub and Auto-scroll are
+   * shown but locked (owner 2026-09-24 — one Pro unlock covers every advanced
+   * feature). A boolean, never a component — nothing callable crosses here.
+   * `setWidgetMotion` refuses a free couple independently; Scroll is never
+   * locked, so a look can always be taken off.
+   */
+  transitionLocked?: boolean;
   /** Set or clear one section's background photo. */
   setBackgroundAction?: (formData: FormData) => void | Promise<void>;
   /** The couple's own photos — hero first, then gallery — as
    *  `{ ref, url }`. Only these are offered, and only these are accepted
    *  server-side. */
   photoChoices?: readonly { ref: string; url: string }[];
+  /** The couple's own hero video — the ONE snippet source an event has, so this
+   *  is a single choice rather than a gallery of one pretending to be a list. */
+  videoChoice?: { ref: string; url: string } | null;
+  /** Their own palette. A flat ground is chosen FROM the wedding, never from a
+   *  free colour wheel that invites a ground fighting every other surface. */
+  colorChoices?: readonly string[];
   /** Move the crop of a section's background photo. */
   setCropAction?: (formData: FormData) => void | Promise<void>;
   /** Save one of the couple's own sections. */
@@ -321,6 +347,115 @@ export function SectionsPanel({
                           </form>
                         ))}
                       </div>
+                      {/* ══ INTO THE NEXT SECTION — Scroll · Scrub · Auto-scroll ═
+                          Owner 2026-09-24: "some can scrub some can page move"
+                          ("hybrid perfect"), then "1. Scroll 2. Scrub 3.
+                          Auto-scroll (can set the speed)", then "from one scene
+                          to another there is a transition". So the value on a
+                          row is the transition from THIS section to the NEXT;
+                          the last row has no next, and gets a note instead of
+                          chips that would move nothing. Independent of the
+                          preset: the preset is how the section's parts arrive.
+                          The preview beside this panel is the guest page.
+                          ⛔ Scrub and Auto-scroll are Pro. Locked chips stay
+                          VISIBLE (a feature nobody can see is a feature nobody
+                          buys) and Scroll is never locked.
+                          ⚠ Auto-scroll is stored now and plays as Scroll until
+                          its own renderer lands — said here in the hint. */}
+                      {(() => {
+                        const transition = resolveTransition(canvas);
+                        const speed = canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
+                        if (i === rows.length - 1) {
+                          return (
+                            <p className="mt-1.5 text-[0.56rem] text-ink/45">
+                              Last section — nothing comes after it, so there is no transition to set.
+                            </p>
+                          );
+                        }
+                        return (
+                          <>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                Into the next section
+                              </span>
+                              {HUB_TRANSITIONS.map((t) => {
+                                const on = transition === t;
+                                const locked = transitionLocked && t !== 'scroll' && !on;
+                                return (
+                                  <form key={t} action={setMotionAction}>
+                                    <input type="hidden" name="event_id" value={eventId} />
+                                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                                    <input type="hidden" name="transition" value={t} />
+                                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                    <button
+                                      type="submit"
+                                      aria-pressed={on}
+                                      disabled={locked}
+                                      title={locked ? 'Comes with Event Hub Pro.' : HUB_TRANSITION_HINT[t]}
+                                      className={`inline-flex h-5 items-center gap-1 rounded-full border px-2 text-[0.58rem] ${
+                                        on
+                                          ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                          : locked
+                                            ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/30'
+                                            : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                      }`}
+                                    >
+                                      {locked ? <Lock aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} /> : null}
+                                      {HUB_TRANSITION_LABEL[t]}
+                                    </button>
+                                  </form>
+                                );
+                              })}
+                              {transitionLocked ? (
+                                <a
+                                  href={`/dashboard/${eventId}/studio/website-pro`}
+                                  className="text-[0.58rem] font-semibold text-ink/60 underline underline-offset-2 hover:text-ink"
+                                >
+                                  Unlock with Event Hub Pro
+                                </a>
+                              ) : null}
+                            </div>
+                            {transition === 'auto' ? (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                  Speed
+                                </span>
+                                {HUB_AUTO_SPEEDS.map((v) => {
+                                  const on = speed === v;
+                                  return (
+                                    <form key={v} action={setMotionAction}>
+                                      <input type="hidden" name="event_id" value={eventId} />
+                                      <input type="hidden" name="widget_id" value={row.widget_id} />
+                                      <input type="hidden" name="transition" value="auto" />
+                                      <input type="hidden" name="auto_speed" value={v} />
+                                      <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                      <button
+                                        type="submit"
+                                        aria-pressed={on}
+                                        disabled={transitionLocked && !on}
+                                        className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                          on
+                                            ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                            : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30 disabled:cursor-not-allowed disabled:text-ink/30'
+                                        }`}
+                                      >
+                                        {HUB_AUTO_SPEED_LABEL[v]}
+                                      </button>
+                                    </form>
+                                  );
+                                })}
+                                <span className="text-[0.56rem] text-ink/45">
+                                  Guests see it scroll with the page until Auto-scroll launches.
+                                </span>
+                              </div>
+                            ) : transition === 'scrub' ? (
+                              <p className="mt-1 text-[0.56rem] text-ink/45">
+                                {HUB_TRANSITION_HINT.scrub}
+                              </p>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                       {preset ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
                           <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
@@ -613,23 +748,44 @@ export function SectionsPanel({
               ) : null}
 
               {setBackgroundAction && !ownsPro ? (
-                /* 🔓 Same rule for the photo: one a free couple already set
-                   stays, and "Remove photo" (media='') is never gated. No
-                   picker, no crop — choosing or moving a photo is Pro. */
-                sanitizeHubCanvas(row.config_json).media ? (
-                  <form action={setBackgroundAction} className="mt-2 border-t border-dashed border-ink/10 pt-2">
-                    <input type="hidden" name="event_id" value={eventId} />
-                    <input type="hidden" name="widget_id" value={row.widget_id} />
-                    <input type="hidden" name="media" value="" />
-                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
-                    <button
-                      type="submit"
-                      className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
-                    >
-                      Remove this section&rsquo;s photo
-                    </button>
-                  </form>
-                ) : null
+                /* 🔓 A FREE COUPLE MAY ALWAYS TAKE MEDIA OFF, AND MAY ALWAYS
+                   CHOOSE A COLOUR (owner 2026-09-24: "changing background
+                   color is free. making media a background is pro."). A photo
+                   or video already set stays, and removing it (media='') is
+                   never gated. No photo picker, no crop — putting media up or
+                   moving it is Pro, named once by `lookLock` above. */
+                (() => {
+                  const canvas = sanitizeHubCanvas(row.config_json);
+                  if (!canvas.media && colorChoices.length === 0) return null;
+                  return (
+                    <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                      {canvas.media ? (
+                        <form action={setBackgroundAction}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="widget_id" value={row.widget_id} />
+                          <input type="hidden" name="media" value="" />
+                          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                          <button
+                            type="submit"
+                            className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
+                          >
+                            {canvas.kind === 'snippet'
+                              ? 'Remove this section\u2019s video'
+                              : 'Remove this section\u2019s photo'}
+                          </button>
+                        </form>
+                      ) : null}
+                      <SectionColourChoices
+                        eventId={eventId}
+                        widgetId={row.widget_id}
+                        canvas={canvas}
+                        colorChoices={colorChoices}
+                        action={setBackgroundAction}
+                        withNone
+                      />
+                    </div>
+                  );
+                })()
               ) : setBackgroundAction && photoChoices.length > 0 ? (
                 (() => {
                   const canvas = sanitizeHubCanvas(row.config_json);
@@ -659,6 +815,32 @@ export function SectionsPanel({
                             None
                           </button>
                         </form>
+                        {/* 🎬 THEIR OWN FOOTAGE, when they have some. One choice,
+                            not a gallery: `landing_page_hero_video_r2_key` is the
+                            only video an event owns, so offering a list would be
+                            offering a list of one and calling it a choice.
+                            It posts the SAME `media` field a photo does — one
+                            field, one allow-list, one ownership set. */}
+                        {videoChoice ? (
+                          <form action={setBackgroundAction}>
+                            <input type="hidden" name="event_id" value={eventId} />
+                            <input type="hidden" name="widget_id" value={row.widget_id} />
+                            <input type="hidden" name="media" value={videoChoice.ref} />
+                            <input type="hidden" name="kind" value="snippet" />
+                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <button
+                              type="submit"
+                              aria-pressed={canvas.kind === 'snippet'}
+                              className={`inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[0.6rem] font-semibold ${
+                                canvas.kind === 'snippet'
+                                  ? 'border-ink bg-ink text-cream'
+                                  : 'border-ink/15 bg-cream text-ink/55 hover:border-ink/30'
+                              }`}
+                            >
+                              Your video
+                            </button>
+                          </form>
+                        ) : null}
                         {photoChoices.map((photo) => {
                           const on = canvas.media === photo.ref;
                           return (
@@ -687,6 +869,16 @@ export function SectionsPanel({
                           );
                         })}
                       </div>
+
+                      {/* ── A FLAT COLOUR ── free for every couple; see
+                          <SectionColourChoices> below. */}
+                      <SectionColourChoices
+                        eventId={eventId}
+                        widgetId={row.widget_id}
+                        canvas={canvas}
+                        colorChoices={colorChoices}
+                        action={setBackgroundAction}
+                      />
 
                       {/* ══ THE CROP ════════════════════════════════════════
                           Only once a photo is actually set. A focal point with
@@ -817,6 +1009,82 @@ export function SectionsPanel({
           </p>
         )
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A section's COLOUR background — one row of swatches from the couple's own
+ * palette, shared by the Pro picker and the free rail.
+ *
+ * 🔓 FREE FOR EVERY COUPLE (owner 2026-09-24: "changing background color is
+ * free. making media a background is pro."). `setWidgetBackground` classifies a
+ * `kind=color` write through `sectionBackgroundChange`, which never answers
+ * 'add' or 'change' for a colour — so nothing this row posts is refused.
+ *
+ * From the couple's OWN palette, not a colour wheel: their mood board already
+ * decided what this wedding looks like, and a free picker here invites a ground
+ * that fights every other surface on the page.
+ */
+function SectionColourChoices({
+  eventId,
+  widgetId,
+  canvas,
+  colorChoices,
+  action,
+  withNone = false,
+}: {
+  eventId: string;
+  widgetId: string;
+  canvas: ReturnType<typeof sanitizeHubCanvas>;
+  colorChoices: readonly string[];
+  action: (formData: FormData) => void | Promise<void>;
+  /** The free rail has no "None" chip of its own, so the colour row carries one. */
+  withNone?: boolean;
+}) {
+  if (colorChoices.length === 0) return null;
+  const colourOn = canvas.kind === 'color';
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
+        Colour
+      </span>
+      {withNone && colourOn ? (
+        <form action={action}>
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="widget_id" value={widgetId} />
+          <input type="hidden" name="kind" value="color" />
+          <input type="hidden" name="color" value="" />
+          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+          <button
+            type="submit"
+            className="inline-flex h-7 items-center rounded-md border border-ink/15 bg-cream px-2 text-[0.6rem] font-semibold text-ink/55 hover:border-ink/30"
+          >
+            None
+          </button>
+        </form>
+      ) : null}
+      {colorChoices.map((hex) => {
+        const on = colourOn && canvas.color === hex;
+        return (
+          <form key={hex} action={action}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="widget_id" value={widgetId} />
+            <input type="hidden" name="kind" value="color" />
+            <input type="hidden" name="color" value={hex} />
+            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+            <button
+              type="submit"
+              aria-pressed={on}
+              aria-label={on ? `Current background colour ${hex}` : `Use ${hex} as the background`}
+              style={{ backgroundColor: hex }}
+              className={`block h-7 w-7 rounded-md border-2 ${
+                on ? 'border-ink' : 'border-ink/15 hover:border-ink/40'
+              }`}
+            />
+          </form>
+        );
+      })}
     </div>
   );
 }

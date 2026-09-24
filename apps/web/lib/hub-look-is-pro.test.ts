@@ -195,6 +195,15 @@ test('a COLOUR is free, MEDIA is Pro — the two writers encode the owner\'s lin
   assert.doesNotMatch(call[1]!, /\bbg\b|site_bg_color/, 'the background colour must not feed the Pro decision');
   const bgGate = find('app/dashboard/[eventId]/website/widgets/actions.ts', 'setWidgetBackground');
   assert.match(bgGate, /requireLookPro\(\s*eventId,\s*sectionBackgroundChange\(/, 'section media must be classified as a background');
+  // 🪤 The classifier must be handed the kind the form POSTED. A hard-coded
+  // `kind: 'photo'` made every colour write look like media — a free couple
+  // choosing a colour was sent to the Pro buy page.
+  const classify = bgGate.match(/sectionBackgroundChange\(\{([\s\S]*?)\}\)/);
+  assert.ok(classify, 'setWidgetBackground must call sectionBackgroundChange({ … })');
+  const kindArg = classify[1]!.match(/\bkind:\s*([^\n]+)/);
+  assert.ok(kindArg, 'sectionBackgroundChange must be passed a kind');
+  assert.doesNotMatch(kindArg[1]!.trim(), /^'[a-z]+',?$/, 'the kind must come from the form, not a literal');
+  assert.match(kindArg[1]!, /\bkind\b/, 'the kind must be derived from the posted kind');
 });
 
 test('the words stay free — no words writer asks the look gate', () => {

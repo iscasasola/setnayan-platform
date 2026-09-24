@@ -754,7 +754,21 @@ export default async function ProfilePage({ searchParams }: Props) {
                 on={publicProfileOn}
                 id="public-profile"
                 label="Public profile page"
-                help={`${publicHost}/u/${currentSlug ?? 'your-handle'} · lists only celebrations you’ve made public. Off: hidden from everyone but you, never in search.`}
+                /*
+                  ⚖ THIS SENTENCE IS PART OF THE CONSENT, NOT A DESCRIPTION OF IT.
+                  Owner 2026-09-23, asked whether turning this on counts as
+                  consent to publish the account's photo: *"yes, turning it on is
+                  the consent"*. That makes this switch load-bearing — so it has
+                  to say what it publishes. It previously promised a list of
+                  celebrations and said nothing about a face, and somebody
+                  turning it on to share their wedding list should not discover
+                  afterwards that it also published their photo.
+
+                  ⛔ This is NOT the hosts consent. `share_profile_photo_with_hosts`
+                  is separate, narrower and opt-in (owner 2026-09-20); it is not
+                  read or written here.
+                */
+                help={`${publicHost}/u/${currentSlug ?? 'your-handle'} · shows your name, your profile photo and the celebrations you’ve made public. Off: hidden from everyone but you, never in search.`}
               >
                 <input
                   type="hidden"

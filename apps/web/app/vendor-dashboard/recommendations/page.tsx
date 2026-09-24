@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
@@ -217,6 +218,13 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
 
   // Build the price label for a recommended SKU. Missing catalog row (a rec
   // pointing at an inactive/removed SKU) → show the title only, no price.
+  //
+  // 🔒 Every SKU here is a paid Setnayan feature. The App Store / Play Store
+  // shell shows none of their prices (guideline 3.1.1; lib/store-shell.ts), so
+  // the label is withheld there — the recommendation itself is not a sale.
+  const storeShell = await isStoreShellRequest();
+  const priceLabelFor = (row: Parameters<typeof formatSkuPriceLabel>[0]): string | null =>
+    storeShell ? null : formatSkuPriceLabel(row, null);
   function skuView(serviceCode: string): { title: string; priceLabel: string | null } {
     const row = catalogByCode.get(serviceCode);
     if (!row) return { title: serviceCode, priceLabel: null };
@@ -224,7 +232,7 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
       title: row.title,
       // No event pax context here → pax-priced SKUs render "from ₱X"; the
       // same helper every other vendor/couple surface uses. Never hand-format.
-      priceLabel: formatSkuPriceLabel(row, null),
+      priceLabel: priceLabelFor(row),
     };
   }
 
@@ -290,7 +298,7 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
     .map((c) => ({
       serviceCode: c.service_code,
       title: c.title,
-      priceLabel: formatSkuPriceLabel(c, null),
+      priceLabel: priceLabelFor(c),
     }))
     .sort((a, b) => a.title.localeCompare(b.title));
 

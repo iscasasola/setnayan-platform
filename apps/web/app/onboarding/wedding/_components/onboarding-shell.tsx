@@ -213,11 +213,18 @@ const SERVICES_STEP_ENABLED = onboardingServicesStepEnabled();
 const REMOVED_SCREENS: ReadonlySet<ScreenId> = new Set([
   'welcome', 'alaala_promise', 'team_intro', 'team_payoff', 'exp_reveal',
 ]);
-function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
+/* 🔒 THE APP STORE / PLAY STORE SHELL SELLS NOTHING (guideline 3.1.1; lib/store-shell.ts).
+   `storeShell` drops every screen that prices or sells a paid feature — the paywall tail
+   AND the services step's Papic / Setnayan AI cards — whatever the flags say. The page
+   resolves it server-side (`isStoreShellRequest`) and passes it down; every call site below
+   passes the same prop, so resume and the progress bar count the same screens. */
+const STORE_SHELL_DROPPED_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'services', 'summary', 'services_step']);
+function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[], storeShell: boolean): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
     !REMOVED_SCREENS.has(id) &&                     // owner 2026-06-22 — info-only steps + love-story arc removed for now
+    !(storeShell && STORE_SHELL_DROPPED_SCREENS.has(id)) && // the store shell never shows a price or a buy (see above)
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
@@ -1188,6 +1195,7 @@ export function OnboardingShell({
   nextPath = null,
   servicesStepView = null,
   servicesStepAiValue = null,
+  storeShell = false,
 }: {
   authed: boolean;
   resume: boolean;
@@ -1261,6 +1269,12 @@ export function OnboardingShell({
    * never enter this client bundle.
    */
   servicesStepAiValue?: ReactNode;
+  /**
+   * The App Store / Play Store shell (`isStoreShellRequest()`, resolved by the
+   * page). True drops every priced screen from the sequence — see
+   * STORE_SHELL_DROPPED_SCREENS. Defaults false: web, PWA and desktop unchanged.
+   */
+  storeShell?: boolean;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -1473,7 +1487,7 @@ export function OnboardingShell({
             Math.max(0, saved.step ?? 0),
             // Pass saved.ai (PR-1 field; legacy drafts saved before PR-1 fall back to null
             // = AI not yet asked → picker/prefs filtered out until they tap Yes on aigate).
-            buildSequence(saved.kind, authed, saved.loveSkipped ?? false, saved.ai ?? null, saved.picks ?? []).length - 1,
+            buildSequence(saved.kind, authed, saved.loveSkipped ?? false, saved.ai ?? null, saved.picks ?? [], storeShell).length - 1,
           );
           setState({ ...EMPTY_ONBOARDING_STATE, ...saved, step: clampedStep, startedAt });
         } else {
@@ -1514,12 +1528,12 @@ export function OnboardingShell({
   useEffect(() => {
     if (hydrated && resume && authed) {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, storeShell);
         const ci = sq.indexOf('congrats');
         return ci >= 0 && s.step < ci ? { ...s, step: ci } : s;
       });
     }
-  }, [hydrated, resume, authed]);
+  }, [hydrated, resume, authed, storeShell]);
 
   /* Stamp the onboarding start once hydrated (a fresh draft has no startedAt yet) so the
      services summary can show "you did all this in X minutes" (owner 2026-06-05). */
@@ -1535,7 +1549,7 @@ export function OnboardingShell({
      sequence). buildSequence drops faith for Civil + account for signed-in users,
      so the same numeric step addresses a different screen depending on those forks —
      exactly the old skip behaviour, now via array membership. */
-  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks), [state.kind, authed, state.loveSkipped, state.ai, state.picks]);
+  const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell), [state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell]);
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
 
@@ -1609,7 +1623,7 @@ export function OnboardingShell({
     (d: number) => {
       if (d === 0) return;
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, storeShell);
         const activeIdNow = sq[Math.min(Math.max(0, s.step), sq.length - 1)] ?? 'welcome';
         // ── refine re-entry: walk the queued leaves within the active pass before leaving ──
         if (REFINE_SCREENS.has(activeIdNow) && s.ai === true) {
@@ -1633,7 +1647,7 @@ export function OnboardingShell({
         return { ...s, step: n };
       });
     },
-    [authed, refineIdx, extrasOrder, refinementKeys],
+    [authed, refineIdx, extrasOrder, refinementKeys, storeShell],
   );
 
   /* Absolute jump to a screen by id (resolves to its index in the filtered seq).
@@ -1641,12 +1655,12 @@ export function OnboardingShell({
   const goToId = useCallback(
     (id: ScreenId) => {
       setState((s) => {
-        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks);
+        const sq = buildSequence(s.kind, authed, s.loveSkipped, s.ai, s.picks, storeShell);
         const i = sq.indexOf(id);
         return i >= 0 ? { ...s, step: i } : s;
       });
     },
-    [authed],
+    [authed, storeShell],
   );
 
   /* ── Hardware / browser / swipe Back interception (owner bug 2026-06-15) ──────
@@ -1820,11 +1834,11 @@ export function OnboardingShell({
      excludes the love screens when we resolve 'region''s index. */
   const loveSkip = useCallback(() => {
     setState((s) => {
-      const sq = buildSequence(s.kind, authed, true, s.ai, s.picks);
+      const sq = buildSequence(s.kind, authed, true, s.ai, s.picks, storeShell);
       const i = sq.indexOf('region');
       return { ...s, loveSkipped: true, step: i >= 0 ? i : s.step };
     });
-  }, [authed]);
+  }, [authed, storeShell]);
 
   /* ════ DREAM TEAM · the AI gate (prototype aiAnswer) ════
      The two in-screen CTAs on `aigate`. Yes → state.ai=true reveals the AI-gated

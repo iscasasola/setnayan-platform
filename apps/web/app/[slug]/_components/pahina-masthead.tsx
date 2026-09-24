@@ -79,8 +79,10 @@ export function PahinaMasthead({
    *  to today's split so an un-wired caller cannot flatten a couple. */
   twoPeople?: boolean;
   venueName?: string | null;
-  /** Eyebrow text after the chapter №. */
-  eyebrow?: string;
+  /** Eyebrow text after the chapter №. `null` renders the № alone — the
+   *  solemn register's answer (`mastheadEyebrow` in _lib/invitation-card.ts):
+   *  a wake is never told "You are invited". */
+  eyebrow?: string | null;
   chapterNo?: string;
   /** Day-of badge etc. — rendered above the eyebrow when present. */
   badgeSlot?: ReactNode;
@@ -170,7 +172,7 @@ export function PahinaMasthead({
       {badgeSlot}
       <p className="pahina-eyebrow justify-center">
         <span aria-hidden>№ {chapterNo}</span>
-        <span>{eyebrow}</span>
+        {eyebrow ? <span>{eyebrow}</span> : null}
       </p>
       {monogramSlot ? <div data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
 

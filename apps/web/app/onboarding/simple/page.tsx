@@ -11,6 +11,7 @@ import { commitSimpleEvent } from './actions';
 export const metadata = { title: 'Create a Simple Event' };
 
 import { SHOP_ACCOUNT_CANNOT_CREATE_COPY } from '@/lib/vendor-event-creation';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 const ERROR_COPY: Record<string, string> = {
   shop_account: SHOP_ACCOUNT_CANNOT_CREATE_COPY,
@@ -68,9 +69,12 @@ export default async function SimpleOnboardingPage({
   // renders. Derived, never named by type — the same house rule as
   // lib/papic-event-access.ts. The page's own promise ("everything else is
   // Setnayan's in-app services") finally has something behind it.
-  const servicesStepView = onboardingServicesStepEnabled()
-    ? await readServicesStepView(supabase, 'simple_event')
-    : null;
+  // 🔒 Never in the App Store / Play Store shell — the step prices paid
+  // features (guideline 3.1.1; lib/store-shell.ts). Null drops the step.
+  const servicesStepView =
+    onboardingServicesStepEnabled() && !(await isStoreShellRequest())
+      ? await readServicesStepView(supabase, 'simple_event')
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">

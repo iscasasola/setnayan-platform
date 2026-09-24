@@ -44,6 +44,10 @@ const DELETE_ACTIONS = resolve(
   HERE,
   '../../dashboard/[eventId]/delete-actions.ts',
 );
+/** The attention ROW (the amber pill) moved here 2026-09-24 — the collection
+ *  card standard, step 1. The launcher keeps the decision of WHAT it counts
+ *  (`eventAttention`); the card keeps HOW it prints. Both are pinned below. */
+const COLLECTION_CARD = resolve(HERE, '../../_components/collection-card.tsx');
 const read = (p: string) => readFileSync(p, 'utf8');
 
 /**
@@ -73,11 +77,11 @@ test('EVERY card composition receives its own event’s summary', () => {
 
 test('the one card renders the NAMED counter, at every width', () => {
   const src = stripComments(read(LAUNCHER));
-  const mounts = src.match(/<EventAttention\s/g) ?? [];
+  const mounts = src.match(/attention=\{eventAttention\(summary, stance\)\}/g) ?? [];
   assert.equal(
     mounts.length,
     1,
-    `EventAttention is mounted ${mounts.length} time(s). There is one card ` +
+    `eventAttention fills the card ${mounts.length} time(s). There is one card ` +
       'composition; more than one mount means a second card came back without ' +
       'this guard noticing, and none means the count is gone from the board.',
   );
@@ -98,7 +102,7 @@ test('the counter never renders for an invited card', () => {
   // invited card.
   assert.match(
     src,
-    /if \(stance === 'invited'\) return null;/,
+    /if \(stance === 'invited'\) return undefined;/,
     'EventAttention lost its invited-card refusal — it would quote somebody ' +
       'else’s decisions at a guest who cannot act on them.',
   );
@@ -113,9 +117,16 @@ test('an absent summary renders nothing — never a zero', () => {
   const src = stripComments(read(LAUNCHER));
   assert.match(
     src,
-    /if \(!summary \|\| summary\.total <= 0 \|\| !summary\.top\) return null;/,
-    'EventAttention must return nothing when there is no summary. An absence ' +
+    /if \(!summary \|\| summary\.total <= 0 \|\| !summary\.top\) return undefined;/,
+    'eventAttention must return nothing when there is no summary. An absence ' +
       'is not a zero: a degraded read rendered as "0 need you" is a calm lie.',
+  );
+  // …and the card, handed nothing, prints nothing (an absent prop is not the
+  // `count: null` couldn't-load state and not a zero).
+  assert.match(
+    stripComments(read(COLLECTION_CARD)),
+    /if \(!attention\) return null;/,
+    'The collection card renders an attention row when it was handed none.',
   );
 });
 
@@ -244,7 +255,8 @@ test('the card menu is actually MOUNTED on every card, not merely defined', () =
 */
 
 test('the pill never prints its total straight into a count-led label', () => {
-  const src = stripComments(read(LAUNCHER));
+  // The pill is the collection card's attention row since 2026-09-24.
+  const src = stripComments(read(COLLECTION_CARD));
   // summarizeEventDecisions returns "3 payments to settle" — the label ALREADY
   // leads with a number. Rendering {count} immediately before it produced
   // "9 3 payments to settle", and "3 3 payments to settle" when one kind was
@@ -255,12 +267,15 @@ test('the pill never prints its total straight into a count-led label', () => {
     'The pill total lost its noun. Printed bare it collides with the label’s ' +
       'own leading count and the card reads "3 3 payments to settle".',
   );
-  // And the remainder must not be printed alongside a total that already counts it.
-  assert.match(
+  // And no remainder tail is printed beside a total that already counts it.
+  // (The old pill's "· N more" was only ever passed `more={0}` by the event
+  // card, and went with the extraction — ONE attention item per card is rule 1
+  // of the standard.)
+  assert.doesNotMatch(
     src,
-    /more > 0 && count == null/,
-    'The "· N more" tail must be suppressed when the total is shown — the ' +
-      'total already includes it, so printing both states the arithmetic twice.',
+    /\{more\} more|· \{[a-z.]+\} more/,
+    'A "· N more" tail is back beside the total — the total already includes ' +
+      'it, so printing both states the arithmetic twice.',
   );
 });
 
@@ -293,15 +308,22 @@ test('the pill never says the same number twice', () => {
   // The total is passed ONLY when other kinds are also waiting, i.e. when it is
   // strictly larger than the top count and therefore says something the label
   // cannot.
+  //
+  // Since 2026-09-24 the two halves live apart: the board hands the card the
+  // total AND how many the label already names; the card's attention row prints
+  // the total only when it is strictly larger. Both halves are pinned, because
+  // either one drifting alone brings the repetition back.
   assert.match(
     src,
-    /const otherKinds = Math\.max\(0, summary\.total - summary\.top\.count\);/,
-    'The pill lost the test that decides whether the total adds anything.',
+    /count: summary\.total,\s*label: summary\.top\.label,\s*labelCount: summary\.top\.count,/,
+    'The board stopped telling the card how many the label already names — ' +
+      'the card can no longer tell whether the total adds anything.',
   );
+  const card = stripComments(read(COLLECTION_CARD));
   assert.match(
-    src,
-    /count=\{otherKinds > 0 \? summary\.total : undefined\}/,
-    'The total is being passed unconditionally again — a card with one kind of ' +
+    card,
+    /attention\.labelCount != null && attention\.count > attention\.labelCount\s*\?\s*attention\.count\s*:\s*undefined/,
+    'The total is printed unconditionally again — a card with one kind of ' +
       'thing waiting will read "9 need you · 9 tasks overdue".',
   );
 });

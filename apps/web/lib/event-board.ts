@@ -192,7 +192,15 @@ export function manilaTodayISO(now: Date = new Date()): string {
  * a guess must not move somebody's celebration onto the Finished shelf.
  */
 export function isFinishedEvent(
-  event: Pick<EventWithRole, 'event_date' | 'archived'> & {
+  event: Pick<EventWithRole, 'event_date'> & {
+    /* ⚠ NULLABLE, because the COLUMN is. `EventWithRole.archived` is typed
+       `boolean`, but `events.archived` is nullable and the public profile reads
+       it as `boolean | null` — so a caller holding a real row could not pass it
+       in. The body below has always treated null as "not archived" (a falsy
+       check, not an equality); only the signature disagreed, and it blocked
+       `splitComingUpAndPast` from compiling at all. Widening the type changes
+       no behaviour and no existing caller. */
+    archived: boolean | null;
     event_end_date?: string | null;
   },
   todayISO: string,
@@ -447,7 +455,8 @@ export function isHappeningNow(
 export type PlanningShelves = {
   /** Running today. Absent from the board entirely when empty. */
   happeningNow: EventWithRole[];
-  /** Ahead of them and not put away — the shelf they actually work in. */
+  /** Ahead of them and not put away — the shelf they actually work in.
+   *  Soonest first, undated last (`orderSoonestFirst`). */
   planning: EventWithRole[];
   /**
    * Put away, of any date. Rendered ONLY when the person asks for them.
@@ -485,9 +494,43 @@ export function splitPlanningShelves(
   const live = comingUp.filter((e) => !e.archived);
   return {
     happeningNow: live.filter((e) => isHappeningNow(e, todayISO)),
-    planning: live.filter((e) => !isHappeningNow(e, todayISO)),
+    planning: orderSoonestFirst(live.filter((e) => !isHappeningNow(e, todayISO))),
     putAway,
   };
+}
+
+/**
+ * THE PLANNING SHELF RUNS SOONEST FIRST, UNDATED LAST (owner-approved
+ * 2026-09-24, the collection template — "Soonest first, undated last").
+ *
+ * ⚖ THIS REVERSES THE 2026-07-13 TIMELINE ORDER *FOR PLANNING ONLY*. That rule
+ * (newest at the top, a Facebook-style feed) still orders `splitEventBoard`'s
+ * `comingUp` and the finished shelves, and its own test still holds it. Planning
+ * is now a collection you work through, and the celebration that needs you
+ * next is the one nearest in time — so it leads, and a person with twenty
+ * events does not scroll past next year's to find next week's.
+ *
+ * "Date to be set" stays a REAL STATE at the tail: an undated event has not
+ * happened, so it is planning, but nothing is sooner than a date.
+ *
+ * Stable: two celebrations on one day keep the order they arrived in.
+ */
+export function orderSoonestFirst<T extends { event_date: string | null }>(
+  rows: readonly T[],
+): T[] {
+  const key = (e: T) => e.event_date?.slice(0, 10) ?? '';
+  return rows
+    .map((row, i) => ({ row, i }))
+    .sort((a, b) => {
+      const da = key(a.row);
+      const db = key(b.row);
+      if (!da && !db) return a.i - b.i;
+      if (!da) return 1; // undated → tail
+      if (!db) return -1;
+      if (da !== db) return da < db ? -1 : 1; // soonest first
+      return a.i - b.i;
+    })
+    .map(({ row }) => row);
 }
 
 /**

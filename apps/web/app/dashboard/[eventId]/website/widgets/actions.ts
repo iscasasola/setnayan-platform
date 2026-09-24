@@ -2,6 +2,9 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { nextTransition } from '@/lib/hub-scenes';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
@@ -12,8 +15,6 @@ import {
   nextFreeCustomSlot,
   readCustomSectionInput,
 } from '@/lib/custom-sections';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   HUB_DIRECTIONS,
   HUB_FOCAL_POINTS,
@@ -25,6 +26,7 @@ import {
   HUB_SEQUENCES,
   HUB_ZOOMS,
   hubArrangement,
+  hubBackgroundColor,
   hubMediaRef,
   HUB_TIMELINE,
   sanitizeHubCanvas,
@@ -467,6 +469,9 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
  *   - event_id · widget_id — the row, and the gate subject
  *   - preset               — still | calm | editorial | cinematic
  *   - timeline             — auto | time | scrub   (optional; auto removes it)
+ *   - transition           — scroll | scrub | auto  (optional; the transition INTO THE NEXT
+ *                            scene; scroll removes it; scrub/auto need Event Hub Pro)
+ *   - auto_speed           — slow | normal | fast  (optional; kept only beside auto)
  */
 export async function setWidgetMotion(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -563,6 +568,28 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
     canvas.outTo = outToRaw;
   }
 
+  /* ── SCROLL · SCRUB · AUTO-SCROLL (owner 2026-09-24) ──────────────────────
+     The transition from this scene INTO THE NEXT. `nextTransition` owns the rules —
+     Scroll is an absence, a speed only lives beside Auto, nothing is repaired —
+     and says whether the write needs Pro.
+     ⛔ SCRUB AND AUTO-SCROLL ARE EVENT HUB PRO. The editor locks the chips;
+     this is the real gate, because a server action is a public POST. Going
+     BACK to Scroll is never gated: a free couple may always take a look off.
+     Admin client for the SKU read, as `website/colors/actions.ts` does — orders
+     RLS is purchaser-scoped, so a co-host would otherwise read "not Pro". */
+  const transitionRaw = formData.get('transition');
+  const autoSpeedRaw = formData.get('auto_speed');
+  if (transitionRaw !== null || autoSpeedRaw !== null) {
+    const step = nextTransition(canvas, transitionRaw, autoSpeedRaw);
+    if (step.needsPro && !(await eventCoupleWebsiteProActive(createAdminClient(), eventId))) {
+      redirect(`/dashboard/${eventId}/studio/website-pro`);
+    }
+    delete canvas.transition;
+    delete canvas.autoSpeed;
+    if (step.transition) canvas.transition = step.transition;
+    if (step.autoSpeed) canvas.autoSpeed = step.autoSpeed;
+  }
+
   const next = { ...existing, canvas };
 
   const { error: updateErr } = await supabase
@@ -626,7 +653,7 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       .maybeSingle(),
     supabase
       .from('events')
-      .select('landing_page_hero_image_url, our_photos')
+      .select('landing_page_hero_image_url, our_photos, landing_page_hero_video_r2_key')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -642,6 +669,11 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
     [
       siteMediaServeRef(ev?.landing_page_hero_image_url),
       ...siteMediaServeRefs(ev?.our_photos),
+      /* 🎬 THE SNIPPET SOURCE — the couple's own hero video, and only that.
+         A snippet rides the SAME `media` field and therefore the same
+         allow-list as a photo; adding it here is what makes it THEIRS as well
+         as public-bucket. One field, one fence, one ownership set. */
+      siteMediaServeRef(ev?.landing_page_hero_video_r2_key),
     ].filter((r): r is string => Boolean(r)),
   );
 
@@ -651,24 +683,48 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       : {};
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
+  /* WHICH KIND the couple asked for. Absent = photo, the same rule
+     `resolveHubBackground` states for every row written before kinds existed. */
+  const kindRaw = formData.get('kind');
+  const kind = typeof kindRaw === 'string' ? kindRaw.trim() : '';
+
   /* ⛔ MEDIA BEHIND A SECTION IS PRO; A COLOUR IS NOT (owner 2026-09-24:
      "changing background color is free. making media a background is pro.").
-     This action writes media only — the colour kind from PR #5934 is not on
-     `main` — so its kind is 'photo'. Taking it off (`media=''`) is never gated;
-     putting one on, or swapping it, is. `sectionBackgroundChange` is the one
-     classifier a colour write must also go through when that kind returns. */
+     The REAL kind goes into the one classifier, so a colour write is never Pro
+     in any direction (`sectionBackgroundChange` answers 'none' or, when it
+     takes media down, 'remove'). Taking media off (`media=''`) is never gated;
+     putting a photo or snippet up, or swapping it, is. Asked BEFORE any branch
+     below writes, so no kind can reach the update ungated. */
   await requireLookPro(
     eventId,
     sectionBackgroundChange({
       currentMedia: typeof canvas.media === 'string' ? canvas.media : null,
-      kind: 'photo',
-      nextMedia: wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
+      kind: kind === 'color' ? 'color' : kind === 'snippet' ? 'snippet' : 'photo',
+      nextMedia: kind === 'color' || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
     }),
   );
 
-  if (wanted.length === 0) {
+  if (kind === 'color') {
+    /* 🔒 A COLOUR NEVER TOUCHES THE REF PATH. It has its own field and its own
+       shape, so there is no way to hand this branch an `r2://` and have it
+       stored — which would be a second doorway into `media` with no
+       allow-list on it. An unusable value clears the background rather than
+       being repaired into some other colour. */
+    const color = hubBackgroundColor(formData.get('color'));
     delete canvas.media;
+    if (color) {
+      canvas.kind = 'color';
+      canvas.color = color;
+    } else {
+      delete canvas.kind;
+      delete canvas.color;
+    }
+  } else if (wanted.length === 0) {
+    delete canvas.media;
+    delete canvas.kind;
+    delete canvas.color;
   } else {
+    delete canvas.color;
     // The STRICTER reader, not `siteMediaServeRef` alone — that one passes a
     // bare string through as a legacy URL, and `"1"` is not a photo.
     const ref = hubMediaRef(wanted);
@@ -682,6 +738,11 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       );
     }
     canvas.media = ref;
+    /* Only `snippet` is stored; a photo is the absence of a kind, so a row
+       written here looks exactly like the millions written before kinds
+       existed and reads the same way. */
+    if (kind === 'snippet') canvas.kind = 'snippet';
+    else delete canvas.kind;
   }
 
   const { error: updateErr } = await supabase

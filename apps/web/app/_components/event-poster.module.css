@@ -1,0 +1,434 @@
+/*
+ * THE EVENT POSTER — the collection card's cover, 3:4, filling the card.
+ *
+ * Owner-approved 2026-09-24 (DECISION_LOG "the template is good"; prototype
+ * `prototypes/collection_template_posters_add_flow_v4_2026-09-24.html`, in the
+ * public-profile poster language of
+ * `build-sessions/prototypes/public_profile_icecasa_FABLE3_2026-09-23.html`).
+ * Every size is in `cqw` — the card is a size container — so one poster reads
+ * the same at two columns on a phone and five on a desktop.
+ *
+ * Which of the five treatments an event gets is decided in `lib/event-poster.ts`
+ * (`posterFor`), never here. This file only draws them.
+ *
+ * `--a` is the couple's accent (`events.monogram_color`), already validated as
+ * a plain hex by `posterFor` — a host-writable column never reaches a style
+ * unchecked. `--sb` is the height of the private strip the card lays over the
+ * poster's foot; the art keeps its words clear of it.
+ */
+
+.poster {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  --sb: 54px;
+  background: var(--m-paper-2);
+  color: var(--m-ink);
+}
+
+.poster h2,
+.poster p {
+  margin: 0;
+}
+
+/* ── shared type ─────────────────────────────────────────────────────────── */
+.names {
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.005em;
+}
+.nm {
+  display: block;
+}
+.amp {
+  display: block;
+  font-style: italic;
+}
+.rule {
+  display: block;
+  height: 1px;
+  margin: 0 auto;
+}
+.wd {
+  font-size: max(10.5px, 2.9cqw);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.dt {
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-size: max(16px, 5.2cqw);
+  line-height: 1.15;
+}
+.tbd {
+  font-style: italic;
+  opacity: 0.75;
+}
+.frame {
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+  display: block;
+}
+.frame::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+}
+
+/* ── moon — an accent that cannot carry white type: a paper moon holds it ── */
+.moonGround {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 46%, rgba(0, 0, 0, 0.14) 100%),
+    var(--a);
+}
+.moonGround .frame {
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.moonGround .frame::after {
+  border: 1px solid rgba(255, 255, 255, 0.26);
+}
+.moon {
+  position: absolute;
+  left: 50%;
+  top: 19cqw;
+  transform: translateX(-50%);
+  width: 78cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--m-paper);
+  color: var(--m-ink);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 8cqw;
+  box-shadow:
+    0 0 0 6px rgba(255, 255, 255, 0.24),
+    0 26px 44px -22px rgba(0, 0, 0, 0.5);
+}
+.moon::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--sn-gold-300);
+  pointer-events: none;
+}
+.moon .names {
+  font-size: 13.5cqw;
+}
+.moon .one {
+  font-size: 10.5cqw;
+}
+.moon .amp {
+  font-size: 8cqw;
+  color: var(--sn-gold-800);
+  margin: 1.2cqw 0;
+}
+.moon .rule {
+  width: 34%;
+  background: var(--sn-gold-300);
+  margin-top: 4.5cqw;
+  margin-bottom: 3cqw;
+}
+.moon .wd {
+  color: var(--sn-ink-500);
+}
+.moon .dt {
+  margin-top: 1cqw;
+}
+.thread {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 111cqw;
+  height: 6px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(#fff, #fff) center / 22cqw 1px no-repeat;
+}
+.thread::before,
+.thread::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+/* ── deep — an accent that carries white type: the words sit on the ground ── */
+.deepGround {
+  background:
+    radial-gradient(120% 70% at 50% 22%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.24) 100%),
+    var(--a);
+  color: #fff;
+}
+.deepGround .frame {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.deepGround .frame::after {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+/* Capiz panes — only when the couple's invite wears the Capiz theme. */
+.capiz {
+  position: absolute;
+  inset: 0;
+  opacity: 0.9;
+  display: block;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 66%),
+    linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+  background-size: 11cqw 11cqw;
+  -webkit-mask-image: linear-gradient(180deg, #000 0 40%, rgba(0, 0, 0, 0) 66%);
+  mask-image: linear-gradient(180deg, #000 0 40%, rgba(0, 0, 0, 0) 66%);
+}
+.veil {
+  position: absolute;
+  left: 50%;
+  top: 33cqw;
+  transform: translate(-50%, -50%);
+  width: 78cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: block;
+  background: radial-gradient(circle at 50% 50%, var(--a) 0 36%, transparent 70%);
+}
+.mono {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 33cqw;
+  transform: translateY(-50%);
+  text-align: center;
+  color: #fff;
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-size: 22cqw;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.markImg {
+  position: absolute;
+  left: 50%;
+  top: 33cqw;
+  width: 38cqw;
+  height: 38cqw;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
+}
+.deepTxt {
+  position: absolute;
+  left: 8cqw;
+  right: 8cqw;
+  top: 57cqw;
+  text-align: center;
+}
+.deepTxt .names {
+  font-size: 10cqw;
+  line-height: 1.06;
+}
+.deepTxt .one {
+  font-size: 11cqw;
+}
+.deepTxt .amp {
+  color: var(--sn-gold-100);
+  font-size: 0.6em;
+  margin: 0.8cqw 0;
+}
+.deepTxt .rule {
+  width: 28%;
+  background: rgba(255, 255, 255, 0.75);
+  margin-top: 3.4cqw;
+  margin-bottom: 2.8cqw;
+}
+.deepTxt .dt {
+  margin-top: 1cqw;
+}
+
+/* ── photo — their own hero photograph wins ─────────────────────────────── */
+.photoGround {
+  color: #fff;
+  background: var(--sn-ink-900);
+}
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photoGround::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(20, 14, 12, 0.74) 0, rgba(20, 14, 12, 0.36) 36%, transparent 60%);
+}
+.over {
+  position: absolute;
+  left: 8cqw;
+  right: 8cqw;
+  bottom: calc(var(--sb) + 6cqw);
+  z-index: 1;
+  text-align: left;
+}
+.over .names {
+  font-size: 11cqw;
+  line-height: 1.04;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.35);
+}
+.over .amp {
+  color: var(--sn-gold-100);
+  font-size: 0.5em;
+  margin: 0.5cqw 0;
+}
+.over .wd {
+  margin-top: 3cqw;
+  opacity: 0.85;
+}
+.over .dt {
+  color: var(--sn-gold-100);
+}
+
+/* ── invitation — the hub's own invitation card (no accent, no photo) ────── */
+.invGround {
+  background: var(--m-paper);
+}
+.paper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10% 9% calc(var(--sb) + 6%);
+  color: var(--m-ink);
+}
+.paper::before {
+  content: '';
+  position: absolute;
+  inset: 4.5% 6%;
+  border: 1px solid rgba(169, 131, 75, 0.45);
+  pointer-events: none;
+}
+.eb {
+  font-size: max(6.5px, 3.3cqw);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.62;
+  padding-left: 0.3em;
+  margin-bottom: 3cqw;
+}
+.circ {
+  width: 21cqw;
+  aspect-ratio: 1;
+  border: 1px solid rgba(169, 131, 75, 0.45);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: italic 500 max(10px, 6cqw) / 1 var(--font-pahina-display), Georgia, serif;
+  color: var(--sn-gold-700);
+  margin-bottom: 3cqw;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.circ img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+.paper .names {
+  font-size: 11cqw;
+  line-height: 1.02;
+  font-weight: 300;
+}
+.paper .amp {
+  font-size: 0.5em;
+  color: var(--sn-gold-700);
+  margin: 0.6cqw 0;
+}
+.ln {
+  margin-top: 2.6cqw;
+  font-size: max(7px, 3.7cqw);
+  opacity: 0.8;
+}
+.paper .dt {
+  margin-top: 2.6cqw;
+  font-size: max(13px, 4.6cqw);
+}
+
+/* ── quiet — the wake keeps its quiet masthead, never a celebration ─────── */
+.quietGround {
+  background:
+    repeating-linear-gradient(45deg, rgba(44, 42, 41, 0.035) 0 1px, transparent 1px 7px),
+    var(--m-paper-2);
+  color: var(--m-ink);
+}
+.bill {
+  position: absolute;
+  inset: 16px 16px calc(16px + var(--sb));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4cqw 5cqw;
+}
+.orn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 18cqw;
+  height: 6px;
+}
+.orn::before,
+.orn::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--sn-gold-500);
+  transform: rotate(45deg);
+}
+.ttl {
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-weight: 400;
+  font-size: 12.5cqw;
+  line-height: 0.98;
+  letter-spacing: -0.005em;
+  margin: 4.5cqw 0 3cqw;
+  text-wrap: balance;
+}
+.bill .rule {
+  width: 18cqw;
+  background: var(--sn-gold-500);
+  margin: 3cqw auto;
+}
+.bill .wd {
+  color: var(--sn-ink-500);
+}
+.bill .dt {
+  color: var(--sn-gold-700);
+  font-size: max(15px, 6cqw);
+  margin-top: 1cqw;
+  margin-bottom: 1cqw;
+}
+.venue {
+  font-size: max(9px, 3.4cqw);
+  color: var(--sn-ink-500);
+  margin-bottom: 4cqw;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .moon,
+  .mono,
+  .markImg,
+  .photo {
+    transition: transform 0.6s cubic-bezier(0.22, 0.7, 0.25, 1);
+  }
+}

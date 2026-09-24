@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import type { EventDatePrecision } from '@/lib/events';
 import {
   resolveProfile as resolveEventTypeProfile,
   surfaceEnabled,
@@ -36,6 +37,20 @@ export type PublicProfileEvent = {
   monogram_frame_key: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
+  /* The celebration's own typeface — see EVENT_FIELDS for why this one column
+     and not the three private ones. Read by `resolveCelebrationIdentity`. */
+  std_theme: string | null;
+  std_film_accent_hex: string | null;
+  invite_theme: string | null;
+  /* The last day of a celebration that spans several days. `isFinishedEvent`
+     reads it so a multi-day event is not "past" on its morning. Zero prod rows
+     carry one today, so adding it is behaviour-neutral now and correct the
+     first time somebody sets a range — the same reasoning that module records. */
+  event_end_date: string | null;
+  /* How much of `event_date` is actually known. The poster refuses to print a
+     weekday below day precision — see EVENT_FIELDS for the live prod row that
+     makes this a correctness column rather than a nicety. */
+  event_date_precision: EventDatePrecision | null;
 };
 
 export type PublicProfileUser = {
@@ -43,6 +58,8 @@ export type PublicProfileUser = {
   display_name: string | null;
   slug: string | null;
   public_profile_enabled: boolean | null;
+  /** The stored ref — an `r2://…` object or a passthrough URL, NOT an <img src>. */
+  profile_photo_url: string | null;
   /** Public aggregate audience numbers (no graph exposure). */
   followers_count: number;
   profile_view_count: number;
@@ -55,8 +72,62 @@ export type ResolvedPublicProfile = {
   publicWebsiteEvents: PublicProfileEvent[];
 };
 
+/*
+ * ⚠ THIS SELECT FEEDS A PUBLIC PAGE. Every column here must be anon-readable —
+ * check `supabase/security/exposure-surface.baseline.txt` before adding one.
+ *
+ * ONE identity column — `std_theme`, added 2026-09-23 — and the count is
+ * deliberate. The cover art needs ZERO new columns: `eventCardTreatment()` in
+ * lib/event-card-art.ts derives a stable wash and crop from the `event_id` this
+ * select already carries. What the cover cannot do is tell his two WEDDINGS
+ * apart: measured, they land on hues 204 and 214, ten degrees from each other,
+ * so both read blue side by side. `std_theme` is the couple's own Save-the-Date
+ * typeface, and two blue covers in different fonts read as two celebrations
+ * where two blue covers in one font read as a rendering bug.
+ *
+ * `event_end_date` joined for the Coming-up/Past split (owner 2026-09-23,
+ * "split coming up from past"): `isFinishedEvent` needs it to avoid calling a
+ * multi-day celebration finished on its first morning. Also `anon=S`.
+ *
+ * `std_film_accent_hex` and `invite_theme` joined 2026-09-23 for the approved
+ * poster design: the sheet colour IS the accent (wine #9a244f, gold #9b7e00),
+ * and `invite_theme` ('capiz') is what draws the panes. They are not decoration
+ * — without them every poster falls to the same house stock.
+ *
+ * ⚠ `invite_theme` IS `anon=-` IN THE BASELINE, UNLIKE THE OTHER TWO, and that
+ * was checked rather than waved through. It is already rendered on the couple's
+ * own PUBLIC site — `app/[slug]/_lib/hub-look.ts` selects it, as do the public
+ * recap and pabuya pages — so the information is public already and the grant
+ * governs direct PostgREST reads, not secrecy. Adding it here exposes nothing a
+ * visitor cannot already see by opening the celebration itself.
+ *
+ * `event_date_precision` joined 2026-09-23 with the poster artwork, and it is
+ * a CORRECTNESS column, not a decorative one. The poster sets the weekday on
+ * its own line — and prod holds a row where that would be a fabrication:
+ *
+ *     Song Desk Test Night   event_date 2026-08-01   event_date_precision year
+ *
+ * A real, complete-looking date under a precision saying only the year is
+ * known. Without this column the poster announces a Saturday nobody chose.
+ * `anon=SIU` — already fully public.
+ *
+ * `site_bg_color` and `site_button_color` were tried and
+ * REMOVED: the cover carries the colour now, so an accent edge was a second
+ * answer to a question already answered, and every column on a public read has
+ * to pay for itself.
+ *
+ * ⛔ `moodboard_theme_name` and `story_cover_kind`/`_ref` are deliberately NOT
+ * here — all three are `anon=-` in that baseline. One of them would have looked
+ * good on the card; they are private fields.
+ *
+ * ⚠ THAT BAN LIST USED TO NAME `invite_theme` TOO, four paragraphs after the
+ * one above explaining why it had been ADDED. Both were true when written and
+ * the later change did not reach the earlier list, so one docblock said a
+ * column was present and absent at once — and a reader checking the ban would
+ * have found it in `EVENT_FIELDS` and had to guess which half was current.
+ */
 const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
+  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, std_theme, std_film_accent_hex, invite_theme, event_end_date, event_date_precision';
 
 /** The minimum an event row must carry to be put through the public gate. */
 export type PublicGateEventFields = {
@@ -113,7 +184,21 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
   const { data: userRow } = await admin
     .from('users')
     .select(
-      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count',
+      /*
+        ⚖ `profile_photo_url` IS ON A PUBLIC READ, BY OWNER RULING 2026-09-23.
+        Asked whether turning the public profile ON counts as consent to publish
+        the photo, he answered: "yes, turning it on is the consent". So the
+        switch is the consent, and the page shows the face of an account that
+        opted in.
+
+        ⛔ `share_profile_photo_with_hosts` IS NOT READ HERE AND MUST NOT BE.
+        It is a SEPARATE, NARROWER consent — "whether the couple running an event
+        you have joined may see your photo" — opt-in, defaulting to OFF, owner
+        2026-09-20. Two consents about one photo with different audiences stay
+        two; folding them would make one column do two jobs and quietly widen
+        the narrower one.
+      */
+      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url',
     )
     .ilike('slug', userSlug)
     .maybeSingle();
@@ -124,6 +209,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
     slug: (userRow.slug as string | null) ?? null,
     public_profile_enabled:
       (userRow.public_profile_enabled as boolean | null) ?? null,
+    profile_photo_url: (userRow.profile_photo_url as string | null) ?? null,
     followers_count: Number(userRow.followers_count ?? 0),
     profile_view_count: Number(userRow.profile_view_count ?? 0),
   };

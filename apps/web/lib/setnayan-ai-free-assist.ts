@@ -196,8 +196,14 @@ export function firstVenueShortlistUpsell(fullSaiPhp: number | null | undefined)
 export function firstVenueShortlistConfirmation(
   added: number,
   fullSaiPhp: number | null | undefined,
+  /**
+   * `sell: false` (the App Store / Play Store shell — lib/store-shell.ts) drops
+   * the pitch for the paid Sai entirely and reports only what just happened.
+   */
+  { sell = true }: { sell?: boolean } = {},
 ): string {
   const noun = added === 1 ? 'venue' : 'venues';
+  if (!sell) return `Sai shortlisted ${added} ${noun} that fit your date, budget & area.`;
   const head = `Sai shortlisted ${added} ${noun} that fit your date, budget & area — this is what the full Sai does`;
   return usablePrice(fullSaiPhp) ? `${head}, a one-time ${peso(fullSaiPhp)}.` : `${head}.`;
 }

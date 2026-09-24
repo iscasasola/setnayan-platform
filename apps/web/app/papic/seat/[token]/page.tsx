@@ -162,7 +162,9 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         eventStyle={eventStyle}
         faceMode={faceMode}
         geoEnabled={geoEnabled}
-        buyOffered={canReloadOwnCamera}
+        // The buy panel below is withheld in the store shell, so the camera
+        // must not point the guest at it ("add more shots below").
+        buyOffered={canReloadOwnCamera && !storeShell}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

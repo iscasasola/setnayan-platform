@@ -135,8 +135,10 @@ export function siteLookChange(
 }
 
 /**
- * The three kinds of section background (the vocabulary of PR #5934's
- * `HubSectionCanvas`). A colour is free; media behind a section is Pro.
+ * The three kinds of section background (`HUB_BACKGROUND_KINDS` in
+ * `lib/hub-canvas.ts`). A colour is free; media behind a section is Pro.
+ * `setWidgetBackground` passes the kind the form actually posted — never a
+ * hard-coded one — so a colour write reaches the colour arm below.
  */
 export type SectionBackgroundKind = 'photo' | 'snippet' | 'color';
 
@@ -178,6 +180,9 @@ export const HUB_CANVAS_LOOK_KEYS = [
   'sequence',
   'stagger',
   'duration',
+  // Scroll · Scrub · Auto-scroll into the next scene (#5951, `lib/hub-scenes.ts`).
+  'transition',
+  'autoSpeed',
 ] as const;
 
 /** The motion subset — what "Reset how it moves" takes off. */
@@ -192,6 +197,10 @@ export const HUB_CANVAS_MOTION_KEYS = [
   'sequence',
   'stagger',
   'duration',
+  // How this scene hands over to the next one (#5951). Scroll is an absence,
+  // so a stored value here is always a choice — and Reset takes it off.
+  'transition',
+  'autoSpeed',
 ] as const;
 
 /** Does this section's canvas carry any motion the couple chose? */

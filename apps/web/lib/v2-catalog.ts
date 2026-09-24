@@ -71,7 +71,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
-  COUPLE_WEBSITE_PRO:  'live',     // ₱4,999 website unlock (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
+  COUPLE_WEBSITE_PRO:  'live',     // Event Hub PRO unlock — price is the catalog row, never this comment (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
   EDITORIAL_PRO:       'live',     // ₱3,499 à-la-carte editorial-authoring SKU (migration 20270511151471 · owner 2026-07-04) · marked live 2026-07-10 (owner "all features active")
   SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱499/28d subscription · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01

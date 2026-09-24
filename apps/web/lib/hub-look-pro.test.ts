@@ -103,6 +103,30 @@ test('a free couple CANNOT set a photo or snippet background on a section', () =
   }
 });
 
+/* Event Hub Maker plan, Phase 0 ④: "a `color` scene background of
+   `none|remove|add|change` is never Pro". Every shape a COLOUR write can take —
+   no colour → none, colour off, a colour where there was none, one colour for
+   another — over no media, over a photo, and even carrying a stray media ref
+   in the POST, classifies as a change a FREE couple may make. */
+test('a colour scene background is never Pro — none · remove · add · change', () => {
+  const COLOUR_SHAPES = [
+    { shape: 'none', stored: null, next: null },
+    { shape: 'remove', stored: '#a9834b', next: null },
+    { shape: 'add', stored: null, next: '#a9834b' },
+    { shape: 'change', stored: '#a9834b', next: '#35403a' },
+  ] as const;
+  for (const { shape } of COLOUR_SHAPES) {
+    for (const currentMedia of [null, 'r2://setnayan-media/events/E/a.jpg']) {
+      for (const nextMedia of [null, '', 'r2://setnayan-media/events/E/b.jpg']) {
+        const c = sectionBackgroundChange({ currentMedia, kind: 'color', nextMedia });
+        const label = `colour ${shape} · over ${currentMedia ?? 'nothing'} · posted ${nextMedia || 'no media'}`;
+        assert.ok(c === 'none' || c === 'remove', `${label} classified '${c}'`);
+        assert.equal(lookWriteAllowed(false, c), true, label);
+      }
+    }
+  }
+});
+
 const STORED = { button: null, font: null, magic: null, art: null };
 const UNTOUCHED = { button: undefined, font: undefined, magic: undefined, art: null };
 type Next = {
@@ -158,6 +182,12 @@ test('canvas: motion is a subset of look, and "has motion" reads only motion key
   assert.equal(canvasHasMotion({ media: 'r2://x', focal: 5, zoom: 120 }), false);
   assert.equal(canvasHasMotion({ preset: 'calm' }), true);
   assert.equal(canvasHasMotion({ timeline: 'scrub' }), true);
+  // Scroll · Scrub · Auto (#5951) is motion: a free couple's Reset takes it off.
+  assert.equal(canvasHasMotion({ transition: 'scrub' }), true);
+  assert.equal(canvasHasMotion({ transition: 'auto', autoSpeed: 'slow' }), true);
+  // A COLOUR ground is not motion, and not a Pro look key either.
+  assert.equal(canvasHasMotion({ kind: 'color', color: '#a9834b' }), false);
+  assert.ok(!(HUB_CANVAS_LOOK_KEYS as readonly string[]).includes('color'));
 });
 
 test('look and words never overlap — a column is one or the other', () => {

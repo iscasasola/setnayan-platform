@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -368,6 +369,10 @@ export default async function SaveTheDatePage({ params }: Props) {
     : { data: null };
 
 
+  // 🔒 The Save-the-Date film is free planning and stays; its two upsells (the
+  // cinematic-openings unlock and Event Hub PRO) are prices, and the App Store /
+  // Play Store shell shows none (guideline 3.1.1; lib/store-shell.ts).
+  const storeShell = await isStoreShellRequest();
   return (
     <section className="space-y-8">
       <Link
@@ -432,7 +437,7 @@ export default async function SaveTheDatePage({ params }: Props) {
             lifts to reveal your page on your live site.
           </p>
         </div>
-      ) : openingsStandaloneSellable && openingsPricePhp != null && openingsPricePhp > 0 ? (
+      ) : storeShell ? null /* 🔒 no price, no unlock in the App Store / Play Store shell — lib/store-shell.ts */ : openingsStandaloneSellable && openingsPricePhp != null && openingsPricePhp > 0 ? (
         <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
           <div className="flex items-start gap-3">
             <Sparkles

@@ -54,6 +54,7 @@ import { getLifecyclePhase, type LifecyclePhase } from '@/lib/invitation-widgets
 import { getMenuLifecyclePhase, type MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { daysUntilEventDay } from '@/lib/event-board';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 
 /** What the controller knows about the event row it was handed. */
 export type HubEventRead = {
@@ -255,9 +256,14 @@ function resolveWorkroomFacts(editorial: HubEditorialRead): [HubFact, HubFact, H
   ];
 }
 
+/* The first two read the stage's OWN word from `PUBLIC_STAGE_LABELS` (owner's
+   2026-09-24 set), so the fact cell and the chip above it cannot spell one
+   stage two ways. The last two are sentences, not names, and were left as
+   they shipped — whether they should say "On the Day" / "Post Event" too is
+   the owner's wording call, not this change's. */
 const STAGE_FACT: Record<LifecyclePhase, string> = {
-  save_the_date: 'Save-the-Date live',
-  rsvp: 'Invitation live',
+  save_the_date: `${PUBLIC_STAGE_LABELS.save_the_date} live`,
+  rsvp: `${PUBLIC_STAGE_LABELS.rsvp} live`,
   event: 'The day itself',
   editorial: 'The story',
 };
@@ -689,6 +695,18 @@ export function resolveHubRoleView(input: {
   standing: HubStanding;
   slug: string | null;
   guests: HubGuestRead;
+  /**
+   * WHEN — the stage the couple picked on the controller's "When" switch
+   * (owner, 2026-09-24: *"this 2 can integrate to each other"*). Omitted means
+   * the stage the guests are on today, which is exactly what this returned
+   * before the switch existed.
+   *
+   * 🔑 IT MOVES ONLY THE DOOR, NEVER THE PERMISSION. Every href below still
+   * lands on `/{slug}?phase=`, which `app/[slug]/page.tsx` re-gates on the
+   * VIEWER's own host membership — a picked stage is a preview request, not a
+   * grant, exactly like the four Preview links it replaced.
+   */
+  stage?: LifecyclePhase | null;
 }): HubRoleView {
   const { role, standing, slug, guests } = input;
   /* No address, or an event we could not read, means no honest door. */
@@ -699,6 +717,13 @@ export function resolveHubRoleView(input: {
      invitation only when we could not read the event, in which case `at()`
      has already withdrawn the link anyway. */
   const liveStage = standing.stage ?? 'rsvp';
+  /* The stage this read is FOR — the picked one, else today's. */
+  const shownStage = input.stage ?? liveStage;
+  /* The host's own door: the bare address when they are looking at today
+     (it is the page their QR opens, pin and all), and the phase preview when
+     they picked another stage — never the bare address labelled as a stage
+     it is not showing. */
+  const ownDoor = shownStage === standing.stage ? '' : `?phase=${shownStage}`;
 
   switch (role) {
     case 'host':
@@ -714,7 +739,7 @@ export function resolveHubRoleView(input: {
           { mark: 'full', text: 'The ribbon, the print sheet, the four channels', known: true },
           { mark: 'full', text: 'Arms all three day-of services', known: true },
         ],
-        previewHref: at(''),
+        previewHref: at(ownDoor),
         previewLabel: 'Open your page',
         footnote: 'The only role that may edit the site.',
       };
@@ -732,7 +757,7 @@ export function resolveHubRoleView(input: {
           { mark: 'full', text: 'The only role that may advance the running order', known: true },
           { mark: 'none', text: 'Cannot edit the site itself', known: true },
         ],
-        previewHref: at(''),
+        previewHref: at(ownDoor),
         previewLabel: 'Open the page they open',
         footnote: 'A coordinator you HIRED is a supplier, not this.',
       };
@@ -774,7 +799,7 @@ export function resolveHubRoleView(input: {
             pending === 0 ? 'Everyone has replied' : `${pending} of them have not replied`,
           ),
         ],
-        previewHref: at(`?phase=${liveStage}`),
+        previewHref: at(`?phase=${shownStage}`),
         previewLabel: 'Open the stage they are on',
         footnote: 'Your ribbon still rides this preview — you cannot un-be the host.',
       };
@@ -860,4 +885,35 @@ export function resolveArmedHubRole(input: {
      guard above. An `undefined` armed role would render as "no switcher" —
      which is the safe direction, and it is why the type says `null`. */
   return offered[0] ?? null;
+}
+
+/**
+ * WHEN — which of the four stages the controller's stage opens on.
+ *
+ * `?stage=` from the address bar, checked against the four real phases; any
+ * other value (a misspelling, a repeated param, nothing at all) opens on the
+ * stage the guests are on TODAY. So the switch's default is the live stage,
+ * and a link into a particular stage still opens on it.
+ *
+ * ⚠ NULL when there is no live stage AND no valid param — i.e. the event could
+ * not be read. The controller then draws no switch at all rather than a
+ * selection that claims to know where the event stands.
+ *
+ * 🔒 IT GRANTS NOTHING. The picked stage only chooses which `?phase=` preview
+ * the frame and its doors ask for, and `app/[slug]/page.tsx` honours that
+ * param for the viewer's own host membership and for nobody else.
+ */
+export function resolveHubStageSelection(input: {
+  param: string | string[] | undefined;
+  live: LifecyclePhase | null;
+}): LifecyclePhase | null {
+  const { param, live } = input;
+  if (live === null) return null;
+  if (typeof param === 'string') {
+    const match = (['save_the_date', 'rsvp', 'event', 'editorial'] as const).find(
+      (p) => p === param,
+    );
+    if (match) return match;
+  }
+  return live;
 }

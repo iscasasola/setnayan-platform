@@ -73,6 +73,12 @@ import {
   type CollectionAttention,
 } from '@/app/_components/collection-card';
 import { paginateCollection, parseCollectionPage } from '@/lib/collection-pagination';
+import { EventPoster } from '@/app/_components/event-poster';
+import { posterFor, type EventPosterFacts } from '@/lib/event-poster';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
+import { resolveHubLook } from '@/app/[slug]/_lib/hub-look';
+import { resolveMonogram } from '@/lib/monogram';
+import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
@@ -784,6 +790,11 @@ export default async function LauncherPage({
     }
   }
 
+  // THE POSTERS (the collection template, owner-approved 2026-09-24) — for the
+  // Planning page on screen only, never the whole shelf. Each follows the hero
+  // the couple built; see `planningPosters` and `lib/event-poster.ts`.
+  const posterById = await planningPosters(supabase, upcomingOnPage, ownHeroById, user.id);
+
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
   // user owns or is on the team of (owner: "show what shop we have"), so a
@@ -1132,7 +1143,7 @@ export default async function LauncherPage({
             }
           />
         ) : (
-        <CollectionGrid>
+        <CollectionGrid layout="poster">
           {upcomingOnPage.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
@@ -1144,11 +1155,12 @@ export default async function LauncherPage({
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
+                poster={posterById.get(event.event_id)}
               />
             </BoardCardWithMenu>
           ))}
           {planningPage.hasRoomForNewTile ? (
-            <NewEventCard delay={0.5 + upcomingOnPage.length * 0.08} />
+            <NewEventCard poster delay={0.5 + upcomingOnPage.length * 0.05} />
           ) : null}
         </CollectionGrid>
         )}
@@ -1623,6 +1635,7 @@ function GlassEventCard({
   summary,
   hasMenu = false,
   storyHref,
+  poster,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -1655,6 +1668,14 @@ function GlassEventCard({
    * other rules already live, not duplicated here.
    */
   storyHref?: string;
+  /**
+   * THE POSTER (the collection template, owner-approved 2026-09-24). When set,
+   * the cover IS the card: the event's poster, 3:4, printing the names and the
+   * date ONCE — so the body's title and date line are not drawn again and
+   * become the link's accessible name instead. Absent (every other shelf, or a
+   * Planning card whose words could not be resolved) → the glass card as before.
+   */
+  poster?: EventPosterFacts;
 }) {
   const { badge, dateLabel, place, status, keptNote, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
@@ -1665,6 +1686,8 @@ function GlassEventCard({
   const showRing = pct != null && stance !== 'invited' && !finished;
   const resolvedHref = storyHref ?? href;
 
+  // SEC-3: gated on read — both monogram columns are host-writable.
+  const markSvg = poster ? resolveEventMonogramSvg(event) : null;
   /*
     THE CARD IS THE COLLECTION CARD (build-sessions/STANDARD-collection-card.md,
     step 1). This function is now only PLANNING'S SLOT MAPPING — which event
@@ -1674,6 +1697,10 @@ function GlassEventCard({
   return (
     <CollectionCard
       href={resolvedHref}
+      /* THE POSTER (collection template, owner-approved 2026-09-24): with one,
+         the cover IS the card and prints the names and date once. */
+      layout={poster ? 'poster' : 'card'}
+      coverTone={poster?.dark ? 'dark' : 'light'}
       inertReason={closedReason}
       muted={finished}
       index={index}
@@ -1687,13 +1714,21 @@ function GlassEventCard({
          with no asset gets its deterministic branded gradient, never another
          type's photo. */
       cover={
-        <EventScene
-          eventId={event.event_id}
-          eventType={event.event_type}
-          photoSrc={heroSrc}
-          ownPhotoSrc={ownHeroSrc}
-          muted={finished}
-        />
+        poster ? (
+          <EventPoster
+            poster={poster}
+            markText={resolveMonogram(event).text}
+            markSvgUri={markSvg ? bespokeSvgToDataUri(markSvg) : null}
+          />
+        ) : (
+          <EventScene
+            eventId={event.event_id}
+            eventType={event.event_type}
+            photoSrc={heroSrc}
+            ownPhotoSrc={ownHeroSrc}
+            muted={finished}
+          />
+        )
       }
       /* Type badge + STANCE, one row: what kind of event this is, and which
          side of it you are on. */
@@ -1701,7 +1736,9 @@ function GlassEventCard({
       /* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
          lettered). Uploaded outranks custom per app-wide precedence;
          EventMonogram only reads monogram_custom_svg, so resolve it here. */
+      /* The poster carries their mark itself — no second badge on it. */
       mark={
+        poster ? undefined : (
         <EventMonogram
           event={{
             ...event,
@@ -1712,13 +1749,23 @@ function GlassEventCard({
           shape="square"
           className={collectionMarkClass}
         />
+        )
       }
       starred={event.is_primary}
       title={event.display_name}
       /* Omitted (never guessed) when the event has neither a venue name nor an
          address. */
-      place={place}
-      meta={dateLabel ?? 'Date to be set'}
+      place={poster ? null : place}
+      /* On a poster this is NOT printed — the poster already says it — and it
+         becomes the rest of the card's accessible name: kind, stance, the day. */
+      meta={
+        poster
+          ? [
+              stance ? `${badge}, ${stanceLabel(stance)}` : badge,
+              poster.date ? `${poster.weekday} ${poster.date}` : 'Date to be set',
+            ].join(' · ')
+          : (dateLabel ?? 'Date to be set')
+      }
       /* THE COUNTER (owner 2026-08-20). Above the progress row so it is the
          first thing read after the date — what is waiting outranks how far
          along the plan is. Absent entirely when nothing waits. */
@@ -1730,7 +1777,7 @@ function GlassEventCard({
         // text beside it was the D-6 double-print); this keeps the word for
         // screen readers.
         srLabel: 'planned',
-        note: keptNote,
+        note: keptNote ?? (poster && !poster.date ? 'Date to be set' : null),
       }}
     />
   );
@@ -1973,8 +2020,93 @@ function BoardCardWithMenu({
  * (proto .evghost — bare gold plus, no circle). The tile itself is the
  * collection standard's `NewThingTile`; Planning supplies where and what.
  */
-function NewEventCard({ delay = 0 }: { delay?: number }) {
-  return <NewThingTile href="/dashboard/create-event" label="New event" delay={delay} />;
+function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: boolean }) {
+  return (
+    <NewThingTile
+      href="/dashboard/create-event"
+      label="New event"
+      delay={delay}
+      layout={poster ? 'poster' : 'card'}
+    />
+  );
+}
+
+/**
+ * The Planning page's posters — `posterFor`'s facts, each read from the
+ * resolver that owns it (lib/event-poster.ts explains the order).
+ *
+ *   • WORDS — `eventWordsFor(event_type)`, React-cached per type. It decides
+ *     whether the event is SOLEMN; if it cannot be resolved the card keeps the
+ *     glass cover rather than guessing — a wake must never get a celebration
+ *     poster because a read failed.
+ *   • THEME — the couple's saved `invite_theme`, gated by `resolveHubLook`, the
+ *     ONE place a theme is decided (a Pro theme needs the live unlock AND a
+ *     type that carries the Save-the-Date film). A refused read costs only the
+ *     Capiz panes — decoration, never a word — so it falls to House, logged.
+ *   • ACCENT — `monogram_color`, already on the row; validated in `posterFor`.
+ *   • HERO — the own-hero map this page already presigned and narrowed.
+ */
+async function planningPosters(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  events: readonly EventWithRole[],
+  ownHeroById: ReadonlyMap<string, string>,
+  userId: string,
+): Promise<Map<string, EventPosterFacts>> {
+  const out = new Map<string, EventPosterFacts>();
+  if (events.length === 0) return out;
+  const saved = new Map<string, string | null>();
+  try {
+    const { data, error } = await supabase
+      .from('events')
+      .select('event_id, invite_theme')
+      .in(
+        'event_id',
+        events.map((e) => e.event_id),
+      );
+    if (error) {
+      logQueryError('Launcher (events.invite_theme SELECT)', error, { user_id: userId }, 'graceful_degrade');
+    } else {
+      for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null }>) {
+        saved.set(r.event_id, r.invite_theme);
+      }
+    }
+  } catch (caught) {
+    logQueryError(
+      'Launcher (invite theme read threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { user_id: userId },
+      'graceful_degrade',
+    );
+  }
+  await Promise.all(
+    events.map(async (e) => {
+      const [words, look] = await Promise.all([
+        eventWordsFor(e.event_type).catch(() => null),
+        resolveHubLook({
+          event_id: e.event_id,
+          display_name: e.display_name,
+          invite_theme: saved.get(e.event_id) ?? null,
+          monogram_text: e.monogram_text,
+          monogram_color: e.monogram_color,
+          event_type: e.event_type,
+        }).catch(() => null),
+      ]);
+      if (!words) return;
+      out.set(
+        e.event_id,
+        posterFor({
+          displayName: e.display_name,
+          eventDate: e.event_date,
+          venueName: e.venue_name,
+          words,
+          theme: look?.theme ?? 'house',
+          accent: e.monogram_color,
+          heroSrc: ownHeroById.get(e.event_id) ?? null,
+        }),
+      );
+    }),
+  );
+  return out;
 }
 
 /**

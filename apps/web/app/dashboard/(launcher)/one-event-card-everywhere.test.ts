@@ -36,7 +36,11 @@ test('the one grid starts at ONE column and widens', () => {
   const s = src();
   // Since 2026-09-24 every shelf lays out through the collection standard's
   // `CollectionGrid`; the one-column-then-widen classes live in that component.
-  const grids = count(s, /<CollectionGrid>/g);
+  // `\b`, not `>`: Planning's grid takes `layout="poster"` since the collection
+  // template (owner-approved 2026-09-24) — still one grid per shelf. The
+  // poster grid is two-up on a phone BY THAT APPROVAL (the prototype's mobile
+  // viewport); every other shelf keeps the one-column start asserted below.
+  const grids = count(s, /<CollectionGrid\b/g);
   // Now happening · Planning · Put away · Untold · Told.
   assert.equal(grids, 5, `expected one grid per shelf, saw ${grids}`);
   const card = stripComments(

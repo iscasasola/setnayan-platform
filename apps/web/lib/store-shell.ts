@@ -64,6 +64,32 @@ export function isStoreShellSignals(
 export const STORE_SHELL_CLIENT_TYPE_COOKIE = CLIENT_TYPE_COOKIE;
 
 /**
+ * The same question asked from inside the browser (client components), where
+ * there is no request object — only `navigator.userAgent` and
+ * `document.cookie`. Pure so it can be tested; `useIsStoreShell()` in
+ * lib/use-store-shell.ts is the hook that feeds it.
+ *
+ * 🔑 NOT `/SetnayanApp/i.test(navigator.userAgent)`. That spelling — which the
+ * inline checkout drawer used until 2026-09-24 — also matches the desktop
+ * `SetnayanApp/desktop` UA, so the .dmg / .msi got an inert, price-less "buy"
+ * chip on a surface Apple never reviews.
+ */
+export function isStoreShellInBrowser(
+  userAgent: string | null | undefined,
+  cookieString: string | null | undefined,
+): boolean {
+  let clientType = '';
+  for (const part of (cookieString ?? '').split(';')) {
+    const eq = part.indexOf('=');
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() !== CLIENT_TYPE_COOKIE) continue;
+    clientType = part.slice(eq + 1).trim();
+    break;
+  }
+  return isStoreShellSignals(userAgent, clientType);
+}
+
+/**
  * Studio add-on keys (lib/add-ons-catalog.ts `key`) that the store shell must
  * not show: every PAID entry, plus every entry that carries a `serviceKey`
  * (a free-looking tile whose page sells an upgrade — Animated Monogram, the
@@ -89,6 +115,11 @@ export const STORE_SHELL_HIDDEN_ADDON_KEYS: ReadonlySet<string> = new Set([
   'patiktok',
   'thank-you',
   'supplies-marketplace',
+  // Live Studio. Joins ADD_ONS only while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED
+  // is on, so a test that derived this set from ADD_ONS alone passed with the
+  // flag off and let the tile through the day the owner flipped it. The test
+  // now derives from EVERY_ADD_ON (flag-independent).
+  'live-studio-roam',
 ]);
 
 /**
@@ -109,11 +140,50 @@ export const STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS: ReadonlySet<string> = new Set
 
 /**
  * Non-Studio routes that exist only to take money for a digital SKU.
- *   · /dashboard/<eventId>/orders/new  — the generic add-on order form
+ *   · /dashboard/<eventId>/orders/<anything> — the add-on order form
+ *     (`orders/new`) AND every order's detail page, which is a pay-now screen
+ *     (amount, QR, "log your payment"). Every couple order is a Setnayan
+ *     digital SKU: supplier bookings are not paid through `orders` (the
+ *     workspace checkout arm was deleted 2026-07-26), and a booking fee is the
+ *     SUPPLIER's order, paid at /vendor-dashboard/booking-fees → /pay. The
+ *     ledger itself (`/orders`, no trailing segment) stays open and hides its
+ *     own buy button and row links — see app/dashboard/[eventId]/orders/page.tsx.
  *   · /dashboard/<eventId>/checkout    — the checkout action surface
  *   · /papic/order/<token>             — the guest-side camera buy sheet
+ *   · /vendor-dashboard/deep-search    — a paid web-research run (₱ per search)
+ *
+ * NOT here: `/pay/<reference>`. It is the ONE payment page for every order,
+ * including a supplier's booking fee — a real-world service the store shell
+ * may pay (3.1.3(e)). The page refuses per order with
+ * `storeShellRefusesPayable` below, because the path alone cannot tell a fee
+ * from a Papic top-up.
  */
-const WEB_ONLY_PURCHASE_ROUTE = /^\/(?:dashboard\/[^/]+\/(?:orders\/new|checkout)|papic\/order)(?:\/|$)/;
+const WEB_ONLY_PURCHASE_ROUTE =
+  /^\/(?:dashboard\/[^/]+\/(?:orders\/[^/]+|checkout)|papic\/order|vendor-dashboard\/deep-search)(?:\/|$)/;
+
+/**
+ * 📣 THE DOORWAYS — public marketing pages whose whole subject is a paid
+ * digital feature (they quote prices, link to /pricing, or offer "Add to an
+ * event"). The native-app brochure bounce (`APP_EXCLUDED_MARKETING_PATHS` in
+ * middleware) only lists the generic brochure; these were reachable in the
+ * store shell by deep link, share sheet or search. Exact paths, never
+ * prefixes: `/papic/guest`, `/papic/seat/*` and `/panood/cam/*` are the GUEST
+ * and helper side of an event and must stay open.
+ */
+export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
+  '/pricing',
+  '/alaala',
+  '/papic',
+  '/papic/try',
+  '/panood',
+  '/pakanta',
+  '/patiktok',
+  '/pawebsite',
+  '/palogo',
+  '/pa3d',
+  '/pa3d/try',
+  '/setnayan-ai',
+]);
 
 /**
  * 🔑 PAID FEATURES WHOSE HOME IS NOT UNDER /studio. The first version of this
@@ -138,9 +208,14 @@ const WEB_ONLY_PURCHASE_ROUTE = /^\/(?:dashboard\/[^/]+\/(?:orders\/new|checkout
  * it this way keeps the free planning tools whole, which is the entire point of
  * shipping a store shell at all.
  */
-const WEB_ONLY_FEATURE_ROUTE = /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/live)(?:\/|$)/;
+const WEB_ONLY_FEATURE_ROUTE =
+  /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/live|panood\/(?:control|program))(?:\/|$)/;
+// ↑ `/panood/control/<eventId>` and `/panood/program/<eventId>` are the Live
+//   Studio control room and its program output — the paid unlock's working
+//   surface (added 2026-09-24). `/panood/cam/<token>` is a helper's camera join
+//   and stays open, like the guest side of Papic.
 
-const STUDIO_ROUTE = /^\/dashboard\/[^/]+\/studio\/([^/]+)(?:\/|$)/;
+const STUDIO_ROUTE = /^\/dashboard\/[^/]+\/studio\/([^/]+)(?:\/([^/]+))?(?:\/|$)/;
 
 /** Where the store shell lands when it reaches a web-only route. */
 export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
@@ -151,9 +226,73 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  * filters its own grid with STORE_SHELL_HIDDEN_ADDON_KEYS.
  */
 export function isStoreShellWebOnlyPath(pathname: string): boolean {
-  if (WEB_ONLY_PURCHASE_ROUTE.test(pathname)) return true;
-  if (WEB_ONLY_FEATURE_ROUTE.test(pathname)) return true;
-  const m = pathname.match(STUDIO_ROUTE);
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  if (STORE_SHELL_WEB_ONLY_DOORWAYS.has(path)) return true;
+  if (WEB_ONLY_PURCHASE_ROUTE.test(path)) return true;
+  if (WEB_ONLY_FEATURE_ROUTE.test(path)) return true;
+  const m = path.match(STUDIO_ROUTE);
   if (!m) return false;
+  // `/studio/about/<key>` is the App-Store-style detail page for a feature —
+  // for a paid key it is a price and a "Get" button. Same rule as the home.
+  if (m[1] === 'about') return m[2] !== undefined && STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS.has(m[2]);
   return STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS.has(m[1]!);
+}
+
+/**
+ * Should the store shell hide a link with this `href`? True when it points, on
+ * our own origin, at a route `isStoreShellWebOnlyPath` refuses — i.e. a door
+ * the app would answer with /web-only. Pure; `StoreShellLinkGuard`
+ * (app/_components/store-shell-link-guard.tsx) is the client that applies it.
+ * Fragments, mailto:, tel: and other origins are never hidden.
+ */
+export function storeShellHidesHref(href: string | null | undefined, currentUrl: string): boolean {
+  if (!href) return false;
+  let url: URL;
+  let here: URL;
+  try {
+    here = new URL(currentUrl);
+    url = new URL(href, here);
+  } catch {
+    return false;
+  }
+  if (url.origin !== here.origin) return false;
+  return isStoreShellWebOnlyPath(url.pathname);
+}
+
+/**
+ * May the store shell pay THIS order on `/pay/<reference>`?
+ *
+ * Only a supplier's booking fee: Setnayan's cut of a booking for a real-world
+ * service (guideline 3.1.3(e) — physical goods and services consumed outside
+ * the app may use a non-IAP rail). Every other order is a Setnayan digital SKU
+ * (Papic, Sai, Pro, a vendor plan, 3D Booth, Deep Search…) and the page sends
+ * the store shell to /web-only instead of painting a QR for it.
+ *
+ * Takes the resolver's own `isBookingFee` (lib/pay-back-link.ts
+ * `isBookingFeeOrder` — the one spelling of that question) rather than
+ * re-parsing a service_key here.
+ */
+export function storeShellRefusesPayable(
+  payable: { isBookingFee: boolean },
+  storeShell: boolean,
+): boolean {
+  return storeShell && !payable.isBookingFee;
+}
+
+/**
+ * May a PAID digital entitlement the event already owns be USED here?
+ *
+ * Guideline 3.1.3(b): content bought outside the app may be used inside it
+ * only when the same content is also purchasable by In-App Purchase — which
+ * none of ours is until v1.1. So in the store shell a web-bought Setnayan AI,
+ * for one, does not light up; off the store shell nothing changes.
+ *
+ * `paywallEnabled = false` means the feature is FREE for everyone (the owner's
+ * paywall switch), and a free feature is planning, not a purchase — it stays.
+ * That is why this takes the paywall and does not simply answer `!storeShell`:
+ * turning a free assistant off in the app would remove planning the app exists
+ * to provide.
+ */
+export function storeShellAllowsPaidFeature(storeShell: boolean, paywallEnabled: boolean): boolean {
+  return !storeShell || !paywallEnabled;
 }

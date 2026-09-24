@@ -102,7 +102,7 @@ export function VendorRailContext({
    * The Plan hub. It is passed in rather than hardcoded so the ONE door to it
    * is declared at the mount site, where a reviewer can see it survived.
    */
-  planHref: string;
+  planHref: string | null;
   /** `tier_state`, or null when the probe failed. Normalised below. */
   tier: string | null;
 }) {
@@ -139,7 +139,7 @@ export function VendorRailContext({
     // separately with a `pathname.startsWith(planHref)` would be a second
     // answer to one question AND would light Plan on `/…/subscriptions` — the
     // missing-trailing-slash bug `match-path.ts` names in its own header.
-    [...destinations, { key: PLAN_KEY, href: planHref }],
+    [...destinations, ...(planHref ? [{ key: PLAN_KEY, href: planHref }] : [])],
     pathname,
   );
 
@@ -201,19 +201,25 @@ export function VendorRailContext({
         Tokens are retired (owner 2026-07-21); a counter for a currency that
         buys nothing is a standing claim that the currency exists.
       */}
-      <Link
-        href={planHref}
-        className="fd-row"
-        data-on={activeKey === PLAN_KEY ? 'true' : 'false'}
-        aria-current={activeKey === PLAN_KEY ? 'page' : undefined}
-      >
-        <span className="fd-gi" aria-hidden="true">
-          <Zap className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        </span>
-        <span className="fd-label-text">Plan</span>
-        <span className="fd-icon-caption">Plan</span>
-        <span className="fd-ct">{TIER_LABEL[asVendorTier(tier)]}</span>
-      </Link>
+      {/* 🔒 NULL IN THE APP STORE / PLAY STORE SHELL. The subscription hub is
+          web-only there (lib/store-shell.ts refuses the route), so a Plan row
+          would be a door to /web-only — the layout passes null and the row is
+          not drawn. */}
+      {planHref ? (
+        <Link
+          href={planHref}
+          className="fd-row"
+          data-on={activeKey === PLAN_KEY ? 'true' : 'false'}
+          aria-current={activeKey === PLAN_KEY ? 'page' : undefined}
+        >
+          <span className="fd-gi" aria-hidden="true">
+            <Zap className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </span>
+          <span className="fd-label-text">Plan</span>
+          <span className="fd-icon-caption">Plan</span>
+          <span className="fd-ct">{TIER_LABEL[asVendorTier(tier)]}</span>
+        </Link>
+      ) : null}
     </>
   );
 }

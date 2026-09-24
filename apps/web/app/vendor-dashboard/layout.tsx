@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
@@ -72,6 +73,8 @@ export default async function VendorDashboardLayout({
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
   const supabase = await createClient();
+  // The App Store / Play Store shell has no Plan row (lib/store-shell.ts).
+  const storeShell = await isStoreShellRequest();
 
   const minimalSwitcherFallback: SwitcherData = {
     userId: user.id,
@@ -453,7 +456,7 @@ export default async function VendorDashboardLayout({
             navSlots={navSlots}
             bookingsBadge={bookingsPending}
             threadsBadge={threadsUnread}
-            planHref="/vendor-dashboard/subscription"
+            planHref={storeShell ? null : '/vendor-dashboard/subscription'}
             tier={vendorTier}
           />
         }

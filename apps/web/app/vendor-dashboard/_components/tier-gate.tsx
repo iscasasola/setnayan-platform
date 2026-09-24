@@ -2,6 +2,17 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
 import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
+import { isStoreShellRequest } from '@/lib/request-platform';
+
+/*
+ * 🔒 THE APP STORE / PLAY STORE SHELL IS NOT TOLD TO UPGRADE. A vendor plan is
+ * a paid subscription, sold on the web only (DECISION_LOG 2026-06-11), and the
+ * store shell is refused /vendor-dashboard/subscription outright — so an
+ * "Upgrade" button there was a dead end at /web-only AND a call to action for a
+ * purchase the app cannot make (guideline 3.1.1; lib/store-shell.ts). In the
+ * store shell the gate says plainly that the feature is not in the app, and the
+ * inline teaser does not render at all. Web, PWA and desktop are unchanged.
+ */
 
 /**
  * Upsell panel shown in place of a tier-gated dashboard surface (hybrid gating,
@@ -10,7 +21,7 @@ import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
  * points at the self-serve subscription flow. Only rendered when the master
  * flag is on AND the vendor's tier lacks the cap (see lib/vendor-feature-gate).
  */
-export function VendorTierGate({
+export async function VendorTierGate({
   feature,
   requiredTier,
   blurb,
@@ -21,6 +32,7 @@ export function VendorTierGate({
   blurb: string;
   icon?: ReactNode;
 }) {
+  const storeShell = await isStoreShellRequest();
   return (
     <section className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-ink/10 bg-ink/[0.02] px-6 py-14 text-center">
@@ -30,19 +42,30 @@ export function VendorTierGate({
             <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
           </span>
         </span>
-        <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
-          {feature} unlocks with {TIER_LABEL[requiredTier]}
-        </h1>
-        <p className="max-w-sm text-sm text-ink/60">{blurb}</p>
-        <Link
-          href="/vendor-dashboard/subscription"
-          className="mt-1 inline-flex items-center rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90"
-        >
-          Upgrade to {TIER_LABEL[requiredTier]}
-        </Link>
-        <p className="text-xs text-ink/40">
-          Everything you have today stays free — this only adds {feature.toLowerCase()}.
-        </p>
+        {storeShell ? (
+          <>
+            <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+              {feature} is not part of the app
+            </h1>
+            <p className="max-w-sm text-sm text-ink/60">{blurb}</p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+              {feature} unlocks with {TIER_LABEL[requiredTier]}
+            </h1>
+            <p className="max-w-sm text-sm text-ink/60">{blurb}</p>
+            <Link
+              href="/vendor-dashboard/subscription"
+              className="mt-1 inline-flex items-center rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90"
+            >
+              Upgrade to {TIER_LABEL[requiredTier]}
+            </Link>
+            <p className="text-xs text-ink/40">
+              Everything you have today stays free — this only adds {feature.toLowerCase()}.
+            </p>
+          </>
+        )}
       </div>
     </section>
   );
@@ -56,7 +79,7 @@ export function VendorTierGate({
  * what the next tier adds, in context. Only rendered when the master flag is on
  * AND the vendor's tier lacks the cap (see lib/vendor-feature-gate).
  */
-export function VendorTierTeaser({
+export async function VendorTierTeaser({
   feature,
   requiredTier,
   blurb,
@@ -67,6 +90,7 @@ export function VendorTierTeaser({
   blurb: string;
   icon?: ReactNode;
 }) {
+  if (await isStoreShellRequest()) return null;
   return (
     <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-5 py-6 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">

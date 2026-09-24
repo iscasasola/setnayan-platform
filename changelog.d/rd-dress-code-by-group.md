@@ -47,6 +47,24 @@ Checks: 10 unit tests (one of them pins the 15→6 fold so the comment cannot ro
 resolver was sabotaged to confirm they can fail) · `tsc --noEmit` clean · `npm run lint` 0 errors ·
 all 26 CI guards pass locally.
 
+🪤 **And CI caught a guard pinned to a function NAME.**
+`each-role-wears-its-own.test.ts` held a real property — *the personal answer is computed BEFORE the
+empty-state decision*, the exact ordering that stopped a couple's sponsors being told "your hosts
+haven't shared the dress code yet" on 2026-09-20. It asserted that property by searching for the
+literal string `const mine = resolveGuestDressCode`. The widget now resolves the group tier too, so
+the answer arrives as `resolved.panel`, the string vanished, and the guard failed **on the rename
+rather than on a defect**. A guard keyed to a function name convicts the next refactor and acquits
+the next bug.
+
+It is now anchored on the BINDING of `mine` and traces one hop to whatever produced it.
+
+🔑 **The first attempt at that re-anchoring was itself wrong, and only the sabotage found it.** It
+searched the whole file above the binding for a resolver call — and passed when `mine` was sabotaged
+to `null`, because a resolver was still called on the line above for something else. *"A resolver is
+called somewhere"* is not *"this value came from one."* Probed again after the fix: `mine = null`
+goes red naming the value it read, moving the binding below the decision goes red, and
+`mine = resolved` stays green because that identifier really is resolver-sourced.
+
 SPEC IMPACT: None. The dress-code section's contract with the guest is unchanged — a reader still
 gets at most one line for who they are; there is simply a second, coarser way for the couple to
 author it.

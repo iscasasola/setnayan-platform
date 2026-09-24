@@ -66,7 +66,7 @@ import { ConceptPdfButton } from './_components/concept-pdf-button';
 import { PrintablePdfButton } from './_components/printable-pdf-button';
 import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
 import { ThemeStudio } from './_components/theme-studio';
-import { InfoButton } from './_components/info-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MakeItReal } from './_components/make-it-real';
 import {
@@ -893,15 +893,17 @@ export default async function MoodBoardPage({ params }: Props) {
 
           <section id="inspiration" className="scroll-mt-24 space-y-4">
             <header className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
-                <InfoButton label="About inspiration">
-                  Upload up to 3 photos per category — drag one onto another slot to reorder.
-                  We pull a matching palette colour from each upload automatically, and these
-                  references will make your photo-real render match your taste, not a generic
-                  wedding.
-                </InfoButton>
-              </div>
+              <InfoTip
+                label="Your inspirations"
+                labelAs="h2"
+                labelClassName="text-2xl font-semibold text-ink"
+                ariaLabel="About inspiration"
+              >
+                Upload up to 3 photos per category — drag one onto another slot to reorder.
+                We pull a matching palette colour from each upload automatically, and these
+                references will make your photo-real render match your taste, not a generic
+                wedding.
+              </InfoTip>
               <p className="max-w-prose text-sm text-ink/65">
                 Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.
               </p>

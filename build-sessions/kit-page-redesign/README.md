@@ -1,4 +1,9 @@
-# Setnayan page redesign kit (2026-09-21)
+# Setnayan page redesign kit (2026-09-21 · updated 2026-09-24 to the house style)
+
+> ⚠ **2026-09-24: every redesign now follows the design brief** — no cards or borders, `(i)` instead
+> of sentences, the number is the interface, depth and motion, four viewport states. Read step 0 of
+> `REDESIGN-PAGE-PROMPT.md` and `build-sessions/DESIGN-FOUNDATION.md` first. The Papic example below
+> still shows the right METHOD; its bordered, two-layout LOOK predates the brief — do not copy it.
 
 **For a Claude Code session: read this file first, then `REDESIGN-PAGE-PROMPT.md`.**
 
@@ -24,9 +29,11 @@ example, the Papic controller. The owner reviewed the example and said the metho
 4. **Real parts and real data:** the real stepper, real prices, real options. Unknowns are `[PLACEHOLDERS]`.
 5. **Order by use:** set up → what depends on it → buy → use. After the event date, results
    lead and setup folds to one line each.
-6. **Cut the words:** one title, one status line, 1–3 word headings, no paragraphs.
-7. **One responsive prototype:** one column on phone; on desktop, the flow on the left with
-   status + credits + Buy pinned on the right, and screens opening as a side drawer.
+6. **Cut the words:** one title, one status line, 1–3 word headings, no paragraphs; hints behind
+   an `(i)`; the key number is the biggest thing on screen.
+7. **One responsive prototype, four states:** phone app shell · tablet portrait master-detail ·
+   tablet landscape workspace · wide desktop editorial with a sticky status column. No cards or
+   borders; deep actions in a side panel; everything moves.
 8. **Check the order, report briefly,** and change no code until the owner approves.
 
 ## The Papic example, in numbers

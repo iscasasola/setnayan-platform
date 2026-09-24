@@ -90,13 +90,28 @@ const TW_DEFAULT = new Set([
 
 /** Palette keys declared by this project's config, read as TEXT. */
 function projectColours() {
+  return configKeys('colors');
+}
+
+/**
+ * `boxShadow` keys declared by the config (the design foundation, 2026-09-24,
+ * exposed `shadow-sn-float`, `shadow-m-md`, …). `shadow-<key>` for one of THESE
+ * exact keys is a shadow SIZE, not a colour, so it is skipped the way
+ * `shadow-md` is. Exact-key only: a typo (`shadow-sn-flaot`) still fails.
+ */
+function projectShadows() {
+  return configKeys('boxShadow');
+}
+
+/** Top-level keys of every `<name>: {` block in the config, read as TEXT. */
+function configKeys(name) {
   // The config is TypeScript with comments; a real import needs a TS loader that
   // the lint scripts deliberately do not have (they run under plain `node`, same
   // constraint recorded in lib/strip-comments.ts). Reading the keys textually is
   // enough: a key is `name: {` or `name: '#hex'` inside a `colors: {` block.
   const src = readFileSync(join(WEB, 'tailwind.config.ts'), 'utf8');
   const keys = new Set();
-  const blocks = [...src.matchAll(/colors\s*:\s*\{/g)];
+  const blocks = [...src.matchAll(new RegExp(`\\b${name}\\s*:\\s*\\{`, 'g'))];
   for (const b of blocks) {
     let i = b.index + b[0].length;
     let depth = 1;
@@ -133,6 +148,7 @@ function walk(dir, out = []) {
 }
 
 const known = new Set([...projectColours(), ...TW_DEFAULT]);
+const shadowSizes = projectShadows();
 const prefixes = COLOUR_PREFIXES.join('|');
 
 /**
@@ -208,6 +224,7 @@ for (const root of ROOTS) {
         const [, prefix, value] = m;
         const first = value.split('-')[0];
         if (NON_COLOUR.has(first) || NON_COLOUR.has(value)) continue;
+        if (prefix === 'shadow' && shadowSizes.has(value.split('/')[0])) continue;
         if (/^\d/.test(first)) continue; // border-2, ring-1
         if (known.has(first)) continue;
         failures.push({

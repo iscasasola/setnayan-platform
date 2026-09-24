@@ -63,6 +63,43 @@ const config: Config = {
         tile: '20px', // .sn-tile / .sn-tile-dark
         card: '18px', // .sn-card
       },
+      // DESIGN FOUNDATION (owner 2026-09-24 · build-sessions/DESIGN-FOUNDATION.md).
+      // The existing globals.css tokens, EXPOSED — no new values here, so a
+      // utility and the CSS recipe can never disagree. Additive keys only:
+      // Tailwind's own `shadow-*` / `z-*` / `duration-*` / `ease-*` are intact.
+      boxShadow: {
+        'sn-sm': 'var(--sn-sh-sm)',
+        'sn-md': 'var(--sn-sh-md)',
+        'sn-lg': 'var(--sn-sh-lg)',
+        'sn-tile': 'var(--sn-sh-tile)',
+        'sn-hi': 'var(--sn-sh-hi)',
+        'sn-float': 'var(--sn-sh-float)',
+        'sn-panel': 'var(--sn-sh-panel)',
+        'm-sm': 'var(--m-shadow-sm)',
+        'm-md': 'var(--m-shadow-md)',
+        'm-lg': 'var(--m-shadow-lg)',
+      },
+      zIndex: {
+        'sn-raised': 'var(--sn-z-raised)',
+        'sn-sticky': 'var(--sn-z-sticky)',
+        'sn-nav': 'var(--sn-z-nav)',
+        'sn-pop': 'var(--sn-z-pop)',
+        'sn-modal': 'var(--sn-z-modal)',
+        'sn-toast': 'var(--sn-z-toast)',
+        'sn-scrim': 'var(--sn-z-scrim)',
+        'sn-panel': 'var(--sn-z-panel)',
+      },
+      transitionDuration: {
+        'sn-micro': 'var(--sn-dur-micro)',
+        'sn-control': 'var(--sn-dur-control)',
+        // The brief's "duration-300" — the house element duration (320ms).
+        'sn-elem': 'var(--sn-dur-elem)',
+        'sn-enter': 'var(--sn-dur-enter)',
+      },
+      transitionTimingFunction: {
+        sn: 'var(--sn-ease)',
+        'sn-out': 'var(--sn-ease-out)',
+      },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars
         // defined in globals.css per mode. Light mode = Clean Editorial

@@ -64,6 +64,11 @@ export default async function SiteChromeEditorPage({
   // EDITOR gates). Fail-open on a throwing entitlement read (treat as owned).
   const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
   const musicGated = !proActive && !musicRef;
+  // 🎞 AND NOW THE VIDEO HERO TOO (owner 2026-09-24, "A": their own films on the
+  // page are Pro). The comment above predates the ruling — the video is no
+  // longer free. Same grandfather: a couple who already has one keeps the field
+  // (and can clear it); `updateSiteChrome` refuses a new or different file.
+  const videoGated = !proActive && !videoRef;
 
   const [musicUrl, videoUrl] = await Promise.all([
     // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).
@@ -151,7 +156,15 @@ export default async function SiteChromeEditorPage({
           </fieldset>
         )}
 
-        {/* Video hero */}
+        {/* Video hero — Event Hub PRO since 2026-09-24 */}
+        {videoGated ? (
+          <WebsiteProLock
+            eventId={eventId}
+            variant="inline"
+            featureName="Video hero"
+            description="A short clip of the two of you looping at the top of your Event Hub, in place of our photo. It's part of Event Hub PRO."
+          />
+        ) : (
         <fieldset className="space-y-3 sn-tile p-5">
           <legend className="sn-eye flex items-center gap-2 px-1">
             <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -178,6 +191,7 @@ export default async function SiteChromeEditorPage({
             help="MP4, WebM, or MOV. Up to 60 MB. Short loops work best."
           />
         </fieldset>
+        )}
 
         <SubmitButton pendingLabel="Saving…" className="button-primary">Save music &amp; video</SubmitButton>
       </form>

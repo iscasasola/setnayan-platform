@@ -10,6 +10,8 @@ import { uploadHeroPhoto, removeHeroPhoto } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { eventNoun } from '@/lib/event-noun';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { WebsiteProLock } from '../_components/website-pro-lock';
 
 /**
  * Editor for the wedding landing page hero photo.
@@ -52,6 +54,13 @@ export default async function HeroPhotoEditorPage({
     // as a real 404 for the editor — non-hosts can't reach this page.
     notFound();
   }
+
+  // 📷 Their OWN hero photo is Event Hub Pro (owner 2026-09-24, "A"). A free
+  // couple keeps a photo they already have and may remove it (above, never
+  // gated); putting up a new one is locked here and refused by the action.
+  // Fail-open on a throwing read, like the sibling editors — the action is the
+  // real gate either way.
+  const ownsPro = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
 
   // Resolve the current photo (if any) to a presigned GET URL for display.
   const currentPhotoUrl = await displayUrlForStoredAsset(
@@ -137,7 +146,15 @@ export default async function HeroPhotoEditorPage({
         </section>
       ) : null}
 
-      {/* Upload form */}
+      {/* Upload form — or, for a free couple, the one Pro lock */}
+      {!ownsPro ? (
+        <WebsiteProLock
+          eventId={eventId}
+          variant="inline"
+          featureName="Your own hero photo"
+          description="Put a photo of the two of you at the top of your Event Hub, in place of ours. It's part of Event Hub PRO."
+        />
+      ) : (
       <section
         aria-labelledby="upload-heading"
         className="space-y-4 sn-tile p-5"
@@ -180,6 +197,7 @@ export default async function HeroPhotoEditorPage({
           </div>
         </form>
       </section>
+      )}
 
       {/* Guidance */}
       <section className="mt-8 space-y-2 text-sm text-ink/60">

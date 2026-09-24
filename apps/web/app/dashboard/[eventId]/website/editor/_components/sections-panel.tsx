@@ -33,6 +33,7 @@ import {
   focalToObjectPosition,
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
+import { canvasHasMotion } from '@/lib/hub-look-pro';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -70,6 +71,8 @@ export function SectionsPanel({
   saveCustomAction,
   addCustomAction,
   photoChoices = [],
+  ownsPro = true,
+  lookLock = null,
 }: {
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
@@ -95,6 +98,20 @@ export function SectionsPanel({
   saveCustomAction?: (formData: FormData) => void | Promise<void>;
   /** Take the next free slot. Hidden once all six are in use. */
   addCustomAction?: (formData: FormData) => void | Promise<void>;
+  /**
+   * Does this event own Event Hub PRO? How a section LOOKS and MOVES — its
+   * photo, crop, zoom and motion — is Pro (owner 2026-09-24: "Free is the page
+   * we write. Pro is changing how it looks"). Defaults to true so a caller that
+   * has not wired it keeps today's behaviour; the widget actions refuse a free
+   * couple independently either way.
+   */
+  ownsPro?: boolean;
+  /**
+   * The lock shown once above the list for a free couple — the page's own
+   * `lockPanel(...)`, passed as an ELEMENT (never a component or function: a
+   * server→client function prop took production down on 2026-09-23).
+   */
+  lookLock?: React.ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -113,6 +130,11 @@ export function SectionsPanel({
         <span className="font-semibold text-ink/70">Auto</span> show it as soon as it has
         content.
       </p>
+      {/* Free: order, show and hide are the page we write. How each section
+          looks and moves is named and locked here ONCE — never hidden, never
+          repeated on every row. What a couple already chose stays, and each row
+          below still offers to take it off. */}
+      {!ownsPro && lookLock ? <div className="mb-2">{lookLock}</div> : null}
       <ul className="flex flex-col gap-1.5">
         {rows.map((row, i) => {
           const catalog = WIDGET_CATALOG_BY_TYPE[row.widget_type];
@@ -240,7 +262,25 @@ export function SectionsPanel({
                   ⚠ AUTO IS AN ABSENCE. The Auto chip posts `timeline=auto`,
                   which DELETES the key — so a later change to what "Editorial"
                   means still reaches a couple who never overrode it. */}
-              {setMotionAction ? (
+              {setMotionAction && !ownsPro ? (
+                /* 🔓 A FREE COUPLE MAY ALWAYS TAKE A LOOK OFF. Motion chosen
+                   before (or while Pro) stays until they reset it; `reset=1`
+                   is the one motion write `setWidgetMotion` never gates. */
+                canvasHasMotion(sanitizeHubCanvas(row.config_json)) ? (
+                  <form action={setMotionAction} className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                    <input type="hidden" name="reset" value="1" />
+                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                    <button
+                      type="submit"
+                      className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
+                    >
+                      Reset how it moves
+                    </button>
+                  </form>
+                ) : null
+              ) : setMotionAction ? (
                 (() => {
                   const canvas = sanitizeHubCanvas(row.config_json);
                   const preset = canvas.preset ?? null;
@@ -487,7 +527,25 @@ export function SectionsPanel({
                 })()
               ) : null}
 
-              {setBackgroundAction && photoChoices.length > 0 ? (
+              {setBackgroundAction && !ownsPro ? (
+                /* 🔓 Same rule for the photo: one a free couple already set
+                   stays, and "Remove photo" (media='') is never gated. No
+                   picker, no crop — choosing or moving a photo is Pro. */
+                sanitizeHubCanvas(row.config_json).media ? (
+                  <form action={setBackgroundAction} className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                    <input type="hidden" name="media" value="" />
+                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                    <button
+                      type="submit"
+                      className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
+                    >
+                      Remove this section&rsquo;s photo
+                    </button>
+                  </form>
+                ) : null
+              ) : setBackgroundAction && photoChoices.length > 0 ? (
                 (() => {
                   const canvas = sanitizeHubCanvas(row.config_json);
                   return (

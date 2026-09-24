@@ -49,7 +49,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { galleryChange } from '@/lib/hub-look-pro';
+import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
 
@@ -86,16 +87,15 @@ export async function updateOurPhotos(
       )
     : [];
 
-  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
-  // Defense-in-depth mirror of the page gate: a couple that is NOT PRO and has
-  // NO existing gallery can't create one via a crafted POST. A couple that
-  // already curated photos (grandfathered) OR owns PRO edits freely. Fail-open
-  // on a throwing entitlement read (treat as owned) so a real couple is never
-  // blocked from their own content.
-  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
-  if (!proActive && currentRefs.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/website-pro`);
-  }
+  // ── THE LOOK IS PRO (owner 2026-09-24, "A") ─────────────────────────────────
+  // Their own photos on the page are Pro. The 2026-07-24 grandfather let a
+  // couple who already had a gallery keep ADDING to it without Pro; under the
+  // 2026-09-24 ruling a new photo is a new look, so `galleryChange` classifies
+  // the save: taking photos out (in the order they stand) is a removal and is
+  // never gated; any photo the gallery did not hold, or a reorder, needs Pro.
+  // Admin-client SKU read inside the gate (co-hosts resolve the event's Pro);
+  // the old fail-open `.catch(() => true)` is gone — a throwing read is loud.
+  await requireLookPro(eventId, galleryChange(currentRefs, deduped));
 
   // ── NSFW screen, on the NEW refs only, BEFORE anything is persisted ─────────
   // See the module note: this surface has no `moderation_state` to hide behind, so

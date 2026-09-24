@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
@@ -217,7 +219,7 @@ export default async function SaveTheDatePage({ params }: Props) {
       ? await displayUrlForStoredAsset(stdMedia.posterKey)
       : null;
 
-  const [ownsOpenings, openingsSku, settings, revealConfig, openingsSellability, websiteProSku] =
+  const [ownsOpenings, openingsSku, settings, revealConfig, openingsSellability, websiteProSku, ownsHubPro] =
     await Promise.all([
       eventOwnsStdOpenings(supabase, eventId),
       formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
@@ -229,6 +231,10 @@ export default async function SaveTheDatePage({ params }: Props) {
       // is_active → self-heals through the migration-push window.
       resolveServiceSellability(STD_PREMIUM_OPENINGS_SERVICE_KEY),
       formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+      // The couple's OWN photo / film / song are Event Hub Pro (owner
+      // 2026-09-24). Admin client, as the save action's gate reads it, so a
+      // co-host who did not place the order sees the same answer the save gives.
+      eventCoupleWebsiteProActive(createAdminClient(), eventId),
     ]);
   const openingsPricePhp = openingsSku?.price_php ?? null;
   const openingsStandaloneSellable = openingsSellability === 'sellable';
@@ -510,6 +516,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         eventId={eventId}
         slug={event?.slug ?? null}
         ownsReveal={ownsOpenings}
+        ownsPro={ownsHubPro}
         initialContent={content}
         initialThemeId={themeId}
         initialLaunchDate={launchDate}

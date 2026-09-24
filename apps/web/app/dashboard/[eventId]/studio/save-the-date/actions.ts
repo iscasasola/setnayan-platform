@@ -25,6 +25,8 @@ import {
 } from '@/lib/r2-client-ref';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
+import { LOOK_PRO_REQUIRED, combineChanges, refChange, type LookChange } from '@/lib/hub-look-pro';
+import { lookProAllows } from '@/lib/hub-look-gate';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -174,6 +176,61 @@ export async function saveAllStdContent(
         ? rawFilmDate
         : undefined;
   if (filmDate === undefined) return { ok: false, error: 'bad-film-date' };
+
+  /* ⛔ THEIR OWN PHOTO, FILM OR SONG ON THE PAGE IS PRO (owner 2026-09-24, "A"
+     — "Save-the-Date video" is one of the eight Event Hub Pro items, and the
+     song is the SAME `site_bg_music_*` column the site-chrome editor gates).
+     This builder was a SECOND DOOR to all three: a free couple could upload
+     here what the editor refuses. The film itself stays free — our themes, our
+     backgrounds, their words; only the couple's own uploads are asked about.
+     Echoing back what is stored ('none') and going back to ours ('remove') are
+     never gated. Refused BEFORE anything is written, with a code the builder
+     turns into a sentence — never a generic "error". */
+  const wantsBg =
+    data.background !== undefined && data.background !== null
+      ? resolveStdBackground(data.background)
+      : null;
+  const wantsMedia =
+    data.media !== undefined && data.media !== null ? resolveStdMedia(data.media, eventId) : null;
+  const wantsSong =
+    typeof data.siteMusicKey === 'string' && data.siteMusicKey.trim()
+      ? data.siteMusicKey.trim()
+      : null;
+  if (wantsBg || wantsMedia || wantsSong) {
+    const { data: storedRow } = await supabase
+      .from('events')
+      .select('std_background, std_media, site_bg_music_r2_key')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const stored = (storedRow as Record<string, unknown> | null) ?? null;
+    const storedBg = resolveStdBackground(stored?.std_background);
+    const storedMedia = resolveStdMedia(stored?.std_media, eventId);
+    const changes: LookChange[] = [];
+    if (wantsBg) {
+      changes.push(
+        refChange(
+          storedBg.kind === 'upload' ? storedBg.value : null,
+          wantsBg.kind === 'upload' ? wantsBg.value : null,
+        ),
+      );
+    }
+    if (wantsMedia) {
+      changes.push(
+        refChange(
+          storedMedia.type === 'video' ? (storedMedia.videoKey ?? null) : null,
+          wantsMedia.type === 'video' ? (wantsMedia.videoKey ?? null) : null,
+        ),
+      );
+    }
+    if (wantsSong) {
+      changes.push(
+        refChange(stored?.site_bg_music_r2_key as string | null | undefined, wantsSong),
+      );
+    }
+    if (!(await lookProAllows(eventId, combineChanges(...changes)))) {
+      return { ok: false, error: LOOK_PRO_REQUIRED };
+    }
+  }
 
   const patch: Record<string, unknown> = {};
   if (theme !== null) patch.std_theme = theme;

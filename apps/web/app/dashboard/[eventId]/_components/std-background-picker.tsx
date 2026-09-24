@@ -29,12 +29,15 @@ type Props = {
   uploadUrl?: string | null;
   /** Fires with the new r2:// ref (or null on clear) when a photo is uploaded. */
   onUpload: (ref: string | null) => void;
+  /** When set, shown IN PLACE of the uploader — the couple's own photo is Event
+   *  Hub Pro (owner 2026-09-24). Our backgrounds above stay selectable. */
+  uploadLock?: React.ReactNode;
 };
 
 const tile =
   'relative flex items-center justify-center overflow-hidden rounded-md border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
 
-export function StdBackgroundPicker({ value, onChange, eventId, uploadUrl, onUpload }: Props) {
+export function StdBackgroundPicker({ value, onChange, eventId, uploadUrl, onUpload, uploadLock }: Props) {
   const sel = (kind: StdBackground['kind'], v: string) => value.kind === kind && value.value === v;
 
   return (
@@ -156,19 +159,21 @@ export function StdBackgroundPicker({ value, onChange, eventId, uploadUrl, onUpl
       {/* Upload your own photo */}
       <div className="space-y-2">
         <p className="text-xs font-medium text-ink/55">Upload your own</p>
-        <FileUpload
-          bucket="media"
-          pathPrefix={`events/${eventId}/std-background`}
-          acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-          maxSizeMB={8}
-          variant="wide"
-          currentValue={value.kind === 'upload' ? value.value : null}
-          initialDisplayUrls={
-            value.kind === 'upload' && uploadUrl ? { [value.value]: uploadUrl } : {}
-          }
-          onChange={(v) => onUpload(typeof v === 'string' ? v : null)}
-          help="We fit it to the page. (The 3D-depth lean arrives with the parallax engine.)"
-        />
+        {uploadLock ?? (
+          <FileUpload
+            bucket="media"
+            pathPrefix={`events/${eventId}/std-background`}
+            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            maxSizeMB={8}
+            variant="wide"
+            currentValue={value.kind === 'upload' ? value.value : null}
+            initialDisplayUrls={
+              value.kind === 'upload' && uploadUrl ? { [value.value]: uploadUrl } : {}
+            }
+            onChange={(v) => onUpload(typeof v === 'string' ? v : null)}
+            help="We fit it to the page. (The 3D-depth lean arrives with the parallax engine.)"
+          />
+        )}
       </div>
     </section>
   );

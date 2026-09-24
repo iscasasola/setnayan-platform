@@ -43,6 +43,8 @@ const isHubOut = (v: unknown): v is HubOut =>
 const isHubDirection = (v: unknown): v is HubDirection =>
   typeof v === 'string' && (HUB_DIRECTIONS as readonly string[]).includes(v);
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
+import { HUB_CANVAS_MOTION_KEYS, canvasHasMotion, refChange } from '@/lib/hub-look-pro';
+import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
 import {
@@ -494,6 +496,26 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
       : {};
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
+  /* ⛔ HOW A SECTION MOVES IS HOW THE PAGE LOOKS — PRO (owner 2026-09-24).
+     `reset=1` is the one motion write a free couple may always make: it takes
+     every motion choice OFF the section, back to the page we wrote. Anything
+     else is a choice, and a choice needs Pro. */
+  if (formData.get('reset') === '1') {
+    await requireLookPro(eventId, canvasHasMotion(canvas) ? 'remove' : 'none');
+    for (const k of HUB_CANVAS_MOTION_KEYS) delete canvas[k];
+    const { error: resetErr } = await supabase
+      .from('invitation_widgets')
+      .update({ config_json: { ...existing, canvas } })
+      .eq('widget_id', widgetId)
+      .eq('event_id', eventId);
+    if (resetErr) throw new Error(`Failed to reset how this section moves: ${resetErr.message}`);
+    await revalidateForWidgetChange(eventId);
+    redirect(
+      resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+    );
+  }
+  await requireLookPro(eventId, 'change');
+
   if (isHubMotionPreset(presetRaw)) canvas.preset = presetRaw;
   if (timelineRaw === 'auto') delete canvas.timeline;
   else if (isHubTimeline(timelineRaw)) canvas.timeline = timelineRaw;
@@ -623,6 +645,13 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       : {};
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
+  /* ⛔ A SECTION'S PHOTO IS HOW THE PAGE LOOKS — PRO (owner 2026-09-24). Taking
+     it off (`media=''`) is never gated; putting one on, or swapping it, is. */
+  await requireLookPro(
+    eventId,
+    refChange(typeof canvas.media === 'string' ? canvas.media : null, hubMediaRef(wanted) ?? wanted),
+  );
+
   if (wanted.length === 0) {
     delete canvas.media;
   } else {
@@ -712,6 +741,10 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
       ),
     );
   }
+
+  /* ⛔ THE CROP AND ZOOM ARE HOW THE PAGE LOOKS — PRO (owner 2026-09-24). A free
+     couple's existing crop stays as it is; moving it is a change. */
+  await requireLookPro(eventId, 'change');
 
   const focalRaw = Number(formData.get('focal'));
   const zoomRaw = Number(formData.get('zoom'));

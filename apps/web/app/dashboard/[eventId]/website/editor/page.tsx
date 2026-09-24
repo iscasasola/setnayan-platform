@@ -301,8 +301,15 @@ export default async function WebsiteEditorPage({
   );
 
   const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
-  const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key));
+  // The song and the hero video share one panel, so either one keeps it open.
+  const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key || videoRef));
   const galleryLocked = lockedIf(ourPhotos.length > 0);
+  /* 📷 THE LOOK IS PRO (owner 2026-09-24, "A" — "Free is the page we write. Pro
+     is changing how it looks."). Their own hero photo and the invitation
+     backdrop join the rows above. Same grandfather: a couple who already has
+     one keeps its panel, and the server lets them take it off. */
+  const heroLocked = lockedIf(Boolean(heroRef));
+  const backdropLocked = lockedIf(Boolean(rsvpBackdrop));
 
   const groups: RailGroup[] = [
     {
@@ -375,7 +382,11 @@ export default async function WebsiteEditorPage({
           blurb: 'A scene that moves behind your invitation as guests scroll.',
           href: `${w}/widgets`,
           status: rsvpBackdrop ? done(SPATIAL_THEMES[rsvpBackdrop.theme].label) : todo('Off'),
-          panel: (
+          pro: true,
+          locked: backdropLocked,
+          panel: backdropLocked ? (
+            lockPanel('Invitation backdrop')
+          ) : (
             <RsvpBackdropPanel
               saveAction={saveRsvpBackdrop}
               clearAction={clearRsvpBackdrop}
@@ -445,7 +456,11 @@ export default async function WebsiteEditorPage({
           href: `${w}/hero-photo`,
           anchor: 'home',
           status: heroRef ? done('Photo set') : todo('Not set'),
-          panel: (
+          pro: true,
+          locked: heroLocked,
+          panel: heroLocked ? (
+            lockPanel('Your own hero photo')
+          ) : (
             <HeroPhotoPanel
               action={uploadHeroPhoto}
               eventId={eventId}
@@ -629,6 +644,11 @@ export default async function WebsiteEditorPage({
               saveCustomAction={saveCustomSection}
               addCustomAction={addCustomSection}
               photoChoices={photoChoices}
+              /* How each section looks and moves is Pro (owner 2026-09-24) —
+                 the SAME panel every other Pro row uses, passed as an ELEMENT.
+                 The widget actions refuse a free couple independently. */
+              ownsPro={ownsPro}
+              lookLock={lockPanel('How each section looks and moves')}
             />
           ),
         },

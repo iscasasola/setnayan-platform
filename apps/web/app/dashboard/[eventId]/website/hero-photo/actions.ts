@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { refChange } from '@/lib/hub-look-pro';
+import { requireLookPro } from '@/lib/hub-look-gate';
 
 /**
  * Server actions for the wedding landing page hero photo editor.
@@ -60,6 +62,20 @@ export async function uploadHeroPhoto(formData: FormData) {
 
   const userId = await requireHostMembership(eventId);
   const supabase = await createClient();
+
+  /* ⛔ THEIR OWN HERO PHOTO IS PRO (owner 2026-09-24, "A"). A free couple keeps
+     the picture we give the page; one who already has their own keeps it and
+     may remove it (`removeHeroPhoto`, never gated) — but may not put up a new
+     one. Re-saving the photo already stored is 'none' and passes. */
+  const { data: current } = await supabase
+    .from('events')
+    .select('landing_page_hero_image_url')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  await requireLookPro(
+    eventId,
+    refChange(current?.landing_page_hero_image_url as string | null | undefined, heroImageUrlRaw),
+  );
 
   await supabase
     .from('events')

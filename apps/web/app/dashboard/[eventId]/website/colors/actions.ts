@@ -16,6 +16,8 @@
  * enforcement point of last resort — it re-checks eventCoupleWebsiteProActive
  * and refuses to persist for a non-Pro event (defence-in-depth; a non-Pro save
  * would be inert on the guest site anyway, since the renderer gates on Pro too).
+ * The one exception (2026-09-24): a save that puts EVERY field back to ours is a
+ * reset, which a free couple may always make — `siteColorsChange` → 'remove'.
  *
  * Validation: each field is either a strict `#rrggbb` hex OR empty. Empty
  * CLEARS the column (→ NULL → the site falls back to the Mood-Board palette /
@@ -26,9 +28,9 @@ import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { requireHostMembership } from '@/lib/host-gate';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { siteColorsChange } from '@/lib/hub-look-pro';
+import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
 
@@ -48,15 +50,6 @@ export async function updateSiteColors(
   formData: FormData,
 ): Promise<void> {
   await requireHostMembership(eventId);
-
-  // Defence-in-depth Pro gate — the page already shows a locked upsell to
-  // non-Pro couples; refuse the write too. Admin client: orders RLS is
-  // purchaser-scoped, so a co-host who didn't place the order still resolves
-  // the shared event ownership (same reason the buy pages use admin).
-  const proActive = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
-  if (!proActive) {
-    redirect(`/dashboard/${eventId}/studio/website-pro`);
-  }
 
   const bg = parseHexField(formData.get('bg_color'));
   const button = parseHexField(formData.get('button_color'));
@@ -101,6 +94,18 @@ export async function updateSiteColors(
       : undefined;
   const art =
     artRaw === 'candlelight' || artRaw === 'daylight' ? (artRaw as string) : null;
+
+  // Defence-in-depth Pro gate — the page already shows a locked upsell to
+  // non-Pro couples; refuse the write too (admin-client SKU read inside
+  // `requireLookPro`: orders RLS is purchaser-scoped, so a co-host who didn't
+  // place the order still resolves the shared event ownership).
+  // 🔓 ONE WRITE A FREE COUPLE MAY ALWAYS MAKE: putting everything back to ours
+  // (owner 2026-09-24 — a look they have is removable without Pro). Until now a
+  // grandfathered couple saw the colours panel but could not even clear it.
+  await requireLookPro(
+    eventId,
+    siteColorsChange({ bg, button, font, magic, art }),
+  );
 
   const supabase = await createClient();
   const { data: event, error } = await supabase

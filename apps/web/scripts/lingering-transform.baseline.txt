@@ -20,6 +20,9 @@
 # `.sn-page-enter` is deliberately ABSENT and must stay absent.
 .gl-settle :: gl-settle
 .gl-settle-delayed :: gl-settle
+# .hub-prog-bar > i::after — the Event Hub scenes progress fill: a childless
+# pseudo-element (nothing can be position:fixed inside it), scaleX only.
+.hub-prog-bar > i::after :: hub-prog-fill
 .journey-node-pop :: journey-node-pop
 .journey-rail-fill :: journey-rail-grow
 .journey-rise :: journey-rise

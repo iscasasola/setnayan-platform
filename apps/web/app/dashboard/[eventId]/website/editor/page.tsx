@@ -658,6 +658,7 @@ export default async function WebsiteEditorPage({
               moveDownAction={moveWidgetDown}
               setModeAction={setSectionMode}
               setMotionAction={setWidgetMotion}
+              transitionLocked={!ownsPro}
               setBackgroundAction={setWidgetBackground}
               setCropAction={setWidgetCrop}
               saveCustomAction={saveCustomSection}

@@ -8,6 +8,12 @@ import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config'
 import { STD_THEME_IDS } from '@/lib/std-themes';
 import { resolveRevealEffects, type RevealEffects } from '@/lib/std-reveal-effects';
 import { NO_REVEAL } from '@/app/[slug]/_components/reveal/reveal-templates';
+import {
+  REVEAL_NEEDS_PRO,
+  revealEffectsWriteAllowed,
+  revealTemplateWriteAllowed,
+} from '@/lib/reveal-access';
+import { eventOwnsStdOpenings } from '@/lib/std-openings';
 import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
 import {
   resolveStdMedia,
@@ -81,12 +87,21 @@ function isRevealTemplateId(v: string): v is RevealTemplateId {
 export async function chooseRevealTemplate(
   eventId: string,
   templateId: string,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; error?: string }> {
   // Accept the 5 openings + 'none' (No Reveal — the free, no-opening choice).
   if (!eventId || !(templateId === NO_REVEAL || isRevealTemplateId(templateId))) {
     return { ok: false };
   }
   const supabase = await requireCouple(eventId);
+  // ALL REVEAL IS PAID (owner 2026-09-24 · lib/reveal-access.ts). 'none' is
+  // always writable; an opening needs Event Hub Pro. Ownership here counts a
+  // pending order (eventOwnsStdOpenings) so a couple who has just paid can set
+  // their opening up; the live page still waits for the approved grant.
+  if (
+    !revealTemplateWriteAllowed(templateId, await eventOwnsStdOpenings(supabase, eventId))
+  ) {
+    return { ok: false, error: REVEAL_NEEDS_PRO };
+  }
   const { error } = await supabase
     .from('events')
     .update({ std_reveal_template: templateId })
@@ -193,8 +208,27 @@ export async function saveAllStdContent(
     patch.std_film_accent_hex = /^#[0-9a-f]{6}$/.test(raw) ? raw : null;
   }
   // Reveal effect toggles — sanitised to {butterflies,petals} booleans.
+  //
+  // ALL REVEAL IS PAID (owner 2026-09-24 · lib/reveal-access.ts). A couple
+  // without Event Hub Pro may re-save what is stored and flip `music` (the free
+  // film's own toggle, which lives in the same JSON) but may not CHANGE a
+  // reveal-only effect. Refused loudly — never dropped while "Saved." shows.
   if (data.revealEffects !== undefined && data.revealEffects !== null) {
-    patch.std_reveal_effects = resolveRevealEffects(data.revealEffects);
+    const incomingEffects = resolveRevealEffects(data.revealEffects);
+    if (!(await eventOwnsStdOpenings(supabase, eventId))) {
+      const { data: curFx } = await supabase
+        .from('events')
+        .select('std_reveal_effects')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const storedEffects = resolveRevealEffects(
+        (curFx as Record<string, unknown> | null)?.std_reveal_effects,
+      );
+      if (!revealEffectsWriteAllowed(storedEffects, incomingEffects, false)) {
+        return { ok: false, error: REVEAL_NEEDS_PRO };
+      }
+    }
+    patch.std_reveal_effects = incomingEffects;
   }
   // Step-1 background choice — validated to {kind, value}.
   if (data.background !== undefined && data.background !== null) {

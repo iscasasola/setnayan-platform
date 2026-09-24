@@ -85,7 +85,7 @@ import { OurStory } from './our-story';
    See that function's docblock for what the old one-input version got wrong. */
 
 import { GuestColumnCard } from './guest-column-card';
-import { resolveHubLook } from '../_lib/hub-look';
+import { resolveHubTheme } from '../_lib/hub-look';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
 import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
@@ -131,6 +131,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
+import { HubScenes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
 import { RsvpSheet } from './rsvp-sheet';
 import { rsvpSheetHeading, rsvpSheetTrigger } from './rsvp-sheet-state';
@@ -327,10 +328,6 @@ type SiteBodyProps = {
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
-  /** Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
-   *  pre-gated --color-* overrides (null when inert). Layered over the Mood-Board
-   *  palette in InvitationShell; null → no override → renders as today. */
-  siteColorVars: Record<string, string> | null;
   /** Unified Website Editor (PR-1) — TRUE only when the page resolved
    *  `?editor=1` AND server-verified host membership. Mounts the click-to-edit
    *  bridge for the editor's preview iframe. FALSE for every guest/anonymous
@@ -400,7 +397,6 @@ export async function SiteBody({
   broadcastPlanned = false,
   doorwayFacts = null,
   proWatermarkHidden,
-  siteColorVars,
   editorMode = false,
   ownerCapability = null,
   vendorCapability = null,
@@ -890,7 +886,11 @@ export async function SiteBody({
     };
     // The public widget nodes, factored so both the flag-off and open-browse
     // Details branches render the identical set (no duplication).
-    const publicWidgetNodes = plan.publicSafeWidgets.map((widget) => (
+    // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
+    // stranger following the link sees the page the couple arranged.
+    const publicWidgetNodes = (
+      <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden}>
+      {plan.publicSafeWidgets.map((widget) => (
       <PublicHideableWidget
         key={widget.widget_id}
         widget={widget}
@@ -905,7 +905,9 @@ export async function SiteBody({
         }
         ourPhotoUrls={ourPhotoUrls}
       />
-    ));
+      ))}
+      </HubScenes>
+    );
     // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
     // guest at the venue without a session cookie still sees "happening now".
     const dayOfBadge =
@@ -2059,7 +2061,11 @@ export async function SiteBody({
               {menuOn && plan.hideableInOrder.length > 0 ? (
                 <span id={SITE_MENU_ANCHORS.details} aria-hidden className="sr-only" />
               ) : null}
+              {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
+                  children unless a section scrubs AND the event owns Event Hub
+                  Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               <div className="sn-hub-cards space-y-4">
+              <HubScenes widgets={plan.hideableInOrder} scrubAllowed={proWatermarkHidden}>
               {plan.hideableInOrder.map((widget) => (
                 <HideableWidgetRender
                   key={widget.widget_id}
@@ -2079,6 +2085,7 @@ export async function SiteBody({
                   words={clientWords}
                 />
               ))}
+              </HubScenes>
               </div>
 
               {/* The same entourage, for the guest tree. TWO MOUNTS, ONE
@@ -2238,24 +2245,25 @@ export async function SiteBody({
 
   /*
     THE EVENT HUB'S THEME — the one the couple already chose for their invite
-    door (owner 2026-09-22). `resolveHubLook` owns the gating, so this is the
+    door (owner 2026-09-22). `resolveHubTheme` owns the gating, so this is the
     only opinion on the page about which theme is live; a Pro theme whose unlock
     lapsed comes back as House here exactly as it does on the door.
+
+    ⚠ ONLY THE THEME'S NAME TRAVELS. The palette, the art direction, the Pro
+    colours and face, and the theme's attribute are worn ONCE by
+    `[slug]/layout.tsx` for every page of the tree (owner 2026-09-25) — the
+    shell needs the name only to leave its paper off a themed ground. The Pro
+    gate inside is `cache()`d, so this costs no second order lookup.
   */
-  const hubLook = await resolveHubLook(event);
+  const hubLook = await resolveHubTheme(event);
 
   return (
     <InvitationShell
       monogramText={event.monogram_text}
-      artDirection={event.site_art_direction ?? null}
       hubTheme={hubLook.theme}
-      hubPhoto={hubLook.photo}
-      hubAccent={hubLook.accent}
       backdrop={backdrop}
-      rolePalette={event.role_palette}
       fullBleed={plan.fullBleed}
       hideWatermark={proWatermarkHidden}
-      customColorVars={siteColorVars}
       magicTraveller={magicTraveller}
     >
       {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the

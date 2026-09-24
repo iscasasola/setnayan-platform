@@ -68,7 +68,7 @@ export function PabuyaCardList({
         return (
           <li
             key={`${m.kind}-${i}`}
-            className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm"
+            className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
           >
             <div className="flex items-start gap-3 p-4">
               <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mulberry/10">
@@ -196,10 +196,10 @@ export function PabuyaTrustNote({
         className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
         strokeWidth={2}
       />
-      <p className="text-xs leading-relaxed text-ink/70">
+      <p className="text-xs leading-relaxed text-ink-on-light/70">
         {audience === 'couple' ? (
           <>
-            <b className="text-ink">
+            <b className="text-ink-on-light">
               Guests send directly to your account — Setnayan never holds your
               money.
             </b>{' '}
@@ -208,7 +208,7 @@ export function PabuyaTrustNote({
           </>
         ) : (
           <>
-            <b className="text-ink">Setnayan never touches your money.</b> We
+            <b className="text-ink-on-light">Setnayan never touches your money.</b> We
             only show you where to send it — it goes directly to{' '}
             {organizerPossessive} own account. No commission, no middleman, no
             fees.

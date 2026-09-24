@@ -2,6 +2,9 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { nextTransition } from '@/lib/hub-scenes';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
@@ -12,8 +15,6 @@ import {
   nextFreeCustomSlot,
   readCustomSectionInput,
 } from '@/lib/custom-sections';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   HUB_DIRECTIONS,
   HUB_FOCAL_POINTS,
@@ -466,6 +467,9 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
  *   - event_id · widget_id — the row, and the gate subject
  *   - preset               — still | calm | editorial | cinematic
  *   - timeline             — auto | time | scrub   (optional; auto removes it)
+ *   - transition           — scroll | scrub | auto  (optional; the transition INTO THE NEXT
+ *                            scene; scroll removes it; scrub/auto need Event Hub Pro)
+ *   - auto_speed           — slow | normal | fast  (optional; kept only beside auto)
  */
 export async function setWidgetMotion(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -540,6 +544,28 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   const outToRaw = formData.get('out_to');
   if (isHubDirection(outToRaw) && hubOutMoves((canvas.out as HubOut | undefined) ?? 'none')) {
     canvas.outTo = outToRaw;
+  }
+
+  /* ── SCROLL · SCRUB · AUTO-SCROLL (owner 2026-09-24) ──────────────────────
+     The transition from this scene INTO THE NEXT. `nextTransition` owns the rules —
+     Scroll is an absence, a speed only lives beside Auto, nothing is repaired —
+     and says whether the write needs Pro.
+     ⛔ SCRUB AND AUTO-SCROLL ARE EVENT HUB PRO. The editor locks the chips;
+     this is the real gate, because a server action is a public POST. Going
+     BACK to Scroll is never gated: a free couple may always take a look off.
+     Admin client for the SKU read, as `website/colors/actions.ts` does — orders
+     RLS is purchaser-scoped, so a co-host would otherwise read "not Pro". */
+  const transitionRaw = formData.get('transition');
+  const autoSpeedRaw = formData.get('auto_speed');
+  if (transitionRaw !== null || autoSpeedRaw !== null) {
+    const step = nextTransition(canvas, transitionRaw, autoSpeedRaw);
+    if (step.needsPro && !(await eventCoupleWebsiteProActive(createAdminClient(), eventId))) {
+      redirect(`/dashboard/${eventId}/studio/website-pro`);
+    }
+    delete canvas.transition;
+    delete canvas.autoSpeed;
+    if (step.transition) canvas.transition = step.transition;
+    if (step.autoSpeed) canvas.autoSpeed = step.autoSpeed;
   }
 
   const next = { ...existing, canvas };

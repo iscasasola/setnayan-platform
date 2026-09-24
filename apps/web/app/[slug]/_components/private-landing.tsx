@@ -1,5 +1,5 @@
 import { Lock } from 'lucide-react';
-import { resolveHubLook } from '../_lib/hub-look';
+import { resolveHubTheme } from '../_lib/hub-look';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { formatEventDate } from '@/lib/events';
 import type { MonogramConfig } from '@/lib/monogram';
@@ -23,7 +23,6 @@ export async function PrivateLanding({
   animatedMonogram,
   bespokeSvg,
   proWatermarkHidden,
-  siteColorVars,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
@@ -37,9 +36,6 @@ export async function PrivateLanding({
   /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
    *  watermark when the event owns the active upgrade. */
   proWatermarkHidden: boolean;
-  /** Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
-   *  pre-gated --color-* overrides (null when inert). Renders as today when null. */
-  siteColorVars: Record<string, string> | null;
 }) {
   // This screen is the FIRST thing anyone sees on a private event, and it told
   // a movie night it was a wedding: "This wedding's page is private · Only the
@@ -51,17 +47,18 @@ export async function PrivateLanding({
     thorough. It is the FIRST thing anyone sees on a private event — an
     unthemed "this page is private" in front of a themed everything-else is the
     half-themed product that reads as a broken theme.
+
+    🔒 The look itself — palette, art direction, Pro colours, the theme's
+    attribute — is worn by `[slug]/layout.tsx`, which wraps this screen too.
+    That is also the privacy argument for the layout: every part of the look
+    it paints on the OTHER pages was already painted here, for anyone holding
+    the link. The shell only needs the theme's name.
   */
-  const hubLook = await resolveHubLook(event);
+  const hubLook = await resolveHubTheme(event);
   return (
     <InvitationShell
-      rolePalette={event.role_palette}
-      artDirection={event.site_art_direction ?? null}
       hubTheme={hubLook.theme}
-      hubPhoto={hubLook.photo}
-      hubAccent={hubLook.accent}
       hideWatermark={proWatermarkHidden}
-      customColorVars={siteColorVars}
     >
       <div className="space-y-8 text-center">
         <div className="flex justify-center">

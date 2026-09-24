@@ -145,6 +145,18 @@ type Props = {
    * heads-up, not a wall (see the honoree screen, unchanged).
    */
   entranceBlocking?: { eventId: string; displayName: string } | null;
+  /**
+   * TRUE when the type's profile is `marketplaceEnabled: false` (owner
+   * 2026-09-25 — "the simple event is only for our own services"). Server-
+   * resolved in page.tsx off the SAME flag onboarding-elsewhere reads, never
+   * off `eventType === 'simple_event'`. Drops the vendor-sizing "effort"
+   * question and the "We'll line up <categories>" reveal from the screen
+   * list, rewords the region sub-line, and saves no `interested_categories`.
+   * `tiles` already arrives empty alongside this (page.tsx), so the starter
+   * plan is empty either way — this flag only removes the SCREENS that ask a
+   * question with no possible answer, rather than asking it into a void.
+   */
+  vendorFree?: boolean;
 };
 
 type Draft = {
@@ -197,6 +209,7 @@ export function GenericOnboarding(props: Props) {
     servicesStepAiValue = null,
     todayISO,
     entranceBlocking = null,
+    vendorFree = false,
   } = props;
   const router = useRouter();
   const today = todayISO ?? new Date().toISOString().slice(0, 10);
@@ -323,8 +336,17 @@ export function GenericOnboarding(props: Props) {
     EMPTY_SERVICES_SELECTION,
   );
 
+  // The experience-quiz axes actually asked on THIS wizard. `effort` sizes
+  // vendor categories (persona-pack "extras"/"services" caps, effortLimit()) —
+  // a question with no possible answer on a vendor-free type, since `tiles`
+  // arrives empty either way (page.tsx). Dropped by id, never by array index,
+  // so a future admin re-ordering the axes can't silently un-drop it.
+  const activeAxes = useMemo(
+    () => (vendorFree ? quizAxes.filter((a) => a.id !== 'effort') : quizAxes),
+    [quizAxes, vendorFree],
+  );
   // The experience-quiz axis ids, in order (keys are locked; copy is editable).
-  const axisIds = useMemo<string[]>(() => quizAxes.map((a) => a.id), [quizAxes]);
+  const axisIds = useMemo<string[]>(() => activeAxes.map((a) => a.id), [activeAxes]);
   // Rich per-type "signature fields" from the specialty catalog (the 18s, godparents,
   // milestone-as-data, …). Empty for a type with no catalog entry → the screen is
   // dropped and the flow is byte-identical to before.
@@ -875,15 +897,21 @@ export function GenericOnboarding(props: Props) {
         forWhom === 'couple' || forWhom === 'guests' || forWhom === 'both' ? forWhom : null,
       experienceAxes: axes,
       // Persona-pack plan + the categories the type-questions added → interested_categories.
-      picks: finalPlan.picks,
+      // Already [] on a vendor-free type because `tiles` arrives empty
+      // (page.tsx) and `finalPlan` only ever keeps ids present in `tiles` —
+      // zeroed again here so this stays true even if a future caller ever
+      // hands this component non-empty tiles alongside vendorFree.
+      picks: vendorFree ? [] : finalPlan.picks,
       // Per-type/per-persona in-app services (effort-scaled) → interested_services.
+      // NOT vendor-gated: these are Setnayan's OWN in-app services (Papic,
+      // Setnayan AI, …), which is exactly what a Simple Event exists to sell.
       interestedServices: planServices,
       refinements: {},
       basicMoodboard: null,
       places: [],
       guidanceOptIn: true,
       sendTopInquiries: false,
-      inquiriesPerCategory: 3,
+      inquiriesPerCategory: vendorFree ? 0 : 3,
       role: 'host',
       // Per-type signature answers: the light tq_ picks + the rich catalog fields
       // (the 18s, godparents, milestone-as-data…). Both land in
@@ -1382,7 +1410,9 @@ export function GenericOnboarding(props: Props) {
         <div>
           <Eyebrow>The basics</Eyebrow>
           <Title>Where is it happening?</Title>
-          <p className="mt-2 text-ink/55">So we can line up vendors near you.</p>
+          <p className="mt-2 text-ink/55">
+            {vendorFree ? 'So your plan fits where it happens.' : 'So we can line up vendors near you.'}
+          </p>
           <select
             value={region}
             onChange={(e) => setRegion(e.target.value)}
@@ -1440,7 +1470,7 @@ export function GenericOnboarding(props: Props) {
       );
     }
     if (isAxis) {
-      const axis = quizAxes[axisIndex]!;
+      const axis = activeAxes[axisIndex]!;
       const selected = axes[axis.id];
       return (
         <div>
@@ -1499,7 +1529,9 @@ export function GenericOnboarding(props: Props) {
                 </div>
               ) : (
                 <p className="mt-6 text-sm text-ink/50">
-                  We’ll line up the right team and a starting look for your {label.toLowerCase()}.
+                  {vendorFree
+                    ? `We’ll set up your ${label.toLowerCase()} dashboard with a starting look.`
+                    : `We’ll line up the right team and a starting look for your ${label.toLowerCase()}.`}
                 </p>
               )}
             </>

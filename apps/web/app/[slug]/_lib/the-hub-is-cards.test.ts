@@ -23,12 +23,24 @@ test('both pages wrap the hub sections in the card wrapper', () => {
     2,
     "the stranger's two Details branches",
   );
-  assert.match(body, /<div className="sn-hub-cards space-y-4">\s*\{plan\.hideableInOrder\.map/, "the guest's hub");
+  // The guest's sections go through the Scroll · Scrub scenes (owner
+  // 2026-09-24) INSIDE the card wrapper — the wrapper is still the direct parent
+  // of whatever the map produces when no section scrubs.
+  assert.match(
+    body,
+    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{plan\.hideableInOrder\}[^>]*>\s*\{plan\.hideableInOrder\.map/,
+    "the guest's hub",
+  );
+  assert.match(
+    body,
+    /const publicWidgetNodes = \(\s*<HubScenes widgets=\{plan\.publicSafeWidgets\}/,
+    "the stranger's hub goes through the same scenes",
+  );
 });
 
 test('the card look is one CSS block', () => {
   const css = read(join(__dirname, '..', '..', 'globals.css'));
-  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section \{[^}]*border-radius: var\(--m-r-md\);/);
+  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section,\s*\.hub-scenes > \.hub-scene > section \{[^}]*border-radius: var\(--m-r-md\);/);
   assert.match(css, /\.sn-hub-cards \.pahina-eyebrow > span\[aria-hidden\]:first-child \{\s*display: none;/);
 });
 

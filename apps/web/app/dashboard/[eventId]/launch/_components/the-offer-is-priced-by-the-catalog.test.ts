@@ -112,7 +112,7 @@ test('the day ruling has ONE home, and the offer asks it rather than re-deriving
   );
 });
 
-test('the eight names have ONE home — the editor and the controller read the same list', () => {
+test('the Pro item names have ONE home — the editor and the controller read the same list', () => {
   const panels = readFileSync(
     resolve(WEB, 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'pro-panels.tsx'),
     'utf8',
@@ -121,7 +121,7 @@ test('the eight names have ONE home — the editor and the controller read the s
   assert.match(
     panelSrc,
     /from '@\/lib\/website-pro-items'/,
-    'pro-panels must import the eight, not carry a second copy of them',
+    'pro-panels must import the list, not carry a second copy of them',
   );
   /*
     🪤 THE ASSERTION ABOVE, ALONE, SURVIVED ITS OWN SABOTAGE. Re-typing the array
@@ -134,13 +134,13 @@ test('the eight names have ONE home — the editor and the controller read the s
   assert.doesNotMatch(
     panelSrc,
     /'Cinematic Reveal'/,
-    'the eight names are re-typed here — one fact, two lists, each passing its own suite',
+    'the Pro item names are re-typed here — one fact, two lists, each passing its own suite',
   );
   const resolver = read(SHIPPED['lib/event-hub-pro.ts']);
   assert.match(resolver, /WEBSITE_PRO_ITEMS/, 'and the controller builds its chips from that list');
   assert.doesNotMatch(
     resolver,
     /'Cinematic Reveal',\s*\n\s*'Save-the-Date video'/,
-    'a re-typed list of the eight is two sources of truth for one fact',
+    'a re-typed list of the Pro items is two sources of truth for one fact',
   );
 });

@@ -39,6 +39,7 @@ import {
   HUB_TIMELINE,
   hubCanvasClass,
 } from './hub-canvas';
+import { HUB_SCENE_CLASSES } from './hub-scenes';
 
 const RAW = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
 
@@ -260,6 +261,9 @@ test('⛔ no rule branches on a class the contract can never emit', () => {
         : { kind, media: `r2://${PUBLIC_R2_BUCKET}/events/E1/a.jpg` };
     for (const c of hubCanvasClass(canvas, true).split(' ')) emitted.add(c);
   }
+  // The Scroll · Scrub scenes (hub-scenes.tsx) emit their own small vocabulary,
+  // exported beside the contract so it is held to the same rule, not exempted.
+  for (const c of HUB_SCENE_CLASSES) emitted.add(c);
 
   const used = new Set([...canvasBlock().matchAll(/\.(hub-[a-z0-9-]+)/g)].map((m) => m[1] as string));
   const orphanRules = [...used].filter((c) => !emitted.has(c));

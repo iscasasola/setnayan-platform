@@ -15,7 +15,12 @@ import { applyMarkInk } from '@/lib/monogram-ink';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
 import { UploadMark } from './upload-mark';
 import { MarkEverywhere } from './mark-everywhere';
-import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
+import {
+  eventOwnsAnimatedMonogram,
+  eventGetsAnimatedMonogramFromHubPro,
+  animatedMonogramIncludedNote,
+  ANIMATED_MONOGRAM_SERVICE_KEY,
+} from '@/lib/animated-monogram';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
@@ -138,6 +143,13 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
    * two chances to disagree about what a customer is charged. */
   const storeShell = await isStoreShellRequest();
   const ownsAnimated = await eventOwnsAnimatedMonogram(supabase, eventId);
+  /* Event Hub Pro includes the animation (owner 2026-09-24, "A then"). The
+   * alias already makes `ownsAnimated` true for a Pro couple, so the ₱500 buy
+   * is gone; this names WHY on the owned state. Read only when owned. */
+  const includedNote = animatedMonogramIncludedNote(
+    ownsAnimated,
+    ownsAnimated ? await eventGetsAnimatedMonogramFromHubPro(supabase, eventId) : false,
+  );
 
   /* Everything the ONE "Unlock & Apply" button needs, read here and nowhere
    * else. This is the single place the price is fetched now: the compact buy
@@ -314,7 +326,9 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         // Play Store shell (guideline 3.1.3(b); lib/store-shell.ts): there the
         // reveal previews like an unowned one, with no purchase. The guest page
         // still plays what was applied on the web — that side is not the app.
+        // `includedNote` renders only when `owned`, so the shell never sees it.
         owned={ownsAnimated && !storeShell}
+        includedNote={includedNote}
         checkout={checkout}
         unlock={!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
       />

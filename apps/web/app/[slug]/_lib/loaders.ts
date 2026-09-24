@@ -36,8 +36,10 @@ import {
 } from '@/lib/entourage';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { buildCustomSiteColorVars } from '@/lib/site-palette';
+import { buildCustomSiteColorVars, buildSitePaletteVars } from '@/lib/site-palette';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import type { InviteThemeId } from '@/lib/invite-themes';
+import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
@@ -160,6 +162,106 @@ export const loadEventShell = cache(async (slug: string) => {
  *  block. Renderers keep typing it as `EventRow` (./types) at the prop
  *  boundary, exactly as before. */
 export type EventShellRow = NonNullable<Awaited<ReturnType<typeof loadEventShell>>>;
+
+/**
+ * The couple's Event Hub Pro colours and face, as inline custom properties —
+ * or `null` when there is nothing to add.
+ *
+ * Website Pro net-new manual site colours (Launch settings §4.4 · PR-C). The
+ * couple's chosen background + button colours (events.site_bg_color /
+ * site_button_color) override the Mood-Board palette tokens on the guest site —
+ * but ONLY when the event owns ACTIVE Website Pro (the watermark's gate).
+ * buildCustomSiteColorVars returns null when both columns are NULL, so a
+ * non-Pro OR unset event yields `null` → no override → the page renders
+ * byte-identically to today (inert contract).
+ */
+export function proSiteVarsFor(
+  event: { site_bg_color?: unknown; site_button_color?: unknown; site_font_key?: unknown },
+  proWatermarkHidden: boolean,
+): Record<string, string> | null {
+  // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG AND THE SAME GATE.
+  // `hubFontVars` contributes `--pahina-face` / `--font-display`, which
+  // `globals.css` and `tailwind.config.ts` already read; a theme's MATERIAL
+  // (its colour tokens) is untouched, because a theme carries colour and this
+  // carries type. One bag rather than two: it is delivered to the same
+  // element, under the same Pro check, and a second would be a second place
+  // for the two to disagree.
+  // ⛔ An unset face contributes `{}`, so a couple who never chose one gets
+  // markup byte-identical to before this existed — and `null` still means
+  // "add no style attribute at all".
+  const proSiteVars = proWatermarkHidden
+    ? {
+        ...(buildCustomSiteColorVars(
+          event.site_bg_color as string | null,
+          event.site_button_color as string | null,
+        ) ?? {}),
+        ...hubFontVars(event.site_font_key),
+      }
+    : null;
+  return proSiteVars && Object.keys(proSiteVars).length > 0 ? proSiteVars : null;
+}
+
+/** The couple's look, resolved for the guest-tree layout. */
+export type GuestLook = {
+  /** A painted theme, already gated by `resolveHubTheme` — never 'house'. */
+  theme: Exclude<InviteThemeId, 'house'> | null;
+  /** Pahina's dark art direction, or null for daylight (today's page). */
+  art: 'candlelight' | null;
+  /** The couple's colour, for the theme material's `color-mix`. */
+  accent: string;
+  /** Mood-board palette with the Pro colours and face layered on top, or null. */
+  vars: Record<string, string> | null;
+};
+
+/**
+ * THE COUPLE'S LOOK, ONCE PER REQUEST — for `[slug]/layout.tsx`, which wears it
+ * on behalf of EVERY page of the guest tree.
+ *
+ * Owner, 2026-09-25: *"event hub has the different menus that are not editable.
+ * but they should still adapt to their theme"* — and, on putting it at the top
+ * of every guest page, *"yes place it there."*
+ *
+ * 🔑 NO SECOND EVENT READ. It goes through `loadEventShell(slug)`, the same
+ * `cache()`d row the layout's announcement and every page body already read, so
+ * a page that never looked at the theme before pays nothing for the event. The
+ * Pro check is `websiteProActiveFor` — cached per event id and shared with
+ * `loadMedia` and the theme gate.
+ *
+ * ⛔ THE GATES ARE THE PAGE'S, NOT RE-DERIVED. A slug that `page.tsx` would not
+ * render as an event — reserved, missing, or a type whose `website` surface is
+ * off (it falls through to a SUPPLIER's page there) — gets no look at all, so a
+ * vendor page can never be painted in some couple's colours.
+ *
+ * 🔒 AND NOTHING HERE IS NEWS TO A STRANGER. Palette, theme, art direction and
+ * Pro colours are exactly what `private-landing.tsx` has always painted for
+ * anyone holding the link to a private event. What the private landing does NOT
+ * show — the couple's reveal photo — is never resolved: `resolveHubTheme` signs
+ * no URL.
+ */
+export const loadGuestLook = cache(async (slug: string): Promise<GuestLook | null> => {
+  if (!slug || RESERVED_SLUGS.has(slug)) return null;
+  const event = await loadEventShell(slug);
+  if (!event?.event_id) return null;
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) return null;
+
+  const [hub, proActive] = await Promise.all([
+    resolveHubTheme(event),
+    websiteProActiveFor(event.event_id).catch(() => false),
+  ]);
+
+  const palette = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
+  const pro = proSiteVarsFor(event, proActive);
+  // Byte-safety, as the shell always had it: with no Pro colours the bag IS the
+  // palette's; with some, they are spread over it (the couple's own pick wins).
+  const vars = pro ? { ...(palette ?? {}), ...pro } : palette;
+
+  return {
+    theme: hub.theme === 'house' ? null : hub.theme,
+    art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
+    accent: hub.accent,
+    vars: vars && Object.keys(vars).length > 0 ? vars : null,
+  };
+});
 
 /**
  * Host-membership check for THIS event — event_members (V1 couple membership)
@@ -398,38 +500,18 @@ export const loadMedia = cache(
     // footer drops the watermark line. Graceful-degrades to `false` (= keep the
     // watermark, the safe default) on any orders-table shape error — see
     // lib/couple-website-pro.ts. The free baseline website keeps the watermark.
-    const proWatermarkHidden = await eventCoupleWebsiteProActive(admin, event.event_id);
-
-    // Website Pro net-new manual site colours (Launch settings §4.4 · PR-C).
-    // The couple's chosen background + button colours (events.site_bg_color /
-    // site_button_color) override the Mood-Board palette tokens on the guest
-    // site — but ONLY when the event owns ACTIVE Website Pro (same gate as the
-    // watermark). Reuses the boolean already resolved above (no extra roundtrip).
-    // buildCustomSiteColorVars returns null when both columns are NULL, so a
-    // non-Pro OR unset event yields `siteColorVars = null` → InvitationShell adds
-    // no override → the page renders byte-identically to today (inert contract).
     //
-    // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG AND THE SAME GATE.
-    // `hubFontVars` contributes `--pahina-face` / `--font-display`, which
-    // `globals.css` and `tailwind.config.ts` already read; a theme's MATERIAL
-    // (its colour tokens) is untouched, because a theme carries colour and this
-    // carries type. Merged into `siteColorVars` rather than threaded as a new
-    // prop: it is delivered to the same element, under the same Pro check, and
-    // a second prop would be a second place for the two to disagree.
-    // ⛔ An unset face contributes `{}`, so a couple who never chose one gets
-    // markup byte-identical to before this existed — and `null` still means
-    // "add no style attribute at all".
-    const proSiteVars = proWatermarkHidden
-      ? {
-          ...(buildCustomSiteColorVars(
-            event.site_bg_color as string | null,
-            event.site_button_color as string | null,
-          ) ?? {}),
-          ...hubFontVars((event as { site_font_key?: unknown }).site_font_key),
-        }
-      : null;
-    const siteColorVars =
-      proSiteVars && Object.keys(proSiteVars).length > 0 ? proSiteVars : null;
+    // 🔑 Through the per-request cache, because `[slug]/layout.tsx` asks the SAME
+    // question to dress every page of the tree (`loadGuestLook` below), and so
+    // does the theme gate. Three readers, one order lookup. `admin` is unused
+    // for it now — the cached reader builds its own so its key is the id alone.
+    const proWatermarkHidden = await websiteProActiveFor(event.event_id);
+    /* ⛔ THE COUPLE'S PRO COLOURS AND FACE ARE NO LONGER RESOLVED HERE. They used
+       to ride out of this loader as `siteColorVars` and be painted by the ONE
+       page that went through InvitationShell — so `/find-seat`, `/seat`, `/hub`,
+       `/everyone` and the rest never wore them. They are painted by the
+       guest-tree layout now (`proSiteVarsFor` + `loadGuestLook`, below), which
+       wraps every page. */
 
     // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
     // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at
@@ -621,7 +703,6 @@ export const loadMedia = cache(
       monogram,
       animatedMonogram,
       proWatermarkHidden,
-      siteColorVars,
       bespokeSvg,
       studioAnim,
       heroPhotoUrl,

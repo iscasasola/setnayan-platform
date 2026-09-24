@@ -6,8 +6,15 @@ import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { buildChecklistSeed, buildSeedRows, isWeddingEvent, type ChecklistTemplateItem } from '@/lib/checklist';
+import {
+  buildChecklistSeed,
+  buildSeedRows,
+  isWeddingEvent,
+  checklistItemAllowedForProfile,
+  type ChecklistTemplateItem,
+} from '@/lib/checklist';
 import { checklistDefForEventType, GENERIC_EVENT_CHECKLIST_DEF } from '@/lib/checklist-event-type-defs';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { specialtyRecommendations } from '@/lib/onboarding/specialty-recommendations';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
@@ -118,8 +125,24 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
         dueOffsetDays: r.dueOffsetDays,
       }))
     : [];
+  // Vendor-free / budget-off gate (owner 2026-09-25 — "the simple event is
+  // only for our own services"). Only spent on the per-type path: the
+  // wedding/unset branch below never touches this def, and every type WITH
+  // its own dedicated def in checklistDefForEventType is marketplace-enabled
+  // today, so this only ever changes something for GENERIC_EVENT_CHECKLIST_DEF
+  // types (Simple Event and any future vendor-free admin type) — gated on the
+  // profile flag, never on the type's name.
+  const profile = perTypeDef ? await resolveProfile(eventType ?? 'wedding') : null;
+  const filteredTemplate =
+    perTypeDef && profile
+      ? perTypeDef.template.filter((t) => checklistItemAllowedForProfile(t.category, t.key, profile))
+      : perTypeDef?.template ?? [];
+  const filteredSuggestions =
+    profile != null
+      ? specialtySuggestions.filter((s) => checklistItemAllowedForProfile(s.category, s.key, profile))
+      : specialtySuggestions;
   const seed = perTypeDef
-    ? buildSeedRows(eventId, [...perTypeDef.template, ...specialtySuggestions], null) // per-type + captured-signal suggestions
+    ? buildSeedRows(eventId, [...filteredTemplate, ...filteredSuggestions], null) // per-type + captured-signal suggestions
     : buildChecklistSeed(eventId, ceremonyType); // wedding / unset path, unchanged
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];

@@ -67,7 +67,7 @@ export default async function EventTypeOnboardingPage({
 
   const { data: vocab } = await admin
     .from('event_type_vocab')
-    .select('event_type, label_en, emoji')
+    .select('event_type, label_en, emoji, onboarding_href')
     .eq('event_type', eventType)
     .maybeSingle();
   if (!vocab) notFound();
@@ -117,7 +117,14 @@ export default async function EventTypeOnboardingPage({
     profile.terminology.register,
   );
 
-  const categoryOptions = tiles.map((t) => ({ value: t.cat, label: t.label }));
+  // No vendor-category options for a vendor-free type (event-type-profile.ts
+  // `marketplaceEnabled: false`, owner 2026-09-25) — the live wizard drops the
+  // vendor-sizing screens entirely for one of these, so offering an admin a
+  // picker whose picks can never surface would be editing a dead control.
+  const categoryOptions =
+    profile.marketplaceEnabled === false
+      ? []
+      : tiles.map((t) => ({ value: t.cat, label: t.label }));
   const serviceOptions = Object.keys(INAPP_TO_SERVICE_CODE).map((k) => ({
     value: k,
     label: humanize(k),
@@ -140,7 +147,12 @@ export default async function EventTypeOnboardingPage({
           {vocab.emoji} {vocab.label_en} · Onboarding content
         </p>
         <Link
-          href={`/onboarding/${eventType}`}
+          // A vendor-free type with its own clean onboarding page (its
+          // `onboarding_href`, e.g. Simple Event's `/onboarding/simple`) is
+          // redirected away from `/onboarding/[type]` by the live route
+          // (owner 2026-09-25) — previewing that URL would just bounce, so
+          // this link follows the SAME onboarding_href the live picker uses.
+          href={vocab.onboarding_href || `/onboarding/${eventType}`}
           target="_blank"
           className="rounded-full border border-ink/15 px-4 py-1.5 text-sm text-ink/70 hover:border-mulberry hover:text-mulberry"
         >

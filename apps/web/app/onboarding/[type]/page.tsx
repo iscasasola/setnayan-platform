@@ -7,9 +7,25 @@
  * DARK until go-live: the whole route 404s unless NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED
  * is on (the owner's go-live switch). Until then the create-event picker keeps its
  * inline name-form for non-wedding types (PR3 wires the picker to this route).
+ *
+ * ── VENDOR-FREE TYPES (owner 2026-09-25, "simple event ... only for our own
+ * services") ──────────────────────────────────────────────────────────────
+ * This route used to render the FULL wizard — vendor-category tiles, the
+ * "How much do you want to do?" effort question, the "We'll line up" reveal —
+ * for ANY non-wedding type reached here, including one whose profile says
+ * `marketplaceEnabled: false` (event-type-profile.ts). A Simple Event has no
+ * vendor marketplace at all (Explore is hidden on its dashboard), so asking it
+ * to size vendor categories was a live defect, not a variant. Gated on the
+ * profile flag — never on `type === 'simple_event'` — so any future
+ * vendor-free type is covered without a second edit here:
+ *   - a type with its OWN clean onboarding page (its `onboarding_href`, e.g.
+ *     Simple Event's `/onboarding/simple`) is redirected there;
+ *   - a vendor-free type with no dedicated page falls through with `tiles=[]`
+ *     and `vendorFree=true`, which drops the effort question + vendor reveal
+ *     inside `GenericOnboarding` and saves no `interested_categories`.
  */
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -71,14 +87,30 @@ export default async function GenericOnboardingPage({
   const profile = await resolveProfile(type);
   const flow = resolveOnboardingFlow(profile);
 
+  // ── VENDOR-FREE GATE (owner 2026-09-25) ─────────────────────────────────
+  // `marketplaceEnabled` — not the type's name — decides whether this generic
+  // wizard may ask about vendor categories at all. A type with its own clean
+  // onboarding page (row.onboardingHref, e.g. Simple Event's
+  // `/onboarding/simple`) is sent there instead of rendering the full wizard
+  // under a second URL; a vendor-free type with no dedicated page (none
+  // exist today, but a future admin-created one might) falls through with no
+  // tiles, so the wizard below drops every vendor-sizing screen on its own.
+  const vendorFree = profile.marketplaceEnabled !== true;
+  if (vendorFree && row.onboardingHref && row.onboardingHref !== `/onboarding/${type}`) {
+    redirect(row.onboardingHref);
+  }
+
   const supabase = await createClient();
   // The type's applicable taxonomy categories (PR3) drive the experience-quiz's
   // derived starter plan; getOnboardingTiles scopes to the type + degrades to [].
+  // Skipped for a vendor-free type reaching this fallback: there is no vendor
+  // marketplace to size categories for, so the tiles list is empty rather than
+  // fetched and then ignored.
   // getOnboardingSpec resolves the admin-editable content (questions / plan /
   // reveal / intro) for this type — DB override OR the TS default (0053 2026-06-28).
   const [{ data: userData }, tiles, spec] = await Promise.all([
     supabase.auth.getUser(),
-    getOnboardingTiles(type),
+    vendorFree ? Promise.resolve([]) : getOnboardingTiles(type),
     // The register rides along so a wake's quiz + reveal are solemn on EVERY
     // path, including the two where the override read fails (solemn-content.ts).
     getOnboardingSpec(type, flow.personaPackKey, profile.terminology.register),
@@ -195,6 +227,7 @@ export default async function GenericOnboardingPage({
       flowKey={flow.flowKey}
       personaPackKey={flow.personaPackKey}
       tiles={tiles}
+      vendorFree={vendorFree}
       intro={spec.intro}
       questions={spec.questions}
       personaPack={spec.personaPack}

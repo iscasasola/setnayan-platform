@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import {
   pipelineDayLabel,
   pipelinePressureLine,
@@ -35,7 +36,7 @@ import {
  * #A9834B is 3.48:1 and is used here only as a border and a fill, never as
  * words.
  */
-export function PipelinePressureLine({
+export async function PipelinePressureLine({
   pressure,
 }: {
   pressure: PipelinePressure | null;
@@ -68,13 +69,17 @@ export function PipelinePressureLine({
             straight away.
           </li>
         </ul>
-        <p className="mt-2 border-t border-mulberry/20 pt-2 text-[13px] text-ink/70">
-          Or move up:{' '}
-          <Link href="/vendor-dashboard/subscription" className="font-semibold text-link underline">
-            see the plans
-          </Link>
-          .
-        </p>
+        {/* 🔒 Not in the App Store / Play Store shell: plans are web-only there
+            (lib/store-shell.ts), so "move up" would be a dead end. */}
+        {(await isStoreShellRequest()) ? null : (
+          <p className="mt-2 border-t border-mulberry/20 pt-2 text-[13px] text-ink/70">
+            Or move up:{' '}
+            <Link href="/vendor-dashboard/subscription" className="font-semibold text-link underline">
+              see the plans
+            </Link>
+            .
+          </p>
+        )}
       </div>
     );
   }

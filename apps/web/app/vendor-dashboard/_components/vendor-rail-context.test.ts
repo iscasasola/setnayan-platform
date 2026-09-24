@@ -473,7 +473,9 @@ test('a desktop vendor can still reach the account menu, and so Sign out', () =>
 test('the Plan hub keeps a persistent door', () => {
   const rail = code(read(RAIL));
   const layout = code(read(LAYOUT));
-  assert.match(layout, /planHref="\/vendor-dashboard\/subscription"/);
+  // Everywhere EXCEPT the App Store / Play Store shell, where the hub is a
+  // refused route (lib/store-shell.ts) and the row would be a door to /web-only.
+  assert.match(layout, /planHref=\{storeShell \? null : '\/vendor-dashboard\/subscription'\}/);
   assert.match(rail, /href=\{planHref\}/);
   // Everything else linking to the plan hub is a contextual upsell inside a
   // page. Lose this row and a vendor reaches their own plan only by first

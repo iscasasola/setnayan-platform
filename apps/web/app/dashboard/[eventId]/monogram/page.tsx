@@ -310,7 +310,11 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
             ? { dur: studioConfig.anim.dur, delay: studioConfig.anim.delay, smooth: studioConfig.anim.smooth }
             : ANIM_TEMPO_TIMINGS.classic
         }
-        owned={ownsAnimated}
+        // 🔒 A web-bought Animated Monogram is not APPLIED from the App Store /
+        // Play Store shell (guideline 3.1.3(b); lib/store-shell.ts): there the
+        // reveal previews like an unowned one, with no purchase. The guest page
+        // still plays what was applied on the web — that side is not the app.
+        owned={ownsAnimated && !storeShell}
         checkout={checkout}
         unlock={!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
       />

@@ -26,6 +26,7 @@ import {
 } from '@/lib/vendor-3d-booth-event-pricing';
 import { ShopCard } from '../../../_components/kit';
 import { BoothEventBuyForm } from './booth-event-buy-form';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 function peso(n: number): string {
   return `₱${n.toLocaleString('en-PH')}`;
@@ -39,6 +40,11 @@ export async function BoothEventSection({
   vendorProfileId: string;
 }) {
   if (!seating3dEnabled()) return null;
+  // 🔒 A DIGITAL ADD-ON, SOLD HERE FOR ₱ — so the App Store / Play Store shell
+  // never sees this card (guideline 3.1.1; lib/store-shell.ts). Every state of
+  // it is either a price, a "See plans" link to the web-only subscription page,
+  // or the status of that purchase. Desktop and the web are unaffected.
+  if (await isStoreShellRequest()) return null;
   const supabase = await createClient();
   const admin = createAdminClient();
   const [gateRow, orderState, eventPricePhp, cyclePricePhp, settings] = await Promise.all([

@@ -10,6 +10,7 @@ import localFont from 'next/font/local';
 import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
+import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
 import { NfcTestSwitch } from './_components/use-nfc-enabled';
 import { CookieConsentBanner } from './_components/cookie-consent-banner';
@@ -694,6 +695,8 @@ export default async function RootLayout({
           <SiteFooterChrome />
         </Providers>
         <ClientTypeDetector />
+        {/* App Store / Play Store shell only: hides links to web-only routes (lib/store-shell.ts). */}
+        <StoreShellLinkGuard />
         <NativeBridge />
         {/* Remembers a phone's own `?nfc-test=1` NFC opt-in from any page. */}
         <NfcTestSwitch />

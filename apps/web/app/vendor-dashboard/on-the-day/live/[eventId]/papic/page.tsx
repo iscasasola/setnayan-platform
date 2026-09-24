@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -163,7 +164,9 @@ export default async function VendorPapicCapturePage({
         eventId={eventId}
         credits={portfolioCredits.credits}
         left={portfolioCredits.left}
-        offerPack={portfolioCredits.offerPack}
+        // 🔒 No pack for sale in the App Store / Play Store shell (guideline
+        // 3.1.1; lib/store-shell.ts) — the credit count still shows.
+        offerPack={portfolioCredits.offerPack && !(await isStoreShellRequest())}
         packPricePhp={portfolioCredits.packPricePhp}
         packCredits={portfolioCredits.packCredits}
         openRails={openRails}

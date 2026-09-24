@@ -69,6 +69,7 @@ import { ThemeStudio } from './_components/theme-studio';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MakeItReal } from './_components/make-it-real';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import {
   RENDER_PARTS,
   renderPartById,
@@ -803,13 +804,22 @@ export default async function MoodBoardPage({ params }: Props) {
   // ── redesign (2026-09-02): one scrollable canvas instead of separated
   // tabs/sections. Every existing data-fetching contract above is unchanged;
   // this only restructures how the same data is composed into the page.
+  /**
+   * 🔒 MAKE IT REAL IS A PAID DIGITAL FEATURE — render credits bought for ₱ and
+   * spent here. The App Store / Play Store shell neither sells nor spends them
+   * (guideline 3.1.1 / 3.1.3(b); lib/store-shell.ts), so the section and its
+   * jump link are not mounted there. The free Mood Board around it — theme,
+   * inspiration, palette, reception, share — is the planning surface the app
+   * exists for and stays whole. Desktop and the web are unaffected.
+   */
+  const storeShell = await isStoreShellRequest();
   const jumpLinks: ReadonlyArray<{ href: string; label: string }> = [
     { href: '#theme', label: 'Theme' },
     { href: '#inspiration', label: 'Inspiration' },
     { href: '#palette', label: 'Palette' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
-    { href: '#make-it-real', label: 'Make it real' },
+    ...(storeShell ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -1016,22 +1026,24 @@ export default async function MoodBoardPage({ params }: Props) {
           <MoodboardBoard sections={sections} compact />
         </section>
 
-        <MakeItReal
-          eventId={eventId}
-          eligibleParts={eligibleRenderParts}
-          palette={palette}
-          receptionDesign={receptionDesign}
-          inspirationPresence={inspirationPresence}
-          venueSetting={venueSetting}
-          venueLabel={venueLabel}
-          config={moodboardRenderConfig}
-          balance={moodboardRenderBalance}
-          packPlan={moodboardRenderPackPlan}
-          checkoutSettings={platformSettings}
-          renders={moodboardRenders}
-          shareConsented={shareConsented}
-          mayStartRenders={mayStartRenders}
-        />
+        {storeShell ? null : (
+          <MakeItReal
+            eventId={eventId}
+            eligibleParts={eligibleRenderParts}
+            palette={palette}
+            receptionDesign={receptionDesign}
+            inspirationPresence={inspirationPresence}
+            venueSetting={venueSetting}
+            venueLabel={venueLabel}
+            config={moodboardRenderConfig}
+            balance={moodboardRenderBalance}
+            packPlan={moodboardRenderPackPlan}
+            checkoutSettings={platformSettings}
+            renders={moodboardRenders}
+            shareConsented={shareConsented}
+            mayStartRenders={mayStartRenders}
+          />
+        )}
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
           <header className="space-y-1">

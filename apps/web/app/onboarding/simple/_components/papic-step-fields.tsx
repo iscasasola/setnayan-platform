@@ -37,6 +37,7 @@ import {
 import {
   PAPIC_FIELD_POOL_RUNG,
   AI_FIELD_SELECTED,
+  HUB_PRO_FIELD_SELECTED,
 } from './papic-step-field-names';
 
 export function PapicStepFields({
@@ -65,6 +66,7 @@ export function PapicStepFields({
           nothing here to buy — and an always-empty field would leave the next
           reader hunting for the control that fills it. */}
       <input type="hidden" name={AI_FIELD_SELECTED} value={String(selection.ai)} />
+      <input type="hidden" name={HUB_PRO_FIELD_SELECTED} value={String(selection.hubPro)} />
     </div>
   );
 }

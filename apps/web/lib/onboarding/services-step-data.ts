@@ -26,6 +26,8 @@
 import { PAPIC_FREE_ONE_CAMERA_COUNT, type PapicOneTier } from '@/lib/papic-one';
 import type { PapicPassTier } from '@/lib/papic-pass-tiers';
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
+import { hubProOffered, splitProOffer } from '@/lib/onboarding-hub-pro';
+import { proPriceLabelFrom } from '@/app/dashboard/[eventId]/website/editor/_components/unlock-label';
 
 /** One purchasable rung, fully resolved. Points from its tier table, price from the catalog. */
 export type PapicRungView = {
@@ -94,10 +96,35 @@ export type AiCardView = {
   listPricePhp: number;
 };
 
+/**
+ * Card 3 · Event Hub Pro (`COUPLE_WEBSITE_PRO`, owner 2026-09-25). Shaped like
+ * `AiCardView` on purpose — a yes/no with a price — plus the existing Pro offer
+ * sentence, already split for the card (lib/onboarding-hub-pro.ts).
+ */
+export type HubProCardView = {
+  /** The product's own name, from the existing Pro offer copy. */
+  label: string;
+  /** Display price, from the live catalog row. Never typed into source. */
+  priceLabel: string;
+  /** What it costs HERE (the sign-up price). DISPLAY ONLY — the mint re-reads it. */
+  pricePhp: number;
+  /** What it costs later. Equal to `pricePhp` when there is no sign-up discount. */
+  listPricePhp: number;
+  /** First half of the existing offer sentence — the card's title. */
+  headline: string;
+  /** What Pro adds, behind the (i). Null ⇒ the (i) is not rendered. */
+  detail: string | null;
+};
+
 export type ServicesStepView = {
   papic: PapicCardView;
   /** null ⇒ the vendor-free gate closed it. The card does not render at all. */
   ai: AiCardView | null;
+  /**
+   * null ⇒ this type has no Event Hub, the catalog could not price Pro, or the
+   * offer copy is missing. The card does not render at all.
+   */
+  hubPro: HubProCardView | null;
 };
 
 /** The onboarding inapp keys the two Papic products answer to (INAPP_TO_SERVICE_CODE). */
@@ -167,6 +194,17 @@ export function buildServicesStepView(input: {
   /** The planner's regular price, for the "later" comparison. Defaults to the
    *  sign-up one, which is the truth for a type with no discount. */
   aiListPricePhp?: number | null;
+  /**
+   * Event Hub Pro's inputs, all measured server-side. Absent / null ⇒ no card.
+   * `websiteEnabled` is `surfaceEnabled(profile, 'website')` for this type;
+   * `copy` is the existing Pro offer (`addOnHeroCopy('website-pro')`).
+   */
+  hubPro?: {
+    websiteEnabled: boolean;
+    pricePhp: number | null;
+    listPricePhp?: number | null;
+    copy: { label: string; blurb: string } | null;
+  } | null;
 }): ServicesStepView {
   const {
     eventWord,
@@ -178,6 +216,7 @@ export function buildServicesStepView(input: {
     freeOnePoints,
     aiPricePhp,
     aiListPricePhp,
+    hubPro,
   } = input;
 
   const types: PapicTypeView[] = [
@@ -227,6 +266,40 @@ export function buildServicesStepView(input: {
                 : aiPricePhp,
           }
         : null,
+    hubPro: buildHubProCard(hubPro ?? null),
+  };
+}
+
+/**
+ * PURE. The Event Hub Pro card, or null. Three ways to null, all of them "do not
+ * render": no Event Hub on this type, no trustworthy catalog price, no offer
+ * copy to say what it is. A card that cannot say what it sells or what it costs
+ * is not shown half-built.
+ */
+function buildHubProCard(
+  input: NonNullable<Parameters<typeof buildServicesStepView>[0]['hubPro']> | null,
+): HubProCardView | null {
+  if (!input || !input.copy) return null;
+  if (!hubProOffered({ websiteEnabled: input.websiteEnabled, pricePhp: input.pricePhp })) {
+    return null;
+  }
+  const pricePhp = input.pricePhp as number;
+  // The editor's own rule for a Pro price label: no figure unless a real one.
+  const priceLabel = proPriceLabelFrom(pricePhp, peso);
+  if (!priceLabel) return null;
+  const listed = input.listPricePhp;
+  const { headline, detail } = splitProOffer(input.copy.blurb);
+  return {
+    label: input.copy.label,
+    priceLabel,
+    pricePhp,
+    // Never below what they pay — same rule as the planner and the rungs.
+    listPricePhp:
+      typeof listed === 'number' && Number.isFinite(listed) && listed > pricePhp
+        ? listed
+        : pricePhp,
+    headline,
+    detail,
   };
 }
 

@@ -13,8 +13,9 @@
  *   book    "Book"       → Your Team · Budget
  *   look    "Look"       → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
  *   invite  "Invite"     → Guests · Hosts · Event Hub Controller
- *   day     "The day"    → Schedule · Check-in (day-of) · Seat plan · 3D Plan ✦ ·
- *                          Live Studio ✦ · Patiktok ✦
+ *   day     "The day"    → Schedule · Check-in (day-of) · Seat plan ·
+ *                          Live Studio ✦ · Patiktok ✦ (3D Plan ✦ is absorbed
+ *                          into Seat plan, which claims its pages — 2026-09-24)
  *   end     (no heading) → Setnayan AI ✦ · Suite · Refer a couple
  *
  * Binding drawing: `build-sessions/prototypes/event_menu_by_moment_2026-09-24.html`.
@@ -105,6 +106,7 @@ export function buildCustomerNavGroups(
           : EVENT_MENU_ICONS[r.icon],
       matchPrefix: r.matchPrefix ?? r.href,
       ...(r.studio ? { studio: true } : {}),
+      ...(r.alsoMatch?.length ? { alsoMatch: r.alsoMatch } : {}),
       ...(r.key === 'guests' && guestsBadge ? { badge: guestsBadge } : {}),
     })),
   }));

@@ -176,15 +176,25 @@ test('the Marketplace row is gated on the same condition as its category group',
     'the Marketplace row is gated on NOT signed in — it must show only when signed IN',
   );
 
-  // The category group must be gated the same way, or the owner's rule is
-  // kept by one and broken by the other.
-  const mkt = SHELL_CODE.indexOf('>Browse by category<');
-  assert.ok(mkt > -1, 'the category group label is missing');
-  const mktWindow = SHELL_CODE.slice(Math.max(0, mkt - 400), mkt);
+  /*
+    🔄 THE CATEGORY GROUP IS GONE (owner 2026-09-24, event menu by moment):
+    *"we already have your team as where they search, negotiate and build
+    their suppliers."* It drew only inside an event and opened the date-blind
+    public `/explore`. This half of the test used to pin its signed-in gate;
+    it now pins its ABSENCE, so a re-added "Browse by category" — gated or
+    not — fails here instead of quietly doubling Your Team.
+  */
+  assert.equal(
+    SHELL_CODE.indexOf('Browse by category'),
+    -1,
+    'the rail draws "Browse by category" again — inside an event the supplier ' +
+      'search is Your Team (owner 2026-09-24); a second find row is a second ' +
+      'door to the same job',
+  );
   assert.ok(
-    /\{\s*account\.signedIn\s*\?/.test(mktWindow) &&
-      !/!\s*account\.signedIn/.test(mktWindow),
-    'the category group must show only when signed IN',
+    !/\/explore\?folder=/.test(SHELL_CODE),
+    'the rail links into /explore?folder=… again — the public directory knows ' +
+      "nothing of this event's date, budget or open positions",
   );
 });
 
@@ -457,9 +467,15 @@ test('the rail and explore both read the shared folder count', () => {
     substring survived every possible regression of the COUNT itself. Assert
     the specific SYMBOL, and that neither side recomputes it.
   */
+  /*
+    🔄 THE RAIL NO LONGER SHOWS A CATEGORY COUNT (2026-09-24 — its only
+    category rows were "Browse by category" inside an event, removed by owner
+    ruling). So the rail half of this pair is now "prints none at all", and
+    the drift check below still forbids either side deriving a private copy.
+  */
   assert.ok(
-    /FOLDER_SERVICE_COUNT/.test(DOOR_CODE + RAIL_DATA_CODE),
-    'the front door must import the shared FOLDER_SERVICE_COUNT',
+    !/FOLDER_SERVICE_COUNT/.test(SHELL_CODE),
+    'the rail shows a category count again — it has no category rows to count',
   );
   const explore = code(readFileSync(join(SHELLED, 'explore', 'page.tsx'), 'utf8'));
   assert.ok(

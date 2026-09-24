@@ -11,10 +11,10 @@
  *
  * NAV REGISTRY (all phases): `navSlots` (`customer.bottom-nav.<key>`) overlays
  * admin-managed label + icon on each tab; a slot marked hidden drops its tab.
- * The Day-of (`now/checkin/seats/services/schedule`) and After
- * (`home/review/editorial/galleries`) tabs have their own slots in
- * NAV_SLOT_DEFAULTS, mirroring the plan-phase slots. href + activeMatch always
- * stay in code.
+ * Plan `home/papic/explore/guests/launch` · Day-of
+ * `now/papic/checkin/launch/schedule` · After `home/papic/galleries/review/launch`
+ * (2026-09-24, event menu by moment) — every key has its slot in
+ * NAV_SLOT_DEFAULTS. href + activeMatch always stay in code.
  *
  * Renders via the shared <BottomNav> primitive — traveling-pill + press-light
  * treatment is reused verbatim. Mobile-only (`lg:hidden`).
@@ -27,7 +27,7 @@ import type { LucideIcon } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { buildCustomerMenuTree } from '@/lib/customer-menu';
+import { buildCustomerMenuTree, type EventStudioRow } from '@/lib/customer-menu';
 import { customerGuestsBadge } from '@/lib/nav-badges';
 
 export function CustomerBottomNav({
@@ -38,6 +38,7 @@ export function CustomerBottomNav({
   guestCount,
   seatingEnabled,
   websiteEnabled,
+  studioRows,
 }: {
   eventId: string;
   phase?: MenuLifecyclePhase;
@@ -84,8 +85,17 @@ export function CustomerBottomNav({
    * the next caller cannot repeat it.
    */
   websiteEnabled?: boolean;
+  /**
+   * The event's Studio products as PLAIN DATA (key · href · name) — the Papic
+   * tab (every phase, owner 2026-09-24) is picked out of the one tree by key,
+   * so without this list there is no Papic tab.
+   *
+   * 🛑 Strings only. This is a `'use client'` component fed by a server
+   * layout; a function prop here is the 2026-09-23 seven-hour outage.
+   */
+  studioRows?: ReadonlyArray<EventStudioRow>;
 }) {
-  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys, seatingEnabled, websiteEnabled });
+  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys, seatingEnabled, websiteEnabled, studioRows });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
     // All phases apply nav-registry overrides (label + icon) — plan, day-of, and

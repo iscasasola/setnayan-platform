@@ -48,14 +48,20 @@ function code(path: string): string {
 const EVENT_ID = 'S89E-TESTEVENT';
 const BASE = `/dashboard/${EVENT_ID}`;
 
-/** The real Studio rows for somebody with exactly one organiser event. */
+/** The real Studio product rows for somebody with exactly one organiser event. */
 function studioRows(): RailMatchRow[] {
   return railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile: null })
     .filter((t) => t.href !== '/dashboard')
     .map((t) => ({ key: t.key, href: t.href }));
 }
 
-/** The real event-menu rows, from the builder the layout calls. */
+const PRODUCT_KEYS = new Set(studioRows().map((r) => r.key));
+
+/**
+ * The real event-menu rows, from the builder the layout calls — WITH the
+ * product rows, handed over exactly as the layout hands them (2026-09-24:
+ * the Studio heading is dissolved and each product is a row at its moment).
+ */
 function eventRows(): RailMatchRow[] {
   return eventRailMatchRows({
     eventId: EVENT_ID,
@@ -63,50 +69,53 @@ function eventRows(): RailMatchRow[] {
     monogramEnabled: true,
     slug: 'test-event',
     guestCount: 10,
+    studioRows: railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile: null }).map((t) => ({
+      key: t.key,
+      href: t.href,
+      name: t.name,
+    })),
   });
 }
 
 /**
- * The WHOLE rail, exactly as `FrontDoorShell` composes it inside an event —
- * INCLUDING the de-dupe: a Studio row whose href an event row already claims is
- * not matched twice. Since 2026-09-02 one row is in that position (the website
- * product and the event menu both open the Event Hub controller), so a helper
- * that skipped the de-dupe would be testing a rail the shell never builds.
+ * The WHOLE rail, exactly as `FrontDoorShell` composes it inside an event.
+ *
+ * 🔄 2026-09-24. Inside an event the rail is FOCUSED (no account rows compete —
+ * see `focused ? [] : railMatchRows(…)`), and the shell is handed an EMPTY
+ * Studio list (`app-rail-shell.tsx`: `studioEventId ? []`), because every
+ * product is now a row of the event menu itself. So the union the one resolver
+ * sees is the event menu alone — products included. The contested URLs this
+ * file measures are now contested INSIDE that one list, which is exactly where
+ * the specificity rule has to settle them.
  */
 function wholeRail(): RailMatchRow[] {
-  const events = eventRows();
-  const claimedByEvent = new Set(events.map((r) => r.href));
-  return [
-    ...railMatchRows({ signedIn: true, hasShop: false, isAdmin: false }),
-    ...studioRows().filter((r) => !claimedByEvent.has(r.href)),
-    ...events,
-  ];
+  return eventRows();
 }
 
-/** The Studio rows that actually take part in matching (the de-dupe applied). */
+/** The product rows that actually take part in matching. */
 function matchedStudioRows(): RailMatchRow[] {
-  const claimedByEvent = new Set(eventRows().map((r) => r.href));
-  return studioRows().filter((r) => !claimedByEvent.has(r.href));
+  return eventRows().filter((r) => PRODUCT_KEYS.has(r.key));
 }
 
 test('the two halves really do overlap — the premise, measured, not assumed', () => {
-  const studio = studioRows();
-  const events = eventRows();
-  assert.ok(studio.length >= 5, `only ${studio.length} Studio rows — the builder returned a stub.`);
+  const studio = matchedStudioRows();
+  const events = eventRows().filter((r) => !PRODUCT_KEYS.has(r.key));
+  assert.ok(studio.length >= 5, `only ${studio.length} product rows — the builder returned a stub.`);
   assert.ok(events.length >= 5, `only ${events.length} event rows — the builder returned a stub.`);
 
   /*
     If this ever drops to zero the rest of this file is vacuous: there would be
     nothing for one resolver to arbitrate and every assertion below would pass
-    for a reason unrelated to what it claims to test. Measured 2026-08-23: two
-    Studio URLs are also claimed by an event row.
+    for a reason unrelated to what it claims to test. Measured 2026-08-23 and
+    again 2026-09-24: a product URL is also claimed by a plain event row
+    (3D Plan's `/seating/lab` sits inside Seat plan's `/seating`).
   */
   const contested = studio.filter((s) =>
     events.some((e) => activeRailKey([e], s.href) !== null),
   );
   assert.ok(
     contested.length > 0,
-    'no Studio URL is claimed by an event row — this whole guard is vacuous, ' +
+    'no product URL is claimed by an event row — this whole guard is vacuous, ' +
       'because there is nothing left for one resolver to settle.',
   );
 });
@@ -214,22 +223,22 @@ test('ONE DOOR: the Studio row and the event-menu row open the same page', () =>
   assert.equal(menuHub!.href, `${BASE}/launch`, 'and the one door is the controller');
 
   /*
-    ⛔ BOTH ROWS STILL RENDER — the fix is de-duplicated MATCHING, not a deleted
-    row. `studio-menu-adapts-to-event.test.ts` pins the Studio set against the
-    Suite grid with owner-ruled counts, so removing the product from the rail to
-    tidy the tie breaks a ruling to fix a matching bug. That was tried and
-    reverted; this asserts it stays reverted.
+    ⛔ THE PRODUCT STAYS IN THE STUDIO SET — `studio-menu-adapts-to-event.test.ts`
+    pins that set against the Suite grid with owner-ruled counts. 🔄 2026-09-24:
+    it is the EVENT MENU that places it nowhere (one door → the Event Hub
+    Controller row), so the set is intact and the menu still has one row.
   */
   assert.ok(
     studioRows().some((r) => r.key === 'pawebsite'),
-    'the website row was dropped from the rail — that breaks the sidebar/Suite parity ruling',
+    'the website row was dropped from the Studio set — that breaks the sidebar/Suite parity ruling',
   );
 
-  // …and exactly one of the two takes part in matching, so nothing ties.
+  // …and it is not a second row in the menu, so nothing ties.
   assert.equal(
     matchedStudioRows().find((r) => r.key === 'pawebsite'),
     undefined,
-    'both rows are matchable again — the tie is back, and list order decides what lights',
+    'the website product is a second row beside the Event Hub Controller again — ' +
+      'the tie is back, and list order decides what lights',
   );
 });
 
@@ -325,12 +334,13 @@ test('there is ONE resolver in the rail, and the child does not keep a second', 
   assert.match(
     union,
     /\.\.\.tools\b/,
-    'the union lost the Studio rows — they go dark again, which is the debt this closes.',
+    'the union lost the Studio rows (outside an event they are still the group) — they go dark again.',
   );
   assert.match(
     union,
     /\.\.\.\(contextMatchRows/,
-    'the union lost the event menu — the shell is arbitrating against half the rail.',
+    'the union lost the event menu — the shell is arbitrating against half the rail, ' +
+      'and inside an event that half now carries every product row.',
   );
 
   /*
@@ -347,6 +357,13 @@ test('there is ONE resolver in the rail, and the child does not keep a second', 
     'the Studio rows render without data-on / aria-current — they resolve correctly ' +
       'and look exactly as dark as before.',
   );
+  /* …and inside an event, the product rows wear it from the ONE published key. */
+  assert.match(
+    child,
+    /const on = activeKey === item\.key;/,
+    'the event menu rows no longer read the one published key — the product rows ' +
+      'that moved into it would resolve correctly and look dark.',
+  );
 
   /*
     And the layout must hand the SHELL the same rows it hands the MENU. Two
@@ -356,4 +373,7 @@ test('there is ONE resolver in the rail, and the child does not keep a second', 
   */
   assert.match(layout, /contextMatchRows=\{eventRailMatchRows\(eventRailInputs\)\}/);
   assert.match(layout, /<EventRailContext\s+\{\.\.\.eventRailInputs\}/);
+  // The product rows ride in that ONE object, so shell and menu see the same list.
+  const inputs = layout.slice(layout.indexOf('const eventRailInputs'));
+  assert.match(inputs.slice(0, inputs.indexOf('};')), /studioRows,/);
 });

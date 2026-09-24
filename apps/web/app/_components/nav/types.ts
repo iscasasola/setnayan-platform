@@ -104,6 +104,12 @@ export type NavItem = {
    * `href` is still required as a fallback for no-JS / deep-link.
    */
   tab?: string;
+  /**
+   * A Studio product placed at its moment in the event menu (owner
+   * 2026-09-24: the Studio heading is dissolved, its products are marked ✦
+   * where they are used). Presentation only — it changes no routing.
+   */
+  studio?: boolean;
 };
 
 export type NavGroup = {

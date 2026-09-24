@@ -5,6 +5,12 @@ import { buildCustomerMenuTree, matchesMenuSection } from './customer-menu';
 
 const EVENT_ID = 'evt-test';
 
+/** The event's Studio products as the layout hands them over (plain data). */
+const STUDIO = [
+  { key: 'papic', href: `/dashboard/${EVENT_ID}/studio/papic`, name: 'Papic' },
+  { key: 'mood-board', href: `/dashboard/${EVENT_ID}/studio/mood-board`, name: 'Mood Board' },
+];
+
 /** Run `fn` with the Explore-replan flag forced to a value, then restore it.
  *  `isExploreReplanEnabled()` reads process.env at CALL time and
  *  `buildCustomerMenuTree` calls it per invocation, so this is enough — no
@@ -29,27 +35,35 @@ const menu = (key: string, on: boolean) => {
   return found;
 };
 
-// --- default (no gating): the planning tree (Budget removed 2026-07-10 — it
-//     now lives inside the Explore/Merkado takeover) ------------------------
-test('planning tree has the canonical menus when hideKeys is empty/absent', () => {
-  const keys = buildCustomerMenuTree(EVENT_ID).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'guests', 'explore', 'studio']);
-  // Empty array is also a no-op.
-  const keys2 = buildCustomerMenuTree(EVENT_ID, { hideKeys: [] }).map((m) => m.key);
-  assert.deepEqual(keys2, ['home', 'guests', 'explore', 'studio']);
+// --- default (no gating): the planning bar — 2026-09-24, event menu by moment:
+//     Overview · Papic · Your Team · Guests · Event Hub Controller. Papic
+//     replaced the Suite tab (owner: "papic is the life source of setnayan");
+//     the Suite stays in ☰ as the list's closing row. -----------------------
+test('planning bar is the five tabs of the owner-approved roster', () => {
+  const keys = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: true, studioRows: STUDIO }).map((m) => m.key);
+  assert.deepEqual(keys, ['home', 'papic', 'explore', 'guests', 'launch']);
+  // Empty hideKeys is a no-op.
+  const keys2 = buildCustomerMenuTree(EVENT_ID, { hideKeys: [], websiteEnabled: true, studioRows: STUDIO }).map((m) => m.key);
+  assert.deepEqual(keys2, keys);
+});
+
+test('without product rows there is no Papic tab (it is picked out of the tree, never invented)', () => {
+  const keys = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: true }).map((m) => m.key);
+  assert.deepEqual(keys, ['home', 'explore', 'guests', 'launch']);
 });
 
 // --- Simple Event gating: drop Explore (vendors) + Budget ------------------
 test('hideKeys drops the named top menus (Simple Event = no explore/budget)', () => {
   const keys = buildCustomerMenuTree(EVENT_ID, {
     hideKeys: ['explore', 'budget'],
+    studioRows: STUDIO,
   }).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'guests', 'studio']);
+  assert.deepEqual(keys, ['home', 'papic', 'guests']);
 });
 
 test('hideKeys with just explore drops only explore', () => {
-  const keys = buildCustomerMenuTree(EVENT_ID, { hideKeys: ['explore'] }).map((m) => m.key);
-  assert.deepEqual(keys, ['home', 'guests', 'studio']);
+  const keys = buildCustomerMenuTree(EVENT_ID, { hideKeys: ['explore'], studioRows: STUDIO }).map((m) => m.key);
+  assert.deepEqual(keys, ['home', 'papic', 'guests']);
 });
 
 // --- Explore replan: the mobile takeover dock is gone (BUILD_SPEC §5) ------
@@ -88,15 +102,22 @@ test('flag ON: Explore emits no dock — no children, no sectionMatch', () => {
   assert.equal(explore.href, `/dashboard/${EVENT_ID}/vendors`);
 });
 
-test('flag ON leaves the OTHER docks intact (Studio anchors + Guests journey)', () => {
+test('flag ON leaves Guests childless, and the Studio anchor dock is retired', () => {
   for (const on of [false, true]) {
-    const studio = menu('studio', on);
-    assert.ok((studio.children ?? []).length > 0, 'Studio keeps its anchor dock');
-    assert.ok(studio.sectionMatch, 'Studio keeps its sectionMatch');
-    // Guests is deliberately a plain, childless menu (owner 2026-07-10) — assert
-    // that it stays that way so this change can't be blamed for it later.
+    // Guests is deliberately a plain, childless menu (owner 2026-07-10).
     const guests = menu('guests', on);
     assert.equal(guests.children, undefined);
+  }
+  /* 🔄 2026-09-24: the Studio anchor dock (Setnayan AI · Website · Capture ·
+     Branding) rode on the planning bar's Suite tab. Papic took that slot and
+     each anchor became a row at its moment, so no phone menu docks anchors. */
+  for (const phase of ['plan', 'dayof', 'after'] as const) {
+    const tree = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO });
+    assert.ok(
+      tree.every((m) => (m.children ?? []).every((c) => c.kind !== 'anchor')),
+      `${phase}: a phone menu docks Studio anchors again`,
+    );
+    assert.ok(!tree.some((m) => m.key === 'studio'), `${phase}: the Suite is a bar tab again`);
   }
 });
 
@@ -106,15 +127,35 @@ test('flag ON leaves the OTHER docks intact (Studio anchors + Guests journey)', 
 // is pinned here; the word itself is held by
 // `one-menu-word-in-all-three-phases.test.ts`, which is where a rename must go
 // red rather than being edited green in two places.
-test('Day-of / After phase rosters ignore hideKeys', () => {
+test('Day-of / After rosters are the owner-approved five', () => {
+  /* 2026-09-24: Now→Overview (key stays 'now'), Papic replaces Seats (Seat plan
+     stays in ☰ and The day's strip), Review→Your Team (key stays 'review'). */
   const dayof = buildCustomerMenuTree(EVENT_ID, {
     phase: 'dayof',
-    hideKeys: ['explore', 'budget'],
-  }).map((m) => m.key);
-  assert.deepEqual(dayof, ['now', 'checkin', 'seats', 'launch', 'schedule']);
+    hideKeys: ['budget'],
+    websiteEnabled: true,
+    studioRows: STUDIO,
+  });
+  assert.deepEqual(dayof.map((m) => m.key), ['now', 'papic', 'checkin', 'launch', 'schedule']);
+  assert.equal(dayof[0]!.label, 'Overview');
+  const after = buildCustomerMenuTree(EVENT_ID, {
+    phase: 'after',
+    hideKeys: ['budget'],
+    websiteEnabled: true,
+    studioRows: STUDIO,
+  });
+  assert.deepEqual(after.map((m) => m.key), ['home', 'papic', 'galleries', 'review', 'launch']);
+  const review = after.find((m) => m.key === 'review')!;
+  assert.equal(review.label, 'Your Team');
+  assert.equal(review.href, `/dashboard/${EVENT_ID}/vendors?tab=build`);
+});
+
+test('every phase gates by the same tree: a vendor-free kind has no Your Team tab after the day either', () => {
   const after = buildCustomerMenuTree(EVENT_ID, {
     phase: 'after',
     hideKeys: ['explore', 'budget'],
+    websiteEnabled: true,
+    studioRows: STUDIO,
   }).map((m) => m.key);
-  assert.deepEqual(after, ['home', 'review', 'launch', 'galleries']);
+  assert.deepEqual(after, ['home', 'papic', 'galleries', 'launch']);
 });

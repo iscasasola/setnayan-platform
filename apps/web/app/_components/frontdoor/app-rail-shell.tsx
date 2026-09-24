@@ -43,10 +43,6 @@ import { DOORWAY_BLEED_PATHS } from './shell-bleed';
 import 'server-only';
 
 import { getNavSlotMap } from '@/lib/nav-registry';
-import {
-  FRONT_DOOR_VISIBLE_FOLDERS,
-  FRONT_DOOR_MORE_FOLDERS,
-} from '@/lib/taxonomy-folder-counts';
 
 import './front-door.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
@@ -57,7 +53,6 @@ import {
   railToolsSignedOut,
   resolveRailStudioEvent,
   resolveRailAccount,
-  toRailFolder,
 } from './rail-data';
 import {
   plannerRailItems,
@@ -203,8 +198,6 @@ export async function AppRailShell({
       bleedPaths={variant === 'doorway' ? DOORWAY_BLEED_PATHS : undefined}
       account={account}
       navLabels={navLabels}
-      visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
-      moreFolders={FRONT_DOOR_MORE_FOLDERS.map(toRailFolder)}
       /*
         ⚠ NO `demo` IS EVER PASSED HERE. Signed-in surfaces mount no overlay
         host, and a row offering a demo that cannot open is a fake door. It is
@@ -225,8 +218,20 @@ export async function AppRailShell({
           signed out → the descriptions and the "try it" markers
           signed in  → your own tools, no selling copy
       */
+      /*
+        🔄 INSIDE AN EVENT THE STUDIO GROUP IS NOT DRAWN (owner 2026-09-24,
+        "event menu by moment"). Its heading is dissolved and each product is a
+        row at its MOMENT in the event's own menu, marked ✦ — built from the
+        SAME `railToolsSignedIn` call in the event layout, handed over as plain
+        data. Drawing the group here as well would list every product twice.
+        Everywhere else — the board, the account spokes, the public doorways —
+        the group is unchanged. Said by the LIST, per
+        `the-rail-renders-what-it-is-handed.test.ts`.
+      */
       tools={
-        account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
+        studioEventId
+          ? []
+          : account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
       }
       /*
         Planner and Builder — gated on the SAME verified event Studio itself

@@ -108,11 +108,12 @@ export function SubNav({
       // gap. Falls back to the 64px design height until JS measures (SSR). `z-20`
       // (just under the nav's z-30) so it appears to rise out of the dock.
       // `.subnav-lift` plays the reveal once on mount.
-      className="subnav-lift fixed inset-x-[14px] z-20 flex select-none gap-1 rounded-full border p-1 backdrop-blur lg:hidden"
+      // 2026-09-24 house style: NO BORDER — depth (blur + shadow) separates the
+      // dock from the page, never a drawn line (DESIGN-LANGUAGE-AMENDMENT.md).
+      className="subnav-lift fixed inset-x-[14px] z-20 flex select-none gap-1 rounded-full p-1 backdrop-blur lg:hidden"
       style={{
         bottom: 'calc(env(safe-area-inset-bottom) + var(--sn-bottomnav-h, 64px) + 20px)',
         background: 'rgba(248, 246, 240, 0.92)',
-        borderColor: 'var(--m-line)',
         boxShadow: '0 10px 30px -12px rgba(30, 34, 41, 0.35)',
       }}
     >
@@ -129,7 +130,7 @@ export function SubNav({
             role="tab"
             aria-selected={on}
             onClick={() => onSelect(it.key)}
-            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5"
+            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 transition-[background-color,color,transform] duration-300 ease-in-out active:scale-95"
             style={{
               color: on ? 'var(--m-ink)' : 'var(--m-slate)',
               opacity: dim ? 0.45 : 1,

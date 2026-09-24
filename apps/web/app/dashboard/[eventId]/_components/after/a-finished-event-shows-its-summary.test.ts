@@ -65,7 +65,11 @@ test('after the event, every planning row the person already had is still there'
   for (const href of plan) {
     assert.ok(after.includes(href), `the After rail dropped ${href}`);
   }
-  assert.equal(after.length, plan.length + 2, 'After adds exactly two rows and removes none');
+  /* 🔄 2026-09-24 (event menu by moment): Galleries is a row in EVERY phase
+     now — directly under Papic, where Papic's photos land — so After adds
+     exactly ONE row, Editorial, to the spine. */
+  assert.equal(after.length, plan.length + 1, 'After adds exactly one row (Editorial) and removes none');
+  assert.ok(plan.includes('/dashboard/EVT123/galleries'), 'Galleries must be a row before the day too');
 });
 
 /*
@@ -87,7 +91,7 @@ test('omitting the phase is byte-identical to the plan phase', () => {
   assumed equal because both were typed from the same memory.
 */
 test('the rail and the phone agree on the After destinations', () => {
-  const phone = buildCustomerMenuTree('EVT123', { phase: 'after' });
+  const phone = buildCustomerMenuTree('EVT123', { phase: 'after', websiteEnabled: true });
   const railAfter = hrefs('after');
   /* 🔤 'editorial' left this list on 2026-09-02 (EH3): the phone's after-phase
      tab is now the Event Hub (key 'launch'), and the editorial maker is a door

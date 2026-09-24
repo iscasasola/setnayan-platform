@@ -234,30 +234,41 @@ test('the account menu is reachable on the couple desktop', () => {
 
 /* ══ 5 · THE MENU IS THE SSOT'S, NOT A NEW IA ════════════════════════════ */
 
-test('the rail reproduces the three named sections, from the shipped SSOT', () => {
-  const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
+test('the rail reproduces the moments, from the shipped SSOT', () => {
+  /*
+    🔄 2026-09-24 — "event menu by moment" (owner-approved; binding drawing
+    `event_menu_by_moment_2026-09-24.html`). Plan · Go live · Also in this
+    event became Book · Look · Invite · The day, with the event's name row,
+    the spine (Overview · Papic · Galleries) and the end of the list carrying
+    no heading. The rail still renders whatever the SSOT gives it, so a change
+    here is a change to the couple IA on the rail, ☰ and phone at once.
+  */
+  const studioRows = [
+    { key: 'papic', href: `/dashboard/${EVENT_ID}/studio/papic`, name: 'Papic' },
+    { key: 'mood-board', href: `/dashboard/${EVENT_ID}/studio/mood-board`, name: 'Mood Board' },
+  ];
+  const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
   assert.deepEqual(
     groups.map((g) => g.label),
-    ['Plan', 'Go live', 'Also in this event'],
-    'The event rail renders whatever the SSOT gives it, so a change here is a ' +
-      'change to the couple IA on the desktop rail, the old sidebar and the ' +
-      'phone at once. Three named sections is the shipped shape.',
+    ['', '', 'Book', 'Look', 'Invite', 'The day', ''],
+    'The moments changed. Book · Look · Invite · The day is the approved shape; ' +
+      'the name row, the spine and the end of the list carry no heading.',
   );
+  // …and a moment with nothing in it never draws its heading.
+  const bare = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
+  assert.ok(!bare.some((g) => g.label === 'Look'), 'an empty Look moment drew a heading over nothing');
 });
 
-test('Budget is NOT a top-level menu — owner removed it 2026-07-10', () => {
+test('Budget is a row under Book, never a main room — owner 2026-07-10', () => {
   const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
-  const plan = groups.find((g) => g.label === 'Plan');
-  const also = groups.find((g) => g.label === 'Also in this event');
-  assert.ok(plan && also);
-  assert.ok(
-    !plan.items.some((i) => i.key === 'budget'),
-    'Budget was promoted back into Plan. The owner removed it as a top-level ' +
-      'menu on 2026-07-10; it belongs under "Also in this event" as a quiet link.',
-  );
-  assert.ok(
-    also.items.some((i) => i.key === 'budget'),
-    'Budget fell out of "Also in this event" — /budget loses its rail link.',
+  const book = groups.find((g) => g.label === 'Book');
+  assert.ok(book);
+  assert.deepEqual(
+    book.items.map((i) => i.key),
+    ['explore', 'budget'],
+    'Book is Your Team then Budget — the budget fills from what Your Team agrees ' +
+      'to. Budget is still a quiet row (2026-07-10 holds): the drawing says ' +
+      '"Still a row, not a main room".',
   );
 });
 

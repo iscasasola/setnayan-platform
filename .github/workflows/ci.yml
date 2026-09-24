@@ -133,6 +133,18 @@ jobs:
         continue-on-error: true
         run: RADIUS_LINT_STRICT=1 node apps/web/scripts/lint-radius.mjs
 
+      # NO NEW CARDS (owner 2026-09-24, design brief §3). A per-file RATCHET on
+      # lines holding a bare `border` AND a container radius
+      # (rounded-lg|xl|2xl|3xl|card|tile): a file's count may fall, never rise,
+      # and a file not in apps/web/scripts/no-card.baseline.txt may hold none.
+      # Controls (<button>, <input>, …) keep their radius by owner ruling and
+      # are not counted. See apps/web/scripts/lint-no-card.mjs and
+      # build-sessions/DESIGN-FOUNDATION.md.
+      - name: Lint no new cards
+        id: guard_no_card
+        continue-on-error: true
+        run: node apps/web/scripts/lint-no-card.mjs
+
       # Fails when a Tailwind COLOUR UTILITY names a palette entry that does not
       # exist. Tailwind DROPS such a class silently — no error, no warning, the
       # rule is simply absent and the element falls back to preflight styling.
@@ -520,6 +532,7 @@ jobs:
           EMAIL_LINKS: ${{ steps.guard_email_links.outcome }}
           ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
           RADIUS: ${{ steps.guard_radius.outcome }}
+          NO_CARD: ${{ steps.guard_no_card.outcome }}
           COLOUR_EXISTS: ${{ steps.guard_colour_exists.outcome }}
           EVENTS_GRANTS: ${{ steps.guard_events_grants.outcome }}
           VENDOR_PROFILES_GRANTS: ${{ steps.guard_vendor_profiles_grants.outcome }}
@@ -558,6 +571,7 @@ jobs:
           check 'lint email template links'   "$EMAIL_LINKS"
           check 'lint admin chat-guard'       "$ADMIN_CHAT"
           check 'lint radius tokens'          "$RADIUS"
+          check 'lint no new cards'           "$NO_CARD"
           check 'lint colour names resolve'   "$COLOUR_EXISTS"
           check 'lint events column grants'  "$EVENTS_GRANTS"
           check 'lint vendor_profiles column grants'  "$VENDOR_PROFILES_GRANTS"

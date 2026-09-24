@@ -3,10 +3,11 @@ import type { EventRow } from '../_lib/types';
 import type { GuestRole } from '@/lib/guests';
 import type { RolePalette } from '@/lib/mood-board';
 import {
-  STYLE_UNSET_LINE,
-  resolveGuestDressCode,
-  sanitizeRoleAttire,
-} from '@/lib/role-dress-code';
+  groupLabelOf,
+  resolveGuestAttireWithGroups,
+  sanitizeGroupAttire,
+} from '@/lib/role-group-dress-code';
+import { STYLE_UNSET_LINE, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { roleLabel } from '@/lib/entourage';
 
 /**
@@ -73,14 +74,29 @@ export function DressCodeWidget({
   // code yet", while the answer for their role sat in the config unread. An
   // answer that exists and is not rendered is the defect this repo keeps
   // finding; here it was one variable's worth of ordering.
-  const mine = resolveGuestDressCode({
+  // ⬆ BOTH TIERS, and the coarse one is why this reads differently than it did.
+  // A ninang whose couple dressed "Principal Sponsors" in one line — and never
+  // wrote anything for her specifically — used to get NOTHING here, because the
+  // only tier this widget knew was per role. The answer existed and was not
+  // rendered, which is the exact defect the ordering comment above was written
+  // for; it simply had a second shape nobody had reached yet.
+  //
+  // 🔑 Precedence is NOT decided here. `resolveGuestAttireWithGroups` delegates
+  // to `resolveAttireFor`, the one place that ranks the tiers, so this widget
+  // and the editor's preview cannot disagree about which line won.
+  const resolved = resolveGuestAttireWithGroups({
     role: guestRole,
     roles: sanitizeRoleAttire(
       (config as { roles?: unknown } | null)?.roles,
       (v) => roleLabel(v as GuestRole) !== null,
     ),
+    groups: sanitizeGroupAttire((config as { groups?: unknown } | null)?.groups),
     palette: rolePalette,
   });
+  const mine = resolved.panel;
+  // Said only when the answer came from the group, so a reader knows the couple
+  // dressed her whole group and did not overlook her.
+  const mineFromGroup = resolved.source === 'group' ? groupLabelOf(guestRole) : null;
 
   const hasAnything =
     title.length > 0 ||
@@ -194,6 +210,16 @@ export function DressCodeWidget({
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
             You are {mine.roleLabel ?? 'in the entourage'}
           </p>
+          {/* WHERE THE ANSWER CAME FROM — said only when it came from the group.
+              A ninang who reads her group's line needs to know the couple
+              dressed her whole group on purpose, not that they wrote something
+              for her and it is being shown oddly. Silent provenance is the same
+              defect as a silent override, seen from the other side. */}
+          {mineFromGroup ? (
+            <p className="text-xs leading-relaxed text-ink/55">
+              From your hosts&rsquo; note for {mineFromGroup}.
+            </p>
+          ) : null}
           {/* ⏰ THE CALL TIME SITS ABOVE THE OUTFIT, AND THAT IS THE POINT.
               Owner, 2026-09-23, on what a ninang needs: “what she needs most is
               her call time”. Putting it under the swatch and the hex would have

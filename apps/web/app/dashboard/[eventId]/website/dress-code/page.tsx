@@ -195,6 +195,11 @@ const INC_DRESS_CODE_SUGGESTION: DressCodeConfig = {
   // No per-role attire is suggested: the INC guidance is about what EVERY guest
   // wears, and this product does not know what a role should be asked for.
   roles: {},
+  // And no per-GROUP attire either, for the same reason one tier up. Suggesting
+  // that Principal Sponsors wear something would put words in a couple's mouth
+  // about people they have not thought about yet — and a prefilled group line
+  // saves into fifteen readers' pages the moment they click Save.
+  groups: {},
   title: 'Modest & formal',
   description:
     'Our ceremony is held in the INC chapel, so we kindly ask everyone to dress modestly and formally. Thank you for honoring the occasion with us.',

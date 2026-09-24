@@ -1,6 +1,9 @@
 import { PaletteField } from './palette-field';
 import { RoleAttireField } from './role-attire-field';
+import { GroupAttireField } from './group-attire-field';
 import { sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { sanitizeGroupAttire, ROLE_GROUPS_IN_ORDER } from '@/lib/role-group-dress-code';
+import { roleGroupOf, ROLE_GROUP_LABELS, type RoleGroup } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { ListField } from './list-field';
@@ -41,6 +44,34 @@ export function DressCodeFields({
     ? 'block w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline-none'
     : 'block w-full min-h-[44pt] rounded-md border border-ink/15 bg-white px-3 py-2 text-base text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
   const hint = compact ? 'text-[0.7rem] text-ink/45' : 'text-xs text-ink/55';
+
+  /*
+     THE GROUPS ARE DERIVED FROM `eventRoles`, NEVER PASSED IN.
+     A new prop is a new thing every call site has to remember, and the one that
+     forgets renders an empty panel that looks exactly like an event with no
+     sponsors. `roleGroupOf` is pure, so the client can fold the same list the
+     server already resolved — and the two tiers can never disagree about which
+     groups this event has, because there is only one list.
+
+     Ordered by `ROLE_GROUPS_IN_ORDER` (the exhaustive Record's key order) rather
+     than by headcount, so the groups read down the page the way a programme
+     does and do not reshuffle when one more ninong is added.
+  */
+  const groupTally = new Map<RoleGroup, { roleCount: number; people: number }>();
+  for (const { role, count } of eventRoles) {
+    const g = roleGroupOf(role);
+    if (g === 'guest') continue;
+    const cur = groupTally.get(g) ?? { roleCount: 0, people: 0 };
+    cur.roleCount += 1;
+    cur.people += count;
+    groupTally.set(g, cur);
+  }
+  const eventGroups = ROLE_GROUPS_IN_ORDER.filter((g) => groupTally.has(g)).map((group) => ({
+    group,
+    label: ROLE_GROUP_LABELS[group],
+    roleCount: groupTally.get(group)!.roleCount,
+    people: groupTally.get(group)!.people,
+  }));
 
   return (
     <div className={gap}>
@@ -89,6 +120,20 @@ export function DressCodeFields({
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-success-700">Do</p>
         <p className={hint}>What you&rsquo;d love guests to wear.</p>
       <div className="space-y-2">
+        <p className={label}>What each group wears</p>
+        <p className="text-xs text-ink/55">
+          One line dresses everyone in the group. Anyone given their own outfit below keeps it —
+          each group says who, before you type.
+        </p>
+        <GroupAttireField
+          groups={eventGroups}
+          saved={config.groups}
+          roles={config.roles}
+          compact={compact}
+        />
+      </div>
+
+      <div className="space-y-2">
         <p className={label}>What each role wears</p>
         <p className="text-xs text-ink/55">
           Each role gets its own outfit and its colour from your mood board. A guest with a role
@@ -133,6 +178,10 @@ export function normalizeDressCodeConfig(raw: unknown): DressCodeConfig {
     // instruction — `roleLabel` returning null means the role is not one the
     // invitation names, so an instruction for it could never be shown.
     roles: sanitizeRoleAttire(obj.roles, (v) => roleLabel(v as GuestRole) !== null),
+    // Per-GROUP attire. `sanitizeGroupAttire` drops any key that is not one of
+    // the twelve, so a group retired in a later build stops being offered and
+    // stops being read on the same deploy.
+    groups: sanitizeGroupAttire(obj.groups),
     palette: Array.isArray(obj.palette)
       ? obj.palette
           .map((row) => {

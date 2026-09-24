@@ -120,9 +120,46 @@ test('a config with ONLY roles still renders — seen on a real event, 2026-09-2
   // was told "your hosts haven't shared the dress code yet" while their own
   // answer sat in the config.
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'dress-code-widget.tsx'), 'utf8');
-  const minedAt = src.indexOf('const mine = resolveGuestDressCode');
+  /*
+     ⚠ ANCHORED ON THE BINDING, NOT ON THE CALLEE. This read `indexOf('const
+     mine = resolveGuestDressCode')` until 2026-09-24, when the widget started
+     resolving the group tier as well and the answer began arriving as
+     `resolved.panel`. The ORDERING property below was still true and still
+     load-bearing; only the spelling had moved, and the guard failed on the
+     rename rather than on a defect. A guard keyed to a function name convicts
+     the next refactor and acquits the next bug.
+
+     So: find where `mine` is BOUND, and separately insist it is bound from a
+     resolver — otherwise `const mine = null` would satisfy the ordering
+     perfectly and mean nothing.
+  */
+  const minedAt = src.search(/^\s*const mine\s*=/m);
   const decidedAt = src.indexOf('const hasAnything =');
   assert.ok(minedAt > 0 && decidedAt > 0, 'precondition: both exist');
+  /*
+     🔑 ONE HOP, BECAUSE ZERO HOPS PROVED NOTHING. The first version of this
+     check searched the whole file above the binding for a resolver call — and
+     passed when `mine` was sabotaged to `null`, because the resolver was still
+     called on the line above for something else. A guard that answers "a
+     resolver is called somewhere" is not answering "this value came from one".
+     Caught by running the sabotage rather than by reading the assertion.
+  */
+  const rhs = src.slice(src.indexOf('=', minedAt) + 1, src.indexOf(';', minedAt)).trim();
+  const RESOLVER = /resolveGuest(DressCode|AttireWithGroups)\s*\(/;
+  const viaIdentifier = /^([A-Za-z_$][\w$]*)\s*(?:\.\w+)?$/.exec(rhs);
+  const sourced =
+    RESOLVER.test(rhs) ||
+    (viaIdentifier !== null &&
+      RESOLVER.test(
+        (() => {
+          const at = src.search(new RegExp(`^\\s*const ${viaIdentifier[1]}\\s*=`, 'm'));
+          return at < 0 ? '' : src.slice(at, src.indexOf(';', at));
+        })(),
+      ));
+  assert.ok(
+    sourced,
+    `\`mine\` must come from a resolver, not from a constant — it reads \`${rhs}\``,
+  );
   assert.ok(minedAt < decidedAt, 'the personal answer is computed BEFORE the empty-state decision');
   const decision = src.slice(decidedAt, src.indexOf(';', decidedAt));
   assert.match(decision, /mine !== null/, 'and a role answer counts as a dress code');

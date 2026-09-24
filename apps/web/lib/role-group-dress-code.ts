@@ -68,6 +68,7 @@
  */
 import {
   isAttireStyle,
+  resolveGuestDressCode,
   sanitizeCallTime,
   type AttireStyle,
   type RoleAttireMap,
@@ -187,4 +188,50 @@ export function groupRoleCount(group: RoleGroup, every: readonly GuestRole[]): n
   let n = 0;
   for (const r of every) if (roleGroupOf(r) === group) n += 1;
   return n;
+}
+
+/**
+ * THE GUEST-FACING RESOLVER — the same precedence, one tier further out.
+ *
+ * `resolveGuestDressCode` in `role-dress-code.ts` already turns a role's rule
+ * into the panel a guest reads: label, style label, note, formatted call time,
+ * palette colour. It knows nothing about groups, and it must not — this module
+ * imports IT, so teaching it about groups would close a cycle.
+ *
+ * 🔑 SO PRECEDENCE IS STILL DECIDED EXACTLY ONCE. `resolveAttireFor` above
+ * picks the winning tier; this hands that one winner to the existing resolver
+ * as the role's own rule and lets it do the rendering work unchanged. The
+ * one-entry map is not a trick to get around the resolver — it is the literal
+ * statement that, for this reader, this IS the rule for their role.
+ *
+ * `source` rides along so a surface can say WHERE the answer came from. A
+ * ninang reading "Principal Sponsors" wants to know the couple meant her group
+ * and not her; a blank provenance is the same silence `groupOverrides` exists
+ * to break, seen from the guest's side.
+ */
+export function resolveGuestAttireWithGroups(input: {
+  role: GuestRole | null | undefined;
+  roles: RoleAttireMap;
+  groups: GroupAttireMap;
+  palette: Parameters<typeof resolveGuestDressCode>[0]['palette'];
+  sideColor?: string | null;
+}): { panel: ReturnType<typeof resolveGuestDressCode>; source: 'role' | 'group' | null } {
+  const won = resolveAttireFor(input.role, input.roles, input.groups);
+  const effective: RoleAttireMap = won && input.role ? { [input.role]: won.rule } : {};
+  return {
+    panel: resolveGuestDressCode({
+      role: input.role,
+      roles: effective,
+      palette: input.palette,
+      sideColor: input.sideColor ?? null,
+    }),
+    source: won?.source ?? null,
+  };
+}
+
+/** The group a reader's answer came from, in words — for the provenance line. */
+export function groupLabelOf(role: GuestRole | null | undefined): string | null {
+  if (!role || role === 'guest') return null;
+  const g = roleGroupOf(role);
+  return g === 'guest' ? null : (ROLE_GROUP_LABELS[g] ?? null);
 }

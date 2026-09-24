@@ -24,6 +24,7 @@ import {
   type RoleAttireMap,
   type RoleAttireRule,
 } from '@/lib/role-dress-code';
+import { sanitizeGroupAttire, type GroupAttireMap } from '@/lib/role-group-dress-code';
 import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { getCurrentUser } from '@/lib/auth';
@@ -46,6 +47,15 @@ export type DressCodeConfig = {
   palette: { name: string; hex: string }[];
   /** Per-role attire, owner 2026-09-20 — lib/role-dress-code.ts. */
   roles: RoleAttireMap;
+  /**
+   * Per-GROUP attire — the coarse tier above `roles`.
+   *
+   * 🔑 BOTH TIERS ARE STORED; neither is derived from the other. `roles` is the
+   * override and must survive a group edit untouched, or a couple loses a
+   * months-old answer they wrote for one ninang. `resolveAttireFor` decides
+   * which one a reader gets, and it is the ONLY place that decides.
+   */
+  groups: GroupAttireMap;
 };
 
 /**
@@ -130,6 +140,29 @@ export async function updateDressCode(
     if (callTime) rule.callTime = callTime;
     roles[key as GuestRole] = rule;
   }
+  // ── PER-GROUP ATTIRE. The same four-parallel-array idiom, one tier coarser.
+  // Built raw and then handed to `sanitizeGroupAttire`, so the editor's save
+  // path and the reader's parse path validate through ONE function — a group
+  // this build does not know is dropped in both places or in neither.
+  const groupKeys = formData.getAll('group_key').map((v) => String(v));
+  const groupStyles = formData.getAll('group_style').map((v) => String(v));
+  const groupNotes = formData.getAll('group_note').map((v) => String(v));
+  const groupCallTimes = formData.getAll('group_call_time').map((v) => String(v));
+  const rawGroups: Record<string, unknown> = {};
+  for (let i = 0; i < groupKeys.length; i += 1) {
+    const key = groupKeys[i] ?? '';
+    if (!key) continue;
+    // '' = "Not set" → no entry, which REMOVES the group's instruction. A couple
+    // must be able to take back a wrong answer for a whole group as easily as
+    // for one person.
+    rawGroups[key] = {
+      style: groupStyles[i] ?? '',
+      note: groupNotes[i] ?? '',
+      callTime: groupCallTimes[i] ?? '',
+    };
+  }
+  const groups = sanitizeGroupAttire(rawGroups);
+
   void ATTIRE_STYLES;
 
   const palette: { name: string; hex: string }[] = [];
@@ -153,6 +186,7 @@ export async function updateDressCode(
     donts,
     palette,
     roles,
+    groups,
   };
 
   // ----- Persist ----------------------------------------------------------

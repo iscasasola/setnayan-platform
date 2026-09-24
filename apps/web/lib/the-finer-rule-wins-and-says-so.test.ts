@@ -16,9 +16,12 @@ import assert from 'node:assert/strict';
 import {
   ROLE_GROUPS_IN_ORDER,
   groupOverrides,
+  groupLabelOf,
   resolveAttireFor,
+  resolveGuestAttireWithGroups,
   sanitizeGroupAttire,
 } from './role-group-dress-code';
+import { roleGroupOf } from './role-groups';
 import { ROLE_GROUP_LABELS } from './role-groups';
 import type { RoleAttireMap } from './role-dress-code';
 
@@ -95,4 +98,93 @@ test('⛔ a plain guest gets no personal answer from either tier', () => {
   assert.equal(resolveAttireFor('guest', {}, g), null);
   assert.equal(resolveAttireFor(null, {}, g), null);
   assert.equal(resolveAttireFor(undefined, {}, g), null);
+});
+
+
+/*
+  ── THE GUEST'S SIDE ───────────────────────────────────────────────────────
+  Everything above proves the resolver ranks the tiers. These prove the READER
+  gets the ranked answer — which is a different claim, and the one that was
+  false before this build: the widget knew only the role tier, so a couple who
+  dressed "Principal Sponsors" in one line and never wrote a word for ninang
+  specifically left her with NOTHING on her page. The answer existed in the
+  config and no pixel carried it.
+*/
+test('🔴 a group line REACHES the guest who has no line of her own', () => {
+  const out = resolveGuestAttireWithGroups({
+    role: 'principal_sponsor_ninang',
+    roles: {},
+    groups: sanitizeGroupAttire(GROUP),
+    palette: null,
+  });
+  assert.equal(out.source, 'group');
+  assert.ok(out.panel, 'a group line must render a panel, not an empty state');
+  assert.equal(out.panel?.note, 'barong, ecru');
+  // And she is told WHERE it came from, so she does not read it as an oversight.
+  assert.equal(groupLabelOf('principal_sponsor_ninang'), ROLE_GROUP_LABELS.principal_sponsors);
+});
+
+test('⛔ her own line still wins on the page, not just in the resolver', () => {
+  const roles: RoleAttireMap = {
+    principal_sponsor_ninang: { style: 'formal', note: 'navy terno' },
+  };
+  const out = resolveGuestAttireWithGroups({
+    role: 'principal_sponsor_ninang',
+    roles,
+    groups: sanitizeGroupAttire(GROUP),
+    palette: null,
+  });
+  assert.equal(out.source, 'role');
+  assert.equal(out.panel?.note, 'navy terno');
+  // No provenance line when the couple wrote it for her: saying "from your
+  // hosts' note for Principal Sponsors" there would be a lie.
+  assert.notEqual(out.source, 'group');
+});
+
+test('⛔ neither tier set is still nothing — a group panel is not invented', () => {
+  const out = resolveGuestAttireWithGroups({
+    role: 'bridesmaid',
+    roles: {},
+    groups: sanitizeGroupAttire(GROUP),
+    palette: null,
+  });
+  assert.equal(out.source, null);
+});
+
+/*
+  ── THE MEASUREMENT, PINNED ────────────────────────────────────────────────
+  🔑 The docblock claims the busiest live event's 15 roles fold into SIX groups,
+  and a number in a comment rots the moment the vocabulary moves. This is that
+  claim as an assertion: if a future build re-homes `best_man` or splits the
+  sponsors, this fails and the comment gets corrected instead of quietly
+  becoming false. The ROLE LIST is the 2026-09-24 production reading and is
+  deliberately frozen — it is evidence, not a fixture to keep current.
+*/
+test('📏 the production fold is 15 roles → 6 groups, and it stays measured', () => {
+  const asMeasuredInProd2026_09_24 = [
+    'principal_sponsor_ninong',
+    'principal_sponsor_ninang',
+    'principal_sponsor',
+    'groomsman',
+    'best_man',
+    'bridesmaid',
+    'maid_of_honor',
+    'candle_sponsor',
+    'veil_sponsor',
+    'cord_sponsor',
+    'bride_parents',
+    'groom_parents',
+    'groom_immediate_family',
+    'bride',
+    'groom',
+  ] as const;
+  assert.equal(asMeasuredInProd2026_09_24.length, 15);
+  const groups = new Set(asMeasuredInProd2026_09_24.map((r) => roleGroupOf(r)));
+  assert.ok(!groups.has('guest'), 'every one of the fifteen belongs to a real group');
+  assert.equal(groups.size, 6);
+  // And every group earns its row: none of the six speaks for a single role.
+  for (const g of groups) {
+    const n = asMeasuredInProd2026_09_24.filter((r) => roleGroupOf(r) === g).length;
+    assert.ok(n >= 2, `group ${g} folds only ${n} role(s) — it would save nobody a line`);
+  }
 });

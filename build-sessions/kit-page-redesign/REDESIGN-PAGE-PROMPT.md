@@ -95,7 +95,7 @@ controls — but not its bordered-card look (see step 0). Do not start from scra
 - **Wide desktop:** inside the site's real shell (top bar + left rail), laid out editorially with
   generous whitespace and an asymmetric scale. What the user needs at every moment (status,
   credits, Buy) sits in a **column that stays in view** (`position: sticky`). Deep actions open as
-  a **side panel** (the `SidePanel` piece) — never a centred modal.
+  a **side panel** (the `SidePanel` piece — see `DESIGN-FOUNDATION.md` for where it lives) — never a centred modal.
 - **No card, no bordered box, anywhere.** If two groups need separating, add space or change the
   type size. `(i)` tooltips open on hover (desktop) or tap (touch) and close on Esc / outside tap.
 - **Every row, link and button moves** — a transition and a press scale-down (`sn-press`).

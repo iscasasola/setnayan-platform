@@ -72,7 +72,7 @@ export function InfoTip({
       dispatch({ type: 'outside' });
     }
     // Escape peels ONE layer. `useModalA11y` listens on `document` in the
-    // capture phase and stops the event, so a tip inside a SidePanel would
+    // capture phase and stops the event, so a tip inside a modal or sheet would
     // never hear it and the whole panel would close instead. Listening on
     // `window` in capture runs first; an open tip takes the keystroke.
     function onKeyDown(e: KeyboardEvent) {

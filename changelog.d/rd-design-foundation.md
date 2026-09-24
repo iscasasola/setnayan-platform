@@ -1,4 +1,4 @@
-## 2026-09-24 · feat(design): the design foundation — InfoTip, Readout, Section, SidePanel, tokens and the no-card ratchet
+## 2026-09-24 · feat(design): the design foundation — tokens, InfoTip and the no-card ratchet
 
 The owner approved "update the kit and build the shared pieces" for the 2026-09-24 design brief.
 Additive; no existing screen is restyled and no token is re-pointed.
@@ -14,12 +14,10 @@ Additive; no existing screen is restyled and no token is re-pointed.
   so a lone circle cannot be written. Hover opens for a mouse, a tap pins, Esc / outside press
   close (decisions in `info-tip-state.ts`). Generalised from the mood board's `InfoButton`, which
   is deleted; the mood board renders the shared one (its popover is now borderless glass).
-- **`Readout`** (`app/_components/readout.tsx`): `value: number | null`; null renders "Couldn't
-  load", never 0 / ₱0. Money via `formatPhp`.
-- **`Section`** (`app/_components/section.tsx`): groups by space and type, no box.
-- **`SidePanel`** (`app/_components/side-panel.tsx`): right-hand slide-in at every width, reusing
-  the guest card sheet's geometry and keyframes; `useModalA11y`; leaves by transition, never a
-  held transform.
+- **`Readout`, `Section`, `SidePanel`** are built but NOT in this change: nothing mounts them yet,
+  so `tests/db/ugat-both-ends*` fails them as `component-no-mount` (rightly). They are kept on
+  branch `rd/design-foundation-parts` and land with their first adopter, the collection template
+  (SidePanel = the add flow, Readout = the card strip).
 - **`lint:no-card`** (`apps/web/scripts/lint-no-card.mjs` + `no-card.baseline.txt`, 769 files ·
   2182 lines): a per-file ratchet on bordered + rounded containers; controls exempt. Blocking CI
   step `guard_no_card` in the aggregator.

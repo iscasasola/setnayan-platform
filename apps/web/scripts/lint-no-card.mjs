@@ -240,14 +240,14 @@ function main() {
       console.error(`    :${h.lineNumber}  ${h.text.slice(0, 110)}`);
       if (inCI) {
         console.log(
-          `::error file=${v.rel},line=${h.lineNumber}::A bordered, rounded container — the 2026-09-24 design brief bans cards. Group by space and type (Section), not a box.`,
+          `::error file=${v.rel},line=${h.lineNumber}::A bordered, rounded container — the 2026-09-24 design brief bans cards. Group by space and type, not a box.`,
         );
       }
     }
     console.error('');
   }
   console.error('How to fix:');
-  console.error('  1. Drop the box: separate by space and type — `<Section>` in app/_components/section.tsx.');
+  console.error('  1. Drop the box: separate by space and type (padding, type scale), not a border.');
   console.error('     Depth, where it is needed, is shadow + glass (`.sn-glass-bare`), not a border.');
   console.error('  2. A control (chip, pressable pill) that is not a <button>/<input>: add a');
   console.error('     `// no-card-ok: <why>` comment on that line.');

@@ -2875,8 +2875,8 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 
   /* ── DESIGN FOUNDATION (owner 2026-09-24 · build-sessions/DESIGN-FOUNDATION.md)
      ADDITIVE. Nothing existing is re-pointed at these; they are the names the
-     shared pieces (InfoTip · Readout · Section · SidePanel) and every new
-     screen reach for.
+     shared pieces (InfoTip today; Readout · Section · SidePanel with their
+     first adopter) and every new screen reach for.
 
      Layer scale. It DESCRIBES the stack the app already has, measured
      2026-09-24, so a new layer lands between the right neighbours:
@@ -3617,10 +3617,6 @@ html.dark {
  * mistaken for a measured value — and it is a dash, never a zero. */
 .sn-num[data-failed='true'] { color: var(--sn-ink-300); }
 
-/* `.sn-section` — groups by SPACE and type, never by a box (brief §3). */
-.sn-section { padding-block: clamp(24px, 4vw, 48px); }
-.sn-section + .sn-section { padding-top: 0; }
-
 /* `.sn-tip` — the InfoTip popover. Always in the DOM (so aria-describedby
  * resolves), shown by `data-open`. A transparent top pad bridges the gap to
  * the trigger, so moving the pointer onto the popover does not close it. */
@@ -3659,59 +3655,6 @@ html.dark {
   color: var(--sn-ink-700);
 }
 
-/* `.sn-side-panel` — deep actions slide in from the right at EVERY width
- * (brief §1: "off-canvas slide-out panels … rather than centered modal
- * boxes"). The geometry and the two keyframes are `.sn-inspector-sheet` /
- * `.sn-inspector-peek`'s (the guest card, 2026-09-22), reused rather than
- * re-drawn; unlike those, it is NOT hidden at ≥xl. Borderless: it is seated
- * by shadow. Enters with `backwards` (never `both`: a held transform unpins
- * every fixed child). Leaves by TRANSITION on `data-closing`, then unmounts. */
-.sn-side-panel-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: var(--sn-z-scrim);
-  border: 0;
-  background: rgba(30, 26, 18, 0.32);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  animation: sn-peek-in var(--sn-dur-elem) var(--sn-ease) backwards;
-  transition: opacity var(--sn-dur-elem) var(--sn-ease);
-}
-.sn-side-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 3.5rem;
-  z-index: var(--sn-z-panel);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: var(--m-r-lg) 0 0 var(--m-r-lg);
-  background: var(--sn-glass-bg-raised);
-  backdrop-filter: var(--sn-glass-blur);
-  -webkit-backdrop-filter: var(--sn-glass-blur);
-  box-shadow: var(--sn-sh-panel);
-  animation: sn-sheet-in var(--sn-dur-elem) var(--sn-ease) backwards;
-  transition:
-    opacity var(--sn-dur-elem) var(--sn-ease),
-    translate var(--sn-dur-elem) var(--sn-ease);
-}
-@media (min-width: 768px) {
-  .sn-side-panel { left: auto; width: min(30rem, calc(100vw - 3.5rem)); }
-  .sn-side-panel[data-size='wide'] { width: min(44rem, calc(100vw - 3.5rem)); }
-}
-.sn-side-panel[data-closing='true'] { opacity: 0; translate: 34px 0; pointer-events: none; }
-.sn-side-panel-scrim[data-closing='true'] { opacity: 0; pointer-events: none; }
-/* The scrim is a <button> (keyboard users get a way back), so the universal
- * press scale in @layer base would shrink the whole backdrop on tap. */
-.sn-side-panel-scrim:active { scale: none; filter: none; }
-.sn-side-panel-body {
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 1.25rem max(1.25rem, env(safe-area-inset-bottom));
-}
 
 /* ---------- home-launcher fidelity surfaces (2026-07-15 pixel pass) ----------
  * Each recipe defined ONCE here (owner: "do not hard code values that should be

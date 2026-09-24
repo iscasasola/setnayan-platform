@@ -18,21 +18,34 @@
 
 | Piece | Import | Use it for |
 |---|---|---|
-| `InfoTip` | `@/app/_components/info-tip` | Any helper sentence. It prints its own **required** `label` and puts the `(i)` beside it. Hover opens (mouse), tap pins (touch), Esc / outside press closes. `labelAs="h2"` makes the label a heading. |
-| `Readout` | `@/app/_components/readout` | The number a screen is about (guests, ₱, credits, days). `value: number \| null` — **null renders "Couldn't load", never 0 / ₱0**. Pass `0` only when zero was measured. `format="php"` uses `formatPhp`. `size="sm"` for secondaries. Never inside a `<header>` (`lint:masthead`). |
-| `Section` | `@/app/_components/section` | A group. Separates by space and type — no border, no fill. Title 1–3 words; anything longer goes in `info`. One `action` at the title's end. |
-| `SidePanel` | `@/app/_components/side-panel` | Deep actions, at every width — **not a centred modal**. Slides in from the right, leaves a strip that is the way back. `size="wide"` for forms. Focus/Esc/scroll lock via `useModalA11y`. |
+| `InfoTip` | `@/app/_components/info-tip` | Any helper sentence. It prints its own **required** `label` and puts the `(i)` beside it. Hover opens (mouse), tap pins (touch), Esc / outside press closes. `labelAs="h2"` makes the label a heading. Shipped; the mood board uses it. |
 | `Sheet` (existing) | `@/app/_components/sheet` | A single decision in thumb reach — rises from the bottom on a phone, docks right from `lg`. |
 
 Every interactive piece carries `sn-press` (press scale-down) and a transition on the house tokens;
 the global `prefers-reduced-motion` block in `globals.css` stills them.
+
+### Built, landing with their first adopter — branch `rd/design-foundation-parts`
+
+A component nothing mounts fails `tests/db/ugat-both-ends*` (`component-no-mount`) — rightly — so
+these three ship in the same PR as the first screen that renders them: **the collection template**
+(`SidePanel` = its add flow, `Readout` = its card strip). Take the files, their tests and their CSS
+(`.sn-section`, `.sn-side-panel*`) from that branch; do not re-draw them.
+
+| Piece | Will import as | Contract |
+|---|---|---|
+| `Readout` | `@/app/_components/readout` | `value: number \| null` — **null renders "Couldn't load", never 0 / ₱0**; pass `0` only when zero was measured. `format="php"` → `formatPhp`. Never inside a `<header>` (`lint:masthead`). |
+| `Section` | `@/app/_components/section` | A group separated by space and type — no border, no fill. Title 1–3 words; longer text in `info`. |
+| `SidePanel` | `@/app/_components/side-panel` | Deep actions at every width, never a centred modal. Slides in from the right, leaves a strip that is the way back; `useModalA11y`; exits by transition, never a held transform. |
+
+Until then a prototype draws these with the tokens below (`.sn-num` + `.sn-eye`; space, not a box;
+a right-hand panel at `--sn-z-panel` with `--sn-sh-panel`).
 
 ## Tokens (`app/globals.css` :root → exposed in `tailwind.config.ts` `theme.extend`)
 
 | What | CSS | Tailwind |
 |---|---|---|
 | Layers | `--sn-z-raised` 10 · `sticky` 20 · `nav` 30 · `pop` 40 · `modal` 50 · `toast` 60 · `scrim` 74 · `panel` 75 | `z-sn-pop`, `z-sn-panel`, … |
-| Shadows | `--sn-sh-sm/md/lg/tile/hi`, **`--sn-sh-float`** (borderless layers), **`--sn-sh-panel`**, `--m-shadow-sm/md/lg` | `shadow-sn-float`, `shadow-m-md`, … |
+| Shadows | `--sn-sh-sm/md/lg/tile/hi`, **`--sn-sh-float`** (borderless layers), **`--sn-sh-panel`** (right-hand panels), `--m-shadow-sm/md/lg` | `shadow-sn-float`, `shadow-m-md`, … |
 | Motion | `--sn-dur-micro` 120 · `control` 200 · **`elem` 320 (the brief's "300ms")** · `enter` 640; `--sn-ease`, `--sn-ease-out` | `duration-sn-elem ease-sn` |
 | Glass | `.sn-glass-bare` (+ `--sn-glass-bg-raised`, `--sn-glass-blur`) | — |
 | Canvas | `--sn-canvas` (= the `.sn-ambient` warm white). `.sn-canvas-drift` = opt-in slow gradient, off under reduced motion. **The ground stays flat by default** (owner 2026-07-28). | — |

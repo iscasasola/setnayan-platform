@@ -9,6 +9,29 @@ The problem on this page: too much text, too many descriptions, and the flow of 
 The goal: a clean page that feels like an app. The user sees what it is for at a glance and moves
 through it top to bottom without reading. **Deliver an interactive prototype**, not a code change.
 
+## 0 · The house style — read before step 1 (owner, 2026-09-24)
+
+> Owner: *"apply the new prompt for the whole look of the website … the succeeding builds needs to
+> follow the prompt as well."* Every redesign from 2026-09-24 follows the design brief. It is the
+> house style, not an option.
+
+Read, in this order: the verbatim brief `~/Documents/Claude/Projects/Setnayan/DESIGN_BRIEF_2026-09-24.md`
+(spec corpus), then `build-sessions/DESIGN-LANGUAGE-AMENDMENT.md` (short form + what it collides
+with), then `build-sessions/DESIGN-FOUNDATION.md` (the shared pieces you must use). The rules, short:
+
+- **No cards, no bordered boxes, no bordered grid containers.** Group by whitespace, type scale and
+  layered depth. Radius and a hairline survive only on things you can press (buttons, inputs, chips).
+- **No explanatory sentences on the page.** Helper text lives behind an `(i)` beside a visible label
+  — never a lone circle.
+- **The number is the interface.** Big numeric readouts, sharp micro-labels, no sentences to decode.
+- **Depth over division.** Layered shadow, glass (blur + translucent fill), one continuous canvas.
+- **Everything moves.** Every control has a transition and a press scale-down; panels slide in.
+- **Four viewport states**, not two (step 7).
+- **Deep actions open in a side panel, never a centred modal.**
+
+⚠ **The Papic example in this kit predates the brief** (2026-09-21). Copy its METHOD — the order,
+the cut words, one DOM with CSS `order` — not its LOOK (it still uses bordered cards and two layouts).
+
 ## 1 · Confirm which page (do not guess)
 Several pages share a product name (e.g. the Papic **controller**, where a couple sets up and
 buys Papic, is not the Papic section on the **Event Hub**). Name the exact route you will
@@ -49,26 +72,42 @@ decided or ruled out (e.g. the Papic tabs were ruled out on 2026-08-27). Say wha
 ## 6 · Cut the words
 - One title, plus at most one status line (e.g. "50 credits · 4 cameras · 9 photos").
 - Section headings of 1–3 words. No description paragraphs.
-- Controls say what they do in 1–2 words. Hints ≤ 6 words, only where a control is unclear.
+- Controls say what they do in 1–2 words. Any hint goes behind an `(i)` beside its label, never
+  as visible text under the control.
+- **The number is the interface:** where a page has a count or an amount (guests, ₱, credits,
+  days), make it the biggest thing on the screen, with a micro-label, not a sentence.
 - Keep text that carries a fact the user needs: money, dates, status, errors, consequences.
 - Show instead of tell: a filter picked by seeing it applied, a switch instead of a sentence.
 
-## 7 · Build the interactive prototype — ONE file, phone AND desktop
-Copy the pattern in `papic-controller-prototype.html` (in this kit). Do not start from scratch.
-- **One HTML file, one DOM, two layouts.** No framework, opens in any browser. The site's real
-  look: read colours, font and radius off the live page into CSS variables.
-- **Phone (< 1024px):** one column in the order from step 5. Sub-screens and the pay flow open
-  **full screen** with a back arrow.
-- **Desktop (≥ 1024px):** inside the site's real shell (top bar + left rail). The flow sits in a
-  wide left column, and what the user needs at every moment (status at a glance, credits, Buy)
-  sits in a **right column that stays in view** (`position: sticky`). Grids get more columns (e.g.
-  gallery 6 across). Sub-screens open as a **right-side drawer** over a dimmed page.
+## 7 · Build the interactive prototype — ONE file, FOUR viewport states
+Copy the METHOD in `papic-controller-prototype.html` (in this kit) — one DOM, CSS `order`, working
+controls — but not its bordered-card look (see step 0). Do not start from scratch.
+- **One HTML file, one DOM, four layouts.** No framework, opens in any browser. The site's real
+  tokens: use the `--sn-*` / `--m-*` variables listed in `build-sessions/DESIGN-FOUNDATION.md`
+  (glass, shadows, motion, z-layers, hero number), not colours eyeballed off a screenshot.
+- **Phone portrait:** a native app shell — bottom nav, tight sticky header, one dense column in
+  the order from step 5, big thumb targets. Sub-screens and the pay flow open **full screen** with
+  a back arrow.
+- **Tablet / foldable portrait:** master-detail, or the flow beside a collapsible left rail.
+  Centred, never stretched.
+- **Tablet / foldable landscape:** a multi-column workspace — the list or visual on the left, a
+  context pane or inspector sliding in on the right.
+- **Wide desktop:** inside the site's real shell (top bar + left rail), laid out editorially with
+  generous whitespace and an asymmetric scale. What the user needs at every moment (status,
+  credits, Buy) sits in a **column that stays in view** (`position: sticky`). Deep actions open as
+  a **side panel** (the `SidePanel` piece — see `DESIGN-FOUNDATION.md` for where it lives) — never a centred modal.
+- **No card, no bordered box, anywhere.** If two groups need separating, add space or change the
+  type size. `(i)` tooltips open on hover (desktop) or tap (touch) and close on Esc / outside tap.
+- **Every row, link and button moves** — a transition and a press scale-down (`sn-press`).
 - **Order by CSS `order`, not by duplicated markup.** A body class for the moment
   (`before` / `after`) re-orders the same sections, and finished setup collapses to one-line rows.
-- A small grey **"Prototype" bar** at the top switches the moment. It is clearly not part of the app.
+- A small translucent **"Prototype" bar** at the top switches the viewport — **Mobile · Tablet P ·
+  Tablet L · Desktop** — with a live CSS transition between them, and switches the moment. It is
+  clearly not part of the app (brief §6).
 - **Every row and button works**: steppers step, switches switch, the buy flow ends pending, each
   "›" opens its screen, Escape closes it.
-- Test it at 375px and 1440px in the browser before sending it (screenshots of both). Check that
+- Test all four states in the browser before sending it (375px, ~820px portrait, ~1180px
+  landscape, 1440px — a screenshot of each). Check that
   `hidden` really hides (`[hidden]{display:none!important}`, since `display:flex` overrides it).
 - Optional: also publish it as a Design canvas (see `canvas-version/` for the file shape).
 
@@ -80,7 +119,8 @@ Reply briefly with:
 1. The prototype file (and link if published).
 2. A table: section → what you can do there.
 3. What's placeholder or unverified.
-4. At most 2–3 decisions for the owner, recommendation first. Don't ask what the code or
+4. A line per brief rule from step 0: met, or not yet and why (e.g. a shared piece is missing).
+5. At most 2–3 decisions for the owner, recommendation first. Don't ask what the code or
    `DECISION_LOG.md` already answers.
 
 **Do not change any code** until the owner approves the prototype. Then build it by trimming and

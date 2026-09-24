@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "648f1a18f",
+  "generatedFromRef": "53674706e",
   "routeCount": 431,
   "destinations": 927,
   "actions": 663,
@@ -6855,7 +6855,6 @@
         "dashboard/[eventId]/studio/mood-board/_components/concept-pdf-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/event-linked-badge.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx",
-        "dashboard/[eventId]/studio/mood-board/_components/info-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx",
@@ -6899,12 +6898,11 @@
         "FinalizationActionResult",
         "GalleryPage",
         "GalleryPicker",
-        "HTMLButtonElement",
         "HTMLCanvasElement",
         "HTMLDivElement",
         "HTMLImageElement",
         "ImageData",
-        "InfoButton",
+        "InfoTip",
         "InspirationBoard",
         "Link",
         "MajorsEditor",
@@ -8112,6 +8110,7 @@
     "/dashboard/[eventId]/website/dress-code": {
       "files": [
         "dashboard/[eventId]/website/dress-code/_components/dress-code-fields.tsx",
+        "dashboard/[eventId]/website/dress-code/_components/group-attire-field.tsx",
         "dashboard/[eventId]/website/dress-code/_components/list-field.tsx",
         "dashboard/[eventId]/website/dress-code/_components/palette-field.tsx",
         "dashboard/[eventId]/website/dress-code/_components/role-attire-field.tsx",
@@ -8129,6 +8128,7 @@
       "blocks": [
         "DressCodeFields",
         "DressCodePreview",
+        "GroupAttireField",
         "Link",
         "ListField",
         "PageMasthead",

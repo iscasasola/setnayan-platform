@@ -65,7 +65,7 @@ import {
   type PartWorkState,
   type TileViewModel,
 } from '@/lib/moodboard-make-it-real';
-import { InfoButton } from './info-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   requestRender,
   readRenderBalance,
@@ -374,14 +374,16 @@ export function MakeItReal({
     <section id="make-it-real" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-2xl font-semibold text-ink">Make it real</h2>
-            <InfoButton label="About make it real">
-              Designed parts earn a photoreal render — one for each element, or five credits for the
-              whole reception in one photo. Every tile shows a free colour preview forever; a paid
-              render needs a photo and your colours for that part first.
-            </InfoButton>
-          </div>
+          <InfoTip
+            label="Make it real"
+            labelAs="h2"
+            labelClassName="text-2xl font-semibold text-ink"
+            ariaLabel="About make it real"
+          >
+            Designed parts earn a photoreal render — one for each element, or five credits for the
+            whole reception in one photo. Every tile shows a free colour preview forever; a paid
+            render needs a photo and your colours for that part first.
+          </InfoTip>
           <p className="max-w-prose text-sm text-ink/65">
             A free colour preview on every box, always. Spend credits to see it as a real photo.
           </p>

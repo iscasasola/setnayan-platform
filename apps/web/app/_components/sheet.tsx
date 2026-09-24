@@ -123,12 +123,18 @@ export function Sheet({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className={`absolute inset-0 bg-ink/40 backdrop-blur-sm${rise ? ' sn-fade' : ''}`}
+        /* ⚠ `bottom-`, NOT `inset-0`, below lg. Owner 2026-09-23: *"not on top of
+           the bottom nav … its layer will just be above the bottom nav"*. An
+           `inset-0` backdrop covers the overlay's PADDING too, so the nav sat
+           behind a dimmed, blurred pane — present, greyed, and looking
+           disabled. The backdrop now stops where the sheet stops, and the bar
+           stays its own colour and stays usable. */
+        className={`absolute inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+88px)] lg:bottom-0 bg-ink/40 backdrop-blur-sm${rise ? ' sn-fade' : ''}`}
       />
 
       {/* Sheet body */}
       <div
-        className={`${rise ? 'sn-rise ' : ''}relative flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-104px)] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
+        className={`${rise ? 'sn-sheet-up lg:sn-rise ' : ''}relative flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-104px)] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
           wide ? 'lg:w-[min(34rem,92vw)]' : 'lg:w-[22rem]'
         }`}
       >

@@ -4652,6 +4652,25 @@ html:active-view-transition .sn-page-enter { animation: none; }
 .sn-fade {
   animation: sn-hub-fade var(--sn-dur-elem) var(--sn-ease-out) backwards;
 }
+
+/* ── A BOTTOM SHEET RISES FROM THE BOTTOM EDGE ─────────────────────────────
+   Owner, 2026-09-23: *"the pop up must show from the bottom"*, and *"make it
+   animate as well"*. `sn-rise-soft` lifts 8px — right for a card settling onto
+   a page, wrong for a sheet, which should travel its own height.
+
+   🔴 `backwards`, NEVER `both` — the rule two hundred lines up applies here
+   harder than anywhere. A finished `both` leaves `transform: matrix(1,0,0,1,0,0)`
+   on the panel, and ANY transform makes an element the containing block for its
+   `position: fixed` descendants. The panel is exactly where such descendants
+   live, so `both` would unpin them INSIDE an overlay that is itself pinned.
+   Invisible in review, and it is how a dialog ends up below the fold. */
+@keyframes sn-sheet-up { from { transform: translateY(100%); } }
+.sn-sheet-up {
+  animation: sn-sheet-up var(--sn-dur-enter) var(--sn-ease-out) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-sheet-up { animation: none; }
+}
 /* 5 · The pass lifts when it is opened ("My pass" / "Show your pass" link to
    #site-pass), so it reads as the thing to show at the door. */
 [data-motion='pass']:target {

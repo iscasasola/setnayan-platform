@@ -79,3 +79,40 @@ test('z-index is NOT how this is held — the sheet was never behind the nav', (
   assert.match(SHEET, /z-50/, 'the sheet lost its stacking level');
   assert.match(NAV, /z-30/, 'the nav lost its stacking level; the sheet/nav order is no longer intentional');
 });
+
+test('🚨 the backdrop stops where the sheet stops — the nav is never dimmed', () => {
+  // Owner: "not on top of the bottom nav … its layer will just be above the
+  // bottom nav". An `inset-0` backdrop covers the overlay's padding too, which
+  // greys the bar and makes it read as disabled.
+  assert.ok(
+    !/absolute inset-0 bg-ink\/40/.test(SHEET),
+    'the backdrop is back to inset-0 — it now dims the bottom nav, which stays usable',
+  );
+  assert.match(
+    SHEET,
+    /bottom-\[calc\(env\(safe-area-inset-bottom\)\+88px\)\] lg:bottom-0 bg-ink\/40/,
+    'the backdrop no longer clears the nav by the same 88px the sheet does',
+  );
+});
+
+test('the sheet travels its own height, and never with `both`', () => {
+  assert.match(SHEET, /sn-sheet-up/, 'the sheet no longer rises from the bottom');
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  assert.match(css, /@keyframes sn-sheet-up/, 'the sheet-up keyframe is gone');
+  const rule = css.slice(css.indexOf('.sn-sheet-up {'), css.indexOf('.sn-sheet-up {') + 160);
+  assert.ok(
+    /backwards/.test(rule) && !/\bboth\b/.test(rule),
+    'sn-sheet-up uses `both`: a lingering transform makes the panel the containing ' +
+      'block for its fixed descendants and silently unpins them (measured on prod 2026-09-18)',
+  );
+});
+
+test('the Papic rows actually ASK for the animation', () => {
+  // `rise` was never passed, so every sheet on this page opened with no motion
+  // at all while the prop sat there looking implemented.
+  const rowSrc = readFileSync(
+    join(WEB, 'app/dashboard/[eventId]/studio/papic/_components/setting-row.tsx'),
+    'utf8',
+  );
+  assert.match(rowSrc, /<Sheet open rise\b/, 'SettingRow stopped passing `rise` — its sheets do not animate');
+});

@@ -102,7 +102,7 @@ export function SettingRow({
           alive and, for a server child, keeps its work on the page for a screen
           nobody is looking at. */}
       {open ? (
-        <Sheet open onClose={() => setOpen(false)} labelledById={headingId} title={sheetTitle}>
+        <Sheet open rise onClose={() => setOpen(false)} labelledById={headingId} title={sheetTitle}>
           <h2 id={headingId} className="sr-only">
             {sheetTitle}
           </h2>

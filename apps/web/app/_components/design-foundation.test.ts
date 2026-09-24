@@ -7,10 +7,13 @@
  *   1. every token the Tailwind theme EXPOSES is defined in globals.css — an
  *      undefined `var()` compiles fine and silently resolves to nothing;
  *   2. the new layers carry no border (owner: "glass layers drop their hairline");
- *   3. the canvas drift never HOLDS a transform and stops under reduced motion.
+ *   3. the canvas drift and the side panel never HOLD a transform; the panel
+ *      makes its `aria-modal` promise through the shared hook, and its exit
+ *      wait honours reduced motion.
  *
- * Readout / Section / SidePanel land with their first adopter (branch
- * `rd/design-foundation-parts`), and bring their own tests with them.
+ * SidePanel landed with its first adopter — the collection template's add
+ * flow (2026-09-24). Readout / Section still wait on `rd/design-foundation-parts`
+ * for theirs, and bring their own tests with them.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,15 +55,39 @@ test('the z-scale is ordered the way the stack actually is', () => {
 });
 
 test('the new layers are borderless — seated by shadow, not a hairline', () => {
-  for (const sel of ['.sn-glass-bare', '.sn-tip-body']) {
+  for (const sel of ['.sn-glass-bare', '.sn-side-panel', '.sn-tip-body']) {
     assert.doesNotMatch(rule(sel), /(^|[\s;])border(-left|-right|-top|-bottom)?\s*:/, `${sel} carries a border`);
   }
   assert.match(rule('.sn-glass-bare'), /box-shadow:/);
+  assert.match(rule('.sn-side-panel'), /box-shadow:/);
   // `.sn-glass` keeps its border ON PURPOSE (it bounds nine existing panels).
   assert.match(rule('.sn-glass'), /border:/);
 });
 
-test('the canvas drift never holds a transform, and stops under reduced motion', () => {
-  assert.doesNotMatch(rule('.sn-canvas-drift::before'), /animation:[^;]*\b(both|forwards)\b/);
+test('the side panel never holds a transform, and keeps its aria-modal promise', () => {
+  for (const sel of ['.sn-side-panel', '.sn-side-panel-scrim', '.sn-canvas-drift::before']) {
+    assert.doesNotMatch(rule(sel), /animation:[^;]*\b(both|forwards)\b/, `${sel} animation holds its end state`);
+  }
+  const code = stripComments(readFileSync(join(__dirname, 'side-panel.tsx'), 'utf8'));
+  assert.match(code, /useModalA11y\(\{/, 'aria-modal without the shared focus hook');
+  assert.match(code, /aria-modal="true"/);
+  assert.match(code, /className="sn-side-panel\b/);
+});
+
+test('on a phone a `sheet` panel rises from the bottom; from 768px it is the right-hand panel', () => {
+  const phone = CSS.match(/@media \(max-width: 767\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
+  assert.match(phone, /\.sn-side-panel\[data-phone='sheet'\]\s*\{[^}]*left:\s*0;[^}]*animation-name:\s*sn-sheet-rise/);
+  assert.match(phone, /\[data-phone='sheet'\]\[data-closing='true'\]\s*\{\s*translate:\s*0 34px/);
+  assert.match(CSS, /@keyframes sn-sheet-rise\s*\{/);
+  const code = stripComments(readFileSync(join(__dirname, 'side-panel.tsx'), 'utf8'));
+  assert.match(code, /data-phone=\{phone === 'sheet' \? 'sheet' : undefined\}/);
+});
+
+test('reduced motion: the drift stops and a closing panel does not wait', async () => {
+  const { sidePanelExitMs, SIDE_PANEL_EXIT_MS } = await import('./side-panel');
+  assert.equal(sidePanelExitMs(true), 0);
+  assert.equal(sidePanelExitMs(false), SIDE_PANEL_EXIT_MS);
+  // The constant mirrors the CSS duration the panel transitions with.
+  assert.equal(`${SIDE_PANEL_EXIT_MS}ms`, CSS.match(/--sn-dur-elem:\s*(\d+ms)/)?.[1]);
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.sn-canvas-drift::before\s*\{\s*animation:\s*none/);
 });

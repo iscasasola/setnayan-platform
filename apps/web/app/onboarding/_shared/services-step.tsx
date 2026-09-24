@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The onboarding SERVICES STEP — two cards, one shared component, mounted by all
+ * The onboarding SERVICES STEP — three cards, one shared component, mounted by all
  * three onboarding flows (BUILD SPEC § 3 · prototype 2026-07-29).
  *
  * Card 1 · Papic — ALWAYS ON and always free at its floor (the free pool grant +
@@ -12,6 +12,12 @@
  * Card 2 · Setnayan AI — introduced, never given away, and absent entirely on a
  *   vendor-free type. The gate is resolved server-side (services-step-server.ts);
  *   `view.ai === null` means it does not render at all.
+ * Card 3 · Event Hub Pro — owner 2026-09-25: *"there are 3 things they can
+ *   purchase Papic, Setnayan AI, Event Hub Pro."* Built exactly like card 2: a
+ *   yes/no that adds to the total and is minted on the same bill. `view.hubPro
+ *   === null` (no Event Hub on this type, or the catalog cannot price it) means
+ *   it does not render at all. Its words are the existing Pro offer sentence,
+ *   resolved server-side; the list of what it adds sits behind the house (i).
  *
  * ── WHY IT IS A CLIENT COMPONENT ────────────────────────────────────────────
  * Two of its three mounts are client wizards that own their screen sequence, so
@@ -74,7 +80,9 @@
  */
 
 import { useMemo, type ReactNode } from 'react';
-import { Camera, CheckCircle2, Sparkles, Users, UserRound } from 'lucide-react';
+import { Camera, CheckCircle2, Globe2, Sparkles, Users, UserRound } from 'lucide-react';
+
+import { InfoTip } from '@/app/_components/info-tip';
 
 import {
   orderPapicTypes,
@@ -90,6 +98,7 @@ import {
   quoteServicesStepSelection,
   quoteServicesStepLaterSelection,
   setAi,
+  setHubPro,
   stepPool,
   type ServicesStepSelection,
 } from '@/lib/onboarding-services-selection';
@@ -447,6 +456,7 @@ export function ServicesStep({
   className?: string;
 }) {
   const { papic, ai } = view;
+  const hubPro = view.hubPro ?? null;
   const types = useMemo(
     () => orderPapicTypes(papic.types, interestedServices),
     [papic.types, interestedServices],
@@ -457,9 +467,14 @@ export function ServicesStep({
   const quote = useMemo(
     () =>
       selection
-        ? quoteServicesStepSelection(papic.types, selection, ai?.pricePhp ?? null)
-        : { poolPhp: 0, aiPhp: 0, papicPhp: 0, totalPhp: 0 },
-    [papic.types, selection, ai],
+        ? quoteServicesStepSelection(
+            papic.types,
+            selection,
+            ai?.pricePhp ?? null,
+            hubPro?.pricePhp ?? null,
+          )
+        : { poolPhp: 0, aiPhp: 0, hubProPhp: 0, papicPhp: 0, totalPhp: 0 },
+    [papic.types, selection, ai, hubPro],
   );
 
   /**
@@ -470,9 +485,14 @@ export function ServicesStep({
   const laterPhp = useMemo(
     () =>
       selection
-        ? quoteServicesStepLaterSelection(papic.types, selection, ai?.listPricePhp ?? ai?.pricePhp ?? null)
+        ? quoteServicesStepLaterSelection(
+            papic.types,
+            selection,
+            ai?.listPricePhp ?? ai?.pricePhp ?? null,
+            hubPro?.listPricePhp ?? hubPro?.pricePhp ?? null,
+          )
         : 0,
-    [papic.types, selection, ai],
+    [papic.types, selection, ai, hubPro],
   );
   const savingPhp = Math.max(0, laterPhp - quote.totalPhp);
 
@@ -677,6 +697,91 @@ export function ServicesStep({
         </article>
       ) : null}
 
+      {/* ── CARD 3 · EVENT HUB PRO — gated server-side; null ⇒ never rendered ──
+          Owner 2026-09-25: Papic, Setnayan AI, Event Hub Pro. The same shape as
+          the planner card above, on purpose: a price, the saving if there is
+          one, and a tick that is OFF until the couple turns it on. The title is
+          the existing Pro offer sentence and what Pro adds sits behind the (i),
+          so this card adds no paragraph and no claim of its own. */}
+      {hubPro ? (
+        <article className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/12 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-terracotta-700">
+            <Globe2 aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+            {hubPro.label}
+          </span>
+
+          <h2 className="mt-3 text-balance font-serif text-2xl font-medium italic leading-tight text-ink">
+            {hubPro.headline}
+          </h2>
+          <p className="mt-1.5 flex flex-wrap items-baseline gap-2">
+            {hubPro.listPricePhp > hubPro.pricePhp && (
+              <span className="font-mono text-sm tabular-nums text-ink/40 line-through">
+                {peso(hubPro.listPricePhp)}
+              </span>
+            )}
+            <span className="font-mono text-lg font-semibold tabular-nums text-ink">
+              {hubPro.priceLabel}
+            </span>
+            <span className="text-xs text-ink/45">one-time · for this {eventWord}</span>
+          </p>
+          {/* The same comparison as the planner's: a row with no sign-up
+              discount has list === price, and this line says nothing at all. */}
+          {hubPro.listPricePhp > hubPro.pricePhp && (
+            <p className="mt-1 text-xs text-terracotta-700">
+              {peso(hubPro.listPricePhp - hubPro.pricePhp)} off while you&rsquo;re setting up —
+              it&rsquo;s {peso(hubPro.listPricePhp)} later.
+            </p>
+          )}
+
+          {hubPro.detail ? (
+            <InfoTip
+              label="What Pro adds"
+              align="start"
+              className="mt-3"
+              labelClassName="text-sm text-ink/60"
+            >
+              {hubPro.detail}
+            </InfoTip>
+          ) : null}
+
+          {interactive ? (
+            <button
+              type="button"
+              className={`mt-5 flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                selection.hubPro
+                  ? 'border-terracotta bg-terracotta/[0.07]'
+                  : 'border-ink/15 hover:border-ink/30'
+              }`}
+              role="switch"
+              aria-checked={selection.hubPro}
+              onClick={() => onSelectionChange(setHubPro(selection, !selection.hubPro))}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs ${
+                  selection.hubPro
+                    ? 'border-terracotta bg-terracotta text-cream'
+                    : 'border-ink/25'
+                }`}
+                aria-hidden
+              >
+                {selection.hubPro ? '✓' : ''}
+              </span>
+              <span className="flex-1 text-sm font-medium text-ink">
+                {selection.hubPro ? 'Added to your plan' : `Add ${hubPro.label} to my ${eventWord}`}
+              </span>
+              <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                {hubPro.priceLabel}
+              </span>
+            </button>
+          ) : (
+            <p className="mt-5 text-center text-sm text-ink/55">
+              You&rsquo;ll find {hubPro.label} in your Event Hub the moment your {eventWord}{' '}
+              is created.
+            </p>
+          )}
+        </article>
+      ) : null}
+
       {/* ── WHAT THEY OWE, AS TWO LINES ───────────────────────────────────
           Owner 2026-08-11, confirming the split: *"yes it can be just 50 and
           499"*. Papic and the planner are shown SEPARATELY and only summed at
@@ -699,6 +804,14 @@ export function ServicesStep({
                 <dt className="text-sm text-ink/70">Setnayan AI</dt>
                 <dd className="font-mono text-sm tabular-nums text-ink/80">
                   {quote.aiPhp > 0 ? peso(quote.aiPhp) : 'Not added'}
+                </dd>
+              </div>
+            ) : null}
+            {hubPro ? (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-sm text-ink/70">{hubPro.label}</dt>
+                <dd className="font-mono text-sm tabular-nums text-ink/80">
+                  {quote.hubProPhp > 0 ? peso(quote.hubProPhp) : 'Not added'}
                 </dd>
               </div>
             ) : null}

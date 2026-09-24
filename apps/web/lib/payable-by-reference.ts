@@ -66,6 +66,13 @@ export type Payable = {
    * reconciles against a bank message rather than guessing at it.
    */
   requiresReference: boolean;
+  /**
+   * A supplier's booking fee (`isBookingFeeOrder`) — Setnayan's cut of a
+   * booking for a real-world service. The ONLY lane the App Store / Play Store
+   * shell may pay; every other order is a digital SKU. See
+   * `storeShellRefusesPayable` in lib/store-shell.ts.
+   */
+  isBookingFee: boolean;
 };
 
 type OrderRow = {
@@ -197,6 +204,7 @@ export async function fetchPayableByReference(
       viewerUserId: viewerUserId ?? null,
     }),
     requiresReference: isBookingFee,
+    isBookingFee,
   };
 }
 

@@ -34,9 +34,23 @@ test('no shelf hides a composition at a breakpoint any more', () => {
 
 test('the one grid starts at ONE column and widens', () => {
   const s = src();
-  const grids = count(s, /className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"/g);
+  // Since 2026-09-24 every shelf lays out through the collection standard's
+  // `CollectionGrid`; the one-column-then-widen classes live in that component.
+  // `\b`, not `>`: Planning's grid takes `layout="poster"` since the collection
+  // template (owner-approved 2026-09-24) — still one grid per shelf. The
+  // poster grid is two-up on a phone BY THAT APPROVAL (the prototype's mobile
+  // viewport); every other shelf keeps the one-column start asserted below.
+  const grids = count(s, /<CollectionGrid\b/g);
   // Now happening · Planning · Put away · Untold · Told.
   assert.equal(grids, 5, `expected one grid per shelf, saw ${grids}`);
+  const card = stripComments(
+    readFileSync(join(HERE, '../../_components/collection-card.tsx'), 'utf8'),
+  );
+  assert.equal(
+    count(card, /className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"/g),
+    1,
+    'the collection grid no longer starts at one column and widens',
+  );
   assert.ok(
     !/grid-cols-2 gap-2\.5/.test(s),
     'the two-up phone chip grid is back',
@@ -65,9 +79,12 @@ test('nothing was lost in the collapse — the card carries every signal', () =>
   // the reason a dead card cannot open, and the story-page override; all four
   // are on the card that replaced them.
   const s = src();
-  const body = s.slice(s.indexOf('function GlassEventCard'), s.indexOf('function MobileEvent') > 0 ? s.indexOf('function MobileEvent') : s.indexOf('function EventAttention'));
+  const start = s.indexOf('function GlassEventCard');
+  const end = s.indexOf('\nfunction ', start + 1);
+  assert.ok(start >= 0 && end > start, 'GlassEventCard is gone from the board');
+  const body = s.slice(start, end);
   assert.match(body, /<StanceChip stance=\{stance\}/, 'the stance');
-  assert.match(body, /<EventAttention\s/, 'the count');
+  assert.match(body, /attention=\{eventAttention\(/, 'the count');
   assert.match(body, /\{closedReason\}/, 'why a dead card cannot open');
   assert.match(body, /const resolvedHref = storyHref \?\? href;/, 'the story-page override');
 });

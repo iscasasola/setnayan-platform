@@ -20,6 +20,7 @@ import {
 } from '@/lib/vendor-custom-catalog';
 import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import {
@@ -1530,6 +1531,23 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
  * fails the build if a basket can be assembled from a key that owns no hook —
  * because the symptom otherwise is an absence, not an error.
  */
+/**
+ * Basket items that are SWITCHED ON BY THE ORDER ITSELF and so need no hook.
+ *
+ * Event Hub Pro (`COUPLE_WEBSITE_PRO`, on the onboarding bill since 2026-09-25)
+ * has never had an activation hook, and a direct Pro order does not need one:
+ * every Pro gate asks `eventSkuActive`, which reads the order's status live —
+ * and, since the basket landed, reads the basket's items too (`basketGrantsSku`).
+ * Approving the bill IS the unlock; refunding it is the re-lock.
+ *
+ * 🔑 LISTED, NOT SILENTLY SKIPPED. The fan-out below reports an unhooked item as
+ * "paid for and never provisioned", which is exactly right for anything that
+ * DOES need provisioning. Pro does not, so without this list every approved
+ * Pro basket would page the team with a false fault — and an alarm that always
+ * fires on a healthy order is how the real one gets ignored.
+ */
+const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set([COUPLE_WEBSITE_PRO_SERVICE_KEY]);
+
 async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
   const items = await readOnboardingOrderItems(ctx.admin, ctx.orderId);
   if (items.length === 0) {
@@ -1542,6 +1560,8 @@ async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
     return;
   }
   for (const item of items) {
+    // Unlocked by the order's own status — nothing to provision. See the set.
+    if (ORDER_GATED_BASKET_ITEMS.has(item.serviceCode)) continue;
     const childHook = EXACT_HOOKS[item.serviceCode];
     if (!childHook) {
       console.error('[sku-activation] onboarding basket item has NO HOOK (non-fatal):', {

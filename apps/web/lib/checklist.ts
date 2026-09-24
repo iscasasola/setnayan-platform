@@ -755,6 +755,24 @@ export async function fetchChecklistItems(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<ChecklistItemRow[]> {
+  return (await readChecklistItems(supabase, eventId)) ?? [];
+}
+
+/**
+ * THE SAME READ, HONEST ABOUT FAILING: `null` when the rows could not be read,
+ * `[]` only when the event genuinely has none.
+ *
+ * `fetchChecklistItems` degrades a refused read to `[]`, which is right for a
+ * page that must render — and wrong for a caller that turns the rows into a
+ * NUMBER shown to a person. On the home board `[]` became "no percentage" and
+ * "0 tasks overdue": a confident "nothing needs you" printed off a read that
+ * never completed. Such callers read this one and render `null` as "couldn't
+ * load" (collection template, owner-approved 2026-09-24).
+ */
+export async function readChecklistItems(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<ChecklistItemRow[] | null> {
   const { data, error } = await supabase
     .from('event_checklist_items')
     .select(FIELDS)
@@ -768,7 +786,7 @@ export async function fetchChecklistItems(
       { event_id: eventId, missing_relation_match: isMissingRelationError(error) },
       'graceful_degrade',
     );
-    return [];
+    return null;
   }
   return (data ?? []) as unknown as ChecklistItemRow[];
 }

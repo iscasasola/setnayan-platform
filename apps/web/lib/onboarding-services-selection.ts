@@ -67,6 +67,16 @@ export type ServicesStepSelection = {
    * would let a tampered payload pick a cheaper one.
    */
   ai: boolean;
+  /**
+   * Event Hub Pro (`COUPLE_WEBSITE_PRO`), added at onboarding (owner 2026-09-25:
+   * *"there are 3 things they can purchase Papic, Setnayan AI, Event Hub Pro."*).
+   * A plain yes/no for the same reason as `ai`: there is one unlock per event.
+   *
+   * ⚠ NO PRICE RIDES WITH IT either. The server re-reads the catalog row, the
+   * event's own type (does it have an Event Hub at all?) and whether the event
+   * already owns Pro, at mint time — see lib/onboarding-hub-pro.ts.
+   */
+  hubPro: boolean;
 };
 
 export const EMPTY_SERVICES_SELECTION: ServicesStepSelection = {
@@ -75,6 +85,9 @@ export const EMPTY_SERVICES_SELECTION: ServicesStepSelection = {
   // event types it is worth ten times the whole Papic side — so pre-ticking it
   // would be adding the expensive thing to a couple's bill on their behalf.
   ai: false,
+  // OFF by default, like the planner: ticking a paid unlock on a couple's
+  // behalf is adding it to their bill for them.
+  hubPro: false,
 };
 
 // ONBOARDING_MAX_EXTRA_CAMERAS was here — a ceiling on how many dedicated
@@ -173,16 +186,23 @@ export function quoteServicesStepSelection(
    * (view.ai.pricePhp). Null / 0 when the card is not offered at all.
    */
   aiPricePhp: number | null = null,
-): { poolPhp: number; aiPhp: number; papicPhp: number; totalPhp: number } {
+  /**
+   * Event Hub Pro's sign-up price (view.hubPro.pricePhp). Null / 0 when the card
+   * is not offered — a type with no Event Hub, or an unpriced catalog row.
+   */
+  hubProPricePhp: number | null = null,
+): { poolPhp: number; aiPhp: number; hubProPhp: number; papicPhp: number; totalPhp: number } {
   const pool = types.find((t) => t.id === 'pool');
   const poolPhp = pool ? poolPriceAt(pool, poolStepOf(pool, selection)) : 0;
   const aiPhp = selection.ai && aiPricePhp && aiPricePhp > 0 ? aiPricePhp : 0;
+  const hubProPhp =
+    selection.hubPro && hubProPricePhp && hubProPricePhp > 0 ? hubProPricePhp : 0;
   // `papicPhp` is kept SEPARATE from the grand total on purpose (owner
   // 2026-08-11, confirming "yes it can be just 50 and 499"): on many event types
   // the whole Papic side is a few tens of pesos and the planner is several
   // hundred, so folding them into one number makes Papic look like the thing
   // that got expensive. The screen shows two lines.
-  return { poolPhp, aiPhp, papicPhp: poolPhp, totalPhp: poolPhp + aiPhp };
+  return { poolPhp, aiPhp, hubProPhp, papicPhp: poolPhp, totalPhp: poolPhp + aiPhp + hubProPhp };
 }
 
 /**
@@ -208,11 +228,14 @@ export function quoteServicesStepLaterSelection(
   types: readonly PapicTypeView[],
   selection: ServicesStepSelection,
   aiListPricePhp: number | null = null,
+  hubProListPricePhp: number | null = null,
 ): number {
   const pool = types.find((t) => t.id === 'pool');
   const poolPhp = pool ? poolListPriceAt(pool, poolStepOf(pool, selection)) : 0;
   const aiPhp = selection.ai && aiListPricePhp && aiListPricePhp > 0 ? aiListPricePhp : 0;
-  return poolPhp + aiPhp;
+  const hubProPhp =
+    selection.hubPro && hubProListPricePhp && hubProListPricePhp > 0 ? hubProListPricePhp : 0;
+  return poolPhp + aiPhp + hubProPhp;
 }
 
 /**
@@ -221,7 +244,7 @@ export function quoteServicesStepLaterSelection(
  * dashboard.
  */
 export function selectionHasPurchase(selection: ServicesStepSelection): boolean {
-  return selection.poolRungKey !== null || selection.ai;
+  return selection.poolRungKey !== null || selection.ai || selection.hubPro;
 }
 
 /** Toggle Setnayan AI. Its own setter so the AI card never touches Papic state. */
@@ -232,11 +255,19 @@ export function setAi(
   return { ...selection, ai };
 }
 
+/** Toggle Event Hub Pro. Its own setter, so the Pro card touches nothing else. */
+export function setHubPro(
+  selection: ServicesStepSelection,
+  hubPro: boolean,
+): ServicesStepSelection {
+  return { ...selection, hubPro };
+}
+
 /**
  * Normalise anything that arrives across the action boundary.
  *
  * The commit action receives this from the browser, so it is UNTRUSTED INPUT,
- * not a value object. This strips it to the two keys and a bounded integer;
+ * not a value object. This strips it to its three keys;
  * whether those keys name real, live, purchasable rungs is decided server-side
  * against the tier tables, exactly as the studio's own buy paths do.
  */
@@ -257,5 +288,8 @@ export function parseServicesStepSelection(raw: unknown): ServicesStepSelection 
     // ends up permanently ticked. Everything else, including 'false', '0', '',
     // and a missing field, is false.
     ai: o.ai === true || o.ai === 'true',
+    // Same rule as `ai`, for the same reason: the simple flow posts it as the
+    // STRING 'true'/'false', and only a genuine yes is a yes.
+    hubPro: o.hubPro === true || o.hubPro === 'true',
   };
 }

@@ -7,8 +7,7 @@ import { setupPricePhp, readOnboardingDiscountPct } from '@/lib/onboarding-disco
  *
  * Called from the event-commit paths, AFTER the event row and its free grants
  * exist. Mints a SINGLE order covering everything they chose — a Papic Pool
- * rung, N dedicated Papic One cameras, Setnayan AI — and returns where to send
- * them.
+ * rung, Setnayan AI, Event Hub Pro — and returns where to send them.
  *
  * ── WHY ONE ORDER AND NOT THREE ────────────────────────────────────────────
  * Owner: *"it will total and create a custom QR"* … *"it will also integrate the
@@ -71,6 +70,13 @@ import { ONBOARDING_SERVICES_SKU } from '@/lib/onboarding-order-items';
 import { orderRowFor } from '@/lib/order-mint-identity';
 import { resolveOrderChargeCentavos } from '@/lib/order-charge-authority';
 import { SETNAYAN_AI_SKU } from '@/lib/setnayan-ai-event-pricing';
+import {
+  COUPLE_WEBSITE_PRO_SERVICE_KEY,
+  eventCoupleWebsiteProActive,
+  eventOwnsCoupleWebsitePro,
+} from '@/lib/couple-website-pro';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { hubProBillLine } from '@/lib/onboarding-hub-pro';
 
 export type OnboardingOrderResult = {
   /** Public ids minted — at most one, since the basket is one bill. */
@@ -137,6 +143,45 @@ async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<numb
   );
   if (!Number.isFinite(php) || php <= 0) return null;
   return php;
+}
+
+/**
+ * Does this event's STORED type have an Event Hub? Read from the event row, never
+ * from the browser — the card's own gate is advisory, this one decides the bill.
+ * Fails CLOSED (false ⇒ not charged): an unread type must never become a sale.
+ */
+async function eventHasEventHub(admin: SupabaseClient, eventId: string): Promise<boolean> {
+  try {
+    const { data } = await admin
+      .from('events')
+      .select('event_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const type = (data as { event_type?: unknown } | null)?.event_type;
+    if (typeof type !== 'string' || type.length === 0) return false;
+    return surfaceEnabled(await resolveProfile(type), 'website');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Does this event ALREADY have Event Hub Pro — an order (pending counts, so a
+ * couple mid-review is not billed twice), or an active grant (an internal or
+ * founder-seat host, a comp)? 🔑 Never sell it twice.
+ *
+ * ⚠ FAILS TOWARDS "OWNED". The ownership readers throw on an unknown error, and
+ * the two ways to be wrong are not equal: skipping the line loses one sale,
+ * which the couple can make later from the Event Hub; billing an owner charges
+ * them for something they already have.
+ */
+async function eventAlreadyHasHubPro(admin: SupabaseClient, eventId: string): Promise<boolean> {
+  try {
+    if (await eventOwnsCoupleWebsitePro(admin, eventId)) return true;
+    return await eventCoupleWebsiteProActive(admin, eventId);
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -214,6 +259,36 @@ export async function mintOnboardingServiceOrders(
             label: 'Setnayan AI — the assisted planner for this event',
           });
         }
+      }
+    }
+
+    // ── Event Hub Pro (owner 2026-09-25) ────────────────────────────────────
+    // Priced like the Papic rungs — the ACTIVE catalog row through the shared
+    // sign-up rule (`priceOf`) — because Pro has ONE price for every event type
+    // and that is exactly what the card quoted. Three things are re-measured
+    // here and none is taken from the browser: the event's stored type has an
+    // Event Hub, the event does not already own Pro, and the row still prices.
+    // Any "no" drops the line and the couple is simply not charged for it.
+    if (selection.hubPro) {
+      const [websiteEnabled, alreadyOwned, unitPhp] = await Promise.all([
+        eventHasEventHub(admin, eventId),
+        eventAlreadyHasHubPro(admin, eventId),
+        priceOf(admin, COUPLE_WEBSITE_PRO_SERVICE_KEY),
+      ]);
+      const line = hubProBillLine({ selected: true, websiteEnabled, alreadyOwned, unitPhp });
+      if (line) {
+        parts.push({
+          serviceCode: COUPLE_WEBSITE_PRO_SERVICE_KEY,
+          quantity: line.quantity,
+          unitPhp: line.unitPhp,
+          label: 'Event Hub PRO — one upgrade for your whole Event Hub',
+        });
+      } else {
+        console.warn('[onboarding-services-orders] Event Hub Pro not billed at commit:', {
+          websiteEnabled,
+          alreadyOwned,
+          priced: unitPhp !== null,
+        });
       }
     }
 

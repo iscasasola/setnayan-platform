@@ -68,7 +68,8 @@ export type LeafGroup = {
 export type SkuOption = {
   serviceCode: string;
   title: string;
-  priceLabel: string;
+  /** Null in the App Store / Play Store shell, which shows no Setnayan price (lib/store-shell.ts). */
+  priceLabel: string | null;
 };
 
 export function RecommendationsPanel({
@@ -595,7 +596,7 @@ function SuggestControl({
           <option value="">Pick a service (optional)…</option>
           {options.map((o) => (
             <option key={o.serviceCode} value={o.serviceCode}>
-              {o.title} · {o.priceLabel}
+              {o.priceLabel ? `${o.title} · ${o.priceLabel}` : o.title}
             </option>
           ))}
         </select>

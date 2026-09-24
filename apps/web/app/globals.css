@@ -2219,8 +2219,10 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
  * (tab to the left → reverse) just before `document.startViewTransition`.
  *
  * Only the named content `<main>` (`.sn-vt-page` → `view-transition-name:sn-page`)
- * slides; everything else (the fixed pill, sidebar, sticky top bar) lives in the
- * `root` snapshot, which we freeze (`animation:none`) so the chrome stays put.
+ * slides. The sidebar and the sticky top bar ride in the frozen `root` snapshot;
+ * the floating pill and its FAB carry names of their OWN (`sn-bottomnav` /
+ * `sn-navfab`) because `root` paints BENEATH `sn-page` and the pill sits inside
+ * that page's box — see the long note on those rules below.
  *
  * The slide ONLY fires when the controller actually calls `startViewTransition`
  * — i.e. mobile + motion-allowed + VT-supported + a real top-level-tab change.
@@ -2236,10 +2238,73 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
 ::view-transition-group(sn-page) {
   overflow: clip; /* clip the off-screen layer so the slide can't scroll the page */
 }
-/* Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`. */
+/*
+ * Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`.
+ *
+ * 🔑 `animation: none` ALONE DOES NOT FREEZE — IT WASHES OUT. The UA sheet puts
+ * `mix-blend-mode: plus-lighter` on every `::view-transition-old/new` so the
+ * default cross-fade (old 1→0 over new 0→1) sums to a correct blend. Cancel the
+ * animations and BOTH snapshots sit at opacity 1 — plus-lighter then ADDS two
+ * near-identical opaque images, so the whole chrome brightens for the length of
+ * the slide and drops back. On this cream palette that reads as a full-screen
+ * white flash, i.e. "the page reloaded". `mix-blend-mode: normal` paints the new
+ * snapshot OVER the old instead of summing with it, which is what "stays put"
+ * was always meant to mean.
+ */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
+  mix-blend-mode: normal;
+}
+
+/*
+ * ── THE BOTTOM BAR IS NOT IN `root` ANY MORE (2026-09-22) ─────────────────
+ * The `::view-transition` pseudo tree paints ABOVE the live document, and its
+ * groups paint in capture order: `root` first, every named group after it. So
+ * the sliding `sn-page` snapshot paints OVER everything left in `root` that its
+ * box overlaps — and the `<main>` it names carries the
+ * `pb-[calc(env(safe-area-inset-bottom)+92px)]` clearance, which is precisely
+ * the strip the floating pill and its FAB sit in. The chrome did "stay put": it
+ * stayed put UNDERNEATH the page for the whole 320ms and came back after, which
+ * on a phone reads as the bar disappearing and reloading on every tab press.
+ *
+ * 🔑 THE ASYMMETRY IS THE TELL, AND IT IS GEOMETRY, NOT LIFECYCLE. The top bar
+ * sits ABOVE `<main>`'s box at scroll-top, so it is never covered and "seems to
+ * persist"; the bottom pill is inside that box at every scroll position, so it
+ * always is. Nothing remounts in either case — no React tree changes, and the
+ * navs live in the layout, above the segment that swaps.
+ *
+ * Naming them lifts each into its own group above `sn-page`. `animation: none`
+ * + `mix-blend-mode: normal` for the same reason as `root` above.
+ *
+ * ⚠ ONE ELEMENT PER NAME, OR THE BROWSER SKIPS THE WHOLE TRANSITION. Both
+ * selectors resolve to exactly one mounted element (`bottom-nav.tsx` is the one
+ * `aria-label="Primary navigation"` in the app — nav-slide-controller.tsx keys
+ * off the same marker — and one `<NavFab>` mounts per doorway).
+ *
+ * ⚠ `.shell-topbar` IS DELIBERATELY NOT NAMED. `view-transition-name` makes an
+ * element a containing block for `position: fixed` DESCENDANTS — the trap
+ * `panood/program/program-surface.tsx` and `lib/live-studio-control.ts` both
+ * already record — and the bar hosts the account panel and the command palette.
+ * The two named here are fixed elements already, so they are already the
+ * containing block for their own descendants and nothing moves.
+ */
+nav[aria-label='Primary navigation'] {
+  view-transition-name: sn-bottomnav;
+}
+.sn-vt-fab {
+  view-transition-name: sn-navfab;
+}
+::view-transition-group(sn-bottomnav),
+::view-transition-group(sn-navfab) {
+  animation: none;
+}
+::view-transition-old(sn-bottomnav),
+::view-transition-new(sn-bottomnav),
+::view-transition-old(sn-navfab),
+::view-transition-new(sn-navfab) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 ::view-transition-old(sn-page),
 ::view-transition-new(sn-page) {

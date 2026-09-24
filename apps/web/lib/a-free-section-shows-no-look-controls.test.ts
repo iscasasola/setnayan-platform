@@ -41,7 +41,11 @@ function row(config_json: unknown = null): InvitationWidgetRow {
   } as unknown as InvitationWidgetRow;
 }
 
-async function paint(r: InvitationWidgetRow, ownsPro: boolean): Promise<string> {
+async function paint(
+  r: InvitationWidgetRow,
+  ownsPro: boolean,
+  colorChoices: readonly string[] = [],
+): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SectionsPanel } = await import(
     '../app/dashboard/[eventId]/website/editor/_components/sections-panel'
@@ -59,6 +63,7 @@ async function paint(r: InvitationWidgetRow, ownsPro: boolean): Promise<string> 
       setBackgroundAction: noop,
       setCropAction: noop,
       photoChoices: CHOICES,
+      colorChoices,
       ownsPro,
       lookLock: React.createElement('p', null, LOCK),
     }),
@@ -100,6 +105,42 @@ test('an owning couple still gets every control, and no lock', async () => {
   assert.match(html, /name="preset"/);
   assert.match(html, new RegExp(`name="media" value="${PHOTO}"`));
   assert.match(html, /What to keep in frame/);
+});
+
+/* ── A section's COLOUR is free (owner 2026-09-24: "changing background color
+   is free. making media a background is pro.") — Phase 0 ④. The free rail used
+   to hide the colour swatches with the photo picker; a colour write is never
+   refused (`sectionBackgroundChange`), so a free couple must be OFFERED it. */
+const SWATCHES = ['#a9834b', '#35403a'] as const;
+
+test('a free couple is offered the section colour — and still no photo to pick', async () => {
+  const html = await paint(row(), false, SWATCHES);
+  for (const hex of SWATCHES) {
+    assert.match(html, new RegExp(`name="color" value="${hex}"`), `swatch ${hex}`);
+  }
+  assert.equal(count(html, 'name="kind" value="color"'), SWATCHES.length, 'no None chip until a colour is set');
+  assert.doesNotMatch(html, new RegExp(`value="${PHOTO}"`), 'no photo may be offered to pick');
+  assert.doesNotMatch(html, /name="kind" value="snippet"/, 'no video may be offered either');
+  assert.doesNotMatch(html, /What to keep in frame/);
+});
+
+test('a free couple with a colour set can change it or clear it', async () => {
+  const html = await paint(row({ canvas: { kind: 'color', color: SWATCHES[0] } }), false, SWATCHES);
+  assert.match(html, new RegExp(`aria-label="Current background colour ${SWATCHES[0]}"`));
+  assert.match(html, /name="color" value=""/, 'a None chip clears the colour');
+  assert.doesNotMatch(html, /Remove this section/, 'a colour is not media — nothing to remove');
+});
+
+test('a free couple with a Scrub hand-over (#5951) can reset it', async () => {
+  const html = await paint(row({ canvas: { transition: 'scrub' } }), false);
+  assert.match(html, /Reset how it moves/);
+  assert.doesNotMatch(html, /name="transition"/, 'the transition may not be re-chosen');
+});
+
+test('an owning couple sees the same colour swatches beside the photos', async () => {
+  const html = await paint(row(), true, SWATCHES);
+  for (const hex of SWATCHES) assert.match(html, new RegExp(`name="color" value="${hex}"`));
+  assert.match(html, new RegExp(`name="media" value="${PHOTO}"`));
 });
 
 /* ── The Colours row (owner 2026-09-24: "changing background color is free") ── */

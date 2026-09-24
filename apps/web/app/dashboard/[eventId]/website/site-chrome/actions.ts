@@ -98,7 +98,10 @@ export async function updateSiteChrome(
     }
   }
   if (formData.has('hero_video_url')) {
-    const videoRef = r2RefOrNull(formData.get('hero_video_url'), eventId);
+    const videoRef = r2RefOrNull(
+      formData.get('hero_video_url'),
+      eventId,
+    );
     const videoChange = refChange(
       stored?.landing_page_hero_video_r2_key as string | null | undefined,
       videoRef,

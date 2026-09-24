@@ -15,8 +15,6 @@ import {
   nextFreeCustomSlot,
   readCustomSectionInput,
 } from '@/lib/custom-sections';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   HUB_DIRECTIONS,
   HUB_FOCAL_POINTS,

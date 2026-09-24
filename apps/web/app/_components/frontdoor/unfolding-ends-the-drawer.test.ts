@@ -107,13 +107,16 @@ test('🚨 the shell and the stylesheet agree where the drawer ends', () => {
 });
 
 // ── A PHONE SPANNED ACROSS A HINGE ──────────────────────────────────────────
-// `front-door-fold.css` widens the rail's column to the left-hand screen when a
+// The FOLDABLES block at the end of `app/globals.css` widens the rail's column to the left-hand screen when a
 // dual-screen phone is spanned, so the content starts on the right-hand one.
 // That only means anything while the rail is INLINE; below that the rail is a
 // drawer and the body is one column. So its floor must be the drawer's ceiling —
 // the same agreement as above, from the other side.
-const FOLD = readFileSync(join(HERE, 'front-door-fold.css'), 'utf8');
-const RAIL_SHELL = stripTs(readFileSync(join(HERE, 'app-rail-shell.tsx'), 'utf8'));
+// It lives in globals.css — which the root layout loads — never in a `.css`
+// import beside a component: the unit runner loads components under node, where
+// a stylesheet import is a SyntaxError (#5961, first push).
+const FOLD = readFileSync(join(HERE, '..', '..', 'globals.css'), 'utf8');
+const ROOT_LAYOUT = stripTs(readFileSync(join(HERE, '..', '..', 'layout.tsx'), 'utf8'));
 
 test('🚨 a spanned phone puts the content on one screen — from exactly where the rail becomes inline', () => {
   const m =
@@ -122,7 +125,7 @@ test('🚨 a spanned phone puts the content on one screen — from exactly where
     );
   assert.ok(
     m,
-    'front-door-fold.css no longer sets --fd-rail to the left segment under two side-by-side viewport segments — content will run across the hinge again',
+    'globals.css no longer sets --fd-rail to the left segment under two side-by-side viewport segments — content will run across the hinge again',
   );
   const floor = Number(m[1]);
   const cssMax = drawerCeilingPx();
@@ -131,9 +134,9 @@ test('🚨 a spanned phone puts the content on one screen — from exactly where
     `the hinge rule starts at ${floor}px but the rail stays a drawer up to ${cssMax}px`,
   );
   assert.match(
-    RAIL_SHELL,
-    /import\s+'\.\/front-door-fold\.css'/,
-    'app-rail-shell.tsx no longer loads front-door-fold.css — the rule exists and reaches nothing',
+    ROOT_LAYOUT,
+    /import\s+'\.\/globals\.css'/,
+    'the root layout no longer loads globals.css — the hinge rule exists and reaches nothing',
   );
 });
 

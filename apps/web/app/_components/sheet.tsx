@@ -3,7 +3,6 @@
 import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import './sheet-fold.css';
 
 // Reusable mobile-first sheet primitive. Slides up from the bottom on
 // small screens (single-thumb reach) and docks as a right-side drawer on
@@ -33,7 +32,9 @@ import './sheet-fold.css';
 // 🔑 ONE APP, ONE ANSWER. The breakpoint is now the same line the navigation
 // already draws. If that line ever moves, both must move together.
 //
-// 📱 FOLDABLES (2026-09-25) — `sheet-fold.css`, not Tailwind classes, because
+// 📱 FOLDABLES (2026-09-25) — the `FOLDABLES` block at the end of globals.css
+// (never a `.css` import here: tests load this module under node), not
+// Tailwind classes, because
 // none of these is a desktop rule and the guard beside this file rightly
 // forbids a second breakpoint among the classes:
 //   - between 640 and the dock point the bottom sheet stays a bottom sheet but
@@ -125,7 +126,7 @@ export function Sheet({
         className={`absolute inset-0 bg-ink/40 backdrop-blur-sm${rise ? ' sn-fade' : ''}`}
       />
 
-      {/* Sheet body — `data-sheet-panel` is the hook `sheet-fold.css` sizes on a
+      {/* Sheet body — `data-sheet-panel` is the hook globals.css's FOLDABLES block sizes on a
           tablet, an unfolded foldable, and a phone folded at a hinge. */}
       <div
         data-sheet-panel=""

@@ -106,13 +106,18 @@ test('the wide drawer is still wider than the narrow one', () => {
 });
 
 // ── FOLDABLES (2026-09-25) ─────────────────────────────────────────────────
-// `sheet-fold.css` caps the bottom sheet on tablets and unfolded phones and
-// keeps it off a hinge. It lives in CSS precisely so the class-level rule above
-// stays true — which means this file must hold the CSS to the same line, or the
-// cap could drift into the drawer band and be the half-transformed sheet the
-// first test exists to prevent.
+// The FOLDABLES block at the end of `app/globals.css` caps the bottom sheet on
+// tablets and unfolded phones and keeps it off a hinge. It lives in CSS
+// precisely so the class-level rule above stays true — which means this file
+// must hold the CSS to the same line, or the cap could drift into the drawer
+// band and be the half-transformed sheet the first test exists to prevent.
+//
+// 🪤 It is in globals.css, not a `sheet-fold.css` beside the component: this
+// module is loaded by the unit runner (node + tsx) through other tests, and a
+// `.css` import there was a SyntaxError that killed them (#5961, first push).
 
-const FOLD_CSS = stripComments(readFileSync(join(HERE, 'sheet-fold.css'), 'utf8'));
+const GLOBALS = readFileSync(join(HERE, '..', 'globals.css'), 'utf8');
+const FOLD_CSS = stripComments(GLOBALS);
 const RESPONSIVE = readFileSync(join(HERE, '..', '..', 'lib', 'use-responsive.ts'), 'utf8');
 
 /** The px value `lib/use-responsive.ts` gives a Tailwind breakpoint name. */
@@ -127,7 +132,7 @@ test('🚨 the tablet cap on the bottom sheet ends exactly where the sheet docks
     /@media\s*\(min-width:\s*(\d+)px\)\s*and\s*\(max-width:\s*([\d.]+)px\)\s*{\s*\[data-sheet\]\s*>\s*\[data-sheet-panel\]\s*{[^}]*max-width:/.exec(
       FOLD_CSS,
     );
-  assert.ok(m, 'sheet-fold.css no longer caps the bottom sheet inside a min/max-width band');
+  assert.ok(m, 'globals.css no longer caps the bottom sheet inside a min/max-width band');
   const ceiling = Number(m[2]);
   const dock = breakpointPx(sheetDockPoint());
   assert.ok(
@@ -137,8 +142,12 @@ test('🚨 the tablet cap on the bottom sheet ends exactly where the sheet docks
   );
 });
 
-test('the fold rules reach the sheet — the hooks they select are on the component and the file is loaded', () => {
-  assert.match(SHEET_CODE, /import\s+'\.\/sheet-fold\.css'/, 'sheet.tsx no longer imports sheet-fold.css');
+test('the fold rules reach the sheet — hooks on the component, rules in the global sheet, no CSS import in the module', () => {
+  assert.doesNotMatch(
+    SHEET_CODE,
+    /import\s+['"][^'"]+\.css['"]/,
+    'sheet.tsx imports a stylesheet — the unit runner loads this module under node, where a .css import is a SyntaxError',
+  );
   assert.match(SHEET_CODE, /\bdata-sheet=/, 'the dialog wrapper lost its data-sheet hook');
   assert.match(SHEET_CODE, /\bdata-sheet-panel=/, 'the sheet body lost its data-sheet-panel hook');
   assert.match(

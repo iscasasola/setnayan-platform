@@ -13,16 +13,20 @@ an estimated foldable iPhone (720×960 / 960×720) and a Surface Duo spanned acr
   `useIsDesktop('lg')` turns true. Guarded by
   `app/_components/frontdoor/unfolding-ends-the-drawer.test.ts` (agreement between the hook's
   breakpoint and the drawer's `max-width` in `front-door.css`; red under two sabotages).
-- **The sheet fits foldables and hinges** (`app/_components/sheet-fold.css`, hooks
-  `data-sheet` / `data-sheet-panel` on `sheet.tsx`): between 640 and the dock point the bottom
+- **The sheet fits foldables and hinges** (the FOLDABLES block at the end of
+  `app/globals.css`, hooks `data-sheet` / `data-sheet-panel` on `sheet.tsx`): between 640 and the dock point the bottom
   sheet caps at 40rem and centres instead of spanning a 690–1023px screen; with two
   side-by-side viewport segments it takes the right-hand segment exactly; with two stacked
   segments (Flex/tabletop) it stays on the lower half. CSS only, so a fold mid-flow keeps the
   sheet's state. Guarded by two new tests in `sheet-agrees-with-the-nav.test.ts`.
-- **A spanned dual-screen phone reads on one screen** (`front-door-fold.css`, loaded by
-  `app-rail-shell.tsx`): at ≥1024 with two side-by-side segments the rail's column becomes
+- **A spanned dual-screen phone reads on one screen** (same globals.css block): at ≥1024 with two side-by-side segments the rail's column becomes
   the left screen, so content starts on the right one. Before, the front door's headline
   broke across the hinge and ten headings/cards straddled it; after, one (the top-bar search).
+
+Both rule sets live in globals.css, never a `.css` import beside a component: the unit
+runner loads `sheet.tsx` under node, and the first push's `import './sheet-fold.css'` was a
+SyntaxError that killed every test reaching it. The sheet guard now fails if a stylesheet
+import returns to `sheet.tsx`.
 
 Not changed (owner/plan items, see the audit): iPhone stays portrait-only in `Info.plist`;
 the app still switches phone→desktop chrome at 1024, so 600–1023 foldables get the phone

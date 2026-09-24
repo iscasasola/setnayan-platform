@@ -5482,3 +5482,92 @@ html:has([data-sticky-top]) {
   outline: 2px solid var(--sn-ob-gold, #CBA766);
   outline-offset: 2px;
 }
+
+/* ══ FOLDABLES (2026-09-25) ═══════════════════════════════════════════════ */
+
+/*
+  SHEET ON FOLDABLES, TABLETS AND DUAL-SCREEN PHONES (foldables audit, 2026-09-25).
+
+  `sheet.tsx` owns the phone → desktop switch (a bottom sheet below the nav's
+  breakpoint, a right-docked drawer from it). These rules only adjust that
+  shape for screens the switch cannot see, and they never add a second
+  breakpoint to the component's classes — see `sheet-agrees-with-the-nav.test.ts`,
+  which also holds the band below to the same dock point.
+
+  🪤 THESE LIVE IN globals.css, NOT BESIDE THE COMPONENT. `sheet.tsx` is loaded
+  by the unit runner (node + tsx) through several tests, and a `.css` import in
+  a module node loads is a SyntaxError that kills every one of them.
+
+  Selectors are `[data-sheet] > [data-sheet-panel]` (two attributes) so they
+  outrank a single Tailwind utility regardless of stylesheet order.
+*/
+
+/* 1 · A TABLET OR AN UNFOLDED PHONE, STILL IN THE BOTTOM-SHEET BAND.
+   A Galaxy Fold's inner screen is ~690px wide and an unfolded iPhone is
+   expected near 720px — both below the dock point, so both got a bottom sheet
+   stretched edge to edge with every row 690px long. It stays a bottom sheet;
+   it just stops at 40rem and centres (the wrapper is `justify-center` in this
+   band). 40rem is Material's large-screen bottom-sheet cap. The ceiling is the
+   dock point minus a hair, the same `max-width: 1023.98px` convention the
+   front door's stylesheet uses. */
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  [data-sheet] > [data-sheet-panel] {
+    max-width: 40rem;
+  }
+}
+
+/* 2 · FOLDED LIKE A BOOK — two side-by-side viewport segments (a half-open
+   Fold, a Surface Duo spanned across both screens). Without this, a bottom
+   sheet ran across the hinge and the drawer's wide variant started 4px inside
+   it. The sheet takes the right-hand segment, exactly. */
+@media (horizontal-viewport-segments: 2) {
+  [data-sheet] {
+    justify-content: flex-end;
+  }
+  [data-sheet] > [data-sheet-panel] {
+    width: env(viewport-segment-width 1 0);
+    max-width: env(viewport-segment-width 1 0);
+  }
+}
+
+/* 3 · FOLDED LIKE A LAPTOP — two stacked segments (Flex / tabletop posture).
+   The sheet sits on the lower half, where the thumbs are, and never climbs
+   over the crease. At desktop widths the drawer is full height by default, so
+   it is told to sit at the bottom instead. */
+@media (vertical-viewport-segments: 2) {
+  [data-sheet] > [data-sheet-panel] {
+    align-self: flex-end;
+    height: auto;
+    max-height: env(viewport-segment-height 0 1);
+  }
+}
+
+/*
+  THE SHELL ON A PHONE SPANNED ACROSS A HINGE (foldables audit, 2026-09-25).
+
+  A dual-screen phone opened flat and spanned (Surface Duo: two 540px screens
+  with a 34px hinge between them), or a foldable held like a book, reports two
+  side-by-side viewport segments. At 1024px and up the rail is inline, so the
+  shell drew a 72px icon strip and ONE content column across both screens —
+  measured under an emulated hinge on production: the front door's headline
+  broke as "Filipino ev | ent", and ten headings, paragraphs and cards sat
+  across the gap.
+
+  The rail's column simply becomes the left-hand screen (plus the hinge), so
+  the content column starts on the right-hand screen and nothing reads across
+  the gap. The rail keeps whatever row style its width band already gives it;
+  only the column it sits in widens. `.fd-body`'s `var(--fd-rail) 1fr` grid and
+  every `left: var(--fd-rail)` offset follow the one variable.
+
+  The floor is the rail's own: below 1024 it is an off-canvas drawer, the body
+  is one column, and there is no rail column to widen — see
+  `unfolding-ends-the-drawer.test.ts`, which holds this number to the drawer's ceiling in
+  `front-door.css`. Lives in globals.css for the same reason as the sheet
+  block above — no `.css` import in a module the unit runner loads. `.fd.fd` outranks the `.fd` rules that set the variable in
+  each width band, whichever stylesheet loads last.
+*/
+@media (horizontal-viewport-segments: 2) and (min-width: 1024px) {
+  .fd.fd {
+    --fd-rail: env(viewport-segment-left 1 0);
+  }
+}

@@ -4761,9 +4761,9 @@ html:has([data-sticky-top]) {
    and moved no pixels would be the exact defect this build exists to remove,
    so the editor does not offer them either. They land with per-section
    backgrounds, and the contract is already the right shape for it.
-   Likewise the LEFT / RIGHT arrangements: splitting a section into a photo
-   column and a words column needs the widget to expose two slots, and today it
-   exposes one. `full` and `text` are the two that are honest right now. */
+   The LEFT / RIGHT arrangements landed 2026-09-24 (custom sections, Build 4):
+   the FRAME supplies the photo column, so no widget had to expose a second
+   slot — see `.hub-photo-beside` below. */
 
 .hub-canvas { display: block; }
 /* `full` is the default and is stated rather than implied: the contract emits
@@ -4772,6 +4772,46 @@ html:has([data-sticky-top]) {
    or a previous choice applied. */
 .hub-arr-full { max-width: none; margin-inline: 0; }
 .hub-arr-text { max-width: 58ch; margin-inline: auto; }
+
+/* ── PHOTO BESIDE THE WORDS (left / right) ─────────────────────────────────
+   `hubPhotoPlacement` returns `beside` for these two, and the frame then draws
+   `.hub-canvas-photo` as a SIBLING of the words rather than a layer under them.
+
+   📱 ONE COLUMN FIRST. At 375px there is no room for two, so the photo stacks
+   ABOVE the words for both left and right — a phone reader meets the picture,
+   then what it is about. Two columns only from 768px, where `right` moves the
+   photo after the words.
+
+   🔑 The clipping box holds the couple's zoom: the transform lives on the
+   CHILDLESS inner layer, so a scaled photo can never spill over the words and
+   nothing can ever sit under the transform. The crop is the same 3x3 focal
+   point as the background — never a pixel offset ("rails on"). */
+.hub-photo-beside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(14px, 3vw, 28px);
+  align-items: center;
+}
+.hub-photo-beside > .hub-canvas-photo {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+}
+.hub-photo-beside > .hub-canvas-photo > .hub-canvas-photo-img {
+  position: absolute;
+  inset: 0;
+  background-image: var(--hub-media);
+  background-size: cover;
+  background-position: var(--hub-focal);
+  background-repeat: no-repeat;
+  transform: scale(var(--hub-zoom, 1));
+  transform-origin: var(--hub-focal);
+}
+.hub-photo-beside > .hub-canvas-body { display: block; min-width: 0; }
+@media (min-width: 768px) {
+  .hub-photo-beside { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .hub-arr-right.hub-photo-beside > .hub-canvas-photo { order: 2; }
+}
 
 /* ── THE SECTION BACKGROUND ────────────────────────────────────────────────
    Two layers, and the words are ALWAYS the upper one. The picture is a

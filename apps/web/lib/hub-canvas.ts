@@ -415,6 +415,36 @@ export function hubCanvasVars(
 
 }
 
+/** A stored arrangement, or null — the closed set of four, nothing else. */
+export function hubArrangement(value: unknown): HubArrangement | null {
+  return inSet(HUB_ARRANGEMENTS, value) ? value : null;
+}
+
+/**
+ * WHERE THE PHOTO GOES, given the arrangement and whether a photo RESOLVED.
+ *
+ *   full  → behind the words (the shipped background, scrim and all)
+ *   left / right → beside the words: its own column on a laptop, stacked ABOVE
+ *                  the words on a phone (375px has no room for two columns)
+ *   text  → nowhere. "Words only" means words only — a photo still chosen for
+ *           the section is kept (switching back restores it) but not drawn.
+ *
+ * 🔑 ONE PHOTO, ONE HOME. The picture beside the words is the same
+ * `canvas.media` + `focal` + `zoom` the background already stores, held to the
+ * public bucket by `hubMediaRef`. A second "section photo" field would be a
+ * second answer to "which photo is this section's", and the two would drift.
+ *
+ * Pure; the frame and the stylesheet both follow what this returns.
+ */
+export type HubPhotoPlacement = 'behind' | 'beside' | 'none';
+export function hubPhotoPlacement(canvas: HubSectionCanvas, hasMedia: boolean): HubPhotoPlacement {
+  if (!hasMedia) return 'none';
+  const arrangement = canvas.arrangement ?? HUB_DEFAULT_ARRANGEMENT;
+  if (arrangement === 'text') return 'none';
+  if (arrangement === 'left' || arrangement === 'right') return 'beside';
+  return 'behind';
+}
+
 /**
  * The class the section's wrapper carries, so CSS can select on the choices
  * that are structural rather than numeric. Deliberately one flat string: a
@@ -423,13 +453,18 @@ export function hubCanvasVars(
  */
 export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): string {
   const m = resolveHubMotion(canvas);
+  const placement = hubPhotoPlacement(canvas, hasMedia);
   return [
     'hub-canvas',
     /* 🔑 ON THE RESOLVED URL, NOT ON THE STORED REF. A ref whose signing failed
        — a deleted object, a refused bucket — must not leave the section styled
        as though it had a picture: that is a dark empty plate where a photo
        should be, which reads as a broken page rather than as no photo. */
-    hasMedia ? 'hub-has-media' : 'hub-no-media',
+    placement === 'behind'
+      ? 'hub-has-media'
+      : placement === 'beside'
+        ? 'hub-photo-beside'
+        : 'hub-no-media',
     `hub-seq-${m.sequence === 'one_after_another' ? 'parts' : 'whole'}`,
     `hub-arr-${canvas.arrangement ?? HUB_DEFAULT_ARRANGEMENT}`,
     `hub-in-${m.in}`,

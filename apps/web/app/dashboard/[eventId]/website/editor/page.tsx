@@ -629,6 +629,11 @@ export default async function WebsiteEditorPage({
               saveCustomAction={saveCustomSection}
               addCustomAction={addCustomSection}
               photoChoices={photoChoices}
+              /* A section of their own is Pro (owner 2026-09-22) — locked with
+                 the SAME panel every other Pro row uses, passed as an element.
+                 The actions refuse a free couple independently. */
+              ownsPro={ownsPro}
+              customLock={lockPanel('A section of your own')}
             />
           ),
         },

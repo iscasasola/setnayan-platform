@@ -58,6 +58,7 @@ export function AnimateRows({
   tempo,
   initialTiming,
   owned,
+  includedNote = null,
   checkout,
   unlock,
 }: {
@@ -69,6 +70,10 @@ export function AnimateRows({
   initialTiming: { dur: number; delay: number; smooth: number };
   /** Does the event own the paid animation already? */
   owned: boolean;
+  /** "Included with Event Hub Pro" when the animation came with Pro (owner
+   *  2026-09-24) — shown on the owned state so the missing ₱500 button reads
+   *  as a benefit, not a glitch. Null otherwise. */
+  includedNote?: string | null;
   /** Everything the checkout drawer needs, read server-side. Null when owned,
    *  in the store shell (App Review 3.1.1), or when the catalog price could not
    *  be read — and then no purchase is offered rather than a guessed one. */
@@ -244,6 +249,12 @@ export function AnimateRows({
             />
           ) : null}
         </div>
+
+        {owned && includedNote ? (
+          <p data-included-with-hub-pro className="text-center text-xs font-medium text-success-800">
+            {includedNote}
+          </p>
+        ) : null}
 
         {result ? (
           <p

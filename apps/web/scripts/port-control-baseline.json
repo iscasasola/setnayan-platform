@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "53674706e",
+  "generatedFromRef": "26e82d686",
   "routeCount": 431,
   "destinations": 927,
   "actions": 663,
-  "blocks": 4635,
+  "blocks": 4636,
   "routes": {
     "/": {
       "files": [
@@ -4882,6 +4882,7 @@
         "EventMonogram",
         "EventRailContext",
         "EventScene",
+        "EventStudioRow",
         "EventVendorRowInput",
         "ExpandCard",
         "Field",
@@ -8147,6 +8148,7 @@
         "dashboard/[eventId]/website/editor/_components/rail-rows.ts",
         "dashboard/[eventId]/website/editor/_components/sections-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/text-panel.tsx",
+        "dashboard/[eventId]/website/editor/_components/unlock-label.ts",
         "dashboard/[eventId]/website/editor/actions.ts",
         "dashboard/[eventId]/website/editor/page.tsx"
       ],
@@ -9677,11 +9679,11 @@
         "CreatorBadge",
         "CreatorInfluence",
         "CreatorTierChip",
-        "EventMonogram",
         "FollowButton",
         "Link",
         "Metadata",
         "MutualDays",
+        "PosterSprig",
         "ProfileShareButton",
         "ReportPageButton",
         "ScaledTileList",

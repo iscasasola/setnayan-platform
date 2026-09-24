@@ -62,6 +62,7 @@ import { isRailFocused, type RailFocus, type RailFocusIcon } from './rail-focus'
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
+import { useIsDesktop } from '@/lib/use-responsive';
 import { LogoMark } from '@/app/_components/brand-marks';
 import { VendorAvatar, deriveVendorInitials } from '@/app/_components/vendor-avatar';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
@@ -682,6 +683,36 @@ export function FrontDoorShell({
     },
     [],
   );
+
+  /*
+    🔓 THE DRAWER IS A NARROW-SCREEN STATE — UNFOLDING THE PHONE ENDS IT.
+    (Foldables audit, 2026-09-25.) Open the drawer on a Galaxy Fold's 690px
+    inner screen, rotate it or span a dual-screen phone past 1024, and the
+    rail stops being a drawer: CSS pins it inline and hides the scrim. But
+    `railOpen` stayed `true`, so the `inert` on the content column below
+    stayed too — measured on production: every link in the page answered
+    `inertAncestor: true` and `elementFromPoint` missed the column entirely.
+    A page that looks normal and ignores every tap, with no scrim to dismiss
+    because the scrim is `display:none` at that width. Folding back re-opened
+    the drawer the person had long forgotten.
+
+    So crossing into the width where the rail lives inline closes the drawer
+    outright — no slide, since at that width there is no drawer to slide. The
+    breakpoint is the rail's own (`lg`, the `max-width: 1023.98px` block in
+    front-door.css), read through the shared hook rather than a hand-typed
+    query, so the two cannot drift apart.
+  */
+  const railIsInline = useIsDesktop('lg');
+  useEffect(() => {
+    if (!railIsInline || !(railOpen || railClosing)) return;
+    if (railCloseTimer.current) {
+      clearTimeout(railCloseTimer.current);
+      railCloseTimer.current = null;
+    }
+    setRailClosing(false);
+    setRailOpen(false);
+  }, [railIsInline, railOpen, railClosing]);
+
   const { openSignIn, panel: signInPanel } = useSignInPanel();
 
   const inApp = variant === 'app';

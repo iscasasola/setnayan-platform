@@ -32,6 +32,22 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 // 🔑 ONE APP, ONE ANSWER. The breakpoint is now the same line the navigation
 // already draws. If that line ever moves, both must move together.
 //
+// 📱 FOLDABLES (2026-09-25) — the `FOLDABLES` block at the end of globals.css
+// (never a `.css` import here: tests load this module under node), not
+// Tailwind classes, because
+// none of these is a desktop rule and the guard beside this file rightly
+// forbids a second breakpoint among the classes:
+//   - between 640 and the dock point the bottom sheet stays a bottom sheet but
+//     stops at 40rem, centred (Material's large-screen bottom-sheet cap). On a
+//     Galaxy Fold's 690px inner screen it spanned edge to edge;
+//   - a phone folded like a BOOK (two side-by-side viewport segments — a
+//     half-open Fold, a Surface Duo spanned) puts the sheet on the right-hand
+//     segment instead of across the hinge;
+//   - a phone folded like a LAPTOP (two stacked segments — Flex mode) keeps it
+//     on the lower half.
+// A resize never remounts the sheet: every one of these is CSS, so a fold or
+// unfold mid-flow keeps what the person typed.
+//
 // Accessibility (all via the shared `useModalA11y` primitive):
 //   - role="dialog" + aria-modal="true"
 //   - aria-labelledby points at a heading the consumer renders
@@ -98,6 +114,7 @@ export function Sheet({
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledById}
+      data-sheet=""
       className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none"
     >
       {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
@@ -109,8 +126,10 @@ export function Sheet({
         className={`absolute inset-0 bg-ink/40 backdrop-blur-sm${rise ? ' sn-fade' : ''}`}
       />
 
-      {/* Sheet body */}
+      {/* Sheet body — `data-sheet-panel` is the hook globals.css's FOLDABLES block sizes on a
+          tablet, an unfolded foldable, and a phone folded at a hinge. */}
       <div
+        data-sheet-panel=""
         className={`${rise ? 'sn-rise ' : ''}relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
           wide ? 'lg:w-[min(34rem,92vw)]' : 'lg:w-[22rem]'
         }`}

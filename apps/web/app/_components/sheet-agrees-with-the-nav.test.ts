@@ -27,6 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHEET = readFileSync(join(HERE, 'sheet.tsx'), 'utf8');
@@ -101,5 +102,62 @@ test('the wide drawer is still wider than the narrow one', () => {
   assert.ok(
     Number(w) > Number(n),
     `the "wide" drawer (${w}rem) is not wider than the default (${n}rem)`,
+  );
+});
+
+// ── FOLDABLES (2026-09-25) ─────────────────────────────────────────────────
+// The FOLDABLES block at the end of `app/globals.css` caps the bottom sheet on
+// tablets and unfolded phones and keeps it off a hinge. It lives in CSS
+// precisely so the class-level rule above stays true — which means this file
+// must hold the CSS to the same line, or the cap could drift into the drawer
+// band and be the half-transformed sheet the first test exists to prevent.
+//
+// 🪤 It is in globals.css, not a `sheet-fold.css` beside the component: this
+// module is loaded by the unit runner (node + tsx) through other tests, and a
+// `.css` import there was a SyntaxError that killed them (#5961, first push).
+
+const GLOBALS = readFileSync(join(HERE, '..', 'globals.css'), 'utf8');
+const FOLD_CSS = stripComments(GLOBALS);
+const RESPONSIVE = readFileSync(join(HERE, '..', '..', 'lib', 'use-responsive.ts'), 'utf8');
+
+/** The px value `lib/use-responsive.ts` gives a Tailwind breakpoint name. */
+function breakpointPx(name: string): number {
+  const m = new RegExp(`\\b${name}\\s*:\\s*(\\d+)`).exec(strip(RESPONSIVE));
+  assert.ok(m, `lib/use-responsive.ts no longer declares "${name}"`);
+  return Number(m[1]);
+}
+
+test('🚨 the tablet cap on the bottom sheet ends exactly where the sheet docks', () => {
+  const m =
+    /@media\s*\(min-width:\s*(\d+)px\)\s*and\s*\(max-width:\s*([\d.]+)px\)\s*{\s*\[data-sheet\]\s*>\s*\[data-sheet-panel\]\s*{[^}]*max-width:/.exec(
+      FOLD_CSS,
+    );
+  assert.ok(m, 'globals.css no longer caps the bottom sheet inside a min/max-width band');
+  const ceiling = Number(m[2]);
+  const dock = breakpointPx(sheetDockPoint());
+  assert.ok(
+    dock > ceiling && dock - ceiling < 1,
+    `the bottom-sheet cap runs to ${ceiling}px but the sheet docks at ${dock}px — ` +
+      'the cap would either leak onto the desktop drawer or leave a band where a tablet sheet is stretched again',
+  );
+});
+
+test('the fold rules reach the sheet — hooks on the component, rules in the global sheet, no CSS import in the module', () => {
+  assert.doesNotMatch(
+    SHEET_CODE,
+    /import\s+['"][^'"]+\.css['"]/,
+    'sheet.tsx imports a stylesheet — the unit runner loads this module under node, where a .css import is a SyntaxError',
+  );
+  assert.match(SHEET_CODE, /\bdata-sheet=/, 'the dialog wrapper lost its data-sheet hook');
+  assert.match(SHEET_CODE, /\bdata-sheet-panel=/, 'the sheet body lost its data-sheet-panel hook');
+  assert.match(
+    FOLD_CSS,
+    /@media\s*\(horizontal-viewport-segments:\s*2\)/,
+    'the book-posture (side-by-side segments) rule is gone',
+  );
+  assert.match(
+    FOLD_CSS,
+    /@media\s*\(vertical-viewport-segments:\s*2\)/,
+    'the tabletop-posture (stacked segments) rule is gone',
   );
 });

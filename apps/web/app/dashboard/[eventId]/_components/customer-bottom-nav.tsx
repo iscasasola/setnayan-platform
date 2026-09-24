@@ -37,6 +37,7 @@ export function CustomerBottomNav({
   hideKeys,
   guestCount,
   seatingEnabled,
+  websiteEnabled,
 }: {
   eventId: string;
   phase?: MenuLifecyclePhase;
@@ -55,8 +56,36 @@ export function CustomerBottomNav({
    *  `hideKeys` cannot express it: the day-of branch returns before that filter
    *  runs. Resolved from the profile in layout.tsx. */
   seatingEnabled?: boolean;
+  /**
+   * Whether this event type enables the 'website' surface — gates the PLAN
+   * phase's Event Hub Controller tab.
+   *
+   * 🔴 THIS PROP DID NOT EXIST, AND THE TAB IT GATES NEVER RENDERED ON A PHONE.
+   * `buildCustomerMenuTree` gates the plan-phase `launch` row on
+   * `ctx.websiteEnabled`; this component never passed it, so the flag arrived
+   * `undefined`, the gate read that as "no website surface", and the row was
+   * dropped from every planning phone. The day-of and after rosters build their
+   * `launch` row UNGATED, so the tab appeared the moment the wedding arrived —
+   * which is exactly why nobody found it: the bug only existed before the day.
+   *
+   * 🔑 AND BEFORE THE DAY IS WHEN THE HUB IS THE PRODUCT. `customer-menu.ts`
+   * says so itself, about the change that created this row: *"on a phone in the
+   * months BEFORE the day — when the save-the-date and the invitation ARE the
+   * product — the Hub was two taps deep behind a word for something else."*
+   * That fix shipped, and on phones it never took effect.
+   *
+   * ⚠ UNDEFINED MEANS HIDE HERE — the opposite of `seatingEnabled` one field
+   * up, whose docblock says *"a caller that has not been taught this field must
+   * not silently lose the tab."* Two sibling gates, opposite defaults, and only
+   * one of them was designed for the caller who had not been taught. That
+   * asymmetry is the root cause, not a typo. The gate itself is RIGHT — an
+   * event kind with no website surface must not offer the Hub, and the desktop
+   * rail hides it too — so the caller is what gets fixed, plus a guard below so
+   * the next caller cannot repeat it.
+   */
+  websiteEnabled?: boolean;
 }) {
-  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys, seatingEnabled });
+  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys, seatingEnabled, websiteEnabled });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
     // All phases apply nav-registry overrides (label + icon) — plan, day-of, and

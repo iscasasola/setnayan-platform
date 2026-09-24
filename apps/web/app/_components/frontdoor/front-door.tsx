@@ -8,11 +8,6 @@
  */
 import 'server-only';
 
-import {
-  FRONT_DOOR_VISIBLE_FOLDERS,
-  FRONT_DOOR_MORE_FOLDERS,
-} from '@/lib/taxonomy-folder-counts';
-
 import { loadFrontDoorData } from './data';
 import { FrontDoorShell } from './front-door-shell';
 import { FrontDoorAnchor } from './front-door-anchor';
@@ -29,7 +24,6 @@ import {
   railToolsSignedOut,
   resolveRailStudioEvent,
   resolveRailAccount,
-  toRailFolder,
 } from './rail-data';
 import { togetherRailItems } from '@/lib/free-tools-rail';
 import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
@@ -81,8 +75,6 @@ export async function FrontDoor({ q }: { q?: string }) {
         opening.
       */
       heading={account.signedIn ? undefined : <FrontDoorAnchor />}
-      visibleFolders={FRONT_DOOR_VISIBLE_FOLDERS.map(toRailFolder)}
-      moreFolders={FRONT_DOOR_MORE_FOLDERS.map(toRailFolder)}
       /*
         THE SAME BRANCH THE APP MOUNT MAKES — see the note there. This handed
         every visitor the signed-OUT rows, so a signed-in person on `/` was sent

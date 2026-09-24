@@ -14,11 +14,10 @@
  * exist". So this guard bills SEVEN sites — four readers, three writers — and a
  * deletion at any one of them is red.
  *
- * 🪤 THE DAY-OF TAB CANNOT BE GATED WITH `hideKeys`, AND A FUTURE SESSION WILL
- * TRY. `hideKeys` filters `planningMenus` at the very bottom of
- * `buildCustomerMenuTree`; the day-of branch returns before it. A 'seats' entry
- * in hideKeys compiles, reads as correct, and hides nothing. The last two
- * assertions pin the real mechanism so that mistake fails instead of shipping.
+ * 🪤 SEAT PLAN IS GATED BY `seatingEnabled`, NOT `hideKeys`. Until 2026-09-24
+ * that was forced (hideKeys never reached the day-of roster); the one tree now
+ * applies hideKeys everywhere, but seating is a SURFACE, not a menu key, and
+ * the layout resolves it once. The nav assertions pin the real mechanism.
  *
  * 🪤 Source assertions strip comments first — every site below carries a note
  * explaining the gate, and a raw-source grep would match the prose and pass
@@ -30,6 +29,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { WEDDING_PROFILE, surfaceEnabled } from './event-type-profile';
+import { buildEventMenuSections } from './customer-menu';
+import { buildCustomerNavGroups } from '@/app/dashboard/[eventId]/_components/customer-nav-config';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -94,24 +95,28 @@ test('the paid per-guest QR add-on is not offered where there is no seating', ()
   );
 });
 
-test('the day-of Seats tab is gated on seatingEnabled, NOT on hideKeys', () => {
+/* 🔄 2026-09-24 (event menu by moment). The day-of "Seats" TAB is gone —
+   Papic took its slot — and "Seat plan" is now ONE row of the one tree, in
+   The day, drawn by the rail, the ☰ drawer and the phone's moment strip in
+   every phase. The rail used to ignore this gate entirely; now all three read
+   the same row, so the gate is pinned by its effect on every surface. */
+test('the Seat plan row is gated on seatingEnabled, on every surface and phase', () => {
   const src = code('lib/customer-menu.ts');
-  assert.ok(
-    times(src, 'ctx.seatingEnabled !== false') === 1,
-    'The day-of Seats tab lost its seatingEnabled gate — it now links to a ' +
-      'room that redirects.',
+  assert.equal(
+    times(src, 'ctx.seatingEnabled !== false'),
+    1,
+    'The Seat plan row lost its seatingEnabled gate — it now links to a room ' +
+      'that redirects. (Exactly one: a second copy is a second answer.)',
   );
-  // The trap, pinned: hideKeys is applied to `planningMenus` only, and the
-  // day-of branch returns before it. If someone "simplifies" this onto
-  // hideKeys, the tab silently stops being hidden.
-  const dayOf = src.slice(src.indexOf("ctx.phase === 'dayof'"));
-  const dayOfBranch = dayOf.slice(0, dayOf.indexOf("ctx.phase === 'after'"));
-  assert.ok(dayOfBranch.length > 100, 'day-of branch not found — restructured?');
-  assert.ok(
-    !dayOfBranch.includes('hideKeys'),
-    'The day-of branch returns BEFORE the hideKeys filter runs, so gating the ' +
-      'Seats tab through hideKeys would hide nothing. Use seatingEnabled.',
-  );
+  for (const phase of ['plan', 'dayof', 'after'] as const) {
+    const off = buildEventMenuSections('E', { phase, seatingEnabled: false }).flatMap((x) => x.rows);
+    assert.ok(!off.some((r) => r.key === 'seat'), `${phase}: Seat plan shows for a kind with no seating`);
+    const rail = buildCustomerNavGroups('E', { phase, seatingEnabled: false }).flatMap((g) => g.items);
+    assert.ok(!rail.some((i) => i.key === 'seat'), `${phase}: the RAIL shows Seat plan for a kind with no seating`);
+    // ⚠ UNDEFINED MEANS SHOW — a caller not taught the field keeps the row.
+    const untaught = buildEventMenuSections('E', { phase }).flatMap((x) => x.rows);
+    assert.ok(untaught.some((r) => r.key === 'seat'), `${phase}: an untaught caller lost Seat plan`);
+  }
 });
 
 test('layout resolves seatingEnabled and hands it to both navs', () => {
@@ -123,7 +128,13 @@ test('layout resolves seatingEnabled and hands it to both navs', () => {
   assert.ok(
     times(src, 'seatingEnabled={seatingEnabled}') === 2,
     'seatingEnabled must reach BOTH the bottom nav and the section sub-nav — ' +
-      'the day-of Seats tab renders in both.',
+      'the moment strip draws Seat plan on the phone.',
+  );
+  const inputs = src.slice(src.indexOf('const eventRailInputs'));
+  assert.ok(
+    /seatingEnabled,/.test(inputs.slice(0, inputs.indexOf('};'))),
+    'seatingEnabled must reach the RAIL too (eventRailInputs) — it drew Seat ' +
+      'plan for every kind until 2026-09-24.',
   );
 });
 

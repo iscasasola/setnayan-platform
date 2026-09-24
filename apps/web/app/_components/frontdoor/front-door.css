@@ -747,45 +747,26 @@
   animation: fd-group-in var(--sn-dur-elem) var(--sn-ease-out) both;
 }
 
-/* ── 2 · "SHOW MORE" / "SHOW FEWER" ────────────────────────────────────────
-   The nine extra marketplace categories. `grid-template-rows: 0fr → 1fr` is
-   what animates a list of unknown height with no measurement and no JS — and,
-   unlike a `max-height` guess, it lands exactly on the content's own height
-   instead of springing at the end.
+/* ── 2 · (the "Show more" category reveal is RETIRED 2026-09-24) ─────────
+   It animated the nine extra marketplace categories under "Browse by
+   category", a group that drew only inside an event and is removed there
+   (owner: Your Team is where couples search for suppliers). With no panel left
+   to reveal, its `.fd-reveal` rules went with it rather than linger as CSS
+   that styles nothing. */
 
-   🔑 `visibility` IS THE TAB ORDER, and it is why this is not simply
-   `height: 0; overflow: hidden`. A clipped row is still focusable: Tab would
-   walk a keyboard visitor through nine invisible category links sitting behind
-   a button that says "Show more". That is the identical defect the off-canvas
-   rail's `display: none` exists to prevent, and this file already states the
-   rule ("a control that is invisible but still reachable by keyboard"). The
-   flip is delayed to the END of the collapse and immediate on the reveal, so
-   it never clips the animation it is riding on. */
-.fd-reveal {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  visibility: hidden;
+/* ── 2b · THE EVENT MENU'S ROWS PRESS AND SETTLE (2026-09-24) ────────────
+   House style from 2026-09-24 (`DESIGN-LANGUAGE-AMENDMENT.md`, "everything
+   moves"): every row carries a transition and a scale-down on press. Scoped to
+   the EVENT menu (`.fd-mrow`) — this build restyles the menu, not the rest of
+   the rail. Durations and curve are the system's tokens. */
+.fd-mrow {
   transition:
-    grid-template-rows var(--sn-dur-elem) var(--sn-ease-out),
-    opacity var(--sn-dur-control) var(--sn-ease),
-    visibility 0s var(--sn-dur-elem);
+    background-color var(--sn-dur-control) var(--sn-ease),
+    color var(--sn-dur-control) var(--sn-ease),
+    transform var(--sn-dur-control) var(--sn-ease);
 }
-.fd-reveal[data-open='true'] {
-  grid-template-rows: 1fr;
-  opacity: 1;
-  visibility: visible;
-  transition:
-    grid-template-rows var(--sn-dur-elem) var(--sn-ease-out),
-    opacity var(--sn-dur-control) var(--sn-ease),
-    visibility 0s;
-}
-/* BOTH declarations are required and neither is decoration: a grid item's
-   automatic minimum size is its own content, so without `min-height: 0` the
-   0fr track never actually reaches zero and the panel simply never closes. */
-.fd-reveal-in {
-  min-height: 0;
-  overflow: hidden;
+.fd-mrow:active {
+  transform: scale(0.98);
 }
 
 /* ── 3 · THE PHONE DRAWER (keyframes; the rules live in the <1024 block) ───
@@ -1879,6 +1860,38 @@ h2.fd-sechead,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* THE NAME ROW OPENS THE EVENT'S DETAILS (owner 2026-09-24 — Personalization,
+   renamed Details, moved onto the event's name). Still reads as the place you
+   are in — same size, same ink — with one quiet line under it saying what it
+   opens. Each line truncates on its own. */
+.fd[data-chrome='app'] .fd-rctx-link {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-decoration: none;
+}
+.fd[data-chrome='app'] .fd-rctx-link > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fd[data-chrome='app'] .fd-rctx-sub {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--fd-m2);
+}
+.fd[data-chrome='app'] .fd-rctx-link[data-on='true'] .fd-rctx-sub {
+  color: var(--fd-ink);
+}
+/* ✦ — a Studio product at its moment (the Studio heading is dissolved). Gold
+   is UI-only on cream, and this mark is decoration: the row's name carries the
+   meaning, so the mark is aria-hidden. */
+.fd-spark {
+  margin-left: 6px;
+  font-size: 9px;
+  color: var(--fd-gold);
 }
 
 /* The eyebrow under it — smaller and quieter than a top-level rail label,

@@ -125,17 +125,28 @@ test('the rail renders its rows at ONE size and ONE stroke', () => {
   }
 });
 
-test('every category row draws its OWN icon, from the map the app already owns', () => {
+/*
+  🔄 2026-09-24: the rail's only category rows ("Browse by category", drawn
+  inside an event) are REMOVED by owner ruling — `front-door-invariants.test.ts`
+  now pins their absence. This keeps the rule that outlives them: if a category
+  row ever comes back, it reads the shared taxonomy map, never a private one.
+*/
+test('any category row the rail draws takes its icon from the map the app already owns', () => {
   const src = code(RAIL_FILES[0]!);
-  assert.match(
-    src,
-    /folderIcon\(f\.slug\)/,
-    'The fifteen category rows must draw `folderIcon(f.slug)`. They drew the ' +
-      'same arrow fifteen times while `WEDDING_FOLDER_ICON` — exhaustive over ' +
-      'the taxonomy and pinned by `taxonomy-icons.test.ts` — was already ' +
-      'giving each of them a distinct icon on the Explore strip. A second ' +
-      'hand-typed map here is how a rail and a page start disagreeing about ' +
-      'what a category looks like.',
+  if (/\/explore\?folder=/.test(src)) {
+    assert.match(
+      src,
+      /folderIcon\(f\.slug\)/,
+      'Category rows are back in the rail and do not draw `folderIcon(f.slug)`. ' +
+        '`WEDDING_FOLDER_ICON` — exhaustive over the taxonomy and pinned by ' +
+        '`taxonomy-icons.test.ts` — already gives each a distinct icon on the ' +
+        'Explore strip; a second hand-typed map is how a rail and a page start ' +
+        'disagreeing about what a category looks like.',
+    );
+  }
+  assert.ok(
+    !/FOLDER_ICON\s*[:=]\s*\{/.test(src),
+    'The rail hand-types its own category icon map.',
   );
 });
 

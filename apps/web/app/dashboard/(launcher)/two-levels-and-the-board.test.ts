@@ -49,6 +49,7 @@ import {
   stanceLabel,
 } from '@/lib/event-board';
 import { buildCustomerNavGroups } from '../[eventId]/_components/customer-nav-config';
+import { buildCustomerMenuTree } from '@/lib/customer-menu';
 import {
   findBlockingLifeEvent,
   isGatedLifeType,
@@ -802,64 +803,58 @@ test('every rail destination stays inside the event you opened', () => {
   }
 });
 
-test('the event rail is the five destinations plus "Also in this event"', () => {
+test('the event rail is the one tree, by moment', () => {
+  /*
+    🔄 2026-09-24 — "event menu by moment" (owner-approved; binding drawing
+    `build-sessions/prototypes/event_menu_by_moment_2026-09-24.html`). The
+    Plan · Go live · Also-in-this-event sections became the MOMENTS below. Every
+    key is the key it was; only the grouping and two words moved
+    (Personalization → Details, and the Suite row keeps key 'studio').
+    Studio products are placed by `studioRows`; without them the Look moment is
+    empty and its heading is dropped — which this also pins.
+  */
   const groups = buildCustomerNavGroups('EVT123', { websiteEnabled: true });
   const keysByGroup = Object.fromEntries(
     groups.map((g) => [g.key, g.items.map((i) => i.key)]),
   );
   assert.deepEqual(
-    keysByGroup.plan,
-    ['home', 'guests', 'explore', 'studio'],
-    'The PLAN section changed. Overview · Guests · Marketplace · Studio is the ' +
-      'shipped set; Marketplace keeps the key "explore" so no link breaks.',
+    groups.map((g) => g.key),
+    ['event', 'spine', 'book', 'invite', 'day', 'end'],
+    'The moments changed (Look is empty without product rows, so it must not render).',
   );
-  assert.deepEqual(keysByGroup.golive, ['launch']);
+  assert.deepEqual(keysByGroup.event, ['personalization']);
+  assert.deepEqual(keysByGroup.spine, ['home', 'galleries']);
+  assert.deepEqual(keysByGroup.book, ['explore', 'budget']);
+  assert.deepEqual(keysByGroup.invite, ['guests', 'hosts', 'launch']);
+  assert.deepEqual(keysByGroup.day, ['schedule', 'seat']);
+  assert.deepEqual(keysByGroup.end, ['studio', 'refer']);
   /*
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     Both are real, live routes, and the only component linking to either
-    (`_components/profile-menu.tsx`) is imported by NOTHING — superseded by the
-    account switcher, which carries neither row. The only way in was typing the
-    address. The owner found it in four minutes by looking for the put-away
-    button and not finding it.
-
-    🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Every check we have
-    asks whether the route renders, and it does — which is why this survived.
-
-    They belong in the EVENT's own list, not the account menu: that menu is
-    about you, and "put this celebration away" is about the event.
+    (`_components/profile-menu.tsx`) is imported by NOTHING. 🔑 A LINK IN A
+    COMPONENT NOBODY MOUNTS IS NOT A LINK. They stay in the EVENT's own list —
+    Personalization, renamed Details, now on the event's name row.
   */
-  assert.deepEqual(
-    keysByGroup.also,
-    ['personalization', 'hosts', 'refer', 'schedule', 'seat', 'budget'],
-    'The "Also in this event" group changed.',
-  );
-  // Both must actually point somewhere inside this event.
-  const also = groups.find((g) => g.key === 'also')!.items;
-  assert.equal(
-    also.find((i) => i.key === 'personalization')?.href,
-    '/dashboard/EVT123/details',
-  );
-  assert.equal(also.find((i) => i.key === 'hosts')?.href, '/dashboard/EVT123/hosts');
+  const rows = groups.flatMap((g) => g.items);
+  const personalization = rows.find((i) => i.key === 'personalization');
+  assert.equal(personalization?.href, '/dashboard/EVT123/details');
+  assert.equal(personalization?.label, 'Details', 'Personalization → Details (owner 2026-09-24)');
+  assert.equal(rows.find((i) => i.key === 'hosts')?.href, '/dashboard/EVT123/hosts');
   /*
-    ⏳ REFER WAS NEVER CLICKABLE FOR A SINGLE DAY. The account switcher replaced
-    the old profile menu on 2026-06-17; this link was added to that already-dead
-    menu on 2026-07-10, three weeks later. The morning's fix restored two of the
-    dead menu's rows and missed this third one — which is why the coverage check
-    is now DERIVED from that component rather than hand-listed.
-
-    🔒 It keeps the key 'refer' so the event layout's existing `navHideKeys` gate
-    hides it while the referral programme is off. That gate had been filtering on
-    a key no item carried, so it hid nothing while still costing a query on every
-    event page render.
+    ⏳ REFER WAS NEVER CLICKABLE FOR A SINGLE DAY until 2026-08-18. 🔒 It keeps
+    the key 'refer' so the event layout's `navHideKeys` gate hides it while the
+    referral programme is off.
   */
-  assert.equal(also.find((i) => i.key === 'refer')?.href, '/dashboard/EVT123/refer');
-  // 🔒 BUDGET HAS NO TOP-LEVEL ROW ON PURPOSE (owner 2026-07-10) — it lives
-  // inside Marketplace beside Build and Compare, and is surfaced here only as a
-  // quiet flat link. Promoting it is a product reversal, not a tidy-up.
+  assert.equal(rows.find((i) => i.key === 'refer')?.href, '/dashboard/EVT123/refer');
+  /*
+    🔒 BUDGET IS STILL A ROW, NOT A MAIN ROOM (owner 2026-07-10, restated in
+    the 2026-09-24 drawing: *"Still a row, not a main room"*). It sits under
+    Book with the people you pay — and it is never a phone tab.
+  */
+  assert.ok(keysByGroup.book!.includes('budget'));
   assert.ok(
-    !keysByGroup.plan!.includes('budget'),
-    'Budget was promoted into the PLAN section. The owner removed that row on ' +
-      '2026-07-10; it belongs inside Marketplace.',
+    !buildCustomerMenuTree('EVT123', { websiteEnabled: true }).some((m) => m.key === 'budget'),
+    'Budget was promoted to a bottom-bar tab. The owner removed that on 2026-07-10.',
   );
 });
 

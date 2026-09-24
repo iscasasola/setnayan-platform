@@ -39,6 +39,7 @@ import { SIDEBAR_SLOT_KEYS } from './customer-nav-slot-keys';
 import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
+import type { EventStudioRow } from '@/lib/customer-menu';
 
 /**
  * Everything the event menu needs to exist. Built ONCE in `layout.tsx` and
@@ -53,16 +54,25 @@ export type EventRailInputs = {
   slug?: string | null;
   guestCount?: number | null;
   phase?: MenuLifecyclePhase;
+  /** Gates the Seat plan row (2026-09-24 — the rail used to ignore it). */
+  seatingEnabled?: boolean;
+  /**
+   * The event's Studio products as PLAIN DATA (key · href · name), from
+   * `railToolsSignedIn` in the layout. 🛑 Never a component: this object is
+   * spread into a `'use client'` component, and a function crossing that
+   * boundary took production down on 2026-09-23.
+   */
+  studioRows?: ReadonlyArray<EventStudioRow>;
 };
 
 /**
- * The event menu's rows that can be the current page.
+ * The event menu's rows that can be the current page — EVERY row of the one
+ * sectioned tree, the Studio products included (they are rows at their moment
+ * now, not a separate shell group), and the event's Details name row.
  *
- * 🔒 `studio` IS DROPPED, mirroring `EventRailContext`'s own filter — the rail
- * carries a Studio GROUP a few rows below, so the event menu's single Studio
- * row would be the same destination under a second name. It is dropped from
- * the DESKTOP RAIL only; the phone's bottom bar keeps it, and
- * `lib/customer-menu.test.ts` still pins it there.
+ * 🔄 THE `studio` ROW IS NO LONGER DROPPED (2026-09-24). It was, while the
+ * shell drew a Studio group whose "All services" row opened the same page; that
+ * group is dissolved and this row, now "Suite", is the only door to the shelf.
  *
  * ⚠ A row an admin has HIDDEN must not be matchable. It renders nowhere, so
  * lighting it would light nothing while suppressing the row that should have
@@ -73,7 +83,6 @@ export function eventRailMatchRows(inputs: EventRailInputs): RailMatchRow[] {
   return buildCustomerNavGroups(eventId, opts)
     .flatMap((group) => group.items)
     .filter((item) => {
-      if (item.key === 'studio') return false;
       const slotKey = SIDEBAR_SLOT_KEYS[item.key];
       return !(slotKey && navSlots?.[slotKey]?.isHidden);
     })

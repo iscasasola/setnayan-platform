@@ -36,8 +36,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { SubNav } from '@/app/_components/nav/sub-nav';
 import {
   buildCustomerMenuTree,
+  buildEventMenuSections,
+  eventMomentForPath,
+  EVENT_MENU_ICONS,
   matchesMenuSection,
   activeRouteChildKey,
+  type CustomerMenuChild,
+  type EventStudioRow,
 } from '@/lib/customer-menu';
 import { isDayOfOpen } from '@/lib/guest-journey';
 import { goToBuildTab, BB_TAB_EVENT, type BudgetBuildTab } from '@/lib/budget-build';
@@ -53,6 +58,7 @@ export function CustomerSectionSubnav({
   hideKeys,
   websiteEnabled,
   seatingEnabled,
+  studioRows,
   slug,
 }: {
   eventId: string;
@@ -70,6 +76,9 @@ export function CustomerSectionSubnav({
   websiteEnabled?: boolean;
   /** Whether this event type enables 'seating' — gates the day-of "Seats" tab. */
   seatingEnabled?: boolean;
+  /** The event's Studio products as PLAIN DATA (key · href · name) — the
+   *  moment strip draws them where they sit in the one tree. */
+  studioRows?: ReadonlyArray<EventStudioRow>;
   /** The event's public slug — points the "Launch" child at the couple's live
    *  personal website (`/[slug]`). Resolved from the event row in layout.tsx. */
   slug?: string | null;
@@ -85,14 +94,56 @@ export function CustomerSectionSubnav({
     setDayOfOpen(isDayOfOpen(eventDate, new Date()));
   }, [eventDate]);
 
-  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase, hideKeys, websiteEnabled, seatingEnabled, slug });
+  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase, hideKeys, websiteEnabled, seatingEnabled, slug, studioRows });
   const activeMenu = tree.find((m) => matchesMenuSection(pathname, m)) ?? null;
+
+  /*
+    ─── THE MOMENT STRIP (owner 2026-09-24, phone only) ─────────────────────
+    When no menu docks children here, the page's own MOMENT does: open Mood
+    Board and Look (Mood Board · Logo Maker · Pakanta) docks above the bar, so
+    the next step of the same job is one tap — the owner's acceptance test was
+    *"finding the logo maker at the bottom feels so far"*.
+
+    🔑 THE SAME TREE, NOT A COPY: the section comes from
+    `buildEventMenuSections`, the one the rail and ☰ draw. And it exists ONLY
+    where the rail is hidden — `<SubNav>` is `lg:hidden`, the width at which
+    the rail takes over (owner: *"why is this side repeating?"* when it was
+    drawn beside the rail).
+  */
+  /*
+    ⚠ ONE PAGE ALREADY DOCKS ITS OWN PILL IN THIS SLOT: the Your Team root,
+    where `team-summary-chip.tsx` borrows this exact geometry (inset 14px,
+    `--sn-bottomnav-h` + 20px) under the Explore replan. Two pills in one slot
+    stack on top of each other, so the strip stands aside there — the chip is
+    itself the Book moment's live summary, and Budget is one tap away in ☰.
+  */
+  const ownDock = pathname === `/dashboard/${eventId}/vendors`;
+  const moment = activeMenu || ownDock
+    ? null
+    : eventMomentForPath(
+        pathname,
+        buildEventMenuSections(eventId, { phase, hideKeys, websiteEnabled, seatingEnabled, studioRows }),
+      );
+  const momentChildren: CustomerMenuChild[] = (moment?.rows ?? []).map((r) => {
+    const path = r.href.split('?')[0];
+    const claims =
+      r.matchPrefix && r.matchPrefix !== '__home__' &&
+      (pathname === r.matchPrefix || pathname.startsWith(`${r.matchPrefix}/`));
+    return {
+      key: r.key,
+      label: r.label,
+      icon: EVENT_MENU_ICONS[r.icon],
+      kind: 'route' as const,
+      href: r.href,
+      match: claims ? (r.matchPrefix as string) : path,
+    };
+  });
   // Overlay the nav-registry admin override (label · icon · hidden) onto each
   // child by its slotKey — the registry SSOT now drives the sub-nav children,
   // not just the top-level menus. kind/href/tab/hash/match are untouched (only
   // NAME + ICON are admin-editable), so the routing + scroll-spy logic below is
   // unaffected; a hidden slot drops the child entirely.
-  const children = (activeMenu?.children ?? []).flatMap((c) => {
+  const children = (activeMenu?.children ?? momentChildren).flatMap((c) => {
     const slot = c.slotKey ? navSlots?.[c.slotKey] : undefined;
     if (!slot) return [c];
     if (slot.isHidden) return [];
@@ -216,7 +267,10 @@ export function CustomerSectionSubnav({
             ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }}
-      ariaLabel={activeMenu?.subnavLabel ?? 'Section navigation'}
+      ariaLabel={
+        activeMenu?.subnavLabel ??
+        (moment ? `${moment.label || 'Photos & memories'} — this moment` : 'Section navigation')
+      }
     />
   );
 }

@@ -17,6 +17,7 @@ import {
   Baby,
   Mail,
   CalendarClock,
+  Plus,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
 import { createClient } from '@/lib/supabase/server';
@@ -64,11 +65,14 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import {
   CollectionCard,
+  CollectionEmptyState,
   CollectionGrid,
+  CollectionPager,
   NewThingTile,
   collectionMarkClass,
   type CollectionAttention,
 } from '@/app/_components/collection-card';
+import { paginateCollection, parseCollectionPage } from '@/lib/collection-pagination';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
@@ -108,8 +112,9 @@ export const metadata = {
  * block has exactly ONE home — no duplicated surfaces:
  *   • EVENTS — TWO ALWAYS-PRESENT SHELVES (owner 2026-08-13): "Coming up" as
  *     glass cards (badge · stance · monogram · place/date · gold progress ring
- *     · countdown), date DESCENDING (newest on top, per the 2026-07-13 timeline
- *     ordering rule) with UNDATED at the tail reading "Date to be set", ending
+ *     · countdown), SOONEST FIRST since 2026-09-24 (the collection template —
+ *     it reversed the 2026-07-13 newest-on-top rule for Planning only) with
+ *     UNDATED at the tail reading "Date to be set", ten per page, ending
  *     in a "New event" card — then "Finished", which reads "Celebrated" and is
  *     rendered WHETHER OR NOT it has anything in it. It used to hide behind a
  *     "Show all" (`?show=all`) toggle: **a thing you have to switch on reads as
@@ -192,7 +197,10 @@ export default async function LauncherPage({
   // put away BY HAND, and the switch prints how many there are, so it can never
   // read as "something might be missing" — which is the sentence that retired
   // the old one.
-  searchParams?: Promise<{ hub?: string; putaway?: string }>;
+  //
+  // `page` is the Planning shelf's page (the collection template, owner-approved
+  // 2026-09-24: ten per page). A URL, not state — see `planningPageHref`.
+  searchParams?: Promise<{ hub?: string; putaway?: string; page?: string }>;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
@@ -301,7 +309,10 @@ export default async function LauncherPage({
   // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the
   // top, OLDER as you scroll down. Coming up runs date DESCENDING with UNDATED
   // at the tail ("Date to be set" is a real state, not a missing value), then
-  // Finished continues oldest-toward-the-bottom. Both shelves ALWAYS RENDER
+  // Finished continues oldest-toward-the-bottom. ⚠ PLANNING IS RE-ORDERED
+  // SOONEST FIRST by `splitPlanningShelves` (collection template, owner-approved
+  // 2026-09-24) — this timeline order survives for the finished shelves and for
+  // `comingUp` as an input. Both shelves ALWAYS RENDER
   // (owner 2026-08-13) — the `?show=all` toggle that used to hide the second one
   // is gone.
   //
@@ -325,6 +336,11 @@ export default async function LauncherPage({
   } = splitPlanningShelves(comingUpAll, finishedAll, todayISO);
   const finished = boardFinished(finishedAll);
   const showPutAway = putAwayRequested;
+  // THE PLANNING SHELF PAGES AT TEN (the collection template, owner-approved
+  // 2026-09-24). `upcoming` is already soonest-first (`splitPlanningShelves`),
+  // so a page is a slice of it. Other shelves are not paged.
+  const planningPage = paginateCollection(upcoming.length, parseCollectionPage(sp.page));
+  const upcomingOnPage = upcoming.slice(planningPage.from, planningPage.to);
   // "You are expected in two places." Read off the shelves already in memory —
   // today's and the ones ahead — never the finished ones: a clash you can no
   // longer do anything about is a reproach, not a warning.
@@ -1024,8 +1040,8 @@ export default async function LauncherPage({
           count travels with the event it belongs to, on every shelf and at
           every width. */}
       {/* COMING UP — the first of the board's TWO ALWAYS-PRESENT shelves
-          (owner 2026-08-13). Glass cards, date descending (newest on top, owner
-          2026-07-13 ordering), UNDATED at the tail reading "Date to be set".
+          (owner 2026-08-13). Glass cards, soonest first since 2026-09-24 (the
+          collection template), UNDATED at the tail reading "Date to be set".
           The FINISHED shelf follows as its own section — it is no longer hidden
           behind a "Show all" toggle. */}
       {/* NOW HAPPENING — the day itself (owner 2026-08-21).
@@ -1084,19 +1100,40 @@ export default async function LauncherPage({
       >
         <SectionLabel
           sub="yours to run"
-          info="Everything you’re organising or were invited to. Put one away and it hides here until you switch it back on."
+          info="Everything you’re organising or were invited to, soonest first. Put one away and it hides here until you switch it back on."
           action={
-            putAway.length > 0 ? (
-              <PutAwaySwitch on={showPutAway} count={putAway.length} />
-            ) : null
+            <PlanningHeaderActions
+              count={upcoming.length}
+              putAwayOn={showPutAway}
+              putAwayCount={putAway.length}
+            />
           }
         >
           Planning
         </SectionLabel>
         <ClashNotice clashes={clashes} />
-        {/* DESKTOP grid (proto .evrow — 4 columns on the wide canvas). */}
+        {/* THE COLLECTION TEMPLATE (owner-approved 2026-09-24): soonest first,
+            undated last, ten per page. The dashed tile closes the grid only
+            while the page has room — a full page's way in is the header (+).
+            ⚠ THE EMPTY STATE MAKES NO ZERO-CLAIM: `fetchUserEvents` degrades
+            to [] on a refused read, and a person with finished celebrations
+            has an empty Planning shelf too — so it never says "no events". */}
+        {upcoming.length === 0 ? (
+          <CollectionEmptyState
+            title="Start a celebration"
+            body="Guests, suppliers, the day itself — everything you plan gathers here, soonest first."
+            action={
+              <Link
+                href="/dashboard/create-event"
+                className="sn-press inline-block rounded-full bg-ink px-[18px] py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-black"
+              >
+                Create an event
+              </Link>
+            }
+          />
+        ) : (
         <CollectionGrid>
-          {upcoming.map((event, i) => (
+          {upcomingOnPage.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
                 event={event}
@@ -1110,8 +1147,25 @@ export default async function LauncherPage({
               />
             </BoardCardWithMenu>
           ))}
-          <NewEventCard delay={0.5 + upcoming.length * 0.08} />
+          {planningPage.hasRoomForNewTile ? (
+            <NewEventCard delay={0.5 + upcomingOnPage.length * 0.08} />
+          ) : null}
         </CollectionGrid>
+        )}
+        <CollectionPager
+          label="Planning pages"
+          rangeLabel={planningPage.rangeLabel}
+          links={planningPage.stops.map((stop) =>
+            stop.kind === 'gap'
+              ? stop
+              : {
+                  kind: 'page' as const,
+                  href: planningPageHref(stop.page, showPutAway),
+                  label: stop.label,
+                  current: stop.current,
+                },
+          )}
+        />
         {/* THE ONES THEY PUT AWAY — only when asked for. Muted, and each still
             carries its own ⋯ menu, because the one thing a person wants here is
             "bring it back", which is exactly what that menu already offers on an
@@ -1130,7 +1184,7 @@ export default async function LauncherPage({
                     heroSrc={heroFor(event.event_type)}
                     ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
                     finished
-                    index={upcoming.length + i}
+                    index={upcomingOnPage.length + i}
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
@@ -1921,6 +1975,63 @@ function BoardCardWithMenu({
  */
 function NewEventCard({ delay = 0 }: { delay?: number }) {
   return <NewThingTile href="/dashboard/create-event" label="New event" delay={delay} />;
+}
+
+/**
+ * The Planning header's right side: how many are on the shelf (never a zero —
+ * see `CollectionEmptyState`), the put-away switch when there is anything put
+ * away, and the (+).
+ */
+function PlanningHeaderActions({
+  count,
+  putAwayOn,
+  putAwayCount,
+}: {
+  count: number;
+  putAwayOn: boolean;
+  putAwayCount: number;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-2.5">
+      {count > 0 ? (
+        <span className="text-[12px] tracking-[0.04em] text-[color:var(--sn-ink-400)]">
+          {count === 1 ? '1 event' : `${count} events`}
+        </span>
+      ) : null}
+      {putAwayCount > 0 ? <PutAwaySwitch on={putAwayOn} count={putAwayCount} /> : null}
+      <NewEventButton />
+    </span>
+  );
+}
+
+/**
+ * The Planning header's (+) — the template's always-present way to add one
+ * (owner-approved 2026-09-24). The dashed tile leaves a FULL page, so without
+ * this a person on page 1 of 30 events would have no door to a new one.
+ */
+function NewEventButton() {
+  return (
+    <Link
+      href="/dashboard/create-event"
+      aria-label="New event"
+      className="sn-press inline-grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-ink text-white transition-colors hover:bg-black"
+    >
+      <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+    </Link>
+  );
+}
+
+/**
+ * A Planning page's URL. Page 1 is the bare board (no `page=1` noise), the
+ * put-away switch rides along, and `#events` lands the person on the shelf
+ * rather than the top of the board.
+ */
+function planningPageHref(page: number, putAway: boolean): string {
+  const q = new URLSearchParams();
+  if (putAway) q.set('putaway', '1');
+  if (page > 1) q.set('page', String(page));
+  const qs = q.toString();
+  return `/dashboard${qs ? `?${qs}` : ''}#events`;
 }
 
 type SpaceCardProps = {

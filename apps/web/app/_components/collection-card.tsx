@@ -407,3 +407,97 @@ export function NewThingTile({
     </Link>
   );
 }
+
+/**
+ * One stop of the template's pager, with its href already built. The caller
+ * builds the hrefs because only the caller knows which other parameters its
+ * URL carries (Planning keeps `?putaway=1`).
+ */
+export type CollectionPagerLink =
+  | { kind: 'page'; href: string; label: string; current: boolean }
+  | { kind: 'gap' };
+
+/**
+ * The template's pager — "1 · 2 · … · Last" beside "1–10 of N" (owner-approved
+ * 2026-09-24). LINKS, not buttons: a page is a URL (`?page=2`), so it is
+ * server-rendered, linkable and survives the back button — no server action,
+ * no client state. The numbers come from `paginateCollection`
+ * (`lib/collection-pagination.ts`).
+ *
+ * Renders nothing when handed no stops — the pager "appears only when a page
+ * fills".
+ */
+export function CollectionPager({
+  links,
+  rangeLabel,
+  label,
+}: {
+  links: readonly CollectionPagerLink[];
+  /** "1–10 of 100". */
+  rangeLabel: string;
+  /** The nav landmark's name — "Planning pages". */
+  label: string;
+}) {
+  if (links.length === 0) return null;
+  return (
+    <nav aria-label={label} className="mt-5 flex flex-wrap items-center gap-1">
+      {links.map((l, i) =>
+        l.kind === 'gap' ? (
+          <span
+            key={`gap-${i}`}
+            aria-hidden
+            className="inline-grid h-[30px] place-items-center px-0.5 text-[12.5px] text-[color:var(--sn-ink-400)]"
+          >
+            …
+          </span>
+        ) : (
+          <Link
+            key={`p-${i}`}
+            href={l.href}
+            aria-current={l.current ? 'page' : undefined}
+            className={`sn-press inline-grid h-[30px] min-w-[30px] place-items-center rounded-lg px-[9px] text-[12.5px] transition-colors duration-200 ${
+              l.current
+                ? 'bg-ink font-semibold text-white'
+                : 'text-[color:var(--sn-ink-500)] hover:bg-white'
+            }`}
+          >
+            {l.label}
+          </Link>
+        ),
+      )}
+      {rangeLabel ? (
+        <span className="ml-auto text-[11.5px] text-[color:var(--sn-ink-400)]">
+          {rangeLabel}
+        </span>
+      ) : null}
+    </nav>
+  );
+}
+
+/**
+ * The template's empty state — what a collection says while it holds nothing
+ * to show, and the one door to its first thing.
+ *
+ * 🔑 IT MAKES NO ZERO-CLAIM. The reads behind a collection commonly degrade to
+ * `[]` on a refused read (`fetchUserEvents` does), so an empty list cannot be
+ * told apart from a list that did not load. The caller's copy therefore says
+ * what the collection is FOR and how to start one — never "you have none".
+ */
+export function CollectionEmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body: string;
+  /** The start door, rendered as given. */
+  action: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center rounded-2xl border-[1.5px] border-dashed border-ink/15 px-6 py-11 text-center">
+      <h3 className="mb-1.5 text-base font-semibold text-ink">{title}</h3>
+      <p className="mb-4 max-w-prose text-[13px] text-[color:var(--sn-ink-500)]">{body}</p>
+      {action}
+    </div>
+  );
+}

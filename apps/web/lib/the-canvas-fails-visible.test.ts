@@ -235,6 +235,11 @@ test('⛔ no rule branches on a class the contract can never emit', () => {
   }
   emitted.add('hub-canvas-media');
   emitted.add('hub-canvas-body');
+  // The photo-BESIDE layers (left / right, Build 4). That the frame really
+  // renders them — and only for those two — is asserted by rendering it in
+  // `a-section-of-your-own-is-pro-and-laid-out.test.ts`, not by this list.
+  emitted.add('hub-canvas-photo');
+  emitted.add('hub-canvas-photo-img');
   for (const v of HUB_IN) emitted.add(`hub-in-${v}`);
   for (const v of HUB_OUT) emitted.add(`hub-out-${v}`);
   for (const v of HUB_DURING) emitted.add(`hub-during-${v}`);

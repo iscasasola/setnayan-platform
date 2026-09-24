@@ -4,6 +4,7 @@ import { StoryFields, type LoveStoryBlob } from '../../our-story/_components/sto
 import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moments-editor';
 import type { DressCodeConfig } from '../../dress-code/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { unlockLabel } from './unlock-label';
 
 /**
  * Authoring panels for the unified editor (PR-8) — the last multi-field
@@ -232,10 +233,13 @@ export function EditorialPanel({
   eventId,
   ownsPro,
   unlockHref,
+  priceLabel,
 }: {
   eventId: string;
   ownsPro: boolean;
   unlockHref: string;
+  /** The live catalogue price, formatted — null when the catalogue did not answer. */
+  priceLabel: string | null;
 }) {
   return (
     <div className={PANEL}>
@@ -265,7 +269,7 @@ export function EditorialPanel({
           href={unlockHref}
           className="mt-2 inline-flex items-center rounded-full bg-amber-400 px-3.5 py-1.5 text-[0.7rem] font-semibold text-ink hover:bg-amber-300"
         >
-          Unlock Event Hub PRO · ₱3,500
+          {unlockLabel(priceLabel)}
         </Link>
       )}
     </div>

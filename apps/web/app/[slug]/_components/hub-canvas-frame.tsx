@@ -2,6 +2,7 @@ import {
   hasHubCanvas,
   hubCanvasClass,
   hubCanvasVars,
+  hubPhotoPlacement,
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
@@ -60,12 +61,24 @@ export function HubCanvasFrame({
      section with no background — never as a styled plate waiting for an image
      that is not coming, which reads to a guest as a broken page. */
   const mediaUrl = canvas.media ? (mediaUrls?.[canvas.media] ?? null) : null;
+  /* WHERE the picture goes is the arrangement's call (`hubPhotoPlacement`):
+     behind the words, in its own column beside them, or — for "Words only" —
+     nowhere. The frame draws exactly the one layer that answer names. */
+  const placement = hubPhotoPlacement(canvas, Boolean(mediaUrl));
   return (
     <div
       className={hubCanvasClass(canvas, Boolean(mediaUrl))}
-      style={hubCanvasVars(canvas, mediaUrl) as React.CSSProperties}
+      style={hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl) as React.CSSProperties}
     >
-      {mediaUrl ? <div aria-hidden className="hub-canvas-media" /> : null}
+      {placement === 'behind' ? <div aria-hidden className="hub-canvas-media" /> : null}
+      {/* Beside the words: a clipping box around a CHILDLESS picture layer, so
+          the couple's zoom stays inside its own column and — like the
+          background layer — nothing can sit under its transform. */}
+      {placement === 'beside' ? (
+        <div aria-hidden className="hub-canvas-photo">
+          <div className="hub-canvas-photo-img" />
+        </div>
+      ) : null}
       {/* The words sit above the picture, in their own layer, so the section's
           own spacing is untouched by the background existing. */}
       <div className="hub-canvas-body">{children}</div>

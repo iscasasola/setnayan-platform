@@ -226,7 +226,7 @@ export async function eventCompActiveSkus(
  *
  * As of 2026-07-22 (owner-locked bundle restructure) EDITORIAL_PRO and
  * STD_PREMIUM_OPENINGS are BUNDLE-ONLY — their standalone catalog rows are
- * is_active=false, so COUPLE_WEBSITE_PRO (repriced ₱3,500) is the ONLY way to
+ * is_active=false, so COUPLE_WEBSITE_PRO (the umbrella) is the ONLY way to
  * buy them. These aliases become the sole purchase→ownership path.
  *
  * ⛔ LIVE_BACKGROUND ← ANIMATED_MONOGRAM (owner-locked 2026-07-22) is REMOVED
@@ -706,7 +706,7 @@ async function basketGrantsSku(
  * readers — the buy surface, the editor's `isPro`, and `saveEditorial`'s
  * server-side re-check — all through `isEditorialProActive`. Every OTHER Event
  * Hub PRO perk, the no-watermark included, gates on `eventCoupleWebsiteProActive`
- * reading COUPLE_WEBSITE_PRO, which is untouched and still sells at ₱3,500.
+ * reading COUPLE_WEBSITE_PRO, which is untouched and still on sale.
  * ⛔ Do not "tidy" the two helpers into one: that would hand the watermark away.
  *
  * ⏭ AND ONE QUESTION IS DELIBERATELY LEFT OPEN, NOT ANSWERED HERE. Event Hub

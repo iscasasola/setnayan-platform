@@ -86,9 +86,18 @@ export function eventRailMatchRows(inputs: EventRailInputs): RailMatchRow[] {
       const slotKey = SIDEBAR_SLOT_KEYS[item.key];
       return !(slotKey && navSlots?.[slotKey]?.isHidden);
     })
-    .map((item) => ({
-      key: item.key,
-      href: item.href,
-      ...(item.matchPrefix ? { matchPrefix: item.matchPrefix } : {}),
-    }));
+    .flatMap((item) => [
+      {
+        key: item.key,
+        href: item.href,
+        ...(item.matchPrefix ? { matchPrefix: item.matchPrefix } : {}),
+      },
+      /*
+        🪑 A PRODUCT ABSORBED INTO THIS ROW (owner 2026-09-24: the 3D Plan row
+        folded into Seat plan) lends its pages as extra match rows under the
+        HOST's key — so `/seating/lab` and `/plan3d` light Seat plan and
+        nothing else, through the one shipped resolver, no special case.
+      */
+      ...(item.alsoMatch ?? []).map((href) => ({ key: item.key, href })),
+    ]);
 }

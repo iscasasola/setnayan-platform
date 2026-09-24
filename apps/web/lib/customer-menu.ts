@@ -280,7 +280,8 @@ export type EventMenuCtx = {
 };
 
 /**
- * WHERE EACH STUDIO PRODUCT SITS — by key, so the Suite's catalogue stays the
+ * WHERE EACH STUDIO PRODUCT SITS (its icon here; its moment is its entry in
+ * `SECTION_ORDER` below) — by key, so the Suite's catalogue stays the
  * one list of products and this stays the one list of moments.
  *
  *   papic                        → the spine, under Overview (owner 2026-09-24:
@@ -297,20 +298,26 @@ export type EventMenuCtx = {
  *   anything else                 → the END, so a future product is never
  *                                  silently lost
  */
-const STUDIO_PLACEMENT: Record<string, { section: EventMenuSectionKey; icon: EventMenuIconName } | 'drop'> = {
-  papic: { section: 'spine', icon: 'papic' },
-  'mood-board': { section: 'look', icon: 'mood-board' },
-  palogo: { section: 'look', icon: 'logo' },
-  pakanta: { section: 'look', icon: 'pakanta' },
-  pa3d: { section: 'day', icon: 'plan3d' },
-  panood: { section: 'day', icon: 'live' },
-  patiktok: { section: 'day', icon: 'patiktok' },
-  'setnayan-ai': { section: 'end', icon: 'ai' },
+const STUDIO_PLACEMENT: Record<string, EventMenuIconName | 'drop'> = {
+  papic: 'papic',
+  'mood-board': 'mood-board',
+  palogo: 'logo',
+  pakanta: 'pakanta',
+  pa3d: 'plan3d',
+  panood: 'live',
+  patiktok: 'patiktok',
+  'setnayan-ai': 'ai',
   pawebsite: 'drop',
   __all__: 'drop',
 };
 
-/** The order each moment reads in. Keys absent from the tree are skipped. */
+/**
+ * The order each moment reads in — and, for a product, WHICH moment: a
+ * product key listed here is placed; one listed nowhere goes to `__unknown__`
+ * at the end. (One list decides placement. A second `section` field beside it
+ * was tried and was decorative — moving Logo Maker there changed nothing.)
+ * Keys absent from the tree are skipped.
+ */
 const SECTION_ORDER: Record<Exclude<EventMenuSectionKey, 'event'>, string[]> = {
   spine: ['home', 'papic', 'galleries', 'editorial'],
   book: ['explore', 'budget'],
@@ -380,16 +387,17 @@ export function buildEventMenuSections(
 
   const unknown: EventMenuRow[] = [];
   for (const t of ctx.studioRows ?? []) {
-    const place = STUDIO_PLACEMENT[t.key];
-    if (place === 'drop') continue;
+    const icon = STUDIO_PLACEMENT[t.key];
+    if (icon === 'drop') continue;
+    const placed = Object.values(SECTION_ORDER).some((keys) => keys.includes(t.key));
     const row: EventMenuRow = {
       key: t.key,
       label: t.name,
       href: t.href,
-      icon: place ? place.icon : 'product',
+      icon: icon ?? 'product',
       studio: true,
     };
-    if (place) put(row);
+    if (placed) put(row);
     else unknown.push(row);
   }
 

@@ -224,6 +224,14 @@ right.
 ⏭ **STILL TO TRANSLATE:** the markup and CSS of the three sheets themselves (frame, sash, moon,
 capiz panes, sprigs, playbill ornaments, `cqw` sizing). This change is the decision layer only.
 
+🛠 **Two blocking guards, and what each one was right about.** `lint radius tokens` caught the
+poster's `border-radius: 4px` — the same 4px `--m-r-xs` already names, so the value was right and
+the spelling was not; it now reads `var(--m-r-xs, 4px)`. `lint port keeps every control` caught
+`<EventMonogram>` leaving `/u/[userSlug]`, which is the whole point of this change rather than an
+accident — the shared disc is what made three celebrations look identical — so the baseline was
+regenerated in this PR, and the removal reads as ONE line in the diff: `EventMonogram` →
+`PosterSprig`. A regenerated baseline is the mechanism the guard documents, not a way around it.
+
 SPEC IMPACT: None.
 
 ---
@@ -267,6 +275,14 @@ already rendered on the couple's own public site, so a visitor can see it by ope
 **Same marker, opposite answers — the grant governs direct reads, not secrecy.** The guard now
 asserts the justification itself: if `hub-look.ts` ever stops reading `invite_theme`, it stops being
 public information and this select is no longer entitled to it.
+
+🛠 **Two blocking guards, and what each one was right about.** `lint radius tokens` caught the
+poster's `border-radius: 4px` — the same 4px `--m-r-xs` already names, so the value was right and
+the spelling was not; it now reads `var(--m-r-xs, 4px)`. `lint port keeps every control` caught
+`<EventMonogram>` leaving `/u/[userSlug]`, which is the whole point of this change rather than an
+accident — the shared disc is what made three celebrations look identical — so the baseline was
+regenerated in this PR, and the removal reads as ONE line in the diff: `EventMonogram` →
+`PosterSprig`. A regenerated baseline is the mechanism the guard documents, not a way around it.
 
 SPEC IMPACT: None.
 
@@ -317,6 +333,14 @@ different things.
 🪤 The one-renderer guard went from 2 call sites to 3 and had to be updated. The count is the weaker
 half — **one DEFINITION is the property**; a second definition is how the sections drift into two
 different cards.
+
+🛠 **Two blocking guards, and what each one was right about.** `lint radius tokens` caught the
+poster's `border-radius: 4px` — the same 4px `--m-r-xs` already names, so the value was right and
+the spelling was not; it now reads `var(--m-r-xs, 4px)`. `lint port keeps every control` caught
+`<EventMonogram>` leaving `/u/[userSlug]`, which is the whole point of this change rather than an
+accident — the shared disc is what made three celebrations look identical — so the baseline was
+regenerated in this PR, and the removal reads as ONE line in the diff: `EventMonogram` →
+`PosterSprig`. A regenerated baseline is the mechanism the guard documents, not a way around it.
 
 SPEC IMPACT: None.
 
@@ -389,6 +413,14 @@ Three watched sabotages, each red, each restored and re-verified green: a Past l
 `'coming-up'` (a finished wedding sashed "Up next"), `posterDate` ignoring precision, and `'default'`
 credited again.
 
+🛠 **Two blocking guards, and what each one was right about.** `lint radius tokens` caught the
+poster's `border-radius: 4px` — the same 4px `--m-r-xs` already names, so the value was right and
+the spelling was not; it now reads `var(--m-r-xs, 4px)`. `lint port keeps every control` caught
+`<EventMonogram>` leaving `/u/[userSlug]`, which is the whole point of this change rather than an
+accident — the shared disc is what made three celebrations look identical — so the baseline was
+regenerated in this PR, and the removal reads as ONE line in the diff: `EventMonogram` →
+`PosterSprig`. A regenerated baseline is the mechanism the guard documents, not a way around it.
+
 SPEC IMPACT: None.
 
 ## 2026-09-23 · fix(profile): the poster is the couple's hub hero, and it could never resolve
@@ -425,6 +457,14 @@ old `renderableImageSrc(event.landing_page_hero_image_url)` — goes red and nam
 photograph. All 12 prod events have none, so every poster on his profile today is still a derived
 sheet. Whether those sheets stay as the no-hero fallback, or a celebration without a hub hero should
 show something else entirely, is his call and is not decided here.
+
+🛠 **Two blocking guards, and what each one was right about.** `lint radius tokens` caught the
+poster's `border-radius: 4px` — the same 4px `--m-r-xs` already names, so the value was right and
+the spelling was not; it now reads `var(--m-r-xs, 4px)`. `lint port keeps every control` caught
+`<EventMonogram>` leaving `/u/[userSlug]`, which is the whole point of this change rather than an
+accident — the shared disc is what made three celebrations look identical — so the baseline was
+regenerated in this PR, and the removal reads as ONE line in the diff: `EventMonogram` →
+`PosterSprig`. A regenerated baseline is the mechanism the guard documents, not a way around it.
 
 SPEC IMPACT: None.
 
@@ -464,5 +504,13 @@ as this was written) gives every hub section its own background via
 `invitation_widgets.config_json.media` plus a 3×3 focal point — `hubMediaRef` is *stricter* than
 `siteMediaServeRef`, refusing even the legacy non-`r2://` passthrough. Once merged, the poster should
 read the hero section's own photo first and fall back to `landing_page_hero_image_url`.
+
+🛠 **Two blocking guards, and what each one was right about.** `lint radius tokens` caught the
+poster's `border-radius: 4px` — the same 4px `--m-r-xs` already names, so the value was right and
+the spelling was not; it now reads `var(--m-r-xs, 4px)`. `lint port keeps every control` caught
+`<EventMonogram>` leaving `/u/[userSlug]`, which is the whole point of this change rather than an
+accident — the shared disc is what made three celebrations look identical — so the baseline was
+regenerated in this PR, and the removal reads as ONE line in the diff: `EventMonogram` →
+`PosterSprig`. A regenerated baseline is the mechanism the guard documents, not a way around it.
 
 SPEC IMPACT: None.

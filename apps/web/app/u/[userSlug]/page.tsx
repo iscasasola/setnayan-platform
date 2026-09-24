@@ -1308,7 +1308,7 @@ const UPROF_CSS = `
     color: inherit;
     aspect-ratio: 3 / 4;
     overflow: hidden;
-    border-radius: 4px;
+    border-radius: var(--m-r-xs, 4px);
     container-type: inline-size;
     box-shadow: 0 1px 0 rgba(44,42,41,.05), 0 20px 44px -26px rgba(44,42,41,.55);
     transition: transform .18s ease, box-shadow .18s ease;

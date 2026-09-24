@@ -24,6 +24,7 @@ import {
   boardFinished,
   findDateClashes,
   isHappeningNow,
+  orderSoonestFirst,
   splitEventBoard,
   splitPlanningShelves,
 } from './event-board';
@@ -173,6 +174,50 @@ test('splitPlanningShelves lifts put-away rows out of its OWN input', () => {
   const out = splitPlanningShelves([hidden, kept], [], '2026-08-21');
   assert.deepEqual(out.planning.map((e) => e.event_id), ['kept']);
   assert.deepEqual(out.putAway.map((e) => e.event_id), ['hidden']);
+});
+
+// ─── PLANNING ORDER (the collection template, owner-approved 2026-09-24) ─────
+
+test('Planning runs SOONEST first, undated LAST — through the real board seam', () => {
+  // The prototype's words: "Sorted soonest first, undated last." The celebration
+  // that needs you next leads; next year's does not bury next week's.
+  const b = board(
+    [
+      ev({ event_id: 'undated', event_date: null }),
+      ev({ event_id: 'far', event_date: '2027-06-01' }),
+      ev({ event_id: 'near', event_date: '2026-09-19' }),
+      ev({ event_id: 'mid', event_date: '2026-12-18' }),
+    ],
+    '2026-08-21',
+  );
+  assert.deepEqual(
+    b.planning.map((e) => e.event_id),
+    ['near', 'mid', 'far', 'undated'],
+  );
+});
+
+test('the timeline order still holds everywhere Planning is not', () => {
+  // ⚖ The template reversed 2026-07-13's newest-on-top rule FOR PLANNING ONLY.
+  // `comingUp` (the input every other reader sees) keeps it.
+  const { comingUp } = splitEventBoard(
+    [
+      ev({ event_id: 'near', event_date: '2026-09-19' }),
+      ev({ event_id: 'far', event_date: '2027-06-01' }),
+    ],
+    '2026-08-21',
+  );
+  assert.deepEqual(comingUp.map((e) => e.event_id), ['far', 'near']);
+});
+
+test('orderSoonestFirst is stable on a shared day and among the undated', () => {
+  const out = orderSoonestFirst([
+    ev({ event_id: 'u1', event_date: null }),
+    ev({ event_id: 'b', event_date: '2027-02-14' }),
+    ev({ event_id: 'u2', event_date: null }),
+    ev({ event_id: 'a', event_date: '2027-02-14T09:00:00+08:00' }),
+    ev({ event_id: 'first', event_date: '2027-01-01' }),
+  ]);
+  assert.deepEqual(out.map((e) => e.event_id), ['first', 'b', 'a', 'u1', 'u2']);
 });
 
 // ─── CLASHES ────────────────────────────────────────────────────────────────

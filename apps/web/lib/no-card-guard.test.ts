@@ -97,7 +97,7 @@ test('the committed baseline matches the tree, and the walk is not blind', () =>
   assert.ok(Object.keys(baseline).length > 100, 'the baseline is suspiciously empty');
   assert.deepEqual(compare(counts, baseline), [], 'a file holds more cards than the baseline allows');
   // The foundation's own pieces hold none.
-  for (const piece of ['info-tip.tsx']) {
+  for (const piece of ['info-tip.tsx', 'side-panel.tsx']) {
     assert.equal(counts[`apps/web/app/_components/${piece}`], undefined, `${piece} holds a card`);
   }
 });

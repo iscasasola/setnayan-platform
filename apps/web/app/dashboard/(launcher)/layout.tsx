@@ -69,8 +69,18 @@ import { HomePillNav } from './_components/home-pill-nav';
  */
 export default async function LauncherLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  /**
+   * THE ADD FLOW'S SLOT (collection template, owner-approved 2026-09-24).
+   * `@modal/(.)create-event` intercepts a navigation from the board to
+   * `/dashboard/create-event` and renders the real create-event page in a
+   * panel over the board; `@modal/default.tsx` renders nothing otherwise. A
+   * cold load of `/dashboard/create-event` is not intercepted — it gets the
+   * full page, as before.
+   */
+  modal: React.ReactNode;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/dashboard'));
@@ -125,6 +135,7 @@ export default async function LauncherLayout({
           hasSpaces={switcherData.context.hasVendor || switcherData.context.isAdmin}
           spacesHref={switcherData.context.hasVendor ? '/vendor-dashboard' : '/admin'}
         />
+        {modal}
       </AppRailShell>
     </div>
   );

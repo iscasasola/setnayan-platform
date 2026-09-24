@@ -595,7 +595,7 @@ export default async function EventLayout({ children, params }: Props) {
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside the rail's content column so it
           doesn't inherit it. */}
-      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} />
+      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} />
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
           the locked BottomNav pill, never a 7th tab. Floats above the pill's
           right end, hides when the docked SubNav is up + in the After phase. */}

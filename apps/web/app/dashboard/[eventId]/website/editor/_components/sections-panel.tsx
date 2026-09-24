@@ -37,6 +37,7 @@ import {
   focalToObjectPosition,
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
+import { canvasHasMotion } from '@/lib/hub-look-pro';
 import {
   HUB_AUTO_SPEEDS,
   HUB_AUTO_SPEED_LABEL,
@@ -86,6 +87,7 @@ export function SectionsPanel({
   photoChoices = [],
   ownsPro = true,
   customLock = null,
+  lookLock = null,
   videoChoice = null,
   colorChoices = [],
 }: {
@@ -128,10 +130,11 @@ export function SectionsPanel({
   /** Take the next free slot. Hidden once all six are in use. */
   addCustomAction?: (formData: FormData) => void | Promise<void>;
   /**
-   * Does this event own Event Hub PRO? A section of the couple's own is Pro
-   * (owner 2026-09-22: "Free is the page we write. Pro is changing how it
-   * looks"). Defaults to true so a caller that has not wired it keeps today's
-   * behaviour; the server actions refuse independently either way.
+   * Does this event own Event Hub PRO? Two things in this panel are Pro (owner
+   * 2026-09-22/24: "Free is the page we write. Pro is changing how it looks"):
+   * a section of the couple's own, and how any section LOOKS and MOVES — its
+   * photo, crop, zoom and motion. Defaults to true so a caller that has not
+   * wired it keeps today's behaviour; the server actions refuse independently.
    */
   ownsPro?: boolean;
   /**
@@ -141,6 +144,11 @@ export function SectionsPanel({
    * production down on 2026-09-23).
    */
   customLock?: React.ReactNode;
+  /**
+   * The lock shown ONCE above the list for a free couple, naming the look
+   * controls (photo, crop, motion). Same panel, same element rule.
+   */
+  lookLock?: React.ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -159,6 +167,11 @@ export function SectionsPanel({
         <span className="font-semibold text-ink/70">Auto</span> show it as soon as it has
         content.
       </p>
+      {/* Free: order, show and hide are the page we write. How each section
+          looks and moves is named and locked here ONCE — never hidden, never
+          repeated on every row. What a couple already chose stays, and each row
+          below still offers to take it off. */}
+      {!ownsPro && lookLock ? <div className="mb-2">{lookLock}</div> : null}
       <ul className="flex flex-col gap-1.5">
         {rows.map((row, i) => {
           const catalog = WIDGET_CATALOG_BY_TYPE[row.widget_type];
@@ -286,7 +299,25 @@ export function SectionsPanel({
                   ⚠ AUTO IS AN ABSENCE. The Auto chip posts `timeline=auto`,
                   which DELETES the key — so a later change to what "Editorial"
                   means still reaches a couple who never overrode it. */}
-              {setMotionAction ? (
+              {setMotionAction && !ownsPro ? (
+                /* 🔓 A FREE COUPLE MAY ALWAYS TAKE A LOOK OFF. Motion chosen
+                   before (or while Pro) stays until they reset it; `reset=1`
+                   is the one motion write `setWidgetMotion` never gates. */
+                canvasHasMotion(sanitizeHubCanvas(row.config_json)) ? (
+                  <form action={setMotionAction} className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                    <input type="hidden" name="reset" value="1" />
+                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                    <button
+                      type="submit"
+                      className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
+                    >
+                      Reset how it moves
+                    </button>
+                  </form>
+                ) : null
+              ) : setMotionAction ? (
                 (() => {
                   const canvas = sanitizeHubCanvas(row.config_json);
                   const preset = canvas.preset ?? null;
@@ -716,7 +747,46 @@ export function SectionsPanel({
                 })()
               ) : null}
 
-              {setBackgroundAction && photoChoices.length > 0 ? (
+              {setBackgroundAction && !ownsPro ? (
+                /* 🔓 A FREE COUPLE MAY ALWAYS TAKE MEDIA OFF, AND MAY ALWAYS
+                   CHOOSE A COLOUR (owner 2026-09-24: "changing background
+                   color is free. making media a background is pro."). A photo
+                   or video already set stays, and removing it (media='') is
+                   never gated. No photo picker, no crop — putting media up or
+                   moving it is Pro, named once by `lookLock` above. */
+                (() => {
+                  const canvas = sanitizeHubCanvas(row.config_json);
+                  if (!canvas.media && colorChoices.length === 0) return null;
+                  return (
+                    <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                      {canvas.media ? (
+                        <form action={setBackgroundAction}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="widget_id" value={row.widget_id} />
+                          <input type="hidden" name="media" value="" />
+                          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                          <button
+                            type="submit"
+                            className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
+                          >
+                            {canvas.kind === 'snippet'
+                              ? 'Remove this section\u2019s video'
+                              : 'Remove this section\u2019s photo'}
+                          </button>
+                        </form>
+                      ) : null}
+                      <SectionColourChoices
+                        eventId={eventId}
+                        widgetId={row.widget_id}
+                        canvas={canvas}
+                        colorChoices={colorChoices}
+                        action={setBackgroundAction}
+                        withNone
+                      />
+                    </div>
+                  );
+                })()
+              ) : setBackgroundAction && photoChoices.length > 0 ? (
                 (() => {
                   const canvas = sanitizeHubCanvas(row.config_json);
                   return (
@@ -800,39 +870,15 @@ export function SectionsPanel({
                         })}
                       </div>
 
-                      {/* ── A FLAT COLOUR ──────────────────────────────────
-                          From the couple's OWN palette, not a colour wheel.
-                          Their mood board already decided what this wedding
-                          looks like; a free picker here invites a ground that
-                          fights every other surface on the page. */}
-                      {colorChoices.length > 0 ? (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
-                            Colour
-                          </span>
-                          {colorChoices.map((hex) => {
-                            const on = canvas.kind === 'color' && canvas.color === hex;
-                            return (
-                              <form key={hex} action={setBackgroundAction}>
-                                <input type="hidden" name="event_id" value={eventId} />
-                                <input type="hidden" name="widget_id" value={row.widget_id} />
-                                <input type="hidden" name="kind" value="color" />
-                                <input type="hidden" name="color" value={hex} />
-                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
-                                <button
-                                  type="submit"
-                                  aria-pressed={on}
-                                  aria-label={on ? `Current background colour ${hex}` : `Use ${hex} as the background`}
-                                  style={{ backgroundColor: hex }}
-                                  className={`block h-7 w-7 rounded-md border-2 ${
-                                    on ? 'border-ink' : 'border-ink/15 hover:border-ink/40'
-                                  }`}
-                                />
-                              </form>
-                            );
-                          })}
-                        </div>
-                      ) : null}
+                      {/* ── A FLAT COLOUR ── free for every couple; see
+                          <SectionColourChoices> below. */}
+                      <SectionColourChoices
+                        eventId={eventId}
+                        widgetId={row.widget_id}
+                        canvas={canvas}
+                        colorChoices={colorChoices}
+                        action={setBackgroundAction}
+                      />
 
                       {/* ══ THE CROP ════════════════════════════════════════
                           Only once a photo is actually set. A focal point with
@@ -963,6 +1009,82 @@ export function SectionsPanel({
           </p>
         )
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A section's COLOUR background — one row of swatches from the couple's own
+ * palette, shared by the Pro picker and the free rail.
+ *
+ * 🔓 FREE FOR EVERY COUPLE (owner 2026-09-24: "changing background color is
+ * free. making media a background is pro."). `setWidgetBackground` classifies a
+ * `kind=color` write through `sectionBackgroundChange`, which never answers
+ * 'add' or 'change' for a colour — so nothing this row posts is refused.
+ *
+ * From the couple's OWN palette, not a colour wheel: their mood board already
+ * decided what this wedding looks like, and a free picker here invites a ground
+ * that fights every other surface on the page.
+ */
+function SectionColourChoices({
+  eventId,
+  widgetId,
+  canvas,
+  colorChoices,
+  action,
+  withNone = false,
+}: {
+  eventId: string;
+  widgetId: string;
+  canvas: ReturnType<typeof sanitizeHubCanvas>;
+  colorChoices: readonly string[];
+  action: (formData: FormData) => void | Promise<void>;
+  /** The free rail has no "None" chip of its own, so the colour row carries one. */
+  withNone?: boolean;
+}) {
+  if (colorChoices.length === 0) return null;
+  const colourOn = canvas.kind === 'color';
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
+        Colour
+      </span>
+      {withNone && colourOn ? (
+        <form action={action}>
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="widget_id" value={widgetId} />
+          <input type="hidden" name="kind" value="color" />
+          <input type="hidden" name="color" value="" />
+          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+          <button
+            type="submit"
+            className="inline-flex h-7 items-center rounded-md border border-ink/15 bg-cream px-2 text-[0.6rem] font-semibold text-ink/55 hover:border-ink/30"
+          >
+            None
+          </button>
+        </form>
+      ) : null}
+      {colorChoices.map((hex) => {
+        const on = colourOn && canvas.color === hex;
+        return (
+          <form key={hex} action={action}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="widget_id" value={widgetId} />
+            <input type="hidden" name="kind" value="color" />
+            <input type="hidden" name="color" value={hex} />
+            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+            <button
+              type="submit"
+              aria-pressed={on}
+              aria-label={on ? `Current background colour ${hex}` : `Use ${hex} as the background`}
+              style={{ backgroundColor: hex }}
+              className={`block h-7 w-7 rounded-md border-2 ${
+                on ? 'border-ink' : 'border-ink/15 hover:border-ink/40'
+              }`}
+            />
+          </form>
+        );
+      })}
     </div>
   );
 }

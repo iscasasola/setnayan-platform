@@ -334,9 +334,27 @@ export default async function WebsiteEditorPage({
     (event as { rsvp_backdrop?: unknown }).rsvp_backdrop,
   );
 
-  const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
-  const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key));
+  /* 🎨 The background colour is FREE (owner 2026-09-24: "changing background
+     color is free"), so the Colours row is never locked as a whole. Only its Pro
+     half — buttons, face, art direction, magic move — locks, and with the same
+     grandfather: a couple who already chose any of them keeps that half. */
+  const colorsProLocked = lockedIf(
+    Boolean(
+      event.site_button_color ||
+        (event as { site_font_key?: string | null }).site_font_key ||
+        (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
+        event.site_art_direction === 'candlelight',
+    ),
+  );
+  // The song and the hero video share one panel, so either one keeps it open.
+  const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key || videoRef));
   const galleryLocked = lockedIf(ourPhotos.length > 0);
+  /* 📷 THE LOOK IS PRO (owner 2026-09-24, "A" — "Free is the page we write. Pro
+     is changing how it looks."). Their own hero photo and the invitation
+     backdrop join the rows above. Same grandfather: a couple who already has
+     one keeps its panel, and the server lets them take it off. */
+  const heroLocked = lockedIf(Boolean(heroRef));
+  const backdropLocked = lockedIf(Boolean(rsvpBackdrop));
 
   const groups: RailGroup[] = [
     {
@@ -409,7 +427,11 @@ export default async function WebsiteEditorPage({
           blurb: 'A scene that moves behind your invitation as guests scroll.',
           href: `${w}/widgets`,
           status: rsvpBackdrop ? done(SPATIAL_THEMES[rsvpBackdrop.theme].label) : todo('Off'),
-          panel: (
+          pro: true,
+          locked: backdropLocked,
+          panel: backdropLocked ? (
+            lockPanel('Invitation backdrop')
+          ) : (
             <RsvpBackdropPanel
               saveAction={saveRsvpBackdrop}
               clearAction={clearRsvpBackdrop}
@@ -424,14 +446,14 @@ export default async function WebsiteEditorPage({
           blurb: 'Background and button colors.',
           href: `${w}/colors`,
           pro: true,
-          locked: colorsLocked,
-          panel: colorsLocked ? (
-            lockPanel('Colors')
-          ) : (
+          locked: false,
+          panel: (
             <ColorsPanel
               action={updateSiteColors.bind(null, eventId)}
               eventId={eventId}
               rowKey="colors"
+              proLocked={colorsProLocked}
+              proLock={lockPanel('Button colour, typeface and motion')}
               bgColor={(event.site_bg_color as string | null) ?? null}
               buttonColor={(event.site_button_color as string | null) ?? null}
               artDirection={
@@ -479,7 +501,11 @@ export default async function WebsiteEditorPage({
           href: `${w}/hero-photo`,
           anchor: 'home',
           status: heroRef ? done('Photo set') : todo('Not set'),
-          panel: (
+          pro: true,
+          locked: heroLocked,
+          panel: heroLocked ? (
+            lockPanel('Your own hero photo')
+          ) : (
             <HeroPhotoPanel
               action={uploadHeroPhoto}
               eventId={eventId}
@@ -664,11 +690,13 @@ export default async function WebsiteEditorPage({
               saveCustomAction={saveCustomSection}
               addCustomAction={addCustomSection}
               photoChoices={photoChoices}
-              /* A section of their own is Pro (owner 2026-09-22) — locked with
-                 the SAME panel every other Pro row uses, passed as an element.
-                 The actions refuse a free couple independently. */
+              /* Two Pro locks, both the SAME panel every other Pro row uses,
+                 passed as ELEMENTS: a section of their own (owner 2026-09-22)
+                 and how each section looks and moves (owner 2026-09-24). The
+                 actions refuse a free couple independently. */
               ownsPro={ownsPro}
               customLock={lockPanel('A section of your own')}
+              lookLock={lockPanel('How each section looks and moves')}
               videoChoice={videoChoice}
               colorChoices={colorChoices}
             />

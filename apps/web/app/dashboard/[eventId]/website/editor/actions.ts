@@ -29,7 +29,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
-import { isSpatialThemeKey } from '@/lib/spatial-backdrop';
+import { isSpatialThemeKey, parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
+import { refChange } from '@/lib/hub-look-pro';
+import { requireLookPro } from '@/lib/hub-look-gate';
 import { resolveReturnTo } from '@/lib/editor-return';
 
 /** Set the RSVP-phase spatial backdrop (theme + intensity). */
@@ -45,6 +47,22 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
+
+  /* ⛔ THE BACKDROP IS HOW THE PAGE LOOKS — PRO (owner 2026-09-24). A free couple
+     who already has one keeps it and may turn it off (`clearRsvpBackdrop`, never
+     gated); choosing or changing a scene needs Pro. The stored config is read
+     through the SAME parser the public site uses, so "what is stored" here is
+     what guests actually see. */
+  const { data: current } = await supabase
+    .from('events')
+    .select('rsvp_backdrop')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const stored = parseRsvpBackdropConfig((current as { rsvp_backdrop?: unknown } | null)?.rsvp_backdrop);
+  await requireLookPro(
+    eventId,
+    refChange(stored ? `${stored.theme}/${stored.intensity}` : null, `${themeRaw}/${intensity}`),
+  );
 
   await supabase
     .from('events')

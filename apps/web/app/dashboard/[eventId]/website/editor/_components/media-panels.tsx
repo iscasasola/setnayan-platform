@@ -184,7 +184,7 @@ export function SiteChromePanel({
           acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
           currentValue={videoRef}
           initialDisplayUrls={videoDisplay}
-          label="Hero video (free)"
+          label="Hero video"
           help="Plays in place of the hero photo when set."
         />
       </div>

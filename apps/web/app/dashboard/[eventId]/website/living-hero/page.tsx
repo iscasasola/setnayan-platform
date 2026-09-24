@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { LivingHeroStudio } from './_components/living-hero-studio';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { WebsiteProLock } from '../_components/website-pro-lock';
 
 /**
  * Living Hero editor (iteration 0046). The couple picks a ≤5-second moment from
@@ -36,6 +38,24 @@ export default async function LivingHeroPage({
     .maybeSingle();
 
   if (error || !event) notFound();
+
+  // 🎞 A living hero is the couple's own film at the top — Event Hub Pro (owner
+  // 2026-09-24, "A"). `saveLivingHero` refuses it for a free couple; the studio
+  // is not offered either. One they already have stays on the page and is
+  // removed from the hero-photo editor.
+  const ownsPro = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+  if (!ownsPro) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+        <WebsiteProLock
+          eventId={eventId}
+          backHref={`/dashboard/${eventId}/website`}
+          featureName="Living hero"
+          description="Turn a few seconds of your own video into a gentle, looping hero at the top of your Event Hub. It's part of Event Hub PRO."
+        />
+      </div>
+    );
+  }
 
   const currentClipUrl = await displayUrlForStoredAsset(
     siteMediaServeRef(event.landing_page_hero_video_r2_key),

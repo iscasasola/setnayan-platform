@@ -44,6 +44,10 @@ type Props = {
   videoUrl?: string | null;
   /** Fires with the upload payload (or null on clear) when a video is uploaded. */
   onUploadVideo: (payload: StdVideoUpload | null) => void;
+  /** When set, shown IN PLACE of the video uploader — the couple's own film is
+   *  Event Hub Pro (owner 2026-09-24). A video they already have stays, with
+   *  its play-mode toggle; the gallery ending stays free. */
+  uploadLock?: React.ReactNode;
 };
 
 /**
@@ -140,6 +144,7 @@ export function StdMediaPicker({
   galleryCount = 0,
   videoUrl,
   onUploadVideo,
+  uploadLock,
 }: Props) {
   const isGallery = value.type === 'gallery';
   const isVideo = value.type === 'video';
@@ -246,19 +251,21 @@ export function StdMediaPicker({
 
       {isVideo ? (
         <div className="space-y-2">
-          <FileUpload
-            bucket="media"
-            pathPrefix={`events/${eventId}/std-video`}
-            acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
-            maxSizeMB={300}
-            variant="wide"
-            compressVideo
-            currentValue={value.videoKey ?? null}
-            initialDisplayUrls={value.videoKey && videoUrl ? { [value.videoKey]: videoUrl } : {}}
-            onFilePicked={handleFilePicked}
-            onChange={(v) => handleVideoChange(typeof v === 'string' ? v : null)}
-            help="MP4/MOV/WebM. Big files are fine — we optimize your video for smooth playback while keeping its full resolution (up to 4K). Large/4K clips take a little longer to process."
-          />
+          {uploadLock ?? (
+            <FileUpload
+              bucket="media"
+              pathPrefix={`events/${eventId}/std-video`}
+              acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
+              maxSizeMB={300}
+              variant="wide"
+              compressVideo
+              currentValue={value.videoKey ?? null}
+              initialDisplayUrls={value.videoKey && videoUrl ? { [value.videoKey]: videoUrl } : {}}
+              onFilePicked={handleFilePicked}
+              onChange={(v) => handleVideoChange(typeof v === 'string' ? v : null)}
+              help="MP4/MOV/WebM. Big files are fine — we optimize your video for smooth playback while keeping its full resolution (up to 4K). Large/4K clips take a little longer to process."
+            />
+          )}
           {/* Play mode — fill (default) vs fit-to-screen — owner 2026-06-21
               "give them an option how the video plays … place a toggle next to
               upload video". Shows once a video exists. Writes std_media.fit. */}

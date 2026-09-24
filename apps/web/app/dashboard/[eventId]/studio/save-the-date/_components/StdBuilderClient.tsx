@@ -26,6 +26,7 @@ import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { saveAllStdContent, presignStdBackground } from '../actions';
+import { LOOK_PRO_REQUIRED } from '@/lib/hub-look-pro';
 import { REVEAL_NEEDS_PRO } from '@/lib/reveal-access';
 import { useSaveLoader } from '@/components/sd-loader';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -66,6 +67,13 @@ type Props = {
    *  2026-07-10); when false, the media steps show an "unlocks with the Reveal"
    *  note and won't play on the live Save-the-Date until purchased. */
   ownsReveal: boolean;
+  /** Does the event own Event Hub Pro? The couple's OWN background photo, film
+   *  and song are Pro (owner 2026-09-24, "A") — `saveAllStdContent` refuses them
+   *  for a free couple, so the three uploaders are locked here to match. Our
+   *  themes, backgrounds and the film itself stay free. Defaults to true so a
+   *  caller that has not wired it keeps today's behaviour; the server refuses
+   *  independently either way. */
+  ownsPro?: boolean;
   /** Pre-resolved film content from the server (presigned URLs already embedded). */
   initialContent: StdFilmContent;
   initialThemeId: StdThemeId;
@@ -139,6 +147,7 @@ export function StdBuilderClient({
   eventId,
   slug,
   ownsReveal,
+  ownsPro = true,
   initialContent,
   initialThemeId,
   initialLaunchDate,
@@ -191,7 +200,20 @@ export function StdBuilderClient({
   const [accentColor, setAccentColor] = useState<string | null>(initialFilmAccentColor ?? null);
 
   const [saving, startSave] = useTransition();
-  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'needs-pro'>('idle');
+  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'pro' | 'needs-pro'>('idle');
+  /* One lock, three places — the background, film and song uploaders. Built
+     here as an ELEMENT and handed down, never a component or function prop. */
+  const proHref = `/dashboard/${eventId}/studio/website-pro`;
+  const uploadLock = (what: string) =>
+    ownsPro ? undefined : (
+      <p className="rounded-xl bg-mulberry/5 px-3.5 py-3 text-xs text-ink/70">
+        Your own {what} is part of <span className="font-medium text-ink">Event Hub Pro</span>. Our
+        backgrounds and your words stay free.{' '}
+        <Link href={proHref} className="font-medium text-mulberry underline underline-offset-2">
+          Unlock Event Hub Pro
+        </Link>
+      </p>
+    );
   const save = useSaveLoader();
   const [device, setDevice] = useState<PreviewDevice>('iphone');
   // Bumping this remounts the preview (opening + film) → replays from the first beat.
@@ -417,7 +439,18 @@ export function StdBuilderClient({
           }),
         { steps: ['Saving your Save-the-Date'], hint: 'Saving' },
       );
-      setResult(r.ok ? 'ok' : r.error === REVEAL_NEEDS_PRO ? 'needs-pro' : 'error');
+      // A Pro refusal is a SENTENCE, not "something went wrong" — the couple
+      // must learn why the film did not change and what would change it. Two
+      // gates can refuse this save, each with its own code: the couple's own
+      // media (LOOK_PRO_REQUIRED, lib/hub-look-pro.ts) and a reveal-only
+      // effect (REVEAL_NEEDS_PRO, lib/reveal-access.ts).
+      setResult(
+        r.ok
+          ? 'ok'
+          : r.error === LOOK_PRO_REQUIRED ? 'pro'
+            : r.error === REVEAL_NEEDS_PRO ? 'needs-pro'
+              : 'error',
+      );
     });
   };
 
@@ -442,6 +475,7 @@ export function StdBuilderClient({
             eventId={eventId}
             uploadUrl={uploadUrl}
             onUpload={handleUpload}
+            uploadLock={uploadLock('photo')}
           />
 
           {/* Step 1 (cont.) · Readability — veil + text tone so the names always
@@ -774,6 +808,7 @@ export function StdBuilderClient({
             galleryCount={galleryCount}
             videoUrl={initialVideoUrl}
             onUploadVideo={handleVideoUpload}
+            uploadLock={uploadLock('film')}
           />
 
           {/* Step 4 · Music — the film's soundtrack + the play-music toggle */}
@@ -830,17 +865,21 @@ export function StdBuilderClient({
                   <span className="text-xs text-ink/45">No song yet</span>
                 )}
               </div>
-              <FileUpload
-                bucket="media"
-                pathPrefix={`events/${eventId}/site-music`}
-                acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
-                maxSizeMB={40}
-                variant="wide"
-                currentValue={siteMusicKey}
-                onFilePicked={handleMusicFilePicked}
-                onChange={(v) => handleMusicUpload(typeof v === 'string' ? v : null)}
-                help="MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your wedding-site song."
-              />
+              {ownsPro ? (
+                <FileUpload
+                  bucket="media"
+                  pathPrefix={`events/${eventId}/site-music`}
+                  acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+                  maxSizeMB={40}
+                  variant="wide"
+                  currentValue={siteMusicKey}
+                  onFilePicked={handleMusicFilePicked}
+                  onChange={(v) => handleMusicUpload(typeof v === 'string' ? v : null)}
+                  help="MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your wedding-site song."
+                />
+              ) : (
+                uploadLock('song')
+              )}
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href={`/dashboard/${eventId}/studio/pakanta`}
@@ -982,6 +1021,13 @@ export function StdBuilderClient({
                 </Link>
               ) : null}
             </div>
+          ) : result === 'pro' ? (
+            <p className="rounded-xl bg-mulberry/5 px-4 py-3 text-center text-sm text-ink/75">
+              Nothing was saved — your own photo, film or song is part of Event Hub Pro.{' '}
+              <Link href={proHref} className="font-medium text-mulberry underline underline-offset-2">
+                Unlock Event Hub Pro
+              </Link>
+            </p>
           ) : result === 'error' || result === 'needs-pro' ? (
             <p className="rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-center text-sm text-terracotta">
               {result === 'needs-pro'

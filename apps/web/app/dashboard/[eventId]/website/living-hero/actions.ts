@@ -12,6 +12,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { combineChanges, refChange } from '@/lib/hub-look-pro';
+import { lookProAllows } from '@/lib/hub-look-gate';
 
 async function hostUserId(eventId: string): Promise<string | null> {
   const supabase = await createClient();
@@ -55,6 +57,27 @@ export async function saveLivingHero(
   if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
 
   const supabase = await createClient();
+
+  /* ⛔ A LIVING HERO IS THEIR OWN FILM ON THE PAGE — PRO (owner 2026-09-24,
+     "A"). Returned as a sentence, not a redirect: this action is called from a
+     client studio that shows the result inline, and a silent bounce would read
+     exactly like a save that worked. */
+  const { data: current } = await supabase
+    .from('events')
+    .select('landing_page_hero_image_url, landing_page_hero_video_r2_key')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const change = combineChanges(
+    refChange(current?.landing_page_hero_video_r2_key as string | null | undefined, clipRef),
+    refChange(current?.landing_page_hero_image_url as string | null | undefined, stillRef),
+  );
+  if (!(await lookProAllows(eventId, change))) {
+    return {
+      ok: false,
+      error: 'A living hero is part of Event Hub Pro — unlock it to put your own film at the top.',
+    };
+  }
+
   const { data, error } = await supabase
     .from('events')
     .update({

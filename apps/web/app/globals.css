@@ -2872,6 +2872,51 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-dur-control: 200ms;
   --sn-dur-elem:    320ms;
   --sn-dur-enter:   640ms;
+
+  /* ── DESIGN FOUNDATION (owner 2026-09-24 · build-sessions/DESIGN-FOUNDATION.md)
+     ADDITIVE. Nothing existing is re-pointed at these; they are the names the
+     shared pieces (InfoTip today; Readout · Section · SidePanel with their
+     first adopter) and every new screen reach for.
+
+     Layer scale. It DESCRIBES the stack the app already has, measured
+     2026-09-24, so a new layer lands between the right neighbours:
+       raised 10  in-flow overlap (the common `z-10`)
+       sticky 20  sticky headers, the phone sub-nav strip
+       nav    30  the floating bottom nav + FAB
+       pop    40  tooltips and menus that must clear the chrome
+       modal  50  `_components/sheet.tsx` and the centred modals
+       toast  60  stale-tab notice, report sheet
+       scrim  74  the side panel's dimmed backdrop (= .sn-inspector-peek)
+       panel  75  the side panel itself          (= .sn-inspector-sheet) */
+  --sn-z-base:   0;
+  --sn-z-raised: 10;
+  --sn-z-sticky: 20;
+  --sn-z-nav:    30;
+  --sn-z-pop:    40;
+  --sn-z-modal:  50;
+  --sn-z-toast:  60;
+  --sn-z-scrim:  74;
+  --sn-z-panel:  75;
+
+  /* The one continuous canvas — the same warm white `.sn-ambient` paints
+     (owner 2026-07-28). Named so a page can reach for the ground by name. */
+  --sn-canvas: #F7F5F0;
+
+  /* Borderless glass (owner 2026-09-24: "glass layers drop their hairline and
+     rely on shadow"). The .5 fill of `--sn-glass-bg` is imperceptible on the
+     warm-white ground (measured 1.03–1.05:1, see `.sn-ambient`), so a layer
+     that gives up its hairline needs a denser fill and a shadow that SEATS it:
+     a 1px contact layer plus two soft ambients, warm, never grey. */
+  --sn-glass-bg-raised: rgba(255,255,255,.86);
+  --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
+                 0 30px 60px -30px rgba(30,26,18,.28);
+  --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
+}
+html.dark {
+  /* Dark pairs ship with the tokens so they are not a trap for whoever turns
+     dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04). */
+  --sn-canvas: #17160F;
+  --sn-glass-bg-raised: rgba(30,34,41,.86);
 }
 
 
@@ -3508,6 +3553,108 @@ html.dark {
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
   color: var(--sn-gold-100);
 }
+
+/* ---------- DESIGN FOUNDATION (owner 2026-09-24) ----------------------------
+ * The shared pieces' recipes. Read build-sessions/DESIGN-FOUNDATION.md first.
+ *
+ * `.sn-glass-bare` — glass WITHOUT the hairline (owner: "glass layers drop
+ * their hairline and rely on shadow"). A VARIANT, not an edit to `.sn-glass`:
+ * `.sn-glass` is used by nine files, and its own note above says the border is
+ * what bounds it on the flat warm-white ground ("fix the border", 2026-07-28).
+ * Stripping it there would dissolve those nine panels into the page. New layers
+ * use this; old ones move one screen at a time, looked at. */
+.sn-glass-bare {
+  background: var(--sn-glass-bg-raised);
+  backdrop-filter: var(--sn-glass-blur);
+  -webkit-backdrop-filter: var(--sn-glass-blur);
+  box-shadow: var(--sn-sh-float);
+}
+
+/* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".
+ * OPT-IN ONLY. The owner flattened the ground on 2026-07-28 ("clean/modern
+ * digital means an even ground", see `.sn-ambient`), so this is never a
+ * default. The drift lives on a CHILDLESS pseudo-element and moves by the
+ * `translate` property with no fill-mode: nothing can be position:fixed inside
+ * it, so it cannot unpin anything (lingering-transform.baseline.txt). Off
+ * entirely under reduced motion. */
+.sn-canvas-drift {
+  position: relative;
+  isolation: isolate;
+  background: var(--sn-canvas);
+}
+.sn-canvas-drift::before {
+  content: '';
+  position: absolute;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 20% 15%, rgba(203,167,102,.07), transparent 70%),
+    radial-gradient(55% 45% at 85% 80%, rgba(194,78,37,.04), transparent 70%);
+  animation: sn-canvas-drift 48s ease-in-out infinite alternate;
+}
+@keyframes sn-canvas-drift {
+  from { translate: -2% -1.5%; }
+  to   { translate: 2% 1.5%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-canvas-drift::before { animation: none; }
+}
+
+/* `.sn-num` — the hero number (brief §2: "the number is the interface").
+ * Tabular so a changing figure does not jitter its neighbours. */
+.sn-num {
+  font-family: var(--sn-font);
+  font-weight: 800;
+  font-size: clamp(40px, 7vw, 64px);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--sn-ink-900);
+}
+.sn-num[data-size='sm'] { font-size: clamp(28px, 4.5vw, 36px); }
+/* An honest absence: the figure could not be read. Muted so it can never be
+ * mistaken for a measured value — and it is a dash, never a zero. */
+.sn-num[data-failed='true'] { color: var(--sn-ink-300); }
+
+/* `.sn-tip` — the InfoTip popover. Always in the DOM (so aria-describedby
+ * resolves), shown by `data-open`. A transparent top pad bridges the gap to
+ * the trigger, so moving the pointer onto the popover does not close it. */
+.sn-tip {
+  position: absolute;
+  top: 100%;
+  z-index: var(--sn-z-pop);
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 32px));
+  padding-top: 8px;
+  opacity: 0;
+  visibility: hidden;
+  translate: var(--sn-tip-x, 0) -4px;
+  pointer-events: none;
+  transition:
+    opacity var(--sn-dur-control) var(--sn-ease),
+    translate var(--sn-dur-control) var(--sn-ease),
+    visibility 0s linear var(--sn-dur-control);
+}
+.sn-tip[data-open='true'] {
+  opacity: 1;
+  visibility: visible;
+  translate: var(--sn-tip-x, 0) 0;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+.sn-tip[data-align='center'] { left: 50%; --sn-tip-x: -50%; }
+.sn-tip[data-align='start'] { left: -4px; }
+.sn-tip[data-align='end'] { right: -4px; }
+.sn-tip-body {
+  border-radius: var(--m-r-md);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--sn-ink-700);
+}
+
 
 /* ---------- home-launcher fidelity surfaces (2026-07-15 pixel pass) ----------
  * Each recipe defined ONCE here (owner: "do not hard code values that should be

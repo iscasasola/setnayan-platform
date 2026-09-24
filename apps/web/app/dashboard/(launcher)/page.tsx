@@ -74,9 +74,8 @@ import {
 } from '@/app/_components/collection-card';
 import { paginateCollection, parseCollectionPage } from '@/lib/collection-pagination';
 import { EventPoster } from '@/app/_components/event-poster';
-import { posterFor, type EventPosterFacts } from '@/lib/event-poster';
-import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
-import { resolveHubLook } from '@/app/[slug]/_lib/hub-look';
+import type { EventPosterFacts } from '@/lib/event-poster';
+import { resolveEventPoster } from '@/lib/event-poster.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
@@ -2032,19 +2031,15 @@ function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: 
 }
 
 /**
- * The Planning page's posters — `posterFor`'s facts, each read from the
- * resolver that owns it (lib/event-poster.ts explains the order).
+ * The Planning page's posters — each from `resolveEventPoster`
+ * (lib/event-poster.server.ts), the ONE resolver that reads an event's hero
+ * the way the Event Hub does (owner: "hero widget applies to save the date,
+ * invitation, on the day and the thumbnail poster").
  *
- *   • WORDS — `eventWordsFor(event_type)`, React-cached per type. It decides
- *     whether the event is SOLEMN; if it cannot be resolved the card keeps the
- *     glass cover rather than guessing — a wake must never get a celebration
- *     poster because a read failed.
- *   • THEME — the couple's saved `invite_theme`, gated by `resolveHubLook`, the
- *     ONE place a theme is decided (a Pro theme needs the live unlock AND a
- *     type that carries the Save-the-Date film). A refused read costs only the
- *     Capiz panes — decoration, never a word — so it falls to House, logged.
- *   • ACCENT — `monogram_color`, already on the row; validated in `posterFor`.
- *   • HERO — the own-hero map this page already presigned and narrowed.
+ * This only gathers what the board does not already hold: the couple's saved
+ * `invite_theme`, one read for the page. A refused read costs only the Capiz
+ * panes — decoration, never a word — so it falls to House, logged. A card
+ * whose words cannot be resolved gets no poster and keeps the glass cover.
  */
 async function planningPosters(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -2080,30 +2075,11 @@ async function planningPosters(
   }
   await Promise.all(
     events.map(async (e) => {
-      const [words, look] = await Promise.all([
-        eventWordsFor(e.event_type).catch(() => null),
-        resolveHubLook({
-          event_id: e.event_id,
-          display_name: e.display_name,
-          invite_theme: saved.get(e.event_id) ?? null,
-          monogram_text: e.monogram_text,
-          monogram_color: e.monogram_color,
-          event_type: e.event_type,
-        }).catch(() => null),
-      ]);
-      if (!words) return;
-      out.set(
-        e.event_id,
-        posterFor({
-          displayName: e.display_name,
-          eventDate: e.event_date,
-          venueName: e.venue_name,
-          words,
-          theme: look?.theme ?? 'house',
-          accent: e.monogram_color,
-          heroSrc: ownHeroById.get(e.event_id) ?? null,
-        }),
+      const poster = await resolveEventPoster(
+        { ...e, invite_theme: saved.get(e.event_id) ?? null },
+        ownHeroById.get(e.event_id) ?? null,
       );
+      if (poster) out.set(e.event_id, poster);
     }),
   );
   return out;

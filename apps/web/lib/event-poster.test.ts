@@ -8,6 +8,10 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   posterDate,
@@ -108,4 +112,23 @@ test('a host-writable colour never reaches a style unchecked', () => {
     assert.equal(safeAccent(bad), null, String(bad));
     assert.equal(posterFor({ ...base, accent: bad }).kind, 'invitation', String(bad));
   }
+});
+
+test('ONE hero, ONE resolver: posterFor has exactly one caller, resolveEventPoster', () => {
+  // Owner 2026-09-24: "hero widget applies to save the date, invitation, on the
+  // day and the thumbnail poster". A second place that composes a poster from
+  // its own inputs is how the thumbnail and the hero come to disagree.
+  const web = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const hits = execFileSync('git', ['grep', '--untracked', '-l', '-F', 'posterFor(', '--', 'app', 'lib'], {
+    cwd: web,
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .filter((f) => f && !/\.test\.tsx?$/.test(f));
+  assert.deepEqual(hits.sort(), ['lib/event-poster.server.ts', 'lib/event-poster.ts']);
+  const server = readFileSync(join(web, 'lib/event-poster.server.ts'), 'utf8');
+  assert.match(server, /resolveHubLook\(/, 'the poster stopped reading the theme through the hub resolver');
+  assert.match(server, /eventWordsFor\(/, 'the poster stopped reading the hub card\'s words');
+  const launcher = readFileSync(join(web, 'app/dashboard/(launcher)/page.tsx'), 'utf8');
+  assert.match(launcher, /resolveEventPoster\(/, 'the board no longer asks the one resolver');
 });

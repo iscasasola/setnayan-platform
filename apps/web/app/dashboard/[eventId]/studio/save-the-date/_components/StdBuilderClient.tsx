@@ -26,6 +26,7 @@ import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { saveAllStdContent, presignStdBackground } from '../actions';
+import { REVEAL_NEEDS_PRO } from '@/lib/reveal-access';
 import { useSaveLoader } from '@/components/sd-loader';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
@@ -190,7 +191,7 @@ export function StdBuilderClient({
   const [accentColor, setAccentColor] = useState<string | null>(initialFilmAccentColor ?? null);
 
   const [saving, startSave] = useTransition();
-  const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
+  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'needs-pro'>('idle');
   const save = useSaveLoader();
   const [device, setDevice] = useState<PreviewDevice>('iphone');
   // Bumping this remounts the preview (opening + film) → replays from the first beat.
@@ -416,7 +417,7 @@ export function StdBuilderClient({
           }),
         { steps: ['Saving your Save-the-Date'], hint: 'Saving' },
       );
-      setResult(r.ok ? 'ok' : 'error');
+      setResult(r.ok ? 'ok' : r.error === REVEAL_NEEDS_PRO ? 'needs-pro' : 'error');
     });
   };
 
@@ -981,9 +982,11 @@ export function StdBuilderClient({
                 </Link>
               ) : null}
             </div>
-          ) : result === 'error' ? (
+          ) : result === 'error' || result === 'needs-pro' ? (
             <p className="rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-center text-sm text-terracotta">
-              Something went wrong — please try again.
+              {result === 'needs-pro'
+                ? 'Opening effects need Event Hub Pro — nothing was saved. Turn the effect back off to save your film.'
+                : 'Something went wrong — please try again.'}
             </p>
           ) : null}
 

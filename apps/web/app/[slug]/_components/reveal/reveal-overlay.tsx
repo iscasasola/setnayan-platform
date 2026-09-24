@@ -15,9 +15,12 @@
  * guests skip the reveal and see the content directly).
  *
  * Activation (the caller passes `enabled` = "we're in the Save-the-Date phase"):
- *   - admin toggle `config.enabled` (DB `reveal_studio_config`, set in the
- *     /admin/reveal-studio Reveal Studio) → on for everyone, `config.defaultTemplate`
- *   - global flag  `NEXT_PUBLIC_STD_REVEAL=1`  → legacy env fallback (kept for previews)
+ *   ALL REVEAL IS PAID (owner 2026-09-24) — lib/reveal-access.ts decides:
+ *   - the event holds Event Hub Pro (`premiumUnlocked`) → the couple's choice,
+ *     else the admin house default `config.defaultTemplate`. A free couple gets
+ *     no reveal. The admin toggle `config.enabled` is NOT an entitlement any more
+ *     (it used to switch the paid veil on for every free couple).
+ *   - global flag  `NEXT_PUBLIC_STD_REVEAL=1`  → staff preview builds only
  *   - per-visit URL `?reveal=<id>` → overrides the template for that one visit,
  *     but ONLY on a build where NEXT_PUBLIC_STD_REVEAL=1 (how we demo on Vercel
  *     previews). In production the flag is off and the param is inert — it is a
@@ -52,6 +55,7 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
 import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
+import { revealAllowedFor } from '@/lib/reveal-access';
 
 // NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
 // 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
@@ -89,9 +93,9 @@ type Props = {
   /** The couple's reveal effect toggles (events.std_reveal_effects, resolved):
    *  butterflies → envelopes · petals → church doors + veil. (2026-06-18) */
   eventEffects?: RevealEffects;
-  /** The couple owns the premium openings unlock (PR4 P5) — an additive
-   *  activation path alongside the admin global toggle + the ?reveal= override.
-   *  Dormant until the STD_PREMIUM_OPENINGS SKU is sellable. */
+  /** The event holds Event Hub Pro (COUPLE_WEBSITE_PRO → STD_PREMIUM_OPENINGS).
+   *  Since 2026-09-24 ("all reveal is paid") this is the ONLY path to a reveal
+   *  for a public guest — see lib/reveal-access.ts. */
   premiumUnlocked?: boolean;
   /**
    * ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11 · lib/reveal-once-per-
@@ -173,39 +177,27 @@ export function RevealOverlay({
   // `override`. It is now scoped to the env-only preview flag, which no visitor
   // can set. See resolveRevealOverride() in ./reveal-templates for the full note.
   const override = resolveRevealOverride(reveal, FLAG_ON);
-  // The couple choosing No Reveal ('none') means no opening at all — even with
-  // the premium unlock (folded into `active` below). A preview-build ?reveal=
-  // override still wins; in production it resolves null, so the couple's choice
-  // stands. Here we just narrow 'none' out of the template chain.
-  const eventChoice = eventTemplate === NO_REVEAL ? null : eventTemplate;
-  let template: RevealTemplate =
-    override ?? eventChoice ?? config?.defaultTemplate ?? 'four-flap';
-  // Honor the admin "allowed openings" map: an opening the admin deactivated
-  // (config.templates[id] === false) falls back to the house default — or the
-  // first still-enabled opening. A preview-build ?reveal= override bypasses
-  // this; in production it is null, so the admin's map is authoritative.
-  const allowedMap = config?.templates as Record<string, boolean> | undefined;
-  if (!override && allowedMap && allowedMap[template] === false) {
-    const def = config?.defaultTemplate;
-    template =
-      def && allowedMap[def] !== false
-        ? def
-        : ((Object.keys(allowedMap) as RevealTemplate[]).find(
-            (t) => allowedMap[t] !== false,
-          ) ?? template);
-  }
+  // ALL REVEAL IS PAID (owner 2026-09-24). The one decision lives in
+  // lib/reveal-access.ts and is shared with the server mount
+  // (reveal-overlay-server.tsx), which does not even mount this overlay for a
+  // couple without Event Hub Pro. The admin master toggle (`config.enabled`) is
+  // NOT an input — it used to switch the paid veil on for every free couple.
+  const decision = revealAllowedFor({
+    ownsPro: premiumUnlocked,
+    chosenTemplate: eventTemplate,
+    adminDefault: config?.defaultTemplate,
+    isStaffPreview: FLAG_ON,
+    previewOverride: override,
+    allowed: config?.templates,
+  });
+  const template: RevealTemplate = decision === NO_REVEAL ? 'four-flap' : decision;
   const veil = isVeilTemplate(template);
 
-  const configEnabled = config?.enabled ?? false;
-  // Openings activate on ANY of: the admin global toggle (free-for-all) · the
-  // ?reveal= preview override · OR the couple owning the premium unlock (PR4 P5,
-  // dormant until the SKU sells). The free film beneath always plays regardless.
   const active =
     enabled &&
     !reducedMotion &&
     !alreadySeen &&
-    !(eventTemplate === NO_REVEAL && !override) &&
-    (configEnabled || FLAG_ON || override !== null || premiumUnlocked);
+    decision !== NO_REVEAL;
 
   // Tell the film (z-50) whether a reveal will actually show, so it knows to WAIT
   // for the lift instead of auto-starting under the veil (owner 2026-06-19

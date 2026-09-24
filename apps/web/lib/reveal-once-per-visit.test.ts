@@ -105,8 +105,11 @@ test('the two halves are wired to the two pages, and to the right ones', () => {
   assert.doesNotMatch(hub, /oncePerVisit="record"/, 'the Event Hub is recording — that would silence nothing and cost a write');
 
   // The key must be the event, carried from the id the server wrapper already
-  // holds — never re-derived at a call site.
-  const server = read('app/[slug]/_components/reveal/reveal-overlay-server.tsx');
+  // holds — never re-derived at a call site. Since 2026-09-24 ("all reveal is
+  // paid") the server wrapper hands its id to RevealMount, which forwards it.
+  const wrapper = read('app/[slug]/_components/reveal/reveal-overlay-server.tsx');
+  assert.match(wrapper, /<RevealMount[\s\S]*?eventId=\{eventId\}/, 'the server wrapper no longer hands its event id on');
+  const server = read('app/[slug]/_components/reveal/reveal-mount.tsx');
   assert.match(server, /seenEventId=\{eventId \?\? null\}/, 'the event id is not forwarded, so the mark has nothing to key on');
 
   /*

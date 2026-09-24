@@ -83,6 +83,8 @@ export function ColorsPanel({
   artDirection,
   fontKey = null,
   magicTraveller = null,
+  proLocked = false,
+  proLock = null,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
@@ -95,6 +97,13 @@ export function ColorsPanel({
   fontKey?: string | null;
   /** Which element travels as a guest scrolls, or null for nothing. */
   magicTraveller?: string | null;
+  /** The Pro half (buttons, face, art direction, magic move) is locked — the
+   *  background colour stays editable, because it is free (owner 2026-09-24).
+   *  Its fields are then NOT rendered, and the action reads an absent field as
+   *  "unchanged", so a free couple's save cannot touch the Pro half. */
+  proLocked?: boolean;
+  /** The lock shown in place of the Pro half — an ELEMENT, never a function. */
+  proLock?: React.ReactNode;
 }) {
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
@@ -110,16 +119,26 @@ export function ColorsPanel({
           label="Background"
           defaultValue={bgColor}
         />
-        <HexField
-          id={`${rowKey}-button`}
-          name="button_color"
-          label="Buttons"
-          defaultValue={buttonColor}
-        />
+        {proLocked ? null : (
+          <HexField
+            id={`${rowKey}-button`}
+            name="button_color"
+            label="Buttons"
+            defaultValue={buttonColor}
+          />
+        )}
       </div>
       <p className="mt-1.5 text-[0.7rem] text-ink/45">
         Leave blank to use your Mood Board palette.
       </p>
+
+      {proLocked ? (
+        <>
+          <div className="mt-3">{proLock}</div>
+          <SaveButton />
+        </>
+      ) : (
+      <>
 
       {/* Candlelight (design spec §4) — the second half of the Pro colour row.
           A radio pair rather than a checkbox so the form ALWAYS posts one of the
@@ -269,6 +288,8 @@ export function ColorsPanel({
       </fieldset>
 
       <SaveButton />
+      </>
+      )}
     </form>
   );
 }

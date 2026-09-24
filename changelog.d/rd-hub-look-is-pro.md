@@ -6,6 +6,10 @@ Owner ruling 2026-09-24 ("A"): uploading the couple's own photos, snippets and f
 
 **Gated now (server + editor):** hero photo upload · living hero · hero video (was explicitly free) · background music (was: grandfathered couples could REPLACE their song) · their own gallery (was: grandfathered couples could keep ADDING) · a section's background photo, crop/zoom and motion (were ungated) · the invitation backdrop (was ungated) · colours/face/art/magic move (was already gated — now also lets a free couple RESET, which it previously refused).
 
+**Colour is free, media is Pro** (owner, same day, verbatim: *"changing background color is free. making media a background is pro."*): the page's main background colour (`site_bg_color`) is free — the Colours row opens for every couple, with only its Pro half (button colour, typeface, art direction, magic move) behind the lock, and `siteLookChange` does not even take the background as an input. A section's background photo/snippet stays Pro; `sectionBackgroundChange` classifies a colour background as never Pro. `updateSiteColors` now reads an ABSENT colour field as unchanged, so a free couple's background-only save cannot clear a stored button colour. The invitation backdrop (moving media) stays Pro.
+
+⚠ **The section COLOUR background is not on `main`.** PR #5934 (photo · snippet · colour kinds) merged, then PR #5937 — a docs commit — deleted it again along with the public-profile/celebration-poster work. The decision and its tests are in place; the colour writer itself returns when #5934 is restored.
+
 **Second door closed:** the Save-the-Date builder (`saveAllStdContent`) wrote `site_bg_music_r2_key` — the same column the site editor gates — plus the couple's own STD background photo and film, all ungated. It now refuses a new upload with `pro-required`, which the builder shows as a sentence (not "something went wrong"), and its three uploaders are locked for a free couple.
 
 **Free couples keep what they have:** "Remove" on the hero, "Reset how it moves" and "Remove this section's photo" on each section, clearing the backdrop, and taking photos out of the gallery never ask for Pro.

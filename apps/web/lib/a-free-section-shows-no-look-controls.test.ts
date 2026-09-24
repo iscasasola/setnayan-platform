@@ -101,3 +101,43 @@ test('an owning couple still gets every control, and no lock', async () => {
   assert.match(html, new RegExp(`name="media" value="${PHOTO}"`));
   assert.match(html, /What to keep in frame/);
 });
+
+/* ── The Colours row (owner 2026-09-24: "changing background color is free") ── */
+
+async function paintColors(proLocked: boolean): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ColorsPanel } = await import(
+    '../app/dashboard/[eventId]/website/editor/_components/pro-panels'
+  );
+  return renderToStaticMarkup(
+    React.createElement(ColorsPanel, {
+      action: noop,
+      eventId: 'E1',
+      rowKey: 'colors',
+      bgColor: '#f5efe6',
+      buttonColor: null,
+      artDirection: null,
+      proLocked,
+      proLock: React.createElement('p', null, LOCK),
+    }),
+  );
+}
+
+test('a free couple can recolour the background — and sees no Pro field to post', async () => {
+  const html = await paintColors(true);
+  assert.match(html, /name="bg_color"/, 'the background colour is free');
+  assert.equal(count(html, LOCK), 1);
+  // Absent fields are "unchanged" in updateSiteColors — so NONE may render.
+  for (const f of ['button_color', 'site_art_direction', 'site_font_key', 'site_magic_traveller']) {
+    assert.doesNotMatch(html, new RegExp(`name="${f}"`), f);
+  }
+  assert.match(html, /type="submit"/, 'the background can still be saved');
+});
+
+test('an owning couple sees the whole Colours row, and no lock', async () => {
+  const html = await paintColors(false);
+  assert.equal(count(html, LOCK), 0);
+  for (const f of ['bg_color', 'button_color', 'site_art_direction', 'site_font_key', 'site_magic_traveller']) {
+    assert.match(html, new RegExp(`name="${f}"`), f);
+  }
+});

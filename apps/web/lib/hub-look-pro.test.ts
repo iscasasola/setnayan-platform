@@ -21,7 +21,8 @@ import {
   hubColumnKind,
   lookWriteAllowed,
   refChange,
-  siteColorsChange,
+  sectionBackgroundChange,
+  siteLookChange,
   type LookChange,
 } from './hub-look-pro';
 
@@ -79,15 +80,74 @@ test('galleryChange — out is free, in or reordered is Pro', () => {
   assert.equal(lookWriteAllowed(false, galleryChange(cur, ['b'])), true);
 });
 
-test('siteColorsChange — only putting EVERYTHING back to ours is a reset', () => {
-  const reset = { bg: null, button: null, font: undefined, magic: undefined, art: null };
-  assert.equal(siteColorsChange(reset), 'remove');
-  assert.equal(siteColorsChange({ ...reset, font: null, magic: null }), 'remove');
-  assert.equal(siteColorsChange({ ...reset, bg: '#a9834b' }), 'change');
-  assert.equal(siteColorsChange({ ...reset, button: '#000000' }), 'change');
-  assert.equal(siteColorsChange({ ...reset, font: 'cormorant' }), 'change');
-  assert.equal(siteColorsChange({ ...reset, magic: 'monogram' }), 'change');
-  assert.equal(siteColorsChange({ ...reset, art: 'candlelight' }), 'change');
+/* ── Owner, 2026-09-24, verbatim: "changing background color is free. making
+   media a background is pro." Both halves, for a FREE couple. ─────────────── */
+
+test('a free couple CAN set a colour background on a section', () => {
+  for (const currentMedia of [null, 'r2://setnayan-media/events/E/a.jpg']) {
+    const c = sectionBackgroundChange({ currentMedia, kind: 'color', nextMedia: null });
+    assert.equal(lookWriteAllowed(false, c), true, `colour over ${currentMedia ?? 'nothing'}`);
+  }
+});
+
+test('a free couple CANNOT set a photo or snippet background on a section', () => {
+  for (const kind of ['photo', 'snippet'] as const) {
+    const add = sectionBackgroundChange({ currentMedia: null, kind, nextMedia: 'r2://m/a' });
+    const swap = sectionBackgroundChange({ currentMedia: 'r2://m/a', kind, nextMedia: 'r2://m/b' });
+    assert.equal(lookWriteAllowed(false, add), false, `${kind}: add`);
+    assert.equal(lookWriteAllowed(false, swap), false, `${kind}: swap`);
+    assert.equal(lookWriteAllowed(true, add), true, `${kind}: a Pro couple may`);
+    // ...but may always take one down.
+    const off = sectionBackgroundChange({ currentMedia: 'r2://m/a', kind, nextMedia: null });
+    assert.equal(lookWriteAllowed(false, off), true, `${kind}: remove`);
+  }
+});
+
+const STORED = { button: null, font: null, magic: null, art: null };
+const UNTOUCHED = { button: undefined, font: undefined, magic: undefined, art: null };
+type Next = {
+  button: string | null | undefined;
+  font: string | null | undefined;
+  magic: string | null | undefined;
+  art: string | null;
+};
+
+test('the page background colour is free — it is not even an input to the decision', () => {
+  // A free couple's panel posts ONLY bg_color: every Pro field is absent.
+  assert.equal(siteLookChange(STORED, UNTOUCHED), 'none');
+  assert.equal(lookWriteAllowed(false, siteLookChange(STORED, UNTOUCHED)), true);
+  // ...even when they already hold Pro choices, which the save leaves alone.
+  const held = { button: '#111111', font: 'cormorant', magic: 'monogram', art: 'candlelight' };
+  assert.equal(siteLookChange(held, UNTOUCHED), 'none');
+  assert.equal(hubColumnKind('site_bg_color'), 'free-look');
+});
+
+test('button colour, face, art direction and magic move stay Pro', () => {
+  const free = (next: Partial<Next>) =>
+    lookWriteAllowed(false, siteLookChange(STORED, { ...UNTOUCHED, ...next }));
+  assert.equal(free({ button: '#000000' }), false);
+  assert.equal(free({ font: 'cormorant' }), false);
+  assert.equal(free({ magic: 'monogram' }), false);
+  assert.equal(free({ art: 'candlelight' }), false);
+  // Daylight IS the page we write — choosing it adds nothing.
+  assert.equal(free({ art: 'daylight' }), true);
+  // Re-posting what is stored, or taking a choice off, is always allowed.
+  const held = { button: '#111111', font: 'cormorant', magic: 'monogram', art: 'candlelight' };
+  assert.equal(siteLookChange(held, { ...held }), 'none');
+  assert.equal(
+    siteLookChange(held, { button: null, font: null, magic: null, art: 'daylight' }),
+    'remove',
+  );
+  assert.equal(siteLookChange(held, { ...UNTOUCHED, button: '#222222' }), 'change');
+  for (const c of [
+    'site_button_color',
+    'site_font_key',
+    'site_art_direction',
+    'site_magic_traveller',
+    'rsvp_backdrop',
+  ]) {
+    assert.equal(hubColumnKind(c), 'look', c);
+  }
 });
 
 test('canvas: motion is a subset of look, and "has motion" reads only motion keys', () => {

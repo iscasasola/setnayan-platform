@@ -49,7 +49,7 @@ const isHubOut = (v: unknown): v is HubOut =>
 const isHubDirection = (v: unknown): v is HubDirection =>
   typeof v === 'string' && (HUB_DIRECTIONS as readonly string[]).includes(v);
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
-import { HUB_CANVAS_MOTION_KEYS, canvasHasMotion, refChange } from '@/lib/hub-look-pro';
+import { HUB_CANVAS_MOTION_KEYS, canvasHasMotion, sectionBackgroundChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -651,11 +651,19 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       : {};
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
-  /* ⛔ A SECTION'S PHOTO IS HOW THE PAGE LOOKS — PRO (owner 2026-09-24). Taking
-     it off (`media=''`) is never gated; putting one on, or swapping it, is. */
+  /* ⛔ MEDIA BEHIND A SECTION IS PRO; A COLOUR IS NOT (owner 2026-09-24:
+     "changing background color is free. making media a background is pro.").
+     This action writes media only — the colour kind from PR #5934 is not on
+     `main` — so its kind is 'photo'. Taking it off (`media=''`) is never gated;
+     putting one on, or swapping it, is. `sectionBackgroundChange` is the one
+     classifier a colour write must also go through when that kind returns. */
   await requireLookPro(
     eventId,
-    refChange(typeof canvas.media === 'string' ? canvas.media : null, hubMediaRef(wanted) ?? wanted),
+    sectionBackgroundChange({
+      currentMedia: typeof canvas.media === 'string' ? canvas.media : null,
+      kind: 'photo',
+      nextMedia: wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
+    }),
   );
 
   if (wanted.length === 0) {

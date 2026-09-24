@@ -16,8 +16,11 @@
  * enforcement point of last resort — it re-checks eventCoupleWebsiteProActive
  * and refuses to persist for a non-Pro event (defence-in-depth; a non-Pro save
  * would be inert on the guest site anyway, since the renderer gates on Pro too).
- * The one exception (2026-09-24): a save that puts EVERY field back to ours is a
- * reset, which a free couple may always make — `siteColorsChange` → 'remove'.
+ * ⚠ NARROWED 2026-09-24 — owner, verbatim: *"changing background color is free.
+ * making media a background is pro."* The BACKGROUND colour is free; button
+ * colour, face, art direction and magic move stay Pro, judged against what is
+ * stored (`siteLookChange`) — so a free couple can recolour their page, keep
+ * whatever Pro choices they already have, and take any of them off.
  *
  * Validation: each field is either a strict `#rrggbb` hex OR empty. Empty
  * CLEARS the column (→ NULL → the site falls back to the Mood-Board palette /
@@ -29,7 +32,7 @@ import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
-import { siteColorsChange } from '@/lib/hub-look-pro';
+import { siteLookChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -51,8 +54,13 @@ export async function updateSiteColors(
 ): Promise<void> {
   await requireHostMembership(eventId);
 
-  const bg = parseHexField(formData.get('bg_color'));
-  const button = parseHexField(formData.get('button_color'));
+  // ABSENT = UNCHANGED, like every other field on this row. A free couple's
+  // panel posts the background colour ONLY, and without this rule that save
+  // would silently clear a button colour they already have.
+  const bg = formData.has('bg_color') ? parseHexField(formData.get('bg_color')) : undefined;
+  const button = formData.has('button_color')
+    ? parseHexField(formData.get('button_color'))
+    : undefined;
 
   if (bg === false || button === false) {
     redirect(
@@ -95,24 +103,36 @@ export async function updateSiteColors(
   const art =
     artRaw === 'candlelight' || artRaw === 'daylight' ? (artRaw as string) : null;
 
-  // Defence-in-depth Pro gate — the page already shows a locked upsell to
-  // non-Pro couples; refuse the write too (admin-client SKU read inside
-  // `requireLookPro`: orders RLS is purchaser-scoped, so a co-host who didn't
-  // place the order still resolves the shared event ownership).
-  // 🔓 ONE WRITE A FREE COUPLE MAY ALWAYS MAKE: putting everything back to ours
-  // (owner 2026-09-24 — a look they have is removable without Pro). Until now a
-  // grandfathered couple saw the colours panel but could not even clear it.
+  const supabase = await createClient();
+
+  // Defence-in-depth Pro gate over the PRO half only (admin-client SKU read
+  // inside `requireLookPro`: orders RLS is purchaser-scoped, so a co-host who
+  // didn't place the order still resolves the shared event ownership). The
+  // background colour is free and is not an input to the decision at all.
+  const { data: stored } = await supabase
+    .from('events')
+    .select('site_button_color, site_font_key, site_magic_traveller, site_art_direction')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const s = (stored ?? {}) as Record<string, string | null | undefined>;
   await requireLookPro(
     eventId,
-    siteColorsChange({ bg, button, font, magic, art }),
+    siteLookChange(
+      {
+        button: s.site_button_color ?? null,
+        font: s.site_font_key ?? null,
+        magic: s.site_magic_traveller ?? null,
+        art: s.site_art_direction ?? null,
+      },
+      { button, font, magic, art },
+    ),
   );
 
-  const supabase = await createClient();
   const { data: event, error } = await supabase
     .from('events')
     .update({
-      site_bg_color: bg,
-      site_button_color: button,
+      ...(bg !== undefined ? { site_bg_color: bg } : {}),
+      ...(button !== undefined ? { site_button_color: button } : {}),
       ...(art ? { site_art_direction: art } : {}),
       ...(font !== undefined ? { site_font_key: font } : {}),
       ...(magic !== undefined ? { site_magic_traveller: magic } : {}),

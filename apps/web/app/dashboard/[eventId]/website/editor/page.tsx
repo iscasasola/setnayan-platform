@@ -318,7 +318,18 @@ export default async function WebsiteEditorPage({
     (event as { rsvp_backdrop?: unknown }).rsvp_backdrop,
   );
 
-  const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
+  /* 🎨 The background colour is FREE (owner 2026-09-24: "changing background
+     color is free"), so the Colours row is never locked as a whole. Only its Pro
+     half — buttons, face, art direction, magic move — locks, and with the same
+     grandfather: a couple who already chose any of them keeps that half. */
+  const colorsProLocked = lockedIf(
+    Boolean(
+      event.site_button_color ||
+        (event as { site_font_key?: string | null }).site_font_key ||
+        (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
+        event.site_art_direction === 'candlelight',
+    ),
+  );
   // The song and the hero video share one panel, so either one keeps it open.
   const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key || videoRef));
   const galleryLocked = lockedIf(ourPhotos.length > 0);
@@ -419,14 +430,14 @@ export default async function WebsiteEditorPage({
           blurb: 'Background and button colors.',
           href: `${w}/colors`,
           pro: true,
-          locked: colorsLocked,
-          panel: colorsLocked ? (
-            lockPanel('Colors')
-          ) : (
+          locked: false,
+          panel: (
             <ColorsPanel
               action={updateSiteColors.bind(null, eventId)}
               eventId={eventId}
               rowKey="colors"
+              proLocked={colorsProLocked}
+              proLock={lockPanel('Button colour, typeface and motion')}
               bgColor={(event.site_bg_color as string | null) ?? null}
               buttonColor={(event.site_button_color as string | null) ?? null}
               artDirection={

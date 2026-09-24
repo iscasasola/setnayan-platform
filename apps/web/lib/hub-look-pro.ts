@@ -9,9 +9,14 @@
  * *"Free is the page we write. Pro is changing how it looks."*
  *
  *   LOOK  (Pro)  — hero photo / hero video / living hero, their own gallery,
- *                  background music, a section's background photo, its crop and
- *                  zoom, how it moves, the invitation backdrop, colours, face,
- *                  art direction, the Save-the-Date's own background / film.
+ *                  background music, a section's background PHOTO or SNIPPET,
+ *                  its crop and zoom, how it moves, the invitation backdrop
+ *                  (moving media), button colour, face, art direction, magic
+ *                  move, the Save-the-Date's own background / film.
+ *   COLOUR (free) — owner, 2026-09-24, verbatim: *"changing background color is
+ *                  free. making media a background is pro."* The page's main
+ *                  background colour (`site_bg_color`) and a section's COLOUR
+ *                  background are free; media behind a section is not.
  *   WORDS (free) — their story, dress-code wording, schedule, venue, the special
  *                  message, what to bring, every fact about the day.
  *   NOT HERE     — guest photos in Papic and the gallery. The ruling does not
@@ -94,25 +99,63 @@ export function galleryChange(
 }
 
 /**
- * Site colours + face + art direction + magic move, saved together by
- * `updateSiteColors`. Only a write that puts EVERY field back to ours is a
- * reset; `undefined` means the form did not carry that control (left alone).
+ * The Pro half of `updateSiteColors` — button colour, face, art direction and
+ * magic move — against what is stored. `undefined` = the form did not carry
+ * that control (left alone, so it adds nothing).
+ *
+ * ⛔ THE BACKGROUND COLOUR IS DELIBERATELY NOT AN INPUT. It is free (owner
+ * 2026-09-24), so it cannot make this write Pro — there is no field here for a
+ * future edit to fold it back in by accident.
+ *
+ * Daylight is the page we write, so `'daylight'` and a stored `null` are the
+ * same look: choosing Daylight is a reset, only Candlelight is a choice.
  */
-export function siteColorsChange(input: {
-  bg: string | null;
-  button: string | null;
-  font: string | null | undefined;
-  magic: string | null | undefined;
-  /** An art direction the form asked to store. `null` = none posted. */
-  art: string | null;
+export function siteLookChange(
+  stored: {
+    button: string | null;
+    font: string | null;
+    magic: string | null;
+    art: string | null;
+  },
+  next: {
+    button: string | null | undefined;
+    font: string | null | undefined;
+    magic: string | null | undefined;
+    /** An art direction the form asked to store. `null` = none posted. */
+    art: string | null;
+  },
+): LookChange {
+  const candle = (v: string | null) => (v === 'candlelight' ? v : null);
+  const changes: LookChange[] = [];
+  if (next.button !== undefined) changes.push(refChange(stored.button, next.button));
+  if (next.font !== undefined) changes.push(refChange(stored.font, next.font));
+  if (next.magic !== undefined) changes.push(refChange(stored.magic, next.magic));
+  if (next.art !== null) changes.push(refChange(candle(stored.art), candle(next.art)));
+  return combineChanges(...changes);
+}
+
+/**
+ * The three kinds of section background (the vocabulary of PR #5934's
+ * `HubSectionCanvas`). A colour is free; media behind a section is Pro.
+ */
+export type SectionBackgroundKind = 'photo' | 'snippet' | 'color';
+
+/**
+ * One section-background write. A COLOUR is never Pro, in any direction — so a
+ * colour write is `'none'`, whatever it replaces or clears. Putting a photo or a
+ * snippet up is classified like any other ref; taking one down is a removal.
+ *
+ * 🔑 Swapping media FOR a colour takes the media down, which is a removal.
+ */
+export function sectionBackgroundChange(input: {
+  /** The media ref stored now (photo or snippet), or null. */
+  currentMedia: string | null;
+  kind: SectionBackgroundKind;
+  /** The media ref to store (photo / snippet), or null / '' for none. */
+  nextMedia: string | null;
 }): LookChange {
-  const resets =
-    input.bg === null &&
-    input.button === null &&
-    input.art === null &&
-    (input.font === null || input.font === undefined) &&
-    (input.magic === null || input.magic === undefined);
-  return resets ? 'remove' : 'change';
+  if (input.kind === 'color') return input.currentMedia ? 'remove' : 'none';
+  return refChange(input.currentMedia, input.nextMedia);
 }
 
 /**
@@ -167,7 +210,6 @@ export const HUB_LOOK_EVENT_COLUMNS = [
   'our_photos',
   'site_bg_music_r2_key',
   'rsvp_backdrop',
-  'site_bg_color',
   'site_button_color',
   'site_font_key',
   'site_magic_traveller',
@@ -198,9 +240,16 @@ export const HUB_WORDS_EVENT_COLUMNS = [
   'std_film_story',
 ] as const;
 
-/** Is this `events` column part of the page's look (Pro) — or words (free)? */
-export function hubColumnKind(column: string): 'look' | 'words' | 'other' {
+/**
+ * Look columns that are FREE (owner 2026-09-24: *"changing background color is
+ * free"*). A colour is not media — it is the page we write, recoloured.
+ */
+export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color'] as const;
+
+/** Is this `events` column the page's look (Pro), a free colour, or words? */
+export function hubColumnKind(column: string): 'look' | 'free-look' | 'words' | 'other' {
   if ((HUB_LOOK_EVENT_COLUMNS as readonly string[]).includes(column)) return 'look';
+  if ((HUB_FREE_LOOK_EVENT_COLUMNS as readonly string[]).includes(column)) return 'free-look';
   if ((HUB_WORDS_EVENT_COLUMNS as readonly string[]).includes(column)) return 'words';
   return 'other';
 }

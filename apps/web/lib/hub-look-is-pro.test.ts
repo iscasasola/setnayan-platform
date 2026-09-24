@@ -181,6 +181,22 @@ test('removal-only actions stay ungated — taking a look off is never a purchas
   }
 });
 
+test('a COLOUR is free, MEDIA is Pro — the two writers encode the owner\'s line', () => {
+  // Owner, 2026-09-24, verbatim: "changing background color is free. making
+  // media a background is pro."
+  const find = (file: string, name: string) => {
+    const a = actions.find((x) => x.file === file && x.name === name);
+    assert.ok(a, `${file}#${name} not found`);
+    return a.body;
+  };
+  const colors = find('app/dashboard/[eventId]/website/colors/actions.ts', 'updateSiteColors');
+  const call = colors.match(/siteLookChange\(([\s\S]*?)\)\s*,?\s*\)\s*;/);
+  assert.ok(call, 'updateSiteColors must decide through siteLookChange');
+  assert.doesNotMatch(call[1]!, /\bbg\b|site_bg_color/, 'the background colour must not feed the Pro decision');
+  const bgGate = find('app/dashboard/[eventId]/website/widgets/actions.ts', 'setWidgetBackground');
+  assert.match(bgGate, /requireLookPro\(\s*eventId,\s*sectionBackgroundChange\(/, 'section media must be classified as a background');
+});
+
 test('the words stay free — no words writer asks the look gate', () => {
   const WORDS: Array<[string, string]> = [
     ['app/dashboard/[eventId]/website/our-story/actions.ts', 'updateOurStory'],

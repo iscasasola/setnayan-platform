@@ -1,0 +1,678 @@
+<title>Event Hub Final Plan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Jost:wght@300;400;500&display=swap">
+
+<!--
+  EVENT HUB — THE FINAL PLAN · 23 September 2026
+
+  Everything below was measured on origin/main 4104a71 and the live catalogue
+  on 23 September 2026, not read from the documents that made the claims.
+  Each item is SHIPS (do not rebuild) · BUILD (in order, smallest first) ·
+  OWNER (a question only he can answer, stated and not answered here).
+
+  Anchors are greppable symbols or the command that re-measures them, never
+  line numbers or counts — those rot the moment the tree moves.
+
+  Revised the same evening, after the details editor, the motion presets and
+  the page-mode prototypes. Edited in place, not rewritten.
+
+  No script. The owner's viewer executes none.
+-->
+
+<style>
+:root{
+  --paper:#f4f3ef; --card:#fbfaf7; --ink:#1d1c19; --soft:#65625a;
+  --line:#dedad0; --accent:#3f5240; --gold:#9c854f;
+  --ship:#3f5240; --build:#8a5a2b; --ask:#7b3f52;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#16161a; --card:#1e1e23; --ink:#eceae4; --soft:#a5a199;
+    --line:#32323a; --accent:#8fb38d; --gold:#c9ac68;
+    --ship:#8fb38d; --build:#d59b5c; --ask:#d692a8;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#16161a; --card:#1e1e23; --ink:#eceae4; --soft:#a5a199;
+  --line:#32323a; --accent:#8fb38d; --gold:#c9ac68;
+  --ship:#8fb38d; --build:#d59b5c; --ask:#d692a8;
+}
+*{box-sizing:border-box;}
+html{ overflow-x:hidden; }
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:'Jost',system-ui,sans-serif; font-size:16px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+.wrap{ max-width:880px; margin:0 auto; padding-block:48px 80px; padding-inline:16px; }
+
+h1{ font-family:'Fraunces',Georgia,serif; font-weight:400; font-size:clamp(30px,6vw,46px);
+  line-height:1.08; margin:0 0 10px; text-wrap:balance; }
+h2{ font-family:'Fraunces',Georgia,serif; font-weight:400; font-size:clamp(23px,4.4vw,32px);
+  line-height:1.15; margin:0 0 6px; text-wrap:balance; }
+h3{ font-family:'Fraunces',Georgia,serif; font-weight:400; font-size:20px;
+  margin:0 0 6px; line-height:1.3; }
+p{ margin:0 0 12px; max-width:68ch; }
+.lede{ color:var(--soft); font-size:17px; max-width:62ch; }
+.kick{ font-size:10px; letter-spacing:.26em; text-transform:uppercase;
+  color:var(--accent); margin:0 0 10px; }
+hr{ border:0; border-top:1px solid var(--line); margin:44px 0; }
+
+section{ margin-top:44px; }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:3px;
+  padding:20px 22px; margin-top:14px; }
+.card.ship{ border-left:3px solid var(--ship); }
+.card.build{ border-left:3px solid var(--build); }
+.card.ask{ border-left:3px solid var(--ask); }
+
+.tag{ display:inline-block; font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  padding:4px 9px; border-radius:2px; margin-bottom:9px; margin-right:6px; }
+.t-ship{ color:var(--ship); border:1px solid var(--ship); }
+.t-build{ color:var(--build); border:1px solid var(--build); }
+.t-ask{ color:var(--ask); border:1px solid var(--ask); }
+.t-pro{ color:var(--gold); border:1px solid var(--gold); }
+.t-note{ color:var(--soft); border:1px solid var(--line); }
+.card.note{ border-left:3px solid var(--line); }
+
+code{ font-family:var(--mono); font-size:.86em; background:var(--paper);
+  border:1px solid var(--line); border-radius:2px; padding:1px 5px;
+  overflow-wrap:anywhere; }
+.card code{ background:var(--paper); }
+
+.tbl{ width:100%; overflow-x:auto; margin-top:14px; }
+table{ border-collapse:collapse; width:100%; font-size:14px; min-width:520px; }
+th,td{ text-align:left; padding:9px 12px; border-bottom:1px solid var(--line);
+  vertical-align:top; }
+th{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--soft);
+  font-weight:500; }
+td.c{ text-align:center; font-size:15px; }
+.yes{ color:var(--ship); } .no{ color:var(--ask); } .part{ color:var(--build); }
+
+ul,ol{ margin:0 0 12px; padding-left:22px; max-width:66ch; }
+li{ margin-bottom:5px; }
+ul.plain{ list-style:none; padding-left:0; }
+ul.plain li::before{ content:'—\00a0'; color:var(--gold); }
+
+.evid{ font-size:13px; color:var(--soft); border-top:1px solid var(--line);
+  margin-top:14px; padding-top:11px; }
+.evid b{ color:var(--ink); font-weight:500; }
+
+.step{ display:grid; grid-template-columns:30px 1fr; gap:14px; align-items:start;
+  padding:14px 0; border-bottom:1px solid var(--line); }
+.step:last-child{ border-bottom:0; }
+.step .no2{ font-family:'Fraunces',Georgia,serif; font-size:19px; color:var(--gold);
+  line-height:1.3; }
+.step p{ margin:4px 0 0; font-size:14px; color:var(--soft); }
+
+.rule{ font-family:'Fraunces',Georgia,serif; font-size:clamp(20px,3.6vw,26px);
+  line-height:1.35; margin:14px 0 6px; max-width:30ch; text-wrap:balance; }
+.rule small{ display:block; font-family:'Jost',system-ui,sans-serif; font-size:13px;
+  color:var(--soft); margin-top:6px; letter-spacing:0; }
+.price{ font-family:'Fraunces',Georgia,serif; font-size:30px; }
+.warn{ border-left:3px solid var(--ask); padding-left:12px; color:var(--ink);
+  font-size:14px; margin:10px 0 0; }
+@media (max-width:560px){ .step{ grid-template-columns:24px 1fr; gap:10px; } }
+</style>
+
+<div class="wrap">
+
+<p class="kick">Setnayan &middot; 23 September 2026</p>
+<h1>Event Hub &mdash; the final plan</h1>
+<p class="lede">What is decided, what already ships, what is left to build and in
+what order. Measured on <code>origin/main</code> <code>4104a71</code> and the live
+catalogue today, not read from the documents that made the claims. Every line is
+<b style="color:var(--ship)">SHIPS</b>, <b style="color:var(--build)">BUILD</b>
+or <b style="color:var(--ask)">OWNER</b>. Revised the same evening after three
+more prototypes; the revisions are folded in, not appended.</p>
+
+<div class="card note" style="margin-top:22px">
+<span class="tag t-note">Scope</span>
+<h3>This stream is the Event Hub website. Nothing else.</h3>
+<p>Not Papic, not Live Studio, not Patiktok, and <b>not the story maker</b>.
+&ldquo;Our Love Story&rdquo; on the hub is a read-only section rendering
+<code>events.love_story</code>. &ldquo;Make my Story&rdquo; is a separate Papic product
+that builds a 30-second reel in the browser, download-only. <b>Same word, two
+products</b> &mdash; a task that names one is not a task on the other.</p>
+</div>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">The rule</p>
+<h2>Free is the page we write. Pro is changing how it looks.</h2>
+<p class="rule">&ldquo;There is free preloaded. PRO is to customize it.&rdquo;
+<small>&mdash; and, the same day: &ldquo;preloaded is also basic editing.&rdquo;</small></p>
+<p><b>Fixing your own words and facts is free.</b> The prefill is a guess, and a
+guess a couple cannot correct publishes our wrong words under their names.
+<b>Changing how it looks and moves is Pro.</b> That is the whole rule; it is not
+a feature list, and a feature list would only rot beside it.</p>
+<p class="evid"><b>The test for any new feature, one line:</b> are they fixing
+what we wrote, or changing how it looks? Fixing is free. Changing is Pro.</p>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part one</p>
+<h2>What is decided</h2>
+<p>Owner rulings, each recorded with where it lives. <b>Do not re-ask any of
+these.</b></p>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>One shell, two middles</h3>
+<p>Three columns: layers and a short Add list on the left (own photos, a line of
+text, theme ornaments &mdash; <b>no sticker library</b>); the live thing in the
+centre with a contextual toolbar above it; the panel on the right; Done along the
+bottom with the section name and &ldquo;See it as a guest&rdquo;. On a phone the middle
+pins to the top, the tools become a swipe strip, and the panels rise as bottom
+sheets from a thumb bar. <b>The shell never changes. Only the middle does.</b></p>
+<p>Measured against <code>lib/invitation-widgets.ts</code>: <b>eleven of the sixteen
+widgets are filled in, not composed</b> &mdash; greeting, event details, countdown,
+schedule, venue map, dress code, what to bring, special message, RSVP, QR card,
+camera cues. A schedule is a list of times; dragging times is worse than typing
+them. Those get a <b>form</b> in the middle: an outline, and the fields of the
+selected row under a <b>Content</b> tab beside <b>Animate</b>. <b>Five are
+composed</b> &mdash; our love story, photos you add, gallery, custom sections, and
+the hero (fixed composition, but its background media and type are the
+couple&rsquo;s). Those get a <b>canvas</b> with selection handles. Animate is the
+same panel on both; nothing typed is second class.</p>
+<p class="evid"><b>Owner, 2026-09-23:</b> &ldquo;this style&rdquo; &mdash; approved as a
+<b>style</b>; and &ldquo;i also want the people to animate the other parts of the event
+hub. mostly on the details of the event.&rdquo; Prototypes:
+<code>prototypes/hero-canvas-editor-2026-09-23.html</code> (approved),
+<code>prototypes/story-canvas-editor-2026-09-23.html</code> (a canvas in the middle),
+<code>prototypes/details-section-editor-2026-09-23.html</code> (a form in the middle).</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>The controller is the page itself, prefilled</h3>
+<p>Not a settings list. The couple sees their own page with every blank already
+filled from their event details, each guess carrying a <b>Suggested</b> mark that
+invites a correction. <b>Advanced</b> holds the visibility switches, folded away
+&mdash; the content decides what shows, and the switches are an escape hatch
+most couples never touch. The Pro bill does not exist on the page until a Pro
+switch is on.</p>
+<p class="evid">Prototype: <code>prototypes/event-hub-fill-in-the-blanks-2026-09-22.html</code>.
+Owner, 2026-09-23: &ldquo;we have prefilled so they have something to start with&rdquo;.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>Rails on</h3>
+<p>Canva&rsquo;s gestures &mdash; click to select with eight handles, one contextual
+toolbar, snapping, one Animate at three scopes (Page &middot; Element &middot; Text) &mdash;
+but <b>not</b> its free placement. Composition is bounded by the section and sits on
+a grid that reflows. A photo&rsquo;s crop is a <b>3&times;3 focal point</b>, never a
+pixel offset. A story chapter is an <b>arrangement from four</b> &mdash; photo left,
+photo right, full-bleed, words only &mdash; and every one becomes a stack at 375px.</p>
+<p class="evid"><b>Why:</b> the page is 375px on a phone and 1440px on a laptop. A
+pixel offset is a bug waiting for a guest, and the guest finding it is worse than the
+couple being slightly constrained. Owner, 2026-09-23: &ldquo;rails on.&rdquo;</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>Motion is one choice of four. Everything else is Fine tune.</h3>
+<p>The panel had grown into a column of decisions for somebody with no vocabulary
+for any of them. Rails belong on the controls as much as on the canvas. So the couple
+picks <b>one</b> &mdash; <b>Still &middot; Calm &middot; Editorial &middot; Cinematic</b>
+&mdash; and each preset sets every underlying value to a combination we designed,
+so there is no way to pick a bad one. The controls still exist, behind
+<b>Fine tune</b>: How it runs &middot; In &middot; During &middot; Out &middot; Stagger &middot;
+Duration &middot; Delay. Each group defaults to <b>Auto</b>, which applies nothing,
+so the preset keeps deciding until somebody deliberately overrides one thing.</p>
+<p><b>In</b> is how a thing arrives; <b>During</b> is what it does while the guest
+reads; they compose. <b>How it runs</b> is <b>Plays once</b> (time-driven) or
+<b>Follows the scroll</b> (scrubbed &mdash; stop and it freezes, scroll back and it
+reverses; <code>animation-timeline: view()</code>, no script). A <b>Play</b> button
+replays the entrance with all editing furniture hidden.</p>
+<p><b>Out exists. The earlier draft of this page said it did not, and that was
+wrong.</b> A <i>timed</i> exit does fight the reader &mdash; a section flinging itself
+away while somebody is still reading it &mdash; and that part stands. A
+<i>scrubbed</i> out is a different thing: the guest drives it, it reverses, and it
+is the handoff that makes the page one journey rather than a stack of blocks. So
+<b>Out exists only under Follows the scroll</b>: Fade away &middot; Lift away &middot;
+Settle back &middot; Stay put. It is per element and staggered, never the whole
+widget leaving as a slab.</p>
+<p class="evid">Owner, 2026-09-23: &ldquo;so the transition to the next widget, that&rsquo;s
+why i asked if there is an out animate&rdquo; and &ldquo;we still want it to be simple
+enough that they could customize this.&rdquo; <b>Verified in the prototype:</b> the four
+presets produce genuinely different motion, an override wins over its preset, and
+returning a group to Auto hands control back to the preset.
+<code>prototypes/details-section-editor-2026-09-23.html</code>.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>Two registers, one page: what you read moves, what you do stays still</h3>
+<p><b>Things you read</b> &mdash; the hero, the countdown, the details, the
+schedule, the venue, the dress code, the story &mdash; are editorial. They are
+composed and they move: In, During, Out, played or scrubbed.</p>
+<p><b>Things you do</b> &mdash; the camera, Live Studio, the RSVP, find-my-table,
+E-Gifts, the QR card &mdash; stay still and behave like an app. A camera that
+fades in is a camera that is briefly unusable, and a guest reaching for it on the
+day is not admiring the page; they are trying to take a photograph. <b>Motion on
+a function is a delay wearing a costume.</b></p>
+<p class="warn"><b>&ldquo;But must be presented properly&rdquo; is half the
+ruling, and it is the half that gets dropped.</b> Still does not mean plain,
+unstyled or second class. The functions carry the theme&rsquo;s type, colour and
+spacing exactly like everything else &mdash; they are simply not in motion. The
+bar to hold: a guest scrolls out of a beautifully animated story straight into
+the camera, and the camera feels like the best-made thing on the page, not like
+the animation ran out.</p>
+<p>In the editor the services appear in the rail marked &ldquo;Not animated&rdquo;
+rather than being silently absent, so nobody goes looking for a panel that does
+not exist.</p>
+<p class="evid"><b>The test is &ldquo;read or do&rdquo;, never &ldquo;important or
+unimportant&rdquo;.</b> Owner, 2026-09-23: &ldquo;we only animate the details, the
+functions of the event hub stay as an app. but must be presented properly.&rdquo;
+</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>Event Hub Pro is <span class="price">&#8369;2,000</span>, charged at publish</h3>
+<p>One-time. Repriced from &#8369;3,500 on 2026-09-23 on the owner&rsquo;s instruction
+(&ldquo;okay price it at 2000&rdquo;), live in <code>platform_retail_catalog_v2</code> as
+<code>COUPLE_WEBSITE_PRO</code>. Charged when the couple <b>publishes</b> with a Pro
+choice on, not as an upfront gate. <b>Classic is free with no customisation</b>; the
+other eight themes are Pro.</p>
+<p><b>Animated Monogram is &#8369;500, a separate SKU</b> (<code>ANIMATED_MONOGRAM</code>,
+migration <code>20271206246873</code>). It is <b>not</b> part of Pro.</p>
+<p class="evid"><b>Read prices from the catalogue, never from this page.</b>
+<code>select service_code, retail_price_php from platform_retail_catalog_v2 where
+service_code in ('COUPLE_WEBSITE_PRO','ANIMATED_MONOGRAM')</code>. Every order in the
+database is a test purchase; do not cite order history as demand.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>E-Gifts and the live &ldquo;happening now&rdquo; are grandfathered</h3>
+<p>Both are free today (<code>/[slug]/pabuya</code>; <code>ScheduleWidget</code>&rsquo;s
+<code>happeningNow</code> badges). Couples created before the switch keep both free;
+new couples pay. Owner ruled <b>grandfather</b>, 2026-09-22.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>The hero mark is the generated monogram</h3>
+<p><code>resolveEventMonogramSvg</code> from
+<code>events.monogram_text / _color / _style / _font_key / _frame_key</code>, and
+<code>AnimatedMonogramHero</code> when the event owns <code>ANIMATED_MONOGRAM</code>.
+<b>No uploaded logo file. No ring or frame</b> unless <code>monogram_frame_key</code>
+says so.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided</span>
+<h3>Video is a YouTube link. Photos and snippets upload.</h3>
+<div class="tbl">
+<table>
+<tr><th>Media</th><th>Arrives by</th><th>Lives in</th></tr>
+<tr><td>Photos, snippets (a few muted looping seconds)</td><td>Upload</td><td>The couple&rsquo;s own Google Drive if connected &mdash; full-size originals, theirs, kept after the wedding</td></tr>
+<tr><td>Same, with <b>no Drive</b> (the default)</td><td>Upload</td><td>Setnayan, <b>compressed</b></td></tr>
+<tr><td>Film &mdash; hero background, Save-the-Date, story clips</td><td><b>YouTube link</b></td><td>YouTube</td></tr>
+<tr><td>Guest photographs</td><td>Automatic, via Papic</td><td>Setnayan</td></tr>
+</table>
+</div>
+<p class="evid"><b>Drive is not a prerequisite</b> &mdash; owner, 2026-09-22, verbatim:
+&ldquo;if they do not upload google drive. we save the photos but compressed&rdquo;. Draw it
+as one row with its current state, never as a gate, and never tell a couple to connect
+it before paying. Disconnect after paying: they fall back to compressed.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Decided &middot; the shipped model</span>
+<h3>The guest page has four phases, split at 90 days</h3>
+<div class="tbl">
+<table>
+<tr><th>Phase</th><th>When</th><th>The owner calls it</th><th>The story section shows</th></tr>
+<tr><td><code>save_the_date</code></td><td>more than 90 days out</td><td>Save the Date</td><td>the couple&rsquo;s chapters</td></tr>
+<tr><td><code>rsvp</code></td><td>inside 90 days</td><td>Invitation / RSVP</td><td>the couple&rsquo;s chapters</td></tr>
+<tr><td><code>event</code></td><td>the day itself</td><td>On the date</td><td>the couple&rsquo;s chapters</td></tr>
+<tr><td><code>editorial</code></td><td>after</td><td>After event</td><td><b>the published recap</b>, written from what everyone sent in</td></tr>
+</table>
+</div>
+<p class="evid"><b>Anchors:</b> <code>LifecyclePhase</code> and
+<code>STD_THRESHOLD_DAYS = 90</code> in <code>apps/web/lib/invitation-widgets.ts</code>,
+consumed by <code>app/[slug]/page.tsx</code>. The threshold is documented as provisional
+and tunable. <b>A different, smaller model exists for the dashboard menu</b> &mdash;
+<code>MenuLifecyclePhase = 'plan' | 'dayof' | 'after'</code> in
+<code>lib/day-of-mode.ts</code>. Two vocabularies for two surfaces; do not mix them.
+The owner named a fifth phase today &mdash; see the questions at the end.</p>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part two</p>
+<h2>What ships already &mdash; do not rebuild</h2>
+<p>Each row names the symbol and the command that re-measures it.</p>
+
+<div class="card ship">
+<span class="tag t-ship">Ships</span>
+<div class="tbl">
+<table>
+<tr><th>What</th><th>Where</th><th>Re-measure</th></tr>
+<tr><td><b>Schedule prefill</b></td>
+    <td><code>SCHEDULE_TEMPLATES</code> in <code>lib/schedule-templates.ts</code>, used by the
+        run-of-show editor <code>schedule/_components/ros-p2.tsx</code></td>
+    <td><code>git grep -ln SCHEDULE_TEMPLATES apps/web</code></td></tr>
+<tr><td><b>Dress-code ceremony defaults</b></td>
+    <td><code>showIncPrefill</code> in <code>website/dress-code/page.tsx</code> prefills the
+        INC-chapel wording when <code>ceremony_type === 'inc'</code> and the config is empty.
+        Per-role <b>style</b> already resolves through <code>dress_code_config.roles[&lt;role&gt;]</code>
+        (<code>lib/role-dress-code.ts</code>, 2026-09-20) &mdash; with <b>no default</b>, deliberately</td>
+    <td><code>git grep -n showIncPrefill apps/web</code></td></tr>
+<tr><td><b>2D seat plan</b></td>
+    <td><code>WayfindingMap</code> (<code>app/_components/wayfinding-map.tsx</code>) on
+        <code>/find-my-table</code>, <code>/seat</code>, and <code>your-seat-block.tsx</code></td>
+    <td><code>git grep -ln WayfindingMap apps/web/app</code></td></tr>
+<tr><td><b>3D venue</b></td>
+    <td><code>[slug]/venue/_components/guest-venue-3d.tsx</code></td>
+    <td><code>git ls-files | grep guest-venue-3d</code></td></tr>
+<tr><td><b>Happening now</b></td>
+    <td><code>ScheduleWidget</code> draws &ldquo;Happening now&rdquo; / &ldquo;Coming up&rdquo; from
+        <code>happeningNow</code>, gated by <code>isGuestNowTriggerEnabled()</code>
+        (<code>lib/guest-now-trigger</code>) so the run-up shows a plan and only the day goes live</td>
+    <td><code>git grep -n happeningNow apps/web/app/[slug]</code></td></tr>
+<tr><td><b>All three map deep links</b></td>
+    <td><code>googleMapsNavUrl</code> &middot; <code>wazeNavUrl</code> &middot; <code>appleMapsUrl</code>
+        in <code>lib/geo.ts</code>, with <code>googleMapsSearchByQuery</code> as the no-coordinates fallback</td>
+    <td><code>git grep -n "export function" apps/web/lib/geo.ts</code></td></tr>
+<tr><td><b>Upload to R2</b></td>
+    <td><code>FileUpload</code> (<code>app/_components/file-upload.tsx</code>) &rarr;
+        <code>/api/upload</code> (<code>presignUploadUrl</code>, <code>R2_BUCKETS</code>) &rarr; a presigned PUT</td>
+    <td><code>git grep -n presignUploadUrl apps/web/app/api/upload/route.ts</code></td></tr>
+<tr><td><b>Section visibility and order</b></td>
+    <td><code>invitation_widgets</code>: <code>mode?: 'auto' | 'shown' | 'hidden'</code>
+        (migration <code>20270919912384</code>) and <code>display_order</code>, with
+        <code>is_always_on</code> rows pinned. Auto = the content decides</td>
+    <td><code>git grep -n "'auto' | 'shown' | 'hidden'" apps/web/lib/invitation-widgets.ts</code></td></tr>
+<tr><td><b>Custom columns &mdash; after the wedding only</b></td>
+    <td><code>custom:&lt;id&gt;</code> in <code>[slug]/_components/editorial/custom-columns.ts</code>:
+        <code>MAX_CUSTOM_COLUMNS = 6</code>, <code>CUSTOM_COLUMN_TITLE_MAX = 80</code>,
+        <code>CUSTOM_COLUMN_BODY_MAX = 4000</code>, reorderable among the shipped sections;
+        anything malformed is <b>dropped, not repaired</b></td>
+    <td><code>git grep -n "MAX_CUSTOM_COLUMNS\|_MAX =" apps/web/app/[slug]/_components/editorial/custom-columns.ts</code></td></tr>
+</table>
+</div>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part three</p>
+<h2>What must be built &mdash; smallest first</h2>
+
+<div class="card build">
+<span class="tag t-build">Build 1</span><span class="tag t-pro">Pro</span>
+<h3>Per-section backgrounds</h3><div style="border:2px solid #9A3B2B;background:#FBEEEA;padding:14px 16px;border-radius:10px;margin:14px 0;font-size:14px;line-height:1.6"><b>🛑 CORRECTED 2026-09-23 — BUILD 1 IS LARGELY SHIPPED, AND THIS SECTION’S COLUMN CLAIM IS FALSE.</b><br>The text below says “No column exists” and proposes a new JSONB. <b>It already exists.</b> <code>HubSectionCanvas</code> in <code>lib/hub-canvas.ts</code> already carries <code>media</code>, <code>focal</code> (1–9), <code>during</code> and <code>zoom</code>, stored in <code>invitation_widgets.config_json</code> — that file’s own docblock says the column <b>ALREADY EXISTS</b>. The editor picker (<code>sections-panel.tsx</code>) and the renderer (<code>hub-canvas-frame.tsx</code>) both ship.<br><br>🔑 <b>The grep in this plan was right and its conclusion was backwards:</b> no <code>ALTER TABLE invitation_widgets</code> adds a background because <b>none is needed</b>, not because one is missing. Writing a new column would create a second competing home for one fact — the trap <code>CLAUDE.md</code> rule 8 records.<br><br><b>What is actually left:</b> teach the existing background field three <i>kinds</i> instead of one. <code>kind: ‘photo’ | ‘snippet’ | ‘color’</code> — today <code>media</code> is a bare ref so a photo is all it can be. No migration, no exposure freeze, no Ugat node.<br><br>⚠ <b>The fence:</b> <code>media</code> is held to the public bucket by <code>siteMediaServeRef</code> because <code>config_json</code> is couple-writable. A <code>snippet</code> must pass the same allow-list; a <code>color</code> must not go through the ref path at all.</div>
+<p>No column exists. <code>invitation_widgets</code> carries type, order, visibility,
+mode and the per-type payloads added since (special message, what to bring, our
+photos, our love story) &mdash; nothing named background. The only background column
+on <code>events</code> is <code>std_background</code>, which belongs to the Save-the-Date.</p>
+<p><b>Shape:</b> one JSONB per widget row &mdash; <code>{ kind: 'photo' | 'snippet' | 'color',
+ref, focal: 1&ndash;9, during }</code>. A photo or a snippet, never a film; the focal point is
+the 3&times;3 choice from the editor. Runs the exposure freeze like every new column.</p>
+<p class="evid"><b>Re-measure:</b> <code>git grep -n "ALTER TABLE public.invitation_widgets"
+supabase/migrations</code> &mdash; none adds a background.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build 2</span><span class="tag t-ship">Free &mdash; it is fixing words</span>
+<h3>Dress code keyed on the role group</h3>
+<p>A ninang needs different words from a guest, and what she needs most is her
+<b>call time</b>. Key it on <code>RoleGroup</code> from <code>lib/role-groups.ts</code>, so the
+couple writes one rule per group instead of one per role. Add
+<code>byRole: Record&lt;RoleGroup, { headline, note, callTime? }&gt;</code> to
+<code>dress_code_config</code> beside the shared palette and the shipped per-role
+<code>roles[&lt;role&gt;]</code> style.</p>
+<p class="warn">Earlier documents said &ldquo;nine groups&rdquo;. The union on
+<code>4104a71</code> has <b>twelve</b> members (<code>honoree</code> through
+<code>other_roles</code>). Count it again before writing the record type &mdash;
+<code>git show origin/main:apps/web/lib/role-groups.ts | grep -c "| '"</code> &mdash;
+the number in a document is not the number in the tree.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build 3</span><span class="tag t-pro">Pro</span>
+<h3>Custom fonts</h3>
+<p>Two font lists ship, neither for the hub: <code>STUDIO_FONT_KEYS</code>
+(<code>lib/monogram-studio-shared.ts</code>) dresses the monogram, and the five
+<code>std-themes.ts</code> entries dress the Save-the-Date. The build is a
+<code>font_key</code> for headings and body on the hub&rsquo;s theme, chosen from a
+<b>fixed list</b> &mdash; never an uploaded font file. The editor&rsquo;s heading toolbar
+(Fraunces &middot; Cormorant &middot; Great Vibes in the prototype) is that list.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build 4</span><span class="tag t-pro">Pro &mdash; arranging, not fixing</span>
+<h3>Custom sections on the main page</h3>
+<p>The owner asked whether a couple can &ldquo;add a blank screen in between, to create
+content on the website as well&rdquo;. Today they cannot, on the main page. What ships
+is the after-the-wedding <b>custom column</b> (Part two), and it shows the shape: a
+title, a body, a place in the run, a ceiling, and malformed input dropped.</p>
+<p><b>The build:</b> a couple-authored section on the main page, in any phase &mdash; a
+photo or snippet plus a heading and a paragraph, using the <b>same four chapter
+arrangements</b> as the story. <b>Pro, because adding a section is arranging</b>, not
+fixing a word we wrote. The shipped set stays closed
+(<code>editorial-order.ts</code> builds an exhaustive record so the compiler can prove
+no section is missing); a custom section is a new keyed type, not a hole in that record.</p>
+<p class="evid"><b>Recommendation, and one question for the owner:</b> keep a ceiling,
+<b>six per phase</b> &mdash; a page of forty blocks is unreadable on a phone. Whether the
+existing 6 / 80 / 4,000 applies unchanged is his call (Part five).</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build 5</span>
+<h3>Google Drive as a <em>source</em></h3>
+<p>Every exported Drive function writes: <code>pushToDriveCopy</code>,
+<code>uploadFileToDrive</code>, <code>createDriveFolder</code>, <code>ensureArtifactFolder</code>.
+Nothing reads a file back out. Picking a photo <b>from</b> Drive needs Google&rsquo;s own
+picker &mdash; a new integration, not an extension. Not blocking: uploads work without it,
+and the editor&rsquo;s fourth media door already says <b>Not built</b>.</p>
+<p class="evid"><b>Re-measure:</b> <code>git grep -n "^export async function"
+apps/web/lib/drive-copy.ts apps/web/lib/drive-upload.ts</code>.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build 6 &middot; the large one</span><span class="tag t-pro">Pro</span>
+<h3>The canvas editor</h3>
+<p>Needs JavaScript &mdash; drag, handles, undo, z-order &mdash; and that is fine: it is the
+dashboard, not the guest page. The prototypes fix the contract: per section, a JSON of
+arrangement (one of four, canvas sections only), the motion <b>preset</b> and any
+Fine-tune overrides (How it runs, In, During, Out, Stagger, Duration, Delay &mdash; each
+absent when Auto), the focal point (1&ndash;9), and the media reference. The guest page
+renders that JSON with CSS; the editor is the only script.</p>
+<p>Build it against the story section first, not the hero: the story is the hard one
+(a photo and words that must stack), and everything it solves the hero inherits. The
+<b>form middle</b> for the eleven filled-in widgets is the same shell with the
+canvas swapped for an outline and a Content tab &mdash; build it second, on the schedule,
+and it is mostly the fields that already exist.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build 7</span><span class="tag t-pro">Pro</span>
+<h3>The four themes never drawn</h3>
+<p>Earlier documents list nine hub themes &mdash; Classic free, then Elegant, Modern,
+Minimalist, Fairytale, Vintage, Opulent, Rustic, Custom &mdash; and say four of them
+(Minimalist, Fairytale, Vintage, Custom) are registered but never drawn.</p>
+<p class="warn"><b>Unverified today.</b> <code>git grep -rwn "Fairytale\|Opulent"
+apps/web/lib apps/web/app</code> finds only mood-board phrase lists and onboarding
+labels, not a hub-theme registry. Treat the nine names as the owner&rsquo;s vocabulary;
+the first task of this item is to locate the registry or admit there is none and create
+it. Do not draw a theme against a list that cannot be found.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build 8 &middot; part-proven</span><span class="tag t-pro">Pro</span>
+<h3>A page mode: the page moves, or the scenes hold</h3>
+<p>The owner spotted it: &ldquo;if all has no background, they are just transitioning in
+and out as they scroll. looking like they are not scrolling down.&rdquo; That is a page
+<b>mode</b>, not a side effect. <b>Page moves</b> is the ordinary long page: sections
+carry their own ground and travel up past the reader. <b>Scenes hold</b>: every
+section is transparent and pinned; the page still scrolls but nothing travels &mdash;
+the screen stays put and its contents change, driven by the scroll. Same markup,
+same content, one switch. It costs a progress mark (a guest cannot feel how much
+page is left), makes skimming harder, and must fall back to the plain page under
+<code>prefers-reduced-motion</code>.</p>
+<p class="warn"><b>What is proven and what is not.</b> The pinning works and each
+scene fades in and out. <b>The scenes do not truly cross-fade</b>: one finishes
+leaving before the next arrives, measured at <b>zero of twenty</b> scroll positions
+having two scenes both part-visible. Two fixes were tried &mdash; moving the timeline
+to the spacer, and overlapping the spacers &mdash; and neither closed it. It has not
+been tested on a real phone. Do not sell the cross-fade until it exists.</p>
+<p class="evid">Prototype: <code>prototypes/scenes-hold-vs-page-moves-2026-09-23.html</code>
+(<code>position: sticky</code> + <code>animation-timeline: view()</code>, no script).
+Re-measure the overlap before touching the plan: count scroll positions at which two
+<code>.inner</code> elements both have <code>0 &lt; opacity &lt; 1</code>.</p>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part four</p>
+<h2>In flight today</h2>
+
+<div class="card build">
+<span class="tag t-build">Open &mdash; not merged</span>
+<h3>PR #5900 &mdash; the coordinator&rsquo;s announcement follows the reader</h3>
+<p><code>DayOfAnnouncement</code> is mounted only in <code>site-body.tsx</code>, which only
+<code>[slug]/page.tsx</code> renders, so eleven of the twelve guest pages never show
+&ldquo;phones down, the ceremony is starting&rdquo;. #5900 lifts the mount into the layout
+that wraps all twelve.</p>
+<p><b>Why it was red, and what changed.</b> The failing typecheck was a <b>second
+guard</b>, <code>lib/event-people-roster.test.ts</code>, which asserted the
+announcement&rsquo;s whole chain and pinned its last two links to <code>page.tsx</code>
+and <code>site-body.tsx</code> &mdash; the exact two files the fix moved the mount out of.
+It has been <b>re-anchored onto the layout</b>, not relaxed: it still asserts loaded
+<i>and</i> rendered, and now also asserts the guests-only session read and that the
+old mount was not left behind. Proven by sabotage both ways, and pushed.</p>
+<p class="warn"><b>As of the last check, 23 September:</b> <b>0 failing, 1 pending</b>
+(<code>typecheck + lint</code>), auto-merge armed. <b>It had not merged when this was
+written &mdash; re-check before relying on it.</b> <code>gh pr view 5900 --json
+state,mergedAt</code>. Do not rebuild it. Verify the fix by counting mounts per
+<b>route</b>, not per file.</p>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part five</p>
+<h2>Open owner questions</h2>
+<p>Stated plainly, not answered here. Nothing below is already settled in the
+decision record.</p>
+
+<div class="card ask">
+<span class="tag t-ask">Owner</span>
+<h3>Are manual uploads themselves Pro?</h3>
+<p>Settled: Drive is not a gate, and a couple without Drive gets their photos stored
+compressed. <b>Not settled:</b> the Pro list names &ldquo;Manual uploads&rdquo;, and the
+rule puts &ldquo;their own photos, snippets, films&rdquo; on the Pro side. So does
+uploading a photo need Pro at all &mdash; or does a free couple upload and simply get
+the compressed copy, with Pro buying the Drive originals?</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Owner</span>
+<h3>Which editor survives?</h3>
+<p><code>/dashboard/[eventId]/website/editor</code> and
+<code>/app/site-editor/[eventId]/</code> both exist. The canvas editor in Build 6 has to
+land in one of them.</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Owner</span>
+<h3>The nav vocabulary</h3>
+<p>The owner&rsquo;s words: <b>Memories &middot; Detail &middot; Home</b>. The shipped bar
+(as the approved hub prototype reads it): <b>Home &middot; Details &middot; Story &middot;
+Camera &middot; Watch &middot; Gallery &middot; Me</b>. Which set is the guest&rsquo;s?</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Owner</span>
+<h3>A tablet band for the editor?</h3>
+<p>Below 900px the editor takes the phone layout. An unfolded foldable or an iPad in
+portrait therefore gets bottom sheets when it has room for columns. Add a middle band
+(two columns, Animate as a sheet), or leave two layouts?</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Owner</span>
+<h3>Five phases, or four?</h3>
+<p>The shipped model is four (Part one). The owner named five today: Save the Date,
+Invitation/RSVP, <b>before event</b>, on the date, after event. &ldquo;Before event&rdquo;
+has no shipped phase. Is it a new phase &mdash; a final run-up in the last days,
+distinct from RSVP &mdash; or another name for the RSVP window?</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Owner</span>
+<h3>The custom-section ceiling</h3>
+<p>Custom columns are capped at 6 per recap, 80 characters of title, 4,000 of body. Does
+the same ceiling apply to custom sections on the main page? <b>Recommendation:</b> keep a
+ceiling, six per phase.</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Owner</span>
+<h3>Scenes hold: is fade-out-then-fade-in enough?</h3>
+<p>The page mode pins and each scene fades, but the scenes do not overlap &mdash; one is
+gone before the next arrives (Build 8). Two fixes did not close it. Is that handoff
+acceptable as it stands, or must the scenes truly cross-fade before the mode ships at
+all? And is a mode that hides how much page is left worth its progress mark on a phone?
+Nothing is assumed either way until it has been seen on a real phone.</p>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Order</p>
+<h2>The build order</h2>
+
+<div class="step"><span class="no2">0</span><div><b>See #5900 in</b>
+<p>The one live day-of failure on the list. The second guard is re-anchored and pushed; one check was still pending at the last look. Re-check, do not rebuild.</p></div></div>
+
+<div class="step"><span class="no2">1</span><div><b>Per-section backgrounds</b>
+<p>One JSONB column and a renderer. Nothing depends on it, everything looks better after it.</p></div></div>
+
+<div class="step"><span class="no2">2</span><div><b>Dress code by role group</b>
+<p>Free, because it is fixing words. Count the groups first.</p></div></div>
+
+<div class="step"><span class="no2">3</span><div><b>Custom fonts</b>
+<p>A key and a fixed list. The heading toolbar in the prototype is the list.</p></div></div>
+
+<div class="step"><span class="no2">4</span><div><b>Custom sections on the main page</b>
+<p>Blocked only on the ceiling question. Reuses the four arrangements.</p></div></div>
+
+<div class="step"><span class="no2">5</span><div><b>Drive as a source</b>
+<p>Google&rsquo;s picker. Not blocking anything; the door already says Not built.</p></div></div>
+
+<div class="step"><span class="no2">6</span><div><b>The canvas editor</b>
+<p>The large build. Story section first, hero inherits. Lands in whichever editor survives.</p></div></div>
+
+<div class="step"><span class="no2">7</span><div><b>The four themes never drawn</b>
+<p>Find the registry first. Draw against a list that exists.</p></div></div>
+
+<div class="step"><span class="no2">8</span><div><b>The page mode &mdash; scenes hold</b>
+<p>Part-proven. Close the cross-fade, or get the owner&rsquo;s word that the handoff is enough, and see it on a real phone before it ships.</p></div></div>
+</section>
+
+</div>

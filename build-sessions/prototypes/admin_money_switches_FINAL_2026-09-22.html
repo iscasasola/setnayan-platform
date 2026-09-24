@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin money switches — final prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!--
+  ADMIN MONEY SWITCHES — final prototype · 2026-09-22 · ZERO JAVASCRIPT.
+  Route it stands for: /admin/pricing — the page that ALREADY EXISTS. No new page, no menu row.
+
+  ── WHY THERE IS NO SCRIPT IN THIS FILE ─────────────────────────────────────
+  The owner's viewer does not execute scripts. A previous cut of this prototype put its nine
+  states behind a click handler; the copy still rendered for him, so it LOOKED like it worked
+  while every state button was dead — worse than blank, because the three blast-radius states
+  are the entire point of the drawing.
+  Every state below is a radio input plus a CSS sibling selector. No script, nothing to execute.
+  🔑 `<noscript>` would not have helped: it fires when scripting is DISABLED, never when a
+  sandbox simply refuses to run it.
+
+  ── WHAT THAT COST, AND WHAT IT DID NOT ─────────────────────────────────────
+  LOST: live recalculation. The worked examples and the audit row were computed at runtime from
+        whatever was typed.
+  KEPT: every number being TRUE. They are now pre-rendered per state, each computed at authoring
+        time with the real schedule maths and checked by script:
+            5% / ₱100,000 / 1%  →  ₱60,000→₱3,000 · ₱300,000→₱7,000 · ₱1M→₱14,000 · ₱10M→₱104,000
+            1% / ₱100,000 / 5%  →  ₱60,000→₱600 · ₱300,000→₱11,000 · ₱1M→₱46,000 · ₱10M→₱496,000
+  The fee inputs and the lock switch are still REAL controls — a checkbox toggles without script.
+  In the unreadable state the switch is made inert by CSS (`pointer-events:none`), which is the
+  honest rendering of "you may not flip this", reachable without JS.
+
+  ── STEP 2 · THE LIVE PAGE, MEASURED (origin/main, 2026-09-22) ──────────────
+  `admin/pricing/_surfaces/pricing-surface.tsx`:
+      PageMasthead → [catalog error] → PriceCatalogBrowser
+      → section "Vendor booking fee"  ← THIS SLICE → LegacyCatalogDisclosure
+  The section as it ships:
+      · 4 controls — 3 number inputs + 1 Save. The whole contract. All 4 survive.
+      · THE TITLE IS SAID TWICE — the section's <h2> and the form's own <h4>.
+      · TWO PARAGRAPHS SAY THE SAME THING before a single field (~75 words).
+  So the words cut here are the ones ALREADY on the page, not the switches being added.
+
+  ── ORDER BY USE — inverts the shipped page, deliberately, and says so ──────
+  Shipped is schedule-first; the schedule is set once a year and the switches are the live
+  decisions. New order: what is true now → the switches → the schedule (folded) → the audit row.
+
+  ── REAL NUMBERS (select only, 2026-09-22) ──────────────────────────────────
+  rate 5.00 · tail 1.00 · threshold ₱100,000 · floor ₱50
+  booking_fee_charges: 2 rows, 0 unsettled, 0 suppliers lockable
+  fee_unlocks_event_enforced = true · booking_fee_free_from/_until = NULL
+  2 shops exist: Saysay Host and Band, SetnaProd — the "would lock somebody" state uses those two
+  and is labelled a SCENARIO. Production has never been in it.
+-->
+<style>
+:root{
+  --ground:#FFFFFF; --panel:#FBFAF7; --sunk:#F4F2EC;
+  --ink:#2C2A29; --ink-soft:#4F535B; --ink-faint:#767A82;
+  --line:#E6E0D6; --line-soft:#F1ECE3;
+  --gold:#A9834B; --gold-text:#8A6B39; --gold-soft:#F5EEE1;
+  --slate:#3B4E67; --slate-soft:#EDF1F6;
+  --ok:#4F6B4A; --ok-soft:#EDF1E8;
+  --late:#B65A3A; --late-soft:#F7E9E6; --cta:#C24E25;
+  --amber:#9A6B12; --amber-soft:#FBF1DC; --amber-line:#E0BC72;
+  --card:#FFFFFF; --page-bg:#FFFFFF; --page-bg-desk:#FAF8F4; --on-accent:#FFFFFF;
+  --proto-bg:#EDEAE4; --switch-off:#D9D3C8;
+  --sans:"Hanken Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Space Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ground:#191817; --panel:#221F1D; --sunk:#2A2724;
+  --ink:#EFEBE4; --ink-soft:#B5B0A8; --ink-faint:#8B857D;
+  --line:#3A3531; --line-soft:#2F2B27;
+  --gold:#C2A06A; --gold-text:#D6B87F; --gold-soft:#332B1E;
+  --slate:#9BB2CE; --slate-soft:#20272F;
+  --ok:#9BBE93; --ok-soft:#232B21;
+  --late:#E08A66; --late-soft:#33221C; --cta:#E8703F;
+  --amber:#E0BC72; --amber-soft:#332B1B; --amber-line:#6B5730;
+  --card:#221F1D; --page-bg:#191817; --page-bg-desk:#151413; --on-accent:#1A1512;
+  --proto-bg:#2A2724; --switch-off:#4A443E;
+}}
+:root[data-theme="dark"]{
+  --ground:#191817; --panel:#221F1D; --sunk:#2A2724;
+  --ink:#EFEBE4; --ink-soft:#B5B0A8; --ink-faint:#8B857D;
+  --line:#3A3531; --line-soft:#2F2B27;
+  --gold:#C2A06A; --gold-text:#D6B87F; --gold-soft:#332B1E;
+  --slate:#9BB2CE; --slate-soft:#20272F;
+  --ok:#9BBE93; --ok-soft:#232B21;
+  --late:#E08A66; --late-soft:#33221C; --cta:#E8703F;
+  --amber:#E0BC72; --amber-soft:#332B1B; --amber-line:#6B5730;
+  --card:#221F1D; --page-bg:#191817; --page-bg-desk:#151413; --on-accent:#1A1512;
+  --proto-bg:#2A2724; --switch-off:#4A443E;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--sans);background:var(--page-bg);color:var(--ink);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2{margin:0;font-weight:600}
+.mono{font-family:var(--mono)}
+
+/* ── the state radios · the whole mechanism, and it is CSS ──────────────── */
+.sr{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+/* Everything that varies by state is a .v, hidden until its own radio is checked. */
+.v{display:none}
+
+/* ── prototype bar ──────────────────────────────────────────────────────── */
+.proto{position:sticky;top:0;z-index:40;background:var(--proto-bg);padding:8px 14px}
+.proto b{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);display:block}
+.states{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.st{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:11.5px;white-space:nowrap;display:inline-flex;align-items:center;cursor:pointer;user-select:none}
+.st:hover{border-color:var(--ink-faint)}
+.hintbox{margin-top:6px;font-size:11px;color:var(--ink-faint);line-height:1.4;min-height:15px}
+
+/* ── shell ──────────────────────────────────────────────────────────────── */
+.shell-top,.shell-rail{display:none}
+.app{display:block}
+.main{padding:0 0 40px}
+.page-head{padding:14px 16px 2px}
+.page-head h1{font-size:24px;letter-spacing:-.02em;line-height:1.1}
+.status{display:block;margin-top:3px;font-size:13px;color:var(--ink-soft)}
+.layout{display:flex;flex-direction:column;gap:18px;padding:12px 16px 20px}
+.sec{display:flex;flex-direction:column;gap:9px;min-width:0}
+.sec > h2{font-size:16px;letter-spacing:-.01em}
+.lbl{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+.hint{font-size:12px;color:var(--ink-faint);line-height:1.45}
+.card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:13px 15px}
+.rows{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+.rows > *:not(:last-child){border-bottom:1px solid var(--line-soft)}
+.row{display:flex;align-items:center;gap:11px;padding:11px 14px;font-size:14px}
+.row .k{min-width:0;flex:1}
+.row .k b{display:block;font-weight:600}
+.row .k span{display:block;font-size:12px;color:var(--ink-soft);margin-top:1px;line-height:1.4}
+.tag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:2px}
+.tag.new{background:var(--slate-soft);color:var(--slate)}
+.tag.ships{background:var(--sunk);color:var(--ink-faint)}
+.tag.moved{background:var(--gold-soft);color:var(--gold-text)}
+
+.fgrid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:560px){.fgrid{grid-template-columns:repeat(3,1fr)}}
+label.f{display:block}
+label.f > span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+.inwrap{position:relative;margin-top:4px;display:block}
+.inwrap input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;font-size:15px;background:var(--ground);color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+.inwrap input[type=text],.inwrap input[type=date]{text-align:left}
+.inwrap .suf{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--ink-faint);pointer-events:none}
+.inwrap .pre{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--ink-faint);pointer-events:none}
+.inwrap.has-pre input{padding-left:22px}
+
+.refuse{border:1px solid var(--late);background:var(--late-soft);border-radius:9px;padding:9px 12px;font-size:12.5px;font-weight:600;color:var(--late);line-height:1.45}
+
+/* An answered question stops being amber. Settled, with the answer, so the
+   drawing does not keep asking something already decided. */
+.openq.settled{border-left-color:var(--ok);background:var(--ok-soft)}
+.openq.settled .r b{color:var(--ok)}
+
+/* the lock switch — a real checkbox, so it toggles with no script */
+.swwrap{position:relative;flex:0 0 46px}
+.swbox{position:absolute;opacity:0;width:46px;height:27px;margin:0;cursor:pointer;z-index:2}
+.sw{width:46px;height:27px;border-radius:999px;background:var(--switch-off);padding:3px;display:flex;transition:background .15s}
+.sw::after{content:"";width:21px;height:21px;border-radius:999px;background:var(--card);transition:transform .15s}
+.swbox:checked + .sw{background:var(--ok)}
+.swbox:checked + .sw::after{transform:translateX(19px)}
+
+.blast{border-radius:12px;padding:12px 14px;border:1px solid var(--line);background:var(--sunk)}
+.blast.safe{border-color:var(--ok);background:var(--ok-soft)}
+.blast.warn{border-color:var(--late);background:var(--late-soft)}
+.blast.unknown{border-color:var(--amber-line);background:var(--amber-soft)}
+.blast .big{font-size:15px;font-weight:600;line-height:1.35;margin:4px 0 0}
+.blast.safe .big{color:var(--ok)}
+.blast.warn .big{color:var(--late)}
+.blast.unknown .big{color:var(--amber)}
+.blast .sub{margin:4px 0 0;font-size:11.5px;color:var(--ink-soft);font-family:var(--mono)}
+.blast ul{margin:7px 0 0;padding-left:16px;font-size:12.5px}
+
+.openq{border-left:3px solid var(--amber-line);background:var(--amber-soft);border-radius:0 9px 9px 0;padding:8px 11px}
+.openq .q{margin:0;font-size:13px;font-weight:600;line-height:1.35}
+.openq .r{margin:4px 0 0;font-size:12px;color:var(--ink-soft)}
+.openq .r b{color:var(--amber)}
+
+/* folds — <details>, native, no script */
+details.fold{border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden}
+details.fold + details.fold{margin-top:8px}
+details.fold > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:14px}
+details.fold > summary::-webkit-details-marker{display:none}
+details.fold > summary::after{content:"›";margin-left:auto;color:var(--ink-faint);font-size:16px;transition:transform .18s}
+details.fold[open] > summary::after{transform:rotate(90deg)}
+details.fold > summary .fs{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--ink-faint)}
+details.fold > summary .fs + ::after{margin-left:9px}
+.foldbody{padding:0 14px 13px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line-soft);padding-top:12px}
+.preview{border:1px solid var(--line);border-radius:10px;background:var(--sunk);padding:10px 12px}
+.preview .sum{margin:3px 0 0;font-size:13px;font-weight:600}
+.preview ul{margin:7px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:3px 18px;font-size:11.5px;color:var(--ink-soft)}
+.preview li{font-variant-numeric:tabular-nums}
+.preview li b{font-family:var(--mono);color:var(--ink)}
+pre{margin:0;font-family:var(--mono);font-size:11px;line-height:1.55;white-space:pre-wrap;word-break:break-word;color:var(--ink-soft);background:var(--sunk);border-radius:9px;padding:10px 11px}
+.btn{border:0;border-radius:9px;background:var(--cta);color:var(--on-accent);padding:10px 16px;font-size:13.5px;font-weight:600;width:100%;cursor:pointer}
+.aside{display:flex;flex-direction:column;gap:11px;order:0}
+.sec{order:1}
+
+/* ══════════ THE STATE MACHINE, IN CSS ══════════
+   Each radio lights its own chip, its own hint, and every .v block that names it. */
+#s0:checked ~ .proto label[for=s0], #s1:checked ~ .proto label[for=s1],
+#s2:checked ~ .proto label[for=s2], #s3:checked ~ .proto label[for=s3],
+#s4:checked ~ .proto label[for=s4], #s5:checked ~ .proto label[for=s5],
+#s6:checked ~ .proto label[for=s6], #s7:checked ~ .proto label[for=s7],
+#s8:checked ~ .proto label[for=s8]{background:var(--ink);border-color:var(--ink);color:var(--page-bg);font-weight:600}
+
+#s0:checked ~ .proto .v0, #s1:checked ~ .proto .v1, #s2:checked ~ .proto .v2,
+#s3:checked ~ .proto .v3, #s4:checked ~ .proto .v4, #s5:checked ~ .proto .v5,
+#s6:checked ~ .proto .v6, #s7:checked ~ .proto .v7, #s8:checked ~ .proto .v8,
+#s0:checked ~ .app .v0, #s1:checked ~ .app .v1, #s2:checked ~ .app .v2,
+#s3:checked ~ .app .v3, #s4:checked ~ .app .v4, #s5:checked ~ .app .v5,
+#s6:checked ~ .app .v6, #s7:checked ~ .app .v7, #s8:checked ~ .app .v8{display:block}
+
+/* The field row is the ONE revealed element that is not a block. Two classes
+   beat the single-class reveal above, so grid wins where it must. */
+#s0:checked ~ .app .fgrid.v0,
+#s1:checked ~ .app .fgrid.v1,
+#s2:checked ~ .app .fgrid.v2,
+#s3:checked ~ .app .fgrid.v3,
+#s4:checked ~ .app .fgrid.v4,
+#s5:checked ~ .app .fgrid.v5,
+#s6:checked ~ .app .fgrid.v6,
+#s7:checked ~ .app .fgrid.v7,
+#s8:checked ~ .app .fgrid.v8{display:grid}
+
+/* 🔴 THE UNREADABLE STATE MAKES THE SWITCH INERT. Without a script the `disabled`
+   attribute cannot be toggled, so the affordance is removed instead — the control
+   cannot be operated and does not look operable. That is the honest rendering of
+   "you may not flip this", and it is the whole reason the state exists. */
+#s3:checked ~ .app .swwrap{opacity:.4;pointer-events:none}
+
+/* ════════ DESKTOP ════════ */
+@media (min-width:1024px){
+  body{background:var(--page-bg-desk)}
+  .shell-top{display:flex;align-items:center;gap:14px;height:54px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--line-soft);position:sticky;top:44px;z-index:30}
+  .shell-top .brand{font-weight:700;letter-spacing:.18em;font-size:12px}
+  .shell-top .search{flex:1;max-width:380px;height:34px;border:1px solid var(--line);border-radius:999px;display:flex;align-items:center;padding:0 13px;color:var(--ink-faint);font-size:12.5px}
+  .app{display:grid;grid-template-columns:196px 1fr}
+  .shell-rail{display:flex;flex-direction:column;gap:1px;padding:14px 10px;border-right:1px solid var(--line-soft);background:var(--panel);min-height:calc(100vh - 98px);position:sticky;top:98px;align-self:start;font-size:13px}
+  .shell-rail .grp{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-text);padding:8px 9px 5px}
+  .shell-rail span.nav{padding:7px 9px;border-radius:7px;color:var(--ink-soft)}
+  .shell-rail span.nav.on{background:var(--sunk);color:var(--ink);font-weight:600}
+  .main{max-width:1180px;margin:0 auto;padding:0 26px 50px;width:100%}
+  .page-head{padding:20px 0 4px}
+  .page-head h1{font-size:28px}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;column-gap:26px;row-gap:20px;padding:12px 0 30px;align-items:start}
+  .layout > .sec{grid-column:1}
+  .layout > .aside{grid-column:2;grid-row:1 / span 20;position:sticky;top:116px;align-self:start}
+}
+</style>
+</head>
+<body>
+
+<!-- THE NINE STATES. Radios, not buttons. Nothing here executes. -->
+<input class="sr" type="radio" name="st" id="s0">
+<input class="sr" type="radio" name="st" id="s1" checked>
+<input class="sr" type="radio" name="st" id="s2">
+<input class="sr" type="radio" name="st" id="s3">
+<input class="sr" type="radio" name="st" id="s4">
+<input class="sr" type="radio" name="st" id="s5">
+<input class="sr" type="radio" name="st" id="s6">
+<input class="sr" type="radio" name="st" id="s7">
+<input class="sr" type="radio" name="st" id="s8">
+
+<div class="proto">
+  <b>Prototype · admin money switches · no scripts</b>
+  <div class="states">
+    <label class="st" for="s0">Nothing set</label>
+    <label class="st" for="s1">Safe to switch on</label>
+    <label class="st" for="s2">Would lock 2 suppliers</label>
+    <label class="st" for="s3">Couldn’t check who’d be affected</label>
+    <label class="st" for="s4">Promotion running</label>
+    <label class="st" for="s5">Promotion scheduled</label>
+    <label class="st" for="s6">Promotion ended</label>
+    <label class="st" for="s7">Dates the wrong way round</label>
+    <label class="st" for="s8">Fee rate upside down</label>
+  </div>
+  <div class="hintbox">
+    <span class="v v0">The off state — no promotion, lock as it is today.</span>
+    <span class="v v1">Today’s real data: 2 charges, 0 unsettled, nobody locked out.</span>
+    <span class="v v2">A SCENARIO — production has never been here. The switch still works; it warns and names them.</span>
+    <span class="v v3">THE ONE THAT DECIDES THE DESIGN. The count failed. It says so, and the switch cannot be flipped — it never reads 0.</span>
+    <span class="v v4">A free-fee window open right now, ending 30 November.</span>
+    <span class="v v5">Set but not started. Fees are still charged.</span>
+    <span class="v v6">It ran and finished. Fees are charged again.</span>
+    <span class="v v7">End before start — refused in the form’s existing idiom.</span>
+    <span class="v v8">The refusal that ALREADY ships. Open “The fee itself” below to see it.</span>
+  </div>
+</div>
+
+<div class="shell-top"><span class="brand">SETNAYAN</span><span class="search">Search the console</span></div>
+
+<div class="app">
+  <nav class="shell-rail" aria-label="Admin menu">
+    <div class="grp">Console</div>
+    <span class="nav">Today</span><span class="nav">Queues</span><span class="nav">People</span>
+    <span class="nav on">Pricing</span><span class="nav">Settings</span><span class="nav">Reports</span>
+  </nav>
+
+  <div class="main">
+    <div class="page-head">
+      <h1>Pricing</h1>
+      <span class="status">
+        <span class="v v0">Booking fee 5% / 1% · lock on · no promotion</span>
+        <span class="v v1">Booking fee 5% / 1% · lock on · no promotion</span>
+        <span class="v v2">Booking fee 5% / 1% · lock on · no promotion</span>
+        <span class="v v3">Booking fee 5% / 1% · lock on · no promotion</span>
+        <span class="v v4">Booking fee 5% / 1% · lock on · promotion running</span>
+        <span class="v v5">Booking fee 5% / 1% · lock on · promotion scheduled</span>
+        <span class="v v6">Booking fee 5% / 1% · lock on · promotion ended</span>
+        <span class="v v7">Booking fee 5% / 1% · lock on · promotion invalid</span>
+        <span class="v v8">Booking fee 1% / 5% · lock on · no promotion</span>
+      </span>
+    </div>
+
+    <div class="layout">
+
+      <!-- ── STICKY RIGHT COLUMN ─────────────────────────────────────────── -->
+      <div class="aside">
+        <div class="blast safe v v0 v1 v4 v5 v6 v7 v8">
+          <p class="lbl" style="margin:0;opacity:.85">If you switch the lock on</p>
+          <p class="big">Locks 0 suppliers out of an event right now.</p>
+          <p class="sub">2 charges · 0 unsettled</p>
+        </div>
+        <div class="blast warn v v2">
+          <p class="lbl" style="margin:0;opacity:.85">If you switch the lock on</p>
+          <p class="big">Locks 2 suppliers out of an event right now.</p>
+          <p class="sub">4 charges · 2 unsettled · SCENARIO</p>
+          <ul><li>Saysay Host and Band — fee unpaid</li><li>SetnaProd — fee unpaid</li></ul>
+        </div>
+        <div class="blast unknown v v3">
+          <p class="lbl" style="margin:0;opacity:.85">If you switch the lock on</p>
+          <p class="big">We could not check who this would lock out.</p>
+          <p class="sub">The count did not load. This is not zero — it is unknown.</p>
+        </div>
+
+        <div class="card">
+          <p class="lbl" style="margin:0">Right now</p>
+          <div style="margin-top:7px;display:flex;flex-direction:column;gap:5px;font-size:13px">
+            <div style="display:flex;justify-content:space-between;gap:10px"><span>Booking fee</span>
+              <b class="mono"><span class="v v0">5% / 1%</span><span class="v v1">5% / 1%</span><span class="v v2">5% / 1%</span><span class="v v3">5% / 1%</span><span class="v v4">5% / 1%</span><span class="v v5">5% / 1%</span><span class="v v6">5% / 1%</span><span class="v v7">5% / 1%</span><span class="v v8">1% / 5%</span></b></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><span>Event Hub lock</span><b class="mono">ON</b></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><span>Promotion</span>
+              <b class="mono"><span class="v v0">none</span><span class="v v1">none</span><span class="v v2">none</span><span class="v v3">none</span><span class="v v4">running</span><span class="v v5">scheduled</span><span class="v v6">ended</span><span class="v v7">invalid</span><span class="v v8">none</span></b></div>
+          </div>
+        </div>
+        <button class="btn" type="button">Save booking fee</button>
+        <p class="hint" style="margin:0">Real page: saving writes one audit row.</p>
+      </div>
+
+      <!-- ── 1 · THE LOCK ────────────────────────────────────────────────── -->
+      <div class="sec">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <h2>Event Hub lock <span class="tag new">new</span></h2>
+          <span class="hint">No off-button today — SQL only</span>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <span class="k"><b>Lock until the fee is paid</b><span>Free, imported and promotion-waived bookings are never locked.</span></span>
+            <span class="swwrap">
+              <input class="swbox" type="checkbox" id="lockSw" checked aria-label="Lock until the fee is paid">
+              <span class="sw" aria-hidden="true"></span>
+            </span>
+          </div>
+        </div>
+        <p class="refuse v v3">
+          This cannot be switched while we do not know who it would affect. Reload to try the count again.
+        </p>
+        <div class="openq settled">
+          <p class="q">✓ When suppliers <em>would</em> be locked out — refuse, or warn and name them?</p>
+          <p class="r"><b>Settled: warn and name them.</b> Refusing blocks a call the owner is entitled to
+            make. The console still refuses in the one case where refusing is right — when it could not
+            COUNT who would be affected — so "I know and it is bad" and "I do not know" stay different
+            answers.</p>
+        </div>
+      </div>
+
+      <!-- ── 2 · THE PROMOTION ───────────────────────────────────────────── -->
+      <div class="sec">
+        <h2>Free-fee promotion <span class="tag new">new</span></h2>
+
+        <div class="fgrid v v0 v1 v2 v3 v8">
+          <label class="f"><span>Free from</span><span class="inwrap"><input type="date" value=""></span></label>
+          <label class="f"><span>Free until</span><span class="inwrap"><input type="date" value=""></span></label>
+          <label class="f"><span>Reason</span><span class="inwrap"><input type="text" placeholder="launch month"></span></label>
+        </div>
+        <div class="fgrid v v4">
+          <label class="f"><span>Free from</span><span class="inwrap"><input type="date" value="2026-09-15"></span></label>
+          <label class="f"><span>Free until</span><span class="inwrap"><input type="date" value="2026-11-30"></span></label>
+          <label class="f"><span>Reason</span><span class="inwrap"><input type="text" value="launch month"></span></label>
+        </div>
+        <div class="fgrid v v5">
+          <label class="f"><span>Free from</span><span class="inwrap"><input type="date" value="2026-12-01"></span></label>
+          <label class="f"><span>Free until</span><span class="inwrap"><input type="date" value="2026-12-31"></span></label>
+          <label class="f"><span>Reason</span><span class="inwrap"><input type="text" value="Christmas"></span></label>
+        </div>
+        <div class="fgrid v v6">
+          <label class="f"><span>Free from</span><span class="inwrap"><input type="date" value="2026-07-01"></span></label>
+          <label class="f"><span>Free until</span><span class="inwrap"><input type="date" value="2026-07-31"></span></label>
+          <label class="f"><span>Reason</span><span class="inwrap"><input type="text" value="soft launch"></span></label>
+        </div>
+        <div class="fgrid v v7">
+          <label class="f"><span>Free from</span><span class="inwrap"><input type="date" value="2026-11-30"></span></label>
+          <label class="f"><span>Free until</span><span class="inwrap"><input type="date" value="2026-10-01"></span></label>
+          <label class="f"><span>Reason</span><span class="inwrap"><input type="text" value=""></span></label>
+        </div>
+
+        <p class="refuse v v7">
+          The end date is before the start date. That is a promotion that can never be open — this will not save.
+        </p>
+
+        <div class="blast v v0 v1 v2 v3 v8">
+          <p class="big" style="margin:0">No promotion.</p><p class="sub">The fee is charged as normal.</p>
+        </div>
+        <div class="blast safe v v4">
+          <p class="big" style="margin:0">Running — no fee is being charged.</p><p class="sub">Ends 30 November.</p>
+        </div>
+        <div class="blast v v5">
+          <p class="big" style="margin:0">Scheduled, not started.</p><p class="sub">Fees are charged until 1 December.</p>
+        </div>
+        <div class="blast v v6">
+          <p class="big" style="margin:0">Ended. Fees are charged again.</p><p class="sub">Ran until 31 July.</p>
+        </div>
+        <div class="blast warn v v7">
+          <p class="big" style="margin:0">This cannot save.</p><p class="sub">See the refusal above.</p>
+        </div>
+
+        <div class="openq settled">
+          <p class="q">✓ Announce a promotion, or let suppliers find it on a quote?</p>
+          <p class="r"><b>Settled: they find it on the quote.</b> The line appears at the moment a supplier
+            decides whether to take a booking, which is when it changes behaviour. A banner earns its place
+            only if a promotion is ever used to RECRUIT suppliers rather than nudge existing ones — a
+            different goal, and a later build.</p>
+        </div>
+        <div class="openq settled">
+          <p class="q">✓ Does a promotion need that Reason?</p>
+          <p class="r"><b>Settled: yes, and required to OPEN a window</b> — not to close one. In a year the
+            log shows money was waived for three weeks; without it, not why. It is the only one of the three
+            that cannot be added back later, which is why it is required rather than optional.</p>
+        </div>
+      </div>
+
+      <!-- ── 3 · THE SCHEDULE — set once a year, so it folds ─────────────── -->
+      <div class="sec">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <h2>The fee itself <span class="tag ships">ships today</span></h2>
+          <span class="hint">Moved below the switches <span class="tag moved">re-ordered</span></span>
+        </div>
+
+        <details class="fold v v0 v1 v2 v3 v4 v5 v6 v7">
+          <summary>Rate, threshold and the rate above it <span class="fs">5% / ₱100,000 / 1%</span></summary>
+          <div class="foldbody">
+            <div class="fgrid">
+              <label class="f"><span>Rate below the threshold</span><span class="inwrap"><input type="number" step="0.01" value="5.00"><span class="suf">%</span></span></label>
+              <label class="f"><span>Threshold</span><span class="inwrap has-pre"><span class="pre">₱</span><input type="number" step="1" value="100000"></span></label>
+              <label class="f"><span>Rate above it</span><span class="inwrap"><input type="number" step="0.01" value="1.00"><span class="suf">%</span></span></label>
+            </div>
+            <div class="preview">
+              <span class="lbl">A supplier is billed</span>
+              <p class="sum">5% of the first ₱100,000, then 1% — minimum ₱50, no upper cap.</p>
+              <ul>
+                <li>₱60,000 → <b>₱3,000</b></li><li>₱300,000 → <b>₱7,000</b></li>
+                <li>₱1,000,000 → <b>₱14,000</b></li><li>₱10,000,000 → <b>₱104,000</b></li>
+              </ul>
+            </div>
+            <p class="hint">The <b>₱50</b> minimum and the fact that there is <b>no upper cap</b> are fixed and not editable here.</p>
+          </div>
+        </details>
+
+        <details class="fold v v8" open>
+          <summary>Rate, threshold and the rate above it <span class="fs">1% / ₱100,000 / 5%</span></summary>
+          <div class="foldbody">
+            <div class="fgrid">
+              <label class="f"><span>Rate below the threshold</span><span class="inwrap"><input type="number" step="0.01" value="1.00"><span class="suf">%</span></span></label>
+              <label class="f"><span>Threshold</span><span class="inwrap has-pre"><span class="pre">₱</span><input type="number" step="1" value="100000"></span></label>
+              <label class="f"><span>Rate above it</span><span class="inwrap"><input type="number" step="0.01" value="5.00"><span class="suf">%</span></span></label>
+            </div>
+            <div class="preview">
+              <span class="lbl">A supplier is billed</span>
+              <p class="sum">1% of the first ₱100,000, then 5% — minimum ₱50, no upper cap.</p>
+              <ul>
+                <li>₱60,000 → <b>₱600</b></li><li>₱300,000 → <b>₱11,000</b></li>
+                <li>₱1,000,000 → <b>₱46,000</b></li><li>₱10,000,000 → <b>₱496,000</b></li>
+              </ul>
+            </div>
+            <p class="refuse">
+              The rate above the threshold is higher than the rate below it. That charges a supplier
+              more for declaring a bigger booking honestly — this will not save.
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <!-- ── 4 · THE AUDIT ROW, pre-rendered per state ──────────────────── -->
+      <div class="sec">
+        <h2>What you’d read in a year <span class="tag new">new</span></h2>
+        <pre class="v v0 v1">action      money_switches_edit
+before      enforced true · free_from null · free_until null
+after       enforced true · free_from null · free_until null
+reason      —
+locked_out  0 suppliers</pre>
+        <pre class="v v2">action      money_switches_edit
+before      enforced false · free_from null · free_until null
+after       enforced true · free_from null · free_until null
+reason      —
+locked_out  2 suppliers — Saysay Host and Band, SetnaProd</pre>
+        <pre class="v v3">action      money_switches_edit
+before      enforced true · free_from null · free_until null
+after       REFUSED — the switch could not be operated
+reason      —
+locked_out  not measured — the count failed to load</pre>
+        <pre class="v v4">action      money_switches_edit
+before      enforced true · free_from null · free_until null
+after       enforced true · free_from 2026-09-15 · free_until 2026-11-30
+reason      launch month
+locked_out  0 suppliers</pre>
+        <pre class="v v5">action      money_switches_edit
+after       enforced true · free_from 2026-12-01 · free_until 2026-12-31
+reason      Christmas
+locked_out  0 suppliers</pre>
+        <pre class="v v6">action      money_switches_edit
+after       enforced true · free_from 2026-07-01 · free_until 2026-07-31
+reason      soft launch
+locked_out  0 suppliers</pre>
+        <pre class="v v7">action      —
+after       NOT SAVED — the end date is before the start date
+reason      —
+locked_out  0 suppliers</pre>
+        <pre class="v v8">action      —
+after       NOT SAVED — the rate above the threshold exceeds the rate below it
+reason      —
+locked_out  0 suppliers</pre>
+      </div>
+
+      <!-- ── 5 · SUMMARY ────────────────────────────────────────────────── -->
+      <div class="sec">
+        <h2>In plain words</h2>
+        <details class="fold"><summary>What changes <span class="fs">3 things</span></summary>
+          <div class="foldbody"><p class="hint">The existing fee form gains a promotion and a lock switch. The switch shows who it would affect before you press it. Every save writes an audit row, as the fee schedule already does.</p></div>
+        </details>
+        <details class="fold"><summary>What is NOT changing <span class="fs">3 things</span></summary>
+          <div class="foldbody"><p class="hint"><b>No new page, no menu row, no route</b> — four files in the pricing page that already exists. I first said this needed a new admin page joining four registries; I was wrong. <b>The fee schedule itself</b> is untouched. <b>No migration</b> — all three columns already exist.</p></div>
+        </details>
+        <details class="fold"><summary>What this cannot prove <span class="fs">3 limits</span></summary>
+          <div class="foldbody"><p class="hint">The count is baked in here; the real page reads it live, which is exactly why the “couldn’t check” state exists. Production has <b>never</b> been in the dangerous state — 2 charges, 0 unsettled — so that state is a scenario on the 2 real shops. Nothing has been built.</p></div>
+        </details>
+        <details class="fold"><summary>What I measured, and what it changed <span class="fs">the re-order</span></summary>
+          <div class="foldbody"><p class="hint">The shipped section says its title <b>twice</b> — an h2 and the form’s own h4 — and carries <b>two paragraphs</b> saying the same thing before you reach a field, about 75 words. It also leads with the fee schedule, which is set once a year, above the switches you’d come here to change. So the words cut are the ones already there, and the order is inverted. The 4 shipped controls all survive.</p></div>
+        </details>
+        <details class="fold"><summary>Why this file has no scripts <span class="fs">and what it cost</span></summary>
+          <div class="foldbody"><p class="hint">Your viewer does not run scripts, so the earlier version’s state buttons were dead for you — it looked like it worked. Every state here is a radio button and CSS. <b>Lost:</b> the figures no longer recompute as you type. <b>Kept:</b> every figure is still true — each was computed with the real fee maths and written in. The fee boxes and the lock switch are still real controls.</p></div>
+        </details>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

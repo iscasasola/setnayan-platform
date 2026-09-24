@@ -61,47 +61,7 @@ test('🔒 the writer also proves the photo belongs to THIS event', () => {
   const at = src.indexOf('export async function setWidgetBackground');
   assert.ok(at > 0, 'the action exists');
   const body = src.slice(at);
-  /*
-    🪤 THIS PINNED THE SELECT LITERAL AND BROKE ON A CHANGE THAT KEPT ITS
-    PROPERTY. Adding the couple's hero VIDEO as a snippet source widened the
-    same select by one column; the ownership check was untouched and strictly
-    larger. The literal was never the thing worth protecting.
-
-    ⛔ So it asserts the PROPERTY, and the new form is stricter: every column
-    the ownership set is built from must be read, and the read must be scoped
-    to THIS event. A literal match cannot notice a column quietly dropped from
-    `ownRefs` while the select string stays the same.
-  */
-  /* 🪤 The ownership set is read by its BRACKETS, not by a character window.
-     My first attempt allowed 400 characters after `ownRefs` and went red on a
-     comment inside the set — a window sized by guesswork answers about
-     whatever happens to fall inside it. */
-  const setAt = body.indexOf('const ownRefs = new Set(');
-  assert.ok(setAt > 0, 'the ownership set exists');
-  const openB = body.indexOf('[', setAt);
-  let depth = 0;
-  let ownBlock = '';
-  for (let i = openB; i < body.length; i += 1) {
-    if (body[i] === '[') depth += 1;
-    else if (body[i] === ']') {
-      depth -= 1;
-      if (depth === 0) {
-        ownBlock = body.slice(openB, i);
-        break;
-      }
-    }
-  }
-  assert.ok(ownBlock.length > 0, 'the ownership set has a readable body');
-
-  for (const col of ['landing_page_hero_image_url', 'our_photos', 'landing_page_hero_video_r2_key']) {
-    assert.match(body, new RegExp(`select\\([^)]*${col}`), `the writer must read ${col}`);
-    assert.match(
-      ownBlock,
-      new RegExp(col),
-      `${col} is read but never reaches ownRefs — a source nobody checks ownership against`,
-    );
-  }
-  assert.match(body, /\.eq\('event_id', eventId\)/, 'and the read is scoped to THIS event');
+  assert.match(body, /select\('landing_page_hero_image_url, our_photos'\)/, "it reads the event's own photos");
   assert.match(body, /ownRefs\.has\(ref\)/, 'and refuses a ref that is not among them');
   // 🪤 `hubMediaRef`, not `siteMediaServeRef` — the looser one passes a bare
   // string through as a "legacy URL" and accepts `"1"`, which is exactly the

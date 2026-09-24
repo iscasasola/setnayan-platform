@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ice Casasola (@icecasa) — Setnayan</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   Third pass. Zero JavaScript. System fonts. No external assets.
+   The shell, the identity block, the CSS-only tabs and the About tab are the
+   approved second draft, untouched. What changed is the Celebrations panel:
+   the three cards are now three POSTERS. Names, date and status all live
+   inside one composition per celebration; nothing sits in a strip below.
+   Every size inside a poster is set in `cqw` (a hundredth of the poster's own
+   width), so the composition scales as one printed object.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Brand tokens (apps/web/app/globals.css) ─────────────────────────────── */
+:root{
+  --m-ink:#2C2A29; --m-paper:#FFFFFF; --m-paper-2:#F4F2EC;
+  --m-line:#E1DCD1; --m-line-soft:#EDE8DE; --m-muted:#6E6A62;
+  --sn-gold-100:#F3ECDF; --sn-gold-300:#CBA766; --sn-gold-500:#A9834B;
+  --sn-gold-700:#8A6B39; --sn-gold-800:#5C4726; --sn-ink-300:#A09A8E;
+  /* the two celebration accents, exactly as stored */
+  --wine:#9a244f; --gold:#9b7e00;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --topbar:56px; --rail:72px; --tabbar:60px;
+}
+/* Contrast, checked (WCAG 2 ratio) — every text/background pair used:
+     ink/paper 14.7 · ink/paper-2 12.7 · muted/paper 5.4 · muted/paper-2 4.8
+     gold-800/paper 8.8 · white/wine 7.7 · wine/paper 7.7 · gold-100/wine 6.5
+   NEVER as text: gold #9b7e00 (white on it 3.9, ink on it 3.7). On the gold
+   poster every letter sits on the white moon or the white sash — none on gold.
+   Also never as text: gold-300 on wine (3.4) · gold-300 on ink (6.3, unused)
+   · gold-700 on paper-2 (4.4) · ink-300 on anything (2.8). */
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--m-paper);color:var(--m-ink);font-family:var(--sans);line-height:1.45;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button{font:inherit;color:inherit}
+svg{display:block}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE SHELL — context, not subject. Paper white, hairlines, no colour.
+   ══════════════════════════════════════════════════════════════════════════ */
+.app{min-height:100vh;display:grid;grid-template-rows:var(--topbar) 1fr;grid-template-columns:1fr}
+@media (min-width:900px){.app{grid-template-columns:var(--rail) 1fr}}
+@media (min-width:1200px){:root{--rail:232px}}
+
+/* top bar */
+.fd-topbar{grid-column:1/-1;position:sticky;top:0;z-index:20;height:var(--topbar);
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;
+  padding:0 12px;background:var(--m-paper);border-bottom:1px solid var(--m-line)}
+@media (min-width:900px){.fd-topbar{padding:0 20px;gap:24px}}
+.fd-topleft{display:flex;align-items:center;gap:6px}
+.iconbtn{width:40px;height:40px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--m-ink)}
+.iconbtn:hover{background:var(--m-paper-2)}
+.iconbtn svg{width:22px;height:22px}
+.wordmark{display:inline-flex;align-items:center;gap:9px;text-decoration:none;padding:4px 6px}
+.wordmark svg{width:26px;height:26px}
+.wordmark .wm{font-size:16px;font-weight:600;letter-spacing:.02em}
+.fd-search{display:none}
+@media (min-width:900px){
+  .fd-search{display:flex;align-items:center;justify-self:center;width:min(560px,100%);height:40px;
+    border:1px solid var(--m-line);border-radius:999px;background:var(--m-paper-2);padding:0 6px 0 16px}
+  .fd-search input{flex:1;border:0;background:transparent;font:inherit;font-size:15px;color:var(--m-ink);outline:none;min-width:0}
+  .fd-search input::placeholder{color:var(--m-muted)}
+  .fd-search .go{width:32px;height:32px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;color:var(--m-ink)}
+  .fd-search .go svg{width:18px;height:18px}
+}
+.fd-topright{display:flex;align-items:center;gap:6px;justify-self:end}
+.signin{font-size:14px;font-weight:500;text-decoration:none;padding:8px 16px;border:1px solid var(--m-line);border-radius:999px;background:var(--m-paper);white-space:nowrap}
+.signin:hover{border-color:var(--m-ink)}
+.only-narrow{display:grid}
+@media (min-width:900px){.only-narrow{display:none}}
+
+/* left rail: icons with captions at 900px, icons with labels at 1200px */
+.fd-rail{display:none}
+@media (min-width:900px){
+  .fd-rail{display:flex;flex-direction:column;gap:2px;position:sticky;top:var(--topbar);
+    height:calc(100vh - var(--topbar));padding:10px 6px;border-right:1px solid var(--m-line-soft);background:var(--m-paper)}
+  .fd-row{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 4px 10px;border-radius:12px;text-decoration:none;color:var(--m-ink);font-size:10.5px;letter-spacing:.01em}
+  .fd-row svg{width:22px;height:22px;flex:none}
+  .fd-row:hover{background:var(--m-paper-2)}
+  .fd-row.is-here{background:var(--m-paper-2);font-weight:600}
+  .fd-rdiv{height:1px;background:var(--m-line-soft);margin:8px 6px}
+  .fd-rlabel{display:none}
+  .fd-rail .foot{margin-top:auto;padding:12px 6px;font-size:11px;color:var(--m-muted);text-align:center;line-height:1.4}
+}
+@media (min-width:1200px){
+  .fd-rail{padding:12px 12px}
+  .fd-row{flex-direction:row;gap:16px;padding:10px 12px;font-size:14px}
+  .fd-rlabel{display:block;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--m-muted);padding:14px 12px 6px}
+  .fd-rail .foot{text-align:left;font-size:12px}
+}
+
+/* mobile bottom bar (the rail, folded down) */
+.fd-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;height:calc(var(--tabbar) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);display:grid;grid-template-columns:repeat(5,1fr);
+  background:var(--m-paper);border-top:1px solid var(--m-line)}
+.fd-tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--m-muted);font-size:10.5px}
+.fd-tabbar a svg{width:22px;height:22px}
+.fd-tabbar a.is-here{color:var(--m-ink);font-weight:600}
+@media (min-width:900px){.fd-tabbar{display:none}}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE PAGE — Ice's channel
+   ══════════════════════════════════════════════════════════════════════════ */
+.fd-main{min-width:0;padding-bottom:calc(var(--tabbar) + 24px)}
+@media (min-width:900px){.fd-main{padding-bottom:48px}}
+.uprof-inner{max-width:1280px;margin:0 auto;padding:0 0 0}
+@media (min-width:900px){.uprof-inner{padding:20px 32px 0}}
+@media (min-width:1500px){.uprof-inner{padding:28px 48px 0}}
+.gutter{padding-left:16px;padding-right:16px}
+@media (min-width:900px){.gutter{padding-left:0;padding-right:0}}
+
+/* banner — `uprof-cover` exists in code; nobody has uploaded one, so the
+   house draws it: warm paper, linen grain, and the person's own celebration
+   colours falling across the right side as ribbons. */
+.uprof-cover{position:relative;height:112px;overflow:hidden;background:var(--m-paper-2);border-bottom:1px solid var(--m-line)}
+@media (min-width:600px){.uprof-cover{height:150px}}
+@media (min-width:900px){.uprof-cover{height:190px;border-radius:16px;border:1px solid var(--m-line)}}
+@media (min-width:1500px){.uprof-cover{height:220px}}
+.uprof-cover-img{position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(45deg,rgba(44,42,41,.035) 0 1px,transparent 1px 7px),
+    linear-gradient(104deg,transparent 0 55%,rgba(154,36,79,.20) 55% 66%,transparent 66% 69%,rgba(155,126,0,.20) 69% 78%,transparent 78% 81%,rgba(44,42,41,.07) 81% 87%,transparent 87%),
+    var(--m-paper-2)}
+.uprof-cover .frame{position:absolute;inset:10px;border:1px solid rgba(44,42,41,.10);pointer-events:none}
+.uprof-cover .frame::after{content:"";position:absolute;inset:4px;border:1px solid rgba(44,42,41,.05)}
+.uprof-cover .thread{position:absolute;left:24px;bottom:22px;display:flex;align-items:center;gap:8px}
+.uprof-cover .thread i{width:6px;height:6px;background:var(--sn-gold-300);transform:rotate(45deg)}
+.uprof-cover .thread b{width:64px;height:1px;background:var(--sn-gold-300)}
+
+/* identity block — YouTube's shape: avatar · name · @handle · counts · line · action */
+.uprof-head{display:grid;grid-template-columns:72px 1fr;column-gap:14px;row-gap:0;padding:16px 16px 4px;align-items:start}
+@media (min-width:900px){.uprof-head{grid-template-columns:128px 1fr auto;column-gap:26px;padding:24px 4px 4px}}
+.uprof-avatar{width:72px;height:72px;border-radius:50%;background:var(--sn-gold-100);color:var(--sn-gold-800);border:1px solid var(--sn-gold-300);
+  display:grid;place-items:center;font-family:var(--serif);font-size:24px;letter-spacing:.08em;padding-left:.08em;grid-row:1/3}
+@media (min-width:900px){.uprof-avatar{width:128px;height:128px;font-size:42px;grid-row:1/6;grid-column:1}}
+.uprof-id{min-width:0}
+.uprof-id h1{font-family:var(--serif);font-weight:400;font-size:clamp(26px,5.4vw,40px);line-height:1.08;letter-spacing:-.01em;margin:4px 0 4px}
+.uprof-audience{margin:0;font-size:13.5px;color:var(--m-muted);display:flex;flex-wrap:wrap;align-items:center}
+.uprof-audience .handle{color:var(--m-ink);font-weight:500}
+.uprof-stat-dot{margin:0 8px;color:var(--sn-gold-300)}
+.uprof-tl{font-family:var(--serif);font-style:italic;font-size:clamp(17px,2vw,21px);color:var(--m-muted);margin:12px 0 0;grid-column:1/-1}
+@media (min-width:900px){.uprof-id{grid-column:2;grid-row:1}.uprof-tl{grid-column:2;grid-row:2;margin-top:12px}}
+.uprof-link{grid-column:1/-1;margin:8px 0 0;font-size:13.5px;display:flex;align-items:center;gap:7px;color:var(--sn-gold-800)}
+@media (min-width:900px){.uprof-link{grid-column:2;grid-row:3}}
+.uprof-link svg{width:14px;height:14px}
+.uprof-link a{text-decoration:none;font-weight:500}
+.uprof-link a:hover{text-decoration:underline;text-underline-offset:3px}
+/* `uprof-badge-row` (creator badge · tier chip) — Ice holds neither today, so the
+   row renders empty and takes no space. When present it sits here, under the link. */
+.uprof-badge-row{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;margin:0}
+.uprof-badge-row:empty{display:none}
+@media (min-width:900px){.uprof-badge-row{grid-column:2;grid-row:4}}
+.uprof-tier-chip{font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid var(--sn-gold-300);color:var(--sn-gold-800);background:var(--sn-gold-100)}
+.uprof-actions{grid-column:1/-1;display:flex;gap:10px;align-items:center;margin-top:16px}
+@media (min-width:900px){.uprof-actions{grid-column:3;grid-row:1;margin-top:6px;align-self:start}}
+.uprof-follow{flex:1;display:inline-flex;justify-content:center;align-items:center;gap:8px;padding:11px 22px;border-radius:999px;background:var(--m-ink);color:#fff;text-decoration:none;font-size:14.5px;font-weight:500;border:1px solid var(--m-ink)}
+@media (min-width:900px){.uprof-follow{flex:none}}
+.uprof-follow:hover{background:var(--sn-gold-800);border-color:var(--sn-gold-800)}
+.uprof-action-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--m-line);background:var(--m-paper);display:grid;place-items:center;text-decoration:none;flex:none}
+.uprof-action-btn:hover{border-color:var(--m-ink)}
+.uprof-action-btn svg{width:17px;height:17px}
+
+/* tabs — CSS-only (radio inputs), no script. */
+.uprof-tabs{margin-top:22px}
+@media (min-width:900px){.uprof-tabs{margin-top:28px}}
+.uprof-tabs > input{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.tablist{display:flex;gap:26px;border-bottom:1px solid var(--m-line);overflow-x:auto;scrollbar-width:none}
+.tablist::-webkit-scrollbar{display:none}
+.tablist label{position:relative;padding:12px 0 13px;font-size:15px;font-weight:500;color:var(--m-muted);cursor:pointer;white-space:nowrap}
+.tablist label small{font-weight:400;color:var(--m-muted);margin-left:5px;font-size:13px}
+.tablist label::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:transparent}
+.tablist label:hover{color:var(--m-ink)}
+#tab-cel:checked ~ .tablist label[for=tab-cel],
+#tab-ch:checked  ~ .tablist label[for=tab-ch],
+#tab-ab:checked  ~ .tablist label[for=tab-ab]{color:var(--m-ink)}
+#tab-cel:checked ~ .tablist label[for=tab-cel]::after,
+#tab-ch:checked  ~ .tablist label[for=tab-ch]::after,
+#tab-ab:checked  ~ .tablist label[for=tab-ab]::after{background:var(--m-ink)}
+.uprof-tabs > input:focus-visible ~ .tablist label{outline:none}
+#tab-cel:focus-visible ~ .tablist label[for=tab-cel],
+#tab-ch:focus-visible  ~ .tablist label[for=tab-ch],
+#tab-ab:focus-visible  ~ .tablist label[for=tab-ab]{outline:2px solid var(--sn-gold-500);outline-offset:4px;border-radius:2px}
+.panel{display:none;padding-top:22px}
+@media (min-width:900px){.panel{padding-top:28px}}
+#tab-cel:checked ~ .p-cel,#tab-ch:checked ~ .p-ch,#tab-ab:checked ~ .p-ab{display:block}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE POSTERS — the wall of playbills
+   One poster per celebration, 3:4, drawn by the house from the celebration's
+   own colour and themes. Each is a single composition: art, names, date and
+   status share one frame. A poster is the whole link; there is no caption.
+   ══════════════════════════════════════════════════════════════════════════ */
+.uprof-grid{display:grid;grid-template-columns:1fr;gap:26px}
+@media (min-width:600px){.uprof-grid{grid-template-columns:repeat(2,1fr);gap:22px}}
+@media (min-width:1000px){.uprof-grid{grid-template-columns:repeat(3,1fr);gap:24px}}
+@media (min-width:1500px){.uprof-grid{gap:32px}}
+
+.poster{position:relative;display:block;text-decoration:none;color:inherit;aspect-ratio:3/4;overflow:hidden;border-radius:4px;
+  container-type:inline-size;
+  box-shadow:0 1px 0 rgba(44,42,41,.05),0 20px 44px -26px rgba(44,42,41,.55);
+  transition:transform .18s ease,box-shadow .18s ease}
+.poster:hover{transform:translateY(-4px);box-shadow:0 30px 54px -26px rgba(44,42,41,.6)}
+.poster:focus-visible{outline:3px solid var(--sn-gold-500);outline-offset:4px}
+.poster h2,.poster p{margin:0}
+.poster .pframe{position:absolute;inset:14px;pointer-events:none}
+.poster .pframe::after{content:"";position:absolute;inset:4px}
+
+/* — the status sash: the one mark the house adds to a couple's poster.
+     Always paper-white, always across the top-left corner, text set in the
+     poster's own dark. Real text, first in reading order. — */
+.sash{position:absolute;top:0;left:0;width:150px;height:150px;overflow:hidden;z-index:4;pointer-events:none}
+.sash span{position:absolute;left:-60px;top:36px;width:240px;padding:8px 0;text-align:center;transform:rotate(-45deg);
+  background:var(--m-paper);font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;line-height:1;
+  box-shadow:0 2px 6px rgba(0,0,0,.22)}
+
+/* — the type that every poster shares — */
+.names{font-family:var(--serif);font-weight:400;line-height:1;letter-spacing:-.005em}
+.names .nm{display:block}
+.names .amp{display:block;font-style:italic}
+.rule{height:1px;margin-left:auto;margin-right:auto}
+.wd{font-size:max(10.5px,2.9cqw);letter-spacing:.28em;text-transform:uppercase;font-weight:600}
+.dt{font-family:var(--serif);font-size:max(16px,5.2cqw);line-height:1.15}
+
+/* ── Maria & Jose · gold · default theme · UP NEXT ─────────────────────────
+   Gold cannot carry text, so the art makes room: a white moon nearly the
+   width of the sheet holds every word. Gold sky, white moon, ink type. — */
+.p-gold{background:linear-gradient(160deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 46%,rgba(0,0,0,.14) 100%),var(--gold)}
+.p-gold .pframe{border:1px solid rgba(255,255,255,.6)}
+.p-gold .pframe::after{border:1px solid rgba(255,255,255,.26)}
+.p-gold .sash span{color:var(--sn-gold-800)}
+.moon{position:absolute;left:50%;top:12cqw;transform:translateX(-50%);width:78cqw;aspect-ratio:1;border-radius:50%;
+  background:var(--m-paper);color:var(--m-ink);display:grid;place-items:center;text-align:center;padding:8cqw;
+  box-shadow:0 0 0 6px rgba(255,255,255,.24),0 26px 44px -22px rgba(0,0,0,.5)}
+.moon::before{content:"";position:absolute;inset:8px;border-radius:50%;border:1px solid var(--sn-gold-300);pointer-events:none}
+.moon .names{font-size:44px;font-size:13.5cqw}
+.moon .amp{font-size:26px;font-size:8cqw;color:var(--sn-gold-800);margin:1.2cqw 0}
+.moon .rule{width:34%;background:var(--sn-gold-300);margin-top:4.5cqw;margin-bottom:3cqw}
+.moon .wd{color:var(--m-muted)}
+.moon .dt{color:var(--m-ink);margin-top:1cqw}
+.pthread{position:absolute;left:0;right:0;top:111cqw;display:flex;justify-content:center;align-items:center;gap:8px}
+.pthread i{width:6px;height:6px;background:#fff;transform:rotate(45deg)}
+.pthread b{width:22cqw;height:1px;background:rgba(255,255,255,.85)}
+
+/* ── Indalecio & Claire · wine · botanical + capiz · COMING SOON ───────────
+   Wine carries white at 7.7, so the type sits straight on the ground. Capiz
+   panes fill the upper sheet and fade out where the words begin; botanical
+   sprigs rise behind a giant I&C monogram; the names and date are set below
+   in white, the ampersand in gold-100. — */
+.p-wine{background:
+  radial-gradient(120% 70% at 50% 22%,rgba(255,255,255,.10),rgba(255,255,255,0) 60%),
+  linear-gradient(180deg,rgba(0,0,0,0) 42%,rgba(0,0,0,.24) 100%),
+  var(--wine);color:#fff}
+.p-wine .pframe{border:1px solid rgba(255,255,255,.3)}
+.p-wine .pframe::after{border:1px solid rgba(255,255,255,.12)}
+.p-wine .sash span{color:var(--wine)}
+.capiz{position:absolute;inset:0;opacity:.9;
+  background-image:
+    radial-gradient(circle at 50% 50%,rgba(255,255,255,.14),rgba(255,255,255,0) 66%),
+    linear-gradient(rgba(255,255,255,.18) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.18) 1px,transparent 1px);
+  background-size:11cqw 11cqw;
+  -webkit-mask-image:linear-gradient(180deg,#000 0 44%,rgba(0,0,0,0) 70%);
+          mask-image:linear-gradient(180deg,#000 0 44%,rgba(0,0,0,0) 70%)}
+.sprig{position:absolute;width:44cqw;height:38cqw}
+.sprig.l{left:-3cqw;top:26cqw}
+.sprig.r{right:-3cqw;top:26cqw;transform:scaleX(-1)}
+.veil{position:absolute;left:50%;top:44cqw;transform:translate(-50%,-50%);width:78cqw;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,var(--wine) 0 36%,rgba(154,36,79,0) 70%)}
+.mono{position:absolute;left:0;right:0;top:44cqw;transform:translateY(-50%);text-align:center;color:#fff;
+  font-family:var(--serif);font-size:110px;font-size:34cqw;line-height:1;letter-spacing:.02em}
+.mono i{font-style:italic;font-size:.6em;position:relative;top:-.06em;margin:0 .03em}
+.p-wine .txt{position:absolute;left:8cqw;right:8cqw;bottom:14cqw;text-align:center}
+.p-wine .names{font-size:34px;font-size:10.5cqw;line-height:1.06}
+.p-wine .names i{font-style:italic;color:var(--sn-gold-100)}
+.p-wine .rule{width:28%;background:rgba(255,255,255,.75);margin-top:3.6cqw;margin-bottom:3cqw}
+.p-wine .dt{margin-top:1cqw}
+.credits{position:absolute;left:0;right:0;bottom:4.4cqw;text-align:center;font-size:max(10.5px,2.7cqw);letter-spacing:.32em;text-transform:uppercase;color:#fff}
+
+/* ── Movie Night · nothing · finished ──────────────────────────────────────
+   No accent, no theme, no photograph, no label. So: house stock, ink, and
+   type — a letterpress playbill. Heavy rule, stacked title, dated. Plain on
+   purpose, and it should look as finished as the other two. — */
+.p-paper{background:repeating-linear-gradient(45deg,rgba(44,42,41,.035) 0 1px,transparent 1px 7px),var(--m-paper-2);color:var(--m-ink);
+  outline:1px solid var(--m-line);outline-offset:-1px}
+.p-paper .pframe{border:3px solid var(--m-ink)}
+.p-paper .pframe::after{border:1px solid var(--m-ink)}
+.bill{position:absolute;inset:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:5cqw 5cqw}
+.orn{display:flex;align-items:center;gap:2cqw}
+.orn i{width:6px;height:6px;background:var(--m-ink);transform:rotate(45deg)}
+.orn b{width:14cqw;height:1px;background:var(--m-ink)}
+.ttl{font-family:var(--serif);font-weight:700;font-size:64px;font-size:19cqw;line-height:.92;letter-spacing:.02em;text-transform:uppercase;margin:5cqw 0 4.5cqw;
+  text-shadow:0 1px 0 rgba(255,255,255,.75)}
+.bar{width:100%;height:7px;border-top:3px solid var(--m-ink);border-bottom:1px solid var(--m-ink)}
+.bill .wd{color:var(--m-muted);margin-top:4.5cqw}
+.bill .dt{font-size:max(20px,7cqw);margin-top:1cqw;margin-bottom:5cqw}
+
+/* ── Chapters (empty, honestly) and About ────────────────────────────────── */
+.uprof-empty{border:1px dashed var(--m-line);border-radius:16px;padding:40px 24px;text-align:center;background:var(--m-paper-2)}
+.uprof-empty-title{font-family:var(--serif);font-weight:400;font-size:22px;margin:0 0 6px}
+.uprof-empty-sub{margin:0;font-size:14.5px;color:var(--m-muted);max-width:44ch;margin-inline:auto}
+.about{display:grid;grid-template-columns:1fr;gap:28px}
+@media (min-width:900px){.about{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:48px}}
+.about h3{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--m-muted);font-weight:600;margin:0 0 10px}
+.about p{margin:0 0 10px;font-size:15px}
+.about .lead{font-family:var(--serif);font-size:20px;line-height:1.35;margin-bottom:14px}
+.about dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:14.5px}
+.about dt{color:var(--m-muted)}
+.about dd{margin:0}
+.about .row+.row{margin-top:28px}
+.uprof-md{border:1px solid var(--m-line);border-radius:14px;padding:18px 20px;background:var(--m-paper-2)}
+.uprof-md-title{font-family:var(--serif);font-size:19px;margin:0 0 6px}
+.uprof-md-sub{margin:0;font-size:14px;color:var(--m-muted)}
+.uprof-md a{color:var(--sn-gold-800);font-weight:500;text-decoration:none}
+.uprof-md a:hover{text-decoration:underline;text-underline-offset:3px}
+.uprof-inf-list{font-size:14.5px;color:var(--m-muted);margin:0}
+
+/* foot of the page (inside the shell) */
+.uprof-foot{margin-top:40px;padding-top:18px;border-top:1px solid var(--m-line-soft);display:flex;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--m-muted)}
+.uprof-foot a{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--m-line)}
+.uprof-foot a:hover{color:var(--m-ink)}
+
+/* ── Designer's note (not part of the page) ──────────────────────────────── */
+.note{margin:56px auto 64px;max-width:800px;border:1px dashed var(--sn-gold-300);border-radius:12px;padding:22px 24px;background:var(--m-paper-2)}
+.note .lbl{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--sn-gold-800);margin:0 0 10px}
+.note h3{font-family:var(--serif);font-weight:400;font-size:20px;margin:16px 0 6px}
+.note ul{margin:0;padding-left:18px;font-size:14.5px;line-height:1.55}
+.note li+li{margin-top:6px}
+.note-wrap{padding:0 16px}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══ SHELL · top bar ═══ -->
+  <header class="fd-topbar">
+    <div class="fd-topleft">
+      <button class="iconbtn only-narrow" type="button" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <a class="wordmark" href="#" aria-label="Setnayan home">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="#5C4726" stroke-width="1.2"/><path d="M12 5.5 L13.6 10.4 L18.5 12 L13.6 13.6 L12 18.5 L10.4 13.6 L5.5 12 L10.4 10.4 Z" fill="#5C4726"/></svg>
+        <span class="wm">Setnayan</span>
+      </a>
+    </div>
+    <form class="fd-search" role="search" action="#">
+      <input type="search" name="q" placeholder="Search celebrations, suppliers, people" aria-label="Search Setnayan">
+      <button class="go" type="submit" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg>
+      </button>
+    </form>
+    <div class="fd-topright">
+      <a class="iconbtn only-narrow" href="#" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg>
+      </a>
+      <a class="signin" href="#">Sign in</a>
+    </div>
+  </header>
+
+  <!-- ═══ SHELL · left rail (900px and up) ═══ -->
+  <nav class="fd-rail" aria-label="Main">
+    <a class="fd-row" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-4 2 2-6z"/></svg>
+      <span>Discover</span>
+    </a>
+    <a class="fd-row" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+      <span>My Home</span>
+    </a>
+    <a class="fd-row" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l1.6 4.4L18 10l-4.4 1.6L12 16l-1.6-4.4L6 10l4.4-1.6z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg>
+      <span>Memories</span>
+    </a>
+    <a class="fd-row" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="9" r="2.6"/><path d="M15 14.2a4.5 4.5 0 0 1 5.5 4.8"/></svg>
+      <span>People</span>
+    </a>
+    <div class="fd-rdiv" aria-hidden="true"></div>
+    <a class="fd-row" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16v10H4z"/><path d="M4 9l2-4h14l-2 4"/><path d="M8 5l2 4M13 5l2 4"/></svg>
+      <span>SetnaProd</span>
+    </a>
+    <div class="foot">Setnayan<br>Made in the Philippines</div>
+  </nav>
+
+  <!-- ═══ THE PAGE ═══ -->
+  <main class="fd-main">
+    <article class="uprof-inner">
+
+      <!-- banner -->
+      <div class="uprof-cover" aria-hidden="true">
+        <div class="uprof-cover-img"></div>
+        <div class="frame"></div>
+        <div class="thread"><i></i><b></b></div>
+      </div>
+
+      <!-- identity -->
+      <header class="uprof-head gutter">
+        <div class="uprof-avatar" aria-hidden="true">IC</div>
+        <div class="uprof-id">
+          <h1>Ice Casasola</h1>
+          <p class="uprof-audience">
+            <span class="handle">@icecasa</span>
+            <span class="uprof-stat-dot" aria-hidden="true">·</span><span class="uprof-stat">3 celebrations</span>
+            <span class="uprof-stat-dot" aria-hidden="true">·</span><span class="uprof-stat">0 followers</span>
+          </p>
+        </div>
+        <p class="uprof-tl">A collection of celebrations.</p>
+        <p class="uprof-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l2.8-2.8a5 5 0 0 0-7.1-7.1L11.5 4.4"/><path d="M14 11a5 5 0 0 0-7.1 0L4.1 13.8a5 5 0 0 0 7.1 7.1l1.3-1.3"/></svg>
+          <a href="#">setnayan.com/u/icecasa</a>
+        </p>
+        <div class="uprof-badge-row"><!-- creator badge · tier chip render here when the person holds one; Ice holds neither --></div>
+        <div class="uprof-actions">
+          <a class="uprof-follow" href="#">Follow</a>
+          <a class="uprof-action-btn" href="#" aria-label="Share this page">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10V2.5M5.2 5.3 8 2.5l2.8 2.8"/><path d="M3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4"/></svg>
+          </a>
+        </div>
+      </header>
+
+      <!-- tabs: celebrations · chapters · about (CSS only) -->
+      <section class="uprof-tabs gutter">
+        <input type="radio" name="uprof-tab" id="tab-cel" checked>
+        <input type="radio" name="uprof-tab" id="tab-ch">
+        <input type="radio" name="uprof-tab" id="tab-ab">
+        <div class="tablist" role="tablist" aria-label="Sections">
+          <label for="tab-cel" role="tab">Celebrations<small>3</small></label>
+          <label for="tab-ch" role="tab">Chapters</label>
+          <label for="tab-ab" role="tab">About</label>
+        </div>
+
+        <!-- ── Celebrations: the wall ── -->
+        <div class="panel p-cel" role="tabpanel">
+          <div class="uprof-grid">
+
+            <!-- Maria & Jose · gold · default theme · UP NEXT · Saturday 12 December 2026 -->
+            <a class="poster p-gold" href="#">
+              <span class="sash"><span>Up next</span></span>
+              <div class="pframe" aria-hidden="true"></div>
+              <div class="moon">
+                <div>
+                  <h2 class="names"><span class="nm">Maria</span><span class="amp">&amp;</span><span class="nm">Jose</span></h2>
+                  <div class="rule" aria-hidden="true"></div>
+                  <p class="wd">Saturday</p>
+                  <p class="dt">12 December 2026</p>
+                </div>
+              </div>
+              <div class="pthread" aria-hidden="true"><i></i><b></b><i></i></div>
+            </a>
+
+            <!-- Indalecio & Claire · wine · botanical + capiz · COMING SOON · Friday 18 December 2026 -->
+            <a class="poster p-wine" href="#">
+              <span class="sash"><span>Coming soon</span></span>
+              <div class="capiz" aria-hidden="true"></div>
+              <svg class="sprig l" viewBox="0 0 150 130" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+                <defs><path id="leaf" d="M0 0 C 5 -9, 16 -13, 26 -9 C 19 -1, 9 3, 0 0 Z"/></defs>
+                <g fill="rgba(255,255,255,.16)" stroke="#fff" stroke-opacity=".8" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M10 120 Q 50 90 130 20" fill="none"/>
+                  <use href="#leaf" xlink:href="#leaf" transform="translate(32.5 102.5) rotate(-100)"/>
+                  <use href="#leaf" xlink:href="#leaf" transform="translate(54.1 84.9) rotate(20)"/>
+                  <use href="#leaf" xlink:href="#leaf" transform="translate(78.9 64.1) rotate(-100)"/>
+                  <use href="#leaf" xlink:href="#leaf" transform="translate(106.9 40.1) rotate(20)"/>
+                  <use href="#leaf" xlink:href="#leaf" transform="translate(130 20) rotate(-40)"/>
+                </g>
+              </svg>
+              <svg class="sprig r" viewBox="0 0 150 130" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+                <defs><path id="leaf2" d="M0 0 C 5 -9, 16 -13, 26 -9 C 19 -1, 9 3, 0 0 Z"/></defs>
+                <g fill="rgba(255,255,255,.16)" stroke="#fff" stroke-opacity=".8" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M10 120 Q 50 90 130 20" fill="none"/>
+                  <use href="#leaf2" xlink:href="#leaf2" transform="translate(32.5 102.5) rotate(-100)"/>
+                  <use href="#leaf2" xlink:href="#leaf2" transform="translate(54.1 84.9) rotate(20)"/>
+                  <use href="#leaf2" xlink:href="#leaf2" transform="translate(78.9 64.1) rotate(-100)"/>
+                  <use href="#leaf2" xlink:href="#leaf2" transform="translate(106.9 40.1) rotate(20)"/>
+                  <use href="#leaf2" xlink:href="#leaf2" transform="translate(130 20) rotate(-40)"/>
+                </g>
+              </svg>
+              <div class="veil" aria-hidden="true"></div>
+              <div class="pframe" aria-hidden="true"></div>
+              <div class="mono" aria-hidden="true">I<i>&amp;</i>C</div>
+              <div class="txt">
+                <h2 class="names"><span class="nm">Indalecio</span><span class="nm"><i>&amp;</i> Claire</span></h2>
+                <div class="rule" aria-hidden="true"></div>
+                <p class="wd">Friday</p>
+                <p class="dt">18 December 2026</p>
+              </div>
+              <p class="credits">Botanical · Capiz</p>
+            </a>
+
+            <!-- Movie Night · no accent · no themes · no label · Thursday 20 August 2026 · finished -->
+            <a class="poster p-paper" href="#">
+              <div class="pframe" aria-hidden="true"></div>
+              <div class="bill">
+                <div class="orn" aria-hidden="true"><i></i><b></b><i></i></div>
+                <h2 class="ttl">Movie<br>Night</h2>
+                <div class="bar" aria-hidden="true"></div>
+                <p class="wd">Thursday</p>
+                <p class="dt">20 August 2026</p>
+                <div class="orn" aria-hidden="true"><i></i><b></b><i></i></div>
+              </div>
+            </a>
+
+          </div>
+        </div>
+
+        <!-- ── Chapters ── -->
+        <div class="panel p-ch" role="tabpanel">
+          <div class="uprof-empty">
+            <p class="uprof-empty-title">No chapters yet</p>
+            <p class="uprof-empty-sub">When Ice publishes a story from one of these celebrations, it will appear here.</p>
+          </div>
+        </div>
+
+        <!-- ── About ── -->
+        <div class="panel p-ab" role="tabpanel">
+          <div class="about">
+            <div>
+              <div class="row">
+                <h3>About</h3>
+                <p class="lead">A collection of celebrations.</p>
+                <dl>
+                  <dt>Page</dt><dd><a href="#" style="color:var(--sn-gold-800);text-decoration:none;font-weight:500">setnayan.com/u/icecasa</a></dd>
+                  <dt>Celebrations</dt><dd>3 · two upcoming, one finished</dd>
+                  <dt>Followers</dt><dd>0</dd>
+                  <dt>Views</dt><dd>1</dd>
+                </dl>
+              </div>
+              <div class="row">
+                <h3>Credits</h3>
+                <p class="uprof-inf-list">Nothing credited yet. Suppliers and friends Ice thanks on a celebration will be listed here.</p>
+              </div>
+            </div>
+            <div>
+              <div class="uprof-md">
+                <p class="uprof-md-title">Days you have shared</p>
+                <p class="uprof-md-sub">Celebrations you and Ice were both part of show here. <a href="#">Sign in</a> to see yours.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="uprof-foot gutter">
+        <span>Public page · setnayan.com/u/icecasa</span>
+        <a href="#">Report this page</a>
+      </footer>
+
+    </article>
+  </main>
+
+  <!-- ═══ SHELL · mobile bottom bar (under 900px) ═══ -->
+  <nav class="fd-tabbar" aria-label="Main">
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-4 2 2-6z"/></svg>Discover</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>My Home</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l1.6 4.4L18 10l-4.4 1.6L12 16l-1.6-4.4L6 10l4.4-1.6z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg>Memories</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="9" r="2.6"/><path d="M15 14.2a4.5 4.5 0 0 1 5.5 4.8"/></svg>People</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16v10H4z"/><path d="M4 9l2-4h14l-2 4"/><path d="M8 5l2 4M13 5l2 4"/></svg>SetnaProd</a>
+  </nav>
+
+</div>
+
+<!-- ═══ Not part of the page ═══ -->
+<div class="note-wrap">
+  <section class="note">
+    <p class="lbl">Note for the owner — not part of the page</p>
+
+    <h3>What changed from the second draft</h3>
+    <ul>
+      <li><b>The cards are posters.</b> The cover-plus-caption shape is gone. Each celebration is one 3:4 sheet, and the names, the date and the status are composed inside it. A poster is the whole link; there is no strip below it and no "Open →". Nothing above the Celebrations panel was touched.</li>
+      <li><b>The markers you could not find are now a sash.</b> "Up next" and "Coming soon" run across the top-left corner of their posters as a white ribbon, 12px bold caps, set in the poster's own dark (gold-800 on the gold poster, wine on the wine poster). It is the first thing in reading order and it is the one mark the house adds to a couple's poster, so it is the same shape on every poster that carries one. Movie Night carries none, as you ruled.</li>
+      <li><b>Maria &amp; Jose — gold sky, white moon.</b> Gold cannot hold a letter, so the art makes room: a white disc nearly the width of the sheet holds the names stacked in serif, a gold-800 ampersand, a hairline, "Saturday", and the date. Not one letter sits on gold. The lower third is open gold with a white thread ornament, the way a poster leaves ground under its subject.</li>
+      <li><b>Indalecio &amp; Claire — wine, capiz, botanical, monogram.</b> The capiz panes fill the upper sheet and fade out where the words begin. Two botanical sprigs rise behind a giant white I&amp;C, the dominant element. The names are set in white below, the ampersand in gold-100 (6.5 on wine), then "Friday" and the date. The themes are no longer chips; they became the art, and they are also printed as a credit line at the foot the way a film poster carries credits.</li>
+      <li><b>Movie Night — a letterpress playbill.</b> House stock, a heavy 3px rule inside a 1px rule, diamond-and-line ornaments, "MOVIE / NIGHT" in bold serif caps across the sheet, a thick-thin bar, "Thursday", and the date. Ink on paper-2 (12.7). It is plain on purpose and it should look as finished as the other two, not as if something failed to load.</li>
+      <li><b>The date is set with intent.</b> Each poster prints the weekday in tracked caps over the date in serif. The weekdays are derived from the calendar, not invented: 12 December 2026 is a Saturday, 18 December 2026 a Friday, 20 August 2026 a Thursday. The "in 80 days / in 86 days" countdown from the second draft is gone; a printed poster does not count down.</li>
+      <li><b>The type scales with the sheet.</b> Every size inside a poster is in <code>cqw</code>, a hundredth of that poster's own width, with a px fallback declared first. So the three posters keep the same composition at 375 (one column, ~343px wide), 900 (two columns, ~370px) and 1500 (three columns, ~360px) without a script.</li>
+      <li><b>Removed: the "Cale-Ice" hallmark</b> the second draft printed under the I&amp;C medallion. It is not in this brief's data table, so I did not carry it. If it is real (a moodboard name), it belongs on the wine poster as a second credit line and is a one-line restore.</li>
+    </ul>
+
+    <h3>What I am not sure about</h3>
+    <ul>
+      <li><b>One sash for every status, or a different device per poster.</b> Your direction allowed "a sash, a stamp, a rule, a corner mark". I chose one device for all statuses so a person learns it once and reads it across the wall, but it means the house's mark, not the couple's design, is the most consistent thing on the page. A stamp for "Coming soon" and a sash for "Up next" would read as two different things — which they are — at the cost of that consistency.</li>
+      <li><b>The sash is white on the gold poster.</b> An ink sash with white text would be louder there and would tie gold + ink + white. I kept it white so every sash is the same object; the trade is that on gold it is a quieter contrast than on wine.</li>
+      <li><b>The monogram is the dominant element on the wine poster; the names are on the gold poster.</b> I varied this on purpose so the two weddings are recognisable from across a room. If every poster should lead with the names, the I&amp;C shrinks to a mark and the names take its place.</li>
+      <li><b>3:4, not 2:3.</b> A printed poster is usually 2:3 (24×36). At 2:3 three posters in a row at 1500 would each be ~540px tall; 3:4 keeps the row visible without scrolling and still reads as a portrait sheet. Easy to change: one <code>aspect-ratio</code>.</li>
+      <li><b>Movie Night has no "held" or "finished" mark.</b> The brief says no label for a past celebration, so it carries none. A poster for a past event on a real wall usually does not either — but a reader cannot tell from the poster alone that it is over, only from the date.</li>
+      <li><b>The white moon is the house's drawing for the "default" theme.</b> It is what a couple with an accent colour and no theme gets. That is a house-style decision worth writing down somewhere real (the theme catalogue), because it will be the most common poster on the site.</li>
+      <li><b><code>cqw</code> units need a 2023-or-later browser.</b> Every size has a px fallback declared first, so an older browser gets a fixed-size composition rather than a broken one. The shipped component would use the same units; the real app's browser floor decides whether that is fine.</li>
+    </ul>
+
+    <h3>Anything I think is wrong in the brief</h3>
+    <ul>
+      <li><b>"No card has a photograph — every poster is drawn by the house."</b> True today, and the three drawings hold. But the first couple who uploads a photograph will get a photo behind white type, and the sash and date block need a defined place to sit on an unknown image. I would decide now that a photograph gets a fixed ink gradient band at the foot for the type, and the sash stays where it is — otherwise the poster system has a fourth, undesigned case.</li>
+      <li><b>The label column says Movie Night has "none — it is past".</b> Agreed for the label, but the ordering rule "Up next → Coming soon → past" will not hold once a person has several past celebrations: they will need a direction (newest past first, presumably) and probably a year rule. The second draft's note already raised the year heading; it stands.</li>
+    </ul>
+  </section>
+</div>
+
+</body>
+</html>

@@ -19,7 +19,6 @@ import {
   hubOutMoves,
   HUB_SEQUENCES,
   HUB_ZOOMS,
-  hubBackgroundColor,
   hubMediaRef,
   HUB_TIMELINE,
   sanitizeHubCanvas,
@@ -599,7 +598,7 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       .maybeSingle(),
     supabase
       .from('events')
-      .select('landing_page_hero_image_url, our_photos, landing_page_hero_video_r2_key')
+      .select('landing_page_hero_image_url, our_photos')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -615,11 +614,6 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
     [
       siteMediaServeRef(ev?.landing_page_hero_image_url),
       ...siteMediaServeRefs(ev?.our_photos),
-      /* 🎬 THE SNIPPET SOURCE — the couple's own hero video, and only that.
-         A snippet rides the SAME `media` field and therefore the same
-         allow-list as a photo; adding it here is what makes it THEIRS as well
-         as public-bucket. One field, one fence, one ownership set. */
-      siteMediaServeRef(ev?.landing_page_hero_video_r2_key),
     ].filter((r): r is string => Boolean(r)),
   );
 
@@ -629,32 +623,9 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       : {};
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
-  /* WHICH KIND the couple asked for. Absent = photo, the same rule
-     `resolveHubBackground` states for every row written before kinds existed. */
-  const kindRaw = formData.get('kind');
-  const kind = typeof kindRaw === 'string' ? kindRaw.trim() : '';
-
-  if (kind === 'color') {
-    /* 🔒 A COLOUR NEVER TOUCHES THE REF PATH. It has its own field and its own
-       shape, so there is no way to hand this branch an `r2://` and have it
-       stored — which would be a second doorway into `media` with no
-       allow-list on it. An unusable value clears the background rather than
-       being repaired into some other colour. */
-    const color = hubBackgroundColor(formData.get('color'));
+  if (wanted.length === 0) {
     delete canvas.media;
-    if (color) {
-      canvas.kind = 'color';
-      canvas.color = color;
-    } else {
-      delete canvas.kind;
-      delete canvas.color;
-    }
-  } else if (wanted.length === 0) {
-    delete canvas.media;
-    delete canvas.kind;
-    delete canvas.color;
   } else {
-    delete canvas.color;
     // The STRICTER reader, not `siteMediaServeRef` alone — that one passes a
     // bare string through as a legacy URL, and `"1"` is not a photo.
     const ref = hubMediaRef(wanted);
@@ -668,11 +639,6 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       );
     }
     canvas.media = ref;
-    /* Only `snippet` is stored; a photo is the absence of a kind, so a row
-       written here looks exactly like the millions written before kinds
-       existed and reads the same way. */
-    if (kind === 'snippet') canvas.kind = 'snippet';
-    else delete canvas.kind;
   }
 
   const { error: updateErr } = await supabase

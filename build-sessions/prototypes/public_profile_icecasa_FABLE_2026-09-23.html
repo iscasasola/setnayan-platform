@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ice Casasola — A collection of celebrations</title>
+<style>
+/* ── Brand tokens (from apps/web/app/globals.css) ─────────────────────── */
+:root{
+  --m-ink:#2C2A29; --m-paper:#FFFFFF; --m-paper-2:#F4F2EC;
+  --m-line:#E1DCD1; --m-line-soft:#EDE8DE; --m-muted:#6E6A62;
+  --sn-gold-100:#F3ECDF; --sn-gold-300:#CBA766; --sn-gold-500:#A9834B;
+  --sn-gold-700:#8A6B39; --sn-gold-800:#5C4726; --sn-ink-300:#A09A8E;
+  /* the two celebration accents, as stored */
+  --wine:#9a244f; --gold:#9b7e00;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+/* Contrast, checked (WCAG):  ink/paper 14.7 · ink/paper-2 12.7 · muted/paper 5.4 · muted/paper-2 4.8
+   gold-800/paper-2 7.9 · wine text/paper 7.7 · white/wine 7.7 · white/ink 14.3 · white/gold-800 8.8
+   NEVER as text: gold #9b7e00 (white on it 3.9, ink on it 3.7) · gold-700 on paper-2 (4.4) · ink-300 (2.8) */
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--m-paper-2);color:var(--m-ink);font-family:var(--sans);line-height:1.45;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.serif{font-family:var(--serif)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+@media (min-width:900px){.wrap{padding:0 40px}}
+
+/* ── Shell, option B: mark · Made with Setnayan · Sign in ─────────────── */
+.bar{background:var(--m-paper-2);border-bottom:1px solid var(--m-line)}
+.bar .wrap{display:flex;align-items:center;justify-content:space-between;height:52px}
+.mark{display:inline-flex;align-items:center;gap:10px;text-decoration:none}
+.mark svg{width:22px;height:22px;flex:none}
+.mark .t{font-size:13px;color:var(--m-muted);white-space:nowrap}
+.mark .t b{color:var(--m-ink);font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:12px;margin-left:2px}
+.signin{font-size:14px;text-decoration:none;padding:6px 14px;border:1px solid var(--m-line);border-radius:999px;background:var(--m-paper);color:var(--m-ink)}
+.signin:hover{border-color:var(--m-ink)}
+@media (max-width:420px){.mark .t .made{display:none}}
+
+/* ── The person ──────────────────────────────────────────────────────── */
+.head{padding:44px 0 26px}
+@media (min-width:900px){.head{padding:76px 0 40px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:32px}}
+.avatar{width:64px;height:64px;border-radius:50%;background:var(--sn-gold-100);color:var(--sn-gold-800);border:1px solid var(--sn-gold-300);display:grid;place-items:center;font-family:var(--serif);font-size:22px;letter-spacing:.08em;padding-left:.08em}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(38px,6vw,64px);line-height:1.02;letter-spacing:-.01em;margin:20px 0 10px}
+.tag{font-family:var(--serif);font-style:italic;font-size:clamp(19px,2.4vw,25px);color:var(--m-muted);margin:0}
+.stats{margin:16px 0 0;font-size:13px;color:var(--m-muted);display:flex;gap:0;flex-wrap:wrap}
+.stats span+span::before{content:"·";margin:0 12px;color:var(--sn-gold-300)}
+.actions{margin-top:24px}
+@media (min-width:900px){.actions{margin:0 0 10px}}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border-radius:999px;background:var(--m-ink);color:#fff;text-decoration:none;font-size:14px;font-weight:500;border:1px solid var(--m-ink)}
+.btn svg{width:15px;height:15px}
+.btn:hover{background:var(--sn-gold-800);border-color:var(--sn-gold-800)}
+
+/* ── Section rule with the gold thread ───────────────────────────────── */
+.rule{display:flex;align-items:center;gap:14px;margin:4px 0 26px}
+.rule::before,.rule::after{content:"";flex:1;height:1px;background:var(--m-line)}
+.rule i{width:7px;height:7px;background:var(--sn-gold-300);transform:rotate(45deg);flex:none}
+.rule span{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--m-muted)}
+
+/* ── The cards ───────────────────────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:1fr;gap:22px;padding-bottom:72px}
+@media (min-width:860px){.grid{grid-template-columns:repeat(3,1fr);gap:24px}}
+@media (min-width:1200px){.grid{gap:32px}}
+
+.card{display:block;text-decoration:none;color:inherit;background:var(--m-paper);border:1px solid var(--m-line);border-radius:16px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(44,42,41,.03),0 14px 34px -22px rgba(44,42,41,.28);transition:transform .18s ease,box-shadow .18s ease}
+.card:hover{transform:translateY(-3px);box-shadow:0 22px 44px -22px rgba(44,42,41,.38)}
+.cover{position:relative;overflow:hidden;aspect-ratio:4/3;min-height:250px}
+@media (min-width:860px){.cover{aspect-ratio:4/5;min-height:0}}
+.frame{position:absolute;inset:14px;pointer-events:none}
+.frame::after{content:"";position:absolute;inset:4px}
+
+/* the medallion: monogram where one exists, the date where none does */
+.medal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:120px;height:120px;border-radius:50%;display:grid;place-items:center;text-align:center;line-height:1}
+.medal .big{font-family:var(--serif);font-size:44px;letter-spacing:.02em}
+.medal .mo{font-family:var(--serif);font-size:38px;letter-spacing:.06em}
+.medal .mo i{font-style:italic;font-size:26px;margin:0 3px;position:relative;top:-3px}
+.medal .sm{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;margin-top:7px}
+.hallmark{position:absolute;left:0;right:0;top:calc(50% + 74px);text-align:center;font-size:10.5px;letter-spacing:.26em;text-transform:uppercase}
+
+/* — wine · botanical · capiz · duo monogram — */
+.c-wine{background:
+  radial-gradient(120% 80% at 50% 28%,rgba(255,255,255,.10),rgba(255,255,255,0) 60%),
+  linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.18) 100%),
+  var(--wine)}
+.capiz{position:absolute;inset:0;opacity:.9;
+  background-image:
+    radial-gradient(circle at 50% 50%,rgba(255,255,255,.13),rgba(255,255,255,0) 66%),
+    linear-gradient(rgba(255,255,255,.17) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.17) 1px,transparent 1px);
+  background-size:40px 40px}
+.veil{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,var(--wine) 0,rgba(154,36,79,.9) 66px,rgba(154,36,79,0) 175px)}
+.sprig{position:absolute;width:150px;height:130px}
+.sprig.bl{left:8px;bottom:8px}
+.sprig.tr{right:22px;top:6px;transform:scaleY(-1)}
+.c-wine .frame{border:1px solid rgba(255,255,255,.28)}
+.c-wine .frame::after{border:1px solid rgba(255,255,255,.12)}
+.c-wine .medal{color:#fff;border:1px solid rgba(255,255,255,.75);box-shadow:inset 0 0 0 4px rgba(154,36,79,.001),inset 0 0 0 5px rgba(255,255,255,.28)}
+.c-wine .hallmark{color:#fff}
+
+/* — gold · default theme · no monogram — */
+.c-gold{background:linear-gradient(135deg,rgba(255,255,255,.20) 0%,rgba(255,255,255,0) 46%,rgba(0,0,0,.12) 100%),var(--gold)}
+.c-gold .frame{border:1px solid rgba(255,255,255,.6)}
+.c-gold .frame::after{border:1px solid rgba(255,255,255,.3)}
+.c-gold .medal{background:var(--m-paper);color:var(--m-ink);border:1px solid rgba(0,0,0,.06);box-shadow:0 0 0 6px rgba(255,255,255,.28),0 10px 24px -14px rgba(0,0,0,.45)}
+.c-gold .medal .sm{color:var(--m-muted)}
+
+/* — none · none · none: the house's own paper — */
+.c-paper{background:repeating-linear-gradient(45deg,rgba(44,42,41,.035) 0 1px,transparent 1px 7px),var(--m-paper-2)}
+.c-paper .frame{border:1px solid var(--m-line)}
+.c-paper .frame::after{border:1px solid var(--m-line-soft)}
+.c-paper .medal{background:var(--m-paper);color:var(--m-ink);border:1px solid var(--m-line);box-shadow:0 0 0 6px rgba(255,255,255,.55)}
+.c-paper .medal .sm{color:var(--m-muted)}
+
+/* caption */
+.cap{padding:18px 20px 20px}
+@media (min-width:1200px){.cap{padding:22px 24px 24px}}
+.cap h2{font-family:var(--serif);font-weight:400;font-size:clamp(22px,1.8vw,26px);line-height:1.15;margin:0 0 5px}
+.cap .date{font-size:14px;color:var(--m-muted);margin:0}
+.cap .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;min-height:26px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:999px;border:1px solid}
+.chip.wine{color:var(--wine);border-color:rgba(154,36,79,.35)}
+.open{margin-left:auto;font-size:13px;font-weight:500;color:var(--sn-gold-800);white-space:nowrap}
+.card:hover .open{color:var(--m-ink)}
+
+/* ── Foot ────────────────────────────────────────────────────────────── */
+footer{border-top:1px solid var(--m-line);padding:30px 0 40px;text-align:center}
+footer .mark{justify-content:center}
+footer .report{display:inline-block;margin-top:16px;font-size:12.5px;color:var(--m-muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--m-line)}
+footer .report:hover{color:var(--m-ink)}
+
+/* ── Designer's note (not part of the page) ──────────────────────────── */
+.note{margin:56px auto 64px;max-width:760px;border:1px dashed var(--sn-gold-300);border-radius:12px;padding:22px 24px;background:var(--m-paper)}
+.note .lbl{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--sn-gold-800);margin:0 0 10px}
+.note h3{font-family:var(--serif);font-weight:400;font-size:20px;margin:14px 0 6px}
+.note ul{margin:0;padding-left:18px;font-size:14.5px;line-height:1.55}
+.note li+li{margin-top:6px}
+</style>
+</head>
+<body>
+
+<!-- ═══ Shell: option B ═══ -->
+<header class="bar">
+  <div class="wrap">
+    <a class="mark" href="#" aria-label="Made with Setnayan">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="#5C4726" stroke-width="1.2"/><path d="M12 5.5 L13.6 10.4 L18.5 12 L13.6 13.6 L12 18.5 L10.4 13.6 L5.5 12 L10.4 10.4 Z" fill="#5C4726"/></svg>
+      <span class="t"><span class="made">Made with</span> <b>Setnayan</b></span>
+    </a>
+    <a class="signin" href="#">Sign in</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ═══ The person ═══ -->
+  <section class="head">
+    <div>
+      <div class="avatar" aria-hidden="true">IC</div>
+      <h1>Ice Casasola</h1>
+      <p class="tag">A collection of celebrations.</p>
+      <p class="stats"><span>0 followers</span><span>1 view</span></p>
+    </div>
+    <div class="actions">
+      <a class="btn" href="#">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10V2.5M5.2 5.3 8 2.5l2.8 2.8"/><path d="M3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4"/></svg>
+        Share profile
+      </a>
+    </div>
+  </section>
+
+  <div class="rule" aria-hidden="true"><i></i><span>Three celebrations</span><i></i></div>
+
+  <!-- ═══ The cards ═══ -->
+  <section class="grid" aria-label="Celebrations">
+
+    <!-- 1 · Indalecio & Claire · wine · botanical + capiz · moodboard Cale-Ice · duo monogram -->
+    <a class="card" href="#">
+      <div class="cover c-wine">
+        <div class="capiz" aria-hidden="true"></div>
+        <svg class="sprig bl" viewBox="0 0 150 130" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+          <defs><path id="leaf" d="M0 0 C 5 -9, 16 -13, 26 -9 C 19 -1, 9 3, 0 0 Z"/></defs>
+          <g fill="rgba(255,255,255,.16)" stroke="#fff" stroke-opacity=".8" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M10 120 Q 50 90 130 20" fill="none"/>
+            <use href="#leaf" xlink:href="#leaf" transform="translate(32.5 102.5) rotate(-100)"/>
+            <use href="#leaf" xlink:href="#leaf" transform="translate(54.1 84.9) rotate(20)"/>
+            <use href="#leaf" xlink:href="#leaf" transform="translate(78.9 64.1) rotate(-100)"/>
+            <use href="#leaf" xlink:href="#leaf" transform="translate(106.9 40.1) rotate(20)"/>
+            <use href="#leaf" xlink:href="#leaf" transform="translate(130 20) rotate(-40)"/>
+          </g>
+        </svg>
+        <svg class="sprig tr" viewBox="0 0 150 130" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+          <defs><path id="leaf2" d="M0 0 C 5 -9, 16 -13, 26 -9 C 19 -1, 9 3, 0 0 Z"/></defs>
+          <g fill="rgba(255,255,255,.16)" stroke="#fff" stroke-opacity=".8" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M10 120 Q 50 90 130 20" fill="none"/>
+            <use href="#leaf2" xlink:href="#leaf2" transform="translate(32.5 102.5) rotate(-100)"/>
+            <use href="#leaf2" xlink:href="#leaf2" transform="translate(54.1 84.9) rotate(20)"/>
+            <use href="#leaf2" xlink:href="#leaf2" transform="translate(78.9 64.1) rotate(-100)"/>
+            <use href="#leaf2" xlink:href="#leaf2" transform="translate(106.9 40.1) rotate(20)"/>
+            <use href="#leaf2" xlink:href="#leaf2" transform="translate(130 20) rotate(-40)"/>
+          </g>
+        </svg>
+        <div class="veil" aria-hidden="true"></div>
+        <div class="frame" aria-hidden="true"></div>
+        <div class="medal"><div class="mo">I<i>&amp;</i>C</div></div>
+        <div class="hallmark">Cale-Ice</div>
+      </div>
+      <div class="cap">
+        <h2>Indalecio &amp; Claire</h2>
+        <p class="date">December 18, 2026</p>
+        <div class="foot">
+          <div class="chips"><span class="chip wine">Botanical</span><span class="chip wine">Capiz</span></div>
+          <span class="open">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- 2 · Maria & Jose · gold · default theme · no moodboard · no monogram -->
+    <a class="card" href="#">
+      <div class="cover c-gold">
+        <div class="frame" aria-hidden="true"></div>
+        <div class="medal"><div><div class="big">12</div><div class="sm">December</div></div></div>
+      </div>
+      <div class="cap">
+        <h2>Maria &amp; Jose</h2>
+        <p class="date">December 12, 2026</p>
+        <div class="foot"><span class="open">Open →</span></div>
+      </div>
+    </a>
+
+    <!-- 3 · Movie Night · no accent · no themes · no moodboard · no monogram -->
+    <a class="card" href="#">
+      <div class="cover c-paper">
+        <div class="frame" aria-hidden="true"></div>
+        <div class="medal"><div><div class="big">20</div><div class="sm">August</div></div></div>
+      </div>
+      <div class="cap">
+        <h2>Movie Night</h2>
+        <p class="date">August 20, 2026</p>
+        <div class="foot"><span class="open">Open →</span></div>
+      </div>
+    </a>
+
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="mark" href="#">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="none" stroke="#5C4726" stroke-width="1.2"/><path d="M12 5.5 L13.6 10.4 L18.5 12 L13.6 13.6 L12 18.5 L10.4 13.6 L5.5 12 L10.4 10.4 Z" fill="#5C4726"/></svg>
+      <span class="t">Made with <b>Setnayan</b></span>
+    </a>
+    <br>
+    <a class="report" href="#">Report this page</a>
+  </div>
+</footer>
+
+<!-- ═══ Not part of the page ═══ -->
+<div class="wrap">
+  <section class="note">
+    <p class="lbl">Note for the owner — not part of the page</p>
+
+    <h3>What I changed, and why</h3>
+    <ul>
+      <li><b>The page sits on warm paper, not white,</b> and the name and the celebration names are set large in a serif. That is most of why it stopped looking pale. The page still has no photos; the colour now comes from the celebrations themselves.</li>
+      <li><b>Each celebration is a card with a cover,</b> like invitations laid on a table. The cover is coloured with the celebration's own accent: wine for Indalecio &amp; Claire, gold for Maria &amp; Jose. Their themes decorate the cover: the wine card carries a capiz-window lattice and two leaf sprigs (botanical); the gold card uses the default theme, so it gets only a formal double frame.</li>
+      <li><b>Every card has something in the middle.</b> Where a couple chose a monogram, the cover shows it (I &amp; C). Where they did not, the cover shows the date on a paper disc instead, so no card looks less finished than another.</li>
+      <li><b>Movie Night has no colour and no theme,</b> so it wears the house's own paper: a hairline frame, a faint linen grain, and its date on a white disc. It is meant to read as plain, good card stock, not as something missing. It is the same card as the gold one with the colour left off.</li>
+      <li><b>The Setnayan bar is back, at its smallest:</b> the mark, "Made with Setnayan", and Sign in. Nothing about suppliers. It uses the page's own colour so it feels like part of the person's page rather than a toolbar sitting on top of it.</li>
+      <li><b>The gold accent (#9b7e00) cannot carry text and pass 4.5:1</b> (white on it is 3.9, near-black on it is 3.7), so on the gold card the words never sit on the gold. They sit on the white disc and in the caption below. Every text colour on this page was checked the same way; the worst pair is the grey on paper at 4.8.</li>
+    </ul>
+
+    <h3>What I am not sure about</h3>
+    <ul>
+      <li><b>"0 followers · 1 view"</b> is real, but on a page someone sends to their family it reads a little sad. I kept it small. You may prefer to hide counts while they are zero.</li>
+      <li><b>"Cale-Ice"</b> is the couple's moodboard name. I set it under their monogram as a small signature because it is theirs. If moodboard names are meant to stay private, drop that one line.</li>
+      <li><b>Movie Night's date has passed.</b> I left the order as it is and added no "past" label; whether finished celebrations sort last, or get a quiet label, is your call and I did not want to invent it.</li>
+      <li><b>The Setnayan mark</b> in the bar is a placeholder shape. I did not have the real logo file.</li>
+      <li><b>On option B:</b> I think it is the right shell, with two small conditions. It should not stick to the top while you scroll, and it should not be white on a paper page. A stranger's first impression should be the person's name, and the bar should be the second thing they notice.</li>
+    </ul>
+  </section>
+</div>
+
+</body>
+</html>

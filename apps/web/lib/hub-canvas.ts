@@ -214,18 +214,6 @@ export type HubSectionCanvas = {
    * `setnayan-vendor-verification` must never reach the signer from here.
    */
   media?: string;
-  /**
-   * WHICH OF THE THREE the background is. Absent means `photo` — see
-   * `resolveHubBackground`, which is the one place that rule is written.
-   *
-   * ⚠ A `snippet` rides the SAME `media` field and the SAME allow-list as a
-   * photo. That is deliberate: one field, one fence. Giving video its own
-   * ref field would be a second door to check, and the second door is always
-   * the one nobody checks.
-   */
-  kind?: HubBackgroundKind;
-  /** Only for `kind: 'color'`. `#rrggbb`. Never a ref — see `hubBackgroundColor`. */
-  color?: string;
   preset?: HubMotionPreset;
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
@@ -306,50 +294,6 @@ export function hubMediaRef(value: unknown): string | null {
   return /^https:\/\/\S+$/.test(ref) ? ref : null;
 }
 
-/* ── WHAT A SECTION'S BACKGROUND IS MADE OF ────────────────────────────────
-   Three kinds, and the list is short on purpose: a photo the couple already
-   has, a short snippet of their own footage, or a flat colour.
-
-   ⛔ NEVER A FILM. A section background plays behind words a guest is reading.
-   A film asks to be watched, which is a different job and already has one —
-   the Save-the-Date reveal owns full-screen video. A snippet is a few seconds
-   of texture, muted and looping.
-
-   🔑 `photo` IS WHAT AN EXISTING ROW MEANS, and that is a RULE, not a
-   fallback. Every `config_json` in production today holds `media` with no
-   `kind` beside it, because `kind` did not exist when they were written. Such
-   a row is a PHOTO — it could never have been anything else, since `media` has
-   only ever accepted a `hubMediaRef`. `resolveHubBackground` states that in one
-   place so the next reader never has to wonder whether an absent `kind` means
-   "photo" or means "half-written". */
-export const HUB_BACKGROUND_KINDS = ['photo', 'snippet', 'color'] as const;
-export type HubBackgroundKind = (typeof HUB_BACKGROUND_KINDS)[number];
-
-export const HUB_BACKGROUND_KIND_LABEL: Record<HubBackgroundKind, string> = {
-  photo: 'A photo',
-  snippet: 'A few seconds of video',
-  color: 'A flat colour',
-};
-
-/** `#rrggbb`, lowercased. The only shape a colour may take. */
-const HUB_COLOR = /^#[0-9a-f]{6}$/;
-
-/**
- * A COLOUR IS NOT A REFERENCE, AND MUST NEVER TAKE THE REF PATH.
- *
- * 🔒 `config_json` is couple-writable. `media` is held to the public bucket by
- * `hubMediaRef` above precisely because of that. A colour that were allowed to
- * travel as a "ref" would be a second doorway into the same field with no
- * allow-list on it — a way to smuggle `r2://setnayan-thread-files/…` past the
- * check by calling it a colour. So the colour has its OWN field and its own
- * shape, and anything that is not six hex digits is dropped.
- */
-export function hubBackgroundColor(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const v = value.trim().toLowerCase();
-  return HUB_COLOR.test(v) ? v : null;
-}
-
 export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const src = raw as Record<string, unknown>;
@@ -362,23 +306,6 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (inSet(HUB_ZOOMS, canvas.zoom)) out.zoom = canvas.zoom;
   const media = hubMediaRef(canvas.media);
   if (media) out.media = media;
-  /* ⛔ THE KIND IS STORED ONLY WHERE IT MEANS SOMETHING, the same rule
-     `inFrom`/`outTo` follow below. A `kind: 'photo'` with no media is not a
-     background; a `kind: 'snippet'` whose ref was just dropped by the
-     allow-list must not survive as a snippet with nothing to play, because a
-     later reader would take the kind as evidence the media was once valid. */
-  if (inSet(HUB_BACKGROUND_KINDS, canvas.kind)) {
-    const kind = canvas.kind as HubBackgroundKind;
-    if (kind === 'color') {
-      const color = hubBackgroundColor(canvas.color);
-      if (color) {
-        out.kind = 'color';
-        out.color = color;
-      }
-    } else if (media) {
-      out.kind = kind;
-    }
-  }
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
   if (inSet(HUB_IN, canvas.in)) out.in = canvas.in;
   if (inSet(HUB_OUT, canvas.out)) out.out = canvas.out;
@@ -393,35 +320,6 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (inSet(HUB_STAGGER, canvas.stagger)) out.stagger = canvas.stagger as number;
   if (inSet(HUB_DURATION, canvas.duration)) out.duration = canvas.duration as number;
   return out;
-}
-
-/**
- * WHAT THIS SECTION'S BACKGROUND ACTUALLY IS — the ONE place that decides.
- *
- * 🔑 AN ABSENT `kind` MEANS PHOTO, AND THAT IS A RULE RATHER THAN A FALLBACK.
- * `kind` is a discriminator added to data that already exists: every
- * `config_json` written before this build holds `media` and nothing beside it.
- * Those rows are photos — they could not be anything else, because `media` has
- * only ever accepted a `hubMediaRef`. Writing that here, once, is the
- * difference between a reader knowing and a reader guessing whether an absent
- * `kind` means "photo" or means "half-written".
- *
- * Returns null when there is no background at all, so a caller cannot
- * accidentally render an empty frame as a black box.
- */
-export type HubBackground =
-  | { kind: 'photo'; media: string }
-  | { kind: 'snippet'; media: string }
-  | { kind: 'color'; color: string };
-
-export function resolveHubBackground(canvas: HubSectionCanvas): HubBackground | null {
-  if (canvas.kind === 'color') {
-    return canvas.color ? { kind: 'color', color: canvas.color } : null;
-  }
-  if (!canvas.media) return null;
-  return canvas.kind === 'snippet'
-    ? { kind: 'snippet', media: canvas.media }
-    : { kind: 'photo', media: canvas.media };
 }
 
 /** The preset, with any override the couple reached in and set. */
@@ -489,19 +387,7 @@ export function hubCanvasVars(
 ): Record<string, string> {
   const m = resolveHubMotion(canvas);
   return {
-    /* 🔑 ONLY A PHOTO BECOMES A CSS BACKGROUND-IMAGE. A snippet is a <video>
-       element in the frame — `background-image` cannot play one, and emitting
-       the url here would paint the video's poster frame UNDER the real video,
-       which reads as a photo that mysteriously starts moving. A colour never
-       touches this property at all. */
-    ...(mediaUrl && resolveHubBackground(canvas)?.kind === 'photo'
-      ? { '--hub-media': `url("${mediaUrl.replace(/"/g, '%22')}")` }
-      : {}),
-    /* The flat colour, when that is what the couple chose. Its own property so
-       no rule can confuse "a colour behind the words" with "a picture". */
-    ...(resolveHubBackground(canvas)?.kind === 'color'
-      ? { '--hub-bg-color': canvas.color as string }
-      : {}),
+    ...(mediaUrl ? { '--hub-media': `url("${mediaUrl.replace(/"/g, '%22')}")` } : {}),
     '--hub-focal': focalToObjectPosition(canvas.focal ?? HUB_DEFAULT_FOCAL),
     '--hub-zoom': String((canvas.zoom ?? HUB_DEFAULT_ZOOM) / 100),
     /* The KEYFRAME NAMES, not the choice words. One rule in `globals.css` reads
@@ -537,7 +423,6 @@ export function hubCanvasVars(
  */
 export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): string {
   const m = resolveHubMotion(canvas);
-  const bg = resolveHubBackground(canvas);
   return [
     'hub-canvas',
     /* 🔑 ON THE RESOLVED URL, NOT ON THE STORED REF. A ref whose signing failed
@@ -545,11 +430,6 @@ export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): stri
        as though it had a picture: that is a dark empty plate where a photo
        should be, which reads as a broken page rather than as no photo. */
     hasMedia ? 'hub-has-media' : 'hub-no-media',
-    /* WHICH KIND the ground is, so one rule paints each without reading the
-       other's property. Absent for a section with no background at all, so a
-       page that never used the canvas renders exactly the markup it did
-       before this existed. */
-    ...(bg ? [`hub-bg-${bg.kind}`] : []),
     `hub-seq-${m.sequence === 'one_after_another' ? 'parts' : 'whole'}`,
     `hub-arr-${canvas.arrangement ?? HUB_DEFAULT_ARRANGEMENT}`,
     `hub-in-${m.in}`,

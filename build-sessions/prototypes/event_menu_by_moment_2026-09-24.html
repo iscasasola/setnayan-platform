@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event menu by moment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!--
+  THE MENU INSIDE AN EVENT, BY MOMENT · 2026-09-24 · ZERO JAVASCRIPT
+  Owner: "realign what the sidebar of an event is and the bottom nav and hamburger
+  menu on mobile mode so everything is easier to access by its flow. like finding
+  the logo maker at the bottom feels so far."  ·  "i dont think [Browse by category]
+  is needed anymore since we have your team? How about renaming it as suppliers?"
+  ·  "tell me the reason why this or that is located here and there. and you named it"
+
+  PAPIC (owner 2026-09-24): "papic is the life source of setnayan. it is where we
+  collect photos and make memories" → Papic + Galleries sit directly under Overview in
+  every phase (Editorial joins after), and Papic is a phone tab in all three phases.
+
+  ACCEPTANCE TEST: Logo Maker reachable at the moment someone is doing branding.
+  Today: desktop rail row 26 of 27 (+11 hidden), below 17 category rows.
+  Here:  row 9 of 21, directly under Mood Board; on a phone, in the Look strip
+         docked above the bar the moment Mood Board is open.
+
+  MEASURED FROM origin/main 3d9f2c740 (never ~):
+   · TWO trees today, not one. The phone reads lib/customer-menu.ts; the desktop
+     rail AND the phone's hamburger drawer read _components/customer-nav-config.ts
+     (via event-rail-context.tsx), plus the shell's own "Browse by category" and
+     Studio groups (front-door-shell.tsx, lib/studio-rail.ts). The proposal is ONE
+     sectioned tree; it must not add a third.
+   · The 18-row list is the UNION of three phase rosters + the Studio dock. No
+     single screen shows three Event Hub Controllers. The same-screen duplicates
+     are elsewhere: "Event Hub Controller" + Studio "Event Hub" both open /launch;
+     "All services" (rail) and "Suite" (phone) name one page.
+   · CustomerBottomNav never passes websiteEnabled → the plan-phase Hub tab never
+     renders on a phone. one-menu-word-in-all-three-phases.test.ts passes
+     websiteEnabled:true itself, so it cannot see it.
+   · Owner 2026-09-06: the directory (/explore) = "Suppliers"; the event surface
+     (/vendors) = "Your Team". The category rows open /explore?folder=… — the
+     date-blind public directory, from inside an event.
+   · Owner 2026-09-24: "we already have your team as where they search, negotiate
+     and build their suppliers" → the in-event find row is REMOVED, not renamed.
+
+  REAL DATA — event 044f7e64 (the same wedding as the approved prototypes),
+  counts measured 2026-09-22 for overview_FINAL: 81 guests · 77 to reply ·
+  ₱26,499 of ₱2,250,000 · 2 locked · 2 to lock. 85 days = 2026-09-24 → 18 Dec.
+  Folder count 16 = WEDDING_FOLDER_ORDER. No price printed.
+
+  ICONS here are an inline sprite. In the app they must cross the server→client
+  boundary as NAMES (the RailFocusIcon pattern), never as LucideIcon components.
+-->
+<style>
+:root{
+  --ink:#171512; --ink-2:#4A453D; --ink-3:#7C756A; --ink-4:#A79F91;
+  --gold:#9A7739; --gold-2:#C4A063; --cta:#BE4A22; --late:#AD4F31;
+  --lit:rgba(154,119,57,.12);
+  --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:'Space Mono',ui-monospace,Menlo,monospace;
+  --lift-1:0 1px 2px rgba(23,21,18,.04),0 2px 8px -4px rgba(23,21,18,.10);
+  --lift-2:0 2px 6px rgba(23,21,18,.05),0 14px 34px -18px rgba(23,21,18,.26);
+  --lift-3:0 4px 12px rgba(23,21,18,.07),0 34px 70px -28px rgba(23,21,18,.38);
+  --ease:cubic-bezier(.22,.61,.36,1); --t:280ms;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--sans);color:var(--ink);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(1100px 700px at 6% -8%,rgba(201,167,102,.14),transparent 60%),
+             radial-gradient(900px 650px at 104% 6%,rgba(190,74,34,.07),transparent 58%),
+             linear-gradient(176deg,#FCFAF6 0%,#F5F0E7 100%);min-height:100vh}
+h1,h2{margin:0;font-weight:650;letter-spacing:-.03em;line-height:1.02}
+p{margin:0}
+code{font-family:var(--mono);font-size:.86em}
+input[type=radio],input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
+.k{transition:transform var(--t) var(--ease),background var(--t) var(--ease),color var(--t) var(--ease),box-shadow var(--t) var(--ease),opacity var(--t);cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.k:active{transform:scale(.965)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:1ms!important}}
+.ic{width:18px;height:18px;flex:none;color:var(--ink-4)}
+
+/* ── title + simulator ── */
+.ttl{max-width:1180px;margin:0 auto;padding:22px 18px 8px;display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.ttl h2{font-size:clamp(24px,4vw,40px)}
+.ttl .sub{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4)}
+.sim{position:sticky;top:8px;z-index:200;margin:8px auto 14px;width:max-content;max-width:calc(100vw - 16px);display:flex;flex-wrap:wrap;
+  justify-content:center;gap:4px 10px;padding:6px 8px;background:rgba(23,21,18,.8);backdrop-filter:blur(20px) saturate(1.6);
+  -webkit-backdrop-filter:blur(20px) saturate(1.6);border-radius:22px;box-shadow:var(--lift-3)}
+.sim .g{display:flex;gap:2px;align-items:center}
+.sim label{height:30px;padding:0 12px;border-radius:999px;display:inline-flex;align-items:center;font-size:12px;font-weight:500;color:rgba(255,250,242,.72);white-space:nowrap}
+.sim label:hover{color:#fff;background:rgba(255,255,255,.1)}
+#m-new:checked ~ .sim [for=m-new],#m-old:checked ~ .sim [for=m-old],
+#v-mob:checked ~ .sim [for=v-mob],#v-tp:checked ~ .sim [for=v-tp],#v-tl:checked ~ .sim [for=v-tl],#v-dk:checked ~ .sim [for=v-dk],
+#p-plan:checked ~ .sim [for=p-plan],#p-day:checked ~ .sim [for=p-day],#p-after:checked ~ .sim [for=p-after],
+#why:checked ~ .sim [for=why]{background:#FFFDF9;color:#171512;font-weight:700}
+.sim .sep{width:1px;height:18px;background:rgba(255,255,255,.14)}
+#m-old:checked ~ .sim .g-ph{opacity:.3;pointer-events:none}
+
+/* ── the frame ── */
+.wrap{padding:0 8px 40px}
+.vpn{text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.07em;color:var(--ink-4);margin:0 0 10px}
+#v-mob:checked ~ .wrap .vpn::after{content:"PHONE 390 · bottom bar of five · ☰ opens the same list · the moment strip docks above the bar"}
+#v-tp:checked  ~ .wrap .vpn::after{content:"TABLET PORTRAIT 834 · icon rail with moment gaps · the room names its moment; the rail already lists its rows"}
+#v-tl:checked  ~ .wrap .vpn::after{content:"TABLET LANDSCAPE 1180 · labelled rail · the room gets the width"}
+#v-dk:checked  ~ .wrap .vpn::after{content:"DESKTOP 1560 · full rail · editorial room · reasons slide in from the right"}
+.frame{--w:1560px;--h:860px;width:var(--w);max-width:100%;height:var(--h);margin:0 auto;position:relative;overflow:hidden;
+  border-radius:22px;background:linear-gradient(174deg,#FDFBF8,#F6F1E9);box-shadow:var(--lift-3);transition:width 420ms var(--ease)}
+#v-mob:checked ~ .wrap .frame{--w:390px;--h:800px}
+#v-tp:checked  ~ .wrap .frame{--w:834px;--h:1060px}
+#v-tl:checked  ~ .wrap .frame{--w:1180px;--h:820px}
+#v-dk:checked  ~ .wrap .frame{--w:1560px;--h:880px}
+#m-old:checked ~ .wrap .new{display:none!important}
+#m-new:checked ~ .wrap .old{display:none!important}
+
+.top{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;z-index:30;
+  background:rgba(255,253,250,.7);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.top .brand{font-weight:800;letter-spacing:.2em;font-size:11px}
+.top .ham{display:none;width:36px;height:36px;border-radius:12px;align-items:center;justify-content:center}
+.top .ham .ic{color:var(--ink)}
+#v-mob:checked ~ .wrap .top .ham{display:flex}
+.top .sp{margin-left:auto;display:flex;align-items:center;gap:10px}
+.av{width:30px;height:30px;border-radius:50%;background:linear-gradient(140deg,var(--gold-2),var(--gold));color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+.body{position:absolute;top:56px;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr}
+#v-tp:checked ~ .wrap .body{grid-template-columns:84px minmax(0,1fr)}
+#v-tl:checked ~ .wrap .body{grid-template-columns:232px minmax(0,1fr)}
+#v-dk:checked ~ .wrap .body{grid-template-columns:264px minmax(0,1fr)}
+
+/* ── THE RAIL (and, on a phone, the drawer holding the same list) ── */
+.rail{display:none;overflow:auto;padding:10px 10px 30px;scrollbar-width:thin}
+#v-tp:checked ~ .wrap .body > .rail,#v-tl:checked ~ .wrap .body > .rail,#v-dk:checked ~ .wrap .body > .rail{display:block}
+.row{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:12px;font-size:13.5px;color:var(--ink-2);position:relative}
+.row:hover{background:rgba(154,119,57,.07)}
+.row .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .st{color:var(--gold-2);font-size:10px;margin-left:5px;vertical-align:2px}
+.row .n{font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+.row .cap{display:none}
+.rhead{padding-bottom:6px}
+.back{color:var(--ink-3)}
+.evname{display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;margin:4px 0 6px}
+.mono-mark{width:34px;height:34px;flex:none;border-radius:10px;background:var(--ink);color:#F4E8D0;font-family:Georgia,serif;font-size:12px;display:flex;align-items:center;justify-content:center;letter-spacing:.02em}
+.evt b{display:block;font-size:14px;letter-spacing:-.01em}
+.evt span{display:block;font-family:var(--mono);font-size:10px;color:var(--ink-4);margin-top:1px}
+.sec{padding-top:12px}
+.lbl{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.17em;text-transform:uppercase;color:var(--ink-4);padding:4px 10px 5px;display:flex;align-items:center;gap:8px}
+.now{background:var(--cta);color:#fff;border-radius:999px;padding:1px 7px;font-size:8.5px;letter-spacing:.12em}
+.quiet .row{font-size:12.5px;color:var(--ink-3)}
+.spine{padding-top:2px}
+.spine .row[data-row="pp"]{font-weight:650;color:var(--ink)}
+.spine .row[data-row="pp"] .ic{color:var(--gold)}
+/* the 84px strip: icon + a one-word caption, section gaps stay */
+#v-tp:checked ~ .wrap .body > .rail{padding:10px 6px 30px}
+#v-tp:checked ~ .wrap .body > .rail .row{flex-direction:column;gap:3px;padding:8px 2px;text-align:center}
+#v-tp:checked ~ .wrap .body > .rail .row .tx,#v-tp:checked ~ .wrap .body > .rail .row .n,
+#v-tp:checked ~ .wrap .body > .rail .evt,#v-tp:checked ~ .wrap .body > .rail .lbl{display:none}
+#v-tp:checked ~ .wrap .body > .rail .row .cap{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:9.5px;line-height:1.12;max-width:74px;overflow:hidden}
+#v-tp:checked ~ .wrap .body > .rail .evname{justify-content:center;padding:8px 0}
+#v-tp:checked ~ .wrap .body > .rail .sec{padding-top:0;margin-top:10px;position:relative}
+#v-tp:checked ~ .wrap .body > .rail .sec::before{content:"";display:block;width:22px;height:2px;border-radius:2px;background:rgba(23,21,18,.1);margin:0 auto 6px}
+
+/* phone drawer */
+.drawer{display:none}
+#v-mob:checked ~ .wrap .drawer{display:block;position:absolute;top:0;bottom:0;left:0;width:86%;z-index:60;overflow:auto;padding:12px 10px 40px;
+  background:rgba(253,251,248,.97);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);box-shadow:14px 0 54px -22px rgba(23,21,18,.5);
+  transform:translateX(-104%);transition:transform 420ms var(--ease)}
+#v-mob:checked ~ #drw:checked ~ .wrap .drawer{transform:none}
+.dscrim{display:none}
+#v-mob:checked ~ .wrap .dscrim{display:block;position:absolute;inset:0;z-index:55;background:rgba(23,21,18,.32);opacity:0;pointer-events:none;transition:opacity var(--t)}
+#v-mob:checked ~ #drw:checked ~ .wrap .dscrim{opacity:1;pointer-events:auto}
+.drawer .dh{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 8px}
+.drawer .dh span{font-family:var(--mono);font-size:9px;letter-spacing:.17em;color:var(--ink-4);text-transform:uppercase}
+
+/* ── the room ── */
+.main{overflow:auto;padding:clamp(22px,3vw,48px) clamp(18px,3vw,56px) 170px;min-width:0}
+#v-tl:checked ~ .wrap .main,#v-dk:checked ~ .wrap .main{padding-bottom:40px}
+.rtop{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.mlbl2{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.17em;text-transform:uppercase;color:var(--gold)}
+.stbig{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--gold-2)}
+.info{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 9px;border-radius:999px;background:rgba(23,21,18,.06);font-size:12px;font-weight:600;color:var(--ink-2)}
+.info:hover{background:rgba(23,21,18,.1)}
+.ii{width:16px;height:16px;color:var(--gold)}
+.room h1{font-size:clamp(34px,5.4vw,76px);margin:0 0 6px}
+.href{color:var(--ink-4);font-size:11px}
+.hero{margin-top:clamp(22px,3vw,40px);display:flex;flex-direction:column}
+.big{font-size:clamp(46px,7vw,104px);font-weight:300;letter-spacing:-.05em;line-height:.95}
+.hl{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-top:6px}
+.pos{display:flex;gap:clamp(22px,4vw,56px);margin-top:clamp(26px,3vw,44px)}
+.pos > div{display:flex;flex-direction:column}
+.pn{font-size:clamp(30px,4vw,54px);font-weight:600;letter-spacing:-.04em;line-height:1}
+.pn.was{color:var(--ink-4);font-weight:300;font-size:clamp(20px,2.6vw,32px);text-decoration:line-through;text-decoration-thickness:1px;padding-top:8px}
+.pl{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin-top:5px}
+
+/* ── the moment strip: one list, three placements ── */
+.moments{min-width:0}
+.moment{display:none}
+.mlbl{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.17em;text-transform:uppercase;color:var(--ink-4);padding:0 4px 6px}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.chip{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px 0 10px;border-radius:999px;font-size:12.5px;color:var(--ink-2);white-space:nowrap;background:rgba(255,253,250,.6)}
+.chip i{font-style:normal;color:var(--gold-2);font-size:9px}
+.chip .ic{width:16px;height:16px}
+/* phone: docked above the bar, glass */
+#v-mob:checked ~ .wrap .moments{position:absolute;left:10px;right:10px;bottom:84px;z-index:25}
+#v-mob:checked ~ .wrap .moment{padding:8px 8px 8px;border-radius:22px;background:rgba(255,253,250,.78);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);box-shadow:var(--lift-2)}
+#v-mob:checked ~ .wrap .mlbl{padding:0 6px 5px}
+/* ONLY ON THE PHONE. Wherever the rail is on screen it already lists these rows,
+   so a second copy beside it is the same list twice (owner 2026-09-24: "why is this
+   side repeating?"). The strip exists where the list is hidden behind the ☰. */
+#v-tp:checked ~ .wrap .moments,#v-tl:checked ~ .wrap .moments,#v-dk:checked ~ .wrap .moments{display:none}
+
+/* ── the bottom bar (phone only) ── */
+.bb{display:none;position:absolute;left:10px;right:10px;bottom:12px;z-index:30;padding:6px;border-radius:999px;
+  background:rgba(255,253,250,.8);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);box-shadow:var(--lift-2)}
+#v-mob:checked ~ .wrap .bb{display:grid}
+.bb.n5{grid-template-columns:repeat(5,1fr)}.bb.n4{grid-template-columns:repeat(4,1fr)}
+.bb label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;padding:6px 2px;border-radius:999px;font-size:9.5px;line-height:1.08;text-align:center;color:var(--ink-3);position:relative}
+.bb label span{max-width:66px}
+.bb .bdg{position:absolute;top:3px;right:calc(50% - 22px);background:var(--late);color:#fff;font-family:var(--mono);font-size:8.5px;font-weight:700;border-radius:999px;padding:0 4px;line-height:13px;max-width:none}
+
+/* ── reasons: off-canvas on wide, a sheet on a phone ── */
+.scrim{position:absolute;inset:0;z-index:70;background:rgba(23,21,18,.3);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity var(--t)}
+#why:checked ~ .wrap .scrim{opacity:1;pointer-events:auto}
+.panel{position:absolute;top:0;bottom:0;right:0;width:min(440px,88%);z-index:80;overflow:auto;padding:24px 26px 40px;
+  background:rgba(255,254,252,.97);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);box-shadow:-14px 0 54px -22px rgba(23,21,18,.5);
+  transform:translateX(104%);transition:transform 420ms var(--ease)}
+#why:checked ~ .wrap .panel{transform:none}
+#v-mob:checked ~ .wrap .panel{top:auto;left:0;width:100%;height:78%;border-radius:24px 24px 0 0;transform:translateY(104%)}
+#v-mob:checked ~ #why:checked ~ .wrap .panel{transform:none}
+.panel .x{float:right;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(23,21,18,.06)}
+.panel .x .ic{color:var(--ink)}
+.why .wl{font-size:28px;font-weight:650;letter-spacing:-.03em;margin:4px 0 18px}
+.why dl{margin:0}
+.why dt{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-top:18px}
+.why dd{margin:6px 0 0;font-size:14.5px;line-height:1.55;color:var(--ink-2)}
+.why dd b{color:var(--ink)}
+.why code{background:rgba(23,21,18,.05);padding:1px 5px;border-radius:5px}
+
+/* ── TODAY (measured) ── */
+.oldwrap{position:absolute;top:56px;left:0;right:0;bottom:0;display:grid;grid-template-columns:300px minmax(0,1fr);overflow:hidden}
+#v-mob:checked ~ .wrap .oldwrap{grid-template-columns:1fr}
+.oldrail{overflow:auto;padding:12px 10px 120px}
+.oldrail .row{cursor:default}
+.oldrail .rn{font-family:var(--mono);font-size:10px;color:var(--ink-4)}
+.oldrail .old-h{padding-top:14px}
+.oldrail .hit{background:rgba(190,74,34,.12);color:var(--ink);font-weight:700}
+.oldrail .hit .ic{color:var(--cta)}
+.oldrail .hit .rn{color:var(--cta);font-weight:700}
+.oldsum{padding:clamp(22px,4vw,56px)}
+#v-mob:checked ~ .wrap .oldsum{display:none}
+.oldsum .big{color:var(--cta)}
+.oldbb{display:none}
+#v-mob:checked ~ .wrap .oldbb{display:grid;grid-template-columns:repeat(4,1fr)}
+.oldbb label,.oldbb span{cursor:default}
+.oldbb .dead{opacity:.35;text-decoration:line-through}
+
+/* ── ledger ── */
+.after{max-width:1180px;margin:34px auto 0;padding:0 16px}
+details{margin-top:8px}
+summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 18px;border-radius:999px;background:var(--ink);color:#FFFDF9;font-size:13px;font-weight:600;box-shadow:var(--lift-1)}
+summary::-webkit-details-marker{display:none}
+.led{width:100%;border-collapse:collapse;margin-top:18px;font-size:13px}
+.led th{font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-4);text-align:left;padding:8px 10px;font-weight:700}
+.led td{padding:10px;vertical-align:top;color:var(--ink-2)}
+.led tr:nth-child(odd) td{background:rgba(23,21,18,.025)}
+.led td:first-child{font-family:var(--mono);color:var(--ink-4);font-size:11px}
+.led b{color:var(--ink)}
+.vd{font-family:var(--mono);font-size:10.5px;color:var(--gold);white-space:nowrap}
+.nums{display:flex;flex-wrap:wrap;gap:clamp(20px,4vw,60px);margin:10px 0 6px}
+.nums div{display:flex;flex-direction:column}
+.nums .pn{font-size:clamp(34px,5vw,64px)}
+@media (max-width:700px){.led thead{display:none}.led tr{display:block;padding:8px 0}.led td{display:block;padding:2px 10px;background:none!important}.led td:first-child{padding-top:10px}}
+
+.room,.why{display:none}
+#r-de:checked ~ .wrap .room[data-r="de"],#r-de:checked ~ .wrap .why[data-r="de"],#r-ov:checked ~ .wrap .room[data-r="ov"],#r-ov:checked ~ .wrap .why[data-r="ov"],#r-pp:checked ~ .wrap .room[data-r="pp"],#r-pp:checked ~ .wrap .why[data-r="pp"],#r-ga:checked ~ .wrap .room[data-r="ga"],#r-ga:checked ~ .wrap .why[data-r="ga"],#r-ed:checked ~ .wrap .room[data-r="ed"],#r-ed:checked ~ .wrap .why[data-r="ed"],#r-tm:checked ~ .wrap .room[data-r="tm"],#r-tm:checked ~ .wrap .why[data-r="tm"],#r-bu:checked ~ .wrap .room[data-r="bu"],#r-bu:checked ~ .wrap .why[data-r="bu"],#r-mb:checked ~ .wrap .room[data-r="mb"],#r-mb:checked ~ .wrap .why[data-r="mb"],#r-lm:checked ~ .wrap .room[data-r="lm"],#r-lm:checked ~ .wrap .why[data-r="lm"],#r-pk:checked ~ .wrap .room[data-r="pk"],#r-pk:checked ~ .wrap .why[data-r="pk"],#r-gu:checked ~ .wrap .room[data-r="gu"],#r-gu:checked ~ .wrap .why[data-r="gu"],#r-ho:checked ~ .wrap .room[data-r="ho"],#r-ho:checked ~ .wrap .why[data-r="ho"],#r-hb:checked ~ .wrap .room[data-r="hb"],#r-hb:checked ~ .wrap .why[data-r="hb"],#r-sc:checked ~ .wrap .room[data-r="sc"],#r-sc:checked ~ .wrap .why[data-r="sc"],#r-ci:checked ~ .wrap .room[data-r="ci"],#r-ci:checked ~ .wrap .why[data-r="ci"],#r-sp:checked ~ .wrap .room[data-r="sp"],#r-sp:checked ~ .wrap .why[data-r="sp"],#r-p3:checked ~ .wrap .room[data-r="p3"],#r-p3:checked ~ .wrap .why[data-r="p3"],#r-ls:checked ~ .wrap .room[data-r="ls"],#r-ls:checked ~ .wrap .why[data-r="ls"],#r-pt:checked ~ .wrap .room[data-r="pt"],#r-pt:checked ~ .wrap .why[data-r="pt"],#r-ai:checked ~ .wrap .room[data-r="ai"],#r-ai:checked ~ .wrap .why[data-r="ai"],#r-al:checked ~ .wrap .room[data-r="al"],#r-al:checked ~ .wrap .why[data-r="al"],#r-rf:checked ~ .wrap .room[data-r="rf"],#r-rf:checked ~ .wrap .why[data-r="rf"]{display:block}
+#r-de:checked ~ .wrap [data-row="de"],#r-ov:checked ~ .wrap [data-row="ov"],#r-pp:checked ~ .wrap [data-row="pp"],#r-ga:checked ~ .wrap [data-row="ga"],#r-ed:checked ~ .wrap [data-row="ed"],#r-tm:checked ~ .wrap [data-row="tm"],#r-bu:checked ~ .wrap [data-row="bu"],#r-mb:checked ~ .wrap [data-row="mb"],#r-lm:checked ~ .wrap [data-row="lm"],#r-pk:checked ~ .wrap [data-row="pk"],#r-gu:checked ~ .wrap [data-row="gu"],#r-ho:checked ~ .wrap [data-row="ho"],#r-hb:checked ~ .wrap [data-row="hb"],#r-sc:checked ~ .wrap [data-row="sc"],#r-ci:checked ~ .wrap [data-row="ci"],#r-sp:checked ~ .wrap [data-row="sp"],#r-p3:checked ~ .wrap [data-row="p3"],#r-ls:checked ~ .wrap [data-row="ls"],#r-pt:checked ~ .wrap [data-row="pt"],#r-ai:checked ~ .wrap [data-row="ai"],#r-al:checked ~ .wrap [data-row="al"],#r-rf:checked ~ .wrap [data-row="rf"]{background:var(--lit);color:var(--ink);font-weight:650}
+#r-de:checked ~ .wrap [data-row="de"] .ic,#r-ov:checked ~ .wrap [data-row="ov"] .ic,#r-pp:checked ~ .wrap [data-row="pp"] .ic,#r-ga:checked ~ .wrap [data-row="ga"] .ic,#r-ed:checked ~ .wrap [data-row="ed"] .ic,#r-tm:checked ~ .wrap [data-row="tm"] .ic,#r-bu:checked ~ .wrap [data-row="bu"] .ic,#r-mb:checked ~ .wrap [data-row="mb"] .ic,#r-lm:checked ~ .wrap [data-row="lm"] .ic,#r-pk:checked ~ .wrap [data-row="pk"] .ic,#r-gu:checked ~ .wrap [data-row="gu"] .ic,#r-ho:checked ~ .wrap [data-row="ho"] .ic,#r-hb:checked ~ .wrap [data-row="hb"] .ic,#r-sc:checked ~ .wrap [data-row="sc"] .ic,#r-ci:checked ~ .wrap [data-row="ci"] .ic,#r-sp:checked ~ .wrap [data-row="sp"] .ic,#r-p3:checked ~ .wrap [data-row="p3"] .ic,#r-ls:checked ~ .wrap [data-row="ls"] .ic,#r-pt:checked ~ .wrap [data-row="pt"] .ic,#r-ai:checked ~ .wrap [data-row="ai"] .ic,#r-al:checked ~ .wrap [data-row="al"] .ic,#r-rf:checked ~ .wrap [data-row="rf"] .ic{color:var(--gold)}
+#r-pp:checked ~ .wrap .moment[data-s="spine"]{display:block}
+#r-ga:checked ~ .wrap .moment[data-s="spine"]{display:block}
+#r-ed:checked ~ .wrap .moment[data-s="spine"]{display:block}
+#r-tm:checked ~ .wrap .moment[data-s="book"]{display:block}
+#r-bu:checked ~ .wrap .moment[data-s="book"]{display:block}
+#r-mb:checked ~ .wrap .moment[data-s="look"]{display:block}
+#r-lm:checked ~ .wrap .moment[data-s="look"]{display:block}
+#r-pk:checked ~ .wrap .moment[data-s="look"]{display:block}
+#r-gu:checked ~ .wrap .moment[data-s="invite"]{display:block}
+#r-ho:checked ~ .wrap .moment[data-s="invite"]{display:block}
+#r-hb:checked ~ .wrap .moment[data-s="invite"]{display:block}
+#r-sc:checked ~ .wrap .moment[data-s="day"]{display:block}
+#r-ci:checked ~ .wrap .moment[data-s="day"]{display:block}
+#r-sp:checked ~ .wrap .moment[data-s="day"]{display:block}
+#r-p3:checked ~ .wrap .moment[data-s="day"]{display:block}
+#r-ls:checked ~ .wrap .moment[data-s="day"]{display:block}
+#r-pt:checked ~ .wrap .moment[data-s="day"]{display:block}
+#p-plan:checked ~ #r-ov:checked ~ .wrap [data-tab="plan-ov"],#p-plan:checked ~ #r-de:checked ~ .wrap [data-tab="plan-ov"],#p-plan:checked ~ #r-pp:checked ~ .wrap [data-tab="plan-pp"],#p-plan:checked ~ #r-ga:checked ~ .wrap [data-tab="plan-pp"],#p-plan:checked ~ #r-tm:checked ~ .wrap [data-tab="plan-tm"],#p-plan:checked ~ #r-bu:checked ~ .wrap [data-tab="plan-tm"],#p-plan:checked ~ #r-gu:checked ~ .wrap [data-tab="plan-gu"],#p-plan:checked ~ #r-ho:checked ~ .wrap [data-tab="plan-gu"],#p-plan:checked ~ #r-sp:checked ~ .wrap [data-tab="plan-gu"],#p-plan:checked ~ #r-p3:checked ~ .wrap [data-tab="plan-gu"],#p-plan:checked ~ #r-hb:checked ~ .wrap [data-tab="plan-hb"]{background:rgba(23,21,18,.075);color:var(--ink);font-weight:700}
+#p-day:checked ~ #r-ov:checked ~ .wrap [data-tab="day-ov"],#p-day:checked ~ #r-de:checked ~ .wrap [data-tab="day-ov"],#p-day:checked ~ #r-pp:checked ~ .wrap [data-tab="day-pp"],#p-day:checked ~ #r-ga:checked ~ .wrap [data-tab="day-pp"],#p-day:checked ~ #r-ci:checked ~ .wrap [data-tab="day-ci"],#p-day:checked ~ #r-sp:checked ~ .wrap [data-tab="day-ci"],#p-day:checked ~ #r-hb:checked ~ .wrap [data-tab="day-hb"],#p-day:checked ~ #r-sc:checked ~ .wrap [data-tab="day-sc"]{background:rgba(23,21,18,.075);color:var(--ink);font-weight:700}
+#p-after:checked ~ #r-ov:checked ~ .wrap [data-tab="after-ov"],#p-after:checked ~ #r-de:checked ~ .wrap [data-tab="after-ov"],#p-after:checked ~ #r-pp:checked ~ .wrap [data-tab="after-pp"],#p-after:checked ~ #r-ga:checked ~ .wrap [data-tab="after-ga"],#p-after:checked ~ #r-ed:checked ~ .wrap [data-tab="after-ga"],#p-after:checked ~ #r-tm:checked ~ .wrap [data-tab="after-tm"],#p-after:checked ~ #r-bu:checked ~ .wrap [data-tab="after-tm"],#p-after:checked ~ #r-hb:checked ~ .wrap [data-tab="after-hb"]{background:rgba(23,21,18,.075);color:var(--ink);font-weight:700}
+#p-plan:checked ~ .wrap [data-p]:not([data-p~="plan"]){display:none!important}
+#p-day:checked ~ .wrap [data-p]:not([data-p~="day"]){display:none!important}
+#p-after:checked ~ .wrap [data-p]:not([data-p~="after"]){display:none!important}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-events" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M12 17.5s-3-1.8-3-3.7a1.6 1.6 0 0 1 3-.8 1.6 1.6 0 0 1 3 .8c0 1.9-3 3.7-3 3.7z"/></symbol><symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol><symbol id="i-team" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-1a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5v1M16 4.3a3.5 3.5 0 0 1 0 7.4M21.5 20v-1a5 5 0 0 0-3.5-4.8"/></symbol><symbol id="i-store" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l1.5 5h-19zM4.5 9v11h15V9M9.5 20v-6h5v6"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l12-3.5V7M16 13.5h2"/></symbol><symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.7-1.4-.7-2.2 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></symbol><symbol id="i-gem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9zM2 9h20M9.5 3 8 9l4 12 4-12-1.5-6"/></symbol><symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol><symbol id="i-guests" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol><symbol id="i-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M4 18 3 7l5 4 4-7 4 7 5-4-1 11"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol><symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 14h3M8 17h6"/></symbol><symbol id="i-chair" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11V7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v4M3 11a2 2 0 0 1 4 0v3h10v-3a2 2 0 0 1 4 0v6H3zM5 17v3M19 17v3"/></symbol><symbol id="i-cube" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 3.5 7v10l8.5 4.5 8.5-4.5V7zM3.5 7l8.5 4.5L20.5 7M12 11.5v10"/></symbol><symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5a2 2 0 0 1 2-2h2L9 4h6l2 2.5h2a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></symbol><symbol id="i-live" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10.5 6-3.5v10l-6-3.5"/></symbol><symbol id="i-reel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="m11 9 3 2.5-3 2.5z"/></symbol><symbol id="i-qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3M14 20h7"/></symbol><symbol id="i-images" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol><symbol id="i-paper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13v16H6a2 2 0 0 1-2-2zM17 8h3v10a2 2 0 0 1-2 2M8 8h5M8 12h5M8 16h3"/></symbol><symbol id="i-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol><symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol><symbol id="i-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9M12 8S10.5 3.5 8 4.2 8.6 8 12 8M12 8s1.5-4.5 4-3.8S15.4 8 12 8"/></symbol><symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a2 2 0 0 0 3.4 0"/></symbol><symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4.5M12 8h.01"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol></defs></svg>
+<input type="radio" name="m" id="m-new" checked><input type="radio" name="m" id="m-old"><input type="radio" name="v" id="v-mob" checked><input type="radio" name="v" id="v-tp"><input type="radio" name="v" id="v-tl"><input type="radio" name="v" id="v-dk"><input type="radio" name="p" id="p-plan" checked><input type="radio" name="p" id="p-day"><input type="radio" name="p" id="p-after"><input type="radio" name="r" id="r-de"><input type="radio" name="r" id="r-ov"><input type="radio" name="r" id="r-pp"><input type="radio" name="r" id="r-ga"><input type="radio" name="r" id="r-ed"><input type="radio" name="r" id="r-tm"><input type="radio" name="r" id="r-bu"><input type="radio" name="r" id="r-mb" checked><input type="radio" name="r" id="r-lm"><input type="radio" name="r" id="r-pk"><input type="radio" name="r" id="r-gu"><input type="radio" name="r" id="r-ho"><input type="radio" name="r" id="r-hb"><input type="radio" name="r" id="r-sc"><input type="radio" name="r" id="r-ci"><input type="radio" name="r" id="r-sp"><input type="radio" name="r" id="r-p3"><input type="radio" name="r" id="r-ls"><input type="radio" name="r" id="r-pt"><input type="radio" name="r" id="r-ai"><input type="radio" name="r" id="r-al"><input type="radio" name="r" id="r-rf"><input type="checkbox" id="drw"><input type="checkbox" id="why">
+<div class="ttl"><h2>Inside an event, by moment</h2><span class="sub">Papic under everything · Book → Look → Invite → The day</span></div>
+<div class="sim">
+  <div class="g"><label for="m-new">Proposed</label><label for="m-old">Today</label></div><span class="sep"></span>
+  <div class="g"><label for="v-mob">Phone</label><label for="v-tp">Tablet ↕</label><label for="v-tl">Tablet ↔</label><label for="v-dk">Desktop</label></div><span class="sep"></span>
+  <div class="g g-ph"><label for="p-plan">Planning</label><label for="p-day">The day</label><label for="p-after">After</label></div><span class="sep"></span>
+  <div class="g"><label for="why">Why ⓘ</label></div>
+</div>
+<div class="wrap">
+  <p class="vpn"></p>
+  <div class="frame">
+    <div class="top">
+      <label for="drw" class="ham k new" aria-label="Menu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></label>
+      <span class="brand">SETNAYAN</span>
+      <span class="sp"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg><span class="av">IC</span></span>
+    </div>
+
+    <!-- PROPOSED -->
+    <div class="body new">
+      <nav class="rail" aria-label="This event"><div class="rhead">
+<a class="row back k"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-events"/></svg><span class="tx">Events</span><span class="cap">Events</span></a>
+<label for="r-de" class="evname k" data-row="de"><span class="mono-mark">I&amp;C</span><span class="evt"><b>Indalecio &amp; Claire</b><span>Personalization ›</span></span></label>
+</div>
+<label for="r-ov" class="row k" data-row="ov" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span class="tx">Overview</span><span class="cap">Overview</span></label>
+<div class="spine"><label for="r-pp" class="row k" data-row="pp" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg><span class="tx">Papic<span class="st" title="Studio product">✦</span></span><span class="cap">Papic</span></label><label for="r-ga" class="row k" data-row="ga" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-images"/></svg><span class="tx">Galleries</span><span class="cap">Galleries</span></label><label for="r-ed" class="row k" data-row="ed" data-p="after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-paper"/></svg><span class="tx">Editorial</span><span class="cap">Editorial</span></label></div>
+<div class="sec" data-p="plan day after"><div class="lbl">Book</div>
+<label for="r-tm" class="row k" data-row="tm" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-team"/></svg><span class="tx">Your Team</span><span class="cap">Your Team</span></label>
+<label for="r-bu" class="row k" data-row="bu" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg><span class="tx">Budget</span><span class="cap">Budget</span></label>
+</div>
+<div class="sec" data-p="plan day after"><div class="lbl">Look</div>
+<label for="r-mb" class="row k" data-row="mb" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"/></svg><span class="tx">Mood Board<span class="st" title="Studio product">✦</span></span><span class="cap">Mood Board</span></label>
+<label for="r-lm" class="row k" data-row="lm" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gem"/></svg><span class="tx">Logo Maker<span class="st" title="Studio product">✦</span></span><span class="cap">Logo Maker</span></label>
+<label for="r-pk" class="row k" data-row="pk" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-music"/></svg><span class="tx">Pakanta<span class="st" title="Studio product">✦</span></span><span class="cap">Pakanta</span></label>
+</div>
+<div class="sec" data-p="plan day after"><div class="lbl">Invite</div>
+<label for="r-gu" class="row k" data-row="gu" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-guests"/></svg><span class="tx">Guests</span><span class="n">81</span><span class="cap">Guests</span></label>
+<label for="r-ho" class="row k" data-row="ho" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-crown"/></svg><span class="tx">Hosts</span><span class="cap">Hosts</span></label>
+<label for="r-hb" class="row k" data-row="hb" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span class="tx">Event Hub Controller</span><span class="cap">Event Hub Controller</span></label>
+</div>
+<div class="sec" data-p="plan day after"><div class="lbl">The day<span class="now" data-p="day">now</span></div>
+<label for="r-sc" class="row k" data-row="sc" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cal"/></svg><span class="tx">Schedule</span><span class="cap">Schedule</span></label>
+<label for="r-ci" class="row k" data-row="ci" data-p="day"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-qr"/></svg><span class="tx">Check-in</span><span class="cap">Check-in</span></label>
+<label for="r-sp" class="row k" data-row="sp" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chair"/></svg><span class="tx">Seat plan</span><span class="cap">Seat plan</span></label>
+<label for="r-p3" class="row k" data-row="p3" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cube"/></svg><span class="tx">3D Plan<span class="st" title="Studio product">✦</span></span><span class="cap">3D Plan</span></label>
+<label for="r-ls" class="row k" data-row="ls" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-live"/></svg><span class="tx">Live Studio<span class="st" title="Studio product">✦</span></span><span class="cap">Live Studio</span></label>
+<label for="r-pt" class="row k" data-row="pt" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-reel"/></svg><span class="tx">Patiktok<span class="st" title="Studio product">✦</span></span><span class="cap">Patiktok</span></label>
+</div>
+<div class="sec quiet"><div class="lbl">&nbsp;</div>
+<label for="r-ai" class="row k" data-row="ai" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-spark"/></svg><span class="tx">Setnayan AI<span class="st" title="Studio product">✦</span></span><span class="cap">Setnayan AI</span></label>
+<label for="r-al" class="row k" data-row="al" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-grid"/></svg><span class="tx">Suite</span><span class="cap">Suite</span></label>
+<label for="r-rf" class="row k" data-row="rf" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gift"/></svg><span class="tx">Refer a couple</span><span class="cap">Refer a couple</span></label>
+</div></nav>
+      <main class="main"><section class="room" data-r="de">
+  <div class="rtop"><span class="mlbl2">Your event</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Personalization</h1>
+  <code class="href">/details</code>
+  
+  <div class="pos"><div><span class="pn">2</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 6</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="ov">
+  <div class="rtop"><span class="mlbl2">Your event</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Overview</h1>
+  <code class="href">/dashboard/[id]</code>
+  <div class="hero"><span class="big">85</span><span class="hl">days to go</span></div>
+  <div class="pos"><div><span class="pn">3</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 2</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="pp">
+  <div class="rtop"><span class="mlbl2">Photos & memories</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Papic</h1>
+  <code class="href">/studio/papic</code>
+  
+  <div class="pos"><div><span class="pn">4</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 20</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="ga">
+  <div class="rtop"><span class="mlbl2">Photos & memories</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Galleries</h1>
+  <code class="href">/galleries</code>
+  
+  <div class="pos"><div><span class="pn">5</span><span class="pl">row, of 21</span></div><div><span class="pn was">after only</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="ed">
+  <div class="rtop"><span class="mlbl2">Photos & memories</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Editorial</h1>
+  <code class="href">/story</code>
+  
+  <div class="pos"><div><span class="pn">after</span><span class="pl">only then</span></div></div>
+</section>
+<section class="room" data-r="tm">
+  <div class="rtop"><span class="mlbl2">Book</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Your Team</h1>
+  <code class="href">/vendors</code>
+  <div class="hero"><span class="big">2</span><span class="hl">locked · 2 to lock</span></div>
+  <div class="pos"><div><span class="pn">6</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 4</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="bu">
+  <div class="rtop"><span class="mlbl2">Book</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Budget</h1>
+  <code class="href">/budget</code>
+  <div class="hero"><span class="big">₱26,499</span><span class="hl">committed of ₱2,250,000</span></div>
+  <div class="pos"><div><span class="pn">7</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 11</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="mb">
+  <div class="rtop"><span class="mlbl2">Look</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Mood Board</h1>
+  <code class="href">/studio/mood-board</code>
+  
+  <div class="pos"><div><span class="pn">8</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 24</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="lm">
+  <div class="rtop"><span class="mlbl2">Look</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Logo Maker</h1>
+  <code class="href">/monogram</code>
+  
+  <div class="pos"><div><span class="pn">9</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 26</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="pk">
+  <div class="rtop"><span class="mlbl2">Look</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Pakanta</h1>
+  <code class="href">/studio/pakanta</code>
+  
+  <div class="pos"><div><span class="pn">10</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 25</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="gu">
+  <div class="rtop"><span class="mlbl2">Invite</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Guests</h1>
+  <code class="href">/guests</code>
+  <div class="hero"><span class="big">81</span><span class="hl">guests · 77 to reply</span></div>
+  <div class="pos"><div><span class="pn">11</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 3</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="ho">
+  <div class="rtop"><span class="mlbl2">Invite</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Hosts</h1>
+  <code class="href">/hosts</code>
+  
+  <div class="pos"><div><span class="pn">12</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 7</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="hb">
+  <div class="rtop"><span class="mlbl2">Invite</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Event Hub Controller</h1>
+  <code class="href">/launch</code>
+  
+  <div class="pos"><div><span class="pn">13</span><span class="pl">row, of 21</span></div><div><span class="pn was">rows 5 + 19</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="sc">
+  <div class="rtop"><span class="mlbl2">The day</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Schedule</h1>
+  <code class="href">/schedule</code>
+  
+  <div class="pos"><div><span class="pn">14</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 9</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="ci">
+  <div class="rtop"><span class="mlbl2">The day</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Check-in</h1>
+  <code class="href">/guests/checkin</code>
+  
+  <div class="pos"><div><span class="pn">day</span><span class="pl">only then</span></div><div><span class="pn was">tab only</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="sp">
+  <div class="rtop"><span class="mlbl2">The day</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Seat plan</h1>
+  <code class="href">/seating</code>
+  
+  <div class="pos"><div><span class="pn">15</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 10</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="p3">
+  <div class="rtop"><span class="mlbl2">The day</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>3D Plan</h1>
+  <code class="href">/seating/lab</code>
+  
+  <div class="pos"><div><span class="pn">16</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 23</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="ls">
+  <div class="rtop"><span class="mlbl2">The day</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Live Studio</h1>
+  <code class="href">/studio/panood</code>
+  
+  <div class="pos"><div><span class="pn">17</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 21</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="pt">
+  <div class="rtop"><span class="mlbl2">The day</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Patiktok</h1>
+  <code class="href">/studio/patiktok</code>
+  
+  <div class="pos"><div><span class="pn">18</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 22</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="ai">
+  <div class="rtop"><span class="mlbl2">Shelf</span><span class="stbig">✦ Studio</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Setnayan AI</h1>
+  <code class="href">/studio/setnayan-ai</code>
+  
+  <div class="pos"><div><span class="pn">19</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 18</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="al">
+  <div class="rtop"><span class="mlbl2">Shelf</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Suite</h1>
+  <code class="href">/suite</code>
+  
+  <div class="pos"><div><span class="pn">20</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 27</span><span class="pl">today</span></div></div>
+</section>
+<section class="room" data-r="rf">
+  <div class="rtop"><span class="mlbl2">Shelf</span>
+    <label for="why" class="info k" title="Why here · why this name"><svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg><span>why</span></label></div>
+  <h1>Refer a couple</h1>
+  <code class="href">/refer</code>
+  
+  <div class="pos"><div><span class="pn">21</span><span class="pl">row, of 21</span></div><div><span class="pn was">row 8</span><span class="pl">today</span></div></div>
+</section></main>
+      <div class="moments"><div class="moment" data-s="spine"><div class="mlbl">Photos & memories</div><div class="chips"><label for="r-pp" class="chip k" data-row="pp" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg><span>Papic</span><i>✦</i></label><label for="r-ga" class="chip k" data-row="ga" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-images"/></svg><span>Galleries</span></label><label for="r-ed" class="chip k" data-row="ed" data-p="after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-paper"/></svg><span>Editorial</span></label></div></div>
+<div class="moment" data-s="book"><div class="mlbl">Book</div><div class="chips"><label for="r-tm" class="chip k" data-row="tm" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-team"/></svg><span>Your Team</span></label><label for="r-bu" class="chip k" data-row="bu" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg><span>Budget</span></label></div></div>
+<div class="moment" data-s="look"><div class="mlbl">Look</div><div class="chips"><label for="r-mb" class="chip k" data-row="mb" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"/></svg><span>Mood Board</span><i>✦</i></label><label for="r-lm" class="chip k" data-row="lm" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gem"/></svg><span>Logo Maker</span><i>✦</i></label><label for="r-pk" class="chip k" data-row="pk" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-music"/></svg><span>Pakanta</span><i>✦</i></label></div></div>
+<div class="moment" data-s="invite"><div class="mlbl">Invite</div><div class="chips"><label for="r-gu" class="chip k" data-row="gu" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-guests"/></svg><span>Guests</span></label><label for="r-ho" class="chip k" data-row="ho" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-crown"/></svg><span>Hosts</span></label><label for="r-hb" class="chip k" data-row="hb" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span>Event Hub Controller</span></label></div></div>
+<div class="moment" data-s="day"><div class="mlbl">The day</div><div class="chips"><label for="r-sc" class="chip k" data-row="sc" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cal"/></svg><span>Schedule</span></label><label for="r-ci" class="chip k" data-row="ci" data-p="day"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-qr"/></svg><span>Check-in</span></label><label for="r-sp" class="chip k" data-row="sp" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chair"/></svg><span>Seat plan</span></label><label for="r-p3" class="chip k" data-row="p3" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cube"/></svg><span>3D Plan</span><i>✦</i></label><label for="r-ls" class="chip k" data-row="ls" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-live"/></svg><span>Live Studio</span><i>✦</i></label><label for="r-pt" class="chip k" data-row="pt" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-reel"/></svg><span>Patiktok</span><i>✦</i></label></div></div></div>
+    </div>
+    <div class="new"><nav class="bb n5" data-p="plan" aria-label="Primary navigation"><label for="r-ov" class="k" data-tab="plan-ov"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Overview</span></label><label for="r-pp" class="k" data-tab="plan-pp"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg><span>Papic</span></label><label for="r-tm" class="k" data-tab="plan-tm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-team"/></svg><span>Your Team</span></label><label for="r-gu" class="k" data-tab="plan-gu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-guests"/></svg><span>Guests</span><span class="bdg">81</span></label><label for="r-hb" class="k" data-tab="plan-hb"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span>Event Hub Controller</span></label></nav>
+<nav class="bb n5" data-p="day" aria-label="Primary navigation"><label for="r-ov" class="k" data-tab="day-ov"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Overview</span></label><label for="r-pp" class="k" data-tab="day-pp"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg><span>Papic</span></label><label for="r-ci" class="k" data-tab="day-ci"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-qr"/></svg><span>Check-in</span></label><label for="r-hb" class="k" data-tab="day-hb"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span>Event Hub Controller</span></label><label for="r-sc" class="k" data-tab="day-sc"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cal"/></svg><span>Schedule</span></label></nav>
+<nav class="bb n5" data-p="after" aria-label="Primary navigation"><label for="r-ov" class="k" data-tab="after-ov"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Overview</span></label><label for="r-pp" class="k" data-tab="after-pp"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg><span>Papic</span></label><label for="r-ga" class="k" data-tab="after-ga"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-images"/></svg><span>Galleries</span></label><label for="r-tm" class="k" data-tab="after-tm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-team"/></svg><span>Your Team</span></label><label for="r-hb" class="k" data-tab="after-hb"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span>Event Hub Controller</span></label></nav></div>
+    <label for="drw" class="dscrim new"></label>
+    <nav class="drawer new" aria-label="This event">
+      <div class="dh"><span>Menu</span><label for="drw" class="x k"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></label></div>
+      <div class="rhead">
+<a class="row back k"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-events"/></svg><span class="tx">Events</span><span class="cap">Events</span></a>
+<label for="r-de" class="evname k" data-row="de"><span class="mono-mark">I&amp;C</span><span class="evt"><b>Indalecio &amp; Claire</b><span>Personalization ›</span></span></label>
+</div>
+<label for="r-ov" class="row k" data-row="ov" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span class="tx">Overview</span><span class="cap">Overview</span></label>
+<div class="spine"><label for="r-pp" class="row k" data-row="pp" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg><span class="tx">Papic<span class="st" title="Studio product">✦</span></span><span class="cap">Papic</span></label><label for="r-ga" class="row k" data-row="ga" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-images"/></svg><span class="tx">Galleries</span><span class="cap">Galleries</span></label><label for="r-ed" class="row k" data-row="ed" data-p="after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-paper"/></svg><span class="tx">Editorial</span><span class="cap">Editorial</span></label></div>
+<div class="sec" data-p="plan day after"><div class="lbl">Book</div>
+<label for="r-tm" class="row k" data-row="tm" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-team"/></svg><span class="tx">Your Team</span><span class="cap">Your Team</span></label>
+<label for="r-bu" class="row k" data-row="bu" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg><span class="tx">Budget</span><span class="cap">Budget</span></label>
+</div>
+<div class="sec" data-p="plan day after"><div class="lbl">Look</div>
+<label for="r-mb" class="row k" data-row="mb" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"/></svg><span class="tx">Mood Board<span class="st" title="Studio product">✦</span></span><span class="cap">Mood Board</span></label>
+<label for="r-lm" class="row k" data-row="lm" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gem"/></svg><span class="tx">Logo Maker<span class="st" title="Studio product">✦</span></span><span class="cap">Logo Maker</span></label>
+<label for="r-pk" class="row k" data-row="pk" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-music"/></svg><span class="tx">Pakanta<span class="st" title="Studio product">✦</span></span><span class="cap">Pakanta</span></label>
+</div>
+<div class="sec" data-p="plan day after"><div class="lbl">Invite</div>
+<label for="r-gu" class="row k" data-row="gu" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-guests"/></svg><span class="tx">Guests</span><span class="n">81</span><span class="cap">Guests</span></label>
+<label for="r-ho" class="row k" data-row="ho" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-crown"/></svg><span class="tx">Hosts</span><span class="cap">Hosts</span></label>
+<label for="r-hb" class="row k" data-row="hb" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span class="tx">Event Hub Controller</span><span class="cap">Event Hub Controller</span></label>
+</div>
+<div class="sec" data-p="plan day after"><div class="lbl">The day<span class="now" data-p="day">now</span></div>
+<label for="r-sc" class="row k" data-row="sc" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cal"/></svg><span class="tx">Schedule</span><span class="cap">Schedule</span></label>
+<label for="r-ci" class="row k" data-row="ci" data-p="day"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-qr"/></svg><span class="tx">Check-in</span><span class="cap">Check-in</span></label>
+<label for="r-sp" class="row k" data-row="sp" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chair"/></svg><span class="tx">Seat plan</span><span class="cap">Seat plan</span></label>
+<label for="r-p3" class="row k" data-row="p3" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cube"/></svg><span class="tx">3D Plan<span class="st" title="Studio product">✦</span></span><span class="cap">3D Plan</span></label>
+<label for="r-ls" class="row k" data-row="ls" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-live"/></svg><span class="tx">Live Studio<span class="st" title="Studio product">✦</span></span><span class="cap">Live Studio</span></label>
+<label for="r-pt" class="row k" data-row="pt" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-reel"/></svg><span class="tx">Patiktok<span class="st" title="Studio product">✦</span></span><span class="cap">Patiktok</span></label>
+</div>
+<div class="sec quiet"><div class="lbl">&nbsp;</div>
+<label for="r-ai" class="row k" data-row="ai" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-spark"/></svg><span class="tx">Setnayan AI<span class="st" title="Studio product">✦</span></span><span class="cap">Setnayan AI</span></label>
+<label for="r-al" class="row k" data-row="al" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-grid"/></svg><span class="tx">Suite</span><span class="cap">Suite</span></label>
+<label for="r-rf" class="row k" data-row="rf" data-p="plan day after"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gift"/></svg><span class="tx">Refer a couple</span><span class="cap">Refer a couple</span></label>
+</div>
+    </nav>
+
+    <!-- TODAY, measured -->
+    <div class="oldwrap old">
+      <div class="oldrail"><div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-events"/></svg><span class="tx">Events</span><span class="rn">1</span></div>
+<div class="lbl old-h">Indalecio &amp; Claire</div>
+<div class="lbl old-h">Plan</div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span class="tx">Overview</span><span class="rn">2</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-guests"/></svg><span class="tx">Guests <span class="n">81</span></span><span class="rn">3</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-team"/></svg><span class="tx">Your Team</span><span class="rn">4</span></div>
+<div class="lbl old-h">Go live</div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span class="tx">Event Hub Controller</span><span class="rn">5</span></div>
+<div class="lbl old-h">Also in this event</div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-events"/></svg><span class="tx">Personalization</span><span class="rn">6</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-crown"/></svg><span class="tx">Hosts</span><span class="rn">7</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gift"/></svg><span class="tx">Refer a couple</span><span class="rn">8</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cal"/></svg><span class="tx">Schedule</span><span class="rn">9</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chair"/></svg><span class="tx">Seat plan</span><span class="rn">10</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-wallet"/></svg><span class="tx">Budget</span><span class="rn">11</span></div>
+<div class="lbl old-h">Browse by category</div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-store"/></svg><span class="tx">Venues &amp; churches</span><span class="rn">12</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-store"/></svg><span class="tx">Catering &amp; cake</span><span class="rn">13</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-store"/></svg><span class="tx">Photo &amp; video</span><span class="rn">14</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-store"/></svg><span class="tx">Attire, hair &amp; make-up</span><span class="rn">15</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-store"/></svg><span class="tx">Hosts, music &amp; program</span><span class="rn">16</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg><span class="tx">Show more — 11 more</span><span class="rn">17</span></div>
+<div class="lbl old-h">Studio <small>the things you make</small></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-spark"/></svg><span class="tx">Setnayan AI</span><span class="rn">18</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-globe"/></svg><span class="tx">Event Hub</span><span class="rn">19</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-camera"/></svg><span class="tx">Papic</span><span class="rn">20</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-live"/></svg><span class="tx">Live Studio</span><span class="rn">21</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-reel"/></svg><span class="tx">Patiktok</span><span class="rn">22</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cube"/></svg><span class="tx">3D Plan</span><span class="rn">23</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-palette"/></svg><span class="tx">Mood Board</span><span class="rn">24</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-music"/></svg><span class="tx">Pakanta</span><span class="rn">25</span></div>
+<div class="row hit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-gem"/></svg><span class="tx">Logo Maker</span><span class="rn">26</span></div>
+<div class="row"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-grid"/></svg><span class="tx">All services</span><span class="rn">27</span></div></div>
+      <div class="oldsum">
+        <span class="mlbl2">Today · desktop rail and phone ☰ drawer · wedding · planning</span>
+        <div class="nums">
+          <div><span class="pn" style="color:var(--cta)">26</span><span class="pl">Logo Maker's row</span></div>
+          <div><span class="pn">27</span><span class="pl">rows</span></div>
+          <div><span class="pn">+11</span><span class="pl">behind Show more</span></div>
+          <div><span class="pn">2</span><span class="pl">rows open /launch</span></div>
+        </div>
+        <div class="nums">
+          <div><span class="pn">4</span><span class="pl">phone tabs (5th never renders)</span></div>
+          <div><span class="pn">5</span><span class="pl">headings</span></div>
+        </div>
+      </div>
+    </div>
+    <nav class="bb oldbb old" aria-label="Primary navigation (today)">
+      <label><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg><span>Overview</span></label><label><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-guests"/></svg><span>Guests</span><span class="bdg">81</span></label>
+      <label><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-team"/></svg><span>Your Team</span></label><label><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-grid"/></svg><span>Suite</span></label>
+    </nav>
+
+    <label for="why" class="scrim"></label>
+    <aside class="panel" aria-label="Why here, why this name">
+      <label for="why" class="x k"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></label>
+      <div class="why" data-r="de">
+  <div class="wl">Personalization</div>
+  <dl><dt>Today</dt><dd>Row 6, under “Also in this event”.</dd><dt>Why here</dt><dd>Moved onto the event’s own name, at the top. Names, date, venue and budget are facts <i>about</i> the event, so they open from the event’s name. That’s where you look when you want to change “our wedding”.</dd><dt>Why this name</dt><dd>Kept: <b>Personalization</b> is your word for this page (2026-06-02). 🔑 Your call: it now sits two rows above Mood Board and Logo Maker, which is where the look gets personalised. If that reads as two places for one job, <b>Details</b> is the plainer word.</dd></dl>
+</div>
+<div class="why" data-r="ov">
+  <div class="wl">Overview</div>
+  <dl><dt>Today</dt><dd>Row 2 on the laptop. First tab on the phone, but called <b>Now</b> on the day.</dd><dt>Why here</dt><dd>Still first, in every phase. It’s the event’s front page.</dd><dt>Why this name</dt><dd>One page, one word. The day-of tab said <b>Now</b> for the same address. It becomes <b>Overview</b>, the same rule the Event Hub Controller already follows in all three phases.</dd></dl>
+</div>
+<div class="why" data-r="pp">
+  <div class="wl">Papic</div>
+  <dl><dt>Today</dt><dd>Row 20, the 4th product in the Studio group, below 17 category rows. On the phone it had no tab: Suite tab → the Suite page → one card among the add-ons. In the first draft of this prototype it sat under <b>The day</b>, and that was wrong.</dd><dt>Why here</dt><dd>Directly under Overview, in <b>every</b> phase. Papic isn’t one moment’s tool. It’s where Setnayan collects the photos and makes the memories, before, during and after the day. Galleries and Editorial are made from what it collects. So it heads the event’s spine, and it’s a bottom-bar tab on the phone in all three phases.</dd><dt>Why this name</dt><dd>Unchanged. Papic is its name everywhere, and it keeps its ✦.</dd></dl>
+</div>
+<div class="why" data-r="ga">
+  <div class="wl">Galleries</div>
+  <dl><dt>Today</dt><dd>Only after the event: a phone tab and a laptop row.</dd><dt>Why here</dt><dd>Directly under Papic, in every phase. It’s where Papic’s photos land (plus Live Studio and your own uploads). The page already shows “collecting” until the first photo arrives, so showing it before the day isn’t a fake door.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="ed">
+  <div class="wl">Editorial</div>
+  <dl><dt>Today</dt><dd>A laptop row after the event only.</dd><dt>Why here</dt><dd>Joins Papic and Galleries once the event is over. It’s the story made from those photos. It’s still also a door inside the Event Hub Controller.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="tm">
+  <div class="wl">Your Team</div>
+  <dl><dt>Today</dt><dd>Row 4, under “Plan”. Below it, 17 more supplier rows: the <b>Browse by category</b> heading, 5 categories and “Show more — 11 more”. After the event the phone called this page <b>Review</b>.</dd><dt>Why here</dt><dd>Leads <b>Book</b>, and it’s the <b>only</b> supplier row. You said it: Your Team is where couples search, negotiate and build their suppliers. A second find row would be a second door to the same job. The category rows also went somewhere worse: the public <code>/explore</code> directory, which doesn’t know this event’s date, budget or open positions. Your Team’s own search does.</dd><dt>Why this name</dt><dd>Your 2026-09-06 ruling: the event’s supplier page is <b>Your Team</b>. The after-event <b>Review</b> tab opened this same page, so it merges in. The after moment shows as a “to review” count, not a second name. “Suppliers” stays the name of the public directory outside an event, where it belongs.</dd></dl>
+</div>
+<div class="why" data-r="bu">
+  <div class="wl">Budget</div>
+  <dl><dt>Today</dt><dd>Row 11, under “Also in this event”.</dd><dt>Why here</dt><dd>Under <b>Book</b>, with the people you pay. The budget fills from what Your Team agrees to. Still a row, not a main room (your 2026-07-10 ruling holds).</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="mb">
+  <div class="wl">Mood Board</div>
+  <dl><dt>Today</dt><dd>Row 24, the 7th product in the Studio group, below all 17 category rows.</dd><dt>Why here</dt><dd>First under <b>Look</b>. Everything after it dresses to match its colours: the Event Hub, the monogram, the QR codes, the 3D Plan. So it comes before all of them.</dd><dt>Why this name</dt><dd>Unchanged. The ✦ says it’s a Studio product, free.</dd></dl>
+</div>
+<div class="why" data-r="lm">
+  <div class="wl">Logo Maker</div>
+  <dl><dt>Today</dt><dd>Row 26 of 27: the last product, below 17 category rows and 8 other products.</dd><dt>Why here</dt><dd>Directly under Mood Board. You make the mark right after you choose the colours. <b>Row 9 of 21</b>, and above the fold on a 768-pixel-tall screen. On the phone it’s in the <b>Look</b> strip the moment you open Mood Board.</dd><dt>Why this name</dt><dd>Unchanged. Same name as its product page.</dd></dl>
+</div>
+<div class="why" data-r="pk">
+  <div class="wl">Pakanta</div>
+  <dl><dt>Today</dt><dd>Row 25, in the Studio group.</dd><dt>Why here</dt><dd>Under <b>Look</b>, because the Suite already files it under “Your look &amp; keepsakes”. The menu follows the Suite’s own filing, so the two can never disagree.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="gu">
+  <div class="wl">Guests</div>
+  <dl><dt>Today</dt><dd>Row 3, under “Plan”. Second tab on the phone.</dd><dt>Why here</dt><dd>Under <b>Invite</b>, after Look, because the invitation wears the look. Still one tap on the phone’s bottom bar.</dd><dt>Why this name</dt><dd>Unchanged. Same head-count badge from the same helper.</dd></dl>
+</div>
+<div class="why" data-r="ho">
+  <div class="wl">Hosts</div>
+  <dl><dt>Today</dt><dd>Row 7, under “Also in this event”.</dd><dt>Why here</dt><dd>Next to Guests. The Guests tab already lights up on this page, so the app already treats Hosts as part of the people room.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="hb">
+  <div class="wl">Event Hub Controller</div>
+  <dl><dt>Today</dt><dd>Two rows opening one page: row 5 under “Go live”, and row 19, “Event Hub”, in the Studio group. The phone also had Website and Event page anchors for it.</dd><dt>Why here</dt><dd>One row, under <b>Invite</b>. The Hub is how your save-the-date and RSVP reach guests.</dd><dt>Why this name</dt><dd>Your 2026-09-03 ruling: <b>Event Hub</b> is the site guests open, and <b>Event Hub Controller</b> is where you run it. Same word in all three phases. The Studio’s “Event Hub” row opened this same page, so it merges in.</dd></dl>
+</div>
+<div class="why" data-r="sc">
+  <div class="wl">Schedule</div>
+  <dl><dt>Today</dt><dd>Row 9, under “Also in this event”. Fifth tab on the day.</dd><dt>Why here</dt><dd>Leads <b>The day</b>: the running order.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="ci">
+  <div class="wl">Check-in</div>
+  <dl><dt>Today</dt><dd>A day-of phone tab only. No row on the laptop at all.</dd><dt>Why here</dt><dd>Appears in <b>The day</b> when the day comes, on both the phone and the laptop.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="sp">
+  <div class="wl">Seat plan</div>
+  <dl><dt>Today</dt><dd>Row 10, under “Also in this event”. The day-of phone tab called it <b>Seats</b>.</dd><dt>Why here</dt><dd>Under <b>The day</b>. Seating is settled last and used on the day.</dd><dt>Why this name</dt><dd>One page, one word: <b>Seats</b> (phone, on the day) and <b>Seat plan</b> (laptop) were two names for <code>/seating</code>. Now it’s <b>Seat plan</b> everywhere.</dd></dl>
+</div>
+<div class="why" data-r="p3">
+  <div class="wl">3D Plan</div>
+  <dl><dt>Today</dt><dd>Row 23, in the Studio group, far from Seat plan.</dd><dt>Why here</dt><dd>Directly under Seat plan. It’s the same room in 3D.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="ls">
+  <div class="wl">Live Studio</div>
+  <dl><dt>Today</dt><dd>Row 21, in the Studio group.</dd><dt>Why here</dt><dd>Under <b>The day</b>, same filing as Papic.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="pt">
+  <div class="wl">Patiktok</div>
+  <dl><dt>Today</dt><dd>Row 22, in the Studio group.</dd><dt>Why here</dt><dd>Under <b>The day</b>, same filing as Papic.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="ai">
+  <div class="wl">Setnayan AI</div>
+  <dl><dt>Today</dt><dd>Row 18: first in the Studio group.</dd><dt>Why here</dt><dd>At the end, beside the Suite. It helps with every moment rather than belonging to one. It’s also in your account menu. 🔑 Your call if you want it higher.</dd><dt>Why this name</dt><dd>Unchanged.</dd></dl>
+</div>
+<div class="why" data-r="al">
+  <div class="wl">Suite</div>
+  <dl><dt>Today</dt><dd>Row 27, called <b>All services</b>. On the phone the same page is the <b>Suite</b> tab.</dd><dt>Why here</dt><dd>Closes the list: the whole shelf, holding every ✦ product above it.</dd><dt>Why this name</dt><dd>Back to <b>Suite</b>, your locked name (2026-07-19). “All services” only existed so the word Studio wouldn’t appear twice under a Studio heading, and that heading is gone. Now one page has one word on the phone and the laptop.</dd></dl>
+</div>
+<div class="why" data-r="rf">
+  <div class="wl">Refer a couple</div>
+  <dl><dt>Today</dt><dd>Row 8, under “Also in this event”.</dd><dt>Why here</dt><dd>At the end. It’s not a planning step.</dd><dt>Why this name</dt><dd>Unchanged. Still hidden when referrals are off.</dd></dl>
+</div>
+    </aside>
+  </div>
+
+  <div class="after">
+    <details>
+      <summary>The 18 rows (and Browse by category), one by one <svg class="ii" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg></summary>
+      <table class="led"><thead><tr><th></th><th>Row</th><th>Where it was</th><th>What happens</th><th>Moment</th><th>Why</th></tr></thead><tbody><tr><td>1</td><td><b>Now</b></td><td>day-of tab 1</td><td><span class="vd">renamed</span></td><td>Overview</td><td>Same page as the Overview tab in the other two phases. One page, one word, the same rule the Hub already obeys.</td></tr><tr><td>2</td><td><b>Check-in</b></td><td>day-of tab 2</td><td><span class="vd">kept · added to laptop</span></td><td>The day</td><td>Only the phone had it. The laptop gains the row on the day.</td></tr><tr><td>3</td><td><b>Seats</b></td><td>day-of tab 3</td><td><span class="vd">renamed</span></td><td>Seat plan</td><td>The laptop called <code>/seating</code> “Seat plan”. Two words for one page.</td></tr><tr><td>4</td><td><b>Event Hub Controller</b></td><td>day-of tab 4</td><td><span class="vd">kept</span></td><td>Invite</td><td>One of three phase slots for one page: already one key and one word, pinned by <code>one-menu-word-in-all-three-phases.test.ts</code>.</td></tr><tr><td>5</td><td><b>Schedule</b></td><td>day-of tab 5</td><td><span class="vd">kept</span></td><td>The day</td><td>Leads its moment.</td></tr><tr><td>6</td><td><b>Overview</b></td><td>after tab 1</td><td><span class="vd">kept</span></td><td>top</td><td></td></tr><tr><td>7</td><td><b>Review</b></td><td>after tab 2</td><td><span class="vd">merged → Your Team</span></td><td>Book</td><td>It opened <code>/vendors?tab=build</code>, which is Your Team. The after moment becomes a count, not a name.</td></tr><tr><td>8</td><td><b>Event Hub Controller</b></td><td>after tab 3</td><td><span class="vd">kept</span></td><td>Invite</td><td></td></tr><tr><td>9</td><td><b>Galleries</b></td><td>after tab 4</td><td><span class="vd">moved up · every phase</span></td><td>Photos &amp; memories</td><td>Directly under Papic. It’s where Papic’s photos land, and the page already says “collecting” before the first one.</td></tr><tr><td>10</td><td><b>Overview</b></td><td>plan tab 1</td><td><span class="vd">kept</span></td><td>top</td><td></td></tr><tr><td>11</td><td><b>Guests</b></td><td>plan tab 2</td><td><span class="vd">moved</span></td><td>Invite</td><td>After Look, because the invitation wears it. Still a bottom-bar tab.</td></tr><tr><td>12</td><td><b>Your Team</b></td><td>plan tab 3</td><td><span class="vd">moved</span></td><td>Book (first)</td><td>Leads the first moment, with Suppliers directly under it: find, then manage.</td></tr><tr><td>13</td><td><b>Setnayan AI</b></td><td>Studio dock anchor</td><td><span class="vd">retired as anchor → row</span></td><td>end, beside Suite</td><td>This dock only renders on <code>/studio</code>, which redirects to <code>/suite</code> when the Suite flag is on (the flag was on in prod when read 2026-09-22), so production never shows it.</td></tr><tr><td>14</td><td><b>Website</b></td><td>Studio dock anchor</td><td><span class="vd">merged → Event Hub Controller</span></td><td>Invite</td><td>Your 2026-09-02 one-door ruling: the website product opens the controller.</td></tr><tr><td>15</td><td><b>Capture</b></td><td>Studio dock anchor</td><td><span class="vd">split</span></td><td>The day + Photos &amp; memories</td><td>Live Studio and Patiktok stay in The day. <b>Papic leaves it</b>: owner 2026-09-24, “papic is the life source of setnayan. it is where we collect photos and make memories”. It now heads the spine under Overview in every phase, and has a phone tab in every phase.</td></tr><tr><td>16</td><td><b>Branding</b></td><td>Studio dock anchor</td><td><span class="vd">became a moment</span></td><td>Look</td><td>The Suite’s “Your look &amp; keepsakes” group, plus Mood Board. <b>This is where Logo Maker now lives.</b></td></tr><tr><td>17</td><td><b>Event page</b></td><td>Studio dock route</td><td><span class="vd">merged → Event Hub Controller</span></td><td>Invite</td><td>“View live” is already a door inside the controller.</td></tr><tr><td>18</td><td><b>Browse by category</b></td><td>rail heading + 5 rows + Show more (11)</td><td><span class="vd">removed</span></td><td>—</td><td>Owner 2026-09-24: Your Team is where couples search, negotiate and build. The rows opened <code>/explore</code>, the public directory that doesn’t know the event. Inside an event, finding a supplier happens in Your Team.</td></tr><tr><td>19</td><td><b>Event Hub Controller</b></td><td>plan tab 5</td><td><span class="vd">kept · and actually rendered</span></td><td>Invite</td><td>🐞 <b>Never shows on a phone today</b>: <code>CustomerBottomNav</code> never passes <code>websiteEnabled</code> to the tree, so the planning Hub tab is dropped. The test passes <code>websiteEnabled: true</code> itself, so it can’t see this.</td></tr></tbody></table>
+    </details>
+  </div>
+</div>
+</body>
+</html>

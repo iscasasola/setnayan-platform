@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papic controller — redesign prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  PAPIC CONTROLLER — responsive redesign prototype (2026-09-21)
+  Route it stands for: /dashboard/[eventId]/studio/papic  (set up + buy Papic; NOT the Event Hub's Papic section)
+  One DOM, two layouts:
+    < 1024px  one column, sections in the order of the current phase
+    ≥ 1024px  shell (top bar + left rail) · flow in the wide left column · status + credits + Buy sticky on the right
+              sub-screens and the pay flow open as a right-side drawer instead of full screen
+  Phase (prototype bar at the top): BEFORE the event = set-up order · AFTER = results lead, setup collapses.
+  Real values: 17 price rungs read off prod 2026-09-21 · 5 looks from lib/papic-photo-styles.ts ·
+  challenge prompts from the challenge library seed. Placeholders are marked [LIKE THIS].
+-->
+<style>
+:root{
+  --ink:#2C2A29; --ink-2:#6F6A62; --ink-3:#9A948A;
+  --line:#E6E0D6; --line-2:#F0EBE3; --soft:#F4F1EC; --page:#FFFFFF;
+  --gold:#8C6932; --gold-2:#C9A46A; --night:#17160F; --night-line:#3A372C; --night-ink:#F4EFE6; --night-2:#B8AE9E;
+  --ok-bg:#E8F1E6; --ok:#2F6B35;
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;color:inherit}
+h1,h2{margin:0;font-weight:600}
+.proto{position:sticky;top:0;z-index:30;display:flex;gap:8px;align-items:center;padding:8px 16px;background:#EDEAE4;font-size:12px;color:var(--ink-2)}
+.proto b{font-weight:600;color:var(--ink)}
+.pill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px;white-space:nowrap}
+.pill[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.proto .pill{height:30px}
+
+/* ---------- shell (desktop only) ---------- */
+.shell-top,.shell-rail{display:none}
+.app{display:block}
+
+/* ---------- page ---------- */
+.page-head{display:flex;align-items:center;gap:4px;padding:12px 16px 4px 8px}
+.icon-btn{width:44px;height:44px;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;border-radius:999px}
+.icon-btn.ring{border:1px solid var(--line);background:#fff}
+.page-head h1{font-size:24px;font-weight:500;line-height:1.1}
+.status{font-size:13px;color:var(--ink-2)}
+.layout{display:flex;flex-direction:column;gap:22px;padding:12px 16px 40px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h2{font-size:17px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.muted{color:var(--ink-2)}
+.card{border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.rows{border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.row{min-height:52px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border:0;border-bottom:1px solid var(--line-2);background:#fff;font-size:15px;text-align:left}
+.rows .row:last-child{border-bottom:0}
+.row .v{color:var(--ink-2)} .row .v.gold{color:var(--gold)}
+.lone{border:1px solid var(--line);border-radius:var(--r-md)}
+.btn{height:50px;border:0;border-radius:999px;background:var(--gold);color:#fff;font-size:15px;font-weight:600;padding:0 22px}
+.btn.dark{background:var(--ink)} .btn.ghost{background:#fff;border:1px solid var(--gold);color:var(--gold);height:44px}
+.seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:var(--soft);border-radius:999px;padding:4px}
+.seg button{height:40px;border:0;border-radius:999px;background:transparent;font-size:14px}
+.seg button[aria-pressed="true"]{background:#fff;font-weight:600;box-shadow:0 1px 3px rgba(23,22,15,.12)}
+.switch{width:44px;height:26px;flex-shrink:0;border:0;border-radius:999px;background:#D9D3C8;padding:3px;display:flex}
+.switch::after{content:"";width:20px;height:20px;border-radius:999px;background:#fff;transition:transform .15s}
+.switch[aria-checked="true"]{background:var(--gold)}
+.switch[aria-checked="true"]::after{transform:translateX(18px)}
+.stepper{display:flex;gap:8px;align-items:stretch}
+.stepper .sb{width:48px;flex-shrink:0;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:22px}
+.stepper .sb:disabled{opacity:.35;cursor:default}
+.stepper .val{flex:1;border-radius:14px;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px}
+.stepper .big{font-size:20px;font-weight:600}
+.small{font-size:12px;color:var(--ink-2)}
+.center{text-align:center}
+
+/* next step (dark) */
+.next{background:var(--night);color:var(--night-ink);border-radius:var(--r-lg);padding:18px;display:flex;flex-direction:column;gap:12px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-2)}
+.next .q{font-size:21px;font-weight:500}
+.next label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--night-2)}
+.next input,.next .fixed{height:44px;border-radius:var(--r-sm);border:1px solid var(--night-line);background:#221F17;color:var(--night-ink);padding:0 12px;font:inherit;font-size:15px;display:flex;align-items:center}
+.next .fixed{background:transparent}
+.next .btn{background:var(--gold-2);color:var(--night);height:48px}
+
+/* credits */
+.credits{background:var(--soft);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.credits .left strong{font-size:22px;font-weight:600;color:var(--ink)}
+.pending{font-size:13px;color:var(--gold)}
+.glance{display:none}
+
+/* filter */
+.looks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.look{padding:3px 3px 6px;border-radius:13px;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;gap:4px;font-size:12px}
+.look[aria-pressed="true"]{border:2px solid var(--gold);font-weight:600}
+.look svg{display:block;width:100%;border-radius:10px}
+
+/* gallery */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.tile{position:relative;aspect-ratio:1/1;border:0;border-radius:10px;display:flex;align-items:flex-end;padding:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#fff}
+.tile[aria-pressed="true"]{outline:2px solid var(--gold-2);outline-offset:-2px}
+.tile[aria-pressed="true"]::after{content:"✓";position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:999px;background:var(--gold-2);color:var(--night);display:flex;align-items:center;justify-content:center;font-size:12px}
+
+/* wall */
+.wall-styles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.wall-styles .pill{padding:0 4px}
+
+/* compact (after the event, setup collapses to one line) */
+.compact{display:none}
+body.after .setup-sec .full{display:none}
+body.after .setup-sec .compact{display:flex}
+body.after .setup-sec h2.full-h{display:none}
+
+/* PHASE ORDER — one DOM, reordered */
+.s-dates{order:1}.s-guests{order:2}.s-credits{order:3}.s-filter{order:4}.s-challenges{order:5}.s-gallery{order:6}.s-kwento{order:7}.s-wall{order:8}.s-more{order:9}
+body.after .s-gallery{order:1} body.after .s-kwento{order:2} body.after .s-wall{order:3} body.after .s-credits{order:4}
+body.after .s-guests{order:5} body.after .s-filter{order:6} body.after .s-challenges{order:7} body.after .s-dates{order:8} body.after .s-more{order:9}
+
+/* ---------- panel: full screen on phone, side drawer on desktop ---------- */
+.scrim{position:fixed;inset:0;background:rgba(23,22,15,.45);z-index:40;display:none}
+.panel{position:fixed;inset:0;background:#fff;z-index:41;display:none;flex-direction:column}
+.open .scrim{display:block} .open .panel{display:flex}
+.panel-head{display:flex;align-items:center;gap:4px;padding:12px 16px 8px 8px;border-bottom:1px solid var(--line-2)}
+.panel-head .t{flex:1;font-size:19px;font-weight:600}
+.panel-body{flex:1;overflow-y:auto;padding:14px 16px 28px;display:flex;flex-direction:column;gap:10px}
+.pick{min-height:60px;border-radius:var(--r-md);padding:10px 12px 10px 16px;display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:#fff;text-align:left;font-size:15px;line-height:1.35}
+.pick[aria-pressed="true"]{border:2px solid var(--gold);background:#FBF6EE}
+.pick .m{width:32px;height:32px;flex-shrink:0;border-radius:999px;background:var(--soft);display:flex;align-items:center;justify-content:center}
+.pick[aria-pressed="true"] .m{background:var(--gold);color:#fff}
+.pick:disabled{opacity:.5}
+.rev{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.msg{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:10px}
+.done-note{font-size:13px;color:var(--ok)}
+.check{width:56px;height:56px;border-radius:999px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:26px;margin:8px auto 0}
+.toast{position:fixed;left:16px;right:16px;bottom:24px;z-index:50;border-radius:14px;background:var(--ink);color:#fff;padding:14px 16px;font-size:14px;display:none;justify-content:space-between;align-items:center}
+.toast.on{display:flex}
+.toast button{border:0;background:transparent;color:var(--gold-2);font-weight:600}
+
+/* ---------- DESKTOP ---------- */
+@media (min-width:1024px){
+  body{background:#FAF8F4}
+  .shell-top{display:flex;align-items:center;gap:16px;height:60px;padding:0 24px;background:#fff;border-bottom:1px solid var(--line-2);position:sticky;top:46px;z-index:20}
+  .shell-top .brand{font-weight:700;letter-spacing:.2em;font-size:14px}
+  .shell-top .search{flex:1;max-width:520px;height:40px;border:1px solid var(--line);border-radius:999px;display:flex;align-items:center;padding:0 16px;color:var(--ink-3);font-size:14px}
+  .app{display:grid;grid-template-columns:88px 1fr}
+  .shell-rail{display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px 0;border-right:1px solid var(--line-2);background:#fff;min-height:calc(100vh - 106px);font-size:11px;color:var(--ink-2)}
+  .shell-rail span.on{color:var(--gold);font-weight:600}
+  .main{max-width:1200px;width:100%;margin:0 auto;padding:8px 32px}
+  .page-head{padding:20px 0 8px}
+  .page-head h1{font-size:30px}
+  .page-head .back{display:none}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;column-gap:32px;row-gap:28px;padding:8px 0 64px;align-items:start}
+  .layout > .sec{grid-column:1}
+  .layout > .s-credits{grid-column:2;grid-row:1 / span 8;position:sticky;top:124px;align-self:start}
+  .glance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-bottom:1px solid #E6DFD3;padding-bottom:14px}
+  .glance div{display:flex;flex-direction:column}.glance b{font-size:22px;font-weight:600}.glance span{font-size:12px;color:var(--ink-2)}
+  .grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .rows,.card,.lone{background:#fff}
+  .looks{grid-template-columns:repeat(5,minmax(0,96px))}
+  .panel{inset:0 0 0 auto;width:440px;box-shadow:-8px 0 24px rgba(23,22,15,.08)}
+  .toast{left:auto;right:24px;width:360px}
+  .status-m{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="proto" role="group" aria-label="Prototype controls">
+  <b>Prototype</b>
+  <button class="pill" data-phase="before" aria-pressed="true">Before</button>
+  <button class="pill" data-phase="after" aria-pressed="false">Day &amp; after</button>
+</div>
+
+<div class="shell-top"><span class="brand">SETNAYAN</span><span class="search">Search events, people, vendors</span></div>
+
+<div class="app">
+  <nav class="shell-rail" aria-label="Event menu"><span>Overview</span><span>Guests</span><span>Schedule</span><span>Budget</span><span class="on">Papic</span><span>Event Hub</span></nav>
+
+  <div class="main">
+    <div class="page-head">
+      <button class="icon-btn back" aria-label="Back to add-ons"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div><h1>Papic</h1><span class="status status-m" id="statusLine"></span></div>
+    </div>
+
+    <div class="layout">
+
+      <!-- DATES -->
+      <section class="sec s-dates" aria-label="Capture dates">
+        <div class="next" id="datesOpen">
+          <span class="eyebrow">Do this first</span>
+          <span class="q">When can cameras shoot?</span>
+          <div style="display:flex;gap:8px">
+            <label style="flex:1">Start<input type="date" value="2026-07-25"></label>
+            <label>Ends<span class="fixed">Aug 1</span></label>
+          </div>
+          <button class="btn" id="saveDates">Save dates</button>
+        </div>
+        <button class="row lone" id="datesSet" hidden><span>Cameras open</span><span class="v">Jul 25 – Aug 1 ›</span></button>
+      </section>
+
+      <!-- GUESTS' SHOTS -->
+      <section class="sec s-guests setup-sec" aria-label="Guests' shots">
+        <h2 class="full-h">Guests’ shots</h2>
+        <div class="card full">
+          <span class="muted" style="font-size:14px">When they can shoot</span>
+          <div class="seg" id="when"><button aria-pressed="true" data-v="day">Event day</button><button aria-pressed="false" data-v="early">From start day</button></div>
+        </div>
+        <div class="card full">
+          <div class="sec-head"><span class="muted" style="font-size:14px">Limit per guest</span><button class="switch" role="switch" aria-checked="false" aria-label="Limit per guest" id="capSwitch"></button></div>
+          <div class="stepper" id="capStepper" hidden>
+            <button class="sb" id="capLess" aria-label="Fewer">−</button>
+            <div class="val" aria-live="polite"><span class="big" id="capVal">20 each</span></div>
+            <button class="sb" id="capMore" aria-label="More">+</button>
+          </div>
+          <span id="capOff" style="font-size:15px">No limit</span>
+        </div>
+        <button class="row lone full" data-open="crew"><span>Crew cameras</span><span class="v" id="crewSummary"></span></button>
+        <button class="row lone compact" data-open="guests"><span>Guests’ shots</span><span class="v" id="guestsCompact"></span></button>
+      </section>
+
+      <!-- CREDITS (sticky right on desktop) -->
+      <section class="sec s-credits" aria-label="Credits">
+        <div class="credits">
+          <div class="glance"><div><b>9</b><span>photos</span></div><div><b id="gCams">4</b><span>cameras</span></div><div><b id="gDays">Aug 1</b><span>event day</span></div></div>
+          <div class="sec-head"><h2>Credits</h2><span class="left muted" style="font-size:14px"><strong>50</strong> left</span></div>
+          <span class="pending" id="pending" hidden></span>
+          <div class="stepper">
+            <button class="sb" id="less" aria-label="Fewer credits">−</button>
+            <div class="val" aria-live="polite"><span class="big" id="rungCredits"></span><span class="small" id="rungMeta"></span></div>
+            <button class="sb" id="more" aria-label="More credits">+</button>
+          </div>
+          <button class="btn" id="buy"></button>
+          <span class="small center">Photo 1 · clip up to 8</span>
+        </div>
+      </section>
+
+      <!-- FILTER -->
+      <section class="sec s-filter setup-sec" aria-label="Filter">
+        <div class="sec-head full"><h2>Filter</h2><span class="small" id="lookBlurb"></span></div>
+        <div class="looks full" id="looks"></div>
+        <button class="row lone compact" data-open="filter"><span>Filter</span><span class="v" id="filterCompact"></span></button>
+      </section>
+
+      <!-- CHALLENGES -->
+      <section class="sec s-challenges setup-sec" aria-label="Challenges">
+        <div class="card full" style="flex-direction:row;align-items:center;justify-content:space-between">
+          <div><h2>Challenges</h2><span class="small" id="pickedLine"></span></div>
+          <button class="btn ghost" data-open="challenges">Pick</button>
+        </div>
+        <button class="row lone compact" data-open="challenges"><span>Challenges</span><span class="v" id="chCompact"></span></button>
+      </section>
+
+      <!-- GALLERY -->
+      <section class="sec s-gallery" aria-label="Gallery">
+        <div class="sec-head"><h2>Gallery <span class="muted" style="font-weight:400">· 9</span></h2>
+          <button class="icon-btn ring" id="download" aria-label="Download all"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button></div>
+        <div class="chips" id="chips"></div>
+        <div class="grid" id="grid"></div>
+        <span class="small center">Tap to keep full size</span>
+        <div class="rows">
+          <button class="row" data-open="review"><span>Review guest photos</span><span class="v gold" id="revLeft"></span></button>
+          <div class="row"><span>Guests can browse</span><button class="switch" role="switch" aria-checked="true" aria-label="Guests can browse" data-sw="shared"></button></div>
+        </div>
+      </section>
+
+      <!-- KWENTO -->
+      <section class="sec s-kwento" aria-label="Kwento">
+        <h2>Kwento</h2>
+        <div class="rows">
+          <button class="row" data-open="kwento"><span>Guest messages</span><span class="v gold" id="kwLeft"></span></button>
+          <button class="row" data-toast="Kwento Magazine · PDF downloading"><span>Kwento Magazine</span><span class="v">PDF ›</span></button>
+        </div>
+      </section>
+
+      <!-- LIVE WALL -->
+      <section class="sec s-wall" aria-label="Live wall">
+        <h2>Live wall</h2>
+        <div class="wall-styles" id="wallStyles"></div>
+        <div class="rows">
+          <div class="row"><span>Also on guests’ phones</span><button class="switch" role="switch" aria-checked="true" aria-label="Also on guests' phones" data-sw="phones"></button></div>
+          <button class="row" data-open="screen"><span>Screen code</span><span class="v gold">Get ›</span></button>
+        </div>
+      </section>
+
+      <!-- MORE -->
+      <section class="sec s-more" aria-label="More settings">
+        <h2>More</h2>
+        <div class="rows">
+          <button class="row" data-open="faces"><span>Finding people</span><span class="v" id="facesV"></span></button>
+          <button class="row" data-open="hand"><span>Adding by hand</span><span class="v" id="handV"></span></button>
+          <button class="row" data-open="drive"><span>Google Drive copy</span><span class="v" id="driveV"></span></button>
+          <button class="row" data-toast="Opens the DSLR pairing guide"><span>DSLR &amp; help</span><span class="v">›</span></button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: full screen on phone, drawer on desktop -->
+<div id="panelWrap">
+  <div class="scrim" id="scrim"></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+    <div class="panel-head">
+      <button class="icon-btn" id="panelBack" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <span class="t" id="panelTitle"></span><span class="muted" id="panelMeta" style="font-size:14px;padding-right:4px"></span>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="toastOk">OK</button></div>
+
+<script>
+(() => {
+  // ---------- data (real where sourced) ----------
+  const RUNGS = [[100,70,30],[200,140,30],[300,210,30],[400,280,30],[500,350,30],[1000,700,30],[2000,1400,30],[3000,1680,44],[4000,2240,44],[5000,2800,44],[6000,3360,44],[7000,3920,44],[10000,4500,55],[20000,7200,64],[30000,10800,64],[50000,15000,70],[100000,24000,76]];
+  const LOOKS = [['ORIG','Orig','Clean & true','contrast(1.06) saturate(1.1) brightness(1.005)'],['RETRO','Retro','Warm film, fine grain','sepia(0.16) saturate(1.05) contrast(0.92) brightness(1.05)'],['MONO','Mono','Rich black & white','grayscale(1) contrast(1.24) brightness(1.04)'],['CINE','Cine','Teal & orange','contrast(1.14) saturate(1.12) brightness(0.99) hue-rotate(-6deg)'],['LOMO','Lomo','Lo-fi toy camera','saturate(1.5) contrast(1.2) brightness(1.05) hue-rotate(4deg)']];
+  const CH = ['Catch the kiss.','Catch a dip. One photo.','Catch the first yawn of the night.','Get 5+ people dancing in one frame.','Snap the best-looking plate of the night.','Find the prettiest florals in the room.','Catch the bouquet or garter toss — or the scramble.','Catch the biggest reaction of the night on somebody’s face.','Catch somebody adjusting somebody else’s collar, veil or hair.','Catch the LED wall, fairy lights, or dance-floor glow.','Catch a group all checking the same photo on one phone.'];
+  const MOMENTS = [['Midday',0],['Cocktails',0],['Entrance',1],['Dinner',0],['First dance',1],['Money dance',0]];
+  const TONES = ['#8E7B62','#6B5A45','#A38B6A','#5E5446','#7D6A52','#4E4638'];
+  const REV = [['[Table 4 QR]','#7D6A52'],['[Guest · Lia]','#5E5446']];
+  const KW = [['[Guest · Table 2]','[Congratulations, Ana & Marco!]'],['[Guest · Table 7]','[Best party of the year.]'],['[Guest · Lia]','[a guest’s message]']];
+  const CAP = 9, POT = 50;
+
+  const S = { phase:'before', dates:false, rung:0, pending:0, method:'GCash', when:'day', capOn:false, cap:20, look:'ORIG', chip:'All', kept:{}, chosen:{}, reviewed:{}, kw:{}, crew:[0,0,0,0], wall:'Mosaic', shared:true, phones:true, faces:true, hand:true, drive:false, panel:null, pay:'pick' };
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => n.toLocaleString('en-PH');
+  const peso = (n) => '₱' + fmt(n);
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const crewTotal = () => S.crew.reduce((a,b) => a+b, 0);
+  const picked = () => Object.values(S.chosen).filter(Boolean).length;
+  const toast = (t) => { $('toastText').textContent = t; $('toast').classList.add('on'); };
+  $('toastOk').onclick = () => $('toast').classList.remove('on');
+
+  // ---------- render page ----------
+  function render() {
+    document.body.classList.toggle('after', S.phase === 'after');
+    document.querySelectorAll('[data-phase]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.phase === S.phase)));
+    $('statusLine').textContent = '50 credits · ' + S.crew.length + ' cameras · 9 photos';
+    $('gCams').textContent = S.crew.length;
+    const datesDone = S.dates || S.phase === 'after';
+    $('datesOpen').hidden = datesDone; $('datesSet').hidden = !datesDone;
+
+    // guests
+    document.querySelectorAll('#when button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === S.when)));
+    $('capSwitch').setAttribute('aria-checked', String(S.capOn));
+    $('capStepper').hidden = !S.capOn; $('capOff').hidden = S.capOn;
+    $('capVal').textContent = S.cap + ' each';
+    $('crewSummary').textContent = S.crew.length + ' · ' + fmt(crewTotal()) + ' own ›';
+    $('guestsCompact').textContent = (S.when === 'day' ? 'Event day' : 'From start day') + ' · ' + (S.capOn ? S.cap + ' each' : 'no limit') + ' ›';
+
+    // credits
+    const r = RUNGS[S.rung];
+    $('rungCredits').textContent = '+' + fmt(r[0]);
+    $('rungMeta').textContent = peso(r[1]) + ' · ' + r[2] + '% off';
+    $('less').disabled = S.rung === 0; $('more').disabled = S.rung === RUNGS.length - 1;
+    $('buy').textContent = 'Buy · ' + peso(r[1]);
+    $('pending').hidden = !S.pending; $('pending').textContent = '+' + fmt(S.pending) + ' on the way · checking payment';
+
+    // filter
+    const L = LOOKS.find((l) => l[0] === S.look);
+    $('lookBlurb').textContent = L[2]; $('filterCompact').textContent = L[1] + ' ›';
+    $('looks').innerHTML = LOOKS.map(([id, label, , css]) => '<button class="look" data-look="' + id + '" aria-pressed="' + (S.look === id) + '"><svg viewBox="0 0 60 72" aria-hidden="true" style="filter:' + css + '"><rect width="60" height="72" fill="#E9B98A"/><rect y="40" width="60" height="32" fill="#6F8F6A"/><circle cx="46" cy="16" r="7" fill="#F7E3B5"/><circle cx="22" cy="34" r="6" fill="#5A3A2A"/><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"/><circle cx="37" cy="33" r="6" fill="#3A2A22"/><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"/></svg>' + label + '</button>').join('');
+
+    // challenges
+    $('pickedLine').textContent = picked() + ' of ' + CAP + ' picked';
+    $('chCompact').textContent = picked() + ' of ' + CAP + ' ›';
+
+    // gallery
+    $('chips').innerHTML = ['All','Us','Videos','Kept'].map((c) => '<button class="pill" data-chip="' + c + '" aria-pressed="' + (S.chip === c) + '">' + c + '</button>').join('');
+    $('grid').innerHTML = MOMENTS.map(([m, vid], i) => '<button class="tile" data-tile="' + i + '" aria-pressed="' + !!S.kept[i] + '" aria-label="Keep ' + m + ' full size" style="background:' + TONES[i] + '">' + m + (vid ? ' ▶' : '') + '</button>').join('');
+    const rl = REV.filter((_, i) => !S.reviewed[i]).length;
+    $('revLeft').textContent = rl ? rl + ' new ›' : 'All done ›';
+    const kl = KW.filter((_, i) => !S.kw[i]).length;
+    $('kwLeft').textContent = kl ? kl + ' to review ›' : 'All done ›';
+
+    // wall + switches
+    $('wallStyles').innerHTML = ['Mosaic','Grid','Hero','Polaroid'].map((w) => '<button class="pill" data-wall="' + w + '" aria-pressed="' + (S.wall === w) + '">' + w + '</button>').join('');
+    document.querySelectorAll('[data-sw]').forEach((b) => b.setAttribute('aria-checked', String(!!S[b.dataset.sw])));
+    $('facesV').textContent = (S.faces ? 'On' : 'Off') + ' ›';
+    $('handV').textContent = (S.hand ? 'On' : 'Off') + ' ›';
+    $('driveV').textContent = (S.drive ? 'On' : 'Connect') + ' ›';
+    renderPanel();
+  }
+
+  // ---------- render panel ----------
+  function renderPanel() {
+    const wrap = $('panelWrap');
+    wrap.classList.toggle('open', !!S.panel);
+    if (!S.panel) return;
+    const r = RUNGS[S.rung];
+    let title = '', meta = '', html = '';
+    switch (S.panel) {
+      case 'pay':
+        title = S.pay === 'sent' ? 'Sent' : 'Pay';
+        html = S.pay === 'sent'
+          ? '<div class="check">✓</div><p class="center" style="font-size:17px;font-weight:600;margin:0">+' + fmt(r[0]) + ' on the way</p><p class="center muted" style="margin:0">They land once we confirm payment.</p><button class="btn dark" data-act="close">Done</button>'
+          : '<div class="credits" style="flex-direction:row;justify-content:space-between;font-size:15px"><span>+' + fmt(r[0]) + ' credits</span><strong>' + peso(r[1]) + '</strong></div><div class="two">' + ['GCash','BDO'].map((m) => '<button class="pick" style="justify-content:center" data-method="' + m + '" aria-pressed="' + (S.method === m) + '">' + m + '</button>').join('') + '</div><button class="btn" data-act="paid">I’ve paid ' + peso(r[1]) + '</button><span class="small center">[Payment instructions: real flow not yet captured]</span>';
+        break;
+      case 'challenges':
+        title = 'Challenges'; meta = picked() + ' of ' + CAP;
+        html = CH.map((t, i) => { const on = !!S.chosen[i]; const full = !on && picked() >= CAP; return '<button class="pick" data-ch="' + i + '" aria-pressed="' + on + '"' + (full ? ' disabled' : '') + '><span style="flex:1">' + esc(t) + '</span><span class="m">' + (on ? '✓' : '+') + '</span></button>'; }).join('');
+        break;
+      case 'review':
+        title = 'Guest photos'; meta = REV.filter((_, i) => !S.reviewed[i]).length + ' left';
+        html = '<div class="rev">' + REV.map(([who, tone], i) => '<div style="display:flex;flex-direction:column;gap:6px"><div class="tile" style="background:' + tone + ';opacity:' + (S.reviewed[i] === 'hide' ? .3 : 1) + '">' + esc(who) + '</div>' + (S.reviewed[i] ? '<span class="small center" style="height:40px;display:flex;align-items:center;justify-content:center">' + (S.reviewed[i] === 'hide' ? 'Hidden' : 'Kept') + '</span>' : '<div class="two"><button class="btn dark" style="height:40px;font-size:13px" data-rev="' + i + ':keep">Keep</button><button class="pill" style="height:40px" data-rev="' + i + ':hide">Hide</button></div>') + '</div>').join('') + '</div>';
+        break;
+      case 'kwento':
+        title = 'Guest messages'; meta = KW.filter((_, i) => !S.kw[i]).length + ' left';
+        html = KW.map(([who, text], i) => '<div class="msg"><span class="small">' + esc(who) + '</span><span style="font-size:16px;line-height:1.4">' + esc(text) + '</span>' + (S.kw[i] ? '<span class="done-note">' + (S.kw[i] === 'wall' ? 'On the wall' : 'Hidden') + '</span>' : '<div style="display:flex;gap:8px"><button class="btn" style="flex:1;height:44px;font-size:14px" data-kw="' + i + ':wall">Show on wall</button><button class="pill" style="height:44px" data-kw="' + i + ':hide">Hide</button></div>') + '</div>').join('');
+        break;
+      case 'crew':
+        title = 'Crew cameras'; meta = fmt(POT - crewTotal()) + ' in the pot';
+        html = S.crew.map((own, i) => '<div class="card" style="flex-direction:row;align-items:center;padding:10px 10px 10px 16px"><span style="flex:1;display:flex;flex-direction:column"><span>Camera ' + (i + 1) + '</span><span class="small">' + (own ? 'Its own credits' : 'Shoots from the pot') + '</span></span><div class="stepper"><button class="sb" style="width:40px;height:40px" data-crew="' + i + ':-5" aria-label="Less">−</button><span style="width:40px;display:flex;align-items:center;justify-content:center;font-weight:600">' + own + '</span><button class="sb" style="width:40px;height:40px" data-crew="' + i + ':5" aria-label="More">+</button></div></div>').join('') + '<button class="pill" style="height:50px;border-style:dashed" data-act="addcam">+ Add a camera</button>';
+        break;
+      case 'guests':
+        title = 'Guests’ shots';
+        html = '<div class="card"><span class="muted">When they can shoot</span><div class="seg">' + [['day','Event day'],['early','From start day']].map(([v, l]) => '<button aria-pressed="' + (S.when === v) + '" data-when="' + v + '">' + l + '</button>').join('') + '</div></div><div class="card"><div class="sec-head"><span class="muted">Limit per guest</span><button class="switch" role="switch" aria-checked="' + S.capOn + '" aria-label="Limit per guest" data-act="cap"></button></div>' + (S.capOn ? '<div class="stepper"><button class="sb" data-act="capLess" aria-label="Fewer">−</button><div class="val"><span class="big">' + S.cap + ' each</span></div><button class="sb" data-act="capMore" aria-label="More">+</button></div>' : '<span>No limit</span>') + '</div><button class="row lone" data-open="crew"><span>Crew cameras</span><span class="v">' + S.crew.length + ' ›</span></button>';
+        break;
+      case 'filter':
+        title = 'Filter';
+        html = '<div class="looks">' + LOOKS.map(([id, label, , css]) => '<button class="look" data-look="' + id + '" aria-pressed="' + (S.look === id) + '"><svg viewBox="0 0 60 72" aria-hidden="true" style="filter:' + css + '"><rect width="60" height="72" fill="#E9B98A"/><rect y="40" width="60" height="32" fill="#6F8F6A"/><circle cx="46" cy="16" r="7" fill="#F7E3B5"/><circle cx="22" cy="34" r="6" fill="#5A3A2A"/><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"/><circle cx="37" cy="33" r="6" fill="#3A2A22"/><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"/></svg>' + label + '</button>').join('') + '</div>';
+        break;
+      case 'screen':
+        title = 'Screen code';
+        html = '<p class="center muted" style="margin:24px 0 0">On the venue screen, open</p><p class="center" style="margin:0;font-weight:600">setnayan.com/wall</p><p class="center muted" style="margin:0">and enter</p><p class="center" style="margin:0;font-size:44px;font-weight:600;letter-spacing:.18em">[CODE]</p><button class="btn dark" data-act="close">Done</button>';
+        break;
+      case 'faces': case 'hand':
+        title = S.panel === 'faces' ? 'Finding people' : 'Adding by hand';
+        html = '<div class="row lone"><span>' + (S.panel === 'faces' ? 'Find guests with a selfie' : 'Let guests add from their phone') + '</span><button class="switch" role="switch" aria-checked="' + S[S.panel] + '" aria-label="' + title + '" data-act="flip"></button></div>';
+        break;
+      case 'drive':
+        title = 'Google Drive';
+        html = '<p style="margin:12px 0 0;font-size:16px">A copy of every photo, in your own Drive.</p><p class="small" style="margin:0">We only see the one folder we make.</p><button class="btn" data-act="drive">' + (S.drive ? 'Connected · disconnect' : 'Connect Google Drive') + '</button>';
+        break;
+    }
+    $('panelTitle').textContent = title; $('panelMeta').textContent = meta; $('panelBody').innerHTML = html;
+  }
+
+  // ---------- events (one delegated handler) ----------
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('button'); if (!t) { if (e.target.id === 'scrim') { S.panel = null; render(); } return; }
+    const d = t.dataset;
+    if (d.phase) S.phase = d.phase;
+    else if (t.id === 'saveDates') S.dates = true;
+    else if (t.id === 'datesSet') { S.dates = false; if (S.phase === 'after') S.phase = 'before'; }
+    else if (t.closest('#when') && d.v) S.when = d.v;
+    else if (d.when) S.when = d.when;
+    else if (t.id === 'capSwitch') S.capOn = !S.capOn;
+    else if (t.id === 'capLess' || d.act === 'capLess') S.cap = Math.max(5, S.cap - 5);
+    else if (t.id === 'capMore' || d.act === 'capMore') S.cap += 5;
+    else if (t.id === 'less') S.rung = Math.max(0, S.rung - 1);
+    else if (t.id === 'more') S.rung = Math.min(RUNGS.length - 1, S.rung + 1);
+    else if (t.id === 'buy') { S.panel = 'pay'; S.pay = 'pick'; }
+    else if (t.id === 'download') toast('Preparing your zip…');
+    else if (t.id === 'panelBack') S.panel = null;
+    else if (d.look) S.look = d.look;
+    else if (d.chip) S.chip = d.chip;
+    else if (d.tile) S.kept[d.tile] = !S.kept[d.tile];
+    else if (d.wall) S.wall = d.wall;
+    else if (d.sw) S[d.sw] = !S[d.sw];
+    else if (d.open) { S.panel = d.open; }
+    else if (d.toast) toast(d.toast);
+    else if (d.method) S.method = d.method;
+    else if (d.ch) S.chosen[d.ch] = !S.chosen[d.ch];
+    else if (d.rev) { const [i, v] = d.rev.split(':'); S.reviewed[i] = v; }
+    else if (d.kw) { const [i, v] = d.kw.split(':'); S.kw[i] = v; }
+    else if (d.crew) { const [i, v] = d.crew.split(':').map(Number); if (v > 0 && crewTotal() + v > POT) toast('Only ' + POT + ' in the pot'); else S.crew[i] = Math.max(0, S.crew[i] + v); }
+    else if (d.act === 'addcam') S.crew.push(0);
+    else if (d.act === 'cap') S.capOn = !S.capOn;
+    else if (d.act === 'flip') S[S.panel] = !S[S.panel];
+    else if (d.act === 'drive') { S.drive = !S.drive; toast(S.drive ? 'Drive connected' : 'Drive disconnected'); }
+    else if (d.act === 'paid') { S.pay = 'sent'; S.pending += RUNGS[S.rung][0]; }
+    else if (d.act === 'close') S.panel = null;
+    else return;
+    render();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.panel) { S.panel = null; render(); } });
+  render();
+})();
+</script>
+</body>
+</html>

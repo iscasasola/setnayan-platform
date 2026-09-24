@@ -1866,21 +1866,6 @@ h2.fd-sechead,
 .fd[data-chrome='app'] .fd-rctx-mark {
   display: flex;
   align-items: center;
-  /* 🔴 CENTRED AT EVERY WIDTH (owner 2026-09-24: *"the logo needs to be
-     centered."*). It was `justify-content` UNSET here — which is flex-start —
-     while the 1279 block below set `center`, so the mark was centred on the
-     72px icon strip and hard left in the 223px rail. One element, two
-     alignments, decided by width: the owner was looking at the wide one.
-
-     🔑 THE ARTWORK WAS NOT THE PROBLEM, AND THAT WAS THE OTHER READING.
-     Measured on the only monogram in production (`monogram_uploaded_svg`,
-     viewBox `0 0 1024 1024`): the ink spans y 94→930 — 94 units of margin
-     above and 94 below, i.e. already centred in its own box — and x 10→1011.
-     So `object-contain` in a square chip letterboxes it evenly and there is
-     nothing to correct in the generator. Had the ink been off-centre this fix
-     would have belonged there instead, and centring the box would have hidden
-     it. */
-  justify-content: center;
   padding: 10px 12px 0;
 }
 
@@ -1926,10 +1911,7 @@ h2.fd-sechead,
      because at 72px a left-padded badge reads as misaligned against the rows
      under it, which centre their own glyphs. */
   .fd[data-chrome='app'] .fd-rctx-mark {
-    /* `justify-content: center` MOVED to the base rule — it is now true at
-       every width, so repeating it here would be a second place to change it.
-       Only the padding is width-specific: 12px of side padding in a 72px
-       column is most of the column. */
+    justify-content: center;
     padding: 10px 2px 2px;
   }
 

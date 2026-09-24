@@ -2,7 +2,6 @@ import {
   hasHubCanvas,
   hubCanvasClass,
   hubCanvasVars,
-  resolveHubBackground,
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
@@ -61,43 +60,12 @@ export function HubCanvasFrame({
      section with no background — never as a styled plate waiting for an image
      that is not coming, which reads to a guest as a broken page. */
   const mediaUrl = canvas.media ? (mediaUrls?.[canvas.media] ?? null) : null;
-  /* WHICH OF THE THREE this section's ground is. `resolveHubBackground` is the
-     one place that decides, including the rule that a row written before
-     `kind` existed is a PHOTO. */
-  const bg = resolveHubBackground(canvas);
-  /* A colour needs no signing, so it stands on its own; a photo and a snippet
-     both need their ref to have survived the allow-list AND the signer. */
-  const painted = bg?.kind === 'color' ? true : Boolean(mediaUrl);
   return (
     <div
-      className={hubCanvasClass(canvas, painted)}
+      className={hubCanvasClass(canvas, Boolean(mediaUrl))}
       style={hubCanvasVars(canvas, mediaUrl) as React.CSSProperties}
     >
-      {bg?.kind === 'snippet' && mediaUrl ? (
-        /* 🔑 A SNIPPET IS TEXTURE, NOT A FILM, and every attribute here says so.
-           `muted` + `playsInline` because a background that makes noise or
-           jumps to fullscreen on iOS is not a background; `loop` because a few
-           seconds that stop dead leave a frozen frame behind the words;
-           `preload="metadata"` because a guest on mobile data did not ask to
-           download a video to read a page. `aria-hidden` and no controls: there
-           is nothing here to operate, and a screen reader announcing a media
-           player in the middle of the couple's words is noise.
-           ⚠ The ref reached here through the SAME `hubMediaRef` allow-list a
-           photo passes — one field, one fence. */
-        <video
-          aria-hidden
-          className="hub-canvas-media"
-          src={mediaUrl}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          tabIndex={-1}
-        />
-      ) : mediaUrl && bg?.kind === 'photo' ? (
-        <div aria-hidden className="hub-canvas-media" />
-      ) : null}
+      {mediaUrl ? <div aria-hidden className="hub-canvas-media" /> : null}
       {/* The words sit above the picture, in their own layer, so the section's
           own spacing is untouched by the background existing. */}
       <div className="hub-canvas-body">{children}</div>

@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papic controller — final prototype (no JavaScript)</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  PAPIC CONTROLLER — FINAL prototype · 2026-09-22 · ZERO JavaScript.
+  Route: /dashboard/[eventId]/studio/papic
+
+  Switching is radio inputs + CSS sibling selectors. Nothing here needs a script,
+  because the owner's viewer does not run them: an earlier draft of this file was
+  a JS-rendered page, which in his viewer would have shown a skeleton of empty
+  boxes with 15 dead buttons — and dead buttons look exactly like working ones.
+
+  Copy in “quotes” is the real wording from origin/main. Numbers are production,
+  measured 2026-09-22. Anything undecided is AMBER with the question written out.
+-->
+<style>
+:root{
+  --ink:#2C2A29; --ink-2:#6F6A62; --ink-3:#9A948A;
+  --line:#E6E0D6; --line-2:#F0EBE3; --soft:#F4F1EC;
+  --gold:#8C6932; --gold-2:#C9A46A; --night:#17160F; --night-line:#3A372C; --night-ink:#F4EFE6; --night-2:#B8AE9E;
+  --amber:#8A5A00; --amber-bg:#FFF6E4; --amber-line:#E8C583;
+  --stop:#B42318; --stop-bg:#FDF0EF;
+  --ok:#2F6B35; --ok-bg:#E8F1E6; --ok-line:#BEDCC0;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:#F2EFE9;color:var(--ink);font-size:16px;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600}
+p{margin:0}
+code{background:var(--soft);padding:1px 5px;border-radius:4px;font-size:.86em}
+
+/* every state radio lives here, before everything it controls */
+.states{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+
+.chrome{position:sticky;top:0;z-index:20;background:#262420;color:#F4EFE6;padding:11px 14px 12px}
+.chrome h1{font-size:14px}
+.chrome p{font-size:11.5px;color:#B8AE9E;line-height:1.5;margin:3px 0 9px}
+.sw{display:flex;gap:6px;flex-wrap:wrap}
+.sw .glab{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A8377;width:100%;margin:7px 0 -1px}
+.sw label{height:31px;padding:0 11px;border-radius:999px;border:1px solid #4A463D;background:transparent;color:#E4DDD1;font-size:12.5px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap}
+.sw label:hover{border-color:#8A8377}
+
+.wrap{max-width:440px;margin:0 auto;padding:14px 12px 70px}
+@media (min-width:1024px){ .wrap{max-width:900px;padding:20px 24px 90px} }
+
+.panel{display:none}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px 17px;margin-bottom:12px}
+.card h2{font-size:19px;margin-bottom:3px}
+.card .sub{font-size:12.5px;color:var(--ink-2);line-height:1.5}
+.rows{border:1px solid var(--line);border-radius:15px;overflow:hidden;background:#fff;margin:10px 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 15px;border-bottom:1px solid var(--line-2);font-size:14.5px}
+.rows .row:last-child{border-bottom:0}
+.row .v{color:var(--ink-2);font-size:13px;white-space:nowrap}
+.row .v.gold{color:var(--gold)} .row .v.warn{color:var(--stop);font-weight:600}
+.sub2{font-size:12px;color:var(--ink-2);display:block;margin-top:2px}
+.btn{display:inline-block;height:44px;line-height:44px;border-radius:999px;background:var(--gold);color:#fff;font-size:14.5px;font-weight:600;padding:0 20px;text-align:center}
+.btn.dark{background:var(--ink)} .btn.ghost{background:#fff;border:1px solid var(--gold);color:var(--gold)}
+.pot{background:var(--soft);border-radius:17px;padding:14px 15px;margin:10px 0}
+.meter{height:9px;border-radius:999px;background:#E3DCD0;overflow:hidden;margin:8px 0}
+.meter i{display:block;height:100%;background:var(--gold)}
+.meter.unknown{background:repeating-linear-gradient(135deg,#E3DCD0,#E3DCD0 5px,#F2EEE6 5px,#F2EEE6 10px)}
+.big{font-size:21px;font-weight:600}
+.dark-card{background:var(--night);color:var(--night-ink);border-radius:20px;padding:16px;margin-bottom:12px}
+.dark-card .eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-2)}
+.dark-card .q{font-size:19px;font-weight:500;display:block;margin:5px 0 8px}
+.dark-card .sub{color:var(--night-2)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:10px 0}
+.tile{aspect-ratio:1;border-radius:9px;position:relative;display:flex;align-items:flex-end;padding:7px;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:#fff}
+.tile.skel{background:#EDE8DF}
+.face{position:absolute;width:26%;aspect-ratio:1;border-radius:50%;top:15%;left:16%;background:rgba(255,255,255,.34);border:1px solid rgba(255,255,255,.55)}
+.face.two{left:56%;top:22%}
+.face.blurred{background:rgba(255,255,255,.72);filter:blur(4px);border:0}
+.panic{border-color:#F0BFBA!important;background:var(--stop-bg)!important}
+.panic .hdr{color:var(--stop);font-weight:600;font-size:15px;display:block;margin-bottom:4px}
+.panic .sub{color:var(--stop)}
+
+.flag{border-radius:13px;padding:11px 13px;font-size:12.5px;line-height:1.6;border:1px solid;margin:10px 0}
+.flag > b:first-child{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.amber{background:var(--amber-bg);border-color:var(--amber-line);color:var(--amber)}
+.stop{background:var(--stop-bg);border-color:#F0BFBA;color:var(--stop)}
+.okf{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.info{background:#EEF1F5;border-color:#D3DAE3;color:#3D4A5C}
+.dead{opacity:.45} .deadnote{font-size:10.5px;color:var(--ink-3);font-style:italic;display:block;margin-top:3px}
+.order{counter-reset:o}
+.order li{font-size:14px;margin-bottom:5px;line-height:1.5}
+.summary{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px 18px;margin-top:26px}
+.summary h3{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 7px}
+.summary li,.summary p{font-size:13.5px;line-height:1.62}
+.summary ul,.summary ol{padding-left:19px;margin:6px 0}
+.summary li{margin-bottom:7px}
+.qn{border-left:3px solid var(--amber-line);padding-left:11px;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0}
+th,td{text-align:left;padding:6px 7px;border-bottom:1px solid var(--line-2);vertical-align:top}
+th{color:var(--ink-3);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em}
+
+/* ── THE SWITCHING. Radio + sibling selector; no script anywhere. ───────────── */
+#s-order:checked   ~ .wrap #p-order,
+#s-day1:checked    ~ .wrap #p-day1,
+#s-floor:checked   ~ .wrap #p-floor,
+#s-guestspent:checked ~ .wrap #p-guestspent,
+#s-bluron:checked  ~ .wrap #p-bluron,
+#s-blurgate:checked ~ .wrap #p-blurgate,
+#s-readfail:checked ~ .wrap #p-readfail,
+#s-camoff:checked  ~ .wrap #p-camoff,
+#s-camfail:checked ~ .wrap #p-camfail,
+#s-spent:checked   ~ .wrap #p-spent,
+#s-loading:checked ~ .wrap #p-loading,
+#s-retire:checked  ~ .wrap #p-retire { display:block }
+
+#s-order:checked      ~ .chrome label[for="s-order"],
+#s-day1:checked       ~ .chrome label[for="s-day1"],
+#s-floor:checked      ~ .chrome label[for="s-floor"],
+#s-guestspent:checked ~ .chrome label[for="s-guestspent"],
+#s-bluron:checked     ~ .chrome label[for="s-bluron"],
+#s-blurgate:checked   ~ .chrome label[for="s-blurgate"],
+#s-loading:checked    ~ .chrome label[for="s-loading"]
+  { background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600 }
+
+#s-readfail:checked ~ .chrome label[for="s-readfail"],
+#s-camoff:checked   ~ .chrome label[for="s-camoff"],
+#s-camfail:checked  ~ .chrome label[for="s-camfail"],
+#s-spent:checked    ~ .chrome label[for="s-spent"],
+#s-retire:checked   ~ .chrome label[for="s-retire"]
+  { background:#FFD9D5;color:#7A1710;border-color:#FFD9D5;font-weight:600 }
+</style>
+</head>
+<body>
+
+<input class="states" type="radio" name="st" id="s-order" checked>
+<input class="states" type="radio" name="st" id="s-day1">
+<input class="states" type="radio" name="st" id="s-floor">
+<input class="states" type="radio" name="st" id="s-guestspent">
+<input class="states" type="radio" name="st" id="s-bluron">
+<input class="states" type="radio" name="st" id="s-blurgate">
+<input class="states" type="radio" name="st" id="s-readfail">
+<input class="states" type="radio" name="st" id="s-camoff">
+<input class="states" type="radio" name="st" id="s-camfail">
+<input class="states" type="radio" name="st" id="s-spent">
+<input class="states" type="radio" name="st" id="s-loading">
+<input class="states" type="radio" name="st" id="s-retire">
+
+<div class="chrome">
+  <h1>Papic controller — the whole plan, P1 to P4</h1>
+  <p>Tap a state. No JavaScript anywhere in this file, so nothing here can be dead.
+     Copy in “quotes” is the real wording from the code; numbers are production, 22 Sep 2026.</p>
+  <div class="sw">
+    <span class="glab">The page</span>
+    <label for="s-order">The new order</label>
+    <label for="s-day1">Day one — nothing set up</label>
+    <span class="glab">Money</span>
+    <label for="s-floor">A floor per guest</label>
+    <label for="s-guestspent">A guest spent their floor</label>
+    <label for="s-spent">Credits all spent</label>
+    <span class="glab">Faces</span>
+    <label for="s-bluron">Blur — one guest asked</label>
+    <label for="s-blurgate">Blur — tagging is off</label>
+    <span class="glab">When it goes wrong</span>
+    <label for="s-readfail">A read refused</label>
+    <label for="s-camoff">Cameras OFF (a choice)</label>
+    <label for="s-camfail">Cameras — we can’t tell</label>
+    <label for="s-loading">Still loading</label>
+    <span class="glab">Being removed</span>
+    <label for="s-retire">The card that disappears</label>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ══ THE ORDER ═══════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-order">
+  <div class="card">
+    <h2>The new order</h2>
+    <p class="sub">Your instruction, 22 Sep: credits and the running balance first, then Coverage,
+       then Allotment, then everything else grouped by <b>when you touch it</b>.</p>
+  </div>
+  <div class="card">
+    <h3 style="font-size:13px;color:var(--ink-3);letter-spacing:.07em;text-transform:uppercase">Before the day</h3>
+    <ol class="order">
+      <li><b>Credits</b> — balance, the recommendation, and Buy</li>
+      <li><b>Coverage</b> — the days cameras can shoot</li>
+      <li><b>Allotment</b> — how much each guest gets</li>
+      <li>Filter <span class="sub2" style="display:inline">· the look on every photo</span></li>
+      <li>Challenges</li>
+      <li>Live wall <span class="sub2" style="display:inline">· moved UP from 9th</span></li>
+      <li>Gallery</li><li>Kwento</li><li>Made for you</li><li>More</li>
+    </ol>
+    <div class="flag okf"><b>Why Live wall moved up</b>
+      It is a <b>setup</b> job — pick a style, get the screen code — and it was sitting below the
+      results it helps produce. Filter, Challenges and Live wall now read as one decision:
+      <b>what happens in the room</b>. Everything under them is output, which is empty until the day.</div>
+  </div>
+  <div class="card">
+    <h3 style="font-size:13px;color:var(--ink-3);letter-spacing:.07em;text-transform:uppercase">On the day and after</h3>
+    <ol class="order">
+      <li>Gallery</li><li>Kwento</li><li>Made for you</li><li>Live wall</li>
+      <li>Credits</li>
+      <li>Allotment · Filter · Challenges <span class="sub2" style="display:inline">— folded to one line each</span></li>
+      <li>Coverage</li><li>More</li>
+    </ol>
+  </div>
+  <div class="flag amber"><b>One thing this order does on purpose</b>
+    Money now sits <b>above</b> the two blocks that size it. That is only safe while the
+    recommendation <b>recomputes</b> as Coverage and Allotment change. If it ever stops recomputing,
+    this order becomes a trap — so the build is told to wire it live or say it could not.</div>
+  <div class="flag okf"><b>Two rules that outlive this page</b>
+    <b>1.</b> A row whose only control is a switch <b>keeps the switch on the row</b> — no page in
+    front of one control. Applies to “Finding people” and “Guests add by hand”; Blurred faces and
+    Google Drive keep their panels, because one is a report you cannot set and the other is a sign-in.
+    <b>2.</b> Nothing collapses when you flip it. A control that disappears moves every block below
+    it, so the page jumps under your thumb. Steppers stay and go quiet instead.</div>
+</section>
+
+<!-- ══ DAY ONE ═════════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-day1">
+  <div class="flag info"><b>The only state a real couple has ever seen</b>
+    Production right now: <b>0 allotment rows</b> · <b>26 captures</b> · <b>24 cameras</b> ·
+    <b>0 blurred faces</b>. No event has run end to end, so every other state in this prototype is
+    drawn from the data model, not from a real wedding.</div>
+  <div class="dark-card">
+    <span class="eyebrow">Do this first</span>
+    <span class="q">What days are we covering?</span>
+    <p class="sub">Nothing can be captured until you pick the days.</p>
+    <p style="margin-top:10px"><span class="btn" style="background:var(--gold-2);color:var(--night)">Save dates</span></p>
+  </div>
+  <div class="card">
+    <h2>Credits</h2>
+    <div class="pot">
+      <span class="big">50</span> <span class="sub">left — your free grant</span>
+      <div class="meter"><i style="width:1%"></i></div>
+      <div style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px">
+        <b style="font-size:16px">21,900 credits</b>
+        <span class="sub2">Wedding · 146 guests × 150 a head</span>
+        <span class="sub2" style="color:var(--gold);font-weight:600">21,850 short of it</span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Allotment</h2>
+    <p class="sub"><b>Everyone shares, equally.</b> You haven’t set anyone’s credits. All 146 guests
+       draw from the same pot — that is the normal way to run it, and most couples never change it.</p>
+  </div>
+  <div class="card">
+    <h2>Gallery</h2>
+    <p class="sub"><b>Nothing yet — and that is right.</b> Your cameras have not opened.
+       When they do, every photo lands here.</p>
+  </div>
+  <div class="flag stop"><b>Never say this to a couple who HAS photos</b>
+    A refused read once told a couple with 180 names <b>“No guests yet. Start by adding the couple’s
+    first invite.”</b> This empty state is only allowed when the read <b>succeeded</b> and genuinely
+    returned nothing. A refusal gets the red panel — see “A read refused”.</div>
+</section>
+
+<!-- ══ FLOOR ═══════════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-floor">
+  <div class="card">
+    <h2>Allotment</h2>
+    <div class="rows">
+      <div class="row"><span>Most one guest can use<span class="sub2">the maximum — ships today</span></span><span class="v">No limit</span></div>
+      <div class="row"><span>Least one guest gets<span class="sub2">the minimum — new</span></span><span class="v gold">25 each</span></div>
+    </div>
+    <div class="flag amber"><b>A floor is a promise, so it has to be payable</b>
+      25 × 146 guests = <b>3,650 credits</b>. You have 2,150. <b>Buy 1,500 more, or lower it.</b><br>
+      That line is the whole point of the minimum: it is checked against the pot, and the floor can
+      never be raised above the maximum. <b>Needs a migration.</b></div>
+    <div class="flag info"><b>Why this is new</b>
+      <code>papic_guest_spend_ceilings.ceiling_points</code> is a <b>ceiling only</b> — nothing today
+      guarantees a guest anything. <code>0</code> is the documented “may not spend”.</div>
+  </div>
+</section>
+
+<!-- ══ A GUEST SPENT THEIR FLOOR ═══════════════════════════════════════════ -->
+<section class="panel" id="p-guestspent">
+  <div class="card"><h2>What a guest sees</h2><p class="sub">On their own phone, at the reception.</p></div>
+  <div class="dark-card">
+    <span class="q">You’ve used your 25 shots.</span>
+    <p class="sub">Ana &amp; Marco set aside 25 for you and they’re all used.
+       The couple can add more at any time.</p>
+  </div>
+  <div class="flag amber"><b>The one screen with no shipped words to reuse</b>
+    The shipped exhausted message is about the <b>shared pot</b>: “Ana &amp; Marco has run out of
+    shots. Everybody here is sharing one set of shots and they’re all spent. The host can add more at
+    any time.” A guest who has spent their own <b>floor</b> while the pot is healthy has never
+    existed, so the wording above is <b>proposed, not quoted</b>. Worth your eye — it is the moment a
+    guest is told to stop.</div>
+  <div class="flag stop"><b>It must not say “run out of shots”</b>
+    That sentence means the celebration is empty. Here the celebration is fine and only this guest is
+    capped. Saying the wrong one sends them to you mid-reception with a problem that is not real.</div>
+</section>
+
+<!-- ══ BLUR ON ═════════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-bluron">
+  <div class="card">
+    <h2>Blurred faces <span class="sub" style="font-weight:400">· 1 guest</span></h2>
+    <p class="sub"><b>You always see every photo unblurred.</b> This only changes what other guests see.</p>
+    <div class="rows"><div class="row"><span>[Guest · Lia]</span><span class="v">Blurred for other guests</span></div>
+      <div class="row"><span>Needs face tagging</span><span class="v">On</span></div></div>
+    <div class="grid">
+      <div class="tile" style="background:#8E7B62"><span class="face blurred"></span><span class="face two"></span>Entrance</div>
+      <div class="tile" style="background:#6B5A45"><span class="face blurred"></span><span class="face two"></span>Dinner</div>
+      <div class="tile" style="background:#5E5446"><span class="face blurred"></span><span class="face two"></span>Dance</div>
+    </div>
+    <p class="sub">Lia is blurred. The second person in each frame is untouched.</p>
+  </div>
+  <div class="flag okf"><b>One face, not every face</b>
+    Today <code>lib/face-blur.ts</code> blurs <b>every</b> detected face, and
+    <code>consent-veto.ts</code> applies it <b>EVENT-WIDE</b> — “one live guest with
+    <code>faceblock_enabled</code> means every capture on that event needs a blur”.
+    <b>So one guest’s choice currently blurs all 145 others.</b> Needs a build and a migration.</div>
+  <div class="flag info"><b>Measured</b>
+    <b>146 guests, 0 have ever used it.</b> The event-wide blast radius is theoretical today —
+    and permanent the first time somebody ticks the box.</div>
+</section>
+
+<!-- ══ BLUR GATED ══════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-blurgate">
+  <div class="card" style="border-color:var(--amber-line);background:var(--amber-bg)">
+    <h2 style="color:var(--amber)">Face tagging is off, so we cannot blur one person</h2>
+    <p class="sub" style="color:var(--amber)">To blur only the guests who asked, we have to know which
+       face is whose. With tagging off we cannot — so we blur <b>every</b> face for other guests
+       instead. You still see everything unblurred.</p>
+  </div>
+  <div class="grid">
+    <div class="tile" style="background:#8E7B62"><span class="face blurred"></span><span class="face two blurred"></span>Entrance</div>
+    <div class="tile" style="background:#6B5A45"><span class="face blurred"></span><span class="face two blurred"></span>Dinner</div>
+    <div class="tile" style="background:#5E5446"><span class="face blurred"></span><span class="face two blurred"></span>Dance</div>
+  </div>
+  <div class="flag stop"><b>Fails closed, on purpose</b>
+    If we cannot tell whose face is whose we blur them <b>all</b> — never none.
+    <code>face-blur.ts</code> is already fail-closed because it protects a privacy promise, and the
+    per-person path must not soften that.</div>
+</section>
+
+<!-- ══ READ REFUSED ════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-readfail">
+  <div class="flag stop"><b>A refusal is not an emptiness</b>
+    Every block here is showing a <b>failed read</b>. Compare each with its normal state —
+    if you cannot tell them apart at a glance, the screen is wrong.</div>
+  <div class="card panic">
+    <span class="hdr">We can’t show your balance right now.</span>
+    <div class="meter unknown"></div>
+    <p class="sub">This is <b>not zero</b> — we could not read it. Nothing has been spent and nothing
+       is lost.</p>
+    <p style="margin-top:10px"><span class="btn dark">Try again</span></p>
+    <p class="sub" style="margin-top:8px">Buying still works — the ladder does not depend on this read.</p>
+  </div>
+  <div class="card panic">
+    <span class="hdr">We can’t tell how your guests’ credits are set.</span>
+    <p class="sub">A read refused. This is not “no limit” and not “nobody gets anything” — we do not
+       know which. Nothing was changed.</p>
+  </div>
+  <div class="flag okf"><b>This distinction already ships</b>
+    <code>allotmentRowState()</code> already returns <b>hidden</b> when the feature is off and
+    <b>unknown</b> when a read failed. These screens are what <b>unknown</b> should look like — the
+    rule exists, it just has no honest picture yet.</div>
+</section>
+
+<!-- ══ CAMERAS OFF ═════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-camoff">
+  <div class="card">
+    <h2>Guest cameras <span class="sub" style="font-weight:400">· Off</span></h2>
+    <p class="sub"><b>Your guests’ cameras are off.</b> You turned these off. Only your crew cameras
+       can shoot. Turn them back on any time.</p>
+    <div class="rows"><div class="row"><span>Let guests shoot</span><span class="v">Off</span></div></div>
+  </div>
+  <div class="flag okf"><b>A choice, and it reads like one</b>
+    Stated in the first person — <b>you</b> turned them off — and the switch is live.
+    Now open <b>“Cameras — we can’t tell”</b> and compare.</div>
+</section>
+
+<!-- ══ CAMERAS UNKNOWN ═════════════════════════════════════════════════════ -->
+<section class="panel" id="p-camfail">
+  <div class="card panic">
+    <span class="hdr">We can’t tell whether your guests’ cameras are on.</span>
+    <p class="sub">A read refused. Your setting has not changed — we just could not see it.
+       <b>This is not “off”.</b></p>
+    <p style="margin-top:10px"><span class="btn dark">Try again</span></p>
+  </div>
+  <div class="flag stop"><b>The defect this state exists to kill</b>
+    It shipped once saying <b>“cameras off”</b> when it simply could not tell — and a monogram sliced
+    from that status string drew a letter <b>“C”</b> for “Camera off”. Flip between this and
+    <b>Cameras OFF (a choice)</b>: they must never look alike.</div>
+</section>
+
+<!-- ══ CREDITS SPENT ═══════════════════════════════════════════════════════ -->
+<section class="panel" id="p-spent">
+  <div class="card">
+    <h2>Credits</h2>
+    <div class="pot">
+      <span class="big">0</span> <span class="sub">left</span>
+      <div class="meter"><i style="width:0"></i></div>
+      <p class="sub" style="color:var(--stop)"><b>All spent.</b> Cameras still work — every shot now
+         waits for credits.</p>
+      <p style="margin-top:10px"><span class="btn">Buy · ₱2,800</span></p>
+    </div>
+  </div>
+  <div class="flag okf"><b>Zero, said as zero</b>
+    Compare with <b>A read refused</b>: that one must never render as 0, because an empty purse and a
+    refusal are different facts. This is the only screen allowed to show a zero.</div>
+  <div class="flag info"><b>What a guest sees at the same moment</b>
+    “Ana &amp; Marco has run out of shots. Everybody here is sharing one set of shots and they’re all
+    spent. The host can add more at any time.” — shipped copy, unchanged.</div>
+</section>
+
+<!-- ══ LOADING ═════════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-loading">
+  <div class="card">
+    <h2>Gallery</h2>
+    <div class="grid">
+      <div class="tile skel"></div><div class="tile skel"></div><div class="tile skel"></div>
+      <div class="tile skel"></div><div class="tile skel"></div><div class="tile skel"></div>
+    </div>
+    <p class="sub" style="text-align:center">Loading your photos…</p>
+  </div>
+  <div class="flag info"><b>Why loading is drawn at all</b>
+    A skeleton and an empty state must not be the same picture. If they are, a slow read looks like a
+    wedding with no photos — and the couple believes it.</div>
+</section>
+
+<!-- ══ RETIREMENT ══════════════════════════════════════════════════════════ -->
+<section class="panel" id="p-retire">
+  <div class="flag stop"><b>Being removed — P2</b>
+    This card ships today and <b>disappears</b>. A retirement is the part you cannot un-approve later,
+    so it gets its own screen.</div>
+  <div class="card panic">
+    <h2 style="color:var(--stop)">Your cameras <span class="sub" style="font-weight:400">— today</span></h2>
+    <p class="sub">“Give one its own shots, or take the unspent ones back.”</p>
+    <div class="rows"><div class="row"><span>Camera 1<span class="sub2">Its own credits</span></span>
+      <span class="v warn">−  45  +</span></div></div>
+  </div>
+  <p style="text-align:center;font-size:22px;color:var(--ink-3);margin:6px 0">↓</p>
+  <div class="card">
+    <h2>Cameras <span class="sub" style="font-weight:400">— after</span></h2>
+    <div class="rows">
+      <div class="row"><span>Camera 1<span class="sub2">[Guest · Ana]</span></span><span class="v">Reissue</span></div>
+      <div class="row"><span>Camera 2<span class="sub2">Not claimed yet</span></span><span class="v">Show QR</span></div>
+    </div>
+    <p class="sub">Every camera shoots the shared pool. Nothing is set aside.</p>
+  </div>
+  <div class="flag amber"><b>Why, and the reversal it carries</b>
+    Two of your rulings conflicted and the code followed the older one.
+    <b>2026-08-11:</b> “the host can dedicate a specific number of shots for a specific QR code” —
+    that is why this card exists. <b>2026-09-16:</b> “no dedicated shots individually.”
+    You chose <b>09-16</b>. Meanwhile the page already says both things: the Crew-cameras sheet reads
+    <b>“Every shot draws from your shared credits”</b> four blocks above the card that contradicts it.</div>
+  <div class="flag stop"><b>What is NOT removed</b>
+    <code>paparazzi_seats</code> stays — <b>24 live rows</b>. A seat is the camera <b>claim</b>
+    (which link is shooting), not an allowance, and <code>/api/upload</code> resolves a gate per seat.
+    Only the <b>dedication</b> goes: this card and <code>papic_dedicate_shots</code>.
+    <b>Needs a migration.</b></div>
+</section>
+
+<!-- ══ SUMMARY — always visible, under whichever state is open ═════════════ -->
+<div class="summary">
+  <h2>In plain language</h2>
+  <p class="sub" style="color:var(--ink-2)">For someone who has not followed the thread.</p>
+
+  <h3>What changes</h3>
+  <ul>
+    <li><b>The order.</b> Credits first, then Coverage, then Allotment, then the room, then what you got.</li>
+    <li><b>The recommendation moves onto the page</b> and shows its arithmetic: 146 guests × 150 a head. It already existed — it was only on the home tile.</li>
+    <li><b>Per-event-type numbers.</b> Today a christening, a debut and a wedding are all quoted 150 a head. All 17 types get their own, admin-editable.</li>
+    <li><b>A minimum per guest</b>, beside the maximum that already ships — checked against the pot.</li>
+    <li><b>Dedicated per-camera credits are retired.</b> Every camera shoots the shared pool.</li>
+    <li><b>All 631 challenges become reachable</b>, in 12 categories, with search and a count of how many celebrations picked each.</li>
+    <li><b>Blur becomes per person</b>, with face tagging as a hard precondition.</li>
+  </ul>
+
+  <h3>What is deliberately NOT changing</h3>
+  <ul>
+    <li><b>The capture-window picker and its rules</b> — another session owns that file. Only this block’s name and position move.</li>
+    <li><b>The QR render, the monogram resolver, the credit stepper, the filter looks.</b> They ship and they work.</li>
+    <li><b><code>paparazzi_seats</code></b> — 24 live rows.</li>
+    <li><b>Wedding stays at 150 a head</b>, so no live couple’s number moves. 9 of the 11 live events are weddings — that is the acceptance test.</li>
+  </ul>
+
+  <h3>Needs a migration — a scheduling fact, not just a design one</h3>
+  <table>
+    <tr><th>Build</th><th>What the migration does</th></tr>
+    <tr><td>Allotment floor</td><td>A minimum beside <code>ceiling_points</code></td></tr>
+    <tr><td>Retirement</td><td>Drops <code>papic_dedicate_shots</code></td></tr>
+    <tr><td>Per-type</td><td>17 rows, each with per-head, floor and ceiling</td></tr>
+    <tr><td>Learning loop</td><td>Records which events exhausted their pool, so the average can exclude them</td></tr>
+    <tr><td>Blur</td><td>Binds a detected face to a tagged guest</td></tr>
+  </table>
+  <p class="sub" style="color:var(--ink-2)">Two other sessions have migrations queued, so approving these sets an order.</p>
+
+  <h3>What this cannot prove</h3>
+  <ul>
+    <li><b>That it renders in the real app.</b> This is hand-written HTML, not the React components. It proves the plan, not the build.</li>
+    <li><b>Anything about a real wedding.</b> 26 captures, 0 allotments, 0 blurred faces in production.</li>
+    <li><b>The blur itself.</b> Whether a detected face can be reliably tied to a tagged guest needs real photos on a real device. The circles here are a diagram.</li>
+    <li><b>I have not seen this rendered.</b> The preview here shows local files as a static snapshot and refuses page tools, so there are no screenshots at phone and desktop width. I verified it by reading the file instead: <b>zero <code>&lt;script&gt;</code> tags</b>, and every panel non-empty.</li>
+  </ul>
+
+  <h3>Open questions</h3>
+  <ol>
+    <li class="qn"><b>The “you’ve used your 25 shots” wording.</b> The one screen with no shipped words to borrow.<br>
+      <b>Recommendation:</b> the wording drawn above.<br>
+      <b>Cost of getting it wrong:</b> a guest reads “run out of shots”, believes the celebration is empty, and comes to you mid-reception.</li>
+    <li class="qn"><b>Does the learning loop ship dormant, or not at all this wave?</b> 9 weddings hold 100,362 credits granted and <b>one</b> used.<br>
+      <b>Recommendation:</b> build it dormant, with the minimum-sample gate and the exhausted-pool exclusion baked in while the reasoning is fresh.<br>
+      <b>Cost of getting it wrong:</b> a later session writes the naive average, it reads ~0 per head, and the recommendation collapses to nothing.</li>
+    <li class="qn"><b>Is blur worth this wave at all?</b> 146 guests, <b>0</b> have ever used it.<br>
+      <b>Recommendation:</b> keep it last and drop it without hesitation if the wave shrinks.<br>
+      <b>Cost of getting it wrong:</b> the biggest and most privacy-sensitive build delays four finished ones.</li>
+  </ol>
+</div>
+
+</div>
+</body>
+</html>

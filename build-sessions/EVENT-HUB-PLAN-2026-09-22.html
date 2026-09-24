@@ -1,0 +1,390 @@
+<title>Event Hub Plan</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Jost:wght@300;400;500&display=swap">
+
+<style>
+:root{
+  --paper:#f4f3ef; --card:#fbfaf7; --ink:#1d1c19; --soft:#65625a;
+  --line:#dedad0; --accent:#3f5240; --gold:#9c854f;
+  --ship:#3f5240; --build:#8a5a2b; --ask:#7b3f52;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#16161a; --card:#1e1e23; --ink:#eceae4; --soft:#a5a199;
+    --line:#32323a; --accent:#8fb38d; --gold:#c9ac68;
+    --ship:#8fb38d; --build:#d59b5c; --ask:#d692a8;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#16161a; --card:#1e1e23; --ink:#eceae4; --soft:#a5a199;
+  --line:#32323a; --accent:#8fb38d; --gold:#c9ac68;
+  --ship:#8fb38d; --build:#d59b5c; --ask:#d692a8;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:'Jost',system-ui,sans-serif; font-size:16px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{ max-width:880px; margin:0 auto; padding-block:48px 80px; padding-inline:16px; }
+
+h1{ font-family:'Fraunces',Georgia,serif; font-weight:400; font-size:clamp(30px,6vw,46px);
+  line-height:1.08; margin:0 0 10px; text-wrap:balance; }
+h2{ font-family:'Fraunces',Georgia,serif; font-weight:400; font-size:clamp(23px,4.4vw,32px);
+  line-height:1.15; margin:0 0 6px; text-wrap:balance; }
+h3{ font-family:'Fraunces',Georgia,serif; font-weight:400; font-size:20px;
+  margin:0 0 6px; line-height:1.3; }
+p{ margin:0 0 12px; max-width:68ch; }
+.lede{ color:var(--soft); font-size:17px; max-width:62ch; }
+.kick{ font-size:10px; letter-spacing:.26em; text-transform:uppercase;
+  color:var(--accent); margin:0 0 10px; }
+hr{ border:0; border-top:1px solid var(--line); margin:44px 0; }
+
+section{ margin-top:44px; }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:3px;
+  padding:20px 22px; margin-top:14px; }
+.card.ship{ border-left:3px solid var(--ship); }
+.card.build{ border-left:3px solid var(--build); }
+.card.ask{ border-left:3px solid var(--ask); }
+
+.tag{ display:inline-block; font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  padding:4px 9px; border-radius:2px; margin-bottom:9px; }
+.t-ship{ color:var(--ship); border:1px solid var(--ship); }
+.t-build{ color:var(--build); border:1px solid var(--build); }
+.t-ask{ color:var(--ask); border:1px solid var(--ask); }
+
+code{ font-family:var(--mono); font-size:.86em; background:var(--paper);
+  border:1px solid var(--line); border-radius:2px; padding:1px 5px; }
+.card code{ background:var(--paper); }
+
+.tbl{ width:100%; overflow-x:auto; margin-top:14px; }
+table{ border-collapse:collapse; width:100%; font-size:14px; min-width:520px; }
+th,td{ text-align:left; padding:9px 12px; border-bottom:1px solid var(--line);
+  vertical-align:top; }
+th{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--soft);
+  font-weight:500; }
+td.n{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+.yes{ color:var(--ship); } .no{ color:var(--ask); } .part{ color:var(--build); }
+
+ul,ol{ margin:0 0 12px; padding-left:22px; max-width:66ch; }
+li{ margin-bottom:5px; }
+ul.plain{ list-style:none; padding-left:0; }
+ul.plain li::before{ content:'—\00a0'; color:var(--gold); }
+
+.evid{ font-size:13px; color:var(--soft); border-top:1px solid var(--line);
+  margin-top:14px; padding-top:11px; }
+.evid b{ color:var(--ink); font-weight:500; }
+
+.step{ display:grid; grid-template-columns:30px 1fr; gap:14px; align-items:start;
+  padding:14px 0; border-bottom:1px solid var(--line); }
+.step:last-child{ border-bottom:0; }
+.step .no2{ font-family:'Fraunces',Georgia,serif; font-size:19px; color:var(--gold);
+  line-height:1.3; }
+.step p{ margin:4px 0 0; font-size:14px; color:var(--soft); }
+
+.price{ font-family:'Fraunces',Georgia,serif; font-size:30px; }
+@media (max-width:560px){ .step{ grid-template-columns:24px 1fr; gap:10px; } }
+</style>
+
+<div class="wrap">
+
+<p class="kick">Setnayan &middot; 22 September 2026</p>
+<h1>Event Hub, Pro, and the Controller</h1>
+<p class="lede">A build plan measured against the shipped code and the live
+database, not against what earlier documents claimed. Every line is marked
+<b style="color:var(--ship)">SHIPS</b>, <b style="color:var(--build)">BUILD</b>,
+or <b style="color:var(--ask)">YOUR CALL</b>.</p>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part one</p>
+<h2>Event Hub &mdash; the free guest site</h2>
+<p>Twelve pages a guest can land on: <code>/</code>, <code>/avatar</code>,
+<code>/find-my-table</code>, <code>/find-seat</code>, <code>/hub</code>,
+<code>/invite</code>, <code>/pabuya</code>, <code>/print</code>,
+<code>/recap</code>, <code>/seat</code>, <code>/venue</code>,
+<code>/welcome</code>.</p>
+
+<div class="card build">
+<span class="tag t-build">Build &middot; highest priority</span>
+<h3>The coordinator&rsquo;s announcement reaches one page in twelve</h3>
+<p><code>DayOfAnnouncement</code> is mounted in exactly one file &mdash;
+<code>site-body.tsx</code> &mdash; and only <code>[slug]/page.tsx</code> renders
+that. A guest reading their seat, the floor plan, the gallery or the recap when
+&ldquo;phones down, the ceremony is starting&rdquo; goes out never sees it.</p>
+<p>The fix is to lift it into the layout that wraps all twelve, so it follows the
+reader. Make it sticky while an announcement is live.</p>
+<p class="evid"><b>Measured:</b>
+<code>grep -rln "DayOfAnnouncement" apps/web/app</code> returns the component and
+<code>site-body.tsx</code>. <code>grep -rln "SiteBody"</code> returns
+<code>[slug]/page.tsx</code> only.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build</span>
+<h3>The dress code has no idea who is reading it</h3>
+<p><code>events.dress_code_config</code> (migration <code>20260605030000</code>)
+is one JSONB with five keys: title, description, palette, dos, donts. There is no
+role dimension anywhere, and the only <code>role=</code> in the dress-code editor
+is ARIA markup.</p>
+<p>A ninang needs different words from a guest, and what she actually needs most
+is her <b>call time</b> &mdash; 3:00 PM, chapel vestry, called by name. Key it on
+<b>RoleGroup</b>, not on the individual role: <code>lib/role-groups.ts</code>
+already folds all 27 roles into nine groups, so the couple writes six rules
+instead of twenty-seven.</p>
+<p class="evid"><b>Shape:</b> keep the shared palette; add
+<code>byRole: Record&lt;RoleGroup, {headline, note, palette?, callTime?}&gt;</code>.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Already ships &mdash; do not rebuild</span>
+<h3>Four things you asked for are already live</h3>
+<div class="tbl">
+<table>
+<tr><th>What</th><th>Where it is</th></tr>
+<tr><td><b>Venue maps &mdash; all three apps</b></td>
+    <td><code>lib/geo.ts</code> builds Google, Waze and Apple deep links;
+        <code>NavLinksRow</code> renders the row and falls back to a Google text
+        search when the event has an address but no coordinates.
+        <code>VenueWidget</code> uses it.</td></tr>
+<tr><td><b>2D seat plan</b></td>
+    <td><code>WayfindingMap</code> &mdash; the same layout the seating editor
+        arranges, read-only, with your table marked and a path from the entrance.
+        On <code>/find-my-table</code>, <code>/seat</code>, <code>/venue</code>.</td></tr>
+<tr><td><b>3D seat plan</b></td>
+    <td><code>[slug]/venue/_components/guest-venue-3d.tsx</code> on
+        <code>/venue</code>.</td></tr>
+<tr><td><b>Live &ldquo;what&rsquo;s happening now&rdquo;</b></td>
+    <td><code>ScheduleWidget</code> already draws &ldquo;Happening now&rdquo;,
+        &ldquo;Up next&rdquo; and a progress ring, gated behind
+        <code>nowTrigger</code> so the run-up shows a plan and only the day goes
+        live.</td></tr>
+</table>
+</div>
+<p class="evid">The only condition on maps is that the event carries
+<b>coordinates</b>, not just a free-text address. Worth checking how many live
+events have them.</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Your call</span>
+<h3>Their logo on the hero &mdash; generated mark, or uploaded file?</h3>
+<p>A <b>generated monogram</b> already ships: <code>resolveEventMonogramSvg</code>
+reads <code>events.monogram_text / _color / _style / _font_key / _frame_key</code>,
+and <code>AnimatedMonogramHero</code> animates it. I put that on the prototype
+hero.</p>
+<p>An <b>uploaded logo file</b> &mdash; a couple&rsquo;s own artwork from their
+designer &mdash; is a different thing and does not exist. It needs storage, a
+size and format gate, and a rule for what happens on a dark theme.</p>
+<p>Which one did you mean?</p>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part two</p>
+<h2>Event Hub Pro &mdash; <span class="price">&#8369;3,500</span></h2>
+<p>Read live from <code>platform_retail_catalog_v2</code>:
+<code>COUPLE_WEBSITE_PRO</code>, titled &ldquo;Event Hub Pro&rdquo;,
+&#8369;3,500.00, active, one-time, last set 2026&#8209;09&#8209;10. It was already
+at 3,500, so nothing needed changing and I did not write to production.</p>
+
+<div class="card ask">
+<span class="tag t-ask">Your call &mdash; this one takes things away</span>
+<h3>Your new list is not the shipped list</h3>
+<div class="tbl">
+<table>
+<tr><th>Ships today</th><th>Your list</th><th></th></tr>
+<tr><td>Cinematic Reveal</td><td>Reveal</td><td class="yes">same</td></tr>
+<tr><td>Background color</td><td>Custom background</td><td class="yes">same</td></tr>
+<tr><td>Background music</td><td>Custom background music</td><td class="yes">same</td></tr>
+<tr><td>&mdash;</td><td>Custom fonts</td><td class="part">new</td></tr>
+<tr><td>&mdash;</td><td>Hero background &mdash; photo or video</td><td class="part">new</td></tr>
+<tr><td>&mdash;</td><td>Countdown timer background</td><td class="part">new</td></tr>
+<tr><td>&mdash;</td><td>Manual uploads</td><td class="part">new</td></tr>
+<tr><td>&mdash;</td><td>The other eight themes</td><td class="part">new</td></tr>
+<tr><td>Save-the-Date video</td><td>&mdash;</td><td class="no">dropped</td></tr>
+<tr><td>Photo gallery</td><td>&mdash;</td><td class="no">dropped</td></tr>
+<tr><td>Button color</td><td>&mdash;</td><td class="no">dropped</td></tr>
+<tr><td>Editorial editing</td><td>&mdash;</td><td class="yes">fine &mdash; already free</td></tr>
+<tr><td>free today</td><td><b>E-Gifts</b></td><td class="no">takeaway</td></tr>
+<tr><td>free today</td><td><b>Live what&rsquo;s happening now</b></td><td class="no">takeaway</td></tr>
+</table>
+</div>
+<p style="margin-top:14px"><b>Two of these are takeaways, and that is the part I
+want you to say out loud before I build it.</b> E-Gifts ships today at
+<code>/[slug]/pabuya</code> with no paywall, and the live &ldquo;happening
+now&rdquo; badges ship today in <code>ScheduleWidget</code>. Moving them behind
+Pro removes something couples already have.</p>
+<p>Three ways to go, your pick:</p>
+<ol>
+<li><b>Grandfather</b> &mdash; couples created before the switch keep both free;
+new couples pay. Most common, and nobody loses anything.</li>
+<li><b>Hard switch</b> &mdash; both go behind Pro for everyone. Simplest to build,
+and some couples will notice.</li>
+<li><b>Leave them free</b> &mdash; Pro sells on look, uploads and the reveal;
+E-Gifts and the live schedule stay part of the free hub.</li>
+</ol>
+<p class="evid"><b>Editorial editing is a separate note.</b> It is in the shipped
+list but <code>lib/website-pro-items.ts</code> marks it
+<code>NOT_SOLD_ON</code> &mdash; it joined the free-for-all SKUs in August, so Pro
+may not be sold on it. Dropping it from your list is correct.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build</span>
+<h3>Google Drive becomes a Pro prerequisite</h3>
+<p>Every manual upload is stored in the couple&rsquo;s own Drive. That makes Drive
+not a feature but a <b>precondition</b>: Pro cannot do its job until one is
+connected, so the offer has to say so before payment, not after.</p>
+<p>Drive photo-delivery is already connected in production, so the integration
+exists. What is new is the gate and the honest copy on the offer.</p>
+<p class="evid"><b>Worth deciding:</b> what happens if a couple disconnects Drive
+after paying? Their uploads are in their own account, so the hub would be
+pointing at files it can no longer read.</p>
+</div>
+
+<div class="card ship">
+<span class="tag t-ship">Settled</span>
+<h3>Classic is free and cannot be customised</h3>
+<p>Classic ships with every wedding and has no customisation at all. The other
+eight themes &mdash; Elegant, Modern, Minimalist, Fairytale, Vintage, Opulent,
+Rustic, Custom &mdash; are Pro, along with every control in the list above.</p>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Part three</p>
+<h2>The Controller &mdash; and why it is not taking care of the Hub</h2>
+<p>The controller lives at <code>/dashboard/[eventId]/launch</code>;
+<code>/website</code> redirects into it (merged 2026&#8209;09&#8209;02 on your
+ruling that the Papic pattern should apply here too). It is a <b>status
+stage</b> &mdash; standing, facts, next step, view-as, the Pro offer. It is good
+at telling the couple where they are.</p>
+<p>What it is not good at is being the door to the Hub&rsquo;s own settings.</p>
+
+<div class="card build">
+<span class="tag t-build">Build &middot; the core of your ask</span>
+<h3>Eleven editing surfaces exist that the controller never links to</h3>
+<div class="tbl">
+<table>
+<tr><th>Surface</th><th>Inbound links</th><th>Reachable from</th></tr>
+<tr><td><code>stories</code></td><td class="n no">0</td><td class="no">nothing at all</td></tr>
+<tr><td><code>what-to-bring</code></td><td class="n">1</td><td>not the controller</td></tr>
+<tr><td><code>colors</code></td><td class="n">1</td><td><code>studio/website-pro</code></td></tr>
+<tr><td><code>widgets</code></td><td class="n">1</td><td>the guest site, not a door</td></tr>
+<tr><td><code>living-hero</code></td><td class="n">2</td><td>editorial editor</td></tr>
+<tr><td><code>special-message</code></td><td class="n">2</td><td>editorial editor</td></tr>
+<tr><td><code>photo-moments</code></td><td class="n">3</td><td>the guest site</td></tr>
+<tr><td><code>site-chrome</code></td><td class="n">3</td><td>save-the-date builder</td></tr>
+<tr><td><code>dress-code</code></td><td class="n">4</td><td>nikah card, guest site</td></tr>
+<tr><td><code>our-photos</code></td><td class="n">4</td><td><code>studio/website-pro</code></td></tr>
+<tr><td><code>hero-photo</code></td><td class="n">8</td><td>the second editor</td></tr>
+</table>
+</div>
+<p style="margin-top:14px"><code>stories</code> is the sharp one: <b>zero inbound
+links anywhere in the app.</b> It is built, it is deployed, and no couple can
+reach it. It is also the page you asked about for picking stories.</p>
+<p><b>The build:</b> one door list on the controller, covering every Hub setting,
+with each row saying whether it is set or still empty. Same move as the Papic
+control centre.</p>
+</div>
+
+<div class="card ask">
+<span class="tag t-ask">Your call</span>
+<h3>There are two editors</h3>
+<p><code>/dashboard/[eventId]/website/editor</code> and a second tree at
+<code>/app/site-editor/[eventId]/</code>. The second one is where
+<code>hero-photo</code>&rsquo;s eight inbound links come from.</p>
+<p>This is the same shape as the <code>/website</code> versus <code>/launch</code>
+duplication you already resolved once. Worth resolving again &mdash; but which one
+survives is a product call, not mine.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build</span>
+<h3>Picking stories &mdash; manual, or from an event you shared</h3>
+<p>What ships at <code>/website/stories</code> is the host choosing which
+<b>vendor-created</b> content appears on their celebration (your 2026&#8209;08&#8209;15
+ruling). That is not what you asked for.</p>
+<p>What you asked for is two sources: <b>manual upload</b>, and <b>pull from
+another event the couple were both at</b>. The second is the interesting one and
+it does not exist &mdash; it needs a query for events where both partners were
+guests, and a consent rule, because those photos belong to somebody else&rsquo;s
+wedding.</p>
+</div>
+
+<div class="card build">
+<span class="tag t-build">Build</span>
+<h3>Schedule &mdash; manual, or adopt the coordinator&rsquo;s</h3>
+<p>The couple builds a schedule at <code>/dashboard/[eventId]/schedule</code>, and
+the controller does link to it. A coordinator run-of-show exists separately
+(<code>lib/schedule-ros.ts</code>).</p>
+<p>What is missing is the <b>choice</b>: one control that says &ldquo;use what the
+coordinator set&rdquo; and keeps it in sync, versus &ldquo;I will write my
+own&rdquo;. Needs a rule for what happens when the coordinator changes theirs
+after the couple adopted it.</p>
+</div>
+</section>
+
+<hr>
+
+<!-- ─────────────────────────────────────────────────────────────────── -->
+<section>
+<p class="kick">Order</p>
+<h2>What I would build, in this order</h2>
+
+<div class="step"><span class="no2">1</span><div><b>The announcement follows the reader</b>
+<p>One page in twelve is a live failure on the day itself, and it is the
+cheapest thing on this list. Lift the mount into the shared layout.</p></div></div>
+
+<div class="step"><span class="no2">2</span><div><b>The controller gets one door list</b>
+<p>Every Hub setting reachable from one place, each row saying set or empty.
+Rescues eleven orphaned surfaces, <code>stories</code> among them.</p></div></div>
+
+<div class="step"><span class="no2">3</span><div><b>The Pro list becomes your list</b>
+<p>Rewrite <code>website-pro-items.ts</code> and the offer copy. Blocked until
+you answer the takeaway question on E-Gifts and the live schedule.</p></div></div>
+
+<div class="step"><span class="no2">4</span><div><b>Drive as a Pro prerequisite</b>
+<p>The gate, the copy before payment, and the rule for a disconnected Drive.</p></div></div>
+
+<div class="step"><span class="no2">5</span><div><b>Dress code by role group</b>
+<p><code>byRole</code> on <code>dress_code_config</code>, keyed on the nine
+groups, with the call time as a first-class field.</p></div></div>
+
+<div class="step"><span class="no2">6</span><div><b>The new Pro look controls</b>
+<p>Custom fonts, hero background photo-or-video, countdown timer background.
+Largest build on the list; nothing else depends on it.</p></div></div>
+
+<div class="step"><span class="no2">7</span><div><b>Story sources and schedule adoption</b>
+<p>Both need a consent or sync rule decided first, so they sit last rather than
+being half-built.</p></div></div>
+</section>
+
+<hr>
+
+<section>
+<p class="kick">Before I start</p>
+<h2>Four answers I need from you</h2>
+<ul class="plain">
+<li><b>E-Gifts and the live schedule</b> &mdash; grandfather, hard switch, or
+leave them free?</li>
+<li><b>The logo</b> &mdash; the generated monogram that already ships, or an
+uploaded file?</li>
+<li><b>Two editors</b> &mdash; which one survives?</li>
+<li><b>Drive disconnected after paying</b> &mdash; what should the couple see?</li>
+</ul>
+<p style="margin-top:18px; color:var(--soft); font-size:14px">Everything else on
+this page I can start without you.</p>
+</section>
+
+</div>

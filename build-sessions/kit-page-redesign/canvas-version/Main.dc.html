@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Papic controller — set up and buy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:#ffffff;color:#2C2A29}
+a{color:#8C6932}a:hover{color:#6E5226}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #FFFFFF; display: flex; flex-direction: column;">
+
+  <!-- header + status line -->
+  <div style="display: flex; align-items: center; gap: 4px; padding: 12px 16px 2px 8px;">
+    <a href="#" aria-label="Back to add-ons" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #2C2A29;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <div style="display: flex; flex-direction: column;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 500; line-height: 1.1;">Papic</h1>
+      <span style="font-size: 13px; color: #6F6A62;">{{statusLine}}</span>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; overflow-y: auto; padding: 12px 16px 32px; display: flex; flex-direction: column; gap: 22px;">
+
+    <!-- SETUP STEP: only while dates are missing, then it folds to a row -->
+    <sc-if value="{{datesOpen}}" hint-placeholder-val="{{ true }}">
+      <div style="background: #17160F; color: #F4EFE6; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+        <span style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #C9A46A;">Do this first</span>
+        <div style="font-size: 21px; font-weight: 500;">When can cameras shoot?</div>
+        <div style="display: flex; gap: 8px;">
+          <label style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #B8AE9E;">Start
+            <input type="date" value="2026-07-25" style="height: 44px; box-sizing: border-box; border-radius: 12px; border: 1px solid #3A372C; background: #221F17; color: #F4EFE6; padding: 0 12px; font-family: inherit; font-size: 15px;">
+          </label>
+          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #B8AE9E;">Ends
+            <div style="height: 44px; box-sizing: border-box; border-radius: 12px; border: 1px solid #3A372C; padding: 0 14px; display: flex; align-items: center; font-size: 15px;">Aug 1</div>
+          </div>
+        </div>
+        <button onClick="{{saveDates}}" style="height: 48px; border: 0; border-radius: 999px; background: #C9A46A; color: #17160F; font-size: 15px; font-weight: 600;">Save dates</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{datesSet}}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{editDates}}" style="min-height: 52px; border-radius: 16px; border: 1px solid #E6E0D6; background: #FFFFFF; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 15px; color: #2C2A29;">
+        <span>Cameras open</span><span style="color: #6F6A62;">Jul 25 – Aug 1 ›</span>
+      </button>
+    </sc-if>
+
+    <!-- 1 · CREDITS — buy here -->
+    <section style="display: flex; flex-direction: column; gap: 12px; border-radius: 20px; background: #F4F1EC; padding: 16px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Credits</h2>
+        <span style="font-size: 14px; color: #6F6A62;"><strong style="font-size: 22px; color: #2C2A29; font-weight: 600;">50</strong> left</span>
+      </div>
+      <sc-if value="{{hasPending}}" hint-placeholder-val="{{ false }}">
+        <span style="font-size: 13px; color: #8C6932;">+{{pendingCredits}} on the way · checking payment</span>
+      </sc-if>
+      <div style="display: flex; gap: 8px; align-items: stretch;">
+        <button onClick="{{less}}" aria-label="Less" style="{{lessStyle}}">−</button>
+        <div aria-live="polite" style="flex-grow: 1; border-radius: 14px; background: #FFFFFF; border: 1px solid #E6E0D6; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px;">
+          <span style="font-size: 20px; font-weight: 600;">+{{rungCredits}}</span>
+          <span style="font-size: 12px; color: #6F6A62;">{{rungPrice}} · {{rungOff}}</span>
+        </div>
+        <button onClick="{{more}}" aria-label="More" style="{{moreStyle}}">+</button>
+      </div>
+      <button onClick="{{openPay}}" style="height: 50px; border: 0; border-radius: 999px; background: #8C6932; color: #FFFFFF; font-size: 15px; font-weight: 600;">Buy · {{rungPrice}}</button>
+      <span style="font-size: 12px; color: #6F6A62; text-align: center;">Photo 1 · clip up to 8</span>
+    </section>
+
+    <!-- 2 · GUESTS' SHOTS — the controls on how guests spend credits -->
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Guests’ shots</h2>
+      <div style="border-radius: 18px; border: 1px solid #E6E0D6; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 14px; color: #6F6A62;">When they can shoot</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; background: #F4F1EC; border-radius: 999px; padding: 4px;">
+          <sc-for list="{{whenOpts}}" as="o" hint-placeholder-count="2">
+            <button onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="border-radius: 18px; border: 1px solid #E6E0D6; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 14px; color: #6F6A62;">Limit per guest</span>
+          <button onClick="{{toggleCap}}" aria-label="Limit per guest" style="{{capTrack}}"><span style="{{capKnob}}"></span></button>
+        </div>
+        <sc-if value="{{capOn}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button onClick="{{capLess}}" aria-label="Fewer" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E6E0D6; background: #FFFFFF; font-size: 20px; color: #2C2A29;">−</button>
+            <span style="flex-grow: 1; text-align: center; font-size: 18px; font-weight: 600;">{{capValue}} each</span>
+            <button onClick="{{capMore}}" aria-label="More" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E6E0D6; background: #FFFFFF; font-size: 20px; color: #2C2A29;">+</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{capOff}}" hint-placeholder-val="{{ true }}">
+          <span style="font-size: 15px;">No limit</span>
+        </sc-if>
+      </div>
+      <button onClick="{{go.crew}}" style="min-height: 52px; border-radius: 16px; border: 1px solid #E6E0D6; background: #FFFFFF; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: #2C2A29; font-size: 15px;"><span>Crew cameras</span><span style="color: #6F6A62;">{{crewCount}} · {{crewGiven}} own ›</span></button>
+    </section>
+
+    <!-- 3 · FILTER — pick by looking -->
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Filter</h2>
+        <span style="font-size: 13px; color: #6F6A62;">{{lookBlurb}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px;">
+        <sc-for list="{{looks}}" as="l" hint-placeholder-count="5">
+          <button onClick="{{l.pick}}" aria-label="{{l.label}}" style="{{l.btnStyle}}">
+            <svg viewBox="0 0 60 72" width="100%" style="{{l.imgStyle}}" aria-hidden="true">
+              <rect width="60" height="72" fill="#E9B98A"/><rect y="40" width="60" height="32" fill="#6F8F6A"/><circle cx="46" cy="16" r="7" fill="#F7E3B5"/>
+              <circle cx="22" cy="34" r="6" fill="#5A3A2A"/><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"/>
+              <circle cx="37" cy="33" r="6" fill="#3A2A22"/><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"/>
+            </svg>
+            <span style="font-size: 12px;">{{l.label}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- 4 · CHALLENGES -->
+    <section style="display: flex; align-items: center; justify-content: space-between; gap: 12px; border-radius: 18px; border: 1px solid #E6E0D6; padding: 14px 16px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Challenges</h2>
+        <span style="font-size: 13px; color: #6F6A62;">{{picked}} of 9 picked</span>
+      </div>
+      <button onClick="{{go.challenges}}" style="height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #8C6932; background: #FFFFFF; color: #8C6932; font-size: 14px; font-weight: 600;">Pick</button>
+    </section>
+
+    <!-- 5 · GALLERY -->
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Gallery <span style="font-weight: 400; color: #6F6A62;">· 9</span></h2>
+        <button onClick="{{download}}" aria-label="Download all" style="width: 44px; height: 44px; border: 1px solid #E6E0D6; border-radius: 999px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; color: #2C2A29;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        </button>
+      </div>
+      <div style="display: flex; gap: 6px;">
+        <sc-for list="{{chips}}" as="c" hint-placeholder-count="4">
+          <button onClick="{{c.pick}}" style="{{c.style}}">{{c.label}}</button>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;">
+        <sc-for list="{{photos}}" as="p" hint-placeholder-count="6">
+          <button onClick="{{p.toggle}}" aria-label="{{p.aria}}" style="{{p.style}}">
+            <span style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #FFFFFF;">{{p.label}}</span>
+            <sc-if value="{{p.kept}}" hint-placeholder-val="{{ false }}">
+              <span style="position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 999px; background: #C9A46A; color: #17160F; display: flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>
+              </span>
+            </sc-if>
+          </button>
+        </sc-for>
+      </div>
+      <span style="font-size: 13px; color: #6F6A62; text-align: center;">Tap to keep full size</span>
+      <div style="border-radius: 18px; border: 1px solid #E6E0D6; overflow: hidden;">
+        <button onClick="{{go.review}}" style="{{rowStyle}}"><span>Review guest photos</span><span style="color: #8C6932;">{{reviewLeft}} ›</span></button>
+        <button onClick="{{toggleShared}}" style="{{rowBtnStyle}}"><span>Guests can browse</span><span style="{{sharedTrack}}"><span style="{{sharedKnob}}"></span></span></button>
+      </div>
+    </section>
+
+    <!-- 6 · KWENTO -->
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Kwento</h2>
+      <div style="border-radius: 18px; border: 1px solid #E6E0D6; overflow: hidden;">
+        <button onClick="{{go.kwento}}" style="{{rowStyle}}"><span>Guest messages</span><span style="color: #8C6932;">{{kwentoLeft}} ›</span></button>
+        <button onClick="{{go.magazine}}" style="{{rowStyle}}"><span>Kwento Magazine</span><span style="color: #6F6A62;">PDF ›</span></button>
+      </div>
+    </section>
+
+    <!-- 7 · LIVE WALL -->
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Live wall</h2>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+        <sc-for list="{{wallStyles}}" as="w" hint-placeholder-count="4">
+          <button onClick="{{w.pick}}" style="{{w.style}}">{{w.label}}</button>
+        </sc-for>
+      </div>
+      <div style="border-radius: 18px; border: 1px solid #E6E0D6; overflow: hidden;">
+        <button onClick="{{togglePhones}}" style="{{rowBtnStyle}}"><span>Also on guests’ phones</span><span style="{{phoneTrack}}"><span style="{{phoneKnob}}"></span></span></button>
+        <button onClick="{{go.screen}}" style="{{rowStyle}}"><span>Screen code</span><span style="color: #8C6932;">Get ›</span></button>
+      </div>
+    </section>
+
+    <!-- 8 · MORE -->
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">More</h2>
+      <div style="border-radius: 18px; border: 1px solid #E6E0D6; overflow: hidden;">
+        <sc-for list="{{moreRows}}" as="m" hint-placeholder-count="4">
+          <button onClick="{{m.open}}" style="{{rowStyle}}"><span>{{m.name}}</span><span style="color: #6F6A62;">{{m.value}} ›</span></button>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+
+  <!-- SUB-SCREENS: each door on the page opens its own screen -->
+  <sc-if value="{{inScreen}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: #FFFFFF; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 4px; padding: 12px 16px 8px 8px; border-bottom: 1px solid #F0EBE3;">
+        <button onClick="{{back}}" aria-label="Back to Papic" style="width: 44px; height: 44px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; color: #2C2A29;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span style="flex-grow: 1; font-size: 19px; font-weight: 600;">{{screenTitle}}</span>
+        <span style="font-size: 14px; color: #6F6A62; padding-right: 4px;">{{screenMeta}}</span>
+      </div>
+      <div style="flex-grow: 1; overflow-y: auto; padding: 14px 16px 28px; display: flex; flex-direction: column; gap: 8px;">
+
+        <!-- challenges -->
+        <sc-if value="{{scr.challenges}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <sc-for list="{{challenges}}" as="c" hint-placeholder-count="8">
+              <button onClick="{{c.toggle}}" style="{{c.style}}">
+                <span style="flex-grow: 1; text-align: left; font-size: 15px; line-height: 1.35;">{{c.text}}</span>
+                <span style="{{c.markStyle}}">{{c.mark}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- review guest photos -->
+        <sc-if value="{{scr.review}}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{review}}" as="r" hint-placeholder-count="4">
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="{{r.tile}}"><span style="font-size: 11px; color: #FFFFFF;">{{r.who}}</span></div>
+                <sc-if value="{{r.open}}" hint-placeholder-val="{{ true }}">
+                  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;">
+                    <button onClick="{{r.keep}}" style="height: 40px; border-radius: 999px; border: 0; background: #2C2A29; color: #FFFFFF; font-size: 13px;">Keep</button>
+                    <button onClick="{{r.hide}}" style="height: 40px; border-radius: 999px; border: 1px solid #E6E0D6; background: #FFFFFF; color: #2C2A29; font-size: 13px;">Hide</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{r.done}}" hint-placeholder-val="{{ false }}">
+                  <span style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #6F6A62;">{{r.result}}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- kwento messages -->
+        <sc-if value="{{scr.kwento}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{kwento}}" as="k" hint-placeholder-count="3">
+              <div style="border-radius: 16px; border: 1px solid #E6E0D6; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                <span style="font-size: 12px; color: #6F6A62;">{{k.who}}</span>
+                <span style="font-size: 16px; line-height: 1.4;">{{k.text}}</span>
+                <sc-if value="{{k.open}}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; gap: 8px;">
+                    <button onClick="{{k.wall}}" style="flex-grow: 1; height: 44px; border-radius: 999px; border: 0; background: #8C6932; color: #FFFFFF; font-size: 14px; font-weight: 600;">Show on wall</button>
+                    <button onClick="{{k.hide}}" style="height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #E6E0D6; background: #FFFFFF; color: #2C2A29; font-size: 14px;">Hide</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{k.done}}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: 13px; color: #2F6B35;">{{k.result}}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- crew cameras -->
+        <sc-if value="{{scr.crew}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="border-radius: 16px; background: #F4F1EC; padding: 14px 16px; display: flex; justify-content: space-between; font-size: 15px;"><span>Shared pot</span><strong style="font-weight: 600;">{{potLeft}} left</strong></div>
+            <sc-for list="{{crew}}" as="c" hint-placeholder-count="4">
+              <div style="border-radius: 16px; border: 1px solid #E6E0D6; padding: 10px 10px 10px 16px; display: flex; align-items: center; gap: 8px;">
+                <span style="flex-grow: 1; display: flex; flex-direction: column;"><span style="font-size: 15px;">{{c.name}}</span><span style="font-size: 12px; color: #6F6A62;">{{c.sub}}</span></span>
+                <button onClick="{{c.less}}" aria-label="Less" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #E6E0D6; background: #FFFFFF; font-size: 18px; color: #2C2A29;">−</button>
+                <span style="width: 36px; text-align: center; font-size: 16px; font-weight: 600;">{{c.own}}</span>
+                <button onClick="{{c.more}}" aria-label="More" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #E6E0D6; background: #FFFFFF; font-size: 18px; color: #2C2A29;">+</button>
+              </div>
+            </sc-for>
+            <button onClick="{{addCam}}" style="height: 50px; border-radius: 999px; border: 1px dashed #C9BFAF; background: #FFFFFF; color: #2C2A29; font-size: 15px;">+ Add a camera</button>
+          </div>
+        </sc-if>
+
+        <!-- screen code -->
+        <sc-if value="{{scr.screen}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; padding-top: 24px;">
+            <span style="font-size: 14px; color: #6F6A62;">On the venue screen, open</span>
+            <span style="font-size: 16px; font-weight: 600;">setnayan.com/wall</span>
+            <span style="font-size: 14px; color: #6F6A62;">and enter</span>
+            <span style="font-size: 44px; font-weight: 600; letter-spacing: 0.18em;">[CODE]</span>
+            <button onClick="{{back}}" style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #2C2A29; color: #FFFFFF; font-size: 15px; font-weight: 600;">Done</button>
+          </div>
+        </sc-if>
+
+        <!-- simple on/off screens from "More" -->
+        <sc-if value="{{scr.toggle}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button onClick="{{flipToggle}}" style="{{rowStyle}} border: 1px solid #E6E0D6; border-radius: 16px;"><span>{{toggleLabel}}</span><span style="{{toggleTrack}}"><span style="{{toggleKnob}}"></span></span></button>
+          </div>
+        </sc-if>
+
+        <!-- google drive -->
+        <sc-if value="{{scr.drive}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 12px;">
+            <span style="font-size: 16px;">A copy of every photo, in your own Drive.</span>
+            <span style="font-size: 13px; color: #6F6A62;">We only see the one folder we make.</span>
+            <button onClick="{{connectDrive}}" style="height: 52px; border: 0; border-radius: 999px; background: #8C6932; color: #FFFFFF; font-size: 15px; font-weight: 600;">{{driveBtn}}</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- toast -->
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 24px; border-radius: 14px; background: #2C2A29; color: #FFFFFF; padding: 14px 16px; font-size: 14px; display: flex; justify-content: space-between; align-items: center;">
+      <span>{{toast}}</span>
+      <button onClick="{{clearToast}}" style="border: 0; background: transparent; color: #C9A46A; font-size: 14px; font-weight: 600; height: 32px;">OK</button>
+    </div>
+  </sc-if>
+
+  <!-- PAY SHEET (apply-then-pay) -->
+  <sc-if value="{{showPay}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: rgba(23,22,15,0.45); display: flex; flex-direction: column; justify-content: flex-end;">
+      <div style="background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 14px 16px 24px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 18px; font-weight: 600;">{{payTitle}}</span>
+          <button onClick="{{closePay}}" aria-label="Close" style="width: 44px; height: 44px; border: 0; background: transparent; color: #2C2A29; font-size: 24px;">×</button>
+        </div>
+        <sc-if value="{{payPick}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="border-radius: 16px; background: #F4F1EC; padding: 14px 16px; display: flex; justify-content: space-between; font-size: 15px;"><span>+{{rungCredits}} credits</span><strong style="font-weight: 600;">{{rungPrice}}</strong></div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+              <sc-for list="{{methods}}" as="m" hint-placeholder-count="2">
+                <button onClick="{{m.pick}}" style="{{m.style}}">{{m.label}}</button>
+              </sc-for>
+            </div>
+            <button onClick="{{sendPay}}" style="height: 54px; border: 0; border-radius: 999px; background: #8C6932; color: #FFFFFF; font-size: 16px; font-weight: 600;">I’ve paid {{rungPrice}}</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{paySent}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 12px; align-items: center; text-align: center; padding: 6px 0;">
+            <span style="width: 56px; height: 56px; border-radius: 999px; background: #E8F1E6; color: #2F6B35; display: flex; align-items: center; justify-content: center;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>
+            </span>
+            <span style="font-size: 17px; font-weight: 600;">+{{rungCredits}} on the way</span>
+            <span style="font-size: 14px; color: #6F6A62;">They land once we confirm payment.</span>
+            <button onClick="{{closePay}}" style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #2C2A29; color: #FFFFFF; font-size: 15px; font-weight: 600;">Done</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dates: false, rung: 0, pay: null, method: 'GCash', pending: 0, when: 'day', capOn: false, cap: 20, look: 'ORIG', chip: 'All', kept: {}, shared: true, wall: 'Mosaic', phones: true, screen: null, toast: null, chosen: {}, reviewed: {}, kw: {}, crewOwn: [0, 0, 0, 0], faces: true, hand: true, drive: false, toggleKey: null };
+  }
+  renderVals() {
+    const s = this.state;
+    const set = (o) => this.setState(o);
+    const fmt = (n) => n.toLocaleString('en-PH');
+    // The 17 live rungs, read off the production stepper 2026-09-21; in code they come from platform_retail_catalog_v2.
+    const rungs = [[100,70,30],[200,140,30],[300,210,30],[400,280,30],[500,350,30],[1000,700,30],[2000,1400,30],[3000,1680,44],[4000,2240,44],[5000,2800,44],[6000,3360,44],[7000,3920,44],[10000,4500,55],[20000,7200,64],[30000,10800,64],[50000,15000,70],[100000,24000,76]];
+    const r = rungs[s.rung];
+    // lib/papic-photo-styles.ts PAPIC_STYLES — labels, blurbs and CSS previews verbatim.
+    const looks = [
+      ['ORIG', 'Orig', 'Clean & true', 'contrast(1.06) saturate(1.1) brightness(1.005)'],
+      ['RETRO', 'Retro', 'Warm film, fine grain', 'sepia(0.16) saturate(1.05) contrast(0.92) brightness(1.05)'],
+      ['MONO', 'Mono', 'Rich black & white', 'grayscale(1) contrast(1.24) brightness(1.04)'],
+      ['CINE', 'Cine', 'Teal & orange', 'contrast(1.14) saturate(1.12) brightness(0.99) hue-rotate(-6deg)'],
+      ['LOMO', 'Lomo', 'Lo-fi toy camera', 'saturate(1.5) contrast(1.2) brightness(1.05) hue-rotate(4deg)']
+    ];
+    const stepBtn = (off) => 'width: 48px; flex-shrink: 0; border-radius: 14px; font-size: 22px; border: 1px solid #E6E0D6; background: #FFFFFF; color: #2C2A29; opacity: ' + (off ? 0.35 : 1) + ';';
+    const pill = (on) => 'height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; white-space: nowrap; border: 1px solid ' + (on ? '#2C2A29' : '#E6E0D6') + '; background: ' + (on ? '#2C2A29' : '#FFFFFF') + '; color: ' + (on ? '#FFFFFF' : '#2C2A29') + ';';
+    const seg = (on) => 'height: 40px; border: 0; border-radius: 999px; font-size: 14px; font-weight: ' + (on ? 600 : 400) + '; background: ' + (on ? '#FFFFFF' : 'transparent') + '; color: #2C2A29; box-shadow: ' + (on ? '0 1px 3px rgba(23,22,15,0.12)' : 'none') + ';';
+    const track = (on) => 'width: 44px; height: 26px; flex-shrink: 0; border: 0; border-radius: 999px; background: ' + (on ? '#8C6932' : '#D9D3C8') + '; display: flex; align-items: center; padding: 3px; box-sizing: border-box; justify-content: ' + (on ? 'flex-end' : 'flex-start') + ';';
+    const knob = 'width: 20px; height: 20px; border-radius: 999px; background: #FFFFFF;';
+    const row = 'min-height: 52px; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; border: 0; border-bottom: 1px solid #F0EBE3; box-sizing: border-box; background: #FFFFFF; text-decoration: none; color: #2C2A29; font-size: 15px;';
+    const moments = [['Midday', false], ['Cocktails', false], ['Entrance', true], ['Dinner', false], ['First dance', true], ['Money dance', false]];
+    const tones = ['#8E7B62', '#6B5A45', '#A38B6A', '#5E5446', '#7D6A52', '#4E4638'];
+    const look = looks.find((l) => l[0] === s.look);
+    // Real prompts from the challenge library (supabase/migrations seed).
+    const CH = ['Catch the kiss.', 'Catch a dip. One photo.', 'Catch the first yawn of the night.', 'Get 5+ people dancing in one frame.', 'Snap the best-looking plate of the night.', 'Find the prettiest florals in the room.', 'Catch the bouquet or garter toss — or the scramble.', 'Catch the biggest reaction of the night on somebody’s face.', 'Catch somebody adjusting somebody else’s collar, veil or hair.', 'Catch the LED wall, fairy lights, or dance-floor glow.', 'Catch a group all checking the same photo on one phone.'];
+    const picked = Object.keys(s.chosen).filter((k) => s.chosen[k]).length;
+    const REV = [['Table 4 QR', '#7D6A52'], ['Guest · Lia', '#5E5446']];
+    const reviewOpen = REV.filter((_, i) => !s.reviewed[i]).length;
+    const KW = [['Guest · Table 2', 'Congratulations, Ana & Marco!'], ['Guest · Table 7', 'Best party of the year.'], ['Guest · Lia', '[a guest’s message]']];
+    const kwOpen = KW.filter((_, i) => !s.kw[i]).length;
+    const crewTotal = s.crewOwn.reduce((a, b) => a + b, 0);
+    return {
+      statusLine: '50 credits · 4 cameras · 9 photos',
+      datesOpen: !s.dates, datesSet: s.dates,
+      saveDates: () => set({ dates: true }), editDates: () => set({ dates: false }),
+      less: () => set({ rung: Math.max(0, s.rung - 1) }),
+      more: () => set({ rung: Math.min(rungs.length - 1, s.rung + 1) }),
+      lessStyle: stepBtn(s.rung === 0), moreStyle: stepBtn(s.rung === rungs.length - 1),
+      rungCredits: fmt(r[0]), rungPrice: '₱' + fmt(r[1]), rungOff: r[2] + '% off',
+      openPay: () => set({ pay: 'pick' }), closePay: () => set({ pay: null }),
+      showPay: !!s.pay, payPick: s.pay === 'pick', paySent: s.pay === 'sent',
+      payTitle: s.pay === 'sent' ? 'Sent' : 'Pay',
+      sendPay: () => set({ pay: 'sent', pending: s.pending + r[0] }),
+      methods: ['GCash', 'BDO'].map((m) => ({ label: m, pick: () => set({ method: m }), style: 'height: 52px; border-radius: 14px; font-size: 15px; background: #FFFFFF; color: #2C2A29; border: ' + (s.method === m ? '2px solid #8C6932' : '1px solid #E6E0D6') + ';' })),
+      hasPending: s.pending > 0, pendingCredits: fmt(s.pending),
+      whenOpts: [['day', 'Event day'], ['early', 'From start day']].map(([k, l]) => ({ label: l, pick: () => set({ when: k }), style: seg(s.when === k) })),
+      capOn: s.capOn, capOff: !s.capOn,
+      toggleCap: () => set({ capOn: !s.capOn }),
+      capTrack: track(s.capOn), capKnob: knob,
+      capValue: s.cap,
+      capLess: () => set({ cap: Math.max(5, s.cap - 5) }), capMore: () => set({ cap: s.cap + 5 }),
+      lookBlurb: look[2],
+      looks: looks.map(([id, label, blurb, css]) => ({
+        label, pick: () => set({ look: id }),
+        imgStyle: 'display: block; border-radius: 10px; filter: ' + css + ';',
+        btnStyle: 'padding: 3px 3px 6px; border-radius: 13px; background: #FFFFFF; color: #2C2A29; display: flex; flex-direction: column; gap: 4px; align-items: stretch; font-weight: ' + (s.look === id ? 600 : 400) + '; border: ' + (s.look === id ? '2px solid #8C6932' : '1px solid #E6E0D6') + ';'
+      })),
+      chips: ['All', 'Us', 'Videos', 'Kept'].map((c) => ({ label: c, pick: () => set({ chip: c }), style: pill(s.chip === c) })),
+      photos: moments.map(([m, vid], i) => ({
+        label: vid ? m + ' ▶' : m, kept: !!s.kept[i], aria: 'Keep ' + m + ' full size',
+        toggle: () => set({ kept: Object.assign({}, s.kept, { [i]: !s.kept[i] }) }),
+        style: 'position: relative; aspect-ratio: 1 / 1; border: 0; border-radius: 10px; background: ' + tones[i] + '; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; outline: ' + (s.kept[i] ? '2px solid #C9A46A' : 'none') + '; outline-offset: -2px;'
+      })),
+      rowStyle: row, rowBtnStyle: row,
+      toggleShared: () => set({ shared: !s.shared }), sharedTrack: track(s.shared), sharedKnob: knob,
+      wallStyles: ['Mosaic', 'Grid', 'Hero', 'Polaroid'].map((w) => ({ label: w, pick: () => set({ wall: w }), style: pill(s.wall === w) + ' padding: 0 4px;' })),
+      togglePhones: () => set({ phones: !s.phones }), phoneTrack: track(s.phones), phoneKnob: knob,
+      moreRows: [
+        { name: 'Finding people', value: s.faces ? 'On' : 'Off', open: () => set({ screen: 'toggle', toggleKey: 'faces' }) },
+        { name: 'Adding by hand', value: s.hand ? 'On' : 'Off', open: () => set({ screen: 'toggle', toggleKey: 'hand' }) },
+        { name: 'Google Drive copy', value: s.drive ? 'On' : 'Connect', open: () => set({ screen: 'drive' }) },
+        { name: 'DSLR & help', value: '', open: () => set({ toast: 'Opens the DSLR pairing guide' }) }
+      ],
+      // ── sub-screens ──
+      go: { crew: () => set({ screen: 'crew' }), challenges: () => set({ screen: 'challenges' }), review: () => set({ screen: 'review' }), kwento: () => set({ screen: 'kwento' }), screen: () => set({ screen: 'screen' }), magazine: () => set({ toast: 'Kwento Magazine · PDF downloading' }) },
+      back: () => set({ screen: null }),
+      inScreen: !!s.screen,
+      scr: { challenges: s.screen === 'challenges', review: s.screen === 'review', kwento: s.screen === 'kwento', crew: s.screen === 'crew', screen: s.screen === 'screen', toggle: s.screen === 'toggle', drive: s.screen === 'drive' },
+      screenTitle: { challenges: 'Challenges', review: 'Guest photos', kwento: 'Guest messages', crew: 'Crew cameras', screen: 'Screen code', toggle: s.toggleKey === 'faces' ? 'Finding people' : 'Adding by hand', drive: 'Google Drive' }[s.screen] || '',
+      screenMeta: s.screen === 'challenges' ? picked + ' of 9' : s.screen === 'review' ? reviewOpen + ' left' : s.screen === 'kwento' ? kwOpen + ' left' : '',
+      picked,
+      challenges: CH.map((t, i) => {
+        const on = !!s.chosen[i];
+        const full = !on && picked >= 9;
+        return {
+          text: t, mark: on ? '✓' : '+',
+          toggle: () => full ? set({ toast: '9 is the most' }) : set({ chosen: Object.assign({}, s.chosen, { [i]: !on }) }),
+          style: 'min-height: 60px; border-radius: 16px; padding: 10px 12px 10px 16px; display: flex; align-items: center; gap: 12px; color: #2C2A29; background: ' + (on ? '#FBF6EE' : '#FFFFFF') + '; border: ' + (on ? '2px solid #8C6932' : '1px solid #E6E0D6') + '; opacity: ' + (full ? 0.5 : 1) + ';',
+          markStyle: 'width: 32px; height: 32px; flex-shrink: 0; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 16px; background: ' + (on ? '#8C6932' : '#F4F1EC') + '; color: ' + (on ? '#FFFFFF' : '#2C2A29') + ';'
+        };
+      }),
+      reviewLeft: reviewOpen ? reviewOpen + ' new' : 'All done',
+      review: REV.map(([who, tone], i) => ({
+        who, open: !s.reviewed[i], done: !!s.reviewed[i], result: s.reviewed[i] === 'hide' ? 'Hidden' : 'Kept',
+        keep: () => set({ reviewed: Object.assign({}, s.reviewed, { [i]: 'keep' }) }),
+        hide: () => set({ reviewed: Object.assign({}, s.reviewed, { [i]: 'hide' }) }),
+        tile: 'aspect-ratio: 1 / 1; border-radius: 12px; background: ' + tone + '; display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; opacity: ' + (s.reviewed[i] === 'hide' ? 0.3 : 1) + ';'
+      })),
+      kwentoLeft: kwOpen ? kwOpen + ' to review' : 'All done',
+      kwento: KW.map(([who, text], i) => ({
+        who, text, open: !s.kw[i], done: !!s.kw[i], result: s.kw[i] === 'wall' ? 'On the wall' : 'Hidden',
+        wall: () => set({ kw: Object.assign({}, s.kw, { [i]: 'wall' }) }),
+        hide: () => set({ kw: Object.assign({}, s.kw, { [i]: 'hide' }) })
+      })),
+      crewCount: s.crewOwn.length,
+      crewGiven: fmt(crewTotal),
+      potLeft: fmt(Math.max(0, 50 - crewTotal)),
+      crew: s.crewOwn.map((own, i) => ({
+        name: 'Camera ' + (i + 1), own, sub: own ? 'Its own credits' : 'Shoots from the pot',
+        less: () => { const c = s.crewOwn.slice(); c[i] = Math.max(0, c[i] - 5); set({ crewOwn: c }); },
+        more: () => { const c = s.crewOwn.slice(); if (crewTotal + 5 > 50) { set({ toast: 'Only 50 in the pot' }); return; } c[i] = c[i] + 5; set({ crewOwn: c }); }
+      })),
+      addCam: () => set({ crewOwn: s.crewOwn.concat([0]) }),
+      toggleLabel: s.toggleKey === 'faces' ? 'Find guests with a selfie' : 'Let guests add from their phone',
+      toggleTrack: track(s.toggleKey === 'faces' ? s.faces : s.hand), toggleKnob: knob,
+      flipToggle: () => s.toggleKey === 'faces' ? set({ faces: !s.faces }) : set({ hand: !s.hand }),
+      driveBtn: s.drive ? 'Connected · disconnect' : 'Connect Google Drive',
+      connectDrive: () => set({ drive: !s.drive, toast: s.drive ? 'Drive disconnected' : 'Drive connected' }),
+      download: () => set({ toast: 'Preparing your zip…' }),
+      hasToast: !!s.toast, toast: s.toast || '', clearToast: () => set({ toast: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

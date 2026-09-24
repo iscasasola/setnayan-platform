@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send a quote — redesign prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  SEND A QUOTE — responsive redesign prototype (2026-09-22)
+  Route it stands for: /vendor-dashboard/messages/[threadId]#build-quote  (the supplier's ONE quote tool
+  inside a conversation — ProposalMaker + the saved-template shortcut). NOT the service card maker on
+  /vendor-dashboard/shop, and NOT the couple's /proposals/[publicId] page.
+  One DOM, two layouts:
+    < 1024px  one column, in the order a supplier does it; sub-screens open full screen
+    ≥ 1024px  shell (top bar + thread list) · the flow in the wide left column ·
+              the card the couple will receive + total + Setnayan lines + Send sticky on the right
+  Moment (prototype bar): COMPOSING · SENT (the quote is in the thread as a card; the builder folds).
+  Real values: 2 live service cards read off prod 2026-09-22 (Live band ₱35,000 · Host / MC ₱40,000, titles
+  NULL, gift OFF on both) · fee 5% to ₱100,000 then 1%, floor ₱50 (platform_settings) · the 17 Papic rungs
+  and the 40% / 50,000-credit gift rule (lib/setnayan-gift.ts, ladder read off prod) · the shipped
+  quoteCardState labels. Placeholders are marked [LIKE THIS].
+-->
+<style>
+:root{
+  --ink:#2C2A29; --ink-2:#6F6A62; --ink-3:#9A948A;
+  --line:#E6E0D6; --line-2:#F0EBE3; --soft:#F4F1EC; --page:#FFFFFF;
+  --gold:#8C6932; --gold-2:#C9A46A; --night:#17160F; --night-line:#3A372C; --night-ink:#F4EFE6; --night-2:#B8AE9E;
+  --ok-bg:#E8F1E6; --ok:#2F6B35; --terra:#B5613D; --terra-bg:#FBF1EC; --mulberry:#7A3B5E; --mulberry-bg:#F7EEF3;
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit;color:inherit}
+button{cursor:pointer}
+h1,h2{margin:0;font-weight:600}
+.proto{position:sticky;top:0;z-index:30;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;background:#EDEAE4;font-size:12px;color:var(--ink-2)}
+.proto b{font-weight:600;color:var(--ink)}
+.proto .sep{width:1px;height:20px;background:#D5CFC4;margin:0 4px}
+.pill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px;white-space:nowrap}
+.pill[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.proto .pill{height:30px}
+
+/* ---------- shell (desktop only) ---------- */
+.shell-top,.shell-rail{display:none}
+.app{display:block}
+
+/* ---------- page ---------- */
+.page-head{display:flex;align-items:center;gap:4px;padding:12px 16px 4px 8px}
+.icon-btn{width:44px;height:44px;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;border-radius:999px}
+.icon-btn.ring{border:1px solid var(--line);background:#fff}
+.page-head h1{font-size:24px;font-weight:500;line-height:1.1}
+.status{font-size:13px;color:var(--ink-2)}
+.layout{display:flex;flex-direction:column;gap:22px;padding:12px 16px 40px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h2{font-size:17px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.muted{color:var(--ink-2)}
+.card{border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.rows{border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.row{min-height:52px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border:0;border-bottom:1px solid var(--line-2);background:#fff;font-size:15px;text-align:left}
+.rows .row:last-child{border-bottom:0}
+.row .v{color:var(--ink-2);white-space:nowrap} .row .v.gold{color:var(--gold)} .row .v.ok{color:var(--ok)}
+.row.sum{font-weight:600}
+.lone{border:1px solid var(--line);border-radius:var(--r-md)}
+.btn{height:50px;border:0;border-radius:999px;background:var(--gold);color:#fff;font-size:15px;font-weight:600;padding:0 22px}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.dark{background:var(--ink)} .btn.ghost{background:#fff;border:1px solid var(--gold);color:var(--gold);height:44px}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;background:var(--soft);border-radius:999px;padding:4px}
+.seg.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.seg button{height:40px;border:0;border-radius:999px;background:transparent;font-size:13px;padding:0 4px}
+.seg button[aria-pressed="true"]{background:#fff;font-weight:600;box-shadow:0 1px 3px rgba(23,22,15,.12)}
+.seg button:disabled{opacity:.4;cursor:default}
+.switch{width:44px;height:26px;flex-shrink:0;border:0;border-radius:999px;background:#D9D3C8;padding:3px;display:flex}
+.switch::after{content:"";width:20px;height:20px;border-radius:999px;background:#fff;transition:transform .15s}
+.switch[aria-checked="true"]{background:var(--gold)}
+.switch[aria-checked="true"]::after{transform:translateX(18px)}
+.stepper{display:flex;gap:8px;align-items:stretch}
+.stepper .sb{width:48px;flex-shrink:0;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:22px}
+.stepper .sb:disabled{opacity:.35;cursor:default}
+.stepper .val{flex:1;border-radius:14px;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px}
+.stepper .big{font-size:20px;font-weight:600}
+.small{font-size:12px;color:var(--ink-2)}
+.center{text-align:center}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.field{height:44px;border-radius:var(--r-sm);border:1px solid var(--line);background:#fff;padding:0 12px;font-size:15px;width:100%}
+textarea.field{height:88px;padding:10px 12px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2)}
+.money{font-variant-numeric:tabular-nums}
+
+/* next step (dark) */
+.next{background:var(--night);color:var(--night-ink);border-radius:var(--r-lg);padding:18px;display:flex;flex-direction:column;gap:12px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-2)}
+.next .q{font-size:21px;font-weight:500}
+.next .btn{background:var(--gold-2);color:var(--night);height:48px}
+
+/* cards to pick (the shipped ServiceCardFace, one line each here) */
+.cards{display:flex;flex-direction:column;gap:8px}
+.pick{min-height:60px;border-radius:var(--r-md);padding:10px 12px 10px 12px;display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:#fff;text-align:left;font-size:15px;line-height:1.35;width:100%}
+.pick[aria-pressed="true"]{border:2px solid var(--gold);background:#FBF6EE}
+.pick .m{width:32px;height:32px;flex-shrink:0;border-radius:999px;background:var(--soft);display:flex;align-items:center;justify-content:center}
+.pick[aria-pressed="true"] .m{background:var(--gold);color:#fff}
+.cover{width:44px;height:58px;flex-shrink:0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;letter-spacing:.06em;text-transform:uppercase}
+.cover.none{background:#F3E4D4;color:#A5673F;font-size:16px}
+
+.extras{display:flex;flex-direction:column;gap:6px;padding:0 4px 6px 12px}
+.extras .chips{display:flex;gap:6px;flex-wrap:wrap}.extras .pill{height:34px;font-size:12px;padding:0 10px}
+/* lines */
+#lines{display:flex;flex-direction:column;gap:8px}
+.line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-height:56px;padding:8px 10px 8px 6px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.line .ctl{display:flex;align-items:center;gap:6px;margin-left:auto}
+.line.free{border-color:#BFD5BB;background:#F2F8F0}
+.line .h{width:28px;color:var(--ink-3);font-size:18px;text-align:center;cursor:grab;flex-shrink:0}
+.line .n{flex:1 1 140px;min-width:0;border:0;background:transparent;font-size:15px;padding:0}
+.line .p{white-space:nowrap;font-weight:600}
+.line .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:#fff;border:1px solid #BFD5BB;color:var(--ok);white-space:nowrap}
+.line .b{height:32px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:12px;padding:0 6px}
+.line .x{width:36px;height:36px;border:0;background:transparent;color:var(--ink-3);font-size:18px}
+.dashed{height:48px;border:1px dashed var(--line);border-radius:14px;background:#fff;font-size:14px;width:100%}
+
+#rails{display:flex;gap:6px;flex-wrap:wrap}
+/* the quote as a card (ServiceCardFace shape) */
+.face{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:var(--r-md);padding:12px;background:#FCFAF6}
+.face .cv{width:80px;height:112px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:#7D6A52}
+.face .cv.none{background:#F3E4D4;color:#A5673F;font-size:22px}
+.face .bd{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.face .nm{font-size:14px;font-weight:600}
+.face .pr{color:var(--terra);font-weight:600;font-size:13px}
+.face .inc{color:var(--ok);font-weight:500}
+.face .gift{color:var(--terra);font-size:11px}
+.face .ft{display:flex;align-items:center;gap:8px;padding-top:4px}
+.face .ft .cta{border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;background:var(--ink);color:#fff}
+.face .ft .hint{font-size:10px;color:var(--ink-3)}
+.face .st{font-size:11px;color:var(--ink-2)}
+
+.brief .row{min-height:44px;font-size:14px}
+.brief .row .v{white-space:normal;text-align:right}
+.sw{display:inline-flex;gap:3px;vertical-align:middle;margin-left:4px}.sw i{width:12px;height:12px;border-radius:999px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+/* Setnayan lines (fee + Papic) */
+.setn{border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.setn .row{min-height:56px}
+.setn .row .l{display:flex;flex-direction:column;gap:2px}
+.setn .row .l .s{font-size:12px;color:var(--ink-2)}
+.setn .row.papic.on{background:var(--mulberry-bg)}
+.setn .row.papic.on .v{color:var(--mulberry)}
+
+/* thread card (Sent) */
+.thread{display:flex;flex-direction:column;gap:10px}
+.bubble{align-self:flex-start;max-width:80%;background:var(--soft);border-radius:16px;padding:10px 14px;font-size:14px}
+.bubble.me{align-self:flex-end;background:var(--night);color:var(--night-ink)}
+.qcard{border:1px solid var(--gold-2);border-radius:var(--r-md);padding:10px;background:#FFFBF3;display:flex;flex-direction:column;gap:8px}
+.qcard .lab{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--terra)}
+.qcard.hist{opacity:.7;border-color:var(--line);background:#fff}
+
+/* compact (after send, setup collapses to one line) */
+.compact{display:none}
+
+/* ---------- STAGES: one brain process per block, joined by a spine ---------- */
+.stage{position:relative;display:flex;flex-direction:column;gap:14px;padding:0 0 0 44px}
+.stage::before{content:"";position:absolute;left:15px;top:36px;bottom:-26px;width:2px;background:var(--line)}
+.stage:last-of-type::before{display:none}
+.stage .num{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:999px;border:2px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--ink-2)}
+.stage .shead{display:flex;flex-direction:column;gap:2px;min-height:32px;justify-content:center;cursor:pointer}
+.stage.cur .shead{cursor:default}
+.stage .shead .eyebrow{color:var(--ink-3)}
+.stage .shead h2{font-size:19px;font-weight:600}
+.stage .shead .sum{display:none;font-size:14px;color:var(--ink-2)}
+.stage .body{display:flex;flex-direction:column;gap:22px}
+.stage .next{display:flex;align-items:center;gap:12px;background:var(--night);color:var(--night-ink);border-radius:var(--r-md);padding:12px 12px 12px 18px}
+.stage .next span{flex:1;font-size:14px}.stage .next .btn{height:44px;padding:0 18px;background:var(--gold-2);color:var(--night)}
+.stage.cur .num{background:var(--gold);border-color:var(--gold);color:#fff}
+.stage.done .num{background:var(--ok-bg);border-color:var(--ok-bg);color:var(--ok)}
+.stage.done .num::before{content:"✓"}.stage.done .num i{display:none}
+.stage.done .body,.stage.later .body{display:none}
+.stage.done .shead .sum,.stage.later .shead .sum{display:block}
+.stage.later{opacity:.55}
+.stage.later .shead .sum::before{content:"Up next · "}
+.rail{display:flex;gap:4px;align-items:center;overflow-x:auto;padding:4px 0 2px;font-size:12px;white-space:nowrap}
+.steps{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.steps .row{min-height:48px;font-size:14px}
+.steps .row .n{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;margin-right:10px;color:var(--ink-2);flex-shrink:0}
+.steps .row.cur{font-weight:600}.steps .row.cur .n{background:var(--gold);border-color:var(--gold);color:#fff}
+.steps .row.done .n{background:var(--ok-bg);border-color:var(--ok-bg);color:var(--ok)}
+.steps .row .v{font-weight:400;font-size:12px;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+.steps .row.later{color:var(--ink-3)}
+/* MOMENT ORDER — one DOM, reordered */
+.right{display:contents}
+.layout > .rail{order:0}.s-thread{order:0}.st1{order:1}.st2{order:2}.st3{order:3}.st4{order:4}.st5{order:5}
+.right .steps{display:none}
+body:not(.sent) .s-thread{display:none}
+.s-total .fact{display:none} body.sent .s-total .edit{display:none!important} body.sent .s-total .fact{display:inline}
+
+/* ---------- panel: full screen on phone, side drawer on desktop ---------- */
+.scrim{position:fixed;inset:0;background:rgba(23,22,15,.45);z-index:40;display:none}
+.panel{position:fixed;inset:0;background:#fff;z-index:41;display:none;flex-direction:column}
+.open .scrim{display:block} .open .panel{display:flex}
+.panel-head{display:flex;align-items:center;gap:4px;padding:12px 16px 8px 8px;border-bottom:1px solid var(--line-2)}
+.panel-head .t{flex:1;font-size:19px;font-weight:600}
+.panel-body{flex:1;overflow-y:auto;padding:14px 16px 28px;display:flex;flex-direction:column;gap:10px}
+.msg{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:10px}
+.check{width:56px;height:56px;border-radius:999px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:26px;margin:8px auto 0}
+.toast{position:fixed;left:16px;right:16px;bottom:24px;z-index:50;border-radius:14px;background:var(--ink);color:#fff;padding:14px 16px;font-size:14px;display:none;justify-content:space-between;align-items:center}
+.toast.on{display:flex}
+.toast button{border:0;background:transparent;color:var(--gold-2);font-weight:600}
+
+/* ---------- DESKTOP ---------- */
+@media (min-width:1024px){
+  body{background:#FAF8F4}
+  .shell-top{display:flex;align-items:center;gap:16px;height:60px;padding:0 24px;background:#fff;border-bottom:1px solid var(--line-2);position:sticky;top:46px;z-index:20}
+  .shell-top .brand{font-weight:700;letter-spacing:.2em;font-size:14px}
+  .shell-top .search{flex:1;max-width:520px;height:40px;border:1px solid var(--line);border-radius:999px;display:flex;align-items:center;padding:0 16px;color:var(--ink-3);font-size:14px}
+  .app{display:grid;grid-template-columns:260px 1fr}
+  .shell-rail{display:flex;flex-direction:column;gap:4px;padding:16px 12px;border-right:1px solid var(--line-2);background:#fff;min-height:calc(100vh - 106px);font-size:13px;color:var(--ink-2)}
+  .shell-rail .th{padding:10px 12px;border-radius:12px;display:flex;flex-direction:column;gap:2px}
+  .shell-rail .th.on{background:var(--soft);color:var(--ink)}
+  .shell-rail .th b{font-weight:600}
+  .main{max-width:1240px;width:100%;margin:0 auto;padding:8px 32px}
+  .page-head{padding:20px 0 8px}
+  .page-head h1{font-size:30px}
+  .page-head .back{display:none}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;column-gap:32px;row-gap:26px;padding:8px 0 64px;align-items:start}
+  .layout > .sec{grid-column:1}
+  .right{display:flex;flex-direction:column;gap:18px;grid-column:2;grid-row:1 / span 12;position:sticky;top:124px;align-self:start}
+  .right .steps{display:flex}
+  .layout > .rail{display:none}
+  .stage{padding-left:52px}.stage .num{width:36px;height:36px}.stage::before{left:17px;top:40px}
+  .layout > .s-send{display:none}
+  .s-preview .desk{display:flex}
+  .rows,.card,.lone,.line,.pick{background:#fff}
+  .panel{inset:0 0 0 auto;width:460px;box-shadow:-8px 0 24px rgba(23,22,15,.08)}
+  .toast{left:auto;right:24px;width:360px}
+  .status-m{display:none}
+  .thread{max-width:640px}
+}
+.s-preview .desk{display:none;flex-direction:column;gap:10px}
+.s-preview{display:none}
+@media (min-width:1024px){.s-preview{display:flex}.phone-preview{display:none}}
+</style>
+</head>
+<body>
+
+<div class="proto" role="group" aria-label="Prototype controls">
+  <b>Prototype</b>
+  <button class="pill" data-moment="compose" aria-pressed="true">Composing</button>
+  <button class="pill" data-moment="sent" aria-pressed="false">Sent</button>
+  <span class="sep"></span>
+  <span>Gift switch on the card:</span>
+  <button class="pill" data-gift="off" aria-pressed="true">Off (prod)</button>
+  <button class="pill" data-gift="on" aria-pressed="false">On</button>
+</div>
+
+<div class="shell-top"><span class="brand">SETNAYAN</span><span class="search">Search conversations</span></div>
+
+<div class="app">
+  <nav class="shell-rail" aria-label="Conversations">
+    <div class="th on"><b>Ana &amp; Miguel</b><span>Live band · 200 guests · 13 Mar 2027</span></div>
+    <div class="th"><b>[Couple]</b><span>Host / MC · [Nov 7]</span></div>
+    <div class="th"><b>[Couple]</b><span>Live band · [Jan 24]</span></div>
+  </nav>
+
+  <div class="main">
+    <div class="page-head">
+      <button class="icon-btn back" aria-label="Back to the conversation"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div><h1>Quote</h1><span class="status status-m" id="statusLine"></span></div>
+    </div>
+
+    <div class="layout">
+      <div class="rail" id="rail"></div>
+      <section class="sec s-thread" aria-label="Conversation">
+        <h2>Ana &amp; Miguel</h2>
+        <div class="thread">
+          <div class="bubble">[Hi! Do you have a package for 200 guests?]</div>
+          <div class="qcard" id="threadCard"></div>
+          <div class="bubble">[Thank you! Reviewing this tonight.]</div>
+        </div>
+      </section>
+      <!-- STAGE 1 · Know the event -->
+      <section class="stage st1" data-stage="1" aria-label="Step 1: Know the event">
+        <span class="num" aria-hidden="true"><i>1</i></span>
+        <div class="shead" data-goto="1"><span class="eyebrow">Step 1 of 5</span><h2>Know the event</h2><span class="sum" id="sum1"></span></div>
+        <div class="body">
+      <section class="sec s-brief" aria-label="Their event">
+        <div class="sec-head"><h2>Their event</h2><a class="small" href="#" data-toast="Opens /vendor-dashboard/clients/[eventId] — the full brief">Full brief ›</a></div>
+        <div class="rows brief">
+          <div class="row"><span>Wedding</span><span class="v">Sat 13 Mar 2027</span></div>
+          <div class="row"><span>Area</span><span class="v">Calabarzon</span></div>
+          <div class="row"><span>Guests</span><span class="v">~200 planning · <span class="muted">[150] at inquiry</span></span></div>
+          <div class="row"><span>Asked for</span><span class="v">Live band</span></div>
+          <div class="row"><span>Budget band</span><span class="v">Premium · ~₱11,000 a head</span></div>
+          <div class="row"><span>Style</span><span class="v">Timeless · Catholic <span class="sw" aria-label="[palette]"><i style="background:#8C6932"></i><i style="background:#E9D8C3"></i><i style="background:#5E5446"></i></span></span></div>
+          <div class="row"><span>Already locked</span><span class="v">Band / DJ</span></div>
+          <button class="row" data-open="withheld"><span class="muted">Opens after the fee</span><span class="v">venue · meals · timeline · seats · monogram ›</span></button>
+        </div>
+      </section>
+        <div class="next"><span>Everything Setnayan has on this event. Price from it.</span><button class="btn" data-next="1">Next · Choose what to offer</button></div>
+        </div>
+      </section>
+      <!-- STAGE 2 · Choose what to offer -->
+      <section class="stage st2" data-stage="2" aria-label="Step 2: Choose what to offer">
+        <span class="num" aria-hidden="true"><i>2</i></span>
+        <div class="shead" data-goto="2"><span class="eyebrow">Step 2 of 5</span><h2>Choose what to offer</h2><span class="sum" id="sum2"></span></div>
+        <div class="body">
+      <section class="sec s-cards" aria-label="Your cards">
+        <div class="sec-head"><h2>Your cards</h2><span class="small" id="cardsLine"></span></div>
+        <div class="cards" id="cardPicks"></div>
+        <button class="pill" style="height:44px;border-style:dashed" data-toast="Opens /vendor-dashboard/shop — the service card maker">+ New card</button>
+      </section>
+      <section class="sec s-ask" aria-label="Guests and hours">
+        <h2>Guests &amp; hours</h2>
+        <div class="card">
+          <span class="small">Planning 200 now · [150] at inquiry <span id="askDelta"></span></span>
+          <div class="two">
+            <div class="stepper"><button class="sb" data-act="pax-" aria-label="Fewer guests">−</button><div class="val" aria-live="polite"><span class="big" id="paxV"></span><span class="small">guests</span></div><button class="sb" data-act="pax+" aria-label="More guests">+</button></div>
+            <div class="stepper"><button class="sb" data-act="hrs-" aria-label="Fewer hours">−</button><div class="val" aria-live="polite"><span class="big" id="hrsV"></span><span class="small">hours</span></div><button class="sb" data-act="hrs+" aria-label="More hours">+</button></div>
+          </div>
+        </div>
+      </section>
+        <div class="next"><span>Your cards set the lines, the terms and the day.</span><button class="btn" data-next="2">Next · Set the price</button></div>
+        </div>
+      </section>
+      <!-- STAGE 3 · Set the price -->
+      <section class="stage st3" data-stage="3" aria-label="Step 3: Set the price">
+        <span class="num" aria-hidden="true"><i>3</i></span>
+        <div class="shead" data-goto="3"><span class="eyebrow">Step 3 of 5</span><h2>Set the price</h2><span class="sum" id="sum3"></span></div>
+        <div class="body">
+      <section class="sec s-lines" aria-label="Line items">
+        <div class="sec-head"><h2>Lines</h2><span class="small">⠿ drag to reorder</span></div>
+        <div id="lines"></div>
+        <button class="dashed" data-act="addline">+ Add a line</button>
+      </section>
+      <section class="sec s-crew" aria-label="Crew meal and transportation">
+        <h2>Crew &amp; travel</h2>
+        <div class="card">
+          <div class="sec-head"><span>Crew meal</span><span class="small" id="crewNote"></span></div>
+          <div class="seg" id="crewSeg"><button data-crew="included" aria-pressed="true">Included</button><button data-crew="charge" aria-pressed="false">Charge</button><button data-crew="offset" aria-pressed="false" disabled title="Only when the couple booked a crew-meal service">Couple provides</button></div>
+          <div class="two" id="crewFields" hidden>
+            <label class="f">Crew<input class="field money" type="number" min="0" id="crewSize" value="6"></label>
+            <label class="f">₱ per head<input class="field money" type="number" min="0" id="crewHead" value="350"></label>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec-head"><span>Transportation</span><span class="small" id="transNote"></span></div>
+          <div class="seg" id="transSeg"><button data-trans="included" aria-pressed="true">Included</button><button data-trans="flat" aria-pressed="false">Flat fee</button><button data-trans="distance" aria-pressed="false">By distance</button></div>
+          <label class="f" id="transFields" hidden>Flat fee ₱<input class="field money" type="number" min="0" id="transFee" value="2500"></label>
+        </div>
+      </section>
+      <section class="sec s-total" aria-label="Total">
+        <h2>Total</h2>
+        <div class="rows">
+          <div class="row"><span>Subtotal</span><span class="v money" id="subV"></span></div>
+          <div class="row"><span>Discount <span class="small" id="discWhy"></span></span><span class="edit" style="display:flex;align-items:center;gap:6px">₱<input class="field money" style="width:110px;height:36px" type="number" min="0" id="disc" value="0" aria-label="Discount in pesos"></span><span class="v money fact" id="discV"></span></div>
+          <div class="row" id="creditRow" hidden><span>Crew-meal credit</span><span class="v ok money" id="creditV"></span></div>
+          <div class="row sum"><span>Total</span><span class="money" id="totalV"></span></div>
+        </div>
+        <div class="setn" id="setn"></div>
+      </section>
+        <div class="next"><span>Money once — and what Setnayan charges and gives.</span><button class="btn" data-next="3">Next · Terms</button></div>
+        </div>
+      </section>
+      <!-- STAGE 4 · Terms -->
+      <section class="stage st4" data-stage="4" aria-label="Step 4: Terms">
+        <span class="num" aria-hidden="true"><i>4</i></span>
+        <div class="shead" data-goto="4"><span class="eyebrow">Step 4 of 5</span><h2>Terms</h2><span class="sum" id="sum4"></span></div>
+        <div class="body">
+      <section class="sec s-pay" aria-label="Payment schedule">
+        <div class="sec-head"><h2>Payments</h2><span class="small" id="payLine"></span></div>
+        <div class="rows full" id="payRows"></div>
+        <button class="dashed" data-act="addpay">+ Add a payment</button>
+      </section>
+      <section class="sec s-how" aria-label="How to pay">
+        <h2>How to pay</h2>
+        <div id="rails"></div>
+        <span class="small">[Published in Settings — prod set not read]</span>
+      </section>
+      <section class="sec s-note" aria-label="Title, validity and note">
+        <h2>Note</h2>
+        <div class="two">
+          <label class="f">Title<input class="field" id="title" placeholder="Auto-titled" ></label>
+          <label class="f">Valid until<input class="field" id="valid" type="date" value="2026-10-06"></label>
+        </div>
+        <label class="f">Note to the couple<textarea class="field" id="note" placeholder="Optional"></textarea></label>
+      </section>
+        <div class="next"><span>How they pay you, and until when this stands.</span><button class="btn" data-next="4">Next · Review</button></div>
+        </div>
+      </section>
+      <!-- STAGE 5 · Review & send -->
+      <section class="stage st5" data-stage="5" aria-label="Step 5: Review & send">
+        <span class="num" aria-hidden="true"><i>5</i></span>
+        <div class="shead" data-goto="5"><span class="eyebrow">Step 5 of 5</span><h2>Review & send</h2><span class="sum" id="sum5"></span></div>
+        <div class="body">
+        <div class="phone-preview" id="phonePreview"></div>
+      <section class="sec s-send" aria-label="Send">
+        <button class="btn" id="send"></button>
+        <span class="small center" id="sendHint"></span>
+      </section>
+        </div>
+      </section>
+      <div class="right">
+      <section class="sec s-preview" aria-label="What the couple gets">
+        <div class="steps" id="steps"></div>
+        <div class="sec-head"><h2 id="prevH">Their card</h2><span class="small" id="prevSub"></span></div>
+        <div class="face" id="face"></div>
+        <div class="desk">
+          <div class="rows">
+            <div class="row sum"><span>Total</span><span class="money" id="totalV2"></span></div>
+            <div class="row"><span>Booking fee</span><span class="v money" id="feeV2"></span></div>
+            <div class="row papic"><span>Papic deal</span><span class="v" id="papicV2"></span></div>
+          </div>
+          <button class="btn" id="send2"></button>
+          <span class="small center" id="sendHint2"></span>
+        </div>
+      </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: full screen on phone, drawer on desktop -->
+<div id="panelWrap">
+  <div class="scrim" id="scrim"></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+    <div class="panel-head">
+      <button class="icon-btn" id="panelBack" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <span class="t" id="panelTitle"></span><span class="muted" id="panelMeta" style="font-size:14px;padding-right:4px"></span>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="toastOk">OK</button></div>
+
+<script>
+(() => {
+  // ---------- data (real where sourced) ----------
+  // The two live service cards, read off prod 2026-09-22. Titles are NULL in prod, so the label is the
+  // kind (the shipped fallback). Inclusions: none exist in prod — the one below is a placeholder.
+  // Prod flags (both cards): crew_meal_required=true, crew_meal_included=false, transport_included=false.
+  // Rows in [brackets] are FIXTURES — prod holds 0 inclusions / brackets / discounts / add-ons / schedule rows / slots / links.
+  const CARDS = [
+    { id:'live_band', name:'Live band', price:35000, basis:'flat', photo:true, tone:'#5E5446', gift:false,
+      crewIncl:false, crewRequired:true, crewSize:null, transIncl:false, capacity:null, leadMonths:null, lastMinute:null,
+      incl:[{label:'[Sound check · 1 hr]', worth:null}],
+      brackets:[], addons:[{label:'[Extra hour]', from:5000},{label:'[Acoustic ceremony set]', from:8000}],
+      discounts:[{type:'early_booking', rate:10, unit:'pct', minLead:3}],
+      schedule:[{label:'[Reservation]', kind:'pct', v:30, due:'On booking · locks'},{label:'[Balance]', kind:'pct', v:70, due:'7 days before'}],
+      terms:'[Reservation non-refundable · refund window 14 days · no-show forfeits]',
+      slots:[{label:'[Evening set]', time:'6–10 pm'}], links:['host_mc'], serves:'[Calabarzon · NCR]', record:{booked:2} },
+    { id:'host_mc', name:'Host / MC', price:40000, basis:'flat', photo:false, tone:null, gift:false,
+      crewIncl:false, crewRequired:true, crewSize:null, transIncl:false, capacity:null, leadMonths:null, lastMinute:null,
+      incl:[], brackets:[], addons:[], discounts:[], schedule:[], terms:null, slots:[], links:[], serves:'[NCR]', record:{booked:1} },
+  ];
+  const EVENT_MONTHS_AWAY = 5.7;   // 2026-09-22 → 2027-03-13
+  const DISCOUNT_LABEL = { early_booking:'Early booking', off_peak:'Off-peak', bundle:'Bundle', promo:'Promo', returning:'Returning couple' };
+  // Papic guest rungs, prod 2026-09-22 (credits, ₱). The gift ladder stops at the 50,000 rung.
+  const RUNGS = [[100,70],[200,140],[300,210],[400,280],[500,350],[1000,700],[2000,1400],[3000,1680],[4000,2240],[5000,2800],[6000,3360],[7000,3920],[10000,4500],[20000,7200],[30000,10800],[50000,15000],[100000,24000]];
+  const LADDER = RUNGS.filter(([c]) => c <= 50000).map(([c,p]) => ({credits:c, price:p*100}));
+  const FEE = { rate:0.05, tail:0.01, tier1:100000, min:50 };     // platform_settings, prod 2026-09-22
+  const GIFT_PCT = 40, GIFT_CAP = 50000;                            // lib/setnayan-gift.ts
+  const RAILS = ['BDO','GCash','Maya','Bank transfer'];             // vendor_payment_methods rails (shipped names)
+  const PAX_ASKED = 150;                                            // [placeholder thread values]
+
+  const S = { stage:1, moment:'compose', giftOn:false, pax:200, hrs:8, picked:{live_band:true}, lines:[], crew:'included', trans:'included',
+              disc:0, discWhy:null, addons:{}, slot:null, pays:[{label:'First payment', kind:'pct', v:30, due:'On booking · locks'}], rails:{BDO:true,GCash:true}, panel:null, sentAt:null, lineDrag:null };
+  let nextKey = 1;
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => Math.round(n).toLocaleString('en-PH');
+  const peso = (n) => '₱' + fmt(n);
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const toast = (t) => { $('toastText').textContent = t; $('toast').classList.add('on'); };
+  $('toastOk').onclick = () => $('toast').classList.remove('on');
+
+  // ---------- the money, as the shipped resolvers compute it ----------
+  const lineAmt = (l) => l.free ? 0 : l.basis === 'per_pax' ? l.rate * Math.max(S.pax, l.minPax||0) : l.basis === 'per_hour' ? l.base + Math.max(0, S.hrs - (l.inclHrs||0)) * (l.extra||0) : l.flat;
+  const crewCharge = () => S.crew === 'charge' ? (+$('crewSize').value||0) * (+$('crewHead').value||0) : 0;
+  const transCharge = () => S.trans === 'flat' ? (+$('transFee').value||0) : 0;
+  const subtotal = () => S.lines.reduce((a,l) => a + lineAmt(l), 0) + crewCharge() + transCharge();
+  const total = () => Math.max(0, subtotal() - (S.disc||0));
+  // bookingFeePhp: 5% to ₱100,000, 1% after, floor ₱50 — lib/booking-fee.ts
+  const fee = (t) => t <= 0 ? 0 : Math.round(Math.max(Math.min(t,FEE.tier1)*FEE.rate + Math.max(0,t-FEE.tier1)*FEE.tail, FEE.min)*100)/100;
+  // setnayanGiftForFee — byte for byte the shipped arithmetic, in centavos
+  const roundRatio = (n,d) => Math.floor((2*n+d)/(2*d));
+  function gift(feePhp){
+    const feeC = Math.round(feePhp*100); if (feeC <= 0) return null;
+    const cap = LADDER.find(r => r.credits === GIFT_CAP); if (!cap) return null;
+    const budget = Math.floor((feeC*GIFT_PCT)/100);
+    const capped = budget >= cap.price, charge = capped ? cap.price : budget;
+    if (charge < LADDER[0].price) return null;
+    if (capped) return {credits:GIFT_CAP, charge, capped:true};
+    for (let i=0;i<LADDER.length;i++){ const lo=LADDER[i], hi=LADDER[i+1];
+      if (charge===lo.price || !hi) return {credits:lo.credits, charge, capped:false};
+      if (charge<hi.price) return {credits: lo.credits + roundRatio((charge-lo.price)*(hi.credits-lo.credits), hi.price-lo.price), charge, capped:false}; }
+    return null;
+  }
+
+  // ---------- cards → lines (the delta: a service card seeds the quote) ----------
+  function seedFromCards(){
+    const keep = S.lines.filter(l => !l.fromCard);
+    const seeded = [];
+    const cards = CARDS.filter(c => S.picked[c.id]);
+    cards.forEach(c => {
+      // price by the card's basis; a bracket ladder resolves against the guest count
+      const br = c.brackets.find(b => S.pax >= b.min && (b.max == null || S.pax <= b.max));
+      seeded.push({key:nextKey++, fromCard:c.id, label:c.name, basis:c.basis, flat: br ? br.price : c.price, rate:0, minPax:0, base:0, inclHrs:0, extra:0, free:false});
+      c.incl.forEach(i => seeded.push({key:nextKey++, fromCard:c.id, label:i.label, basis:'flat', flat:0, free:true}));
+      c.addons.forEach((a,i) => { if (S.addons[c.id+':'+i]) seeded.push({key:nextKey++, fromCard:c.id, label:a.label, basis:'flat', flat:a.from, free:false}); });
+    });
+    S.lines = seeded.concat(keep);
+    // crew meal + travel come off the card's flags (prod: both cards need a crew meal and do not include travel)
+    if (cards.length) {
+      S.crew = cards.some(c => c.crewRequired && !c.crewIncl) ? 'charge' : 'included';
+      S.trans = cards.some(c => !c.transIncl) ? 'flat' : 'included';
+      const crewEl = $('crewSize'); if (crewEl) crewEl.value = cards[0].crewSize ?? 5;
+    }
+    // the card's own discount, if this couple qualifies (early booking judged against the event date)
+    const d = cards.flatMap(c => c.discounts.map(x => ({...x, card:c}))).find(x => x.type !== 'early_booking' || EVENT_MONTHS_AWAY >= x.minLead);
+    if (d) { const anchor = d.card.brackets[0]?.price ?? d.card.price; S.disc = d.unit === 'pct' ? Math.round(anchor * d.rate / 100) : d.rate; S.discWhy = DISCOUNT_LABEL[d.type] + ' · ' + d.rate + (d.unit === 'pct' ? '%' : ' ₱'); const de = $('disc'); if (de) de.value = S.disc; }
+    else { S.discWhy = null; }
+    // the card's payment schedule + terms replace the default two rows
+    const sc = cards.find(c => c.schedule.length);
+    S.pays = sc ? sc.schedule.map(r => ({...r})) : [{label:'First payment', kind:'pct', v:30, due:'On booking · locks'}];
+    S.terms = sc ? sc.terms : null;
+    // a slot, when the card plots them
+    const sl = cards.flatMap(c => c.slots); S.slot = sl.length ? (S.slot ?? sl[0].label + ' · ' + sl[0].time) : null;
+  }
+  seedFromCards();
+
+  const pickedCards = () => CARDS.filter(c => S.picked[c.id]);
+  // Under a loaded card: its add-ons as optional lines, what it comes with, and how it meets this event
+  function cardExtras(c){
+    const addons = c.addons.map((a,i) => `<button class="pill" data-addon="${c.id}:${i}" aria-pressed="${!!S.addons[c.id+':'+i]}">${esc(a.label)} · +${peso(a.from)}</button>`).join('');
+    const links = c.links.filter(id => !S.picked[id]).map(id => { const l = CARDS.find(x => x.id === id); return l ? `<button class="pill" data-card="${id}" style="border-style:dashed">Comes with ${esc(l.name)} · add</button>` : ''; }).join('');
+    const lead = c.leadMonths == null ? 'Lead time · [not set]' : EVENT_MONTHS_AWAY >= c.leadMonths ? 'Lead time · fine' : 'Lead time · under your ' + c.leadMonths + ' mo';
+    const rush = c.lastMinute && EVENT_MONTHS_AWAY <= c.lastMinute.end ? ' · +' + c.lastMinute.pct + '% last-minute' : '';
+    const cap = c.capacity == null ? 'That day · [no limit set]' : 'That day · ' + c.capacity + ' of ' + c.capacity + ' free';
+    const slot = c.slots.length ? c.slots.map(sl => `<button class="pill" data-slot="${esc(sl.label + ' · ' + sl.time)}" aria-pressed="${S.slot === sl.label + ' · ' + sl.time}">${esc(sl.label)} · ${sl.time}</button>`).join('') : '';
+    return `<div class="extras"><div class="small">${lead}${rush} · ${cap} · Serves ${esc(c.serves)}</div>${addons || links || slot ? `<div class="chips">${addons}${links}${slot}</div>` : ''}</div>`;
+  }
+  const autoTitle = () => pickedCards().map(c => c.name).join(' + ') || 'Quote';
+  const titleNow = () => ($('title').value.trim() || autoTitle());
+  const giftGoverns = () => pickedCards().some(c => S.giftOn); // prod: the card's own switch (prototype: one switch for all)
+
+  // ---------- Setnayan lines: fee + the maximum exclusive Papic deal (lib/papic-on-a-quote.ts standings) ----------
+  function setnayanRows(){
+    const t = total(), f = fee(t), g = gift(f), on = giftGoverns();
+    const feeRow = t > 0
+      ? `<div class="row"><span class="l"><span>Booking fee</span><span class="s">5% to ₱100,000 · 1% after · billed at booking</span></span><span class="v money">${peso(f)}</span></div>`
+      : `<div class="row"><span class="l"><span>Booking fee</span><span class="s">5% to ₱100,000 · 1% after</span></span><span class="v">Price first</span></div>`;
+    let papic;
+    if (t <= 0) papic = `<div class="row papic"><span class="l"><span>Papic deal</span><span class="s">Free photos for them · 40% of your fee · on top</span></span><span class="v">Price first</span></div>`;
+    else if (!g) papic = `<div class="row papic"><span class="l"><span>Papic deal</span><span class="s">Too small at this price · quote higher</span></span><span class="v">—</span></div>`;
+    else if (on) papic = `<div class="row papic on"><span class="l"><span>Papic deal · on</span><span class="s">${fmt(g.credits)} free photos for them${g.capped?' · at the 50,000 ceiling':''} · on your fee bill</span></span><span class="v money">+${peso(g.charge/100)}</span></div>`;
+    else papic = `<button class="row papic" data-open="gift"><span class="l"><span>Papic deal · off</span><span class="s">Up to ${fmt(g.credits)} free photos · <span style="white-space:nowrap">+${peso(g.charge/100)} on your fee</span></span></span><span class="v gold">Switch on ›</span></button>`;
+    return feeRow + papic;
+  }
+
+  // ---------- stages ----------
+  const STAGES = ['Know the event','Choose what to offer','Set the price','Terms','Review & send'];
+  function stageSummaries(){
+    const t = total(), f = fee(t), g = gift(f), on = giftGoverns(), pc = pickedCards();
+    const paid = S.pays.reduce((a,p) => a + (p.kind==='pct' ? Math.round(t*p.v/100) : p.v), 0);
+    return [
+      'Wedding · 13 Mar 2027 · Calabarzon · ~200 guests',
+      (pc.map(c => c.name).join(' + ') || 'No card yet') + ' · ' + S.pax + ' guests · ' + S.hrs + ' h' + (S.slot ? ' · ' + S.slot : ''),
+      peso(t) + ' · fee ' + (t > 0 ? peso(f) : '—') + ' · Papic ' + (t <= 0 || !g ? '—' : on ? fmt(g.credits) + ' photos' : 'off'),
+      (S.pays.length + (t - paid > 0 ? 1 : 0)) + ' payments · ' + (RAILS.filter(r => S.rails[r]).join(' · ') || 'no rail') + ' · until ' + ($('valid').value || '—'),
+      S.moment === 'sent' ? 'Sent ' + (S.sentAt || '') : 'Their card · ' + peso(t),
+    ];
+  }
+  function renderStages(){
+    const sums = stageSummaries();
+    const cur = S.moment === 'sent' ? 6 : S.stage;
+    document.querySelectorAll('.stage').forEach(el => { const n = +el.dataset.stage; el.classList.toggle('done', n < cur); el.classList.toggle('cur', n === cur); el.classList.toggle('later', n > cur); $('sum' + n).textContent = sums[n-1]; });
+    $('rail').innerHTML = STAGES.map((l, i) => { const n = i + 1; return `<button class="pill" style="height:28px;padding:0 10px;font-size:12px;${n===cur?'':'border-color:transparent;background:transparent;color:var(--ink-3)'}" data-goto="${n}" aria-pressed="${n===cur}">${n < cur ? '✓ ' : n + ' '}${l}</button>`; }).join('');
+    $('steps').innerHTML = STAGES.map((l, i) => { const n = i + 1; return `<button class="row ${n<cur?'done':n===cur?'cur':'later'}" data-goto="${n}"><span style="display:flex;align-items:center;min-width:0"><span class="n">${n<cur?'✓':n}</span>${l}</span><span class="v">${n<=cur?esc(sums[i]):''}</span></button>`; }).join('');
+    $('phonePreview').innerHTML = `<div class="sec-head"><h2 style="font-size:17px">Their card</h2><span class="small">What the couple opens</span></div>` + $('face').outerHTML;
+  }
+
+  // ---------- render ----------
+  function render(){
+    document.body.classList.toggle('sent', S.moment === 'sent');
+    document.querySelectorAll('[data-moment]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.moment === S.moment)));
+    document.querySelectorAll('[data-gift]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.gift === 'on') === S.giftOn)));
+    const t = total(), f = fee(t), g = gift(f), on = giftGoverns();
+    $('statusLine').textContent = 'Ana & Miguel · ' + autoTitle() + ' · ' + S.pax + ' guests · ' + peso(t);
+
+    // ask
+    $('paxV').textContent = S.pax; $('hrsV').textContent = S.hrs;
+    $('askDelta').textContent = S.pax !== 200 ? '· quoting ' + S.pax : '';
+
+    // cards
+    const pc = pickedCards();
+    $('cardsLine').textContent = pc.length ? pc.length + ' loaded · price, includes, add-ons, terms' : 'Pick one or more';
+    $('cardPicks').innerHTML = CARDS.map(c => `<button class="pick" data-card="${c.id}" aria-pressed="${!!S.picked[c.id]}">
+      <span class="cover ${c.photo?'':'none'}" style="${c.photo?'background:'+c.tone:''}">${c.photo?esc(c.name):'▣'}</span>
+      <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">${esc(c.name)}</span><span class="small">from ${peso(c.price)}${c.incl.length?' · includes '+c.incl.length:''}${c.gift||S.giftOn?' · gift on':' · gift off'}</span></span>
+      <span class="m">${S.picked[c.id]?'✓':'+'}</span></button>${S.picked[c.id] ? cardExtras(c) : ''}`).join('');
+
+    // lines
+    $('lines').innerHTML = S.lines.map(l => `<div class="line ${l.free?'free':''}" draggable="true" data-line="${l.key}">
+      <span class="h" aria-hidden="true">⠿</span>
+      <input class="n" value="${esc(l.label)}" data-name="${l.key}" aria-label="Line name">
+      <span class="ctl"><select class="b" data-basis="${l.key}" aria-label="Pricing basis"><option value="flat"${l.basis==='flat'?' selected':''}>Flat</option><option value="per_pax"${l.basis==='per_pax'?' selected':''}>Per guest</option><option value="per_hour"${l.basis==='per_hour'?' selected':''}>Per hour</option></select>
+      ${l.free?'<span class="tag">Complimentary</span>':`<button class="b money" data-open="line:${l.key}">${peso(lineAmt(l))}</button>`}
+      <button class="x" data-free="${l.key}" aria-label="${l.free?'Charge for this':'Make it complimentary'}" title="${l.free?'Charge':'Free'}">${l.free?'₱':'🎁'}</button>
+      <button class="x" data-del="${l.key}" aria-label="Remove line">×</button></span></div>`).join('');
+
+    // crew & travel
+    document.querySelectorAll('#crewSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.crew === S.crew)));
+    document.querySelectorAll('#transSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.trans === S.trans)));
+    $('crewFields').hidden = S.crew !== 'charge'; $('transFields').hidden = S.trans !== 'flat';
+    $('crewNote').textContent = S.crew === 'included' ? 'In the line price' : S.crew === 'charge' ? '+' + peso(crewCharge()) : 'Credit on the final payment';
+    $('transNote').textContent = S.trans === 'included' ? 'In the line price' : S.trans === 'flat' ? '+' + peso(transCharge()) : 'Quoted after site check';
+
+    // total + Setnayan
+    $('subV').textContent = peso(subtotal()); $('discV').textContent = '−' + peso(S.disc||0); $('discWhy').textContent = S.discWhy ? '· ' + S.discWhy : ''; $('totalV').textContent = peso(t); $('totalV2').textContent = peso(t);
+    $('creditRow').hidden = S.crew !== 'offset';
+    $('setn').innerHTML = setnayanRows();
+    $('feeV2').textContent = t > 0 ? peso(f) : '—';
+    $('papicV2').textContent = t <= 0 ? '—' : !g ? 'too small' : on ? fmt(g.credits) + ' photos · +' + peso(g.charge/100) : 'off · up to ' + fmt(g.credits);
+
+    // payments (self-balancing: the auto Final balance covers the remainder)
+    let covered = 0;
+    const rows = S.pays.map((p,i) => { const amt = p.kind === 'pct' ? Math.round(t * p.v / 100) : Math.min(p.v, t - covered); covered += amt;
+      return `<button class="row" data-open="pay:${i}"><span>${esc(p.label)}${i===0?' <span class="small">· locks</span>':''}</span><span class="v money">${peso(amt)} · ${esc(p.due)} ›</span></button>`; });
+    const rest = Math.max(0, t - covered);
+    if (rest > 0) rows.push(`<div class="row"><span>Final balance <span class="small">· auto</span></span><span class="v money">${peso(rest)} · On the event day</span></div>`);
+    if (S.terms) rows.push(`<div class="row"><span class="small">${esc(S.terms)}</span></div>`);
+    $('payRows').innerHTML = rows.join('');
+    $('payLine').textContent = S.terms ? 'From the card · pays to ₱0' : 'Pays to ₱0';
+
+    // rails
+    $('rails').innerHTML = RAILS.map(r => `<button class="pill" data-rail="${r}" aria-pressed="${!!S.rails[r]}">${r}</button>`).join('');
+
+    // the card the couple gets
+    const first = pc[0];
+    const incl = S.lines.filter(l => l.free).map(l => l.label);
+    const face = (footer) => `<div class="cv ${first&&first.photo?'':'none'}" style="${first&&first.photo?'background:'+first.tone:''}">${first&&first.photo?esc(first.name):'▣'}</div>
+      <div class="bd"><span class="nm">${esc(titleNow())}</span><span class="st">${S.pax} guests · ${S.hrs} h${$('valid').value?' · valid until '+$('valid').value:''}</span>
+      <span class="pr">${t>0?peso(t):'Price on request'}</span>
+      ${incl.length?`<span class="inc">🎁 Includes ${esc(incl.join(' · '))}</span>`:''}
+      ${g&&on?`<span class="gift">🎁 Includes a Setnayan gift — ${fmt(g.credits)} free Papic photos</span>`:''}
+      ${S.slot?`<span class="st">${esc(S.slot)}</span>`:''}
+      ${first?`<span class="st">Booked ${pc.reduce((a,c)=>a+c.record.booked,0)} times · [shop rating] · Serves ${esc(first.serves)}</span>`:''}
+      ${footer}</div>`;
+    const sentFooter = `<span class="ft"><span class="cta">Review &amp; accept</span><span class="hint">opens the full quote</span></span>`;
+    $('face').innerHTML = face(sentFooter);
+    $('prevH').textContent = S.moment === 'sent' ? 'What they see' : 'Their card';
+    $('prevSub').textContent = S.moment === 'sent' ? 'Sent · waiting' : 'Live preview';
+
+    // thread card (Sent)
+    $('threadCard').innerHTML = `<span class="lab">📄 Quote</span><div class="face" style="border:0;padding:0;background:transparent">${face(`<span class="ft"><span class="cta" style="background:#fff;color:var(--ink);border:1px solid var(--line)">View quote</span><button class="pill" style="height:32px;font-size:12px" data-act="revise">Update this quote</button></span>`)}</div><span class="small">Sent ${S.sentAt||'[today]'} · waiting for the couple · they can counter-offer</span>`;
+
+    // send
+    const label = S.moment === 'sent' ? 'Quote sent' : 'Send quote · ' + peso(t);
+    const hint = S.moment === 'sent' ? 'Sending again replaces it · they accept again' : (t > 0 ? 'Goes into the conversation as a card' : 'Load a card or add a line');
+    $('send').textContent = label; $('send').disabled = S.moment === 'sent' || t <= 0; $('sendHint').textContent = hint;
+    if (S.moment !== 'sent' && S.stage < 5) { $('send2').textContent = 'Next · ' + STAGES[S.stage]; $('send2').disabled = false; $('send2').dataset.next = S.stage; $('sendHint2').textContent = 'Step ' + S.stage + ' of 5'; }
+    else { $('send2').textContent = label; $('send2').disabled = S.moment === 'sent' || t <= 0; delete $('send2').dataset.next; $('sendHint2').textContent = hint; }
+    renderStages();
+    renderPanel();
+  }
+
+  // ---------- panel ----------
+  function renderPanel(){
+    const wrap = $('panelWrap'); wrap.classList.toggle('open', !!S.panel); if (!S.panel) return;
+    const [kind, arg] = S.panel.split(':'); let title='', meta='', html='';
+    switch (kind) {
+      case 'cards': title = 'Your cards'; meta = pickedCards().length + ' loaded';
+        html = CARDS.map(c => `<button class="pick" data-card="${c.id}" aria-pressed="${!!S.picked[c.id]}"><span class="cover ${c.photo?'':'none'}" style="${c.photo?'background:'+c.tone:''}">${c.photo?esc(c.name):'▣'}</span><span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600">${esc(c.name)}</span><span class="small">from ${peso(c.price)} · ${c.incl.length} included · gift ${S.giftOn?'on':'off'}</span></span><span class="m">${S.picked[c.id]?'✓':'+'}</span></button>`).join('') + `<button class="btn dark" data-act="close">Done</button>`; break;
+      case 'ask': title = 'Guests & hours';
+        html = `<div class="card"><span class="small">Planning 200 · [${PAX_ASKED}] at inquiry</span><div class="stepper"><button class="sb" data-act="pax-">−</button><div class="val"><span class="big">${S.pax}</span><span class="small">guests</span></div><button class="sb" data-act="pax+">+</button></div><div class="stepper"><button class="sb" data-act="hrs-">−</button><div class="val"><span class="big">${S.hrs}</span><span class="small">hours</span></div><button class="sb" data-act="hrs+">+</button></div></div>`; break;
+      case 'line': { const l = S.lines.find(x => String(x.key) === arg); if (!l) { S.panel = null; return renderPanel(); }
+        title = l.label || 'Line'; meta = peso(lineAmt(l));
+        html = l.basis === 'per_pax' ? `<label class="f">₱ per guest<input class="field money" type="number" data-lf="rate" value="${l.rate}"></label><label class="f">Minimum guests<input class="field money" type="number" data-lf="minPax" value="${l.minPax||0}"></label><span class="small">${peso(l.rate)} × max(${S.pax}, ${l.minPax||0}) = ${peso(lineAmt(l))}</span>`
+          : l.basis === 'per_hour' ? `<label class="f">₱ for the first hours<input class="field money" type="number" data-lf="base" value="${l.base}"></label><label class="f">Hours covered<input class="field money" type="number" data-lf="inclHrs" value="${l.inclHrs||0}"></label><label class="f">₱ per extra hour<input class="field money" type="number" data-lf="extra" value="${l.extra||0}"></label><span class="small">${S.hrs} h booked · ${peso(lineAmt(l))}</span>`
+          : `<label class="f">₱ amount<input class="field money" type="number" data-lf="flat" value="${l.flat}"></label>`;
+        html += `<button class="btn dark" data-act="close">Done</button>`; break; }
+      case 'pay': { const i = +arg, p = S.pays[i]; title = p.label;
+        html = `<label class="f">Label<input class="field" data-pf="label" value="${esc(p.label)}"></label><div class="seg two"><button data-pk="pct" aria-pressed="${p.kind==='pct'}">%</button><button data-pk="php" aria-pressed="${p.kind==='php'}">₱</button></div><label class="f">${p.kind==='pct'?'Percent':'₱ amount'}<input class="field money" type="number" data-pf="v" value="${p.v}"></label><div class="seg"><button data-pd="On booking · locks" aria-pressed="${p.due==='On booking · locks'}">On booking</button><button data-pd="30 days before" aria-pressed="${p.due==='30 days before'}">Days before</button><button data-pd="On the event day" aria-pressed="${p.due==='On the event day'}">Event day</button></div>${i>0?'<button class="pill" style="height:44px" data-act="delpay">Remove</button>':''}<button class="btn dark" data-act="close">Done</button>`; break; }
+      case 'gift': title = 'Papic deal';
+        html = `<p style="margin:12px 0 0;font-size:16px">Free Papic photos for your couple — 40% of your booking fee, billed to you with it, up to 50,000 photos.</p><p class="small" style="margin:0">It is a switch on the service card, not on this quote. Off on <b>${esc(pickedCards().map(c=>c.name).join(' and ')||'this card')}</b>.</p><button class="btn" data-act="giftOn">Switch it on · [opens the card]</button><span class="small center">Owner question: should the switch also live here, per quote?</span>`; break;
+      case 'withheld': title = 'Opens after the fee';
+        html = `<p style="margin:12px 0 0;font-size:16px;font-weight:600">Quote first — the rest opens when the booking fee is settled</p><p style="margin:0;font-size:15px;line-height:1.45">You have everything you need to price this job. The exact venue and address, meal counts, the day-of timeline, the seat plan and the couple’s monogram open once this booking is confirmed and the Setnayan booking fee is settled.</p><span class="small">A free booking (your first five) opens everything.</span><button class="btn dark" data-act="close">Done</button>`; break;
+      case 'brief': title = 'Their event';
+        html = document.querySelector('.s-brief .brief').outerHTML + `<button class="btn dark" data-act="close">Done</button>`; break;
+      case 'sent': title = 'Sent';
+        html = `<div class="check">✓</div><p class="center" style="font-size:17px;font-weight:600;margin:0">Quote in the conversation</p><p class="center muted" style="margin:0">They review, accept, or counter-offer.</p><button class="btn dark" data-act="close">Done</button>`; break;
+    }
+    $('panelTitle').textContent = title; $('panelMeta').textContent = meta; $('panelBody').innerHTML = html;
+  }
+
+  // ---------- events ----------
+  const findLine = (k) => S.lines.find(l => String(l.key) === String(k));
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('button,a[data-toast],.shead[data-goto]'); if (t && t.tagName === 'A') e.preventDefault(); if (!t) { if (e.target.id === 'scrim') { S.panel = null; render(); } return; }
+    const d = t.dataset;
+    if (d.next) { S.stage = Math.min(5, +d.next + 1); setTimeout(() => { const el = document.querySelector('.stage.cur'); if (el) el.scrollIntoView({behavior:'smooth', block:'start'}); }, 0); }
+    else if (d.goto) { if (S.moment === 'sent') S.moment = 'compose'; S.stage = +d.goto; }
+    else if (d.moment) { S.moment = d.moment; if (S.moment === 'sent' && !S.sentAt) S.sentAt = 'Sep 22'; if (S.moment === 'compose') S.stage = 5; }
+    else if (d.gift) S.giftOn = d.gift === 'on';
+    else if (d.card) { S.picked[d.card] = !S.picked[d.card]; seedFromCards(); }
+    else if (d.addon) { S.addons[d.addon] = !S.addons[d.addon]; seedFromCards(); }
+    else if (d.slot) { S.slot = S.slot === d.slot ? null : d.slot; }
+    else if (d.act === 'pax-') { S.pax = Math.max(1, S.pax - 10); }
+    else if (d.act === 'pax+') { S.pax += 10; }
+    else if (d.act === 'hrs-') S.hrs = Math.max(1, S.hrs - 1);
+    else if (d.act === 'hrs+') S.hrs += 1;
+    else if (d.act === 'addline') S.lines.push({key:nextKey++, label:'New line', basis:'flat', flat:0, free:false});
+    else if (d.free) { const l = findLine(d.free); l.free = !l.free; }
+    else if (d.del) S.lines = S.lines.filter(l => String(l.key) !== d.del);
+    else if (d.crew) S.crew = d.crew;
+    else if (d.trans) S.trans = d.trans;
+    else if (d.act === 'addpay') S.pays.push({label:'Payment ' + (S.pays.length+1), kind:'pct', v:20, due:'30 days before'});
+    else if (d.act === 'delpay') { const i = +S.panel.split(':')[1]; S.pays.splice(i,1); S.panel = null; }
+    else if (d.pk) { const p = S.pays[+S.panel.split(':')[1]]; p.kind = d.pk; }
+    else if (d.pd) { const p = S.pays[+S.panel.split(':')[1]]; p.due = d.pd; }
+    else if (d.rail) S.rails[d.rail] = !S.rails[d.rail];
+    else if (d.open) S.panel = d.open;
+    else if (d.toast) toast(d.toast);
+    else if (d.act === 'giftOn') { S.giftOn = true; S.panel = null; toast('Gift switched on for the card · [in prod this opens /vendor-dashboard/shop]'); }
+    else if ((t.id === 'send' || t.id === 'send2') && !d.next) { S.moment = 'sent'; S.sentAt = 'Sep 22'; S.panel = 'sent'; }
+    else if (d.act === 'revise') { S.moment = 'compose'; S.stage = 3; toast('Sending replaces the sent quote · the couple must accept again'); }
+    else if (t.id === 'panelBack' || d.act === 'close') S.panel = null;
+    else return;
+    render();
+  });
+  document.addEventListener('input', (e) => {
+    const t = e.target; const d = t.dataset;
+    if (d.name) { findLine(d.name).label = t.value; return render(); }
+    if (d.lf) { const l = findLine(S.panel.split(':')[1]); l[d.lf] = +t.value || 0; return render(); }
+    if (d.pf) { const p = S.pays[+S.panel.split(':')[1]]; p[d.pf] = d.pf === 'v' ? (+t.value||0) : t.value; return render(); }
+    if (['disc','crewSize','crewHead','transFee','title','valid','note'].includes(t.id)) { if (t.id === 'disc') S.disc = +t.value || 0; return render(); }
+  });
+  document.addEventListener('change', (e) => { const d = e.target.dataset; if (d.basis) { findLine(d.basis).basis = e.target.value; render(); } });
+  // drag to reorder (6-dot handle, as shipped)
+  document.addEventListener('dragstart', (e) => { const el = e.target.closest('[data-line]'); if (el) S.lineDrag = el.dataset.line; });
+  document.addEventListener('dragover', (e) => { if (e.target.closest('[data-line]')) e.preventDefault(); });
+  document.addEventListener('drop', (e) => { const el = e.target.closest('[data-line]'); if (!el || !S.lineDrag) return; e.preventDefault();
+    const from = S.lines.findIndex(l => String(l.key) === S.lineDrag), to = S.lines.findIndex(l => String(l.key) === el.dataset.line);
+    if (from < 0 || to < 0) return; const [m] = S.lines.splice(from,1); S.lines.splice(to,0,m); S.lineDrag = null; render(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.panel) { S.panel = null; render(); } });
+  render();
+})();
+</script>
+</body>
+</html>

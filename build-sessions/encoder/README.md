@@ -1,16 +1,4 @@
-# Setnayan's own encoder — the S-series plan of record
-
-> 🛑 **CORRECTED 2026-09-08. This file WAS the retired E0–E9 plan** while every S-series prompt's
-> own rule 17 pointed here calling it "the S-series plan of record". A session obeying rule 17
-> read the retired plan. The E0–E9 prompts remain on disk as history — **do not act on one.**
->
-> 🔴 **S12 AND S13 ARE BOTH MERGED. DO NOT RELAUNCH EITHER.** S12 (the auto-updater) is PR
-> [#5252](https://github.com/iscasasola/setnayan-platform/pull/5252), merged 2026-09-06T06:55:10Z.
-> S13 merged as a **pre-flight readiness check** (PR #5250, `S13-PREFLIGHT.md`) concluding the
-> physical rehearsal cannot yet be run — the rehearsal itself is still owed.
-> 🔑 **A hand-off written 2026-09-07 said both branches sat at "0 commits — relaunch them". It
-> read `git rev-list origin/main..<branch>` as `0` and concluded "never started". A MERGED branch
-> and a NEVER-STARTED branch both read zero.** Check `gh pr list`, never the commit count.
+# Setnayan's own encoder — a spike plus nine sessions (E0–E9)
 
 Replaces OBS with the Tauri desktop app you already ship, so a couple opens Setnayan instead
 of configuring streaming software the week of their wedding.
@@ -36,83 +24,25 @@ Source scope: `Live_Studio_Encoder_Scope_2026-09-03.md` in the repo (LS3, PR #51
 Everything left of the canvas already ships. Only the highlighted hops are new.
 A browser cannot open the RTMP socket — that, and only that, is why native code is involved.
 
-## Where it stands — measured 2026-09-08 against `origin/main` and the live site
-
-🛑 **CORRECTED 2026-09-09 (S18). THIS LINE USED TO READ "14 sessions are merged; the pipeline is
-complete end to end." THE FIRST HALF WAS TRUE AND THE SECOND WAS FALSE** — and it was the most
-expensive sentence in this folder, because it is the one a session reads before deciding there is
-nothing structural left to do.
-
-**Every stage was merged and tested. NOTHING CALLED ANY OF THEM.** Measured against
-`origin/main @ beccdf510`:
-
-```bash
-# No production code ever invoked the transport. Only `encoder_probe` was called.
-grep -rn "invoke('encoder_start'" apps/web            # → nothing
-# Every encoder module had zero non-test importers.
-grep -rn "lib/encoder/" apps/web/{app,lib,components} --include="*.ts*" | grep "from '"
-#   → one hit, `program-strings` (copy constants)
-# The encoded video went into a ring nothing drained.
-grep -rn "\.drain()" apps/web/{lib,app} --include="*.ts" | grep -v "\.test\.ts"   # → nothing
-grep -rn "STUB SINK" src-tauri/src/encoder_ipc.rs      # → line 188
-```
-
-`STORE-SHELL-CLOSEOUT-2026-09-07.md` § 7 had already found this and called it "the highest-value
-unowned engineering on the board" — **no row in the ladder below owned it**, so it stayed unowned
-for two more days. S5 said S6 would replace the stub; S6 merged BEFORE S5 and never did.
-
-**S18 (this correction's own PR) joins it**: the worker now emits its encoded media, the page
-pushes it over the S5 commands, and `encoder_start` runs `reconnect::supervise` instead of a
-byte-counter. ⚠ **That is "every hop is called by shipped code", NOT "a broadcast reached
-YouTube"** — no end-to-end stream has been observed by anyone, and it cannot be until the owner
-gates below are open. Do not upgrade this sentence to "it works" without a watch URL.
-
-What is left is one publish, two measurement runs and the physical rehearsal.
-
-    phones ─► controller ─► canvas ─► audio ─► H.264+AAC ─► IPC ─► Rust FLV/RTMPS ─► YouTube
-              (shipped)     S1·S2      S3       S4          S5      S6·S7             (free CDN)
-
-| Merged | | PR |
-|---|---|---|
-| S0 | the spike — killed three false premises | #5200 |
-| S1 · S2 | program canvas + overlays | #5195 · #5235 |
-| S3 · S4 | programme audio (master clock) + H.264 on that clock | #5224 · #5236 |
-| S5 | webview→Rust transport, gated and bounded | #5239 |
-| S6 · S7 | RTMPS + FLV; reconnect, backup ingest, local `.flv` | #5213 · #5223 |
-| S8 · S9 | stream key never in page state; ingest health + ABR | #5210 · #5243 |
-| S10 · S11 | R2 release channel + honest `/download`; signing + notarization | #5209 · #5240 |
-| S12 | **the auto-updater** | **#5252** |
-| W1 | guests never hold a dead watch link across a reconnect | #5212 |
-
-## Order — what is left
+## Order
 
 | | Session | Model · Effort | Days | Depends on |
 |---|---|---|---|---|
-| **S14** | The app points at a host that exists | Sonnet 5 · high | 1 | — **start now** |
-| S15 | The first real publish; `/download` stops saying "no build" | Sonnet 5 · medium | 0.5 | S14 + **owner: 4 R2 secrets** |
-| S16 | The real YouTube publish + the measured grace window | Sonnet 5 · high | 1 | **owner: 1 stream key** — **parallel** |
-| S17 | 60-minute thermal, memory, the OS matrix, Windows | Sonnet 5 · medium | 1–2 | S15 + **a Windows laptop** |
-| S13 | The acceptance rehearsal (`S13.md`, already written) | Sonnet 5 · medium | 2–3 | S14·S15·S16 + hardware |
+| **E0** | The spike — does WebCodecs work in Tauri? | Opus 5 · high | 1–2 | — **BLOCKING** |
+| E1 | Program surface → canvas | Sonnet 5 · high | 2–3 | E0 |
+| **E2** | Overlays on canvas + the drift guard | Sonnet 5 · high | 3–4 | E1 — **the risky one** |
+| E3 | WebCodecs H.264 + AAC | Sonnet 5 · high | 2–3 | E1 |
+| E4 | IPC + backpressure | Sonnet 5 · high | 2 | E3 |
+| E5 | RTMP + FLV in Rust | Opus 5 · high | 4–6 | IPC contract only — **parallel** |
+| E6 | Stream key never reaches the renderer | Sonnet 5 · high | 1–2 | — **parallel** |
+| E7 | Build, signing, notarization | Sonnet 5 · high | 3–5 | a working binary |
+| E8 | Auto-updater | Sonnet 5 · high | 2–3 | E7 |
+| E9 | Acceptance run | Sonnet 5 · medium | 1–2 | everything |
 
-🔶 **S17 PARTIALLY RUN 2026-09-09** (`S17-FINDING.md`) — do not treat as "never started" from a
-`0 commits` read (see the trap this README already warns about above). Done: OS matrix cited from
-S0 (unchanged machine); one full hour of the *hidden*-regime encode measured (new — no WebKit
-suspension this time, unlike S0's 8 minutes). **Still open, both by owner instruction, not by
-failure:** the visible-state 60-minute run (needs a human physically at this Mac's keyboard — an
-unattended launch here never reaches WindowServer "visible" state) and the entire Windows leg
-(owner has the laptop, will run it personally later). Exact resume commands for both in
-`S17-FINDING.md` §§ 1 and 4.
+**21–32 engineer-days across ten prompts (E0–E9)** — E1–E9 alone are 20–30; E0's spike is the rest. Wall-clock is shorter: E5 and E6 need only the IPC contract, so they
+run alongside E1–E4.
 
-**5.5–7.5 engineer-days.** S16 is parallel-safe with S14/S15 — it touches
-`src-tauri/crates/encoder/` only. 🛑 **Never more than two build sessions at once**; collisions
-were observed on S0 and S1.
-
-🔴 **THE CRITICAL PATH IS OWNER ACTIONS, NOT ENGINEERING.** Nobody can install the desktop app
-today: `/api/download/mac` and `/api/download/windows` both answer **503**, and the whole
-`desktop/` prefix 404s on R2, because the four R2 secrets have never been set in the **GitHub
-Actions** store (a different store from Vercel's). See `X0-TRACKER.md`.
-
-## Do not skip the spike (history)
+## Do not skip E0
 
 Every session after it assumes WebCodecs works inside the Tauri webview. That is confirmed for
 Safari 26 and **undocumented for WKWebView**. One day of spike against three weeks of rework.

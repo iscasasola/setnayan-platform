@@ -48,7 +48,18 @@ trunk** and skipping the generated-file regeneration.
 
 ## THE TWO MIGRATIONS — deliberately apart
 
-`pnpm migration:new` allocates forward and two migrations must not share a wave.
+⛔ **"TWO MIGRATIONS MUST NOT SHARE A WAVE" WAS INVENTED HERE AND IS FALSE.** It appears in no
+repo rule, and today's own history contradicts it: **#5875 landed with 3 migrations and #5877 with
+3.** The controller split three finished builds into three separate merges on the strength of it
+— the exact opposite of this group's whole purpose — and the owner caught it by asking *"i thought
+we do one merge for multiple builds?"*
+
+✅ **The real constraint is narrower: `pnpm migration:new` allocates FORWARD, and a migration that
+depends on another must sort after it.** That is about ordering *within* a tree, not about how many
+may ride in one merge.
+
+🔑 **A rule a controller writes into its own plan file reads, a week later, exactly like a rule the
+repo imposes.** Cite where a constraint comes from, or it becomes one by repetition.
 
 - **ONE DOOR build 2** — consent per event. Measured: it is `users.public_summary_consent_at` with **no `events.` sibling** and **eight readers** — a repoint, not a new column.
 - **Papic P4** — per-face blur. ⚖ Worth asking whether it ships at all: 146 guests, 0 have used it.
@@ -69,3 +80,37 @@ trunk** and skipping the generated-file regeneration.
 5. **Every vendor photo is served from a development storage hostname**, documented as rate-limited. A DNS change, his call.
 6. **No browser drive of the guest card as a signed-in couple** — a fresh worktree has no `.env.local`. Two things tests cannot see: whether a debounced save steals the caret mid-word on a phone, and whether tapping the peek strip returns to the roster with the row still selected.
 7. **Event Hub PRO copy understates what ships** — fixing it needs a migration.
+
+---
+
+## WAVE 3 — pre-measured 2026-09-22 09:45 UTC against `origin/rd/wave-2`
+
+Measured with real trial merges, not greps. **Zero shared files between any pair of the ready
+branches**, so they fold in any order.
+
+| slot | branch | vs wave-2 | files | state |
+|---|---|---|---|---|
+| A | `rd/team-money-refuses-a-guess` @ `be6998b4d` | ✅ CLEAN | 7 | **accepted, green, idle** |
+| B | `rd/event-hub-wears-a-theme` (theme vocabulary + skins) | ✅ CLEAN | 38 | building — owner's stated priority today |
+| C | `rd/sai-cta-and-the-progress-bar` | ✅ CLEAN | 0 | building — Sai copy, duplicate percentage, 0% ring |
+| D | quote maker **G-2** — the gift a couple cannot see | not cut | — | 🟢 launched |
+| E | quote maker **F** — rows not sentences | — | — | same branch as D |
+
+⛔ **`claude/rd-quote-maker-held-bcd` CONFLICTS with wave 2** and does not join wave 3 as-is. It must
+merge `main` after #5892 lands and redo `proposal-maker.tsx` and
+`vendor-dashboard/messages/[threadId]/page.tsx` — the chat frame's own files. Then it is foldable.
+
+⏸ **Held out of wave 3 deliberately:**
+
+- **`papic_dedicate_shots` retirement** — its own PR, whole. Measured: the DROP orphans
+  `papic_seat_allocations`, whose term is read by four money functions and nine app files, with 21
+  call sites across five db test files, two of them autopsies of shipped money defects. Needs the
+  heavy replay, so it queues behind the lock. ⚖ **Owner question first:** gone, or merely unreachable?
+  Dropping the writer while live rows exist is a different change from retiring it for new events.
+- **`vendors-plan-budget.ts`'s `lockedTotal`** — the same null-swallowing shape as the money split,
+  and the TRUE source of the locked figure, but it also feeds the accordion, the folder headers and
+  `/budget`. Correcting it moves numbers on three other surfaces. Its own slice.
+- **Quote maker E** — needs a `service_card_ids` column AND the stream render together. Migrations
+  are one per wave and `#5875` already carries one. A column with no reader is a second source of
+  truth waiting to disagree.
+- **Your Team slices 1 and 4** — slice 4 unblocks only once the Overview counts are on `main`.

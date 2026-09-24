@@ -79,8 +79,9 @@ export type RailMatchRow = {
  * answer both rules agree on.
  *
  * 🔑 "MOST SPECIFIC" MEANS THIS PAGE BEFORE THIS FAMILY. Length is still the
- * tie-break beneath it, and it is what settles `/seating/lab` (3D Plan, longer)
- * against `/seating` (Seat plan) — two prefix claims where neither is exact.
+ * tie-break beneath it, and it is what settles two prefix claims where neither
+ * is exact (it once settled `/seating/lab` for 3D Plan against `/seating`; the
+ * 3D Plan row folded into Seat plan on 2026-09-24, so that pair is one row now).
  */
 function specificityOf(
   href: string,

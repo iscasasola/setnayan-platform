@@ -823,7 +823,10 @@ export function FrontDoorShell({
       `contextMatchRows` closes that — the two halves are now one list and one
       resolver, and the shipped specificity rule settles every overlap by
       itself. Measured, the whole overlap set is three URLs:
-        /dashboard/<id>/seating/lab      3D Plan wins (its href is longer)
+        /dashboard/<id>/seating/lab      3D Plan won (longer href) — until
+                                         2026-09-24, when the 3D Plan row
+                                         folded into Seat plan, which now
+                                         claims it (and /plan3d) outright
         /dashboard/<id>/website          Launch wins (it claims the family)
         /dashboard/<id>/website/editor   Launch wins (exact)
 

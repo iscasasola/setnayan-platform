@@ -30,7 +30,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { INVITE_THEME_IDS } from '@/lib/invite-themes';
+import { INVITE_THEME_IDS, INVITE_THEMES } from '@/lib/invite-themes';
 
 const WEB = join(import.meta.dirname, '..', '..', '..', '..');
 const read = (...p: string[]) => readFileSync(join(WEB, ...p), 'utf8');
@@ -40,7 +40,27 @@ const DOOR_DIR = join(WEB, 'app', '[slug]', 'invite', '_components', 'themes');
 const SITE_DIR = join(WEB, 'app', '[slug]', '_components', 'skins');
 
 /** Every theme that actually paints — House is the bare page by design. */
-const PAINTED = INVITE_THEME_IDS.filter((id) => id !== 'house');
+/*
+  PAINTED = what actually reaches a pixel, which is NOT "everything but house".
+
+  🔑 THIS LINE USED TO BE AN EXCLUSION LIST, and an exclusion list is a guard
+  that breaks on the next registration rather than on the next defect. The day
+  four more registers were added — `minimalist`, `fairytale`, `vintage`,
+  `custom`, all `ready: false`, all drawing nothing — this test went red
+  demanding a material block for a door that cannot be opened. The registry was
+  right and the guard's window was wrong.
+
+  ✅ So it reads `ready` instead. A theme nobody can select renders no surface,
+  so a missing material block for it is not a defect; `house` is excluded
+  because it is Setnayan's own door and wears no material.
+
+  🔒 AND THE RATCHET STILL CLOSES — this is the half that matters. `ready` is
+  what the picker offers, so the moment a skin is switched on, PAINTED grows and
+  every assertion below starts demanding its material block, its token prefix
+  and its pair count. You cannot ship a selectable door that renders unpainted;
+  you can only register one that renders nothing at all.
+*/
+const PAINTED = INVITE_THEME_IDS.filter((id) => id !== 'house' && INVITE_THEMES[id].ready);
 
 /** Every `[data-hub-theme='id'] { … }` body — the SITE's reading of a material. */
 function cssBlocksFor(id: string): string[] {
@@ -72,6 +92,21 @@ const DOOR_GEOMETRY = new Set([
   '--ga-print-h',
   '--ab-card-pad',
 ]);
+
+test('🔒 PAINTED tracks the picker, and an unready theme really is unpaintable', () => {
+  // The guard above narrowed from "every id but house" to "every READY id but
+  // house". That narrowing is only safe while these two hold, so they are
+  // asserted rather than assumed.
+  assert.ok(PAINTED.length >= 4, `only ${PAINTED.length} painted themes — the narrowing ate one`);
+  assert.ok(!PAINTED.includes('house' as (typeof PAINTED)[number]), 'house wears no material');
+  for (const id of INVITE_THEME_IDS) {
+    if (PAINTED.includes(id)) continue;
+    if (id === 'house') continue;
+    // An unready theme must be unready in the REGISTRY, not merely absent from
+    // a list here — otherwise this exemption becomes the exclusion list again.
+    assert.equal(INVITE_THEMES[id].ready, false, `${id} is offered to couples but not painted`);
+  }
+});
 
 test('every painted theme has a material block, and BOTH surfaces are on it', () => {
   for (const id of PAINTED) {

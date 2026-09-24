@@ -11,6 +11,14 @@ prototype `prototypes/collection_template_posters_add_flow_v4_2026-09-24.html`, 
   Order: **solemn → quiet masthead** · **hero photo** · accent that carries white type (WCAG ≥ 4.5) →
   **deep** (Capiz panes only when the invite wears Capiz) · accent that cannot → **moon** · nothing
   chosen → **the hub's own invitation card** (eyebrow · their mark · names · invitation line · date).
+- **ONE hero, ONE resolver** (owner, relayed: *"hero widget applies to save the date, invitation, on
+  the day and the thumbnail poster"*): `resolveEventPoster` (`lib/event-poster.server.ts`) is the only
+  caller of `posterFor`, reading the same inputs as the Event Hub's `PahinaMasthead` — for the
+  controller's poster preview and the stages to call later. `event-poster.test.ts` fails a second
+  caller. ⚠ The poster does NOT read the hero VIDEO (`landing_page_hero_video_r2_key`) or the Save the
+  Date's own columns (`std_background`, `std_media`, `std_theme`, `std_reveal_template`,
+  `std_film_accent_hex`, `std_film_venue_name`/`_city`/`_ceremony_name`) — where set, the Save the
+  Date and the poster can differ in photo, accent and place.
 - **`app/_components/event-poster.tsx` + `.module.css`** draw the five treatments in `cqw`, 3:4.
   The whole poster is `aria-hidden`.
 - **`CollectionCard layout="poster"`**: the cover fills the card; the kicker chips sit on it; a private

@@ -8,6 +8,12 @@
  * (`build-sessions/prototypes/public_profile_icecasa_FABLE3_2026-09-23.html`).
  * Names and date are printed ONCE, by the poster.
  *
+ * 🔑 CALL `resolveEventPoster` (`lib/event-poster.server.ts`), NOT THIS. That
+ * is the ONE resolver that reads an event's hero the way the Event Hub does
+ * (owner: "hero widget applies to save the date, invitation, on the day and
+ * the thumbnail poster"); `event-poster.test.ts` fails a second caller of
+ * `posterFor`. This file is its pure half, so the order is testable.
+ *
  * Pure: every fact is handed in by the caller, already resolved by the
  * resolvers that own it —
  *   • the words (`EventWords` → `invitationCard`, the hub's own card; a

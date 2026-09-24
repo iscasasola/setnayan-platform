@@ -444,3 +444,67 @@ test('the layout hands the mark through the read-time SVG gate, never raw', () =
       'off the row.',
   );
 });
+
+/* ══ 9 · THE MARK IS CENTRED AT EVERY WIDTH ═════════════════════════════════
+   Owner 2026-09-24, looking at `/dashboard/[eventId]`: *"the logo needs to be
+   centered."*
+
+   🔑 THE BUG WAS ONE ELEMENT WITH TWO ALIGNMENTS. The base rule left
+   `justify-content` unset (= flex-start) and the 1279 block set `center`, so
+   the mark was centred on the 72px icon strip and hard left in the 223px rail.
+   Nothing was red: both rules were valid CSS and each looked right at the
+   width its author was checking.
+
+   ⚠ THIS GUARD DELIBERATELY DOES NOT READ THE 1279 BLOCK. Centring now lives
+   in ONE place; asserting it in two would re-create the split this fixes. */
+
+test('the event mark is centred by ONE rule, not once per width', () => {
+  /* 🪤 COMMENTS STRIPPED BEFORE ANY COUNTING. The first cut of this guard
+     counted the raw file and found TWO centring rules — the second was the
+     COMMENT in the 1279 block saying `justify-content: center` had moved to
+     the base rule. The guard convicted the note explaining the fix. */
+  const src = readFileSync(CSS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  const rules = (src.match(/[^{}]+\{[^}]*\}/g) ?? []).filter((r) =>
+    /\.fd-rctx-mark\b/.test(r.slice(0, r.indexOf('{'))),
+  );
+  assert.ok(rules.length > 0, 'no `.fd-rctx-mark` rule at all — the mark is unstyled.');
+
+  const centring = rules.filter((r) => /justify-content:\s*center/.test(r));
+  assert.equal(
+    centring.length,
+    1,
+    `justify-content:center appears in ${centring.length} .fd-rctx-mark rules. ` +
+      'ZERO means the mark is flush left again — the owner\'s complaint. TWO means ' +
+      'it is declared per-width, which is how it came to be centred at one width ' +
+      'and not the other.',
+  );
+
+  /* And the one that declares it must be the UNCONDITIONAL rule, or "centred"
+     is still a property of some widths only. Measured by BRACE DEPTH at the
+     selector's offset — never by line number, which moves on every edit to
+     this stylesheet. Depth 0 = top level; depth 1 = inside a media query. */
+  const clean = src; // already comment-free
+  const depthAt = (offset: number) => {
+    let d = 0;
+    for (let i = 0; i < offset; i += 1) {
+      if (clean[i] === '{') d += 1;
+      else if (clean[i] === '}') d -= 1;
+    }
+    return d;
+  };
+
+  let centredAtTopLevel = false;
+  const selector = /\.fd\[data-chrome='app'\] \.fd-rctx-mark\s*\{/g;
+  for (let m = selector.exec(clean); m; m = selector.exec(clean)) {
+    const body = clean.slice(m.index, clean.indexOf('}', m.index));
+    if (/justify-content:\s*center/.test(body) && depthAt(m.index) === 0) {
+      centredAtTopLevel = true;
+    }
+  }
+  assert.ok(
+    centredAtTopLevel,
+    'the rule that centres the mark is nested inside a media query, so the ' +
+      'mark is centred at some widths and not others — which is the defect.',
+  );
+});

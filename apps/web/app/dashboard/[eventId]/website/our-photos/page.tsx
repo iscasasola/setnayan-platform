@@ -122,6 +122,7 @@ export default async function OurPhotosEditorPage({
           bucket="media"
           pathPrefix={`events/${eventId}/our-photos`}
           name="photos"
+          unsavedHint="press Save gallery below"
           multiple
           maxFiles={MAX_PHOTOS}
           maxSizeMB={10}

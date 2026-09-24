@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { getCoverageTaxonomy, type CoverageLeaf } from '@/lib/vendor-coverages';
-import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getActiveFaithKeys } from '@/lib/faith-vocab-db';
@@ -58,7 +58,7 @@ async function findLeaf(canonicalService: string): Promise<CoverageLeaf | null> 
 /** Validate an event_types[] submission against the active vocab + the leaf's
  *  allowed set. Never returns empty (the DB CHECK requires ≥1). */
 async function parseEventTypes(raw: string[], allowed: string[] | null): Promise<string[]> {
-  const vocab = await getEventTypeVocab();
+  const vocab = await getVendorServableEventTypes();
   const vocabKeys = new Set(vocab.map((v) => v.key));
   const allowSet = allowed && allowed.length ? new Set(allowed) : null;
   const out = Array.from(new Set(raw)).filter(

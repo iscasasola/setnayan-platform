@@ -87,6 +87,7 @@ export async function EditorialContent({
   share,
   galleryAnchorId = null,
   viewer = STRANGER,
+  magicTraveller = null,
 }: {
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
@@ -110,6 +111,22 @@ export async function EditorialContent({
    * couple's own editor preview passes the host.
    */
   viewer?: StoryViewer;
+  /**
+   * ✈ MAGIC MOVE — 'mark' means the hero's monogram is the element that
+   * travels, and this component stamps the attribute the measurer looks for.
+   *
+   * 🔑 STAMPED AT THE SLOT, NOT INSIDE `HeroMonogram`. The slot has two
+   * implementations — the couple's designed mark and the plain circle fallback
+   * — and one wrapper covers both without either knowing this feature exists.
+   * Tagging inside `HeroMonogram` would be wrong in the other direction: it is
+   * shared with the wall projection, the Save-the-Date page and the recap, none
+   * of which HAVE a berth, so the script would find a traveller, find nowhere
+   * to send it, and log a warning on three pages that never asked to take part.
+   *
+   * ⛔ Null renders the slot exactly as it did before this existed — no
+   * wrapper element at all, not an unstamped one.
+   */
+  magicTraveller?: 'mark' | null;
 }): Promise<ReactElement> {
   // The event's own words. This page is the STORY AFTER the event and was the
   // densest pocket of wedding language left — eleven sentences, including two
@@ -479,7 +496,30 @@ export async function EditorialContent({
         sheets={sheets}
         storyCard={storyCard}
         monogram={
-          mono ? (
+          /* ✈ ONE WRAPPER, BOTH IMPLEMENTATIONS.
+             🪤 `className="contents"` WAS THE FIRST ATTEMPT AND IT CANNOT WORK.
+             `display: contents` generates NO BOX, and an element with no box
+             takes no `transform` — the rule in globals.css would have matched,
+             every custom property would have been written, and the mark would
+             have sat perfectly still with nothing anywhere reporting a fault.
+             It has to be a real box, so `block`: neutral around the block-level
+             mark it wraps, and it has a rect for the measurer to read.
+             Without the attribute there is no wrapper element at all. */
+          magicTraveller === 'mark' ? (
+            <span data-magic-traveller className="block">
+              {mono ? (
+                <HeroMonogram
+                  event={mono.design}
+                  monogram={mono.monogram}
+                  animatedMonogram={mono.animatedMonogram}
+                  studioAnim={mono.studioAnim}
+                  bespokeSvg={mono.bespokeSvg}
+                />
+              ) : (
+                <Monogram text={data.monogramText} color={data.monogramColor} />
+              )}
+            </span>
+          ) : mono ? (
             <HeroMonogram
               event={mono.design}
               monogram={mono.monogram}

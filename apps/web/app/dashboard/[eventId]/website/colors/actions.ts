@@ -22,6 +22,8 @@
  * brand default for that role). Anything malformed bounces with an error and
  * writes nothing.
  */
+import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -74,6 +76,29 @@ export async function updateSiteColors(
   // the same data-wipe trap the editor's shared-fields rule exists to prevent —
   // absent field ⇒ column untouched.
   const artRaw = formData.get('site_art_direction');
+  /* 🔤 THE COUPLE'S OWN FACE, saved beside their colours.
+     Same row, same action, same Pro gate — a face is part of the look, and a
+     second form would be a second place for the two to disagree about whether
+     the couple has customised anything.
+     ⛔ `''` CLEARS it back to the theme's own face. An absent field means
+     "leave unchanged", exactly as `site_art_direction` does, so a save from a
+     surface that does not carry this control cannot silently reset it. */
+  const fontRaw = formData.get('site_font_key');
+  const font =
+    typeof fontRaw === 'string' ? (fontRaw === '' ? null : sanitizeHubFontKey(fontRaw)) : undefined;
+  /* ✈ MAGIC MOVE, saved on the same row by the same action.
+     Same tri-state as the face above and for the same reason: `undefined` (the
+     field was not on this form) leaves the column alone, `''` clears it back to
+     "nothing travels", a known value is written. The colours sub-page posts
+     this action WITHOUT this control, so without the absent-means-unchanged
+     rule every colour save would silently switch a couple's motion off. */
+  const magicRaw = formData.get('site_magic_traveller');
+  const magic =
+    typeof magicRaw === 'string'
+      ? magicRaw === ''
+        ? null
+        : sanitizeMagicTraveller(magicRaw)
+      : undefined;
   const art =
     artRaw === 'candlelight' || artRaw === 'daylight' ? (artRaw as string) : null;
 
@@ -84,6 +109,8 @@ export async function updateSiteColors(
       site_bg_color: bg,
       site_button_color: button,
       ...(art ? { site_art_direction: art } : {}),
+      ...(font !== undefined ? { site_font_key: font } : {}),
+      ...(magic !== undefined ? { site_magic_traveller: magic } : {}),
     })
     .eq('event_id', eventId)
     .select('slug')

@@ -29,4 +29,25 @@ export const PUBLIC_WIDGET_ALLOWLIST: readonly WidgetType[] = [
   'what_to_bring',
   'our_photos',
   'our_love_story',
+  /* THE COUPLE'S OWN SECTIONS (owner 2026-09-23). A PRIVACY DECISION, made
+     against this file's own rule — event-level data only, no per-guest fields
+     — and not a rendering convenience.
+
+     The words in a custom section are text the couple typed into their own
+     website editor. There is no guest object anywhere near it: no name, no
+     seat, no RSVP, nothing read from a session. It is the same class as
+     `special_message` and `our_love_story` above, which are already here.
+
+     🔑 AND IT IS THE COUPLE'S CHOICE TWICE OVER. A section reaches a stranger
+     only if they turned open-browse ON, wrote something in it, and left it
+     visible. An empty slot has no content and the Auto machinery hides it.
+
+     ⚠ If a custom section ever gains a per-guest field — a name, a seat, a
+     "you" — these six must come straight back out. */
+  'custom_1',
+  'custom_2',
+  'custom_3',
+  'custom_4',
+  'custom_5',
+  'custom_6',
 ];

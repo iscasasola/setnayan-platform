@@ -190,6 +190,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
               bucket="thread-files"
               pathPrefix={`vendor-payment-qr/${vendorProfileId}`}
               name="qr_r2_key"
+              unsavedHint="press Save payment option below"
               maxSizeMB={2}
               acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
               label="Upload your QR"

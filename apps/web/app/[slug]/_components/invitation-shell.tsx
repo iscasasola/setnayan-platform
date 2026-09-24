@@ -9,6 +9,8 @@ import {
   PahinaMotionRootFlag,
   ArrivalOnce,
 } from './pahina-motion';
+import { MagicMove } from './magic-move';
+import type { MagicTraveller } from '@/lib/magic-move';
 
 /**
  * Page chrome shared by every landing state. When `backdrop` is provided (the
@@ -33,6 +35,7 @@ export function InvitationShell({
   fullBleed = false,
   hideWatermark = false,
   customColorVars,
+  magicTraveller = null,
 }: {
   /** Pahina art direction (PR-5b). Only 'candlelight' stamps an attribute —
    *  daylight renders exactly today's DOM, so every existing event is
@@ -78,6 +81,21 @@ export function InvitationShell({
   // undefined/null the merge is a NO-OP: `themeVars` stays byte-identical to the
   // palette-only result, so a non-Pro / unset event renders exactly as today.
   customColorVars?: Record<string, string> | null;
+  /**
+   * MAGIC MOVE — which element travels, already sanitized upstream, or null.
+   *
+   * 🔑 THE SHELL OWNS THE BERTH AND THE SCRIPT; THE PAGE OWNS THE TRAVELLER.
+   * The place the mark arrives is the sticky header right here, and the script
+   * that measures both ends mounts beside the two that already run. What
+   * actually flies is the hero's own mark, which lives in `children` — so
+   * `site-body.tsx` hands the same value to `EditorialContent` and the two ends
+   * are set from ONE column.
+   *
+   * ⛔ NULL RENDERS THE PAGE THAT SHIPPED BEFORE THIS EXISTED. No attribute, no
+   * script tag, no rule that matches — the same byte-safety `hubThemeAttr` and
+   * `customColorVars` hold themselves to.
+   */
+  magicTraveller?: MagicTraveller | null;
 }) {
   const paletteVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
   /*
@@ -175,7 +193,28 @@ export function InvitationShell({
               Setnayan
             </span>
           </span>
-          {monogramText ? (
+          {monogramText && magicTraveller === 'mark' ? (
+            /* ✈ THE BERTH — the place the hero's mark is flying to.
+               It carries the SAME text at the SAME size, so the box reserves
+               exactly the space the mark will occupy and the header does not
+               re-flow when it lands. `visibility: hidden` rather than a missing
+               node or `display:none`: the script measures this rect, and a
+               `display:none` element has no rect at all.
+               🪤 IT IS ALSO WHAT A READER GETS WHEN THE SCRIPT NEVER RUNS, so
+               `.pahina-js` gates the hiding in globals.css — no flag, no
+               travel, and the monogram simply sits here as it always did. Reduced
+               motion, a missing IntersectionObserver and the 2s self-heal all
+               already remove that flag. `aria-hidden` because the hero's mark is
+               the one a screen reader should meet, and two copies of the same
+               monogram read as a stutter. */
+            <span
+              data-magic-berth
+              aria-hidden
+              className="sn-top-label font-pahina text-lg italic text-gild"
+            >
+              {monogramText}
+            </span>
+          ) : monogramText ? (
             <span className="sn-top-label font-pahina text-lg italic text-gild">{monogramText}</span>
           ) : (
             <span className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
@@ -242,6 +281,17 @@ export function InvitationShell({
           fullBleed path above, same as the reveal: the STD film owns its own
           motion. */}
       <PahinaCoverParallax />
+      {/* ✈ MAGIC MOVE, and only when a couple asked for it.
+          Third in the row on purpose: it measures a rect in the header ABOVE
+          and a rect in `children` above that, so it has to come after both are
+          in the document — the same reason the parallax sits below the content
+          it measures.
+          🔑 THIS LINE IS THE WHOLE POINT OF THIS CHANGE. `magic-move.tsx` was
+          written, tested and merged on 2026-09-23 with NO importer anywhere in
+          the tree, and `ugat-both-ends.db.test.ts` failed the branch for it:
+          "component-no-mount: mount it from a page, or delete it." A component
+          nobody mounts is indistinguishable from a component nobody wrote. */}
+      {magicTraveller ? <MagicMove /> : null}
       {/* Quiet footer signature — structural addition from v2.1 guest-microsite
           template's "See you on the 12th." closing line. Italic serif treatment
           gives the page an editorial sign-off without competing with the

@@ -1,0 +1,45 @@
+# WHO SPELLS THE VISIBILITY RULE THEMSELVES — the inherited set, 2026-09-23.
+#
+# READ BY  lib/every-public-surface-asks-one-predicate.test.ts
+#
+# ── THIS FILE IS AN ADMISSION, NOT AN APPROVAL ─────────────────────────────
+# Each path below filters on `vendor_profiles.public_visibility` WITHOUT
+# importing `@/lib/vendor-visibility`. Today every one gives the same answer the
+# shared predicate would, which is exactly why none of them fails and exactly
+# why they are dangerous: the day the rule gains a second condition — the owner
+# asked for one on 2026-09-23, a supplier who owes a settled booking fee
+# vanishing from every public find-me surface — each of these keeps answering
+# the OLD question, silently, with nothing going red.
+#
+# ⚠ THESE HAVE NOT BEEN REVIEWED ONE BY ONE, and the list must not be read as
+# saying they are fine. Several are certainly CORRECT to ask their own question:
+# the admin console legitimately lists hidden shops, and the fraud runner, the
+# growth stats and the Ugat map count every row whatever its state. Others may
+# be public surfaces that simply forgot — which is precisely what
+# `lib/showcase-db.ts` turned out to be, and it had been shipping a clickable
+# story credit for a shop that had asked to be hidden.
+#
+# 🔑 THE GUARD'S JOB IS TO STOP THIS LIST GROWING, not to bless it. A NEW caller
+# must import the predicate, or be added here WITH A REASON — which is the
+# moment somebody has to decide which kind it is.
+#
+# Classifying these 16 is its own piece of work and belongs with whoever builds
+# the fee-visibility penalty, because that is when a wrong answer starts costing
+# a supplier their listing, or leaking one that should be hidden.
+
+app/admin/studio/_surfaces/social-queue-surface.tsx
+app/dashboard/[eventId]/date-selection/page.tsx
+app/dashboard/[eventId]/vendors/actions.ts
+app/dashboard/[eventId]/vendors/page.tsx
+app/onboarding/wedding/actions.ts
+app/tour/vendors/page.tsx
+app/vendor-dashboard/partnerships/page.tsx
+lib/admin/growth-stats.ts
+lib/fraud-detection-runner.ts
+lib/ghost-listing-detector.ts
+lib/religion-readiness.ts
+lib/same-day-vendors.ts
+lib/social/flush.ts
+lib/ugat/data.ts
+lib/vendor-invites.ts
+lib/wizard-recommendations.ts

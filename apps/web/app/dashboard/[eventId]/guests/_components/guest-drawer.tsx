@@ -1,176 +1,46 @@
 'use client';
 
 /**
- * guest-drawer.tsx — the ≥sm / below-xl QUICK-VIEW guest SHEET (Living Roster
- * P1) and its per-row trigger. Opening a roster row's quick-view slides this
- * sheet in over the roster; the full detail/edit route stays (a "Open full
- * details" link at the foot). This is the in-context glance.
+ * guest-drawer.tsx — the roster row's quick-view TRIGGER.
  *
- * ⚠ IT IS NOT REACHABLE ON A PHONE, despite what this line said until
- * 2026-09-06 ("the mobile / below-xl … SHEET"). The ONLY thing that opens it is
- * `QuickViewButton`, and the only place that renders is `DesktopRow` — which
- * lives inside the roster's `hidden … sm:block` table. Below `sm` (640px) that
- * table is `display:none`, so a phone has ZERO triggers and a row tap goes
- * straight to `/guests/[guestId]` instead. Measured on the shipped page:
- * 0 visible triggers at 375px, 4 at 768px.
+ * ── What used to be here ────────────────────────────────────────────────────
+ * A module-level store, a portalled sheet, and a read-only body. Until
+ * 2026-09-22 a guest had two surfaces and this file was one of them: below xl
+ * the eye opened a read-only sheet whose only exit into the form was a link
+ * called "Open full details".
  *
- * 🔑 The comment cost real time the day it was corrected: a session reasoned
- * about a destructive control in this sheet as a PHONE hazard — "a panel opened
- * casually while scanning on a phone" — and overstated its severity, because
- * the file's own name for itself was taken as evidence of where it renders. A
- * component does not decide its own reach; its MOUNT does.
- * `the-quick-view-is-not-on-phones.test.ts` now pins that mount.
- *
- * Inspector P2 (2026-07-15): the SHEET is now one of TWO frames over the SAME
- * `GuestDetailBody` — on desktop (≥xl) a row instead SELECTS into the sticky
- * inspector column (guests/page.tsx), so the body never diverges between the two
- * presentations. Accordingly `QuickViewButton` is inspector-aware: at ≥xl (under
- * an InspectorLayout) it selects `?inspect=<guestId>`; below xl it opens this
- * sheet exactly as before. The body markup lives in guest-detail-body.tsx.
- *
- * State is a module-level store (mirrors guest-selection-store.ts) so a row can
- * open the sheet without threading a context up to the page. ONE host is mounted
- * in page.tsx.
+ * Both are gone. `?inspect=<guestId>` now server-renders the whole guest card,
+ * and `InspectorLayout mobileSheet` presents it as the peek sheet below xl — so
+ * the sheet, its store and its host had nothing left to do. What remains is the
+ * trigger, which selects the card at EVERY width.
  */
 
-import { useSyncExternalStore } from 'react';
-import { Eye, X } from 'lucide-react';
-import { Drawer } from './overlay-primitives';
+import { Eye } from 'lucide-react';
 import {
   useInspectorContext,
   useIsInspectorViewport,
 } from '@/app/_components/inspector/inspector-column';
 import { guestDisplayName, type GuestRow } from '@/lib/guests';
-import { GuestDetailBody } from './guest-detail-body';
 
-const TITLE_ID = 'gl-guest-drawer-title';
-
-// ── store ─────────────────────────────────────────────────────────────────
-
-type DrawerPayload = { guest: GuestRow; groupLabels: string[] };
-
-let state: DrawerPayload | null = null;
-const listeners = new Set<() => void>();
-
-function emit() {
-  for (const l of listeners) l();
-}
-
-export const guestDrawer = {
-  open(guest: GuestRow, groupLabels: string[] = []) {
-    state = { guest, groupLabels };
-    emit();
-  },
-  close() {
-    state = null;
-    emit();
-  },
-};
-
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  return () => {
-    listeners.delete(cb);
-  };
-}
-
-function getSnapshot() {
-  return state;
-}
-
-function useGuestDrawer(): DrawerPayload | null {
-  return useSyncExternalStore(subscribe, getSnapshot, () => null);
-}
-
-// ── row trigger ───────────────────────────────────────────────────────────
-
-/** The per-row quick-view affordance. Additive — the name InspectorTrigger to
- *  the full detail route is untouched. On desktop (≥xl, under an
- *  InspectorLayout) it SELECTS the guest into the sticky inspector column;
- *  below xl it opens the slide-in sheet. */
-export function QuickViewButton({
-  guest,
-  groupLabels,
-}: {
-  guest: GuestRow;
-  groupLabels: string[];
-}) {
+/** The per-row quick-view affordance. The name beside it is the other trigger
+ *  for the same card; this one exists because the name is also a link and a
+ *  host scanning the roster wants a target that is unambiguously "show me". */
+export function QuickViewButton({ guest }: { guest: GuestRow }) {
   const ctx = useInspectorContext();
   const isXl = useIsInspectorViewport();
   return (
     <button
       type="button"
       onClick={(e) => {
-        if (ctx && isXl) {
-          ctx.select(guest.guest_id, e.currentTarget as unknown as HTMLElement);
-        } else {
-          guestDrawer.open(guest, groupLabels);
-        }
+        // `ctx.sheet` is on for the guests roster, so this selects below xl too
+        // rather than falling through to a route.
+        if (!ctx || !(isXl || ctx.sheet)) return;
+        ctx.select(guest.guest_id, e.currentTarget as unknown as HTMLElement);
       }}
       aria-label={`Quick view ${guestDisplayName(guest)}`}
       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 hover:bg-terracotta/10 hover:text-terracotta-700"
     >
       <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />
     </button>
-  );
-}
-
-// ── host (≥sm / below-xl sheet · see the reach note at the top) ────────────
-
-export function GuestDrawerHost({
-  eventId,
-  brandedQrActive = false,
-  photoDisplayUrls = {},
-  accountFaceByGuest = {},
-  invitationBase = null,
-}: {
-  eventId: string;
-  /** The event's public address without a guest token — see GuestDetailBody. */
-  invitationBase?: string | null;
-  /** Stored photo ref → display URL, resolved by the page's loader. The sheet
-   *  opens from a client store that carries only the row, so the map has to
-   *  arrive here rather than in the payload. */
-  photoDisplayUrls?: Record<string, string>;
-  /** guest_id → their linked ACCOUNT's photo, the fallback when the couple has
-   *  uploaded none. See lib/guest-account-photos.ts. */
-  accountFaceByGuest?: Record<string, string>;
-  /** Paid CUSTOM_QR_GUEST upgrade admin-approved → offer the branded PNG
-   *  download directly (else the sheet routes to the Invitation page). */
-  brandedQrActive?: boolean;
-}) {
-  const payload = useGuestDrawer();
-  if (!payload) return null;
-  const { guest, groupLabels } = payload;
-
-  return (
-    <Drawer onClose={guestDrawer.close} labelledById={TITLE_ID}>
-      <div className="mb-4 flex items-center justify-between">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
-          Guest
-        </p>
-        <button
-          type="button"
-          onClick={guestDrawer.close}
-          aria-label="Close"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
-
-      <GuestDetailBody
-        guest={guest}
-        groupLabels={groupLabels}
-        eventId={eventId}
-        brandedQrActive={brandedQrActive}
-        invitationBase={invitationBase}
-        headingId={TITLE_ID}
-        photoDisplayUrl={
-          photoDisplayUrls[guest.photo_url ?? ''] ??
-          accountFaceByGuest[guest.guest_id] ??
-          null
-        }
-      />
-    </Drawer>
   );
 }

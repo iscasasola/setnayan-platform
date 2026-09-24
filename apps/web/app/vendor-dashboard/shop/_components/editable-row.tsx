@@ -508,6 +508,7 @@ function FieldControl({
             bucket="media"
             pathPrefix={`vendors/${data.vendorProfileId}/logo`}
             name="logo_url"
+            unsavedHint="it saves when you close this row"
             currentValue={data.logo_url}
             initialDisplayUrls={data.logoDisplayMap}
             maxSizeMB={2}

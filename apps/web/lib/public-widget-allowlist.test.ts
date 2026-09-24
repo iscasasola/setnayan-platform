@@ -36,9 +36,21 @@ test('allow-list never contains a guest-personal or always-on widget type', () =
   }
 });
 
-test('allow-list is exactly the 10 event-level widget types (PR1 zero-behavior pin)', () => {
+test('allow-list is exactly the 16 event-level widget types (PR1 zero-behavior pin)', () => {
   // Byte-exact pin of the extracted inline list — content AND order. A diff
   // here is a deliberate product decision, never an accident of refactoring.
+  //
+  // 🔑 IT MOVED ONCE, ON 2026-09-23, AND THIS IS THE DECISION. The couple's own
+  // sections (custom_1…6) were added: the words in one are text the couple
+  // typed into their own editor, with no guest object anywhere near them — no
+  // name, no seat, no RSVP, nothing read from a session. Same class as
+  // `special_message` and `our_love_story`, which were already here.
+  //
+  // And it is the couple's choice twice over: a section reaches a stranger only
+  // if they turned open-browse ON, wrote something in it, and left it visible.
+  //
+  // ⚠ If a custom section ever gains a per-guest field, those six come straight
+  // back out — and the pin moving is exactly how that decision gets noticed.
   assert.deepEqual(PUBLIC_WIDGET_ALLOWLIST, [
     'countdown',
     'schedule',
@@ -50,6 +62,12 @@ test('allow-list is exactly the 10 event-level widget types (PR1 zero-behavior p
     'what_to_bring',
     'our_photos',
     'our_love_story',
+    'custom_1',
+    'custom_2',
+    'custom_3',
+    'custom_4',
+    'custom_5',
+    'custom_6',
   ]);
 });
 

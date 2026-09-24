@@ -49,7 +49,7 @@ const FACEBOOK_ENABLED =
 const BTN_LIGHT =
   'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
 
-export function DesktopOAuthButtons({ next }: { next: string }) {
+export function DesktopOAuthButtons({ next, verb = 'Continue with' }: { next: string; verb?: string }) {
   const [pending, setPending] = useState<DesktopOAuthProvider | null>(null);
   if (!GOOGLE_ENABLED && !APPLE_ENABLED && !FACEBOOK_ENABLED) return null;
   const BTN = BTN_LIGHT;
@@ -76,7 +76,7 @@ export function DesktopOAuthButtons({ next }: { next: string }) {
           ) : (
             <GoogleGIcon />
           )}
-          {pending === 'google' ? 'Opening your browser…' : 'Continue with Google'}
+          {pending === 'google' ? 'Opening your browser…' : `${verb} Google`}
         </button>
       ) : null}
       {APPLE_ENABLED ? (
@@ -91,7 +91,7 @@ export function DesktopOAuthButtons({ next }: { next: string }) {
           ) : (
             <AppleIcon fill={appleFill} />
           )}
-          {pending === 'apple' ? 'Opening your browser…' : 'Continue with Apple'}
+          {pending === 'apple' ? 'Opening your browser…' : `${verb} Apple`}
         </button>
       ) : null}
       {FACEBOOK_ENABLED ? (
@@ -106,7 +106,7 @@ export function DesktopOAuthButtons({ next }: { next: string }) {
           ) : (
             <FacebookIcon />
           )}
-          {pending === 'facebook' ? 'Opening your browser…' : 'Continue with Facebook'}
+          {pending === 'facebook' ? 'Opening your browser…' : `${verb} Facebook`}
         </button>
       ) : null}
     </div>

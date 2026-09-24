@@ -73,6 +73,15 @@ export interface SendProposalInput {
   validUntil?: string | null;
   /** Optional custom title. */
   title?: string | null;
+  /**
+   * THE SETNAYAN GIFT ON THIS QUOTE — the supplier's yes/no, owner 2026-09-22
+   * ("per-quote switch"). The same meaning it has on the line-item path:
+   * `true`/`false` is a decision this quote made, `null` or absent means it
+   * said nothing and the service card still answers.
+   *
+   * ⛔ Not an amount. 40% of the fee, capped, proportional along the ladder.
+   */
+  includesSetnayanGift?: boolean | null;
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -343,6 +352,18 @@ export async function sendProposalCore(
       line_items: lineItems,
       total_centavos: totalCentavos,
       valid_until: /^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? validUntil : null,
+      /*
+        THE SETNAYAN GIFT ON THIS QUOTE — the SAME column the line-item builder
+        writes (migration 20271240324859). Both composers live in the one
+        `build-quote` panel, and until this line only one of them carried the
+        supplier's answer: a quote sent from a saved template said nothing and
+        silently fell back to the service card.
+
+        ⚠ `null` IS THE HONEST DEFAULT and must stay one. A template send that
+        never rendered a switch has made no decision; writing `false` here would
+        retract a gift the supplier's card actively promises.
+      */
+      includes_setnayan_gift: input.includesSetnayanGift ?? null,
       status: 'draft',
     })
     .select('proposal_id, public_id')
@@ -421,6 +442,26 @@ export interface SendCustomProposalInput {
    * vendor's OWN methods; unknown ids are dropped. [] = show all approved.
    */
   paymentMethodIds?: string[] | null;
+  /**
+   * THE SETNAYAN GIFT ON THIS QUOTE — the supplier's yes/no, owner 2026-09-22
+   * ("per-quote switch"). `true` / `false` is a decision this quote makes;
+   * `null` or absent means the quote says NOTHING and the booking keeps
+   * falling back to the service card's own switch.
+   *
+   * ⛔ Not an amount. The gift stays 40% of the booking fee, capped, spent
+   * proportionally along the live ladder (owner 2026-09-09: "no dial").
+   */
+  includesSetnayanGift?: boolean | null;
+  /**
+   * The `vendor_services` leaf ids this quote was built from. `undefined`/`null`
+   * = this quote never said, and the thread falls back to its timestamp rule.
+   * `[]` is a real answer: built from no card.
+   *
+   * ⚠ ONLY THIS PATH SETS IT. `sendProposalCore` above sends a saved
+   * template/package and has no card picker, so it genuinely does not know —
+   * NULL is the honest value there, not an empty array.
+   */
+  serviceCardIds?: string[] | null;
 }
 
 const MAX_CUSTOM_LINE_ITEMS = 60;
@@ -581,6 +622,31 @@ export async function sendCustomProposalCore(
       payment_schedule: resolvedSchedule ?? {},
       payment_method_ids: paymentMethodIds,
       valid_until: /^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? validUntil : null,
+      /*
+        THE SETNAYAN GIFT ON THIS QUOTE (owner 2026-09-22: "per-quote switch";
+        migration 20271240324859). Seeded in the composer from the cards it was
+        built from — ON if any of them is on (Answer 1) — and flipped there.
+
+        ⚠ `null` MEANS THE QUOTE SAYS NOTHING, and the booking falls back to the
+        service card. It is NOT "off": a composer that never rendered the switch
+        (an older client, a template send) must not silently retract a gift the
+        supplier's card promises.
+
+        ⛔ IT DOES NOT BILL BY ITSELF. `setnayan_gift_offered_on` reads this only
+        once the couple has ACCEPTED the quote, and the amount stays 40% of the
+        fee, capped, proportional along the live ladder. A switch, never a dial.
+      */
+      includes_setnayan_gift: input.includesSetnayanGift ?? null,
+      /*
+        WHICH CARDS THIS QUOTE COVERS (migration 20271243019419). The builder
+        knew this all along and it was discarded, so the thread had to guess with
+        a timestamp — and a quote built from one card retired every other offer
+        in it.
+
+        ⚠ `?? null` and NOT `?? []`: an empty array asserts "this quote covers no
+        card", which is a decision an older client never made.
+      */
+      service_card_ids: input.serviceCardIds ?? null,
       status: 'draft',
     })
     .select('proposal_id, public_id')

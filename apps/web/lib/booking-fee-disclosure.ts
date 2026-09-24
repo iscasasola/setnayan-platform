@@ -40,6 +40,7 @@ import {
 import { FREE_BOOKING_LIMIT, isFreeBooking } from '@/lib/booking-fee-lock';
 import { monthDay } from '@/lib/format-date';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
+import { freeWindowEndsLabel } from './booking-fee-free-window';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1 · WHERE A SUPPLIER STANDS WITH THE FEE, ON ONE BOOKING
@@ -70,6 +71,25 @@ export type BookingFeeStanding =
    * "Free" — the exact thing the owner ruled against.
    */
   | { kind: 'free'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
+  /**
+   * A free-fee WINDOW is running (2026-09-22). Distinct from `free` above, and
+   * the distinction is the supplier's to see: the free-5 is THEIR courtesy and
+   * spends one of five, a window is Setnayan's promotion and spends none of
+   * them. Told apart, a shop can plan; merged, a shop would believe it had
+   * burned a courtesy it still holds.
+   *
+   * ⚠ IT CARRIES THE SCHEDULE for the same reason `free` does — owner,
+   * 2026-09-20: *"still tell them that there should be a booking fee. but this
+   * will be considered free."* A free booking NAMES what it would have cost.
+   */
+  | {
+      kind: 'promo_window';
+      ordinal: number;
+      ordinalIsFrozen: boolean;
+      schedule: BookingFeeSchedule;
+      /** ISO end of the window, or null when it is open-ended. */
+      endsAt: string | null;
+    }
   | { kind: 'billable'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
   | { kind: 'unreadable' };
 
@@ -204,9 +224,23 @@ export function bookingFeeForecast(
      * the charge (prod's waived row carries 50850 against
      * `amount_charged_centavos` 0), so the forecast and the record agree.
      */
+    /*
+      A FREE-FEE WINDOW. It rides the same arm as `free` and `billable` because
+      it must keep the same LINE SHAPE — the amount is named, then what happens
+      to it — but it says who is paying and until when, because those are the
+      two things the supplier cannot work out from a peso figure.
+
+      ⚠ IT DOES NOT SPEND A COURTESY, AND IT SAYS SO. The SQL puts the promo
+      branch BELOW the free-5 branch for exactly this reason: a booking already
+      free stays `waived_free5`. So a shop inside its first five reads its own
+      courtesy here, not the promotion, and no line ever claims a courtesy was
+      used when it was not.
+    */
     case 'free':
+    case 'promo_window':
     case 'billable': {
-      const free = standing.kind === 'free';
+      const promo = standing.kind === 'promo_window';
+      const free = standing.kind === 'free' || promo;
       const summary = bookingFeeScheduleSummary(standing.schedule);
       const position = feePositionSentence(standing.ordinal, standing.ordinalIsFrozen, free);
       const total = Number(totalPhp);
@@ -215,14 +249,27 @@ export function bookingFeeForecast(
       if (!Number.isFinite(total) || total <= 0) {
         return {
           tone: free ? 'good' : 'info',
-          headline: free
-            ? 'Booking fee — waived (we could not work out the amount yet).'
-            : 'Booking fee — payable when they book (we could not work out the amount yet).',
+          headline: promo
+            ? 'Booking fee — free right now (we could not work out the amount yet).'
+            : free
+              ? 'Booking fee — waived (we could not work out the amount yet).'
+              : 'Booking fee — payable when they book (we could not work out the amount yet).',
           detail: `${position} The fee is ${summary} of the agreed total; put a price on this quote and we will show you the exact figure.`,
         };
       }
       const fee = bookingFeePhp(total, standing.schedule);
       const rate = effectiveRateText(fee, total);
+      if (promo) {
+        const ends = freeWindowEndsLabel(standing.endsAt);
+        return {
+          tone: 'good',
+          headline: `Booking fee ${feePesos(fee)} — free right now.`,
+          detail:
+            `Setnayan is not charging booking fees${ends ? ` until ${ends}` : ' at the moment'}, ` +
+            `so this one costs you nothing. ${position} ` +
+            `It does not use up one of your five free bookings — those are still yours.`,
+        };
+      }
       return {
         tone: free ? 'good' : 'info',
         headline: free

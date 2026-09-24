@@ -10,6 +10,25 @@ import {
   type SendProposalError,
 } from '@/lib/proposal-send';
 import type { ProposalLineItem } from '@/lib/vendor-proposals';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
+import {
+  fetchVendorServices,
+  fetchInclusionsByService,
+  fetchBracketsByService,
+  fetchDiscountsByService,
+} from '@/lib/vendor-services';
+import { fetchAddonsByService } from '@/lib/vendor-service-addons';
+import { fetchOwnSchedulesByService } from '@/lib/vendor-service-payment-schedules';
+import {
+  quoteFromServiceCards,
+  type QuoteSeedLine,
+  type ServiceCardQuoteSeed,
+} from '@/lib/quote-from-service-card';
+
+// The builder imports the seed-line shape from here; it is now defined once,
+// in the pure module both seeds share.
+export type { QuoteSeedLine } from '@/lib/quote-from-service-card';
 
 /**
  * In-chat proposal — send a full structured vendor_proposals proposal straight
@@ -63,22 +82,6 @@ export async function sendProposalFromChat(formData: FormData) {
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Vendor Proposal Maker (PR 3) — in-thread quote editor                    */
 /* ──────────────────────────────────────────────────────────────────────── */
-
-/**
- * One seeded line for the Proposal Maker editor — the package's own pricing
- * basis + fields converted from centavos to the editor's peso-facing inputs.
- */
-export type QuoteSeedLine = {
-  label: string;
-  basis: 'flat' | 'per_pax' | 'per_hour';
-  free: boolean;
-  flatPhp: number;
-  ratePhp: number;
-  minPax: number;
-  basePhp: number;
-  inclHours: number;
-  extraPhp: number;
-};
 
 export type QuoteSeed = {
   lines: QuoteSeedLine[];
@@ -179,6 +182,97 @@ export async function loadPackageLinesForQuote(packageId: string): Promise<Quote
 }
 
 /**
+ * LOAD ONE OR SEVERAL OF THE SHOP'S SERVICE CARDS INTO THE QUOTE (owner,
+ * 2026-09-22: *"load 1 or multiple service cards combined"*).
+ *
+ * The sibling of `loadPackageLinesForQuote`, for the thing suppliers actually
+ * author. Production on the day this was written: 0 packages, 0 templates,
+ * 2 service cards — so this is the seed every real shop can use. Reads the
+ * card and its five sibling tables under the SUPPLIER'S OWN session (RLS
+ * scopes every read to their shop; a card id that is not theirs simply does
+ * not come back), then hands everything to the pure `quoteFromServiceCards`.
+ *
+ * ⚠ THE EVENT DATE IS READ HERE, NOT TRUSTED FROM THE BROWSER. It decides
+ * whether an early-booking rung applies and whether the last-minute window is
+ * open — both move money. A vendor holds no `events` RLS (measured 2026-09-08),
+ * so the date is read with the admin client AFTER the thread is proven to be
+ * theirs — the same bypass-after-ownership the thread page uses.
+ *
+ * Returns null when nothing could be loaded (no such card of theirs, not their
+ * thread, signed out) — the builder then keeps what it had, exactly as the
+ * package seed behaves.
+ */
+export async function loadServiceCardLinesForQuote(input: {
+  threadId: string;
+  vendorServiceIds: string[];
+  /** Add-on ids the supplier ticked (across all loaded cards). */
+  chosenAddonIds: number[];
+  pax: number;
+  hours: number;
+}): Promise<ServiceCardQuoteSeed | null> {
+  const ids = Array.from(new Set(input.vendorServiceIds.filter((v) => typeof v === 'string' && v)));
+  if (ids.length === 0) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return null;
+
+  const { data: thread } = await supabase
+    .from('chat_threads')
+    .select('thread_id, event_id, vendor_profile_id')
+    .eq('thread_id', input.threadId)
+    .maybeSingle();
+  if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) return null;
+
+  const [own, inclusions, brackets, discounts, addons, schedules, labeller, eventRow] = await Promise.all([
+    fetchVendorServices(supabase, profile.vendor_profile_id),
+    fetchInclusionsByService(supabase, ids),
+    fetchBracketsByService(supabase, ids),
+    fetchDiscountsByService(supabase, ids),
+    fetchAddonsByService(supabase, ids),
+    fetchOwnSchedulesByService(supabase, ids),
+    cardKindLabeller(),
+    thread.event_id
+      ? createAdminClient()
+          .from('events')
+          .select('event_date')
+          .eq('event_id', thread.event_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  // Keep the supplier's own order of picking, and refuse anything not theirs.
+  const byId = new Map(own.map((r) => [r.vendor_service_id, r]));
+  const cards = ids
+    .map((id) => byId.get(id))
+    .filter((r): r is NonNullable<typeof r> => Boolean(r))
+    .map((r) => ({
+      card: r,
+      // The kind in the shop's own words — never the raw key, never "Untitled".
+      label: r.title?.trim() || labeller(r.category),
+      inclusions: inclusions.get(r.vendor_service_id) ?? [],
+      brackets: brackets.get(r.vendor_service_id) ?? [],
+      discounts: discounts.get(r.vendor_service_id) ?? [],
+      addons: addons.get(r.vendor_service_id) ?? [],
+      chosenAddonIds: input.chosenAddonIds,
+      schedule: schedules.get(r.vendor_service_id) ?? [],
+    }));
+  if (cards.length === 0) return null;
+
+  const eventDate = (eventRow?.data as { event_date: string | null } | null)?.event_date ?? null;
+  return quoteFromServiceCards({
+    cards,
+    pax: Number(input.pax) || 0,
+    hours: Number(input.hours) || 0,
+    eventDate,
+    now: new Date(),
+  });
+}
+
+/**
  * Send a vendor-AUTHORED quote from the Proposal Maker. The editor composes the
  * line items client-side (through the shared pure resolver) and posts them here
  * as JSON. sendCustomProposalCore enforces the SAME ownership + accepted-thread
@@ -195,6 +289,13 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   let note: string | null = null;
   let schedule: unknown = null;
   let paymentMethodIds: string[] = [];
+  // The quote's own Setnayan-gift switch (owner 2026-09-22). `null` = the quote
+  // says nothing and the booking keeps falling back to the service card.
+  let includesSetnayanGift: boolean | null = null;
+  // Which service cards the quote was built from. `null` = an older client that
+  // never said, which the thread reads as "fall back to the timestamp rule".
+  // `[]` is a real answer: built from no card.
+  let serviceCardIds: string[] | null = null;
   try {
     const parsed = JSON.parse(String(formData.get('payload') ?? '{}')) as {
       lineItems?: ProposalLineItem[];
@@ -203,6 +304,8 @@ export async function sendCustomProposalFromChat(formData: FormData) {
       note?: string;
       schedule?: unknown;
       paymentMethodIds?: string[];
+      includesSetnayanGift?: boolean | null;
+      serviceCardIds?: unknown;
     };
     lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
     validUntil = parsed.validUntil ?? null;
@@ -210,6 +313,15 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     note = parsed.note ?? null;
     schedule = parsed.schedule ?? null;
     paymentMethodIds = Array.isArray(parsed.paymentMethodIds) ? parsed.paymentMethodIds : [];
+    // Only a real boolean is a decision; anything else leaves the card deciding.
+    includesSetnayanGift =
+      typeof parsed.includesSetnayanGift === 'boolean' ? parsed.includesSetnayanGift : null;
+    // An ARRAY is the statement — including an empty one. Anything else (absent,
+    // a string, junk) is "never said", so the reader keeps today's behaviour
+    // rather than asserting the quote covered nothing.
+    serviceCardIds = Array.isArray(parsed.serviceCardIds)
+      ? parsed.serviceCardIds.filter((v): v is string => typeof v === 'string' && v.length > 0)
+      : null;
   } catch {
     redirect(`${back}?notice=proposal_failed`);
   }
@@ -222,6 +334,8 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     note,
     schedule,
     paymentMethodIds,
+    includesSetnayanGift,
+    serviceCardIds,
   });
 
   if (!result.ok) {

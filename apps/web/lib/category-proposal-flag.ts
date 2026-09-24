@@ -19,6 +19,12 @@
  * they do today: the supplier's request lands in the same queue and the admin
  * sees the same four buttons. Nothing about the supplier's path is gated on it.
  */
+
 export function isCategoryProposalDraftEnabled(): boolean {
+  // ⛔ DELIBERATELY NOT converted to envFlagEnabled. C4 ships DARK: production
+  // has held ZERO category requests, so there is nothing to draft and nothing
+  // to judge a draft against. The owner arms it the day a supplier first types
+  // a trade we have no word for — on the exact string, never a near-miss.
+  // Pinned by category-proposal-flag.test.ts.
   return process.env.CATEGORY_PROPOSAL_DRAFT_ENABLED === 'true';
 }

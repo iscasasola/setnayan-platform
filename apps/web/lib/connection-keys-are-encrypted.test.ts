@@ -306,3 +306,52 @@ test('the vault never logs a token value', () => {
     );
   }
 });
+
+/**
+ * ── The LONG-LIVED secret is the one that stayed in plaintext ───────────────
+ *
+ * Measured in production on 2026-09-22, by pattern and never by reading a value:
+ *
+ *     access  tokens matching `ya29.%`  →  0 of 5   (this sweep seals them)
+ *     refresh tokens matching `1//%`    →  5 of 5   Google plaintext
+ *
+ * The sweep opens the refresh token — it must, to call Google — then wrote back
+ * `access_token`, `access_token_expires_at` and `last_refreshed_at`, and left
+ * the refresh token exactly as it found it. So the hourly secret got sealed on
+ * every run and the one that grants ONGOING access to a couple's YouTube and
+ * Drive stayed readable in every backup.
+ *
+ * `lib/oauth-refresh-sweep.ts`'s own docblock predicted this precisely — "it
+ * seals each ACCESS token as it refreshes; the five REFRESH tokens stay as they
+ * are until a backfill opens and re-seals them" — and named it as a separate
+ * change rather than implying it. This is that change: the row is already being
+ * written and the plaintext is already open, so the re-seal is one field.
+ */
+test('the refresh sweep re-seals the refresh token it just opened', () => {
+  const src = read('oauth-refresh-sweep.ts');
+
+  const gate = /needsSealing\(\s*grant\.refresh_token[^)]*\)/.test(src);
+  assert.ok(
+    gate,
+    'the sweep must decide via needsSealing(grant.refresh_token) — sealing unconditionally would ' +
+      're-encrypt an already-sealed envelope on every run',
+  );
+
+  // The re-seal must reach the UPDATE. A computed value that never lands in the
+  // statement is the same shape as the defect it fixes.
+  const update = /\.from\('oauth_grants'\)\s*\.update\(\{[\s\S]*?\}\)/.exec(src)?.[0];
+  assert.ok(update, "could not find the oauth_grants update — has the sweep's write moved?");
+  assert.match(
+    update,
+    /\.\.\.resealRefresh/,
+    'the oauth_grants update does not spread the re-seal, so the refresh token is written back ' +
+      'unchanged and stays plaintext forever',
+  );
+
+  // And it must be a SEAL of the opened value, not a copy of the stored one.
+  assert.match(
+    src,
+    /refresh_token:\s*sealToken\(\s*refreshToken\s*\)/,
+    'the re-seal must seal the OPENED token (`refreshToken`), not re-store `grant.refresh_token`',
+  );
+});

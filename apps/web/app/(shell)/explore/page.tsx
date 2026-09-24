@@ -146,6 +146,7 @@ import {
   resolveExploreScope,
   browseAllVendorsHref,
 } from '@/lib/explore-event-type-scope';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -471,13 +472,14 @@ const PAGE_SIZE = 24;
 // RECEPTION_VENUE_FACETS literal below needs to satisfy its own
 // readonly-of-{key,label,combined} shape.
 const VENUE_SETTING_LABEL = {
-  banquet_hall: 'Hotel Ballroom / Banquet Hall',
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
   restaurant: 'Restaurant',
-  garden: 'Garden Estate',
+  garden: 'Garden',
   beach: 'Beach',
-  destination: 'Destination Resort',
-  heritage: 'Heritage / Hacienda',
-  outdoor_tent: 'Outdoor Tent',
+  destination: 'Resort / destination',
+  heritage: 'Heritage venue',
+  outdoor_tent: 'Outdoor tent',
   civil_registrar: "Civil Registrar's Office",
 } as const;
 
@@ -485,7 +487,8 @@ const VENUE_SETTING_LABEL = {
 // setting"). Same literal-key shape so the banner doesn't have to defend
 // against undefined.
 const VENUE_SETTING_SHORT_LABEL = {
-  banquet_hall: 'Banquet hall',
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
   restaurant: 'Restaurant',
   garden: 'Garden',
   beach: 'Beach',
@@ -940,7 +943,7 @@ function parseFilters(
   //   • '1' / 'on' / absent   → venueDefault='on',  venueFacet=null
   //   • <facet_key>           → venueDefault='on',  venueFacet=<facet_key>
   const VENUE_FACET_KEYS = new Set([
-    'banquet_hall', 'garden', 'beach', 'destination',
+    'banquet_hall', 'events_place', 'restaurant', 'garden', 'beach', 'destination',
     'heritage', 'outdoor_tent', 'civil_registrar',
   ]);
   const rawVenue = (raw.venue ?? '').trim();
@@ -2875,15 +2878,29 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // provenance filter) so fake / self-dealt reviews can never earn the
       // trust badge. Fail-soft: an empty map means couple_trusted is simply
       // not awarded (0/0 → below the count floor). Never blocks the grid.
-      (async (): Promise<Map<string, { avg: number; count: number }>> => {
+      //
+      // 🛑 THAT FAIL-SOFT WAS REASONED FOR THE BADGE AND INHERITED BY THE CARD.
+      // It is correct for `couple_trusted`: no data, no badge, nothing claimed.
+      // But this same map also feeds the card's STAR RATING and REVIEW COUNT,
+      // and there an empty map is not an omission — `rating > 0 ? … :
+      // NEW_TO_SETNAYAN_LABEL` prints **"New to Setnayan"**. A failed read
+      // therefore told couples that every established supplier on the page was
+      // brand new, and neither side could tell: the supplier never sees their
+      // own card, and the couple has no reason to doubt it.
+      //
+      // So a FAILURE now returns `null`, distinct from an empty Map, and the
+      // consumers decide. An empty Map still means "read fine, no rows".
+      (async (): Promise<Map<string, { avg: number; count: number }> | null> => {
         if (visibleVendorIds.length === 0) return new Map();
         const { data, error } = await admin
           .from('vendor_trusted_review_stats')
           .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
-          console.warn('[explore] vendor_trusted_review_stats fetch failed', error.message);
-          return new Map();
+          logQueryError('ExplorePage.trustedReviewStats', error, {
+            vendors: visibleVendorIds.length,
+          });
+          return null;
         }
         const out = new Map<string, { avg: number; count: number }>();
         for (const row of data ?? []) {
@@ -3167,7 +3184,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // couple_trusted reads ONLY the trusted (receipt-backed, arm's-length)
       // stat — never the raw avg_rating_overall / review_count. Vendors with
       // no trusted-stats row pass 0/0 so they simply don't earn the badge.
-      const trusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
+      //
+      // ✅ `?.` because the map is null when the read FAILED — and here 0/0 is
+      // the RIGHT answer either way: no data, no badge, nothing asserted. This
+      // is the consumer the fail-soft was designed for. The card's star rating
+      // is the one that needed a different answer.
+      const trusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
       return {
         vendor_profile_id: v.vendor_profile_id,
         verification_state: v.verification_state ?? null,
@@ -3754,7 +3776,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               // carousel was emptied — a paid shop's reputation looked better
               // than an unpaid one's for money rather than merit. The trusted
               // stat is the only filter that belongs here.
-              const vTrusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
+              /* `null` = the trusted-stats read FAILED, which is not the same
+                 as this vendor having no trusted reviews. Passing 0/0 here
+                 would label them "New to Setnayan". */
+              const trustedUnknown = trustedReviewStatsByVendorId === null;
+              const vTrusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
               const cardRating = Number(vTrusted?.avg ?? 0);
               const cardReviewCount = vTrusted?.count ?? 0;
               const cardReviews = reviewsByVendorId.get(v.vendor_profile_id) ?? [];
@@ -3769,6 +3795,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     vendor={v}
                     rating={cardRating}
                     reviewCount={cardReviewCount}
+                    ratingUnknown={trustedUnknown}
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}

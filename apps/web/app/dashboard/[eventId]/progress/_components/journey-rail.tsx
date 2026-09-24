@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ProgressRing } from '@/app/_components/progress-ring';
+import { RAIL_STOP_PX, railHeadPercent, stageMarkFor } from '@/lib/stage-mark';
 import type { ProgressStage, ProgressStageKey } from '@/lib/progress-stages';
 
 /**
@@ -40,10 +40,31 @@ export function JourneyRail({
 
   return (
     <div className="space-y-3">
+      {/*
+          ── TREATMENT B · ONE RAIL, SIX STOPS (owner-picked 2026-09-23) ───────
+          Replaces six 46px nodes that each carried their own "% complete". His
+          reason, relayed: A repeats the same number twice, C hides how far along
+          they are overall. B shows the whole journey and states ONE number.
+
+          The number lives on the CURRENT stop and nowhere else — by construction
+          here, and asserted by mounting the component and counting what renders,
+          because the previous duplicate lived in two different expressions and a
+          source grep could not tell them apart.
+
+          The head's position is `railHeadPercent` in lib/stage-mark.ts, a stated
+          rule rather than a value lifted from a mock: (index + pct/100) / gaps.
+
+          ⚠ A STOP'S DOT REFLECTS THAT STAGE'S OWN COMPLETION, NOT ITS POSITION
+          RELATIVE TO THE CURRENT ONE. The approved mock drew every earlier stop
+          as "done", including one sitting at 8% — that would tell a couple a
+          phase was finished when it is not, which is the same class of defect
+          this rail has just been cleaned of. Behind-ness is conveyed by the
+          fill reaching past the stop; completion is conveyed by the dot.
+      */}
       <div
         role="tablist"
         aria-label="Planning stages"
-        className="-mx-1 flex overflow-x-auto px-1 pb-1 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="pt-4"
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight') {
             e.preventDefault();
@@ -54,74 +75,111 @@ export function JourneyRail({
           }
         }}
       >
-        {stages.map((s, i) => {
-          const selected = i === activeIdx;
-          const reached = s.pct > 0;
-          const isCurrent = s.key === currentKey;
-          return (
-            <button
-              key={s.key}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => setActiveIdx(i)}
-              className="relative min-w-[96px] flex-1 px-1 pb-2 text-center focus-visible:outline-none"
-            >
-              {/* Connector line between dots. */}
-              {i > 0 ? (
-                <span
-                  aria-hidden
-                  className="absolute left-[-50%] top-[23px] h-0.5 w-full"
-                  style={{ background: reached ? 'rgba(169,131,75,.4)' : 'rgba(30,26,18,.1)' }}
-                />
-              ) : null}
-              {isCurrent ? (
-                <span
-                  className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[9.5px] font-bold uppercase tracking-[0.12em]"
-                  style={{ color: 'var(--sn-gold-700)' }}
-                >
-                  You are here
-                </span>
-              ) : null}
-              <span
-                className={`relative z-[2] mx-auto flex h-[46px] w-[46px] items-center justify-center rounded-full border-2 bg-white/70 transition-transform ${
-                  selected ? 'scale-110' : ''
-                }`}
-                style={{
-                  borderColor: selected || isCurrent ? 'var(--sn-gold-500)' : 'rgba(30,26,18,.15)',
-                  // "You are here" gold ripple — the ONE sanctioned pulse on
-                  // this rail (rollout plan § 3.1: current stage only). The
-                  // global reduced-motion freeze snaps it to a single instant
-                  // run; sn-ring is box-shadow-only so the node never scales.
-                  ...(isCurrent ? { animation: 'sn-ring 2.6s infinite' } : {}),
-                }}
+        {/* the one rail */}
+        <div
+          className="relative mx-1 h-1.5 rounded-full"
+          style={{ background: 'rgba(30,26,18,.10)' }}
+        >
+          <div
+            data-railfill
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{
+              width: `${railHeadPercent(currentIdx, stages[currentIdx]?.pct ?? 0, stages.length)}%`,
+              background: 'var(--sn-gold-500)',
+            }}
+          />
+          <span
+            data-railhead
+            aria-hidden
+            className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-[3px] bg-white"
+            style={{
+              left: `${railHeadPercent(currentIdx, stages[currentIdx]?.pct ?? 0, stages.length)}%`,
+              marginLeft: -7,
+              borderColor: 'var(--sn-gold-600)',
+            }}
+          />
+        </div>
+
+        {/* six stops */}
+        <div className="mt-2.5 flex items-start justify-between gap-1">
+          {stages.map((s, i) => {
+            const selected = i === activeIdx;
+            const isCurrent = s.key === currentKey;
+            const mark = stageMarkFor(s.pct);
+            const dotPx = isCurrent ? RAIL_STOP_PX.current : RAIL_STOP_PX[mark.kind];
+            const gold = mark.kind === 'not-started' ? null : 'var(--sn-gold-500)';
+            return (
+              <button
+                key={s.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-label={`${s.label}, ${s.pct}% complete`}
+                onClick={() => setActiveIdx(i)}
+                className="flex min-w-0 flex-1 flex-col items-center gap-1 rounded text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
               >
-                {s.pct >= 100 ? (
-                  <span className="text-sm font-bold" style={{ color: 'var(--sn-success)' }}>
-                    ✓
+                <span
+                  data-stagemark={mark.kind}
+                  data-markpx={dotPx}
+                  aria-hidden
+                  className={`block rounded-full ${mark.kind === 'not-started' ? 'border-2' : ''}`}
+                  style={{
+                    width: dotPx,
+                    height: dotPx,
+                    ...(gold
+                      ? { background: gold }
+                      : { borderColor: 'rgba(30,26,18,.22)' }),
+                    ...(isCurrent
+                      ? { boxShadow: '0 0 0 3px rgba(169,131,75,.22)' }
+                      : {}),
+                  }}
+                />
+                <span
+                  className={`block truncate text-[11.5px] leading-tight ${
+                    isCurrent ? 'font-bold text-ink' : 'font-medium text-ink/55'
+                  }`}
+                >
+                  {s.label}
+                </span>
+                {/* 🔑 THE ONE NUMBER. Only the current stop states a figure — the
+                    whole point of this treatment. A second one anywhere is the
+                    defect that was just removed, so the guard counts renders. */}
+                {/*
+                    `aria-hidden` because the BUTTON already carries the figure in
+                    its aria-label, for every stop — a screen reader gets all six
+                    numbers (it cannot see the bar), while the screen shows one.
+                    Without this the current stop announces its percentage twice,
+                    which is the duplicate this treatment exists to remove wearing
+                    an accessibility costume.
+                */}
+                {isCurrent ? (
+                  <span
+                    aria-hidden
+                    className="block font-mono text-[11px] font-bold text-gold-800"
+                  >
+                    {s.pct}% complete
                   </span>
-                ) : (
-                  <ProgressRing pct={s.pct} size={34} stroke={4} color="var(--sn-gold-500)" />
-                )}
-              </span>
-              <span className="mt-2 block text-[13px] font-semibold text-ink">
-                {s.label}
-              </span>
-              <span className="block font-mono text-[11px] text-ink/45">
-                {s.pct}% complete
-              </span>
-            </button>
-          );
-        })}
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div role="tabpanel" className="sn-tile">
         <div className="flex flex-wrap items-center justify-between gap-3">
+          {/*
+              🔑 THE NUMBER HAS ONE HOME, AND IT IS THE RAIL. This heading used to
+              repeat `{active.pct}% complete` while the rail above already printed
+              that same stage's figure in its own tab — six stages producing SEVEN
+              labels, and the duplicated one was the stage the eye is on. Neither
+              was conditional, so they were always both on screen. A screen that
+              states one fact in two places is a screen that can start disagreeing
+              with itself; the rail keeps the number because that is where all six
+              are comparable, and the panel keeps the name.
+          */}
           <h3 className="text-xl font-extrabold tracking-[-0.015em] text-ink">
             {active.label}
-            <span className="ml-2.5 font-mono text-xs font-medium text-ink/45">
-              {active.pct}% complete
-            </span>
           </h3>
           <div className="flex gap-1.5">
             <button

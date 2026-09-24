@@ -46,6 +46,7 @@ import 'server-only';
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { matchesCommandQuery } from '@/lib/command-match';
 import { searchReads } from '@/lib/site-search';
 import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data';
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
@@ -190,15 +191,27 @@ export async function FrontDoorResults({
   ]);
 
   /*
-    The searcher's own things. Filtered exactly as the palette filters them —
-    the same fields, the same lowercase includes — so pressing Enter can never
-    show fewer of your own things than the dropdown you pressed Enter from.
+    The searcher's own things.
+
+    🔴 THIS COMMENT USED TO CLAIM PARITY THE CODE BESIDE IT DID NOT DELIVER.
+    It said "filtered exactly as the palette filters them — the same fields,
+    the same lowercase includes — so pressing Enter can never show fewer of
+    your own things than the dropdown you pressed Enter from." The palette's
+    haystack carried `KIND_LABEL` and this one did not, so typing "event"
+    listed rows in the dropdown that vanished on Enter. Measured live
+    2026-09-23: `?q=event` → 21 results, ZERO of the searcher's own.
+
+    🔑 THE SENTENCE IS NOW A SHARED FUNCTION. Both sides call
+    `matchesCommandQuery`, so parity is a fact about the code rather than a
+    promise about it, and `one-matcher-two-surfaces.test.ts` fails if either
+    side grows its own copy again.
+
+    `kind !== 'action'` stays HERE and is not scope: the action rows are jump
+    links ("Profile & account", "Notifications"), and a results PAGE listing
+    them among stories and shops would be offering navigation as an answer.
   */
-  const needle = query.toLowerCase();
   const own = commandItems.filter(
-    (i) =>
-      i.kind !== 'action' &&
-      `${i.label} ${i.sublabel}`.toLowerCase().includes(needle),
+    (i) => i.kind !== 'action' && matchesCommandQuery(i, query),
   );
 
   const bySlug = new Map(data.articles.map((a) => [a.slug, a]));

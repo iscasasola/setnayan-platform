@@ -3,25 +3,49 @@
 /**
  * walking-order-lines.tsx — grab a line and move it.
  *
- * ⚖ Owner 2026-09-20: drag is **desktop-only and additional**. The Move ↑ /
- * Move ↓ buttons rendered beside every line are the always-available path and
- * are untouched by this file — they are plain forms posting a server action, so
- * they work with JavaScript off, on a phone, and under any assistive tech.
+ * ⚖ Owner 2026-09-20: drag is **desktop-only and additional**. Move ↑ / Move ↓
+ * beside every line are the always-available path — reachable by thumb, by
+ * keyboard and by screen reader.
  *
- * ── WHY A KEYBOARD PATH EXISTS EVEN THOUGH BUTTONS DO ──────────────────────
- * 🔑 A DRAG HANDLE THAT ONLY DRAGS IS A CONTROL HALF THE ROOM CANNOT USE. Once
- * a handle is on screen it looks like the way to reorder, so it must answer the
- * keyboard too: Space grabs, ↑/↓ move, Space drops, Esc puts it back. The
- * handle carries `aria-pressed` so a screen reader says whether it is held, and
- * every move is announced in a live region — a silent reorder is indistinguish-
- * able from a dead control.
+ * ── ⚖ OWNER 2026-09-23 — THE MOVE HAPPENS HERE NOW ────────────────────────
+ * *"when i move someone, the whole screen refreshes. feels laggy."* · *"when
+ * it reloads, it goes back up and does not stay on where we are editing. this
+ * is hassle because we need to always scroll back down. we want them to move
+ * and pair people easily and fast."*
+ *
+ * Move ↑ / ↓ used to be plain `<form action={serverAction}>`, one form per
+ * arrow. A form action that redirects is a 303: the browser throws the whole
+ * document away and loads it again, which is the refresh he saw AND the reason
+ * the page came back at the top. Measured in production on 2026-09-23, his own
+ * moves: `POST …/guests 303` at 05:51:33 → the page's two GETs at 05:51:36-37.
+ * Roughly three seconds and a scroll reset, to move one line by one place.
+ *
+ * So the arrows are buttons in this island. A tap reorders the list on screen
+ * IMMEDIATELY and the write goes out behind it; if the server refuses, the
+ * order snaps back and the reason is printed where the couple is looking. No
+ * navigation, so the scroll position is simply never lost.
+ *
+ * 🪤 WHAT THIS DELIBERATELY GAVE UP, AND WHY IT IS NOT A LOSS. The forms
+ * worked with JavaScript off. So does nothing else on this page — the pickers,
+ * the drag, the grab-and-move and the whole roster above are already client
+ * islands, and an arrow that worked alone in a JavaScript-less browser was
+ * never a path anybody could complete a processional through.
+ *
+ * ── THE COUPLING THAT IS GONE ─────────────────────────────────────────────
+ * 🔑 The arrows used to arrive as a `children` ARRAY and be drawn as
+ * `children[i]`, indexed by THIS component's optimistic order while the array
+ * was built in the SERVER's order. The two agree until a move is in flight —
+ * exactly when somebody is tapping — and during that window each arrow was
+ * bound to whoever used to stand at its position. Owning the buttons removes
+ * the positional binding rather than trying to keep two orders in step.
  *
  * ── WHAT IT POSTS ──────────────────────────────────────────────────────────
- * The lead guest id of every line, in the new order, to `setEntourageLineOrder`
- * — not positions. A position only means something against the list the client
- * was looking at; if another planner has since moved a line, applying positions
- * would reorder the wrong ones. Names let the server refuse a stale order
- * instead of obeying it.
+ * The lead guest id of every line, in the new order — not positions. A
+ * position only means something against the list the client was looking at; if
+ * another planner has since moved a line, applying positions would reorder the
+ * wrong ones. Names let the server refuse a stale order instead of obeying it.
+ * Every write names the WHOLE group, so two quick taps resolve to the last
+ * full sequence rather than to a half-applied pair of swaps.
  *
  * ⛔ Reordering the processional never touches a chair. That invariant lives in
  * the action, which writes `entourage_order` and nothing else.
@@ -41,12 +65,19 @@
  * The pickers list exactly the moves `lib/march-moves.ts` allows — computed on
  * the server and passed in, so this island never re-derives a rule — and a
  * drop the rules refuse is SAID, in words, rather than silently ignored.
+ *
+ * 🔑 A JOIN OR A SWAP CHANGES WHICH LINES EXIST, so those two cannot be drawn
+ * optimistically from what this island knows — it would have to re-implement
+ * `pairUp`. They ask the server and then `router.refresh()`, which replaces the
+ * panel's data IN PLACE: no document load, no scroll jump, no remount.
  */
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { GripVertical } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 import { setEntourageLineOrder } from '../entourage-order-actions';
 import { joinEntourageLine, swapEntouragePlaces } from '../march-actions';
+import type { MarchResult } from '@/lib/march-result';
 
 export type WalkingLine = {
   /** The line's lead guest id — how the server names it. */
@@ -74,20 +105,25 @@ export function WalkingOrderLines({
   groupKey,
   groupLabel,
   lines,
-  children,
 }: {
   eventId: string;
   groupKey: string;
   groupLabel: string;
   lines: WalkingLine[];
-  /** The always-available Move ↑ / ↓ forms, one per line, in the same order. */
-  children: React.ReactNode[];
 }) {
+  const router = useRouter();
   const [order, setOrder] = useState<string[]>(() => lines.map((l) => l.leadId));
   const [grabbed, setGrabbed] = useState<string | null>(null);
   const [say, setSay] = useState('');
+  /* 🔑 A REFUSAL MUST REACH THE RENDER. It used to ride back as `?error=…` on
+     a navigation; a returned reason that only reached a log would be the
+     silence that change was made to end. */
+  const [problem, setProblem] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const committed = useRef<string[]>(lines.map((l) => l.leadId));
+  /** The order on screen, which the drain below chases. See `persist`. */
+  const desired = useRef<string[]>(lines.map((l) => l.leadId));
+  const inFlight = useRef(false);
 
   // The server is the source of truth: when it sends a new order (somebody
   // else moved a line, or our own save landed), take it.
@@ -95,6 +131,7 @@ export function WalkingOrderLines({
     const next = lines.map((l) => l.leadId);
     if (next.join() !== committed.current.join()) {
       committed.current = next;
+      desired.current = next;
       setOrder(next);
     }
   }, [lines]);
@@ -102,46 +139,118 @@ export function WalkingOrderLines({
   const byId = new Map(lines.map((l) => [l.leadId, l]));
   const at = (id: string) => order.indexOf(id);
 
-  function joinLine(anchorId: string, joinerId: string) {
+  /** A join or a swap: ask, then take the server's new lines in place. */
+  function nameMove(run: () => Promise<MarchResult>, announce: string) {
+    setProblem(null);
+    setSay(announce);
     start(async () => {
-      await joinEntourageLine(eventId, groupKey, anchorId, joinerId);
+      const result = await run();
+      if (!result.ok) {
+        setProblem(result.reason);
+        setSay(result.reason);
+        return;
+      }
+      router.refresh();
     });
   }
 
-  function swapNames(a: string, b: string) {
-    start(async () => {
-      await swapEntouragePlaces(eventId, groupKey, a, b);
-    });
+  function joinLine(anchorId: string, joinerId: string, announce: string) {
+    nameMove(() => joinEntourageLine(eventId, groupKey, anchorId, joinerId), announce);
+  }
+
+  function swapNames(a: string, b: string, announce: string) {
+    nameMove(() => swapEntouragePlaces(eventId, groupKey, a, b), announce);
   }
 
   /** A NAME was dropped on a cell: do the move the cell allows, or say why not. */
   function dropName(slot: MarchSlot, draggedId: string, draggedName: string) {
     if (slot.kind === 'empty') {
       if (slot.joiners.some((o) => o.id === draggedId)) {
-        setSay(`${draggedName} now walks with ${slot.anchorName}.`);
-        joinLine(slot.anchorId, draggedId);
+        joinLine(slot.anchorId, draggedId, `${draggedName} now walks with ${slot.anchorName}.`);
       } else if (draggedId !== slot.anchorId) {
-        setSay(`${draggedName} cannot take the place beside ${slot.anchorName} — tap the empty place to see who can.`);
+        setProblem(
+          `${draggedName} cannot take the place beside ${slot.anchorName} — tap the empty place to see who can.`,
+        );
       }
       return;
     }
     if (slot.id === draggedId) return;
     if (slot.swapWith.some((o) => o.id === draggedId)) {
-      setSay(`${draggedName} and ${slot.name} traded places.`);
-      swapNames(draggedId, slot.id);
+      swapNames(draggedId, slot.id, `${draggedName} and ${slot.name} traded places.`);
     } else {
-      setSay(`${draggedName} and ${slot.name} cannot swap — tap a name to see who it can swap with.`);
+      setProblem(
+        `${draggedName} and ${slot.name} cannot swap — tap a name to see who it can swap with.`,
+      );
     }
   }
 
-  function commit(next: string[]) {
+  /**
+   * Persist a reordering that is ALREADY on screen.
+   *
+   * 🔑 OPTIMISTIC, AND IT PUTS ITSELF BACK. The list moves first so a tap feels
+   * like a tap; if the server refuses, `order` returns to the last sequence the
+   * server acknowledged and the reason is printed. A refusal that silently kept
+   * the new order on screen would tell the couple their processional says
+   * something it does not.
+   *
+   * ── 🪤 ONE WRITE AT A TIME, AND IT ALWAYS POSTS THE LATEST ────────────────
+   * The owner's whole ask is to move people FAST, which means tapping ↑ again
+   * before the last tap has landed. Firing one request per tap races: five
+   * single-step "move him up" calls, each resolved against its own fresh read,
+   * can interleave and settle somewhere nobody chose — and the screen would go
+   * on showing the order he tapped for. So a tap only updates `desired`, and
+   * this drains it: at most one request in flight, each posting the WHOLE
+   * sequence currently on screen. Two taps during one write collapse into one
+   * write of the final order, and the last thing posted is always what he is
+   * looking at.
+   */
+  function persist(next: string[]) {
+    setProblem(null);
     setOrder(next);
-    start(async () => {
-      await setEntourageLineOrder(eventId, groupKey, next);
-    });
+    desired.current = next;
+    start(drainOrder);
   }
 
-  function move(id: string, delta: number) {
+  async function drainOrder() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      while (desired.current.join() !== committed.current.join()) {
+        const target = desired.current;
+        const result = await setEntourageLineOrder(eventId, groupKey, target);
+        if (!result.ok) {
+          setOrder(committed.current);
+          desired.current = committed.current;
+          setProblem(result.reason);
+          setSay(result.reason);
+          return;
+        }
+        committed.current = target;
+      }
+    } finally {
+      inFlight.current = false;
+    }
+  }
+
+  /** Move ↑ / Move ↓ — the always-available path, now without a page load. */
+  function moveLine(id: string, delta: -1 | 1) {
+    const from = at(id);
+    const to = from + delta;
+    if (from === -1 || to < 0 || to >= order.length) return;
+    const next = [...order];
+    next.splice(to, 0, next.splice(from, 1)[0]!);
+    setSay(`${byId.get(id)?.label ?? 'Line'} is now ${to + 1} of ${next.length} in ${groupLabel}.`);
+    /* Posts the whole sequence, exactly like the drag does — NOT "move this
+       person one step". A single-step request means something only against the
+       list the server happens to read, and two of them in flight mean it twice
+       against two different lists. `setEntourageLineOrder` still refuses a
+       sequence that does not name this group's lines exactly once, so a list
+       that gained or lost a line while we were tapping is caught, not obeyed. */
+    persist(next);
+  }
+
+  /** The keyboard grab: ↑/↓ shuffle on screen, Space commits the whole order. */
+  function moveHeld(id: string, delta: -1 | 1): void {
     const from = at(id);
     const to = from + delta;
     if (from === -1 || to < 0 || to >= order.length) return;
@@ -149,7 +258,10 @@ export function WalkingOrderLines({
     next.splice(to, 0, next.splice(from, 1)[0]!);
     setOrder(next);
     setSay(`${byId.get(id)?.label ?? 'Line'} is now ${to + 1} of ${next.length} in ${groupLabel}.`);
-    return next;
+  }
+
+  function commit(next: string[]) {
+    persist(next);
   }
 
   function onKey(e: React.KeyboardEvent, id: string) {
@@ -174,12 +286,22 @@ export function WalkingOrderLines({
     }
     if (grabbed === id && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
-      move(id, e.key === 'ArrowUp' ? -1 : 1);
+      moveHeld(id, e.key === 'ArrowUp' ? -1 : 1);
     }
   }
 
   return (
     <>
+      {/* ⚖ Owner 2026-09-23 — a refused move used to arrive as a query string
+          after a page load. It is said here, next to the list it is about. */}
+      {problem ? (
+        <p
+          role="status"
+          className="mt-1.5 rounded-md border border-danger-200 bg-danger-50/70 px-2 py-1.5 text-xs text-danger-900"
+        >
+          {problem}
+        </p>
+      ) : null}
       <ol className="mt-1.5 space-y-1" aria-busy={pending}>
         {order.map((id, i) => {
           const line = byId.get(id);
@@ -202,12 +324,15 @@ export function WalkingOrderLines({
               onDrop={(e) => {
                 e.preventDefault();
                 const from = e.dataTransfer.getData('text/plain');
-                if (!from || from === id) return;
+                setGrabbed(null);
+                // A name drop, or a line this list does not hold — either way
+                // `indexOf` would be -1 and `splice(-1, 1)` would quietly move
+                // the LAST line instead of the dropped one.
+                if (!from || from === id || !byId.has(from)) return;
                 const next = [...order];
                 next.splice(order.indexOf(id), 0, next.splice(next.indexOf(from), 1)[0]!);
-                setGrabbed(null);
-                commit(next);
                 setSay(`${byId.get(from)?.label ?? 'Line'} moved to ${next.indexOf(from) + 1}.`);
+                commit(next);
               }}
               onDragEnd={() => setGrabbed(null)}
             >
@@ -229,18 +354,44 @@ export function WalkingOrderLines({
                     slot={line.slots[c]}
                     align={c === 0 ? 'left' : 'right'}
                     disabled={pending}
-                    onDropName={(id, name) => dropName(line.slots[c], id, name)}
-                    onPick={(optionId) => {
+                    onDropName={(dragId, name) => dropName(line.slots[c], dragId, name)}
+                    onPick={(optionId, optionName) => {
                       const slot = line.slots[c];
-                      if (slot.kind === 'empty') joinLine(slot.anchorId, optionId);
-                      else swapNames(slot.id, optionId);
+                      if (slot.kind === 'empty') {
+                        joinLine(
+                          slot.anchorId,
+                          optionId,
+                          `${optionName} now walks with ${slot.anchorName}.`,
+                        );
+                      } else {
+                        swapNames(
+                          slot.id,
+                          optionId,
+                          `${slot.name} and ${optionName} traded places.`,
+                        );
+                      }
                     }}
                   >
                     {line.cells[c]}
                   </MarchCell>
                 ))}
               </span>
-              {children[i]}
+              {/* The always-available path. The end of the list keeps a
+                  disabled control rather than none, so the buttons do not
+                  shuffle sideways as the order changes — the one thing that
+                  would make a column of arrows hard to use with a thumb. */}
+              <span className="inline-flex flex-none">
+                <MoveArrow
+                  direction="up"
+                  disabled={i === 0}
+                  onMove={() => moveLine(id, -1)}
+                />
+                <MoveArrow
+                  direction="down"
+                  disabled={i === order.length - 1}
+                  onMove={() => moveLine(id, 1)}
+                />
+              </span>
             </li>
           );
         })}
@@ -250,6 +401,38 @@ export function WalkingOrderLines({
         {say}
       </p>
     </>
+  );
+}
+
+function MoveArrow({
+  direction,
+  disabled,
+  onMove,
+}: {
+  direction: 'up' | 'down';
+  disabled: boolean;
+  onMove: () => void;
+}) {
+  const Icon = direction === 'up' ? ArrowUp : ArrowDown;
+  if (disabled) {
+    return (
+      <span
+        aria-hidden
+        className="inline-flex h-7 w-7 flex-none items-center justify-center rounded text-ink/15"
+      >
+        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      aria-label={`Move this line ${direction}`}
+      onClick={onMove}
+      className="inline-flex h-7 w-7 flex-none items-center justify-center rounded text-ink/45 hover:bg-ink/5 hover:text-ink"
+    >
+      <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+    </button>
   );
 }
 
@@ -272,7 +455,7 @@ function MarchCell({
   align: 'left' | 'right';
   disabled: boolean;
   onDropName: (id: string, name: string) => void;
-  onPick: (optionId: string) => void;
+  onPick: (optionId: string, optionName: string) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -363,7 +546,7 @@ function MarchCell({
           id={menuId}
           role="menu"
           aria-label={title}
-          className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} top-full z-20 mt-1 block w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-ink/10 bg-white p-1 shadow-lg`}
+          className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} top-full z-20 mt-1 block max-h-72 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-ink/10 bg-white p-1 shadow-lg`}
         >
           <span className="block px-2 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink/55">
             {title}
@@ -382,7 +565,7 @@ function MarchCell({
                 role="menuitem"
                 onClick={() => {
                   setOpen(false);
-                  onPick(o.id);
+                  onPick(o.id, o.name);
                 }}
                 className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-ink/5"
               >

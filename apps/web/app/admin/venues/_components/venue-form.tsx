@@ -35,6 +35,7 @@ const VENUE_TYPE_LABEL: Record<(typeof VENUE_TYPES)[number], string> = {
   temple: 'Temple',
   restaurant: 'Restaurant',
   multi_purpose_hall: 'Multi-Purpose Hall',
+  events_place: 'Events Place',
 };
 
 const CEREMONY_TYPE_LABEL: Record<(typeof CEREMONY_TYPES)[number], string> = {

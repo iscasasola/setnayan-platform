@@ -283,6 +283,12 @@ export type EventMedia = {
 /** `loadLiveLayer` — public schedule + RSVP-era backdrop config + live-window
  *  Watch-Live / Live Photo Wall + the anonymous event-day chrome inputs. */
 export type LiveLayerData = {
+  /**
+   * LAU-33 · TRUE when the live-wall read was ATTEMPTED and failed. Distinct
+   * from `liveWall === null`, which also means "not owned" and "mirror off" —
+   * those three were one value, so a failure rendered as a setting.
+   */
+  liveWallUnreadable?: boolean;
   scheduleBlocks: ScheduleBlockRow[];
   backdropConfig: RsvpBackdropConfig | null;
   liveWall: LiveWallData | null;

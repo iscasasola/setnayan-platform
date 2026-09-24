@@ -4,6 +4,8 @@ import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { ROLE_LABELS } from '@/lib/guests';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { CustomSectionWidget } from './custom-section-widget';
+import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow, GuestRow } from '../_lib/types';
@@ -31,18 +33,7 @@ import { YourPhotosWidget } from './your-photos-widget';
  * + in what order — NOT the per-widget content (which lives in
  * sibling editors at /website/dress-code, /website/photo-moments, etc.).
  */
-export function HideableWidgetRender({
-  widget,
-  event,
-  guest,
-  sideLabel,
-  scheduleBlocks,
-  isLive,
-  scheduleEstimated = false,
-  isLimitedPlusOne,
-  ourPhotoUrls,
-  words,
-}: {
+type HideableWidgetProps = {
   widget: InvitationWidgetRow;
   event: EventRow;
   /** The event type's own words, resolved ONCE by the body and threaded here
@@ -57,7 +48,27 @@ export function HideableWidgetRender({
   scheduleEstimated?: boolean;
   isLimitedPlusOne: boolean;
   ourPhotoUrls: string[];
-}) {
+  /** ref → presigned URL for section backgrounds, resolved once by SiteBody. */
+  canvasMediaUrls?: Readonly<Record<string, string>>;
+};
+
+/**
+ * THE WIDGET ITSELF — unchanged, and deliberately still the whole dispatcher.
+ * `HideableWidgetRender` below is a thin wrapper that puts the couple's own
+ * arrangement around whatever this returns.
+ */
+function HideableWidgetBody({
+  widget,
+  event,
+  guest,
+  sideLabel,
+  scheduleBlocks,
+  isLive,
+  scheduleEstimated = false,
+  isLimitedPlusOne,
+  ourPhotoUrls,
+  words,
+}: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
   // an always-on widget here is a defensive no-op (would only happen
@@ -143,6 +154,17 @@ export function HideableWidgetRender({
     case 'our_photos':
       return <OurPhotosWidget urls={ourPhotoUrls} />;
 
+    // The couple's own sections. One case for all six: the words live in the
+    // row's own `config_json`, so the slot number is only which SEAT it takes
+    // in the order, never what it says. An empty one renders null.
+    case 'custom_1':
+    case 'custom_2':
+    case 'custom_3':
+    case 'custom_4':
+    case 'custom_5':
+    case 'custom_6':
+      return <CustomSectionWidget config={widget.config_json} />;
+
     case 'our_love_story':
       return <OurLoveStoryWidget config={event.love_story} />;
 
@@ -185,4 +207,13 @@ function Detail({
       <dd className="mt-0.5 text-base text-ink">{value}</dd>
     </div>
   );
+}
+
+/**
+ * 🎨 The couple's arrangement goes around whatever the dispatcher returned.
+ * The frame itself — and the reason it is a shared file rather than a helper
+ * here — lives in `hub-canvas-frame.tsx`.
+ */
+export function HideableWidgetRender(props: HideableWidgetProps) {
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls}>{HideableWidgetBody(props)}</HubCanvasFrame>;
 }

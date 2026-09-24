@@ -146,6 +146,12 @@ export const FEE_SETTLED_STATUSES: ReadonlySet<string> = new Set([
   'paid',
   'waived_free5',
   'waived_import',
+  // A free-fee window waived it (2026-09-22). It belongs here for the same
+  // reason the two above do: nothing is owed, so nothing may be locked. This is
+  // the whole point of the window — the owner asked for it in one breath with
+  // the lock: "if we make booking fee for free for a specific time … they can
+  // access what the booking fee locks."
+  'waived_promo',
 ]);
 
 export type EventAccessReason =

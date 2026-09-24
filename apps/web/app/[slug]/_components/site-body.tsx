@@ -105,7 +105,6 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
-import { DayOfAnnouncement } from './day-of-announcement';
 import { viewerIsEventHost } from '../_lib/site-identity';
 import type {
   AnonymousSiteIdentity,
@@ -124,6 +123,11 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
+import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
+import { sanitizeMagicTraveller } from '@/lib/magic-move';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
@@ -143,6 +147,7 @@ import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
 import type { EntourageGroup } from '@/lib/entourage';
+import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -251,8 +256,6 @@ type SiteBodyProps = {
   dayOfPhase: DayOfPhase;
   /** The host's Papic switch — the gate for the menu's camera slot, on ANY day. */
   hostCameraOpen?: boolean;
-  /** The coordinator's latest announcement, live window only. Guests only. */
-  dayOfBroadcast?: { body: string; createdAt: string } | null;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
   // `phasesEnabled` is false (the default), NONE of the phase gating below
   // changes — the page renders exactly as today. `lifecyclePhase` is only
@@ -303,6 +306,12 @@ type SiteBodyProps = {
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
+  /**
+   * LAU-33 · TRUE when the wall read was attempted and failed. Distinct from
+   * `liveWall == null`, which also means "not owned" and "mirror off" — those
+   * three were one value, so a failure rendered as a setting.
+   */
+  liveWallUnreadable?: boolean;
   /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
   /** Has the couple staged a broadcast worth ANNOUNCING before the day? The
@@ -368,7 +377,6 @@ export async function SiteBody({
   bespokeSvg,
   dayOfPhase,
   hostCameraOpen = false,
-  dayOfBroadcast = null,
   songRequestDoor = null,
   phasesEnabled,
   lifecyclePhase,
@@ -387,6 +395,7 @@ export async function SiteBody({
   scheduleBlocks,
   backdrop,
   liveWall,
+  liveWallUnreadable = false,
   watchLive,
   broadcastPlanned = false,
   doorwayFacts = null,
@@ -399,6 +408,67 @@ export async function SiteBody({
   chaptersOnThisDay = [],
   entourage = [],
 }: SiteBodyProps) {
+  // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
+  // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
+  // to the public bucket by `siteMediaServeRef` on the way in. They are
+  // collected, deduped and signed in a single parallel pass here and handed to
+  // both widget dispatchers. A frame that signed its own would make one AWS
+  // round trip per section — the failure `displayUrlForStoredAsset` warns list
+  // surfaces about by name.
+  // ⛔ A ref that fails to sign is simply ABSENT from this map, and the frame
+  // then draws the section with no background rather than an empty dark plate
+  // waiting for a picture that is not coming.
+  //
+  // 🪤 LINE COMMENTS, NOT A BLOCK COMMENT, AND THAT IS NOT A STYLE CHOICE.
+  // This sits immediately after the function's opening brace. A block comment
+  // in that position is byte-identical to the opening of a JSX comment, and
+  // `the-wake-never-celebrates.test.ts` strips those with a regex that then
+  // runs on to the next closer anywhere in the file. Measured 2026-09-23: it
+  // swallowed 7,500 characters of real code, including the tone literals on
+  // line 873, and the guard reported that this file had "lost the celebratory
+  // arm" — true of what it could see, false of the file.
+  //
+  // ⚠ The first fix said so IN A BLOCK COMMENT and reproduced the bug, because
+  // writing the offending two-character pair is enough to trip the same regex.
+  // Hence the prose: never open a brace body with a block comment here, and
+  // never spell the sequence out when explaining why.
+  /* ✈ MAGIC MOVE — READ ONCE, HERE, FOR BOTH ENDS.
+     The shell owns the berth in the sticky header; `EditorialContent` owns the
+     mark that flies into it, and the two are hundreds of lines apart in this
+     one function. Two separate reads of one column is two chances for one end
+     to be armed and the other not — and both failures are quiet: a traveller
+     with no berth gives up and writes a console line, a berth with no traveller
+     is a gap in the header nobody can explain.
+     🪤 IT ALSO HAS TO BE DECLARED ABOVE ITS FIRST USE, not beside the shell it
+     reads most obviously for. `const` is not hoisted, and the editorial call
+     sits ~1,500 lines earlier — a declaration next to `<InvitationShell>` looks
+     right and throws a ReferenceError on every render.
+     ⛔ Sanitized, never repaired: a value this product did not write came from
+     somewhere else, and a guess at what it meant would put motion on a wedding
+     page nobody asked for. Cast inline like `site_font_key` — the PostgREST row
+     type does not declare the column. */
+  const magicTraveller = sanitizeMagicTraveller(
+    (event as { site_magic_traveller?: unknown }).site_magic_traveller,
+  );
+  const canvasMediaRefs = hubCanvasMediaRefs(widgets);
+  const canvasMediaUrls: Record<string, string> = {};
+  if (canvasMediaRefs.length > 0) {
+    await Promise.all(
+      canvasMediaRefs.map(async (ref) => {
+        // 🔒 HELD AT THE SIGNER TOO, not only on the way in. `hubMediaRef`
+        // already refused everything but the public bucket when the ref was
+        // stored, and `every-render-read-is-pinned.test.ts` requires the check
+        // to be visible HERE as well — because the next person to add a call
+        // beside this one will copy what they see, and a stored value can
+        // always predate a rule. One allow-list, asked twice.
+        // (Line comments for the same reason given above: this opens a brace
+        //  body, where a block comment is indistinguishable from a JSX one.)
+        const url = await displayUrlForStoredAsset(siteMediaServeRef(ref));
+        if (url) canvasMediaUrls[ref] = url;
+      }),
+    );
+  }
+
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
   // OWNER LAYER · surface 1 (2026-07-26). `null` for every guest and every
@@ -477,6 +547,14 @@ export async function SiteBody({
     special_message: Boolean(event.special_message),
     what_to_bring: Boolean(event.what_to_bring),
     countdown: Boolean(event.event_date),
+    // The couple's own sections: their words are on their own rows, not on the
+    // event. A slot that exists but is empty is dropped from the widened list;
+    // one that was never added contributes no key, and `hasContent` fails open.
+    ...Object.fromEntries(
+      widgets
+        .filter((w) => isCustomSectionType(w.widget_type))
+        .map((w) => [w.widget_type, customSectionHasContent(w.config_json)]),
+    ),
   };
 
   // THE phase spine — computed once, consumed by every gate below. See
@@ -691,6 +769,8 @@ export async function SiteBody({
             a supplier who worked the day.
           */
           viewer={storyViewer}
+          /* ✈ The other end of the same column the shell reads above. */
+          magicTraveller={magicTraveller}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
@@ -814,6 +894,7 @@ export async function SiteBody({
       <PublicHideableWidget
         key={widget.widget_id}
         widget={widget}
+        canvasMediaUrls={canvasMediaUrls}
         event={event}
         words={clientWords}
         scheduleBlocks={scheduleBlocks}
@@ -1004,6 +1085,21 @@ export async function SiteBody({
                 celebration window. Same screened feed as the projector. The id is the
                 anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
                 above) — scroll-margin keeps it clear of the fixed bottom bar. */}
+            {/* 🔑 LAU-33 · THE MEASUREMENT REACHES THE RENDER. When the wall read
+                was attempted and FAILED, say so. Without this the section simply
+                was not there, which is byte-identical to "this couple does not
+                own LIVE_WALL" and to "they turned the guest mirror off" — so a
+                broken wall looked exactly like a setting, and nobody asked.
+                Same anchor id, so the event-day bar's "Photos" button still
+                lands somewhere that explains itself. */}
+            {dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
+              <section id="live-photo-wall" className="mt-10 scroll-mt-6">
+                <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
+                  {LIVE_WALL_UNREADABLE_LINE}
+                </p>
+              </section>
+            ) : null}
+
             {dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
               <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                 <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
@@ -1416,9 +1512,13 @@ export async function SiteBody({
             announcement is for the people in the room, and a stranger with the
             link has no business knowing the ceremony is running late. Null
             outside the live window, so nothing stale survives the day. */}
-        {dayOfBroadcast ? (
-          <DayOfAnnouncement body={dayOfBroadcast.body} eventId={event.event_id} />
-        ) : null}
+        {/* ⛔ THE ANNOUNCEMENT IS NOT MOUNTED HERE ANY MORE (2026-09-22).
+            It lived here, and `SiteBody` is rendered by ONE of the guest
+            tree's twelve pages — so eleven of them never showed the
+            coordinator's words. It now mounts once in `[slug]/layout.tsx`,
+            which wraps all twelve. Do NOT re-add it here: two mounts would
+            double it on this page, and the layout's copy is the one that
+            reaches a guest reading their seat card. */}
         {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
             reveal. Deliberately an explicit marker rather than a bare
             `article > *` selector — `article` is used liberally in this tree
@@ -1960,6 +2060,7 @@ export async function SiteBody({
                 <HideableWidgetRender
                   key={widget.widget_id}
                   widget={widget}
+                  canvasMediaUrls={canvasMediaUrls}
                   event={event}
                   guest={guest}
                   sideLabel={sideLabel}
@@ -2151,6 +2252,7 @@ export async function SiteBody({
       fullBleed={plan.fullBleed}
       hideWatermark={proWatermarkHidden}
       customColorVars={siteColorVars}
+      magicTraveller={magicTraveller}
     >
       {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the
           shell, which is both identity trees and every lifecycle phase.

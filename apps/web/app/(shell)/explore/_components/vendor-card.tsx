@@ -209,6 +209,17 @@ type Props = {
   vendor: VendorCardData;
   rating: number;
   reviewCount: number;
+  /*
+   * 🔑 THE TRUSTED-STATS READ FAILED, SO THIS SHOP'S STANDING IS UNKNOWN —
+   * which is NOT the same as new. Without this the card falls to
+   * `rating > 0 ? … : NEW_TO_SETNAYAN_LABEL` and tells couples that an
+   * established supplier with forty reviews is "New to Setnayan".
+   *
+   * ⚠ Neither side can detect that one: the supplier never sees their own card
+   * in search, and the couple has no reason to doubt it. So the honest render
+   * is to show NOTHING here, not a softer wrong answer.
+   */
+  ratingUnknown?: boolean;
   isAuthenticated: boolean;
   isFollowing: boolean;
   isSaved: boolean;
@@ -246,6 +257,7 @@ export async function VendorCard({
   vendor,
   rating,
   reviewCount,
+  ratingUnknown,
   isAuthenticated,
   isFollowing,
   isSaved,
@@ -507,20 +519,26 @@ export async function VendorCard({
           </li>
         ) : null}
         <li className="inline-flex items-center gap-1">
-          <Star
-            className={`h-3.5 w-3.5 ${
-              rating > 0 ? 'fill-warn-400 text-warn-500' : 'text-ink/25'
-            }`}
-            strokeWidth={1.75}
-          />
-          <span className="font-mono">
-            {rating > 0 ? formatStarRating(rating) : NEW_TO_SETNAYAN_LABEL}
-          </span>
-          {reviewCount > 0 ? (
-            <span className="text-ink/45">
-              ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
-            </span>
-          ) : null}
+          {ratingUnknown ? (
+            <span className="text-ink/45">Reviews unavailable</span>
+          ) : (
+            <>
+              <Star
+                className={`h-3.5 w-3.5 ${
+                  rating > 0 ? 'fill-warn-400 text-warn-500' : 'text-ink/25'
+                }`}
+                strokeWidth={1.75}
+              />
+              <span className="font-mono">
+                {rating > 0 ? formatStarRating(rating) : NEW_TO_SETNAYAN_LABEL}
+              </span>
+              {reviewCount > 0 ? (
+                <span className="text-ink/45">
+                  ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+                </span>
+              ) : null}
+            </>
+          )}
         </li>
       </ul>
 

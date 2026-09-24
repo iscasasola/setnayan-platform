@@ -2,20 +2,24 @@ import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
-import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OpenShopWizard } from './_components/open-shop-wizard';
 import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
+import { getClientShell } from '@/lib/request-platform';
+import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
  * CTA + the vendor signup landing (owner 2026-07-03). Routes by state:
  *
- *   • logged OUT                     → /login?next=/open-shop&as=vendor
- *     (login-first so we can check the account; the rail's "New? Create your
- *     vendor account" path preserves as=vendor → /signup?as=vendor)
+ *   • logged OUT                     → the wizard, signed out (mode 'create'):
+ *     step 3 also creates the account, and "Sign in" there opens the popup over
+ *     the wizard (owner 2026-09-22 "account inside step 3" — supersedes the
+ *     2026-07-10 login-first bounce to /login?next=/open-shop&as=vendor, which
+ *     survives only as the no-JavaScript fallback of that link)
  *   • logged in, shop with a NAME    → /vendor-dashboard/shop
  *   • logged in, no shop             → the onboarding wizard (mode 'create')
  *   • logged in, never-named shop    → the wizard (mode 'complete' — a fresh
@@ -39,15 +43,19 @@ export default async function OpenShopPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  // Logged out → login FIRST so we can check the account before doing anything
-  // (owner 2026-07-10). `next` closes the loop back to /open-shop; `as=vendor`
-  // rides through to the rail's signup link so a brand-new vendor who taps
-  // "Create your vendor account" still lands on /signup?as=vendor (radio
-  // preselected). Existing vendors just sign in and return here.
-  if (!user) redirect('/login?next=' + encodeURIComponent('/open-shop') + '&as=vendor');
+  // Logged out is no longer a bounce (owner 2026-09-22): the wizard renders for a
+  // stranger and step 3 creates the account with the shop. Every read below that
+  // needs an account is guarded on `user`; the vocab reads are anon-readable, and
+  // the tree falls back to the flat select if a read is refused.
+  const guest = !user;
+  // OAuth visibility by shell — the same gate /login applies (see login-data.ts):
+  // web + desktop show the buttons, mobile / embedded WebViews stay email-only.
+  const shell = await getClientShell();
+  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
+  const desktopOAuth = showOAuth && shell === 'desktop';
 
   // Own-row read passes RLS. A shop that has a NAME finished onboarding.
-  const { data: owned } = await supabase
+  const { data: owned } = user ? await supabase
     // `vendor_profiles_self` (migration 20271217955839), never the table: the
     // projection names `business_owner_name`, off `authenticated`'s column
     // allowlist, and one denied column refuses the whole query — which here
@@ -58,7 +66,7 @@ export default async function OpenShopPage({
       'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email, hq_address',
     )
     .eq('user_id', user.id)
-    .maybeSingle();
+    .maybeSingle() : { data: null };
   const row = owned as {
     vendor_profile_id?: string | null;
     business_name?: string | null;
@@ -83,7 +91,7 @@ export default async function OpenShopPage({
   // marketplace ?event_type= filter + the My Shop coverage editor read). Without
   // this signal a new shop is stuck at the column default ['wedding'] and is
   // invisible for every non-wedding event it actually serves.
-  const eventTypeOptions = (await getEventTypeVocab()).map((e) => ({
+  const eventTypeOptions = (await getVendorServableEventTypes()).map((e) => ({
     key: e.key,
     label: e.label,
     emoji: e.emoji,
@@ -119,6 +127,7 @@ export default async function OpenShopPage({
   // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
   // the right behaviour for an account that has no display name yet.
   const accountName = await (async () => {
+    if (!user) return null;
     try {
       const { data } = await supabase
         .from('users')
@@ -174,8 +183,11 @@ export default async function OpenShopPage({
         contactName: row?.business_owner_name ?? '',
         contactPosition: row?.business_owner_position ?? '',
         contactPhone: row?.contact_phone ?? '',
-        contactEmail: row?.contact_email ?? user.email ?? '',
+        contactEmail: row?.contact_email ?? user?.email ?? '',
       }}
+      guest={guest}
+      oauth={{ show: showOAuth, desktop: desktopOAuth }}
+      signInHref={'/login?next=' + encodeURIComponent('/open-shop') + '&as=vendor'}
       error={error}
       initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}
     />

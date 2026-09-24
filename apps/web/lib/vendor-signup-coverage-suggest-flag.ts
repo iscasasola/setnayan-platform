@@ -28,6 +28,8 @@
  * caption under the website field, which is DELIBERATELY unconditional (it
  * declares the mechanism before it ever performs it, never the reverse).
  */
+
+import { envFlagEnabled } from './env-flag';
 export function isVendorSignupCoverageSuggestEnabled(): boolean {
-  return process.env.VENDOR_SIGNUP_COVERAGE_SUGGEST_ENABLED === 'true';
+  return envFlagEnabled(process.env.VENDOR_SIGNUP_COVERAGE_SUGGEST_ENABLED);
 }

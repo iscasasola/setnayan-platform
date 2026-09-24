@@ -56,7 +56,6 @@ import {
   loadGuestContext,
   loadHostMembership,
   loadCoupleMembership,
-  loadDayOfBroadcast,
   loadLiveLayer,
   loadDoorwayFacts,
   loadMedia,
@@ -984,7 +983,13 @@ async function InvitationBody({
   // The coordinator's announcement for the guests in the room. Live window
   // only — the loader returns null outside it, so nothing stale survives the
   // day. Guests only; see the render site in site-body.
-  const dayOfBroadcast = await loadDayOfBroadcast(admin, event.event_id, dayOfPhase === 'live');
+  /* ⛔ THE ANNOUNCEMENT IS LOADED BY `[slug]/layout.tsx` NOW (2026-09-22), not
+     here. It used to be read on this page and handed to SiteBody — which is
+     why it reached ONE of the twelve guest pages. The layout wraps all twelve
+     and carries the guests-only gate that the guest tree used to provide
+     structurally. Do not re-add the read here: `loadDayOfBroadcast` is
+     cache()-wrapped, so a second call would be free but the second MOUNT would
+     double the banner on this page. */
 
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
@@ -1002,7 +1007,6 @@ async function InvitationBody({
     bespokeSvg,
     dayOfPhase,
     hostCameraOpen,
-    dayOfBroadcast,
     phasesEnabled,
     lifecyclePhase,
     stdFilm,

@@ -284,7 +284,11 @@ const VS: readonly (readonly [string, string])[] = [
  * "enough for every guest to take about N photographs" — and N lives here,
  * alone, awaiting the owner. Moving this one number moves the page.
  */
-const IDEAL_PHOTOGRAPHS_PER_GUEST = 15;
+/* ⛔ `IDEAL_PHOTOGRAPHS_PER_GUEST = 15` WAS HERE — owner 2026-09-23, "until a
+   data is collected, nothing to recommend." It sized the dial's suggested rung
+   and it was invented; `_papic-dial.tsx` said so in its own docblock. It does
+   not come back as a constant — when there is measured usage it belongs in
+   `papic_event_pool_config`, which is admin-editable. */
 
 type PapicAnchor = {
   rungs: PapicRung[];
@@ -676,7 +680,6 @@ export default async function PapicLandingPage() {
                 rungs={anchor.rungs}
                 freeCredits={anchor.freeCredits}
                 clipCost={PAPIC_POINTS_PER_SNIPPET}
-                idealPerGuest={IDEAL_PHOTOGRAPHS_PER_GUEST}
               />
             </div>
 

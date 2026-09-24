@@ -47,6 +47,7 @@ import {
   vendorSeoPlanForVendor,
   type VendorSitemapQuery,
 } from '@/lib/vendor-seo-tier';
+import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
 import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 
 export const revalidate = 3600;
@@ -87,7 +88,10 @@ export async function GET(): Promise<Response> {
       const base = admin
         .from('vendor_profiles')
         .select(query.cols)
-        .eq('public_visibility', 'verified');
+        // ⚠ ASKED, NOT RE-TYPED — same reason as the compare surface. A
+        // crawler-facing list that spells its own visibility rule is a list
+        // that keeps advertising a shop after the rule changes.
+        .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[]);
       // PR-B — exclude UNVERIFIED and DEMO vendors from the sitemap. An
       // unverified vendor has no public website (mirrored in /v/[slug] +
       // Explore), so it must not be advertised to crawlers. The reconcile

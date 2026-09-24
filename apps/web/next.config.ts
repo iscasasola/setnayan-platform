@@ -162,7 +162,35 @@ const CSP_REPORT_ONLY = [
   // Origins named in the deferral comment above, plus the embeds already trusted by
   // the enforced `frame-src`. Anything MISSING here is precisely what the reports
   // will surface.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://*.posthog.com https://challenges.cloudflare.com https://itunes.apple.com",
+  // 🔑 `cdn.jsdelivr.net` is FACE MATCHING, added 2026-09-22 (register LAU-10,
+  // whose wording is "the browser protection can be switched on WITHOUT
+  // BREAKING FACE MATCHING" — this is the thing it meant).
+  //
+  // `lib/face-gate.ts` loads MediaPipe from
+  // `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm`, and
+  // the report-only policy named that host nowhere. Production's
+  // `csp_violation_reports` recorded 4 `script-src-elem` violations against it
+  // between 2026-08-22 and 2026-09-18 — i.e. the enforcing policy would have
+  // broken face matching every time, silently, on somebody's wedding photos.
+  //
+  // ⚠ BOTH directives are needed, and that is not a copy-paste. MediaPipe
+  // loads a LOADER SCRIPT (script-src) and then FETCHES the wasm binary
+  // (connect-src). Naming only one leaves the other failing with a different
+  // error, which is how a half-fix reads as a mystery.
+  //
+  // 'unsafe-eval' above already covers the wasm instantiation.
+  //
+  // ⛔ AND THE VIOLATION REPORTS WERE NOT THE WHOLE ANSWER. face-gate loads TWO
+  // hosts — the wasm runtime from jsdelivr AND the model itself from
+  // `storage.googleapis.com/mediapipe-models/.../blaze_face_short_range.tflite`.
+  // Only jsdelivr ever appeared in `csp_violation_reports`, because the model
+  // fetch happens only when face matching actually RUNS, and it rarely does in
+  // production yet. A fix driven by the report table alone would have named one
+  // host and left the other to fail later, under enforcement, on a real event.
+  //
+  // 🔑 REPORT-ONLY DATA IS A LOWER BOUND ON WHAT BREAKS. Read the code for the
+  // rarely-exercised paths; the table only knows what visitors happened to hit.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://*.posthog.com https://challenges.cloudflare.com https://itunes.apple.com https://cdn.jsdelivr.net",
   // ↑ MEASURED 2026-08-02: PostHog loads its client from
   // `us-assets.i.posthog.com`, and it was in connect-src but NOT script-src —
   // so the policy let PostHog SEND but not LOAD. Enforcing the old list would
@@ -202,9 +230,13 @@ const CSP_REPORT_ONLY = [
   // serves the `setnayan-media` bucket from its `r2.dev` dev subdomain
   // (measured live 2026-09-08 against `/download` and the homepage's own
   // rendered asset URLs), which is ADDED alongside the dead host below
-  // rather than replacing it — `R2_PUBLIC_URL` is unset in production today,
-  // so a future custom domain would need the same treatment, not a swap.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com ipc: http://ipc.localhost",
+  // rather than replacing it. ⚠ CORRECTED 2026-09-22: this said `R2_PUBLIC_URL`
+  // was "unset in production today". It IS set (`vercel env ls production` —
+  // Secret, added 2026-09-07, one day before the measurement above). It holds
+  // the r2.dev host. A future custom domain would still be an ADD, not a swap,
+  // because the dev URL is currently the ONLY public path to the bucket —
+  // disabling it before a custom domain is Active blacks out 1.11 GB of media.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com https://cdn.jsdelivr.net https://storage.googleapis.com ipc: http://ipc.localhost",
   // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
   // a live outage scheduled for whenever someone enforces this draft: with no
   // `frame-src`, frames fall back to `default-src 'self'`, so EVERY embed on the
@@ -430,6 +462,34 @@ const nextConfig: NextConfig = {
     // Next lever after webpackMemoryOptimizations (#1258) + ignoreBuildErrors
     // (#1425). Escalate to Vercel Enhanced Builds (paid) if this recurs.
     cpus: 1,
+    // ─── THE ROUTE CEILING ──────────────────────────────────────────────
+    // Vercel caps a deployment at 2048 routes in `.vercel/output/config.json`.
+    // On 2026-09-23 production could not deploy at all: three builds died at
+    // `process-and-upload-routes` with "Max is 2048, received 2053" — one of
+    // them carrying the fix for a LIVE outage, so a fix sat stuck behind a
+    // feature merge while every page inside an event 500'd for signed-in
+    // couples.
+    //
+    // 🔑 THE FIVE WERE NOT A FEATURE. THEY WERE THE LAST OF THE HEADROOM.
+    // Measured across the last good build and the first failing one: the SAME
+    // 360 static pages, ZERO route files added, routing config untouched, and
+    // an identical local `routes-manifest.json`. A no-cache rebuild of the
+    // same commit still reported 2053, which ruled the build cache out too.
+    // The count is structural — roughly 495 app pages x ~4 route entries each
+    // (the page, its `.rsc`, and TWO `.segment.rsc` prefetch entries).
+    //
+    // The client segment cache is 2 of those 4. Off, it returns on the order
+    // of a thousand routes: headroom measured in years rather than in merges.
+    //
+    // WHAT IT COSTS: client-side navigation prefetch is less eager. Nothing
+    // renders differently; pages are simply not pre-fetched as aggressively.
+    //
+    // ⚠ RE-MEASURE BEFORE TURNING THIS BACK ON. A deployment's route count is
+    // reported ONLY when it fails, so the honest sources are the number inside
+    // a `too_many_routes` error or `.vercel/output/config.json` from a local
+    // `vercel build`. Do NOT infer it from `routes-manifest.json` — that file
+    // does not count what Vercel counts, and believing it cost most of a day.
+    clientSegmentCache: false,
     serverActions: {
       bodySizeLimit: '6mb',
     },

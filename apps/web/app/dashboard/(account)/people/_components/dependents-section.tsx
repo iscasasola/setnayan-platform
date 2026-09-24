@@ -16,6 +16,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
+import { AddAlagaButton } from './add-alaga-button';
 import {
   deleteDependent,
   addGodparent,
@@ -125,7 +126,7 @@ export async function DependentsSection() {
   }
 
   return (
-    <section id="alaga" className="mt-10 scroll-mt-24">
+    <section className="mt-10">
       <header className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
           Alaga
@@ -397,13 +398,33 @@ export async function DependentsSection() {
             );
           })}
         </ul>
-      ) : null}
+      ) : (
+        /* 🔴 THIS BRANCH WAS `null` — A HEADING WITH NOTHING UNDER IT. With no
+           alaga yet the section rendered the word "Alaga" and then the next
+           section's heading, so the page answered "what is an alaga and how do
+           I get one" with silence. Samahan, in the same column, has always
+           answered its own empty state with a sentence and a way in; the two
+           sections disagreed about what an empty list looks like. */
+        <p className="mb-4 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
+          No alaga yet. Add a child, an elder, a pet, or anything else you look
+          after — their profile lives inside yours until they take it over.
+        </p>
+      )}
 
       {/* THE ADD FORM MOVED OUT (owner 2026-08-21: "Add an alaga needs to be a
-          button to generate the wizard"). It now lives in <AddAlagaButton>, at
-          the head of the page, opening the roster's own drawer — the same
-          <AddAlagaFields> component, unchanged, just no longer sitting open on a
-          page whose job is to show you your people. */}
+          button to generate the wizard") and the WIZARD'S BUTTON now stands
+          here too. Owner, 2026-09-23, pointing at the live heading: *"Alaga
+          should be together meaning Alaga will have a button to create an
+          alaga under it same to samahan."*
+
+          ⚠ THE TOP ACTION ROW KEEPS ITS OWN COPY — that is the owner's
+          2026-08-22 ruling (*"where the buttons live add an alaga, new group
+          (samahan)"*), pinned by `the-buttons-live-together.test.ts`, and this
+          does not touch it. Samahan offers BOTH "New samahan" at the top and
+          "Create one" inside its section, so a door in each place is precisely
+          what "same to samahan" asks for. Nothing about the form changed: this
+          is the same <AddAlagaButton>, opening the same drawer. */}
+      <AddAlagaButton />
     </section>
   );
 }

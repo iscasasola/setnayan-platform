@@ -31,7 +31,15 @@ test('🔒 the server asks the rule AGAIN before it writes — a picker is not a
     const r = body.indexOf(`'${rpc}'`);
     assert.ok(v > -1, `${fn} no longer checks ${verdict} — a hand-made request would be obeyed`);
     assert.ok(r > v, `${fn} writes before it checks`);
-    assert.match(body.slice(v, r), /if \(!verdict\.ok\) redirect\(/, `${fn} checks the rule and ignores the answer`);
+    // ⚖ 2026-09-23: the refusal is RETURNED now, not redirected with. What is
+    // pinned is that the answer is ACTED ON between the check and the write —
+    // a verdict that is computed and then stepped over is the defect, whichever
+    // way the reason travels.
+    assert.match(
+      body.slice(v, r),
+      /if \(!verdict\.ok\) return \{ ok: false, reason: verdict\.reason \}/,
+      `${fn} checks the rule and ignores the answer`,
+    );
   }
 });
 

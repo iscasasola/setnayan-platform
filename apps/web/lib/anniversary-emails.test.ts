@@ -138,7 +138,7 @@ const WEDDING_DIGEST_FROZEN = [
   '',
   "— Set na 'yan.",
   '',
-  'You\'re receiving this because you celebrated your wedding with Setnayan. To stop anniversary reminders, reply with "unsubscribe" or email support@setnayan.com.',
+  'You\'re receiving this because you celebrated your wedding with Setnayan. To stop anniversary reminders, reply with "unsubscribe" or email live@setnayan.com.',
 ].join('\n');
 
 const WEDDING_HEADSUP_FROZEN =

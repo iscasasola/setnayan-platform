@@ -109,29 +109,84 @@ test('🚨 an unmeasured fact renders a dash, and 0 is only ever a real 0', () =
   );
 });
 
-test('the strip comes before anything that asks the couple to decide', () => {
-  // ⚠ THIS USED TO READ "above the rooms". The rooms were deleted on
-  // 2026-08-27 (one page, four ways in), which made `indexOf` return -1 and the
-  // comparison pass or fail for reasons that had nothing to do with the rule.
-  // The rule itself never mentioned tabs: a person is told the state of their
-  // own celebration BEFORE anything asks them for a decision. Reversing that is
-  // how this screen came to open on a look picker.
-  const page = readFileSync(PAGE, 'utf8');
-  const mount = page.indexOf('<PapicStage');
-  assert.ok(mount > 0, 'the stage is not mounted');
+/**
+ * The blocks that TELL A COUPLE WHERE THEY STAND, as opposed to asking them to
+ * decide something. Only these may lead a phase.
+ *
+ * - `credits` is the running credit balance and what it buys.
+ * - `gallery` carries `<PapicStage>` — the facts strip, on the thing it describes.
+ *
+ * Everything else (dates, guests, filter, challenges, wall, kwento, made, more)
+ * opens by asking for a decision.
+ */
+const STANDING_BLOCKS = new Set(['credits', 'gallery']);
 
-  for (const [what, needle] of [
-    ['the one next step', 'Do this first · then the library fills itself'],
-    ['the four ways in', 'Four ways into your library'],
-    ['the set-once rows', 'Set once, change any time'],
-  ] as const) {
-    const at = page.indexOf(needle);
-    assert.ok(at > 0, `"${needle}" is gone — this guard has lost the anchor for ${what}`);
+/** `BLOCK_ORDER[phase]` as it is written in the page, block → N from `order-N`. */
+function phaseOrder(phase: 'before' | 'after'): Record<string, number> {
+  const page = readFileSync(PAGE, 'utf8');
+  const block = page.match(new RegExp(`${phase}:\\s*\\{([^}]*)\\}`));
+  assert.ok(block, `BLOCK_ORDER.${phase} is gone — this guard has lost the mechanism it reads`);
+  const out: Record<string, number> = {};
+  for (const e of block[1]!.matchAll(/(\w+):\s*'order-(\d+)'/g)) out[e[1]!] = Number(e[2]);
+  assert.ok(
+    Object.keys(out).length >= 8,
+    `only ${Object.keys(out).length} blocks parsed out of BLOCK_ORDER.${phase} — ` +
+      'the map changed shape and this guard would judge a fragment of the page',
+  );
+  return out;
+}
+
+test('a person is told where they stand before anything asks them to decide', () => {
+  // ⚠ RE-POINTED 2026-09-22. THE OLD FORM COMPARED `indexOf` POSITIONS IN THE
+  // SOURCE, and it had already been re-anchored once before that ("this used to
+  // read 'above the rooms'"). It cannot work on this page any more: the ten
+  // blocks are children of one `flex flex-col` section and carry `order-1..10`
+  // from `${ord(key)}`, so **DOM order is not visual order here**. A source-order
+  // assertion encodes a sequence nobody sees.
+  //
+  // 🔑 AND THE RULE ITSELF WAS NEVER ABOUT THE STAGE. It is: a person is told
+  // where they stand BEFORE anything asks them to decide. The owner reordered
+  // the page on 2026-09-22 — *"the top one needs to be the credits purchase and
+  // running credits / Then Coverage / Then alotment"* — which means before the
+  // event the leading block is the running balance, not the facts strip. The
+  // property holds; the block carrying it changed. So this asserts the PROPERTY
+  // against the real mechanism, per phase, rather than pinning one component to
+  // one position.
+  const page = readFileSync(PAGE, 'utf8');
+  assert.ok(page.indexOf('<PapicStage') > 0, 'the stage is not mounted');
+
+  for (const phase of ['before', 'after'] as const) {
+    const order = phaseOrder(phase);
+
+    // A duplicate `order-1` would give the phase two leaders and let a decision
+    // block share the top slot with a standing one.
+    const slots = Object.values(order);
+    assert.equal(
+      new Set(slots).size,
+      slots.length,
+      `BLOCK_ORDER.${phase} assigns the same order-N twice — the phase has no single first block`,
+    );
+
+    const leader = Object.entries(order).sort((a, b) => a[1] - b[1])[0]!;
     assert.ok(
-      mount < at,
-      `the facts strip now renders AFTER ${what} — a person is asked to decide something before being told where they stand`,
+      STANDING_BLOCKS.has(leader[0]),
+      `in the "${phase}" phase the page opens on "${leader[0]}" (order-${leader[1]}), which asks ` +
+        'the couple to decide something before telling them where they stand. Only ' +
+        `${[...STANDING_BLOCKS].join(' or ')} may lead a phase.`,
     );
   }
+});
+
+test('the two phases are not the same order — the page really does rearrange', () => {
+  // If a bad merge collapsed both maps to one, the guard above would still pass
+  // while the page stopped responding to the day entirely.
+  const before = phaseOrder('before');
+  const after = phaseOrder('after');
+  assert.notDeepEqual(
+    before,
+    after,
+    'BLOCK_ORDER.before and .after are identical — the page no longer rearranges around the event',
+  );
 });
 
 test('the attention colour is the one that passes in BOTH themes', () => {

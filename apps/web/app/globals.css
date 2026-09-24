@@ -1345,8 +1345,30 @@ html.subnav-docked [data-shell-main] {
   .m-btn-primary:hover { background: var(--m-mulberry-2); }
   .m-btn-primary:disabled { background: var(--m-mulberry-3); opacity: .5; cursor: not-allowed; }
   /* Champagne accent buttons — for secondary actions + highlights (token name --m-orange kept for back-compat) */
-  .m-btn-orange { background: var(--m-orange); color: #fff; }
-  .m-btn-orange:hover { background: var(--m-orange-2); }
+  /*
+   * THE PUBLIC HALF OF THE SAME FIX (owner, 2026-09-23: "darken it").
+   * This button is the CTA on /vendors and /creators — "Open your shop",
+   * "Talk to us". Measured, label #fff:
+   *   --m-orange      #A9834B  3.48:1   ← was resting. AA needs 4.5.
+   *   --m-orange-2    #8A6B39  4.95:1   ← resting now
+   *   --m-orange-deep #5C4726  8.81:1   ← hover now
+   *
+   * 🔑 TWO LADDERS, ONE COLOUR. `--m-orange` and `--sn-gold-500` are SEPARATE
+   * variables that both hold #A9834B, as are `--m-orange-2`/`--sn-gold-700` and
+   * `--m-orange-deep`/`--sn-gold-800`. The dashboard fix above moved the sn-
+   * rungs and could not reach this rule. They can drift apart later, so each
+   * ladder needs its own fix — this is the second of two, not a duplicate.
+   *
+   * 🔑 THE FILL MOVED, NOT THE TOKEN. `--m-orange` is also a focus ring, a
+   * border and a blob across the marketing pages; darkening the token would
+   * repaint all of them to fix one button.
+   *
+   * ⚠ AND THE HOVER MOVED TOO. The old hover (#8A6B39) already cleared 4.5, so
+   * leaving it would have made hovering the only readable state — the shape
+   * that hid the dashboard button for months.
+   */
+  .m-btn-orange { background: var(--m-orange-2); color: #fff; }
+  .m-btn-orange:hover { background: var(--m-orange-deep); }
   /* Ink button — retained for rare dark-CTA contexts where mulberry isn't appropriate */
   .m-btn-ink { background: var(--m-ink); color: var(--m-paper); }
   .m-btn-ink:hover { background: var(--m-slate); }
@@ -1373,23 +1395,6 @@ html.subnav-docked [data-shell-main] {
   button.m-card:hover {
     transform: translateY(-3px);
     box-shadow: var(--m-shadow-md);
-  }
-
-  .m-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 11px;
-    border-radius: var(--m-r-full);
-    border: 1px solid var(--m-line);
-    font-size: 12px;
-    background: var(--m-paper);
-    color: var(--m-slate);
-  }
-  .m-pill-orange {
-    background: var(--m-orange-4);
-    border-color: var(--m-orange-3);
-    color: var(--m-orange-2);
   }
 
   .m-hi {
@@ -2289,8 +2294,10 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
  * (tab to the left → reverse) just before `document.startViewTransition`.
  *
  * Only the named content `<main>` (`.sn-vt-page` → `view-transition-name:sn-page`)
- * slides; everything else (the fixed pill, sidebar, sticky top bar) lives in the
- * `root` snapshot, which we freeze (`animation:none`) so the chrome stays put.
+ * slides. The sidebar and the sticky top bar ride in the frozen `root` snapshot;
+ * the floating pill and its FAB carry names of their OWN (`sn-bottomnav` /
+ * `sn-navfab`) because `root` paints BENEATH `sn-page` and the pill sits inside
+ * that page's box — see the long note on those rules below.
  *
  * The slide ONLY fires when the controller actually calls `startViewTransition`
  * — i.e. mobile + motion-allowed + VT-supported + a real top-level-tab change.
@@ -2306,10 +2313,73 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
 ::view-transition-group(sn-page) {
   overflow: clip; /* clip the off-screen layer so the slide can't scroll the page */
 }
-/* Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`. */
+/*
+ * Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`.
+ *
+ * 🔑 `animation: none` ALONE DOES NOT FREEZE — IT WASHES OUT. The UA sheet puts
+ * `mix-blend-mode: plus-lighter` on every `::view-transition-old/new` so the
+ * default cross-fade (old 1→0 over new 0→1) sums to a correct blend. Cancel the
+ * animations and BOTH snapshots sit at opacity 1 — plus-lighter then ADDS two
+ * near-identical opaque images, so the whole chrome brightens for the length of
+ * the slide and drops back. On this cream palette that reads as a full-screen
+ * white flash, i.e. "the page reloaded". `mix-blend-mode: normal` paints the new
+ * snapshot OVER the old instead of summing with it, which is what "stays put"
+ * was always meant to mean.
+ */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
+  mix-blend-mode: normal;
+}
+
+/*
+ * ── THE BOTTOM BAR IS NOT IN `root` ANY MORE (2026-09-22) ─────────────────
+ * The `::view-transition` pseudo tree paints ABOVE the live document, and its
+ * groups paint in capture order: `root` first, every named group after it. So
+ * the sliding `sn-page` snapshot paints OVER everything left in `root` that its
+ * box overlaps — and the `<main>` it names carries the
+ * `pb-[calc(env(safe-area-inset-bottom)+92px)]` clearance, which is precisely
+ * the strip the floating pill and its FAB sit in. The chrome did "stay put": it
+ * stayed put UNDERNEATH the page for the whole 320ms and came back after, which
+ * on a phone reads as the bar disappearing and reloading on every tab press.
+ *
+ * 🔑 THE ASYMMETRY IS THE TELL, AND IT IS GEOMETRY, NOT LIFECYCLE. The top bar
+ * sits ABOVE `<main>`'s box at scroll-top, so it is never covered and "seems to
+ * persist"; the bottom pill is inside that box at every scroll position, so it
+ * always is. Nothing remounts in either case — no React tree changes, and the
+ * navs live in the layout, above the segment that swaps.
+ *
+ * Naming them lifts each into its own group above `sn-page`. `animation: none`
+ * + `mix-blend-mode: normal` for the same reason as `root` above.
+ *
+ * ⚠ ONE ELEMENT PER NAME, OR THE BROWSER SKIPS THE WHOLE TRANSITION. Both
+ * selectors resolve to exactly one mounted element (`bottom-nav.tsx` is the one
+ * `aria-label="Primary navigation"` in the app — nav-slide-controller.tsx keys
+ * off the same marker — and one `<NavFab>` mounts per doorway).
+ *
+ * ⚠ `.shell-topbar` IS DELIBERATELY NOT NAMED. `view-transition-name` makes an
+ * element a containing block for `position: fixed` DESCENDANTS — the trap
+ * `panood/program/program-surface.tsx` and `lib/live-studio-control.ts` both
+ * already record — and the bar hosts the account panel and the command palette.
+ * The two named here are fixed elements already, so they are already the
+ * containing block for their own descendants and nothing moves.
+ */
+nav[aria-label='Primary navigation'] {
+  view-transition-name: sn-bottomnav;
+}
+.sn-vt-fab {
+  view-transition-name: sn-navfab;
+}
+::view-transition-group(sn-bottomnav),
+::view-transition-group(sn-navfab) {
+  animation: none;
+}
+::view-transition-old(sn-bottomnav),
+::view-transition-new(sn-bottomnav),
+::view-transition-old(sn-navfab),
+::view-transition-new(sn-navfab) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 ::view-transition-old(sn-page),
 ::view-transition-new(sn-page) {
@@ -3700,12 +3770,35 @@ html.dark {
    * render byte-identical. Scoping the recipe under `.app-surface` (dashboard
    * root only) re-points every dashboard CTA/input to the kit's gold recipe
    * while leaving excluded scopes on their existing base rule. */
+  /*
+   * THE DASHBOARD'S PRIMARY BUTTON — darkened so its label can be read
+   * (owner, 2026-09-23: "darken it").
+   *
+   * Measured, label #FFFDF8:
+   *   gold-500 #A9834B  3.42:1   ← was the resting fill. AA needs 4.5.
+   *   gold-600 #95713D  4.39:1   ← was the hover. Also under the floor.
+   *   gold-700 #8A6B39  4.87:1   ← resting now
+   *   gold-800 #5C4726  8.66:1   ← hover now
+   *
+   * 🔑 THE FILL MOVED, NOT THE TOKEN. `--sn-gold-500` is also a border, a ring
+   * and a shadow in ~14 other files; darkening the token would repaint all of
+   * them to fix two buttons. Only the two rules that put TEXT on the gold move.
+   * The box-shadow below deliberately keeps gold-500 — nothing is read on it.
+   *
+   * ⚠ AND THE HOVER HAD TO MOVE TOO. It failed at rest and failed on hover, and
+   * a fix that only touched the resting state would have left the same defect
+   * one interaction away — that shape is exactly why this survived so long.
+   *
+   * ⚠ The 700→800 step is a big jump because his ladder has no rung between
+   * #8A6B39 and #5C4726. If it reads too dark on the hover, the answer is a new
+   * mid tone, which is a design call and his, not a build decision.
+   */
   .app-surface .button-primary {
-    background: var(--sn-gold-500);
+    background: var(--sn-gold-700);
     color: #fffdf8;
   }
   .app-surface .button-primary:hover {
-    background: var(--sn-gold-600);
+    background: var(--sn-gold-800);
     transform: translateY(-2px);
     box-shadow: 0 14px 26px -12px var(--sn-gold-500);
   }
@@ -3837,6 +3930,89 @@ html.dark {
 .sn-inspector-fulllink:hover { text-decoration: underline; }
 .sn-inspector-body { margin-top: 14px; border-top: 1px solid var(--sn-hairline); padding-top: 16px; }
 
+/* ---------- The guest card's two frames (2026-09-22) ----------------------
+ * ONE panel per guest, opened from the roster. Owner: *"on desktop you fill the
+ * right side completely. and the scroll independently from the guest list on
+ * the left"* · *"on mobile it will peek from the left ... tap on that space it
+ * returns to the guestlist"* · *"similar to our payment page."*
+ *
+ * ⚠ SCOPED, NOT GLOBAL. `.sn-inspector-panel` is shared with Studio, Vendors
+ * and Overview, whose bodies are SHORT — giving them a full-height frame would
+ * draw a tall empty box around a six-line quick view. The fill and the extra
+ * width are opted into by `.sn-inspector-shell--card` on the guests shell only.
+ *
+ * 🔑 The independent scroll was never missing: the panel has always been
+ * `position: sticky` + `overflow-y: auto`. What it lacked was HEIGHT — the rule
+ * below is `max-height`, a cap, so a short body left dead space beneath it. */
+@media (min-width: 1280px) {
+  .sn-inspector-shell--card[data-open='true'] .sn-inspector-rail {
+    /* The card carries a real form; the default 340–420px rail collapses its
+     * two- and three-column grids to one column at every width. */
+    flex-basis: clamp(420px, 34vw, 580px);
+  }
+  .sn-inspector-shell--card .sn-inspector-panel {
+    width: clamp(420px, 34vw, 580px);
+    height: calc(100vh - 2.5rem);
+    max-height: none;
+  }
+}
+
+/* Below xl: the panel slides in from the right and stops short of the left
+ * edge. The strip that stays visible is the way back. */
+.sn-inspector-peek {
+  position: fixed;
+  inset: 0;
+  z-index: 74;
+  border: 0;
+  background: rgba(30, 26, 18, 0.4);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: sn-peek-in 0.28s var(--sn-ease) both;
+}
+.sn-inspector-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* The peek. Wide enough to read the list behind it and to be a comfortable
+   * tap target; narrow enough that the card is not cramped on a 360px phone. */
+  left: 3.5rem;
+  z-index: 75;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--sn-hairline);
+  border-radius: 24px 0 0 24px;
+  background: var(--sn-paper, #fffdf8);
+  box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
+  padding: 1.25rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
+   * animation ends, and a held transform — even the identity — makes this
+   * element the containing block for every `position: fixed` descendant, which
+   * silently unpins anything fixed inside the card. See
+   * lib/an-identity-transform-unpins-every-fixed-child.test.ts. */
+  animation: sn-sheet-in 0.32s var(--sn-ease) backwards;
+}
+@media (min-width: 1280px) {
+  /* The rail owns the card at ≥xl; the sheet must never double it. */
+  .sn-inspector-peek,
+  .sn-inspector-sheet { display: none; }
+}
+@keyframes sn-peek-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sn-sheet-in {
+  from { transform: translateX(34px); opacity: 0 }
+  to { transform: none; opacity: 1 }
+}
+
+/* A native disclosure cannot animate its height; this gives the open some
+ * motion without measuring anything. */
+/* `backwards` for the same reason as the sheet above: a `both` fill would hold
+ * `transform: none` and make every opened disclosure a containing block. */
+.gl-disc { animation: sn-disc-in 0.24s var(--sn-ease) backwards; }
+@keyframes sn-disc-in {
+  from { opacity: 0; transform: translateY(-4px) }
+  to { opacity: 1; transform: none }
+}
+
 /* Keyed body remount animation (`.sn-lens-swap`) — a gentle rise+fade as the
  * selection swaps, keyed by the selection id in InspectorColumn. */
 @keyframes sn-lens-swap {
@@ -3872,8 +4048,9 @@ html.dark {
   transition: transform var(--sn-dur-control) var(--sn-ease),
               box-shadow var(--sn-dur-control), background var(--sn-dur-control);
 }
-.sn-btn-primary { background: var(--sn-gold-500); color: #FFFDF8; }
-.sn-btn-primary:hover { background: var(--sn-gold-600); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+/* Same pairing, same fix — see the note above `.app-surface .button-primary`. */
+.sn-btn-primary { background: var(--sn-gold-700); color: #FFFDF8; }
+.sn-btn-primary:hover { background: var(--sn-gold-800); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
 .sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
 .sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
 .sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }
@@ -4554,4 +4731,426 @@ html:active-view-transition .sn-page-enter { animation: none; }
    scroll-margin, so no anchor needs to know about the bar. */
 html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE EVENT HUB CANVAS — a couple's own arrangement, drawn with CSS only
+   (owner 2026-09-23: "rails on"; contract in lib/hub-canvas.ts)
+   ════════════════════════════════════════════════════════════════════════════
+
+   🔒 FAIL-VISIBLE BY CONSTRUCTION, the same property `.pahina-js` above buys a
+   different way. Every rule that can HIDE anything lives inside BOTH
+   `@supports (animation-timeline: view())` and
+   `@media (prefers-reduced-motion: no-preference)`. A browser without
+   scroll-driven animations, a guest who asked for less motion, or a future
+   refactor that drops the wrapper all land on the same outcome: the section
+   renders at rest, fully visible, exactly as it did before any of this existed.
+   There is no half-state and nothing to un-stick.
+
+   🔑 NO SCRIPT CROSSES TO THE GUEST PAGE. The editor is the only place
+   JavaScript runs. `animation-timeline` needs none, which is the whole reason
+   the motion was specified this way rather than as an IntersectionObserver.
+
+   ⚠ THE WRAPPER ONLY EXISTS FOR A COUPLE WHO ARRANGED SOMETHING. `hasHubCanvas`
+   is false for an empty `config_json` — which is every event today — so these
+   rules match nothing at all until somebody uses the editor.
+
+   ⛔ WHAT IS DELIBERATELY NOT HERE YET: `--hub-focal` and `--hub-zoom` are
+   carried by the contract and are NOT applied below, because nothing in a
+   widget is marked as the section's media yet. A control that stored a value
+   and moved no pixels would be the exact defect this build exists to remove,
+   so the editor does not offer them either. They land with per-section
+   backgrounds, and the contract is already the right shape for it.
+   Likewise the LEFT / RIGHT arrangements: splitting a section into a photo
+   column and a words column needs the widget to expose two slots, and today it
+   exposes one. `full` and `text` are the two that are honest right now. */
+
+.hub-canvas { display: block; }
+/* `full` is the default and is stated rather than implied: the contract emits
+   this class, and a class the CSS does not mention is indistinguishable from a
+   control that moves no pixels. It explicitly un-does any narrowing a parent
+   or a previous choice applied. */
+.hub-arr-full { max-width: none; margin-inline: 0; }
+.hub-arr-text { max-width: 58ch; margin-inline: auto; }
+
+/* ── THE SECTION BACKGROUND ────────────────────────────────────────────────
+   Two layers, and the words are ALWAYS the upper one. The picture is a
+   sibling `div`, never a parent, so the section's own spacing is identical
+   whether or not a couple set a background.
+
+   🔑 `hub-has-media` is set from the RESOLVED URL, not from the stored ref. A
+   deleted object or a refused bucket leaves the class off entirely, so the
+   section renders as a section with no background — never as a dark plate
+   waiting for a picture that is not coming, which a guest reads as a broken
+   page rather than as no photo.
+
+   ⛔ THE SCRIM IS NOT DECORATION. Words over an arbitrary photo the couple
+   chose can land white-on-white; this product cannot know what they uploaded.
+   The gradient guarantees the text keeps its contrast against ANY photo, and
+   it is why the background is a layer rather than a `background-image` on the
+   frame itself. */
+.hub-has-media { position: relative; isolation: isolate; overflow: hidden; }
+.hub-has-media > .hub-canvas-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--hub-media);
+  background-size: cover;
+  background-position: var(--hub-focal);
+  background-repeat: no-repeat;
+  transform: scale(var(--hub-zoom, 1));
+  transform-origin: var(--hub-focal);
+}
+.hub-has-media > .hub-canvas-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+}
+.hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+/* No picture, no padding change — the section keeps the spacing it had.
+   🔴 `display: block`, NOT `display: contents`. A `contents` box is not
+   generated at all, and an element that generates no box CANNOT BE ANIMATED —
+   so every section without a background photo would have silently lost its
+   arrival and its handoff the moment the motion moved onto this layer. It is a
+   bare block with no padding, margin or background, so it changes nothing a
+   guest can see; it just exists enough to animate. */
+.hub-no-media > .hub-canvas-body { display: block; }
+
+@media (prefers-color-scheme: dark) {
+  .hub-has-media > .hub-canvas-media::after {
+    background: linear-gradient(to bottom, rgb(20 19 15 / 0.86), rgb(20 19 15 / 0.94));
+  }
+}
+
+/* ── THE KEYFRAMES ─────────────────────────────────────────────────────────
+   Owner, 2026-09-23: *"different stories fade in while entering from different
+   areas and move and fade out or just move out"*.
+
+   Two axes — WHAT it does and WHICH WAY — so "move without fading" is a value
+   rather than a missing keyframe. `move` never touches `opacity`; `movefade`
+   does. The names are composed by `hubInKeyframe` / `hubOutKeyframe` in
+   `lib/hub-canvas.ts` and delivered as `--hub-in-kf` / `--hub-out-kf`, so ONE
+   rule per timeline serves every combination and none can shadow another.
+
+   The direction names say where the section IS at the far end: an entrance
+   starts there, a departure ends there. One vocabulary, one fact.
+
+   Only `opacity` and `transform` — both compositor properties, so nothing here
+   triggers layout or paint. */
+@keyframes hub-in-fade    { from { opacity: 0; } }
+@keyframes hub-out-fade   { to   { opacity: 0; } }
+@keyframes hub-out-settle { to   { opacity: 0; transform: scale(0.965); } }
+@keyframes hub-in-move-below      { from { transform: translate3d(0, 26px, 0); } }
+@keyframes hub-in-move-above      { from { transform: translate3d(0, -26px, 0); } }
+@keyframes hub-in-move-left      { from { transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-in-move-right      { from { transform: translate3d(28px, 0, 0); } }
+@keyframes hub-in-movefade-below  { from { opacity: 0; transform: translate3d(0, 26px, 0); } }
+@keyframes hub-in-movefade-above  { from { opacity: 0; transform: translate3d(0, -26px, 0); } }
+@keyframes hub-in-movefade-left  { from { opacity: 0; transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-in-movefade-right  { from { opacity: 0; transform: translate3d(28px, 0, 0); } }
+@keyframes hub-out-move-below     { to   { transform: translate3d(0, 26px, 0); } }
+@keyframes hub-out-move-above     { to   { transform: translate3d(0, -26px, 0); } }
+@keyframes hub-out-move-left     { to   { transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-out-move-right     { to   { transform: translate3d(28px, 0, 0); } }
+@keyframes hub-out-movefade-below { to   { opacity: 0; transform: translate3d(0, 26px, 0); } }
+@keyframes hub-out-movefade-above { to   { opacity: 0; transform: translate3d(0, -26px, 0); } }
+@keyframes hub-out-movefade-left { to   { opacity: 0; transform: translate3d(-28px, 0, 0); } }
+@keyframes hub-out-movefade-right { to   { opacity: 0; transform: translate3d(28px, 0, 0); } }
+
+@keyframes hub-during-lift {
+  from { transform: scale(var(--hub-zoom, 1)) translate3d(0, 2.5%, 0); }
+  to   { transform: scale(var(--hub-zoom, 1)) translate3d(0, -2.5%, 0); }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* ══ ONE RULE PER TIMELINE, KEYFRAMES BY CUSTOM PROPERTY ═══════════════
+       🔴 NOT a rule per in×out pair. That was sixteen selectors of the same
+       specificity, and the later one won: `.hub-tl-scrub.hub-out-shrink`
+       overwrote `.hub-tl-scrub.hub-in-slide`'s `animation-name`, and
+       `.hub-during-lift` (one class) lost to both. Cinematic is in:slide,
+       during:lift, out:shrink — and TWO of its three choices never rendered.
+       A control whose effect depends on source order is not a control.
+
+       `--hub-in-kf` / `--hub-out-kf` carry the keyframe names from
+       `lib/hub-canvas.ts`, so every combination is one rule and none of them
+       can shadow another.
+
+       ⚡ SMOOTHNESS: only `opacity` and `transform` are ever animated — both
+       compositor properties, so nothing here triggers layout or paint. The
+       translations are `translate3d` to keep the layer promoted, and
+       `will-change` is declared on the two elements that actually move rather
+       than on the frame, so a page of sections does not hold a dozen idle
+       layers. */
+
+    /* ══ ONE PART AFTER ANOTHER ═══════════════════════════════════════════
+       Owner, 2026-09-23, asked for this directly: a section can arrive as one
+       slab, or its parts can arrive in turn.
+
+       🔑 THE PARTS ARE `.hub-canvas-body > * > *` — the grandchildren. Measured
+       on the RENDERED DOM, not guessed: every widget returns a single
+       `<section>` whose direct children are exactly its parts (the love story
+       has four, a custom section two). Not one widget component had to change,
+       which is the whole reason this was cheap.
+       ⚠ The level is load-bearing. A widget that returned TWO top-level nodes
+       would make this address their children instead of themselves, and the
+       wrong things would animate — silently. `every-widget-is-one-section.test.ts`
+       holds the shape.
+
+       🔑 WHEN THE PARTS ANIMATE, THE BLOCK DOES NOT. Both would mean two
+       opacities multiplying — a part at 0.5 inside a block at 0.5 reads as 0.25
+       and the section arrives muddy. The `hub-seq-whole` / `hub-seq-parts`
+       classes are exclusive, so exactly one level is ever animated.
+
+       ⚠ CSS CANNOT DO ARITHMETIC ON `nth-child`, so the delays are written out.
+       Eight is deliberate: the deepest section measured has four parts, and a
+       ninth arriving with the eighth's delay is a far better failure than a
+       section whose tail never appears. */
+
+    /* PLAYS ONCE — a real, time-based arrival. It runs on load rather than on
+       approach, which is the honest cost of having no script on the guest
+       page; in exchange the duration is a real duration and the easing is a
+       real ease, instead of a scrub pretending to be one. */
+    .hub-seq-whole.hub-tl-time > .hub-canvas-body {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) both;
+      will-change: opacity, transform;
+    }
+
+    /* FOLLOWS THE SCROLL — two animations on two ranges that cannot overlap:
+       the arrival owns `entry`, the handoff owns `exit`. The owner's
+       correction, built: a TIMED exit fights the reader, a scrubbed one is the
+       handoff to the next section and reverses under their own thumb. */
+    .hub-seq-whole.hub-tl-scrub > .hub-canvas-body {
+      animation-name: var(--hub-in-kf, none), var(--hub-out-kf, none);
+      animation-timeline: view(), view();
+      animation-range: entry 0% entry 92%, exit 8% exit 100%;
+      animation-fill-mode: both, both;
+      animation-timing-function: linear, linear;
+      will-change: opacity, transform;
+    }
+
+
+    /* The parts carry the arrival, each a little after the one above it. */
+    .hub-seq-parts > .hub-canvas-body > * > * {
+      animation-name: var(--hub-in-kf, none);
+      animation-fill-mode: both;
+      will-change: opacity, transform;
+    }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > * {
+      animation-duration: var(--hub-duration, 1.1s);
+      animation-timing-function: var(--hub-ease, ease-out);
+    }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(2) { animation-delay: calc(var(--hub-stagger) * 1); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(3) { animation-delay: calc(var(--hub-stagger) * 2); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(4) { animation-delay: calc(var(--hub-stagger) * 3); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(5) { animation-delay: calc(var(--hub-stagger) * 4); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger) * 5); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger) * 6); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(8) { animation-delay: calc(var(--hub-stagger) * 7); }
+
+    /* Scrubbed, the gap is a RANGE offset rather than a delay: a scroll-driven
+       animation has no time to be delayed by, so each part simply starts a
+       little further into the section's entry. */
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
+      animation-timeline: view();
+      animation-range: entry 0% entry 92%;
+      animation-timing-function: linear;
+    }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { animation-range: entry 4% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { animation-range: entry 8% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { animation-range: entry 12% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { animation-range: entry 16% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { animation-range: entry 20% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { animation-range: entry 24% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { animation-range: entry 28% entry 92%; }
+
+    /* ── DURING: the PICTURE drifts, never the words ──────────────────────
+       🔑 It lives on the media layer on purpose. Put on the same element as
+       the arrival it would fight it for `transform` at every instant where
+       their ranges overlap — and `cover` overlaps both `entry` and `exit`, so
+       they always overlap. Two layers, two transforms, no conflict, and the
+       result reads as depth rather than as a page that will not settle.
+
+       It composes the zoom INTO its own keyframes (`scale(var(--hub-zoom))`)
+       because an animation replaces the whole `transform`, so a media layer
+       that is both zoomed and drifting must carry both in one function list or
+       the zoom disappears the moment the animation starts.
+
+       ⚠ A section with no photo has nothing to drift. `during` is a preset
+       value and not a control the couple sets, so nothing claims otherwise. */
+    .hub-during-lift.hub-has-media > .hub-canvas-media {
+      animation: hub-during-lift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+      will-change: transform;
+    }
+
+    /* A section that asked for nothing is not animated at all — no name, no
+       fill mode, nothing that can get stuck, and no promoted layer. */
+    .hub-in-none.hub-out-none > .hub-canvas-body,
+    .hub-in-none.hub-out-none > .hub-canvas-body > * > * {
+      animation: none;
+      will-change: auto;
+    }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MAGIC MOVE — one element that travels, instead of two that hand over
+   (owner 2026-09-23: "like how keynote's magic move operate")
+   ════════════════════════════════════════════════════════════════════════════
+
+   🔒 GATED ON `.pahina-js`, LIKE THE PARALLAX ABOVE, AND FOR THE SAME REASON.
+   The script writes only `--magic-dx` / `--magic-dy` / `--magic-k`; this rule
+   is the only thing that turns them into movement. Reduced motion, a missing
+   IntersectionObserver, a blocked bundle or the 2s self-heal each remove the
+   flag, this rule stops matching, and the mark sits exactly where the layout
+   puts it. There is no half-state and nothing to un-stick.
+
+   🔑 THE DEFAULTS ARE THE IDENTITY. `translate3d(0,0,0) scale(1)` is where the
+   element already is, so the rule is inert until the script has measured
+   something — a page that matched the flag but never ran the measurer is
+   byte-identical to one that never had it.
+
+   ⚠ `will-change` IS DECLARED HERE, not by the script. A hint the script set
+   would outlive the flag being removed and leave a promoted layer behind for
+   nothing. */
+.pahina-js [data-magic-traveller] {
+  transform: translate3d(var(--magic-dx, 0px), var(--magic-dy, 0px), 0) scale(var(--magic-k, 1));
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* The box it travels into. It occupies space so the bar's layout is settled
+   before anything is measured, and it draws nothing — the mark itself is the
+   only ink either end.
+
+   🔴 THIS RULE WAS UNGATED, AND THAT CONTRADICTED THE CONTRACT DIRECTLY ABOVE.
+   The berth is the header's own monogram, reserving exactly the space the mark
+   will land in. Hidden unconditionally, a guest whose script never ran — every
+   reduced-motion guest, every blocked bundle, every 2s self-heal — lost the
+   monogram from the header entirely and nothing said so. "No flag, no travel,
+   and the mark sits where the layout puts it" has to include this end too.
+   ⛔ So the hiding lives behind the SAME flag as the movement. Without it the
+   header keeps its monogram exactly as it did before this feature existed. */
+.pahina-js [data-magic-berth] { visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Belt and braces: RootFlag already withholds the flag for these guests, so
+     this only matters if some future path sets it another way. */
+  .pahina-js [data-magic-traveller] { transform: none; will-change: auto; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   VIEW AS — six reads, one shown, nothing navigates
+   (owner 2026-09-23: "it should only refresh the lower part")
+   ════════════════════════════════════════════════════════════════════════════
+
+   Each chip was a `<Link>` carrying `?viewas=`, so pressing one re-ran the
+   whole server page — the facts, the stage cards, the day-of list — and
+   re-signed every background URL, to swap one description. The miniature above
+   it re-mounted with it, which meant the couple's own page reloaded inside the
+   frame every time they pressed a chip.
+
+   🔑 ALL SIX CARDS ARE RENDERED SERVER-SIDE AND THIS PICKS ONE. Native radios,
+   so it needs no JavaScript — the property the `<Link>` version existed for —
+   and nothing navigates, so the iframe is never touched.
+
+   ⚠ THE HIDING IS THE DEFAULT AND THE SHOWING IS THE RULE, deliberately the
+   opposite way round from the canvas's fail-visible motion. Here a browser that
+   somehow matched nothing would show SIX stacked descriptions rather than none:
+   noisy, not broken, and a reader can still read every one. Hiding by default
+   with no way to show would be the unreadable failure, and that is why
+   `display: block` is what the `:checked` rule adds. */
+/* 🪤 THESE ARE `sn-`, NOT `hub-`, AND THE PREFIX IS LOAD-BEARING.
+   `lib/the-canvas-fails-visible.test.ts` asks the opposite question of the
+   canvas — "is any rule here branching on a class the contract can NEVER
+   emit?" — and its window is `CSS.slice(indexOf('.hub-canvas'))`, i.e. from the
+   canvas banner to the END OF THE FILE. So every `.hub-*` class written below
+   that banner is measured against the canvas vocabulary, and these two were
+   named `hub-viewas-card` / `hub-viewas-chip` at first and failed it: styled,
+   real, emitted by `hub-stage.tsx` — and not canvas classes at all.
+   ⛔ The fix is the NAME, never the guard. Inside globals.css after that
+   banner, `hub-` means the canvas contract; a controller class takes the
+   house `sn-` prefix (`sn-top-label`, `sn-range` beside it). */
+.sn-viewas-card { display: none; }
+#sn-viewas-host:checked ~ div .sn-viewas-card[data-viewas='host'] { display: block; }
+#sn-viewas-coordinator:checked ~ div .sn-viewas-card[data-viewas='coordinator'] { display: block; }
+#sn-viewas-supplier:checked ~ div .sn-viewas-card[data-viewas='supplier'] { display: block; }
+#sn-viewas-guest:checked ~ div .sn-viewas-card[data-viewas='guest'] { display: block; }
+#sn-viewas-named_guest:checked ~ div .sn-viewas-card[data-viewas='named_guest'] { display: block; }
+#sn-viewas-stranger:checked ~ div .sn-viewas-card[data-viewas='stranger'] { display: block; }
+
+.sn-viewas-chip { transition: background-color .12s ease, color .12s ease; }
+#sn-viewas-host:checked ~ div .sn-viewas-chip[for='sn-viewas-host'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-coordinator:checked ~ div .sn-viewas-chip[for='sn-viewas-coordinator'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-supplier:checked ~ div .sn-viewas-chip[for='sn-viewas-supplier'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-guest:checked ~ div .sn-viewas-chip[for='sn-viewas-guest'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-named_guest:checked ~ div .sn-viewas-chip[for='sn-viewas-named_guest'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+#sn-viewas-stranger:checked ~ div .sn-viewas-chip[for='sn-viewas-stranger'] {
+  background: var(--sn-ob-gold, #CBA766);
+  color: var(--sn-ob-page, #17160F);
+  border-color: var(--sn-ob-gold, #CBA766);
+  font-weight: 700;
+}
+
+/* A keyboard user must still see which chip has focus — the radio itself is
+   `sr-only`, so the ring has to be drawn on its label.
+
+   🪤 THIS WAS WRITTEN AS `input:focus-visible + div .sn-viewas-chip` AND IT
+   RANG THE WRONG CHIPS. `+` is the ADJACENT sibling, and only the LAST of the
+   six radios sits next to the chip row — so focusing any of the first five drew
+   no ring at all, and focusing the sixth ringed all six at once. The rule ran,
+   the CSS was valid, and the one state it could show was the one state that is
+   wrong. Each radio has to name its own label, the same way the checked rules
+   above do. */
+#sn-viewas-host:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-host'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-coordinator:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-coordinator'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-supplier:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-supplier'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-guest:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-guest'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-named_guest:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-named_guest'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
+}
+#sn-viewas-stranger:focus-visible ~ div .sn-viewas-chip[for='sn-viewas-stranger'] {
+  outline: 2px solid var(--sn-ob-gold, #CBA766);
+  outline-offset: 2px;
 }

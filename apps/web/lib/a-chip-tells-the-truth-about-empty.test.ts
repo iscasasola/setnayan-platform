@@ -41,7 +41,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { done, todo } from '@/app/dashboard/[eventId]/website/editor/_components/editor-shell';
+// 🔴 `done`/`todo` live in `rail-rows.ts`, not in `editor-shell.tsx`. That file
+// is `'use client'`, and the server page calling them 500'd the whole editor in
+// production (digest 2184633741). They are not re-exported from the old path on
+// purpose, so this import had to move with them.
+import { done, todo } from '@/app/dashboard/[eventId]/website/editor/_components/rail-rows';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const EDITOR = join(HERE, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor');

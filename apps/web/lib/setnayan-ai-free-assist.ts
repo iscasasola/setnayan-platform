@@ -15,8 +15,14 @@
  *     assembles up to {@link FIRST_VENUE_SHORTLIST_CAP} compatible reception
  *     venues from real marketplace data and is deliberately NOT AI-gated —
  *     it must work for free accounts. Everything else (other categories, the
- *     guard/secretary/briefing layer) keeps the normal subscription gate:
- *     ₱499 first 28-day cycle → ₱799/28d.
+ *     guard/secretary/briefing layer) keeps the normal Setnayan AI purchase
+ *     gate. ⚠ NO PRICE IS NAMED IN THIS FILE — see the note above
+ *     `firstVenueShortlistUpsell`. This header said "₱499 first 28-day cycle →
+ *     ₱799/28d" while the live catalog charged a one-time amount several times
+ *     that; a docblock that quotes a price becomes a second price list the
+ *     moment anyone reprices. Re-measure, never quote:
+ *       select service_code, retail_price_php, billing_period, is_active
+ *         from platform_retail_catalog_v2 where service_code like 'SETNAYAN_AI%';
  *
  * Pure + I/O-free + unit-testable: predicates and copy only. The venue key is
  * DERIVED from the canon (`PLAN_GROUPS` / `VendorCategory`) rather than
@@ -122,12 +128,76 @@ export const FIRST_VENUE_SHORTLIST_OFFER_TITLE =
 
 export const FIRST_VENUE_SHORTLIST_OFFER_SUB = `Sai — the Setnayan AI planner — picks up to ${FIRST_VENUE_SHORTLIST_CAP} reception venues that fit your date, budget & area and puts them on your shortlist. Your first venue shortlist is its free introduction.`;
 
-/** The ONE quiet upsell line under the offer (carve-out pricing, § 00). */
-export const FIRST_VENUE_SHORTLIST_UPSELL =
-  'Venue help starts free — the full Sai is ₱499 first 28 days → ₱799 per 28 days.';
+/**
+ * ── THE PRICE IS NEVER TYPED HERE ───────────────────────────────────────────
+ *
+ * 🛑 WHAT WAS HERE UNTIL 2026-09-22, rendering to couples on the Overview:
+ *   "Venue help starts free — the full Sai is ₱499 first 28 days → ₱799 per 28 days."
+ *
+ * Measured against `platform_retail_catalog_v2` in production (2026-09-22), that
+ * sentence was false in BOTH halves — the amount and the billing model. The SHAPE,
+ * which is what the argument rests on and what does not rot:
+ *
+ *   SETNAYAN_AI        billing_period 'one_time' · is_active TRUE
+ *   SETNAYAN_AI_RENEW  billing_period 'per_28d'  · is_active FALSE  ← the renewal
+ *                                                   that sentence promised is OFF
+ *
+ * ⚠ THE AMOUNTS ARE DELIBERATELY NOT WRITTEN HERE — quoting them would rebuild the
+ * second price list this change exists to delete. Re-measure:
+ *   select service_code, retail_price_php, onboarding_price_php, billing_period,
+ *          is_active from platform_retail_catalog_v2
+ *    where service_code like 'SETNAYAN_AI%';
+ *
+ * A wedding is Tier A, whose SKU *is* `SETNAYAN_AI`, so a couple clicking through
+ * was billed a one-time charge several times the "₱499" they had been shown. It was
+ * not a live offer the catalog had not caught up with — it was **a promise the
+ * product could not keep.** Removing it is not a pricing decision; leaving it was
+ * the one with exposure.
+ *
+ * 🔑 THE DEFENCE IS THAT THERE IS NO NUMBER IN THIS FILE AT ALL. The amount is
+ * resolved server-side through the same path every other Sai surface uses
+ * (`resolveSetnayanAiDisplayPricePhp` → `platform_retail_catalog_v2`) and handed
+ * in. Labelling a guessed number as a guess does not make shipping it safe
+ * (CLAUDE.md rule 9); not having one to guess does. Reprice in /admin/pricing and
+ * this copy moves on its own, with no code change and no second price list — the
+ * cure `setnayan-ai-type-pricing.ts` already wrote down after its OWN header
+ * quoted prices that had not been true for months.
+ *
+ * ⚠ AND NO PRICE IS BETTER THAN A WRONG ONE. An unresolved or zero price (a
+ * refused catalog read, or Tier E where Sai is not sold) drops the price clause
+ * entirely rather than printing "₱0" or falling back to a constant. The offer
+ * still reads; it just stops making a claim nobody measured.
+ */
+
+/** ₱ with thousands separators — matches the comeback card's rendering of the
+ *  same SKU, so the two Sai surfaces never format one price two ways. */
+function peso(php: number): string {
+  return `₱${Math.round(php).toLocaleString('en-PH')}`;
+}
+
+/** A usable catalog price: a finite, positive number. Anything else is "unknown". */
+function usablePrice(php: number | null | undefined): php is number {
+  return typeof php === 'number' && Number.isFinite(php) && php > 0;
+}
+
+/**
+ * The ONE quiet upsell line under the offer (carve-out, § 00).
+ *
+ * @param fullSaiPhp the event's own tier price from the catalog, server-resolved.
+ *   `null`/`0`/unreadable ⇒ the sentence omits the price rather than inventing one.
+ */
+export function firstVenueShortlistUpsell(fullSaiPhp: number | null | undefined): string {
+  return usablePrice(fullSaiPhp)
+    ? `Venue help starts free — the full Sai is a one-time ${peso(fullSaiPhp)} for this event.`
+    : 'Venue help starts free — the full Sai is a one-time unlock for this event.';
+}
 
 /** Post-build confirmation — the upsell beat after Sai fills the shortlist. */
-export function firstVenueShortlistConfirmation(added: number): string {
+export function firstVenueShortlistConfirmation(
+  added: number,
+  fullSaiPhp: number | null | undefined,
+): string {
   const noun = added === 1 ? 'venue' : 'venues';
-  return `Sai shortlisted ${added} ${noun} that fit your date, budget & area — this is what the full Sai does. ₱499 first 28 days → ₱799/28d.`;
+  const head = `Sai shortlisted ${added} ${noun} that fit your date, budget & area — this is what the full Sai does`;
+  return usablePrice(fullSaiPhp) ? `${head}, a one-time ${peso(fullSaiPhp)}.` : `${head}.`;
 }

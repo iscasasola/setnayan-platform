@@ -66,13 +66,27 @@ const STATIC_ROUTES: ReadonlyArray<{
   // 2026-05-28 row PR #574).
   { path: '/vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
 
-  // /open-shop — vendor onboarding ("open your shop"). Was orphaned (indexable
-  // but in no sitemap); added 2026-07-10.
-  { path: '/open-shop', lastmod: '2026-07-10', changefreq: 'monthly', priority: '0.7' },
+  // /open-shop — the supplier funnel. A short history, because it moved twice
+  // in one day and the reasoning matters more than the line.
+  //
+  // Added 2026-07-10 as "orphaned — indexable but in no sitemap". It was NOT
+  // indexable: the page did `if (!user) redirect('/login?next=…&as=vendor')`
+  // and EVERY CRAWLER IS SIGNED OUT, so production served a 307 to /login and
+  // the funnel was advertised to nobody. Removed earlier today (LAU-45) on that
+  // measurement.
+  //
+  // ✅ RESTORED the same day, because the owner's ONE DOOR ruling removed the
+  // redirect — the account is now created inside step 3 of the wizard rather
+  // than demanded before it. Re-measured on production: `/open-shop` returns
+  // **200** with 1,032 characters of the real wizard and no sign-in wall, so a
+  // crawler gets the page a supplier would.
+  //
+  // 🔑 Both decisions were right against the tree in front of them. The premise
+  // changed, not the reasoning — which is why
+  // `lib/sitemap-lists-only-public-pages.test.ts` asserts the PROPERTY (nothing
+  // advertised may bounce an anonymous visitor) and no longer pins this path.
+  { path: '/open-shop', lastmod: '2026-09-22', changefreq: 'monthly', priority: '0.7' },
 
-  // /creators — public storyteller marketing page ("Everywhere else, they
-  // watch. Here, they book."). Shipped 2026-07-16 with the Creator Economy
-  // Adventure-Chapter slice; the /vendors sibling for the storyteller side.
   { path: '/creators', lastmod: '2026-07-16', changefreq: 'monthly', priority: '0.8' },
 
   // /alaala — living-memory doorway (Website master-plan Phase 1, shipped

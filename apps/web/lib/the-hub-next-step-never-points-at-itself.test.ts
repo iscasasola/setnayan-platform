@@ -108,10 +108,46 @@ test('🔴 no step but "Try again" points the primary button at the controller i
   assert.ok(checked >= 8, `checked ${checked} steps`);
 });
 
-test('every reply in → the couple is sent to look at their page as a guest, not back here', () => {
+test('every reply in → the couple is sent to their live page, not back here', () => {
   const e = event();
   const step = resolveHubNextStep(resolveHubStanding(e, NOW), e, guests({ invited: 90, replied: 90 }));
   assert.equal(step.key, 'ready');
   assert.equal(step.ctaPath, '', 'the ready step must open the public address (the page renders "" as /<slug>, new tab)');
-  assert.equal(step.ctaLabel, 'Open as a guest');
+  assert.equal(step.ctaLabel, 'Open the live page');
+});
+
+/*
+  🔴 NO STEP MAY PROMISE A GUEST'S VIEW OF `/<slug>`, IN A LABEL OR IN PROSE.
+
+  `ctaPath: ''` opens the public address carrying the host's own session, and
+  `site-body.tsx` mounts `<OwnerRibbon>` from a server-verified capability that
+  no param can switch off (owner-locked 2026-07-26). Three steps used to say
+  "Open as a guest"; two of them ALSO said it in their headline or blurb, so a
+  guard on the label alone would have gone green while the promise stayed on
+  screen one line up, in a larger typeface.
+
+  🔑 So this reads EVERY WORD of every step, not just `ctaLabel`. The sabotage
+  it is built to fail is "rename the button, leave the sentence".
+
+  🪤 AND IT IS A PHRASING BAN, WHICH FAILS IN BOTH DIRECTIONS — said out loud
+  rather than discovered later. It cannot catch a rephrasing nobody listed ("see
+  it their way", "through their eyes"), so it is a ratchet on the four forms that
+  actually shipped, not a proof. The one direction it is safe in is deliberate:
+  it reads the resolver's RETURNED DATA, never this file or the source, so it can
+  never fire on a comment documenting the fix.
+
+  ⚠ It is scoped to this resolver on purpose. `plan3d-stage.tsx` still says
+  "Open as a guest" and is CORRECT to: its door is `/<slug>/venue`, which mounts
+  no `OwnerRibbon` and reads no seat, so a host opening the room sees what a
+  guest opening it directly sees.
+*/
+test('⛔ no step claims a guest\u2019s view — not in the label, not in the prose', () => {
+  for (const { label, step } of everyStep()) {
+    const words = `${step.headline} ${step.blurb} ${step.ctaLabel}`;
+    assert.doesNotMatch(
+      words,
+      /as a guest|the way a guest|the way your guests|as your guests see/i,
+      `${label}: this step promises a guest\u2019s view of a page that carries the host ribbon`,
+    );
+  }
 });

@@ -114,9 +114,11 @@ async function executeApproved(
   admin: AdminClient,
   row: {
     action_type: ApprovalActionType;
+    payload?: Record<string, unknown> | null;
     target_user_id: string | null;
     target_id: string | null;
     rationale: string | null;
+    initiated_by: string | null;
     decided_by: string | null;
   },
 ): Promise<void> {
@@ -132,6 +134,128 @@ async function executeApproved(
       vendorProfileId: row.target_id,
       confirmingAdminId: row.decided_by,
       rationale: row.rationale,
+    });
+    return;
+  }
+
+  // ── The paid journal spotlight (register LAU-20) ─────────────────────────
+  //
+  // 🔑 WITHOUT THIS BRANCH A PAID PLACEMENT COULD NEVER PUBLISH. `initiateSponsored`
+  // writes the pending row with `target_id` (the spotlight) and NO
+  // `target_user_id`, because a spotlight is not a person — the same non-user
+  // shape `approve_fraud_wipe_ban` uses above. The single-admin path refuses
+  // sponsored rows on purpose, and says so: "Sponsored placements need
+  // two-admin approval — use the sponsored queue." That queue is this page,
+  // which lists every pending row and calls this function, which fell straight
+  // through to the throw below.
+  //
+  // So the loop closed on itself: refused there, listed here, and thrown on
+  // approve. Requesting worked, and only approving failed — which is why the
+  // gap survived. Nothing in the vocabulary, the page or the CHECK was wrong;
+  // the dispatcher simply had no arm for a type the rest of the system already
+  // created.
+  if (row.action_type === 'approve_journal_spotlight') {
+    if (!row.target_id) throw new Error('Spotlight approval has no target spotlight');
+    const { error } = await admin
+      .from('journal_vendor_spotlights')
+      .update({ admin_approved_at: new Date().toISOString() })
+      .eq('spotlight_id', row.target_id);
+    if (error) throw new Error(`Spotlight approval failed: ${error.message}`);
+    return;
+  }
+
+  // A comp is money, and money takes two admins (register LAU-19). The vendor
+  // rides in target_id; the SKU and reason ride in the payload. The expiry is
+  // computed HERE, at execution, so a comp approved two days later still stacks
+  // from the expiry as it is then.
+  if (row.action_type === 'approve_comp_grant') {
+    if (!row.target_id) throw new Error('Comp approval has no target vendor');
+    if (!row.decided_by) throw new Error('Comp approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Comp approval has no initiating admin');
+    const payload = (row.payload ?? {}) as { sku?: string; reason?: string };
+    if (!payload.sku) throw new Error('Comp approval has no SKU');
+    // `rationale` is nullable in the row type even though the CHECK makes it
+    // 1..2000 chars — narrow it rather than assert it, so a future nullable
+    // path cannot pass `null` into an audited money record.
+    const compReason = payload.reason ?? row.rationale ?? '';
+    if (!compReason) throw new Error('Comp approval has no reason');
+    const { executeVendorSkuComp } = await import('@/app/admin/vendors/actions');
+    await executeVendorSkuComp(admin, {
+      vendorProfileId: row.target_id,
+      sku: payload.sku,
+      reason: compReason,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+    });
+    return;
+  }
+
+  // A refund over ₱25,000 is money leaving, and Vendor Agreement § 9.1 names
+  // that figure. The order rides in target_id; the amount, reason and proof
+  // ride in the payload. The amount is taken from the PAYLOAD, never re-read
+  // from the order total — the second admin is approving the number the first
+  // admin wrote down, not whatever the order says now.
+  if (row.action_type === 'approve_large_refund') {
+    if (!row.target_id) throw new Error('Refund approval has no target order');
+    if (!row.decided_by) throw new Error('Refund approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Refund approval has no initiating admin');
+    const payload = (row.payload ?? {}) as {
+      amount_php?: number;
+      reason?: string;
+      proof_url?: string | null;
+    };
+    const amountPhp = payload.amount_php;
+    if (typeof amountPhp !== 'number' || !Number.isFinite(amountPhp) || amountPhp <= 0) {
+      throw new Error('Refund approval has no usable amount');
+    }
+    // `rationale` is nullable in the row type even though the CHECK makes it
+    // 1..2000 chars — narrow rather than assert, so no audited money record
+    // can carry `null` as its reason.
+    const refundReason = payload.reason ?? row.rationale ?? '';
+    if (!refundReason) throw new Error('Refund approval has no reason');
+    const { executeLargeRefund } = await import('@/app/admin/payments/actions');
+    await executeLargeRefund(admin, {
+      orderId: row.target_id,
+      reason: refundReason,
+      proofUrl: payload.proof_url ?? null,
+      amountPhp,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+    });
+    return;
+  }
+
+  // § 9.1 — the BDO/GCash receiving account, text fields or QR image. No
+  // target_user_id and no target_id: the subject is the platform's own
+  // settings row, not a person or a vendor. Everything needed is in the
+  // payload, which is deliberate — the second admin approves exactly the
+  // destination the first one proposed, never a value re-read at execution.
+  if (row.action_type === 'approve_payment_account_change') {
+    if (!row.decided_by) throw new Error('Payment approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Payment approval has no initiating admin');
+    if (!row.payload) throw new Error('Payment approval has no payload');
+    const { executePaymentAccountChange } = await import('@/app/admin/settings/actions');
+    await executePaymentAccountChange(admin, {
+      payload: row.payload,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+    });
+    return;
+  }
+
+  // § 9.1 — what a customer is charged. The SKU rides in target_id; the new
+  // figures ride in the payload and are never re-read from a form, so the two
+  // admins cannot end up agreeing to different prices.
+  if (row.action_type === 'approve_retail_price_change') {
+    if (!row.target_id) throw new Error('Price approval has no target SKU');
+    if (!row.decided_by) throw new Error('Price approval has no confirming admin');
+    if (!row.initiated_by) throw new Error('Price approval has no initiating admin');
+    if (!row.payload) throw new Error('Price approval has no payload');
+    const { executeRetailPriceChange } = await import('@/app/admin/pricing/actions');
+    await executeRetailPriceChange(admin, {
+      payload: row.payload,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
     });
     return;
   }
@@ -183,7 +307,7 @@ export async function approveRequest(formData: FormData) {
     .eq('status', 'pending')
     .gt('expires_at', nowIso)
     .neq('initiated_by', userId)
-    .select('approval_id, action_type, target_user_id, target_id, rationale, initiated_by, decided_by')
+    .select('approval_id, action_type, target_user_id, target_id, payload, rationale, initiated_by, decided_by')
     .maybeSingle();
 
   if (claimErr) throw new Error(`Could not approve: ${claimErr.message}`);
@@ -196,6 +320,10 @@ export async function approveRequest(formData: FormData) {
   try {
     await executeApproved(admin, claimed as {
       action_type: ApprovalActionType;
+      // Kept in step with executeApproved's parameter — a cast that omits a
+      // field does not fail at the cast, it fails at the call, one line later.
+      payload?: Record<string, unknown> | null;
+      initiated_by: string | null;
       target_user_id: string | null;
       target_id: string | null;
       rationale: string | null;

@@ -153,6 +153,7 @@ export default async function HeroPhotoEditorPage({
             bucket="media"
             pathPrefix={`events/${eventId}/landing-page-hero`}
             name="hero_image_url"
+            unsavedHint="press Save photo below"
             multiple={false}
             maxSizeMB={10}
             acceptedTypes={[

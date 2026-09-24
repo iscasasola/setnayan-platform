@@ -15,6 +15,11 @@
  * sensitive, the same posture as the CSAM hash-match flag — never the
  * `!== 'false'` shape used for safe, already-proven cleanup jobs.
  */
+
 export function isSupplierNightBeforeEmailEnabled(): boolean {
+  // ⛔ DELIBERATELY NOT converted to envFlagEnabled. This arms an unproven SEND
+  // to real suppliers the night before their job. Widening what counts as ON is
+  // an owner decision, not a parsing bugfix.
+  // Pinned by supplier-night-before-email-flag.test.ts.
   return process.env.SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED === 'true';
 }

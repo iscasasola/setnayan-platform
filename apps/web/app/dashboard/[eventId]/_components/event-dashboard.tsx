@@ -19,7 +19,6 @@ import {
 import type { ReactNode } from 'react';
 import { fetchChecklistProgress } from '@/lib/checklist';
 import { eventDateToEpoch, type MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { digestSubWorthShowing } from '@/lib/digest-sub';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -61,6 +60,7 @@ import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import {
   runTriggers,
   applyRestraint,
@@ -81,12 +81,15 @@ import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import {
+  decisionsCountNoun,
+  notBookedLabel,
+} from '@/lib/two-counts-two-names';
+import {
   rankMarkFor,
   splitDecisionsAndDates,
 } from '@/lib/a-date-is-not-a-decision';
 import { shouldChaseRsvps } from '@/lib/one-decision-list-not-two';
 import { findTodaysOneThingRowId } from '@/lib/todays-one-thing-is-row-one';
-import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
   InspectorLayout,
@@ -945,6 +948,27 @@ export async function EventDashboard({
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
   // internal-only `?sai=preview` render override. -------------------------
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  /*
+    THIS EVENT'S OWN SETNAYAN AI PRICE — for the free-venue-shortlist upsell,
+    which until 2026-09-22 hand-typed "₱499 first 28 days → ₱799 per 28 days"
+    while the catalog charged a one-time amount several times that, and named a
+    renewal SKU that is switched OFF. `FreeVenueShortlistOffer` is a client
+    component and cannot read the catalog, so the price is resolved HERE, on the
+    same path every other Sai surface uses, and handed down.
+
+    'regular' is not a choice — `resolveSetnayanAiDisplayPricePhp`'s own contract
+    says 'onboarding' belongs on the sign-up card and 'regular' everywhere else,
+    and it must match the context the charge path will use for the same button or
+    the screen makes a promise checkout will not keep.
+
+    Returns 0 for Tier E (Sai is not sold there) and 0 on an unreadable read; the
+    copy treats both as "no price" and omits the clause rather than printing ₱0.
+  */
+  const fullSaiPhp = await resolveSetnayanAiDisplayPricePhp(
+    supabase,
+    event.event_type as string | null,
+    'regular',
+  ).catch(() => 0);
   const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
     { paywallEnabled: aiPaywallEnabled },
@@ -1078,54 +1102,41 @@ export async function EventDashboard({
     };
   });
 
-  /*
-    ── IS THAT ENOUGH? (owner 2026-08-30) ──────────────────────────────────
-    "1,240 credits left" says nothing to anyone who does not already know what
-    a credit buys. The verdict turns the balance into the answer the number was
-    standing in for, and it recommends a top-up ONLY when the event is actually
-    short — the owner's words: "if their count is good, then do not recommend."
+  /* ⛔ THE CREDIT VERDICT IS GONE UNTIL THERE IS DATA (owner, 2026-09-23).
+     *"we will also collect data of how much photo is used for an event and that
+     will indicate what credits is ideal for that event and that is the
+     recommendation. until a data is collected, nothing to recommend."*
 
-    Costs no query: `guests` and `papicHome` are both already resolved in the
-    batch above.
+     `papicCreditVerdict` compared the balance against guests × a per-head
+     figure nobody had measured, so BOTH its answers were guesses — "short
+     ~N credits" and "enough for your event" alike. The second is not the safe
+     half: telling a couple they have enough is the same unmeasured claim
+     pointing the other way.
 
-    🔑 NOTHING HERE INVENTS A NUMBER (owner 2026-08-31: "don't guess"). What an
-    event needs is the OWNER-CONFIGURED pool formula — clamp(guests ×
-    points_per_guest, floor, ceiling) — and the verdict just compares the
-    balance against it. An earlier cut of this carried its own "6 photos + 1
-    clip per guest" assumption; that was a guess on a surface that tells couples
-    to spend money, and it is gone.
+     🔑 It is not enough to drop the words. The verdict also pre-filled the
+     top-up QUANTITY in the purchase link (`?topup=<shortfall>`), which chose
+     how much money a couple was about to spend. That is the shape the owner
+     rejected in one word on 2026-08-31 ("don't guess") over
+     `DEFAULT_CAPTURE_MIX` — a number sizing a top-up with no measurement
+     behind it. `lib/the-recommendation-waits-for-data.test.ts` holds this.
 
-    ⚠ BUT THIS CALL PASSES NO CONFIG, SO IT IS NOT READING `papic_event_pool_config`.
-    It gets `DEFAULT_EVENT_POOL_CONFIG`, the formula's last-resort fallbacks.
-    Today they are byte-identical to the live row (150 / 5,000 / 30,000 —
-    measured against prod 2026-09-12), so the figure is the owner's and matches
-    what the capture fence enforces. It stays true only while both are edited
-    together. Loading the row here costs one indexed single-row read and would
-    make "admin-editable without a deploy" true of this surface — an owner call,
-    flagged rather than taken. The tripwire is in lib/papic-credit-estimate.test.ts.
-
-    ⚠ IT REPORTS THE GAP, NOT A RUNG. Naming a purchasable figure needs the live
-    16-rung `PAPIC_GUEST*` pool ladder, which is admin-editable catalog data and
-    is NOT loaded on this surface. The board's row therefore states the shortfall
-    and links to /studio/papic, where `PapicPoolCard` already reads that ladder
-    and its stepper picks the rung.
-
-    Resolved HERE, above the decisions board, because both the board's top-up
-    row and the mini-tile's verdict line below read it — one computation, so
-    the two can never disagree about whether the event is short.
-  */
-  const papicVerdict = papicHome
-    ? papicCreditVerdict(papicHome.shotsLeft, guests.length)
-    : null;
+     WHAT BRINGS IT BACK: `papic_event_pool_usage.points_used` is the right
+     source, but it is CENSORED — it records what an event was ALLOWED to
+     spend, not what it wanted. A mean over it reads near-zero and is just a
+     new guess. Whatever returns needs a stated minimum sample and a stated
+     method. */
 
   const groupsUnordered: DecisionGroupView[] = ([
     {
       id: 'book',
       title: 'Book a vendor',
-      sub:
-        remainingTaskCount === 1
-          ? '1 category still open'
-          : `${remainingTaskCount} categories still open`,
+      /*
+        Was "N categories still open" — no denominator, and the same word the
+        digest used two inches away for a different set. `notBookedLabel` shows
+        the set this number is drawn from: the event-type-scoped categories
+        that count toward lockable, i.e. `totalLockableCategories`.
+      */
+      sub: notBookedLabel(remainingTaskCount, totalLockableCategories),
       items: byKind('start'),
     },
     {
@@ -1245,32 +1256,6 @@ export async function EventDashboard({
     Deep-links with the recommended figure so the Papic page can open on the
     right rung instead of making them work it out again.
   */
-  // 🔒 Not in the store shell: the row deep-links to /studio/papic, which
-  // middleware would bounce to /web-only there — a "Top up" that lands on
-  // "not in the app" is a dead end, not a door. See lib/store-shell.ts.
-  if (papicVerdict?.status === 'short' && !(await isStoreShellRequest())) {
-    const payGroup = groupsUnordered.find((g) => g.id === 'pay');
-    const papicRow: DecisionItemView = {
-      id: 'papic:topup',
-      label: 'Top up Papic credits',
-      sub: `About ${papicVerdict.shortfall.toLocaleString('en-PH')} more covers your guest list`,
-      // The row's own sub-line already carries the figure, so a chip would say
-      // the same thing twice — the D-5 rule this board already follows.
-      chip: null,
-      chipTone: 'calm',
-      ctaLabel: 'Top up',
-      href: `${base}/studio/papic?topup=${papicVerdict.shortfall}`,
-    };
-    if (payGroup) payGroup.items.push(papicRow);
-    else
-      groupsUnordered.push({
-        id: 'pay',
-        title: 'Settle a payment',
-        sub: 'Money waiting on you',
-        items: [papicRow],
-      });
-  }
-
   // 'deadline' is listed in BOTH orders on purpose: `order.indexOf` returns -1
   // for an unlisted id, which would sort it ABOVE everything else. Leaving it
   // out of the free order would make a stray group jump to the top of the board.
@@ -1720,7 +1705,7 @@ export async function EventDashboard({
                           </span>
                         </InspectorTrigger>
                         {venueOfferInline && isSaiAssistFreeDecisionId(item.id) ? (
-                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
+                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" fullSaiPhp={fullSaiPhp} />
                         ) : null}
                       </div>
                     ))}
@@ -2030,21 +2015,6 @@ export async function EventDashboard({
               ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
               : 'photos gathered'}
       </span>
-      {/* The verdict rides UNDER the existing line rather than replacing it —
-       *  the balance is still the fact; this is what it means. Silent on
-       *  'unknown' (no guest count yet), so a brand-new event is never told it
-       *  is short of anything. */}
-      {papicVerdict && papicVerdict.status !== 'unknown' ? (
-        <span
-          className={`mt-0.5 block text-[11.5px] font-medium ${
-            papicVerdict.status === 'covered' ? 'text-ink/55' : 'text-terracotta-700'
-          }`}
-        >
-          {papicVerdict.status === 'covered'
-            ? 'enough for your event'
-            : `short ~${papicVerdict.shortfall.toLocaleString('en-PH')} credits`}
-        </span>
-      ) : null}
       {miniFoot('Open Papic')}
     </Link>
   ) : null;
@@ -2483,7 +2453,11 @@ export async function EventDashboard({
                     <CountUp value={openDecisionCount} delayMs={300} />
                   </b>
                   <span className="text-[12.5px] text-ink/55">
-                    {openDecisionCount === 1 ? 'open decision' : 'open decisions'}
+                    {/* Was "open decision(s)". The eyebrow above already says
+                        "Needs you this week", so the count states its noun and
+                        stops — and stops sharing a word with the category
+                        count, which means something else entirely. */}
+                    {decisionsCountNoun(openDecisionCount)}
                     {aiActive && openDecisionCount > 0 ? ' · ranked' : ''}
                     {/* The dates did not vanish when they stopped being decisions —
                         they are named here so the smaller number cannot read as
@@ -2667,7 +2641,7 @@ export async function EventDashboard({
           </div>
           {venueOfferAvailable && !venueOfferInline ? (
             <div className="mb-3.5">
-              <FreeVenueShortlistOffer eventId={eventId} variant="card" />
+              <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} />
             </div>
           ) : null}
           {decisionGroups.length > 0 ? (

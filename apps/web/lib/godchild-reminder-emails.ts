@@ -1,5 +1,6 @@
 import 'server-only';
 import { renderBrandedEmail } from '@/lib/email-template';
+import { SUPPORT_EMAIL } from './contact-addresses';
 
 // Godchild BIRTHDAY REMINDER email (date-anchor · Phase 3 family graph).
 //
@@ -16,7 +17,10 @@ import { renderBrandedEmail } from '@/lib/email-template';
 // side (reminders_enabled). No e-gift CTA yet (that surface isn't live); the CTA
 // is a soft link home.
 
-export const GODCHILD_SUPPORT_EMAIL = 'support@setnayan.com';
+// Re-exported from the ONE module that owns published addresses.
+// This was an independent copy of the same literal — the fifth of five.
+// See lib/contact-addresses.ts for why that matters.
+export const GODCHILD_SUPPORT_EMAIL = SUPPORT_EMAIL;
 
 export type GodchildReminderEmailParts = {
   /** The godparent's name, e.g. "Tita Baby". */

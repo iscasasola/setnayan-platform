@@ -26,7 +26,32 @@
 export type DesktopPlatformRelease = {
   url: string;
   sizeBytes: number;
+  /** A Developer ID signature is present. NOT the same claim as `notarized`. */
   signed: boolean;
+  /**
+   * ⛔ SIGNED IS NOT NOTARIZED, AND THE DIFFERENCE IS WHAT A COUPLE MEETS.
+   *
+   * Measured against the live build on 2026-09-22 (`Setnayan_0.0.1_aarch64.dmg`,
+   * the one `/api/download/mac` serves):
+   *
+   *     xcrun stapler validate → "does not have a ticket stapled to it"
+   *     spctl -a -t open -vv   → "rejected"
+   *                              source=Unnotarized Developer ID
+   *                              origin=Developer ID Application: … (P95JPDWWB3)
+   *
+   * So `signed` was TRUE and true — and `/download` read that one boolean and
+   * told visitors "Signed & notarized by Apple". Gatekeeper disagrees, in their
+   * wedding week, with "cannot be opened because Apple cannot check it for
+   * malicious software."
+   *
+   * 🔑 ONE BOOLEAN WAS CARRYING TWO CLAIMS and the copy asserted the stronger
+   * one. The manifest never claimed notarization; the page invented it.
+   *
+   * Absent ⇒ FALSE. Fail closed: a manifest written before this field existed
+   * must not read as notarized, and `.github/workflows/build-desktop.yml` does
+   * not notarize today. Set it only when the pipeline actually staples a ticket.
+   */
+  notarized?: boolean;
   filename?: string;
 };
 
@@ -56,6 +81,9 @@ function parsePlatformRelease(value: unknown): DesktopPlatformRelease | null {
     url: v.url,
     sizeBytes: v.sizeBytes,
     signed: v.signed,
+    // Absent or non-boolean ⇒ false. Never inferred from `signed`: that
+    // inference is the defect this field exists to end.
+    notarized: v.notarized === true,
     filename: typeof v.filename === 'string' ? v.filename : undefined,
   };
 }

@@ -3,6 +3,36 @@ import {
   WIDGET_CATALOG_BY_TYPE,
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
+import {
+  customSectionEditorLabel,
+  isCustomSectionType,
+  nextFreeCustomSlot,
+  sanitizeCustomSection,
+  CUSTOM_BODY_MAX,
+  CUSTOM_TITLE_MAX,
+} from '@/lib/custom-sections';
+import {
+  HUB_DEFAULT_FOCAL,
+  HUB_DEFAULT_ZOOM,
+  HUB_FOCAL_POINTS,
+  HUB_MOTION_PRESETS,
+  HUB_DIRECTIONS,
+  HUB_IN,
+  HUB_IN_DIRECTION_LABEL,
+  HUB_IN_LABEL,
+  HUB_MOTION_PRESET_LABEL,
+  HUB_OUT,
+  HUB_OUT_DIRECTION_LABEL,
+  HUB_OUT_LABEL,
+  HUB_SEQUENCE_LABEL,
+  hubInMoves,
+  hubOutMoves,
+  resolveHubMotion,
+  HUB_TIMELINE_LABEL,
+  HUB_ZOOMS,
+  focalToObjectPosition,
+  sanitizeHubCanvas,
+} from '@/lib/hub-canvas';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -34,6 +64,12 @@ export function SectionsPanel({
   moveUpAction,
   moveDownAction,
   setModeAction,
+  setMotionAction,
+  setBackgroundAction,
+  setCropAction,
+  saveCustomAction,
+  addCustomAction,
+  photoChoices = [],
 }: {
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
@@ -44,6 +80,21 @@ export function SectionsPanel({
   moveUpAction: (formData: FormData) => void | Promise<void>;
   moveDownAction: (formData: FormData) => void | Promise<void>;
   setModeAction: (formData: FormData) => void | Promise<void>;
+  /** How this section MOVES (owner 2026-09-23). Optional so the panel keeps
+   *  working for any caller that has not wired it yet. */
+  setMotionAction?: (formData: FormData) => void | Promise<void>;
+  /** Set or clear one section's background photo. */
+  setBackgroundAction?: (formData: FormData) => void | Promise<void>;
+  /** The couple's own photos — hero first, then gallery — as
+   *  `{ ref, url }`. Only these are offered, and only these are accepted
+   *  server-side. */
+  photoChoices?: readonly { ref: string; url: string }[];
+  /** Move the crop of a section's background photo. */
+  setCropAction?: (formData: FormData) => void | Promise<void>;
+  /** Save one of the couple's own sections. */
+  saveCustomAction?: (formData: FormData) => void | Promise<void>;
+  /** Take the next free slot. Hidden once all six are in use. */
+  addCustomAction?: (formData: FormData) => void | Promise<void>;
 }) {
   if (rows.length === 0) {
     return (
@@ -171,10 +222,448 @@ export function SectionsPanel({
                   );
                 })}
               </div>
+
+              {/* ══ HOW IT MOVES ══════════════════════════════════════════
+                  Owner 2026-09-23: "we only animate the details, the functions
+                  of the event hub stay as an app. But must be presented
+                  properly." Four named presets rather than eight knobs —
+                  "we still want it to be simple enough that they could
+                  customize this" — with the one override he cared about most
+                  underneath: a timed play versus one the guest scrubs.
+
+                  🔑 IT IS A ROW OF SUBMIT BUTTONS, NOT A CLIENT WIDGET. This
+                  panel is a server component and the whole editor works with no
+                  JavaScript (the PH slow-4G posture the widgets editor already
+                  holds). The live preview beside it reloads on the redirect, so
+                  a couple taps a preset and watches their own page change.
+
+                  ⚠ AUTO IS AN ABSENCE. The Auto chip posts `timeline=auto`,
+                  which DELETES the key — so a later change to what "Editorial"
+                  means still reaches a couple who never overrode it. */}
+              {setMotionAction ? (
+                (() => {
+                  const canvas = sanitizeHubCanvas(row.config_json);
+                  const preset = canvas.preset ?? null;
+                  return (
+                    <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                        How it moves
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {HUB_MOTION_PRESETS.map((p) => (
+                          <form key={p} action={setMotionAction}>
+                            <input type="hidden" name="event_id" value={eventId} />
+                            <input type="hidden" name="widget_id" value={row.widget_id} />
+                            <input type="hidden" name="preset" value={p} />
+                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <button
+                              type="submit"
+                              aria-pressed={preset === p}
+                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.62rem] font-semibold ${
+                                preset === p
+                                  ? 'border-ink bg-ink text-cream'
+                                  : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+                              }`}
+                            >
+                              {HUB_MOTION_PRESET_LABEL[p]}
+                            </button>
+                          </form>
+                        ))}
+                      </div>
+                      {preset ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                            Timing
+                          </span>
+                          {(['auto', 'time', 'scrub'] as const).map((t) => {
+                            const on = t === 'auto' ? !canvas.timeline : canvas.timeline === t;
+                            return (
+                              <form key={t} action={setMotionAction}>
+                                <input type="hidden" name="event_id" value={eventId} />
+                                <input type="hidden" name="widget_id" value={row.widget_id} />
+                                <input type="hidden" name="preset" value={preset} />
+                                <input type="hidden" name="timeline" value={t} />
+                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                <button
+                                  type="submit"
+                                  aria-pressed={on}
+                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                    on
+                                      ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                      : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                  }`}
+                                >
+                                  {t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t]}
+                                </button>
+                              </form>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      {/* ══ COMES IN · GOES OUT, AND WHICH WAY ═════════════
+                          Owner, 2026-09-23: "different stories fade in while
+                          entering from different areas and move and fade out or
+                          just move out".
+
+                          🔑 TWO AXES, NOT ONE LIST. What it does, and which
+                          way. The old vocabulary welded them together — `rise`
+                          was always from below and always faded — so "just move
+                          out" was not a hard option, it was an ABSENT one.
+
+                          ⛔ THE DIRECTION ROW APPEARS ONLY WHEN THE EFFECT
+                          TRAVELS. A "from the left" beside a plain fade is a
+                          control the couple can change with no effect on
+                          anything, which is the defect this build exists to
+                          remove. The writer drops it too, so the two ends
+                          cannot disagree. */}
+                      {preset ? (
+                        (() => {
+                          const m = resolveHubMotion(canvas);
+                          // 🪤 `chipRow`, not `row`. The first name shadowed the
+                          // WIDGET row this whole block sits inside, so
+                          // `row.widget_id` resolved to the helper function.
+                          // tsc caught it; a JS-only refactor would have posted
+                          // `undefined` as every widget id.
+                          const chipRow = (
+                            label: string,
+                            name: string,
+                            values: readonly string[],
+                            labels: Record<string, string>,
+                            current: string,
+                            isAuto: boolean,
+                          ) => (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                {label}
+                              </span>
+                              {(['auto', ...values] as const).map((v) => {
+                                const on = v === 'auto' ? isAuto : !isAuto && current === v;
+                                return (
+                                  <form key={v} action={setMotionAction}>
+                                    <input type="hidden" name="event_id" value={eventId} />
+                                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                                    <input type="hidden" name="preset" value={preset} />
+                                    <input type="hidden" name={name} value={v} />
+                                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                    <button
+                                      type="submit"
+                                      aria-pressed={on}
+                                      className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                        on
+                                          ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                          : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                      }`}
+                                    >
+                                      {v === 'auto' ? 'Auto' : (labels[v] ?? v)}
+                                    </button>
+                                  </form>
+                                );
+                              })}
+                            </div>
+                          );
+                          return (
+                            <>
+                              {chipRow('Comes in', 'in', HUB_IN, HUB_IN_LABEL, m.in, !canvas.in)}
+                              {hubInMoves(m.in)
+                                ? chipRow('From', 'in_from', HUB_DIRECTIONS, HUB_IN_DIRECTION_LABEL, m.inFrom, !canvas.inFrom)
+                                : null}
+                              {chipRow('Goes out', 'out', HUB_OUT, HUB_OUT_LABEL, m.out, !canvas.out)}
+                              {hubOutMoves(m.out)
+                                ? chipRow('Toward', 'out_to', HUB_DIRECTIONS, HUB_OUT_DIRECTION_LABEL, m.outTo, !canvas.outTo)
+                                : null}
+                            </>
+                          );
+                        })()
+                      ) : null}
+
+                      {/* ══ HOW ITS PARTS ARRIVE ═══════════════════════════
+                          Owner, 2026-09-23, asked for this directly. The parts
+                          of a section — its small label, its heading, its words
+                          — can arrive together or in turn.
+
+                          🔑 ONE CHOICE, NOT ONE PER PART. Every part could have
+                          its own effect; that is a control surface no couple
+                          would finish, and it is the fastest way to a page that
+                          looks worse than the default. The order they arrive in
+                          is the part a guest actually feels. */}
+                      {preset ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                            Parts
+                          </span>
+                          {(['auto', 'together', 'one_after_another'] as const).map((q) => {
+                            const on = q === 'auto' ? !canvas.sequence : canvas.sequence === q;
+                            return (
+                              <form key={q} action={setMotionAction}>
+                                <input type="hidden" name="event_id" value={eventId} />
+                                <input type="hidden" name="widget_id" value={row.widget_id} />
+                                <input type="hidden" name="preset" value={preset} />
+                                <input type="hidden" name="sequence" value={q} />
+                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                <button
+                                  type="submit"
+                                  aria-pressed={on}
+                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                    on
+                                      ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                      : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                  }`}
+                                >
+                                  {q === 'auto' ? 'Auto' : HUB_SEQUENCE_LABEL[q]}
+                                </button>
+                              </form>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()
+              ) : null}
+
+              {/* ══ THE BACKGROUND ══════════════════════════════════════════
+                  Chosen from photos the couple ALREADY has — their hero and
+                  their gallery. There is no uploader here on purpose: adding
+                  one per section would put a dozen client components on a page
+                  that works with no JavaScript, and they already have a place
+                  to upload. Pick here, upload there.
+
+                  🔑 THE VALUE POSTED IS THE PHOTO'S OWN REF, never its position
+                  in this list. The list reorders whenever they add or remove a
+                  photo, so a stored index would silently move a section's
+                  background with nothing red anywhere.
+
+                  ⛔ "None" is always offered. A couple must be able to take a
+                  background back off. */}
+              {/* ══ THE COUPLE'S OWN WORDS ═══════════════════════════════
+                  Only for a slot they added. A heading is optional — somebody
+                  who wants a bare passage between two sections should not have
+                  to invent a title for it — and an empty body means the section
+                  never reaches a guest, because `Auto` follows content and a
+                  heading over a blank reads as a broken page. */}
+              {saveCustomAction && isCustomSectionType(row.widget_type) ? (
+                (() => {
+                  const { title, body } = sanitizeCustomSection(row.config_json);
+                  return (
+                    <form
+                      action={saveCustomAction}
+                      className="mt-2 space-y-1.5 border-t border-dashed border-ink/10 pt-2"
+                    >
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="widget_id" value={row.widget_id} />
+                      <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                      <label htmlFor={`custom-title-${row.widget_id}`} className="sr-only">
+                        Heading for {customSectionEditorLabel(row.widget_type)}
+                      </label>
+                      <input
+                        id={`custom-title-${row.widget_id}`}
+                        name="title"
+                        type="text"
+                        maxLength={CUSTOM_TITLE_MAX}
+                        defaultValue={title}
+                        placeholder="Heading (optional)"
+                        className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.74rem] text-ink placeholder:text-ink/40"
+                      />
+                      <label htmlFor={`custom-body-${row.widget_id}`} className="sr-only">
+                        Words for {customSectionEditorLabel(row.widget_type)}
+                      </label>
+                      <textarea
+                        id={`custom-body-${row.widget_id}`}
+                        name="body"
+                        rows={3}
+                        maxLength={CUSTOM_BODY_MAX}
+                        defaultValue={body}
+                        placeholder="Your own words — this section stays hidden until you write something."
+                        className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[0.74rem] leading-relaxed text-ink placeholder:text-ink/40"
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[0.65rem] font-semibold text-cream"
+                      >
+                        Save this section
+                      </button>
+                    </form>
+                  );
+                })()
+              ) : null}
+
+              {setBackgroundAction && photoChoices.length > 0 ? (
+                (() => {
+                  const canvas = sanitizeHubCanvas(row.config_json);
+                  return (
+                    <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                        Background
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <form action={setBackgroundAction}>
+                          <input type="hidden" name="event_id" value={eventId} />
+                          <input type="hidden" name="widget_id" value={row.widget_id} />
+                          <input type="hidden" name="media" value="" />
+                          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                          <button
+                            type="submit"
+                            aria-pressed={!canvas.media}
+                            className={`inline-flex h-9 items-center rounded-md border px-2 text-[0.6rem] font-semibold ${
+                              !canvas.media
+                                ? 'border-ink bg-ink text-cream'
+                                : 'border-ink/15 bg-cream text-ink/55 hover:border-ink/30'
+                            }`}
+                          >
+                            None
+                          </button>
+                        </form>
+                        {photoChoices.map((photo) => {
+                          const on = canvas.media === photo.ref;
+                          return (
+                            <form key={photo.ref} action={setBackgroundAction}>
+                              <input type="hidden" name="event_id" value={eventId} />
+                              <input type="hidden" name="widget_id" value={row.widget_id} />
+                              <input type="hidden" name="media" value={photo.ref} />
+                              <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                              <button
+                                type="submit"
+                                aria-pressed={on}
+                                aria-label={on ? 'Current background' : 'Use this photo as the background'}
+                                className={`block h-9 w-12 overflow-hidden rounded-md border-2 ${
+                                  on ? 'border-ink' : 'border-transparent hover:border-ink/30'
+                                }`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={photo.url}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              </button>
+                            </form>
+                          );
+                        })}
+                      </div>
+
+                      {/* ══ THE CROP ════════════════════════════════════════
+                          Only once a photo is actually set. A focal point with
+                          nothing to crop moves no pixels, and a control that
+                          stores a decision with no effect is the exact defect
+                          this build exists to remove — so it is not painted,
+                          and `setWidgetCrop` refuses it server-side too.
+
+                          🔑 THE KEYPAD SITS ON THE PHOTO. Nine transparent
+                          buttons over a thumbnail of their own picture, so the
+                          couple is choosing a point on the image rather than
+                          decoding "top-left" from a word. The live preview
+                          beside the rail then reloads with the real crop.
+
+                          ⚠ It is a 3×3 POINT, never a pixel offset — the page
+                          is 375px on a phone and 1440px on a laptop, and a
+                          stored offset would be a bug waiting for a guest
+                          (owner 2026-09-23: "rails on"). */}
+                      {setCropAction && canvas.media ? (
+                        (() => {
+                          const current = photoChoices.find((p) => p.ref === canvas.media);
+                          const focal = canvas.focal ?? HUB_DEFAULT_FOCAL;
+                          const zoom = canvas.zoom ?? HUB_DEFAULT_ZOOM;
+                          return (
+                            <div className="mt-2">
+                              <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                What to keep in frame
+                              </p>
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className="relative h-[72px] w-[96px] shrink-0 overflow-hidden rounded-md border border-ink/15 bg-ink/5 bg-cover"
+                                  style={
+                                    current
+                                      ? {
+                                          backgroundImage: `url("${current.url}")`,
+                                          backgroundPosition: focalToObjectPosition(focal),
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+                                    {HUB_FOCAL_POINTS.map((f) => (
+                                      <form key={f} action={setCropAction} className="contents">
+                                        <input type="hidden" name="event_id" value={eventId} />
+                                        <input type="hidden" name="widget_id" value={row.widget_id} />
+                                        <input type="hidden" name="focal" value={f} />
+                                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                        <button
+                                          type="submit"
+                                          aria-pressed={focal === f}
+                                          aria-label={`Keep area ${f} of 9 in frame`}
+                                          className={`border border-white/35 ${
+                                            focal === f ? 'bg-white/70' : 'hover:bg-white/25'
+                                          }`}
+                                        />
+                                      </form>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="mb-1 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                    How close
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {HUB_ZOOMS.map((z) => (
+                                      <form key={z} action={setCropAction}>
+                                        <input type="hidden" name="event_id" value={eventId} />
+                                        <input type="hidden" name="widget_id" value={row.widget_id} />
+                                        <input type="hidden" name="zoom" value={z} />
+                                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                        <button
+                                          type="submit"
+                                          aria-pressed={zoom === z}
+                                          className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.58rem] ${
+                                            zoom === z
+                                              ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                              : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                          }`}
+                                        >
+                                          {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
+                                        </button>
+                                      </form>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : null}
+                    </div>
+                  );
+                })()
+              ) : null}
             </li>
           );
         })}
       </ul>
+
+      {/* ══ ADD ONE ═══════════════════════════════════════════════════════
+          🔑 SIX IS A SHAPE, NOT A RULE SOMEBODY REMEMBERS. The control simply
+          stops being offered once every slot is taken, and the database CHECK
+          names the same six — so there is no seventh to create, by this button
+          or by a hand-crafted POST. It says WHY it is gone rather than sitting
+          there refusing. */}
+      {addCustomAction ? (
+        nextFreeCustomSlot(rows.map((r) => r.widget_type)) ? (
+          <form action={addCustomAction} className="mt-2">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+            <button
+              type="submit"
+              className="inline-flex h-7 items-center rounded-full border border-dashed border-ink/25 px-3 text-[0.68rem] font-medium text-ink/70 hover:border-ink/45"
+            >
+              + Add a section of your own
+            </button>
+          </form>
+        ) : (
+          <p className="mt-2 text-[0.66rem] text-ink/45">
+            You have all six of your own sections. Clear one you are not using to add another.
+          </p>
+        )
+      ) : null}
     </div>
   );
 }

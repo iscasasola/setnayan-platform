@@ -16,7 +16,7 @@
  *     from vendor_services;      →  2 services, 0 with the gift on
  *
  * So on every quote written in production so far, the composer said NOTHING
- * about Papic. `giftQuoteBasis` collapses four distinct database answers —
+ * about Papic. `giftQuoteBasis` (deleted 2026-09-22) collapsed four answers —
  * `card_says_no`, `free_booking`, `not_sourced`, `no_booking` — into one
  * `null`, and `null` renders nothing. Right for the PROMISE (never quote photos
  * a bill will not carry), wrong for the supplier's question.
@@ -55,6 +55,8 @@ import {
 } from '@/lib/setnayan-gift';
 import {
   VENDOR_SERVICE_CARDS_PATH,
+  standingForQuoteSwitch,
+  defaultQuoteSwitch,
   giftBasisFrom,
   papicTopUpForQuote,
   standingForGiftArm,
@@ -163,7 +165,18 @@ test('nothing typed yet invites a price instead of quoting zero', () => {
   const empty = papicTopUpForQuote({ kind: 'available', basis: BASIS }, 0);
   assert.ok(empty);
   assert.doesNotMatch(empty.headline, /₱0|0 free Papic/);
-  assert.equal(empty.cta?.href, VENDOR_SERVICE_CARDS_PATH);
+  /*
+    ⚖ THE DOOR MOVED, 2026-09-22 — it used to be `VENDOR_SERVICE_CARDS_PATH`,
+    because the switch lived on the service card and a supplier had to LEAVE the
+    quote to flip it. The owner ruled the switch onto the QUOTE ("per-quote
+    switch", then "We want this working" on the control drawn disabled in the
+    prototype), and migration 20271240324859 makes the accepted quote decide.
+    The door is now the switch beside this very line. The PROPERTY is unchanged
+    and is what this asserts: the invitation must point somewhere the supplier
+    can actually act.
+  */
+  assert.equal(empty.cta?.href, '#quote-setnayan-gift-switch');
+  assert.notEqual(empty.cta?.href, VENDOR_SERVICE_CARDS_PATH, 'it no longer sends them away from the quote');
 });
 
 // SABOTAGE: return a copy for 'silent' → RED.
@@ -290,10 +303,28 @@ test('both quote surfaces carry BOTH lines — the fee and the Papic ceiling', (
   assert.equal(count(page, /resolvePapicQuoteStanding\(/), 1, 'one read, one answer');
   assert.equal(count(page, /papicStanding=\{composerPapicStanding\}/), 2);
   assert.match(page, /const composerGiftBasis = giftBasisFrom\(composerPapicStanding\)/);
-  assert.doesNotMatch(
-    page,
-    /giftQuoteBasis\(/,
-    'asking the same RPC twice lets the two lines answer to different moments',
+  /*
+    ⚖ RE-POINTED 2026-09-22. This forbade a second call to `giftQuoteBasis`,
+    whose PROPERTY is "one RPC read answers both lines — asking twice lets the
+    two halves of one screen resolve against two different moments." That
+    function has now been deleted (no caller; it carried the old eligibility
+    rule beside the new one), which would make a ban on its name VACUOUSLY
+    TRUE — a guard that can never fail, protecting nothing.
+
+    The property is asserted directly instead, and it is the stronger form: the
+    page may make exactly ONE eligibility read, whatever it is spelled. The
+    `resolvePapicQuoteStanding` count above pins the one that exists; this pins
+    that no SECOND read of the same RPC is added beside it under any name.
+  */
+  assert.equal(
+    count(page, /rpc\('setnayan_gift_quote_applies'/),
+    0,
+    'the page must not call the eligibility RPC directly — it goes through the one resolver',
+  );
+  assert.equal(
+    count(page, /setnayan_gift_quote_applies/),
+    0,
+    'and must not reach that RPC by any second route either',
   );
 
   // The row can be named per line — the shared component takes the id.
@@ -328,4 +359,64 @@ test('the couple never sees the supplier’s ceiling, and never sees pesos', () 
   // And a quote whose card says no promises the couple nothing — the supplier
   // is shown a ceiling they have not bought yet.
   assert.equal(giftBasisFrom({ kind: 'available', basis: BASIS }), null);
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE QUOTE'S OWN SWITCH (owner 2026-09-22: "per-quote switch" · "We want this
+ * working"). Migration 20271240324859 makes the ACCEPTED quote's
+ * includes_setnayan_gift decide, with the card as the default. These run the
+ * two pure halves the composer uses: which arm the switch leaves behind, and
+ * what the switch opens at.
+ *
+ * 🛡 Sabotages watched red: a switch flipping a `free_booking` into `included`;
+ * `defaultQuoteSwitch` opening at `true` for an unreadable standing; two cards
+ * with one ON defaulting to off.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+test('the switch moves only between the two ELIGIBLE arms — never into or out of the others', () => {
+  const included = { kind: 'included' as const, basis: BASIS };
+  const available = { kind: 'available' as const, basis: BASIS };
+
+  assert.equal(standingForQuoteSwitch(included, false).kind, 'available', 'switching off retracts the promise');
+  assert.equal(standingForQuoteSwitch(available, true).kind, 'included', 'switching on makes it a promise');
+  assert.equal(standingForQuoteSwitch(included, true).kind, 'included');
+  assert.equal(standingForQuoteSwitch(available, false).kind, 'available');
+
+  // The basis survives the move — the same ladder prices both sentences.
+  const back = standingForQuoteSwitch(available, true);
+  assert.equal(back.kind === 'included' ? back.basis : null, BASIS);
+
+  // A switch cannot conjure a gift where the DATABASE says there is no fee to
+  // size one from, no client, or nothing readable.
+  for (const kind of ['silent', 'free_booking', 'not_sourced', 'unreadable'] as const) {
+    assert.equal(standingForQuoteSwitch({ kind }, true).kind, kind, `${kind} is not switchable`);
+    assert.equal(standingForQuoteSwitch({ kind }, false).kind, kind);
+  }
+  // sabotage: `if (switchOn) return { kind: 'included', basis }` unconditionally → RED
+});
+
+test('a switch that says NOTHING (null) leaves the database\'s answer exactly as it was', () => {
+  const included = { kind: 'included' as const, basis: BASIS };
+  assert.equal(standingForQuoteSwitch(included, null).kind, 'included');
+  assert.equal(standingForQuoteSwitch(included, undefined).kind, 'included');
+  assert.equal(standingForQuoteSwitch({ kind: 'available', basis: BASIS }, null).kind, 'available');
+});
+
+test('the switch OPENS at what the booking already says — and at nothing where there is no question', () => {
+  assert.equal(defaultQuoteSwitch({ kind: 'included', basis: BASIS }), true);
+  assert.equal(defaultQuoteSwitch({ kind: 'available', basis: BASIS }), false);
+  for (const kind of ['silent', 'free_booking', 'not_sourced', 'unreadable'] as const) {
+    assert.equal(defaultQuoteSwitch({ kind }), null, `${kind} renders no switch at all`);
+  }
+  // sabotage: return `true` for 'unreadable' → RED (a control over a gift that cannot exist)
+});
+
+test('ANSWER 1 — several cards: ON when ANY of them is on', () => {
+  const off = { kind: 'available' as const, basis: BASIS };
+  assert.equal(defaultQuoteSwitch(off, [false, true]), true, 'one card on ⇒ the quote opens on');
+  assert.equal(defaultQuoteSwitch(off, [true, false]), true);
+  assert.equal(defaultQuoteSwitch(off, [false, false]), false, 'no card on ⇒ off');
+  assert.equal(defaultQuoteSwitch({ kind: 'included', basis: BASIS }, [false]), false,
+    'the cards the quote is BUILT FROM outrank the booking\'s older answer');
+  // sabotage: `.every(Boolean)` → RED on the first case
 });

@@ -214,6 +214,7 @@ export function ServiceWizard({
             bucket="media"
             pathPrefix={`vendors/${vendorProfileId}/services`}
             name="primary_photo_r2_key"
+            unsavedHint="press Publish service or Save as draft below"
             onChange={(v) => setPhotoKey(typeof v === 'string' ? v : '')}
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
@@ -353,7 +354,10 @@ export function ServiceWizard({
         </p>
         <InclusionsEditor initial={[]} />
         <DiscountsEditor initial={[]} />
-        <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
+        <ShowcaseMediaFields
+          vendorProfileId={vendorProfileId}
+          unsavedHint="press Publish service or Save as draft below"
+        />
       </section>
 
       {/* 5 · ★ Customization — what a couple may change about this service.

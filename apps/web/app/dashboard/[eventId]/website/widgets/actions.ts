@@ -3,6 +3,45 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
+import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
+import {
+  isCustomSectionType,
+  nextFreeCustomSlot,
+  sanitizeCustomSection,
+} from '@/lib/custom-sections';
+import {
+  HUB_DIRECTIONS,
+  HUB_FOCAL_POINTS,
+  HUB_IN,
+  HUB_MOTION_PRESETS,
+  HUB_OUT,
+  hubInMoves,
+  hubOutMoves,
+  HUB_SEQUENCES,
+  HUB_ZOOMS,
+  hubMediaRef,
+  HUB_TIMELINE,
+  sanitizeHubCanvas,
+  type HubDirection,
+  type HubIn,
+  type HubMotionPreset,
+  type HubOut,
+  type HubSequence,
+  type HubTimeline,
+} from '@/lib/hub-canvas';
+
+const isHubMotionPreset = (v: unknown): v is HubMotionPreset =>
+  typeof v === 'string' && (HUB_MOTION_PRESETS as readonly string[]).includes(v);
+const isHubTimeline = (v: unknown): v is HubTimeline =>
+  typeof v === 'string' && (HUB_TIMELINE as readonly string[]).includes(v);
+const isHubSequence = (v: unknown): v is HubSequence =>
+  typeof v === 'string' && (HUB_SEQUENCES as readonly string[]).includes(v);
+const isHubIn = (v: unknown): v is HubIn =>
+  typeof v === 'string' && (HUB_IN as readonly string[]).includes(v);
+const isHubOut = (v: unknown): v is HubOut =>
+  typeof v === 'string' && (HUB_OUT as readonly string[]).includes(v);
+const isHubDirection = (v: unknown): v is HubDirection =>
+  typeof v === 'string' && (HUB_DIRECTIONS as readonly string[]).includes(v);
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -389,4 +428,420 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   redirect(
     resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
   );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE CANVAS — how one section MOVES (owner 2026-09-23: "rails on")
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Set one section's motion preset, and optionally its timeline override.
+ *
+ * ── WHY IT MERGES INSTEAD OF WRITING ────────────────────────────────────────
+ * 🔑 `config_json` IS A SHARED BAG. It is typed `unknown` in
+ * `lib/invitation-widgets.ts` and any widget may keep its own settings there.
+ * Writing `{ canvas: … }` over the top would delete whatever else a couple had
+ * saved — silently, and only visible on their guest page. So the current row is
+ * re-read and the canvas is merged into it under its own `canvas` key, leaving
+ * every sibling key exactly as it was.
+ *
+ * ⚠ AND IT RE-READS RATHER THAN TRUSTING THE FORM. The rendered panel is a
+ * snapshot; a couple with two tabs open would otherwise post a `config_json`
+ * from before their other change. Only the fields this form owns are touched.
+ *
+ * ── "AUTO" IS AN ABSENCE ───────────────────────────────────────────────────
+ * `timeline=auto` DELETES the key rather than storing the word. An absent
+ * override means "whatever the preset says", so a later change to what
+ * "Editorial" means reaches a couple who never overrode it. Storing 'auto'
+ * would freeze today's preset body into their saved page.
+ *
+ * Form fields:
+ *   - event_id · widget_id — the row, and the gate subject
+ *   - preset               — still | calm | editorial | cinematic
+ *   - timeline             — auto | time | scrub   (optional; auto removes it)
+ */
+export async function setWidgetMotion(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+  const presetRaw = formData.get('preset');
+  const timelineRaw = formData.get('timeline');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing widget id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+
+  const supabase = await createClient();
+  const { data: row, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, config_json')
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
+
+  if (isHubMotionPreset(presetRaw)) canvas.preset = presetRaw;
+  if (timelineRaw === 'auto') delete canvas.timeline;
+  else if (isHubTimeline(timelineRaw)) canvas.timeline = timelineRaw;
+
+  /* Do the section's parts arrive together, or in turn? Same Auto rule as the
+     timing above: the word 'auto' DELETES the key, so a couple who never chose
+     follows the preset and moves with it if the preset ever changes. */
+  const sequenceRaw = formData.get('sequence');
+  if (sequenceRaw === 'auto') delete canvas.sequence;
+  else if (isHubSequence(sequenceRaw)) canvas.sequence = sequenceRaw;
+
+  /* ── HOW IT COMES IN, HOW IT GOES OUT, AND WHICH WAY ──────────────────────
+     Owner, 2026-09-23: "different stories fade in while entering from different
+     areas and move and fade out or just move out".
+
+     ⛔ A DIRECTION IS DROPPED WHEN THE EFFECT DOES NOT TRAVEL. `sanitizeHubCanvas`
+     enforces the same rule on the way out, so the two ends cannot disagree —
+     but doing it here as well means a stored config never carries a "from the
+     left" beside a plain fade, which would be a saved setting with no effect. */
+  const inRaw = formData.get('in');
+  if (inRaw === 'auto') { delete canvas.in; delete canvas.inFrom; }
+  else if (isHubIn(inRaw)) {
+    canvas.in = inRaw;
+    if (!hubInMoves(inRaw)) delete canvas.inFrom;
+  }
+  const inFromRaw = formData.get('in_from');
+  if (isHubDirection(inFromRaw) && hubInMoves((canvas.in as HubIn | undefined) ?? 'none')) {
+    canvas.inFrom = inFromRaw;
+  }
+
+  const outRaw = formData.get('out');
+  if (outRaw === 'auto') { delete canvas.out; delete canvas.outTo; }
+  else if (isHubOut(outRaw)) {
+    canvas.out = outRaw;
+    if (!hubOutMoves(outRaw)) delete canvas.outTo;
+  }
+  const outToRaw = formData.get('out_to');
+  if (isHubDirection(outToRaw) && hubOutMoves((canvas.out as HubOut | undefined) ?? 'none')) {
+    canvas.outTo = outToRaw;
+  }
+
+  const next = { ...existing, canvas };
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: next })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+
+  if (updateErr) throw new Error(`Failed to save how this section moves: ${updateErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
+}
+
+/**
+ * Set — or clear — one section's background photo.
+ *
+ * 🔒 THE REF IS HELD TO THE PUBLIC BUCKET TWICE. Once here, before it is
+ * stored, and again by `sanitizeHubCanvas` on the way out. `config_json` is
+ * couple-writable and `displayUrlForStoredAsset` signs whatever it is handed
+ * within the public bucket, so a hand-crafted POST naming
+ * `setnayan-thread-files` (payment proofs) or `setnayan-vendor-verification`
+ * (government IDs) must be refused at the door. `siteMediaServeRef` is the one
+ * allow-list, shared with the database CHECK on website media.
+ *
+ * 🔑 AND IT MUST BE A PHOTO THIS EVENT ALREADY HAS. Holding the bucket is not
+ * enough on its own: the public bucket holds every event's website media, so a
+ * ref from somebody else's wedding would pass that test. The submitted value is
+ * checked against this event's own hero and gallery before it is written.
+ *
+ * `media=''` clears it — a couple must be able to take a background back off.
+ *
+ * Form fields: event_id · widget_id · media (an `r2://` ref, or empty to clear)
+ */
+export async function setWidgetBackground(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+  const mediaRaw = formData.get('media');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing section id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+  const wanted = typeof mediaRaw === 'string' ? mediaRaw.trim() : '';
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+
+  const supabase = await createClient();
+  const [{ data: row, error: readErr }, { data: ev, error: evErr }] = await Promise.all([
+    supabase
+      .from('invitation_widgets')
+      .select('widget_id, config_json')
+      .eq('widget_id', widgetId)
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    supabase
+      .from('events')
+      .select('landing_page_hero_image_url, our_photos')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ]);
+
+  if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+  if (evErr) throw new Error(`Failed to load your photos: ${evErr.message}`);
+
+  /* The photos this couple may choose from — their own hero and their own
+     gallery, each held to the public bucket. Nothing else is selectable, so a
+     ref cannot be borrowed from another event by hand-crafting a POST. */
+  const ownRefs = new Set(
+    [
+      siteMediaServeRef(ev?.landing_page_hero_image_url),
+      ...siteMediaServeRefs(ev?.our_photos),
+    ].filter((r): r is string => Boolean(r)),
+  );
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
+
+  if (wanted.length === 0) {
+    delete canvas.media;
+  } else {
+    // The STRICTER reader, not `siteMediaServeRef` alone — that one passes a
+    // bare string through as a legacy URL, and `"1"` is not a photo.
+    const ref = hubMediaRef(wanted);
+    if (!ref || !ownRefs.has(ref)) {
+      redirect(
+        resolveReturnTo(
+          formData,
+          `/dashboard/${eventId}/website/widgets?error=not_your_photo`,
+          '?error=not_your_photo',
+        ),
+      );
+    }
+    canvas.media = ref;
+  }
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: { ...existing, canvas } })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+
+  if (updateErr) throw new Error(`Failed to save this section's background: ${updateErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
+}
+
+/**
+ * Set how the section's background photo is CROPPED — the focal point and how
+ * far in it sits.
+ *
+ * 🔑 ITS OWN ACTION, not a third field on `setWidgetBackground`. That action
+ * reads an EMPTY `media` as "take the background off", so a crop form that did
+ * not carry the photo would clear it on every tap — a control that quietly
+ * undoes the thing it is adjusting.
+ *
+ * ⛔ AND IT REFUSES A SECTION WITH NO PHOTO. A focal point with nothing to crop
+ * moves no pixels, and storing one would be a saved decision with no effect —
+ * the defect this whole build exists to remove. The editor does not paint the
+ * controls in that state either; this is the same rule, server-side.
+ *
+ * Form fields: event_id · widget_id · focal (1–9) · zoom (100 | 120 | 150)
+ */
+export async function setWidgetCrop(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing section id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+
+  const supabase = await createClient();
+  const { data: row, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, config_json')
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
+
+  if (!canvas.media) {
+    redirect(
+      resolveReturnTo(
+        formData,
+        `/dashboard/${eventId}/website/widgets?error=no_background`,
+        '?error=no_background',
+      ),
+    );
+  }
+
+  const focalRaw = Number(formData.get('focal'));
+  const zoomRaw = Number(formData.get('zoom'));
+  if ((HUB_FOCAL_POINTS as readonly number[]).includes(focalRaw)) canvas.focal = focalRaw;
+  if ((HUB_ZOOMS as readonly number[]).includes(zoomRaw)) canvas.zoom = zoomRaw;
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: { ...existing, canvas } })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+
+  if (updateErr) throw new Error(`Failed to save the crop: ${updateErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE COUPLE'S OWN SECTIONS (owner 2026-09-23)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Add a section — take the next free slot, at the bottom of the order.
+ *
+ * ⛔ THE SEVENTH IS REFUSED, and the refusal says so. Six is the shape, not a
+ * rule: `CUSTOM_SECTION_TYPES` has six names and the database CHECK names the
+ * same six, so a hand-crafted POST cannot make a seventh either.
+ *
+ * 🔑 IT INSERTS RATHER THAN SEEDS. Six empty rows on every event would be six
+ * empty rows in every couple's editor forever, for a feature most will never
+ * use — so a row exists only once somebody asks for one.
+ */
+export async function addCustomSection(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) redirect('/dashboard');
+  const eventId = eventIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+  const supabase = await createClient();
+
+  const { data: rows, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_type, display_order')
+    .eq('event_id', eventId);
+  if (readErr) throw new Error(`Failed to read your sections: ${readErr.message}`);
+
+  // 🔑 A REFUSED READ MUST NOT LOOK LIKE AN EMPTY ONE. `rows` is null only on an
+  // error we already threw on; an empty array genuinely means no sections.
+  const used = (rows ?? []).map((r) => String(r.widget_type));
+  const slot = nextFreeCustomSlot(used);
+  if (!slot) {
+    redirect(
+      resolveReturnTo(
+        formData,
+        `/dashboard/${eventId}/website/widgets?error=no_free_section`,
+        '?error=no_free_section',
+      ),
+    );
+  }
+
+  const bottom = (rows ?? []).reduce((max, r) => Math.max(max, Number(r.display_order) || 0), 0);
+  const { error: insertErr } = await supabase.from('invitation_widgets').insert({
+    event_id: eventId,
+    widget_type: slot,
+    display_order: bottom + 1,
+    is_visible: true,
+    is_always_on: false,
+  });
+  if (insertErr) throw new Error(`Failed to add a section: ${insertErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
+}
+
+/**
+ * Save one custom section's heading and words.
+ *
+ * ⛔ MERGES `config_json`, like every other writer here — the canvas (the
+ * background, the crop, the motion) lives in the same bag, and a couple who
+ * edited their words must not lose the arrangement they chose.
+ *
+ * The title is optional: a couple who wants a bare passage between two sections
+ * should not have to invent a heading for it.
+ */
+export async function saveCustomSection(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) redirect('/dashboard');
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing section id.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+  const supabase = await createClient();
+
+  const { data: row, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, widget_type, config_json')
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) throw new Error(`Failed to load the section: ${readErr.message}`);
+  if (!row) throw new Error('Section not found on this event.');
+  if (!isCustomSectionType(row.widget_type)) {
+    // Words belong only to a slot that HAS words. Writing them onto a shipped
+    // section would put a paragraph nothing renders inside its config.
+    throw new Error('That section is not one you write yourself.');
+  }
+
+  const existing =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  const custom = sanitizeCustomSection({
+    title: formData.get('title'),
+    body: formData.get('body'),
+  });
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ config_json: { ...existing, custom } })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+  if (updateErr) throw new Error(`Failed to save your section: ${updateErr.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
 }

@@ -37,6 +37,7 @@ import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
+import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
@@ -652,6 +653,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         roles={roleViews}
         armedRole={armedRole}
         roleHrefBase={`${base}/launch`}
+        eventId={eventId}
+        /* Lands BACK here. The action's seven redirects used to name the
+           invitation page literally — see `lib/slug-return.ts`. */
+        slugAction={updateEventSlug.bind(null, eventId, 'launch')}
       />
 
       {/* ══ S3 · ONE NEXT STEP ══ */}

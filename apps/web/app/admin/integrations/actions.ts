@@ -155,6 +155,9 @@ export async function saveOAuthConfig(formData: FormData): Promise<void> {
   // Non-secret config → platform_settings. Columns come ONLY from the registry.
   const patch: Record<string, string | null> = {};
   for (const field of def.configFields) {
+    // ⛔ An own-form field is not on this form at all, and `formData.get` would
+    // return null for it — which this loop writes as a NULL, erasing it. Skip.
+    if (field.ownForm) continue;
     const raw = formData.get(field.column);
     const val = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
     if (val && field.validate === 'url') {
@@ -267,4 +270,66 @@ export async function clearMayaSecrets(): Promise<void> {
   ]);
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?cleared=1');
+}
+
+/**
+ * Save ONE own-form config field, and nothing else.
+ *
+ * 🔑 WHY THIS EXISTS. `saveOAuthConfig` posts every field on the card at once,
+ * and each input is pre-filled with the RESOLVED value — the database value if
+ * there is one, otherwise the env var. So saving to change one field copies
+ * every env-sourced sibling into the database, and the database wins from then
+ * on. Identical values, so nothing breaks that day; but a later change to that
+ * env var in Vercel would silently not apply.
+ *
+ * On a LIVE integration — Google Drive, whose client id and both redirect URIs
+ * are env-sourced and working — adding a new key should not do that. So an
+ * own-form field gets its own form and this writer.
+ *
+ * 🔒 THE ALLOWLIST IS UNCHANGED AND IS ASKED TWICE: the column must belong to
+ * the named integration's `configFields` AND be marked `ownForm`. A
+ * hand-crafted POST naming any other column writes nothing.
+ */
+export async function saveOAuthField(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = formData.get('oauth_id');
+  const def = typeof id === 'string' ? getOAuthIntegration(id) : undefined;
+  if (!def) throw new Error('Unknown integration');
+
+  const column = formData.get('field_column');
+  const field = def.configFields.find((f) => f.column === column && f.ownForm);
+  if (!field) throw new Error('Unknown field');
+
+  const raw = formData.get(field.column);
+  const val = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+  if (val && field.validate === 'url') {
+    let ok = false;
+    try {
+      const u = new URL(val);
+      ok = u.protocol === 'https:' || u.protocol === 'http:';
+    } catch {
+      ok = false;
+    }
+    if (!ok) redirect('/admin/integrations?error=invalid_config');
+  }
+  if (val && field.validate === 'numeric' && !/^\d+$/.test(val)) {
+    redirect('/admin/integrations?error=invalid_config');
+  }
+
+  const admin = createAdminClient();
+  // ⚠ SUPABASE RESOLVES `{ error }` — IT DOES NOT THROW, so an unread error here
+  // is a key the owner is told we stored and did not. And `.select()` on top of
+  // that: an UPDATE matching ZERO rows returns no error at all, so without it a
+  // write against a missing settings row reports success just as loudly.
+  const { data: rows, error } = await admin
+    .from('platform_settings')
+    .update({ [field.column]: val })
+    .eq('id', 1)
+    .select('id');
+  if (error || !rows || rows.length === 0) {
+    redirect('/admin/integrations?error=save_failed');
+  }
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
 }

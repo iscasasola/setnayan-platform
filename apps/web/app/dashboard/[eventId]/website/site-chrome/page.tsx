@@ -129,6 +129,7 @@ export default async function SiteChromeEditorPage({
               bucket="media"
               pathPrefix={`events/${eventId}/site-music`}
               name="bg_music_url"
+              unsavedHint="press Save music & video below"
               multiple={false}
               maxSizeMB={20}
               acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
@@ -166,6 +167,7 @@ export default async function SiteChromeEditorPage({
             bucket="media"
             pathPrefix={`events/${eventId}/hero-video`}
             name="hero_video_url"
+            unsavedHint="press Save music & video below"
             multiple={false}
             maxSizeMB={60}
             acceptedTypes={['video/mp4', 'video/webm', 'video/quicktime']}

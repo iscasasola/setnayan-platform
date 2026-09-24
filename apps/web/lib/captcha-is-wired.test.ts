@@ -116,6 +116,19 @@ const ACCEPTED_UNWIRED: Record<string, string> = {
     'falls through to its existing /login?ready=<email> redirect, which carries a ' +
     'working widget. A brand-new member types their password once more. Annoying, ' +
     'bounded, and NOT a lockout — which is why it is a line here and not a fix.',
+  'lib/open-shop-account.server.ts:signInWithPassword':
+    'The same auto-sign-in, on the other door: /open-shop step 3 creates the ' +
+    'account with the shop in one submit (owner 2026-09-22). `signUp` spent the ' +
+    'wizard’s single-use token, so nothing is left for the sign-in that follows. ' +
+    'Cost when captcha is on: the call is refused, `createVendorAccountForShop` ' +
+    'returns created-not-signed-in, and `becomeVendor` sends the person to ' +
+    '/login?ready=<email>&next=/open-shop — a page with a working widget — where ' +
+    'they type the password once more and the wizard resumes. The account exists, ' +
+    'the shop is not yet written, nothing typed is lost (the wizard keeps its ' +
+    'state across the sign-in). Bounded and visible, never a form that does nothing. ' +
+    'WIRED, NOT YET EXERCISED WITH CAPTCHA ON: the redirect exists on the branch ' +
+    '(becomeVendor’s created-not-signed-in branch) and already fires for any other ' +
+    'sign-in error; nobody has thrown the captcha switch to watch it fire for that.',
 };
 
 /**

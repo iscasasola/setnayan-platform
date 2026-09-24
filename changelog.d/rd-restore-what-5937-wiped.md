@@ -15,6 +15,8 @@ changes onto current `main` with a 3-way merge; its `build-sessions/` docs stay.
   it paints behind in every arrangement; a snippet stays behind under left/right
   (the beside column is a still-picture layer); the `hub-bg-*` class is omitted
   when nothing is drawn, so a snippet's scrim never washes over bare words.
+  Pinned by the new `lib/a-ground-kind-meets-the-arrangement.test.ts` (sabotage
+  of the colour rule and the class gate turned it red).
   #5933's centred rail mark (`front-door.css` + rail test §9) is back beside #5943's
   event menu. `port-control-baseline.json` regenerated on the final tree.
 - No new `"use server"` exports, no migrations. Background gating (colour free,

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Papic controller — today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:#ffffff;color:#2C2A29}
+</style>
+</helmet>
+<div style="width: 440px; height: 844px; box-sizing: border-box; padding: 24px 22px; background: #FAF8F4; display: flex; flex-direction: column; gap: 14px;">
+  <div style="display: flex; flex-direction: column; gap: 4px;">
+    <span style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8C6932;">Live page today, top to bottom</span>
+    <div style="display: flex; gap: 16px; font-size: 13px; color: #6F6A62;"><span><strong style="color: #2C2A29; font-size: 18px;">1,149</strong> words</span><span><strong style="color: #2C2A29; font-size: 18px;">56</strong> buttons</span><span><strong style="color: #2C2A29; font-size: 18px;">~8</strong> screens tall</span></div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 5px;">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="17">
+      <div style="{{r.style}}">
+        <span style="width: 20px; font-size: 11px; color: #9A948A;">{{r.n}}</span>
+        <span style="flex-grow: 1; font-size: 13px;">{{r.name}}</span>
+        <span style="{{r.tagStyle}}">{{r.tag}}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display: flex; gap: 14px; font-size: 12px; color: #6F6A62;">
+    <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #C8553D;"></span>out of order</span>
+    <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #C9A46A;"></span>credits, again</span>
+    <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #9A948A;"></span>paragraph</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const colors = { order: '#C8553D', credits: '#C9A46A', text: '#9A948A' };
+    const rows = [
+      ['Title + intro line', 'text', 'paragraph'],
+      ['Your library intro', 'text', 'paragraph'],
+      ['Gallery + filters + tagging note', 'text', 'paragraph'],
+      ['“Keep full size” essay (73 words)', 'text', 'paragraph'],
+      ['Stats: library · ways in · credits', 'credits', 'credits #1'],
+      ['DO THIS FIRST: capture dates', 'order', 'step 1, at #6'],
+      ['Four ways into your library', 'text', 'paragraph'],
+      ['Capture pool meter', 'credits', 'credits #2'],
+      ['Add credits + price picker', 'credits', 'credits #3'],
+      ['Your cameras (split credits)', 'credits', 'credits #4'],
+      ['Recap', 'text', 'paragraph'],
+      ['Kwento Magazine', 'text', 'paragraph'],
+      ['Flash + moderation link', 'order', 'review, far from photos'],
+      ['Shared gallery toggle', 'text', 'paragraph'],
+      ['Settings block', 'order', 'mid-page'],
+      ['Google Drive (2 paragraphs)', 'text', 'paragraph'],
+      ['Challenges · Live wall · Help', 'text', 'paragraph']
+    ];
+    return {
+      rows: rows.map(([name, kind, tag], i) => ({
+        n: String(i + 1), name, tag,
+        style: 'height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; background: #FFFFFF; border: 1px solid #ECE6DC; border-left: 4px solid ' + colors[kind] + ';',
+        tagStyle: 'font-size: 11px; color: ' + colors[kind] + '; white-space: nowrap;'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

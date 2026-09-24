@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Guest list — the whole thing, on one screen</title>
+<meta name="description" content="Every guest-list job in one place: add, import, QR, search, filter, roster, groups, day-of desks, Wedding March and print." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --cream:#FBFBFA; --paper:#FFFFFF; --ink:#1E2229;
+    --gold:#C5A059; --gold-100:#F3ECDF; --gold-500:#A9834B; --gold-700:#8A6B39; --gold-800:#5C4726;
+    --danger-700:#B65A3A; --danger-50:#FBF1ED; --success-700:#4C6B47; --warn-600:#B98A2E;
+    --violet-800:#5B21B6; --warn-900:#713F12; --sky-800:#075985;
+    --family:#7A3A22; --party:#B1543A; --bearer:#3F5A3B;
+    --side-bride:#C98A9A; --side-groom:#7E93AD; --side-both:#B7B2A6;
+    --font-sans:'Hanken Grotesk',system-ui,-apple-system,sans-serif; --font-mono:'Space Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#EFEDE8;color:var(--ink);font-family:var(--font-sans);font-size:14px;line-height:1.45}
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  button:disabled{cursor:default;opacity:.4}
+  input{font:inherit;color:inherit}
+  .mono{font-family:var(--font-mono)}
+  .eyebrow{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:rgba(30,34,41,.5)}
+  .hint{font-size:12px;color:rgba(30,34,41,.5)}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .proto{max-width:1280px;margin:0 auto;padding:24px 16px 64px}
+  .proto-head h1{font-size:22px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+  .proto-head p{margin:0;color:rgba(30,34,41,.65);max-width:76ch}
+  .switches{display:flex;flex-wrap:wrap;gap:10px 22px;margin:16px 0 20px;align-items:center}
+  .switch{display:flex;align-items:center;gap:6px}
+  .seg{display:inline-flex;background:rgba(30,34,41,.06);border-radius:999px;padding:3px}
+  .seg button{padding:5px 12px;border-radius:999px;font-size:13px;color:rgba(30,34,41,.62)}
+  .seg button[aria-selected="true"]{background:var(--paper);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .frames{display:grid;gap:26px;grid-template-columns:1fr;align-items:start}
+  @media(min-width:1220px){.frames{grid-template-columns:380px 1fr}}
+  .frame-label{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 8px;gap:10px}
+  .frame{background:var(--cream);border:1px solid rgba(30,34,41,.12);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px -20px rgba(0,0,0,.25)}
+  .frame.phone{width:380px;max-width:100%}
+  .frame-inner{padding:12px}
+  .frame.desktop .frame-inner{padding:16px 18px 22px}
+
+  .mast{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .mast h2{margin:0;font-size:17px;font-weight:600}
+  .mast .count{color:rgba(30,34,41,.55);font-size:12px}
+  .doors{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 11px}
+  .door{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(30,34,41,.16);border-radius:8px;background:var(--paper);font-size:13px}
+  .door:hover{border-color:rgba(30,34,41,.4)}
+  .door.on{border-color:var(--gold-500);background:var(--gold-100);color:var(--gold-800);font-weight:600}
+
+  /* capture + search: the two things a couple does most */
+  .doing{display:grid;gap:7px;margin-bottom:9px}
+  @media(min-width:900px){.doing{grid-template-columns:1.35fr 1fr}}
+  .field{display:flex;align-items:center;gap:8px;background:var(--paper);border:1px solid rgba(30,34,41,.16);border-radius:9px;padding:0 10px;height:38px}
+  .field:focus-within{border-color:var(--gold-500);box-shadow:0 0 0 3px rgba(197,160,89,.14)}
+  .field input{border:0;outline:0;background:none;flex:1;min-width:0;font-size:13px}
+  .field .add{flex:none;color:var(--danger-700);font-weight:600;font-size:12px}
+  .more{position:relative}
+  .field .rule{width:1px;height:18px;background:rgba(30,34,41,.12);flex:none;margin:0 2px}
+  .field .icon.on{background:var(--gold-100);color:var(--gold-800)}
+  .menu{position:absolute;right:0;top:calc(100% + 5px);z-index:5;background:var(--paper);border:1px solid rgba(30,34,41,.14);border-radius:10px;box-shadow:0 12px 28px -14px rgba(0,0,0,.4);padding:5px;min-width:206px}
+  .menu button{display:flex;width:100%;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;font-size:13px;text-align:left}
+  /* 🪤 The add-menu rule above made every filter pill full width, one per line.
+     The popup is a panel of chips, not a list of commands. */
+  .menu .pill{display:inline-flex;width:auto;padding:3px 9px;border-radius:999px}
+  .menu .frow{padding:2px 0}
+  .menu .frow .eyebrow{width:38px}
+  .menu button:hover{background:rgba(30,34,41,.05)}
+  .menu .sep{height:1px;background:rgba(30,34,41,.08);margin:4px 2px}
+
+  /* filters */
+  .facets{background:var(--paper);border:1px solid rgba(30,34,41,.1);border-radius:10px;padding:8px 10px;margin-bottom:9px}
+  .frow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0}
+  .frow .eyebrow{width:42px;flex:none}
+  .pill{padding:3px 9px;border-radius:999px;font-size:12px;color:rgba(30,34,41,.62);border:1px solid transparent}
+  .pill:hover{background:rgba(30,34,41,.05)}
+  .pill.on{background:var(--gold-100);color:var(--gold-800);font-weight:600;border-color:rgba(197,160,89,.4)}
+  .pill .n{font-family:var(--font-mono);font-size:10px;opacity:.65;margin-left:4px}
+  .addrow{margin-bottom:7px}
+  /* ── search ⇄ add: two ends, trading width ───────────────────────────── */
+  .switchrow{display:flex;align-items:center;gap:7px;margin-bottom:9px;position:relative}
+  .slotf,.slota{display:flex;align-items:center;gap:8px;min-width:0;height:38px;padding:0 10px;
+    background:var(--paper);border:1px solid rgba(30,34,41,.16);border-radius:9px;overflow:hidden;
+    transition:flex-grow .36s cubic-bezier(.2,.7,.3,1),flex-basis .36s cubic-bezier(.2,.7,.3,1),
+      padding .32s cubic-bezier(.2,.7,.3,1),border-color .25s ease,box-shadow .25s ease}
+  .slotf{flex:1 1 auto}
+  .slota{flex:0 0 38px;padding:0 5px}
+  .switchrow.adding .slotf{flex:0 0 38px;padding:0 5px}
+  .switchrow.adding .slota{flex:1 1 auto;padding:0 10px;border-color:var(--gold-500);box-shadow:0 0 0 3px rgba(197,160,89,.14)}
+  .slotf input,.slota input{border:0;outline:0;background:none;flex:1;min-width:0;font-size:13px;
+    transition:opacity .2s ease}
+  .switchrow.adding .slotf input{opacity:0} .slota input{opacity:0}
+  .switchrow.adding .slota input{opacity:1}
+  .lead{flex:none;display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;
+    border-radius:7px;color:rgba(30,34,41,.45);transition:color .2s ease,background-color .2s ease}
+  .lead:hover{background:rgba(30,34,41,.06);color:var(--ink)}
+  .switchrow.adding .slota .lead{color:var(--danger-700)}
+  /* Everything that only makes sense while finding steps aside as Add opens. */
+  .findonly{max-width:300px;overflow:hidden;white-space:nowrap;
+    transition:max-width .34s cubic-bezier(.2,.7,.3,1),opacity .18s ease,margin-left .34s cubic-bezier(.2,.7,.3,1)}
+  .switchrow.adding .findonly{max-width:0;opacity:0;margin-left:-7px;pointer-events:none}
+  .switchrow .count{margin-left:auto}
+  /* The two doors the box cannot be, a beat after it has opened. */
+  .slota .add,.slota .rule,.slota .icon{opacity:0;
+    transition:opacity .2s ease .08s,transform .28s cubic-bezier(.2,.7,.3,1) .08s;transform:translateX(-5px)}
+  .switchrow.adding .slota .add,.switchrow.adding .slota .rule,.switchrow.adding .slota .icon{opacity:1;transform:none}
+  @media (prefers-reduced-motion: reduce){ .slotf,.slota,.findonly,.lead,.slota .add,.slota .icon,.slotf input,.slota input{transition:none} }
+  .needs-strip{display:flex;align-items:center;gap:8px;padding:8px 11px;margin-bottom:9px;font-size:13px;
+    background:var(--danger-50);border:1px solid rgba(182,90,58,.28);border-radius:10px;color:var(--danger-700)}
+  /* ⚖ One row at every width: the tabs carousel, then the one door that LEAVES.
+     It never wraps to a line of its own — on a narrow frame it drops its words
+     and keeps its icon, which is what a departure needs to stay legible. */
+  .tabrow{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-bottom:10px;min-width:0}
+  .leaves{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;
+    color:rgba(30,34,41,.55);padding:5px 9px;border-radius:8px;cursor:pointer;white-space:nowrap}
+  .leaves:hover{background:rgba(30,34,41,.05);color:var(--ink)}
+  /* Sized against the FRAME, not the window — the phone frame is narrow inside
+     a wide page, so a viewport media query would be answering the wrong box. */
+  .frame{container-type:inline-size}
+  @container (max-width: 560px){
+    .leaves{padding:5px 6px;margin-left:6px}
+    .leaves .lbl{display:none}
+  }
+  /* ⚖ ONE ROW, at every width. A wrapped tab strip reads as two groups of
+     tabs; on a phone it scrolls sideways instead, which is one row that
+     happens to be longer than the screen. */
+  .tabs{display:flex;gap:2px;background:rgba(30,34,41,.05);padding:3px;border-radius:10px;
+    flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;-ms-overflow-style:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{white-space:nowrap;flex:none;scroll-snap-align:start}
+  .tabs{scroll-snap-type:x proximity;scroll-behavior:smooth}
+  /* ⚖ "carousel if not enough space" — when the strip is wider than the space,
+     it must LOOK cut off, not merely be cut off. A fade at each live edge is
+     the whole affordance: a hard edge reads as the end of the list, and a tab
+     nobody knows is there is a tab nobody presses. */
+  .tabswrap{position:relative;min-width:0;display:flex}
+  .tabswrap::before,.tabswrap::after{content:'';position:absolute;top:0;bottom:0;width:30px;
+    pointer-events:none;opacity:0;transition:opacity .2s ease;z-index:1;border-radius:10px}
+  .tabswrap::before{left:0;background:linear-gradient(to right,var(--cream),transparent)}
+  .tabswrap::after{right:0;background:linear-gradient(to left,var(--cream),transparent)}
+  .tabswrap.more-left::before{opacity:1}
+  .tabswrap.more-right::after{opacity:1}
+  .tabs button{padding:6px 11px;border-radius:8px;font-size:13px;color:rgba(30,34,41,.62);display:inline-flex;align-items:center;gap:5px}
+  .tabs button[aria-selected="true"]{background:var(--paper);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .tabs .dot{width:5px;height:5px;border-radius:999px;background:var(--danger-700)}
+
+  .selbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:8px 11px;margin-bottom:9px;background:var(--paper);border:1px solid rgba(30,34,41,.12);border-radius:10px}
+  .selbar .n{display:inline-flex;width:21px;height:21px;align-items:center;justify-content:center;border-radius:999px;background:var(--gold-100);color:var(--gold-800);font-size:12px;font-weight:700}
+  .btn{padding:5px 10px;border:1px solid rgba(30,34,41,.18);border-radius:7px;background:var(--paper);font-size:13px}
+  .btn.primary{background:var(--danger-700);border-color:var(--danger-700);color:#fff}
+  .btn.ghost{border-color:transparent;color:rgba(30,34,41,.55)}
+
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  thead th{text-align:left;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:rgba(30,34,41,.5);font-weight:400;padding:7px 9px;border-bottom:1px solid rgba(30,34,41,.1)}
+  thead th.sel{width:34px;border-left:2px solid transparent}
+  tbody tr{vertical-align:middle;border-top:1px solid rgba(30,34,41,.06)}
+  tbody td{padding:8px 9px}
+  td.sel{border-left:2px solid var(--side-both);position:relative;width:34px}
+  tr.s-bride td.sel{border-left-color:var(--side-bride)} tr.s-groom td.sel{border-left-color:var(--side-groom)}
+  tr.pair-top td.sel::after,tr.pair-bottom td.sel::after{content:'';position:absolute;left:7px;width:2px;background:var(--gold);top:50%;bottom:-1px}
+  tr.pair-bottom td.sel::after{top:-1px;bottom:50%}
+  tr.pair-bottom{border-top-color:transparent}
+  tr.selected{background:rgba(197,160,89,.09)} tr.needs{background:var(--danger-50)}
+  .who{display:flex;align-items:center;gap:9px;min-width:0}
+  .av{width:30px;height:30px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;background:linear-gradient(135deg,#c8a877,#8a6b39)}
+  .av.groom{background:linear-gradient(135deg,#7e93a5,#4e6c82)}
+  .av.photo{background:#dfd7c8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23c9bda6'/%3E%3Ccircle cx='20' cy='15' r='7' fill='%23f2ece0'/%3E%3Cpath d='M4 40c2-10 9-14 16-14s14 4 16 14z' fill='%23f2ece0'/%3E%3C/svg%3E") center/cover}
+  .nm{min-width:0}
+  .nm p{margin:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nm p button{font-weight:500}
+  .sub{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(30,34,41,.5);margin-top:1px}
+  .sub .x{color:rgba(30,34,41,.38)}
+  .side{font-size:12px;color:rgba(30,34,41,.6)}
+  .role{font-size:12px;font-weight:500}
+  .grp{font-size:11px;color:rgba(30,34,41,.55)}
+  .rsvp{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:rgba(30,34,41,.7);white-space:nowrap}
+  .dot2{width:6px;height:6px;border-radius:999px;flex:none}
+  .seat{font-family:var(--font-mono);font-size:11px;color:rgba(30,34,41,.62)}
+  .seat.none{color:rgba(30,34,41,.28)}
+  .hcell{display:inline-flex;align-items:center;gap:5px;min-width:0}
+  .gbox{display:inline-flex;align-items:center;gap:3px;cursor:pointer;border-radius:4px;padding:1px}
+  .gbox input{width:11px;height:11px;accent-color:var(--gold-500);cursor:pointer;margin:0}
+  .gbox .lvl{font-size:8px;font-weight:600;color:var(--gold-700);line-height:1}
+  .gbox .lvl.dim{color:rgba(30,34,41,.35)}
+  .menu.arr .arow .lvl.dim{background:rgba(30,34,41,.06);color:rgba(30,34,41,.5)}
+  .hsort{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;background:none;border:0;
+    padding:1px 3px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
+  .hsort:hover{background:rgba(30,34,41,.06);color:var(--ink)}
+  .hsort.on{color:var(--gold-700);font-weight:600}
+  .sarrow{display:inline-flex;opacity:.8}
+  /* One row, two meters. They share the width; on a phone they stack, because
+     a 4-character number squeezed to nothing is worse than a second line. */
+  .meters{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 9px}
+  .m{flex:1 1 220px;min-width:0;display:flex;align-items:center;gap:7px}
+  .mlab{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+    color:rgba(30,34,41,.42);white-space:nowrap}
+  .m .bar{flex:1 1 auto;min-width:36px;height:5px;border-radius:3px;background:rgba(30,34,41,.09);
+    overflow:hidden;display:flex}
+  .m .bar i{height:100%;display:block}
+  .m .bar .go{background:var(--success-700)}
+  .m .bar .li{background:var(--gold-500);opacity:.45}
+  .m .bar .no{background:var(--danger-700);opacity:.5}
+  .m .num{font-family:var(--font-mono);font-size:10.5px;color:rgba(30,34,41,.55);
+    white-space:nowrap;font-variant-numeric:tabular-nums}
+  .parr{display:flex;align-items:center;gap:6px;position:relative;margin:2px 0 8px}
+  .parr .eyebrow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .menu.arr .arow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:6px;cursor:pointer;font-size:13px}
+  .menu.arr .arow:hover{background:rgba(30,34,41,.04)}
+  .menu.arr .arow.on{color:var(--gold-700);font-weight:500}
+  .menu.arr .arow input{width:13px;height:13px;accent-color:var(--gold-500);margin:0}
+  .menu.arr .arow .lvl{margin-left:auto;font-size:10px;padding:0 5px;border-radius:5px;background:var(--gold-100);color:var(--gold-700)}
+  .sec{display:inline-flex;align-items:center;gap:6px;font:inherit;color:inherit;letter-spacing:inherit;
+    text-transform:inherit;background:none;border:0;padding:2px 5px;margin-left:-5px;border-radius:6px;cursor:pointer}
+  .sec:hover{background:rgba(30,34,41,.05);color:var(--ink)}
+  .sec.pin{cursor:default}
+  .sec.pin:hover{background:none}
+  .cx{display:inline-flex;transition:transform .16s ease}
+  .cx.shut{transform:rotate(-90deg)}
+  .cn{font-size:9px;opacity:.7;padding:0 4px;border-radius:5px;background:rgba(30,34,41,.07)}
+  .pinnote{text-transform:none;letter-spacing:.02em;font-family:var(--font-ui);font-size:10px;opacity:.55}
+  .only{font:inherit;font-size:9px;letter-spacing:.1em;color:rgba(30,34,41,.3);background:none;border:0;
+    padding:2px 5px;border-radius:5px;cursor:pointer;opacity:0;transition:opacity .13s}
+  .grouphead:hover .only,.only:focus-visible{opacity:1}
+  .only:hover{background:rgba(30,34,41,.06);color:var(--ink)}
+  .phead{margin:6px 0 4px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:rgba(30,34,41,.42);display:flex;align-items:center}
+  /* Host is a FLAG on a row, so it must not look like one more role. */
+  .hostchip{margin-left:6px;font-size:9.5px;letter-spacing:.04em;padding:1px 5px;border-radius:5px;
+    background:var(--sky-100,rgba(60,110,160,.12));color:var(--sky-800);white-space:nowrap}
+  .grouphead td{padding:13px 9px 3px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(30,34,41,.42)}
+
+  .prow{display:flex;align-items:center;gap:9px;padding:9px 9px 9px 7px;background:var(--paper);border:1px solid rgba(30,34,41,.08);border-left:2px solid var(--side-both);border-radius:0 10px 10px 0;margin-bottom:5px}
+  .prow.s-bride{border-left-color:var(--side-bride)} .prow.s-groom{border-left-color:var(--side-groom)}
+  .prow .meta{display:flex;gap:8px;align-items:center;flex:none}
+  .ppair{position:relative;padding-left:7px;margin-bottom:5px}
+  .ppair::before{content:'';position:absolute;left:0;top:9px;bottom:14px;width:2px;border-radius:2px;background:var(--gold)}
+  .ppair .prow{margin-bottom:3px}
+
+  .card{background:var(--paper);border:1px solid rgba(30,34,41,.12);border-radius:12px;padding:12px 14px}
+  .grid2{display:grid;gap:9px;grid-template-columns:1fr}
+  @media(min-width:760px){.grid2{grid-template-columns:1fr 1fr}}
+  .desk{display:flex;gap:10px;align-items:flex-start;background:var(--paper);border:1px solid rgba(30,34,41,.12);border-radius:11px;padding:11px 12px}
+  .desk .ic{width:30px;height:30px;border-radius:8px;background:var(--gold-100);color:var(--gold-800);display:flex;align-items:center;justify-content:center;flex:none}
+  .desk h4{margin:0 0 1px;font-size:13px;font-weight:600}
+  .desk p{margin:0;font-size:12px;color:rgba(30,34,41,.55)}
+  .desk .badge{margin-left:auto;flex:none;font-family:var(--font-mono);font-size:11px;color:var(--danger-700)}
+
+  .wm h3{margin:0 0 2px;font-size:13px;font-weight:600}
+  .grouplab{margin:13px 0 3px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .grouplab b{font-size:12px;font-weight:600;color:rgba(30,34,41,.78)}
+  .wm ol{list-style:none;margin:0;padding:0}
+  .line{display:flex;align-items:center;gap:8px;padding:4px 5px;border-radius:7px}
+  .line:nth-child(odd){background:rgba(30,34,41,.02)}
+  .line.held{background:rgba(197,160,89,.16);outline:1px solid var(--gold-500)}
+  .pos{width:17px;flex:none;font-family:var(--font-mono);font-size:11px;color:rgba(30,34,41,.38)}
+  .cells{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-width:0}
+  .cell span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell small{color:rgba(30,34,41,.45);font-size:11px}
+  .cell.blank::after{content:'—';color:rgba(30,34,41,.22)}
+  .ctl{display:flex;gap:2px;flex:none}
+  .icon{width:25px;height:25px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:rgba(30,34,41,.42)}
+  .icon:hover{background:rgba(30,34,41,.06);color:var(--ink)}
+  .icon.grip{cursor:grab}
+  @media(max-width:700px){.icon.grip{display:none}}
+  .foot{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-top:11px;padding-top:8px;border-top:1px solid rgba(30,34,41,.07);font-size:11px;color:rgba(30,34,41,.5)}
+
+  .sheet{background:var(--paper);border:1px solid rgba(30,34,41,.12);border-radius:12px;padding:20px 24px}
+  .sheet h3{text-align:center;margin:0 0 2px;font-size:16px;letter-spacing:.04em}
+  .sheet .sub-h{text-align:center;margin:0 0 16px;font-size:11px;color:rgba(30,34,41,.45)}
+  .pg{margin-bottom:13px}
+  .pg h4{margin:0 0 4px;text-align:center;font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:rgba(30,34,41,.45);font-weight:400}
+  .pl{display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;font-size:13px}
+  .pl .r{text-align:right}
+  .pl .blank{color:transparent}
+
+  .qr{width:104px;height:104px;flex:none;border-radius:10px;background:
+    repeating-linear-gradient(0deg,var(--ink) 0 6px,transparent 6px 12px),
+    repeating-linear-gradient(90deg,var(--ink) 0 6px,transparent 6px 12px) var(--paper);
+    border:6px solid var(--paper);outline:1px solid rgba(30,34,41,.14)}
+  .empty{padding:20px 14px;text-align:center;color:rgba(30,34,41,.5);font-size:13px;border:1px dashed rgba(30,34,41,.18);border-radius:10px;background:var(--paper)}
+  .drawer{margin-top:10px;background:var(--paper);border:1px solid var(--gold-500);border-radius:12px;padding:12px 14px}
+  .drawer dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:9px 0 0;font-size:12px}
+  .drawer dt{color:rgba(30,34,41,.5)} .drawer dd{margin:0}
+  .toast{display:flex;align-items:center;gap:9px;background:var(--ink);color:#fff;border-radius:9px;padding:8px 11px;font-size:12px;margin-bottom:9px}
+  .toast button{color:var(--gold);font-weight:600}
+  .notes{margin-top:32px;display:grid;gap:13px;grid-template-columns:1fr}
+  @media(min-width:900px){.notes{grid-template-columns:1fr 1fr}}
+  .note{background:var(--paper);border:1px solid rgba(30,34,41,.1);border-radius:12px;padding:12px 14px}
+  .note h4{margin:0 0 4px;font-size:13px;font-weight:600}
+  .note p{margin:0;font-size:13px;color:rgba(30,34,41,.7)}
+  .note code{font-family:var(--font-mono);font-size:11.5px;background:rgba(30,34,41,.05);padding:1px 4px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="proto">
+  <div class="proto-head">
+    <h1>Guest list — the whole thing, on one screen</h1>
+    <p>Every job the guest list actually has: add, import, QR, search, filter, sort, the roster, groups, the day-of desks, the Wedding March and the print. One roster at every width; one thing in a row carries colour. Switch the celebration and the tab — both frames show the same state.</p>
+  </div>
+
+  <div class="switches">
+    <div class="switch"><span class="eyebrow">Celebration</span>
+      <div class="seg" role="tablist" aria-label="Celebration">
+        <button data-ev="wedding" aria-selected="true">Wedding</button>
+        <button data-ev="birthday" aria-selected="false">Birthday</button>
+      </div>
+    </div>
+    <span class="hint" id="flash"></span>
+  </div>
+
+  <div class="frames">
+    <div>
+      <div class="frame-label"><span class="eyebrow">Phone</span><span class="hint">same rows, no second layout</span></div>
+      <div class="frame phone"><div class="frame-inner" id="phone"></div></div>
+    </div>
+    <div>
+      <div class="frame-label"><span class="eyebrow">Desktop</span><span class="hint">type in search · tick two rows to pair · click a name to open it</span></div>
+      <div class="frame desktop"><div class="frame-inner" id="desktop"></div></div>
+    </div>
+  </div>
+
+  <div class="notes" id="notes"></div>
+</div>
+
+<script>
+const I = {
+  link:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
+  unlink:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8l3-3M3 21l3-3"/><path d="M10 13a5 5 0 0 0 7 0M14 11a5 5 0 0 0-7 0"/></svg>',
+  up:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  down:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>',
+  grip:'<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>',
+  mail:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  march:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 6h11M10 12h11M10 18h11M4 6h1M4 12h1M4 18h1"/></svg>',
+  seatIcon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  send:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m22 2-7 20-4-9-9-4Z"/></svg>',
+  qr:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg>',
+  search:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  filter:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 5h18M6 12h12M10 19h4"/></svg>',
+  form:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>',
+  dots:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>',
+  up2:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V7M6 11l6-6 6 6"/><path d="M4 21h16"/></svg>',
+  chev:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>',
+  sliders:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+  people:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.2a3.2 3.2 0 0 1 0 6.1M18 20a6 6 0 0 0-2-4.2"/></svg>',
+  check:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m4 12 5 5L20 6"/></svg>',
+  gift:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M3 13h18M12 9v12M12 9C9 9 7 4 12 4s3 5 0 5Z"/></svg>',
+  cup:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8h12v6a6 6 0 0 1-12 0z"/><path d="M16 9h2.5a2.5 2.5 0 0 1 0 5H16"/><path d="M3 21h14"/></svg>',
+  alert:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>',
+  undo:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 9h11a5 5 0 0 1 0 10h-5"/><path d="M8 5 4 9l4 4"/></svg>'
+};
+
+const GROUPS = [
+  { key:'parents',   label:'Parents',                     roles:['groom_parents','bride_parents'], sides:[['groom_parents'],['bride_parents']] },
+  { key:'honour',    label:'Maid of Honour & Best Man',   roles:['maid_of_honor','best_man'], sides:[['maid_of_honor'],['best_man']] },
+  { key:'principal', label:'Principal Sponsors',          roles:['ninong','ninang'], sides:[['ninong'],['ninang']] },
+  { key:'secondary', label:'Secondary Sponsors',          roles:['veil_sponsor','cord_sponsor'] },
+  { key:'crew',      label:"Bride's Crew & Groom's Crew", roles:['bridesmaid','groomsman'], sides:[['bridesmaid'],['groomsman']] },
+  { key:'bearers',   label:'Bearers',                     roles:['ring_bearer','coin_bearer'] }
+];
+const ROLE_LABEL = { bride:'Bride',groom:'Groom',bride_parents:"Bride's Parents",groom_parents:"Groom's Parents",
+  maid_of_honor:'Maid of Honour',best_man:'Best Man',ninong:'Ninong',ninang:'Ninang',veil_sponsor:'Veil Sponsor',
+  cord_sponsor:'Cord Sponsor',bridesmaid:'Bridesmaid',groomsman:'Groomsman',ring_bearer:'Ring Bearer',
+  coin_bearer:'Coin Bearer',guest:'Guest',host:'Host',vip:'VIP',family:'Family',helper:'Helper',
+  celebrant:'Celebrant' };
+const ROLE_COLOUR = { bride:'var(--gold-700)',groom:'var(--gold-700)',bride_parents:'var(--family)',groom_parents:'var(--family)',
+  maid_of_honor:'var(--party)',best_man:'var(--party)',ninong:'var(--violet-800)',ninang:'var(--violet-800)',
+  veil_sponsor:'var(--warn-900)',cord_sponsor:'var(--warn-900)',bridesmaid:'var(--party)',groomsman:'var(--party)',
+  ring_bearer:'var(--bearer)',coin_bearer:'var(--bearer)',guest:'rgba(30,34,41,.55)',host:'var(--sky-800)',
+  vip:'var(--violet-800)',family:'var(--family)',helper:'var(--bearer)',celebrant:'var(--gold-700)' };
+const RSVP = { attending:['Attending','var(--success-700)'], pending:['Pending','rgba(30,34,41,.25)'], declined:['Declined','var(--danger-700)'] };
+
+const WEDDING = [
+  { id:'cb',first:'Claire',last:'Buanhog',pre:'Ms.',mid:'Estoras',role:'bride',side:'bride',rsvp:'attending',seat:'T3',groups:[],meal:'Chicken',host:true },
+  { id:'ic',first:'Indalecio',last:'Casasola II',pre:'Mr.',mid:'Sacdalan',role:'groom',side:'groom',rsvp:'attending',seat:'T3',groups:[],accountPhoto:true,meal:'Beef',host:true },
+  { id:'mb',first:'Milagros',last:'Buanhog',role:'bride_parents',side:'bride',rsvp:'pending',sug:'T3',groups:['Family'],pair:'pb',meal:'—' },
+  { id:'pb',first:'Peregrino',last:'Buanhog',role:'bride_parents',side:'bride',rsvp:'pending',sug:'T3',groups:['Family'],pair:'mb',meal:'—' },
+  { id:'es',first:'Eufrocina',last:'Sacdalan-Casasola',pre:'Atty.',role:'groom_parents',side:'groom',rsvp:'pending',sug:'T3',groups:['Family'],meal:'—',host:true },
+  { id:'rz',first:'Ramon',last:'Zamora',role:'ninong',side:'both',rsvp:'attending',sug:'T1',groups:[],pair:'oz',meal:'Fish' },
+  { id:'oz',first:'Rosa',last:'Zamora',role:'ninang',side:'both',rsvp:'declined',groups:[],pair:'rz',meal:'—' },
+  { id:'bl',first:'Brillante',last:'Loo',pre:'Atty.',role:'veil_sponsor',side:'groom',rsvp:'pending',ceremonyOnly:true,groups:[],meal:'—' },
+  { id:'dl',first:'Darryl',last:'Lim',role:'groomsman',side:'groom',rsvp:'attending',sug:'T1',groups:['Barkada'],pair:'fa',meal:'Beef' },
+  { id:'fa',first:'Fiona',last:'Ambrosio',role:'bridesmaid',side:'bride',rsvp:'attending',sug:'T1',groups:['Barkada'],pair:'dl',meal:'Chicken' },
+  { id:'bc',first:'Bo',last:'Cruz',role:'ring_bearer',side:'both',rsvp:'pending',sug:'T5',groups:[],pair:'gc',meal:'—' },
+  { id:'gc',first:'Gia',last:'Cruz',role:'coin_bearer',side:'both',rsvp:'pending',sug:'T5',groups:[],pair:'bc',meal:'—' },
+  { id:'ar',first:'Ana',last:'Reyes',role:'guest',side:'bride',rsvp:'attending',sug:'T7',groups:['Office'],plusOne:'Miguel',meal:'Chicken' },
+  { id:'ju',first:'Jonas',last:'Uy',role:'guest',side:'both',rsvp:'attending',groups:[],selfJoin:true,meal:'—' }
+];
+const BIRTHDAY = [
+  // The 80th is HERS; her daughter runs it. Two different people, and the list
+  // has to be able to say so — which is the whole reason host is not a role.
+  { id:'c1',first:'Lita',last:'Ramos',role:'celebrant',side:'both',rsvp:'attending',seat:'T1',groups:[],meal:'Chicken' },
+  { id:'v1',first:'Ernesto',last:'Diaz',role:'vip',side:'both',rsvp:'attending',sug:'T1',groups:['Ninongs'],meal:'Beef' },
+  { id:'f1',first:'Marites',last:'Ramos',role:'family',side:'both',rsvp:'pending',sug:'T2',groups:['Family'],meal:'—',host:true },
+  { id:'g1',first:'Paolo',last:'Santos',role:'guest',side:'both',rsvp:'pending',sug:'T4',groups:[],plusOne:'Bea',meal:'—' },
+  { id:'x1',first:'Nico',last:'Tan',role:'helper',side:'both',rsvp:'attending',groups:[],meal:'Chicken' }
+];
+
+const state = { ev:'wedding', tab:'roster', selected:new Set(), held:null, flash:'', q:'',
+  f:{ side:'all', rsvp:'all', view:'all', group:'all' }, sort:'importance', groups:['role'], arr:false, menu:false, filters:false, adding:false, open:null, toast:'',
+  collapsed:new Set() };
+const G = () => state.ev==='wedding' ? WEDDING : BIRTHDAY;
+const byId = id => G().find(g=>g.id===id);
+const hasMarch = () => state.ev==='wedding';
+const full = g => [g.pre,g.first,g.mid,g.last].filter(Boolean).join(' ');
+const initials = g => (g.first[0]+g.last[0]).toUpperCase();
+const groupOf = role => GROUPS.find(s=>s.roles.includes(role)) || null;
+const sideOf = (g,spec) => spec.sides ? (spec.sides[1].includes(g.role)?1:0) : null;
+const allGroups = () => [...new Set(G().flatMap(g=>g.groups))];
+
+/* ⚖ Owner 2026-09-20: *"on list, the first one will always be the celebrant.
+   for wedding that is the bride and groom."*
+
+   🔑 THE CELEBRANT IS NOT A SORT RESULT. Importance order already put the
+   couple first, but any other sort — last name, RSVP, newest — moved them, and
+   before this they were not even in a section: bride and groom fell through
+   every role group and landed under "Guests", at the BOTTOM. So the celebrant
+   is a PINNED section that no sort and no collapse can reach.
+
+   ⛔ And the celebrant is not the host. At Lola's 80th the celebrant is Lola
+   and the host is her daughter — `host` is a flag any row can carry, never a
+   role, because a person's role is already spoken for. */
+const CELEBRANT_ROLES = () => state.ev==='wedding' ? ['bride','groom'] : ['celebrant'];
+const isCelebrant = g => CELEBRANT_ROLES().includes(g.role);
+const celebrantLabel = () => state.ev==='wedding' ? 'Bride & Groom' : 'Celebrant';
+
+function visible() {
+  const q = state.q.trim().toLowerCase();
+  return G().filter(g => {
+    if (state.f.side !== 'all' && g.side !== state.f.side) return false;
+    if (state.f.rsvp !== 'all' && g.rsvp !== state.f.rsvp) return false;
+    if (state.f.view !== 'all') { const s = groupOf(g.role); if (!s || s.key !== state.f.view) return false; }
+    if (state.f.group !== 'all' && !g.groups.includes(state.f.group)) return false;
+    if (q && ![full(g), ROLE_LABEL[g.role], g.groups.join(' '), RSVP[g.rsvp][0]].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function linesOf(spec, pool) {
+  const people = [];
+  for (const role of spec.roles) {
+    (pool||G()).filter(g=>g.role===role && !g.selfJoin)
+      .sort((a,b)=>a.last.localeCompare(b.last)||a.first.localeCompare(b.first)).forEach(g=>people.push(g));
+  }
+  const placed=new Set(), out=[];
+  for (const p of people) {
+    if (placed.has(p.id)) continue;
+    const q = p.pair ? byId(p.pair) : null;
+    const mutual = q && q.pair===p.id && groupOf(q.role)===spec ? q : null;
+    if (mutual && !placed.has(mutual.id) && (pool||G()).includes(mutual)) {
+      placed.add(p.id); placed.add(mutual.id);
+      out.push(sideOf(p,spec)===1 ? [mutual,p] : [p,mutual]);
+    } else { placed.add(p.id); out.push(sideOf(p,spec)===1 ? [null,p] : [p,null]); }
+  }
+  const ord=ln=>{const a=ln[0]||ln[1];return typeof a.order==='number'?a.order:Infinity};
+  const rp =ln=>{const a=ln[0]||ln[1];return spec.roles.indexOf(a.role)};
+  const nm =ln=>{const a=ln[0]||ln[1];return a.last+a.first};
+  return out.sort((x,y)=>ord(x)-ord(y)||rp(x)-rp(y)||nm(x).localeCompare(nm(y)));
+}
+function moveLine(spec,idx,dir){const l=linesOf(spec),to=idx+dir;if(to<0||to>=l.length)return false;
+  const [ln]=l.splice(idx,1);l.splice(to,0,ln);l.forEach((x,i)=>x.forEach(g=>{if(g)g.order=i}));return true;}
+
+/* ═══ HOW THE LIST IS ARRANGED ═══════════════════════════════════════════════
+   ⚖ Owner 2026-09-20, pointing at the ROLE header: *"when you click on this
+   row … it will arrange everything by name, by side … add a checkbox beside
+   them so we can set how they are arranged."*
+
+   🔑 THE COLUMN IS THE CONTROL. Every arrangement this list can do was already
+   possible from a Sort dropdown — and nobody found it, because the dropdown
+   names things the table is already showing. The header says SIDE; clicking
+   SIDE should arrange by side. Nothing to learn.
+
+   Two different jobs, so two different hit targets in one header cell:
+     • the LABEL sorts      — one order, the whole list, no headings
+     • the CHECKBOX arranges — and ⚖ ONLY THE FIRST TICK MAKES HEADINGS (owner:
+       *"first one only groups[,] the second and succeeding just arranges and
+       does not group"*). Side then Role = one heading per side, with each
+       side's rows in role order. Nesting was the other reading, and it turns
+       200 guests into forty headings of two rows.
+
+   ⛔ The celebrant is outside all of it. The pinned section is emitted before
+   the first grouping and is not part of any bucket, because "always first"
+   would otherwise last exactly until somebody ticked a box. */
+const SIDE_LABEL = { bride:"Bride's side", groom:"Groom's side", both:'Both sides' };
+const SIDE_RANK  = { groom:0, bride:1, both:2 };
+
+const ARRANGE = [
+  { key:'name',  label:'Name',
+    bucket:g=>g.last[0].toUpperCase(),
+    cmp:(a,b)=>a.last.localeCompare(b.last)||a.first.localeCompare(b.first) },
+  /* ⚖ Owner: *"on side. the sequence is Groom's Side then Bride's Side then
+     Both then no Side."* This reverses what the roster did — it listed the
+     bride's side first because that is the order the enum was written in, not
+     because anybody asked. It does NOT contradict "bride is #1 then groom":
+     that is about the two PEOPLE, and the pinned section above still holds. */
+  { key:'side',  label:'Side',
+    bucket:g=>SIDE_LABEL[g.side]||'No side',
+    order:["Groom's side","Bride's side","Both sides","No side"],
+    cmp:(a,b)=>SIDE_RANK[a.side]-SIDE_RANK[b.side] },
+  { key:'role',  label:'Role',
+    bucket:g=>(groupOf(g.role)||{}).label || (hasMarch()?'Guests':'Everyone'),
+    order:()=>GROUPS.map(x=>x.label).concat(hasMarch()?'Guests':'Everyone'),
+    cmp:(a,b)=>roleRank(a)-roleRank(b) },
+  { key:'group', label:'Groups',
+    bucket:g=>g.groups[0]||'No group yet',
+    cmp:(a,b)=>(a.groups[0]||'~').localeCompare(b.groups[0]||'~') },
+  { key:'rsvp',  label:'RSVP',
+    bucket:g=>RSVP[g.rsvp][0],
+    order:['Attending','Pending','Declined'],
+    cmp:(a,b)=>Object.keys(RSVP).indexOf(a.rsvp)-Object.keys(RSVP).indexOf(b.rsvp) },
+  { key:'meal',  label:'Meal',
+    bucket:g=>(g.meal&&g.meal!=='—')?g.meal:'No meal yet',
+    cmp:(a,b)=>((a.meal&&a.meal!=='—')?a.meal:'~').localeCompare((b.meal&&b.meal!=='—')?b.meal:'~') },
+  { key:'seat',  label:'Seat',
+    bucket:g=>g.seat?('Table '+g.seat):g.sug?('Suggested '+g.sug):'No table yet',
+    cmp:(a,b)=>(a.seat||a.sug||'~').localeCompare(b.seat||b.sug||'~') }
+];
+const arrangeSpec = k => ARRANGE.find(a=>a.key===k);
+function roleRank(g){ const spec=groupOf(g.role); const i=GROUPS.indexOf(spec);
+  return i===-1 ? GROUPS.length : i; }
+
+/* The comparator: every tick AFTER the first (those only order), then the
+   column whose label was clicked, then always a name so the order is stable —
+   two guests with the same RSVP must not swap places on a re-render. */
+function sortCmp() {
+  const by = arrangeSpec(state.sort);
+  const name = (a,b)=>a.last.localeCompare(b.last)||a.first.localeCompare(b.first);
+  const extra = state.groups.slice(1).map(arrangeSpec);
+  const base = by ? by.cmp : (a,b)=>roleRank(a)-roleRank(b);   // no column = importance
+  return (a,b) => { for (const e of extra) { const r=e.cmp(a,b); if (r) return r; }
+                    return base(a,b)||name(a,b); };
+}
+
+/* Pairs stay adjacent under EVERY arrangement — a pair is a fact about two
+   people, not a property of the role view they were discovered in. Both halves
+   have to be in the same bucket for it to show, which is honest: if you group
+   by RSVP and one of them declined, they are genuinely in two places. */
+function orderedRows(pool) {
+  const sorted = [...pool].sort(sortCmp()), used = new Set(), out = [];
+  for (const g of sorted) {
+    if (used.has(g.id)) continue;
+    used.add(g.id);
+    const p = g.pair ? byId(g.pair) : null;
+    if (p && p.pair===g.id && pool.includes(p) && !used.has(p.id)) { used.add(p.id); out.push({pair:[g,p]}); }
+    else out.push({one:g});
+  }
+  return out;
+}
+
+/* ONE level, always — `keys[0]` or nothing. The rest already did their job in
+   sortCmp above, which is why this takes a single key and never recurses. */
+function bucketize(pool, keys) {
+  if (!keys.length) return [{ items: orderedRows(pool) }];
+  const k = keys[0], spec = arrangeSpec(k), map = new Map();
+  for (const g of pool) { const b = spec.bucket(g); (map.get(b) || map.set(b,[]).get(b)).push(g); }
+  const known = typeof spec.order==='function' ? spec.order() : (spec.order||[]);
+  const labels = [...map.keys()].sort((x,y)=>{
+    const ix=known.indexOf(x), iy=known.indexOf(y);
+    if (ix!==-1 && iy!==-1) return ix-iy;
+    if (ix!==-1) return -1;
+    if (iy!==-1) return 1;
+    return x.localeCompare(y);
+  });
+  return labels.map(label => ({
+    key: k+':'+label, label, depth:0, count:map.get(label).length,
+    children: [{ items: orderedRows(map.get(label)) }],
+  }));
+}
+
+function rosterGroups() {
+  const pool = visible(), out = [];
+  const cele = pool.filter(isCelebrant)
+    .sort((a,b)=>CELEBRANT_ROLES().indexOf(a.role)-CELEBRANT_ROLES().indexOf(b.role));
+  if (cele.length) out.push({ key:'celebrant', label:celebrantLabel(), pinned:true, depth:0,
+                              count:cele.length, children:[{ items:cele.map(one=>({one})) }] });
+  const rest = pool.filter(g=>!isCelebrant(g));
+  if (rest.length) out.push(...bucketize(rest, state.groups));
+  return out;
+}
+/* A pinned section cannot be closed: shutting the celebrant would leave a
+   wedding list whose first line is somebody's tita. */
+const isShut = sec => !sec.pinned && state.collapsed.has(sec.key);
+const headCount = sec => sec.count;
+
+const seatCell = g => g.rsvp==='declined' ? '<span class="seat none">—</span>'
+  : g.ceremonyOnly ? '<span class="seat none" title="Ceremony only — no chair">—</span>'
+  : g.seat ? `<span class="seat">${g.seat}</span>` : g.sug ? `<span class="seat">~${g.sug}</span>` : '<span class="seat none">—</span>';
+
+function subLines(g) {
+  let s='';
+  if (g.plusOne) s+=`<span class="sub">+ ${g.plusOne} <span class="x">· a name, not a row — promote to let them walk</span></span>`;
+  if (g.pair) { const p=byId(g.pair);
+    s+=`<span class="sub">${I.link}<span>walks with ${p?p.first+' '+p.last:'a guest not in this view'}</span><button class="icon" data-unpair="${g.id}" aria-label="Unpair ${g.first}" title="Unpair">${I.unlink}</button></span>`; }
+  if (g.ceremonyOnly) s+=`<span class="sub"><span class="x">ceremony only · not at the reception</span></span>`;
+  if (g.selfJoin) s+=`<span class="sub" style="color:var(--danger-700)">joined via your link · not on your list</span>`;
+  return s;
+}
+const avatar = g => `<span class="av ${g.accountPhoto?'photo':''} ${g.side==='groom'?'groom':''}">${g.accountPhoto?'':initials(g)}</span>`;
+
+function row(g,pairPos) {
+  const sel = state.selected.has(g.id);
+  return `<tr class="s-${g.side} ${sel?'selected':''} ${pairPos||''} ${g.selfJoin?'needs':''}">
+    <td class="sel"><input type="checkbox" data-sel="${g.id}" ${sel?'checked':''} aria-label="Select ${full(g)}"></td>
+    <td><div class="who">${avatar(g)}<div class="nm"><p><button data-open="${g.id}" title="Open ${full(g)}">${full(g)}</button></p>${subLines(g)}</div></div></td>
+    <td><span class="side">${g.side==='bride'?"Bride's":g.side==='groom'?"Groom's":'Both'}</span></td>
+    <td><span class="role" style="color:${ROLE_COLOUR[g.role]}">${ROLE_LABEL[g.role]}</span>${g.host?'<span class="hostchip" title="Part of the host — this celebration is theirs to run">Host</span>':''}</td>
+    <td><span class="grp">${g.groups.length?g.groups.join(', '):'—'}</span></td>
+    <td><span class="rsvp"><span class="dot2" style="background:${RSVP[g.rsvp][1]}"></span>${RSVP[g.rsvp][0]}</span></td>
+    <td><span class="grp">${g.meal||'—'}</span></td>
+    <td>${seatCell(g)}</td>
+    <td><span class="icon">${I.mail}</span></td>
+  </tr>`;
+}
+/* ⚖ Owner 2026-09-20, pointing at a section heading: *"clicking this will
+   collapse or expand that group."*
+
+   The heading used to ISOLATE — one click and the other 78 guests vanished,
+   which on a long list is indistinguishable from having lost them. Closing a
+   section keeps the count in front of you and every other section on screen.
+   Isolating is still here, on its own control, where it cannot be hit by
+   somebody who only wanted to fold Parents away. */
+function sechead(sec) {
+  const shut = isShut(sec), pad = sec.depth ? `padding-left:${sec.depth*16}px` : '';
+  return sec.pinned
+    ? `<span class="sec pin">${sec.label}<span class="cn">${headCount(sec)}</span>
+        <span class="pinnote">always first</span></span>`
+    : `<button class="sec d${sec.depth}" style="${pad}" data-collapse="${sec.key}" aria-expanded="${!shut}"
+         title="${shut?'Open':'Close'} ${sec.label}"><span class="cx ${shut?'shut':''}">${I.chev}</span>${sec.label}<span class="cn">${headCount(sec)}</span></button>`;
+}
+const rowsHtml = items => items.map(it=>it.pair?row(it.pair[0],'pair-top')+row(it.pair[1],'pair-bottom'):row(it.one)).join('');
+
+function nodesHtml(nodes) {
+  return nodes.map(nd => nd.label === undefined
+    ? rowsHtml(nd.items)
+    : `<tr class="grouphead"><td colspan="9">${sechead(nd)}</td></tr>` + (isShut(nd) ? '' : nodesHtml(nd.children))
+  ).join('');
+}
+
+/* One header cell = two controls. The label sorts; the box groups. The box is
+   FIRST in the DOM and reachable by keyboard on its own, so the grouping is
+   not something you can only discover by hovering the word. */
+function th(key, width) {
+  const spec = arrangeSpec(key), lvl = state.groups.indexOf(key)+1, on = lvl>0, heads = lvl===1;
+  const what = heads ? `Grouped by ${spec.label}`
+    : on ? `Ordered by ${spec.label}, inside each group`
+    : `Group by ${spec.label}`;
+  return `<th style="${width?`width:${width}`:''}">
+    <span class="hcell">
+      <label class="gbox ${on?'on':''}" title="${what}">
+        <input type="checkbox" data-groupby="${key}" ${on?'checked':''} aria-label="${what}">
+        ${on?`<span class="lvl ${heads?'':'dim'}">${heads?'§':lvl-1}</span>`:''}
+      </label>
+      <button class="hsort ${state.sort===key?'on':''}" data-sortby="${key}"
+        title="Sort by ${spec.label}">${spec.label}${state.sort===key?`<span class="sarrow">${I.chev}</span>`:''}</button>
+    </span></th>`;
+}
+
+function rosterTable() {
+  const secs = rosterGroups();
+  const head = `<thead><tr><th class="sel"></th>${th('name')}${th('side','9%')}${th('role','15%')}${th('group','11%')}${th('rsvp','12%')}${th('meal','9%')}${th('seat','8%')}<th style="width:6%">Contact</th></tr></thead>`;
+  if (!secs.length) return `<table>${head}</table><div class="empty">Nobody matches that. <button class="btn ghost" data-clearf>Clear filters</button></div>`;
+  return `<table>${head}<tbody>${nodesHtml(secs)}</tbody></table>`;
+}
+function phoneRow(g) {
+  return `<div class="prow s-${g.side} ${g.selfJoin?'needs':''}">${avatar(g)}
+    <div class="nm" style="flex:1"><p><button data-open="${g.id}">${full(g)}</button></p>
+      <span class="sub"><span style="color:${ROLE_COLOUR[g.role]};font-weight:500">${ROLE_LABEL[g.role]}</span>${g.host?'<span class="hostchip">Host</span>':''}${g.groups.length?' · '+g.groups.join(', '):''}</span>${subLines(g)}</div>
+    <div class="meta"><span class="rsvp"><span class="dot2" style="background:${RSVP[g.rsvp][1]}"></span></span>${seatCell(g)}</div></div>`;
+}
+function phoneNodes(nodes) {
+  return nodes.map(nd => nd.label === undefined
+    ? nd.items.map(it=>it.pair?`<div class="ppair">${phoneRow(it.pair[0])}${phoneRow(it.pair[1])}</div>`:phoneRow(it.one)).join('')
+    : `<div style="margin-bottom:9px"><div class="phead">${sechead(nd)}</div>`+(isShut(nd)?'':phoneNodes(nd.children))+`</div>`
+  ).join('');
+}
+
+/* ⚖ Owner: *"on mobile … an icon on the header of the table … which will ask
+   us group it by how? then we check which ones we want."* Same checkboxes,
+   same order-of-ticking, one sheet instead of seven header cells — a phone has
+   no header row to put them in. */
+function arrangeMenu() {
+  return `<div class="menu arr" style="left:0;right:0;min-width:0;padding:10px">
+    <p class="eyebrow" style="margin:0 0 6px">Group it by how?</p>
+    ${ARRANGE.map(a=>{const on=state.groups.includes(a.key),lvl=state.groups.indexOf(a.key)+1;
+      return `<label class="arow ${lvl===1?'on':''}"><input type="checkbox" data-groupby="${a.key}" ${on?'checked':''}>
+        <span>${a.label}</span>${on?`<span class="lvl ${lvl===1?'':'dim'}">${lvl===1?'headings':'then '+(lvl-1)}</span>`:''}</label>`;}).join('')}
+    <p class="hint" style="margin:7px 2px 0">The first one you tick makes the headings. Anything after it just orders the rows inside them.</p>
+    <div class="sep"></div>
+    <p class="eyebrow" style="margin:0 0 6px">Sort inside each</p>
+    <div class="frow">${['importance',...ARRANGE.map(a=>a.key)].map(k=>
+      `<button class="pill ${state.sort===k?'on':''}" data-sortby="${k}">${k==='importance'?'Importance':arrangeSpec(k).label}</button>`).join('')}</div>
+  </div>`;
+}
+
+const phoneRoster = () => { const secs=rosterGroups();
+  const bar = `<div class="parr"><span class="eyebrow">${state.groups.length?arrangeSpec(state.groups[0]).label+(state.groups.length>1?' · by '+state.groups.slice(1).map(k=>arrangeSpec(k).label).join(', '):''):'No grouping'}</span>
+    <button class="icon ${state.arr?'on':''}" data-arr="1" aria-label="Group it by how?" title="Group it by how?">${I.sliders}</button>
+    ${state.arr?arrangeMenu():''}</div>`;
+  return bar + (secs.length ? phoneNodes(secs) : `<div class="empty">Nobody matches that.</div>`); };
+
+function addRow() { return ''; }
+
+/*
+  ⚖ ONE ROW — owner 2026-09-20: "a magnifying icon to show search and filter?
+  then (+) button to switch to adding so they can share 1 row?"
+
+  🔑 FINDING IS THE RESTING STATE; ADDING IS ASKED FOR. Both are one row and one
+  box, but they are NOT symmetrical and the default must reflect that: a search
+  in the wrong mode finds nothing and Escape undoes it, while an add in the
+  wrong mode puts a real person on somebody's wedding list. You cannot
+  accidentally write into the guest list while looking for somebody in it.
+
+  The two extra doors — the long form and a CSV — ride the add state, because
+  they are the two things the box itself cannot do.
+*/
+/* Which filters are ON — the state that must stay visible even when the
+   controls are hidden. Lost once already to a region replace; it is the only
+   thing standing between a narrowed list and "where did my 79 guests go?". */
+function activeFilters() {
+  const a = [];
+  if (state.f.side!=='all') a.push(['side', state.f.side==='bride'?"Bride's side":state.f.side==='groom'?"Groom's side":'Both sides']);
+  if (state.f.rsvp!=='all') a.push(['rsvp', RSVP[state.f.rsvp][0]]);
+  if (state.f.view!=='all') a.push(['view', (GROUPS.find(x=>x.key===state.f.view)||{}).label]);
+  if (state.f.group!=='all') a.push(['group', state.f.group]);
+  return a;
+}
+
+/* ═══ THE TWO METERS ════════════════════════════════════════════════════════
+   ⚖ Owner 2026-09-20, pointing at the shipped block: *"we don't have this
+   anymore on the plan. how can we keep this?"*
+
+   🔑 THEY STAY IN THE OPEN, AND THEY STAY TWO. The shipped block is three
+   headings and two bars, 115px tall, and the obvious compression — fold it
+   behind the guest count — is wrong: these are the only numbers on the page
+   that answer MONEY questions. "Have I invited enough people to fill the pax
+   minimum I am being charged for" and "have they answered" are different
+   questions with different answers, and one bar cannot carry both.
+
+   What IS compressible is the third heading. The shipped "Pax pool" line —
+   *151 unassigned · 79 of 230 listed* — is a text restatement of the space
+   LEFT in the target bar. So the bar carries it instead: a filled segment for
+   the sure-attending, a pale one for listed-but-silent, and the empty tail IS
+   the unassigned pool. Three facts, one bar, one row. 115px becomes ~26. */
+function meters() {
+  const all = G(), listed = all.length;
+  const target = state.ev==='wedding' ? 180 : 60;
+  const going = all.filter(g=>g.rsvp==='attending').length;
+  const declined = all.filter(g=>g.rsvp==='declined').length;
+  const replied = all.filter(g=>g.rsvp!=='pending').length;
+  const plus = all.filter(g=>g.plusOne).length;
+  const pct = v => Math.min(100, (v/target)*100);
+  const over = listed > target;
+  return `<div class="meters">
+    <span class="m" title="${over?`${listed-target} over the ${target} you are paying for`:`${target-listed} still to invite`}">
+      <span class="mlab">Target</span>
+      <span class="bar"><i class="go" style="width:${pct(going)}%"></i><i class="li" style="width:${pct(listed-going)}%"></i></span>
+      <span class="num">${listed} of ${target} listed · ${going} going</span>
+    </span>
+    <span class="m" title="${listed-replied} have not answered yet">
+      <span class="mlab">Replies</span>
+      <span class="bar"><i class="go" style="width:${(going/listed)*100}%"></i><i class="no" style="width:${(declined/listed)*100}%"></i></span>
+      <span class="num">${replied} of ${listed} replied${plus?` · ${plus} plus-one${plus===1?'':'s'}`:''}</span>
+    </span>
+  </div>`;
+}
+
+function findRow() {
+  const act = activeFilters(), shown = visible().length, total = G().length;
+  /*
+    ⚖ OWNER: "the add must be on the other end. it will collapse when search
+    expands on the other end."
+
+    🔑 NEITHER CONTROL IS SWAPPED OUT — they trade WIDTH from opposite ends.
+    Search lives at the left, Add at the right; whichever is not in use shrinks
+    to its own icon and stays exactly where it was. Nothing is created or
+    destroyed, so nothing jumps: the row just breathes from one end to the
+    other, and you always know where the other one went.
+
+    Finding is still the resting state. A search in the wrong mode finds
+    nothing; an add in the wrong mode puts a real person on a wedding list.
+  */
+  return `<div class="switchrow ${state.adding?'adding':''}" id="switchrow">
+
+    <span class="slotf">
+      <button class="lead" data-adding="0" aria-label="Search guests" title="Search">${I.search}</button>
+      <input id="q" value="${state.q.replace(/"/g,'&quot;')}" placeholder="Search names, roles, groups, RSVP…" aria-label="Search guests" ${state.adding?'tabindex="-1"':''}>
+      ${state.q?`<button class="hint" data-clearq>clear</button>`:''}
+    </span>
+
+    <span class="findonly more">
+      <button class="door ${act.length?'on':''}" data-filters aria-expanded="${state.filters}" aria-haspopup="true">
+        ${I.filter}${act.length?`<span class="n" style="font-family:var(--font-mono);font-size:10px">${act.length}</span>`:''}</button>
+      ${state.filters?filterMenu():''}
+    </span>
+    <span class="findonly chips">${act.map(([k,l])=>`<span class="chip">${l}<button data-f="${k}:all" aria-label="Clear ${l}">×</button></span>`).join('')}
+      ${act.length?`<button class="hint" data-clearf style="text-decoration:underline">Clear</button>`:''}</span>
+    <span class="hint count findonly">${act.length||state.q?`<b>${shown}</b> of ${total}`:`${total} guests`}</span>
+
+    <span class="slota">
+      <button class="lead" data-adding="1" aria-label="Add a guest" title="Add a guest">${I.plus}</button>
+      <input id="addbox" placeholder="Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter" aria-label="Add a guest" ${state.adding?'':'tabindex="-1"'}>
+      <span class="add">Add</span>
+      <span class="rule"></span>
+      <button class="icon" data-go="new" title="Add guest · full form" aria-label="Add guest · full form" ${state.adding?'':'tabindex="-1"'}>${I.form}</button>
+      <button class="icon ${state.tab==='import'?'on':''}" data-tab="import" title="Import CSV" aria-label="Import CSV" ${state.adding?'':'tabindex="-1"'}>${I.up2}</button>
+      <button class="icon" data-go="people" title="Add from People &amp; Samahan" aria-label="Add from People and Samahan" ${state.adding?'':'tabindex="-1"'}>${I.people}</button>
+    </span>
+  </div>`;
+}
+
+function filterMenu() {
+  const cnt = (k,v) => G().filter(g => k==='side'?g.side===v : k==='rsvp'?g.rsvp===v : k==='group'?g.groups.includes(v) : (groupOf(g.role)||{}).key===v).length;
+  const pill = (k,v,label,count) => `<button class="pill ${state.f[k]===v?'on':''}" data-f="${k}:${v}">${label}${count!==undefined?`<span class="n">${count}</span>`:''}</button>`;
+  return `<div class="menu" style="right:0;left:auto;min-width:330px;max-width:min(420px,86vw);padding:10px">
+    <div class="frow"><span class="eyebrow">Side</span>${pill('side','all','All')}${pill('side','bride',"Bride's",cnt('side','bride'))}${pill('side','groom',"Groom's",cnt('side','groom'))}${pill('side','both','Both',cnt('side','both'))}</div>
+    <div class="frow"><span class="eyebrow">RSVP</span>${pill('rsvp','all','All')}${pill('rsvp','attending','Attending',cnt('rsvp','attending'))}${pill('rsvp','pending','Pending',cnt('rsvp','pending'))}${pill('rsvp','declined','Declined',cnt('rsvp','declined'))}</div>
+    <div class="frow"><span class="eyebrow">Group</span>${pill('group','all','All')}${allGroups().map(g=>pill('group',g,g,cnt('group',g))).join('')}<button class="pill" data-go="newgroup">+ New</button></div>
+    <div class="sep"></div>
+    <div class="frow"><span class="eyebrow">Sort</span>${['importance',...ARRANGE.map(a=>a.key)].map(o=>`<button class="pill ${state.sort===o?'on':''}" data-sortby="${o}">${o==='importance'?'Importance':arrangeSpec(o).label}</button>`).join('')}</div>
+    <p class="hint" style="margin:7px 2px 0">Grouping is not in here on purpose — it lives on the table's own headers, where the columns are.</p>
+  </div>`;
+}
+
+function facets() { return findRow(); }
+
+function selbar() {
+  const n = state.selected.size;
+  if (!n) return '';
+  const ids=[...state.selected];
+  const ok = n===2 && (()=>{const [a,b]=ids.map(byId);const ga=groupOf(a.role),gb=groupOf(b.role);return !(ga&&gb&&ga!==gb)})();
+  // Owner 2026-09-20: *"we can also assign if they will be part of the host."*
+  // A flag, not a role — the couple's parents are Parents AND hosting.
+  const allHost = ids.every(i=>byId(i).host);
+  return `<div class="selbar"><span class="n">${n}</span><span>selected</span>
+    <button class="btn primary" data-apply>Apply role</button>
+    <button class="btn" data-host="${allHost?'off':'on'}">${allHost?'Not hosting':'Part of the host'}</button>
+    ${n===2?`<button class="btn" data-pair ${ok?'':'disabled'}>${I.link} Pair these 2</button>`:`<span class="hint">Pairing needs exactly two.</span>`}
+    ${n===2&&!ok?`<span class="hint">Those two walk in different parts of the entourage.</span>`:''}
+    <button class="btn" data-remove>Remove</button><button class="btn ghost" data-clear>Clear</button></div>`;
+}
+
+function groupsTab() {
+  return `<div class="card"><h3 style="margin:0 0 7px;font-size:13px">Groups</h3>
+    ${allGroups().length?allGroups().map(g=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(30,34,41,.06)">
+      <span>${g}</span><span class="hint">${G().filter(x=>x.groups.includes(g)).length} guests · <button data-f="group:${g}" style="text-decoration:underline">view</button></span></div>`).join('')
+      :`<p class="hint" style="margin:0">No groups yet. A group is the couple's own word — Barkada, Office, Ninongs.</p>`}
+    <button class="btn" style="margin-top:9px" data-go="newgroup">${I.plus} New group</button></div>`;
+}
+
+function dayofTab() {
+  const needs = G().filter(g=>g.selfJoin).length;
+  const desks = [
+    [I.check,'Check-in desk','Scan a QR or tick a name as they arrive.', ''],
+    [I.alert,'Unlisted guests','Somebody joined by link and is not on your list.', needs?`${needs} needs you`:''],
+    [I.gift,'Souvenir table','Who has taken theirs.', ''],
+    [I.cup,'Tea ceremony','The serving order, by seniority.', '']
+  ];
+  return `<div class="grid2">${desks.map(([ic,h,p,b])=>`<div class="desk"><span class="ic">${ic}</span>
+    <div style="min-width:0"><h4>${h}</h4><p>${p}</p></div>${b?`<span class="badge">${b}</span>`:''}</div>`).join('')}</div>`;
+}
+
+function inviteTab() {
+  return `<div class="grid2">
+    <div class="card"><div style="display:flex;gap:12px;align-items:flex-start">
+      <span class="qr" aria-label="Join link QR"></span>
+      <div style="min-width:0"><h4 style="margin:0 0 2px;font-size:13px">One join link for everyone</h4>
+      <p class="hint" style="margin:0 0 7px">A guest opens it, types their name, and lands on your list. Share it once.</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn">Copy link</button><button class="btn">Download QR</button><button class="btn ghost">Regenerate</button></div></div></div></div>
+    <div class="card"><div style="display:flex;gap:12px;align-items:flex-start">
+      <span class="qr" aria-label="Event QR"></span>
+      <div style="min-width:0"><h4 style="margin:0 0 2px;font-size:13px">Event QR — for your crew</h4>
+      <p class="hint" style="margin:0 0 7px">A different QR. It pairs your photo and livestream suppliers' capture devices to this event — never give it to a guest.</p>
+      <div style="display:flex;gap:6px"><button class="btn">Download</button><button class="btn ghost">Rotate</button></div></div></div></div>
+    <div class="card" style="grid-column:1/-1"><h4 style="margin:0 0 2px;font-size:13px">Each guest also has their own QR</h4>
+      <p class="hint" style="margin:0">It is on their card and in their detail page — that is what the check-in desk scans, and it is how a souvenir is marked taken.</p></div>
+  </div>`;
+}
+
+function marchHtml() {
+  if (!hasMarch()) return `<div class="empty"><b>No processional here.</b><br>A birthday's roles — host, VIP, family, guest, helper — walk down no aisle, so there is nothing to arrange.</div>`;
+  const specs = GROUPS.filter(s=>linesOf(s).length);
+  return `<div class="card wm"><h3>Wedding March</h3>
+    <p class="hint" style="margin:0">The order your invitation prints them in. A pair is one line.</p>
+    ${specs.map(spec=>{
+      const lines=linesOf(spec);
+      const placed=lines.some(ln=>ln.some(g=>g&&typeof g.order==='number'));
+      const cell=g=>g?`<span class="cell"><span>${full(g)}</span><small>${ROLE_LABEL[g.role]}${g.ceremonyOnly?' · ceremony only':''}</small></span>`:`<span class="cell blank" aria-label="left blank"></span>`;
+      return `<div class="grouplab"><b>${spec.label}</b>${placed?`<button class="hint" data-reset="${spec.key}" style="text-decoration:underline">Reset to surname</button>`:''}</div>
+      <ol>${lines.map((ln,i)=>`<li class="line ${state.held===spec.key+':'+i?'held':''}">
+        <span class="pos">${i+1}</span>
+        <button class="icon grip" data-grab="${spec.key}:${i}" aria-pressed="${state.held===spec.key+':'+i}" aria-label="Reorder line ${i+1}: press Space, then use the arrow keys">${I.grip}</button>
+        <span class="cells">${cell(ln[0])}${cell(ln[1])}</span>
+        <span class="ctl"><button class="icon" data-move="${spec.key}:${i}:-1" aria-label="Move up" ${i===0?'disabled':''}>${I.up}</button>
+        <button class="icon" data-move="${spec.key}:${i}:1" aria-label="Move down" ${i===lines.length-1?'disabled':''}>${I.down}</button></span></li>`).join('')}</ol>`;
+    }).join('')}
+    <div class="foot"><span>Order is the line's; a chair is the person's — the seat plan is untouched.</span>
+      <button class="btn" data-tab="print">Print this</button></div></div>`;
+}
+function printHtml() {
+  if (!hasMarch()) return `<div class="empty">A birthday prints no entourage.</div>`;
+  return `<div style="margin-bottom:8px"><button class="btn" data-tab="march">← Back to the Wedding March</button></div>
+  <div class="sheet"><h3>The Entourage</h3><p class="sub-h">as the invitation prints it · two columns, paired across · a blank stays blank</p>
+  ${GROUPS.filter(s=>linesOf(s).length).map(spec=>`<div class="pg"><h4>${spec.label}</h4><div class="pl">${
+    linesOf(spec).map(ln=>`<span>${ln[0]?full(ln[0]):'<span class="blank">—</span>'}</span><span class="r">${ln[1]?full(ln[1]):'<span class="blank">—</span>'}</span>`).join('')
+  }</div></div>`).join('')}</div>`;
+}
+
+function drawer() {
+  if (!state.open) return '';
+  const g = byId(state.open); if (!g) return '';
+  const p = g.pair && byId(g.pair);
+  return `<div class="drawer"><div style="display:flex;gap:10px;align-items:center">${avatar(g)}
+    <div style="flex:1;min-width:0"><p style="margin:0;font-weight:600">${full(g)}</p>
+      <span class="hint">${ROLE_LABEL[g.role]}${p?` · walks with ${p.first} ${p.last}`:''}</span></div>
+    <button class="btn ghost" data-open="">Close</button></div>
+    <dl><dt>Side</dt><dd>${g.side==='bride'?"Bride's":g.side==='groom'?"Groom's":'Both'}</dd>
+      <dt>RSVP</dt><dd>${RSVP[g.rsvp][0]}</dd><dt>Meal</dt><dd>${g.meal||'—'}</dd>
+      <dt>Seat</dt><dd>${g.ceremonyOnly?'— · ceremony only':(g.seat||(g.sug?'~'+g.sug:'—'))}</dd>
+      <dt>Groups</dt><dd>${g.groups.join(', ')||'—'}</dd>
+      <dt>Invited to</dt><dd>${g.ceremonyOnly?'Ceremony':'Ceremony · Reception'}</dd>
+      <dt>QR</dt><dd><button style="text-decoration:underline">their code</button></dd></dl>
+    <p class="hint" style="margin:9px 0 0">Every chip here edits in place — side, role, RSVP, group. The same editors the row uses.</p></div>`;
+}
+
+/* The one thing on this list that is waiting on a person, said where the list
+   is — not behind a tab. The rest of the strip (not invited · no RSVP · no
+   seat) is the same shape and is what should replace the old phase rail. */
+function needsYou() {
+  const n = G().filter(g=>g.selfJoin).length;
+  if (!n) return '';
+  return `<div class="needs-strip">${I.alert}
+    <span><b>${n}</b> joined by your link and ${n===1?'is':'are'} not on your list yet.</span>
+    <button class="btn" style="margin-left:auto">Review</button></div>`;
+}
+
+function tabs() {
+  /*
+    ⚖ FOUR TABS, NOT SEVEN. Only these are VIEWS of the list; the rest were jobs
+    wearing a tab's clothes:
+      · Groups is a FILTER — it is in the filter popup, where filters live.
+      · Import is a way to ADD — it is on the + Add row, with the form and People.
+      · Print is an OUTPUT of the Wedding March — it is a button inside it.
+    Each removal is a door taken away, never a capability.
+  */
+  /*
+    ⚖ DAY-OF IS GONE, and it was mine to begin with. Its four desks failed the
+    only test that matters — WHO operates this, and WHEN:
+      · Check-in desk and Souvenir table are run on the night, usually by a
+        coordinator with a phone. They belong to the Event Hub Controller with
+        the live wall and going live. That they WRITE to guest rows is not an
+        argument for living here; where a tool lives follows its user, not its
+        table.
+      · Unlisted guests is not day-of at all — somebody joins by link weeks
+        before and a decision waits on you. It is a NEEDS-YOU line on the
+        roster, where it already appears as a row.
+      · Tea ceremony is a preparation document, not a desk, and is gated to
+        Chinese weddings — it belongs beside the Wedding March.
+  */
+  const t = [['roster','Roster']];
+  if (hasMarch()) t.push(['march','Wedding March']);
+  t.push(['share','Share the link']);
+  /*
+    ⚖ ONE ROW. The old header row — Invite guests · Arrange the room · Wedding
+    March — was the tab row again: Wedding March sat in BOTH, and "Invite
+    guests" and "Invite & QR" were the same door named twice.
+
+    🔑 ONLY ONE OF THEM LEAVES. Arrange the room is the seat plan: a different
+    page, not a view of this list. So it is not a peer of the tabs — it sits
+    apart at the end, with the ↗ that says you are going somewhere.
+  */
+  return `<div class="tabrow">
+    <div class="tabswrap"><div class="tabs">${t.map(([k,l])=>`<button data-tab="${k}" aria-selected="${state.tab===k}">${k==='march'?I.march:''}${l}</button>`).join('')}</div></div>
+    <span class="leaves" title="Arrange the room" aria-label="Arrange the room">${I.seatIcon}<span class="lbl">Arrange the room <span aria-hidden>↗</span></span></span>
+  </div>`;
+}
+
+function body(isPhone) {
+  if (state.tab==='roster') return needsYou() + (state.toast?`<div class="toast">${I.undo}<span>${state.toast}</span><button data-undo>Undo</button></div>`:'')
+    + selbar() + (isPhone?phoneRoster():rosterTable()) + drawer();
+  if (state.tab==='groups') return groupsTab();
+  if (state.tab==='dayof') return dayofTab();
+  if (state.tab==='import') return importTab();
+  if (state.tab==='share' || state.tab==='invite') return inviteTab();
+  if (state.tab==='print') return printHtml();
+  return marchHtml();
+}
+
+function render() {
+  document.getElementById('flash').textContent = state.flash;
+  const mast = `<div class="mast"><h2>Guests</h2><span class="count">${G().length} guests${hasMarch()?` · ${G().filter(g=>g.pair).length/2} pairs`:''}</span></div>`;
+  // The meters ride with the roster, not with the page: they measure the LIST,
+  // and on the Wedding March tab they would be describing a screen that is not
+  // showing it.
+  const chrome = state.tab==='roster' ? meters() + findRow() : '';
+  document.getElementById('desktop').innerHTML = mast + tabs() + chrome + body(false);
+  document.getElementById('phone').innerHTML =
+    `<div class="mast"><h2>Guests</h2><span class="count">${G().length}</span></div>` +
+    tabs() + chrome + body(true);
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-groupby],[data-sortby],[data-arr],[data-collapse],[data-host],[data-tab],[data-ev],[data-pair],[data-unpair],[data-clear],[data-apply],[data-remove],[data-move],[data-reset],[data-grab],[data-f],[data-clearf],[data-clearq],[data-menu],[data-go],[data-open],[data-undo],[data-filters],[data-isolate],[data-sortpick],[data-adding]');
+  /* A click on nothing closes every popup — EXCEPT one inside the arrange
+     sheet, whose whole job is to take several ticks in a row. */
+  if (!t) {
+    if (state.arr && e.target.closest('.menu.arr')) return;
+    if (state.menu||state.filters||state.arr) { state.menu=false; state.filters=false; state.arr=false; render(); }
+    return; }
+  const d = t.dataset;
+  if (d.ev!==undefined && d.ev) { state.ev=d.ev; state.selected.clear(); state.open=null; state.f={side:'all',rsvp:'all',view:'all',group:'all'}; state.q=''; state.flash='';
+    if (!hasMarch() && (state.tab==='march'||state.tab==='print')) state.tab='roster';
+    document.querySelectorAll('[data-ev]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.ev===state.ev))); render(); return; }
+  if (d.tab) { state.tab=d.tab; state.menu=false; render(); return; }
+  if (d.menu!==undefined) { state.menu=!state.menu; render(); return; }
+  if (d.go) { state.menu=false; state.flash = d.go==='newgroup' ? 'New group — names it, picks a side, done.'
+      : d.go==='people' ? 'Add from People — guests of your other events, your People page, and your samahan. Pick a samahan to bring the whole barkada in at once.'
+      : d.go==='template' ? 'template.csv downloaded — the columns we need, ready to fill in.'
+      : d.go==='invite' ? 'Invite link & QR' : `${d.go==='quick'?'Quick add guests':d.go==='new'?'Add guest — full form':'Import guests · CSV'} opens as its own screen.`;
+    if (d.go==='invite') state.tab='invite'; render(); return; }
+  if (d.open!==undefined) { state.open = d.open || null; render(); return; }
+  if (d.adding!==undefined) {
+    state.adding = d.adding==='1'; state.filters=false;
+    /* Flip the class in place so the CSS can run. A re-render would replace the
+       nodes mid-transition, and a replaced node does not animate — it appears. */
+    document.querySelectorAll('#switchrow').forEach(r => {
+      r.classList.toggle('adding', state.adding);
+      const box = r.querySelector(state.adding?'#addbox':'#q');
+      if (box) setTimeout(()=>box.focus(), 120);
+    });
+    return;
+  }
+  if (d.filters!==undefined) { state.filters=!state.filters; render(); return; }
+  if (d.arr!==undefined) { state.arr=!state.arr; render(); return; }
+  /* Ticking ADDS a level at the end — the order you tick is the order they
+     nest, which is the only reading of "then we check which ones we want"
+     that survives a second tick. Unticking removes just that level. */
+  if (d.groupby) { const k=d.groupby, i=state.groups.indexOf(k);
+    if (i===-1) state.groups=[...state.groups,k]; else state.groups=state.groups.filter(x=>x!==k);
+    state.flash = state.groups.length
+      ? `Grouped by ${arrangeSpec(state.groups[0]).label}${state.groups.length>1?`, ordered by ${state.groups.slice(1).map(x=>arrangeSpec(x).label).join(', then ')} inside each`:''}.`
+      : 'Grouping off — one list.';
+    render(); return; }
+  if (d.sortby) { state.sort=d.sortby; state.filters=false; state.arr=false;
+    state.flash=`Sorted by ${d.sortby==='importance'?'importance':arrangeSpec(d.sortby).label}.`; render(); return; }
+  if (d.collapse) { state.collapsed.has(d.collapse) ? state.collapsed.delete(d.collapse) : state.collapsed.add(d.collapse); render(); return; }
+  if (d.host) { const on=d.host==='on', ids=[...state.selected];
+    ids.forEach(i=>{byId(i).host=on});
+    state.selected.clear();
+    state.flash = on
+      ? `${ids.length} ${ids.length===1?'guest is':'guests are'} part of the host now.`
+      : `${ids.length} ${ids.length===1?'guest is':'guests are'} no longer part of the host.`;
+    render(); return; }
+  if (d.isolate) { state.f.view = state.f.view===d.isolate ? 'all' : d.isolate; render(); return; }
+  if (d.sortpick) { state.sort=d.sortpick; state.filters=false; render(); return; }
+  if (d.f) { const [k,v]=d.f.split(':'); state.f[k]=v; if (k==='group'&&state.tab==='groups') state.tab='roster'; render(); return; }
+  if (d.clearf!==undefined) { state.f={side:'all',rsvp:'all',view:'all',group:'all'}; render(); return; }
+  if (d.clearq!==undefined) { state.q=''; render(); return; }
+  if (d.clear!==undefined) { state.selected.clear(); state.flash=''; render(); return; }
+  if (d.apply!==undefined) { const n=state.selected.size; state.selected.clear(); state.flash=`Role assigned to ${n} guest${n===1?'':'s'}. Selection cleared.`; render(); return; }
+  if (d.remove!==undefined) { const n=state.selected.size; state.selected.clear(); state.toast=`Removed ${n} guest${n===1?'':'s'} · seats opened up.`; render(); return; }
+  if (d.undo!==undefined) { state.toast=''; state.flash='Put back.'; render(); return; }
+  if (d.pair!==undefined) { const [a,b]=[...state.selected].map(byId); a.pair=b.id; b.pair=a.id; state.selected.clear(); state.flash='Paired — they walk in together. Selection cleared.'; render(); return; }
+  if (d.unpair) { const g=byId(d.unpair); const p=g.pair&&byId(g.pair); g.pair=null; if(p)p.pair=null; state.flash='Pair removed.'; render(); return; }
+  if (d.move) { const [k,i,dir]=d.move.split(':'); if (moveLine(GROUPS.find(s=>s.key===k),+i,+dir)) { state.flash='Wedding March saved.'; render(); } return; }
+  if (d.reset) { const spec=GROUPS.find(s=>s.key===d.reset); G().forEach(g=>{if(spec.roles.includes(g.role))delete g.order}); state.flash='Back to surname order.'; render(); return; }
+  if (d.grab) { state.held = state.held===d.grab ? null : d.grab; render(); return; }
+});
+document.addEventListener('input', e => {
+  if (e.target.id==='q'||e.target.id==='q2') { state.q=e.target.value; const id=e.target.id; render();
+    const box=document.getElementById(id); if (box){box.focus();box.setSelectionRange(box.value.length,box.value.length);} }
+});
+document.addEventListener('change', e => {
+  const c=e.target.closest('[data-sel]'); if (c) { c.checked?state.selected.add(c.dataset.sel):state.selected.delete(c.dataset.sel); state.flash=''; render(); return; }
+  const s=e.target.closest('[data-sort]'); if (s) { state.sort=s.value; state.flash=`Sorted by ${s.value}.`; render(); }
+});
+document.addEventListener('keydown', e => {
+  const g=e.target.closest('[data-grab]'); if (!g) return;
+  const [k,i]=g.dataset.grab.split(':'); const spec=GROUPS.find(s=>s.key===k);
+  if (e.key===' '||e.key==='Enter'){e.preventDefault();state.held=state.held===g.dataset.grab?null:g.dataset.grab;render();return}
+  if (e.key==='Escape'){e.preventDefault();state.held=null;render();return}
+  if (state.held===g.dataset.grab&&(e.key==='ArrowUp'||e.key==='ArrowDown')){e.preventDefault();
+    const d=e.key==='ArrowUp'?-1:1;
+    if (moveLine(spec,+i,d)){state.held=k+':'+(+i+d);state.flash='Line moved.';render();
+      const b=document.querySelector(`#desktop [data-grab="${state.held}"]`); if(b)b.focus();}}
+});
+
+const NOTES = [
+  ['1 · One row does finding and adding, and finding is the resting state','⚖ Owner: "a magnifying icon to show search and filter? then (+) button to switch to adding so they can share 1 row?" — yes, with the default on FIND. The two are not symmetrical: a search in the wrong mode finds nothing and Escape undoes it, while an add in the wrong mode puts a real person on somebody\'s wedding list. You cannot write into the list while looking through it.'],
+  ['2 · The box IS quick add','A separate "Quick add" button named the same verb twice. What the box cannot do is a long form and a file — so those are the only two extra doors, as icons on the box, with Add from People beside them.'],
+  ['3 · Filters hide; filter STATE never does','Twenty pills became one icon. But every filter that is ON stays on the row as a chip you can drop, and the count reads <b>7 of 14</b>, not <b>7</b>. A filter you cannot see is a filter that lies to you — you narrow the list, get distracted, and tomorrow 79 guests look like six.'],
+  ['4 · Four tabs, not seven','Only these are VIEWS of the list. Groups is a filter, so it is in the filter popup. Import is a way to add, so it is on the Add row. Print is an output of the Wedding March, so it is a button inside it. Every removal is a door taken away, never a capability.'],
+  ['5 · A role group is not in the filter popup','Tap its heading in the list — Parents, Principal Sponsors — to isolate it. The list already prints those headings, so the widest filter row in the old design was a second way to do what a heading could.'],
+  ['6 · One roster, every width','The phone shows the same rows — the photo-card grid and its <code>?density=grid</code> toggle are gone. Two layouts meant two places to fix a bug.'],
+  ['7 · One thing in a row carries colour','Only the role, in the couple\'s own mood-board colour, as text. Side is a 2px edge <em>plus</em> a word — colour alone is not a label. Groups, meal, seat and RSVP are text; RSVP keeps a tone dot.'],
+  ['8 · A pair is two rows here, one line there','Rosa can decline while Ramon attends, and the roster shows exactly that — which is why no column is removed. The pair collapses to one line only where the pair is the unit: the Wedding March and the print.'],
+  ['9 · Two orderings, never one','The march orders the <em>line</em> (<code>entourage_order</code>, both halves equal). The seat plan orders the <em>chair</em>. Moving a pair never moves a chair — so the march shows no seat, and the roster keeps its Seat column.'],
+  ['10 · "Share the link", not "Invite"','It sends nothing. The couple shares one link or QR; a guest opens it, types their own name, and is auto-matched — or becomes a request to confirm, which is the "needs you" row. The guest never sees the list, which is the whole security of it: browsing would publish every name to anyone holding the link.'],
+  ['11 · The edges are on screen','A ceremony-only sponsor walks, prints, and has no chair. A plus-one that is only a name string cannot walk until promoted to a row. A linked account supplies a photo; everyone else shows initials. Switch to Birthday and the Wedding March is not offered at all.'],
+  ['12 · Still left out, on purpose','The Build ▸ Invite ▸ Confirm ▸ Seat ▸ Day-of phase rail and the mind map. The rail duplicates these tabs; the mind map is another way of SEEING the same list rather than a job. If the rail comes back, it should come back as a "needs you" strip — <b>3 joined by link · 12 not invited · 9 no RSVP · 5 attending, no seat</b> — where every number is a filter you can click, which is the question a couple actually has.']
+];
+/* Keep the fades honest: they show only where there is actually more to reach. */
+function markOverflow() {
+  document.querySelectorAll('.tabswrap').forEach(w => {
+    const t = w.querySelector('.tabs'); if (!t) return;
+    const max = t.scrollWidth - t.clientWidth;
+    w.classList.toggle('more-left', t.scrollLeft > 2);
+    w.classList.toggle('more-right', max > 2 && t.scrollLeft < max - 2);
+  });
+}
+document.addEventListener('scroll', e => { if (e.target.classList && e.target.classList.contains('tabs')) markOverflow(); }, true);
+window.addEventListener('resize', markOverflow);
+const _render = render;
+render = function(){ _render(); requestAnimationFrame(markOverflow); };
+
+document.getElementById('notes').innerHTML = NOTES.map(([h,p])=>`<div class="note"><h4>${h}</h4><p>${p}</p></div>`).join('');
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What changes — event dashboard, editorial brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!--
+  WHAT CHANGES — the event dashboard under the editorial brief · 2026-09-24
+  Owner: "i just want to see the improvements that will be made."
+
+  So this is the DELTA SHEET, not the build. Eight changes, each rendered for real
+  on BOTH sides — left is the shipped/approved treatment, right is what the brief
+  produces. Nothing here is described in prose that could instead be shown.
+
+  ⚠ IT OVERRIDES THREE APPROVED DRAWINGS, on the owner's explicit call. He was shown
+  that overview_FINAL, your_team_FINAL and guestlist-v2 are all built on the bordered
+  rows this brief bans, and chose the whole dashboard anyway.
+
+  🔑 ZERO JAVASCRIPT. The brief asks for live interactivity; the owner's viewer does not
+  run script, so a JS build would show him one state and dead controls. Every control is
+  CSS: radios + `~` for the viewport simulator, checkbox+label for panels, and
+  :hover AND :focus-within for tooltips so a TAP opens them on touch.
+
+  REAL DATA — event 044f7e64, same wedding as the approved prototypes:
+  Indalecio & Claire · Fri 18 Dec 2026 · NCR · 87 days · 81 guests · 4 attending ·
+  77 to reply · ₱26,499 committed of ₱2,250,000 · 2 locked · 2 to lock · Papic 100,050.
+  No SKU price is printed — those live in platform_retail_catalog_v2.
+-->
+<style>
+:root{
+  --ink:#171512; --ink-2:#4A453D; --ink-3:#7C756A; --ink-4:#A79F91;
+  --gold:#9A7739; --gold-2:#C4A063; --gold-wash:rgba(154,119,57,.09);
+  --cta:#BE4A22; --ok:#4C6B45; --warn:#A9701F; --late:#AD4F31;
+  --late-wash:rgba(173,79,49,.10); --ok-wash:rgba(76,107,69,.10);
+  --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:'Space Mono',ui-monospace,Menlo,monospace;
+  --lift-1:0 1px 2px rgba(23,21,18,.04), 0 2px 8px -4px rgba(23,21,18,.10);
+  --lift-2:0 2px 6px rgba(23,21,18,.05), 0 14px 34px -18px rgba(23,21,18,.26);
+  --lift-3:0 4px 12px rgba(23,21,18,.07), 0 34px 70px -28px rgba(23,21,18,.38);
+  --ease:cubic-bezier(.22,.61,.36,1); --t:300ms;
+  /* the OLD language, quoted exactly so the left side is honest */
+  --o-line:#E6E0D6; --o-line-2:#F1ECE3; --o-paper:#FBFAF7; --o-ink:#2C2A29; --o-ink-2:#4F535B; --o-ink-3:#767A82;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{
+  font-family:var(--sans); color:var(--ink); font-size:16px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(1200px 780px at 8% -6%, rgba(201,167,102,.13), transparent 60%),
+    radial-gradient(980px 700px at 102% 8%, rgba(190,74,34,.07), transparent 58%),
+    radial-gradient(900px 900px at 50% 118%, rgba(76,107,69,.07), transparent 62%),
+    linear-gradient(176deg,#FCFAF6 0%,#F7F3EC 52%,#F4EFE6 100%);
+  /* No `background-attachment:fixed`. Four large radial gradients pinned to the
+     viewport are a documented scroll-jank cost on mobile Safari, and the owner reviews
+     on a phone; the gradient is near-static, so nothing is lost by dropping it.
+     ⚠ RETRACTION, SAME SESSION: I first removed this because two screenshots came back
+     solid black and I blamed the compositor. That was WRONG. `elementFromPoint` showed a
+     healthy DOM, and the tell was that `.sim` — `position:fixed; top:14px` — was drawn
+     77% DOWN the captured image. The black was the pane's own backdrop around a page
+     smaller than the emulated viewport. A capture artifact, not a paint bug. The reason
+     above stands on its own; the one I originally wrote here did not. */
+  min-height:100%;
+}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.025em;line-height:1.06}
+p{margin:0}
+input[type=radio],input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
+.k{transition:transform var(--t) var(--ease),opacity var(--t) var(--ease),color var(--t) var(--ease),
+   background var(--t) var(--ease),box-shadow var(--t) var(--ease);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.k:active{transform:scale(.972)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:1ms!important}}
+
+/* ─── the simulator ─── */
+.sim{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;display:flex;align-items:center;
+  gap:3px;padding:6px;background:rgba(23,21,18,.76);backdrop-filter:blur(22px) saturate(1.7);
+  -webkit-backdrop-filter:blur(22px) saturate(1.7);border-radius:999px;box-shadow:var(--lift-3);max-width:96vw;flex-wrap:wrap;justify-content:center}
+.sim .tag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.17em;text-transform:uppercase;
+  color:rgba(255,250,242,.42);padding:0 8px 0 10px;white-space:nowrap}
+.sim label{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 13px;border-radius:999px;
+  font-size:12px;font-weight:500;color:rgba(255,250,242,.74);white-space:nowrap}
+.sim label:hover{color:#FFFDF9;background:rgba(255,253,250,.10)}
+.sim label .d{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.38;transition:opacity var(--t)}
+#v-mob:checked ~ .sim label[for=v-mob],#v-tp:checked ~ .sim label[for=v-tp],
+#v-tl:checked ~ .sim label[for=v-tl],#v-dk:checked ~ .sim label[for=v-dk]{background:#FFFDF9;color:#171512;font-weight:700}
+#v-mob:checked ~ .sim label[for=v-mob] .d,#v-tp:checked ~ .sim label[for=v-tp] .d,
+#v-tl:checked ~ .sim label[for=v-tl] .d,#v-dk:checked ~ .sim label[for=v-dk] .d{opacity:1;background:var(--cta)}
+
+/* ─── page ─── */
+.wrap{max-width:1180px;margin:0 auto;padding:92px clamp(18px,4vw,34px) 120px}
+.lede{max-width:660px;margin-bottom:clamp(38px,6vw,64px)}
+.eyebrow{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+.lede h1{font-size:clamp(34px,6.4vw,60px);font-weight:300;margin:14px 0 0;letter-spacing:-.035em}
+.lede h1 b{font-weight:700}
+.lede .sub{margin-top:16px;font-size:15px;color:var(--ink-2);line-height:1.5}
+
+/* ─── one delta ─── */
+.delta{margin:0 0 clamp(46px,7vw,86px)}
+.dh{display:flex;align-items:flex-start;gap:16px;margin-bottom:22px}
+.dn{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--gold-2);padding-top:7px;letter-spacing:.06em}
+.dh h2{font-size:clamp(20px,3vw,27px);font-weight:600;max-width:15ch}
+.dh .why{margin-top:7px;font-size:13.5px;color:var(--ink-3);max-width:52ch;line-height:1.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2.4vw,26px);align-items:start}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.side{min-width:0}
+.slab{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.slab.now{color:var(--ink-4)}
+.slab.new{color:var(--cta)}
+.slab i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}
+/* the NOW pane is rendered in the shipped language, borders and all */
+.now-pane{border:1px solid var(--o-line);border-radius:14px;background:#fff;padding:14px;font-size:14px;color:var(--o-ink)}
+.now-pane .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}
+.now-pane .row + .row{border-top:1px solid var(--o-line-2)}
+.now-pane .t{font-weight:600;display:block}
+.now-pane .s{font-size:12.5px;color:var(--o-ink-2);display:block;margin-top:1px}
+.now-pane .v{font-family:var(--mono);font-size:12px;color:var(--o-ink-3);white-space:nowrap}
+.now-pane h4{margin:0 0 8px;font-size:16px;font-weight:600;color:var(--o-ink)}
+.now-pane .para{font-size:13px;color:var(--o-ink-2);line-height:1.5;margin-top:6px}
+.now-pane .kpi{border:1px solid var(--o-line);border-radius:10px;background:var(--o-paper);padding:10px 12px}
+.now-pane .kpi .n{font-family:var(--mono);font-size:21px;font-weight:700}
+.now-pane .kpi .l{font-size:11.5px;color:var(--o-ink-2);margin-top:2px}
+/* the NEW pane: no border, no box, no fill — space and scale only */
+.new-pane{padding:16px 6px;font-size:14px}
+
+/* ═══ the new language ═══ */
+.ed-eyebrow{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-4)}
+.ed-num{font-weight:300;letter-spacing:-.05em;line-height:.88;font-size:clamp(46px,8vw,76px);
+  font-variant-numeric:tabular-nums}
+.ed-num.sm{font-size:clamp(32px,5vw,46px)}
+.ed-unit{font-size:14px;font-weight:500;color:var(--ink-3);letter-spacing:0}
+.ed-stack{display:flex;flex-direction:column;gap:clamp(22px,3vw,34px)}
+.ed-line{display:flex;align-items:baseline;gap:14px;padding:11px 0;position:relative}
+.ed-line .lt{font-size:15.5px;font-weight:500}
+.ed-line .ls{font-size:12.5px;color:var(--ink-3)}
+.ed-line .lv{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--ink-4);white-space:nowrap}
+/* separation WITHOUT a rule: a press-reveal wash, and weight */
+.ed-line::before{content:"";position:absolute;inset:2px -14px;border-radius:12px;background:transparent;
+  transition:background var(--t) var(--ease);z-index:-1}
+.ed-line:hover::before{background:rgba(154,119,57,.055)}
+.ed-rank{font-family:var(--mono);font-size:10.5px;color:var(--gold-2);width:18px;flex:none}
+/* a meter that is a line of type, not a progress bar in a box */
+.ed-meter{height:2px;background:rgba(23,21,18,.09);border-radius:2px;overflow:hidden;margin-top:14px}
+.ed-meter i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));
+  transition:width 900ms var(--ease)}
+.ed-chip{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase}
+.ed-chip.late{color:var(--late)} .ed-chip.ok{color:var(--ok)} .ed-chip.warn{color:var(--warn)}
+
+/* ═══ 2 · TOOLTIP — hover on desktop, TAP on touch (focus-within) ═══ */
+.ttw{position:relative;display:inline-flex;vertical-align:middle;margin-left:7px}
+.tti{width:17px;height:17px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:700;color:var(--ink-4);
+  background:rgba(23,21,18,.065);transition:all var(--t) var(--ease);cursor:help;
+  -webkit-tap-highlight-color:transparent}
+.ttw:hover .tti,.ttw:focus-within .tti{background:var(--ink);color:#FFFDF9;transform:scale(1.12)}
+.tt{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%) translateY(5px) scale(.97);
+  width:min(252px,72vw);padding:11px 13px;border-radius:13px;z-index:90;
+  background:rgba(23,21,18,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  color:rgba(255,252,247,.93);font-size:12.5px;line-height:1.5;
+  /* ⚠ the (i) usually sits INSIDE an .ed-eyebrow, which is uppercase + .18em tracked.
+     Without these four resets the tooltip renders as shouted, spaced caps — caught in
+     the 1440 screenshot, not in the source. A tooltip inherits its host's type. */
+  text-transform:none;letter-spacing:.002em;font-weight:400;font-family:var(--sans);text-align:left;
+  box-shadow:var(--lift-3);opacity:0;pointer-events:none;
+  transition:opacity var(--t) var(--ease),transform var(--t) var(--ease)}
+.tt b{color:#fff}
+.tt::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:rgba(23,21,18,.94)}
+.ttw:hover .tt,.ttw:focus-within .tt{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+
+/* ═══ 8 · THE SPECIMEN — four viewports, one DOM ═══ */
+.spec{margin-top:clamp(20px,3vw,32px)}
+.frame{
+  --w:1680px;
+  width:var(--w);max-width:100%;margin:0 auto;position:relative;
+  border-radius:clamp(14px,2vw,22px);overflow:hidden;
+  background:linear-gradient(174deg,#FDFBF8,#F6F1E9);
+  box-shadow:var(--lift-3);transition:width var(--t) var(--ease)}
+#v-mob:checked ~ .wrap .frame{--w:390px}
+#v-tp:checked  ~ .wrap .frame{--w:834px}
+#v-tl:checked  ~ .wrap .frame{--w:1180px}
+#v-dk:checked  ~ .wrap .frame{--w:1560px}
+.vpn{text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.07em;color:var(--ink-4);margin:0 0 12px}
+#v-mob:checked ~ .wrap .vpn::after{content:"MOBILE PORTRAIT 390 — app shell · sticky head · glass bottom bar · one dense column"}
+#v-tp:checked  ~ .wrap .vpn::after{content:"TABLET PORTRAIT 834 — icon rail + one centred canvas, nothing stretched"}
+#v-tl:checked  ~ .wrap .vpn::after{content:"TABLET LANDSCAPE / UNFOLDED 1180 — master · detail, inspector pinned right"}
+#v-dk:checked  ~ .wrap .vpn::after{content:"WIDE DESKTOP 1680 — editorial scale, deep whitespace, off-canvas panel"}
+
+/* shell pieces */
+.sh-top{display:flex;align-items:center;gap:12px;padding:15px clamp(16px,2.4vw,30px);
+  background:rgba(255,253,250,.66);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  position:sticky;top:0;z-index:20}
+.sh-top .bd{font-weight:700;letter-spacing:.2em;font-size:11px}
+.sh-top .sp{margin-left:auto;display:flex;align-items:center;gap:9px}
+.av{width:29px;height:29px;border-radius:50%;background:linear-gradient(140deg,var(--gold-2),var(--gold));
+  color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.body{display:grid;grid-template-columns:1fr;gap:0}
+#v-tp:checked ~ .wrap .body{grid-template-columns:92px 1fr}
+#v-tl:checked ~ .wrap .body{grid-template-columns:92px 1fr}
+#v-dk:checked ~ .wrap .body{grid-template-columns:264px 1fr}
+/* RAIL — hidden on mobile (the bottom bar is the nav), icons at tablet, full at desktop */
+.rail{display:none;flex-direction:column;gap:2px;padding:20px 12px}
+#v-tp:checked ~ .wrap .rail,#v-tl:checked ~ .wrap .rail,#v-dk:checked ~ .wrap .rail{display:flex}
+.rail a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:13px;font-size:14px;color:var(--ink-2)}
+.rail a:hover{background:rgba(154,119,57,.07)}
+.rail a.on{background:rgba(23,21,18,.055);color:var(--ink);font-weight:600}
+.rail a .ic{width:19px;text-align:center;font-size:15px;color:var(--ink-4);flex:none}
+.rail a.on .ic{color:var(--gold)}
+.rail a .n{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+.rail a .n.hot{background:var(--late);color:#fff;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700}
+.rail .lbl,.rail a .tx,.rail a .n{transition:opacity var(--t) var(--ease)}
+#v-tp:checked ~ .wrap .rail a .tx,#v-tl:checked ~ .wrap .rail a .tx,
+#v-tp:checked ~ .wrap .rail a .n,#v-tl:checked ~ .wrap .rail a .n,
+#v-tp:checked ~ .wrap .rail .lbl,#v-tl:checked ~ .wrap .rail .lbl{display:none}
+#v-tp:checked ~ .wrap .rail a,#v-tl:checked ~ .wrap .rail a{justify-content:center;padding:13px 0}
+.rail .lbl{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--ink-4);padding:16px 12px 7px}
+/* MAIN + the master/detail split that only exists at ≥1180 */
+.main{padding:clamp(20px,3vw,44px) clamp(18px,2.6vw,46px) 30px;min-width:0}
+.split{display:grid;grid-template-columns:1fr;gap:clamp(24px,3vw,44px);align-items:start}
+#v-tl:checked ~ .wrap .split{grid-template-columns:minmax(0,1fr) minmax(230px,29%)}
+#v-dk:checked ~ .wrap .split{grid-template-columns:minmax(0,1fr) minmax(260px,26%)}
+/* BOTTOM BAR — mobile only, glass, five tabs, no sixth circle */
+.bbar{display:none;position:sticky;bottom:12px;margin:8px 14px 14px;padding:7px;
+  background:rgba(255,253,250,.74);backdrop-filter:blur(20px) saturate(1.6);
+  -webkit-backdrop-filter:blur(20px) saturate(1.6);border-radius:999px;box-shadow:var(--lift-2);
+  grid-template-columns:repeat(5,1fr);z-index:20}
+#v-mob:checked ~ .wrap .bbar{display:grid}
+.bbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border-radius:999px;
+  font-size:9.5px;color:var(--ink-3);position:relative}
+.bbar a.on{background:rgba(23,21,18,.07);color:var(--ink);font-weight:700}
+.bbar a .ic{font-size:15px;line-height:1}
+.bbar a .bdg{position:absolute;top:3px;right:calc(50% - 20px);background:var(--late);color:#fff;
+  font-family:var(--mono);font-size:8.5px;font-weight:700;border-radius:999px;padding:0 4px;line-height:13px}
+/* the off-canvas inspector — checkbox driven, slides, dims the page */
+.scrim{position:absolute;inset:0;background:rgba(23,21,18,.34);backdrop-filter:blur(2px);opacity:0;
+  pointer-events:none;transition:opacity var(--t) var(--ease);z-index:40}
+.panel{position:absolute;top:0;bottom:0;right:0;width:min(430px,86%);z-index:50;
+  background:rgba(255,254,252,.96);backdrop-filter:blur(26px) saturate(1.6);
+  -webkit-backdrop-filter:blur(26px) saturate(1.6);box-shadow:-14px 0 54px -22px rgba(23,21,18,.5);
+  transform:translateX(102%);transition:transform 420ms var(--ease);padding:26px 24px;overflow:auto}
+#pnl:checked ~ .wrap .scrim{opacity:1;pointer-events:auto}
+#pnl:checked ~ .wrap .panel{transform:translateX(0)}
+/* on a phone the same panel arrives from the bottom, as a native sheet would */
+#v-mob:checked ~ .wrap .panel{top:auto;left:0;width:100%;height:76%;border-radius:22px 22px 0 0;
+  transform:translateY(102%);box-shadow:0 -14px 54px -22px rgba(23,21,18,.5)}
+#v-mob:checked ~ #pnl:checked ~ .wrap .panel{transform:translateY(0)}
+.pill{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 17px;border-radius:999px;
+  background:var(--ink);color:#FFFDF9;font-size:13px;font-weight:600;box-shadow:var(--lift-1)}
+.pill.cta{background:var(--cta)}
+.pill.quiet{background:rgba(23,21,18,.055);color:var(--ink)}
+.pill:hover{box-shadow:var(--lift-2);transform:translateY(-1px)}
+.foot{max-width:660px;margin:clamp(40px,6vw,70px) auto 0;font-size:13.5px;color:var(--ink-3);line-height:1.6}
+.foot b{color:var(--ink)}
+.foot code{font-family:var(--mono);font-size:11.5px;background:rgba(23,21,18,.05);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<input type="radio" name="v" id="v-mob"><input type="radio" name="v" id="v-tp"><input type="radio" name="v" id="v-tl"><input type="radio" name="v" id="v-dk" checked>
+<input type="checkbox" id="pnl">
+
+<div class="sim">
+  <span class="tag">Viewport</span>
+  <label class="k" for="v-mob"><i class="d"></i>Mobile</label>
+  <label class="k" for="v-tp"><i class="d"></i>Tablet P</label>
+  <label class="k" for="v-tl"><i class="d"></i>Tablet L</label>
+  <label class="k" for="v-dk"><i class="d"></i>Desktop</label>
+</div>
+
+<div class="wrap">
+
+  <div class="lede">
+    <span class="eyebrow">Event dashboard · the delta</span>
+    <h1>What <b>changes</b>, and what it costs.</h1>
+    <p class="sub">Seven changes, each rendered on both sides — left is what ships today, right is what the brief produces. The eighth is the whole thing at four viewports, live at the top of the page.</p>
+  </div>
+
+  <!-- ══ 1 ══ -->
+  <div class="delta">
+    <div class="dh"><span class="dn">01</span><div>
+      <h2>Boxes become a field</h2>
+      <p class="why">Same four decisions, same words. The border, the fill and the radius carried none of the meaning — rank, weight and space carry it instead, so the eye lands on the urgent one first rather than on four equal rectangles.</p>
+    </div></div>
+    <div class="two">
+      <div class="side"><div class="slab now"><i></i>Ships today</div>
+        <div class="now-pane">
+          <h4>Decisions waiting on you</h4>
+          <p class="para">Ranked by what closes soonest.</p>
+          <div style="margin-top:10px">
+            <div class="row"><span><span class="t">Lock your coordinator</span><span class="s">Most urgent · the date needs a name on it</span></span><span class="v">›</span></div>
+            <div class="row"><span><span class="t">Approve the caterer’s quote</span><span class="s">Sent 4 days ago</span></span><span class="v">₱[amount]</span></div>
+            <div class="row"><span><span class="t">Two things land at 8:00 AM</span><span class="s">Hair &amp; makeup and vendor ingress</span></span><span class="v">›</span></div>
+            <div class="row"><span><span class="t">77 guests have not replied</span><span class="s">Send the reminder</span></span><span class="v">›</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="side"><div class="slab new"><i></i>Proposed</div>
+        <div class="new-pane">
+          <div style="display:flex;align-items:baseline;gap:12px">
+            <span class="ed-eyebrow">Waiting on you</span>
+            <span class="ed-eyebrow" style="color:var(--late)">4 open</span>
+            <span class="ttw" tabindex="0"><span class="tti">i</span><span class="tt"><b>Ranked by what closes soonest.</b> A decision moves up this list as its deadline nears, not as you add it.</span></span>
+          </div>
+          <div style="margin-top:18px">
+            <div class="ed-line k"><span class="ed-rank">01</span><span><span class="lt">Lock your coordinator</span><br><span class="ls">the date needs a name on it</span></span><span class="lv ed-chip late">most urgent</span></div>
+            <div class="ed-line k"><span class="ed-rank">02</span><span><span class="lt">Approve the caterer’s quote</span><br><span class="ls">sent 4 days ago</span></span><span class="lv">₱[amount]</span></div>
+            <div class="ed-line k"><span class="ed-rank">03</span><span><span class="lt">Two things land at 8:00&nbsp;AM</span><br><span class="ls">hair &amp; makeup · vendor ingress</span></span><span class="lv">clash</span></div>
+            <div class="ed-line k"><span class="ed-rank">04</span><span><span class="lt">77 guests have not replied</span><br><span class="ls">invitation sent 12 Sep</span></span><span class="lv">remind</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 2 ══ -->
+  <div class="delta">
+    <div class="dh"><span class="dn">02</span><div>
+      <h2>Explanations move into (i)</h2>
+      <p class="why">Every helper sentence on the page goes behind an info dot — present when asked for, invisible when not. Hover on a pointer, tap on a touch screen. Try the dots on the right.</p>
+    </div></div>
+    <div class="two">
+      <div class="side"><div class="slab now"><i></i>Ships today</div>
+        <div class="now-pane">
+          <h4>Budget</h4>
+          <p class="para">Committed is everything you have agreed to spend, including amounts you have not paid yet. Paid is money that has actually left your account. Your target is what you set at the start and can change at any time.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+            <div class="kpi"><div class="n">₱26,499</div><div class="l">committed</div></div>
+            <div class="kpi"><div class="n">₱2,250,000</div><div class="l">target</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="side"><div class="slab new"><i></i>Proposed</div>
+        <div class="new-pane">
+          <span class="ed-eyebrow">Committed<span class="ttw" tabindex="0"><span class="tti">i</span><span class="tt"><b>Committed</b> is everything you have agreed to spend, including what you have not paid yet.</span></span></span>
+          <div class="ed-num" style="margin-top:10px">₱26,499</div>
+          <div style="margin-top:12px;display:flex;align-items:baseline;gap:8px">
+            <span class="ed-unit">of ₱2,250,000 target</span>
+            <span class="ttw" tabindex="0"><span class="tti">i</span><span class="tt"><b>Your target</b> is what you set at the start. Change it whenever you like — nothing else moves when you do.</span></span>
+            <span class="ed-unit" style="margin-left:auto;font-family:var(--mono);color:var(--gold)">1.2%</span>
+          </div>
+          <div class="ed-meter"><i style="width:1.2%"></i></div>
+          <div style="margin-top:22px;display:flex;align-items:baseline;gap:8px">
+            <span class="ed-eyebrow">Paid<span class="ttw" tabindex="0"><span class="tti">i</span><span class="tt"><b>Paid</b> is money that has actually left your account. It is never larger than committed.</span></span></span>
+            <span class="lv" style="margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--ink-4)">₱[amount]</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 3 ══ -->
+  <div class="delta">
+    <div class="dh"><span class="dn">03</span><div>
+      <h2>The number is the interface</h2>
+      <p class="why">Counts stop being 21px monospace inside a tile. They become the largest thing on the screen, because <i>87 days</i> and <i>77 waiting</i> are what a couple opens the page to find out.</p>
+    </div></div>
+    <div class="two">
+      <div class="side"><div class="slab now"><i></i>Ships today</div>
+        <div class="now-pane">
+          <h4 style="font-size:13px">Your numbers</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <div class="kpi"><div class="n">4</div><div class="l">attending · 77 to reply</div></div>
+            <div class="kpi"><div class="n">87</div><div class="l">days to go</div></div>
+            <div class="kpi"><div class="n">100,050</div><div class="l">shots ready · 5 cameras</div></div>
+            <div class="kpi"><div class="n">2</div><div class="l">locked · 2 to lock</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="side"><div class="slab new"><i></i>Proposed</div>
+        <div class="new-pane">
+          <span class="ed-eyebrow">Until the wedding</span>
+          <div style="display:flex;align-items:baseline;gap:12px;margin-top:6px">
+            <span class="ed-num">87</span><span class="ed-unit">days · Friday 18 December</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:30px">
+            <div><span class="ed-eyebrow">Replied</span><div class="ed-num sm" style="margin-top:4px">4</div><span class="ed-unit">of 81 · 77 waiting</span></div>
+            <div><span class="ed-eyebrow">Locked</span><div class="ed-num sm" style="margin-top:4px">2</div><span class="ed-unit">suppliers · 2 to go</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 4 ══ -->
+  <div class="delta">
+    <div class="dh"><span class="dn">04</span><div>
+      <h2>A service says what it is ready for</h2>
+      <p class="why">Today every service you own prints one word — <b>Active</b> — computed from ownership, not readiness. An unarmed Papic and one ready for Saturday render identically. On the right they look as different as they are.</p>
+    </div></div>
+    <div class="two">
+      <div class="side"><div class="slab now"><i></i>Ships today</div>
+        <div class="now-pane">
+          <h4 style="font-size:13px">Your Studio</h4>
+          <div style="margin-top:8px">
+            <div class="row"><span><span class="t">Papic</span><span class="s">Guest cameras</span></span><span class="v" style="background:#E8EFE4;color:#2F4A2B;border-radius:999px;padding:2px 9px;font-size:11px">Active</span></div>
+            <div class="row"><span><span class="t">Live Studio</span><span class="s">Broadcast your ceremony</span></span><span class="v" style="background:#E8EFE4;color:#2F4A2B;border-radius:999px;padding:2px 9px;font-size:11px">Active</span></div>
+            <div class="row"><span><span class="t">Mood Board</span><span class="s">Share your look</span></span><span class="v" style="background:#E8EFE4;color:#2F4A2B;border-radius:999px;padding:2px 9px;font-size:11px">Active</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="side"><div class="slab new"><i></i>Proposed</div>
+        <div class="new-pane">
+          <div style="padding:2px 0 16px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span class="lt" style="font-size:19px;font-weight:600">Live Studio</span>
+              <span class="ed-chip late">needs you</span>
+              <span class="lv" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-4)">matters on the day</span>
+            </div>
+            <p style="font-size:13.5px;color:var(--ink-2);margin-top:6px;max-width:40ch">Never rehearsed · 2 of 3 cameras paired. Nobody watching from abroad sees the ceremony.</p>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+              <span class="pill cta k">Run a rehearsal</span><span class="pill quiet k">Pair camera 3</span>
+            </div>
+          </div>
+          <div style="padding:16px 0">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span class="lt" style="font-size:19px;font-weight:600">Papic</span>
+              <span class="ed-chip ok">ready</span>
+              <span class="lv" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-4)">100,050 shots · 5 cameras</span>
+            </div>
+            <p style="font-size:13.5px;color:var(--ink-2);margin-top:6px">6 challenges set · crew cards not printed yet.</p>
+          </div>
+          <div style="padding:16px 0 2px;opacity:.62">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span class="lt" style="font-size:19px;font-weight:500">Mood Board</span>
+              <span class="ed-chip">nothing to do</span>
+              <span class="lv" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-4)">mattered 4 months ago</span>
+            </div>
+            <p style="font-size:13.5px;color:var(--ink-3);margin-top:6px">2 suppliers are reading it. It does its work without you.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 5 ══ -->
+  <div class="delta">
+    <div class="dh"><span class="dn">05</span><div>
+      <h2>Deep actions slide, they don’t interrupt</h2>
+      <p class="why">A centred dialog throws away the page you were reading. An inspector keeps it, dimmed, beside the thing you opened — and on a phone the same panel arrives from the bottom as a native sheet. Press the button; it is live.</p>
+    </div></div>
+    <div class="two">
+      <div class="side"><div class="slab now"><i></i>Ships today</div>
+        <div class="now-pane" style="position:relative;min-height:172px;overflow:hidden">
+          <div style="opacity:.34">
+            <div class="row"><span><span class="t">Saysay Host and Band</span><span class="s">Locked</span></span><span class="v">›</span></div>
+            <div class="row"><span><span class="t">[Reception venue]</span><span class="s">Locked</span></span><span class="v">›</span></div>
+          </div>
+          <div style="position:absolute;inset:0;background:rgba(23,21,18,.30);display:flex;align-items:center;justify-content:center">
+            <div style="width:80%;background:#fff;border:1px solid var(--o-line);border-radius:12px;padding:14px;box-shadow:0 18px 40px -20px rgba(0,0,0,.4)">
+              <div style="font-weight:600;font-size:14px">Supplier details</div>
+              <p class="para">The page underneath is gone until you close this.</p>
+              <div style="text-align:right;margin-top:10px"><span style="font-size:12px;color:var(--o-ink-3)">Close</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="side"><div class="slab new"><i></i>Proposed — press it</div>
+        <div class="new-pane">
+          <div class="ed-line"><span><span class="lt">Saysay Host and Band</span><br><span class="ls">locked · no price recorded</span></span><span class="lv ed-chip" style="color:var(--gold)">1 new</span></div>
+          <div class="ed-line"><span><span class="lt">[Reception venue]</span><br><span class="ls">locked</span></span><span class="lv">₱[amount]</span></div>
+          <div style="margin-top:16px"><label class="pill k" for="pnl">Open the inspector →</label></div>
+          <p style="font-size:12px;color:var(--ink-4);margin-top:10px">Opens on the specimen below. On Mobile it arrives from the bottom instead.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 6 ══ -->
+  <div class="delta">
+    <div class="dh"><span class="dn">06</span><div>
+      <h2>The bar floats and loses its sixth circle</h2>
+      <p class="why">Five tabs, full width, frosted over the content instead of a solid strip beneath it. The “Add guest” circle is gone — it and the fifth tab were spending the same 64px, and only one of them is navigation.</p>
+    </div></div>
+    <div class="two">
+      <div class="side"><div class="slab now"><i></i>Ships today</div>
+        <div class="now-pane" style="padding:0;overflow:hidden">
+          <div style="padding:14px;font-size:12.5px;color:var(--o-ink-2)">…content ends abruptly at the bar…</div>
+          <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:#fff;border-top:1px solid var(--o-line)">
+            <div style="flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;text-align:center;font-size:8.5px;color:var(--o-ink-3)">
+              <span>Overview</span><span>Guests</span><span>Your&nbsp;Team</span><span>Suite</span><span>Hub</span>
+            </div>
+            <div style="width:38px;height:38px;border-radius:50%;background:#7A3E86;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none">＋</div>
+          </div>
+          <p style="font-size:11px;color:var(--o-ink-3);padding:8px 12px 12px">5 tabs share 298px · the circle takes 64</p>
+        </div>
+      </div>
+      <div class="side"><div class="slab new"><i></i>Proposed</div>
+        <div class="new-pane" style="padding-top:8px">
+          <div style="border-radius:16px;overflow:hidden;background:linear-gradient(174deg,#FDFBF8,#F5F0E7);padding:14px 10px 10px;box-shadow:var(--lift-1)">
+            <p style="font-size:12.5px;color:var(--ink-3);padding:0 6px 14px">…content runs under the glass…</p>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);padding:7px;background:rgba(255,253,250,.74);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:999px;box-shadow:var(--lift-2)">
+              <span class="k" style="text-align:center;font-size:9.5px;padding:7px 0;border-radius:999px;background:rgba(23,21,18,.07);font-weight:700">Overview</span>
+              <span class="k" style="text-align:center;font-size:9.5px;padding:7px 0;color:var(--ink-3)">Guests</span>
+              <span class="k" style="text-align:center;font-size:9.5px;padding:7px 0;color:var(--ink-3)">Team</span>
+              <span class="k" style="text-align:center;font-size:9.5px;padding:7px 0;color:var(--ink-3)">Suite</span>
+              <span class="k" style="text-align:center;font-size:9.5px;padding:7px 0;color:var(--ink-3)">Hub</span>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--ink-4);margin-top:9px">5 tabs share 362px · ~72px each, up from ~60</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 7 ══ -->
+  <div class="delta">
+    <div class="dh"><span class="dn">07</span><div>
+      <h2>Nothing is inert</h2>
+      <p class="why">Every row, pill and dot answers a press — a 300ms ease, a scale-down on touch, a wash that follows the cursor. Move over the rows on the right and press a pill.</p>
+    </div></div>
+    <div class="two">
+      <div class="side"><div class="slab now"><i></i>Ships today</div>
+        <div class="now-pane">
+          <div class="row"><span><span class="t">Guests</span><span class="s">no transition, no press state</span></span><span class="v">81</span></div>
+          <div class="row"><span><span class="t">Seat plan</span><span class="s">14 tables · 2 unassigned</span></span><span class="v">›</span></div>
+          <div style="margin-top:10px"><span style="display:inline-block;background:#2C2A29;color:#fff;font-size:13px;font-weight:600;padding:9px 16px;border-radius:999px">Add guest</span></div>
+        </div>
+      </div>
+      <div class="side"><div class="slab new"><i></i>Proposed — hover and press</div>
+        <div class="new-pane">
+          <div class="ed-line k"><span><span class="lt">Guests</span><br><span class="ls">4 attending · 77 waiting</span></span><span class="lv">81</span></div>
+          <div class="ed-line k"><span><span class="lt">Seat plan</span><br><span class="ls">14 tables · 2 unassigned</span></span><span class="lv">›</span></div>
+          <div style="margin-top:14px;display:flex;gap:8px"><span class="pill k">Add guest</span><span class="pill quiet k">Import a list</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 8 · THE SPECIMEN ══ -->
+  <div class="delta spec">
+    <div class="dh"><span class="dn">08</span><div>
+      <h2>Four viewports, one layout</h2>
+      <p class="why">The same markup, reflowed — not stretched, not stacked. Switch it at the top of the page: the rail collapses to icons, the inspector unpins, the bottom bar appears, and the split column only exists where there is room for it.</p>
+    </div></div>
+    <p class="vpn"></p>
+    <div class="frame">
+      <div class="scrim"></div>
+      <label class="scrim k" for="pnl" style="z-index:41"></label>
+
+      <div class="sh-top">
+        <span class="bd">SETNAYAN</span>
+        <span class="sp"><span class="k" style="font-size:15px;color:var(--ink-3)">◔</span><span class="av">IC</span></span>
+      </div>
+
+      <div class="body">
+        <nav class="rail">
+          <span class="lbl">This event</span>
+          <a class="on k"><span class="ic">◇</span><span class="tx">Overview</span><span class="n hot">4</span></a>
+          <a class="k"><span class="ic">☺</span><span class="tx">Guests</span><span class="n">81</span></a>
+          <a class="k"><span class="ic">◈</span><span class="tx">Your Team</span><span class="n hot">1</span></a>
+          <a class="k"><span class="ic">✦</span><span class="tx">Suite</span><span class="n">3</span></a>
+          <a class="k"><span class="ic">◉</span><span class="tx">Event Hub</span><span class="n">live</span></a>
+          <span class="lbl">All of it</span>
+          <a class="k"><span class="ic">▤</span><span class="tx">Everything</span><span class="n">100</span></a>
+        </nav>
+
+        <main class="main">
+          <div class="split">
+            <div>
+              <span class="ed-eyebrow">Indalecio &amp; Claire · NCR</span>
+              <h1 style="font-size:clamp(26px,3.4vw,44px);font-weight:300;margin-top:10px;letter-spacing:-.035em">
+                Your wedding is taking shape.<br><span style="color:var(--ink-4)">Here’s today.</span></h1>
+
+              <div style="display:flex;align-items:baseline;gap:12px;margin-top:clamp(26px,3vw,40px)">
+                <span class="ed-num">87</span>
+                <span class="ed-unit">days · Friday 18 December
+                  <span class="ttw" tabindex="0"><span class="tti">i</span><span class="tt"><b>The date is locked.</b> Everything below counts back from it.</span></span>
+                </span>
+              </div>
+              <div class="ed-meter" style="max-width:420px"><i style="width:8%"></i></div>
+              <p class="ed-unit" style="margin-top:7px">8% locked in</p>
+
+              <div style="margin-top:clamp(28px,3.4vw,46px)">
+                <div style="display:flex;align-items:baseline;gap:12px">
+                  <span class="ed-eyebrow">Waiting on you</span>
+                  <span class="ed-eyebrow" style="color:var(--late)">4 open</span>
+                  <span class="ttw" tabindex="0"><span class="tti">i</span><span class="tt"><b>Ranked by what closes soonest</b> — not by when you added it.</span></span>
+                </div>
+                <div style="margin-top:14px">
+                  <label class="ed-line k" for="pnl"><span class="ed-rank">01</span><span><span class="lt">Lock your coordinator</span><br><span class="ls">the date needs a name on it</span></span><span class="lv ed-chip late">most urgent</span></label>
+                  <label class="ed-line k" for="pnl"><span class="ed-rank">02</span><span><span class="lt">Approve the caterer’s quote</span><br><span class="ls">sent 4 days ago</span></span><span class="lv">₱[amount]</span></label>
+                  <label class="ed-line k" for="pnl"><span class="ed-rank">03</span><span><span class="lt">Two things land at 8:00&nbsp;AM</span><br><span class="ls">hair &amp; makeup · vendor ingress</span></span><span class="lv">clash</span></label>
+                  <label class="ed-line k" for="pnl"><span class="ed-rank">04</span><span><span class="lt">77 guests have not replied</span><br><span class="ls">invitation sent 12 Sep</span></span><span class="lv">remind</span></label>
+                </div>
+              </div>
+            </div>
+
+            <!-- the detail column — only exists at Tablet L and Desktop -->
+            <aside>
+              <div style="display:flex;align-items:baseline;gap:10px">
+                <span class="ed-eyebrow">Committed<span class="ttw" tabindex="0"><span class="tti">i</span><span class="tt"><b>Committed</b> is everything you have agreed to spend, paid or not.</span></span></span>
+              </div>
+              <div class="ed-num sm" style="margin-top:8px">₱26,499</div>
+              <p class="ed-unit" style="margin-top:5px">of ₱2,250,000 · 1.2%</p>
+              <div class="ed-meter"><i style="width:1.2%"></i></div>
+
+              <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:22px">
+                <div><span class="ed-eyebrow">Replied</span><div class="ed-num sm" style="font-size:34px;margin-top:4px">4</div><span class="ed-unit">of 81</span></div>
+                <div><span class="ed-eyebrow">Locked</span><div class="ed-num sm" style="font-size:34px;margin-top:4px">2</div><span class="ed-unit">of 4</span></div>
+              </div>
+
+              <div style="margin-top:32px">
+                <span class="ed-eyebrow">Sai · your briefing</span>
+                <p style="font-size:14.5px;font-weight:500;line-height:1.4;margin-top:8px;max-width:34ch">You’re 8% locked in, 2 decisions need you, next deadline in 26 days.</p>
+                <div style="margin-top:14px"><label class="pill quiet k" for="pnl">See the list</label></div>
+              </div>
+            </aside>
+          </div>
+        </main>
+      </div>
+
+      <nav class="bbar">
+        <a class="on k"><span class="ic">◇</span>Overview<span class="bdg">4</span></a>
+        <a class="k"><span class="ic">☺</span>Guests</a>
+        <a class="k"><span class="ic">◈</span>Team<span class="bdg">1</span></a>
+        <a class="k"><span class="ic">✦</span>Suite</a>
+        <a class="k"><span class="ic">◉</span>Hub</a>
+      </nav>
+
+      <!-- the off-canvas inspector -->
+      <aside class="panel">
+        <div style="display:flex;align-items:center;gap:12px">
+          <label class="k" for="pnl" style="font-size:20px;color:var(--ink-3);line-height:1">✕</label>
+          <span class="ed-eyebrow">Decision · 01</span>
+        </div>
+        <h2 style="font-size:26px;font-weight:600;margin-top:20px">Lock your coordinator</h2>
+        <p style="font-size:14px;color:var(--ink-2);margin-top:10px;max-width:38ch">Nothing else on the day can be sequenced until one name owns it.</p>
+        <div style="margin-top:26px">
+          <span class="ed-eyebrow">Shortlisted</span>
+          <div style="margin-top:10px">
+            <div class="ed-line k"><span><span class="lt">[Coordinator A]</span><br><span class="ls">replied · 2 days ago</span></span><span class="lv">₱[amount]</span></div>
+            <div class="ed-line k"><span><span class="lt">[Coordinator B]</span><br><span class="ls">no reply yet</span></span><span class="lv">—</span></div>
+          </div>
+        </div>
+        <div style="margin-top:26px;display:flex;gap:8px;flex-wrap:wrap">
+          <span class="pill cta k">Ask them to lock</span><label class="pill quiet k" for="pnl">Not now</label>
+        </div>
+        <p style="font-size:12px;color:var(--ink-4);margin-top:20px">Press ✕, “Not now”, or the dimmed page to close. No script — a checkbox and a label.</p>
+      </aside>
+    </div>
+  </div>
+
+  <p class="foot">
+    <b>What this costs, stated plainly.</b> Points 01, 03 and 07 override
+    <code>overview_FINAL</code>, <code>your_team_FINAL</code> and <code>guestlist-v2</code> — three drawings you
+    approved, all built on the bordered rows this brief bans. You chose the whole dashboard knowing that; it is
+    recorded here so no later session reads it as drift.<br><br>
+    <b>What it does not touch.</b> The five rooms, one roster on both navigators in every moment, the dissolved
+    “Also in this event” drawer, and the <i>Everything</i> index — those are structure, and this brief is a skin.
+    The three link-fixes (Sponsors, Alaala, Manpower) still land with the IA change.<br><br>
+    <b>Zero JavaScript</b>, deliberately. The viewport simulator, the tooltips, the inspector and every press
+    state are CSS — radios, labels, <code>:hover</code>, <code>:focus-within</code>, <code>:checked</code>. It works in a
+    viewer that refuses script, which a JS build would not.
+  </p>
+</div>
+</body>
+</html>

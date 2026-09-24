@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Collection card — the standard, at 0 / 3 / 100</title>
+<style>
+:root{
+  --ink:#2C2A29; --paper:#FFFFFF; --paper-2:#F4F2EC; --line:#E1DCD1;
+  --line-soft:#EDE8DE; --muted:#6E6A62; --ink-300:#A09A8E;
+  --gold:#A9834B; --gold-700:#8A6B39; --gold-wash:#F3ECDF;
+  --amber-line:#CBA766; --danger:#9A3B2B; --danger-wash:#FBEEEA;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper-2);color:var(--ink);
+  font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px}
+
+.switch{display:flex;gap:8px;margin:0 0 28px;flex-wrap:wrap;align-items:center}
+.switch b{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.switch button{font:inherit;font-size:13px;padding:7px 15px;border-radius:999px;
+  border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.switch button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* ── the header: title, add, info ─────────────────────────────── */
+.sec-head{display:flex;align-items:center;gap:11px;margin:0 0 16px}
+.sec-head h2{font-size:21px;font-weight:600;margin:0;letter-spacing:-.01em}
+.iconbtn{width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;
+  border:0;cursor:pointer;font:inherit;line-height:1;flex:none}
+.add{background:var(--ink);color:#fff;font-size:18px}
+.add:hover{background:#000}
+.info{background:transparent;color:var(--muted);border:1.5px solid var(--ink-300);
+  font-size:13px;font-family:Georgia,serif;font-style:italic}
+.sec-head .hint{font-size:13px;color:var(--muted);margin-left:2px}
+.count{margin-left:auto;font-size:12px;color:var(--ink-300);letter-spacing:.04em}
+
+/* ── the grid ─────────────────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:14px}
+.card{position:relative;display:block;text-decoration:none;color:inherit;overflow:hidden;
+  border-radius:16px;background:var(--paper);border:1px solid var(--line-soft);
+  box-shadow:0 1px 2px rgba(44,42,41,.04);transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(44,42,41,.10)}
+.cover{height:92px;position:relative;background:linear-gradient(135deg,var(--a) 0%,var(--a2) 100%)}
+.cover::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 90% at 14% 0%,rgba(255,255,255,.30),transparent 62%)}
+.chips{position:absolute;top:9px;left:9px;display:flex;gap:5px;flex-wrap:wrap;z-index:2}
+.chip{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;padding:3px 7px;
+  border-radius:999px;background:rgba(255,255,255,.86);color:var(--ink);font-weight:600}
+.mark{position:absolute;right:12px;bottom:-17px;width:38px;height:38px;border-radius:50%;
+  display:grid;place-items:center;background:#fff;border:1px solid var(--line);
+  box-shadow:0 2px 7px rgba(44,42,41,.10);z-index:3;font-size:11px;font-weight:600;color:var(--a)}
+.body{padding:12px 13px 13px}
+.name{font-size:14.5px;font-weight:600;margin:0 0 2px;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.when{font-size:11.5px;color:var(--muted);margin:0 0 9px}
+
+/* the attention row — ONE line, never truncated mid-word */
+.att{display:flex;align-items:flex-start;gap:6px;font-size:11.5px;line-height:1.35;
+  padding:6px 8px;border-radius:8px;margin-bottom:9px;
+  background:var(--gold-wash);color:var(--gold-700);border:1px solid var(--amber-line)}
+.att.late{background:var(--danger-wash);color:var(--danger);border-color:#E6BDB2}
+.att.unknown{background:#F4F2EC;color:var(--muted);border-color:var(--line);font-style:italic}
+.att .n{font-weight:700;font-variant-numeric:tabular-nums}
+
+.prog{display:flex;align-items:center;gap:9px}
+.ring{width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;
+  font-size:9px;font-weight:600;color:var(--muted);
+  background:conic-gradient(var(--gold) calc(var(--p) * 1%), var(--line-soft) 0)}
+.ring i{width:22px;height:22px;border-radius:50%;background:#fff;display:grid;place-items:center;
+  font-style:normal}
+.left{font-size:12px;font-weight:600}
+.left small{display:block;font-size:10.5px;font-weight:400;color:var(--muted);letter-spacing:.01em}
+
+/* the dashed new tile — present only while the page has room */
+.newtile{border:1.5px dashed var(--line);border-radius:16px;min-height:186px;
+  display:grid;place-items:center;text-decoration:none;color:var(--muted);background:transparent}
+.newtile:hover{border-color:var(--gold);color:var(--gold-700)}
+.newtile span{display:block;text-align:center;font-size:12.5px}
+.newtile b{display:block;font-size:22px;font-weight:400;margin-bottom:2px}
+
+/* empty */
+.empty{border:1.5px dashed var(--line);border-radius:16px;padding:40px 24px;text-align:center}
+.empty h3{margin:0 0 6px;font-size:16px;font-weight:600}
+.empty p{margin:0 0 16px;font-size:13px;color:var(--muted)}
+.empty a{display:inline-block;text-decoration:none;background:var(--ink);color:#fff;
+  font-size:13px;padding:9px 18px;border-radius:999px}
+
+/* pagination */
+.pager{display:flex;align-items:center;gap:4px;margin-top:20px;flex-wrap:wrap}
+.pager button{font:inherit;font-size:12.5px;min-width:30px;height:30px;padding:0 9px;
+  border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer}
+.pager button:hover{background:#fff;border-color:var(--line-soft)}
+.pager button[aria-current="true"]{background:var(--ink);color:#fff;font-weight:600}
+.pager .gap{color:var(--ink-300);padding:0 2px;font-size:12px}
+.pager .range{margin-left:auto;font-size:11.5px;color:var(--ink-300)}
+
+.note{margin-top:34px;padding:16px 18px;border-radius:12px;background:#fff;
+  border:1px solid var(--line);font-size:13px;line-height:1.65;color:var(--muted)}
+.note b{color:var(--ink)} .note code{font-family:ui-monospace,monospace;font-size:12px;
+  background:var(--paper-2);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.note ul{margin:8px 0 0;padding-left:18px} .note li{margin:5px 0}
+
+/* ── the next batch arrives ───────────────────────────────────── */
+@keyframes cardIn{from{opacity:0;transform:translateX(var(--from,14px)) translateY(4px)}
+  to{opacity:1;transform:none}}
+.grid.turning .card,.grid.turning .newtile{animation:cardIn .34s cubic-bezier(.22,.7,.25,1) both;
+  animation-delay:calc(var(--i,0) * 26ms)}
+.grid.back{--from:-14px}
+.pager button[aria-current="true"]{transition:background .18s}
+.pager.busy button{pointer-events:none;opacity:.55}
+@media (prefers-reduced-motion:reduce){
+  .grid.turning .card,.grid.turning .newtile{animation:none}
+}
+@media (max-width:520px){ .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))} }
+</style></head><body>
+<div class="wrap">
+
+  <div class="switch">
+    <b>Data</b>
+    <button data-n="0">0 events</button>
+    <button data-n="3" aria-pressed="true">3 events</button>
+    <button data-n="100">100 events</button>
+  </div>
+
+  <div class="sec-head">
+    <h2>Planning</h2>
+    <button class="iconbtn add" id="add" aria-label="New event">+</button>
+    <button class="iconbtn info" aria-label="What is this?">i</button>
+    <span class="hint">yours to run</span>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div id="stage"></div>
+
+  <div class="note">
+    <b>What this is testing.</b>
+    <ul>
+      <li><b>0</b> — the (+) alone is a 26px target on an empty screen. The empty state has to carry the invitation, not the header.</li>
+      <li><b>3</b> — the dashed tile still fits, so it stays. Two ways in, no pagination.</li>
+      <li><b>100</b> — the dashed tile is gone (it would sit on the last page, unreachable). The header (+) is the only way in, and that is why it exists.</li>
+    </ul>
+    <b>The attention row is the point of the card.</b> It never truncates mid-word, and it has three
+    states, not one: <code>waiting</code> gold, <code>overdue</code> red, and
+    <code>could not load</code> grey — because a card that prints a confident <b>0 need you</b>
+    when the read failed is the same defect we have been fixing all day.
+    <br><br>
+    <b>Sorted by date, soonest first.</b> On the live page today Dec 12 renders after Dec 18.
+  </div>
+</div>
+
+<script>
+const FIRST=['Indalecio & Claire','Maria & Jose','Ana & Luis','Rina & Paolo','Bea & Marco','Kim & Jun','Tala & Emil','Lia & Noel'];
+const TYPES=['KASAL','BINYAG','KAARAWAN','DEBUT','HANDAAN'];
+const PAL=[['#9a244f','#6d1637'],['#9b7e00','#6b5600'],['#2f6b58','#1d4438'],['#7a3b1e','#512313'],['#3d4a7a','#252e50'],['#6b2f6b','#421b42']];
+const PER=10;
+let N=3, page=1;
+
+function make(i){
+  const p=PAL[i%PAL.length], d=new Date(2026,11,4+((i*11)%160));
+  const names=FIRST[i%FIRST.length]+(i>=FIRST.length?' '+(Math.floor(i/FIRST.length)+1):'');
+  const days=Math.max(1,Math.round((d-new Date(2026,8,23))/86400000));
+  const mode=i%7;
+  return {names,type:TYPES[i%TYPES.length],a:p[0],a2:p[1],date:d,days,
+    pct:Math.min(96,3+((i*17)%92)),
+    att: mode===3?{k:'late',n:(i%23)+2,t:'tasks overdue'}
+        : mode===5?{k:'unknown'}
+        : {k:'wait',n:(i%31)+1,t:'need you'},
+    mark:names.split(' & ').map(s=>s.trim()[0]).join('&')};
+}
+const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+
+function card(e){
+  const a = e.att.k==='unknown'
+    ? `<div class="att unknown">Couldn't load what needs you</div>`
+    : `<div class="att ${e.att.k==='late'?'late':''}"><span class="n">${e.att.n}</span>&nbsp;${e.att.t}</div>`;
+  return `<a class="card" href="#" style="--a:${e.a};--a2:${e.a2};--i:${e.i ?? 0}">
+    <div class="cover"><div class="chips"><span class="chip">${e.type}</span></div>
+      <div class="mark">${e.mark}</div></div>
+    <div class="body">
+      <p class="name">${e.names}</p>
+      <p class="when">${fmt(e.date)}</p>
+      ${a}
+      <div class="prog"><div class="ring" style="--p:${e.pct}"><i>${e.pct}%</i></div>
+        <span class="left">${e.days} days<small>to go</small></span></div>
+    </div></a>`;
+}
+
+function pager(total,cur){
+  const pages=Math.ceil(total/PER); if(pages<2) return '';
+  const out=[]; const push=p=>out.push(`<button ${p===cur?'aria-current="true"':''} data-p="${p}">${p}</button>`);
+  push(1);
+  if(cur>3) out.push('<span class="gap">…</span>');
+  for(let p=Math.max(2,cur-1);p<=Math.min(pages-1,cur+1);p++) push(p);
+  if(cur<pages-2) out.push('<span class="gap">…</span>');
+  if(pages>1) out.push(`<button ${cur===pages?'aria-current="true"':''} data-p="${pages}">Last</button>`);
+  const from=(cur-1)*PER+1, to=Math.min(total,cur*PER);
+  return `<div class="pager">${out.join('')}<span class="range">${from}–${to} of ${total}</span></div>`;
+}
+
+function render(){
+  const stage=document.getElementById('stage');
+  document.getElementById('count').textContent = N? `${N} ${N===1?'event':'events'}` : '';
+  if(N===0){
+    stage.innerHTML=`<div class="empty"><h3>No celebrations yet</h3>
+      <p>Start one and everything — guests, suppliers, the day itself — gathers here.</p>
+      <a href="#">Create your first event</a></div>`;
+    return;
+  }
+  const all=Array.from({length:N},(_,i)=>make(i)).sort((x,y)=>x.date-y.date);
+  const pages=Math.ceil(N/PER);
+  page=Math.min(page,pages);
+  const slice=all.slice((page-1)*PER,page*PER).map((e,i)=>({...e,i}));
+  const room = slice.length < PER;            // the dashed tile only while the page has room
+  const dir = window.__dir || 0;              // +1 next, -1 back, 0 first paint
+  const cls = 'grid' + (dir? ' turning' : '') + (dir<0? ' back' : '');
+  stage.innerHTML=`<div class="${cls}">${slice.map(card).join('')}
+    ${room?`<a class="newtile" href="#"><span><b>+</b>New event</span></a>`:''}
+  </div>${pager(N,page)}`;
+  stage.querySelectorAll('.pager button').forEach(b=>b.onclick=()=>{
+    const to=+b.dataset.p; if(to===page) return;
+    window.__dir = to>page ? 1 : -1; page=to; render();
+    stage.querySelector('.grid')?.scrollIntoView({block:'nearest'});
+  });
+}
+
+document.querySelectorAll('.switch button').forEach(b=>b.onclick=()=>{
+  window.__dir=0;
+  document.querySelectorAll('.switch button').forEach(x=>x.removeAttribute('aria-pressed'));
+  b.setAttribute('aria-pressed','true'); N=+b.dataset.n; page=1; render();
+});
+render();
+</script>
+</body></html>

@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monogram maker — redesign prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  MONOGRAM MAKER — redesign prototype, 2026-09-23
+  Route it stands for: /dashboard/[eventId]/monogram, the create-your-own side.
+
+  ── OWNER RULING THAT SHAPES THIS FILE (2026-09-23) ─────────────────────────
+  "we want to edit everything on a page. pop ups are for the picker of choosing
+  what font, size, color."
+
+  So there is NO editor screen. The mark and every control live on the one
+  page; the only things that open over it are the three PICKERS (typeface,
+  size, colour) and the two non-editing flows (upload, pay).
+  ⚠ This deliberately departs from the Event Hub controller's "rows are doors"
+  pattern, where each part opened its own screen. Owner's call, stated plainly.
+
+  ── THE MODEL, ALSO OWNER-SET TODAY ────────────────────────────────────────
+  · Type letters OR words. As many pieces as they like, each its own typeface.
+  · They overlap; a GAP cuts away the one underneath with a little air.
+  · Over/under is PER CROSSING, not per pair — from the owner's own I&C mark,
+    where the same two letters cross four times and the answer alternates.
+  · Motion is In · During · Out; Out only under "Follows the scroll".
+  · A trace follows each letter's WHOLE stroke, going quiet where it passes
+    underneath — never the leftover fragments one by one.
+
+  REAL VALUES: PHP 500 ANIMATED_MONOGRAM (platform_retail_catalog_v2,
+  2026-09-23) · 14 starting points + 8 moods (engine.ts PRESET_DEFS) ·
+  15 frames (engine.ts) · slider ranges verbatim from markup-v2.ts ·
+  8 typefaces marked shipped are STUDIO_FONTS. [LIKE THIS] = placeholder.
+-->
+<style>
+:root{
+  --cream:#FFFFFF; --ink:#2C2A29; --ink-soft:#4F535B; --ink-3:#9A948A;
+  --cta:#C24E25; --cta-hover:#B04722; --gold:#A9834B; --gold-text:#8A6B39;
+  --pos:#4F6B4A; --neg:#B65A3A;
+  --obsidian:#17160F; --ob-text:#FBFAF7; --ob-soft:#B6B9BE; --ob-gold:#CBA766;
+  --ob-cta:#E5794E; --ob-line:rgba(255,255,255,.10); --pos-dark:#46A46C;
+  --line:#E6E0D6; --line-2:#F0EBE3; --soft:#F4F1EC;
+  --ease:cubic-bezier(.22,.61,.36,1); --dur:180ms;
+  --sans:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:var(--sans);background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;color:inherit}
+h1,h2{margin:0;font-weight:600}
+input[type=range]{width:100%;accent-color:var(--gold)}
+
+.proto{position:sticky;top:0;z-index:60;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:8px 16px;background:#EDEAE4;font-size:12px;color:var(--ink-soft)}
+.proto b{font-weight:600;color:var(--ink)}
+.pill{height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12.5px;white-space:nowrap}
+.pill[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+
+.shell-top,.shell-rail{display:none}
+.app{display:block}
+.page-head{display:flex;align-items:center;gap:6px;padding:14px 16px 2px 8px}
+.icon-btn{width:44px;height:44px;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;font-size:19px;color:var(--ink-soft)}
+.page-head h1{font-size:23px;font-weight:500;line-height:1.1}
+.status{font-size:13px;color:var(--ink-soft);padding:0 16px 0 52px}
+
+/* ===== the one page ===== */
+.layout{display:flex;flex-direction:column;gap:18px;padding:12px 16px 120px}
+.sec{display:flex;flex-direction:column;gap:9px}
+.sec h2{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.muted{color:var(--ink-soft)}
+.card{border:1px solid var(--line);border-radius:var(--r-md);background:#fff;padding:13px 14px}
+
+/* the mark — pinned at the top of the page on a phone, sticky beside on desktop */
+.markwrap{position:sticky;top:46px;z-index:20;background:var(--cream);padding-bottom:6px}
+.stage{background:var(--obsidian);border-radius:var(--r-lg);overflow:hidden;position:relative}
+.stagetop{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 0}
+.stagechip{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ob-soft)}
+.stagechip.live{color:var(--pos-dark)}
+.canvas{display:flex;align-items:center;justify-content:center;padding:4px 12px 8px}
+.canvas svg{width:100%;height:210px;overflow:visible;touch-action:none}
+.stagehint{text-align:center;font-size:11.5px;color:var(--ob-soft);padding:0 12px 8px;min-height:16px}
+.stageacts{display:flex;gap:8px;padding:0 12px 12px}
+.sbtn{flex:1;height:42px;border-radius:999px;border:1px solid var(--ob-line);background:transparent;color:var(--ob-text);font-size:13.5px;font-weight:500}
+.sbtn.primary{background:var(--ob-cta);border-color:var(--ob-cta);color:var(--obsidian);font-weight:600}
+.sbtn[disabled]{opacity:.4}
+.facts{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--ob-line)}
+.fact{padding:9px 14px;border-right:1px solid var(--ob-line);border-bottom:1px solid var(--ob-line);min-width:0}
+.fact:nth-child(2n){border-right:0}
+.fact:nth-child(n+3){border-bottom:0}
+.fact .k{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ob-soft)}
+.fact .v{font-size:14px;color:var(--ob-text);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fact .v.gold{color:var(--ob-gold)}
+.emptyframes{display:flex;gap:10px;justify-content:center;align-items:center;min-height:210px}
+.ef{width:60px;height:80px;border:1px dashed var(--ob-line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#3A3A31;font-size:24px}
+.ef.lit{border:1px solid var(--ob-gold);color:var(--ob-gold);box-shadow:0 0 0 4px rgba(203,167,102,.10)}
+
+#marksvg .gl{cursor:grab}
+#marksvg .gl:active{cursor:grabbing}
+/* the selected piece glows — deliberately NOT a stroke, so an editing
+   affordance can never be mistaken for an outline on the mark itself */
+#marksvg .gl.on{filter:drop-shadow(0 0 3px rgba(203,167,102,.6))}
+#marksvg .gl:focus{outline:none}
+body.playing #marksvg .gl.on{filter:none}
+/* A crossing marker is EDITING FURNITURE, not part of the mark — so it is a
+   small dot, not a dashed ring around the letters you are trying to judge.
+   The hit area stays big (r=15); only the ink is small. */
+.xdot{cursor:pointer}
+.xdot .hit{fill:transparent}
+.xdot .pip{fill:var(--ob-gold);opacity:.55;transition:opacity var(--dur) var(--ease),r var(--dur) var(--ease)}
+.xdot:hover .pip,.xdot:focus .pip{opacity:1}
+.xdot:focus{outline:none}
+body.playing .xdot,body.hidecross .xdot{display:none}
+
+/* next step */
+.next{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  border:1px solid var(--line);border-left:3px solid var(--cta);border-radius:var(--r-md);background:#fff;padding:12px 14px}
+.next .eyebrow{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--cta);font-weight:600}
+.next .t{font-size:15px;font-weight:500;margin-top:2px}
+.next .arrow{margin-left:auto;color:var(--ink-3);font-size:18px}
+
+/* the piece rows — you type straight into them */
+.prow{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--line-2)}
+.prow:last-child{border-bottom:0}
+.pword{flex:1;min-width:0;font-size:24px;line-height:1.3;color:var(--ink);
+  border:1px solid transparent;border-radius:9px;background:transparent;padding:5px 9px}
+.pword:hover{border-color:var(--line-2)}
+.prow.on .pword{background:#FBF6EC;border-color:var(--gold)}
+.pword:focus{outline:none;background:#fff;border-color:var(--gold);box-shadow:0 0 0 2px rgba(169,131,75,.18)}
+.pword::placeholder{font-family:var(--sans);font-size:14px;color:var(--ink-3)}
+.mini{flex:0 0 auto;height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line);
+  background:#fff;font-size:11.5px;color:var(--ink-soft);white-space:nowrap;max-width:112px;overflow:hidden;text-overflow:ellipsis}
+.mini:hover{border-color:var(--gold);color:var(--gold-text)}
+.kill{width:30px;height:30px;border:0;background:transparent;color:var(--ink-3);font-size:16px;border-radius:999px;flex:0 0 auto}
+.kill:hover{background:var(--soft);color:var(--neg)}
+.kill[disabled]{opacity:.3}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.tg{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px}
+.tg[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.lab{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
+.lab2{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--ink-soft);margin:9px 0 3px}
+.strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+.pcard{flex:0 0 auto;width:82px;scroll-snap-align:start;border:1px solid var(--line);background:#fff;border-radius:12px;
+  padding:7px 6px 5px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.pcard[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px rgba(169,131,75,.18)}
+.pcard .th{width:100%;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--ink)}
+.pcard .nm{font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fcard{border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 5px 6px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.fcard[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px rgba(169,131,75,.18)}
+.fcard .th{width:100%;height:38px;display:flex;align-items:center;justify-content:center}
+.fcard .nm{font-size:10.5px;color:var(--ink-soft);text-align:center;line-height:1.2}
+.applied{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.achip{height:30px;padding:0 6px 0 11px;border-radius:999px;border:1px solid var(--gold);background:#FBF6EC;font-size:12.5px;
+  display:inline-flex;align-items:center;gap:7px;color:var(--gold-text)}
+.achip button{border:0;background:transparent;font-size:14px;line-height:1;color:var(--gold-text);padding:0 4px}
+.collapsible .hd{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:transparent;padding:0;font-size:12.5px;color:var(--ink-soft)}
+.swbtn{display:inline-flex;align-items:center;gap:6px}
+.swbtn .cdot{width:13px;height:13px;border-radius:50%;border:1px solid rgba(0,0,0,.18);flex:0 0 auto}
+
+/* phases */
+.phase{border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:9px;overflow:hidden;background:#fff}
+.phase .ph{display:flex;align-items:center;gap:10px;width:100%;border:0;background:var(--soft);padding:9px 12px;text-align:left}
+.phase .ph .n{width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.phase .ph .t{font-weight:600;font-size:14px}
+.phase .ph .v{margin-left:auto;font-size:12.5px;color:var(--ink-soft)}
+.phase .body{padding:11px 12px}
+
+/* money */
+.meter{height:8px;border-radius:999px;background:var(--soft);overflow:hidden;margin:10px 0}
+.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#D9BE8A);width:50%;transition:width var(--dur) var(--ease)}
+.mrow{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.mrow .amt{margin-left:auto;font-weight:600}
+.buy{height:46px;border-radius:999px;border:0;background:var(--cta);color:#fff;font-size:15px;font-weight:600;width:100%;margin-top:11px}
+.buy:hover{background:var(--cta-hover)}
+.buy[disabled]{opacity:.6}
+.owned{height:46px;border-radius:999px;border:1px solid var(--line);background:var(--soft);color:var(--ink-soft);font-size:14px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:11px}
+.rowlink{min-height:54px;width:100%;display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);
+  border-radius:var(--r-md);background:#fff;font-size:15px;text-align:left}
+.rowlink .sub{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:1px}
+.rowlink .chev{margin-left:auto;color:var(--ink-3);font-size:17px}
+.elsewhere{border:1px dashed var(--line);border-radius:var(--r-md);padding:11px 14px;font-size:12.5px;color:var(--ink-3);line-height:1.5}
+
+/* ===== POPOVERS — the only things that open over the page ===== */
+.popscrim{position:fixed;inset:0;z-index:90;background:rgba(23,22,15,.28)}
+.pop{position:fixed;z-index:91;background:#fff;border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 18px 50px rgba(23,22,15,.22);display:flex;flex-direction:column;overflow:hidden}
+.pophead{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--line-2);flex:0 0 auto}
+.pophead h3{margin:0;font-size:14.5px;font-weight:600}
+.pophead .x{margin-left:auto;width:30px;height:30px;border:0;background:transparent;font-size:17px;color:var(--ink-3);border-radius:999px}
+.popbody{padding:12px 13px;overflow:auto;flex:1}
+.fsearch{width:100%;height:38px;border:1px solid var(--line);border-radius:9px;padding:0 11px;font-size:14.5px;font-family:inherit;margin-bottom:8px}
+.fcats{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px}
+.fcats .tg{flex:0 0 auto;height:30px;font-size:12px}
+.flist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ftile{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 6px 6px;text-align:center;position:relative}
+.ftile[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px rgba(169,131,75,.18)}
+.ftile .sp{font-size:26px;line-height:1.2;color:var(--ink);display:block;white-space:nowrap;overflow:hidden}
+.ftile .nm{font-size:10.5px;color:var(--ink-3);margin-top:4px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ftile .ship{position:absolute;top:6px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--pos)}
+.swgrid{display:flex;gap:9px;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:50%;border:1px solid rgba(0,0,0,.14);padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--gold)}
+.popnote{font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.5}
+@media (max-width:1023px){
+  /* on a phone a picker is a sheet from the bottom, still only a picker */
+  .pop{left:0!important;right:0!important;bottom:0!important;top:auto!important;
+    width:auto!important;max-height:76vh;border-radius:18px 18px 0 0}
+}
+
+/* full screens — NOT editing: the uploader and the purchase */
+.screen{position:fixed;inset:0;z-index:95;background:#fff;display:flex;flex-direction:column}
+.schead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-2)}
+.schead h3{font-size:16px}
+.scbody{flex:1;overflow:auto;padding:14px 16px}
+.scfoot{padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line-2);display:flex;gap:9px}
+.ghost{height:46px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:14.5px}
+
+@media (min-width:1024px){
+  .shell-top{display:flex;align-items:center;gap:14px;height:56px;padding:0 20px;border-bottom:1px solid var(--line-2);background:#fff;position:sticky;top:46px;z-index:40}
+  .shell-top .brand{font-weight:600;letter-spacing:.14em;font-size:13px}
+  .shell-top .search{flex:1;max-width:340px;height:34px;border:1px solid var(--line);border-radius:999px;background:var(--soft)}
+  .app{display:grid;grid-template-columns:232px 1fr}
+  .shell-rail{display:block;border-right:1px solid var(--line-2);padding:16px 10px;min-height:80vh}
+  .rail-i{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:10px;font-size:14px;color:var(--ink-soft)}
+  .rail-i.on{background:var(--soft);color:var(--ink);font-weight:500}
+  .page-head{padding:20px 28px 2px}
+  .status{padding:0 28px}
+  .page-head,.status,.layout{max-width:1120px}
+  /* the mark stays in view on the left while every control is edited on the right */
+  .layout{display:grid;grid-template-columns:392px minmax(0,1fr);gap:26px;align-items:start;padding:14px 28px 60px}
+  .markwrap{position:sticky;top:118px;padding:0}
+  .colR{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .canvas svg{height:260px}
+  .fgrid{grid-template-columns:repeat(4,1fr)}
+  .flist{grid-template-columns:repeat(3,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="proto">
+  <b>Prototype</b><span>state</span>
+  <button class="pill" data-state="new" aria-pressed="false">Nothing yet</button>
+  <button class="pill" data-state="designed" aria-pressed="true">Designed</button>
+  <button class="pill" data-state="animated" aria-pressed="false">Animation unlocked</button>
+  <span class="muted" style="margin-left:auto">not part of the app</span>
+</div>
+
+<div class="shell-top"><span class="brand">SETNAYAN</span><div class="search"></div></div>
+
+<div class="app">
+  <nav class="shell-rail">
+    <div class="rail-i">Overview</div><div class="rail-i">Event Hub</div><div class="rail-i">Guests</div>
+    <div class="rail-i">Budget</div><div class="rail-i on">Monogram</div><div class="rail-i">Papic</div><div class="rail-i">Studio</div>
+  </nav>
+
+  <main>
+    <div class="page-head">
+      <button class="icon-btn" aria-label="Back">&larr;</button>
+      <h1>Your wedding monogram</h1>
+    </div>
+    <p class="status" id="statusline">&nbsp;</p>
+
+    <div class="layout">
+
+      <!-- ══ THE MARK — live, on the page, always in view ══ -->
+      <div class="markwrap">
+        <section class="stage">
+          <div class="stagetop">
+            <span class="stagechip" id="stagechip">Your mark</span>
+            <span class="stagechip live" id="stagelive" hidden>Animated</span>
+          </div>
+          <div class="canvas">
+            <svg viewBox="0 0 220 180" id="marksvg" role="img" aria-label="Your monogram">
+              <defs id="mdefs"></defs>
+              <g id="m-frame" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round"></g>
+              <g id="m-base"></g>
+              <g id="m-over"></g>
+              <g id="m-dots"></g>
+            </svg>
+          </div>
+          <div class="emptyframes" id="emptystate" hidden>
+            <div class="ef">M</div><div class="ef lit">&amp;</div><div class="ef">J</div>
+          </div>
+          <p class="stagehint" id="markhint">Drag a piece to move it &middot; tap a crossing to flip which is on top</p>
+          <div class="stageacts">
+            <button class="sbtn" id="playbtn">Play motion</button>
+            <button class="sbtn primary" id="savebtn">Save my mark</button>
+          </div>
+          <div class="facts">
+            <div class="fact"><div class="k">Pieces</div><div class="v" id="f-pieces">2</div></div>
+            <div class="fact"><div class="k">Frame</div><div class="v" id="f-frame">Sampaguita</div></div>
+            <div class="fact"><div class="k">Motion</div><div class="v gold" id="f-motion">Handwriting</div></div>
+            <div class="fact"><div class="k">Showing on</div><div class="v" id="f-surfaces">6 surfaces</div></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ══ EVERY CONTROL, ON THE PAGE ══ -->
+      <div class="colR">
+
+        <button class="next" id="nextcard">
+          <span><span class="eyebrow" id="nexteyebrow">Next</span><span class="t" id="nexttext">&nbsp;</span></span>
+          <span class="arrow">&rsaquo;</span>
+        </button>
+
+        <section class="sec">
+          <h2>What's in the mark</h2>
+          <div class="card">
+            <div id="piecelist"></div>
+            <div class="chips" style="margin-top:10px">
+              <button class="tg" id="addpiece">+ Add a word</button>
+              <button class="tg" id="addamp">+ Add &amp;</button>
+              <button class="tg" id="fromnames">Reset from names</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec" id="crosssec">
+          <h2>Where they cross</h2>
+          <div class="card">
+            <div class="lab2" style="margin-top:0"><span>Gap</span><span id="cg_v">6</span></div>
+            <input type="range" id="cg" min="0" max="14" step="1" value="6" aria-label="Gap where they cross">
+            <p class="muted" style="font-size:12.5px;margin:8px 0 0" id="crossnote">&nbsp;</p>
+            <div class="chips" style="margin-top:10px">
+              <button class="tg" id="flipall">Flip them all</button>
+              <button class="tg" id="showcross" aria-pressed="true">Show the dots</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec">
+          <h2>Start from</h2>
+          <div class="strip" id="presetstrip"></div>
+        </section>
+
+        <section class="sec">
+          <h2>Frame</h2>
+          <div class="card">
+            <div class="fgrid" id="frameshelf"></div>
+            <div class="applied" id="frameapplied"></div>
+            <div class="collapsible" style="margin-top:12px">
+              <button class="hd" id="penhd" aria-expanded="false"><span>&#9998; Draw your own</span><span id="pencar">&rsaquo;</span></button>
+              <div id="pentools" hidden style="margin-top:10px">
+                <div class="lab2" style="margin-top:0"><span>Tip</span><span></span></div>
+                <div class="chips">
+                  <button class="tg" data-nib aria-pressed="true">Broad</button><button class="tg" data-nib aria-pressed="false">Pointed</button>
+                  <button class="tg" data-nib aria-pressed="false">Round</button><button class="tg" data-nib aria-pressed="false">Brush</button>
+                </div>
+                <div class="lab2"><span>Mirror</span><span></span></div>
+                <div class="chips">
+                  <button class="tg" data-mir aria-pressed="true">Off</button><button class="tg" data-mir aria-pressed="false">2-way</button>
+                  <button class="tg" data-mir aria-pressed="false">4-way</button>
+                </div>
+                <div class="lab2"><span>Nib width</span><span id="o_pw">14</span></div>
+                <input type="range" id="pw" min="3" max="34" step="1" value="14" aria-label="Nib width">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec">
+          <h2>Motion</h2>
+          <div class="card">
+            <p class="lab">How it runs</p>
+            <div class="chips" id="timingchips"></div>
+            <p class="muted" style="font-size:12.5px;margin:9px 0 0" id="timingnote">&nbsp;</p>
+          </div>
+
+          <div class="phase">
+            <button class="ph" data-ph="in" aria-expanded="true"><span class="n">1</span><span class="t">In</span><span class="v" id="v-in">&nbsp;</span></button>
+            <div class="body" id="body-in">
+              <p class="muted" style="font-size:12.5px;margin:0 0 9px">How it arrives.</p>
+              <div class="chips" id="inchips"></div>
+              <!-- Owner 2026-09-23: a trace follows the WHOLE letter, not the
+                   leftover fragments the weave cuts it into. -->
+              <p class="muted" style="font-size:12px;margin:10px 0 0" id="tracenote" hidden>
+                The trace follows each letter&rsquo;s whole stroke, start to finish &mdash; it just goes
+                quiet where that letter passes underneath. Never the fragments one by one.
+              </p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <button class="ph" data-ph="during" aria-expanded="false"><span class="n">2</span><span class="t">During</span><span class="v" id="v-during">&nbsp;</span></button>
+            <div class="body" id="body-during" hidden>
+              <p class="muted" style="font-size:12.5px;margin:0 0 9px">What it does while they read. This is <b>as well as</b> the entrance, not instead of it.</p>
+              <div class="chips" id="duringchips"></div>
+            </div>
+          </div>
+
+          <div class="phase" id="phase-out">
+            <button class="ph" data-ph="out" aria-expanded="false"><span class="n">3</span><span class="t">Out</span><span class="v" id="v-out">&nbsp;</span></button>
+            <div class="body" id="body-out" hidden>
+              <p class="muted" style="font-size:12.5px;margin:0 0 9px">The handoff to whatever comes next. The guest drives it &mdash; scroll back and it reverses.</p>
+              <div class="chips" id="outchips"></div>
+            </div>
+          </div>
+          <p class="muted" id="outlocked" style="font-size:12.5px;margin:-2px 0 10px" hidden>
+            <b>Out needs &ldquo;Follows the scroll&rdquo;.</b> On a timer it would fling the mark away while somebody is still looking at it.
+          </p>
+
+          <div class="card collapsible" id="finebox">
+            <button class="hd" id="fthdr" aria-expanded="false"><span>Fine-tune</span><span id="ftcar">&rsaquo;</span></button>
+            <div id="finetune" hidden>
+              <div class="lab2"><span>Duration</span><span id="o_dur">60</span></div>
+              <input type="range" id="dur" min="10" max="150" step="5" value="60" aria-label="Duration">
+              <div class="lab2"><span>Delay &middot; between piece starts</span><span id="o_dl">3</span></div>
+              <input type="range" id="dl" min="0" max="20" step="1" value="3" aria-label="Delay between piece starts">
+              <div class="lab2"><span>Smoothness</span><span id="o_sm">90</span></div>
+              <input type="range" id="smooth" min="0" max="100" step="1" value="90" aria-label="Smoothness">
+              <p class="muted" style="font-size:12px;margin:10px 0 0" id="dimnote" hidden>Distance is the control when it follows the scroll &mdash; these do nothing.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec">
+          <h2>Animation</h2>
+          <div class="card">
+            <div class="mrow"><span>Your mark</span><span class="amt" style="color:var(--pos)">Free, yours</span></div>
+            <div class="meter"><i id="meterfill"></i></div>
+            <div class="mrow"><span>Animated Monogram</span><span class="amt">&#8369;500</span></div>
+            <button class="buy" id="buybtn">Unlock the animation &middot; &#8369;500</button>
+            <div class="owned" id="ownedbtn" hidden><span>&#10003;</span><span>Unlocked &mdash; it plays on your site</span></div>
+          </div>
+        </section>
+
+        <section class="sec">
+          <h2>Also</h2>
+          <button class="rowlink" id="uploadrow">
+            <span><span>Upload your own mark</span><span class="sub">Use a file instead of drawing one</span></span>
+            <span class="chev">&rsaquo;</span>
+          </button>
+          <button class="rowlink" id="namesrow">
+            <span><span>Names</span><span class="sub">Used across your wedding &middot; seeds the mark</span></span>
+            <span class="v muted" id="v-names" style="margin-left:auto;font-size:13.5px">Maria &amp; Juan</span>
+          </button>
+          <p class="elsewhere">Your website hero, the save-the-date film and the guest QR all read this mark automatically. Nothing to set there.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ POPOVERS — typeface, size, colour. Nothing else opens over the page. ══ -->
+<div class="popscrim" id="popscrim" hidden></div>
+<div class="pop" id="pop" hidden role="dialog" aria-modal="true" aria-labelledby="poptitle">
+  <div class="pophead"><h3 id="poptitle">Typeface</h3><button class="x" id="popclose" aria-label="Close">&times;</button></div>
+  <div class="popbody" id="popbody"></div>
+</div>
+
+<!-- full screens: not editing -->
+<div class="screen" id="upload" hidden role="dialog" aria-modal="true" aria-label="Upload your own mark">
+  <div class="schead"><button class="icon-btn" data-close aria-label="Back">&larr;</button><h3>Upload your own mark</h3></div>
+  <div class="scbody">
+    <p class="muted" style="font-size:14px">Unchanged by this redesign &mdash; the existing uploader. SVG or transparent PNG; EPS and AI are declined honestly.</p>
+    <div class="card" style="margin-top:12px;text-align:center;padding:30px 12px;border-style:dashed"><span class="muted">Drop a file &middot; [EXISTING SCREEN]</span></div>
+  </div>
+  <div class="scfoot"><button class="ghost" data-close style="flex:1">Close</button></div>
+</div>
+
+<div class="screen" id="buy" hidden role="dialog" aria-modal="true" aria-label="Unlock the animation">
+  <div class="schead"><button class="icon-btn" data-close aria-label="Back">&larr;</button><h3>Unlock the animation</h3></div>
+  <div class="scbody">
+    <div class="mrow"><span>Animated Monogram</span><span class="amt">&#8369;500</span></div>
+    <p class="muted" style="font-size:13.5px;line-height:1.55;margin:10px 0 0">Your mark's entrance, its hold and its exit play on your wedding website, your save-the-date film and the wall. One payment, no renewal.</p>
+    <div class="card" style="margin-top:14px">
+      <p class="lab">Pay with</p>
+      <div class="chips"><button class="tg" data-pay aria-pressed="true">GCash</button><button class="tg" data-pay aria-pressed="false">Bank transfer</button></div>
+    </div>
+    <p class="muted" style="font-size:12.5px;margin-top:12px" id="paynote">[PLACEHOLDER] the real flow is apply-then-pay; this ends pending, like the shipped one.</p>
+  </div>
+  <div class="scfoot"><button class="buy" id="paybtn" style="margin:0">Place the order &middot; &#8369;500</button></div>
+</div>
+
+<script>
+var $ = function(id){ return document.getElementById(id); };
+var SVGNS = 'http://www.w3.org/2000/svg';
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ══ typeface library — one roster, shared with the event page ══
+   All OFL/Apache on Google Fonts, so the .ttf can be self-hosted, which the
+   monogram needs: the engine reads glyph OUTLINES, not a webfont.
+   ⚠ Commercial faces (Didot, Copperplate, Snell Roundhand, Burgues) cannot be
+   self-hosted or baked into an export without a per-face licence.
+   shipped = one of the 8 already in lib/monogram-studio-shared.ts STUDIO_FONTS */
+var FONTS = [];
+(function(){
+  function add(cat, list){
+    list.forEach(function(f){
+      var shipped = f.indexOf('*') > -1, name = f.replace('*','');
+      FONTS.push({ label:name, cat:cat, shipped:shipped,
+        css:"'"+name+"',"+(cat==='Script'||cat==='Calligraphy'?'cursive':cat==='Sans'?'sans-serif':'serif') });
+    });
+  }
+  add('Display',['Playfair Display SC*','Playfair Display','Bodoni Moda','Abril Fatface','Prata',
+    'Gilda Display*','Rozha One','Yeseva One*','Marcellus*','Marcellus SC','Italiana','Gloock',
+    'Instrument Serif','Bellefair','Lustria','Rosarivo','Amethysta','Antic Didone']);
+  add('Serif',['Cardo*','EB Garamond','Cormorant Garamond','Cormorant SC','Cormorant Unicase',
+    'Libre Baskerville','Crimson Text','Crimson Pro','Spectral','Lora','Vollkorn','Neuton',
+    'Alegreya','Alegreya SC','Literata','Newsreader','Petrona','Fraunces','Sorts Mill Goudy','Quattrocento']);
+  add('Engraved',['Cinzel','Cinzel Decorative*','Copse','Julius Sans One','Tenor Sans','Forum',
+    'Philosopher','Radley','Artifika','Judson','Junge','Coustard']);
+  add('Calligraphy',['Great Vibes*','Pinyon Script*','Allura','Alex Brush','Tangerine','Parisienne',
+    'Sacramento','Italianno','Petit Formal Script','Herr Von Muellerhoff','Mrs Saint Delafield',
+    'Monsieur La Doulaise','Miss Fajardose','Rouge Script','League Script','Norican','Qwigley',
+    'Mr De Haviland','Mr Bedfort','Mrs Sheppards','Clicker Script','Engagement','Arizonia','Bonheur Royale']);
+  add('Script',['Dancing Script','Yellowtail','Niconne','Marck Script','Pacifico','Satisfy','Cookie',
+    'Courgette','Grand Hotel','Kaushan Script','Damion','Berkshire Swash','Style Script','Lavishly Yours']);
+  add('Blackletter',['UnifrakturMaguntia','UnifrakturCook','Pirata One','Grenze Gotisch']);
+  add('Deco',['Poiret One','Megrim','Monoton','Limelight','Gruppo','Federo','Della Respira',
+    'Ruslan Display','Nova Cut','Amarante']);
+  add('Sans',['Josefin Sans','Raleway','Montserrat','Jost','Outfit','Questrial','Quicksand',
+    'Comfortaa','League Spartan','Syne']);
+  var l = document.createElement('link'); l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?' +
+    FONTS.map(function(f){ return 'family='+f.label.replace(/ /g,'+'); }).join('&') + '&display=swap';
+  document.head.appendChild(l);
+})();
+var FONT_CATS = ['All','Display','Serif','Engraved','Calligraphy','Script','Blackletter','Deco','Sans'];
+function face(l){ for(var i=0;i<FONTS.length;i++){ if(FONTS[i].label===l) return FONTS[i]; } return FONTS[0]; }
+
+var PRESETS = ['Alon','Sampaguita','Habi','Balangay','Araw','Kapilya','Perlas','Hardin',
+               'Lazo','Tala','Payneta','Kandila','Solo ring','Blank'];
+var FRAMES  = ['Ring','Double ring','Open ring','Diamond','Cartouche','Arch','Scallop','Laurel',
+               'Wreath','Sampaguita','Corner lines','Corner flourish','Side sprigs','Cardinal marks','Sparkle pair'];
+/* Owner 2026-09-23: "we don't need outline and backdrop." One colour — the
+   ink — and nothing behind the mark. The export stays transparent, which is
+   what makes it usable on paper, on a gobo and on the website alike. */
+var INKS    = [['#5C2542','Mulberry'],['#8C6932','Gold'],['#C5A059','Champagne'],['#1E2229','Obsidian'],
+               ['#2A3A5E','Navy'],['#6E7B66','Sage'],['#B07A86','Dusty rose'],['#FBFAF7','Ivory']];
+var TIMINGS = ['Plays once','Follows the scroll'];
+var INS     = ['Handwriting','Bloom','Petal Fall','Molten Gold','Medallion Turn','Foil','Editorial','Halo','Stardust','Rise','Fade','None'];
+var DURINGS = ['Still','Drift','Parallax','Foil sweep','Breathe','Slow turn','Stardust twinkle'];
+var OUTMOVES= ['Stay put','Fade away','Lift away','Settle back'];
+
+/* ══ state ══ */
+var state = 'designed';
+/* a piece carries its own face AND its own colour — the two sit together on
+   its row (owner 2026-09-23: "keep the color beside the font") */
+var PIECES = [
+  {t:'M', f:'Cardo', c:INKS[0], tx:0, ty:0, rot:0, skew:0, sc:100, flip:1},
+  {t:'J', f:'Cardo', c:INKS[1], tx:0, ty:0, rot:0, skew:0, sc:100, flip:1}
+];
+var sel = 0, crossGap = 6, defaultFace = 'Cardo';
+var motion = { timing:'Plays once', in:'Handwriting', during:'Still', out:'Stay put' };
+var weaveTop = {}, CROSSINGS = [], fontCat = 'All', fontQuery = '', popTarget = null;
+
+/* ══ the mark ══ */
+function pieceSize(p){ var n = (p.t||' ').length; return (n<=1?96:n<=3?60:n<=6?42:30) * (p.sc/100); }
+function pieceWidth(p){ return pieceSize(p) * 0.58 * Math.max(1, (p.t||' ').length); }
+function layout(){
+  var over = PIECES.length > 1 ? 0.16 : 0, total = 0;
+  PIECES.forEach(function(p,i){ total += pieceWidth(p) - (i ? pieceWidth(p)*over : 0); });
+  var cur = 110 - total/2;
+  PIECES.forEach(function(p,i){
+    var w = pieceWidth(p);
+    if(i) cur -= w*over;
+    p.x = cur + w/2; p.y = 112; cur += w;
+  });
+}
+function pieceBox(p){
+  var w = pieceWidth(p), s = pieceSize(p);
+  return { x0:p.x-w/2+p.tx, x1:p.x+w/2+p.tx, y0:p.y-s*0.74+p.ty, y1:p.y+s*0.20+p.ty };
+}
+/* ══ FINDING THE REAL CROSSINGS ════════════════════════════════════════════
+   Over/under belongs to each CROSSING, not to the pair (owner's I&C: the same
+   two letters cross four times and the answer alternates). So the crossings
+   have to be FOUND, not assumed — an invented "three per pair" puts dots where
+   nothing meets and misses the places that do.
+
+   Here: rasterise each piece to an offscreen canvas at 2x, intersect the two
+   coverage maps, label the connected blobs, take each blob's centroid. Those
+   are the actual places the strokes overlap.
+
+   The shipped engine does this properly with paper.js booleans — region
+   decomposition on `hit[i].intersect(hit[j])`, which is exactly the P2
+   "per-crossing weave" work. This is the cheap honest stand-in.            */
+var SS = 2, RW = 220*SS, RH = 180*SS, _rc = null;
+function rasterCtx(){
+  if(!_rc){
+    var cv = document.createElement('canvas');
+    cv.width = RW; cv.height = RH;
+    _rc = cv.getContext('2d', { willReadFrequently:true });
+  }
+  return _rc;
+}
+/* the same transform pieceTransform() writes, applied to a canvas */
+function applyPieceTransform(ctx, p){
+  var cx = p.x, cy = p.y - pieceSize(p)*0.32;
+  ctx.translate(p.tx, p.ty);
+  ctx.translate(cx, cy); ctx.rotate(p.rot*Math.PI/180); ctx.translate(-cx, -cy);
+  ctx.translate(cx, cy);
+  ctx.transform(1, 0, Math.tan(-p.skew*Math.PI/180), 1, 0, 0);
+  ctx.scale(p.flip, 1);
+  ctx.translate(-cx, -cy);
+}
+function coverage(p){
+  var ctx = rasterCtx();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,RW,RH);
+  ctx.save();
+  ctx.scale(SS, SS);
+  applyPieceTransform(ctx, p);
+  ctx.font = pieceSize(p) + 'px ' + face(p.f).css;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#000';
+  ctx.fillText(p.t || '', p.x, p.y);
+  ctx.restore();
+  var d = ctx.getImageData(0,0,RW,RH).data;
+  var m = new Uint8Array(RW*RH);
+  for(var i = 0, n = RW*RH; i < n; i++) m[i] = d[i*4+3] > 40 ? 1 : 0;
+  return m;
+}
+/* label the blobs where both pieces have ink, return their centroids */
+function overlapBlobs(mA, mB){
+  var both = new Uint8Array(RW*RH), i;
+  for(i = 0; i < both.length; i++) both[i] = (mA[i] && mB[i]) ? 1 : 0;
+  var seen = new Uint8Array(RW*RH), out = [], stack = [];
+  for(i = 0; i < both.length; i++){
+    if(!both[i] || seen[i]) continue;
+    var sx = 0, sy = 0, n = 0;
+    stack.length = 0; stack.push(i); seen[i] = 1;
+    while(stack.length){
+      var q = stack.pop(), qx = q % RW, qy = (q - qx) / RW;
+      sx += qx; sy += qy; n++;
+      for(var dy = -1; dy <= 1; dy++) for(var dx = -1; dx <= 1; dx++){
+        var nx = qx+dx, ny = qy+dy;
+        if(nx < 0 || ny < 0 || nx >= RW || ny >= RH) continue;
+        var ni = ny*RW + nx;
+        if(both[ni] && !seen[ni]){ seen[ni] = 1; stack.push(ni); }
+      }
+    }
+    if(n >= 6 * SS * SS) out.push({ x:(sx/n)/SS, y:(sy/n)/SS, n:n });   /* drop specks */
+  }
+  /* deterministic order so a key still means the same crossing after an edit */
+  out.sort(function(u,v){ return (u.y - v.y) || (u.x - v.x); });
+  return out.slice(0, 12);
+}
+function findCrossings(){
+  CROSSINGS = [];
+  if(PIECES.length < 2) return;
+  for(var a = 0; a < PIECES.length - 1; a++){
+    var b = a + 1;
+    if(!(PIECES[a].t || '').trim() || !(PIECES[b].t || '').trim()) continue;
+    var A = pieceBox(PIECES[a]), B = pieceBox(PIECES[b]);
+    if(Math.min(A.x1,B.x1) - Math.max(A.x0,B.x0) <= 0) continue;   /* cheap reject */
+    var blobs;
+    try { blobs = overlapBlobs(coverage(PIECES[a]), coverage(PIECES[b])); }
+    catch(e){ blobs = []; }
+    blobs.forEach(function(bl, k){
+      var key = a+'-'+b+'-'+k;
+      if(!(key in weaveTop)) weaveTop[key] = (k % 2 === 0) ? b : a;
+      CROSSINGS.push({ key:key, a:a, b:b, x:bl.x, y:bl.y, top:weaveTop[key], size:bl.n });
+    });
+  }
+}
+function pieceTransform(p){
+  var cx = p.x, cy = p.y - pieceSize(p)*0.32;
+  return 'translate('+p.tx+','+p.ty+') rotate('+p.rot+','+cx+','+cy+') ' +
+         'translate('+cx+','+cy+') skewX('+(-p.skew)+') scale('+p.flip+',1) translate('+(-cx)+','+(-cy)+')';
+}
+function makeText(p, opts){
+  opts = opts || {};
+  var t = document.createElementNS(SVGNS,'text');
+  t.setAttribute('x', String(p.x)); t.setAttribute('y', String(p.y));
+  t.setAttribute('text-anchor','middle');
+  t.setAttribute('font-family', face(p.f).css);
+  t.setAttribute('font-size', String(pieceSize(p)));
+  if(opts.cutter){
+    /* the punch: this piece's own shape, fattened by the gap, in black —
+       it is what gets removed from whatever passes underneath */
+    t.setAttribute('fill','black');
+    t.setAttribute('stroke','black');
+    t.setAttribute('stroke-width', String(crossGap));
+    t.setAttribute('stroke-linejoin','round');
+  } else {
+    t.setAttribute('fill', p.c[0]);
+    t.setAttribute('stroke','none');     /* no outline — owner 2026-09-23 */
+  }
+  t.textContent = p.t || '';
+  return t;
+}
+
+/* ══ THE CUT ═══════════════════════════════════════════════════════════════
+   With no backdrop there is nothing to paint the gap with, so the gap cannot
+   be a coloured halo — it has to be a REAL cut. Each piece is drawn once,
+   through a mask that removes the winner's shape (plus `crossGap` of air)
+   wherever this piece loses a crossing. The result is transparent there, so
+   the mark reads the same on paper, on a dark site and on a gobo.
+   Gap 0 = no cut at all: they simply overlap. */
+function renderMark(){
+  layout(); findCrossings();
+  var defs = $('mdefs'), base = $('m-base');
+  defs.innerHTML = ''; base.innerHTML = ''; $('m-over').innerHTML = '';
+
+  PIECES.forEach(function(p,i){
+    var lost = CROSSINGS.filter(function(c){ return c.top !== i && (c.a === i || c.b === i); });
+    /* ⚠ the mask must NOT sit on the same element as the transform, or the
+       transform is applied to the mask too and the cut lands somewhere else.
+       Outer element carries the mask; an inner group carries the transform. */
+    var g = document.createElementNS(SVGNS,'g');
+    g.setAttribute('class','gl'); g.setAttribute('data-i', String(i));
+    g.setAttribute('tabindex','0'); g.setAttribute('role','button');
+    g.setAttribute('aria-label', ((p.t||'').length>1?'Word ':'Letter ')+(p.t||'empty'));
+    var tf = document.createElementNS(SVGNS,'g');
+    tf.setAttribute('class','tf');
+    tf.setAttribute('transform', pieceTransform(p));
+    tf.appendChild(makeText(p));
+    g.appendChild(tf);
+
+    if(lost.length && crossGap > 0){
+      var mid = 'cut'+i;
+      var mask = document.createElementNS(SVGNS,'mask');
+      mask.setAttribute('id', mid); mask.setAttribute('maskUnits','userSpaceOnUse');
+      var keep = document.createElementNS(SVGNS,'rect');
+      keep.setAttribute('x','-60'); keep.setAttribute('y','-60');
+      keep.setAttribute('width','340'); keep.setAttribute('height','300');
+      keep.setAttribute('fill','white');
+      mask.appendChild(keep);
+      lost.forEach(function(c){
+        /* punch only NEAR this crossing, so the same pair can weave the other
+           way somewhere else */
+        var cid = 'clip-' + c.key.replace(/[^\w-]/g,'');
+        var clip = document.createElementNS(SVGNS,'clipPath');
+        clip.setAttribute('id', cid); clip.setAttribute('clipPathUnits','userSpaceOnUse');
+        /* the cut region is sized to the blob it was measured from, not a
+           fixed disc — a big crossing cuts more than a nicked corner */
+        var rad = Math.max(9, Math.min(34, Math.sqrt(c.size || 200)/2 + crossGap));
+        var circ = document.createElementNS(SVGNS,'circle');
+        circ.setAttribute('cx',String(c.x)); circ.setAttribute('cy',String(c.y));
+        circ.setAttribute('r', rad.toFixed(1));
+        clip.appendChild(circ); defs.appendChild(clip);
+
+        var winner = PIECES[c.top];
+        var punch = document.createElementNS(SVGNS,'g');
+        punch.setAttribute('clip-path','url(#'+cid+')');
+        punch.setAttribute('transform', pieceTransform(winner));
+        punch.appendChild(makeText(winner, { cutter:true }));
+        mask.appendChild(punch);
+      });
+      defs.appendChild(mask);
+      g.setAttribute('mask','url(#'+mid+')');
+    }
+    base.appendChild(g);
+  });
+  drawDots(); wireGlyphs(); markSelected();
+}
+function drawDots(){
+  var host = $('m-dots'); host.innerHTML = '';
+  CROSSINGS.forEach(function(c){
+    var g = document.createElementNS(SVGNS,'g');
+    g.setAttribute('class','xdot'); g.setAttribute('tabindex','0'); g.setAttribute('role','button');
+    g.setAttribute('aria-label','Crossing — '+(PIECES[c.top]||{}).t+' is on top; tap to flip');
+    var hit = document.createElementNS(SVGNS,'circle');
+    hit.setAttribute('cx',String(c.x)); hit.setAttribute('cy',String(c.y));
+    hit.setAttribute('r','15'); hit.setAttribute('class','hit');
+    g.appendChild(hit);
+    var pip = document.createElementNS(SVGNS,'circle');
+    pip.setAttribute('cx',String(c.x)); pip.setAttribute('cy',String(c.y));
+    pip.setAttribute('r','2.6'); pip.setAttribute('class','pip');
+    g.appendChild(pip);
+    function flip(){ weaveTop[c.key] = (c.top === c.a) ? c.b : c.a; renderMark(); syncCross(); }
+    g.addEventListener('click', flip);
+    g.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); flip(); } });
+    host.appendChild(g);
+  });
+}
+function markSelected(){
+  [].forEach.call($('m-base').children, function(g){
+    g.classList.toggle('on', g.getAttribute('data-i') === String(sel));
+  });
+  [].forEach.call($('piecelist').children, function(r,i){ r.classList.toggle('on', i === sel); });
+}
+function nudge(i){
+  var tf = $('m-base').querySelector('.gl[data-i="'+i+'"] .tf');
+  if(tf) tf.setAttribute('transform', pieceTransform(PIECES[i]));
+}
+function svgPoint(ev){
+  var r = $('marksvg').getBoundingClientRect();
+  return { x:(ev.clientX-r.left)/r.width*220, y:(ev.clientY-r.top)/r.height*180 };
+}
+function wireGlyphs(){
+  [].forEach.call($('m-base').children, function(g){
+    var i = Number(g.getAttribute('data-i')), from = null, start = null;
+    g.addEventListener('pointerdown', function(ev){
+      ev.preventDefault(); selectPiece(i);
+      from = svgPoint(ev); start = { tx:PIECES[i].tx, ty:PIECES[i].ty };
+      try{ g.setPointerCapture(ev.pointerId); }catch(e){}
+    });
+    g.addEventListener('pointermove', function(ev){
+      if(!from) return;
+      var q = svgPoint(ev);
+      PIECES[i].tx = start.tx + (q.x-from.x);
+      PIECES[i].ty = start.ty + (q.y-from.y);
+      nudge(i);                       /* light: never re-render mid-drag */
+    });
+    function end(ev){
+      if(!from) return;
+      from = null;
+      try{ g.releasePointerCapture(ev.pointerId); }catch(e){}
+      renderMark(); syncCross();
+    }
+    g.addEventListener('pointerup', end);
+    g.addEventListener('pointercancel', end);
+    g.addEventListener('keydown', function(e){
+      var s = e.shiftKey ? 6 : 2, moved = true;
+      if(e.key==='ArrowLeft') PIECES[i].tx -= s;
+      else if(e.key==='ArrowRight') PIECES[i].tx += s;
+      else if(e.key==='ArrowUp') PIECES[i].ty -= s;
+      else if(e.key==='ArrowDown') PIECES[i].ty += s;
+      else moved = false;
+      if(moved){ e.preventDefault(); selectPiece(i); nudge(i); }
+    });
+  });
+}
+
+/* ══ the piece rows — you type straight into them ══ */
+function renderPieceList(){
+  var host = $('piecelist'); host.innerHTML = '';
+  PIECES.forEach(function(p,i){
+    var row = document.createElement('div'); row.className = 'prow' + (i===sel?' on':'');
+
+    var word = document.createElement('input');
+    word.type = 'text'; word.className = 'pword';
+    word.value = p.t; word.placeholder = 'Type a letter or a word';
+    word.style.fontFamily = face(p.f).css;
+    word.setAttribute('aria-label','Piece '+(i+1)+' — its letters or word');
+    word.addEventListener('focus', function(){ if(sel !== i) selectPiece(i); });
+    word.addEventListener('input', function(){
+      PIECES[i].t = word.value;
+      renderMark(); syncCross(); sync();      /* the list is NOT redrawn: it holds the caret */
+    });
+    row.appendChild(word);
+
+    var fbtn = document.createElement('button');
+    fbtn.type = 'button'; fbtn.className = 'mini';
+    fbtn.textContent = p.f;
+    fbtn.setAttribute('aria-label','Typeface of '+(p.t||'this piece')+' — '+p.f);
+    fbtn.onclick = function(ev){ selectPiece(i); openFontPicker(ev.currentTarget); };
+    row.appendChild(fbtn);
+
+    /* colour sits beside the font — owner 2026-09-23 */
+    var cbtn = document.createElement('button');
+    cbtn.type = 'button'; cbtn.className = 'mini swbtn';
+    cbtn.innerHTML = '<span class="cdot" style="background:'+p.c[0]+'"></span><span>'+esc(p.c[1])+'</span>';
+    cbtn.setAttribute('aria-label','Colour of '+(p.t||'this piece')+' — '+p.c[1]);
+    cbtn.onclick = function(ev){ selectPiece(i); openColourPicker(ev.currentTarget); };
+    row.appendChild(cbtn);
+
+    var sbtn = document.createElement('button');
+    sbtn.type = 'button'; sbtn.className = 'mini';
+    sbtn.textContent = p.sc + '%';
+    sbtn.setAttribute('aria-label','Size of '+(p.t||'this piece'));
+    sbtn.onclick = function(ev){ selectPiece(i); openSizePicker(ev.currentTarget); };
+    row.appendChild(sbtn);
+
+    var kill = document.createElement('button');
+    kill.type = 'button'; kill.className = 'kill'; kill.innerHTML = '&times;';
+    kill.setAttribute('aria-label','Remove '+(p.t||'this piece'));
+    kill.disabled = PIECES.length <= 1;
+    kill.onclick = function(){
+      if(PIECES.length <= 1) return;
+      PIECES.splice(i,1); if(sel >= PIECES.length) sel = PIECES.length-1;
+      renderAll();
+    };
+    row.appendChild(kill);
+    host.appendChild(row);
+  });
+}
+function focusPiece(i){
+  var el = $('piecelist').children[i] && $('piecelist').children[i].querySelector('.pword');
+  if(el){ el.focus(); el.select(); }
+}
+function selectPiece(i){
+  sel = i; markSelected();
+  $('markhint').textContent = 'Drag ' + (PIECES[i].t || 'this piece') + ' to move it · tap a crossing to flip it';
+}
+$('addpiece').onclick = function(){
+  PIECES.push({ t:'', f:defaultFace, c:INKS[0], tx:0,ty:0,rot:0,skew:0,sc:100,flip:1 });
+  sel = PIECES.length-1; renderAll(); focusPiece(sel);
+};
+$('addamp').onclick = function(){
+  PIECES.splice(1,0,{ t:'&', f:'Great Vibes', c:INKS[1], tx:0,ty:0,rot:0,skew:0,sc:120,flip:1 });
+  sel = 1; renderAll();
+};
+$('fromnames').onclick = function(){
+  var parts = $('v-names').textContent.split(/\s*(?:&|and|\+)\s*/).filter(Boolean);
+  PIECES = parts.map(function(w){
+    return { t:(w.trim().charAt(0)||'S').toUpperCase(), f:defaultFace, c:INKS[0], tx:0,ty:0,rot:0,skew:0,sc:100,flip:1 };
+  });
+  if(!PIECES.length) PIECES = [{ t:'S', f:defaultFace, c:INKS[0], tx:0,ty:0,rot:0,skew:0,sc:100,flip:1 }];
+  weaveTop = {}; sel = 0; renderAll();
+};
+
+/* ══ POPOVERS ══════════════════════════════════════════════════════════════
+   The only things allowed to open over the page: pick a typeface, a size, a
+   colour. Anchored to whatever was pressed on desktop; a bottom sheet on a
+   phone. Escape and a click outside close them.                            */
+function placePop(anchor){
+  var pop = $('pop');
+  pop.hidden = false; $('popscrim').hidden = false;
+  if(window.innerWidth < 1024) return;              /* CSS makes it a sheet */
+  var r = anchor.getBoundingClientRect();
+  var w = Math.min(430, window.innerWidth - 24);
+  pop.style.width = w + 'px';
+  pop.style.maxHeight = Math.min(460, window.innerHeight - 90) + 'px';
+  var left = Math.min(Math.max(12, r.left - w + r.width), window.innerWidth - w - 12);
+  var top = r.bottom + 8;
+  if(top + 300 > window.innerHeight) top = Math.max(12, r.top - 320);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  pop.style.bottom = 'auto'; pop.style.right = 'auto';
+}
+function closePop(){ $('pop').hidden = true; $('popscrim').hidden = true; popTarget = null; }
+$('popclose').onclick = closePop;
+$('popscrim').onclick = closePop;
+
+function openFontPicker(anchor){
+  popTarget = 'font';
+  $('poptitle').textContent = 'Typeface · ' + (PIECES[sel].t || 'this piece');
+  $('popbody').innerHTML =
+    '<input class="fsearch" id="fq" type="search" placeholder="Search typefaces" aria-label="Search typefaces">' +
+    '<div class="fcats" id="fcats"></div><div class="flist" id="flist"></div>' +
+    '<p class="popnote" id="fcount"></p>';
+  $('fq').value = fontQuery;
+  $('fq').addEventListener('input', function(){ fontQuery = this.value; renderFontList(); });
+  renderFontCats(); renderFontList();
+  placePop(anchor);
+  $('fq').focus();
+}
+function renderFontCats(){
+  var h = $('fcats'); if(!h) return; h.innerHTML = '';
+  FONT_CATS.forEach(function(c){
+    var b = document.createElement('button'); b.type='button'; b.className='tg'; b.textContent=c;
+    b.setAttribute('aria-pressed', String(c===fontCat));
+    b.onclick = function(){ fontCat = c; renderFontCats(); renderFontList(); };
+    h.appendChild(b);
+  });
+}
+function renderFontList(){
+  var h = $('flist'); if(!h) return;
+  var q = fontQuery.toLowerCase();
+  var list = FONTS.filter(function(f){
+    return (fontCat==='All'||f.cat===fontCat) && f.label.toLowerCase().indexOf(q) > -1;
+  });
+  var specimen = (PIECES[sel].t || 'Mj').slice(0,6);
+  h.innerHTML = '';
+  list.forEach(function(f){
+    var b = document.createElement('button'); b.type='button'; b.className='ftile';
+    b.setAttribute('aria-pressed', String(f.label === PIECES[sel].f));
+    b.innerHTML = (f.shipped?'<span class="ship" title="already self-hosted"></span>':'') +
+      '<span class="sp" style="font-family:'+f.css+'">'+esc(specimen)+'</span>' +
+      '<span class="nm">'+esc(f.label)+'</span>';
+    b.onclick = function(){
+      PIECES[sel].f = f.label; defaultFace = f.label;
+      renderMark(); renderPieceList(); sync(); renderFontList();
+    };
+    h.appendChild(b);
+  });
+  $('fcount').textContent = list.length + ' of ' + FONTS.length +
+    ' · green dot = already self-hosted · the same library your event page uses';
+}
+
+function openSizePicker(anchor){
+  popTarget = 'size';
+  var p = PIECES[sel];
+  $('poptitle').textContent = 'Size · ' + (p.t || 'this piece');
+  $('popbody').innerHTML =
+    '<div class="lab2" style="margin-top:0"><span>Size</span><span id="szv">'+p.sc+'%</span></div>' +
+    '<input type="range" id="sz" min="40" max="180" step="1" value="'+p.sc+'" aria-label="Size">' +
+    '<div class="chips" style="margin-top:10px" id="szq"></div>' +
+    '<div class="lab2"><span>Rotate</span><span id="rov">'+p.rot+'&deg;</span></div>' +
+    '<input type="range" id="ro" min="-180" max="180" step="1" value="'+p.rot+'" aria-label="Rotate">' +
+    '<div class="lab2"><span>Tilt &middot; perspective lean</span><span id="skv">'+p.skew+'&deg;</span></div>' +
+    '<input type="range" id="sk" min="-30" max="30" step="1" value="'+p.skew+'" aria-label="Tilt">' +
+    '<div class="chips" style="margin-top:12px"><button class="tg" id="flipone">Flip it</button></div>';
+  [['sz','szv','%','sc'],['ro','rov','°','rot'],['sk','skv','°','skew']].forEach(function(t){
+    $(t[0]).addEventListener('input', function(){
+      PIECES[sel][t[3]] = +this.value;
+      $(t[1]).textContent = this.value + t[2];
+      renderMark(); renderPieceList(); syncCross();
+    });
+  });
+  [80,100,125,150].forEach(function(v){
+    var b = document.createElement('button'); b.type='button'; b.className='tg'; b.textContent=v+'%';
+    b.onclick = function(){ PIECES[sel].sc = v; $('sz').value = v; $('szv').textContent = v+'%';
+      renderMark(); renderPieceList(); syncCross(); };
+    $('szq').appendChild(b);
+  });
+  $('flipone').onclick = function(){ PIECES[sel].flip *= -1; renderMark(); };
+  placePop(anchor);
+}
+
+function openColourPicker(anchor){
+  popTarget = 'colour';
+  var p = PIECES[sel];
+  $('poptitle').textContent = 'Colour · ' + (p.t || 'this piece');
+  $('popbody').innerHTML = '<div class="swgrid" id="swg"></div>' +
+    '<div class="chips" style="margin-top:14px"><button class="tg" id="colall">Use this colour for every piece</button></div>' +
+    '<p class="popnote">The mark exports with no backdrop, so this colour is what appears on paper, on screen and on a gobo.</p>';
+  var h = $('swg');
+  INKS.forEach(function(c){
+    var b = document.createElement('button'); b.type='button'; b.className='sw';
+    b.setAttribute('aria-label', c[1]);
+    b.style.background = c[0];
+    b.setAttribute('aria-pressed', String(p.c[1] === c[1]));
+    b.onclick = function(){
+      PIECES[sel].c = c;
+      [].forEach.call(h.children, function(x){ x.setAttribute('aria-pressed','false'); });
+      b.setAttribute('aria-pressed','true');
+      renderMark(); renderPieceList(); sync();
+    };
+    h.appendChild(b);
+  });
+  $('colall').onclick = function(){
+    var c = PIECES[sel].c;
+    PIECES.forEach(function(q){ q.c = c; });
+    renderMark(); renderPieceList(); sync();
+  };
+  placePop(anchor);
+}
+
+/* ══ crossings ══ */
+$('cg').addEventListener('input', function(){
+  crossGap = +this.value; $('cg_v').textContent = this.value;
+  renderMark(); syncCross();
+});
+$('flipall').onclick = function(){
+  CROSSINGS.forEach(function(c){ weaveTop[c.key] = (c.top===c.a) ? c.b : c.a; });
+  renderMark(); syncCross();
+};
+/* see the mark with nothing of mine on it */
+$('showcross').onclick = function(){
+  var on = this.getAttribute('aria-pressed') === 'true';
+  this.setAttribute('aria-pressed', String(!on));
+  document.body.classList.toggle('hidecross', on);
+};
+function syncCross(){
+  var sec = $('crosssec');
+  if(CROSSINGS.length < 1){ sec.hidden = true; return; }
+  sec.hidden = false;
+  var counts = {};
+  CROSSINGS.forEach(function(c){ counts[c.top] = (counts[c.top]||0)+1; });
+  var names = Object.keys(counts).map(function(i){
+    return counts[i] + ' to ' + ((PIECES[i]||{}).t || '?');
+  }).join(' · ');
+  $('crossnote').textContent = (crossGap === 0
+    ? 'No gap — they simply overlap. '
+    : 'The one underneath is cut away with ' + crossGap + ' of air. ')
+    + CROSSINGS.length + ' crossings · tap one on the mark to flip it · ' + names + '.';
+}
+
+/* ══ starting points + frames ══ */
+function buildPresets(){
+  var s = $('presetstrip'); s.innerHTML = '';
+  var shown = PIECES.map(function(p){ return (p.t||'').charAt(0); }).join('').slice(0,3) || 'MJ';
+  PRESETS.forEach(function(p){
+    var b = document.createElement('button'); b.type='button'; b.className='pcard';
+    b.setAttribute('aria-pressed', String(p==='Sampaguita'));
+    b.innerHTML = '<span class="th" style="font-family:'+face(defaultFace).css+'">' +
+      (p==='Blank'?'&middot;':esc(shown)) + '</span><span class="nm">'+p+'</span>';
+    b.onclick = function(){
+      [].forEach.call(s.children, function(c){ c.setAttribute('aria-pressed','false'); });
+      b.setAttribute('aria-pressed','true'); sync();
+    };
+    s.appendChild(b);
+  });
+}
+/* ══ THE FRAMES ════════════════════════════════════════════════════════════
+   Fifteen real shapes, each generated from cx/cy/r so the same code draws the
+   thumbnail and the frame on the mark. The shipped engine builds these from
+   `frameBuilder(kind, params)` recipes (council verdict §4) — these are hand
+   drawings of the same catalogue, close enough to choose between. */
+function pt(cx, cy, r, deg){
+  var a = (deg - 90) * Math.PI / 180;
+  return [cx + r*Math.cos(a), cy + r*Math.sin(a)];
+}
+function leaf(cx, cy, r, deg, len, w){
+  var p = pt(cx, cy, r, deg);
+  return '<ellipse cx="'+p[0].toFixed(2)+'" cy="'+p[1].toFixed(2)+'" rx="'+len+'" ry="'+w+'" ' +
+         'transform="rotate('+(deg)+' '+p[0].toFixed(2)+' '+p[1].toFixed(2)+')" fill="currentColor" stroke="none"/>';
+}
+function flower(cx, cy, r, deg, s){
+  var p = pt(cx, cy, r, deg), out = '';
+  for(var k = 0; k < 5; k++){
+    var q = pt(p[0], p[1], s*0.9, k*72);
+    out += '<circle cx="'+q[0].toFixed(2)+'" cy="'+q[1].toFixed(2)+'" r="'+(s*0.62).toFixed(2)+'" fill="currentColor" stroke="none"/>';
+  }
+  return out + '<circle cx="'+p[0].toFixed(2)+'" cy="'+p[1].toFixed(2)+'" r="'+(s*0.42).toFixed(2)+'" fill="#fff" stroke="none"/>';
+}
+function sparkle(x, y, s){
+  return '<path d="M '+x+' '+(y-s)+' Q '+x+' '+y+' '+(x+s)+' '+y+' Q '+x+' '+y+' '+x+' '+(y+s)+
+         ' Q '+x+' '+y+' '+(x-s)+' '+y+' Q '+x+' '+y+' '+x+' '+(y-s)+' Z" fill="currentColor" stroke="none"/>';
+}
+function arcPath(cx, cy, r, a0, a1){
+  var p0 = pt(cx,cy,r,a0), p1 = pt(cx,cy,r,a1);
+  var large = Math.abs(a1-a0) > 180 ? 1 : 0;
+  return 'M '+p0[0].toFixed(2)+' '+p0[1].toFixed(2)+' A '+r+' '+r+' 0 '+large+' 1 '+p1[0].toFixed(2)+' '+p1[1].toFixed(2);
+}
+function framePaths(kind, cx, cy, r){
+  var o = '', i, p, q;
+  switch(kind){
+    case 'Ring':
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'"/>';
+    case 'Double ring':
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'"/><circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.88).toFixed(2)+'"/>';
+    case 'Open ring':
+      return '<path d="'+arcPath(cx,cy,r,20,160)+'"/><path d="'+arcPath(cx,cy,r,200,340)+'"/>';
+    case 'Diamond':
+      return '<path d="M '+cx+' '+(cy-r)+' L '+(cx+r)+' '+cy+' L '+cx+' '+(cy+r)+' L '+(cx-r)+' '+cy+' Z"/>';
+    case 'Cartouche':
+      return '<rect x="'+(cx-r*0.82)+'" y="'+(cy-r)+'" width="'+(r*1.64)+'" height="'+(r*2)+'" rx="'+(r*0.8)+'"/>';
+    case 'Arch':
+      return '<path d="M '+(cx-r*0.8)+' '+(cy+r)+' L '+(cx-r*0.8)+' '+cy+
+             ' A '+(r*0.8)+' '+(r*0.8)+' 0 0 1 '+(cx+r*0.8)+' '+cy+' L '+(cx+r*0.8)+' '+(cy+r)+'"/>' +
+             '<path d="M '+(cx-r)+' '+(cy+r)+' L '+(cx+r)+' '+(cy+r)+'"/>';
+    case 'Scallop':
+      var n = 16, d = '';
+      for(i = 0; i < n; i++){
+        p = pt(cx,cy,r,i*360/n); q = pt(cx,cy,r,(i+1)*360/n);
+        var rr = (Math.hypot(q[0]-p[0], q[1]-p[1])/2).toFixed(2);
+        d += (i ? ' ' : 'M '+p[0].toFixed(2)+' '+p[1].toFixed(2)+' ') +
+             'A '+rr+' '+rr+' 0 0 1 '+q[0].toFixed(2)+' '+q[1].toFixed(2);
+      }
+      return '<path d="'+d+' Z"/>';
+    case 'Laurel':
+      o = '<path d="'+arcPath(cx,cy,r,196,344)+'" />';
+      for(i = 0; i <= 7; i++){ o += leaf(cx,cy,r,200+i*20, r*0.17, r*0.075); }
+      return o;
+    case 'Wreath':
+      o = '';
+      for(i = 0; i < 20; i++){ o += leaf(cx,cy,r,i*18, r*0.15, r*0.068); }
+      return o;
+    case 'Sampaguita':
+      o = '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'"/>';
+      [0,90,180,270].forEach(function(a){ o += flower(cx,cy,r,a,r*0.13); });
+      return o;
+    case 'Corner lines':
+      var e = r*0.92, c = r*0.34;
+      return [[-1,-1],[1,-1],[1,1],[-1,1]].map(function(s){
+        var x = cx + s[0]*e, y = cy + s[1]*e;
+        return '<path d="M '+(x - s[0]*c)+' '+y+' L '+x+' '+y+' L '+x+' '+(y - s[1]*c)+'"/>';
+      }).join('');
+    case 'Corner flourish':
+      var e2 = r*0.9, c2 = r*0.4;
+      return [[-1,-1],[1,-1],[1,1],[-1,1]].map(function(s){
+        var x = cx + s[0]*e2, y = cy + s[1]*e2;
+        return '<path d="M '+(x - s[0]*c2)+' '+y+' Q '+x+' '+y+' '+x+' '+(y - s[1]*c2)+'"/>' +
+               '<circle cx="'+x+'" cy="'+y+'" r="'+(r*0.055).toFixed(2)+'" fill="currentColor" stroke="none"/>';
+      }).join('');
+    case 'Side sprigs':
+      o = '';
+      [[-1,180],[1,0]].forEach(function(s){
+        for(i = -3; i <= 3; i++){
+          p = [cx + s[0]*r*0.96, cy + i*r*0.2];
+          o += '<ellipse cx="'+(p[0] - s[0]*r*0.1).toFixed(2)+'" cy="'+p[1].toFixed(2)+'" rx="'+(r*0.14)+'" ry="'+(r*0.055)+'" ' +
+               'transform="rotate('+(i*16)+' '+p[0].toFixed(2)+' '+p[1].toFixed(2)+')" fill="currentColor" stroke="none"/>';
+        }
+        o += '<path d="M '+(cx + s[0]*r*0.96)+' '+(cy - r*0.62)+' L '+(cx + s[0]*r*0.96)+' '+(cy + r*0.62)+'"/>';
+      });
+      return o;
+    case 'Cardinal marks':
+      o = '';
+      [0,90,180,270].forEach(function(a){
+        p = pt(cx,cy,r,a);
+        var s = r*0.1;
+        o += '<path d="M '+p[0].toFixed(2)+' '+(p[1]-s).toFixed(2)+' L '+(p[0]+s).toFixed(2)+' '+p[1].toFixed(2)+
+             ' L '+p[0].toFixed(2)+' '+(p[1]+s).toFixed(2)+' L '+(p[0]-s).toFixed(2)+' '+p[1].toFixed(2)+' Z" fill="currentColor" stroke="none"/>';
+      });
+      return o;
+    case 'Sparkle pair':
+      return sparkle(cx - r*0.72, cy - r*0.72, r*0.2) + sparkle(cx + r*0.72, cy + r*0.72, r*0.14);
+    default:
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'"/>';
+  }
+}
+function frameSvg(kind){
+  return '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" ' +
+         'stroke-width="1.3" style="color:#A9834B">' + framePaths(kind, 20, 20, 15) + '</svg>';
+}
+function buildFrames(){
+  var g = $('frameshelf'); g.innerHTML = '';
+  FRAMES.forEach(function(f){
+    var b = document.createElement('button'); b.type='button'; b.className='fcard';
+    b.setAttribute('aria-pressed', String(f==='Sampaguita'));
+    b.innerHTML = '<span class="th">'+frameSvg(f)+'</span><span class="nm">'+f+'</span>';
+    b.onclick = function(){
+      b.setAttribute('aria-pressed', b.getAttribute('aria-pressed')==='true'?'false':'true');
+      syncFrames();
+    };
+    g.appendChild(b);
+  });
+  syncFrames();
+}
+function syncFrames(){
+  var on = [].filter.call($('frameshelf').children, function(c){ return c.getAttribute('aria-pressed')==='true'; });
+  var wrap = $('frameapplied'); wrap.innerHTML = '';
+  on.forEach(function(c){
+    var nm = c.querySelector('.nm').textContent;
+    var chip = document.createElement('span'); chip.className='achip';
+    chip.innerHTML = '<span>'+nm+'</span>';
+    var x = document.createElement('button'); x.type='button'; x.textContent='×';
+    x.setAttribute('aria-label','Remove '+nm);
+    x.onclick = function(){ c.setAttribute('aria-pressed','false'); syncFrames(); };
+    chip.appendChild(x); wrap.appendChild(chip);
+  });
+  $('f-frame').textContent = on.length ? on[0].querySelector('.nm').textContent : 'None';
+  drawFrames(on.map(function(c){ return c.querySelector('.nm').textContent; }));
+  sync();
+}
+/* auto-fit: the frame sizes itself to the letters' bounds + an inset, the way
+   the shipped shelf does (council verdict §4.3) */
+function drawFrames(kinds){
+  var host = $('m-frame');
+  host.innerHTML = '';
+  if(!kinds.length) return;
+  var x0 = 999, x1 = -999, y0 = 999, y1 = -999;
+  PIECES.forEach(function(p){
+    var b = pieceBox(p);
+    x0 = Math.min(x0,b.x0); x1 = Math.max(x1,b.x1);
+    y0 = Math.min(y0,b.y0); y1 = Math.max(y1,b.y1);
+  });
+  if(x1 < x0) return;
+  var cx = (x0+x1)/2, cy = (y0+y1)/2;
+  var r = Math.max(Math.hypot(x1-x0, y1-y0)/2 + 12, 34);
+  r = Math.min(r, 84);
+  kinds.forEach(function(k, i){
+    var g = document.createElementNS(SVGNS,'g');
+    g.setAttribute('style','color:' + (PIECES[0] ? PIECES[0].c[0] : '#A9834B'));
+    g.innerHTML = framePaths(k, cx, cy, r - i*7);   /* stacked frames step inward */
+    host.appendChild(g);
+  });
+}
+
+/* ══ motion ══ */
+function chipRow(host, list, get, set){
+  var h = $(host); h.innerHTML = '';
+  list.forEach(function(x){
+    var b = document.createElement('button'); b.type='button'; b.className='tg'; b.textContent=x;
+    b.setAttribute('aria-pressed', String(x===get()));
+    b.onclick = function(){
+      [].forEach.call(h.children, function(c){ c.setAttribute('aria-pressed','false'); });
+      b.setAttribute('aria-pressed','true'); set(x);
+    };
+    h.appendChild(b);
+  });
+}
+function buildMotion(){
+  chipRow('timingchips', TIMINGS, function(){ return motion.timing; }, function(x){ motion.timing=x; syncMotion(); });
+  chipRow('inchips',     INS,     function(){ return motion.in; },     function(x){ motion.in=x; syncMotion(); });
+  chipRow('duringchips', DURINGS, function(){ return motion.during; }, function(x){ motion.during=x; syncMotion(); });
+  chipRow('outchips',    OUTMOVES,function(){ return motion.out; },    function(x){ motion.out=x; syncMotion(); });
+  [].forEach.call(document.querySelectorAll('.phase .ph'), function(b){
+    b.onclick = function(){
+      var id = 'body-'+b.getAttribute('data-ph'), open = $(id).hidden;
+      $(id).hidden = !open; b.setAttribute('aria-expanded', String(open));
+    };
+  });
+}
+function scrubbed(){ return motion.timing === 'Follows the scroll'; }
+function syncMotion(){
+  var scrub = scrubbed();
+  $('phase-out').hidden = !scrub;
+  $('outlocked').hidden = scrub;
+  if(!scrub) motion.out = 'Stay put';
+  /* resetting the value is not resetting the chip — re-mark from state */
+  [].forEach.call($('outchips').children, function(c){
+    c.setAttribute('aria-pressed', String(c.textContent.trim() === motion.out));
+  });
+  $('finebox').style.opacity = scrub ? '.5' : '';
+  ['dur','dl','smooth'].forEach(function(id){ $(id).disabled = scrub; });
+  $('dimnote').hidden = !scrub;
+  $('timingnote').textContent = scrub
+    ? 'The guest drives it. Stop scrolling and it freezes; scroll back and it reverses.'
+    : 'It fires once when the mark comes into view and runs for its duration.';
+  $('v-in').textContent = motion.in;
+  $('v-during').textContent = motion.during;
+  $('v-out').textContent = motion.out;
+  $('tracenote').hidden = ['Handwriting','Editorial','Foil'].indexOf(motion.in) === -1;
+  $('f-motion').textContent = motion.in === 'None' ? motion.during : motion.in;
+  sync();
+}
+function playSequence(){
+  var el = $('marksvg'), scrub = scrubbed();
+  var dur = scrub ? 300 : Math.max(160, +$('dur').value * 4);
+  document.body.classList.add('playing');
+  el.style.transition = 'none';
+  if(motion.in === 'Fade'){ el.style.opacity='0'; el.style.transform='none'; }
+  else if(motion.in === 'Rise'){ el.style.opacity='0'; el.style.transform='translateY(18px)'; }
+  else if(motion.in === 'None'){ el.style.opacity='1'; el.style.transform='none'; }
+  else { el.style.opacity='0'; el.style.transform='scale(.96)'; }
+  setTimeout(function(){
+    el.style.transition = 'opacity '+dur+'ms var(--ease), transform '+dur+'ms var(--ease)';
+    el.style.opacity='1'; el.style.transform='none';
+  }, 20);
+  var hold = 1100;
+  if(motion.during !== 'Still'){
+    setTimeout(function(){
+      el.style.transition = 'transform '+hold+'ms var(--ease)';
+      el.style.transform = motion.during==='Drift' ? 'translateX(6px)'
+        : motion.during==='Parallax' ? 'translateY(-6px)'
+        : motion.during==='Breathe' ? 'scale(1.03)' : 'rotate(1.2deg)';
+    }, dur+40);
+  }
+  var outAt = dur+40+hold+200;
+  if(scrub && motion.out !== 'Stay put'){
+    setTimeout(function(){
+      el.style.transition = 'opacity 300ms var(--ease), transform 300ms var(--ease)';
+      if(motion.out==='Lift away'){ el.style.opacity='0'; el.style.transform='translateY(-40px)'; }
+      else if(motion.out==='Fade away'){ el.style.opacity='0'; }
+      else { el.style.transform='scale(.97)'; el.style.opacity='.4'; }
+    }, outAt);
+  }
+  setTimeout(function(){
+    el.style.transition='opacity 260ms var(--ease), transform 260ms var(--ease)';
+    el.style.opacity='1'; el.style.transform='none';
+    document.body.classList.remove('playing');
+  }, outAt+700);
+}
+$('playbtn').onclick = playSequence;
+
+/* ══ collapsibles + misc chip groups ══ */
+function toggler(btn, body, car){
+  $(btn).onclick = function(){
+    var o = $(body).hidden;
+    $(body).hidden = !o; this.setAttribute('aria-expanded', String(o));
+    if(car) $(car).textContent = o ? '˅' : '›';
+  };
+}
+toggler('penhd','pentools','pencar');
+toggler('fthdr','finetune','ftcar');
+[['pw','o_pw',''],['dur','o_dur',''],['dl','o_dl',''],['smooth','o_sm','']].forEach(function(t){
+  $(t[0]).addEventListener('input', function(){ $(t[1]).textContent = this.value + t[2]; });
+});
+[].forEach.call(document.querySelectorAll('[data-nib],[data-mir],[data-pay]'), function(b){
+  b.addEventListener('click', function(){
+    [].forEach.call(b.parentNode.children, function(c){ c.setAttribute('aria-pressed','false'); });
+    b.setAttribute('aria-pressed','true');
+  });
+});
+
+/* ══ the two full screens that are NOT editing ══ */
+function showScreen(id){ $(id).hidden = false; document.body.style.overflow='hidden'; }
+function closeScreens(){ ['upload','buy'].forEach(function(s){ $(s).hidden = true; }); document.body.style.overflow=''; }
+[].forEach.call(document.querySelectorAll('[data-close]'), function(b){ b.onclick = closeScreens; });
+$('uploadrow').onclick = function(){ showScreen('upload'); };
+$('buybtn').onclick = function(){ showScreen('buy'); };
+$('namesrow').onclick = function(){ /* [PLACEHOLDER] names live in the event's own settings */ };
+$('paybtn').onclick = function(){
+  $('paynote').textContent = 'Order placed · pending payment confirmation. (Prototype)';
+  $('paybtn').textContent = 'Pending ✓'; $('paybtn').disabled = true;
+  setState('animated'); setTimeout(closeScreens, 700);
+};
+$('savebtn').onclick = function(){
+  var b = $('savebtn'); b.textContent = 'Saved ✓';
+  setTimeout(function(){ b.textContent = 'Save my mark'; }, 900);
+};
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  if(!$('pop').hidden) closePop();
+  else closeScreens();
+});
+
+/* ══ status ══ */
+function sync(){
+  var faces = {}; PIECES.forEach(function(p){ faces[p.f] = 1; });
+  var nf = Object.keys(faces).length;
+  var words = PIECES.map(function(p){ return p.t; }).filter(Boolean).join(' ');
+  $('f-pieces').textContent = PIECES.length + (nf > 1 ? ' · ' + nf + ' faces' : '');
+  $('statusline').textContent = state === 'new'
+    ? 'Nothing set yet · start with a shape'
+    : (words || 'Empty') + ' · ' + $('f-frame').textContent + ' · ' + motion.in + ' · on 6 surfaces';
+  if(state === 'new'){ $('nexteyebrow').textContent='Start here'; $('nexttext').textContent='Type your letters or words above'; }
+  else if(state === 'designed'){ $('nexteyebrow').textContent='Next'; $('nexttext').textContent='Unlock the animation so it plays on your site'; }
+  else { $('nexteyebrow').textContent='Done'; $('nexttext').textContent='Your mark is live on all 6 surfaces'; }
+}
+$('nextcard').onclick = function(){
+  if(state === 'designed') showScreen('buy');
+  else focusPiece(0);
+};
+function setState(s){
+  state = s;
+  [].forEach.call(document.querySelectorAll('.proto .pill'), function(p){
+    p.setAttribute('aria-pressed', String(p.getAttribute('data-state')===s));
+  });
+  var isNew = s==='new', owned = s==='animated';
+  $('emptystate').hidden = !isNew;
+  $('marksvg').parentNode.hidden = isNew;
+  $('playbtn').disabled = isNew;
+  $('stagechip').textContent = isNew ? 'Not started' : 'Your mark';
+  $('stagelive').hidden = !owned;
+  $('buybtn').hidden = owned; $('ownedbtn').hidden = !owned;
+  $('meterfill').style.width = isNew ? '0%' : (owned ? '100%' : '50%');
+  $('f-surfaces').textContent = isNew ? 'Not yet' : '6 surfaces';
+  sync();
+}
+[].forEach.call(document.querySelectorAll('.proto .pill'), function(p){
+  p.onclick = function(){ setState(p.getAttribute('data-state')); };
+});
+
+function renderAll(){ renderMark(); renderPieceList(); syncCross(); syncFrames(); sync(); }
+
+/* ══ boot ══ */
+buildPresets(); buildFrames(); buildMotion();
+renderAll(); selectPiece(0); syncMotion(); setState('designed');
+/* the crossings are measured off rasterised glyphs, so they are wrong until
+   the faces have actually loaded — redraw once they have */
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(function(){ weaveTop = {}; renderAll(); });
+}
+</script>
+</body>
+</html>

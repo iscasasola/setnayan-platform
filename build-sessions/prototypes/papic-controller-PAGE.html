@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papic controller — redesign prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  PAPIC CONTROLLER — responsive redesign prototype (2026-09-21)
+  Route it stands for: /dashboard/[eventId]/studio/papic  (set up + buy Papic; NOT the Event Hub's Papic section)
+  One DOM, two layouts:
+    < 1024px  one column, sections in the order of the current phase
+    ≥ 1024px  shell (top bar + left rail) · flow in the wide left column · status + credits + Buy sticky on the right
+              sub-screens and the pay flow open as a right-side drawer instead of full screen
+  Phase (prototype bar at the top): BEFORE the event = set-up order · AFTER = results lead, setup collapses.
+  Real values: 17 price rungs read off prod 2026-09-21 · 5 looks from lib/papic-photo-styles.ts ·
+  challenge prompts from the challenge library seed. Placeholders are marked [LIKE THIS].
+
+  2026-09-22 — CAMERAS PANEL CHANGED, AND IT IS AN OPEN OWNER CALL.
+  It used to give each camera a ± stepper of "Its own credits" vs "Shoots from the pot".
+  That was FAITHFUL to the shipped PapicCamerasCard (owner 2026-08-11: "the host can dedicate a
+  specific number of shots for a specific QR code"), but it contradicts the LATER ruling
+  (owner 2026-09-16: "no dedicated shots individually"). The panel now shows camera CLAIMS
+  (who holds it, Show QR / Reissue) and one line saying every camera shoots the shared pool —
+  which is what the live page's own Crew-cameras sheet already says. Revert if 2026-08-11 wins.
+-->
+<style>
+:root{
+  --ink:#2C2A29; --ink-2:#6F6A62; --ink-3:#9A948A;
+  --line:#E6E0D6; --line-2:#F0EBE3; --soft:#F4F1EC; --page:#FFFFFF;
+  --gold:#8C6932; --gold-2:#C9A46A; --night:#17160F; --night-line:#3A372C; --night-ink:#F4EFE6; --night-2:#B8AE9E;
+  --ok-bg:#E8F1E6; --ok:#2F6B35;
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;color:inherit}
+h1,h2{margin:0;font-weight:600}
+.proto{position:sticky;top:0;z-index:30;display:flex;flex-direction:column;gap:6px;padding:8px 14px 10px;background:#EDEAE4;font-size:12px;color:var(--ink-2)}
+.prow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.glab{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.proto .pill.bad[aria-pressed="true"]{background:#B42318;border-color:#B42318;color:#fff}
+.flag{margin:10px 16px 0;border-radius:13px;padding:11px 13px;font-size:12.5px;line-height:1.55;border:1px solid}
+.flag > b:first-child{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.amber{background:#FFF6E4;border-color:#E8C583;color:#8A5A00}
+.stop{background:#FDF0EF;border-color:#F0BFBA;color:#B42318}
+.okf{background:#E8F1E6;border-color:#BEDCC0;color:#2F6B35}
+.info{background:#EEF1F5;border-color:#D3DAE3;color:#3D4A5C}
+.panic{border-color:#F0BFBA!important;background:#FDF0EF}
+.panic b{color:#B42318}
+.skel{background:#EDE8DF!important;color:transparent!important}
+.meter-unknown{height:9px;border-radius:999px;background:repeating-linear-gradient(135deg,#E3DCD0,#E3DCD0 5px,#F2EEE6 5px,#F2EEE6 10px)}
+.proto b{font-weight:600;color:var(--ink)}
+.pill{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px;white-space:nowrap}
+.pill[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.proto .pill{height:30px}
+
+/* ---------- shell (desktop only) ---------- */
+.shell-top,.shell-rail{display:none}
+.app{display:block}
+
+/* ---------- page ---------- */
+.page-head{display:flex;align-items:center;gap:4px;padding:12px 16px 4px 8px}
+.icon-btn{width:44px;height:44px;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;border-radius:999px}
+.icon-btn.ring{border:1px solid var(--line);background:#fff}
+.page-head h1{font-size:24px;font-weight:500;line-height:1.1}
+.status{font-size:13px;color:var(--ink-2)}
+.layout{display:flex;flex-direction:column;gap:22px;padding:12px 16px 40px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h2{font-size:17px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.muted{color:var(--ink-2)}
+.card{border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.rows{border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.row{min-height:52px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border:0;border-bottom:1px solid var(--line-2);background:#fff;font-size:15px;text-align:left}
+.rows .row:last-child{border-bottom:0}
+.row .v{color:var(--ink-2)} .row .v.gold{color:var(--gold)}
+.lone{border:1px solid var(--line);border-radius:var(--r-md)}
+.btn{height:50px;border:0;border-radius:999px;background:var(--gold);color:#fff;font-size:15px;font-weight:600;padding:0 22px}
+.btn.dark{background:var(--ink)} .btn.ghost{background:#fff;border:1px solid var(--gold);color:var(--gold);height:44px}
+.seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:var(--soft);border-radius:999px;padding:4px}
+.seg button{height:40px;border:0;border-radius:999px;background:transparent;font-size:14px}
+.seg button[aria-pressed="true"]{background:#fff;font-weight:600;box-shadow:0 1px 3px rgba(23,22,15,.12)}
+.switch{width:44px;height:26px;flex-shrink:0;border:0;border-radius:999px;background:#D9D3C8;padding:3px;display:flex}
+.switch::after{content:"";width:20px;height:20px;border-radius:999px;background:#fff;transition:transform .15s}
+.switch[aria-checked="true"]{background:var(--gold)}
+.switch[aria-checked="true"]::after{transform:translateX(18px)}
+.stepper{display:flex;gap:8px;align-items:stretch}
+.stepper .sb{width:48px;flex-shrink:0;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:22px}
+.stepper .sb:disabled{opacity:.35;cursor:default}
+/* OFF is a STATE, not an absence — same height, so nothing below it moves. */
+.stepper.off .val{background:var(--soft);border-style:dashed}
+.stepper.off .big{color:var(--ink-3);font-weight:500}
+/* The warning line is always rendered; only its text changes. */
+.note{display:block;min-height:15px;line-height:15px}
+.stepper .val{flex:1;border-radius:14px;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px}
+.stepper .big{font-size:20px;font-weight:600}
+.small{font-size:12px;color:var(--ink-2)}
+.center{text-align:center}
+
+/* next step (dark) */
+.next{background:var(--night);color:var(--night-ink);border-radius:var(--r-lg);padding:18px;display:flex;flex-direction:column;gap:12px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-2)}
+.next .q{font-size:21px;font-weight:500}
+.next label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--night-2)}
+.next input,.next .fixed{height:44px;border-radius:var(--r-sm);border:1px solid var(--night-line);background:#221F17;color:var(--night-ink);padding:0 12px;font:inherit;font-size:15px;display:flex;align-items:center}
+.next .fixed{background:transparent}
+.next .btn{background:var(--gold-2);color:var(--night);height:48px}
+
+/* credits */
+.rec{border-radius:14px;background:#fff;border:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.rec b{font-size:17px;font-weight:600}
+.rec .why{font-size:11px;color:var(--ink-3)}
+.rec .gap{font-size:12px;color:var(--gold);font-weight:600}
+.credits{background:var(--soft);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.credits .left strong{font-size:22px;font-weight:600;color:var(--ink)}
+.pending{font-size:13px;color:var(--gold)}
+.glance{display:none}
+
+/* filter */
+.looks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.look{padding:3px 3px 6px;border-radius:13px;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;gap:4px;font-size:12px}
+.look[aria-pressed="true"]{border:2px solid var(--gold);font-weight:600}
+.look svg{display:block;width:100%;border-radius:10px}
+
+/* gallery */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.tile{position:relative;aspect-ratio:1/1;border:0;border-radius:10px;display:flex;align-items:flex-end;padding:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#fff}
+.tile[aria-pressed="true"]{outline:2px solid var(--gold-2);outline-offset:-2px}
+.tile[aria-pressed="true"]::after{content:"✓";position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:999px;background:var(--gold-2);color:var(--night);display:flex;align-items:center;justify-content:center;font-size:12px}
+
+/* wall */
+.wall-styles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.wall-styles .pill{padding:0 4px}
+
+/* compact (after the event, setup collapses to one line) */
+.compact{display:none}
+body.after .setup-sec .full{display:none}
+body.after .setup-sec .compact{display:flex}
+body.after .setup-sec h2.full-h{display:none}
+
+/* PHASE ORDER — one DOM, reordered */
+/* OWNER ORDER 2026-09-22: credits + running balance FIRST, then coverage, then
+   allotment, then everything else. Money leads because it is the thing a couple
+   checks every time they open this page; the two blocks that SIZE it sit
+   directly under it so the suggestion is never far from its inputs. */
+/* ── THE ORDER, AND WHY IT IS THIS ────────────────────────────────────────────
+   Owner set the top three: Credits + balance, Coverage, Allotment — "what it
+   costs and who gets it". The rest is grouped by WHEN YOU TOUCH IT, which is
+   what makes a long page manageable:
+
+     4-6  THE ROOM   — decided before, experienced during. Filter (the look on
+                       every photo), Challenges (what guests are asked to catch),
+                       Live wall (what the venue screen shows).
+                       🔑 Live wall moved UP from 9th. It is a SETUP job — pick a
+                       style, get the screen code — and it was sitting below the
+                       results it helps produce.
+     7-9  WHAT YOU GOT — Gallery, Kwento, Made for you. Empty before the day, so
+                       they sit under the things that fill them.
+     10   MORE       — everything you touch once or never.
+
+   After the day the two blocks swap: results lead, the room and the setup fold
+   to one line each. Same DOM, `order` only. */
+.s-credits{order:1}.s-dates{order:2}.s-guests{order:3}
+.s-filter{order:4}.s-challenges{order:5}.s-wall{order:6}
+.s-gallery{order:7}.s-kwento{order:8}.s-made{order:9}.s-more{order:10}
+/* On the day and after: what you got, then the room that is still running, then
+   the money (you can still run out mid-reception), then the setup, folded. */
+body.after .s-gallery{order:1} body.after .s-kwento{order:2} body.after .s-made{order:3}
+body.after .s-wall{order:4} body.after .s-credits{order:5}
+body.after .s-guests{order:6} body.after .s-filter{order:7} body.after .s-challenges{order:8}
+body.after .s-dates{order:9} body.after .s-more{order:10}
+
+/* ---------- panel: full screen on phone, side drawer on desktop ---------- */
+.scrim{position:fixed;inset:0;background:rgba(23,22,15,.45);z-index:40;display:none}
+.panel{position:fixed;inset:0;background:#fff;z-index:41;display:none;flex-direction:column}
+.open .scrim{display:block} .open .panel{display:flex}
+.panel-head{display:flex;align-items:center;gap:4px;padding:12px 16px 8px 8px;border-bottom:1px solid var(--line-2)}
+.panel-head .t{flex:1;font-size:19px;font-weight:600}
+.panel-body{flex:1;overflow-y:auto;padding:14px 16px 28px;display:flex;flex-direction:column;gap:10px}
+.pick{min-height:60px;border-radius:var(--r-md);padding:10px 12px 10px 16px;display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:#fff;text-align:left;font-size:15px;line-height:1.35}
+.pick[aria-pressed="true"]{border:2px solid var(--gold);background:#FBF6EE}
+.pick .m{width:32px;height:32px;flex-shrink:0;border-radius:999px;background:var(--soft);display:flex;align-items:center;justify-content:center}
+.pick[aria-pressed="true"] .m{background:var(--gold);color:#fff}
+.pick:disabled{opacity:.5}
+.rev{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.msg{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:10px}
+.done-note{font-size:13px;color:var(--ok)}
+.check{width:56px;height:56px;border-radius:999px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:26px;margin:8px auto 0}
+.toast{position:fixed;left:16px;right:16px;bottom:24px;z-index:50;border-radius:14px;background:var(--ink);color:#fff;padding:14px 16px;font-size:14px;display:none;justify-content:space-between;align-items:center}
+.toast.on{display:flex}
+.toast button{border:0;background:transparent;color:var(--gold-2);font-weight:600}
+
+/* ---------- DESKTOP ---------- */
+@media (min-width:1024px){
+  body{background:#FAF8F4}
+  .shell-top{display:flex;align-items:center;gap:16px;height:60px;padding:0 24px;background:#fff;border-bottom:1px solid var(--line-2);position:sticky;top:46px;z-index:20}
+  .shell-top .brand{font-weight:700;letter-spacing:.2em;font-size:14px}
+  .shell-top .search{flex:1;max-width:520px;height:40px;border:1px solid var(--line);border-radius:999px;display:flex;align-items:center;padding:0 16px;color:var(--ink-3);font-size:14px}
+  .app{display:grid;grid-template-columns:88px 1fr}
+  .shell-rail{display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px 0;border-right:1px solid var(--line-2);background:#fff;min-height:calc(100vh - 106px);font-size:11px;color:var(--ink-2)}
+  .shell-rail span.on{color:var(--gold);font-weight:600}
+  .main{max-width:1200px;width:100%;margin:0 auto;padding:8px 32px}
+  .page-head{padding:20px 0 8px}
+  .page-head h1{font-size:30px}
+  .page-head .back{display:none}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;column-gap:32px;row-gap:28px;padding:8px 0 64px;align-items:start}
+  .layout > .sec{grid-column:1}
+  .layout > .s-credits{grid-column:2;grid-row:1 / span 9;position:sticky;top:124px;align-self:start}
+  .glance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-bottom:1px solid #E6DFD3;padding-bottom:14px}
+  .glance div{display:flex;flex-direction:column}.glance b{font-size:22px;font-weight:600}.glance span{font-size:12px;color:var(--ink-2)}
+  .grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .rows,.card,.lone{background:#fff}
+  .looks{grid-template-columns:repeat(5,minmax(0,96px))}
+  .panel{inset:0 0 0 auto;width:440px;box-shadow:-8px 0 24px rgba(23,22,15,.08)}
+  .toast{left:auto;right:24px;width:360px}
+  .status-m{display:none}
+}
+
+.stx{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.chrome{position:sticky;top:0;z-index:40;background:#262420;color:#F4EFE6;padding:10px 14px 11px}
+.chrome h1{font-size:13.5px;margin:0}.chrome p{font-size:11px;color:#B8AE9E;line-height:1.5;margin:3px 0 8px}
+.swx{display:flex;gap:6px;flex-wrap:wrap}
+.chrome label{height:30px;padding:0 11px;border-radius:999px;border:1px solid #4A463D;font-size:12.5px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap;color:#E4DDD1}
+.chrome label.bad{border-color:#7A3A34}
+.vflagx{display:none}.ovr{display:none}
+#x-floor:checked~.app .s-guests.basec{display:none}
+#x-floor:checked~.app .ovr[data-x="floor"].s-guests{display:flex}
+#x-day1:checked~.app .s-gallery.basec{display:none}
+#x-day1:checked~.app .ovr[data-x="day1"].s-gallery{display:flex}
+#x-spentguest:checked~.app .s-gallery.basec{display:none}
+#x-spentguest:checked~.app .ovr[data-x="spentguest"].s-gallery{display:flex}
+#x-spent:checked~.app .s-credits.basec{display:none}
+#x-spent:checked~.app .ovr[data-x="spent"].s-credits{display:flex}
+#x-bluron:checked~.app .s-gallery.basec{display:none}
+#x-bluron:checked~.app .ovr[data-x="bluron"].s-gallery{display:flex}
+#x-blurgate:checked~.app .s-gallery.basec{display:none}
+#x-blurgate:checked~.app .ovr[data-x="blurgate"].s-gallery{display:flex}
+#x-loading:checked~.app .s-gallery.basec{display:none}
+#x-loading:checked~.app .ovr[data-x="loading"].s-gallery{display:flex}
+#x-camoff:checked~.app .s-guests.basec{display:none}
+#x-camoff:checked~.app .ovr[data-x="camoff"].s-guests{display:flex}
+#x-camfail:checked~.app .s-guests.basec{display:none}
+#x-camfail:checked~.app .ovr[data-x="camfail"].s-guests{display:flex}
+#x-retire:checked~.app .s-gallery.basec{display:none}
+#x-retire:checked~.app .ovr[data-x="retire"].s-gallery{display:flex}
+#x-readfail:checked~.app .s-guests.basec{display:none}
+#x-readfail:checked~.app .ovr[data-x="readfail"].s-guests{display:flex}
+#x-readfail:checked~.app .s-credits.basec{display:none}
+#x-readfail:checked~.app .ovr[data-x="readfail"].s-credits{display:flex}
+#x-day1:checked~.app .s-kwento.basec{display:none}
+#x-day1:checked~.app .s-made.basec{display:none}
+#x-retire:checked~.app .s-dates.basec{display:none}
+#x-retire:checked~.app .s-guests.basec{display:none}
+#x-retire:checked~.app .s-credits.basec{display:none}
+#x-retire:checked~.app .s-filter.basec{display:none}
+#x-retire:checked~.app .s-challenges.basec{display:none}
+#x-retire:checked~.app .s-kwento.basec{display:none}
+#x-retire:checked~.app .s-made.basec{display:none}
+#x-retire:checked~.app .s-wall.basec{display:none}
+#x-retire:checked~.app .s-more.basec{display:none}
+#x-day1:checked~.app .vflagx[data-x="day1"]{display:block}
+#x-readfail:checked~.app .vflagx[data-x="readfail"]{display:block}
+#x-retire:checked~.app .vflagx[data-x="retire"]{display:block}
+#x-floor:checked~.app .vflagx[data-x="floor"]{display:block}
+#x-normal:checked~.chrome label[for="x-normal"]{background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600}
+#x-day1:checked~.chrome label[for="x-day1"]{background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600}
+#x-floor:checked~.chrome label[for="x-floor"]{background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600}
+#x-spentguest:checked~.chrome label[for="x-spentguest"]{background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600}
+#x-spent:checked~.chrome label[for="x-spent"]{background:#FFD9D5;color:#7A1710;border-color:#FFD9D5;font-weight:600}
+#x-bluron:checked~.chrome label[for="x-bluron"]{background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600}
+#x-blurgate:checked~.chrome label[for="x-blurgate"]{background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600}
+#x-readfail:checked~.chrome label[for="x-readfail"]{background:#FFD9D5;color:#7A1710;border-color:#FFD9D5;font-weight:600}
+#x-camoff:checked~.chrome label[for="x-camoff"]{background:#FFD9D5;color:#7A1710;border-color:#FFD9D5;font-weight:600}
+#x-camfail:checked~.chrome label[for="x-camfail"]{background:#FFD9D5;color:#7A1710;border-color:#FFD9D5;font-weight:600}
+#x-loading:checked~.chrome label[for="x-loading"]{background:#F4EFE6;color:#262420;border-color:#F4EFE6;font-weight:600}
+#x-retire:checked~.chrome label[for="x-retire"]{background:#FFD9D5;color:#7A1710;border-color:#FFD9D5;font-weight:600}
+
+/* The write-up sits BELOW the page and never inside it — placement was the whole
+   lesson of the last three rounds. Every state's own reasoning stays in that
+   state; this is a collection point, not a second copy. */
+.foot{max-width:720px;margin:26px auto 60px;padding:22px 20px;background:#fff;border:1px solid var(--line);border-radius:20px}
+.foot h2{font-size:19px}
+.foot h3{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 7px}
+.foot p,.foot li{font-size:13.5px;line-height:1.62}
+.foot .fsub{font-size:12.5px;color:var(--ink-2)}
+.foot ul,.foot ol{padding-left:19px;margin:6px 0}
+.foot li{margin-bottom:7px}
+.foot table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0}
+.foot th,.foot td{text-align:left;padding:6px 7px;border-bottom:1px solid var(--line-2);vertical-align:top}
+.foot th{color:var(--ink-3);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em}
+.foot .qn{border-left:3px solid var(--amber-line,#E8C583);padding-left:11px;margin:11px 0;list-style-position:inside}
+</style>
+</head>
+<body>
+
+<input class="stx" type="radio" name="stx" id="x-normal" checked><input class="stx" type="radio" name="stx" id="x-day1"><input class="stx" type="radio" name="stx" id="x-floor"><input class="stx" type="radio" name="stx" id="x-spentguest"><input class="stx" type="radio" name="stx" id="x-spent"><input class="stx" type="radio" name="stx" id="x-bluron"><input class="stx" type="radio" name="stx" id="x-blurgate"><input class="stx" type="radio" name="stx" id="x-readfail"><input class="stx" type="radio" name="stx" id="x-camoff"><input class="stx" type="radio" name="stx" id="x-camfail"><input class="stx" type="radio" name="stx" id="x-loading"><input class="stx" type="radio" name="stx" id="x-retire"><div class="chrome"><h1>Papic controller — the page, and every state it can be in</h1><p>Tap a state; the page below changes. No JavaScript, so nothing here can be a dead button. Copy is the real wording from the code; numbers are production, 22 Sep 2026.</p><div class="swx"><label for="x-normal">The page as it ships</label><label for="x-day1">Day one — nothing set up</label><label for="x-floor">A floor per guest</label><label for="x-spentguest">A guest spent their floor</label><label for="x-spent" class=bad>Credits all spent</label><label for="x-bluron">Blur — one guest asked</label><label for="x-blurgate">Blur — tagging is off</label><label for="x-readfail" class=bad>A read refused</label><label for="x-camoff" class=bad>Cameras OFF (a choice)</label><label for="x-camfail" class=bad>Cameras — we can’t tell</label><label for="x-loading">Still loading</label><label for="x-retire" class=bad>The card that disappears</label></div></div>
+
+<div class="shell-top"><span class="brand">SETNAYAN</span><span class="search">Search events, people, vendors</span></div>
+
+<div class="app"><div class="vflagx" data-x="day1"><div class="flag info"><b>Day one — the only state a real couple has ever seen</b>Production: <b>0 allotment rows</b> · <b>26 captures</b> · <b>24 cameras</b> · <b>0 blurred faces</b>. No event has run end to end, so everything past this screen is drawn from the data model, not a real wedding.</div></div><div class="vflagx" data-x="readfail"><div class="flag stop"><b>A refusal is not an emptiness</b>Every block here is showing a <b>failed read</b>. Flip back to <b>The page as it ships</b> — if you cannot tell them apart at a glance, the screen is wrong.</div></div><div class="vflagx" data-x="retire"><div class="flag stop"><b>Being removed — P2</b>This card ships today and <b>disappears</b>. A retirement is the part you cannot un-approve later.</div></div><div class="vflagx" data-x="floor"><div class="flag amber"><b>A floor is a promise, so it has to be payable</b>The warning under the stepper is the point: <b>25 × 146 guests = 3,650 credits</b> against what you hold. A floor can never be raised above the maximum. <b>Needs a migration.</b></div></div>
+  <nav class="shell-rail" aria-label="Event menu"><span>Overview</span><span>Guests</span><span>Schedule</span><span>Budget</span><span class="on">Papic</span><span>Event Hub</span></nav>
+
+  <div class="main">
+    <div class="page-head">
+      <button class="icon-btn back" aria-label="Back to add-ons"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div><h1>Papic</h1><span class="status status-m" id="statusLine">50 credits · 4 cameras · 9 photos</span></div>
+    </div>
+
+    <div class="layout">
+
+      <!-- DATES -->
+      <section class="sec s-dates basec" aria-label="Coverage">
+        <div class="next" id="datesOpen">
+          <span class="eyebrow">Do this first</span>
+          <span class="q">What days are we covering?</span>
+          <div style="display:flex;gap:8px">
+            <label style="flex:1">Start<input type="date" value="2026-07-25"></label>
+            <!-- 2026-09-22 (owner): "we give them until lunch the next day."
+                 The end used to be PINNED to the event day — lib/papic-window.ts:
+                 "may extend BEFORE it but never AFTER". It is now automatic, not a
+                 choice: nobody has to think about it, and the morning after and a
+                 next-day brunch both fall inside it. -->
+            <label>Cameras close<span class="fixed" id="endsAt">Aug 2, 2pm</span></label>
+          </div>
+          <button class="btn" id="saveDates">Save dates</button>
+        </div>
+        <button class="row lone" id="datesSet" hidden><span>Coverage</span><span class="v" id="datesSummary">Jul 25 – Aug 2, 2pm ›</span></button>
+      </section>
+
+      <!-- GUESTS' SHOTS -->
+      <section class="sec s-guests setup-sec basec" aria-label="Guests' shots">
+        <h2 class="full-h">Allotment</h2>
+        <div class="card full">
+          <span class="muted" style="font-size:14px">When they can shoot</span>
+          <div class="seg" id="when"><button aria-pressed="true" data-v="day">Event day</button><button aria-pressed="false" data-v="early">From start day</button></div>
+        </div>
+        <div class="card full">
+          <div class="sec-head"><span class="muted" style="font-size:14px">Most one guest can use</span><button class="switch" role="switch" aria-checked="false" aria-label="Most one guest can use" id="capSwitch"></button></div>
+          <!-- NEVER `hidden`. Collapsing a stepper moves every block below it,
+               so flipping the switch made the page JUMP under the thumb. It
+               stays, and goes quiet. -->
+          <div class="stepper" id="capStepper">
+            <button class="sb" id="capLess" aria-label="Fewer">−</button>
+            <div class="val" aria-live="polite"><span class="big" id="capVal">No limit</span></div>
+            <button class="sb" id="capMore" aria-label="More">+</button>
+          </div>
+        </div>
+        <!-- NEW 2026-09-22 (owner: "yes add minimum"). A ceiling alone guarantees
+             a guest NOTHING — papic_guest_spend_ceilings holds a max only. -->
+        <div class="card full">
+          <div class="sec-head"><span class="muted" style="font-size:14px">Least one guest gets</span><button class="switch" role="switch" aria-checked="false" aria-label="Least one guest gets" id="minSwitch"></button></div>
+          <div class="stepper off" id="minStepper">
+            <button class="sb" id="minLess" aria-label="Fewer">−</button>
+            <div class="val" aria-live="polite"><span class="big" id="minVal">No minimum</span></div>
+            <button class="sb" id="minMore" aria-label="More">+</button>
+          </div>
+          <!-- A reserved line, not a `hidden` one: the warning appears and
+               disappears as you step, and a collapsing note is the same jump. -->
+          <span class="small note" id="minWarn"></span>
+        </div>
+        <button class="row lone full" data-open="allot"><span>Give named guests their own</span><span class="v" id="allotV">Everyone the same ›</span></button>
+        <button class="row lone full" data-open="crew"><span>Cameras</span><span class="v" id="crewSummary">4 · 2 unclaimed ›</span></button>
+        <button class="row lone compact" data-open="guests"><span>Allotment</span><span class="v" id="guestsCompact">Event day · no limit ›</span></button>
+      </section>
+
+      <!-- CREDITS (sticky right on desktop) -->
+      <section class="sec s-credits basec" aria-label="Credits">
+        <div class="credits">
+          <div class="glance"><div><b>9</b><span>photos</span></div><div><b id="gCams">4</b><span>cameras</span></div><div><b id="gDays">Aug 1</b><span>event day</span></div></div>
+          <div class="sec-head"><h2>Credits</h2><span class="left muted" style="font-size:14px"><strong>50</strong> left</span></div>
+          <!-- The recommendation sits ON the buy control, which is the whole
+               reason money moved to the top of the page. -->
+          <div class="rec" id="rec"><b>21,900 credits</b><span class="why">Wedding · 146 guests × 150</span><span class="gap">21,850 short of it</span></div>
+          <!-- Reserved, never hidden: this block is now first, so anything that
+     appears here pushes every section below it. -->
+          <span class="pending note" id="pending"></span>
+          <div class="stepper">
+            <button class="sb" id="less" aria-label="Fewer credits">−</button>
+            <div class="val" aria-live="polite"><span class="big" id="rungCredits">+100</span><span class="small" id="rungMeta">₱70 · 30% off</span></div>
+            <button class="sb" id="more" aria-label="More credits">+</button>
+          </div>
+          <button class="btn" id="buy">Buy · ₱70</button>
+          <span class="small center">Photo 1 · snippet up to 8</span>
+        </div>
+      </section>
+
+      <!-- FILTER -->
+      <section class="sec s-filter setup-sec basec" aria-label="Filter">
+        <div class="sec-head full"><h2>Filter</h2><span class="small" id="lookBlurb">Clean &amp; true</span></div>
+        <div class="looks full" id="looks"><button class="look" data-look="ORIG" aria-pressed="true"><svg viewBox="0 0 60 72" aria-hidden="true" style="filter:contrast(1.06) saturate(1.1) brightness(1.005)"><rect width="60" height="72" fill="#E9B98A"></rect><rect y="40" width="60" height="32" fill="#6F8F6A"></rect><circle cx="46" cy="16" r="7" fill="#F7E3B5"></circle><circle cx="22" cy="34" r="6" fill="#5A3A2A"></circle><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"></rect><circle cx="37" cy="33" r="6" fill="#3A2A22"></circle><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"></rect></svg>Orig</button><button class="look" data-look="RETRO" aria-pressed="false"><svg viewBox="0 0 60 72" aria-hidden="true" style="filter:sepia(0.16) saturate(1.05) contrast(0.92) brightness(1.05)"><rect width="60" height="72" fill="#E9B98A"></rect><rect y="40" width="60" height="32" fill="#6F8F6A"></rect><circle cx="46" cy="16" r="7" fill="#F7E3B5"></circle><circle cx="22" cy="34" r="6" fill="#5A3A2A"></circle><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"></rect><circle cx="37" cy="33" r="6" fill="#3A2A22"></circle><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"></rect></svg>Retro</button><button class="look" data-look="MONO" aria-pressed="false"><svg viewBox="0 0 60 72" aria-hidden="true" style="filter:grayscale(1) contrast(1.24) brightness(1.04)"><rect width="60" height="72" fill="#E9B98A"></rect><rect y="40" width="60" height="32" fill="#6F8F6A"></rect><circle cx="46" cy="16" r="7" fill="#F7E3B5"></circle><circle cx="22" cy="34" r="6" fill="#5A3A2A"></circle><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"></rect><circle cx="37" cy="33" r="6" fill="#3A2A22"></circle><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"></rect></svg>Mono</button><button class="look" data-look="CINE" aria-pressed="false"><svg viewBox="0 0 60 72" aria-hidden="true" style="filter:contrast(1.14) saturate(1.12) brightness(0.99) hue-rotate(-6deg)"><rect width="60" height="72" fill="#E9B98A"></rect><rect y="40" width="60" height="32" fill="#6F8F6A"></rect><circle cx="46" cy="16" r="7" fill="#F7E3B5"></circle><circle cx="22" cy="34" r="6" fill="#5A3A2A"></circle><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"></rect><circle cx="37" cy="33" r="6" fill="#3A2A22"></circle><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"></rect></svg>Cine</button><button class="look" data-look="LOMO" aria-pressed="false"><svg viewBox="0 0 60 72" aria-hidden="true" style="filter:saturate(1.5) contrast(1.2) brightness(1.05) hue-rotate(4deg)"><rect width="60" height="72" fill="#E9B98A"></rect><rect y="40" width="60" height="32" fill="#6F8F6A"></rect><circle cx="46" cy="16" r="7" fill="#F7E3B5"></circle><circle cx="22" cy="34" r="6" fill="#5A3A2A"></circle><rect x="16" y="40" width="12" height="22" rx="5" fill="#F4F1EC"></rect><circle cx="37" cy="33" r="6" fill="#3A2A22"></circle><rect x="31" y="39" width="12" height="23" rx="5" fill="#2C2A29"></rect></svg>Lomo</button></div>
+        <button class="row lone compact" data-open="filter"><span>Filter</span><span class="v" id="filterCompact">Orig ›</span></button>
+      </section>
+
+      <!-- CHALLENGES -->
+      <section class="sec s-challenges setup-sec basec" aria-label="Challenges">
+        <div class="card full" style="flex-direction:row;align-items:center;justify-content:space-between">
+          <div><h2>Challenges</h2><span class="small" id="pickedLine">0 of 9 picked</span></div>
+          <button class="btn ghost" data-open="challenges">Pick</button>
+        </div>
+        <!-- VendorChallengesApproval — renders only while something is waiting -->
+        <button class="row lone full" id="vendorCh" data-open="vendorch"><span>From your suppliers</span><span class="v gold" id="vendorChV">2 waiting ›</span></button>
+        <button class="row lone compact" data-open="challenges"><span>Challenges</span><span class="v" id="chCompact">0 of 9 ›</span></button>
+      </section>
+
+      <!-- GALLERY -->
+      <section class="sec s-gallery basec" aria-label="Gallery">
+        <div class="sec-head"><h2>Gallery <span class="muted" style="font-weight:400">· 9</span></h2>
+          <button class="icon-btn ring" id="download" aria-label="Download all"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button></div>
+        <div class="chips" id="chips"><button class="pill" data-chip="All" aria-pressed="true">All</button><button class="pill" data-chip="Us" aria-pressed="false">Us</button><button class="pill" data-chip="Snippets" aria-pressed="false">Snippets</button><button class="pill" data-chip="Kept" aria-pressed="false">Kept</button></div>
+        <div class="grid" id="grid"><button class="tile" data-tile="0" aria-pressed="false" aria-label="Keep Midday full size" style="background:#8E7B62">Midday</button><button class="tile" data-tile="1" aria-pressed="false" aria-label="Keep Cocktails full size" style="background:#6B5A45">Cocktails</button><button class="tile" data-tile="2" aria-pressed="false" aria-label="Keep Entrance full size" style="background:#A38B6A">Entrance ▶</button><button class="tile" data-tile="3" aria-pressed="false" aria-label="Keep Dinner full size" style="background:#5E5446">Dinner</button><button class="tile" data-tile="4" aria-pressed="false" aria-label="Keep First dance full size" style="background:#7D6A52">First dance ▶</button><button class="tile" data-tile="5" aria-pressed="false" aria-label="Keep Money dance full size" style="background:#4E4638">Money dance</button></div>
+        <span class="small center">Tap to keep full size</span>
+        <div class="rows">
+          <button class="row" data-open="review"><span>Review guest photos</span><span class="v gold" id="revLeft">2 new ›</span></button>
+          <button class="row" data-open="supplier"><span>Suppliers&rsquo; photos</span><span class="v" id="supV">2 to review ›</span></button>
+          <div class="row"><span>Guests can browse</span><button class="switch" role="switch" aria-checked="true" aria-label="Guests can browse" data-sw="shared"></button></div>
+        </div>
+      </section>
+
+      <!-- KWENTO -->
+      <section class="sec s-kwento basec" aria-label="Kwento">
+        <h2>Kwento</h2>
+        <div class="rows">
+          <button class="row" data-open="kwento"><span>Guest messages</span><span class="v gold" id="kwLeft">3 to review ›</span></button>
+          <button class="row" data-toast="Kwento Magazine · PDF downloading"><span>Kwento Magazine</span><span class="v">PDF ›</span></button>
+        </div>
+      </section>
+
+      <!-- MADE FOR YOU — RecapCard + LifeFlashCard on the live page -->
+      <section class="sec s-made basec" aria-label="Made for you">
+        <h2>Made for you</h2>
+        <div class="rows">
+          <button class="row" data-toast="Your Recap — [9 photos, 3 messages]"><span>Your Recap</span><span class="v gold">Ready ›</span></button>
+          <button class="row" data-toast="This day, as a flash — [a 20-second cut]"><span>This day, as a flash</span><span class="v gold">Ready ›</span></button>
+        </div>
+      </section>
+
+      <!-- LIVE WALL -->
+      <section class="sec s-wall basec" aria-label="Live wall">
+        <h2>Live wall</h2>
+        <div class="wall-styles" id="wallStyles"><button class="pill" data-wall="Mosaic" aria-pressed="true">Mosaic</button><button class="pill" data-wall="Grid" aria-pressed="false">Grid</button><button class="pill" data-wall="Hero" aria-pressed="false">Hero</button><button class="pill" data-wall="Polaroid" aria-pressed="false">Polaroid</button></div>
+        <div class="rows">
+          <div class="row"><span>Also on guests’ phones</span><button class="switch" role="switch" aria-checked="true" aria-label="Also on guests' phones" data-sw="phones"></button></div>
+          <button class="row" data-open="screen"><span>Screen code</span><span class="v gold">Get ›</span></button>
+        </div>
+      </section>
+
+      <!-- MORE -->
+      <section class="sec s-more basec" aria-label="More settings">
+        <h2>More</h2>
+        <div class="rows">
+          <!-- OWNER 2026-09-22: "set the toggles here if it only needs toggle
+               switches". These two panels held ONE switch each, so the panel was
+               a door onto a control that fits on the row it came from. -->
+          <div class="row"><span>Finding people</span><button class="switch" role="switch" aria-checked="true" aria-label="Finding people" data-sw="faces"></button></div>
+          <div class="row"><span>Guests add by hand</span><button class="switch" role="switch" aria-checked="true" aria-label="Guests add by hand" data-sw="hand"></button></div>
+          <!-- Blurred faces and Drive KEEP their panels: one is a report the
+               couple cannot set, the other is an OAuth connect. Neither is a switch. -->
+          <button class="row" data-open="blur"><span>Blurred faces</span><span class="v" id="blurV">Nobody ›</span></button>
+          <button class="row" data-toast="Run of show — [6 moments, 14:00 to 23:00]"><span>Run of show</span><span class="v">›</span></button>
+          <!-- OWNER 2026-09-22: "google drive when clicked should directly ask
+               to login your google drive account". One action, so no door in
+               front of it — the same rule as the switch-only rows above. -->
+          <button class="row" data-act="drive"><span>Google Drive copy</span><span class="v" id="driveV">Sign in ›</span></button>
+          <button class="row" data-toast="Opens the DSLR pairing guide"><span>DSLR &amp; help</span><span class="v">›</span></button>
+          <!-- Inert ON PURPOSE, as it ships: no sheet, no press. The lane is built
+               and switched off behind the outstanding supplier-privacy ruling. -->
+          <div class="row" style="opacity:.55"><span>Suppliers send their work</span><span class="v">Not open yet</span></div>
+        </div>
+        <p class="small" style="margin:2px 2px 0"><b style="color:var(--ink)">Outside the library, on purpose:</b> your save-the-date film and your event film live with your event&rsquo;s pages, not here.</p>
+      </section><section class="sec s-guests ovr" data-x="floor">
+        <h2 class="full-h">Allotment</h2>
+        <div class="card full">
+          <span class="muted" style="font-size:14px">When they can shoot</span>
+          <div class="seg" id="when"><button aria-pressed="true" data-v="day">Event day</button><button aria-pressed="false" data-v="early">From start day</button></div>
+        </div>
+        <div class="card full">
+          <div class="sec-head"><span class="muted" style="font-size:14px">Most one guest can use</span><button class="switch" role="switch" aria-checked="false" aria-label="Most one guest can use" id="capSwitch"></button></div>
+          <!-- NEVER `hidden`. Collapsing a stepper moves every block below it,
+               so flipping the switch made the page JUMP under the thumb. It
+               stays, and goes quiet. -->
+          <div class="stepper" id="capStepper">
+            <button class="sb" id="capLess" aria-label="Fewer">−</button>
+            <div class="val" aria-live="polite"><span class="big" id="capVal">No limit</span></div>
+            <button class="sb" id="capMore" aria-label="More">+</button>
+          </div>
+        </div>
+        <!-- NEW 2026-09-22 (owner: "yes add minimum"). A ceiling alone guarantees
+             a guest NOTHING — papic_guest_spend_ceilings holds a max only. -->
+        <div class="card full">
+          <div class="sec-head"><span class="muted" style="font-size:14px">Least one guest gets</span><button class="switch" role="switch" aria-checked="false" aria-label="Least one guest gets" id="minSwitch"></button></div>
+          <div class="stepper" id="minStepper">
+            <button class="sb" id="minLess" aria-label="Fewer">−</button>
+            <div class="val" aria-live="polite"><span class="big" id="minVal">25 each</span></div>
+            <button class="sb" id="minMore" aria-label="More">+</button>
+          </div>
+          <!-- A reserved line, not a `hidden` one: the warning appears and
+               disappears as you step, and a collapsing note is the same jump. -->
+          <span class="small note" id="minWarn">25 × 146 guests = 3,650 credits. You have 50. Buy 3,600 more, or lower it.</span>
+        </div>
+        <button class="row lone full" data-open="allot"><span>Give named guests their own</span><span class="v" id="allotV">Everyone the same ›</span></button>
+        <button class="row lone full" data-open="crew"><span>Cameras</span><span class="v" id="crewSummary">4 · 2 unclaimed ›</span></button>
+        <button class="row lone compact" data-open="guests"><span>Allotment</span><span class="v" id="guestsCompact">Event day · no limit ›</span></button>
+      </section><section class="sec s-gallery ovr" data-x="day1"><div class="sec-head"><h2>Gallery</h2></div><div class="card" style="align-items:center;text-align:center"><b>Nothing yet — and that is right.</b><span class="small">Your cameras have not opened. When they do, every photo lands here.</span></div><div class="flag stop"><b>Never say this to a couple who HAS photos</b>A refused read once told a couple with 180 names <b>“No guests yet.”</b> This empty state is only allowed when the read SUCCEEDED and genuinely returned nothing.</div></section><section class="sec s-gallery ovr" data-x="spentguest"><div class="sec-head"><h2>What a guest sees</h2><span class="small">their phone</span></div><div class="next"><span class="q" style="font-size:17px">You’ve used your 25 shots.</span><span class="small" style="color:var(--night-2)">Ana &amp; Marco set aside 25 for you and they’re all used. The couple can add more at any time.</span></div><div class="flag amber"><b>New copy — the one screen with no shipped words to reuse</b>The shipped exhausted message is about the <b>shared pot</b>. A guest who has spent their own <b>floor</b> while the pot is healthy has never existed, so this is proposed, not quoted.</div><div class="flag stop"><b>It must not say “run out of shots”</b>That sentence means the celebration is empty. Here it is fine and only this guest is capped.</div></section><section class="sec s-credits ovr" data-x="spent"><div class="credits"><div class="sec-head"><h2>Credits</h2><span class="small"><b>0</b> left</span></div><p class="small" style="margin:0;color:#B42318"><b>All spent.</b> Cameras still work — every shot now waits for credits.</p><button class="btn">Buy · ₱2,800</button></div><div class="flag okf"><b>Zero, said as zero</b>Compare with <b>A read refused</b>: that one must never render as ₱0, because a refusal and an empty purse are different facts.</div></section><section class="sec s-gallery ovr" data-x="bluron"><div class="sec-head"><h2>Blurred faces</h2><span class="v">1 guest</span></div><div class="card"><span class="small"><b>You always see every photo unblurred.</b> This only changes what other guests see.</span><div class="rows"><div class="row"><span>[Guest · Lia]</span><span class="v">Blurred for other guests</span></div></div></div><div class="flag okf"><b>One face, not every face</b>Only Lia is blurred; the second person in the frame is untouched. Today <code>face-blur.ts</code> blurs <b>every</b> detected face and <code>consent-veto.ts</code> applies it <b>EVENT-WIDE</b> — one opted-in guest blurs all 145 others. <b>Needs a build and a migration.</b></div><div class="flag info"><b>Measured</b><b>146 guests, 0 have ever used it.</b></div></section><section class="sec s-gallery ovr" data-x="blurgate"><div class="sec-head"><h2>Blurred faces</h2><span class="v">Can’t run</span></div><div class="card" style="border-color:#E8C583;background:#FFF6E4"><b style="color:#8A5A00">Face tagging is off, so we cannot blur one person.</b><span class="small" style="color:#8A5A00">To blur only the guests who asked we must know which face is whose. With tagging off we cannot — so we blur <b>every</b> face for other guests instead. You still see everything unblurred.</span></div><div class="flag stop"><b>Fails closed, on purpose</b>If we cannot tell whose face is whose we blur them <b>all</b> — never none.</div></section><section class="sec s-gallery ovr" data-x="loading"><div class="sec-head"><h2>Gallery</h2></div><div class="grid"><div class="tile skel"></div><div class="tile skel"></div><div class="tile skel"></div><div class="tile skel"></div><div class="tile skel"></div><div class="tile skel"></div></div><span class="small center">Loading your photos…</span><div class="flag info"><b>Why loading is drawn at all</b>A skeleton and an empty state must not be the same picture. If they are, a slow read looks like a wedding with no photos.</div></section><section class="sec s-guests ovr" data-x="camoff"><h2>Allotment</h2><div class="card"><b>Your guests’ cameras are off.</b><span class="small">You turned these off. Only your crew cameras can shoot. Turn them back on any time.</span><div class="sec-head"><span class="small">Let guests shoot</span><button class="switch" role="switch" aria-checked="false"></button></div></div><div class="flag okf"><b>A choice, and it reads like one</b>First person — <b>you</b> turned them off — and the switch is live.</div></section><section class="sec s-guests ovr" data-x="camfail"><h2>Allotment</h2><div class="card panic"><b>We can’t tell whether your guests’ cameras are on.</b><span class="small">A read refused. Your setting has not changed — we just could not see it. <b>This is not “off”.</b></span><button class="btn dark" style="align-self:flex-start">Try again</button></div><div class="flag stop"><b>The defect this state exists to kill</b>It shipped once saying <b>“cameras off”</b> when it simply could not tell — and a monogram sliced from that status string drew a letter <b>“C”</b>. Flip between this and <b>Cameras OFF</b>: they must never look alike.</div></section><section class="sec s-guests ovr" data-x="readfail"><h2>Allotment</h2><div class="card panic"><b>We can’t tell how your guests’ credits are set.</b><span class="small">A read refused. This is not “no limit” and not “nobody gets anything” — we do not know which. Nothing changed.</span><button class="btn dark" style="align-self:flex-start">Try again</button></div><div class="flag okf"><b>This one already ships</b><code>allotmentRowState()</code> returns <b>hidden</b> when the feature is off and <b>unknown</b> when a read failed. This is what <b>unknown</b> should look like.</div></section><section class="sec s-credits ovr" data-x="readfail"><div class="credits panic"><div class="sec-head"><h2>Credits</h2><span class="small">—</span></div><div class="meter-unknown"></div><p class="small" style="margin:0;color:#B42318"><b>We can’t show your balance right now.</b> This is not zero — we could not read it. Nothing has been spent.</p><button class="btn dark">Try again</button><span class="small center">Buying still works — the ladder does not depend on this read.</span></div></section><section class="sec s-gallery ovr" data-x="retire"><h2>Your cameras <span class="small">(today)</span></h2><div class="card panic"><span class="small">“Give one its own shots, or take the unspent ones back.”</span><div class="rows"><div class="row"><span>Camera 1<br><span class="small">Its own credits</span></span><span class="v">−  <b>45</b>  +</span></div></div></div><div class="center" style="font-size:20px;color:var(--ink-3)">↓</div><h2>Cameras <span class="small">(after)</span></h2><div class="rows"><div class="row"><span>Camera 1<br><span class="small">[Guest · Ana]</span></span><span class="v">Reissue</span></div><div class="row"><span>Camera 2<br><span class="small">Not claimed yet</span></span><span class="v">Show QR</span></div></div><p class="small">Every camera shoots the shared pool. Nothing is set aside.</p><div class="flag amber"><b>Why, and the reversal it carries</b>Two rulings conflicted and the code followed the older one. <b>2026-08-11:</b> “the host can dedicate a specific number of shots for a specific QR code” — that is why this card exists. <b>2026-09-16:</b> “no dedicated shots individually.” You chose <b>09-16</b>.</div><div class="flag stop"><b>What is NOT removed</b><code>paparazzi_seats</code> stays — <b>24 live rows</b>. A seat is the camera <b>claim</b>, not an allowance. Only the dedication goes: this card and <code>papic_dedicate_shots</code>. <b>Needs a migration.</b></div></section>
+    </div>
+  </div>
+</div>
+
+
+
+<div class="foot">
+  <h2>In plain language</h2>
+  <p class="fsub">For someone who has not followed the thread. The reasoning for each state stays
+     inside that state; this is where it is collected.</p>
+
+  <h3>What changes</h3>
+  <ul>
+    <li><b>The order.</b> Credits and the running balance first, then Coverage, then Allotment, then the room (filter, challenges, live wall), then what you got. After the day the results lead and the setup folds to one line each.</li>
+    <li><b>The recommendation moves onto this page</b> and shows its arithmetic — 146 guests × 150 a head. It already existed; it was only on the home tile.</li>
+    <li><b>Per-event-type numbers.</b> Today a christening, a debut and a wedding are all quoted 150 a head. All 17 types get their own, admin-editable.</li>
+    <li><b>A minimum per guest</b>, beside the maximum that already ships — and checked against the pot, because a floor is a promise.</li>
+    <li><b>Dedicated per-camera credits are retired.</b> Every camera shoots the shared pool.</li>
+    <li><b>All 631 challenges become reachable</b>, in 12 categories, with a count of how many celebrations picked each.</li>
+    <li><b>Blur becomes per person</b> — only the guest who asked — with face tagging as a hard precondition.</li>
+  </ul>
+
+  <h3>What is deliberately NOT changing</h3>
+  <ul>
+    <li><b>The capture-window picker and its rules.</b> Another session owns that file; only this block’s name and position move.</li>
+    <li><b>The QR render, the monogram resolver, the credit stepper, the five filter looks.</b> They ship and they work.</li>
+    <li><b><code>paparazzi_seats</code></b> — 24 live rows. A seat is the camera claim, not an allowance.</li>
+    <li><b>Wedding stays at 150 a head</b>, so no live couple’s number moves. 9 of the 11 live events are weddings — that is the acceptance test.</li>
+  </ul>
+
+  <h3>Needs a migration — a scheduling fact, not just a design one</h3>
+  <table>
+    <tr><th>Build</th><th>What the migration does</th></tr>
+    <tr><td>Allotment floor</td><td>A minimum beside <code>ceiling_points</code></td></tr>
+    <tr><td>Retirement</td><td>Drops <code>papic_dedicate_shots</code></td></tr>
+    <tr><td>Per-type</td><td>17 rows, each with per-head, floor and ceiling</td></tr>
+    <tr><td>Learning loop</td><td>Records which events exhausted their pool, so the average can exclude them</td></tr>
+    <tr><td>Blur</td><td>Binds a detected face to a tagged guest</td></tr>
+  </table>
+  <p class="fsub">Two other sessions have migrations queued, so approving these sets an order.</p>
+
+  <h3>What this cannot prove</h3>
+  <ul>
+    <li><b>That it renders in the real app.</b> This is hand-written HTML, not the React components. It proves the plan, not the build.</li>
+    <li><b>Anything about a real wedding.</b> Production holds 26 captures, 0 allotments and 0 blurred faces — no event has run end to end.</li>
+    <li><b>The blur itself.</b> Whether a detected face can be reliably tied to a tagged guest needs real photos on a real device.</li>
+  </ul>
+
+  <h3>Open questions</h3>
+  <ol>
+    <li class="qn"><b>The “you’ve used your 25 shots” wording.</b> The one screen with no shipped words to borrow.<br>
+      <b>Recommendation:</b> the wording in that state.<br>
+      <b>Cost of being wrong:</b> a guest reads “run out of shots”, believes the celebration is empty, and comes to you mid-reception.</li>
+    <li class="qn"><b>Does the learning loop ship dormant, or not at all this wave?</b> 9 weddings hold 100,362 credits granted and <b>one</b> used.<br>
+      <b>Recommendation:</b> build it dormant, with the minimum-sample gate and the exhausted-pool exclusion baked in while the reasoning is fresh.<br>
+      <b>Cost of being wrong:</b> a later session writes the naive average, it reads ~0 per head, and the recommendation collapses to nothing.</li>
+    <li class="qn"><b>Is blur worth this wave at all?</b> 146 guests, <b>0</b> have ever used it.<br>
+      <b>Recommendation:</b> keep it last and drop it without hesitation if the wave shrinks.<br>
+      <b>Cost of being wrong:</b> the biggest and most privacy-sensitive build delays four finished ones.</li>
+  </ol>
+</div>
+</body>
+</html>

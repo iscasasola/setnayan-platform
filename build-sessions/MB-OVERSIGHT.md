@@ -60,6 +60,33 @@ file wholesale; re-added 2026-09-05 after the fact. Sessions: edit your own row,
 
 **2026-09-07 · Stage hotfix split (owner-directed, per the "Ceremony venue scene delivery" session — relayed, not verified by oversight):** that session ships ONLY the two-value tightening as `claude/stage-tolerances-bleed`, migration `20271211803008` (bridgerton 12→8, editorial cream 15→12, idempotent with a refusing DO block) plus a no-floor real-pixel guard in `reception-decor-layers.test.ts` that exempts tropical heritage BY NAME and asserts the exemption is still real; 3/3 sabotages red claimed; PR not yet open. **RA1 redirected: tropical heritage only (re-cut or retire; remove it from the exemption in the same PR), branch after the hotfix merges, migration above `20271211803008`, then Part B.** Oversight will verify the hotfix on the live rows.
 
+🚨 **2026-09-08 · TWO failure modes, not one — and the fix in flight only addresses the first.** Verified by oversight against the Vercel API before putting it to the owner:
+- `dpl_2TKeyiT14uDkbmrE5zSNcboZ8Nbd` (`c463f47c5`) — **build OOM**, `turbo run build` exit 137 at `--max-old-space-size=7168`.
+- `dpl_8kt5Tq6SX34tmvXubgmPRbgMUiDg` (`b3c0b9b08`, photo_wall) — build logs read **"Build Completed in /vercel/output [3m]"** and the deployment is still **ERROR**. **Production fails AFTER a successful build**, at the function size limit (251.44 MB per the build session).
+🔑 **[#5299](https://github.com/iscasasola/setnayan-platform/pull/5299) (heap 7168 → 12288) is correct on its merits and is NOT the fix** — it moves the failure from build to deploy, and a green check on it reads as recovery. **Owner ruled (asked directly): merge it AND post a comment saying so** (public-repo posting approved), and **cut the traced weight, MEASURED FIRST** with `VERCEL_ANALYZE_BUILD_OUTPUT=1` — `next.config.ts`'s `'/**'` glob force-traces `nsfw-screen`/`tfjs` models into every function and `assets/npc-docs/*.pdf` (1.0 MB) rides along for one consumer route.
+📉 **Production is 10 commits behind** and still 404s on `photo_wall` and `tunnel`. **Verify recovery by fetching a stranded file and requiring 200 — never by a green check.**
+
+⚠ **A shared-checkout overwrite destroyed work — TWO casualties, both confirmed by oversight.** A build session ran `git checkout origin/main -- .` in the shared main checkout (1,180 files staged), then restored it to `92a17df91` and removed the residue. It surfaced this unprompted, which is the only reason it is known. Cost:
+1. The uncommitted edit to `apps/web/lib/modal-a11y-adoption.test.ts` present at this session's start is **GONE** — not in any branch, not in a stash, no matching dangling blob under `git fsck --lost-found`. Unrecoverable; last commit to that file is `d577f0588` (2026-08-02).
+2. **`build-sessions/` itself was wiped from the working checkout** (94 files) — because that branch's head predates the docs commit, so from its perspective every brief and this board were "residue". **Recovered whole from `origin/main`, which is the entire reason PR [#5280](https://github.com/iscasasola/setnayan-platform/pull/5280) committed them a day earlier.** Had they still been untracked, the arc's whole record would be gone.
+🔑 **Never run a destructive git command in the shared checkout** — `git checkout -- .` silently overwrites tracked files and no reset recovers them, and "remove the residue" means something different on a branch that predates a merge.
+
+✅🚨 **2026-09-08 · CORRECTION — the build RECOVERED; the outage that remains is a STALE PRODUCTION ALIAS.** [#5299](https://github.com/iscasasola/setnayan-platform/pull/5299) merged 16:19Z and three production-target deployments are now **READY** (`51a83af37`, `4763640ba`, `b9b27b9bc`) — no exit 137, and **the predicted 251.44 MB size failure did not recur**, which is worth understanding before spending on the trace cut.
+**The decisive measurement** (after ruling out cached 404s — never-before-requested paths 404 too, so it is not a cached negative):
+
+| host | `walls/bridgerton-regal` | `photo_wall/modern-minimalist` |
+|---|---|---|
+| `…-git-main-…vercel.app` (latest main) | **200** | **200** |
+| `setnayan-platform-web.vercel.app` (prod alias) | 200 | **404** |
+| `www.setnayan.com` | 200 | **404** |
+
+🔑 **The build output is correct and complete — the main-branch alias serves everything. The PRODUCTION ALIAS never moved forward when deploys started succeeding again**, so traffic is still pinned to `1a3c2e736`, the last deployment before the outage. `walls` works because it was in that build; `photo_wall` and `tunnel` were not.
+⚠ **Oversight's own earlier entry called this "production is still down" — right about the symptom, wrong about the cause.** The 404 was read as a failed build when the build was fine. **A 404 on the production host proves only that THAT host is stale; compare the branch alias before naming a cause.**
+✅ **The one check that defines recovery:** `curl -s -o /dev/null -w "%{http_code}" https://www.setnayan.com/moodboard-seed/venue_scene/photo_wall/modern-minimalist.svg` → **200**. Every green signal in this incident failed to capture it.
+
+🎯 **2026-09-08 · ROOT CAUSE FOUND — the custom domain is not attached to new production deployments.** `get_deployment` on the newest READY production deployment `dpl_97uMmL8cTVvKtdDMMhDQBcndPDhx` (`b15623c43`, `target: production`, `aliasError: null`) returns `alias: [setnayan-platform-web-icasa-offroad.vercel.app, setnayan-platform-web-git-main-icasa-offroad.vercel.app]` — **`www.setnayan.com` is NOT in it.** No error; the domain simply is not being assigned. That is the whole explanation for the branch alias serving `photo_wall` 200 while `www` serves 404: two different deployments. Builds have been healthy since the heap fix. Likely an **Instant Rollback still active** (which pins the domain), a manual domain assignment, or a project-level pin — all Vercel dashboard/CLI state, **fixable in seconds by the owner and not fixable in a PR**; no MCP tool here can promote or re-alias.
+🔑 **The lesson this incident kept teaching, in its final form: `deploy-prod` said success, the build said success, the deployment said READY — and the site was still stale. A READY production deployment is not necessarily the one the domain points at. READ THE DEPLOYMENT'S `alias` ARRAY, not its state.**
+
 Also closed this pass: stray-grants PR [#5180](https://github.com/iscasasola/setnayan-platform/pull/5180) **MERGED** 02:26Z; MB18 [#5181](https://github.com/iscasasola/setnayan-platform/pull/5181) **MERGED** 02:42Z.
 
 ## 🔴 Live risks I am watching

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monogram typefaces — the recommended library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  THE RECOMMENDED TYPEFACE LIBRARY — 2026-09-23
+  Owner asks: "100 different fonts that can be used, all monogram-able popular
+  fonts in the market" / "same fonts for both" (monogram + event page) /
+  "we want to get near what Canva can provide".
+
+  Every family here is on Google Fonts under the OFL or Apache 2.0 licence,
+  which is what lets us SELF-HOST the .ttf. That matters more than it sounds:
+  the monogram engine reads glyph OUTLINES with opentype.js and bakes them into
+  the exported SVG as paths. A webfont we merely link to cannot do that. So
+  "can we self-host it" is the entry requirement, not a preference.
+
+  Type your own initials in the box at the top - every specimen redraws.
+
+  Zero external script. One Google Fonts stylesheet, built from the list below.
+-->
+<style>
+:root{
+  --ink:#2C2A29; --ink-soft:#4F535B; --ink-3:#9A948A;
+  --line:#E6E0D6; --line-2:#F0EBE3; --soft:#F4F1EC; --page:#FFFFFF;
+  --gold:#A9834B; --gold-text:#8A6B39; --pos:#4F6B4A; --cta:#C24E25;
+  --sans:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--sans);background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line-2);padding:16px 20px 12px}
+h1{margin:0 0 3px;font-size:21px;font-weight:600}
+.sub{font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;max-width:66ch}
+.controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+input[type=text]{height:42px;border:1px solid var(--line);border-radius:10px;padding:0 13px;font-size:16px;
+  font-family:inherit;width:190px}
+.cats{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.tg{height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;
+  font-size:12.5px;font-family:inherit;cursor:pointer;white-space:nowrap}
+.tg[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+main{padding:18px 20px 70px}
+.grp{margin-bottom:34px}
+.grp h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+  margin:0 0 4px;font-weight:600}
+.grp .why{font-size:13px;color:var(--ink-soft);margin:0 0 13px;max-width:74ch;line-height:1.55}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 10px 9px;text-align:center;position:relative;min-height:112px;
+  display:flex;flex-direction:column;justify-content:space-between}
+.tile .sp{font-size:40px;line-height:1.15;color:var(--ink);display:block;overflow:hidden;white-space:nowrap}
+.tile .nm{font-size:11px;color:var(--ink-3);margin-top:8px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ship{position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--pos)}
+.note{border:1px solid var(--line);border-left:3px solid var(--cta);border-radius:12px;padding:13px 15px;
+  font-size:13.5px;line-height:1.6;color:var(--ink-soft);margin:0 0 26px;max-width:80ch}
+.note b{color:var(--ink)}
+.legend{font-size:12px;color:var(--ink-3);margin-top:9px}
+.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pos);margin-right:5px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The typeface library</h1>
+  <p class="sub">Every face here is OFL or Apache licensed on Google Fonts, so we can self-host the .ttf &mdash; which is the entry requirement, because the monogram engine reads glyph <b>outlines</b> and bakes them into the exported SVG. One library, shared by the monogram and your event page.</p>
+  <div class="controls">
+    <input type="text" id="specimen" value="MJ" aria-label="Type your initials or a word" maxlength="12">
+    <span class="sub" style="margin:0">&larr; type anything; every specimen redraws</span>
+  </div>
+  <div class="cats" id="cats"></div>
+  <p class="legend"><i></i><span id="count"></span></p>
+</header>
+
+<main>
+  <div class="note">
+    <b>What is deliberately not here.</b> The faces people picture when they say &ldquo;wedding font&rdquo; &mdash; Didot, Bodoni proper, Cochin, Copperplate, Snell Roundhand, Burgues Script, Adobe Caslon &mdash; are commercially licensed. They cannot be self-hosted or baked into an exported SVG without buying a licence per face, and a monogram export is a redistribution. The closest free equivalents are in the list and named below. Buying a small set of commercial faces is a real option, and an owner call &mdash; roughly US$30&ndash;250 per family for a web + embedding licence.
+  </div>
+  <div id="groups"></div>
+</main>
+
+<script>
+var GROUPS = [
+  { cat:'Display', why:'High-contrast display faces — the engraved-invitation look. Bodoni Moda and Prata are the free stand-ins for Didot and Bodoni proper. This is the group most couples will pick from.',
+    list:['Playfair Display SC*','Playfair Display','Bodoni Moda','Abril Fatface','Prata','Gilda Display*','Rozha One','Yeseva One*','Marcellus*','Marcellus SC','Italiana','Gloock','Instrument Serif','Bellefair','Lustria','Rosarivo','Amethysta','Antic Didone'] },
+  { cat:'Serif', why:'Book serifs — they carry a whole word without shouting, which matters now that a piece can be a word and not just an initial. EB Garamond and Cormorant are the free Garamond line; Sorts Mill Goudy is the Goudy.',
+    list:['Cardo*','EB Garamond','Cormorant Garamond','Cormorant SC','Cormorant Unicase','Libre Baskerville','Crimson Text','Crimson Pro','Spectral','Lora','Vollkorn','Neuton','Alegreya','Alegreya SC','Literata','Newsreader','Petrona','Fraunces','Sorts Mill Goudy','Quattrocento'] },
+  { cat:'Engraved', why:'Roman capitals and small caps — the crest and seal register. Cinzel is the free Trajan, which is the single most-used face on formal invitations.',
+    list:['Cinzel','Cinzel Decorative*','Copse','Julius Sans One','Tenor Sans','Forum','Philosopher','Radley','Artifika','Judson','Junge','Coustard'] },
+  { cat:'Calligraphy', why:'Formal copperplate and Spencerian scripts — the biggest group on purpose, because this is what a wedding monogram usually is. These are also the faces the interlock engine flatters most: the entry and exit strokes actually cross, so the weave has something to weld.',
+    list:['Great Vibes*','Pinyon Script*','Allura','Alex Brush','Tangerine','Parisienne','Sacramento','Italianno','Petit Formal Script','Herr Von Muellerhoff','Mrs Saint Delafield','Monsieur La Doulaise','Miss Fajardose','Rouge Script','League Script','Norican','Qwigley','Mr De Haviland','Mr Bedfort','Mrs Sheppards','Clicker Script','Engagement','Arizonia','Bonheur Royale'] },
+  { cat:'Script', why:'Relaxed and brush scripts — for couples who do not want formal. Useful for a word piece ("forever", "wed") sitting under the initials.',
+    list:['Dancing Script','Yellowtail','Niconne','Marck Script','Pacifico','Satisfy','Cookie','Courgette','Grand Hotel','Kaushan Script','Damion','Berkshire Swash','Style Script','Lavishly Yours'] },
+  { cat:'Blackletter', why:'Gothic — a small group, but it is the one people ask for by name for crests and heraldic marks, and nothing else substitutes.',
+    list:['UnifrakturMaguntia','UnifrakturCook','Pirata One','Grenze Gotisch'] },
+  { cat:'Deco', why:'Art deco and geometric display — Gatsby weddings are a real and recurring brief, and none of the groups above can do it.',
+    list:['Poiret One','Megrim','Monoton','Limelight','Gruppo','Federo','Della Respira','Ruslan Display','Nova Cut','Amarante'] },
+  { cat:'Sans', why:'Modern sans — for a minimal mark, and the group your event page needs most for body text, which is the other half of "same fonts for both".',
+    list:['Josefin Sans','Raleway','Montserrat','Jost','Outfit','Questrial','Quicksand','Comfortaa','League Spartan','Syne'] }
+];
+
+var FONTS = [];
+GROUPS.forEach(function(g){
+  g.faces = g.list.map(function(f){
+    var shipped = f.indexOf('*') > -1, name = f.replace('*','');
+    var o = { name:name, shipped:shipped, cat:g.cat,
+      css:"'"+name+"',"+(g.cat==='Script'||g.cat==='Calligraphy'?'cursive':g.cat==='Sans'?'sans-serif':'serif') };
+    FONTS.push(o);
+    return o;
+  });
+});
+
+/* load every family in one request, built from the list so they cannot drift */
+(function(){
+  var l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?' +
+    FONTS.map(function(f){ return 'family=' + f.name.replace(/ /g,'+'); }).join('&') + '&display=swap';
+  document.head.appendChild(l);
+})();
+
+var cat = 'All';
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function specimen(){ return document.getElementById('specimen').value || 'MJ'; }
+
+function renderCats(){
+  var host = document.getElementById('cats');
+  host.innerHTML = '';
+  ['All'].concat(GROUPS.map(function(g){ return g.cat; })).forEach(function(c){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'tg'; b.textContent = c;
+    b.setAttribute('aria-pressed', String(c === cat));
+    b.onclick = function(){ cat = c; renderCats(); render(); };
+    host.appendChild(b);
+  });
+}
+
+function render(){
+  var host = document.getElementById('groups');
+  host.innerHTML = '';
+  var shown = 0;
+  GROUPS.forEach(function(g){
+    if(cat !== 'All' && cat !== g.cat) return;
+    var sec = document.createElement('section'); sec.className = 'grp';
+    sec.innerHTML = '<h2>' + g.cat + ' &middot; ' + g.faces.length + '</h2><p class="why">' + g.why + '</p>';
+    var grid = document.createElement('div'); grid.className = 'grid';
+    g.faces.forEach(function(f){
+      shown++;
+      var t = document.createElement('div'); t.className = 'tile';
+      t.innerHTML = (f.shipped ? '<span class="ship" title="already self-hosted"></span>' : '') +
+        '<span class="sp" style="font-family:' + f.css + '">' + esc(specimen()) + '</span>' +
+        '<span class="nm">' + esc(f.name) + '</span>';
+      grid.appendChild(t);
+    });
+    sec.appendChild(grid);
+    host.appendChild(sec);
+  });
+  document.getElementById('count').textContent =
+    shown + ' of ' + FONTS.length + ' typefaces · green dot = one of the 8 already self-hosted in the studio today';
+}
+
+document.getElementById('specimen').addEventListener('input', render);
+renderCats();
+render();
+</script>
+</body>
+</html>

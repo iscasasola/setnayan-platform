@@ -1,0 +1,4950 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tabs harness</title><style>
+*, ::before, ::after {
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x:  ;
+  --tw-pan-y:  ;
+  --tw-pinch-zoom:  ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position:  ;
+  --tw-gradient-via-position:  ;
+  --tw-gradient-to-position:  ;
+  --tw-ordinal:  ;
+  --tw-slashed-zero:  ;
+  --tw-numeric-figure:  ;
+  --tw-numeric-spacing:  ;
+  --tw-numeric-fraction:  ;
+  --tw-ring-inset:  ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur:  ;
+  --tw-brightness:  ;
+  --tw-contrast:  ;
+  --tw-grayscale:  ;
+  --tw-hue-rotate:  ;
+  --tw-invert:  ;
+  --tw-saturate:  ;
+  --tw-sepia:  ;
+  --tw-drop-shadow:  ;
+  --tw-backdrop-blur:  ;
+  --tw-backdrop-brightness:  ;
+  --tw-backdrop-contrast:  ;
+  --tw-backdrop-grayscale:  ;
+  --tw-backdrop-hue-rotate:  ;
+  --tw-backdrop-invert:  ;
+  --tw-backdrop-opacity:  ;
+  --tw-backdrop-saturate:  ;
+  --tw-backdrop-sepia:  ;
+  --tw-contain-size:  ;
+  --tw-contain-layout:  ;
+  --tw-contain-paint:  ;
+  --tw-contain-style:  ;
+}
+
+::backdrop {
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x:  ;
+  --tw-pan-y:  ;
+  --tw-pinch-zoom:  ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position:  ;
+  --tw-gradient-via-position:  ;
+  --tw-gradient-to-position:  ;
+  --tw-ordinal:  ;
+  --tw-slashed-zero:  ;
+  --tw-numeric-figure:  ;
+  --tw-numeric-spacing:  ;
+  --tw-numeric-fraction:  ;
+  --tw-ring-inset:  ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur:  ;
+  --tw-brightness:  ;
+  --tw-contrast:  ;
+  --tw-grayscale:  ;
+  --tw-hue-rotate:  ;
+  --tw-invert:  ;
+  --tw-saturate:  ;
+  --tw-sepia:  ;
+  --tw-drop-shadow:  ;
+  --tw-backdrop-blur:  ;
+  --tw-backdrop-brightness:  ;
+  --tw-backdrop-contrast:  ;
+  --tw-backdrop-grayscale:  ;
+  --tw-backdrop-hue-rotate:  ;
+  --tw-backdrop-invert:  ;
+  --tw-backdrop-opacity:  ;
+  --tw-backdrop-saturate:  ;
+  --tw-backdrop-sepia:  ;
+  --tw-contain-size:  ;
+  --tw-contain-layout:  ;
+  --tw-contain-paint:  ;
+  --tw-contain-style:  ;
+}
+
+/*
+! tailwindcss v3.4.19 | MIT License | https://tailwindcss.com
+*/
+
+/*
+1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)
+2. Allow adding a border to an element by just adding a border-width. (https://github.com/tailwindcss/tailwindcss/pull/116)
+*/
+
+*,
+::before,
+::after {
+  box-sizing: border-box;
+  /* 1 */
+  border-width: 0;
+  /* 2 */
+  border-style: solid;
+  /* 2 */
+  border-color: #e5e7eb;
+  /* 2 */
+}
+
+::before,
+::after {
+  --tw-content: '';
+}
+
+/*
+1. Use a consistent sensible line-height in all browsers.
+2. Prevent adjustments of font size after orientation changes in iOS.
+3. Use a more readable tab size.
+4. Use the user's configured `sans` font-family by default.
+5. Use the user's configured `sans` font-feature-settings by default.
+6. Use the user's configured `sans` font-variation-settings by default.
+7. Disable tap highlights on iOS
+*/
+
+html,
+:host {
+  line-height: 1.5;
+  /* 1 */
+  -webkit-text-size-adjust: 100%;
+  /* 2 */
+  -moz-tab-size: 4;
+  /* 3 */
+  -o-tab-size: 4;
+     tab-size: 4;
+  /* 3 */
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* 4 */
+  font-feature-settings: normal;
+  /* 5 */
+  font-variation-settings: normal;
+  /* 6 */
+  -webkit-tap-highlight-color: transparent;
+  /* 7 */
+}
+
+/*
+1. Remove the margin in all browsers.
+2. Inherit line-height from `html` so users can set them as a class directly on the `html` element.
+*/
+
+body {
+  margin: 0;
+  /* 1 */
+  line-height: inherit;
+  /* 2 */
+}
+
+/*
+1. Add the correct height in Firefox.
+2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)
+3. Ensure horizontal rules are visible by default.
+*/
+
+hr {
+  height: 0;
+  /* 1 */
+  color: inherit;
+  /* 2 */
+  border-top-width: 1px;
+  /* 3 */
+}
+
+/*
+Add the correct text decoration in Chrome, Edge, and Safari.
+*/
+
+abbr:where([title]) {
+  -webkit-text-decoration: underline dotted;
+          text-decoration: underline dotted;
+}
+
+/*
+Remove the default font size and weight for headings.
+*/
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/*
+Reset links to optimize for opt-in styling instead of opt-out.
+*/
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+/*
+Add the correct font weight in Edge and Safari.
+*/
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+/*
+1. Use the user's configured `mono` font-family by default.
+2. Use the user's configured `mono` font-feature-settings by default.
+3. Use the user's configured `mono` font-variation-settings by default.
+4. Correct the odd `em` font sizing in all browsers.
+*/
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  /* 1 */
+  font-feature-settings: normal;
+  /* 2 */
+  font-variation-settings: normal;
+  /* 3 */
+  font-size: 1em;
+  /* 4 */
+}
+
+/*
+Add the correct font size in all browsers.
+*/
+
+small {
+  font-size: 80%;
+}
+
+/*
+Prevent `sub` and `sup` elements from affecting the line height in all browsers.
+*/
+
+sub,
+sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+/*
+1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)
+2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)
+3. Remove gaps between table borders by default.
+*/
+
+table {
+  text-indent: 0;
+  /* 1 */
+  border-color: inherit;
+  /* 2 */
+  border-collapse: collapse;
+  /* 3 */
+}
+
+/*
+1. Change the font styles in all browsers.
+2. Remove the margin in Firefox and Safari.
+3. Remove default padding in all browsers.
+*/
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  /* 1 */
+  font-feature-settings: inherit;
+  /* 1 */
+  font-variation-settings: inherit;
+  /* 1 */
+  font-size: 100%;
+  /* 1 */
+  font-weight: inherit;
+  /* 1 */
+  line-height: inherit;
+  /* 1 */
+  letter-spacing: inherit;
+  /* 1 */
+  color: inherit;
+  /* 1 */
+  margin: 0;
+  /* 2 */
+  padding: 0;
+  /* 3 */
+}
+
+/*
+Remove the inheritance of text transform in Edge and Firefox.
+*/
+
+button,
+select {
+  text-transform: none;
+}
+
+/*
+1. Correct the inability to style clickable types in iOS and Safari.
+2. Remove default button styles.
+*/
+
+button,
+input:where([type='button']),
+input:where([type='reset']),
+input:where([type='submit']) {
+  -webkit-appearance: button;
+  /* 1 */
+  background-color: transparent;
+  /* 2 */
+  background-image: none;
+  /* 2 */
+}
+
+/*
+Use the modern Firefox focus style for all focusable elements.
+*/
+
+:-moz-focusring {
+  outline: auto;
+}
+
+/*
+Remove the additional `:invalid` styles in Firefox. (https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737)
+*/
+
+:-moz-ui-invalid {
+  box-shadow: none;
+}
+
+/*
+Add the correct vertical alignment in Chrome and Firefox.
+*/
+
+progress {
+  vertical-align: baseline;
+}
+
+/*
+Correct the cursor style of increment and decrement buttons in Safari.
+*/
+
+::-webkit-inner-spin-button,
+::-webkit-outer-spin-button {
+  height: auto;
+}
+
+/*
+1. Correct the odd appearance in Chrome and Safari.
+2. Correct the outline style in Safari.
+*/
+
+[type='search'] {
+  -webkit-appearance: textfield;
+  /* 1 */
+  outline-offset: -2px;
+  /* 2 */
+}
+
+/*
+Remove the inner padding in Chrome and Safari on macOS.
+*/
+
+::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+/*
+1. Correct the inability to style clickable types in iOS and Safari.
+2. Change font properties to `inherit` in Safari.
+*/
+
+::-webkit-file-upload-button {
+  -webkit-appearance: button;
+  /* 1 */
+  font: inherit;
+  /* 2 */
+}
+
+/*
+Add the correct display in Chrome and Safari.
+*/
+
+summary {
+  display: list-item;
+}
+
+/*
+Removes the default spacing and border for appropriate elements.
+*/
+
+blockquote,
+dl,
+dd,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+hr,
+figure,
+p,
+pre {
+  margin: 0;
+}
+
+fieldset {
+  margin: 0;
+  padding: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+ol,
+ul,
+menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/*
+Reset default styling for dialogs.
+*/
+
+dialog {
+  padding: 0;
+}
+
+/*
+Prevent resizing textareas horizontally by default.
+*/
+
+textarea {
+  resize: vertical;
+}
+
+/*
+1. Reset the default placeholder opacity in Firefox. (https://github.com/tailwindlabs/tailwindcss/issues/3300)
+2. Set the default placeholder color to the user's configured gray 400 color.
+*/
+
+input::-moz-placeholder, textarea::-moz-placeholder {
+  opacity: 1;
+  /* 1 */
+  color: #9ca3af;
+  /* 2 */
+}
+
+input::placeholder,
+textarea::placeholder {
+  opacity: 1;
+  /* 1 */
+  color: #9ca3af;
+  /* 2 */
+}
+
+/*
+Set the default cursor for buttons.
+*/
+
+button,
+[role="button"] {
+  cursor: pointer;
+}
+
+/*
+Make sure disabled buttons don't get the pointer cursor.
+*/
+
+:disabled {
+  cursor: default;
+}
+
+/*
+1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)
+2. Add `vertical-align: middle` to align replaced elements more sensibly by default. (https://github.com/jensimmons/cssremedy/issues/14#issuecomment-634934210)
+   This can trigger a poorly considered lint error in some tools but is included by design.
+*/
+
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block;
+  /* 1 */
+  vertical-align: middle;
+  /* 2 */
+}
+
+/*
+Constrain images and videos to the parent width and preserve their intrinsic aspect ratio. (https://github.com/mozdevs/cssremedy/issues/14)
+*/
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Make elements with the HTML hidden attribute stay hidden by default */
+
+[hidden]:where(:not([hidden="until-found"])) {
+  display: none;
+}
+
+/*
+   * A11Y-1 (Responsive_and_Mobile_UI_Ruleset_2026-06-21) — one global keyboard
+   * focus ring for EVERY interactive element. Before this, focus-visible rings
+   * lived only on `.btn` / `.btn-secondary`, so links, custom-styled buttons,
+   * tabs and menu items had no visible focus indicator (WCAG 2.4.7 gap).
+   *
+   * `:where(...)` carries ZERO specificity, so any component that already
+   * styles its own focus (e.g. `.btn`'s ring) overrides this with no conflict.
+   * `:focus-visible` (not `:focus`) keeps it keyboard-only — mouse/touch taps
+   * never paint a ring. The outline follows each element's own border-radius in
+   * modern engines, so we don't set radius here (that would reshape the
+   * element). Mulberry = the brand focus colour (`--color-mulberry`).
+   */
+
+:where(
+    a[href],
+    button,
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='switch'],
+    [role='link'],
+    summary,
+    [tabindex]:not([tabindex='-1'])
+  ):focus-visible {
+  outline: 2px solid rgb(var(--color-mulberry));
+  outline-offset: 2px;
+}
+
+/*
+   * Theme system — Clean Editorial unification 2026-05-30 (CLAUDE.md
+   * decision-log). Supersedes 2026-05-22 Facebook palette across app chrome.
+   *
+   * WHY: Owner directive 2026-05-30 verbatim — "as you can see, the app is
+   * incosistent with the background and text colors. please analyze the
+   * whole app on how it should look like and correct the colors." User
+   * shared 3 screenshots showing Today page (Clean Editorial: alabaster +
+   * obsidian + champagne gold + mulberry CTA) coexisting with Vendors + Home
+   * pages running Facebook palette (white + blue) producing visible drift.
+   * Today is the canonical reference per CLAUDE.md 2026-05-29 palette lock;
+   * this swap aligns the rest of the surface.
+   *
+   * SCOPE: app chrome (dashboard / admin / vendor / marketplace internal +
+   * public marketing surfaces consumed via legacy --color-* tokens). The
+   * `--m-*` Clean Editorial token family (used by Today page + /pricing +
+   * /vendors) is unchanged. Wedding landing page chrome at
+   * `app/[slug]/page.tsx` remains driven by the couple's mood-board palette
+   * per iteration 0010 + 0002 — out of scope for this swap.
+   *
+   * MODES:
+   *   Light  → Warm Alabaster surface (#FBFBFA) + Deep Obsidian text
+   *            (#1E2229) + Royal Champagne Gold accent (#C5A059) + Rich
+   *            Atelier gold CTAs (#A9834B). The ONLY mode (see LIGHT-LOCKED below).
+   *   Dark   → DISABLED 2026-06-04. The `html.dark` overrides below are kept
+   *            dormant (now unreachable) so re-enabling is a small revert.
+   *
+   * LIGHT-LOCKED 2026-06-04 (owner: "just always keep it light theme"): the
+   * Light/Dark/Auto switch + the OS `prefers-color-scheme` auto-follow were
+   * removed. The ThemeProvider never adds `.dark` and the FOUC script strips
+   * it, so with `darkMode: 'class'` (tailwind.config.ts) and NO
+   * `@media (prefers-color-scheme: dark)` rule in this file, the app renders
+   * light on every surface regardless of the device setting.
+   *
+   * LEGACY CLASS NAMES PRESERVED: Hundreds of components use `bg-cream`,
+   * `text-ink`, `text-terracotta`. The slot names stay; the VALUES remap to
+   * Clean Editorial per mode. Adds new `--color-mulberry` family for CTAs —
+   * `.button-primary` (below) flips from `bg-terracotta` (now gold accent)
+   * to `bg-mulberry` so primary actions read distinct from active-state
+   * pills + filter chips (which use `bg-terracotta`=gold for selected
+   * highlights per Clean Editorial accent role).
+   *
+   * SUPERSEDED 2026-05-30: 2026-05-22 Facebook palette (light=#FFFFFF + blue
+   * #1877F2 / dark=#18191A + brighter blue) is retired. The 2026-05-30
+   * marketplace Airbnb-vibe row's "Facebook palette preserved" preservation
+   * lock is also retired. 5-theme picker retirement from 2026-05-22 stays
+   * retired (light/dark/auto trio survives).
+   */
+
+:root {
+  /*
+     * Light mode — WARM EDITORIAL ARCHIVE (owner 2026-08-01).
+     *
+     * Supersedes BOTH the 2026-07-13 pure-white page AND the 2026-07-31
+     * "Facebook grey #F0F2F5 page + white cards" direction. Owner chose warm
+     * over cool the same week; page and card are deliberately the SAME cream,
+     * so the `paper`→`cream` alias in tailwind.config.ts stays intact and the
+     * 337 hardcoded `bg-white` files need no audit. Card separation is carried
+     * by border + shadow, not by a second surface value.
+     *
+     * Gold is UNCHANGED and keeps every decorative role (active tabs, rules,
+     * pills, eyebrows, selected states) — the accent budget stays at two.
+     *
+     * ⚠ THE PAGE IS WHITE AGAIN — owner, 2026-08-20: *"let's also make the
+     * background not beige. let's keep it same color as facebook/youtube.
+     * having a white background."* This reverses the 2026-07-13 move to cream
+     * and the lock that followed it. Recorded rather than quietly applied,
+     * because a later reader will find that lock and need to know it was the
+     * owner who lifted it.
+     *
+     * EVERY RATIO IMPROVED AND NONE REGRESSED — white is lighter than cream, so
+     * text-on-page rises and a cream-coloured LABEL on a coloured fill rises
+     * too. Measured (not estimated), all against #FFFFFF, with the old cream
+     * figure beside each so the direction is visible:
+     *   ink   #2C2A29  14.28:1  AAA   (was 13.82)
+     *   link  #3B4E67   8.50:1  AAA   (was  8.22)
+     *   CTA   #C24E25          · label on it 4.76:1 AA ✓ (was 4.61)
+     *   gold  #A9834B   3.48:1  UI + large text ONLY — never body copy
+     *                           (was 3.37 — still under the floor, so the rule
+     *                            is UNCHANGED; escalate to
+     *                            --color-terracotta-700 #8C6932, 5.02:1 AA,
+     *                            when gold must carry real text)
+     */
+  --color-cream: 255 255 255;
+  /* page + card → WHITE #FFFFFF (owner 2026-08-20, reversing the 2026-07-13 move to cream #FDFBF7). Token NAME kept: renaming it would churn every `bg-cream`/`text-cream` call site in the app for no behaviour change — the same reason `mulberry` and `terracotta` kept theirs. */
+  --color-ink: 44 42 41;
+  /* primary text → espresso #2C2A29 · 13.82:1 AAA */
+  --color-terracotta: 169 131 75;
+  /* accent → Atelier gold #A9834B (kit gold-500) — UNCHANGED */
+  --color-terracotta-600: 168 131 64;
+  /* accent hover → #A88340 */
+  --color-terracotta-700: 140 105 50;
+  /* accent deepest → #8C6932 */
+  /* CTA → terracotta #C24E25 (86% of the owner's #E05A2B, along its own hue).
+     *
+     * WHY DARKENED: #E05A2B fails AA with EVERY possible label — white 3.71:1,
+     * ink 3.85:1 — both under the 4.5:1 floor for normal-size button text.
+     *
+     * WHY 86% AND NOT 89%: it was chosen against the CREAM label this app used
+     * to render — the first value clearing AA on white (#C75026, 4.56:1 white /
+     * 4.41:1 cream) FAILED that label. #C24E25 was picked because it passes
+     * BOTH: 4.61:1 on cream, 4.76:1 on white.
+     * ⚠ THAT HEADROOM IS WHY THE 2026-08-20 MOVE TO WHITE COST NOTHING HERE —
+     * `text-cream` is now #FFFFFF and the label measures 4.76:1, better than
+     * before. Had the CTA been tuned to cream alone, this change would have
+     * needed a new CTA colour.
+     *
+     * ⚠ Do not lighten toward #E05A2B "to match the brand": it re-breaks AA.
+     * Token NAME `mulberry` kept to avoid churning 239 CTA call sites — the
+     * same reason gold kept it in 2026-07-12 and obsidian before that. */
+  --color-mulberry: 194 78 37;
+  /* CTA → #C24E25 · cream label 4.61:1 AA ✓ */
+  --color-mulberry-600: 176 71 34;
+  /* CTA hover → #B04722 (5.39:1) */
+  --color-mulberry-700: 157 63 30;
+  /* CTA deepest → #9D3F1E (6.42:1) */
+  /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
+     * token; anchors inherited ink. Scope is deliberately NARROW (owner):
+     * inline links and secondary/ghost buttons only. It is NOT a decorative
+     * colour — gold keeps that role, so the "one decorative family" rule holds. */
+  --color-link: 59 78 103;
+  /* slate indigo #3B4E67 · 8.22:1 AAA */
+  --color-link-600: 48 64 85;
+  /* link hover → #304055 */
+  --accent: #c5a059;
+  --accent-deep: #a88340;
+  --accent-soft: #f4ecd8;
+  /* Light champagne wash */
+  --surface: #ffffff;
+  /* card = page (see the block comment above) */
+  --surface-soft: #f4f2ec;
+  /* Warm card surface */
+  --ink-soft: 79 83 91;
+  /* Deep slate #4F535B */
+}
+
+html {
+  color-scheme: light;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: rgb(var(--color-cream));
+  color: rgb(var(--color-ink));
+}
+
+/* Touch targets ≥ 44pt per kickoff multi-platform rules. */
+
+button,
+  [role='button'],
+  a.button,
+  input[type='submit'] {
+  min-height: 44px;
+}
+
+/*
+   * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
+   * buttons; no animation when pressed"; made universal 2026-06-13). We kill
+   * the default mobile tap-highlight above, so every button-like control needs
+   * its own press response or taps feel dead. Give a quick scale-down + slight
+   * darken on :active and pointer cursor. Excludes :disabled / [aria-disabled].
+   *
+   * Uses the standalone `scale` PROPERTY, NOT `transform: scale()`. This is the
+   * key to it being truly universal: `scale` is its own property, so it
+   * COMPOSES with whatever `transform` an element already carries (a seat-plan
+   * table is `translate(-50%,-50%) scale(N)`, nav pills/cards may be
+   * translated, etc.). The old `transform: scale(0.96)` silently CLOBBERED
+   * those transforms on press — the element jumped instead of pressing. With
+   * the `scale` property the press composes everywhere. (Modern browsers only;
+   * very old engines just skip the press scale — graceful, no breakage.)
+   *
+   * `.m-btn` (template utility) carries its own more-specific hover/active —
+   * left intact. prefers-reduced-motion (block below) snaps it instantly,
+   * which is still felt as feedback.
+   */
+
+/* `.sn-press` — same press feedback as an OPT-IN for <Link>-based cards
+   * (home-launcher pixel pass 2026-07-15: event cards, ghost card, space rows,
+   * moment rows, the Play pill), which the button-shaped selectors below can't
+   * match. Base-layer on purpose so Tailwind transition utilities on the same
+   * element keep winning exactly as they do for buttons. */
+
+button,
+  [role='button'],
+  a.button,
+  .sn-press,
+  input[type='submit'],
+  input[type='button'],
+  summary {
+  transition: scale 0.13s cubic-bezier(0.2, 0.7, 0.2, 1),
+      filter 0.13s ease;
+}
+
+button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  a.button,
+  input[type='submit']:not(:disabled),
+  input[type='button']:not(:disabled),
+  summary {
+  cursor: pointer;
+}
+
+button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active,
+  a.button:active,
+  input[type='submit']:not(:disabled):active,
+  input[type='button']:not(:disabled):active,
+  summary:active {
+  scale: 0.96;
+  filter: brightness(0.97);
+}
+
+/* Proto universal :active is scale(.97) on cards — slightly gentler than
+   * the button press above. */
+
+button:disabled,
+  [aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+/*
+   * Accessibility — `prefers-reduced-motion` (WCAG 2.2 § 2.3.3 Animation
+   * from Interactions, AAA). Disable transitions, scroll-snap, transforms,
+   * and any tailwindcss-animate-driven motion when the OS-level setting
+   * says reduce. Visitors who set this on macOS / iOS / Android / Windows
+   * get a still page instead of fade-ups or scroll-linked motion.
+   *
+   * `!important` is required because Tailwind utilities (`transition-*`,
+   * `animate-*`) emit longhand declarations that would otherwise win the
+   * cascade. The blast radius is intentional — any developer-added motion
+   * must opt out by writing `motion-safe:` utilities, not by working
+   * around this block.
+   */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+    *::before,
+    *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+     SCALED TILE — one item, at the size its own contents earn.
+     Used by app/_components/scaled-tile.tsx.
+
+     🔑 WHY THESE RULES ARE HERE AND NOT IN A PAGE. The 2026-08-21 site audit
+     found the three-size system living as 484 lines inside ONE page file, its
+     class names appearing nowhere else — which is exactly why no other surface
+     matched it. This product has 106 bespoke card files and 717 more files
+     hand-drawing the same shape; a shared component whose styles are private
+     to one route would have made a 107th.
+
+     THE RULE: a picture AND writing ⇒ the width. One of them ⇒ a strip.
+     Neither ⇒ a line. Derived in lib/chapter-weight.ts, never chosen by hand.
+
+     ⚠ NO PICTURE MEANS NO FRAME. There is no empty-image state in here on
+     purpose: the component omits the element entirely, so an item without a
+     photograph is SMALLER rather than a hole. The audit counted six blank
+     bordered frames on the page selling photography and called them worse
+     than nothing.
+     ══════════════════════════════════════════════════════════════════════ */
+
+/* THE LEAD */
+
+/* A STRIP */
+
+/* A LINE */
+
+/*
+   * .button-primary — TERRACOTTA CTA (Warm Editorial Archive, owner 2026-08-01;
+   * was the gold CTA of 2026-07-12, and the Rich Mulberry of 2026-05-29).
+   *
+   * The label stays `text-cream`, and that is now load-bearing rather than
+   * incidental: cream #FDFBF7 on terracotta #C24E25 measures 4.61:1, which is
+   * the ONLY reason this CTA clears WCAG AA at normal text size. The owner's
+   * originally-specified #E05A2B failed with every possible label (white
+   * 3.71:1, ink 3.85:1), so the fill was darkened along its own hue instead of
+   * the label being changed.
+   *
+   * ⚠ The fill is sized against CREAM, not white. #C75026 would pass on white
+   * (4.56:1) and FAIL on the cream this class actually renders (4.41:1) — a
+   * near-miss that a white-background contrast check would have waved through.
+   *
+   * ⚠ Do not switch this label to `text-ink`. Ink on terracotta is 3.85:1 —
+   * it FAILS AA for button text. The inverse is true of the 2026-07-31
+   * mandarin #F37A1F direction (ink passed, white failed); that palette is
+   * superseded, so do not carry its label rule over.
+   */
+
+/*
+   * THE INVITE DOOR'S BUTTON, IN THE COUPLE'S OWN COLOUR (owner Q2 = A,
+   * 2026-09-11). Scoped to `[data-door-action]`, which `DoorShell` sets ONLY
+   * when its skin carries an `action` — i.e. only a Pro invite theme, resolved
+   * once in `app/[slug]/invite/_lib/load-invite-look.ts`. House, every other
+   * door, and the Event Hub's own copy of the same RSVP card are all outside
+   * this scope and render byte-identically.
+   *
+   * 📦 A RULE HERE, NOT A STYLESHEET. globals.css already ships on every page,
+   * so this adds no module to the shared chunk — the constraint `door-shell.tsx`
+   * records ("`main` is a hair under a locked 200 KB"). The precedent is
+   * `.app-surface .button-primary` further down, which re-points this same class
+   * for the dashboards.
+   *
+   * ⚠ THE LABEL IS NOT OPTIONAL. `--door-action-label` is chosen against the
+   * fill by `lib/invite-button-color.ts` (white or ink, 4.5:1 or the terracotta
+   * floor). Setting the background here without it would leave the class's own
+   * `text-cream` on a colour nobody measured — which on a pale couple colour is
+   * white on white. Fill and label are one decision; they move together.
+   *
+   * ⚠ THE HOVER IS A RESOLVED COLOUR, NOT `filter: brightness()`. A brightness
+   * step moves the fill in ONE direction whatever label is on it, so on a light
+   * fill wearing the ink label it walks the pair closer together — a colour
+   * resolved at exactly 4.5:1 would drop under AA the moment a thumb rests on
+   * it, in a state nobody screenshots. `lib/invite-button-color.ts` computes a
+   * hover that always moves AWAY from the label, and the sweep in its test
+   * asserts the hover reads at least as well as the resting state.
+   *
+   * ⚖ THE FOCUS RING IS DELIBERATELY LEFT ALONE. It stays the house #C24E25:
+   * a ring's job is to be visible against the page GROUND, which on a Pro theme
+   * is the couple's own photograph, and nothing here has measured the couple's
+   * colour against that. Setting `--tw-ring-color` here would also be inert —
+   * Tailwind's `focus-visible:ring-mulberry` utility is emitted in a later layer
+   * at equal specificity and wins — and a declaration that changes no pixel is
+   * worse than none.
+   */
+
+/*
+   * THE DOOR'S NAME IS FITTED TO THE FOLD, NEVER TRUNCATED (row 4a, 2026-09-14).
+   *
+   * `DoorShell` sets `--door-title-fit` only when the title it was handed is
+   * longer than `DOOR_TITLE_FULL_CHARS` (lib/door-fold.ts) — so the ordinary
+   * two-name mark every shipped screenshot shows is untouched, and no page
+   * outside a door is in this scope at all.
+   *
+   * 🔑 `zoom`, NOT `font-size`. Each invite theme sets the name's size in its
+   * OWN stylesheet (`.velvet header h1 { font-size: 40px }`), which
+   * out-specifies anything the shell can say about `font-size` — and a shell
+   * that named a size would have to know every theme, including the ones not
+   * written yet. `zoom` multiplies whatever the theme asked for and, unlike
+   * `transform: scale()`, it changes LAYOUT: the 168px four-line name that
+   * pushed door 01's "Continue" to y=720 becomes 83px of real, recovered fold.
+   *
+   * 📱 PHONE ONLY. Above `sm` the column is centred in a viewport with room to
+   * spare and there is no fold to lose, so a long name is set exactly as its
+   * theme asks.
+   */
+
+@media (max-width: 639px) {
+  [data-door-title-fit] h1 {
+    zoom: var(--door-title-fit);
+  }
+}
+
+/*
+   * .button-secondary — slate indigo (Warm Editorial Archive, owner 2026-08-01).
+   * One of the two sanctioned homes for the new `link` token (the other being
+   * inline anchors). Border and label carry the indigo; the fill stays cream so
+   * it reads as clearly subordinate to the terracotta primary.
+   * Label #3B4E67 on cream = 8.22:1 (AAA).
+   */
+
+/*
+   * .skeleton — animated loading placeholder (owner directive 2026-06-03,
+   * app-wide "we want an animation loading so they do not feel they are
+   * waiting too long"). A GPU-only background-position sweep over an ink/6%
+   * base that matches the existing animate-pulse loaders. Size + radius come
+   * from Tailwind utilities ON the element; this class owns colour + motion,
+   * so don't add `bg-*` utilities to a `.skeleton` block.
+   *
+   * The global `prefers-reduced-motion: reduce` block above freezes the sweep
+   * to a static block (still reads as structure) for motion-sensitive
+   * visitors — no per-element guard needed. Consumed by
+   * `@/components/skeletons`.
+   */
+
+/*
+   * .loading-status-line — one line of a cycling "what we're doing" status
+   * (owner 2026-06-05: "loading state tells what we are doing … downloading
+   * your information, activating your personalized refinements"). The consumer
+   * (<LoadingStatus>) re-keys the element on each step so this entrance fade
+   * replays per message; the global prefers-reduced-motion block above freezes
+   * it to an instant swap (the JS timer still advances the text — that's
+   * informative, not motion).
+   */
+
+/* Primary CTAs (Sign Up, Create Event, Submit, Lock Vendor, etc.) — Rich Mulberry per 2026-05-29 Clean Editorial palette lock */
+
+/* Champagne accent buttons — for secondary actions + highlights (token name --m-orange kept for back-compat) */
+
+/* Ink button — retained for rare dark-CTA contexts where mulberry isn't appropriate */
+
+/* Pulse dot — used in promo bar live indicator (v2.1 template) */
+
+@keyframes m-pulse-dot-anim {
+  0%,
+    100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/*
+   * Responsive marketing layout primitives — 2026-06-13 premium redesign.
+   * Marketing sections previously hardcoded desktop values (px-14 + inline
+   * fontSize: 64–96px) that overflowed phones. These clamp() utilities give
+   * every section fluid padding + fluid display headings so the same markup
+   * reads premium on a 360px phone and a 27" monitor.
+   */
+
+/*
+   * Section + sub tiers (VIS-9/VIS-10 · Responsive_and_Mobile_UI_Ruleset). The
+   * `.m-h-xl/lg/md` family only covered HERO sizes; marketing section/sub
+   * headings had no shared fluid tier, so each page hand-rolled `text-3xl
+   * sm:text-4xl` steps. These two complete the scale DOWNWARD with the same
+   * fluid clamp + tracking/line-height tightening. `.m-h-sm` matches the
+   * dominant section-h2 endpoints (30px→36px) so adopting it is a no-size-change
+   * swap — it just adds fluidity between the steps + the tightening. Marketing
+   * section headings migrate to these incrementally (reviewed on the preview,
+   * since it's the public conversion surface).
+   */
+
+/*
+   * Horizontal "peek" scroller (ROW-1 / DIR-3 · Responsive_and_Mobile_UI_Ruleset).
+   * The canonical mobile pattern for browsing a peer set (recent / suggested /
+   * gallery): scroll-snap horizontally with the next item's edge visible so the
+   * row reads as scrollable. Pair children with `shrink-0`; add `.m-no-scrollbar`
+   * to hide the bar. Replaces the per-surface re-rolls the audit found.
+   */
+
+/*
+   * Image overlay (VIS-21 · Responsive_and_Mobile_UI_Ruleset). Text over a photo
+   * never uses a flat full-screen scrim that flattens the image — put this on an
+   * absolutely-positioned layer above the <img> and below the caption. The
+   * gradient keeps the photo visible up top and converges into a readable band
+   * behind the text. Default is bottom-anchored; flip with `.m-img-overlay-top`.
+   * Ink (#1E2229) matches the shadow tint, so it stays on-palette.
+   */
+
+/* Photo placeholder — diagonal stripes in cool alabaster tone (was warm cream #EFE6D2/#F4ECDB) */
+
+/* Completion ("Ready ✓") — orbit fades, ring draws, check strokes in. */
+
+/* ---- Variant layers (owner 2026-07-05) --------------------------------- *
+   * The SAME mark, three treatments. Visibility is driven by the
+   * `[data-loader-variant]` attribute on .sd-loader (mirrored on <html> for the
+   * boot splash). Default / no attribute = `gather` (particles + orbit). */
+
+/* Aurora — a soft, slowly-rotating blurred champagne sweep behind the mark. */
+
+/* Pulse — concentric gold rings expanding outward and fading on a stagger. */
+
+/* gather (default): particles + orbit; aurora & pulse hidden. */
+
+/* aurora: sweep visible; orbit + pulse hidden. */
+
+/* pulse: sonar rings visible; orbit + aurora hidden. */
+
+/* The done-beat fades whatever variant motion is showing so the ring + check
+     read cleanly on completion (mirrors the orbit fade). */
+
+/* ---- Tap-to-pop motes + ripple (WAAPI-driven from sd-loader.tsx) ------- */
+
+/* App-wide blocking overlay host (LoaderOverlayProvider). The veil solidity is
+     admin-configurable (owner 2026-07-05) — --sd-veil is set on <html> from
+     platform_settings.loader_veil_opacity, defaulting to 94% here. */
+
+/* The № numeral and the ✦ star — decorative by construction (they are
+     aria-hidden, so a screen reader never reads them) and therefore free to
+     stay metallic at any contrast. */
+
+/* ── Pahina chapter grammar (wave A PR-3) — the three moves Tailwind cannot
+     express as utilities: a ::first-letter drop cap, the gild-ruled pull quote,
+     and the silk swatch's inner shading + gild pin. ────────────────────────── */
+
+/* ── Reply-card materials (wave A PR-4, spec §5/§7) ─────────────────────── */
+
+/* (The launcher-only `.sn-wash-home` splash was promoted to the canonical
+   * app-wide `.sn-ambient` in Glass PR-1, 2026-07-15 — one wash source of
+   * truth; the launcher layout now consumes `.sn-ambient` directly.) */
+
+/* Frosted glass tile (proto .glass/.tile/.ev/.cmd): white .5 + 22px blur +
+   * 1.5 saturation + the shared glass hairline + the warm tile shadow.
+   * 2026-07-28 — the fill and hairline were hardcoded copies of the
+   * --sn-glass-* tokens, so the warm-white-ground edge fix would have skipped
+   * this recipe and the launcher tiles alone would have stayed invisible.
+   * Now referenced, not duplicated: one source of truth, same as .sn-tile. */
+
+/* Obsidian tile (proto .tile.dark.alaala): gold-glow radial over the dark
+   * glass base, gold-100 base text. */
+
+/* Event-card editorial texture band (proto .ev .top). */
+
+/* The reading column for text-led event surfaces (2026-08-01).
+   *
+   * WHY THIS EXISTS. `SidebarShell` delegates width to its caller ("Main scroll
+   * area. Caller controls inner max-width / padding"), and the `[eventId]`
+   * layout wraps children in `mx-auto w-full …` with NO `max-w-*` — so
+   * `mx-auto` centers nothing and every page inherits the full viewport minus
+   * the 16rem sidebar. On a 1440px desktop that is a ~1120px column; the
+   * checklist intro was running ~160 characters per line against a comfortable
+   * measure of 45–75.
+   *
+   * 64rem (1024px) is a compromise, not a reading measure: these surfaces mix
+   * prose with rows that carry a right-aligned count or due date, so `prose`
+   * (65ch) is too tight for the row and too wide for nothing. Cap the column
+   * here; keep `max-w-prose` on the intro `<p>` itself.
+   *
+   * OPT-IN, deliberately. It is applied per page rather than on the layout
+   * because several of the 111 `[eventId]` routes genuinely want the width
+   * (`seating`, `studio/led`, `studio/live-studio-control`, the `/print`
+   * routes) and several already cap themselves tighter (`clearance` 2xl,
+   * `access-requests` 3xl, `manpower` 4xl). A blanket layout cap would have
+   * silently reflowed all of them. */
+
+/* Non-navigating panel — Watch/Spaces/stat panels/form sections.
+   *
+   * ── WARM EDITORIAL ARCHIVE, 2026-08-08 · glass → flat ──────────────────
+   * Was Atelier-Glass: translucent fill, 24px backdrop blur, 20px radius.
+   * Now the approved card recipe — cream surface, 1px line, 14px radius, a
+   * shadow you have to look for. Separation comes from the border, never
+   * from a second surface tint.
+   *
+   * WHY THIS IS ONE EDIT AND NOT 186. The design spec's scope guard says
+   * "do NOT restyle the .sn-* classes globally — they have consumers across
+   * the app", which assumes each surface is ported by hand. Measured, that
+   * assumption does not hold: `.sn-tile` has **417 uses across 186 files**,
+   * spread over all three doorways (dashboard 72 · vendor 56 · admin 54).
+   * The guard exists to protect surfaces "not yet designed" — but the
+   * programme covers all 401 routes and every one of them is going here, so
+   * the thing being protected is a stop on the same journey. Porting by
+   * markup would mean ~40 PRs to reach a look one recipe reaches today, and
+   * would leave the app in two visual languages for the whole of it.
+   *
+   * SAFE BECAUSE THE GLASS CASES ARE ALREADY SEPARATE CLASSES.
+   * `.sn-tile-glass` (over imagery) and `.sn-tile-dark` (the obsidian focal,
+   * max one per view) are untouched and keep their treatment.
+   *
+   * TOKEN-AWARE ON PURPOSE. `--m-paper`/`--m-line` are remapped inside
+   * `.sn-sidebar`, so a card nested in the dark panel follows the panel
+   * instead of punching a cream hole in it. Hard-coding #FDFBF7 here would
+   * have broken exactly that.
+   *
+   * REVERSIBLE IN ONE PLACE. If the owner wants the glass back, it is this
+   * block and nothing else. */
+
+/* Lift kept as shipped — the spec keeps the shipped translateY(-3px) on
+   * link-cards, and narrowing it to anchors only would be a behaviour change
+   * in a styling-only pass. */
+
+/* The obsidian focal — max ONE per view (§ 1.3). Canonical named class the
+   * recomposition PRs consume; the launcher's .sn-tile-obsidian is the same
+   * recipe under its proto name. */
+
+/* The focal — max ONE per view. Obsidian glass → solid ink, same pass as
+   * `.sn-tile` above. Was a gold radial wash over translucent dark with a 22px
+   * blur; now one flat ink plane, so the focal reads as a considered object
+   * rather than a lit panel.
+   *
+   * All SEVEN consumers are the focal card of their own surface (admin home ·
+   * couple dashboard · the day-of card · vendor on-the-day ×2 · vendor overview ·
+   * vendor performance), so they want one treatment, not seven.
+   *
+   * The eyebrow already had its on-dark pair (`.sn-tile-dark .sn-eye` →
+   * `--sn-gold-300` #CBA766, 6.30:1 on this ink). Left alone — it was correct.
+   *
+   * Text colour deliberately NOT touched: `--sn-gold-100` #F3ECDF is a warm
+   * parchment, well clear of the palette lock's ban on pure white, and changing
+   * the inherited colour would ripple into every child that sets none. The
+   * per-surface units own the headline hexes. */
+
+/* Repeated list / table rows — the blur-budget fallback (§ 1.6): opaque
+   * tint, NO blur, so hundreds of rows stay cheap. */
+
+/* 2026-07-28 — this was the worst case of the white-on-white problem: a
+   * white .72 fill with a white .6 border and NO shadow, which on the
+   * warm-white ground is an invisible row on an invisible row. Fill pushed to
+   * opaque white (it is the blur-budget fallback — it has no blur to lose) and
+   * the border given the warm hairline at a LIGHTER weight than .sn-tile:
+   * these repeat hundreds of times, and full-strength edges would read as a
+   * cage. rgba(40,34,24,.10) → 1.21:1 against the ground. */
+
+/* Repeated rows inside a panel. The fill was PURE WHITE `#FFFFFF`, which the
+   * palette lock forbids outright ("cream #FDFBF7, was pure white 2026-07-13") —
+   * a white row on a cream card reads as a lit rectangle, which is why rows
+   * looked detached from the panels holding them. Token-aware for the same
+   * reason as `.sn-tile` above. */
+
+/* The opaque fill above is a light-mode value, so it needs its dark pair or
+     dark mode gets white rows on a black page. */
+
+/* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
+   * glass, gold-300 on the obsidian focal; 14px icon. */
+
+/* Page hero — Hanken w800; m-serif is retired from dashboards. Optional soft
+   * tail via a child `.sn-h1-tail`.
+   *
+   * D-2 · "today." STOPPED BEING STRANDED ON ITS OWN LINE. At 36px on a phone
+   * the greeting "Your wedding is taking shape. Here's today." wrapped so the
+   * last word sat alone on a third line — a one-word line under a two-line
+   * sentence reads as a mistake, and it is the first thing on the page.
+   *   · `text-wrap: balance` lets the browser even the lines out instead of
+   *     filling greedily. Ignored where unsupported, so nothing regresses.
+   *   · `.sn-h1-tail` never breaks INSIDE itself. Every tail in the app is
+   *     short — "Here's today.", "guests", "Guests" — so it either fits its
+   *     line or moves whole, and "Here's / today." cannot happen.
+   *
+   * ⚠ THE TAIL IS INK, NOT TERRACOTTA, and that was checked rather than
+   * assumed: a review reported seeing terracotta here. The only colour this
+   * rule has ever set is `--sn-ink-400` (#8A857B — 3.67:1 on the white page,
+   * which clears the 3:1 large-text bar at 36px/700). The warm thing directly
+   * above it is the gold `.sn-eye` eyebrow, which is what a screenshot most
+   * likely showed. Do not "restore" a terracotta that was never here. */
+
+/* Section head — replaces mono ALL-CAPS labels with sentence-case ink;
+   * optional 12px sub via a sibling `.sn-sec-sub`. */
+
+/* Shared modal chrome all useModalA11y consumers migrate to. */
+
+/* 2026-07-28 — this rule declared NO border at all; its one consumer supplied
+     `border-white/60` by hand, which on the warm-white ground is a white line
+     on a near-white panel over a near-white page — an unbounded white blob.
+     Given the shared glass hairline so the panel is bounded by default. */
+
+/* ---- Live-primitive re-point, SCOPED to dashboards (§ 6 R5) ----
+   * .button-primary (~100 files) / .button-secondary / .input-field are shared
+   * with guest (app/[slug], .sn-editorial) + marketing surfaces, which MUST
+   * render byte-identical. Scoping the recipe under `.app-surface` (dashboard
+   * root only) re-points every dashboard CTA/input to the kit's gold recipe
+   * while leaving excluded scopes on their existing base rule. */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.-mb-px {
+  margin-bottom: -1px;
+}
+
+.mb-1 {
+  margin-bottom: 0.25rem;
+}
+
+.mb-5 {
+  margin-bottom: 1.25rem;
+}
+
+.flex {
+  display: flex;
+}
+
+.inline-flex {
+  display: inline-flex;
+}
+
+.hidden {
+  display: none;
+}
+
+.h-3\.5 {
+  height: 0.875rem;
+}
+
+.h-4 {
+  height: 1rem;
+}
+
+.w-3\.5 {
+  width: 0.875rem;
+}
+
+.w-4 {
+  width: 1rem;
+}
+
+.min-w-0 {
+  min-width: 0px;
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
+}
+
+.snap-x {
+  scroll-snap-type: x var(--tw-scroll-snap-strictness);
+}
+
+.snap-proximity {
+  --tw-scroll-snap-strictness: proximity;
+}
+
+.snap-start {
+  scroll-snap-align: start;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-stretch {
+  align-items: stretch;
+}
+
+.gap-1\.5 {
+  gap: 0.375rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.overflow-x-auto {
+  overflow-x: auto;
+}
+
+.whitespace-nowrap {
+  white-space: nowrap;
+}
+
+.rounded-md {
+  border-radius: var(--m-r-sm);
+}
+
+.rounded-tile {
+  border-radius: 20px;
+}
+
+.border {
+  border-width: 1px;
+}
+
+.border-b {
+  border-bottom-width: 1px;
+}
+
+.border-b-2 {
+  border-bottom-width: 2px;
+}
+
+.border-ink\/10 {
+  border-color: rgb(var(--color-ink) / 0.1);
+}
+
+.border-ink\/15 {
+  border-color: rgb(var(--color-ink) / 0.15);
+}
+
+.border-ink\/\[0\.07\] {
+  border-color: rgb(var(--color-ink) / 0.07);
+}
+
+.border-terracotta-700 {
+  --tw-border-opacity: 1;
+  border-color: rgb(var(--color-terracotta-700) / var(--tw-border-opacity, 1));
+}
+
+.border-transparent {
+  border-color: transparent;
+}
+
+.bg-cream {
+  --tw-bg-opacity: 1;
+  background-color: rgb(var(--color-cream) / var(--tw-bg-opacity, 1));
+}
+
+.bg-white {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.px-2 {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.px-2\.5 {
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+}
+
+.px-3 {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.py-1\.5 {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+.py-2\.5 {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+.pb-1 {
+  padding-bottom: 0.25rem;
+}
+
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.font-sans {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+.text-\[10px\] {
+  font-size: 10px;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.text-ink {
+  --tw-text-opacity: 1;
+  color: rgb(var(--color-ink) / var(--tw-text-opacity, 1));
+}
+
+.text-ink\/40 {
+  color: rgb(var(--color-ink) / 0.4);
+}
+
+.text-ink\/60 {
+  color: rgb(var(--color-ink) / 0.6);
+}
+
+.text-ink\/70 {
+  color: rgb(var(--color-ink) / 0.7);
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0) scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), var(--tw-enter-scale, 1)) rotate(var(--tw-enter-rotate, 0));
+  }
+}
+
+@keyframes exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1)) rotate(var(--tw-exit-rotate, 0));
+  }
+}
+
+.\[mask-image\:linear-gradient\(to_right\2c \#000_calc\(100\%_-_8px\)\2c transparent\)\] {
+  -webkit-mask-image: linear-gradient(to right,#000 calc(100% - 8px),transparent);
+          mask-image: linear-gradient(to right,#000 calc(100% - 8px),transparent);
+}
+
+.\[scrollbar-width\:none\] {
+  scrollbar-width: none;
+}
+
+/*
+ * ── Atelier + macOS glass typography aliases (owner-locked 2026-07-12) ──
+ * Hanken Grotesk (--font-hanken) + Space Mono (--font-space-mono) are loaded
+ * in app/layout.tsx and are the ONLY chrome families going forward. The
+ * variables below keep every shipped consumer working without churn:
+ *   - --font-app          was Source Sans 3 (retired) — dashboards inherit
+ *     it through `.app-surface`, which now resolves to Hanken.
+ *   - --font-*-marketing / --font-condensed  were the retired v2.1 quartet
+ *     (Saira Condensed / Geist / Instrument Serif / JetBrains Mono).
+ * Root --font-sans / --font-display / --font-mono deliberately KEEP their
+ * Cormorant / Manrope / DM Mono faces: the /[slug] guest invitation surfaces
+ * are owner-excluded from the reskin and inherit those root vars. Chrome
+ * scopes (.app-surface below · marketing pages as they restyle in Phase 3)
+ * opt in to the Atelier faces instead.
+ */
+
+:root {
+  /* Chrome typography = Atelier everywhere (2026-07-12 consistency pass).
+   * The editorial Cormorant/Manrope/DM Mono faces now load under
+   * --font-editorial-* (app/layout.tsx) and reach pages ONLY through the
+   * .sn-editorial scope below — applied at the /[slug] guest-tree root, the
+   * one surface family owner-excluded from the reskin. Everything else
+   * (marketing + dashboards + tools) reads the Atelier faces. */
+  --font-display: var(--font-hanken);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-space-mono);
+  --font-app: var(--font-hanken);
+  --font-condensed: var(--font-hanken);
+  --font-sans-marketing: var(--font-hanken);
+  --font-serif-marketing: var(--font-hanken);
+  --font-mono-marketing: var(--font-space-mono);
+}
+
+/*
+ * Universal "bounce on pick" — the companion to the press feedback above, for
+ * SELECTION states (a table / seat / card / tab just became picked). A 15%
+ * scale pop that overshoots and settles. Like the press rule it uses the
+ * standalone `scale` PROPERTY, so it composes with any element's existing
+ * `transform` instead of clobbering it — drop `.sn-bounce` on anything,
+ * however it's already positioned, and it bounces in place.
+ *
+ * Re-trigger: a CSS animation only plays when the element starts matching /
+ * mounts, so to replay on EACH new selection give the bouncing element a React
+ * `key` that changes per selection (it remounts and the animation runs from 0),
+ * or toggle the class. The global prefers-reduced-motion block above freezes it
+ * to instant. `transform-origin` is centre by default → it pops about its own
+ * middle.
+ */
+
+@keyframes sn-pick-bounce {
+  0% {
+    scale: 1;
+  }
+
+  38% {
+    scale: 1.15;
+  }
+
+  68% {
+    scale: 0.98;
+  }
+
+  100% {
+    scale: 1;
+  }
+}
+
+.sn-bounce {
+  animation: sn-pick-bounce 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* Promote to its own layer so the pop never reflows neighbours. */
+  will-change: scale;
+}
+
+/*
+ * Canonical bottom-nav pill travel-stretch — owner-locked 2026-06-13
+ * (project_setnayan_bottom_nav_canonical). The active pill in <BottomNav>
+ * gives a subtle horizontal "liquid" stretch as it glides between tabs.
+ * Re-triggered by keying the inner pill on the active index (remount →
+ * replay). Peak + duration read the --bn-stretch / --bn-dur custom props
+ * set on the nav root, so the whole interaction retunes from ONE place.
+ * This nav treatment supersedes the generic .sn-bounce for bottom navs.
+ */
+
+@keyframes nav-pill-travel {
+  0% {
+    transform: scaleX(1);
+  }
+
+  45% {
+    transform: scaleX(var(--bn-stretch, 1.1));
+  }
+
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.nav-pill-stretch {
+  animation: nav-pill-travel var(--bn-dur, 500ms) cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+/*
+ * Canonical bottom-nav press-light — a one-shot white bloom under the
+ * finger on press-DOWN (project_setnayan_bottom_nav_canonical). Runs to
+ * completion on every tap (re-keyed per press), so even a quick tap shows
+ * the full bloom-and-fade — it is NOT tied to holding. Peak brightness
+ * reads the --bn-glow knob; duration reads --bn-dur. Ends at opacity 0 so
+ * the element reverts to its hidden inline base between taps.
+ */
+
+@keyframes nav-press-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleX(0.6);
+  }
+
+  28% {
+    opacity: calc(var(--bn-glow, 1.5) * 0.62);
+    transform: translate(-50%, -50%) scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleX(1);
+  }
+}
+
+.nav-press-flash {
+  animation: nav-press-flash var(--bn-dur, 500ms) ease-out;
+}
+
+/*
+ * Pill segmented control — the shared in-page MENU template (owner-locked
+ * 2026-06-14 "make each menu a pill, not rectangles"). A rounded pill TRACK
+ * holding evenly-sized options; the active option is a raised pill. Matches
+ * the floating-pill bottom nav's pill language so every menu in the app reads
+ * consistently. Apply `.sn-seg` to the container, `.sn-seg-item` to each
+ * option, and mark the active one with aria-selected / aria-current="page" /
+ * `.is-active`. Logic (handlers/state) is the caller's — this is style only.
+ */
+
+.sn-seg {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--m-r-full);
+  background: color-mix(in srgb, var(--m-ink) 5%, transparent);
+  border: 0.5px solid var(--m-line);
+}
+
+.sn-seg-item {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--m-r-full);
+  color: var(--m-slate);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.sn-seg-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sn-seg-item[aria-selected='true'],
+.sn-seg-item[aria-current='page'],
+.sn-seg-item.is-active {
+  background: var(--m-paper);
+  color: var(--m-ink);
+  box-shadow: 0 1px 3px rgba(30, 34, 41, 0.12);
+}
+
+/*
+ * .subnav-lift — the "lift" reveal for the reusable <SubNav> (the section
+ * sub-nav docked above the bottom nav · owner-picked 2026-06-16 · component at
+ * app/_components/nav/sub-nav.tsx). Plays ONCE on mount, so it fires when a
+ * tab's page enters (e.g. /vendors → Explore) and NOT when switching between
+ * sub-tabs (those are client-state, no remount). The pill starts tucked 16px
+ * lower (it sits a hair behind the nav at z-20 < nav's z-30, so it appears to
+ * rise out of the dock) and settles into place as it fades in. `both` holds the
+ * end frame. Decelerating ease so it eases into rest, never overshoots.
+ */
+
+@keyframes subnav-lift {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.subnav-lift {
+  animation: subnav-lift 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subnav-lift {
+    animation: none;
+  }
+}
+
+/*
+ * Journey view (event-lifecycle arc, /schedule ?view=journey) — entrance
+ * choreography. Pure CSS so the Journey mode stays a server component. Every
+ * animation here is frozen to instant by the global prefers-reduced-motion
+ * block above, so reduced-motion users still get the fully-rendered page (no
+ * JS gate). Stagger is driven by an inline `--journey-delay` custom property
+ * the component sets per element, so the arc → phase headers → rows cascade in
+ * top-to-bottom.
+ *
+ *   .journey-rise      — fade + lift for the arc, phase headers, and each row
+ *   .journey-rail-fill — the progress bar grows left→right once on mount
+ *   .journey-today     — the "you are here" marker pops in, then breathes
+ *   .journey-node-pop  — milestone nodes scale-in (uses the `scale` PROPERTY so
+ *                        it composes with the node's left/top positioning)
+ */
+
+@keyframes journey-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.journey-rise {
+  animation: journey-rise 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--journey-delay, 0ms);
+}
+
+@keyframes journey-rail-grow {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.journey-rail-fill {
+  transform-origin: left center;
+  animation: journey-rail-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 160ms;
+}
+
+@keyframes journey-today-in {
+  from {
+    opacity: 0;
+    scale: 0.3;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes journey-beacon {
+  0%,
+  100% {
+    scale: 1;
+    box-shadow: 0 0 0 0 rgb(var(--color-mulberry) / 0.4);
+  }
+
+  50% {
+    scale: 1.14;
+    box-shadow: 0 0 0 5px rgb(var(--color-mulberry) / 0);
+  }
+}
+
+.journey-today {
+  animation:
+    journey-today-in 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both 900ms,
+    journey-beacon 2.6s ease-in-out infinite 1500ms;
+}
+
+@keyframes journey-node-pop {
+  0% {
+    opacity: 0;
+    scale: 0.2;
+  }
+
+  70% {
+    opacity: 1;
+    scale: 1.18;
+  }
+
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.journey-node-pop {
+  animation: journey-node-pop 440ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--journey-delay, 0ms);
+}
+
+/*
+ * Bottom-clearance for a docked <SubNav>. When a section shelf is on screen it
+ * flags <html> — <GuestsSectionSubnav> uses `guests-subnav-docked`,
+ * <VendorsSectionSubnav> (Explore/Services takeover) uses the shared
+ * `subnav-docked`, and <TeamSummaryChip> (the Marketplace's mobile team chip,
+ * which replaced that takeover dock) uses its own `teamchip-docked` so two
+ * components can never fight over one class — and the floating pill sits ~76px–132px above the viewport
+ * bottom, above the layout's own pb-20 (80px) for the bottom nav. Without extra
+ * room the last ~50px of scrolling content would hide behind the pill, so give
+ * the shell-main column enough bottom padding to clear it. Mobile-only — the
+ * pill is lg:hidden, so cancel the padding on desktop where it would just be
+ * dead space.
+ */
+
+html.guests-subnav-docked [data-shell-main],
+html.teamchip-docked [data-shell-main],
+html.subnav-docked [data-shell-main] {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8.5rem);
+}
+
+/*
+ * ⭐ LIVE STUDIO CONTROLLER · WAVE 8 (§ 4g) — THE MONITOR YIELDS TO A WARNING.
+ *
+ * The controller is a fixed, scroll-free viewport: every row is `shrink-0` except
+ * the camera grid, so anything that appears has to come out of the grid's height.
+ * The Wave 7 broadcast-window strip is exactly that — it materialises mid-show on
+ * a time crossing, and two of them can be up at once (day ending + 12-hour archive
+ * cap). MEASURED at 360×640 with both up, the grid fell to 27px: still scrolling,
+ * still not overflowing, but too small to be a camera grid.
+ *
+ * So the CH 1 monitor gives the space back for as long as a warning is showing. It
+ * is the right thing to shrink: the picture is `object-cover` and every overlay is
+ * positioned against the box, so a shorter monitor crops rather than breaks, while
+ * a squeezed grid costs the operator the ability to cut.
+ *
+ * Written here rather than as a utility because it needs `:has()` on a PREVIOUS
+ * sibling's ancestor — the warning renders after the monitor, and CSS has no
+ * previous-sibling combinator. Degrades safely: a browser without `:has()` simply
+ * keeps the 34dvh cap (the pre-Wave-8 measured behaviour), and nothing overflows
+ * either way. Scoped to `[data-lsc-*]`, which only the controller emits.
+ */
+
+[data-lsc-left]:has([data-lsc-window]:not(:empty)) [data-lsc-monitor] {
+  max-height: 20dvh;
+}
+
+@media (min-width: 1024px) {
+  /* Desktop has the height to spare — the two-column layout puts the grid in its
+     own column, so a warning does not compete with it. */
+
+  [data-lsc-left]:has([data-lsc-window]:not(:empty)) [data-lsc-monitor] {
+    max-height: 40dvh;
+  }
+
+  html.guests-subnav-docked [data-shell-main],
+  html.teamchip-docked [data-shell-main],
+  html.subnav-docked [data-shell-main] {
+    padding-bottom: 0;
+  }
+}
+
+@keyframes sk-shimmer {
+  to {
+    background-position: 150% 0;
+  }
+}
+
+@keyframes loading-status-fade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Aurora hero motion — iteration 0015 § Section 2 visual differentiation.
+ * Two warm-toned radial gradients that slowly drift across the hero, blended
+ * behind the photographic backdrop. Pure CSS keyframes — no JS, no
+ * runtime cost beyond compositor-only `transform` updates (GPU-accelerated).
+ *
+ * The aurora layer is intentionally subtle (~10–15% opacity); it's meant to
+ * make the hero feel alive without competing with the headline or any
+ * eventual photograph. Inspired by the Aceternity/Magic UI aurora pattern
+ * but hand-rolled so we don't take on a third-party motion lib.
+ *
+ * `prefers-reduced-motion: reduce` is already handled by the global block
+ * above which forces `animation-duration: 0.001ms`. No extra guard needed.
+ */
+
+@keyframes aurora-drift-1 {
+  0%,
+  100% {
+    transform: translate3d(-8%, -6%, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(6%, 4%, 0) scale(1.05);
+  }
+}
+
+@keyframes aurora-drift-2 {
+  0%,
+  100% {
+    transform: translate3d(6%, 8%, 0) scale(1.02);
+  }
+
+  50% {
+    transform: translate3d(-4%, -6%, 0) scale(0.96);
+  }
+}
+
+@keyframes aurora-drift-3 {
+  0%,
+  100% {
+    transform: translate3d(0%, 0%, 0) scale(0.95);
+  }
+
+  50% {
+    transform: translate3d(-3%, 5%, 0) scale(1.04);
+  }
+}
+
+/*
+ * Service-poster motion — owner directive 2026-05-23 PM:
+ * "services must look like live/animated posters instead of cards."
+ *
+ * Three keyframe variants drive every poster on the add-ons grid. Each
+ * service picks one variant via its catalogue `poster.motion`:
+ *   - poster-drift: slow radial gradient drift (calm services — Orders,
+ *     Photo Delivery, Landing Page)
+ *   - poster-pulse: centered scaling pulse (creative/generative services —
+ *     Papic, Music Creator, Monogram Creator)
+ *   - poster-scan: horizontal sweep line (broadcast/render services —
+ *     Panood, Save the Date Video, Patiktok, Paprint, LED Background)
+ *
+ * All three are transform/opacity-only so they composite on the GPU
+ * without forcing layout/paint. `will-change: transform` hints the
+ * compositor to promote the layer once. `prefers-reduced-motion: reduce`
+ * is already handled by the global block at line 114 — keyframe duration
+ * collapses to 0.001ms so reduced-motion users see a still poster.
+ *
+ * Color-on-poster comes from the catalogue's per-service backgrounds, set
+ * inline by the Services tab (plan-budget-accordion.tsx); this stylesheet only owns the motion
+ * primitives so adding a new service is one variant pick + one color
+ * pair, never a CSS edit.
+ */
+
+@keyframes poster-drift {
+  0%,
+  100% {
+    transform: translate3d(-6%, -4%, 0) scale(1.05);
+  }
+
+  50% {
+    transform: translate3d(4%, 6%, 0) scale(1.1);
+  }
+}
+
+@keyframes poster-pulse {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.15) translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes poster-scan {
+  0% {
+    transform: translate3d(-110%, 0, 0) skewX(-12deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.55;
+  }
+
+  90% {
+    opacity: 0.55;
+  }
+
+  100% {
+    transform: translate3d(110%, 0, 0) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+/*
+ * Marketing palette — WARM EDITORIAL ARCHIVE (owner 2026-08-01).
+ *
+ * Supersedes the Clean Editorial lock of 2026-05-29 (alabaster · obsidian ·
+ * champagne · obsidian CTA), which itself superseded the v2.1 burnt-sienna
+ * register. The register moves back toward warm — an editorial, magazine
+ * canvas for a Filipino-first event platform — while keeping gold.
+ * The 4 canonical colours:
+ *   #FDFBF7 Soft Cream        → --m-paper     (60% background)
+ *   #2C2A29 Espresso          → --m-ink       (30% text/structure)
+ *   #A9834B Champagne Gold    → --m-orange    (10% accent · token name kept)
+ *   #C24E25 Terracotta        → --m-mulberry  (CTA buttons · token name kept)
+ *
+ * Token names retained (esp. --m-orange, --m-mulberry) to avoid 200+ file
+ * churn — a value-only swap auto-propagates through every component that
+ * consumes `var(--m-*)`. The app-chrome family (--color-*) is kept in step
+ * at the top of this file; the two must not drift.
+ *
+ * USAGE: in a marketing component, reference these via
+ *   style={{ background: 'var(--m-mulberry)' }}
+ * or via Tailwind arbitrary syntax
+ *   className="bg-[var(--m-mulberry)]"
+ *
+ * WCAG measured against #FDFBF7 (not estimated — recomputed 2026-08-01):
+ *   espresso on cream        13.82:1  AAA
+ *   white on terracotta CTA   4.76:1  AA   ← .m-btn-primary labels with #fff
+ *   slate indigo on cream     8.22:1  AAA  ← links + secondary buttons
+ *   champagne on cream        3.37:1  NON-TEXT UI + LARGE TEXT ONLY
+ *                                     (WCAG 1.4.11; escalate --m-orange-2
+ *                                      #8A6B39 → 4.79:1 AA when gold must
+ *                                      carry real text)
+ *
+ * ⚠ The obsidian CTA this replaces measured 16.42:1. The drop to 4.76:1 is a
+ * deliberate exchange — the CTA now reads as a brand accent rather than as
+ * text. It is still AA. Do not lighten it toward the originally-requested
+ * #E05A2B (3.71:1); that fails with every possible label.
+ */
+
+:root {
+  /* Surfaces — Soft Cream (Warm Editorial Archive 2026-08-01 · was Warm
+   * Alabaster #FBFAF7 · before that warm paper #FBF8F2). Kept in step with
+   * --color-cream above; the two families must not drift. */
+  --m-paper:      #FFFFFF;
+  --m-paper-2:    #F4F2EC;
+  --m-ivory:      #EDEAE0;
+  --m-line:       #E1DCD1;
+  --m-line-soft:  #EDE8DE;
+  /* Ink — Espresso (Warm Editorial Archive 2026-08-01 · was Atelier warm ink
+   * #1B1A17 · before that slate #2D3038). 13.82:1 on #FDFBF7 — AAA. */
+  --m-ink:        #2C2A29;
+  --m-slate:      #3A382F;
+  --m-slate-2:    #6E6A62;
+  --m-slate-3:    #8A857B;
+  --m-slate-4:    #B5AF9E;
+  /* Accent — Royal Champagne Gold (Clean Editorial · was burnt sienna #C96B3A) */
+  --m-orange:     #A9834B;
+  --m-orange-2:   #8A6B39;
+  --m-orange-3:   #CBA766;
+  --m-orange-4:   #F3ECDF;
+  /* Deep gold — the ONLY gold that may carry TEXT. #A9834B/#8A6B39 score
+     3.37:1 / 4.21:1 against the pale gold wash, below the 4.5:1 AA floor for
+     normal text; this clears it at 7.50:1. Same value as tailwind
+     terracotta-800. Added 2026-08-08 with lint-label-on-fill-contrast.mjs. */
+  --m-orange-deep: #5C4726;
+  /* Chrome nav active-state — Atelier GOLD (owner-locked 2026-07-12 design
+   * finalization: gold supersedes wine; kit gold-700 for text/active contrast).
+   * The 2026-07-09 wine treatment is retired — chrome and content now share
+   * the one gold decorative family, so the old rail/content seam is gone. */
+  --m-nav-active:      #8A6B39;
+  /* = --color-mulberry (light) — active bar · icon · focus ring */
+  --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 10%, #ffffff);
+  /* active-row wash — matches the lightness of the old --m-orange-4 gold wash */
+  /* Admin doorway accent — RETIRED (Glass PR-1, 2026-07-15). Violet is gone:
+   * admin's identity is the ShieldCheck + "HQ" label, not a colour fork (kit
+   * rule: gold is the only decorative colour). The Internal role badge now uses
+   * the warm info-slate semantic; the sidebar-header dot uses --m-sidebar-accent
+   * (gold). */
+  /* Vendor doorway accent — PHOTOGRAPHY BLUE: RETIRED (gold-only finalization,
+   * 2026-07-12). The vendor Overview's rings/eyebrows/KPI accents are gold; the
+   * `--v-blue` token had zero remaining consumers, so its definition is gone.
+   * The vendor identity is carried by the ShieldCheck + shop label, not a colour
+   * fork (kit rule: gold is the only decorative colour). */
+  /* CTA — TERRACOTTA (Warm Editorial Archive 2026-08-01; token name `mulberry`
+   * kept, as it has been through obsidian and gold, to avoid call-site churn).
+   * This is the family behind the marketing "Start planning · free" button via
+   * .m-btn-primary below, which labels with literal `#fff` → 4.76:1, AA.
+   * (Kept in step with --color-mulberry above; the two families must not drift.)
+   *
+   * ⚠ TRADE-OFF, stated so nobody "fixes" it later: the obsidian CTA this
+   * replaces measured 16.42:1 — the strongest a button could be, because the
+   * CTA WAS the ink colour. Terracotta is a deliberate drop to 4.76:1 in
+   * exchange for the CTA reading as a brand accent rather than as text.
+   * Still AA; do not lighten it further (the owner's original #E05A2B was
+   * 3.71:1 and failed).
+   *
+   * ⚠ -3 and -4 are NOT terracotta and must NOT be "corrected" to match.
+   * They stopped being CTA tints long ago: --m-mulberry-3 is consumed as
+   * MUTED LIGHT TEXT ON DARK (vendor-grow-sections.tsx sets it as `color`
+   * over `background: var(--m-ink)`; vendor-tier-matrix.tsx does the same),
+   * plus the disabled-button fill. Making them orange would put terracotta
+   * body copy on the vendor pages. Left neutral on purpose. */
+  --m-mulberry:    #C24E25;
+  --m-mulberry-2:  #B04722;
+  --m-mulberry-deep: #974930;
+  /* text on a mulberry WASH (5.38:1; the plain CTA on it is 4.04:1) */
+  --m-mulberry-3:  #C9CBCE;
+  /* neutral — light text on dark + disabled fill (see above) */
+  --m-mulberry-4:  #ECEDEE;
+  /* neutral — pairs with -3 */
+  /* Supporting (retained from v2.1 pending owner future call) */
+  --m-blush:      #F4D7C9;
+  --m-blush-deep: #B65A3A;
+  --m-blush-deepest: #783B28;
+  /* label on --m-blush (6.28:1; -deep on it is 3.41:1) */
+  --m-sage:       #C5D2BD;
+  --m-sage-deep:  #4F6B4A;
+  --m-sage-deeper: #3C5237;
+  /* label on --m-sage (5.44:1; -deep on it is 3.77:1) */
+  /* Semantic */
+  --m-accent:      var(--m-orange);
+  --m-accent-deep: var(--m-orange-2);
+  --m-cta:         var(--m-mulberry);
+  --m-cta-deep:    var(--m-mulberry-2);
+  /* Radii */
+  --m-r-xs: 4px;
+  --m-r-sm: 8px;
+  --m-r-md: 14px;
+  --m-r-lg: 22px;
+  --m-r-xl: 36px;
+  --m-r-full: 999px;
+  /* Shadows (Obsidian-tinted · paper-friendly · was rgba(45,48,56,…) for v2.1 ink) */
+  --m-shadow-sm: 0 1px 2px rgba(30,26,18,.05), 0 1px 1px rgba(30,26,18,.04);
+  --m-shadow-md: 0 8px 24px -10px rgba(30,26,18,.18), 0 2px 6px -2px rgba(30,26,18,.08);
+  --m-shadow-lg: 0 40px 80px -30px rgba(30,26,18,.28), 0 10px 30px -8px rgba(30,26,18,.10);
+  /*
+   * ⚠ `--sidebar-width` IS GONE (2026-08-15). It existed for one reader,
+   * `sidebar-shell.tsx`, and that file was deleted when the shared rail took
+   * the desktop column on all five signed-in trees. The rail carries its own
+   * width (`--fd-rail`, in front-door.css). A themeable token nothing reads is
+   * a token the next session will wire something to by mistake.
+   */
+  /*
+   * ── Sidebar chrome — Atelier frosted glass (2026-07-12; was the dark
+   *    obsidian island of the 2026-07-09 "Energy" reskin) ─────────────────
+   * "Energy, not skin" reskin (2026-07-09 prototypes · setnayan-{overview,
+   * vendor,admin}-energy.html): the DESKTOP sidebar is a permanently-dark
+   * obsidian island — dark in BOTH app themes (the app is light-locked today,
+   * but these live at :root so the panel stays dark regardless of any future
+   * theme flip; the content area still follows the app theme). Values reuse the
+   * prototype's obsidian panel scale; every doorway shares the Atelier gold
+   * active accent (the wine/violet/blue doorway forks were retired — Glass PR-1,
+   * 2026-07-15).
+   *
+   * Consumed EXPLICITLY by the shared nav primitives (sidebar-item ·
+   * sidebar-section) + the sidebar-owned chrome (doorway-sidebar-header ·
+   * customer-sidebar).
+   *
+   * ⚠ NONE OF THOSE IS MOUNTED ANY MORE (the shared rail took the desktop
+   * column, One Shell slices 1-3), and the `.sn-sidebar` scope class that used
+   * to remap these onto the panel went with `sidebar-shell.tsx` on 2026-08-15.
+   * The TOKENS are kept because those components are still on disk and still
+   * read them; if they are deleted too, this block goes with them.
+   */
+  --m-sidebar-bg:        rgba(255,255,255,.45);
+  /* Atelier frosted panel (kit glass, 2026-07-12) */
+  --m-sidebar-bg-2:      rgba(255,255,255,.62);
+  /* elevated tiles — switcher · identity · footer chips */
+  --m-sidebar-fg:        #1B1A17;
+  /* warm ink — active label · wordmark · primary text */
+  --m-sidebar-fg-soft:   #3A382F;
+  /* inactive nav labels · icons */
+  --m-sidebar-fg-muted:  #6E6A62;
+  /* section labels · chevrons · sub-text */
+  /* 2026-07-28 — .08 → .12. This is the sidebar's OUTER edge as well as its
+     internal dividers (sidebar-shell.tsx borderColor), and the sidebar is a
+     45%-white frosted panel: on the warm-white ground its FILL computes 1.03:1
+     against the page, i.e. the rail has no body of its own and the hairline is
+     the only thing separating it from the content area. At .08 that hairline
+     was 1.14:1; .12 takes it to 1.22:1. Kept deliberately subtle — this token
+     also draws every divider inside the rail, and heavier reads as a cage. */
+  --m-sidebar-line:      rgba(30,26,18,.12);
+  /* hairline dividers on glass */
+  --m-sidebar-hover:     rgba(255,255,255,.6);
+  /* hover-row wash */
+  /* ACTIVE accent — Atelier gold for EVERY doorway (kit rule 2: gold is the
+   * only decorative color; the wine/violet doorway accents retired with the
+   * 2026-07-12 finalization, and the `.sn-sidebar--violet` hook + `--a-violet`
+   * token were removed entirely in Glass PR-1, 2026-07-15). */
+  --m-sidebar-accent:      #8A6B39;
+  /* gold-700 — active bar/ring on the light panel */
+  --m-sidebar-accent-fg:   #A9834B;
+  /* active icon · wordmark accent */
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 16%, transparent);
+}
+
+/*
+ * ⚠ `.sn-sidebar` IS GONE (2026-08-15). It was applied to exactly one element
+ * in the app — the desktop `<aside>` inside `sidebar-shell.tsx` — and that
+ * file was deleted once all five signed-in trees wore the shared rail. It
+ * painted the Atelier frosted panel and, inside its own scope, remapped the
+ * base --m-* tokens so the AccountSwitcher trigger row it contained followed
+ * the panel rather than the page.
+ *
+ * 🔑 NOTHING IS LOST BY DELETING IT, because a scope class with no element is
+ * not dormant styling — it is a rule that can never match. The remapped tokens
+ * (`--m-paper`, `--m-line`, `--m-nav-active`, …) keep their `:root` values
+ * everywhere, which is what every surface outside that panel always read.
+ */
+
+/*
+ * Backend dashboard surface — opt-in. Applied to the root element of the
+ * couple / vendor / admin dashboard layouts. Since the Atelier finalization
+ * (owner-locked 2026-07-12, superseding the 2026-06-10 Source Sans lock)
+ * --font-app resolves to Hanken Grotesk, so the whole operational backend
+ * renders in the one Atelier UI family. Overriding the --font-* vars here
+ * makes every `font-sans`/`font-display`/`font-serif` utility inside a
+ * dashboard resolve to Hanken without touching the 200+ components; the
+ * direct font-family covers inherited text. --font-mono flips to Space Mono
+ * (the Atelier data face) so IDs / reference codes / prices / dates read in
+ * the kit's mono. The editorial Cormorant/Manrope stack stays on guest-facing
+ * pages, which live outside these layouts. Mirrors `.m-surface` below.
+ */
+
+/*
+ * Marketing utility classes — opt-in only. Apply to a root element on a
+ * marketing surface (e.g., a wrapping `<div className="m-surface">` around
+ * the homepage hero) so child elements pick up paper background + ink color
+ * by default. Children render their own styling on top.
+ */
+
+/* ----------------------------------------------------------------------------
+ * Native-app feel — kill UNEXPECTED zoom, keep deliberate pinch-zoom.
+ *
+ * Three real-device papercuts that make the installed PWA stop feeling like a
+ * native app:
+ *
+ *   1. iOS focus-zoom. Mobile Safari auto-zooms into any form field whose
+ *      *computed* font-size is < 16px and never fully settles back — the classic
+ *      "tapped a field and the whole screen zoomed in and won't let go" bug.
+ *      Inputs are `font: inherit` (Tailwind preflight), so a field nested inside
+ *      a `text-sm` / `text-xs` wrapper silently renders at 14px and trips it.
+ *      A 16px floor on text-entry controls is the fix. Scoped to `pointer:
+ *      coarse` so desktop form density (intentional 14px inputs) is untouched,
+ *      and left UNLAYERED on purpose so it outranks the Tailwind `text-sm`
+ *      utility — unlayered CSS beats any @layer, including @layer utilities.
+ *      The `!important` is load-bearing: several fields (e.g. /login, /signup
+ *      FormFields) set `style={{ fontSize: 13 }}` INLINE, and an inline
+ *      declaration outranks every selector-based rule — layered or not — so
+ *      only `!important` lifts those to the 16px floor. Verified no input sets
+ *      an inline font-size ABOVE 16, so this only ever raises, never shrinks.
+ *
+ *   2. Double-tap-to-zoom + the legacy 300ms tap delay + PINCH-zoom.
+ *      `touch-action: pan-x pan-y` on the root removes all three for the whole
+ *      tree (touch-action intersects down through ancestors) while keeping
+ *      panning/scrolling. This — not the viewport meta — is the Android/Chromium
+ *      pinch-disable lever: `user-scalable=no` / `maximum-scale=1` in the meta
+ *      would do it too, but that trips the Lighthouse `meta-viewport` a11y audit
+ *      (drops every page below the CI ≥0.9 gate), so the meta stays at
+ *      `maximumScale: 5` and the pinch-disable lives here instead.
+ *
+ *   3. Pull-to-refresh / rubber-band overscroll on the document scroller —
+ *      `overscroll-behavior: none` stops the page bouncing like a web page.
+ *
+ * Pinch-zoom is DISABLED app-wide for a native-app feel (owner directive
+ * 2026-06-15): `touch-action: pan-x pan-y` (below) covers Android/Chromium,
+ * <ZoomGuard/> (app/_components/zoom-guard.tsx) prevents WebKit `gesturestart`
+ * on iOS (which ignores both the viewport meta AND root touch-action for the
+ * deliberate pinch), and the 16px input floor above covers the iOS input
+ * focus-zoom. The seat-plan editor canvas keeps its gestures: ZoomGuard skips
+ * its [data-allow-zoom] subtree, and its own pointer-event pan/pinch runs on a
+ * `touch-none` element, so the root touch-action never mattered to it.
+ * ⚠ This trades away WCAG 1.4.4 browser pinch-zoom by owner decision;
+ * OS-level Accessibility → Zoom remains the user fallback.
+ * ------------------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+html {
+  /* Ancestor of all content → disables double-tap zoom AND pinch-zoom
+     site-wide (native-app feel, owner 2026-06-15), keeps panning/scrolling.
+     Deliberately NOT the viewport meta (`user-scalable=no`) — that fails the
+     Lighthouse `meta-viewport` a11y audit; touch-action doesn't. iOS pinch is
+     handled by <ZoomGuard/> (WebKit ignores this for the deliberate pinch). */
+  touch-action: pan-x pan-y;
+  /* Root scroller → no pull-to-refresh / rubber-band bounce. */
+  overscroll-behavior: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * <SDLoader> — the shared brand "thinking / analyzing" loader.
+ *
+ * Native port of the `Organic loaders` handoff (owner 2026-06-07). Gold binds
+ * to the locked palette token `--m-orange` (#C5A059) via `--sd-gold` rather
+ * than the handoff's #c69a4b. Light is the default (app is light-locked); the
+ * `[data-theme="dark"]` overrides exist only for couple landing surfaces.
+ *
+ * The label fade reuses `.loading-status-line` (defined above). The blanket
+ * `prefers-reduced-motion: reduce` block above freezes every animation/
+ * transition here to a static, legible state — no per-rule guard needed; the
+ * JS particle spawner opts out in sd-loader.tsx.
+ * ------------------------------------------------------------------------- */
+
+@keyframes sd-glow {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.82);
+  }
+
+  50% {
+    opacity: 0.65;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes sd-think {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes sd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sd-blob {
+  0%,
+  100% {
+    border-radius: 60% 40% 33% 67% / 38% 45% 55% 62%;
+  }
+
+  50% {
+    border-radius: 45% 55% 49% 51% / 57% 62% 38% 43%;
+  }
+}
+
+@keyframes sd-td {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes sd-bloom {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+
+  42% {
+    opacity: 0.85;
+    transform: scale(1.14);
+  }
+
+  100% {
+    opacity: 0.55;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes sd-pop {
+  0% {
+    transform: scale(0.96);
+  }
+
+  45% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes sd-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Loader variant motion (owner 2026-07-05). The universal prefers-reduced-motion
+   block near the top of this file freezes both to a static frame automatically
+   (it matches `*`), so no per-selector a11y guard is needed here. */
+
+@keyframes sd-aurora-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sd-sonar {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * #sn-init-splash — app cold-start ("initialization") splash.
+ *
+ * The animated brand mark on Warm Alabaster, shown over the first app-route /
+ * native-shell paint of a session (gated by `data-sn-boot` on <html>, set by
+ * the inline head script in layout.tsx). Hidden everywhere else, so marketing
+ * SSR content + Lighthouse/LCP are untouched. AppInitSplash fades it after
+ * hydration; the failsafe animation guarantees it can never stick (even no-JS).
+ * The orbit / glow / breathe motion runs from the .sd-* CSS alone — no JS
+ * particles needed for the boot moment. Reduced-motion freezes it (global a11y
+ * block) to a static mark that still fades away.
+ * ------------------------------------------------------------------------- */
+
+#sn-init-splash {
+  display: none;
+}
+
+html[data-sn-boot] #sn-init-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--m-paper, #fbfbfa);
+  opacity: 1;
+  /* aria-hidden decoration — never intercept clicks, so a slow-hydration or
+     stuck splash can't freeze the app shell beneath it. (Perf sweep 2026-07-02,
+     finding #21.) */
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+  /* No-JS / stuck failsafe — fade out after 1.5s even if AppInitSplash never
+     runs (was 4s). The JS fade normally completes by ~1.25s, so 1.5s is a tight
+     backstop that no longer leaves an opaque layer sitting for 4 seconds. */
+  animation: sn-boot-failsafe 0.45s ease 1.5s forwards;
+}
+
+html[data-sn-boot] #sn-init-splash.sn-boot-done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#sn-init-splash .sd-loader {
+  background: transparent;
+  min-height: 0;
+}
+
+@keyframes sn-boot-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Admin loader-appearance preview stage (/admin/settings · owner 2026-07-05).
+   A small framed viewport that shows the DRAFT <SDLoader> the admin is
+   configuring. The veil backdrop uses --sd-veil (set inline from the slider) so
+   the veil solidity previews just like the real .sd-overlay wash. */
+
+.loader-preview-stage {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(42 36 23 / 0.1);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, #f3efe6 0%, #fbfbfa 60%),
+    #fbfbfa;
+}
+
+.loader-preview-veil {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--m-paper, #fbfbfa) var(--sd-veil, 90%), transparent);
+  backdrop-filter: blur(3px);
+}
+
+.loader-preview-stage .loader-preview-loader {
+  position: relative;
+  background: transparent;
+  min-height: 220px;
+}
+
+/* Scale the 300px scene down to fit the compact preview frame. */
+
+.loader-preview-stage .sd-scene {
+  transform: scale(0.66);
+}
+
+/* Alaala Orb (/our-story Act 1 hero · AlaalaOrb.tsx) ─────────────────────────
+   Circular masked orb: animated CSS gradient (cold-start / always-on skin) +
+   crossfading Papic clips (≤5 s each). Cursor parallax + gyro tilt driven from
+   AlaalaOrb.tsx; CSS animations also respect prefers-reduced-motion below. */
+
+.alaala-orb-root {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.alaala-orb-motion {
+  position: absolute;
+  inset: 0;
+}
+
+.alaala-orb-glow {
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(197, 160, 89, 0.27) 0%,
+    rgba(197, 160, 89, 0.07) 52%,
+    transparent 70%
+  );
+  filter: blur(30px);
+  animation: alaala-glow-pulse 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.alaala-orb-body {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1.5px rgba(197, 160, 89, 0.2),
+    0 16px 80px rgba(14, 15, 18, 0.72),
+    0 0 0 10px rgba(197, 160, 89, 0.03);
+}
+
+.alaala-orb-gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 38% 30%, #2c211a 0%, #181c24 44%, #0d0f13 100%);
+  animation: alaala-gradient-breathe 9s ease-in-out infinite alternate;
+}
+
+.alaala-orb-shimmer {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0%,
+    rgba(197, 160, 89, 0.055) 22%,
+    transparent 42%,
+    rgba(197, 160, 89, 0.038) 68%,
+    transparent 100%
+  );
+  animation: alaala-shimmer-rotate 22s linear infinite;
+}
+
+/* Top-left specular highlight — sells the sphere's 3D curvature */
+
+.alaala-orb-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 28% 22%,
+    rgba(255, 255, 255, 0.17) 0%,
+    rgba(255, 255, 255, 0.04) 36%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* Inner rim shadow — deepens the sphere illusion at the edge */
+
+.alaala-orb-vignette {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 56px rgba(14, 15, 18, 0.52);
+  pointer-events: none;
+}
+
+@keyframes alaala-glow-pulse {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  50%       {
+    opacity: 0.9;
+    transform: scale(1.07);
+  }
+}
+
+@keyframes alaala-gradient-breathe {
+  from {
+    filter: brightness(1)    saturate(1);
+  }
+
+  to   {
+    filter: brightness(1.14) saturate(1.07);
+  }
+}
+
+@keyframes alaala-shimmer-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to   {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alaala-orb-glow,
+  .alaala-orb-gradient,
+  .alaala-orb-shimmer {
+    animation: none;
+  }
+}
+
+/* Salamisim Live Photo Wall (0012 P1) — new-tile entrance on the venue
+   projection: gold ring + gentle scale, 2s, then settles. */
+
+@keyframes wall-tile-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+    box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.9);
+  }
+
+  60% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.55);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(197, 160, 89, 0);
+    transform: scale(1);
+  }
+}
+
+.wall-tile-new {
+  animation: wall-tile-enter 2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wall-tile-new {
+    animation: none;
+  }
+}
+
+/*
+ * Mobile bottom-nav carousel page-slide (NAV · 2026-06-21).
+ *
+ * `NavSlideController` (a global client interceptor) drives a directional View
+ * Transition on a mobile bottom-nav tab tap, setting `html[data-sn-nav-dir]` to
+ * `fwd` (tab to the right → content exits LEFT, new enters from RIGHT) or `back`
+ * (tab to the left → reverse) just before `document.startViewTransition`.
+ *
+ * Only the named content `<main>` (`.sn-vt-page` → `view-transition-name:sn-page`)
+ * slides; everything else (the fixed pill, sidebar, sticky top bar) lives in the
+ * `root` snapshot, which we freeze (`animation:none`) so the chrome stays put.
+ *
+ * The slide ONLY fires when the controller actually calls `startViewTransition`
+ * — i.e. mobile + motion-allowed + VT-supported + a real top-level-tab change.
+ * Desktop, reduced-motion, unsupported browsers, sub-pages and back/forward
+ * never set the attribute / never start a transition, so they swap instantly.
+ * (Reduced-motion is gated in JS before any transition starts, so no CSS guard
+ * is needed here.) These pseudos must stay at the top level — not in @layer.
+ */
+
+.sn-vt-page {
+  view-transition-name: sn-page;
+}
+
+::view-transition-group(sn-page) {
+  overflow: clip;
+  /* clip the off-screen layer so the slide can't scroll the page */
+}
+
+/* Freeze the chrome: the fixed pill / sidebar / top bar are all in `root`. */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(sn-page),
+::view-transition-new(sn-page) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+html[data-sn-nav-dir='fwd']::view-transition-old(sn-page) {
+  animation-name: sn-vt-out-left;
+}
+
+html[data-sn-nav-dir='fwd']::view-transition-new(sn-page) {
+  animation-name: sn-vt-in-right;
+}
+
+html[data-sn-nav-dir='back']::view-transition-old(sn-page) {
+  animation-name: sn-vt-out-right;
+}
+
+html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
+  animation-name: sn-vt-in-left;
+}
+
+@keyframes sn-vt-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes sn-vt-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes sn-vt-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes sn-vt-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+/*
+ * Broken-out action (NavFab) in the bottom-nav ROW (owner-tuned 2026-06-22).
+ *
+ * When a doorway's FAB is mounted it sets `data-sn-fab` on <html> and renders a
+ * 56px circle fixed at `right:14px` in the bar row. This shrinks the locked
+ * pill's right inset so it ends just before the circle (14px inset + 56px circle
+ * + 8px gap = 78px), giving the Shazam "isolated button beside the pill" layout.
+ *
+ * Scoped to the nav's existing `aria-label="Primary navigation"` marker — the
+ * locked `bottom-nav.tsx` is read, NOT edited (this selector out-specifies the
+ * Tailwind `right-[14px]` class, so no `!important`). No FAB → no attr → the pill
+ * keeps its full-width `right:14px`.
+ */
+
+html[data-sn-fab] nav[aria-label='Primary navigation'] {
+  right: 78px;
+}
+
+/*
+ * Arrival bloom — the day-of "you've checked in" delight on the guest's seat
+ * pass (check-in → bloom, 2026-06-22). When a guest scans in at the door, their
+ * seat surface swaps the neutral "here's your table" copy for a warm greeting
+ * and plays a one-shot soft bloom: the card lifts + brightens once, then settles.
+ * A small delight, not a takeover — single iteration, ~0.9s, then still.
+ *
+ * `.sn-arrival-bloom` = the whole greeting card lifts/settles once on mount.
+ * `.sn-arrival-ring`  = a champagne halo behind the headline that blooms + fades.
+ *
+ * The global `prefers-reduced-motion: reduce` block above freezes both to their
+ * end-state instantly (animation-duration → 0.001ms, one iteration) — so a guest
+ * with reduced-motion set sees the warm copy with no movement, never a flash of
+ * the pre-bloom state. No `motion-safe:` opt-in needed; this is CSS keyframes.
+ */
+
+@keyframes sn-arrival-bloom {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.012);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sn-arrival-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  45% {
+    opacity: 0.55;
+    transform: scale(1.04);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.sn-arrival-bloom {
+  animation: sn-arrival-bloom 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sn-arrival-ring {
+  transform-origin: center;
+  animation: sn-arrival-ring 1.1s ease-out both;
+}
+
+/* ── Premium-UI thread ─────────────────────────────────────────────────────
+   The champagne "stitch" that connects the feature panels on the homepage
+   (Premium_UI_Standard_2026-06-25). The path is drawn in by usePanelIntro via
+   strokeDashoffset; this rule only positions it in the left gutter and hides it
+   on small screens so mobile stays uncluttered. */
+
+.sn-thread {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 48px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 820px) {
+  .sn-thread {
+    display: none;
+  }
+}
+
+/* ── My Performance re-animation ─────────────────────────────────────────────
+   Sections animate the FIRST time they scroll into view (owner 2026-07-02:
+   "we always want their first animation to show") and REPLAY on the
+   Daily/Monthly/Annual toggle (the block is re-keyed → remounts → re-observes).
+   The <Reanimate> wrapper adds `.perf-play` when its section enters the viewport;
+   until then the section + its bars sit in their pre-animation state (hidden /
+   scaled to 0) so the growth is always seen, never finished off-screen.
+   <CountUp> ticks off the same in-view signal via context.
+   Owner "always play it": NOT gated behind prefers-reduced-motion. */
+
+@keyframes perf-fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to   {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes perf-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+
+  to   {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes perf-bar-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+
+  to   {
+    transform: scaleY(1);
+  }
+}
+
+/* Pre-animation (armed) state — held until the section is scrolled into view. */
+
+.perf-reanim {
+  opacity: 0;
+}
+
+.perf-bar-grow {
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.perf-bar-grow-y {
+  transform: scaleY(0);
+  transform-origin: bottom center;
+}
+
+/* Play state — `.perf-play` is added by <Reanimate> the moment the section
+   enters the viewport (and re-added after a toggle remount). */
+
+.perf-reanim.perf-play {
+  animation: perf-fade-rise 0.4s ease-out both;
+}
+
+.perf-play .perf-bar-grow {
+  animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.perf-play .perf-bar-grow-y {
+  animation: perf-bar-grow-y 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Range-slider idle "drag me" hint (owner 2026-07-03) ──────────────────
+ * When no one is touching a line slider, its knob does a small periodic
+ * left↔right shake so first-time users understand it drags sideways. The
+ * shake is added by <GlobalSliderHint> (app-wide client effect) as the
+ * `.sn-shake` class and removed the instant that slider is touched. Native
+ * `accent-color` thumbs CANNOT be transform-animated, so the animation lives
+ * on the thumb pseudo-element, which requires a custom (appearance:none)
+ * thumb — `.sn-range` provides one that matches the brand gold knob; sliders
+ * that already have a custom thumb (`.hr-pr-est`, `.paxslider`) opt in with a
+ * `data-sn-hint` attribute and keep their own look, gaining only the shake.
+ * prefers-reduced-motion is handled for free by the universal freeze block
+ * above (animation-iteration-count:1 !important) AND by GlobalSliderHint,
+ * which never adds the class under reduced motion. */
+
+@keyframes sn-slider-shake {
+  0%, 26%, 100% {
+    transform: translateX(0);
+  }
+
+  4%  {
+    transform: translateX(-5px);
+  }
+
+  8%  {
+    transform: translateX(5px);
+  }
+
+  12% {
+    transform: translateX(-4px);
+  }
+
+  16% {
+    transform: translateX(4px);
+  }
+
+  20% {
+    transform: translateX(-2px);
+  }
+
+  23% {
+    transform: translateX(2px);
+  }
+}
+
+input[type='range'].sn-range {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+       appearance: none;
+  width: 100%;
+  height: 22px;
+  margin-top: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range'].sn-range:focus {
+  outline: none;
+}
+
+/* Keyboard focus ring on the knob (`:focus-visible` = keyboard only, not a
+ * mouse press) — `.sn-range` sets appearance:none, which drops the native
+ * outline, and the site's universal focus rule doesn't match range inputs, so
+ * without this keyboard users lose the focus indicator (WCAG 2.4.7). */
+
+input[type='range'].sn-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(166, 124, 61, 0.5);
+}
+
+input[type='range'].sn-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(166, 124, 61, 0.5);
+}
+
+input[type='range'].sn-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #a67c3d 0 var(--sn-p, 50%), rgba(42, 43, 46, 0.16) var(--sn-p, 50%) 100%);
+}
+
+input[type='range'].sn-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(42, 43, 46, 0.16);
+}
+
+input[type='range'].sn-range::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: #a67c3d;
+}
+
+input[type='range'].sn-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -7.5px;
+  border-radius: 50%;
+  background: #a67c3d;
+  border: 2px solid #f3f1ec;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+
+input[type='range'].sn-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #a67c3d;
+  border: 2px solid #f3f1ec;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+
+/* The shake itself — layered onto any custom thumb carrying `.sn-shake`; sets
+ * only `animation`, so a slider's own thumb size/colour rules still win. */
+
+input[type='range'].sn-shake::-webkit-slider-thumb {
+  animation: sn-slider-shake 2.9s ease-in-out infinite;
+}
+
+input[type='range'].sn-shake::-moz-range-thumb {
+  animation: sn-slider-shake 2.9s ease-in-out infinite;
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────
+ * Guests · Living Roster (`.gl-*`) — the editorial "roster is the hero"
+ * reskin of the couple Guests page (P0 · 2026-07-11). Namespaced `.gl-`
+ * for "Guests / Living-roster", a sibling convention to `.sn-*`.
+ *
+ * Only ONE piece of motion needs a hand-authored keyframe: the on-mount
+ * "settle" (fade + rise) that lets the summary-facet bar and the roster
+ * ease in when the page FIRST loads. It is a ONE-SHOT (`both`, no
+ * iteration) applied to elements that persist across in-page filter
+ * navigations — the App-Router client transition reconciles the DOM
+ * rather than remounting, so the animation plays once on entry and does
+ * NOT replay when a facet pill re-filters the list. The global
+ * `prefers-reduced-motion: reduce` block near the top of this file
+ * freezes it to a still frame for motion-sensitive visitors (no per-rule
+ * opt-out needed — that block wins with `!important`).
+ * ─────────────────────────────────────────────────────────────────────
+ */
+
+@keyframes gl-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.gl-settle {
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* A hair of stagger so the roster settles just after the facet bar,
+ * reading as one connected motion rather than two independent pops. */
+
+.gl-settle-delayed {
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: 0.05s;
+}
+
+/*
+ * Living Roster · in-page overlays (P1 · 2026-07-11). The entry motion for the
+ * overlay primitives (`overlay-primitives.tsx` / `undo-toast.tsx`): a menu pop,
+ * a drawer slide-in (bottom-sheet on mobile → right-rail on desktop), and the
+ * undo snackbar. Same `.gl-*` namespace + one-shot intent as the settle above.
+ * The universal `prefers-reduced-motion: reduce` block near the top of this file
+ * (`*{ animation-duration:0.001ms !important }`) freezes every one of these to a
+ * still frame — no per-rule opt-out needed, its `!important` wins.
+ */
+
+@keyframes gl-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gl-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gl-slidein {
+  from {
+    opacity: 0.4;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gl-sheetup {
+  from {
+    opacity: 0.5;
+    transform: translateY(34px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Transparent/dim dismiss layer — a gentle fade so it doesn't hard-cut in. */
+
+.gl-scrim {
+  animation: gl-fade 0.16s ease;
+}
+
+/* Anchored popover menu (P1 kit; P2's inline chip editors consume it). */
+
+.gl-pop {
+  animation: gl-pop 0.14s ease;
+}
+
+/* Undo snackbar. */
+
+.gl-toast {
+  animation: gl-pop 0.18s ease;
+}
+
+/* Quick-view / invite drawer — bottom sheet by default, right rail at ≥sm
+ * (640px, Tailwind's `sm`), mirroring the primitive's responsive positioning. */
+
+.gl-drawer {
+  animation: gl-sheetup 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .gl-drawer {
+    animation: gl-slidein 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}
+
+/*
+ * Capture-bar "Adding…" shimmer (P2 · 2026-07-11). A gentle opacity pulse on the
+ * in-flight single-add indicator while the server round-trip lands the new guest
+ * (prototype `.adding`, :163). The universal `prefers-reduced-motion: reduce`
+ * block above freezes it to a steady 0.7 opacity — no per-rule opt-out needed.
+ */
+
+@keyframes gl-adding {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.gl-adding {
+  animation: gl-adding 0.9s ease-in-out infinite;
+}
+
+/* ============================================================
+   SETNAYAN DESIGN TOKENS · Atelier + macOS glass
+   Owner-locked 2026-07-12 (Design_Reskin_Atelier_Glass_2026-07-12).
+   Ported from the kit's setnayan-tokens.css + setnayan-animations.css.
+   ONE adaptation vs the kit: --sn-font / --sn-mono resolve through the
+   next/font variables (--font-hanken / --font-space-mono) because
+   next/font self-hosts under hashed family names — the literal
+   "Hanken Grotesk" family string would not resolve.
+   Rules of the skin:
+     1. Frame ONLY what is interactive (buttons, inputs, tappable tiles,
+        chips). Plain text, headings, stats, captions sit directly on the
+        backdrop unframed.
+     2. One gold primary action per view. Gold is jewelry, not paint.
+     3. Icons: Lucide line set, 1.75px stroke. Never emoji, never filled.
+     4. Shadows warm (rgba(30,26,18,·)), never grey/blue.
+     5. Skin only — structure, copy, routes, hero videos, demos untouched.
+   ============================================================ */
+
+:root {
+  /* paper & ink */
+  --sn-paper:      #FBFAF7;
+  --sn-surface:    #FFFFFF;
+  --sn-hairline:   #EDE8DE;
+  --sn-line:       #E1DCD1;
+  --sn-ink-300:    #A09A8E;
+  --sn-ink-500:    #6E6A62;
+  --sn-ink-700:    #3A382F;
+  --sn-ink-900:    #1B1A17;
+  --sn-ink-black:  #17160F;
+  /* ── THE GALLERY'S OBSIDIAN SURFACE (archetype 02, owner-approved 2026-08-04)
+     ────────────────────────────────────────────────────────────────────────
+     The app is LIGHT-LOCKED and there is no theme toggle. The gallery alone
+     runs on obsidian, because photographs carry the colour and the chrome has
+     to recede. That makes it a SURFACE, not a mode — and the distinction is
+     the whole reason these seven values exist instead of reusing the palette.
+
+     🚨 EVERY THEME TOKEN FAILS ON THIS SURFACE, AND FAILS SILENTLY. `mulberry`,
+     `ink`, `terracotta` and friends resolve to their LIGHT values here, because
+     nothing sets `html.dark` on a light-locked page — a dark island is not dark
+     mode. Measured against #17160F:
+       mulberry     #C24E25  3.81:1  FAIL
+       mulberry-600 #B04722  3.26:1  FAIL   ← the "safe in dark mode" one
+       mulberry-700 #9D3F1E  2.73:1  FAIL
+       ink          #2C2A29  1.27:1  invisible
+     So a tile that reaches for `text-ink` or `text-mulberry` is not slightly
+     off, it is unreadable. Obsidian chrome uses ONLY the tokens below.
+
+     Measured on #17160F (WCAG 2.1 contrast, computed not estimated):
+       --sn-ob-text  #FBFAF7  17.37:1  AAA
+       --sn-ob-soft  #B6B9BE   9.22:1  AAA
+       --sn-ob-gold  #CBA766   7.99:1  AAA  ← gold is safe HERE and only here;
+                                              the same family is 4.95:1 at best
+                                              on white and 2.27:1 for this hue
+       --sn-ob-cta   #E5794E   6.20:1  AA   (obsidian label on it: 6.20:1)
+       --sn-ob-link  #9DB2CE   8.37:1  AAA
+     On the raised card #1E2229: text 15.29:1 · soft 8.11:1 · gold 7.04:1. */
+  --sn-ob-page:    #17160F;
+  /* = --sn-ink-black, named for the surface */
+  --sn-ob-card:    #1E2229;
+  --sn-ob-text:    #FBFAF7;
+  --sn-ob-soft:    #B6B9BE;
+  --sn-ob-cta:     #E5794E;
+  --sn-ob-gold:    #CBA766;
+  /* = --sn-gold-300 */
+  --sn-ob-link:    #9DB2CE;
+  /* gold accent — the only decorative color */
+  --sn-gold-100:   #F3ECDF;
+  --sn-gold-300:   #CBA766;
+  --sn-gold-500:   #A9834B;
+  --sn-gold-600:   #95713D;
+  --sn-gold-700:   #8A6B39;
+  --sn-gold-800:   #5C4726;
+  /* text-on-gold-wash — see --m-orange-deep */
+  /* home-launcher fidelity additions (2026-07-15 pixel pass) —
+     proto values with no pre-existing kit slot, named per owner rule
+     "no hardcoded dependent values" */
+  --sn-ink-400:    #8A857B;
+  /* proto soft-label grey (sits between ink-300/ink-500) */
+  --sn-terra:      #C08A4A;
+  /* true terracotta (proto primary-star accent; predates the gold re-point) */
+  /* semantic (warm-tuned, never neon) */
+  --sn-success:    #5E7C52;
+  --sn-success-soft: #E9EEE3;
+  --sn-warning-deep: #7A5119;
+  /* text on --sn-warning-soft (5.84:1; the plain one is 2.92:1) */
+  --sn-success-deep: #4F6B4A;
+  /* label on --sn-success-soft (5.03:1; the plain one is 3.97:1) */
+  --sn-warning:    #B77E2E;
+  --sn-warning-soft: #F6EAD2;
+  --sn-danger:     #A6483B;
+  --sn-danger-soft:  #F3E1DC;
+  --sn-info:       #4E6C82;
+  --sn-info-soft:    #E2EAEF;
+  /* type — via next/font variables (see header note) */
+  --sn-font: var(--font-hanken), system-ui, sans-serif;
+  --sn-mono: var(--font-space-mono), ui-monospace, monospace;
+  /* radius */
+  --sn-r-sm: 6px;
+  --sn-r-md: 10px;
+  --sn-r-lg: 14px;
+  --sn-r-xl: 18px;
+  --sn-r-pill: 999px;
+  /* elevation (warm, never grey) */
+  --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
+  --sn-sh-md: 0 20px 34px -22px rgba(30,26,18,.40);
+  --sn-sh-lg: 0 40px 80px -50px rgba(30,26,18,.55);
+  /* home glass tiles (2026-07-15 pixel pass): resting + hover-lift shadows.
+     2026-07-28 — each gained a 1px CONTACT layer. The big soft ambient alone
+     reads as a smudge on the flat warm-white ground; the contact layer is what
+     makes a tile sit ON the page rather than float over it. Warm, per kit
+     rule 4. The ambient layers are unchanged. */
+  --sn-sh-tile: 0 1px 2px rgba(40,34,24,.05), 0 18px 40px -26px rgba(30,26,18,.4);
+  --sn-sh-hi:   0 1px 2px rgba(40,34,24,.06), 0 28px 54px -30px rgba(30,26,18,.5);
+  /* glass (macOS vibrancy) — canon values (Glass PR-1, 2026-07-15): the
+     fidelity-spec tuning the frosted home tiles ship at, promoted here so
+     .sn-glass / .sn-card / .sn-tile all share one source of truth. */
+  --sn-glass-bg:   rgba(255,255,255,.5);
+  /* 2026-07-28 — WAS rgba(255,255,255,.72), a WHITE hairline. That worked only
+     because the champagne ground was dark enough to frame it; on the warm-white
+     ground it is a white line on a near-white page and the panel dissolves.
+     This is the lever that lets the ground stay as light as the owner asked
+     for: the glass now defines ITSELF instead of depending on ground contrast
+     (the exact failure that sank the 2026-07-13 white-flatten).
+     Warm, never grey/blue — rule 4 of the Atelier kit still holds for edges and
+     shadows; only the PAGE GROUND moved.
+     Measured on #F7F5F0: edge|ground 1.37:1, edge|glass-fill 1.43:1 — in the
+     same band as the bench card edge (1.40 / 1.52) so surfaces read alike.
+     NOTE: this token is for LIGHT glass on the page ground (.sn-glass, .sn-tile,
+     .sn-tile-glass, .sn-row). Glass over dark imagery uses the separate
+     --sn-glass-dark-line, which is still a light hairline and is untouched. */
+  --sn-glass-line: rgba(40,34,24,.16);
+  --sn-glass-blur: blur(22px) saturate(1.5);
+  --sn-glass-dark-bg:   rgba(23,22,15,.82);
+  --sn-glass-dark-line: rgba(255,255,255,.18);
+  /* motion */
+  --sn-ease:     cubic-bezier(.2,.7,.2,1);
+  --sn-ease-out: cubic-bezier(.16,1,.3,1);
+  --sn-dur-micro:   120ms;
+  --sn-dur-control: 200ms;
+  --sn-dur-elem:    320ms;
+  --sn-dur-enter:   640ms;
+}
+
+/* ── Guest-tree editorial scope (owner exclusion, 2026-07-12) ──
+ * Applied by app/[slug]/layout.tsx around the whole invitation/event tree so
+ * couples' guest-facing pages keep the wedding-editorial register (Cormorant
+ * display · Manrope body · DM Mono labels) exactly as before the Atelier
+ * chrome flip. Do NOT apply to chrome surfaces. */
+
+:root {
+  /* Pahina material tokens — fallbacks for palette-less events; palette events
+     get these overridden by buildSitePaletteVars (lib/site-palette.ts §Pahina). */
+  --color-gild: 169 131 75;
+  /* #A9834B Atelier gold */
+  --color-paper-deep: 241 241 240;
+  /* alabaster darkened ~4% */
+  --color-veil: 243 236 225;
+  /* #f3ece1 veil ivory */
+}
+
+/* ── Pahina foundation (guest-site design 2026-07-25) — INERT until the wave-A
+   restyle PRs swap classNames. All scoped under .sn-editorial per ground rule 4:
+   never leaks to dashboards/marketing.
+
+   In @layer components (wave A PR-3) for the same reason the launcher fidelity
+   surfaces below are: these carry a `.sn-editorial X` descendant selector, and
+   UNLAYERED css beats every @layer including utilities (see the note at the
+   `.sn-*` block above). Unlayered, a plate could never be tuned with a Tailwind
+   `bg-*`/`border-*`/`p-*` on the same element — which is exactly what the
+   chapter components need. Layered, the utility wins as authors expect. ────── */
+
+/* @layer components — Pahina foundation */
+
+/* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
+   The deliberate variation axis: ONE switch, two genuinely different-feeling
+   sites. Daylight is the default and is byte-identical to today — this block
+   only matches when the couple has opted in and the shell stamps
+   `data-art="candlelight"`, so every existing event is untouched.
+
+   These are the SAME `--color-*` vars `buildSitePaletteVars` emits, overridden
+   at the shell. That matters: everything downstream (plates, gild, veil, the
+   couple's own accent, Pro custom colours layered last) keeps working through
+   the one pipe rather than needing a second set of dark-only rules.
+
+   Set as a var block, NOT as component overrides, and placed BEFORE the motion
+   rules so specificity games are unnecessary. */
+
+[data-art='candlelight'] {
+  --color-paper: 24 22 20;
+  /* warm near-black stock */
+  --color-paper-deep: 33 30 27;
+  /* recessed plates lift, not sink, in the dark */
+  --color-ink: 240 234 224;
+  /* warm cream type */
+  --color-cream: 24 22 20;
+  /* legacy slot follows paper */
+  --color-veil: 44 39 34;
+  /* the wash reads as candle-glow, not fog */
+  --color-gild: 201 163 106;
+  /* brightened so the metallic still reads on black */
+}
+
+[data-art='candlelight'] .pahina-grain::before {
+  /* grain has to work HARDER on dark stock and must not multiply to mud */
+  opacity: 0.09;
+  mix-blend-mode: screen;
+}
+
+[data-art='candlelight'] .pahina-letterpress {
+  /* letterpress inverts in the dark: the lip goes above, the shadow below */
+  text-shadow:
+    0 -1px 0 rgb(var(--color-paper) / 0.9),
+    0 1px 1px rgb(0 0 0 / 0.5);
+}
+
+/* ── Pahina scroll choreography (wave A PR-5, design §6) ─────────────────────
+   FAIL-VISIBLE BY CONSTRUCTION: the hidden state is scoped to `.pahina-js`,
+   which only `PahinaMotionRootFlag` sets and which three separate failure paths
+   remove (see pahina-motion.tsx). With no JS, a broken script, a missing
+   IntersectionObserver, or reduced motion, none of these rules match and the
+   page renders exactly as it does today — fully visible.
+
+   UNLAYERED on purpose, unlike the component classes above: this must beat the
+   `opacity-*`/`translate-*` utilities a future chapter might carry, or a single
+   `opacity-100` on a section would pin it visible and break its reveal. */
+
+.pahina-js .sn-editorial [data-pahina-chapters] > * {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+
+.pahina-js .sn-editorial [data-pahina-chapters] > *.pahina-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* belt and braces — RootFlag already withholds the flag for these guests */
+
+  .pahina-js .sn-editorial [data-pahina-chapters] > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── Pahina hero cover parallax (design §6: "±6%, rAF-throttled transform on
+   the media wrapper") ───────────────────────────────────────────────────────
+
+   Gated on the SAME `.pahina-js` flag as the reveal above, for the same
+   fail-visible reason — and one step stronger: `PahinaCoverParallax` writes
+   ONLY `--pahina-parallax`, never `transform`. So the effect exists only while
+   this rule matches. Reduced motion, a missing IntersectionObserver, the 2s
+   self-heal, or a script that never runs each leave a plain, centred,
+   static `object-cover` photo. There is no half-state.
+
+   THE GEOMETRY — why 1.16 and why ±6% are a matched pair. The layer is
+   `absolute inset-0`, so its height IS the plate height H, and it sits inside
+   an `overflow-hidden` box. scale(1.16) about the centre makes it 1.16H tall,
+   overhanging 0.08H above and 0.08H below. The script clamps the offset to
+   ±0.06H. At either extreme the near edge lands 0.02H OUTSIDE the plate — so
+   ~2% of plate height (≈9px on a 375px phone) of scaled overhang stays hidden
+   under the clip at all times and no gap, letterbox or bare corner can appear,
+   with margin left over for sub-pixel rounding and the 1px border. Raising MAX
+   in pahina-motion.tsx without raising this scale would spend that margin.
+
+   ORDER MATTERS: translate FIRST, scale SECOND. Transform functions apply
+   right-to-left, so written this way the scale is the inner operation and the
+   translate's percentage still resolves against the layer's own UNSCALED
+   height. Written `scale(1.16) translate3d(…)` the 6% would be magnified to
+   6.96% and eat the safety margin above.
+
+   UNLAYERED, like the reveal — it must beat any `transform`/`scale` utility a
+   future pass might put on the media wrapper. */
+
+.pahina-js .sn-editorial [data-pahina-parallax] {
+  transform: translate3d(0, var(--pahina-parallax, 0%), 0) scale(1.16);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* belt and braces again — RootFlag already withheld the flag, so this only
+     matters if some future path sets it another way. No scale either: an
+     unmoving image should not be needlessly cropped. */
+
+  .pahina-js .sn-editorial [data-pahina-parallax] {
+    transform: none;
+    will-change: auto;
+  }
+}
+
+.sn-editorial {
+  --font-display: var(--font-editorial-display);
+  --font-sans: var(--font-editorial-sans);
+  --font-mono: var(--font-editorial-mono);
+}
+
+/* ---------- ambient backdrop (dashboard shell page background) ----------
+ * The canonical Atelier warm wash — ONE canvas under every glass shell (event /
+ * vendor / admin via SidebarShell, launcher, and the account spokes). Glass
+ * `rgba(255,255,255,.5)` panels are invisible on white; the tinted backdrop is
+ * a precondition of the language, so this reverses the 2026-07-13 white-flatten
+ * (owner-directed 2026-07-15 via the glass-rollout go-ahead — see the rollout
+ * plan § 6 R1 + DECISION_LOG). Verbatim fidelity-spec canon: warm paper base +
+ * gold / green / slate radial glows, fixed attachment (no drift animation). */
+
+/* LIGHTENED 2026-07-28 (owner: "we want it to be global") — the wash was
+ * draining contrast out of every card in the app, worst on the Explore bench:
+ * its base ramp midpoint (#E3DDCF) was within (2,1,2) RGB of the card border
+ * token --m-line (#E1DCD1), so a card outline drawn over the wash literally
+ * disappeared. White cards on it measured ~1.15:1 — a faint lift, not a plane.
+ *
+ * This is a LIGHTENING, deliberately NOT a re-flatten: the base stays a warm
+ * TINT (now centred on #F4F2EC — the approved Explore prototype's own page
+ * colour, and the existing --m-paper-2 token value) and all three radial glows
+ * are kept at roughly half alpha. That preserves the precondition the note
+ * above records — glass rgba(255,255,255,.5) panels still read against it, and
+ * still refract colour — so this does NOT redo the 2026-07-13 white-flatten
+ * that the owner reversed on 2026-07-15. Same recipe, lighter values.
+ *
+ * SCOPE: this is every logged-in surface — SidebarShell (customer event
+ * dashboard, /vendor-dashboard, /admin), the home launcher, and the account
+ * spokes. Intentional per the owner's "make it global" ruling. */
+
+/* ── 2026-07-28 · FLAT WARM WHITE. Read the whole sequence before changing it ──
+ *
+ *   2026-07-13  page flattened to white.
+ *   2026-07-15  owner REVERSED that to the champagne wash, because glass
+ *               rgba(255,255,255,.5) panels are invisible on white.
+ *   2026-07-28  owner: "we want a lighter feel for the background than the
+ *               champagne. keep it modern digital color. like facebook. that
+ *               keeps white to make it look clean." then, refining:
+ *               "then make it a bit of warm white just enough to show the
+ *               glass effect."
+ *
+ * So this is NOT someone re-breaking the 07-15 reversal. It is the owner's
+ * third and current direction, and it comes with the fix the 07-13 flatten
+ * lacked: THE GLASS NOW CARRIES ITS OWN EDGE (see --sn-glass-line below).
+ * That is the whole trick — 07-13 failed because it made glass depend on
+ * ground contrast alone. Do not lighten this further without checking the
+ * glass still reads; do not re-darken it to "fix" glass, fix the border.
+ *
+ * WHY #F7F5F0 SPECIFICALLY (measured, not taste):
+ *   • glass fill (white @ .5) over ANY warm white computes ~1.03–1.05:1
+ *     against its ground — imperceptible. Confirmed across the whole
+ *     #F6F3EC–#FAF8F3 band. The fill can NOT carry the panel; the border must.
+ *   • so the ground was chosen for the WHITE CARDS instead, which do have to
+ *     read: #F7F5F0 gives card|ground 1.09:1, against Facebook's own
+ *     #F0F2F5 → 1.12:1. Close to the reference the owner named, while staying
+ *     warm and in the light band they asked for (darker end of #F7F5F0–#FAF8F3,
+ *     because the lighter end drops white cards to 1.06:1 and they vanish).
+ *   • FLAT, and the three radial glows are GONE: "clean/modern digital" means
+ *     an even ground. Warmth comes from the base tone only. (Bonus: on a flat
+ *     ground `backdrop-filter: blur()` has nothing to blur, so the glass look
+ *     now comes from fill + border + shadow. The blur still earns its keep on
+ *     the sticky sidebar/topbar, where real content scrolls underneath.)
+ *
+ * SCOPE: every logged-in surface — SidebarShell (customer event dashboard,
+ * /vendor-dashboard, /admin), the home launcher, and the account spokes. */
+
+.sn-ambient {
+  background: #F7F5F0;
+  background-attachment: fixed;
+}
+
+/* Dark counterpart. There was none before — `.sn-ambient` hardcoded light
+   values, so a dark-mode shell would have painted a LIGHT page. (Dormant in
+   practice: nothing adds `html.dark` today. Correct anyway, so the pairing is
+   not left as a trap for whoever turns dark mode on.) Matches the dark
+   `--color-cream` (#17160F) the body already uses. */
+
+html.dark .sn-ambient {
+  background: #17160F;
+}
+
+/* ---------- glass surfaces ---------- */
+
+.sn-glass {
+  background: var(--sn-glass-bg);
+  border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur);
+  -webkit-backdrop-filter: var(--sn-glass-blur);
+  /* 2026-07-28 — gained a contact layer. The lone 32px ambient at .07 is
+     nearly invisible on the flat warm-white ground; the 1px contact is what
+     seats the panel. Warm, per kit rule 4. */
+  box-shadow: 0 1px 2px rgba(40,34,24,.05), 0 8px 28px -10px rgba(40,34,24,.16);
+}
+
+/* Dark mode: the warm hairline is a DARK line, invisible on a dark ground —
+   hand the light-glass recipes back a light edge so they still read. (Same
+   dormancy caveat as .sn-ambient above: correct now so it is not a trap.) */
+
+html.dark {
+  --sn-glass-line: rgba(255,255,255,.18);
+}
+
+.sn-glass-dark {
+  background: var(--sn-glass-dark-bg);
+  border: 1px solid var(--sn-glass-dark-line);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  color: var(--sn-gold-100);
+}
+
+/* ---------- home-launcher fidelity surfaces (2026-07-15 pixel pass) ----------
+ * Each recipe defined ONCE here (owner: "do not hard code values that should be
+ * dependent") and referenced by class from the launcher components. In
+ * @layer components so Tailwind hover/state utilities on the same element
+ * (e.g. hover:border-mulberry/30) still win the cascade. */
+
+/* ---------- Atelier-Glass SHELL KIT (Glass PR-1, 2026-07-15) ----------
+ * The shared surface + type primitives every dashboard view consumes (rollout
+ * plan § 1.2). Defined once here; page bodies reference by class. In
+ * @layer components so page-level Tailwind state utilities still win the
+ * cascade. Blur budget (§ 1.6): .sn-tile / .sn-card / .sn-tile-dark are the
+ * ONLY page-level blurred surfaces — repeated rows use the flat .sn-row. */
+
+/* Hover lifts (proto .cmd:hover -2px · .tile.glass:hover -3px · .ev:hover -4px)
+ * — shared .32s ease + shadow deepen to --sn-sh-hi. The transition list also
+ * covers border/opacity hovers the launcher cards layer on top. */
+
+.sn-lift-2,
+.sn-lift-3,
+.sn-lift-4 {
+  transition:
+    transform 0.32s var(--sn-ease),
+    box-shadow 0.32s var(--sn-ease),
+    border-color 0.2s,
+    background-color 0.2s,
+    color 0.2s,
+    opacity 0.2s,
+    scale 0.13s var(--sn-ease);
+}
+
+.sn-lift-2:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sn-sh-hi);
+}
+
+.sn-lift-3:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sn-sh-hi);
+}
+
+.sn-lift-4:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--sn-sh-hi);
+}
+
+/* (Press feedback for Link cards is the `.sn-press` opt-in on the base-layer
+ * universal press rule near the top of this file.) */
+
+/* ---------- Inspector column (Finder-style master ▸ detail, ≥xl) ----------
+ * Shared primitive: app/_components/inspector/inspector-column.tsx. Below xl the
+ * rail is hidden and the triggers navigate normally (mobile unchanged). At ≥xl
+ * the shell is a flex row; selecting a row animates the rail open (flex-basis)
+ * and the master reflows to the remaining width — one --sn-ease 320ms transition.
+ * Blur budget (§ 1.6): the panel is the ONLY blurred surface the inspector adds
+ * (one `.sn-tile`); its body sections stay opaque. */
+
+.sn-inspector-rail {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .sn-inspector-shell {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .sn-inspector-master {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+
+  .sn-inspector-rail {
+    display: block;
+    flex: 0 0 0px;
+    align-self: stretch;
+    margin-left: 0;
+    /* `clip`, NOT `hidden`. Both clip the panel while flex-basis animates open,
+       but `hidden` makes this rail a SCROLL CONTAINER — and a `position: sticky`
+       child cannot stick to the viewport from inside one, so
+       `.sn-inspector-panel`'s `position: sticky; top: 1.25rem` was declared and
+       INERT: the panel scrolled away with the roster. `clip` clips without
+       creating a scroll container, so the sticky finally applies.
+       (Reported 2026-09-14: "this show persist even when scrolled down".) */
+    overflow: clip;
+    opacity: 0;
+    transition:
+      flex-basis var(--sn-dur-elem) var(--sn-ease),
+      margin-left var(--sn-dur-elem) var(--sn-ease),
+      opacity var(--sn-dur-elem) var(--sn-ease);
+  }
+
+  .sn-inspector-shell[data-open='true'] .sn-inspector-rail {
+    flex-basis: clamp(340px, 30vw, 420px);
+    margin-left: 24px;
+    opacity: 1;
+  }
+}
+
+/* The panel itself: sticky, own scroll, viewport-minus-chrome height. Its width
+ * is fixed to the open rail width so the body does NOT reflow while the rail
+ * animates — it wipes in cleanly under the rail's overflow clip. */
+
+.sn-inspector-panel {
+  position: sticky;
+  top: 1.25rem;
+  width: clamp(340px, 30vw, 420px);
+  max-height: calc(100vh - 2.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  padding: 20px;
+}
+
+.sn-inspector-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sn-inspector-title {
+  font-family: var(--sn-font);
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--sn-ink-900);
+}
+
+.sn-inspector-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--sn-ink-500);
+  background: rgba(30, 26, 18, 0.05);
+  transition: background var(--sn-dur-control), color var(--sn-dur-control);
+}
+
+.sn-inspector-close:hover {
+  background: rgba(30, 26, 18, 0.1);
+  color: var(--sn-ink-900);
+}
+
+.sn-inspector-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--sn-gold-100);
+}
+
+.sn-inspector-fulllink {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sn-font);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sn-gold-700);
+}
+
+.sn-inspector-fulllink:hover {
+  text-decoration: underline;
+}
+
+.sn-inspector-body {
+  margin-top: 14px;
+  border-top: 1px solid var(--sn-hairline);
+  padding-top: 16px;
+}
+
+/* Keyed body remount animation (`.sn-lens-swap`) — a gentle rise+fade as the
+ * selection swaps, keyed by the selection id in InspectorColumn. */
+
+@keyframes sn-lens-swap {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to   {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sn-lens-swap {
+  animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) both;
+}
+
+/* Selected-row affordance — the master row that owns the open inspector. */
+
+[data-inspector-selected='true'] {
+  background: var(--sn-gold-100);
+  box-shadow: inset 0 0 0 1.5px var(--sn-gold-500);
+}
+
+/* …except the Guests roster, where the trigger is only the name cell of a wider
+ * <tr>: the WHOLE row wears the gold selected tint (set in guest-list-multiselect
+ * DesktopRow) instead, so the name link opts out of the default per-element wash
+ * to avoid double-marking. */
+
+.sn-guest-namelink[data-inspector-selected='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-inspector-rail {
+    transition: none !important;
+  }
+
+  .sn-lens-swap {
+    animation: none !important;
+  }
+}
+
+/* ---------- buttons ---------- */
+
+.sn-btn {
+  font-family: var(--sn-font);
+  font-weight: 700;
+  font-size: 14.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border-radius: var(--sn-r-md);
+  border: none;
+  cursor: pointer;
+  transition: transform var(--sn-dur-control) var(--sn-ease),
+              box-shadow var(--sn-dur-control), background var(--sn-dur-control);
+}
+
+.sn-btn-primary {
+  background: var(--sn-gold-500);
+  color: #FFFDF8;
+}
+
+.sn-btn-primary:hover {
+  background: var(--sn-gold-600);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 26px -12px var(--sn-gold-500);
+}
+
+.sn-btn-secondary {
+  background: transparent;
+  color: var(--sn-ink-900);
+  border: 1.5px solid var(--sn-ink-900);
+}
+
+.sn-btn-secondary:hover {
+  background: var(--sn-ink-900);
+  color: var(--sn-paper);
+  transform: translateY(-2px);
+}
+
+.sn-btn-ghost {
+  background: transparent;
+  color: var(--sn-ink-700);
+}
+
+.sn-btn-ghost:hover {
+  background: var(--sn-gold-100);
+  color: var(--sn-gold-700);
+}
+
+.sn-btn:disabled {
+  background: var(--sn-hairline);
+  color: var(--sn-ink-300);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* on ink / over video */
+
+.sn-btn-on-ink {
+  background: var(--sn-gold-300);
+  color: var(--sn-ink-black);
+}
+
+.sn-btn-on-ink:hover {
+  background: #D8B979;
+  transform: translateY(-2px);
+}
+
+/* ---------- inputs ---------- */
+
+.sn-input {
+  font-family: var(--sn-font);
+  font-size: 14px;
+  color: var(--sn-ink-900);
+  background: var(--sn-paper);
+  border: 1.5px solid var(--sn-line);
+  border-radius: var(--sn-r-md);
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color var(--sn-dur-control), box-shadow var(--sn-dur-control);
+}
+
+.sn-input:hover  {
+  border-color: var(--sn-gold-500);
+}
+
+.sn-input:focus  {
+  border-color: var(--sn-gold-500);
+  box-shadow: 0 0 0 3px var(--sn-gold-100);
+}
+
+.sn-input-error  {
+  background: #FBF3F1;
+  border-color: var(--sn-danger);
+  color: #8F3D31;
+}
+
+/* ---------- cards ---------- */
+
+.sn-card {
+  background: var(--sn-glass-bg);
+  border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur);
+  -webkit-backdrop-filter: var(--sn-glass-blur);
+  border-radius: var(--sn-r-xl);
+  box-shadow: var(--sn-sh-sm);
+  transition: transform var(--sn-dur-elem) var(--sn-ease), box-shadow var(--sn-dur-elem);
+}
+
+.sn-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--sn-sh-hi);
+}
+
+/* ---------- chips & badges ---------- */
+
+.sn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--sn-r-pill);
+  font: 600 13px var(--sn-font);
+  cursor: pointer;
+  background: var(--sn-surface);
+  border: 1px solid var(--sn-line);
+  color: var(--sn-ink-700);
+  transition: border-color var(--sn-dur-control), color var(--sn-dur-control);
+}
+
+.sn-chip:hover {
+  border-color: var(--sn-gold-500);
+  color: var(--sn-gold-700);
+}
+
+.sn-chip.selected {
+  background: var(--sn-gold-100);
+  border-color: transparent;
+  color: var(--sn-gold-700);
+  font-weight: 700;
+}
+
+.sn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--sn-r-pill);
+  font: 700 12px var(--sn-font);
+}
+
+.sn-badge-verified {
+  background: var(--sn-gold-100);
+  color: var(--sn-gold-700);
+}
+
+.sn-badge-going    {
+  background: var(--sn-success-soft);
+  color: var(--sn-success);
+}
+
+.sn-badge-flag     {
+  background: var(--sn-danger-soft);
+  color: var(--sn-danger);
+}
+
+/* ============================================================
+   SETNAYAN MOTION LIBRARY (kit setnayan-animations.css)
+   Prefer transform+opacity only.
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-reveal, .sn-skeleton, .sn-bar > i, .sn-scrim, .sn-modal {
+    animation: none !important;
+  }
+
+  .sn-acc, .sn-btn, .sn-card, .sn-chip, .sn-input {
+    transition: none !important;
+  }
+}
+
+/* ---------- entrances ---------- */
+
+@keyframes sn-rise     {
+  from {
+    opacity:0;
+    transform:translateY(22px);
+  }
+
+  to {
+    opacity:1;
+    transform:none;
+  }
+}
+
+@keyframes sn-fade     {
+  from {
+    opacity:0;
+  }
+
+  to {
+    opacity:1;
+  }
+}
+
+@keyframes sn-scale-in {
+  from {
+    opacity:0;
+    transform:scale(.94);
+  }
+
+  to {
+    opacity:1;
+    transform:none;
+  }
+}
+
+@keyframes sn-blur-in  {
+  from {
+    opacity:0;
+    filter:blur(10px);
+  }
+
+  to {
+    opacity:1;
+    filter:blur(0);
+  }
+}
+
+.sn-reveal {
+  animation: sn-rise var(--sn-dur-enter) both var(--sn-ease-out);
+}
+
+.sn-reveal:nth-child(2) {
+  animation-delay:.08s
+}
+
+.sn-reveal:nth-child(3) {
+  animation-delay:.16s
+}
+
+.sn-reveal:nth-child(4) {
+  animation-delay:.24s
+}
+
+.sn-reveal:nth-child(5) {
+  animation-delay:.32s
+}
+
+/* scroll-gate: start paused; flip to running with IntersectionObserver */
+
+[data-reveal] .sn-reveal {
+  animation-play-state: paused;
+}
+
+/* ---------- loaders ---------- */
+
+@keyframes sn-spin  {
+  to {
+    transform:rotate(360deg);
+  }
+}
+
+@keyframes sn-dots  {
+  0%,80%,100% {
+    transform:none;
+    opacity:.45;
+  }
+
+  40% {
+    transform:translateY(-7px);
+    opacity:1;
+  }
+}
+
+@keyframes sn-sheen {
+  from {
+    background-position:-200% 0;
+  }
+
+  to {
+    background-position:200% 0;
+  }
+}
+
+@keyframes sn-indet {
+  from {
+    left:-35%;
+  }
+
+  to {
+    left:105%;
+  }
+}
+
+.sn-skeleton {
+  background:linear-gradient(90deg,#EDE8DE 25%,#F5F0E6 50%,#EDE8DE 75%);
+  background-size:200% 100%;
+  animation:sn-sheen 1.4s linear infinite;
+}
+
+/* ---------- data viz ---------- */
+
+@keyframes sn-grow    {
+  from {
+    width:0;
+  }
+}
+
+/* horizontal bars */
+
+@keyframes sn-grow-y  {
+  from {
+    transform:scaleY(0);
+  }
+}
+
+/* bar charts: transform-origin:bottom */
+
+@keyframes sn-donut   {
+  from {
+    stroke-dashoffset:251.2;
+  }
+}
+
+/* r=40 circle; dasharray = pct * 2.512 */
+
+@keyframes sn-shimmer {
+  from {
+    transform:translateX(-120%);
+  }
+
+  to {
+    transform:translateX(340%);
+  }
+}
+
+.sn-bar > i {
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  animation: sn-grow var(--sn-dur-enter) var(--sn-ease-out) both;
+}
+
+/* ---------- live signatures (pulse ONLY on genuinely live states) ---------- */
+
+@keyframes sn-pulse {
+  0%,100% {
+    opacity:1;
+    transform:scale(1);
+  }
+
+  50% {
+    opacity:.4;
+    transform:scale(.7);
+  }
+}
+
+@keyframes sn-ring  {
+  0% {
+    box-shadow:0 0 0 0 rgba(169,131,75,.45);
+  }
+
+  100% {
+    box-shadow:0 0 0 14px rgba(169,131,75,0);
+  }
+}
+
+@keyframes sn-marquee {
+  from {
+    transform:translateX(0);
+  }
+
+  to {
+    transform:translateX(-50%);
+  }
+}
+
+/* duplicate run once */
+
+/* ---------- expand / collapse (no height measuring) ---------- */
+
+.sn-acc {
+  display:grid;
+  grid-template-rows:0fr;
+  grid-template-columns:minmax(0,1fr);
+  transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease);
+}
+
+.sn-acc.open {
+  grid-template-rows:1fr;
+}
+
+.sn-acc > * {
+  overflow:hidden;
+  min-height:0;
+  min-width:0;
+}
+
+/* HORIZONTAL CONTAINMENT (the twin of min-height:0, which only frees the vertical axis).
+ * Without an explicit column track the implicit column is `auto`, so it sizes to the
+ * child's max-content: a wide child — a horizontally-scrolling rail, a table, a long
+ * unbroken string — inflates the collapse past its container. `minmax(0,1fr)` pins the
+ * track to the container in every engine; min-width:0 on the child is belt-and-braces
+ * (a child with overflow:hidden already resolves its automatic minimum to 0, so the
+ * TRACK, not the child, is what must be constrained). Any collapse built on this
+ * template inherits the fix — copy BOTH lines if you duplicate the pattern. */
+
+/* ---------- overlays ---------- */
+
+.sn-scrim {
+  background:rgba(27,26,23,.14);
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px);
+  animation:sn-fade .3s both;
+}
+
+.sn-modal {
+  animation:sn-scale-in .4s both var(--sn-ease-out);
+}
+
+/* route change: main { animation:sn-fade .32s both; } */
+
+/* ---------- home-launcher fidelity motion (2026-07-15 pixel pass) ----------
+ * All `both`-filled or single-run, so the global reduced-motion freeze above
+ * (0.001ms + iteration-count 1) snaps every one to its safe end state. */
+
+/* Obsidian Alaala tile entrance — materializes LAST, after the glass cascade. */
+
+@keyframes sn-bloom {
+  0%   {
+    opacity:0;
+    transform:translateY(22px) scale(.96);
+    filter:blur(12px);
+  }
+
+  62%  {
+    filter:blur(0);
+  }
+
+  100% {
+    opacity:1;
+    transform:none;
+    filter:blur(0);
+  }
+}
+
+.sn-bloom {
+  animation: sn-bloom 1s 1.05s both var(--sn-ease-out);
+}
+
+/* Command-palette panel pop-in (proto popIn). */
+
+@keyframes sn-pop-in {
+  from {
+    opacity:0;
+    transform:scale(.94) translateY(8px);
+  }
+
+  to   {
+    opacity:1;
+    transform:none;
+  }
+}
+
+.sn-pop-in {
+  animation: sn-pop-in .38s both var(--sn-ease-out);
+}
+
+/* Alaala lens-body cross-fade on lens switch (proto lensIn; re-triggered by a
+ * React key remount per switch). */
+
+@keyframes sn-lens-in {
+  from {
+    opacity:0;
+    transform:translateY(9px);
+    filter:blur(4px);
+  }
+}
+
+.sn-lens-swap > * {
+  animation: sn-lens-in .42s backwards var(--sn-ease-out);
+}
+
+.sn-lens-swap > :nth-child(2) {
+  animation-delay:.06s;
+}
+
+.sn-lens-swap > :nth-child(3) {
+  animation-delay:.12s;
+}
+
+/* Lens chip pop on select (proto chipPop — gentler than .sn-pick-bounce). */
+
+@keyframes sn-chip-pop {
+  0% {
+    transform:scale(1);
+  }
+
+  45% {
+    transform:scale(1.09);
+  }
+
+  100% {
+    transform:scale(1);
+  }
+}
+
+.sn-chip-pop {
+  animation: sn-chip-pop .34s var(--sn-ease-out);
+}
+
+/* Progress-ring entrance sweep — generalizes sn-donut: the circle sets its own
+ * circumference via --sn-ring-circ (keyframes may read custom properties). */
+
+@keyframes sn-ring-sweep {
+  from {
+    stroke-dashoffset: var(--sn-ring-circ);
+  }
+}
+
+/* Route-transition rise — one per shell via a template.tsx wrapping {children}
+ * in `.sn-page-enter` (App Router remounts templates on pathname change, so
+ * every in-shell nav gets a soft rise; search-param changes don't remount).
+ * The template.tsx files land per-surface in PR-2/5/6/8; the CSS lands here. */
+
+@keyframes sn-rise-soft {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* 🔴 `backwards`, NEVER `both` — measured on production 2026-09-18.
+ * `both` keeps the animation's TRANSFORM applied after it finishes, at its
+ * identity value `matrix(1,0,0,1,0,0)`. That moves nothing and is invisible —
+ * and per CSS spec ANY transform on an ancestor makes it the containing block
+ * for every `position: fixed` descendant. So this wrapper silently unpinned
+ * every fixed overlay on the page: the 3-step vendor coach-mark measured
+ * 636 x 2444 instead of 636 x 1107, and with `items-end` its card sat at
+ * y 1052-1393 against a 1107px viewport — 341px of it, Skip and Next
+ * included, below the fold. The owner could see a sliver of a dialog he could
+ * not reach, on a page that looked like a layout failure.
+ * `backwards` holds the FROM state before the run (no flash) and returns the
+ * element to its own styles afterwards — visually identical, structurally
+ * inert. The keyframe declares only `from`, so nothing is lost by not holding
+ * an end state. */
+
+.sn-page-enter {
+  animation: sn-rise-soft 400ms backwards var(--sn-ease-out);
+}
+
+/* R8 — mobile bottom-nav View-Transition interplay (rollout plan § 2a + § 6):
+ * during the directional VT slide the incoming pane is a LIVE capture, so the
+ * template rise would play inside it — the slide's first frames would carry a
+ * near-transparent pane (the rise starts at opacity 0), visibly fighting the
+ * 320ms slide. While a view transition is active, the slide IS the entrance:
+ * suppress the rise. Browsers without :active-view-transition also lack
+ * startViewTransition, so the plain rise is all they ever run. */
+
+html:active-view-transition .sn-page-enter {
+  animation: none;
+}
+
+/* Live-state dot — the ONE sanctioned infinite pulse on genuinely-live signals
+ * (unread bell, day-of live dot, active livestream, the Watch "quiet" dot). */
+
+.sn-live-dot {
+  animation: sn-pulse 1.9s infinite;
+}
+
+/* Reduced motion: snap the route rise to its end state and stop the live pulse
+ * (belt-and-braces beyond the global freeze blocks). */
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-page-enter, .sn-live-dot {
+    animation: none !important;
+  }
+}
+
+/* Life-Flash veil lift + capiz shimmer sweep — the Alaala tile's signature
+ * flourish (proto .veil/.capiz). Decorative spans, pointer-events none. */
+
+.sn-veil {
+  position:absolute;
+  inset:0;
+  z-index:3;
+  pointer-events:none;
+  background: linear-gradient(180deg, rgba(23,22,15,0), rgba(203,167,102,.12) 55%, rgba(23,22,15,.6));
+  animation: sn-veil-lift 1.5s 1.9s both var(--sn-ease);
+}
+
+@keyframes sn-veil-lift {
+  to {
+    transform:translateY(-103%);
+    opacity:0;
+  }
+}
+
+.sn-capiz {
+  position:absolute;
+  top:-10%;
+  bottom:-10%;
+  left:-42%;
+  width:34%;
+  z-index:3;
+  pointer-events:none;
+  transform: skewX(-14deg);
+  filter: blur(2px);
+  background: linear-gradient(105deg, rgba(255,255,255,0), rgba(255,255,255,.13) 50%, rgba(255,255,255,0));
+  animation: sn-capiz-sweep 2s 2.4s ease-in-out both;
+}
+
+@keyframes sn-capiz-sweep {
+  to {
+    transform:translateX(560%) skewX(-14deg);
+  }
+}
+
+/* Belt-and-braces beyond the global freeze: the veil's from-state COVERS the
+ * tile, so under reduced motion both decorations are removed outright (matches
+ * the prototype's own RM rule). */
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-veil, .sn-capiz {
+    display:none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ZERO-STEP SERVICE CARD MAKER — motion (canvas-maker.tsx, flag-dark behind
+ * NEXT_PUBLIC_CANVAS_MAKER_ENABLED). Transcribed from artifact 15007a4d, which
+ * is the design spec for this surface.
+ *
+ * Three signals, and nothing else moves:
+ *   • a SHEET rises from the bottom edge when a card region is tapped,
+ *   • newly-revealed content (the coach chip, a sheet's body) RISES in, so the
+ *     eye is told something changed rather than having to notice,
+ *   • the health METER slides to its new width instead of jumping, so a
+ *     blocker being cleared is felt.
+ *
+ * The global `prefers-reduced-motion` freeze near the top of this file already
+ * neutralises all of it; the explicit guards below are belt-and-braces (same
+ * idiom as .subnav-lift / .sn-veil) because these three carry a from-state that
+ * must never be the resting state.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes sn-canvas-sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+
+  to   {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes sn-canvas-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to   {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sn-canvas-sheet {
+  animation: sn-canvas-sheet-up 280ms ease both;
+}
+
+.sn-canvas-rise  {
+  animation: sn-canvas-rise 250ms ease both;
+}
+
+/* The meter is a width transition, not a keyframe — it animates from wherever
+ * it already was, so an edit that lifts the score reads as a climb. */
+
+.sn-canvas-meter {
+  transition: width 450ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-canvas-sheet,
+  .sn-canvas-rise {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .sn-canvas-meter {
+    transition: none;
+  }
+}
+
+/* ═══ THE CARD PAINTS ITSELF (owner 2026-08-28) ═════════════════════════════
+ * The first pass shows no meter and no score, so the ONLY progress a supplier
+ * gets is the card visibly becoming a card. These three carry that:
+ *
+ *   .sn-paint-in   one value arriving on the card — replayed by REMOUNTING the
+ *                  node (React `key` = the value), never by a class toggle,
+ *                  which cannot restart an animation that is already finished.
+ *   .sn-paint-cover the cover photo landing: a settle, not a slide, because it
+ *                  is replacing a placeholder in the same box.
+ *   .sn-paint-live  the card going live at publish.
+ *
+ * ⚠ EVERY ONE CARRIES A FROM-STATE THAT MUST NEVER BE THE RESTING STATE, so the
+ * reduced-motion guard below is not optional — without it a supplier who has
+ * asked for no motion gets a card stuck at opacity 0.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+@keyframes sn-paint-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to   {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sn-paint-cover {
+  from {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+
+  to   {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sn-paint-live {
+  0%   {
+    box-shadow: 0 0 0 0 rgba(194, 78, 37, 0.35);
+  }
+
+  70%  {
+    box-shadow: 0 0 0 14px rgba(194, 78, 37, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(194, 78, 37, 0);
+  }
+}
+
+.sn-paint-in    {
+  animation: sn-paint-in 260ms ease both;
+}
+
+.sn-paint-cover {
+  animation: sn-paint-cover 320ms ease both;
+}
+
+.sn-paint-live  {
+  animation: sn-paint-live 900ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-paint-in,
+  .sn-paint-cover,
+  .sn-paint-live {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* ═══ THE LAPTOP GETS ITS TWO COLUMNS (owner 2026-08-28) ════════════════════
+ * Whenever a question is open — the two-question guided pass, and since SUP-10
+ * (2026-09-18) any edit after it — the drawn desktop layout pins the card
+ * beside the question instead of shrinking it inside the page's centred
+ * `max-w-2xl` column. (The class names still say "pass"; they are pinned by
+ * name in laptop-gets-two-columns.test.ts.) Below 1024px NEITHER rule exists — both classes are
+ * declared only inside this one media query, so a phone renders exactly what
+ * it rendered before this change, unconditionally.
+ *
+ *   .sn-canvas-pass-pin   the card itself. `position: fixed` so it escapes
+ *                         the page's own max-width the same way the guided
+ *                         question sheet already does (see .sn-canvas-sheet's
+ *                         `lg:` rules) — `left` reads the shared shell's own
+ *                         `--fd-rail` custom property, so it sits beside the
+ *                         app rail rather than under it, at either rail width
+ *                         (240px full / 72px icon-strip).
+ *   .sn-canvas-pass-hide  everything that used to render BELOW the card
+ *                         during the pass (recap, publish, "make it richer").
+ *                         The pass already treats that content as noise on a
+ *                         phone-sized page — see HealthHeader's own
+ *                         `{inPass ? null : …}` two lines up — but on a
+ *                         laptop that content is left with nothing to sit
+ *                         under (the fixed card doesn't reserve height in the
+ *                         page's flow), so it is hidden here rather than left
+ *                         to float up and overlap the pinned card. It is
+ *                         still rendered, just not painted, so the sheet's own
+ *                         fields keep posting.
+ *
+ * The fallback values (240px / 61px) are only for a render that somehow never
+ * inherits `.fd`'s custom properties (a corrupted style tree); on every real
+ * paint of this page the vendor dashboard is always the app-chrome rail.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+  .sn-canvas-pass-pin {
+    position: fixed;
+    z-index: 30;
+    left: var(--fd-rail, 240px);
+    top: calc(var(--fd-bar, 61px) + 24px);
+    bottom: 24px;
+    width: 420px;
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+
+  .sn-canvas-pass-hide {
+    display: none;
+  }
+}
+
+/* Phone ergonomics for the whole canvas, including the SHIPPED editors it
+ * mounts (customization / inclusions / discounts / pricing). iOS zooms the
+ * viewport on focus for any control under 16px, which on a bottom sheet throws
+ * the vendor out of the sheet they just opened. Scoped to `.sn-canvas` so the
+ * editors render byte-identically everywhere else — this is the cheapest way to
+ * fix the zoom without forking a single component. (Artifact 15007a4d ships the
+ * same rule as its `@media(max-width:700px){.fld,.stsel{font-size:16px}}`.) */
+
+@media (max-width: 700px) {
+  .sn-canvas input:not([type='checkbox']):not([type='radio']),
+  .sn-canvas select,
+  .sn-canvas textarea {
+    font-size: 16px;
+  }
+}
+
+/* ============================================================================
+   THE GALLERY ARCHETYPE — the obsidian surface, ported not redrawn
+   ----------------------------------------------------------------------------
+   Source of truth: prototypes/archetype_content_editorial_gallery_detail_2026-08-01.html
+   § 2 · GALLERY (obsidian), owner-approved 2026-08-04 with no changes requested.
+   That drawing is BINDING: a delta between a ported screen and it is a defect in
+   the port, not a fresh design decision.
+
+   Its own designer's note names the three rules these classes carry:
+     · "Dark is a surface, not a mode."  Obsidian exists only here.
+     · "Credit is a feature."  Every tile names its camera, because in a samahan
+       album who shot it is part of the memory.
+     · "Lightbox honours the scroll."  It rises over the grid; the grid never
+       re-renders.
+
+   ⚠ COLOURS ONLY COME FROM --sn-ob-*. See the measured failure table beside
+   those tokens: every theme colour is unreadable on this surface, silently.
+
+   ⚠ THESE ARE THREE SCREENS, NOT ONE COMPONENT IN THREE COSTUMES. The couple's
+   grid, the guest's "photos of you" and the day-of wall have different data,
+   different gates and different jobs. They share this SKIN and the lightbox;
+   they are deliberately not merged.
+   ========================================================================== */
+
+.sn-gal {
+  background: var(--sn-ob-page);
+  color: var(--sn-ob-text);
+  border: 1px solid rgb(251 250 247 / 0.10);
+  border-radius: 16px;
+}
+
+/* The couple's grid renders inside the dashboard's own page flow rather than as
+   a card, so it takes the surface without the card's border radius. */
+
+.sn-gal-page {
+  background: var(--sn-ob-page);
+  color: var(--sn-ob-text);
+}
+
+.sn-gal-kick  {
+  color: var(--sn-ob-gold);
+}
+
+/* 7.99:1 */
+
+.sn-gal-soft  {
+  color: var(--sn-ob-soft);
+}
+
+/* 9.22:1 */
+
+.sn-gal-text  {
+  color: var(--sn-ob-text);
+}
+
+/* 17.37:1 */
+
+.sn-gal-link  {
+  color: var(--sn-ob-link);
+}
+
+/* 8.37:1 */
+
+.sn-gal-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sn-ob-card);
+  border: 1px solid rgb(251 250 247 / 0.07);
+}
+
+/* THE CREDIT. A gradient foot, not a solid bar: the photograph keeps the tile
+   and the name still clears AA over the darkest stop (paper on rgba(23,22,15,.82)
+   measures 16.70:1). It is `pointer-events-none` so it can never eat the tap
+   that opens the lightbox. */
+
+.sn-gal-credit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 8px 6px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(23 22 15 / 0), rgb(23 22 15 / 0.82));
+  color: rgb(251 250 247 / 0.85);
+}
+
+/* Chip row — the filter bar. `.on` is the archetype's gold wash. */
+
+.sn-gal-credit-raised {
+  bottom: 44px;
+  padding-bottom: 2px;
+}
+
+.sn-gal-chip {
+  color: var(--sn-ob-soft);
+  border: 1px solid rgb(251 250 247 / 0.18);
+  background: transparent;
+  transition: color .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.sn-gal-chip:hover {
+  border-color: rgb(251 250 247 / 0.40);
+  color: var(--sn-ob-text);
+}
+
+.sn-gal-chip.is-on {
+  background: rgb(203 167 102 / 0.16);
+  border-color: var(--sn-ob-gold);
+  color: var(--sn-ob-gold);
+}
+
+.sn-gal-badge {
+  background: rgb(23 22 15 / 0.72);
+  border: 1px solid rgb(251 250 247 / 0.20);
+  color: var(--sn-ob-text);
+}
+
+.sn-gal-badge-gold {
+  color: var(--sn-ob-gold);
+}
+
+/* Outline action on obsidian — the lightbox's Save/Close pair. */
+
+.sn-gal-btn {
+  border: 1px solid rgb(251 250 247 / 0.28);
+  color: var(--sn-ob-text);
+  background: transparent;
+  transition: border-color .18s ease, background .18s ease;
+}
+
+.sn-gal-btn:hover {
+  border-color: rgb(251 250 247 / 0.55);
+  background: rgb(251 250 247 / 0.06);
+}
+
+.sn-gal-btn-cta {
+  background: var(--sn-ob-cta);
+  border-color: var(--sn-ob-cta);
+  color: var(--sn-ob-page);
+}
+
+/* Lightbox — obsidian scrim + raised card. */
+
+.sn-gal-scrim {
+  background: rgb(23 22 15 / 0.92);
+}
+
+.sn-gal-lb-card {
+  background: var(--sn-ob-card);
+  border: 1px solid rgb(251 250 247 / 0.14);
+  color: var(--sn-ob-text);
+  border-radius: 18px;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STORY, BY THE MINUTE — the spine's own two rules
+   (Design_Editorial_By_The_Minute_2026-09-07 · 01_The_Story.md §3.3 + §7)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The write-up's drop cap. A minute reads as a piece of writing, not a caption. */
+
+.sn-dropcap::first-letter {
+  font-family: var(--font-condensed), 'Saira Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 3.2em;
+  float: left;
+  line-height: 0.78;
+  padding: 5px 9px 0 0;
+}
+
+/* ENTRIES RISE — THEY NEVER FADE (review finding).
+   The first cut held every entry at opacity .65 until an observer fired, which
+   is dim in a screenshot, dim to a crawler, dim with JS off, and took muted text
+   down to about 2.5:1. So: no opacity anywhere in this, and the offset itself is
+   applied ONLY once the script has run — `data-story-js` is set on mount. With
+   JavaScript off the entries have no transform at all and the page is simply
+   the page. `prefers-reduced-motion` removes it as well, in the stylesheet AND
+   in the script that would otherwise still animate the count-up. */
+
+@media (prefers-reduced-motion: no-preference) {
+  .sn-story[data-story-js] [data-story-entry] {
+    transform: translateY(14px);
+    transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .sn-story[data-story-js] [data-story-entry][data-story-in] {
+    transform: none;
+  }
+}
+
+/* THE COUNT-UP IS PAINTED OVER THE TEXT, NEVER WRITTEN INTO IT (story-clock.tsx).
+   While a minute's stamp counts up, the digits in flight sit in
+   `data-story-counting` and are drawn by ::before; the server's own text keeps
+   its box (so nothing moves) and is only hidden underneath. Writing the text
+   instead broke hydration on parts of the story that had not hydrated yet. */
+
+[data-story-countup][data-story-counting] {
+  position: relative;
+  visibility: hidden;
+}
+
+[data-story-countup][data-story-counting]::before {
+  content: attr(data-story-counting);
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: visible;
+}
+
+/* Wide content scrolls inside its own container — the body never scrolls
+   sideways at 390px (§11). */
+
+.sn-story {
+  overflow-x: clip;
+}
+
+.sn-story [data-story-scroller] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sn-story [data-story-scroller]::-webkit-scrollbar {
+  display: none;
+}
+
+/* FIND IN THIS DAY — non-matching minutes dim (§8).
+   A PRESENTATIONAL marker and never a gate. Everything it dims is already in
+   the served HTML, which is exactly why the LAYERS this reader may not have are
+   taken out of the payload upstream instead of being hidden here: `opacity` on
+   a node whose contents were serialised into the page is the same paragraph,
+   one View Source away.
+   It is cleared when the search closes, and on unmount, so nobody is left
+   reading a greyed-out story. */
+
+.sn-story [data-story-entry][data-story-dim] {
+  opacity: 0.3;
+  filter: saturate(0.5);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sn-story [data-story-entry] {
+    transition-property: transform, opacity;
+  }
+}
+
+.hover\:bg-ink\/5:hover {
+  background-color: rgb(var(--color-ink) / 0.05);
+}
+
+.hover\:text-ink:hover {
+  --tw-text-opacity: 1;
+  color: rgb(var(--color-ink) / var(--tw-text-opacity, 1));
+}
+
+@media (min-width: 640px) {
+  .sm\:inline {
+    display: inline;
+  }
+
+  .sm\:hidden {
+    display: none;
+  }
+
+  .sm\:px-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .sm\:\[mask-image\:none\] {
+    -webkit-mask-image: none;
+            mask-image: none;
+  }
+}
+
+.\[\&\:\:-webkit-scrollbar\]\:hidden::-webkit-scrollbar {
+  display: none;
+}
+</style></head><body>
+<div class="bg-cream p-4 font-sans text-ink"><section data-case="0" class="mb-5"><p class="mb-1 font-mono text-[10px] text-ink/40">wedding · before the event · roster</p><div class="rounded-tile border border-ink/10 bg-white px-3"><div class="flex items-center gap-2 border-b border-ink/[0.07]"><nav aria-label="Guest list" class="-mb-px flex min-w-0 flex-1 snap-x snap-proximity items-stretch overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%_-_8px),transparent)] [scrollbar-width:none] sm:[mask-image:none] [&amp;::-webkit-scrollbar]:hidden"><a href="/dashboard/E/guests" aria-current="page" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-terracotta-700 font-medium text-ink">Roster</a><a href="/dashboard/E/guests?gview=walk" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-transparent text-ink/60 hover:text-ink">Wedding March</a><a href="/dashboard/E/guests/invite" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-transparent text-ink/60 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send h-3.5 w-3.5" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>Share the link</a></nav><div class="flex shrink-0 items-center gap-1.5 pb-1"><a href="/dashboard/E/seating" title="Arrange the room" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-grid h-4 w-4" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg><span class="hidden sm:inline">Arrange the room</span><span class="sr-only sm:hidden">Arrange the room</span></a></div></div></div></section><section data-case="1" class="mb-5"><p class="mb-1 font-mono text-[10px] text-ink/40">wedding · before the event · Wedding March open</p><div class="rounded-tile border border-ink/10 bg-white px-3"><div class="flex items-center gap-2 border-b border-ink/[0.07]"><nav aria-label="Guest list" class="-mb-px flex min-w-0 flex-1 snap-x snap-proximity items-stretch overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%_-_8px),transparent)] [scrollbar-width:none] sm:[mask-image:none] [&amp;::-webkit-scrollbar]:hidden"><a href="/dashboard/E/guests" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-transparent text-ink/60 hover:text-ink">Roster</a><a href="/dashboard/E/guests?gview=walk" aria-current="page" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-terracotta-700 font-medium text-ink">Wedding March</a><a href="/dashboard/E/guests/invite" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-transparent text-ink/60 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send h-3.5 w-3.5" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>Share the link</a></nav><div class="flex shrink-0 items-center gap-1.5 pb-1"><a href="/dashboard/E/seating" title="Arrange the room" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-grid h-4 w-4" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg><span class="hidden sm:inline">Arrange the room</span><span class="sr-only sm:hidden">Arrange the room</span></a></div></div></div></section><section data-case="2" class="mb-5"><p class="mb-1 font-mono text-[10px] text-ink/40">wedding · mind map open (Roster must stay lit)</p><div class="rounded-tile border border-ink/10 bg-white px-3"><div class="flex items-center gap-2 border-b border-ink/[0.07]"><nav aria-label="Guest list" class="-mb-px flex min-w-0 flex-1 snap-x snap-proximity items-stretch overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%_-_8px),transparent)] [scrollbar-width:none] sm:[mask-image:none] [&amp;::-webkit-scrollbar]:hidden"><a href="/dashboard/E/guests" aria-current="page" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-terracotta-700 font-medium text-ink">Roster</a><a href="/dashboard/E/guests?gview=walk" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-transparent text-ink/60 hover:text-ink">Wedding March</a><a href="/dashboard/E/guests/invite" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-transparent text-ink/60 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send h-3.5 w-3.5" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>Share the link</a></nav><div class="flex shrink-0 items-center gap-1.5 pb-1"><a href="/dashboard/E/seating" title="Arrange the room" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-grid h-4 w-4" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg><span class="hidden sm:inline">Arrange the room</span><span class="sr-only sm:hidden">Arrange the room</span></a></div></div></div></section><section data-case="3" class="mb-5"><p class="mb-1 font-mono text-[10px] text-ink/40">birthday · no processional</p><div class="rounded-tile border border-ink/10 bg-white px-3"><div class="flex items-center gap-2 border-b border-ink/[0.07]"><nav aria-label="Guest list" class="-mb-px flex min-w-0 flex-1 snap-x snap-proximity items-stretch overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%_-_8px),transparent)] [scrollbar-width:none] sm:[mask-image:none] [&amp;::-webkit-scrollbar]:hidden"><a href="/dashboard/E/guests" aria-current="page" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-terracotta-700 font-medium text-ink">Roster</a><a href="/dashboard/E/guests/invite" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-transparent text-ink/60 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send h-3.5 w-3.5" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>Share the link</a></nav><div class="flex shrink-0 items-center gap-1.5 pb-1"><a href="/dashboard/E/seating" title="Arrange the room" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-grid h-4 w-4" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg><span class="hidden sm:inline">Arrange the room</span><span class="sr-only sm:hidden">Arrange the room</span></a></div></div></div></section><section data-case="4" class="mb-5"><p class="mb-1 font-mono text-[10px] text-ink/40">after the event</p><div class="rounded-tile border border-ink/10 bg-white px-3"><div class="flex items-center gap-2 border-b border-ink/[0.07]"><nav aria-label="Guest list" class="-mb-px flex min-w-0 flex-1 snap-x snap-proximity items-stretch overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%_-_8px),transparent)] [scrollbar-width:none] sm:[mask-image:none] [&amp;::-webkit-scrollbar]:hidden"><a href="/dashboard/E/guests" aria-current="page" class="inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 border-terracotta-700 font-medium text-ink">Roster</a></nav><div class="flex shrink-0 items-center gap-1.5 pb-1"><a href="/dashboard/E/guests/checkin" title="Check-in" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-check h-4 w-4" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="m9 14 2 2 4-4"></path></svg><span class="hidden sm:inline">Check-in</span><span class="sr-only sm:hidden">Check-in</span></a><span><button class="inline-flex items-center rounded-md border border-ink/15 px-2.5 py-1.5 text-sm">Share ▾</button></span></div></div></div></section></div></body></html>

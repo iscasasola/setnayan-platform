@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The event dashboard as a whole — prototype 2026-09-22</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!--
+  THE EVENT DASHBOARD AS A WHOLE — 2026-09-22 · ZERO JAVASCRIPT
+  Route family: /dashboard/[eventId]/** — the shell, not one page.
+
+  WHAT THIS IS FOR. Four rooms were redesigned one at a time (Overview, Guests,
+  Your Team, and the Papic controller inside Suite). This asks the next question:
+  what do they add up to, where does everything ELSE live, how does the sidebar
+  behave, what is in the bottom bar, and the FAB comes off.
+
+  ⚠ NOT ONE LINE OF SCRIPT. Radios + `~` sibling selectors, the pattern from
+  your_team_FINAL_2026-09-22.html. Three independent groups — width (w), room
+  (r), moment (p) — each with ONE hide rule over `data-r` / `data-p` tokens.
+
+  ── MEASURED BEFORE DRAWING (RULE 0 · step 2) ──────────────────────────────
+  Everything below is `git show origin/main:…`, never `~` (749 commits behind).
+
+  · 117 `page.tsx` files under app/dashboard/[eventId]. 17 are pure redirects
+    (/more /today /progress /design /event-page /for-you /website /website/colors
+    /website/editorial /website/launch /website/special-message
+    /website/what-to-bring /orders/new /studio/animated-monogram /studio/panood
+    /studio/live-studio-control/setup /vendors/[vendorId]) ⇒ 100 REAL SCREENS.
+    ⚠ CORRECTED 2026-09-23. The first pass said 16 and 101: its heuristic missed a
+    tombstone redirect that imports `{ notFound, redirect }` on one line, and it
+    wrongly called /find-date a redirect when it renders <FindYourDate>.
+  · THE NAVIGATION NAMES 13 OF THEM. Desktop rail
+    (_components/customer-nav-config.ts): Plan = Overview · Guests · Your Team ·
+    Suite; Go live = Event Hub Controller; "Also in this event" = Personalization ·
+    Hosts · Refer a couple · Schedule · Seat plan · Budget · Editorial · Galleries.
+    Phone (lib/customer-menu.ts) names 5 of the 13. ⇒ 87 are not menu rows.
+  · ⚠ "NOT A MENU ROW" IS NOT "UNREACHABLE", AND THAT DIFFERENCE IS THE FINDING
+    (measured 2026-09-23 by building the link graph over every href, every
+    routes.* helper and the add-on catalogue's computed hrefs). Of the 87:
+    67 are ONE tap from a menu room, 14 are two, and only SIX are reachable from
+    nothing — sponsors · manpower · alaala + alaala/assignments · and the legacy
+    panood Cast island (broadcast + cameras), which is correctly dark in prod
+    because NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED="true" redirects past it.
+    ⇒ THE REAL GAP IS THREE PLACES, NOT 88, and the fix for each is a link from
+    the room that owns it — never a new menu row.
+    🪤 My own runner was wrong three times before it was right: it missed hrefs
+    built from a variable prefix (`${w}/widgets`), dynamic segments MID-path
+    (`vendors/${id}/review`), and the catalogue's computed `/studio/${key}`.
+    Each wrong run produced a confident, plausible orphan list. Re-measure with
+    the graph, never with a grep for a literal path.
+  · NEXT_PUBLIC_SUITE = "true" IN PRODUCTION (vercel env pull, 2026-09-22) — the
+    4th room is Suite, not Studio. NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED = "true".
+  · The FAB costs the pill 64px: globals.css `html[data-sn-fab] nav[aria-label=
+    'Primary navigation'] { right: 78px }` against a bare `right:14px`. On a
+    390px screen five tabs share 298px with it and 362px without — 60px vs 72px
+    per tab. The FAB and the fifth tab are spending the same pixels.
+
+  ── DESIGNED TOWARD THE APPROVED DRAWINGS (RULE 0 · step 3) ────────────────
+  · prototypes/vendor_dashboard_redesign_2026-09-22.html — the SIBLING doorway,
+    and the one the owner pointed at. Its tokens, its 232px rail with counts,
+    its five-tab bar, its flow+sticky-aside grid and 460px right drawer are
+    reused here verbatim. It is also where the FAB was deleted for real
+    (owner 2026-09-22: "delete fab", PR #5852).
+  · prototypes/overview_FINAL_2026-09-22.html — APPROVED. Its night day-card,
+    its "one right column at a time" rule, its numbers block.
+  · prototypes/your_team_FINAL_2026-09-22.html — APPROVED ("that is good
+    enough"), and the zero-JS bar it set as the standard.
+  · prototypes/guestlist-v2.html — the guest room.
+  · prototypes/event_hub_controller_2026-09-02.html + EVENT_HUB_CONTROLLER_
+    DESIGN_2026-09-02.md — the Hub is ALREADY designed and shipped. It is
+    PLACED here, deliberately not redrawn.
+  · one_shell_2026-08-13.html — owner 2026-08-13: "the sidebar should stay".
+  ⇒ The three approved rooms appear here IN MINIATURE, marked REF. Redrawing a
+    room the owner has already approved is a defect, not a deliverable.
+
+  ── REAL DATA ──────────────────────────────────────────────────────────────
+  Event 044f7e64 · Indalecio & Claire · Friday, December 18, 2026 · 87 days
+  (measured for overview_FINAL, same event). 81 guests · 4 attending · 77 to
+  reply. ₱26,499 committed of ₱2,250,000. 2 suppliers locked · 2 to lock · 25
+  in the directory · 12 folders · 62 categories. Papic 100,050 shots · 5
+  cameras. Add-on names + their outcome groups from lib/add-ons-catalog.ts;
+  free-tool names from suite/page.tsx. Prices are NOT printed — they are
+  admin-managed in platform_retail_catalog_v2 and this file is not their source.
+  [LIKE THIS] is a placeholder.
+-->
+<style>
+:root{
+  /* vendor_dashboard_redesign_2026-09-22.html tokens ← admin_designed_2026-08-03 */
+  --ground:#FFFFFF; --panel:#FBFAF7; --sunk:#F4F2EC;
+  --ink:#2C2A29; --ink-soft:#4F535B; --ink-faint:#767A82;
+  --line:#E6E0D6; --line-soft:#F1ECE3;
+  --gold:#A9834B; --gold-text:#8A6B39; --gold-soft:#F5EEE1;
+  --slate:#3B4E67; --slate-soft:#EDF1F6;
+  --ok:#4F6B4A; --ok-soft:#EDF1E8;
+  --late:#B65A3A; --late-soft:#F7E9E6; --cta:#C24E25;
+  --night:#17160F; --night-line:#3A372C; --night-ink:#F4EFE6; --night-2:#B8AE9E; --night-gold:#CBA766;
+  --sans:"Hanken Grotesk",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:"Space Mono",ui-monospace,Menlo,monospace;
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+  --page-bg:#FFFFFF; --page-bg-desk:#FAF8F4; --proto-bg:#EDEAE4; --on-accent:#FFFFFF;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:var(--sans);background:#E8E4DC;color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.015em}
+p{margin:0}
+.mono{font-family:var(--mono)}
+input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+
+/* ══════════ the switcher — labels, because there is no script ══════════ */
+.bar{position:sticky;top:0;z-index:60;background:#1B1A17;color:#F4EFE6;padding:9px 14px}
+.bar h2{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--night-gold);font-weight:800;margin-bottom:7px}
+.bar .g{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.bar .lab{color:#A9A39A;min-width:78px;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase}
+.bar label{height:28px;padding:0 11px;border-radius:999px;border:1px solid #3A372C;font-size:12px;display:inline-flex;align-items:center;cursor:pointer;user-select:none}
+.bar .note{color:#8A857B;font-size:11px;line-height:1.5;margin-top:3px}
+#w-390:checked ~ .bar label[for=w-390],
+#w-1024:checked ~ .bar label[for=w-1024],
+#w-1280:checked ~ .bar label[for=w-1280],
+#r-ov:checked ~ .bar label[for=r-ov],
+#r-gu:checked ~ .bar label[for=r-gu],
+#r-tm:checked ~ .bar label[for=r-tm],
+#r-su:checked ~ .bar label[for=r-su],
+#r-hb:checked ~ .bar label[for=r-hb],
+#r-ev:checked ~ .bar label[for=r-ev],
+#p-b:checked ~ .bar label[for=p-b],
+#p-d:checked ~ .bar label[for=p-d],
+#p-a:checked ~ .bar label[for=p-a]{background:var(--night-gold);border-color:var(--night-gold);color:#17160F;font-weight:700}
+
+/* ONE rule per state. Three independent groups over data-r / data-p. */
+#r-ov:checked ~ .stage [data-r]:not([data-r~="ov"]),
+#r-gu:checked ~ .stage [data-r]:not([data-r~="gu"]),
+#r-tm:checked ~ .stage [data-r]:not([data-r~="tm"]),
+#r-su:checked ~ .stage [data-r]:not([data-r~="su"]),
+#r-hb:checked ~ .stage [data-r]:not([data-r~="hb"]),
+#r-ev:checked ~ .stage [data-r]:not([data-r~="ev"]),
+#p-b:checked  ~ .stage [data-p]:not([data-p~="b"]),
+#p-d:checked  ~ .stage [data-p]:not([data-p~="d"]),
+#p-a:checked  ~ .stage [data-p]:not([data-p~="a"]){display:none}
+
+/* ══════════ the frame ══════════ */
+.stage{padding:16px 12px 40px;display:flex;flex-direction:column;align-items:center}
+.wl{text-align:center;font-size:11px;color:#6E6A62;padding:0 0 7px}
+#w-390:checked  ~ .stage .wl::after{content:"Phone · 390px — one column, bottom bar of five, no floating button."}
+#w-1024:checked ~ .stage .wl::after{content:"Laptop · 1024px — the rail arrives. Still one column of content."}
+#w-1280:checked ~ .stage .wl::after{content:"Wide · 1280px — rail, flow left, the room's own status pinned right."}
+/* ⚠ max-width, or the frame is clipped on the reviewer's own phone. */
+.frame{width:1280px;max-width:100%;background:var(--page-bg-desk);border-radius:10px;overflow:hidden;box-shadow:0 18px 44px -20px rgba(30,26,18,.34)}
+#w-390:checked  ~ .stage .frame{width:390px;background:var(--page-bg)}
+#w-1024:checked ~ .stage .frame{width:1024px}
+
+/* top bar — AT EVERY WIDTH. It carries the bell and the account panel, and the
+   account panel carries the only Sign out. The vendor prototype's first draft
+   hid it below 1024 and stranded the phone; same mistake is available here. */
+.top{display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;background:var(--ground);border-bottom:1px solid var(--line-soft)}
+.top .brand{font-weight:700;letter-spacing:.18em;font-size:12px}
+.top .search{display:none;flex:1;max-width:440px;height:34px;border:1px solid var(--line);border-radius:999px;align-items:center;padding:0 13px;color:var(--ink-faint);font-size:12.5px}
+.top .util{margin-left:auto;display:flex;align-items:center;gap:8px}
+.bellw{position:relative;width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--ink-soft)}
+.bellw .ct{position:absolute;top:1px;right:0;font-family:var(--mono);font-size:9px;font-weight:700;background:var(--late);color:#fff;border-radius:999px;padding:0 4px;line-height:14px}
+.av{width:30px;height:30px;border-radius:999px;background:var(--sunk);border:1px solid var(--line);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+#w-1024:checked ~ .stage .top .search,#w-1280:checked ~ .stage .top .search{display:flex}
+.app{display:block}
+#w-1024:checked ~ .stage .app,#w-1280:checked ~ .stage .app{display:grid;grid-template-columns:232px minmax(0,1fr)}
+
+/* ══════════ THE RAIL ══════════ */
+.rail{display:none;flex-direction:column;gap:1px;padding:13px 10px 0;border-right:1px solid var(--line-soft);background:var(--panel);min-height:640px}
+#w-1024:checked ~ .stage .rail,#w-1280:checked ~ .stage .rail{display:flex}
+.rail .ev{padding:2px 9px 11px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.rail .back{font-size:11.5px;color:var(--ink-faint);display:block;margin-bottom:7px}
+.rail .ev b{display:block;font-size:14px;font-weight:700;letter-spacing:-.01em}
+.rail .ev span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:2px}
+.rail .grp{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-text);padding:9px 9px 5px}
+.rail .nav{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;font-size:13.5px;color:var(--ink-soft)}
+.rail .nav .ic{width:17px;text-align:center;color:var(--ink-faint)}
+.rail .nav[aria-current]{background:var(--sunk);color:var(--ink);font-weight:600}
+.rail .nav[aria-current] .ic{color:var(--gold-text)}
+.rail .nav .n{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint)}
+.rail .nav .n.hot{background:var(--late);color:#fff;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700}
+.rail .foot{margin-top:18px;padding:10px 9px 14px;font-size:10.5px;color:var(--ink-faint);line-height:1.45;border-top:1px solid var(--line)}
+
+/* ══════════ THE BOTTOM BAR ══════════ */
+.tabbar{position:sticky;bottom:0;z-index:35;display:grid;grid-template-columns:repeat(5,1fr);background:rgba(255,255,255,.88);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;margin:0 14px 12px;overflow:hidden}
+#w-1024:checked ~ .stage .tabbar,#w-1280:checked ~ .stage .tabbar{display:none}
+.tabbar span{padding:8px 2px 9px;font-size:10px;color:var(--ink-faint);display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+.tabbar span.on{color:var(--ink);font-weight:700;background:var(--sunk)}
+.tabbar .ic{font-size:15px;line-height:1}
+.tabbar .ct{position:absolute;top:3px;right:calc(50% - 21px);font-family:var(--mono);font-size:9px;font-weight:700;background:var(--late);color:#fff;border-radius:999px;padding:0 4px;line-height:13px}
+.barnote{font-size:10.5px;color:var(--ink-faint);text-align:center;padding:0 16px 10px;line-height:1.45}
+#w-1024:checked ~ .stage .barnote,#w-1280:checked ~ .stage .barnote{display:none}
+
+/* ══════════ the room ══════════ */
+.main{padding:0 0 10px}
+#w-1024:checked ~ .stage .main,#w-1280:checked ~ .stage .main{padding:0 26px 34px;max-width:1280px;margin:0 auto;width:100%}
+.head{padding:14px 16px 2px}
+#w-1024:checked ~ .stage .head,#w-1280:checked ~ .stage .head{padding:20px 0 2px}
+.head h1{font-size:24px;line-height:1.1}
+#w-1280:checked ~ .stage .head h1{font-size:28px}
+.head .st{display:block;margin-top:3px;font-size:13px;color:var(--ink-soft)}
+.head .an{display:block;margin-top:1px;font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+.layout{display:flex;flex-direction:column;gap:20px;padding:14px 16px 18px}
+#w-1024:checked ~ .stage .layout{padding:14px 0 18px}
+#w-1280:checked ~ .stage .layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;column-gap:26px;row-gap:22px;padding:12px 0 24px;align-items:start}
+#w-1280:checked ~ .stage .layout > .sec{grid-column:1}
+#w-1280:checked ~ .stage .layout > .aside{grid-column:2;grid-row:1 / span 30;position:sticky;top:14px;align-self:start}
+.aside{display:flex;flex-direction:column;gap:11px}
+.sec{display:flex;flex-direction:column;gap:9px;min-width:0}
+.sh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sh h2{font-size:16.5px}
+.sh .n{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint)}
+.eyebrow{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-text)}
+.hint{font-size:12px;color:var(--ink-faint)}
+
+.rows{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--ground)}
+.rows > *:not(:last-child){border-bottom:1px solid var(--line-soft)}
+.row{min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;font-size:14px}
+.row .t{display:block;font-weight:600}
+.row .s{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:1px}
+.row .v{font-family:var(--mono);font-size:12px;color:var(--ink-faint);white-space:nowrap}
+.row .chev{color:var(--ink-faint);font-size:16px}
+.row.done .t{font-weight:500;color:var(--ink-soft)}
+.card{border:1px solid var(--line);border-radius:var(--r-md);background:var(--ground);padding:12px 14px}
+.card.sunk{background:var(--panel)}
+.tag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:999px;padding:2px 7px;white-space:nowrap}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.new{background:var(--slate-soft);color:var(--slate)}
+.tag.late{background:var(--late-soft);color:var(--late)}
+.tag.gold{background:var(--gold-soft);color:var(--gold-text)}
+.btn{height:38px;border-radius:999px;background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:0 16px;display:inline-flex;align-items:center;white-space:nowrap}
+.btn.pri{background:var(--cta)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn.sm{height:32px;font-size:12px;padding:0 12px}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* the night card, from overview_FINAL */
+.night{background:var(--night);color:var(--night-ink);border-radius:var(--r-md);padding:14px 15px}
+.night .eye{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--night-gold)}
+.night .dt{font-size:16px;font-weight:700;margin-top:4px}
+.night .s{font-size:12px;color:var(--night-2)}
+.night .cd{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:-.02em}
+.night .hr{height:1px;background:var(--night-line);margin:11px 0}
+.pb{height:5px;border-radius:999px;background:#2C2A22;overflow:hidden;margin-top:10px}
+.pb i{display:block;height:100%;background:var(--night-gold)}
+.vit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.v1{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel);padding:9px 11px}
+.v1 .k{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.v1 .n{display:block;font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.v1 .d{display:block;font-size:11px;color:var(--ink-soft)}
+
+/* the REF banner on an already-approved room */
+.ref{border:1px solid var(--gold);background:var(--gold-soft);border-radius:var(--r-md);padding:11px 13px;font-size:12.5px;color:var(--ink);line-height:1.5}
+.ref b{font-weight:700}
+.amber{border:1px solid var(--gold);background:var(--gold-soft);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;line-height:1.5}
+.blue{border:1px solid #C3CEDA;background:var(--slate-soft);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;line-height:1.5}
+.gone{border:1px dashed var(--line);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;line-height:1.5;color:var(--ink-soft);background:repeating-linear-gradient(135deg,#FBFAF7,#FBFAF7 6px,#F4F2EC 6px,#F4F2EC 12px)}
+
+/* the map */
+.map{display:flex;flex-direction:column;gap:12px}
+#w-1280:checked ~ .stage .map{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.mapc{border:1px solid var(--line);border-radius:var(--r-md);background:var(--ground);padding:12px 14px}
+.mapc h3{font-size:14.5px;display:flex;align-items:baseline;gap:8px}
+.mapc h3 .n{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-faint);font-weight:400}
+.mapc .sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+.mapc ul{margin:9px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:5px}
+.mapc li{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);background:var(--sunk);border-radius:5px;padding:2px 6px}
+.mapc li.b{background:var(--gold-soft);color:var(--gold-text);font-weight:700}
+.mapc li.x{background:transparent;border:1px dashed var(--line);color:var(--ink-faint)}
+
+.write{max-width:840px;margin:0 auto 14px;padding:14px 16px;background:#F7F5EF;border:1px solid #DCD6C8;border-radius:10px;font-size:13.5px;line-height:1.6;color:#3A382F}
+.write h3{font-size:14px;margin-bottom:6px}
+.write ul{margin:6px 0 0;padding-left:18px}
+.write li{margin-bottom:4px}
+.write code{font-family:var(--mono);font-size:11.5px;background:#EFEBE0;padding:1px 4px;border-radius:4px}
+</style>
+</head>
+<body>
+<style>
+/* Light the current room in BOTH navigators from one rule each — the rail row
+   and the bar tab are never authored twice, so they cannot drift apart. */
+#r-ov:checked ~ .stage [data-k="ov"],#r-gu:checked ~ .stage [data-k="gu"],
+#r-tm:checked ~ .stage [data-k="tm"],#r-su:checked ~ .stage [data-k="su"],
+#r-hb:checked ~ .stage [data-k="hb"],#r-ev:checked ~ .stage [data-k="ev"]{
+  background:var(--sunk);color:var(--ink);font-weight:600}
+#r-ov:checked ~ .stage .rail [data-k="ov"] .ic,#r-gu:checked ~ .stage .rail [data-k="gu"] .ic,
+#r-tm:checked ~ .stage .rail [data-k="tm"] .ic,#r-su:checked ~ .stage .rail [data-k="su"] .ic,
+#r-hb:checked ~ .stage .rail [data-k="hb"] .ic,#r-ev:checked ~ .stage .rail [data-k="ev"] .ic{color:var(--gold-text)}
+#r-ov:checked ~ .stage .tabbar [data-k="ov"],#r-gu:checked ~ .stage .tabbar [data-k="gu"],
+#r-tm:checked ~ .stage .tabbar [data-k="tm"],#r-su:checked ~ .stage .tabbar [data-k="su"],
+#r-hb:checked ~ .stage .tabbar [data-k="hb"]{font-weight:700}
+</style>
+
+<input type="radio" name="w" id="w-390"><input type="radio" name="w" id="w-1024"><input type="radio" name="w" id="w-1280" checked>
+<input type="radio" name="r" id="r-ov" checked><input type="radio" name="r" id="r-gu"><input type="radio" name="r" id="r-tm"><input type="radio" name="r" id="r-su"><input type="radio" name="r" id="r-hb"><input type="radio" name="r" id="r-ev">
+<input type="radio" name="p" id="p-b" checked><input type="radio" name="p" id="p-d"><input type="radio" name="p" id="p-a">
+
+<div class="bar">
+  <h2>Prototype — not the app</h2>
+  <div class="g"><span class="lab">Width</span>
+    <label for="w-390">Phone 390</label><label for="w-1024">Laptop 1024</label><label for="w-1280">Wide 1280</label></div>
+  <div class="g"><span class="lab">Room</span>
+    <label for="r-ov">Overview</label><label for="r-gu">Guests</label><label for="r-tm">Your Team</label><label for="r-su">Suite</label><label for="r-hb">Event Hub</label><label for="r-ev">Everything</label></div>
+  <div class="g"><span class="lab">Moment</span>
+    <label for="p-b">Before</label><label for="p-d">On the day</label><label for="p-a">After</label></div>
+  <p class="note">Three of the six rooms are already approved and appear in miniature, marked <b>REF</b> — they are not redrawn here. Suite, the Everything map, the rail and the bottom bar are the new work. Press <b>Moment</b> and watch the navigators: the five rooms never change, the rooms do.</p>
+</div>
+
+<div class="write">
+  <h3>The thing this prototype is asking you to approve</h3>
+  <p><b>100 screens. The navigation names 13 — and only three places are truly stranded.</b> The rail carries Overview · Guests · Your Team · Suite, then Event Hub, then a drawer called “Also in this event” holding eight unrelated rows. The other 88 screens have no address at all — you reach them only by finding a link inside some other page. That is the scattering, measured.</p>
+  <ul>
+    <li><b>Five rooms, one roster, both navigators, every moment.</b> The rail’s list and the phone’s bar are the same five words in the same order, in <i>before</i>, <i>on the day</i> and <i>after</i>. What changes with the calendar is what is <i>inside</i> a room — never which rooms exist.</li>
+    <li><b>“Also in this event” is dissolved, not renamed.</b> Every one of its eight rows goes to the room that owns it. Nothing is deleted; the drawer is.</li>
+    <li><b>One extra row, and it is an index, not a menu:</b> <i>Everything in this event</i> — all 100 addresses, filed under the five. It is where the six stranded ones get a door and the other 81 get a name, and it keeps the rail at five (owner 2026‑07‑15: “solid menu with no submenus”).</li>
+    <li><b>The FAB comes off</b>, exactly as the vendor doorway did, and the fifth tab gets its 64px back.</li>
+  </ul>
+</div>
+
+<div class="stage">
+<div class="wl"></div>
+<div class="frame">
+
+  <div class="top">
+    <span class="brand">SETNAYAN</span>
+    <span class="search">Search this event, your people, the marketplace</span>
+    <span class="util"><span class="bellw">◔<span class="ct">3</span></span><span class="av">IC</span></span>
+  </div>
+
+  <div class="app">
+
+    <!-- ══════════════════ THE RAIL ══════════════════ -->
+    <nav class="rail" aria-label="Event menu">
+      <div class="ev">
+        <span class="back">‹ All events</span>
+        <b>Indalecio &amp; Claire</b>
+        <span data-p="b">Fri 18 Dec 2026 · 87 days</span>
+        <span data-p="d">Today is the day</span>
+        <span data-p="a">Fri 18 Dec 2026 · done</span>
+      </div>
+
+      <div class="grp">This event</div>
+      <span class="nav" data-k="ov"><span class="ic">⌂</span>Overview<span class="n hot" data-p="b">4</span><span class="n hot" data-p="d">2</span><span class="n" data-p="a">1</span></span>
+      <span class="nav" data-k="gu"><span class="ic">☺</span>Guests<span class="n" data-p="b">81</span><span class="n hot" data-p="d">19 in</span><span class="n" data-p="a">81</span></span>
+      <span class="nav" data-k="tm"><span class="ic">◇</span>Your Team<span class="n hot" data-p="b">1 new</span><span class="n" data-p="d">4 here</span><span class="n" data-p="a">4</span></span>
+      <span class="nav" data-k="su"><span class="ic">✦</span>Suite<span class="n" data-p="b d a">3</span></span>
+      <span class="nav" data-k="hb"><span class="ic">◈</span>Event Hub<span class="n" data-p="b">live</span><span class="n" data-p="d">live</span><span class="n" data-p="a">live</span></span>
+
+      <div class="grp" style="color:var(--ink-faint)">&nbsp;</div>
+      <span class="nav" data-k="ev"><span class="ic">▤</span>Everything in this event<span class="n">100</span></span>
+
+      <div class="foot">
+        The rail never leaves and never grows a submenu — a room’s own
+        screens live inside the room. Every number here is the same fact the
+        room’s own status line prints, read once.
+      </div>
+    </nav>
+
+    <div class="main">
+
+<!-- ══════════════════ ROOM 1 · OVERVIEW (approved — miniature) ══════════════════ -->
+<div data-r="ov">
+  <div class="head">
+    <h1 data-p="b">Your wedding is taking shape. <span style="color:var(--ink-faint)">Here’s today.</span></h1>
+    <h1 data-p="d">It’s today.</h1>
+    <h1 data-p="a">Your wedding is complete.</h1>
+    <span class="st" data-p="b">4 decisions waiting · next date in 26 days</span>
+    <span class="st" data-p="d">Doors at 2:00 PM · 19 of 81 arrived · 4 suppliers on site</span>
+    <span class="st" data-p="a">1 thing left — your story</span>
+    <span class="an">Friday, December 18, 2026 · NCR</span>
+  </div>
+  <div class="layout">
+    <div class="sec">
+      <div class="ref"><b>REF · already approved.</b> <code>overview_FINAL_2026-09-22.html</code>, owner 2026-09-22. Shown in miniature so the shell can be judged around it. <b>Not redrawn, and nothing here supersedes it.</b></div>
+
+      <div class="sh"><h2 data-p="b">Decisions waiting on you</h2><h2 data-p="d">Right now</h2><h2 data-p="a">Still open</h2>
+        <span class="n" data-p="b">4 open · 6 dates coming</span><span class="n" data-p="d">2 open</span><span class="n" data-p="a">1 open</span></div>
+      <div class="rows" data-p="b">
+        <div class="row"><span><span class="t">Lock your coordinator</span><span class="s">Most urgent · the date needs a name on it</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Approve the caterer’s quote</span><span class="s">Sent 4 days ago</span></span><span class="v">₱[amount]</span></div>
+        <div class="row"><span><span class="t">Two things land at 8:00 AM</span><span class="s">Hair &amp; makeup and vendor ingress — that’s a clash</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">77 guests have not replied</span><span class="s">Send the reminder</span></span><span class="chev">›</span></div>
+      </div>
+      <div class="rows" data-p="d">
+        <div class="row"><span><span class="t">Ceremony starts in 40 minutes</span><span class="s">The program is running 10 minutes late</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Photographer asked a question</span><span class="s">2 minutes ago</span></span><span class="chev">›</span></div>
+      </div>
+      <div class="rows" data-p="a">
+        <div class="row"><span><span class="t">Write your story</span><span class="s">Your guests can read it on the Hub</span></span><span class="chev">›</span></div>
+      </div>
+
+      <div class="sh" style="margin-top:6px"><h2>What’s coming</h2><span class="n" data-p="b">6 dates</span><span class="n" data-p="d">the running order</span><span class="n" data-p="a">—</span></div>
+      <div class="rows">
+        <div class="row" data-p="b"><span><span class="t">Accommodation block</span><span class="s">18 Oct</span></span><span class="v">26 days</span></div>
+        <div class="row" data-p="b"><span><span class="t">Marriage licence filed</span><span class="s">3 Nov · statutory</span></span><span class="v">42 days</span></div>
+        <div class="row" data-p="d"><span><span class="t">2:00 PM · Ceremony</span><span class="s">Church</span></span><span class="tag late">late 10m</span></div>
+        <div class="row" data-p="d"><span><span class="t">4:30 PM · Reception</span><span class="s">Ballroom</span></span><span class="v">on time</span></div>
+        <div class="row done" data-p="a"><span><span class="t">Every date has passed</span><span class="s">The schedule is kept as a record</span></span><span class="chev">›</span></div>
+      </div>
+
+      <div class="blue">The rows that used to sit in <b>“Also in this event”</b> and belong here — <b>Personalization</b>, <b>Schedule</b>, <b>Checklist</b> — are now doors inside this room and inside <i>Everything</i>. The drawer is gone; the screens are not.</div>
+    </div>
+
+    <aside class="aside">
+      <div class="night">
+        <span class="eye">The wedding day</span>
+        <div class="dt" data-p="b a">Friday, December 18</div><div class="dt" data-p="d">Today</div>
+        <div class="s" data-p="b">The date is locked</div><div class="s" data-p="d">Doors at 2:00 PM</div><div class="s" data-p="a">It happened</div>
+        <div style="display:flex;align-items:baseline;gap:7px;margin-top:9px">
+          <span class="cd" data-p="b">87</span><span class="cd" data-p="d">0</span><span class="cd" data-p="a">—</span>
+          <span class="s" data-p="b">days to go</span><span class="s" data-p="d">today</span><span class="s" data-p="a">complete</span></div>
+        <div class="pb"><i style="width:8%" data-p="b"></i><i style="width:97%" data-p="d"></i><i style="width:100%" data-p="a"></i></div>
+        <div class="s" style="margin-top:4px"><b style="color:var(--night-gold)" data-p="b">8%</b><b style="color:var(--night-gold)" data-p="d">97%</b><b style="color:var(--night-gold)" data-p="a">100%</b> locked in</div>
+        <div class="hr"></div>
+        <span class="eye">Sai · your briefing</span>
+        <p style="font-size:13px;font-weight:600;margin-top:4px" data-p="b">You’re 8% locked in, 2 decisions need you, next deadline in 26 days.</p>
+        <p style="font-size:13px;font-weight:600;margin-top:4px" data-p="d">Everything is moving. The program is 10 minutes behind.</p>
+        <p style="font-size:13px;font-weight:600;margin-top:4px" data-p="a">That’s a wrap. One thing left — your story.</p>
+      </div>
+      <div>
+        <div class="sh"><h2 style="font-size:13px">Your numbers</h2></div>
+        <div class="vit" style="margin-top:6px">
+          <div class="v1"><span class="k">Guests</span><span class="n" data-p="b">4</span><span class="n" data-p="d">19</span><span class="n" data-p="a">81</span><span class="d" data-p="b">attending · 77 to reply</span><span class="d" data-p="d">arrived of 81</span><span class="d" data-p="a">on the list</span></div>
+          <div class="v1"><span class="k">Budget</span><span class="n">₱26,499</span><span class="d">committed of ₱2,250,000</span></div>
+          <div class="v1"><span class="k">Papic</span><span class="n">100,050</span><span class="d" data-p="b">shots ready · 5 cameras</span><span class="d" data-p="d">5 cameras out</span><span class="d" data-p="a">[n] photos in</span></div>
+          <div class="v1"><span class="k">Team</span><span class="n">2</span><span class="d">locked · 2 to lock</span></div>
+        </div>
+      </div>
+      <p class="hint">One right column at a time — when the app’s wide panel opens, this yields. Measured in <code>overview_FINAL</code>: rail open ⇒ panel 420px, flow 782px.</p>
+    </aside>
+  </div>
+</div>
+
+<!-- ══════════════════ ROOM 2 · GUESTS (approved — miniature) ══════════════════ -->
+<div data-r="gu">
+  <div class="head">
+    <h1>Guests</h1>
+    <span class="st" data-p="b">81 invited · 4 attending · 77 to reply</span>
+    <span class="st" data-p="d">19 of 81 arrived · 12 tables seated</span>
+    <span class="st" data-p="a">81 on the list · 62 came</span>
+    <span class="an">Friday, December 18, 2026 · NCR</span>
+  </div>
+  <div class="layout">
+    <div class="sec">
+      <div class="ref"><b>REF · already designed.</b> <code>guestlist-v2.html</code> and <code>guest_card_panel_2026-09-22.html</code>. Miniature only.</div>
+
+      <div class="blue" data-p="d"><b>This is the whole of “on the day” for guests.</b> The phone used to give Check‑in and Seats their own tabs for one day a year, and nothing on any other day. They are not tabs — they are what this room <i>is</i> today. The bar did not change; the room did.</div>
+
+      <div class="sh"><h2 data-p="b">Build the list</h2><h2 data-p="d">At the door</h2><h2 data-p="a">Who came</h2>
+        <span class="n" data-p="b">81 · 9 groups</span><span class="n" data-p="d">19 in · 62 to come</span><span class="n" data-p="a">62 of 81</span></div>
+      <div class="rows" data-p="d">
+        <div class="row" style="background:var(--slate-soft)"><span><span class="t">Scan a guest in</span><span class="s">Camera · or search a name</span></span><span class="btn sm">Open scanner</span></div>
+        <div class="row"><span><span class="t">Seat plan</span><span class="s">12 of 14 tables filled</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Arrived just now</span><span class="s">Tita Belen · Table 4</span></span><span class="v">1 min</span></div>
+      </div>
+      <div class="rows" data-p="b">
+        <div class="row"><span><span class="t">Add guests</span><span class="s">One at a time, paste a list, or import</span></span><span class="btn sm">Add</span></div>
+        <div class="row"><span><span class="t">77 have not replied</span><span class="s">Invitation sent 12 Sep</span></span><span class="btn sm ghost">Remind</span></div>
+        <div class="row"><span><span class="t">The Entourage</span><span class="s">Roles, order, and who walks with whom</span></span><span class="v">14</span></div>
+        <div class="row"><span><span class="t">Groups</span><span class="s">Family · Friends · Work · Ninongs &amp; Ninangs</span></span><span class="v">9</span></div>
+        <div class="row"><span><span class="t">Seat plan</span><span class="s">14 tables · 2 unassigned</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Hosts</span><span class="s">Who can act for you on the day</span></span><span class="v">3</span></div>
+      </div>
+      <div class="rows" data-p="a">
+        <div class="row"><span><span class="t">62 came</span><span class="s">19 did not arrive</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Thank‑yous</span><span class="s">Send from the Hub</span></span><span class="chev">›</span></div>
+      </div>
+
+      <div class="blue">From the old drawer, this room now owns <b>Hosts</b> and <b>Seat plan</b>. It already owned check‑in, the QR, groups, roles, souvenirs and the tea ceremony — 17 screens, one door.</div>
+    </div>
+    <aside class="aside">
+      <div class="card sunk">
+        <span class="eyebrow">Replies</span>
+        <div class="vit" style="margin-top:7px">
+          <div class="v1"><span class="k">Yes</span><span class="n">4</span></div>
+          <div class="v1"><span class="k">No</span><span class="n">0</span></div>
+          <div class="v1"><span class="k">Waiting</span><span class="n">77</span></div>
+          <div class="v1"><span class="k">Seated</span><span class="n">79</span></div>
+        </div>
+      </div>
+      <div class="card"><span class="eyebrow">One join link</span><p class="hint" style="margin-top:5px">setnayan.com/ic‑claire · every guest also has their own QR.</p><div class="acts" style="margin-top:9px"><span class="btn sm ghost">Copy link</span><span class="btn sm ghost">Download QR</span></div></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ══════════════════ ROOM 3 · YOUR TEAM (approved — miniature) ══════════════════ -->
+<div data-r="tm">
+  <div class="head">
+    <h1>Your Team</h1>
+    <span class="st" data-p="b">2 locked · 2 to lock · 1 new reply</span>
+    <span class="st" data-p="d">4 suppliers on site</span>
+    <span class="st" data-p="a">4 worked your day · 2 reviews to write</span>
+    <span class="an">Friday, December 18, 2026 · NCR · 87 days</span>
+  </div>
+  <div class="layout">
+    <div class="sec">
+      <div class="ref"><b>REF · APPROVED.</b> <code>your_team_FINAL_2026-09-22.html</code> — owner 2026-09-22, “that is good enough”. Miniature only. Its two open questions (what “1 new” counts; whether money is split) are still open and are <b>not</b> re-asked here.</div>
+
+      <div class="card sunk"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Cover your event</b><span class="hint">Covered 0 of 5</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><span class="tag gold">NEXT · Escort</span><span class="tag">Reception 1</span><span class="tag">Ceremony 1</span><span class="tag">Catering 1</span><span class="tag">Cake</span></div></div>
+
+      <div class="sh"><h2 data-p="b">Your suppliers</h2><h2 data-p="d">On site today</h2><h2 data-p="a">Who worked your day</h2><span class="n">4</span></div>
+      <div class="rows">
+        <div class="row"><span><span class="t">Saysay Host and Band</span><span class="s" data-p="b">Locked · no price recorded</span><span class="s" data-p="d">Arrived 12:40</span><span class="s" data-p="a">Write a review</span></span><span class="tag new" data-p="b">1 new</span><span class="tag ok" data-p="d">here</span><span class="btn sm ghost" data-p="a">Review</span></div>
+        <div class="row"><span><span class="t">[Reception venue]</span><span class="s" data-p="b">Locked</span><span class="s" data-p="d">Setting up</span><span class="s" data-p="a">Reviewed ★★★★★</span></span><span class="v" data-p="b">₱[amount]</span></div>
+        <div class="row"><span><span class="t">[Caterer]</span><span class="s">Quote sent · waiting on you</span></span><span class="btn sm" data-p="b">Decide</span></div>
+        <div class="row"><span><span class="t">[Photographer]</span><span class="s">Shortlisted</span></span><span class="chev">›</span></div>
+      </div>
+
+      <div class="sh" style="margin-top:6px"><h2>Money</h2><span class="n">₱26,499 of ₱2,250,000</span></div>
+      <div class="rows">
+        <div class="row"><span><span class="t">Budget &amp; payments</span><span class="s">Targets, what is committed, what is paid</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Contracts</span><span class="s">2 signed</span></span><span class="v">2</span></div>
+        <div class="row"><span><span class="t">Orders &amp; receipts</span><span class="s">Everything you bought from Setnayan</span></span><span class="chev">›</span></div>
+      </div>
+      <div class="blue">From the old drawer, this room now owns <b>Budget</b>. Money belongs beside the people who spend it — and it appears <b>once</b>, here, not in three places.</div>
+    </div>
+    <aside class="aside">
+      <div class="card"><span class="eyebrow">Find</span><p class="hint" style="margin-top:5px">12 folders · 62 categories · 25 in the directory.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px"><span class="tag">Best matches</span><span class="tag">Near your venue</span><span class="tag">Fits your budget</span></div></div>
+      <div class="card sunk"><span class="eyebrow">Waiting on you</span>
+        <div class="rows" style="margin-top:8px;border:0">
+          <div class="row" style="padding:8px 0"><span><span class="t">Caterer’s quote</span><span class="s">4 days</span></span><span class="tag late">oldest</span></div>
+        </div></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ══════════════════ ROOM 4 · SUITE — NEW DRAWING ══════════════════ -->
+<div data-r="su">
+  <div class="head">
+    <h1>Suite</h1>
+    <span class="st" data-p="b">3 in your event · 1 needs you · 16 you can add</span>
+    <span class="st" data-p="d">3 running · 2 photos waiting for you</span>
+    <span class="st" data-p="a">3 finished · 2 things left to collect</span>
+    <span class="an">Everything you add to this event, and its controls</span>
+  </div>
+  <div class="layout">
+    <div class="sec">
+
+      <div class="amber"><b>THE DEFECT THIS ROOM IS BUILT AROUND.</b> <code>studio/page.tsx</code> <code>pillFor()</code> returns exactly one word for every service a couple owns: <b>“Active”</b>. It is computed from <code>ownedActive.has(serviceKey)</code> — <b>ownership, not readiness</b>. So a Papic with no dates set, no crew cards printed and no challenges chosen says <b>Active</b> in green, and a Papic fully armed for Saturday says <b>Active</b> in green. Same pixels, opposite truths. It is the house disease, in the one place where a couple checks whether their event is ready.</div>
+
+      <div class="sh"><h2 data-p="b">In your event</h2><h2 data-p="d">Running now</h2><h2 data-p="a">What they made</h2>
+        <span class="n" data-p="b">3 · ordered by when they matter</span><span class="n" data-p="d">3 live</span><span class="n" data-p="a">3 done</span></div>
+
+      <!-- ─── LIVE STUDIO — the one that needs you (rises to the top before the day) ─── -->
+      <div class="card" style="border-left:3px solid var(--late)" data-p="b">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <b style="font-size:15.5px">Live Studio</b><span class="tag late">Needs you</span>
+          <span class="v" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-faint)">matters on the day</span></div>
+        <p style="font-size:13.5px;margin-top:5px">Never rehearsed. <b>2 of 3 cameras paired.</b> If you do nothing, nobody watching from abroad sees the ceremony.</p>
+        <div class="acts" style="margin-top:10px"><span class="btn sm pri">Run a rehearsal</span><span class="btn sm ghost">Pair the third camera</span><span class="btn sm ghost">Open controls ›</span></div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--ok)" data-p="d">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><b style="font-size:15.5px">Live Studio</b><span class="tag ok">On air</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-faint)">[n] watching</span></div>
+        <p style="font-size:13.5px;margin-top:5px">3 cameras live · switched to <b>Camera 2 — the aisle</b>.</p>
+        <div class="acts" style="margin-top:10px"><span class="btn sm">Open the switcher</span><span class="btn sm ghost">Copy the watch link</span></div>
+      </div>
+      <div class="card" data-p="a">
+        <div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:15.5px">Live Studio</b><span class="tag ok">Recorded</span></div>
+        <p style="font-size:13.5px;margin-top:5px">[n] minutes · [n] people watched live.</p>
+        <div class="acts" style="margin-top:10px"><span class="btn sm">Download the recording</span></div>
+      </div>
+
+      <!-- ─── PAPIC ─── -->
+      <div class="card" style="border-left:3px solid var(--ok)">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <b style="font-size:15.5px">Papic</b>
+          <span class="tag ok" data-p="b">Ready for the day</span><span class="tag ok" data-p="d">Collecting</span><span class="tag gold" data-p="a">2 to review</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-faint)" data-p="b">matters in the last 2 weeks</span></div>
+        <p style="font-size:13.5px;margin-top:5px" data-p="b"><b>100,050 shots</b> · 5 cameras · 6 challenges set · crew cards not printed yet.</p>
+        <p style="font-size:13.5px;margin-top:5px" data-p="d"><b>[n] photos in</b> · 5 cameras out · 2 waiting for you to approve.</p>
+        <p style="font-size:13.5px;margin-top:5px" data-p="a"><b>[n] photos</b> · the recap film is ready.</p>
+        <div class="acts" style="margin-top:10px">
+          <span class="btn sm ghost" data-p="b">Print crew cards</span><span class="btn sm ghost" data-p="b">Top up shots</span>
+          <span class="btn sm" data-p="d">Review 2 photos</span>
+          <span class="btn sm" data-p="a">Watch the recap</span>
+          <span class="btn sm ghost">Open controls ›</span></div>
+      </div>
+
+      <!-- ─── MOOD BOARD — a quiet one, and it should look quiet ─── -->
+      <div class="card">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <b style="font-size:15.5px">Mood Board</b><span class="tag ok" data-p="b">Shared</span><span class="tag" data-p="d a">Nothing to do</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-faint)" data-p="b">mattered 4 months ago</span></div>
+        <p style="font-size:13.5px;margin-top:5px" data-p="b">[n] images · <b>2 suppliers are reading it.</b> Last changed [date].</p>
+        <p style="font-size:13.5px;margin-top:5px" data-p="d a">Your suppliers have it. It does its work without you.</p>
+        <div class="acts" style="margin-top:10px"><span class="btn sm ghost">Open it ›</span></div>
+      </div>
+
+      <div class="blue"><b>Three cards, three different shapes, and that is the point.</b> One is shouting because it will fail silently; one is reporting because it is working; one is quiet because it finished its job in May. <b>A service you own never shows a price again</b>, and <b>a service that is quiet is allowed to look quiet</b> — a row of identical green “Active” pills is how a couple learns to stop reading the page.</div>
+
+      <div class="sh" style="margin-top:6px"><h2>Add</h2><span class="n">16 · prices on each page</span></div>
+      <div class="rows">
+        <div class="row" style="background:var(--panel)"><span><span class="t" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text)">Plan your event</span></span></div>
+        <div class="row"><span><span class="t">Setnayan AI</span><span class="s">The secretary that ranks what needs you</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Indoor Blueprint</span><span class="s">Your venue, to scale</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Playlist</span><span class="s">What plays, and when</span></span><span class="chev">›</span></div>
+        <div class="row" style="background:var(--panel)"><span><span class="t" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text)">Your event, captured</span></span></div>
+        <div class="row"><span><span class="t">Patiktok</span><span class="s">A booth your guests run themselves</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Photo Delivery</span><span class="s">Your photographer’s files, to your guests</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Thank‑You Video</span><span class="s">One film, sent after</span></span><span class="chev">›</span></div>
+        <div class="row" style="background:var(--panel)"><span><span class="t" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-text)">Your look &amp; keepsakes</span></span></div>
+        <div class="row"><span><span class="t">Monogram Maker</span><span class="s">Your mark, on everything</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Pakanta</span><span class="s">Your song, sung</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Custom QR per guest</span><span class="s">A code with their name on it</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Paprint</span><span class="s">Printed things, delivered</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t" style="font-weight:500;color:var(--ink-soft)">See the other 6 ›</span></span><span class="chev">›</span></div>
+      </div>
+      <p class="hint">The shop keeps the App Store row it already has — icon, name, one line, one pill. <b>No price is printed in this file</b>; prices are admin‑managed in <code>platform_retail_catalog_v2</code> and only a feature’s own page may quote one.</p>
+
+      <div class="sh" style="margin-top:6px"><h2>Free, and already yours</h2><span class="n">6</span></div>
+      <div class="rows">
+        <div class="row done"><span><span class="t">Guest List</span><span class="s">In the Guests room</span></span><span class="chev">›</span></div>
+        <div class="row done"><span><span class="t">Budget Planner · Compare vendors</span><span class="s">In Your Team</span></span><span class="chev">›</span></div>
+        <div class="row done"><span><span class="t">Schedule · Checklist · Find your date</span><span class="s">In Overview</span></span><span class="chev">›</span></div>
+      </div>
+      <div class="blue"><b>This is the one‑place‑per‑thing fix.</b> Suite’s free layer today lists Guest List, Budget Planner, Schedule, Checklist and Compare vendors as if they lived here — every one of them is a room of its own. They stay reachable as one line each that says where they really are, instead of a second front door to the same screen.</div>
+    </div>
+
+    <aside class="aside">
+      <div class="card sunk"><span class="eyebrow">Sai suggests</span>
+        <p style="font-size:13.5px;font-weight:600;margin-top:5px" data-p="b">Live Studio has never been rehearsed. Run it once before December.</p>
+        <p style="font-size:13.5px;font-weight:600;margin-top:5px" data-p="d">2 Papic photos are waiting for you to approve.</p>
+        <p style="font-size:13.5px;font-weight:600;margin-top:5px" data-p="a">Your Thank‑You Video has everything it needs.</p>
+        <div class="acts" style="margin-top:9px"><span class="btn sm">Open it</span></div></div>
+
+      <div class="card"><span class="eyebrow">Every service, one shape</span>
+        <p class="hint" style="margin-top:6px;line-height:1.55">Open any card and you get the <b>Papic controller’s</b> shape, because the owner approved it: <b>set up → what depends on it → buy → use</b>, and after the day the results lead while setup folds to one line each.</p>
+        <div class="rows" style="margin-top:9px">
+          <div class="row" style="padding:7px 10px"><span><span class="t" style="font-size:13px">Papic</span><span class="s">7 screens</span></span><span class="tag ok">drawn</span></div>
+          <div class="row" style="padding:7px 10px"><span><span class="t" style="font-size:13px">Live Studio</span><span class="s">5 screens</span></span><span class="tag gold">next</span></div>
+          <div class="row" style="padding:7px 10px"><span><span class="t" style="font-size:13px">Patiktok</span><span class="s">3 screens</span></span><span class="tag gold">next</span></div>
+          <div class="row" style="padding:7px 10px"><span><span class="t" style="font-size:13px">The other 16</span><span class="s">1–2 screens each</span></span><span class="tag">same shape</span></div>
+        </div>
+        <p class="hint" style="margin-top:8px">One controller shape, nineteen services. <b>Not nineteen designs.</b></p></div>
+
+      <div class="card"><span class="eyebrow">Spent on Setnayan</span>
+        <div style="font-family:var(--mono);font-size:21px;font-weight:700;margin-top:4px">₱[amount]</div>
+        <p class="hint">3 things · every receipt is in Your Team → Orders.</p></div>
+    </aside>
+  </div>
+</div>
+<!-- ══════════════════ ROOM 5 · EVENT HUB (designed already — placed) ══════════════════ -->
+<div data-r="hb">
+  <div class="head">
+    <h1>Event Hub</h1>
+    <span class="st" data-p="b">Live · 81 invited · 4 replied</span>
+    <span class="st" data-p="d">Live · the running order is showing</span>
+    <span class="st" data-p="a">Live · your story is the last empty part</span>
+    <span class="an">setnayan.com/ic‑claire — the one address your guests know</span>
+  </div>
+  <div class="layout">
+    <div class="sec">
+      <div class="ref"><b>REF · already designed and shipped.</b> <code>event_hub_controller_2026-09-02.html</code> + <code>EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md</code>, PR #5102. <b>Placed, not redrawn.</b> One word in all three moments is locked by <code>one-menu-word-in-all-three-phases.test.ts</code> — this prototype keeps that and extends the same rule to the other four rooms.</div>
+      <div class="sh"><h2>Where each part is written</h2><span class="n">8</span></div>
+      <div class="rows">
+        <div class="row"><span><span class="t">The page itself</span><span class="s">Layout, photos, colours</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Our story</span><span class="s">How you met</span></span><span class="tag ok">written</span></div>
+        <div class="row"><span><span class="t">The story</span><span class="s">Your editorial, after the day</span></span><span class="tag late" data-p="a">empty</span><span class="v" data-p="b d">after</span></div>
+        <div class="row"><span><span class="t">Guests and replies</span><span class="s">What the RSVP asks</span></span><span class="v">77 waiting</span></div>
+        <div class="row"><span><span class="t">The running order</span><span class="s">What your guests see of the day</span></span><span class="tag ok" data-p="d">showing</span><span class="chev" data-p="b a">›</span></div>
+        <div class="row"><span><span class="t">Guest columns</span><span class="s">What you ask each guest</span></span><span class="chev">›</span></div>
+        <div class="row"><span><span class="t">Stories about your day</span><span class="s">What guests wrote back</span></span><span class="v">[n]</span></div>
+        <div class="row"><span><span class="t">E‑Gifts</span><span class="s">How people can send something</span></span><span class="chev">›</span></div>
+      </div>
+      <div class="blue">From the old drawer, this room now owns <b>Editorial</b> and <b>Galleries</b> — both are things your guests look at, so they belong behind the address your guests use. It already owned all 17 <code>/website/*</code> screens, the invitation and the save‑the‑date.</div>
+    </div>
+    <aside class="aside">
+      <div class="card sunk"><span class="eyebrow">What guests see now</span>
+        <div style="height:104px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--sunk);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:11.5px;margin-top:7px">[live preview of the page]</div>
+        <div class="acts" style="margin-top:9px"><span class="btn sm ghost">Open it</span><span class="btn sm ghost">Copy link</span></div></div>
+      <div class="card"><span class="eyebrow">Privacy</span><p class="hint" style="margin-top:5px">Anyone with the link · searchable: no.</p></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ══════════════════ ROOM 6 · EVERYTHING — NEW ══════════════════ -->
+<div data-r="ev">
+  <div class="head">
+    <h1>Everything in this event</h1>
+    <span class="st">100 screens · every one of them filed under a room</span>
+    <span class="an">One index row in the rail. Not a submenu, not a drawer.</span>
+  </div>
+  <div class="layout" style="display:block">
+    <div class="sec">
+      <div class="amber"><b>This page is where every screen gets a name.</b> <code>git ls-tree origin/main apps/web/app/dashboard/[eventId] | grep page.tsx</code> = <b>117</b>; 17 are pure redirects; <b>100 are real screens</b>. The rail names 13 and the phone names 5. Of the other 87, <b>67 are one tap from a room and 14 are two</b> — they do not need menu rows, they need naming. <b>Six are reachable from nothing at all</b>, and those need a door. Searchable from the top bar, and every row here is the room’s own door, never a second one.</div>
+
+      <div class="map" style="margin-top:12px">
+
+        <div class="mapc">
+          <h3>⌂ Overview<span class="n">10</span></h3>
+          <p class="sub">The plan and the record — what needs you, when things are due, and the paperwork that proves it happened.</p>
+          <ul><li class="b">/ (overview)</li><li>checklist</li><li>schedule</li><li>activity</li><li>date-selection</li><li class="b">details <span style="font-weight:400">← “Personalization”</span></li><li>paperwork</li><li>documents</li><li>clearance</li><li>find-date</li></ul>
+        </div>
+
+        <div class="mapc">
+          <h3>☺ Guests<span class="n">20</span></h3>
+          <p class="sub">Every person at your event and where they stand or sit — building the list, inviting, replies, the door on the day, and the people who run it.</p>
+          <ul><li class="b">guests</li><li>guests/[guestId]</li><li>guests/checkin</li><li>guests/claims</li><li>guests/import</li><li>guests/invite</li><li>guests/new</li><li>guests/quick</li><li>guests/souvenirs</li><li>guests/tea-ceremony</li><li class="b">seating <span style="font-weight:400">← “Seat plan”</span></li><li>seating/lab</li><li>seating/walkthrough</li><li>plan3d</li><li>event-qr</li><li class="b">hosts <span style="font-weight:400">← drawer</span></li><li>people</li><li>access-requests</li><li style="background:var(--late-soft);color:var(--late);font-weight:700">sponsors ⚠</li><li style="background:var(--late-soft);color:var(--late);font-weight:700">manpower ⚠</li></ul>
+        </div>
+
+        <div class="mapc">
+          <h3>◇ Your Team<span class="n">13</span></h3>
+          <p class="sub">The suppliers, the talking, and the money. Money appears here and nowhere else.</p>
+          <ul><li class="b">vendors</li><li>vendors/categories</li><li>vendors/[id]/workspace</li><li>vendors/[id]/review</li><li>vendors/packages/[id]</li><li class="b">budget <span style="font-weight:400">← drawer</span></li><li>orders</li><li>orders/[orderId]</li><li>contracts</li><li>contracts/[contractId]</li><li>disputes</li><li>messages</li><li>messages/[threadId]</li></ul>
+        </div>
+
+        <div class="mapc">
+          <h3>✦ Suite<span class="n">37</span></h3>
+          <p class="sub">Everything you add to the event, and its controller. The biggest room by far — and the one with the least navigation today.</p>
+          <ul><li class="b">suite</li><li>studio</li><li>studio/[addon]</li><li>studio/about/[addon]</li><li>studio/setnayan-ai</li><li>studio/papic</li><li>papic/challenges</li><li>papic/crew</li><li>papic/crew/poster</li><li>papic/crew/print</li><li>papic/moderation</li><li>papic/recap</li><li>papic/run-of-show</li><li class="x">panood/setup ⚠</li><li class="x">panood/broadcast ⚠</li><li class="x">panood/cameras ⚠</li><li class="x">panood/cameras/print ⚠</li><li>studio/live-studio-control</li><li>live</li><li>studio/patiktok</li><li>patiktok/booth</li><li>patiktok/[templateId]</li><li>studio/photo-delivery</li><li>studio/thank-you</li><li>studio/playlist</li><li>studio/pakanta</li><li>studio/mood-board</li><li>studio/indoor-blueprint</li><li>studio/custom-qr-guest</li><li>custom-qr-guest/print</li><li>studio/supplies-marketplace</li><li>studio/editorial-pro</li><li>studio/website-pro</li><li>monogram</li><li style="background:var(--late-soft);color:var(--late);font-weight:700">alaala ⚠</li><li style="background:var(--late-soft);color:var(--late);font-weight:700">alaala/assignments ⚠</li><li>pabuya</li></ul>
+        </div>
+
+        <div class="mapc">
+          <h3>◈ Event Hub<span class="n">19</span></h3>
+          <p class="sub">Everything your guests look at, behind the one address they know.</p>
+          <ul><li class="b">launch</li><li>invitation</li><li>invitation/print</li><li class="b">story <span style="font-weight:400">← “Editorial”</span></li><li class="b">galleries <span style="font-weight:400">← drawer</span></li><li>website/editor</li><li>website/hero-photo</li><li>website/living-hero</li><li>website/our-story</li><li>website/our-photos</li><li>website/photo-moments</li><li>website/stories</li><li>website/dress-code</li><li>website/site-chrome</li><li>website/widgets</li><li>website/privacy</li><li>studio/guest-columns</li><li>studio/save-the-date</li><li>save-the-date/stamp</li></ul>
+        </div>
+
+        <div class="mapc">
+          <h3>Leaves the event<span class="n">1</span></h3>
+          <p class="sub">The one row in today’s drawer that is not about this event at all.</p>
+          <ul><li class="b">refer</li></ul>
+          <p class="sub" style="margin-top:8px"><b>Refer a couple</b> pays <i>you</i>, not your wedding. It belongs in your account menu beside your profile, next to the other things that outlive one event — not in a rail whose every other row is about December 18.</p>
+        </div>
+
+        <div class="mapc" style="border-style:dashed;background:var(--panel)">
+          <h3>Not screens<span class="n">17</span></h3>
+          <p class="sub">Pure redirects, kept so old links and bookmarks don’t 404. Counted, then set aside.</p>
+          <ul><li class="x">more</li><li class="x">today</li><li class="x">progress</li><li class="x">design</li><li class="x">event-page</li><li class="x">live-studio-control/setup</li><li class="x">for-you</li><li class="x">orders/new</li><li class="x">vendors/[vendorId]</li><li class="x">website</li><li class="x">website/colors</li><li class="x">website/editorial</li><li class="x">website/launch</li><li class="x">website/special-message</li><li class="x">website/what-to-bring</li><li class="x">studio/animated-monogram</li><li class="x">studio/panood</li></ul>
+          <p class="sub" style="margin-top:8px"><b>One of them has a job again:</b> <code>/more</code> was retired in 2026‑06‑15 when the accordion bar removed the “More” overflow tab, and has redirected home ever since. This index is what it was always trying to be. Reviving it is a proposal, not a decision — the alternative is a new route and leaving <code>/more</code> asleep.</p>
+        </div>
+
+        <div class="mapc" style="border-color:var(--late);background:var(--late-soft)">
+          <h3>⚠ Reachable from nothing<span class="n">6</span></h3>
+          <p class="sub">Measured 2026-09-23 by building the link graph — every href, every <code>routes.*</code> helper, and the add-on catalogue's computed hrefs. These have <b>no inbound link from any screen</b>.</p>
+          <ul><li class="b">sponsors</li><li class="b">manpower</li><li class="b">alaala</li><li class="b">alaala/assignments</li><li class="x">panood/broadcast</li><li class="x">panood/cameras</li></ul>
+          <p class="sub" style="margin-top:8px"><b>Sponsors is the one that matters.</b> The ninongs and ninangs are not a footnote at a Filipino wedding, the page works, and <code>sponsors/actions.ts</code> is the writer that lets the guest list's "N to send" go down — a load-bearing screen with no door. <b>Alaala</b> and its assignments link only to each other, a closed pair. <b>Manpower</b> has zero hrefs in the couple tree; only the vendor side touches it. The <b>panood</b> two are the retired Cast console and are correctly dark in production — leave them.</p>
+          <p class="sub" style="margin-top:8px">⛔ <b>The fix is a link from the room that owns them, not a menu row.</b> Sponsors and Manpower belong in Guests; Alaala in Suite. Thirteen rows is already at the ceiling of what anyone reads.</p>
+        </div>
+
+        <div class="mapc" style="border-color:var(--slate);background:var(--slate-soft)">
+          <h3>The two real overlaps<span class="n">2</span></h3>
+          <p class="sub">Named rather than hidden, because a screen with two owners is how a menu starts drifting.</p>
+          <ul><li>studio/guest-columns</li><li>studio/save-the-date</li></ul>
+          <p class="sub" style="margin-top:8px"><b>The rule that settles them: Suite sells it, the Hub is where you write it.</b> Both are add‑ons you buy in Suite, but what you do afterwards is type words your guests will read — so the editor lives in the Hub, with one “buy it” row left in Suite. <code>launch/page.tsx</code> already lists “Guest columns” among its eight, so this follows the shipped page rather than inventing a split.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+    </div><!-- /.main -->
+  </div><!-- /.app -->
+
+  <!-- ══════════════════ THE BOTTOM BAR — five, and no sixth circle ══════════════════ -->
+  <nav class="tabbar" aria-label="Primary navigation">
+    <span data-k="ov"><span class="ic">⌂</span>Overview<span class="ct" data-p="b">4</span><span class="ct" data-p="d">2</span></span>
+    <span data-k="gu"><span class="ic">☺</span>Guests</span>
+    <span data-k="tm"><span class="ic">◇</span>Your Team<span class="ct" data-p="b">1</span></span>
+    <span data-k="su"><span class="ic">✦</span>Suite</span>
+    <span data-k="hb"><span class="ic">◈</span>Hub</span>
+  </nav>
+  <p class="barnote">Five tabs across the full width. The floating “Add guest” circle is gone — with it the pill gets back the 64px <code>globals.css</code> takes from it, and each tab goes from about 60px wide to about 72px.</p>
+</div><!-- /.frame -->
+</div><!-- /.stage -->
+
+<div class="write" style="margin-top:22px">
+  <h3>The sidebar — how it behaves</h3>
+  <ul>
+    <li><b>It never leaves.</b> Owner-locked 2026‑08‑13 over the YouTube screenshots: <i>“the sidebar should stay.”</i> It is sticky; moving between rooms never returns you to a different shell.</li>
+    <li><b>It never grows a submenu.</b> Owner-locked 2026‑07‑15: <i>“solid menu with no submenus.”</i> A room’s own screens appear <i>inside the room</i>. That rule is what makes five rows survivable against 100 screens — and it is why the rest need an index, not an expander.</li>
+    <li><b>Every row carries a number, and it is the room’s own number.</b> The rail prints the same fact the room’s status line prints, read once. Two numbers for one fact is how the badge on Your Team became three different mechanisms — which is still an open question on your desk, and is not re-asked here.</li>
+    <li><b>One right column at a time.</b> At 1280 the room pins its own status column on the right. When the app’s wide panel opens, that column yields — measured in <code>overview_FINAL</code>: panel 420px, flow 782px, never the ~310px two fixed right columns would leave.</li>
+    <li><b>Below 1024 the rail is not there and nothing replaces it</b> — the five rows are the five tabs. The top bar stays at every width, because it carries the bell and the account panel, and the account panel carries the only Sign out. The vendor prototype’s first draft hid it on the phone and stranded every supplier with no way out.</li>
+  </ul>
+
+  <h3 style="margin-top:14px">The bottom bar — what is in it</h3>
+  <ul>
+    <li><b>The same five, in the same order, in all three moments.</b> Today the phone swaps its whole roster three times a year: <i>Now · Check‑in · Seats · Event Hub · Schedule</i> on the day, <i>Overview · Review · Event Hub · Galleries</i> after. So Check‑in and Seats are tabs for one day and homeless for the other 364, and “Review” and “Galleries” appear as words the couple has never seen before, on the day they are most tired.</li>
+    <li><b>The locked template does not change.</b> <code>bottom-nav.tsx</code> keeps its frosted pill, its travelling indicator, its press bloom, its four motion knobs. Only the roster passed to it changes, which is what that component was built to take.</li>
+    <li><b>Badges mean “someone is waiting for you”, not “here is a count.”</b> Overview and Your Team can show a red number. Guests shows 81 in the rail and nothing on the bar — 81 is wayfinding, and a red dot you can never clear teaches you to stop looking.</li>
+  </ul>
+
+  <h3 style="margin-top:14px">The FAB — off, for the same reason the vendor’s came off</h3>
+  <ul>
+    <li><code>CustomerNavFab</code> is “Add guest” → <code>/guests/new</code>. Guests is one tap away in the same bar, and the Guests room opens with an Add control. Owner 2026‑09‑22 on the vendor side: <i>“delete fab”</i> — because <b>a floating button that jumps to a subset of the room you are standing in is a door into the room you are standing in.</b></li>
+    <li><b>It is also paying for itself in pixels.</b> <code>globals.css</code>: <code>html[data-sn-fab] nav[aria-label='Primary navigation'] { right: 78px }</code> against a bare <code>right:14px</code>. On a 390px screen that is 298px of pill instead of 362px — the FAB and the fifth tab are spending the same 64px, and only one of them is navigation.</li>
+    <li><b>What to delete:</b> the wrapper <code>dashboard/[eventId]/_components/customer-nav-fab.tsx</code> and its mount in <code>dashboard/[eventId]/layout.tsx</code> — and nothing else. The shared <code>NavFab</code> primitive and <code>AdminNavFab</code> stay untouched, exactly as the vendor removal left them. Leave a note at the mount site saying the absence is deliberate; the vendor layout has one, and without it the next reader restores it “for consistency”. <code>apps/web/scripts/port-control-baseline.json</code> lists <code>CustomerNavFab</code> and must be regenerated from the merged tree.</li>
+    <li>⚠ Your current worktree has an <i>uncommitted</i> fix on <code>nav-fab.tsx</code> (the <code>sn-vt-fab</code> view-transition name, which stopped the circle vanishing for 320ms on every tab change). That fix is for the primitive, which admin still mounts — so it is worth keeping on its own, and removing the couple’s wrapper does not undo it.</li>
+  </ul>
+
+  <h3 style="margin-top:14px">What is a placeholder, and what is not mine to answer</h3>
+  <ul>
+    <li><b>Placeholders:</b> every <code>[amount]</code> and <code>[n]</code>; the supplier names other than Saysay Host and Band; the day-of arrival and running-order times; “Spent on Setnayan”. <b>No price is printed anywhere in this file</b> — prices are admin-managed in <code>platform_retail_catalog_v2</code> and only a feature’s own page may quote one.</li>
+    <li><b>Carried forward, not re-asked:</b> what the “1 new” badge counts, and whether the money is split or combined. Both are on your desk from Your Team and both still block their slices.</li>
+    <li><b>Deliberately unchanged:</b> the three approved rooms, the locked bottom-nav template, the Event Hub’s one word in three moments, and the “no submenus” rule.</li>
+  </ul>
+</div>
+
+</body>
+</html>

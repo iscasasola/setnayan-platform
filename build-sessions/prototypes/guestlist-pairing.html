@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Guest list pairing — prototype</title>
+<meta name="description" content="How a pair and a walking order sit on the guest list, and how the same rows print the entourage." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* ── tokens, lifted from tailwind.config + globals.css (cream / ink / terracotta-as-gold, --sn-gold ladder) ── */
+  :root {
+    --cream: #FBFBFA;
+    --paper: #FFFFFF;
+    --ink: #1E2229;
+    --gold: #C5A059;        /* `terracotta` slot = Champagne Gold */
+    --gold-100: #F3ECDF;    /* --sn-gold-100 */
+    --gold-500: #A9834B;
+    --gold-700: #8A6B39;    /* readable gold text */
+    --gold-800: #5C4726;    /* text on a gold wash */
+    --danger-700: #B65A3A;  /* blush-deep */
+    --success-800: #3F5A3B;
+    --violet-800: #5B21B6;  /* principal sponsors */
+    --violet-100: #EDE9FE;
+    --warn-900: #713F12;    /* secondary sponsors */
+    --sky-800: #075985;
+    --family: #7A3A22;      /* vip_family text */
+    --side-bride: #C98A9A;
+    --side-groom: #7E93AD;
+    --side-both: #B7B2A6;
+    --font-sans: 'Hanken Grotesk', system-ui, sans-serif;
+    --font-mono: 'Space Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #EFEDE8; color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.45; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  button:disabled { cursor: default; }
+  .mono { font-family: var(--font-mono); }
+  .eyebrow { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: rgba(30,34,41,.55); }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+  /* ── page chrome (the prototype's own, not the app's) ── */
+  .proto { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
+  .proto-head h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.01em; }
+  .proto-head p { margin: 0; color: rgba(30,34,41,.65); max-width: 70ch; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 22px; font-size: 12px; color: rgba(30,34,41,.7); }
+  .legend b { font-weight: 600; color: var(--ink); }
+  .frames { display: grid; gap: 28px; grid-template-columns: 1fr; align-items: start; }
+  @media (min-width: 1180px) { .frames { grid-template-columns: 390px 1fr; } }
+  .frame-label { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 8px; }
+  .frame-label .eyebrow { color: rgba(30,34,41,.7); }
+  .frame { background: var(--cream); border: 1px solid rgba(30,34,41,.12); border-radius: 16px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px -20px rgba(0,0,0,.25); }
+  .frame.phone { width: 390px; max-width: 100%; }
+  .frame-inner { padding: 12px; }
+  .frame.desktop .frame-inner { padding: 18px 20px 24px; }
+
+  /* ── app surface: masthead + view tabs (the dashboard's role-group filter) ── */
+  .mast { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .mast h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .mast .count { color: rgba(30,34,41,.55); font-size: 12px; }
+  .views { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; scrollbar-width: none; }
+  .views::-webkit-scrollbar { display: none; }
+  .views button { white-space: nowrap; font-size: 12px; padding: 5px 10px; border-radius: 6px; color: rgba(30,34,41,.7); border: 1px solid transparent; }
+  .views button[aria-selected="true"] { background: var(--gold-100); color: var(--gold-800); border-color: rgba(138,107,57,.25); font-weight: 600; }
+  .views button:hover { background: rgba(30,34,41,.05); }
+
+  /* ── bulk bar (desktop shows it inline; phone sticky at bottom) ── */
+  .bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 36px; margin-bottom: 8px; font-size: 12px; color: rgba(30,34,41,.6); }
+  .bulk .n { font-weight: 600; color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid rgba(30,34,41,.2); background: var(--cream); font-size: 13px; font-weight: 500; color: var(--ink); }
+  .btn:hover:not(:disabled) { border-color: rgba(30,34,41,.4); }
+  .btn:disabled { opacity: .45; }
+  .btn.primary { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .btn.ghost { border-color: transparent; color: rgba(30,34,41,.6); }
+  .hint { font-size: 12px; color: rgba(30,34,41,.55); }
+  .hint.warn { color: var(--danger-700); }
+  .frame.phone .bulk { position: sticky; bottom: 0; background: var(--cream); border-top: 1px solid rgba(30,34,41,.08); padding: 8px 0 2px; margin: 8px -12px -12px; padding-left: 12px; padding-right: 12px; z-index: 5; }
+  .frame.phone .bulk:empty { display: none; }
+
+  /* ── WALKING ORDER panel (entourage-order-panel.tsx, extended: a LINE is the unit) ── */
+  .panel { margin-bottom: 14px; border: 1px solid rgba(30,34,41,.10); background: rgba(255,255,255,.7); border-radius: 12px; padding: 10px 14px 12px; }
+  .panel header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+  .panel header p { margin: 0; font-size: 12px; color: rgba(30,34,41,.55); }
+  .panel .cols { display: grid; grid-template-columns: 28px 1fr 96px; gap: 6px; padding: 6px 8px 2px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: rgba(30,34,41,.45); }
+  .frame.phone .panel .cols { grid-template-columns: 24px 1fr 78px; }
+  .cells { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-width: 0; }
+  .frame.phone .cells { grid-template-columns: 1fr; gap: 2px; }
+  .frame.phone .cols .cells span:last-child { display: none; }
+  .frame.phone .line .cell.blank::before { content: '— walks alone'; }
+  .lines { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+  .line { display: grid; grid-template-columns: 28px 1fr 96px; gap: 6px; align-items: center; padding: 5px 8px; border-radius: 6px; font-size: 13px; }
+  .frame.phone .line { grid-template-columns: 24px 1fr 78px; font-size: 12px; }
+  .line:nth-child(odd) { background: rgba(30,34,41,.02); }
+  .line.grabbed { background: var(--gold-100); outline: 2px solid var(--gold); outline-offset: -2px; }
+  .line.over { box-shadow: inset 0 2px 0 var(--gold); }
+  .line .pos { font-family: var(--font-mono); font-size: 11px; color: rgba(30,34,41,.4); }
+  .line .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .line .cell small { display: block; font-size: 10.5px; color: rgba(30,34,41,.5); }
+  .line .cell.blank { color: rgba(30,34,41,.25); font-style: italic; }
+  .line .cell.blank::before { content: '— left blank'; }
+  .line .ctl { display: flex; justify-content: flex-end; gap: 2px; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; color: rgba(30,34,41,.45); }
+  .icon-btn:hover:not(:disabled) { background: rgba(30,34,41,.05); color: var(--ink); }
+  .icon-btn:disabled { color: rgba(30,34,41,.15); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .handle { cursor: grab; touch-action: none; }
+  .handle[aria-pressed="true"] { background: var(--gold-100); color: var(--gold-800); }
+  .frame.phone .handle { display: none; } /* drag is an addition; the phone keeps the buttons */
+  .panel .foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 11px; color: rgba(30,34,41,.5); }
+  .panel .foot button { text-decoration: underline; text-underline-offset: 2px; color: rgba(30,34,41,.5); }
+  .panel .foot button:hover { color: var(--ink); }
+
+  /* ── DESKTOP roster (guest-list-multiselect.tsx table) ── */
+  table.roster { width: 100%; border-collapse: collapse; }
+  table.roster thead { border-bottom: 1px solid rgba(30,34,41,.07); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: rgba(30,34,41,.55); }
+  table.roster th { text-align: left; font-weight: 500; padding: 10px 12px; }
+  table.roster td { padding: 10px 12px; vertical-align: middle; }
+  table.roster tbody tr { border-top: 1px solid rgba(30,34,41,.05); transition: background .12s; }
+  table.roster tbody tr:hover { background: rgba(197,160,89,.04); }
+  table.roster tbody tr.selected { background: rgba(197,160,89,.06); }
+  table.roster td.sidecell { border-left: 2px solid var(--side-both); width: 40px; text-align: center; }
+  tr.side-bride td.sidecell { border-left-color: var(--side-bride); }
+  tr.side-groom td.sidecell { border-left-color: var(--side-groom); }
+  /* the pair bracket: the two rows of one pair share a gold rule and lose the hairline between them */
+  tr.pair-top td.sidecell, tr.pair-bottom td.sidecell { position: relative; }
+  tr.pair-top td.sidecell::after, tr.pair-bottom td.sidecell::after { content: ''; position: absolute; left: 30px; width: 2px; background: var(--gold); top: 50%; bottom: 0; }
+  tr.pair-bottom td.sidecell::after { top: 0; bottom: 50%; }
+  tr.pair-bottom { border-top-color: transparent !important; }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--gold); border-radius: 4px; margin: 0; }
+  .name { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .avatar { flex: none; width: 32px; height: 32px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: rgba(30,34,41,.06); color: rgba(30,34,41,.7); border: 2px solid transparent; }
+  .side-bride .avatar { border-color: var(--side-bride); }
+  .side-groom .avatar { border-color: var(--side-groom); }
+  .frame.phone .avatar { width: 36px; height: 36px; }
+  .name .txt { min-width: 0; }
+  .name .txt p { margin: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub { margin: 2px 0 0; font-size: 12px; color: rgba(30,34,41,.55); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .sub svg { width: 12px; height: 12px; flex: none; }
+  .sub .unpair { display: inline-flex; padding: 2px; border-radius: 4px; color: rgba(30,34,41,.4); }
+  .sub .unpair:hover { color: var(--danger-700); }
+  .sub .unpair svg { width: 12px; height: 12px; }
+  .sub.ceremony { color: var(--gold-700); }
+  .role { font-weight: 500; font-size: 13px; }
+  .role small { display: block; font-size: 11px; color: rgba(30,34,41,.5); font-weight: 400; }
+  .rsvp { font-size: 13px; }
+  .rsvp.attending { color: var(--success-800); }
+  .rsvp.pending { color: rgba(30,34,41,.5); }
+  .rsvp.declined { color: var(--danger-700); }
+  .seat { font-family: var(--font-mono); font-size: 11px; color: rgba(30,34,41,.7); white-space: nowrap; }
+  .seat.suggested { color: rgba(30,34,41,.45); }
+  .seat.none { color: rgba(30,34,41,.3); }
+  .seat .plus { margin-left: 4px; display: inline-flex; padding: 1px 6px; border-radius: 999px; background: var(--gold-100); color: var(--gold-700); font-family: var(--font-sans); font-size: 10px; font-weight: 600; }
+  .meal { font-size: 12px; color: rgba(30,34,41,.65); }
+  .contact { color: rgba(30,34,41,.45); }
+  .contact svg { width: 14px; height: 14px; }
+  .group-row td { padding: 14px 12px 4px; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em; color: rgba(30,34,41,.45); border-top: 0 !important; }
+  .group-row td:hover { background: transparent; }
+
+  /* ── PHONE roster (MobileListRow, density=list) ── */
+  .plist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .prow { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; border: 1px solid rgba(30,34,41,.1); background: var(--cream); }
+  .prow.side-bride { border-color: rgba(201,138,154,.6); }
+  .prow.side-groom { border-color: rgba(126,147,173,.6); }
+  .prow.selected { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(197,160,89,.4); }
+  .prow .body { min-width: 0; flex: 1; }
+  .prow .body p { margin: 0; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prow .chips { display: flex; gap: 4px; margin-top: 3px; overflow-x: auto; scrollbar-width: none; }
+  .prow .chips::-webkit-scrollbar { display: none; }
+  .chip { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 500; box-shadow: inset 0 0 0 1px rgba(30,34,41,.1); background: rgba(30,34,41,.05); color: rgba(30,34,41,.7); }
+  .prow .right { display: flex; align-items: center; gap: 6px; flex: none; }
+  .pill { border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 600; }
+  .pill.attending { background: rgba(63,90,59,.12); color: var(--success-800); }
+  .pill.pending { background: rgba(30,34,41,.06); color: rgba(30,34,41,.55); }
+  .pill.declined { background: rgba(182,90,58,.12); color: var(--danger-700); }
+  /* the pair, on the phone: the two rows slide together and share a gold rail */
+  .pgroup { display: grid; gap: 6px; }
+  .ppair { position: relative; display: grid; gap: 0; border-radius: 12px; }
+  .ppair::before { content: ''; position: absolute; left: -1px; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--gold); }
+  .ppair .prow { border-radius: 0; }
+  .ppair .prow:first-child { border-radius: 12px 12px 0 0; }
+  .ppair .prow:last-child { border-radius: 0 0 12px 12px; border-top: 0; }
+  .pgroup, .plist, .ppair, .prow { min-width: 0; max-width: 100%; }
+  .sub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .frame.phone .cells .cell.blank { order: 2; }
+  .pgroup-label { padding: 10px 2px 2px; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em; color: rgba(30,34,41,.45); }
+
+  /* role colours: the roster's TEXT-only presentation (roleTextStyle); the phone keeps the chip */
+  .r-vip_family { color: var(--family); } .chip.r-vip_family { background: rgba(122,58,34,.10); }
+  .r-honour, .r-crew { color: var(--gold-700); } .chip.r-honour, .chip.r-crew { background: rgba(197,160,89,.14); }
+  .r-principal { color: var(--violet-800); } .chip.r-principal { background: var(--violet-100); }
+  .r-secondary { color: var(--warn-900); } .chip.r-secondary { background: rgba(113,63,18,.10); }
+  .r-bearers, .r-flower { color: var(--success-800); } .chip.r-bearers, .chip.r-flower { background: rgba(63,90,59,.12); }
+  .r-guest { color: rgba(30,34,41,.6); }
+
+  /* ── PRINTED view: the invitation's entourage + the church's sequence ── */
+  .print-wrap { display: grid; gap: 18px; }
+  @media (min-width: 720px) { .frame.desktop .print-wrap { grid-template-columns: 1.3fr 1fr; } }
+  .sheet { background: #fff; border: 1px solid rgba(30,34,41,.1); border-radius: 12px; padding: 22px 22px 26px; }
+  .sheet h3 { margin: 0 0 2px; font-size: 18px; font-weight: 600; letter-spacing: -.01em; text-align: center; }
+  .sheet .sub-h { text-align: center; font-size: 12px; color: rgba(30,34,41,.5); margin: 0 0 18px; }
+  .pgroup-print { margin-bottom: 14px; }
+  .pgroup-print h4 { margin: 0 0 6px; text-align: center; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .14em; color: var(--gold-700); }
+  .pline { display: grid; grid-template-columns: 1fr 14px 1fr; gap: 6px; font-size: 13px; padding: 2px 0; }
+  .pline .l { text-align: right; } .pline .r { text-align: left; }
+  .pline .amp { text-align: center; color: rgba(30,34,41,.35); }
+  .pline .l small, .pline .r small { display: block; font-size: 10.5px; color: rgba(30,34,41,.5); }
+  .pline .empty { color: rgba(30,34,41,.2); }
+  .pline.single { grid-template-columns: 1fr; text-align: center; }
+  .seq { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  .seq li { display: grid; grid-template-columns: 24px 1fr; gap: 8px; padding: 7px 0; border-top: 1px solid rgba(30,34,41,.06); font-size: 13px; }
+  .seq li::before { counter-increment: s; content: counter(s); font-family: var(--font-mono); font-size: 11px; color: rgba(30,34,41,.4); padding-top: 2px; }
+  .seq li b { font-weight: 600; display: block; font-size: 12px; color: rgba(30,34,41,.7); }
+  .seq li span.who { display: block; color: rgba(30,34,41,.85); }
+  .seq li span.fixed { color: rgba(30,34,41,.45); font-style: italic; }
+  .seq .note { font-size: 11px; color: rgba(30,34,41,.5); margin: 10px 0 0; }
+
+  /* ── live region + notes ── */
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--cream); font-size: 13px; padding: 9px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
+  .toast.show { opacity: 1; }
+  .notes { margin-top: 32px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .note { background: #fff; border: 1px solid rgba(30,34,41,.1); border-radius: 12px; padding: 14px 16px; font-size: 13px; }
+  .note h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+  .note p { margin: 0 0 6px; color: rgba(30,34,41,.75); }
+  .note code { font-family: var(--font-mono); font-size: 11px; background: rgba(30,34,41,.05); padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="proto">
+  <div class="proto-head">
+    <p class="eyebrow">SETNAYAN · guest list · prototype · 2026-09-20</p>
+    <h1>Who walks with whom, and who walks first</h1>
+    <p>Same rows, three readings. The guest list keeps every column per person; a <b>pair</b> is a link between two rows, never a merged row. The <b>walking order</b> acts on lines (a pair is one line) inside a role view. The <b>printed</b> entourage and the church's sequence are derived from those same rows.</p>
+  </div>
+  <div class="legend">
+    <span><b>Try:</b> tick two rows → <em>Pair these 2</em></span>
+    <span>tap the ⛓ icon under a name → unpair</span>
+    <span>open <em>Principal Sponsors</em> → Move ↑ ↓, or drag the ⋮⋮ handle (desktop)</span>
+    <span>keyboard: focus ⋮⋮, Space to grab, ↑ ↓ to move, Esc to cancel</span>
+    <span>open <em>Printed</em> → the invitation and the sequence, from the same rows</span>
+  </div>
+
+  <div class="frames">
+    <section>
+      <div class="frame-label"><span class="eyebrow">Phone · 390px · row list (no grid, no pills)</span></div>
+      <div class="frame phone" id="phone"><div class="frame-inner" data-frame="phone"></div></div>
+    </section>
+    <section>
+      <div class="frame-label"><span class="eyebrow">Desktop · roster table</span><span class="hint">one state, two frames — pair on one, it shows on the other</span></div>
+      <div class="frame desktop" id="desktop"><div class="frame-inner" data-frame="desktop"></div></div>
+    </section>
+  </div>
+
+  <div class="notes">
+    <div class="note"><h4>1 · Where pairing lives</h4><p>On the guest row (<code>guests.pair_with_guest_id</code>, mutual, written by <code>pair_guests()</code>). The "who walks with whom" view is the <em>Walking order</em> panel already shipped in PR #5759 — it reads the same rows inside a role view. No second table, no second screen.</p></div>
+    <div class="note"><h4>2 · Two rows, linked — not one</h4><p>RSVP, meal, seat and contact are facts about a <em>person</em>: a ninang can decline while her ninong attends. So the roster never removes a column. The pair collapses to one line only where the pair is the unit: the walking order and the print.</p></div>
+    <div class="note"><h4>3 · Walking order ≠ table</h4><p>Two orderings, two columns: <code>entourage_order</code> (per line, both halves equal) and <code>event_seat_assignments</code> (per chair). The Seat column stays per person on the roster; the walking panel shows no seat. Moving a pair up never moves a chair.</p></div>
+    <div class="note"><h4>4 · A half who is "not a guest"</h4><p>Everyone who walks is a row. A ceremony-only sponsor keeps <code>invited_to_blocks = [ceremony]</code>, prints normally, and the roster says <em>ceremony only</em> with no seat. A child bearer pairs with a teen escort like anyone else. A +1 name string cannot walk — promote them to a row first.</p></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ───────────────────────────── data: one roster ───────────────────────────── */
+/* Groups: copied from lib/entourage.ts (owner's 2026-09-20 print order). `sides` decides the cell. */
+const GROUPS = [
+  { key:'parents',          label:'Parents',                     roles:['groom_parents','bride_parents'], cls:'r-vip_family' },
+  { key:'immediate_family', label:'Immediate Family',            roles:['groom_immediate_family','bride_immediate_family'], cls:'r-vip_family' },
+  { key:'honour',           label:'Maid of Honour & Best Man',   roles:['maid_of_honor','matron_of_honor','best_man'], sides:[['maid_of_honor','matron_of_honor'],['best_man']], cls:'r-honour' },
+  { key:'principal',        label:'Principal Sponsors',          roles:['principal_sponsor_ninong','principal_sponsor_ninang'], sides:[['principal_sponsor_ninong'],['principal_sponsor_ninang']], cls:'r-principal' },
+  { key:'secondary',        label:'Secondary Sponsors',          roles:['candle_sponsor','veil_sponsor','cord_sponsor'], cls:'r-secondary' },
+  { key:'crew',             label:"Bride's Crew & Groom's Crew", roles:['bridesmaid','groomsman'], sides:[['bridesmaid'],['groomsman']], cls:'r-crew' },
+  { key:'bearers',          label:'Bearers',                     roles:['ring_bearer','coin_bearer','bible_bearer'], cls:'r-bearers' },
+  { key:'flower',           label:'Flower Girls',                roles:['flower_girl'], cls:'r-flower' },
+];
+const ROLE_LABEL = {
+  groom_parents:'Parents of the Groom', bride_parents:'Parents of the Bride',
+  groom_immediate_family:"Groom's Family", bride_immediate_family:"Bride's Family",
+  maid_of_honor:'Maid of Honour', matron_of_honor:'Matron of Honour', best_man:'Best Man',
+  principal_sponsor_ninong:'Ninong', principal_sponsor_ninang:'Ninang',
+  candle_sponsor:'Candle Sponsor', veil_sponsor:'Veil Sponsor', cord_sponsor:'Cord Sponsor',
+  bridesmaid:'Bridesmaid', groomsman:'Groomsman',
+  ring_bearer:'Ring Bearer', coin_bearer:'Coin Bearer', bible_bearer:'Bible Bearer', flower_girl:'Flower Girl',
+  guest:'Guest',
+};
+const groupOfRole = r => GROUPS.find(g => g.roles.includes(r)) || null;
+
+/* id, prefix, first, last, side, role, rsvp, meal, seat (placed) / sug (suggested), pair, order, ceremonyOnly, plusOne */
+let G = [
+  { id:'g01', pre:'Mr. & Mrs.', first:'Antonio & Rosario', last:'Lim',     side:'groom', role:'groom_parents',  rsvp:'attending', meal:'Regular', seat:'T1' },
+  { id:'g02', pre:'Mr. & Mrs.', first:'Ernesto & Marilou', last:'Reyes',   side:'bride', role:'bride_parents',  rsvp:'attending', meal:'Regular', seat:'T1' },
+  { id:'g03', pre:'',    first:'Bea',       last:'Reyes',       side:'bride', role:'maid_of_honor', rsvp:'attending', meal:'Regular', seat:'T2' },
+  { id:'g04', pre:'',    first:'Paolo',     last:'Lim',         side:'groom', role:'best_man',      rsvp:'attending', meal:'Regular', seat:'T2' },
+  { id:'g05', pre:'Atty.', first:'Ramon',   last:'Villanueva',  side:'groom', role:'principal_sponsor_ninong', rsvp:'attending', meal:'Regular', seat:'T3', pair:'g06', order:0 },
+  { id:'g06', pre:'Dra.',  first:'Corazon', last:'Villanueva',  side:'groom', role:'principal_sponsor_ninang', rsvp:'attending', meal:'Fish',    seat:'T3', pair:'g05', order:0 },
+  { id:'g07', pre:'Engr.', first:'Benjamin', last:'Santos',     side:'bride', role:'principal_sponsor_ninong', rsvp:'attending', meal:'Regular', seat:'T3', pair:'g08', order:1 },
+  { id:'g08', pre:'Mrs.',  first:'Lourdes',  last:'Santos',     side:'bride', role:'principal_sponsor_ninang', rsvp:'declined',  meal:'—',       seat:null, pair:'g07', order:1 },
+  { id:'g09', pre:'Hon.',  first:'Rodrigo',  last:'Dela Cruz',  side:'groom', role:'principal_sponsor_ninong', rsvp:'pending',   meal:'—',       seat:null, sug:'T4' },
+  { id:'g10', pre:'Ms.',   first:'Teresita', last:'Ocampo',     side:'bride', role:'principal_sponsor_ninang', rsvp:'attending', meal:'Vegetarian', seat:null, sug:'T4', ceremonyOnly:true },
+  { id:'g11', pre:'Dr.',   first:'Federico', last:'Bautista',   side:'bride', role:'principal_sponsor_ninong', rsvp:'attending', meal:'Regular', seat:'T4' },
+  { id:'g12', pre:'',    first:'Carlo',     last:'Mendoza',     side:'groom', role:'candle_sponsor', rsvp:'attending', meal:'Regular', seat:'T5', pair:'g13', order:0 },
+  { id:'g13', pre:'',    first:'Jasmine',   last:'Mendoza',     side:'groom', role:'candle_sponsor', rsvp:'attending', meal:'Regular', seat:'T5', pair:'g12', order:0 },
+  { id:'g14', pre:'',    first:'Miguel',    last:'Torres',      side:'bride', role:'veil_sponsor',   rsvp:'attending', meal:'Regular', seat:'T5' },
+  { id:'g15', pre:'',    first:'Andrea',    last:'Salazar',     side:'bride', role:'veil_sponsor',   rsvp:'pending',   meal:'—',       seat:null, sug:'T5' },
+  { id:'g16', pre:'',    first:'Joshua',    last:'Navarro',     side:'groom', role:'cord_sponsor',   rsvp:'attending', meal:'Regular', seat:'T6' },
+  { id:'g17', pre:'',    first:'Patricia',  last:'Garcia',      side:'bride', role:'cord_sponsor',   rsvp:'attending', meal:'Regular', seat:'T6' },
+  { id:'g18', pre:'',    first:'Kristine',  last:'Aquino',      side:'bride', role:'bridesmaid',     rsvp:'attending', meal:'Regular', seat:'T2', pair:'g21', order:0 },
+  { id:'g19', pre:'',    first:'Danica',    last:'Fernandez',   side:'bride', role:'bridesmaid',     rsvp:'attending', meal:'Regular', seat:'T2' },
+  { id:'g20', pre:'',    first:'Camille',   last:'Ramos',       side:'bride', role:'bridesmaid',     rsvp:'pending',   meal:'—',       seat:null, sug:'T2' },
+  { id:'g21', pre:'',    first:'Marco',     last:'Castillo',    side:'groom', role:'groomsman',      rsvp:'attending', meal:'Regular', seat:'T7', pair:'g18', order:0 },
+  { id:'g22', pre:'',    first:'Jerome',    last:'Pascual',     side:'groom', role:'groomsman',      rsvp:'attending', meal:'Regular', seat:'T7' },
+  { id:'g23', pre:'',    first:'Nathaniel', last:'Domingo',     side:'groom', role:'groomsman',      rsvp:'attending', meal:'Regular', seat:'T7', plusOne:'Ella' },
+  { id:'g24', pre:'',    first:'Lucas',     last:'Lim',         side:'groom', role:'ring_bearer',    rsvp:'attending', meal:'Kids',    seat:'T1' },
+  { id:'g25', pre:'',    first:'Gabriel',   last:'Reyes',       side:'bride', role:'coin_bearer',    rsvp:'attending', meal:'Kids',    seat:'T1' },
+  { id:'g26', pre:'',    first:'Sofia',     last:'Villanueva',  side:'groom', role:'flower_girl',    rsvp:'attending', meal:'Kids',    seat:'T3' },
+  { id:'g27', pre:'',    first:'Isabella',  last:'Santos',      side:'bride', role:'flower_girl',    rsvp:'attending', meal:'Kids',    seat:'T3' },
+  { id:'g28', pre:'',    first:'Ronaldo',   last:'Cruz',        side:'groom', role:'guest',          rsvp:'attending', meal:'Regular', seat:'T8' },
+  { id:'g29', pre:'',    first:'Maricel',   last:'Dizon',       side:'bride', role:'guest',          rsvp:'pending',   meal:'—',       seat:null, sug:'T9' },
+];
+const byId = id => G.find(g => g.id === id);
+const fullName = g => [g.pre, g.first, g.last].filter(Boolean).join(' ');
+const initials = g => (g.first[0] + (g.last[0] || '')).toUpperCase();
+
+/* ─────────────── lines: the unit of the walking order and the print ─────────────── */
+/* lib/entourage.ts pairUp, plus one delta: the LINE carries the order (both halves hold the same
+   entourage_order), so "move up" moves the pair and an unpaired name keeps its blank cell. */
+function sideOf(g, spec) {
+  if (!spec.sides) return null;
+  if (spec.sides[0].includes(g.role)) return 0;
+  if (spec.sides[1].includes(g.role)) return 1;
+  return 0;
+}
+function linesOf(spec) {
+  const people = [];
+  for (const role of spec.roles) {
+    G.filter(g => g.role === role).sort((a,b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first)).forEach(g => people.push(g));
+  }
+  const placed = new Set(); const out = [];
+  for (const p of people) {
+    if (placed.has(p.id)) continue;
+    const q = p.pair ? byId(p.pair) : null;
+    const mutual = q && q.pair === p.id && groupOfRole(q.role) === spec ? q : null;
+    if (mutual && !placed.has(mutual.id)) {
+      placed.add(p.id); placed.add(mutual.id);
+      out.push(sideOf(p, spec) === 1 ? [mutual, p] : [p, mutual]);
+    } else {
+      placed.add(p.id);
+      out.push(sideOf(p, spec) === 1 ? [null, p] : [p, null]);
+    }
+  }
+  const key = ln => { const a = ln[0] || ln[1]; return typeof a.order === 'number' ? a.order : Infinity; };
+  const nm  = ln => { const a = ln[0] || ln[1]; return a.last + a.first; };
+  // hand-placed first (dense order), then the surname default — the migration's NULL rule
+  return out.sort((x,y) => key(x) - key(y) || nm(x).localeCompare(nm(y)));
+}
+function writeOrder(spec, lines) {
+  lines.forEach((ln, i) => ln.forEach(g => { if (g) g.order = i; }));
+}
+function moveLine(spec, idx, dir) {
+  const lines = linesOf(spec);
+  const to = idx + dir;
+  if (to < 0 || to >= lines.length) return false;
+  const [ln] = lines.splice(idx, 1); lines.splice(to, 0, ln);
+  writeOrder(spec, lines);
+  return true;
+}
+function moveLineTo(spec, from, to) {
+  const lines = linesOf(spec);
+  const [ln] = lines.splice(from, 1); lines.splice(to, 0, ln);
+  writeOrder(spec, lines);
+}
+function clearOrder(spec) { G.forEach(g => { if (spec.roles.includes(g.role)) delete g.order; }); }
+
+/* ─────────────── pairing: what pair_guests() / unpair_guest() do ─────────────── */
+function pairGuests(a, b) {
+  const A = byId(a), B = byId(b);
+  if (!A || !B || a === b) return { ok:false, why:'A guest cannot be paired with themselves.' };
+  const ga = groupOfRole(A.role), gb = groupOfRole(B.role);
+  if (!ga || !gb) return { ok:false, why:'Only entourage roles walk in pairs — give them a role first.' };
+  if (ga !== gb) return { ok:false, why:`${A.first} prints under ${ga.label} and ${B.first} under ${gb.label} — a pair must share a printed group.` };
+  // break whatever pairs these two are in (both halves), then write both halves at once
+  G.forEach(g => { if (g.pair === a || g.pair === b || g.id === a || g.id === b) delete g.pair; });
+  A.pair = b; B.pair = a;
+  // the line takes the earlier half's place; the other half joins it
+  const o = [A.order, B.order].filter(n => typeof n === 'number');
+  if (o.length) { A.order = B.order = Math.min(...o); writeOrder(ga, linesOf(ga)); }
+  return { ok:true };
+}
+function unpairGuest(id) {
+  const g = byId(id); const p = g && g.pair ? byId(g.pair) : null;
+  if (g) delete g.pair; if (p) delete p.pair;
+}
+
+/* ─────────────── state ─────────────── */
+const state = { view:'all', selected:new Set(), grabbed:null };
+const VIEWS = [
+  { key:'all', label:'All guests' },
+  { key:'honour', label:'Honour' },
+  { key:'principal', label:'Principal Sponsors' },
+  { key:'secondary', label:'Secondary Sponsors' },
+  { key:'crew', label:'Crew' },
+  { key:'bearers', label:'Bearers & Flower Girls' },
+  { key:'print', label:'Printed' },
+];
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
+
+/* ─────────────── icons ─────────────── */
+const I = {
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>',
+  unlink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 4 8"/><path d="M8 12h4"/><path d="m2 2 20 20"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>',
+  grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  church: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v4M10 5h4"/><path d="m5 21 7-11 7 11"/><path d="M5 21h14"/></svg>',
+};
+
+/* ─────────────── render: shared pieces ─────────────── */
+function partnerLine(g) {
+  if (!g.pair) return '';
+  const p = byId(g.pair);
+  return `<span class="sub">${I.link}<span>walks with ${p ? p.pre ? p.pre + ' ' + p.first + ' ' + p.last : p.first + ' ' + p.last : 'a guest not in this view'}</span><button class="unpair" data-unpair="${g.id}" title="Unpair" aria-label="Unpair ${g.first}">${I.unlink}</button></span>`;
+}
+function ceremonyLine(g) {
+  return g.ceremonyOnly ? `<span class="sub ceremony">${I.church}<span>ceremony only · not at the reception</span></span>` : '';
+}
+function seatCell(g) {
+  if (g.rsvp === 'declined') return '<span class="seat none">—</span>';
+  if (g.ceremonyOnly) return '<span class="seat none" title="Invited to the ceremony only — no chair to give">— </span>';
+  const plus = g.plusOne ? `<span class="plus">+1</span>` : '';
+  if (g.seat) return `<span class="seat">${g.seat}${plus}</span>`;
+  if (g.sug)  return `<span class="seat suggested" title="Suggested from role + side · place them in the seat plan to confirm">~${g.sug}${plus}</span>`;
+  return '<span class="seat none">—</span>';
+}
+const RSVP_LABEL = { attending:'Attending', pending:'Pending', declined:'Declined' };
+function roleCls(g) { const s = groupOfRole(g.role); return s ? s.cls : 'r-guest'; }
+
+/* the rows a view shows, grouped, with pairs adjacent and in line order */
+function rowsForView(view) {
+  const specs = view === 'all' ? GROUPS : GROUPS.filter(s => s.key === view || (view === 'bearers' && s.key === 'flower'));
+  const groups = specs.map(spec => {
+    const items = [];
+    for (const ln of linesOf(spec)) {
+      const [a, b] = ln;
+      if (a && b) items.push({ pair:[a, b] });
+      else items.push({ one: a || b });
+    }
+    return { spec, items };
+  }).filter(g => g.items.length);
+  if (view === 'all') {
+    const plain = G.filter(g => !groupOfRole(g.role));
+    if (plain.length) groups.push({ spec:{ key:'plain', label:'Guests', cls:'r-guest' }, items: plain.map(one => ({ one })) });
+  }
+  return groups;
+}
+
+/* ─────────────── render: walking order panel ─────────────── */
+function panelHtml(view) {
+  const specs = GROUPS.filter(s => s.key === view || (view === 'bearers' && s.key === 'flower'));
+  if (!specs.length) return '';
+  return specs.map(spec => {
+    const lines = linesOf(spec);
+    if (!lines.length) return '';
+    const anyPlaced = lines.some(ln => ln.some(g => g && typeof g.order === 'number'));
+    const [lh, rh] = spec.sides ? [ROLE_LABEL[spec.sides[0][0]], ROLE_LABEL[spec.sides[1][0]]] : ['First', 'Walks with'];
+    const cell = g => g ? `<span class="cell"><span>${fullName(g)}</span><small>${ROLE_LABEL[g.role]}${g.ceremonyOnly ? ' · ceremony only' : ''}</small></span>` : `<span class="cell blank" aria-label="left blank"></span>`;
+    return `<section class="panel" aria-labelledby="wo-${spec.key}">
+      <header><h2 id="wo-${spec.key}" class="eyebrow">Walking order · ${spec.label}</h2><p>${anyPlaced ? 'You have arranged these yourself.' : 'Arranged by surname until you change it.'} A pair is one line.</p></header>
+      <div class="cols"><span>#</span><span class="cells"><span>${lh}</span><span>${rh}</span></span><span></span></div>
+      <ol class="lines" data-group="${spec.key}">
+        ${lines.map((ln, i) => `<li class="line" data-idx="${i}" draggable="false">
+          <span class="pos">${i + 1}</span><span class="cells">${cell(ln[0])}${cell(ln[1])}</span>
+          <span class="ctl">
+            <button class="icon-btn handle" data-grab="${spec.key}:${i}" aria-pressed="false" aria-label="Reorder line ${i + 1}: press Space, then use arrow keys" title="Drag, or Space + arrows">${I.grip}</button>
+            <button class="icon-btn" data-move="${spec.key}:${i}:-1" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>${I.up}</button>
+            <button class="icon-btn" data-move="${spec.key}:${i}:1" aria-label="Move down" ${i === lines.length - 1 ? 'disabled' : ''}>${I.down}</button>
+          </span></li>`).join('')}
+      </ol>
+      <div class="foot"><span>Order is the line's; a chair is the person's — the seat plan is untouched.</span>${anyPlaced ? `<button data-reset="${spec.key}">Reset to surname</button>` : ''}</div>
+    </section>`;
+  }).join('');
+}
+
+/* ─────────────── render: desktop table ─────────────── */
+function desktopRow(g, pairPos) {
+  const sel = state.selected.has(g.id);
+  return `<tr class="side-${g.side} ${sel ? 'selected' : ''} ${pairPos || ''}">
+    <td class="sidecell"><input type="checkbox" data-sel="${g.id}" ${sel ? 'checked' : ''} aria-label="Select ${fullName(g)}"></td>
+    <td><div class="name"><span class="avatar">${initials(g)}</span><div class="txt"><p title="${fullName(g)}">${fullName(g)}</p>${g.plusOne ? `<span class="sub">+ ${g.plusOne}</span>` : ''}${partnerLine(g)}${ceremonyLine(g)}</div></div></td>
+    <td><span class="hint">${g.side === 'bride' ? 'Bride' : g.side === 'groom' ? 'Groom' : 'Both'}</span></td>
+    <td><span class="role ${roleCls(g)}">${ROLE_LABEL[g.role]}</span></td>
+    <td><span class="rsvp ${g.rsvp}">${RSVP_LABEL[g.rsvp]}</span></td>
+    <td><span class="meal">${g.rsvp === 'declined' ? '—' : g.ceremonyOnly ? '—' : g.meal}</span></td>
+    <td>${seatCell(g)}</td>
+    <td><span class="contact">${I.mail}</span></td>
+  </tr>`;
+}
+function desktopHtml() {
+  const groups = rowsForView(state.view);
+  const body = groups.map(({ spec, items }) => `<tr class="group-row"><td colspan="8">${spec.label}</td></tr>` +
+    items.map(it => it.pair ? desktopRow(it.pair[0], 'pair-top') + desktopRow(it.pair[1], 'pair-bottom') : desktopRow(it.one)).join('')).join('');
+  return `<table class="roster"><thead><tr><th style="width:40px"></th><th>Name</th><th style="width:7%">Side</th><th style="width:14%">Role</th><th style="width:9%">RSVP</th><th style="width:9%">Meal</th><th style="width:8%">Seat</th><th style="width:6%">Contact</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+/* ─────────────── render: phone list ─────────────── */
+function phoneRow(g) {
+  const sel = state.selected.has(g.id);
+  return `<li class="prow side-${g.side} ${sel ? 'selected' : ''}">
+    <label style="display:inline-flex"><input type="checkbox" data-sel="${g.id}" ${sel ? 'checked' : ''} aria-label="Select ${fullName(g)}"></label>
+    <span class="avatar">${initials(g)}</span>
+    <div class="body"><p>${fullName(g)}</p>
+      <div class="chips"><span class="chip ${roleCls(g)}">${ROLE_LABEL[g.role]}</span>${g.plusOne ? `<span class="hint" style="white-space:nowrap">+ ${g.plusOne}</span>` : ''}</div>
+      ${partnerLine(g)}${ceremonyLine(g)}
+    </div>
+    <div class="right"><span class="pill ${g.rsvp}">${RSVP_LABEL[g.rsvp]}</span>${seatCell(g)}</div>
+  </li>`;
+}
+function phoneHtml() {
+  const groups = rowsForView(state.view);
+  return groups.map(({ spec, items }) => `<div class="pgroup"><div class="pgroup-label">${spec.label}</div>` +
+    items.map(it => it.pair ? `<div class="ppair"><ul class="plist" style="gap:0">${phoneRow(it.pair[0])}${phoneRow(it.pair[1])}</ul></div>` : `<ul class="plist">${phoneRow(it.one)}</ul>`).join('') + `</div>`).join('');
+}
+
+/* ─────────────── render: printed view (the invitation + the church's sequence) ─────────────── */
+function printHtml() {
+  const inv = GROUPS.map(spec => {
+    const lines = linesOf(spec);
+    if (!lines.length) return '';
+    const cell = (g, cls) => g ? `<span class="${cls}">${fullName(g)}<small>${ROLE_LABEL[g.role]}</small></span>` : `<span class="${cls} empty">·</span>`;
+    return `<div class="pgroup-print"><h4>${spec.label}</h4>${lines.map(([a, b]) => {
+      const single = !spec.sides && !(a && b);
+      return single ? `<div class="pline single">${cell(a || b, 'l')}</div>` : `<div class="pline">${cell(a, 'l')}<span class="amp">${a && b ? '&amp;' : ''}</span>${cell(b, 'r')}</div>`;
+    }).join('')}</div>`;
+  }).join('');
+
+  /* The church's own sequence, derived: group order is the rite's, line order inside a group is entourage_order. */
+  const names = spec => linesOf(spec).map(([a, b]) => a && b ? `${a.first} ${a.last} & ${b.first} ${b.last}` : fullName(a || b));
+  const by = key => GROUPS.find(s => s.key === key);
+  const seq = [
+    ['Officiant', null, 'takes his place'],
+    ['Best Man', [byId('g04')].map(fullName)],
+    ['Groom, with his parents', [byId('g01')].map(fullName)],
+    ['Principal Sponsors — ninong & ninang, as paired', names(by('principal'))],
+    ['Secondary Sponsors — candle · veil · cord', names(by('secondary'))],
+    ['Bearers', names(by('bearers'))],
+    ['Flower Girls', names(by('flower'))],
+    ["Bride's Crew & Groom's Crew — as paired", names(by('crew'))],
+    ['Maid of Honour', [byId('g03')].map(fullName)],
+    ['Bride, with her parents', [byId('g02')].map(fullName)],
+  ];
+  return `<div class="print-wrap">
+    <div class="sheet"><h3>The Entourage</h3><p class="sub-h">as the invitation prints it · two columns, paired across · a blank stays blank</p>${inv}</div>
+    <div class="sheet"><h3>Processional</h3><p class="sub-h">the church's sequence · read from the same rows</p>
+      <ol class="seq">${seq.map(([b, who, fixed]) => `<li><div><b>${b}</b>${who ? `<span class="who">${who.join(' · ')}</span>` : `<span class="fixed">${fixed}</span>`}</div></li>`).join('')}</ol>
+      <p class="note">Group order is the rite's and varies by parish — the couple's hand only sets the order <em>within</em> a group, and pairs walk as one. A ceremony-only sponsor walks here and has no chair on the seat plan.</p>
+    </div>
+  </div>`;
+}
+
+/* ─────────────── render: a frame ─────────────── */
+function bulkHtml(frame) {
+  const n = state.selected.size;
+  if (!n) return frame === 'desktop' ? `<span class="hint">Tick two rows to pair them.</span>` : '';
+  const ids = [...state.selected];
+  let pairBtn = '';
+  if (n === 2) {
+    const [a, b] = ids.map(byId); const ga = groupOfRole(a.role), gb = groupOfRole(b.role);
+    const ok = ga && gb && ga === gb;
+    pairBtn = `<button class="btn" data-pair="${ids.join(',')}" ${ok ? '' : 'disabled'}>${I.link.replace('<svg', '<svg width="16" height="16"')} Pair these 2</button>` +
+      (ok ? '' : `<span class="hint warn">${!ga || !gb ? 'both need an entourage role' : 'they print under different groups'}</span>`);
+  } else {
+    pairBtn = `<span class="hint">Pairing needs exactly two.</span>`;
+  }
+  return `<span><span class="n">${n}</span> selected</span>${pairBtn}<button class="btn ghost" data-clear>Clear</button>`;
+}
+function frameHtml(frame) {
+  const tabs = `<div class="views" role="tablist">${VIEWS.map(v => `<button role="tab" aria-selected="${state.view === v.key}" data-view="${v.key}">${v.label}</button>`).join('')}</div>`;
+  const mast = `<div class="mast"><h2>Guests</h2><span class="count">${G.length} guests · ${G.filter(g => g.pair).length / 2} pairs</span></div>`;
+  if (state.view === 'print') return mast + tabs + printHtml();
+  const panel = panelHtml(state.view);
+  const list = frame === 'desktop' ? desktopHtml() : phoneHtml();
+  const bulk = `<div class="bulk">${bulkHtml(frame)}</div>`;
+  return frame === 'desktop' ? mast + tabs + panel + bulk + list : mast + tabs + panel + list + bulk;
+}
+function render() {
+  document.querySelectorAll('[data-frame]').forEach(el => { el.innerHTML = frameHtml(el.dataset.frame); });
+}
+
+/* ─────────────── events (delegated, both frames) ─────────────── */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-view],[data-pair],[data-unpair],[data-clear],[data-move],[data-reset],[data-grab]');
+  if (!t) return;
+  if (t.dataset.view) { state.view = t.dataset.view; state.grabbed = null; render(); return; }
+  if (t.dataset.clear !== undefined) { state.selected.clear(); render(); return; }
+  if (t.dataset.pair) {
+    const [a, b] = t.dataset.pair.split(',');
+    const r = pairGuests(a, b);
+    if (!r.ok) { toast(r.why); return; }
+    state.selected.clear(); render();
+    toast(`${byId(a).first} now walks with ${byId(b).first}. Their RSVPs, meals and seats are unchanged.`);
+    return;
+  }
+  if (t.dataset.unpair) { const g = byId(t.dataset.unpair); const p = byId(g.pair); unpairGuest(g.id); render(); toast(`${g.first} and ${p ? p.first : 'their partner'} are unpaired — both rows kept.`); return; }
+  if (t.dataset.move) {
+    const [key, idx, dir] = t.dataset.move.split(':'); const spec = GROUPS.find(s => s.key === key);
+    if (moveLine(spec, +idx, +dir)) { render(); announce(spec, +idx + +dir); focusMove(key, +idx + +dir, +dir); }
+    return;
+  }
+  if (t.dataset.reset) { clearOrder(GROUPS.find(s => s.key === t.dataset.reset)); render(); toast('Back to the surname order.'); return; }
+  if (t.dataset.grab) { toggleGrab(t); return; }
+});
+document.addEventListener('change', e => {
+  const cb = e.target.closest('[data-sel]'); if (!cb) return;
+  cb.checked ? state.selected.add(cb.dataset.sel) : state.selected.delete(cb.dataset.sel);
+  render();
+});
+
+/* keep focus on the same line's button after a move, so a keyboard user does not lose their place */
+function focusMove(key, idx, dir) {
+  const btn = document.querySelector(`#desktop [data-move="${key}:${idx}:${dir}"]:not(:disabled)`) || document.querySelector(`#desktop [data-move="${key}:${idx}:${-dir}"]`);
+  if (btn) btn.focus();
+}
+function announce(spec, idx) {
+  const ln = linesOf(spec)[idx]; const who = ln.filter(Boolean).map(g => g.first + ' ' + g.last).join(' & ');
+  toast(`${who} — now ${idx + 1} of ${linesOf(spec).length}.`);
+}
+
+/* ─────────────── keyboard reorder: Space grabs, arrows move, Esc / Space drops ─────────────── */
+function toggleGrab(btn) {
+  const [key, idx] = btn.dataset.grab.split(':');
+  if (state.grabbed && state.grabbed.key === key) { state.grabbed = null; render(); toast('Dropped.'); return; }
+  state.grabbed = { key, idx:+idx };
+  render();
+  const b = document.querySelector(`#desktop [data-grab="${key}:${idx}"]`);
+  if (b) { b.setAttribute('aria-pressed', 'true'); b.closest('.line').classList.add('grabbed'); b.focus(); }
+  toast(`Line ${+idx + 1} grabbed. Use ↑ ↓ to move, Space to drop, Esc to cancel.`);
+}
+document.addEventListener('keydown', e => {
+  if (!state.grabbed) return;
+  const { key, idx } = state.grabbed; const spec = GROUPS.find(s => s.key === key);
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    e.preventDefault(); const dir = e.key === 'ArrowUp' ? -1 : 1;
+    if (moveLine(spec, idx, dir)) { state.grabbed.idx = idx + dir; render(); const b = document.querySelector(`#desktop [data-grab="${key}:${idx + dir}"]`); if (b) { b.setAttribute('aria-pressed','true'); b.closest('.line').classList.add('grabbed'); b.focus(); } announce(spec, idx + dir); }
+  } else if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault(); state.grabbed = null; render(); toast(e.key === 'Escape' ? 'Cancelled — order kept as it is now.' : 'Dropped.');
+    const b = document.querySelector(`#desktop [data-grab="${key}:${idx}"]`); if (b) b.focus();
+  }
+});
+
+/* ─────────────── pointer drag on the handle (desktop only; an ADDITION to the buttons) ─────────────── */
+let drag = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest('#desktop .handle'); if (!h || e.pointerType === 'touch') return;
+  const [key, idx] = h.dataset.grab.split(':');
+  drag = { key, from:+idx, to:+idx, list:h.closest('.lines') };
+  h.setPointerCapture(e.pointerId);
+  h.closest('.line').classList.add('grabbed');
+  e.preventDefault();
+});
+document.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const lines = [...drag.list.querySelectorAll('.line')];
+  lines.forEach(l => l.classList.remove('over'));
+  const over = lines.find(l => { const r = l.getBoundingClientRect(); return e.clientY >= r.top && e.clientY <= r.bottom; });
+  if (over) { drag.to = +over.dataset.idx; if (drag.to !== drag.from) over.classList.add('over'); }
+});
+document.addEventListener('pointerup', () => {
+  if (!drag) return;
+  const spec = GROUPS.find(s => s.key === drag.key);
+  if (drag.to !== drag.from) { moveLineTo(spec, drag.from, drag.to); render(); announce(spec, drag.to); } else render();
+  drag = null;
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send a quote — FINAL interactive prototype · 2026-09-22</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!--
+  SEND A QUOTE — the supplier's one quote tool inside a conversation.
+  Route: /vendor-dashboard/messages/[threadId]#build-quote  (ProposalMaker + the saved-template shortcut)
+  ZERO JAVASCRIPT. Every state is a radio input at the top of <body>; CSS sibling selectors show it.
+  One DOM, two layouts: < 1024px one column · ≥ 1024px the flow left, what the supplier needs pinned right.
+  Real values: 2 live service cards read off prod 2026-09-22 (Live band ₱35,000 · Host / MC ₱40,000, titles
+  NULL, gift OFF on both, crew meal REQUIRED and not included, travel not included) · fee 5% to ₱100,000
+  then 1%, floor ₱50 · the Papic ladder from platform_retail_catalog_v2 (1K@₱700 · 2K@₱1,400 · 3K@₱1,680 …)
+  and the 40% / 50,000 rule in lib/setnayan-gift.ts · the accepted thread's event (Ana & Miguel · wedding ·
+  2027-03-13 · calabarzon · 200 pax · premium · catholic · timeless · band_dj contracted).
+  [Brackets] mark placeholders — rows prod does not hold yet (inclusions, add-ons, schedules, slots).
+  Slices: A unblocked · B C D E F held · G later wave (migration). Marked on every block.
+-->
+<style>
+:root{--ink:#2C2A29;--ink-2:#6F6A62;--ink-3:#9A948A;--line:#E1DCD1;--line-2:#F0EBE3;--soft:#F6F3EE;--page:#fff;
+--gold:#8C6932;--gold-2:#C9A46A;--night:#17160F;--night-ink:#F4EFE6;--night-2:#B8AE9E;--terra:#B5613D;--terra-bg:#FBF1EC;
+--mulberry:#7A3B5E;--mulberry-bg:#F7EEF3;--ok:#2F6B35;--ok-bg:#E8F1E6;--amber:#8A4B12;--amber-bg:#FBF0E4;--amber-line:#E7C08E;--r:14px}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:15px}
+code{font-family:'Space Mono',ui-monospace,monospace;font-size:.84em;background:var(--soft);padding:1px 4px;border-radius:5px}
+h1,h2,h3{margin:0;font-weight:600}
+p{margin:0}
+a{color:var(--terra)}
+/* ---------- the state radios live here, before everything they switch ---------- */
+body>input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+/* ---------- prototype bar (clearly not the app) ---------- */
+.bar{position:static;z-index:30;background:#EDEAE4;border-bottom:1px solid var(--line);padding:8px 14px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ink-2)}
+.bar .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bar b{font-weight:600;color:var(--ink);min-width:88px}
+.bar label{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;white-space:nowrap}
+.bar .v{margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;color:var(--ink-2)}
+/* phone: the bar scrolls away; a tiny sticky anchor brings it back (zero JS) */
+.tostates{position:sticky;top:0;z-index:31;display:flex;justify-content:flex-end;padding:4px 10px 0;pointer-events:none}
+.tostates a{pointer-events:auto;font-size:11px;padding:4px 10px;border-radius:999px;background:var(--ink);color:#fff;text-decoration:none;opacity:.85}
+/* ---------- badges ---------- */
+.slice{display:inline-flex;align-items:center;gap:4px;font-family:'Space Mono',monospace;font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);background:#fff;vertical-align:middle}
+.slice.a{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+.slice.held{border-color:var(--amber-line);color:var(--amber);background:var(--amber-bg)}
+.answer{display:inline-flex;align-items:center;font-family:'Space Mono',monospace;font-size:10px;padding:2px 7px;border-radius:6px;background:var(--night);color:var(--gold-2);vertical-align:middle}
+.amber{border:1.5px solid var(--amber-line);background:var(--amber-bg);color:var(--amber);border-radius:var(--r);padding:12px 14px;font-size:13px;line-height:1.45}
+.amber b{color:var(--amber)}
+.amber .q{display:block;margin-top:6px;font-family:'Space Mono',monospace;font-size:11px}
+/* ---------- shell ---------- */
+.shell-top,.shell-rail{display:none}
+.app{display:block}
+.page-head{display:flex;align-items:center;gap:4px;padding:12px 16px 4px 8px}
+.icon-btn{width:44px;height:44px;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;border-radius:999px}
+.page-head h1{font-size:24px;font-weight:500;line-height:1.1}
+.status{font-size:13px;color:var(--ink-2)}
+.pill{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;border:1px solid var(--line);font-size:11px;font-weight:600;background:#fff}
+.layout{display:flex;flex-direction:column;gap:22px;padding:12px 16px 40px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h2{font-size:17px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.muted{color:var(--ink-2)}.small{font-size:12px;color:var(--ink-2)}.center{text-align:center}
+.card{border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:#fff}
+.rows{border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#fff}
+.row{min-height:48px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;border:0;border-bottom:1px solid var(--line-2);background:#fff;font-size:15px;text-align:left}
+.rows .row:last-child{border-bottom:0}
+.row .v{color:var(--ink-2);text-align:right}.row .v.gold{color:var(--gold)}.row .v.ok{color:var(--ok)}.row .v.mul{color:var(--mulberry)}
+.row.sum{font-weight:600}
+.row .l{display:flex;flex-direction:column;gap:2px}.row .l .s{font-size:12px;color:var(--ink-2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:46px;border:0;border-radius:999px;background:var(--gold);color:#fff;font-size:15px;font-weight:600;padding:0 22px;cursor:pointer}
+.btn.dark{background:var(--ink)}.btn.ghost{background:#fff;border:1px solid var(--gold);color:var(--gold);height:40px}
+.btn.dead{background:var(--line);color:var(--ink-3);cursor:default}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:13px}
+.chip.on{border-color:var(--terra);background:var(--terra-bg);color:var(--terra)}
+.chip.dead{color:var(--ink-3);border-style:dashed}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;background:var(--soft);border-radius:999px;padding:4px}
+.seg span{height:36px;display:flex;align-items:center;justify-content:center;border-radius:999px;font-size:13px;color:var(--ink-2)}
+.seg span.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(23,22,15,.12)}
+.field{height:40px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:0 12px;font-size:15px;display:flex;align-items:center;color:var(--ink-3)}
+.field.filled{color:var(--ink)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.stepper{display:flex;gap:8px;align-items:stretch}
+.stepper .sb{width:44px;flex-shrink:0;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.stepper .val{flex:1;border-radius:12px;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px}
+.stepper .big{font-size:20px;font-weight:600}
+.switch{width:44px;height:26px;flex-shrink:0;border-radius:999px;background:#D9D3C8;padding:3px;display:flex;position:relative}
+.switch::after{content:"";width:20px;height:20px;border-radius:999px;background:#fff}
+.switch.on{background:var(--gold)}.switch.on::after{margin-left:18px}
+.switch.dead{opacity:.45}
+/* lines */
+.line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-height:52px;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.line.free{border-color:#BFD5BB;background:#F2F8F0}
+.line .h{width:22px;color:var(--ink-3);font-size:18px;text-align:center}
+.line .n{flex:1 1 140px;min-width:0;font-size:15px}
+.line .ctl{display:flex;align-items:center;gap:6px;margin-left:auto}
+.line .p{white-space:nowrap;font-weight:600}
+.line .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:#fff;border:1px solid #BFD5BB;color:var(--ok);white-space:nowrap}
+.line .b{height:30px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:12px;padding:0 8px;display:inline-flex;align-items:center;color:var(--ink-2)}
+.line .x{width:32px;text-align:center;color:var(--ink-3);font-size:18px}
+.dashed{height:44px;border:1px dashed var(--line);border-radius:14px;background:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+/* the quote as the card (ServiceCardFace shape) */
+.face{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:var(--r);padding:12px;background:#FCFAF6}
+.face .cover{width:76px;height:106px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:#5E5446;text-align:center;padding:4px}
+.face .cover.none{background:#F3E4D4;color:#A5673F;font-size:22px}
+.face .bd{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.face .nm{font-size:14px;font-weight:600}
+.face .pr{color:var(--terra);font-weight:600;font-size:13px}
+.face .inc{color:var(--ok);font-weight:500}
+.face .gift{color:var(--terra);font-size:11px}
+.face .st{font-size:11px;color:var(--ink-2)}
+.face .ft{display:flex;align-items:center;gap:8px;padding-top:4px;flex-wrap:wrap}
+.face .ft .cta{border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;background:var(--ink);color:#fff}
+.face .ft .cta.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.face .ft .hint{font-size:10px;color:var(--ink-3)}
+.face .ft.q{display:none}
+.face.hist{opacity:.72;background:#fff}
+/* thread */
+.thread{display:flex;flex-direction:column;gap:10px}
+.bubble{align-self:flex-start;max-width:82%;background:var(--soft);border-radius:16px;padding:10px 14px;font-size:14px}
+.bubble.me{align-self:flex-end;background:var(--night);color:var(--night-ink)}
+.qcard{border:1px solid var(--gold-2);border-radius:var(--r);padding:10px;background:#FFFBF3;display:flex;flex-direction:column;gap:8px}
+.qcard .lab{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--terra)}
+.qcard.hist{border-color:var(--line);background:#fff;opacity:.8}
+.histchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:999px;border:1px dashed var(--line);font-size:12px;color:var(--ink-2);background:#fff;align-self:flex-start}
+/* stages */
+.stage{position:relative;display:flex;flex-direction:column;gap:12px;padding-left:44px}
+.stage::before{content:"";position:absolute;left:15px;top:36px;bottom:-24px;width:2px;background:var(--line)}
+.stage.n5::before{display:none}
+.stage .num{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:999px;border:2px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--ink-2)}
+.stage .num i{font-style:normal}.stage .num b{display:none}
+.stage .shead{display:flex;flex-direction:column;gap:2px;min-height:32px;justify-content:center;cursor:pointer}
+.stage .shead .eyebrow{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.stage .shead h2{font-size:19px}
+.stage .shead .sum{font-size:14px;color:var(--ink-2)}
+.stage .body{display:none;flex-direction:column;gap:18px}
+.stage .next{display:flex;align-items:center;gap:12px;background:var(--night);color:var(--night-ink);border-radius:var(--r);padding:12px 12px 12px 18px}
+.stage .next span{flex:1;font-size:14px}.stage .next label{height:42px;display:inline-flex;align-items:center;padding:0 16px;border-radius:999px;background:var(--gold-2);color:var(--night);font-weight:600;cursor:pointer;font-size:14px;white-space:nowrap}
+/* current / done / later per step radio */
+#st1:checked ~ .app .stage.n1 .body,#st2:checked ~ .app .stage.n2 .body,#st3:checked ~ .app .stage.n3 .body,#st4:checked ~ .app .stage.n4 .body,#st5:checked ~ .app .stage.n5 .body{display:flex}
+#st1:checked ~ .app .stage.n1 .sum,#st2:checked ~ .app .stage.n2 .sum,#st3:checked ~ .app .stage.n3 .sum,#st4:checked ~ .app .stage.n4 .sum,#st5:checked ~ .app .stage.n5 .sum{display:none}
+#st1:checked ~ .app .stage.n1 .num,#st2:checked ~ .app .stage.n2 .num,#st3:checked ~ .app .stage.n3 .num,#st4:checked ~ .app .stage.n4 .num,#st5:checked ~ .app .stage.n5 .num{background:var(--gold);border-color:var(--gold);color:#fff}
+#st2:checked ~ .app .stage.n1 .num,#st3:checked ~ .app .stage.n1 .num,#st3:checked ~ .app .stage.n2 .num,#st4:checked ~ .app .stage.n1 .num,#st4:checked ~ .app .stage.n2 .num,#st4:checked ~ .app .stage.n3 .num,#st5:checked ~ .app .stage.n1 .num,#st5:checked ~ .app .stage.n2 .num,#st5:checked ~ .app .stage.n3 .num,#st5:checked ~ .app .stage.n4 .num{background:var(--ok-bg);border-color:var(--ok-bg);color:var(--ok)}
+#st2:checked ~ .app .stage.n1 .num i,#st3:checked ~ .app .stage.n1 .num i,#st3:checked ~ .app .stage.n2 .num i,#st4:checked ~ .app .stage.n1 .num i,#st4:checked ~ .app .stage.n2 .num i,#st4:checked ~ .app .stage.n3 .num i,#st5:checked ~ .app .stage.n1 .num i,#st5:checked ~ .app .stage.n2 .num i,#st5:checked ~ .app .stage.n3 .num i,#st5:checked ~ .app .stage.n4 .num i{display:none}
+#st2:checked ~ .app .stage.n1 .num b,#st3:checked ~ .app .stage.n1 .num b,#st3:checked ~ .app .stage.n2 .num b,#st4:checked ~ .app .stage.n1 .num b,#st4:checked ~ .app .stage.n2 .num b,#st4:checked ~ .app .stage.n3 .num b,#st5:checked ~ .app .stage.n1 .num b,#st5:checked ~ .app .stage.n2 .num b,#st5:checked ~ .app .stage.n3 .num b,#st5:checked ~ .app .stage.n4 .num b{display:inline}
+#st1:checked ~ .app .stage.n2,#st1:checked ~ .app .stage.n3,#st1:checked ~ .app .stage.n4,#st1:checked ~ .app .stage.n5,#st2:checked ~ .app .stage.n3,#st2:checked ~ .app .stage.n4,#st2:checked ~ .app .stage.n5,#st3:checked ~ .app .stage.n4,#st3:checked ~ .app .stage.n5,#st4:checked ~ .app .stage.n5{opacity:.55}
+#st1:checked ~ .app .stage.n2 .sum::before,#st1:checked ~ .app .stage.n3 .sum::before,#st1:checked ~ .app .stage.n4 .sum::before,#st1:checked ~ .app .stage.n5 .sum::before,#st2:checked ~ .app .stage.n3 .sum::before,#st2:checked ~ .app .stage.n4 .sum::before,#st2:checked ~ .app .stage.n5 .sum::before,#st3:checked ~ .app .stage.n4 .sum::before,#st3:checked ~ .app .stage.n5 .sum::before,#st4:checked ~ .app .stage.n5 .sum::before{content:"Up next · "}
+/* step strip + right-column steps */
+.strip{display:flex;gap:4px;overflow-x:auto;padding:4px 0 2px;font-size:12px;white-space:nowrap}
+.strip label{padding:4px 10px;border-radius:999px;cursor:pointer;color:var(--ink-3);border:1px solid transparent}
+#st1:checked ~ .app .strip .k1,#st2:checked ~ .app .strip .k2,#st3:checked ~ .app .strip .k3,#st4:checked ~ .app .strip .k4,#st5:checked ~ .app .strip .k5{background:var(--ink);color:#fff;border-color:var(--ink)}
+#st2:checked ~ .app .strip .k1,#st3:checked ~ .app .strip .k1,#st3:checked ~ .app .strip .k2,#st4:checked ~ .app .strip .k1,#st4:checked ~ .app .strip .k2,#st4:checked ~ .app .strip .k3,#st5:checked ~ .app .strip .k1,#st5:checked ~ .app .strip .k2,#st5:checked ~ .app .strip .k3,#st5:checked ~ .app .strip .k4{color:var(--ok)}
+.steps{display:none;flex-direction:column;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#fff}
+.steps label{min-height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--line-2);font-size:14px;cursor:pointer;color:var(--ink-3)}
+.steps label:last-child{border-bottom:0}
+.steps label .n{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+#st1:checked ~ .app .steps .k1,#st2:checked ~ .app .steps .k2,#st3:checked ~ .app .steps .k3,#st4:checked ~ .app .steps .k4,#st5:checked ~ .app .steps .k5{color:var(--ink);font-weight:600}
+#st1:checked ~ .app .steps .k1 .n,#st2:checked ~ .app .steps .k2 .n,#st3:checked ~ .app .steps .k3 .n,#st4:checked ~ .app .steps .k4 .n,#st5:checked ~ .app .steps .k5 .n{background:var(--gold);border-color:var(--gold);color:#fff}
+#st2:checked ~ .app .steps .k1,#st3:checked ~ .app .steps .k1,#st3:checked ~ .app .steps .k2,#st4:checked ~ .app .steps .k1,#st4:checked ~ .app .steps .k2,#st4:checked ~ .app .steps .k3,#st5:checked ~ .app .steps .k1,#st5:checked ~ .app .steps .k2,#st5:checked ~ .app .steps .k3,#st5:checked ~ .app .steps .k4{color:var(--ok)}
+/* thread state (6) — only 'accepted' mounts the tools (toolsMounted) */
+.thr{display:none}
+#thr-pending:checked ~ .app .thr-pending,#thr-accepted:checked ~ .app .thr-accepted,#thr-declined:checked ~ .app .thr-declined,#thr-displaced:checked ~ .app .thr-displaced,#thr-withdrawn:checked ~ .app .thr-withdrawn,#thr-expired:checked ~ .app .thr-expired{display:revert}
+#thr-pending:checked ~ .app .pill.thr-pending,#thr-accepted:checked ~ .app .pill.thr-accepted,#thr-declined:checked ~ .app .pill.thr-declined,#thr-displaced:checked ~ .app .pill.thr-displaced,#thr-withdrawn:checked ~ .app .pill.thr-withdrawn,#thr-expired:checked ~ .app .pill.thr-expired{display:inline-flex}
+.composer{display:none}
+#thr-accepted:checked ~ .app .composer{display:contents}
+/* quote state (5) inside the thread */
+.q{display:none}
+#q-none:checked ~ .app .q-none,#q-sent:checked ~ .app .q-sent,#q-viewed:checked ~ .app .q-viewed,#q-accepted:checked ~ .app .q-accepted,#q-superseded:checked ~ .app .q-superseded{display:revert}
+#q-sent:checked ~ .app .ft.q-sent,#q-viewed:checked ~ .app .ft.q-viewed,#q-accepted:checked ~ .app .ft.q-accepted,#q-superseded:checked ~ .app .ft.q-superseded{display:flex}
+.q-live{display:none}
+#q-sent:checked ~ .app .q-live,#q-viewed:checked ~ .app .q-live,#q-accepted:checked ~ .app .q-live,#q-superseded:checked ~ .app .q-live{display:block}
+/* cards variant (7) */
+.cv{display:none}
+#cd-none:checked ~ .app .cv-none,#cd-one:checked ~ .app .cv-one,#cd-two:checked ~ .app .cv-two,#cd-draft:checked ~ .app .cv-draft,#cd-empty:checked ~ .app .cv-empty,#cd-refused:checked ~ .app .cv-refused,#cd-loading:checked ~ .app .cv-loading{display:revert}
+/* money blocks: cards × discount (radios: cards before disc) */
+.m{display:none}
+#cd-one:checked ~ #disc-on:checked ~ .app .m-one-on,#cd-one:checked ~ #disc-off:checked ~ .app .m-one-off,#cd-two:checked ~ #disc-on:checked ~ .app .m-two-on,#cd-two:checked ~ #disc-off:checked ~ .app .m-two-off{display:revert}
+#cd-none:checked ~ .app .m-none,#cd-draft:checked ~ .app .m-none,#cd-empty:checked ~ .app .m-none,#cd-refused:checked ~ .app .m-none,#cd-loading:checked ~ .app .m-none{display:revert}
+.d{display:none}
+#disc-on:checked ~ .app .d-on,#disc-off:checked ~ .app .d-off{display:revert}
+/* right column */
+.right{display:contents}
+.right .rc{display:none}
+div.q>*+*,div.cv>*+*,div.m>*+*,div.thr>*+*{margin-top:8px}
+/* summary */
+.summary{max-width:860px;margin:32px auto 60px;padding:0 16px;display:flex;flex-direction:column;gap:14px;font-size:14px;line-height:1.5}
+.summary h2{font-size:18px;margin-top:10px}
+.summary ol,.summary ul{margin:0;padding-left:20px}
+.summary li{margin:4px 0}
+/* ---------- DESKTOP ---------- */
+@media (min-width:1024px){
+  body{background:#FAF8F4}
+  .shell-top{display:flex;align-items:center;gap:16px;height:56px;padding:0 24px;background:#fff;border-bottom:1px solid var(--line-2)}
+  .shell-top .brand{font-weight:700;letter-spacing:.2em;font-size:14px}
+  .shell-top .search{flex:1;max-width:520px;height:38px;border:1px solid var(--line);border-radius:999px;display:flex;align-items:center;padding:0 16px;color:var(--ink-3);font-size:14px}
+  .app{display:grid;grid-template-columns:250px 1fr}
+  .shell-rail{display:flex;flex-direction:column;gap:4px;padding:16px 12px;border-right:1px solid var(--line-2);background:#fff;font-size:13px;color:var(--ink-2)}
+  .shell-rail .th{padding:10px 12px;border-radius:12px;display:flex;flex-direction:column;gap:2px}
+  .shell-rail .th.on{background:var(--soft);color:var(--ink)}.shell-rail .th b{font-weight:600}
+  .main{max-width:1240px;width:100%;margin:0 auto;padding:8px 32px}
+  .page-head{padding:20px 0 8px}.page-head h1{font-size:30px}.page-head .back{display:none}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;column-gap:32px;row-gap:26px;padding:8px 0 64px;align-items:start}
+  .layout > *{grid-column:1}
+  .right{display:flex;flex-direction:column;gap:16px;grid-column:2;grid-row:1 / span 20;position:sticky;top:16px;align-self:start}
+  .right .rc{display:flex;flex-direction:column;gap:10px}
+  .steps{display:flex}
+  .layout > .strip{display:none}
+  .stage{padding-left:52px}.stage .num{width:36px;height:36px}.stage::before{left:17px;top:40px}
+  .phone-only{display:none!important}
+  .bar{position:sticky;top:0}
+  .tostates{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ STATE RADIOS (zero JS) ═══════════ -->
+<input type="radio" name="thr" id="thr-pending">
+<input type="radio" name="thr" id="thr-accepted" checked>
+<input type="radio" name="thr" id="thr-declined">
+<input type="radio" name="thr" id="thr-displaced">
+<input type="radio" name="thr" id="thr-withdrawn">
+<input type="radio" name="thr" id="thr-expired">
+<input type="radio" name="q" id="q-none" checked>
+<input type="radio" name="q" id="q-sent">
+<input type="radio" name="q" id="q-viewed">
+<input type="radio" name="q" id="q-accepted">
+<input type="radio" name="q" id="q-superseded">
+<input type="radio" name="st" id="st1" checked>
+<input type="radio" name="st" id="st2">
+<input type="radio" name="st" id="st3">
+<input type="radio" name="st" id="st4">
+<input type="radio" name="st" id="st5">
+<input type="radio" name="cd" id="cd-none">
+<input type="radio" name="cd" id="cd-one" checked>
+<input type="radio" name="cd" id="cd-two">
+<input type="radio" name="cd" id="cd-draft">
+<input type="radio" name="cd" id="cd-empty">
+<input type="radio" name="cd" id="cd-refused">
+<input type="radio" name="cd" id="cd-loading">
+<input type="radio" name="disc" id="disc-on" checked>
+<input type="radio" name="disc" id="disc-off">
+
+<!-- ═══════════ PROTOTYPE BAR ═══════════ -->
+<div class="bar" id="top" role="group" aria-label="Prototype states">
+  <div class="row"><b>Prototype</b><span>Send a quote · FINAL · 2026-09-22 · no JavaScript — every state is a click</span><span class="v">3 threads in prod · all accepted · 0 quotes ever sent through this composer</span></div>
+  <div class="row"><b>Thread</b>
+    <label for="thr-pending">inquiry pending</label><label for="thr-accepted">accepted</label><label for="thr-declined">supplier declined</label><label for="thr-displaced">displaced (couple locked another)</label><label for="thr-withdrawn">couple withdrew</label><label for="thr-expired">expired</label></div>
+  <div class="row"><b>Quote</b>
+    <label for="q-none">no quote yet</label><label for="q-sent">sent · never opened</label><label for="q-viewed">viewed</label><label for="q-accepted">accepted</label><label for="q-superseded">superseded by a new one</label></div>
+  <div class="row"><b>Step</b>
+    <label for="st1">1 Know</label><label for="st2">2 Offer</label><label for="st3">3 Price</label><label for="st4">4 Terms</label><label for="st5">5 Send</label></div>
+  <div class="row"><b>Cards</b>
+    <label for="cd-none">none picked</label><label for="cd-one">Live band</label><label for="cd-two">Live band + Host / MC (gift switches disagree)</label><label for="cd-draft">a card with no price</label><label for="cd-empty">shop has no cards</label><label for="cd-refused">card read refused</label><label for="cd-loading">loading</label></div>
+  <div class="row"><b>Discount</b>
+    <label for="disc-on">applied (Answer 3)</label><label for="disc-off">supplier removed it</label></div>
+</div>
+
+<div class="tostates"><a href="#top">⇡ states</a></div>
+<div class="shell-top"><span class="brand">SETNAYAN</span><span class="search">Search conversations</span></div>
+
+<div class="app">
+  <nav class="shell-rail" aria-label="Conversations">
+    <div class="th on"><b>Ana &amp; Miguel</b><span>Live band · 200 guests · 13 Mar 2027</span></div>
+    <div class="th"><b>Rosa &amp; Ben</b><span>Live band · 30 Oct 2026</span></div>
+    <div class="th"><b>[third thread]</b><span>Host / MC · [date]</span></div>
+  </nav>
+
+  <div class="main">
+    <div class="page-head">
+      <span class="icon-btn back" aria-hidden="true">‹</span>
+      <div><h1>Ana &amp; Miguel</h1><span class="status">Wedding · Saturday, 13 March 2027 · ~200 guests · <span class="pill thr thr-pending">Inquiry</span><span class="pill thr thr-accepted">Quoted</span><span class="pill thr thr-declined">Cancelled</span><span class="pill thr thr-displaced">Cancelled</span><span class="pill thr thr-withdrawn">Cancelled</span><span class="pill thr thr-expired">Cancelled</span></span></div>
+    </div>
+
+    <div class="layout">
+
+      <!-- ─────────── THE CONVERSATION, per thread state ─────────── -->
+      <section class="sec" aria-label="Conversation">
+        <div class="thread">
+          <div class="bubble">[Hi! Do you have a package for 200 guests?]</div>
+
+          <!-- the offered service card (today) → replaced by the quote card once a quote exists (Answer 2, slice E) -->
+          <div class="q q-none">
+            <div class="qcard" style="border-color:var(--line);background:#fff">
+              <span class="lab">Offered service <span class="slice">shipped · chat-offered-service-card</span></span>
+              <div class="face" style="border:0;padding:0;background:transparent">
+                <div class="cover">Live band</div>
+                <div class="bd"><span class="nm">Live band</span><span class="st">Band / DJ · [leaf path]</span><span class="pr">from ₱35,000</span><span class="inc">🎁 Includes [Sound check · 1 hr]</span><span class="st">Setnayan Exclusive inside · unlocked in chat</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- the quote card, live: replaces the offer -->
+          <div class="q-live">
+            <div class="q q-superseded">
+              <div class="qcard hist">
+                <span class="lab">📄 Quote · <span class="slice">shipped · quote-card-state history</span></span>
+                <div class="face hist" style="border:0;padding:0;background:transparent">
+                  <div class="cover">Live band</div>
+                  <div class="bd"><span class="nm">Live band</span><span class="st">200 guests · 8 h</span><span class="pr">₱35,750 · Superseded</span><span class="st">Replaced by a newer quote · Sep 22</span><span class="ft"><span class="cta ghost">View proposal</span></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="qcard">
+              <span class="lab">📄 Quote <span class="slice held">E · held (frame)</span> <span class="answer">Answer 2 · replaces the offered card</span></span>
+              <div class="face" style="border:0;padding:0;background:transparent">
+                <div class="cover">Live band</div>
+                <div class="bd">
+                  <span class="nm">Live band</span>
+                  <span class="st">200 guests · 8 h · valid until 6 Oct 2026</span>
+                                    <span class="pr">₱35,750 <span class="q q-sent">· Sent</span><span class="q q-viewed">· Viewed</span><span class="q q-accepted">· Accepted</span><span class="q q-superseded">· Sent</span></span>
+                  <span class="inc">🎁 Includes [Sound check · 1 hr]</span>
+                  <span class="st">[Evening set] · 6–10 pm · Booked 2 times · Serves [Calabarzon · NCR]</span>
+                  <!-- the ONE button, decided by lib/quote-card-state.ts (#5607) — extended, not redrawn -->
+                  <span class="ft q q-sent" ><span class="cta ghost">View proposal</span><span class="cta ghost">Update this quote</span><span class="hint">Sent Sep 22 · the couple has not opened it yet</span></span>
+                  <span class="ft q q-viewed" ><span class="cta ghost">View proposal</span><span class="cta ghost">Update this quote</span><span class="hint">Viewed Sep 22 · they can counter-offer</span></span>
+                  <span class="ft q q-accepted" ><span class="cta ghost">View proposal</span><span class="cta ghost">Update this quote</span><span class="hint">Accepted · waiting for the couple to lock</span></span>
+                  <span class="ft q q-superseded" ><span class="cta ghost">View proposal</span><span class="cta ghost">Update this quote</span><span class="hint">Sent Sep 22 · the newer quote is the live one</span></span>
+                </div>
+              </div>
+              <!-- MITIGATION: the superseded offer stays reachable as history -->
+              <span class="histchip">↩ Offered earlier · Live band card · view ›</span>
+            </div>
+            <div class="amber">
+              <b>⚠ Answer 2 destroys a view.</b> Replacing the offered card removes what was originally offered — the card with its cover, includes and "unlocked in chat" line is no longer in the thread. "Both stay" was the reversible choice and it was not taken.
+              <b>Proposed mitigation, drawn above:</b> the superseded offer stays reachable as history behind <code>↩ Offered earlier</code>, not gone. Slice A's seed carries the card ids it was built from so the frame can render this.
+              <span class="q">Approve the loss deliberately, or say "both stay".</span>
+            </div>
+          </div>
+
+          <div class="bubble q q-viewed">[Thank you! Reviewing this tonight.]</div>
+          <div class="bubble q q-accepted">[Accepted — can we lock the date?]</div>
+        </div>
+
+        <!-- per-state composer replacement (shipped copy, origin/main page.tsx) -->
+        <div class="thr thr-pending">
+          <div class="card">
+            <span class="small">Shipped · the Accept/Decline block. <b>Never rendered for a real inquiry</b> — 0 pending threads in prod.</span>
+            <p><b>New inquiry.</b> Accept to reply, or decline if you&rsquo;re not available for this date.</p>
+            <div class="chips"><span class="chip">Saturday, 13 March 2027</span><span class="chip">150 pax at inquiry</span></div>
+            <div class="chips"><span class="btn">Accept inquiry</span><span class="btn ghost">Decline</span></div>
+            <span class="small">No tools mount on a pending thread (<code>toolsMounted = inquiry_status === 'accepted'</code>): no quote, no offer, no call. The rail shows the customer and the way out.</span>
+          </div>
+        </div>
+        <div class="thr thr-declined">
+          <div class="card"><p>You declined this inquiry. The couple has been notified and pointed to other vendors.</p><span class="small">Shipped copy · then "Log the outcome" (won / lost / no response — private to you).</span></div>
+        </div>
+        <div class="thr thr-displaced">
+          <div class="amber"><b>⚠ Displaced — the couple locked another supplier in the same group.</b> The shipped page has no sentence for this state: the composer's else-branch prints the <i>declined</i> copy ("You declined this inquiry…"), which is false here. Proposed: <code>[The couple booked another supplier for this. This inquiry is closed — it reopens if that booking falls through.]</code><span class="q">Owner: confirm the sentence. Displaced is REVIVABLE by design (migration 20261126000000).</span></div>
+        </div>
+        <div class="thr thr-withdrawn">
+          <div class="amber"><b>⚠ Withdrawn — the couple took the inquiry back.</b> Same gap: the shipped else-branch prints the declined copy. Proposed: <code>[The couple withdrew this inquiry. Nothing to do — your outcome log stays private.]</code><span class="q">Owner: confirm the sentence.</span></div>
+        </div>
+        <div class="thr thr-expired">
+          <div class="amber"><b>⚠ Expired — nobody answered in time.</b> Same gap. Proposed: <code>[This inquiry expired before it was answered. The couple has been pointed to other vendors.]</code><span class="q">Owner: confirm the sentence, and whether an expired inquiry can be reopened by the supplier.</span></div>
+        </div>
+      </section>
+
+      <!-- ═══════════ THE COMPOSER — only on an accepted thread ═══════════ -->
+      <div class="composer">
+
+      <div class="strip phone-only"><label class="k1" for="st1">1 Know the event</label><label class="k2" for="st2">2 Choose what to offer</label><label class="k3" for="st3">3 Set the price</label><label class="k4" for="st4">4 Terms</label><label class="k5" for="st5">5 Review &amp; send</label></div>
+
+      <!-- revision banner when a quote already exists (shipped S5 copy) -->
+      <div class="q-live"><div class="card" style="border-color:var(--terra);background:var(--terra-bg)"><p><b>Updating “Live band” · ₱35,750</b><span class="q q-accepted"> · accepted by the couple</span></p><span class="small">Sending replaces that quote. It stays in the conversation as history, and the couple must review and accept the new one<span class="q q-accepted"> — their earlier acceptance no longer stands</span>.</span><span class="small">Shipped · opens at Set the price (<code>openingStage</code>) <span class="slice held">C · held</span></span></div></div>
+
+      <!-- ─────────── STEP 1 · KNOW THE EVENT ─────────── -->
+      <section class="stage n1" aria-label="Step 1: Know the event">
+        <span class="num"><i>1</i><b>✓</b></span>
+        <label class="shead" for="st1"><span class="eyebrow">Step 1 of 5 · read</span><h2>Know the event <span class="slice held">D · held</span></h2><span class="sum">Wedding · Saturday, 13 March 2027 · Calabarzon</span></label>
+        <div class="body">
+          <div class="sec">
+            <div class="sec-head"><span class="small">Their event · the rail's own rows + the stage-1 facts (ruling 2026-09-20)</span><a href="#" class="small">Full brief ›</a></div>
+            <div class="rows">
+              <div class="row"><span>Target date</span><span class="v">Saturday, 13 March 2027</span></div>
+              <div class="row"><span>Pax</span><span class="v">~200 planning · <span class="muted">[150] at inquiry</span></span></div>
+              <div class="row"><span>Location</span><span class="v muted">Not set yet</span></div>
+              <div class="row"><span>Locked suppliers</span><span class="v">1 of 1</span></div>
+              <div class="row"><span>Area</span><span class="v">Calabarzon</span></div>
+              <div class="row"><span>Asked for</span><span class="v">Live band</span></div>
+              <div class="row"><span>Budget band</span><span class="v">Premium · ~₱11,000 a head</span></div>
+              <div class="row"><span>Style</span><span class="v">Timeless · Catholic</span></div>
+              <div class="row"><span>Already locked</span><span class="v">Band / DJ</span></div>
+            </div>
+            <div class="amber"><b>Withheld until the fee is settled — NOT shown today.</b> With <code>NEXT_PUBLIC_FEE_UNLOCKS_EVENT</code> unset in production, nothing is withheld and this line does not render. When the flag is on and the shop is still quoting, the shipped sentence appears here: <i>"Quote first — the rest opens when the booking fee is settled. The exact venue and address, meal counts, the day-of timeline, the seat plan and the couple’s monogram open once this booking is confirmed and the Setnayan booking fee is settled."</i></div>
+          </div>
+          <div class="card">
+            <span class="small">Guests &amp; hours · shipped header (the quote opens at the LIVE count; the inquiry count stays named)</span>
+            <div class="two">
+              <div class="stepper"><span class="sb">−</span><div class="val"><span class="big">200</span><span class="small">guests</span></div><span class="sb">+</span></div>
+              <div class="stepper"><span class="sb">−</span><div class="val"><span class="big">8</span><span class="small">hours</span></div><span class="sb">+</span></div>
+            </div>
+            <span class="small">Sized to their plan now · 200 pax · 8h · was [150] at inquiry</span>
+          </div>
+          <div class="next"><span>Everything Setnayan has on this event. Price from it.</span><label for="st2">Next · Choose what to offer</label></div>
+        </div>
+      </section>
+
+      <!-- ─────────── STEP 2 · CHOOSE WHAT TO OFFER ─────────── -->
+      <section class="stage n2" aria-label="Step 2: Choose what to offer">
+        <span class="num"><i>2</i><b>✓</b></span>
+        <label class="shead" for="st2"><span class="eyebrow">Step 2 of 5 · decide</span><h2>Choose what to offer <span class="slice a">A · seed</span> <span class="slice held">B · held</span> <span class="answer">Answer 4 · cards first, then price</span></h2>
+          <span class="sum"><span class="cv cv-none">No card loaded</span><span class="cv cv-one">Live band</span><span class="cv cv-two">Live band + Host / MC</span><span class="cv cv-draft">No card loaded</span><span class="cv cv-empty">No cards</span><span class="cv cv-refused">Cards could not load</span><span class="cv cv-loading">Loading…</span> · 200 guests · 8 h</span></label>
+        <div class="body">
+          <div class="sec">
+            <div class="sec-head"><h3 style="font-size:15px">Your cards</h3><span class="small">Pick one or more · sets the lines, terms and discount</span></div>
+
+            <div class="cv cv-none"><div class="chips"><span class="chip">+ Live band · from ₱35,000</span><span class="chip">+ Host / MC · from ₱40,000</span></div><span class="small">Nothing picked — the lines below are blank, as today.</span></div>
+            <div class="cv cv-one"><div class="chips"><span class="chip on">✓ Live band · from ₱35,000</span><span class="chip">+ Host / MC · from ₱40,000</span></div>
+              <div class="small">Live band: <span class="chip" style="height:28px;font-size:12px">+ [Extra hour] · +₱5,000</span> <span class="chip" style="height:28px;font-size:12px">+ [Acoustic ceremony set] · +₱8,000</span> <span class="chip dead" style="height:28px;font-size:12px">comes with Host / MC · add</span> <span class="chip on" style="height:28px;font-size:12px">[Evening set] · 6–10 pm</span></div>
+              <span class="small">Lead time · [not set] · That day · [no limit set] · Serves [Calabarzon · NCR]</span></div>
+            <div class="cv cv-two"><div class="chips"><span class="chip on">✓ Live band · from ₱35,000</span><span class="chip on">✓ Host / MC · from ₱40,000</span></div>
+              <div class="small">Live band: <span class="chip" style="height:28px;font-size:12px">+ [Extra hour] · +₱5,000</span> <span class="chip on" style="height:28px;font-size:12px">[Evening set] · 6–10 pm</span> &nbsp; Host / MC: <span class="small">no add-ons</span></div>
+              <div class="amber"><b>Gift switches disagree:</b> Live band card OFF (prod) · Host / MC card <code>[ON]</code> → the quote's one switch defaults <b>ON</b> <span class="answer">Answer 1</span>. See step 3.</div></div>
+            <div class="cv cv-draft"><div class="chips"><span class="chip">+ Live band · from ₱35,000</span><span class="chip">+ Host / MC · from ₱40,000</span><span class="chip dead">[Photobooth] · no price yet · finish the card ›</span></div><span class="small">A card without a price cannot be published (gate: cover · price · inclusions) and cannot seed a line — it is shown, greyed, with the way to fix it. Not silently absent.</span></div>
+            <div class="cv cv-empty"><div class="dashed">No service cards yet · Make one ›</div><span class="small">A shop with no cards sees this — and the package picker, which needs packages (0 in prod), does not render at all. The lines can still be typed by hand.</span></div>
+            <div class="cv cv-refused"><div class="amber"><b>We couldn’t load your cards.</b> Refresh, or type the lines by hand. <span class="q">A refused read says so — it does not render as "no cards".</span></div></div>
+            <div class="cv cv-loading"><div class="chips"><span class="chip dead">Loading…</span></div><span class="small">The shipped picker's own label while the seed reads (<code>seeding</code>).</span></div>
+
+            <div class="small">Start from a package · <span class="muted">not rendered — the shop has 0 packages (shipped rule: the picker mounts only with packages)</span></div>
+          </div>
+          <div class="next"><span>Your cards set the lines, the terms and the day.</span><label for="st3">Next · Set the price</label></div>
+        </div>
+      </section>
+
+      <!-- ─────────── STEP 3 · SET THE PRICE ─────────── -->
+      <section class="stage n3" aria-label="Step 3: Set the price">
+        <span class="num"><i>3</i><b>✓</b></span>
+        <label class="shead" for="st3"><span class="eyebrow">Step 3 of 5 · price · a review of what the cards seeded, not blank entry</span><h2>Set the price <span class="slice a">A · seed</span> <span class="slice held">C · held</span></h2>
+          <span class="sum"><span class="m m-one-on">₱35,750 · fee ₱1,787.50 · Papic off</span><span class="m m-one-off">₱39,250 · fee ₱1,962.50 · Papic off</span><span class="m m-two-on">₱75,750 · fee ₱3,787.50 · Papic 2,411 photos</span><span class="m m-two-off">₱79,250 · fee ₱3,962.50 · Papic 2,661 photos</span><span class="m m-none">₱0 · price first</span></span></label>
+        <div class="body">
+          <!-- LINES per cards variant -->
+          <div class="sec">
+            <div class="sec-head"><h3 style="font-size:15px">Lines</h3><span class="small">⠿ drag to reorder · + Feature · 🎁 Freebie (shipped)</span></div>
+            <div class="cv cv-one cv-two-share">
+              <div class="line"><span class="h">⠿</span><span class="n">Live band</span><span class="ctl"><span class="b">Flat</span><span class="p">₱35,000</span><span class="x">🎁</span><span class="x">×</span></span></div>
+              <div class="line free"><span class="h">⠿</span><span class="n">[Sound check · 1 hr]</span><span class="ctl"><span class="b">Flat</span><span class="tag">Complimentary</span><span class="x">₱</span><span class="x">×</span></span></div>
+            </div>
+            <div class="cv cv-two">
+              <div class="line"><span class="h">⠿</span><span class="n">Live band</span><span class="ctl"><span class="b">Flat</span><span class="p">₱35,000</span><span class="x">🎁</span><span class="x">×</span></span></div>
+              <div class="line free"><span class="h">⠿</span><span class="n">[Sound check · 1 hr]</span><span class="ctl"><span class="b">Flat</span><span class="tag">Complimentary</span><span class="x">₱</span><span class="x">×</span></span></div>
+              <div class="line"><span class="h">⠿</span><span class="n">Host / MC</span><span class="ctl"><span class="b">Flat</span><span class="p">₱40,000</span><span class="x">🎁</span><span class="x">×</span></span></div>
+            </div>
+            <div class="m m-none"><div class="line"><span class="h">⠿</span><span class="n muted">New feature</span><span class="ctl"><span class="b">Flat</span><span class="p muted">₱5,000</span><span class="x">🎁</span><span class="x">×</span></span></div><span class="small">The shipped default line when nothing seeds the quote.</span></div>
+            <div class="chips"><span class="chip">+ Feature</span><span class="chip" style="color:var(--ok);border-color:#BFD5BB">🎁 Freebie</span></div>
+          </div>
+
+          <!-- CREW & TRAVEL — flagged from the cards' own flags -->
+          <div class="sec">
+            <h3 style="font-size:15px">Crew meal &amp; transportation <span class="small">· opened by the card's flags: crew meal <b>required, not included</b> · travel <b>not included</b> (both live cards)</span></h3>
+            <div class="card"><div class="sec-head"><span>Crew meal</span><span class="small">+₱1,750</span></div><div class="seg"><span>Included</span><span class="on">Charge</span><span>Offset — couple provides</span></div><div class="two"><label class="f">crew<span class="field filled">5</span></label><label class="f">₱ / head<span class="field filled">350</span></label></div><span class="small">The per-head price is NOT on the card — the builder keeps its own figure (never a number the seed invented).</span></div>
+            <div class="card"><div class="sec-head"><span>Transportation</span><span class="small">+₱[2,500]</span></div><div class="seg"><span>Included</span><span class="on">Flat fee</span><span>By distance</span></div><label class="f">flat fee ₱<span class="field filled">[2,500]</span></label></div>
+          </div>
+
+          <!-- TOTAL + Setnayan lines, per cards × discount -->
+          <div class="sec">
+            <h3 style="font-size:15px">Total</h3>
+            <div class="m m-one-on"><div class="rows">
+              <div class="row"><span>Subtotal</span><span class="v">₱39,250</span></div>
+              <div class="row"><span>Discount <span class="small">· Booked 3+ months ahead · −10% <span class="answer">Answer 3 · applied, editable, removable</span></span></span><span class="v">₱ <span class="field filled" style="display:inline-flex;width:90px;height:32px">3,500</span> <label for="disc-off" class="small" style="cursor:pointer;text-decoration:underline">remove</label></span></div>
+              <div class="row sum"><span>Total</span><span>₱35,750</span></div></div>
+              <div class="rows"><div class="row"><span class="l"><span>Booking fee ₱1,787.50 (5.0%) — payable if they book.</span><span class="s">Your 1st paid booking. 5% up to ₱100,000, then 1%, on the agreed total of ₱35,750.</span></span></div>
+                <div class="row" style="background:var(--mulberry-bg)"><span class="l"><span style="color:var(--mulberry);font-weight:600">You can add up to 1,021 free Papic photos for your couple — ₱715.00 on top of your booking fee.</span><span class="s">That is the most this booking can carry: 40% of your booking fee. This service card does not offer it yet, so this quote carries none — switch it on and the photos reach your couple when your fee bill is paid. <a href="#">Switch the Setnayan gift on</a></span></span></div></div></div>
+            <div class="m m-one-off"><div class="rows">
+              <div class="row"><span>Subtotal</span><span class="v">₱39,250</span></div>
+              <div class="row"><span>Discount <span class="small muted">· removed by you</span></span><span class="v">₱ <span class="field" style="display:inline-flex;width:90px;height:32px">0</span> <label for="disc-on" class="small" style="cursor:pointer;text-decoration:underline">put the card's back</label></span></div>
+              <div class="row sum"><span>Total</span><span>₱39,250</span></div></div>
+              <div class="rows"><div class="row"><span class="l"><span>Booking fee ₱1,962.50 (5.0%) — payable if they book.</span><span class="s">Your 1st paid booking. 5% up to ₱100,000, then 1%, on the agreed total of ₱39,250.</span></span></div>
+                <div class="row" style="background:var(--mulberry-bg)"><span class="l"><span style="color:var(--mulberry);font-weight:600">You can add up to 1,121 free Papic photos for your couple — ₱785.00 on top of your booking fee.</span><span class="s">That is the most this booking can carry: 40% of your booking fee. This service card does not offer it yet, so this quote carries none. <a href="#">Switch the Setnayan gift on</a></span></span></div></div></div>
+            <div class="m m-two-on"><div class="rows">
+              <div class="row"><span>Subtotal</span><span class="v">₱79,250</span></div>
+              <div class="row"><span>Discount <span class="small">· Booked 3+ months ahead · −10% (Live band) <span class="answer">Answer 3</span></span></span><span class="v">₱ <span class="field filled" style="display:inline-flex;width:90px;height:32px">3,500</span> <label for="disc-off" class="small" style="cursor:pointer;text-decoration:underline">remove</label></span></div>
+              <div class="row sum"><span>Total</span><span>₱75,750</span></div></div>
+              <div class="rows"><div class="row"><span class="l"><span>Booking fee ₱3,787.50 (5.0%) — payable if they book.</span><span class="s">Your 1st paid booking. 5% up to ₱100,000, then 1%, on the agreed total of ₱75,750.</span></span></div>
+                <div class="row" style="background:var(--mulberry-bg)"><span class="l"><span style="color:var(--mulberry);font-weight:600">Includes your Setnayan gift — your couple gets 2,411 free Papic photos</span><span class="s">Added to your booking fee bill: ₱1,515.00. The photos reach your couple's Papic once that bill is paid.</span></span></div>
+                <div class="row" style="background:var(--mulberry-bg)"><span class="l"><span style="color:var(--mulberry);font-weight:600">That is the most Papic this booking can carry.</span><span class="s">Your exclusive Papic deal is capped at 40% of your booking fee. It is already switched on for this service card, so the photos above are part of this quote and are billed to you with the fee.</span></span></div></div></div>
+            <div class="m m-two-off"><div class="rows">
+              <div class="row"><span>Subtotal</span><span class="v">₱79,250</span></div>
+              <div class="row"><span>Discount <span class="small muted">· removed by you</span></span><span class="v">₱ <span class="field" style="display:inline-flex;width:90px;height:32px">0</span> <label for="disc-on" class="small" style="cursor:pointer;text-decoration:underline">put the card's back</label></span></div>
+              <div class="row sum"><span>Total</span><span>₱79,250</span></div></div>
+              <div class="rows"><div class="row"><span class="l"><span>Booking fee ₱3,962.50 (5.0%) — payable if they book.</span><span class="s">5% up to ₱100,000, then 1%, on the agreed total of ₱79,250.</span></span></div>
+                <div class="row" style="background:var(--mulberry-bg)"><span class="l"><span style="color:var(--mulberry);font-weight:600">Includes your Setnayan gift — your couple gets 2,661 free Papic photos</span><span class="s">Added to your booking fee bill: ₱1,585.00. The photos reach your couple's Papic once that bill is paid.</span></span></div></div></div>
+            <div class="m m-none"><div class="rows"><div class="row"><span>Subtotal</span><span class="v">₱0</span></div><div class="row sum"><span>Total</span><span>₱0</span></div></div>
+              <div class="rows"><div class="row"><span class="l"><span>Booking fee — payable when they book (we could not work out the amount yet).</span><span class="s">Your 1st paid booking. The fee is 5% up to ₱100,000, then 1% of the agreed total; put a price on this quote and we will show you the exact figure.</span></span></div>
+                <div class="row" style="background:var(--mulberry-bg)"><span class="l"><span style="color:var(--mulberry);font-weight:600">You can add an exclusive Papic deal to this quote.</span><span class="s">Free Papic photos for your couple, sized at 40% of your booking fee and billed to you on top of it. Put your price in and we will show you exactly how many.</span></span></div></div></div>
+
+            <!-- THE PER-QUOTE GIFT SWITCH — drawn DISABLED (slice G not landed) -->
+            <div class="card" style="border-color:var(--amber-line)">
+              <div class="sec-head"><span class="l"><span>Setnayan gift on this quote <span class="answer">Answer 1 · one switch per quote</span> <span class="slice held">G · later wave · migration</span></span><span class="small">Default from your cards: <span class="cv cv-one">Live band OFF → <b>off</b></span><span class="cv cv-two">Live band OFF · Host / MC [ON] → <b>on</b> (either card on ⇒ on)</span><span class="cv cv-none">no card → off</span><span class="cv cv-draft">no card → off</span><span class="cv cv-empty">no card → off</span><span class="cv cv-refused">unknown</span><span class="cv cv-loading">…</span></span></span><span class="switch dead"></span></div>
+              <div class="amber"><b>Disabled on purpose, with the reason on screen:</b> "This switch does not yet govern your bill. Today the bill reads the service card's own switch; the quote's switch becomes the source of truth when slice G lands (a <code>vendor_proposals</code> column + <code>setnayan_gift_offered_on</code> reading the live quote before the card — one migration, later wave)." Chosen over hiding it so the supplier learns the control exists without being misled by it.
+                <span class="q">For a combined quote, which card the bill reads today is undefined — G decides. Until then the Papic row above follows the FIRST card.</span></div>
+            </div>
+          </div>
+          <div class="next"><span>Money once — and what Setnayan charges and gives.</span><label for="st4">Next · Terms</label></div>
+        </div>
+      </section>
+
+      <!-- ─────────── STEP 4 · TERMS ─────────── -->
+      <section class="stage n4" aria-label="Step 4: Terms">
+        <span class="num"><i>4</i><b>✓</b></span>
+        <label class="shead" for="st4"><span class="eyebrow">Step 4 of 5 · agree</span><h2>Terms <span class="slice a">A · seed</span> <span class="slice held">C · held</span></h2><span class="sum">2 payments · BDO · GCash · until 2026-10-06</span></label>
+        <div class="body">
+          <div class="sec">
+            <div class="sec-head"><h3 style="font-size:15px">Payment schedule</h3><span class="small ok" style="color:var(--ok)">✓ balances to ₱0</span></div>
+            <span class="small">From your card: [Reservation non-refundable · refund window 14 days · no-show forfeits the downpayment]</span>
+            <div class="m m-one-on"><div class="rows"><div class="row"><span>🔒 [Reservation] <span class="small">30 % · On booking</span></span><span class="v">₱10,725</span></div><div class="row"><span>[Balance] <span class="small">70 % · 7 days before</span></span><span class="v">₱25,025</span></div><div class="row"><span class="small">Final balance · auto</span><span class="v small">₱0 · nothing left</span></div></div></div>
+            <div class="m m-one-off"><div class="rows"><div class="row"><span>🔒 [Reservation] <span class="small">30 % · On booking</span></span><span class="v">₱11,775</span></div><div class="row"><span>[Balance] <span class="small">70 % · 7 days before</span></span><span class="v">₱27,475</span></div></div></div>
+            <div class="m m-two-on"><div class="rows"><div class="row"><span>🔒 [Reservation] <span class="small">30 % · On booking</span></span><span class="v">₱22,725</span></div><div class="row"><span>[Balance] <span class="small">70 % · 7 days before</span></span><span class="v">₱53,025</span></div></div><span class="small">One quote, one schedule — the first card that states one (Live band).</span></div>
+            <div class="m m-two-off"><div class="rows"><div class="row"><span>🔒 [Reservation] <span class="small">30 % · On booking</span></span><span class="v">₱23,775</span></div><div class="row"><span>[Balance] <span class="small">70 % · 7 days before</span></span><span class="v">₱55,475</span></div></div></div>
+            <div class="m m-none"><div class="rows"><div class="row"><span>🔒 First payment <span class="small">20 % · On booking</span></span><span class="v">₱0</span></div><div class="row"><span>Final balance · auto <span class="small">14 days before</span></span><span class="v">₱0</span></div></div><span class="small">The shipped default schedule when no card seeds one.</span></div>
+            <div class="dashed">+ Add payment · splits the balance</div>
+          </div>
+          <div class="sec"><h3 style="font-size:15px">Accepted payment methods</h3><div class="chips"><span class="chip on">BDO ✓</span><span class="chip on">GCash ✓</span><span class="chip">Maya</span><span class="chip">Bank transfer</span></div><span class="small">[Published in Settings — prod set not read] · Only the methods you tick show on this quote's "how to pay." Untick all to fall back to every approved method.</span></div>
+          <div class="sec"><div class="two"><label class="f">Title (optional)<span class="field">Live band</span></label><label class="f">Valid until (optional)<span class="field filled">2026-10-06</span></label></div><label class="f">Note to the couple (optional)<span class="field" style="height:72px">A short message that appears above the quote.</span></label></div>
+          <div class="next"><span>How they pay you, and until when this stands.</span><label for="st5">Next · Review</label></div>
+        </div>
+      </section>
+
+      <!-- ─────────── STEP 5 · REVIEW & SEND ─────────── -->
+      <section class="stage n5" aria-label="Step 5: Review and send">
+        <span class="num"><i>5</i><b>✓</b></span>
+        <label class="shead" for="st5"><span class="eyebrow">Step 5 of 5 · send</span><h2>Review &amp; send <span class="slice held">C · held</span> <span class="slice held">E · held (the card in the thread)</span></h2><span class="sum">Send · <span class="m m-one-on">₱35,750</span><span class="m m-one-off">₱39,250</span><span class="m m-two-on">₱75,750</span><span class="m m-two-off">₱79,250</span><span class="m m-none">₱0</span></span></label>
+        <div class="body">
+          <div class="phone-only sec">
+            <div class="sec-head"><h3 style="font-size:15px">Their card</h3><span class="small">What the couple opens</span></div>
+            <div class="face"><div class="cover">Live band</div><div class="bd"><span class="nm"><span class="cv cv-two">Live band + Host / MC</span><span class="cv cv-one">Live band</span><span class="cv cv-none">Quote</span></span><span class="st">200 guests · 8 h · valid until 6 Oct 2026</span><span class="pr"><span class="m m-one-on">₱35,750</span><span class="m m-one-off">₱39,250</span><span class="m m-two-on">₱75,750</span><span class="m m-two-off">₱79,250</span><span class="m m-none">Price on request</span></span><span class="inc cv cv-one">🎁 Includes [Sound check · 1 hr]</span><span class="inc cv cv-two">🎁 Includes [Sound check · 1 hr]</span><span class="gift m m-two-on">🎁 Includes a Setnayan gift — 2,411 free Papic photos</span><span class="ft"><span class="cta">Review &amp; accept</span><span class="hint">opens the full quote</span></span></div></div>
+          </div>
+          <p class="small">The quote appears in this chat. The couple reviews and accepts it — accepting shortlists you at this price so they can compare combinations of suppliers. It books nothing and pays nothing; their plan fills only when they Lock.</p>
+          <div class="chips"><span class="btn" style="background:var(--mulberry)">Send quote · <span class="m m-one-on">₱35,750</span><span class="m m-one-off">₱39,250</span><span class="m m-two-on">₱75,750</span><span class="m m-two-off">₱79,250</span><span class="m m-none">₱0</span></span><span class="btn ghost" style="border-color:var(--line);color:var(--ink-2)">Cancel</span></div>
+          <span class="small">Press Send → the thread above shows the quote card (switch <b>Quote</b> in the bar to "sent · never opened"). This button is a drawing — nothing is sent from a prototype.</span>
+        </div>
+      </section>
+
+      <!-- ─────────── RIGHT COLUMN (desktop, sticky): steps · the card · money ─────────── -->
+      <div class="right">
+        <div class="steps rc"><label class="k1" for="st1"><span class="n">1</span>Know the event</label><label class="k2" for="st2"><span class="n">2</span>Choose what to offer</label><label class="k3" for="st3"><span class="n">3</span>Set the price</label><label class="k4" for="st4"><span class="n">4</span>Terms</label><label class="k5" for="st5"><span class="n">5</span>Review &amp; send</label></div>
+        <div class="rc">
+          <div class="sec-head"><h3 style="font-size:15px">Their card</h3><span class="small">live preview</span></div>
+          <div class="face"><div class="cover">Live band</div><div class="bd"><span class="nm"><span class="cv cv-two">Live band + Host / MC</span><span class="cv cv-one">Live band</span><span class="cv cv-none">Quote</span><span class="cv cv-draft">Quote</span><span class="cv cv-empty">Quote</span><span class="cv cv-refused">Quote</span><span class="cv cv-loading">Quote</span></span><span class="st">200 guests · 8 h · valid until 6 Oct 2026</span><span class="pr"><span class="m m-one-on">₱35,750</span><span class="m m-one-off">₱39,250</span><span class="m m-two-on">₱75,750</span><span class="m m-two-off">₱79,250</span><span class="m m-none">Price on request</span></span><span class="inc cv cv-one">🎁 Includes [Sound check · 1 hr]</span><span class="inc cv cv-two">🎁 Includes [Sound check · 1 hr]</span><span class="gift m m-two-on">🎁 Includes a Setnayan gift — 2,411 free Papic photos</span><span class="gift m m-two-off">🎁 Includes a Setnayan gift — 2,661 free Papic photos</span><span class="ft"><span class="cta">Review &amp; accept</span><span class="hint">opens the full quote</span></span></div></div>
+          <div class="rows">
+            <div class="row sum"><span>Total</span><span><span class="m m-one-on">₱35,750</span><span class="m m-one-off">₱39,250</span><span class="m m-two-on">₱75,750</span><span class="m m-two-off">₱79,250</span><span class="m m-none">₱0</span></span></div>
+            <div class="row"><span>Booking fee</span><span class="v"><span class="m m-one-on">₱1,787.50</span><span class="m m-one-off">₱1,962.50</span><span class="m m-two-on">₱3,787.50</span><span class="m m-two-off">₱3,962.50</span><span class="m m-none">price first</span></span></div>
+            <div class="row"><span>Papic deal</span><span class="v mul"><span class="m m-one-on">off · up to 1,021</span><span class="m m-one-off">off · up to 1,121</span><span class="m m-two-on">2,411 photos · +₱1,515</span><span class="m m-two-off">2,661 photos · +₱1,585</span><span class="m m-none">price first</span></span></div>
+          </div>
+        </div>
+      </div>
+
+      </div><!-- /composer -->
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ PLAIN-LANGUAGE SUMMARY ═══════════ -->
+<section class="summary">
+  <h2>What this prototype is</h2>
+  <p>The supplier's one quote tool inside a conversation (<code>#build-quote</code> on <code>/vendor-dashboard/messages/[threadId]</code>), redrawn as five steps on one spine. No JavaScript — every state above is a click in the grey bar. <b>Measured before drawing:</b> the live composer on <code>origin/main</code> has 12 buttons, 22 inputs, 6 selects, 1 textarea and 17 blocks in one scroll, ~740 visible words; production holds 2 service cards, 0 packages, 0 templates, 3 threads (all accepted) and 0 quotes sent through this composer — so nothing here can be checked against a live screen, only against this drawing and the executed tests.</p>
+
+  <h2>What changes, one sentence per screen</h2>
+  <ol>
+    <li><b>Step 1 · Know the event</b> — the rail's rows plus area, asked-for, budget band, style and locked categories sit beside the quote; withheld fields are named only when the fee flag is on. <span class="slice held">D · held</span></li>
+    <li><b>Step 2 · Choose what to offer</b> — the shop's service cards seed the quote (one or several); add-ons, comes-with, slots, lead-time and capacity ride along; the package picker stays but only shows with packages. <span class="slice a">A</span> <span class="slice held">B · held</span></li>
+    <li><b>Step 3 · Set the price</b> — a review of the seeded lines, crew and travel opened by the card's flags, the discount <b>applied with its reason and removable</b>, the booking fee and the maximum Papic deal (shipped copy), and the per-quote gift switch <b>drawn disabled</b> until G. <span class="slice a">A</span> <span class="slice held">C · held</span> <span class="slice held">G · later wave</span></li>
+    <li><b>Step 4 · Terms</b> — the card's payment schedule and reservation terms seed the self-balancing schedule; rails, title, validity, note as shipped. <span class="slice a">A</span> <span class="slice held">C · held</span></li>
+    <li><b>Step 5 · Review &amp; send</b> — the card the couple opens, then Send. <span class="slice held">C · held</span></li>
+    <li><b>The thread</b> — the quote card <b>replaces</b> the offered card and is drawn through the same card face; the superseded offer stays reachable as history. <span class="slice held">E · held (frame file)</span></li>
+  </ol>
+
+  <h2>What is deliberately NOT changing</h2>
+  <ul>
+    <li>The one button on the quote card is still decided by <code>lib/quote-card-state.ts</code> (#5607): Review &amp; accept · View proposal · Update this quote · Counter-offer · the Lock pointer. Superseded and re-accept behave as shipped. No second card state is drawn.</li>
+    <li>The money: lines through <code>resolvePackageLine</code>, the schedule through <code>resolveSchedule</code>, the fee through <code>bookingFeePhp</code> (5% to ₱100,000 then 1%, floor ₱50), the gift through <code>previewGiftForTotal</code> (40% of the fee, cap 50,000, the live ladder). Nothing priced twice.</li>
+    <li>The tools mount only on an accepted thread (<code>toolsMounted</code>); the Accept/Decline block, the offer tool, the call, deal-or-meeting and Log the outcome are untouched.</li>
+    <li>The in-thread Lock stays a pointer to the workspace; nothing lock-shaped was added.</li>
+    <li>The 2026-09-09 gift rules: optional, exactly 40%, no dial, computed from what the supplier pays, the number on the QUOTE never the card.</li>
+  </ul>
+
+  <h2>What this cannot prove</h2>
+  <ul>
+    <li>Nobody has seen this at 375px or 1440px in a real browser from a session: the Browser pane renders a local file as a static snapshot. The file was read back and <code>grep -c '&lt;script'</code> prints 0. <b>Please open it on your phone.</b></li>
+    <li>Five thread states have never rendered in production (0 rows). The pending / declined / displaced / withdrawn / expired blocks are drawn from the shipped source; three of them (displaced, withdrawn, expired) have <b>no shipped sentence</b> and print the declined copy today — the amber blocks propose one and ask you to confirm it.</li>
+    <li>The server read (<code>loadServiceCardLinesForQuote</code>) — RLS refusing a competitor's card, the event date read after ownership — is typechecked and read, not executed. A db-test against the PGlite replay is the evidence that would convince me.</li>
+    <li>Every [bracketed] value: inclusions, add-ons, schedule rows, slots, serves, the pay rails, the travel fee, the inquiry count. Prod holds none of those rows yet.</li>
+  </ul>
+
+  <h2>Open questions</h2>
+  <ol>
+    <li><b>Answer 2's loss.</b> Replacing the offered card removes the original offer from the thread. Recommendation: keep it reachable as history (drawn). Cost of getting it wrong: a couple comparing three suppliers loses the pitch they were comparing on, silently.</li>
+    <li><b>The three closed-state sentences</b> (displaced · withdrawn · expired). Recommendation: the proposed copy above. Cost: a couple who withdrew reads "You declined this inquiry" on the supplier's screen — a false record of who ended it.</li>
+    <li><b>Which card the bill reads for a combined quote before G lands.</b> Recommendation: land G in the next wave and, until then, the Papic row follows the first card (drawn). Cost: a supplier could be billed for a gift the quote did not show, or shown one the bill will not carry.</li>
+    <li><b>A card with no price</b> — shown greyed with "finish the card ›" (drawn) or hidden? Recommendation: shown. Cost of hiding: the supplier does not learn why their card is not offered.</li>
+    <li><b>Step order 2 ↔ 3</b> — cards before price is Answer 4; "+ Feature" stays reachable in step 3 for a quote with no card. Confirm.</li>
+  </ol>
+  <p class="small">Sources: <code>lib/quote-from-service-card.ts</code> (slice A, committed, unpushed) · <code>lib/quote-card-state.ts</code> · <code>lib/papic-on-a-quote.ts</code> · <code>lib/booking-fee-disclosure.ts</code> · <code>lib/setnayan-gift.ts</code> · <code>lib/event-access-stage.ts</code> · <code>lib/customer-event-summary.ts</code> · thread page on <code>origin/main</code> · DECISION_LOG 2026-09-09 · 2026-09-18 · 2026-09-20 · 2026-09-22 · prod counts 2026-09-22.</p>
+</section>
+</body>
+</html>

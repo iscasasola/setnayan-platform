@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The chat box, both sides — FINAL 2026-09-22</title>
+<!--
+  THE CHAT BOX, BOTH SIDES — interactive prototype, 2026-09-22
+  Routes: /dashboard/[eventId]/messages/[threadId]  ·  /vendor-dashboard/messages/[threadId]
+          /dashboard/[eventId]/messages  (the couple's inbox)
+
+  ZERO JAVASCRIPT. Every state switches with radio inputs + CSS sibling selectors.
+  the script-tag count must be zero.
+
+  Ported from, never redrawn: chat_interface_v2/v3/v4_2026-09-09 (BINDING) and the
+  shipped components on origin/main. Copy is the shipped copy. [PLACEHOLDERS] are marked.
+-->
+<style>
+/* ── the rule that must actually hide ─────────────────────────────────────── */
+[hidden]{display:none!important}
+
+:root{
+  --ink:#2C2A29; --ink-2:#6F6A62; --ink-3:#9A948A;
+  --line:#E6E0D6; --line-2:#F0EBE3; --soft:#F6F4F0; --page:#FFFFFF;
+  --gold:#A9834B; --gold-700:#8C6932; --gold-wash:#FAF6EF;
+  --cta:#C24E25; --cta-600:#B04722; --cta-wash:#FBF0EA;
+  --amber-line:#E0B84A; --amber-bg:#FDF6E3; --amber-ink:#6B5210;
+  --ok-bg:#E8F1E6; --ok:#2F6B35;
+  --bad-line:#D89A8A; --bad-bg:#FBEFEC; --bad:#8C3A22;
+  --r-lg:18px; --r-md:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
+     background:var(--soft);color:var(--ink);font-size:15px;-webkit-font-smoothing:antialiased}
+p{margin:0} h1,h2,h3,h4{margin:0;font-weight:600}
+button,label{font-family:inherit}
+a{color:inherit}
+
+/* ── the radios themselves are never seen ─────────────────────────────────── */
+.sw{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+
+/* ── prototype bar — clearly not the app ──────────────────────────────────── */
+.proto{position:sticky;top:0;z-index:50;background:#EDEAE4;border-bottom:1px solid var(--line);
+       padding:8px 14px;display:flex;flex-direction:column;gap:7px}
+.proto .ln{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.proto .lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+            width:74px;flex:none;font-weight:600;line-height:1.25}
+.pill{display:inline-block;height:28px;line-height:26px;padding:0 12px;border-radius:999px;
+      border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.pill:hover{border-color:var(--ink-3)}
+.protohead{font-size:12px;color:var(--ink-2)}
+.protohead b{color:var(--ink)}
+
+/* which pill is lit */
+#sd-c:checked  ~ .proto label[for="sd-c"],
+#sd-s:checked  ~ .proto label[for="sd-s"],
+#sd-i:checked  ~ .proto label[for="sd-i"],
+#st-pe:checked ~ .proto label[for="st-pe"],
+#st-ac:checked ~ .proto label[for="st-ac"],
+#st-de:checked ~ .proto label[for="st-de"],
+#st-di:checked ~ .proto label[for="st-di"],
+#st-wi:checked ~ .proto label[for="st-wi"],
+#st-ex:checked ~ .proto label[for="st-ex"],
+#st-bl:checked ~ .proto label[for="st-bl"],
+#vo-1:checked  ~ .proto label[for="vo-1"],
+#vo-n:checked  ~ .proto label[for="vo-n"],
+#vo-100:checked ~ .proto label[for="vo-100"],
+#rd-ok:checked ~ .proto label[for="rd-ok"],
+#rd-no:checked ~ .proto label[for="rd-no"],
+#rd-em:checked ~ .proto label[for="rd-em"],
+#to-none:checked ~ .proto label[for="to-none"],
+#to-quote:checked ~ .proto label[for="to-quote"],
+#to-offer:checked ~ .proto label[for="to-offer"],
+#to-call:checked ~ .proto label[for="to-call"],
+#to-deal:checked ~ .proto label[for="to-deal"],
+#to-out:checked ~ .proto label[for="to-out"]
+{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+
+/* ── stage ────────────────────────────────────────────────────────────────── */
+.stage{padding:14px 12px 60px;max-width:1500px;margin:0 auto}
+.frame{display:none}
+#sd-c:checked ~ .stage .fr-couple{display:block}
+#sd-s:checked ~ .stage .fr-supplier{display:block}
+#sd-i:checked ~ .stage .fr-inbox{display:block}
+
+.fhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;padding:4px 2px 11px}
+.fhead h1{font-size:19px}
+.route{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink-2);
+       background:#fff;border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+.sub{font-size:12.5px;color:var(--ink-2)}
+
+/* ── three columns ────────────────────────────────────────────────────────── */
+.three{display:flex;gap:13px;align-items:stretch;height:min(720px,calc(100dvh - 210px));min-height:470px}
+.colL,.colR{display:none}
+.sn{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg)}
+.boxcol{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow-y:auto}
+.box{display:flex;flex-direction:column;flex:1 0 auto;min-width:0;overflow:hidden}
+
+/* ── header ───────────────────────────────────────────────────────────────── */
+.bh{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.chev{width:30px;height:38px;border:0;background:none;border-radius:999px;color:var(--ink-2);font-size:19px;
+      display:grid;place-items:center;cursor:pointer}
+.av{width:33px;height:33px;flex:none;border-radius:999px;border:1px solid var(--line);background:#fff;
+    display:none;place-items:center;font-size:11px;font-weight:600;color:var(--ink-2)}
+.who{min-width:0;flex:1}
+.who .nm{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mline{display:flex;flex-wrap:wrap;align-items:center;gap:0 6px;margin-top:2px;
+       font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.13em;
+       text-transform:uppercase;color:var(--ink-2)}
+.mline>*+*::before{content:"·";margin-right:6px;color:var(--ink-3)}
+.mline .g{color:var(--gold)}
+.chiprow{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.chip{display:inline-block;border-radius:999px;padding:2px 8px;font-family:ui-monospace,Menlo,monospace;
+      font-size:8.5px;letter-spacing:.14em;text-transform:uppercase}
+.chip.grey{background:rgba(44,42,41,.07);color:var(--ink-2)}
+.chip.gold{background:rgba(169,131,75,.15);color:var(--gold-700)}
+.chip.cta{background:rgba(194,78,37,.13);color:var(--cta)}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.htools{display:flex;gap:3px;flex:none;align-items:center}
+.kebab{width:30px;height:36px;border:0;background:none;border-radius:8px;color:var(--ink-2);font-size:16px;cursor:pointer}
+.railbtn{height:30px;padding:0 9px;border:1px solid var(--line);background:#fff;border-radius:8px;
+         font-size:11.5px;color:var(--ink-2);cursor:pointer}
+
+/* ── notice ───────────────────────────────────────────────────────────────── */
+.notice{display:flex;gap:7px;padding:7px 12px;border-bottom:1px solid var(--line-2);
+        background:var(--gold-wash);font-size:11.5px;color:var(--ink-2);line-height:1.45}
+
+/* ── pinned ───────────────────────────────────────────────────────────────── */
+.pinned{max-height:38%;overflow-y:auto;border-bottom:1px solid var(--line);padding:8px 11px;
+        display:flex;flex-direction:column;gap:8px}
+.pinned:empty{display:none}
+.card{border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;background:#fff}
+.card.gold{border-color:rgba(169,131,75,.35);background:rgba(169,131,75,.05)}
+.card h4{font-size:13px}
+.card p{font-size:12.5px;color:var(--ink-2);line-height:1.5;margin-top:3px}
+.acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;align-items:center}
+
+/* ── buttons ──────────────────────────────────────────────────────────────── */
+.btn{height:35px;border:0;border-radius:9px;background:var(--cta);color:#fff;font-size:12.5px;
+     font-weight:600;padding:0 14px;display:inline-flex;align-items:center;cursor:pointer}
+.btn.tall{height:42px;padding:0 18px;font-size:13.5px}
+.btn.gh{background:#fff;border:1px solid rgba(44,42,41,.18);color:var(--ink)}
+.btn.lnk{background:none;border:0;padding:0;height:auto;color:var(--ink-2);
+         font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.14em;
+         text-transform:uppercase;text-decoration:underline;text-underline-offset:2px;font-weight:400}
+.dead{opacity:.45;cursor:not-allowed}
+
+/* ── the conversation ─────────────────────────────────────────────────────── */
+.stream{flex:1;min-height:0;display:flex;flex-direction:column;padding:8px 10px 0}
+.vsw{display:flex;gap:4px;padding:0 2px 8px;flex:none}
+.vsw .pill{height:26px;line-height:24px;font-size:11.5px}
+.scr{flex:1 1 0;min-height:170px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
+     padding:2px 2px 10px;position:relative}
+.day{align-self:center;font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.15em;
+     text-transform:uppercase;color:var(--ink-3)}
+.bub{max-width:76%;border-radius:15px;padding:7px 11px;font-size:13px;line-height:1.5}
+.bub.them{align-self:flex-start;background:#F2EFE9;border-bottom-left-radius:5px}
+.bub.me{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:5px}
+.bub .mt{display:block;margin-top:3px;font-size:9.5px;opacity:.62}
+.sys{align-self:center;max-width:92%;text-align:center;font-size:11px;color:var(--ink-2);
+     background:#F6F4F0;border:1px solid var(--line-2);border-radius:999px;padding:3px 11px}
+.jump{position:sticky;bottom:3px;align-self:center;display:flex;gap:6px;z-index:2}
+.jump .pill{height:25px;line-height:23px;font-size:11px;background:rgba(255,255,255,.94);
+            box-shadow:0 1px 4px rgba(44,42,41,.12)}
+
+/* the quote card, inside the conversation */
+.quote{align-self:stretch;border:1px solid rgba(169,131,75,.42);border-radius:var(--r-md);
+       background:#fff;overflow:hidden}
+.quote .qh{display:flex;align-items:baseline;justify-content:space-between;gap:9px;padding:9px 12px;
+           border-bottom:1px solid var(--line-2);background:var(--gold-wash)}
+.quote .qh b{font-size:13px}
+.quote .tot{font-size:15px;font-weight:700;color:var(--gold-700)}
+.quote .li{display:flex;justify-content:space-between;gap:9px;padding:5px 12px;font-size:12px;
+           color:var(--ink-2);border-bottom:1px solid var(--line-2)}
+.quote .li span:last-child{color:var(--ink)}
+.quote .qa{display:flex;gap:7px;flex-wrap:wrap;padding:9px 12px}
+/* the superseded offered-service card, kept as history */
+.superseded{align-self:stretch;border:1px dashed var(--ink-3);border-radius:var(--r-md);
+            background:#FBFAF8;padding:9px 12px;opacity:.72}
+.superseded .tag{font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.14em;
+                 text-transform:uppercase;color:var(--ink-3)}
+
+/* ── composer ─────────────────────────────────────────────────────────────── */
+.comp{border-top:1px solid var(--line);padding:8px 10px}
+.crow{display:flex;align-items:flex-end;gap:6px}
+.ib{width:36px;height:36px;flex:none;border:1px solid rgba(44,42,41,.15);background:#fff;border-radius:9px;
+    display:grid;place-items:center;font-size:14px;color:var(--ink-2);cursor:pointer}
+.ib.send{background:var(--cta);border-color:var(--cta);color:#fff}
+.ta{flex:1;min-height:50px;border:1px solid rgba(44,42,41,.15);border-radius:9px;padding:7px 10px;
+    font:inherit;font-size:13px;color:var(--ink-3);background:#fff;resize:none}
+.hint{font-size:11.5px;color:var(--ink-2);padding:0 2px 5px}
+.stand{border-radius:var(--r-md);padding:11px 12px}
+.stand.wait{border:1px solid rgba(169,131,75,.35);background:rgba(169,131,75,.06)}
+.stand.off{border:1px solid rgba(44,42,41,.1);background:rgba(44,42,41,.03)}
+.stand.bad{border:1px solid var(--bad-line);background:var(--bad-bg)}
+.stand p{font-size:12.5px;line-height:1.5}
+.facts{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.fact{display:inline-flex;border-radius:999px;background:rgba(169,131,75,.15);color:var(--gold-700);
+      padding:3px 9px;font-size:11px;font-weight:500}
+.fact.mul{background:rgba(194,78,37,.1);color:var(--cta);font-weight:600}
+.diary{display:flex;gap:6px;background:rgba(44,42,41,.04);border-radius:9px;padding:6px 9px;
+       font-size:11px;color:var(--ink-2);line-height:1.45;margin-top:8px}
+.bline{display:flex;gap:6px;align-items:baseline;font-size:12px;margin-top:7px;flex-wrap:wrap}
+
+/* ── tool tray — CLOSED MEANS INVISIBLE ───────────────────────────────────── */
+.tray{border-top:1px solid var(--line-2)}
+.tool{display:none;border-top:1px solid var(--line-2);background:#FDFCFA}
+.tool .ts{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:12.5px;font-weight:600}
+.tool .ts .ht{font-weight:400;color:var(--ink-3);font-size:11.5px}
+.tool .ts .close{margin-left:auto;border:1px solid rgba(44,42,41,.15);border-radius:999px;
+                 padding:1px 9px;font-size:11px;color:var(--ink-2);font-weight:500;cursor:pointer}
+.tool .tb{max-height:40vh;overflow-y:auto;border-top:1px solid var(--line-2);padding:10px 12px;
+          font-size:12px;color:var(--ink-2);line-height:1.55}
+#to-quote:checked ~ .stage .t-quote{display:block}
+#to-offer:checked ~ .stage .t-offer{display:block}
+#to-call:checked  ~ .stage .t-call{display:block}
+#to-deal:checked  ~ .stage .t-deal{display:block}
+#to-out:checked   ~ .stage .t-out{display:block}
+.traynote{padding:7px 12px 9px;border-top:1px solid var(--line-2);font-size:11px;color:var(--ink-3);line-height:1.45}
+#to-quote:checked ~ .stage .traynote,
+#to-offer:checked ~ .stage .traynote,
+#to-call:checked  ~ .stage .traynote,
+#to-deal:checked  ~ .stage .traynote,
+#to-out:checked   ~ .stage .traynote{display:none}
+.ph{display:inline-block;border:1px dashed var(--ink-3);border-radius:5px;padding:1px 6px;
+    font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--ink-2)}
+
+/* ── state switching ──────────────────────────────────────────────────────── */
+.s-pe,.s-ac,.s-de,.s-di,.s-wi,.s-ex,.s-bl{display:none}
+#st-pe:checked ~ .stage .s-pe{display:block}
+#st-ac:checked ~ .stage .s-ac{display:block}
+#st-de:checked ~ .stage .s-de{display:block}
+#st-di:checked ~ .stage .s-di{display:block}
+#st-wi:checked ~ .stage .s-wi{display:block}
+#st-ex:checked ~ .stage .s-ex{display:block}
+#st-bl:checked ~ .stage .s-bl{display:block}
+.f-pe,.f-ac,.f-de,.f-di,.f-wi,.f-ex,.f-bl{display:none}
+#st-pe:checked ~ .stage .f-pe{display:flex}
+#st-ac:checked ~ .stage .f-ac{display:flex}
+#st-de:checked ~ .stage .f-de{display:flex}
+#st-di:checked ~ .stage .f-di{display:flex}
+#st-wi:checked ~ .stage .f-wi{display:flex}
+#st-ex:checked ~ .stage .f-ex{display:flex}
+#st-bl:checked ~ .stage .f-bl{display:flex}
+/* the tools exist only on an accepted supplier thread */
+.trayzone{display:none}
+#st-ac:checked ~ .stage .trayzone{display:block}
+
+/* ── volume ───────────────────────────────────────────────────────────────── */
+.v-1,.v-n,.v-100{display:none}
+#vo-1:checked   ~ .stage .v-1{display:flex}
+#vo-n:checked   ~ .stage .v-n{display:flex}
+#vo-100:checked ~ .stage .v-100{display:flex}
+
+/* ── read outcome ─────────────────────────────────────────────────────────── */
+.r-ok,.r-no,.r-em{display:none}
+#rd-ok:checked ~ .stage .r-ok{display:block}
+#rd-no:checked ~ .stage .r-no{display:block}
+#rd-em:checked ~ .stage .r-em{display:block}
+#rd-ok:checked ~ .stage .r-ok-f{display:flex}
+#rd-no:checked ~ .stage .r-no-f{display:flex}
+#rd-em:checked ~ .stage .r-em-f{display:flex}
+.r-ok-f,.r-no-f,.r-em-f{display:none}
+
+/* ── list column ──────────────────────────────────────────────────────────── */
+.lh{display:flex;align-items:baseline;gap:7px;padding:10px 11px 8px;border-bottom:1px solid var(--line)}
+.lh .bk{font-size:11.5px;color:var(--cta);font-weight:500;flex:none}
+.lh .t{flex:1;min-width:0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lh .n{font-size:10.5px;color:var(--ink-2)}
+.srch{padding:9px 11px;border-bottom:1px solid var(--line)}
+.srch input{height:32px;width:100%;border:1px solid rgba(44,42,41,.15);border-radius:8px;padding:0 10px;
+            font:inherit;font-size:12.5px;background:#fff}
+.filt{display:flex;gap:4px;overflow-x:auto;padding:8px 11px;border-bottom:1px solid var(--line)}
+.filt .pill{height:25px;line-height:23px;font-size:11px}
+.rows{flex:1;min-height:0;overflow-y:auto}
+.crow{display:flex;gap:8px;padding:9px 11px;border-bottom:1px solid var(--line-2);cursor:pointer}
+.crow:hover{background:#FAF8F4}
+.crow.on{background:var(--cta-wash)}
+.crow .ca{width:29px;height:29px;flex:none;border-radius:999px;border:1px solid var(--line);background:#fff;
+          display:grid;place-items:center;font-size:10px;font-weight:600;color:var(--ink-2);margin-top:2px}
+.crow .cb{min-width:0;flex:1}
+.crow .tp{display:flex;align-items:baseline;gap:7px}
+.crow .tp b{flex:1;min-width:0;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .tp i{flex:none;font-style:normal;font-family:ui-monospace,Menlo,monospace;font-size:9.5px;color:var(--ink-3)}
+.crow .pv{font-size:11px;color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tag{border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:600}
+.tag.out{border:1px solid var(--cta);background:#fff;color:var(--cta)}
+.tag.flat{background:rgba(44,42,41,.06);color:var(--ink-2);font-weight:500}
+.unread{width:8px;height:8px;border-radius:999px;background:var(--cta);flex:none;margin-top:7px}
+
+/* ── context rail ─────────────────────────────────────────────────────────── */
+.rh{padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600}
+.rb{flex:1;min-height:0;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.kv .k{font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.kv .v{font-size:12.5px}
+.rt{display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--line-2);padding-top:10px}
+.rt .pill{height:32px;line-height:30px;text-align:left;padding:0 10px;border-radius:8px;font-size:12px;width:100%}
+.rt .pill.dis{opacity:.45;cursor:not-allowed}
+
+/* ── the couple's inbox ───────────────────────────────────────────────────── */
+.tile{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:15px;margin-bottom:12px}
+.eye{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+     color:var(--ink-3);margin-bottom:9px}
+.ilist{display:flex;flex-direction:column;gap:8px}
+.irow{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--line);
+      border-radius:var(--r-md);padding:11px 12px}
+.irow .ca{width:34px;height:34px;flex:none;border-radius:999px;border:1px solid var(--line);
+          display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--ink-2)}
+.irow .ib2{min-width:0;flex:1}
+.irow .nm{font-size:13.5px;font-weight:600}
+.irow .st{font-size:12px;color:var(--ink-2);margin-top:2px}
+.empty{border:1px dashed var(--line);border-radius:var(--r-md);padding:26px 18px;text-align:center;background:#fff}
+.empty .big{font-size:13.5px;font-weight:600}
+.empty .sm{font-size:12px;color:var(--ink-2);margin-top:5px;max-width:420px;margin-left:auto;margin-right:auto;line-height:1.55}
+.fail{border:1px solid var(--bad-line);background:var(--bad-bg);border-radius:var(--r-md);padding:16px}
+.fail .big{font-size:13.5px;font-weight:700;color:var(--bad)}
+.fail .sm{font-size:12.5px;color:var(--bad);margin-top:5px;line-height:1.55;opacity:.92}
+
+/* ── amber: undecided, and reversals ──────────────────────────────────────── */
+.amber{border:1px solid var(--amber-line);background:var(--amber-bg);border-radius:var(--r-md);
+       padding:12px 13px;margin:10px 0;font-size:12.5px;color:var(--amber-ink);line-height:1.55}
+.amber b{color:#4A3808}
+.amber .q{display:block;margin-top:6px;font-weight:600}
+.newmark{display:inline-block;background:var(--amber-line);color:#3E2F05;border-radius:999px;
+         padding:1px 8px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+         vertical-align:middle;margin-left:5px}
+
+/* ── summary ──────────────────────────────────────────────────────────────── */
+.sum{max-width:860px;margin:34px auto 0;background:#fff;border:1px solid var(--line);
+     border-radius:var(--r-lg);padding:20px 22px}
+.sum h2{font-size:17px;margin-bottom:4px}
+.sum h3{font-size:13.5px;margin:18px 0 6px}
+.sum p,.sum li{font-size:13px;line-height:1.65;color:var(--ink-2)}
+.sum li{margin-bottom:7px}
+.sum b{color:var(--ink)}
+.sum ol,.sum ul{padding-left:20px;margin:6px 0}
+
+
+/* phone: the switcher must not push the screen off the top — owner reviews on a phone */
+@media (max-width:640px){
+  .proto{padding:6px 9px;gap:4px}
+  .proto .ln{gap:4px}
+  .proto .lbl{min-width:0;width:100%;font-size:9px;letter-spacing:.1em;margin-bottom:-1px}
+    .pill{height:25px;line-height:23px;padding:0 9px;font-size:11.5px}
+  .protohead{font-size:11px;line-height:1.4}
+  .stage{padding:10px 9px 44px}
+  .three{height:auto;min-height:0}
+  .boxcol{overflow:visible}
+  .scr{max-height:46vh}
+}
+
+/* ── DESKTOP ≥1024 ────────────────────────────────────────────────────────── */
+@media (min-width:1024px){
+  .av{display:grid}
+  .colR{display:flex;flex-direction:column;width:18rem;flex:none;overflow:hidden}
+  .three{height:min(760px,calc(100dvh - 200px))}
+}
+@media (min-width:1280px){
+  .colL{display:flex;flex-direction:column;width:17rem;flex:none;overflow:hidden}
+}
+/* the supplier's rail is a header trigger below lg, a column at lg+ */
+@media (min-width:1024px){ .railbtn{display:none} }
+</style>
+</head>
+<body>
+
+<!-- ══ STATE RADIOS — the whole prototype switches on these, no script ══ -->
+<input class="sw" type="radio" name="side"  id="sd-c" checked>
+<input class="sw" type="radio" name="side"  id="sd-s">
+<input class="sw" type="radio" name="side"  id="sd-i">
+
+<input class="sw" type="radio" name="st" id="st-ac" checked>
+<input class="sw" type="radio" name="st" id="st-pe">
+<input class="sw" type="radio" name="st" id="st-de">
+<input class="sw" type="radio" name="st" id="st-di">
+<input class="sw" type="radio" name="st" id="st-wi">
+<input class="sw" type="radio" name="st" id="st-ex">
+<input class="sw" type="radio" name="st" id="st-bl">
+
+<input class="sw" type="radio" name="vo" id="vo-n" checked>
+<input class="sw" type="radio" name="vo" id="vo-1">
+<input class="sw" type="radio" name="vo" id="vo-100">
+
+<input class="sw" type="radio" name="rd" id="rd-ok" checked>
+<input class="sw" type="radio" name="rd" id="rd-no">
+<input class="sw" type="radio" name="rd" id="rd-em">
+
+<input class="sw" type="radio" name="to" id="to-none" checked>
+<input class="sw" type="radio" name="to" id="to-quote">
+<input class="sw" type="radio" name="to" id="to-offer">
+<input class="sw" type="radio" name="to" id="to-call">
+<input class="sw" type="radio" name="to" id="to-deal">
+<input class="sw" type="radio" name="to" id="to-out">
+
+<div class="proto">
+  <p class="protohead"><b>Prototype — not the app.</b> Every control below works with no JavaScript. Five of the six conversation states below have <b>never once rendered in production</b>.</p>
+  <div class="ln"><span class="lbl">Screen</span>
+    <label class="pill" for="sd-c">Couple's conversation</label>
+    <label class="pill" for="sd-s">Supplier's conversation</label>
+    <label class="pill" for="sd-i">Couple's inbox</label>
+  </div>
+  <div class="ln"><span class="lbl">Where it stands</span>
+    <label class="pill" for="st-ac">They accepted</label>
+    <label class="pill" for="st-pe">Waiting on them</label>
+    <label class="pill" for="st-de">They declined</label>
+    <label class="pill" for="st-di">You booked another</label>
+    <label class="pill" for="st-wi">You withdrew</label>
+    <label class="pill" for="st-ex">It ran out of time</label>
+    <label class="pill" for="st-bl">Blocked</label>
+  </div>
+  <div class="ln"><span class="lbl">Thread length</span>
+    <label class="pill" for="vo-1">One message</label>
+    <label class="pill" for="vo-n">A few (prod's real average)</label>
+    <label class="pill" for="vo-100">A hundred</label>
+  </div>
+  <div class="ln"><span class="lbl">The read</span>
+    <label class="pill" for="rd-ok">Loaded</label>
+    <label class="pill" for="rd-em">Genuinely empty</label>
+    <label class="pill" for="rd-no">Read refused</label>
+  </div>
+  <div class="ln"><span class="lbl">Open a tool</span>
+    <label class="pill" for="to-none">None (closed = invisible)</label>
+    <label class="pill" for="to-quote">Send a quote</label>
+    <label class="pill" for="to-offer">Offer another service</label>
+    <label class="pill" for="to-call">Voice or video call</label>
+    <label class="pill" for="to-deal">Deal or meeting</label>
+    <label class="pill" for="to-out">Log the outcome</label>
+  </div>
+</div>
+
+<div class="stage">
+
+<!-- ═══════════════════ COUPLE'S CONVERSATION ═══════════════════ -->
+<section class="frame fr-couple">
+  <div class="fhead">
+    <h1>The couple's conversation</h1>
+    <span class="route">/dashboard/[eventId]/messages/[threadId]</span>
+  </div>
+
+  <div class="three">
+    <aside class="colL sn">
+      <div class="lh"><a class="bk" href="#">‹ Bench</a><span class="t">Suppliers you're talking to</span><span class="n">3</span></div>
+      <div class="srch"><input placeholder="Search conversations" aria-label="Search conversations"></div>
+      <div class="filt"><span class="pill" style="background:var(--ink);border-color:var(--ink);color:#fff">All</span><span class="pill">Has a quote</span><span class="pill">Booked</span><span class="pill">Waiting</span><span class="pill">Closed</span></div>
+      <div class="rows">
+        <div class="crow on"><span class="ca">LP</span><span class="cb"><span class="tp"><b>[Liwanag Photo]</b><i>2h</i></span><span class="pv">You: Could we add the prenup session?</span><span class="tags"><span class="tag out">Has a quote</span></span></span></div>
+        <div class="crow"><span class="ca">AC</span><span class="cb"><span class="tp"><b>[Aurora Catering]</b><i>1d</i></span><span class="pv">We'll hold the date until Friday.</span><span class="tags"><span class="tag flat">Waiting</span></span></span><span class="unread"></span></div>
+        <div class="crow"><span class="ca">BL</span><span class="cb"><span class="tp"><b>[Bituin Lights]</b><i>Sep 4</i></span><span class="pv">Deposit received — thank you!</span><span class="tags"><span class="tag out">Booked</span></span></span></div>
+      </div>
+    </aside>
+
+    <div class="boxcol"><section class="sn box">
+      <div class="bh">
+        <button class="chev" aria-label="Back to Messages">‹</button>
+        <span class="av">LP</span>
+        <div class="who">
+          <p class="nm">[Liwanag Photo]</p>
+          <p class="mline"><span>Photography</span><span>December 18, 2026</span><span class="g">~170 guests · was 150 at inquiry</span></p>
+        </div>
+        <div class="htools"><button class="kebab" aria-label="Conversation options">⋮</button></div>
+      </div>
+
+      <div class="notice"><span>🔒</span><span>Keep your chats and payments inside Setnayan. Never share IDs, card numbers, or OTPs in chat.</span></div>
+
+      <div class="stream">
+        <div class="vsw"><span class="pill" style="background:var(--ink);border-color:var(--ink);color:#fff">All</span><span class="pill">Decisions</span><span class="pill">Files</span></div>
+
+        <div class="scr v-1"><span class="day">December 2 — inquiry sent</span>
+          <div class="bub me">Hi! We're getting married on Dec 18 in Tagaytay, around 170 guests. Are you free?<span class="mt">You · 9:12 AM</span></div>
+        </div>
+
+        <div class="scr v-n">
+          <span class="day">December 2 — inquiry sent</span>
+          <div class="bub me">Hi! We're getting married on Dec 18 in Tagaytay, around 170 guests. Are you free?<span class="mt">You · 9:12 AM</span></div>
+          <div class="bub them">Yes, the date is open. Sending you a quote now.<span class="mt">[Liwanag Photo] · 11:04 AM</span></div>
+          <span class="sys">[Liwanag Photo] accepted your inquiry</span>
+
+          <div class="superseded"><span class="tag">Superseded · kept as history</span>
+            <p style="margin-top:5px;font-size:12.5px">They offered <b>[Full-day coverage]</b> — replaced by the quote below.</p>
+          </div>
+
+          <div class="quote">
+            <div class="qh"><b>Quote from [Liwanag Photo]</b><span class="tot">[₱92,000]</span></div>
+            <div class="li"><span>[Full-day coverage · 10 hrs]</span><span>[₱68,000]</span></div>
+            <div class="li"><span>[Second shooter]</span><span>[₱14,000]</span></div>
+            <div class="li"><span>[Same-day edit]</span><span>[₱10,000]</span></div>
+            <div class="qa"><button class="btn">Review &amp; accept</button><button class="btn gh">Counter-offer</button></div>
+          </div>
+
+          <div class="bub me">Could we add the prenup session?<span class="mt">You · 2:41 PM</span></div>
+          <div class="jump"><span class="pill">↑ Quote</span><span class="pill">↓ Latest</span></div>
+        </div>
+
+        <div class="scr v-100"><span class="day">A hundred messages — the composer must not leave the screen</span>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 1</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 2</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 3</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 4</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 5</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 6</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 7</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 8</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 9</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 10</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 11</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 12</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 13</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 14</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 15</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 16</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 17</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 18</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 19</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 20</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 21</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 22</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 23</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 24</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 25</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 26</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 27</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 28</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 29</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 30</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 31</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 32</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 33</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 34</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 35</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 36</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 37</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 38</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 39</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 40</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 41</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 42</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 43</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 44</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 45</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 46</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 47</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 48</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 49</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 50</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 51</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 52</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 53</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 54</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 55</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 56</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 57</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 58</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 59</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 60</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 61</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 62</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 63</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 64</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 65</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 66</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 67</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 68</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 69</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 70</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 71</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 72</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 73</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 74</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 75</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 76</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 77</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 78</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 79</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 80</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 81</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 82</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 83</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 84</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 85</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 86</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 87</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 88</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 89</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 90</span></div>
+          <div class="bub me">Sounds good — sending the shot list.<span class="mt">You · msg 91</span></div>
+          <div class="bub them">Noted, thank you!<span class="mt">[Liwanag Photo] · msg 92</span></div>
+          <div class="bub me">Can we move the prenup to the 14th?<span class="mt">You · msg 93</span></div>
+          <div class="bub them">The 14th works for us.<span class="mt">[Liwanag Photo] · msg 94</span></div>
+          <div class="bub me">Do you cover the reception too?<span class="mt">You · msg 95</span></div>
+          <div class="bub them">Yes, until 11pm.<span class="mt">[Liwanag Photo] · msg 96</span></div>
+          <div class="bub me">Great. I'll confirm with the venue.<span class="mt">You · msg 97</span></div>
+          <div class="bub them">Perfect.<span class="mt">[Liwanag Photo] · msg 98</span></div>
+          <div class="bub me">One more thing — drone shots?<span class="mt">You · msg 99</span></div>
+          <div class="bub them">We can add that.<span class="mt">[Liwanag Photo] · msg 100</span></div>
+          <div class="jump"><span class="pill">↑ Quote</span><span class="pill">↓ Latest</span></div>
+        </div>
+      </div>
+
+      <div class="comp">
+        <!-- accepted -->
+        <div class="s-ac">
+          <div class="crow" style="border:0;padding:0;background:none;cursor:default">
+            <div style="display:flex;align-items:flex-end;gap:6px;width:100%">
+              <button class="ib" aria-label="Attach a file">📎</button>
+              <textarea class="ta" placeholder="Type a message…"></textarea>
+              <label class="ib" for="to-deal" title="Deal or meeting">🧾</label>
+              <label class="ib" for="to-call" title="Call [Liwanag Photo]">📞</label>
+              <button class="ib send" aria-label="Send">➤</button>
+            </div>
+          </div>
+        </div>
+        <!-- pending, follow-up still available -->
+        <div class="s-pe">
+          <p class="hint">You can send one follow-up while you wait for [Liwanag Photo] to accept.</p>
+          <div style="display:flex;align-items:flex-end;gap:6px">
+            <button class="ib" aria-label="Attach a file">📎</button>
+            <textarea class="ta" placeholder="Type a message…"></textarea>
+            <label class="ib" for="to-deal" title="Deal or meeting">🧾</label>
+            <button class="ib send" aria-label="Send">➤</button>
+          </div>
+          <div class="stand wait" style="margin-top:9px">
+            <p><b>Follow-up sent.</b> Waiting for [Liwanag Photo] to accept before your chat opens. We&rsquo;ll notify you the moment they reply.</p>
+            <div class="acts"><button class="btn lnk">Withdraw inquiry</button></div>
+          </div>
+        </div>
+        <!-- declined -->
+        <div class="s-de"><div class="stand off">
+          <p>[Liwanag Photo] declined this inquiry. <b>Why:</b> &ldquo;[We&rsquo;re already booked that weekend.]&rdquo; Browse similar vendors to keep your options open.</p>
+          <div class="acts"><button class="btn tall">See similar vendors</button><button class="btn lnk">Withdraw inquiry</button></div>
+        </div></div>
+        <!-- displaced -->
+        <div class="s-di"><div class="stand off">
+          <p>You booked <b>[Sining Studios]</b> for Photography, so this conversation closed. Nothing was deleted — it is in Archived.</p>
+          <div class="acts"><button class="btn gh">Open [Sining Studios]</button></div>
+          <div class="amber" style="margin:10px 0 0">⚠ <b>Never rendered in production</b> — zero <code>displaced</code> rows. This copy is proposed, not shipped. Today this state falls into the &ldquo;isn&rsquo;t available for your date&rdquo; branch, which is wrong for a thread you closed yourself.<span class="q">Q1 · Approve this wording?</span></div>
+        </div></div>
+        <!-- withdrawn -->
+        <div class="s-wi"><div class="stand off">
+          <p>You withdrew this inquiry. [Liwanag Photo] was told, and the conversation is kept as your record.</p>
+          <div class="acts"><button class="btn gh">Ask them again</button></div>
+          <div class="amber" style="margin:10px 0 0">⚠ <b>Never rendered.</b> Today a withdrawn thread shows &ldquo;[Liwanag Photo] isn&rsquo;t available for your date&rdquo; — <b>the app blames the supplier for something you did.</b><span class="q">Q2 · Fix the copy now, or leave it until the first real withdrawal?</span></div>
+        </div></div>
+        <!-- expired -->
+        <div class="s-ex"><div class="stand off">
+          <p>[Liwanag Photo] never answered, so this inquiry closed on its own. Your wedding is [46 days] away.</p>
+          <div class="acts"><button class="btn tall">See similar vendors</button></div>
+          <div class="amber" style="margin:10px 0 0">⚠ <b>Never rendered.</b> Same wrong branch as withdrawn.<span class="q">Q3 · Is there anything that actually writes <code>expired</code>? I found no writer.</span></div>
+        </div></div>
+        <!-- blocked -->
+        <div class="s-bl"><div class="stand bad">
+          <p>You blocked this person. Unblock from the ⋯ menu to message again.</p>
+        </div></div>
+      </div>
+
+      <p class="traynote">Nothing here until you open a tool. A closed tool takes no space at all — that is the shipped rule, and the six-collapsed-rows version was rejected.</p>
+      <div class="tray">
+        <div class="tool t-deal"><div class="ts"><span>Deal or meeting</span><span class="ht">Propose a schedule or a handshake</span><label class="close" for="to-none">Close</label></div>
+          <div class="tb">Propose a meeting time, or ask them to lock the booking. <span class="ph">[builder]</span></div></div>
+        <div class="tool t-call"><div class="ts"><span>Voice or video call</span><span class="ht">Free, one to one</span><label class="close" for="to-none">Close</label></div>
+          <div class="tb">Voice · Video. <span class="ph">[call launcher]</span> — a paid capability, dark unless this supplier's plan has it on.</div></div>
+        <div class="tool t-quote"><div class="ts"><span>Send a quote</span><span class="ht">Supplier-only tool</span><label class="close" for="to-none">Close</label></div>
+          <div class="tb">A couple has only two tools. This one belongs to the supplier — switch to their conversation to open it.</div></div>
+        <div class="tool t-offer"><div class="ts"><span>Offer another service</span><span class="ht">Supplier-only tool</span><label class="close" for="to-none">Close</label></div>
+          <div class="tb">Supplier-only. A couple has only Deal or meeting and Call.</div></div>
+        <div class="tool t-out"><div class="ts"><span>Log the outcome</span><span class="ht">Supplier-only tool</span><label class="close" for="to-none">Close</label></div>
+          <div class="tb">Supplier-only, and private to them.</div></div>
+      </div>
+    </section></div>
+  </div>
+
+  <div class="amber">💡 <b>Nothing on this screen changes shape.</b> The couple's conversation is the one the owner already approved on 2026-09-18 and it is shipped. What changes here is only the six state messages above — five of which have never been seen — plus keeping a superseded offer visible as history instead of deleting it.</div>
+</section>
+
+<!-- ═══════════════════ SUPPLIER'S CONVERSATION ═══════════════════ -->
+<section class="frame fr-supplier">
+  <div class="fhead">
+    <h1>The supplier's conversation</h1>
+    <span class="route">/vendor-dashboard/messages/[threadId]</span>
+    <span class="sub">Same frame. Three extras: a pinned band, a context rail, nine tools.</span>
+  </div>
+
+  <div class="three">
+    <aside class="colL sn">
+      <div class="lh"><span class="t">Conversations</span><span class="n">4</span></div>
+      <div class="srch"><input placeholder="Search conversations" aria-label="Search conversations"></div>
+      <div class="filt"><span class="pill" style="background:var(--ink);border-color:var(--ink);color:#fff">All</span><span class="pill">Unanswered</span><span class="pill">Quoted</span><span class="pill">Booked</span><span class="pill">Completed</span><span class="pill">Cancelled</span></div>
+      <div class="rows">
+        <div class="crow on"><span class="ca">RS</span><span class="cb"><span class="tp"><b>[Reyes – Santos Wedding]</b><i>2h</i></span><span class="pv">Could we add the prenup session?</span><span class="tags"><span class="tag out">Quoted</span><span class="tag flat">Dec 18, 2026</span></span></span><span class="unread"></span></div>
+        <div class="crow"><span class="ca">W</span><span class="cb"><span class="tp"><b>[A wedding in Cavite]</b><i>5h</i></span><span class="pv">New inquiry · accept to reply</span><span class="tags"><span class="tag flat">Unanswered</span></span></span><span class="unread"></span></div>
+        <div class="crow"><span class="ca">DG</span><span class="cb"><span class="tp"><b>[Dela Cruz – Go]</b><i>3d</i></span><span class="pv">Deposit logged — ₱20,000</span><span class="tags"><span class="tag out">Booked</span></span></span></div>
+      </div>
+    </aside>
+
+    <div class="boxcol"><section class="sn box">
+      <div class="bh">
+        <button class="chev" aria-label="Back to Messages">‹</button>
+        <span class="av">RS</span>
+        <div class="who">
+          <p class="nm">[Reyes – Santos Wedding] <span class="chip gold">Founder</span></p>
+          <p class="mline"><span>Photography</span><span>December 18, 2026</span><span class="g">Planning for ~170 guests · 150 at inquiry</span></p>
+          <p class="chiprow"><span class="chip grey">Website Inquiry</span><span class="chip gold">Returning customer</span></p>
+        </div>
+        <div class="htools"><button class="railbtn">Customer</button><button class="kebab" aria-label="Conversation options">⋮</button></div>
+      </div>
+
+      <div class="notice"><span>🔒</span><span>All your event info is already in Setnayan. Couples are told to report a vendor who asks for these.</span></div>
+
+      <!-- THE BRIEF — inherited requirement 2 -->
+      <div class="pinned">
+        <div class="card gold s-pe s-ac" style="display:block">
+          <h4>Their event <span class="newmark">New</span></h4>
+          <p>[Tagaytay, Cavite] · December 18, 2026 · ~170 guests · budget band [₱80–120k] · they have [4] other suppliers locked. Asked about <b>Photography</b>.</p>
+          <p style="margin-top:5px"><span class="ph">[read from the event, supplier-safe fields only]</span></p>
+        </div>
+        <div class="card gold s-ac">
+          <h4>Guest count changed — [Full-day coverage]</h4>
+          <p>Now planning for <b>170</b> guests (you quoted ~150). At [₱350]/guest, your total would increase by <b style="color:var(--gold-700)">+[₱7,000]</b>.</p>
+          <div class="acts"><button class="btn">Apply +[₱7,000]</button><button class="btn gh">Hold price</button></div>
+        </div>
+        <div class="card s-ac">
+          <h4>Payment logged by the couple — [₱20,000]</h4>
+          <p>[GCash] · reference [0009-2211] · they attached a receipt.</p>
+          <div class="acts"><button class="btn">Confirm received</button><button class="btn gh">Not received</button></div>
+        </div>
+      </div>
+
+      <div class="stream">
+        <div class="vsw"><span class="pill" style="background:var(--ink);border-color:var(--ink);color:#fff">All</span><span class="pill">Decisions</span><span class="pill">Files</span></div>
+
+        <div class="scr v-1"><span class="day">December 2 — inquiry received</span>
+          <div class="bub them">Hi! We're getting married on Dec 18 in Tagaytay, around 170 guests. Are you free?<span class="mt">[Reyes – Santos] · 9:12 AM</span></div>
+        </div>
+        <div class="scr v-n">
+          <span class="day">December 2 — inquiry received</span>
+          <div class="bub them">Hi! We're getting married on Dec 18 in Tagaytay, around 170 guests. Are you free?<span class="mt">[Reyes – Santos] · 9:12 AM</span></div>
+          <div class="bub me">Yes, the date is open. Sending you a quote now.<span class="mt">You · 11:04 AM</span></div>
+          <div class="superseded"><span class="tag">Superseded · kept as history</span>
+            <p style="margin-top:5px;font-size:12.5px">You offered <b>[Full-day coverage]</b> — replaced by your quote below.</p></div>
+          <div class="quote">
+            <div class="qh"><b>Your quote</b><span class="tot">[₱92,000]</span></div>
+            <div class="li"><span>[Full-day coverage · 10 hrs]</span><span>[₱68,000]</span></div>
+            <div class="li"><span>[Second shooter]</span><span>[₱14,000]</span></div>
+            <div class="li"><span>[Same-day edit]</span><span>[₱10,000]</span></div>
+            <div class="qa"><button class="btn gh">Update this quote</button></div>
+          </div>
+          <div class="bub them">Could we add the prenup session?<span class="mt">[Reyes – Santos] · 2:41 PM</span></div>
+          <div class="jump"><span class="pill">↑ Quote</span><span class="pill">↓ Latest</span></div>
+        </div>
+        <div class="scr v-100"><span class="day">A hundred messages — the composer must not leave the screen</span>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 1</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 2</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 3</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 4</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 5</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 6</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 7</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 8</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 9</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 10</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 11</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 12</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 13</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 14</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 15</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 16</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 17</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 18</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 19</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 20</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 21</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 22</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 23</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 24</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 25</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 26</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 27</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 28</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 29</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 30</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 31</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 32</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 33</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 34</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 35</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 36</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 37</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 38</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 39</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 40</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 41</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 42</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 43</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 44</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 45</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 46</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 47</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 48</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 49</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 50</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 51</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 52</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 53</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 54</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 55</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 56</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 57</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 58</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 59</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 60</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 61</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 62</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 63</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 64</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 65</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 66</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 67</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 68</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 69</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 70</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 71</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 72</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 73</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 74</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 75</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 76</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 77</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 78</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 79</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 80</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 81</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 82</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 83</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 84</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 85</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 86</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 87</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 88</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 89</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 90</span></div>
+          <div class="bub them">Sounds good — sending the shot list.<span class="mt">[Reyes – Santos] · msg 91</span></div>
+          <div class="bub me">Noted, thank you!<span class="mt">You · msg 92</span></div>
+          <div class="bub them">Can we move the prenup to the 14th?<span class="mt">[Reyes – Santos] · msg 93</span></div>
+          <div class="bub me">The 14th works for us.<span class="mt">You · msg 94</span></div>
+          <div class="bub them">Do you cover the reception too?<span class="mt">[Reyes – Santos] · msg 95</span></div>
+          <div class="bub me">Yes, until 11pm.<span class="mt">You · msg 96</span></div>
+          <div class="bub them">Great. I'll confirm with the venue.<span class="mt">[Reyes – Santos] · msg 97</span></div>
+          <div class="bub me">Perfect.<span class="mt">You · msg 98</span></div>
+          <div class="bub them">One more thing — drone shots?<span class="mt">[Reyes – Santos] · msg 99</span></div>
+          <div class="bub me">We can add that.<span class="mt">You · msg 100</span></div>
+          <div class="jump"><span class="pill">↑ Quote</span><span class="pill">↓ Latest</span></div>
+        </div>
+      </div>
+
+      <div class="comp">
+        <div class="s-ac">
+          <div style="display:flex;align-items:flex-end;gap:6px">
+            <button class="ib" aria-label="Attach a file">📎</button>
+            <textarea class="ta" placeholder="Type a message…"></textarea>
+            <label class="ib" for="to-deal" title="Deal or meeting">🧾</label>
+            <label class="ib" for="to-call" title="Call the couple">📞</label>
+            <button class="ib send" aria-label="Send">➤</button>
+          </div>
+        </div>
+
+        <!-- THE DECISION SURFACE — never once rendered in production -->
+        <div class="s-pe"><div class="stand wait">
+          <p><b>New inquiry.</b> Accept to reply, or decline if you&rsquo;re not available for this date.</p>
+          <div class="facts">
+            <span class="fact">December 18, 2026</span>
+            <span class="fact">150 pax <i style="font-style:normal;opacity:.7">· at inquiry</i></span>
+            <span class="fact">Wedding</span>
+            <span class="fact">[Tagaytay]</span>
+            <span class="fact mul">Setnayan AI · Active</span>
+          </div>
+          <div class="diary"><span>🗓</span><span>[2 other couples] are asking about this date. Accepting does not book it.</span></div>
+          <div class="bline"><span class="chip gold">Returning client</span><span>Booked you for [the Garcia christening].</span></div>
+          <div class="bline"><span class="chip cta">Active planner</span><span>An engaged couple who&rsquo;s already deep in planning.</span></div>
+          <div class="acts"><button class="btn tall">Accept inquiry</button><button class="btn tall gh">Decline</button></div>
+          <div class="amber" style="margin:11px 0 0">🔎 <b>This entire block has never been shown to a real supplier.</b> Production holds 3 threads, all already accepted, and zero <code>pending</code> rows. You are looking at the only place it has ever been operated.</div>
+        </div></div>
+
+        <div class="s-de"><div class="stand off">
+          <p>You declined this inquiry. The couple has been notified and pointed to other vendors.</p>
+          <div class="acts"><label class="btn gh" for="to-out">Log the outcome</label></div>
+        </div></div>
+        <div class="s-di"><div class="stand off">
+          <p>Released — they booked another supplier for Photography. Nothing you need to do.</p>
+          <div class="acts"><label class="btn gh" for="to-out">Log the outcome</label></div>
+        </div></div>
+        <div class="s-wi"><div class="stand off">
+          <p>The couple withdrew this inquiry. The conversation is kept as the record.</p>
+        </div></div>
+        <div class="s-ex"><div class="stand off">
+          <p>This inquiry ran out of time before you answered. It no longer counts against your response rate.</p>
+          <div class="amber" style="margin:10px 0 0">⚠ Never rendered. <span class="q">Q3 · I found nothing that writes <code>expired</code>. Does it happen?</span></div>
+        </div></div>
+        <div class="s-bl"><div class="stand bad"><p>You can no longer message in this conversation.</p></div></div>
+      </div>
+
+      <div class="trayzone">
+        <p class="traynote">Nothing here until a tool is summoned — 🧾 and 📞 on the composer, the other seven from the rail. One opens at a time, and each carries a Close.</p>
+        <div class="tray">
+          <div class="tool t-quote"><div class="ts"><span>Send a quote</span><span class="ht">Line by line, or from a saved template</span><label class="close" for="to-none">Close</label></div>
+            <div class="tb">One tool, two ways in: the line-item builder, and the saved-template shortcut beneath it. <span class="ph">[quote builder]</span><br><br><b>Sending this quote replaces the offered-service card</b> in the conversation. The old card stays visible, marked <i>Superseded</i>, so nobody loses the view.</div></div>
+          <div class="tool t-offer"><div class="ts"><span>Offer another service</span><span class="ht">Your other cards, not yet on this thread</span><label class="close" for="to-none">Close</label></div>
+            <div class="tb"><span class="ph">[your service cards]</span></div></div>
+          <div class="tool t-call"><div class="ts"><span>Voice or video call</span><span class="ht">Free, one to one</span><label class="close" for="to-none">Close</label></div>
+            <div class="tb">Voice · Video — two buttons, one call machine. <span class="ph">[call launcher]</span></div></div>
+          <div class="tool t-deal"><div class="ts"><span>Deal or meeting</span><span class="ht">Propose a schedule or a handshake</span><label class="close" for="to-none">Close</label></div>
+            <div class="tb"><span class="ph">[builder]</span></div></div>
+          <div class="tool t-out"><div class="ts"><span>Log the outcome</span><span class="ht">Won, lost or no response — private to you</span><label class="close" for="to-none">Close</label></div>
+            <div class="tb"><span class="ph">[reason codes]</span></div></div>
+        </div>
+      </div>
+    </section></div>
+
+    <aside class="colR sn">
+      <div class="rh">Customer</div>
+      <div class="rb">
+        <div class="kv"><span class="k">Event</span><div class="v">[Reyes – Santos Wedding]</div></div>
+        <div class="kv"><span class="k">Date</span><div class="v">December 18, 2026</div></div>
+        <div class="kv"><span class="k">Where</span><div class="v">[Tagaytay, Cavite]</div></div>
+        <div class="kv"><span class="k">Guests</span><div class="v">~170 · 150 at inquiry</div></div>
+        <div class="kv"><span class="k">Quote</span><div class="v">[₱92,000] · sent Dec 2</div></div>
+        <div class="kv"><span class="k">Paid</span><div class="v">[₱20,000] awaiting your confirm</div></div>
+        <div class="rt">
+          <label class="pill" for="to-quote">Send a quote</label>
+          <span class="pill">Log payment</span>
+          <span class="pill dis" title="Opens once they book you">Propose schedule</span>
+          <label class="pill" for="to-offer">Offer another service</label>
+          <label class="pill" for="to-call">Voice call</label>
+          <label class="pill" for="to-call">Video call</label>
+          <label class="pill" for="to-deal">Deal or meeting</label>
+          <label class="pill" for="to-out">Log the outcome</label>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ═══════════════════ THE COUPLE'S INBOX ═══════════════════ -->
+<section class="frame fr-inbox">
+  <div class="fhead">
+    <h1>The couple's inbox</h1>
+    <span class="route">/dashboard/[eventId]/messages</span>
+  </div>
+
+  <div class="amber">
+    🛑 <b>THIS SCREEN IS WHERE I DISAGREE WITH MY INSTRUCTION, AND I WOULD RATHER ASK THAN BUILD IT.</b><br><br>
+    I was asked to add shortlisted-but-never-messaged suppliers here, because you asked for &ldquo;inquiries <b>and vendors</b>&rdquo;. But on <b>2026-09-09</b> you ruled the opposite about this exact page — <i>&ldquo;shouldn&rsquo;t they message a vendor from the build? or marketplace? adding here gives them what?&rdquo;</i> — and the ruling was: <b>the couple has no inbox.</b> Conversations moved onto the bench, and this route survives only so notification and email links keep landing. The binding drawing says it in its own words: <i>&ldquo;the couple keeps a list column but loses the inbox.&rdquo;</i><br><br>
+    I checked the code: the bench already ships <b>Open conversation</b> and the standing sentence on every card. So &ldquo;inquiries and vendors&rdquo; already describes the bench — it lists shortlisted suppliers whether or not you have messaged them.
+    <span class="q">Q4 · Did you mean the bench (already built — nothing to do), or did you mean to reverse the 2026-09-09 ruling and grow this page back? I recommend the bench. Growing this page back rebuilds the thing you asked to remove.</span>
+  </div>
+
+  <!-- loaded -->
+  <div class="r-ok">
+    <div class="tile">
+      <p class="eye">Start a new thread</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input style="flex:1;min-width:210px;height:40px;border:1px solid rgba(44,42,41,.15);border-radius:9px;padding:0 11px;font:inherit;font-size:13px" placeholder="vendor's contact email">
+        <button class="btn tall">＋ Start thread</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--ink-2);margin-top:8px;line-height:1.5">Works when the email you have is the one on their Setnayan shop. New thread or resume an existing one — Setnayan keeps one per pair.</p>
+    </div>
+    <div class="ilist">
+      <div class="irow"><span class="ca">LP</span><span class="ib2"><span class="nm">[Liwanag Photo]</span><p class="st">They sent a quote — [₱92,000] waiting on you.</p></span><button class="btn gh">Open</button></div>
+      <div class="irow"><span class="ca">AC</span><span class="ib2"><span class="nm">[Aurora Catering]</span><p class="st">Waiting on them since [Sep 18] — [4] days.</p></span><button class="btn gh">Open</button></div>
+      <div class="irow"><span class="ca">BL</span><span class="ib2"><span class="nm">[Bituin Lights]</span><p class="st">Booked · deposit received.</p></span><button class="btn gh">Open</button></div>
+    </div>
+  </div>
+
+  <!-- genuinely empty -->
+  <div class="r-em">
+    <div class="empty">
+      <p class="big">No conversations yet.</p>
+      <p class="sm">Start a thread from the bench — every supplier you shortlist has an <b>Open conversation</b> button on their card. You never need this page to begin.</p>
+      <div style="margin-top:14px"><button class="btn tall">Open the bench</button></div>
+    </div>
+  </div>
+
+  <!-- refused — must NOT look like empty -->
+  <div class="r-no">
+    <div class="fail">
+      <p class="big">⚠ We couldn&rsquo;t load your conversations.</p>
+      <p class="sm">This is a problem on our side, not an empty list. <b>You have not lost anything.</b> Your suppliers and messages are safe — the page just could not read them right now.</p>
+      <div class="acts" style="margin-top:12px"><button class="btn tall">Try again</button><button class="btn tall gh">Open the bench instead</button></div>
+    </div>
+    <div class="amber">🔑 <b>This is the state that matters most on this screen.</b> A refused read that renders as &ldquo;No conversations yet&rdquo; is the exact defect this project has shipped seven fixes for — a couple with 180 guests was once told their guest list was empty. Compare it with <b>Genuinely empty</b> above: they must never look alike.</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SUMMARY ═══════════════════ -->
+<div class="sum">
+  <h2>In plain words</h2>
+  <p>What this prototype is, what it changes, and what it cannot prove.</p>
+
+  <h3>1 · What changes</h3>
+  <ul>
+    <li><b>The couple's conversation</b> — nothing structural. You approved this shape on 2026-09-18 and it ships. Only the closing messages change, plus a superseded offer stays visible instead of vanishing.</li>
+    <li><b>The supplier's conversation</b> — a new <b>Their event</b> brief at the top of the pinned band, so they can see what they are quoting against without leaving the chat. Everything else is shipped.</li>
+    <li><b>The quote replaces the offered-service card</b> (your ruling). The replaced card stays, dimmed and marked <i>Superseded</i>, so a view is never destroyed.</li>
+    <li><b>Five closing messages that have never existed</b> — declined, you-booked-another, you-withdrew, ran-out-of-time, blocked. Today all of them show one sentence blaming the supplier's availability.</li>
+    <li><b>The couple's inbox</b> — <b>I am proposing no change here</b> until you answer Q4.</li>
+  </ul>
+
+  <h3>2 · What is deliberately NOT changing</h3>
+  <ul>
+    <li><b>The one-box layout.</b> It is four days old and approved.</li>
+    <li><b>A closed tool stays invisible.</b> You rejected collapsed rows with &ldquo;This is so confusing.&rdquo;</li>
+    <li><b>No Messages row in the couple's menu.</b> That would reverse your 2026-07-10 ruling.</li>
+    <li><b>The supplier's inbox stays inside My Customers.</b> <code>/vendor-dashboard/messages</code> is a redirect, not a page.</li>
+    <li><b>Two vocabularies stay two.</b> The couple's filters say <i>Has a quote · Waiting</i>; the supplier's say <i>Quoted · Unanswered</i>. Same ladder, different words, on purpose.</li>
+  </ul>
+
+  <h3>3 · What this cannot prove</h3>
+  <ul>
+    <li><b>I have never seen these pages running.</b> Signing in means typing your password, which I will not do. Everything here is read from the code and the database.</li>
+    <li><b>Production cannot confirm any of it.</b> 3 threads, 13 messages, all accepted. No attachment has ever been sent. No proposal has ever gone through this composer.</li>
+    <li><b>Every name, peso figure and message is invented</b> and marked <code>[like this]</code>. No price here came from the real catalogue.</li>
+    <li><b>The hundred-message view is drawn, not measured.</b> The real ceiling is a browser test, and the shipped guard already covers it at 80 messages.</li>
+  </ul>
+
+  <h3>4 · What I need from you</h3>
+  <ol>
+    <li><b>Q4 — the inbox. The only one that blocks me.</b> Did &ldquo;inquiries and vendors&rdquo; mean the bench, which already does this, or did you mean to grow this page back? <b>I recommend the bench.</b> Cost of getting it wrong: rebuilding the page you asked to remove on 2026-09-09, and two homes for one job.</li>
+    <li><b>Q1/Q2 — the closing messages.</b> Approve the five new sentences? <b>I recommend yes for withdrew and booked-another</b>, which are the ones where the app currently blames the supplier for something the couple did. Cost of getting it wrong: low — it is copy.</li>
+    <li><b>Q3 — does anything expire?</b> I found no code that writes <code>expired</code>. If nothing does, I will draw no screen for it. <b>I recommend leaving it.</b></li>
+  </ol>
+
+  <h3>5 · What I measured before drawing</h3>
+  <ul>
+    <li>Production: 3 threads, all accepted; 13 messages; 0 attachments; 0 bot posts. <b>This changed the whole plan</b> — it is why five states are drawn here and why I recommend no redesign of the shipped layout.</li>
+    <li>The bench already ships <b>Open conversation</b>. <b>This changed Q4</b> from a build into a question.</li>
+    <li>The 2026-09-09 rulings and the binding drawing. <b>This stopped me re-drawing a screen you already approved.</b></li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

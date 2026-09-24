@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Public profile — /u/icecasa</title>
+<style>
+:root{
+  --m-ink:#2C2A29; --m-paper:#FFFFFF; --m-paper-2:#F4F2EC;
+  --m-line:#E1DCD1; --m-line-soft:#EDE8DE; --m-muted:#6E6A62;
+  --sn-gold-500:#A9834B; --sn-gold-700:#8A6B39; --sn-ink-300:#A09A8E;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--m-paper-2);color:var(--m-ink);
+  font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px 72px}
+
+/* ── the minimal Setnayan bar — option B ───────────────────────── */
+.bar{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.72);
+  backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--m-line-soft)}
+.bar-in{max-width:900px;margin:0 auto;padding:11px 16px;display:flex;align-items:center;gap:12px}
+.mark{font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--sn-gold-700)}
+.bar .sp{flex:1}
+.bar a{font-size:13px;color:var(--m-muted);text-decoration:none;padding:6px 12px;border-radius:999px}
+.bar a.signin{border:1px solid var(--m-line);color:var(--m-ink);background:#fff}
+
+/* ── header ────────────────────────────────────────────────────── */
+header{text-align:center;padding:56px 0 30px}
+h1{font-size:44px;line-height:1.05;margin:0 0 12px;letter-spacing:-.02em;font-weight:600}
+.meta{font-size:13px;color:var(--m-muted)}
+.meta b{color:var(--m-ink);font-weight:600}
+.rule{width:44px;height:2px;background:var(--sn-gold-500);margin:20px auto 16px;border-radius:2px}
+.sub{font-size:15px;color:var(--m-muted);margin:0}
+
+/* ── the cards ─────────────────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:16px;margin-top:34px}
+.card{position:relative;display:block;text-decoration:none;color:inherit;overflow:hidden;
+  border-radius:18px;background:var(--m-paper);border:1px solid var(--m-line-soft);
+  box-shadow:0 1px 2px rgba(44,42,41,.04);transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(44,42,41,.10)}
+/* the celebration's own colour, as a wash + a spine */
+.card .wash{height:104px;position:relative;
+  background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 100%)}
+.card .wash::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 90% at 12% 0%,rgba(255,255,255,.34),transparent 62%)}
+.mono{position:absolute;left:18px;bottom:-26px;width:58px;height:58px;border-radius:50%;
+  display:grid;place-items:center;background:#fff;border:1px solid var(--m-line);
+  box-shadow:0 2px 8px rgba(44,42,41,.10);z-index:2}
+.mono span{font-size:15px;letter-spacing:.02em;color:var(--accent);font-weight:600}
+.body{padding:36px 18px 18px}
+.name{font-size:19px;font-weight:600;letter-spacing:-.01em;margin:0 0 3px}
+.when{font-size:13px;color:var(--m-muted);margin:0}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px;
+  background:var(--accent-tint);color:var(--accent-ink);border:1px solid var(--accent-line)}
+
+/* a celebration with NO identity yet — deliberate, not broken */
+.card.plain .wash{background:var(--m-paper-2)}
+.card.plain .wash::after{background:
+  repeating-linear-gradient(135deg,transparent 0 9px,rgba(44,42,41,.035) 9px 10px)}
+.card.plain .mono span{color:var(--sn-ink-300)}
+.card.plain .tag{background:#fff;color:var(--m-muted);border-color:var(--m-line)}
+
+/* ── footer ────────────────────────────────────────────────────── */
+.actions{display:flex;gap:10px;justify-content:center;margin:40px 0 0}
+.btn{font-size:14px;padding:10px 18px;border-radius:999px;border:1px solid var(--m-line);
+  background:#fff;color:var(--m-ink);text-decoration:none}
+.btn.ghost{border-color:transparent;color:var(--m-muted)}
+footer{text-align:center;margin-top:44px;padding-top:22px;border-top:1px solid var(--m-line-soft);
+  font-size:12px;color:var(--sn-ink-300)}
+
+.note{max-width:900px;margin:34px auto 0;padding:16px 18px;border-radius:14px;
+  background:#fff;border:1px solid var(--m-line);font-size:13px;line-height:1.6;color:var(--m-muted)}
+.note b{color:var(--m-ink)}
+.note code{font-family:ui-monospace,monospace;font-size:12px;background:var(--m-paper-2);
+  padding:1px 5px;border-radius:4px;color:var(--m-ink)}
+@media (max-width:520px){h1{font-size:34px}header{padding:40px 0 22px}}
+</style></head><body>
+
+<div class="bar"><div class="bar-in">
+  <span class="mark">SETNAYAN</span>
+  <span class="sp"></span>
+  <a href="#">Made with Setnayan</a>
+  <a href="#" class="signin">Sign in</a>
+</div></div>
+
+<div class="wrap">
+  <header>
+    <h1>Ice Casasola</h1>
+    <div class="meta"><b>0</b> followers &nbsp;·&nbsp; <b>1</b> view</div>
+    <div class="rule"></div>
+    <p class="sub">A collection of celebrations.</p>
+  </header>
+
+  <div class="grid">
+
+    <a class="card" href="#" style="--accent:#9a244f;--accent-2:#6d1637;
+       --accent-tint:#fbeef3;--accent-ink:#7d1d41;--accent-line:#f0d5e0">
+      <div class="wash"><div class="mono"><span>I&amp;C</span></div></div>
+      <div class="body">
+        <p class="name">Indalecio &amp; Claire</p>
+        <p class="when">December 18, 2026</p>
+        <div class="tags"><span class="tag">Botanical</span><span class="tag">Capiz</span><span class="tag">Cale-Ice</span></div>
+      </div>
+    </a>
+
+    <a class="card" href="#" style="--accent:#9b7e00;--accent-2:#6b5600;
+       --accent-tint:#fbf6e4;--accent-ink:#6f5a00;--accent-line:#eee2bb">
+      <div class="wash"><div class="mono"><span>M&amp;J</span></div></div>
+      <div class="body">
+        <p class="name">Maria &amp; Jose</p>
+        <p class="when">December 12, 2026</p>
+        <div class="tags"><span class="tag">Default theme</span></div>
+      </div>
+    </a>
+
+    <a class="card plain" href="#" style="--accent:#A09A8E;--accent-2:#CFC9BD;
+       --accent-tint:#fff;--accent-ink:#6E6A62;--accent-line:#E1DCD1">
+      <div class="wash"><div class="mono"><span>M</span></div></div>
+      <div class="body">
+        <p class="name">Movie Night</p>
+        <p class="when">August 20, 2026</p>
+        <div class="tags"><span class="tag">No theme yet</span></div>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="actions">
+    <a class="btn" href="#">Share profile</a>
+    <a class="btn ghost" href="#">Report this page</a>
+  </div>
+
+  <footer>Made with Setnayan</footer>
+
+  <div class="note">
+    <b>What changed, and why.</b><br>
+    <b>1 · The cards wear the celebration.</b> Each one now reads its event's own accent
+    (<code>#9a244f</code> wine, <code>#9b7e00</code> gold) and named themes. Today the page selects only the hero
+    image and monogram, so all three fall to the same default terracotta disc — three celebrations,
+    one look. Nothing here is invented: every colour and theme name is already on the event.<br><br>
+    <b>2 · The monogram keeps its own colour</b> instead of the shared default, and the chevron is gone —
+    a <code>&rsaquo;</code> is list-row furniture, not a celebration.<br><br>
+    <b>3 · Movie Night has no identity at all,</b> so it gets a deliberate treatment — a quiet paper weave
+    and "No theme yet" — rather than looking broken. A third of this page is that case.<br><br>
+    <b>4 · The bar is option B</b> — the mark, "Made with Setnayan", and a sign-in. A stranger on a couple's
+    page is not offered "For suppliers"; the page does not look like it fell off the internet either.
+    <b>Still your call</b> — A is the marketing nav, C is no bar at all.
+  </div>
+</div>
+</body></html>

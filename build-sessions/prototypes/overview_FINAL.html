@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event Overview — FINAL prototype (2026-09-22)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!--
+  EVENT OVERVIEW — FINAL prototype · 2026-09-22 · ZERO JAVASCRIPT
+  Route: /dashboard/[eventId] · all five builds, drawn as the finished page.
+
+  ⚠ NOT ONE LINE OF SCRIPT — a grep for a script tag finds none. The owner's viewer does
+  not execute scripts, so a JS-driven switcher shows him one state and a row of
+  dead controls — worse than blank, because it looks like it works. `<noscript>`
+  does not help: it fires when scripting is DISABLED, not when a sandbox refuses
+  to run it.
+
+  HOW THE SWITCHING WORKS. Radio inputs first, then `~` sibling selectors, the
+  pattern from `your_team_FINAL_2026-09-22.html`. Generalised by one step: rather
+  than one full copy of the page per state, every fragment that varies carries
+  `data-s` listing the states it belongs to, and each state has ONE rule hiding
+  the fragments not marked for it:
+
+      #st-new:checked ~ .stage [data-s]:not([data-s~="new"]) { display:none }
+
+  Two groups, in a fixed sibling order (w then st), so cross-group selectors are
+  legal: `#w-1280:checked ~ #st-open:checked ~ .stage`.
+
+  MEASURED BEFORE DRAWING — and every reading below came from a SERVED page at
+  http://127.0.0.1, never a file:// URL, because the pane renders a local file as
+  a static snapshot and refuses page tools:
+   · rail closed → flow 756px, status column sticky at 336px
+   · rail open   → panel 420px starting at x=1020, content ending at 996 (a 24px
+                   gap, the rail's real margin), flow 782px — never the ~310px
+                   two fixed right columns would leave
+   · 375px → no horizontal overflow, 3.1 screens against today's 6.2
+   · platform_retail_catalog_v2 → the four Sai rungs. Never invented.
+   · todays-one-thing.ts:560 → lockLeadDaysFor is live (#5860), so the "278 days"
+     measured on the live page is PRE-FIX and is drawn as [N].
+-->
+<style>
+:root{
+  --ink:#2C2A29; --ink-2:#6E6A62; --ink-3:#8A857B; --ink-4:#A09A8E;
+  --line:#E1DCD1; --line-2:#EDE8DE; --soft:#F4F2EC; --paper:#FBFAF7;
+  --gold:#8A6B39; --gold-2:#A9834B; --gold-3:#CBA766; --gold-100:#F3ECDF; --gold-800:#5C4726;
+  --cta:#C24E25; --cta-2:#B04722;
+  --night:#17160F; --night-ink:#FBFAF7; --night-2:#B6B9BE; --night-gold:#CBA766;
+  --ok:#5E7C52; --ok-deep:#4F6B4A; --ok-soft:#E9EEE3;
+  --warn:#B77E2E; --warn-deep:#7A5119; --warn-soft:#F6EAD2;
+  --info:#4E6C82; --link:#3B4E67;
+  --r-lg:14px; --r-xl:18px; --r-pill:999px;
+  --sh:0 1px 2px rgba(30,26,18,.06);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:#E8E4DC;color:var(--ink);font-size:15px;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.015em}
+p{margin:0}
+input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+
+/* ═════════ the switcher — labels, because there is no script ═════════ */
+.bar{position:sticky;top:0;z-index:60;background:#1B1A17;color:#F4EFE6;padding:9px 14px}
+.bar h2{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-3);font-weight:800;margin-bottom:7px}
+.bar .g{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.bar .lab{color:#A9A39A;min-width:104px;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase}
+.bar label{height:28px;padding:0 11px;border-radius:var(--r-pill);border:1px solid #3A372C;font-size:12px;display:inline-flex;align-items:center;cursor:pointer;user-select:none}
+.bar .note{color:#8A857B;font-size:11px;line-height:1.5;margin-top:3px}
+.bar code{font-family:ui-monospace,monospace;font-size:10.5px}
+
+/* every state's own highlight + reveal rule — the your_team pattern */
+#w-390:checked  ~ .bar label[for=w-390],
+#w-1024:checked ~ .bar label[for=w-1024],
+#w-1280:checked ~ .bar label[for=w-1280],
+#st-now:checked ~ .bar label[for=st-now],
+#st-open:checked ~ .bar label[for=st-open],
+#st-new:checked ~ .bar label[for=st-new],
+#st-clear:checked ~ .bar label[for=st-clear],
+#st-free:checked ~ .bar label[for=st-free],
+#st-after:checked ~ .bar label[for=st-after],
+#st-failed:checked ~ .bar label[for=st-failed],
+#st-loading:checked ~ .bar label[for=st-loading],
+#pg-a:checked ~ .bar label[for=pg-a],
+#pg-b:checked ~ .bar label[for=pg-b],
+#pg-c:checked ~ .bar label[for=pg-c]{background:var(--gold-3);border-color:var(--gold-3);color:#17160F;font-weight:700}
+
+/* progress treatments — one shown at a time, his pick not mine */
+[data-pg]{display:none}
+#pg-a:checked ~ .stage [data-pg="a"],
+#pg-b:checked ~ .stage [data-pg="b"],
+#pg-c:checked ~ .stage [data-pg="c"]{display:block}
+
+/* ONE rule per state: hide every fragment not marked for it */
+#st-now:checked     ~ .stage [data-s]:not([data-s~="now"]),
+#st-open:checked    ~ .stage [data-s]:not([data-s~="open"]),
+#st-new:checked     ~ .stage [data-s]:not([data-s~="new"]),
+#st-clear:checked   ~ .stage [data-s]:not([data-s~="clear"]),
+#st-free:checked    ~ .stage [data-s]:not([data-s~="free"]),
+#st-after:checked   ~ .stage [data-s]:not([data-s~="after"]),
+#st-failed:checked  ~ .stage [data-s]:not([data-s~="failed"]),
+#st-loading:checked ~ .stage [data-s]:not([data-s~="loading"]){display:none}
+
+/* width */
+/* ⚠ max-width, or the frame does not fit the reviewer's own phone. Measured: a
+   fixed 390px frame inside a 382px viewport is clipped, and `scrollWidth` did
+   NOT report it because the stage centres with flex — the overflow check said
+   false while the frame was visibly cut off. The owner reviews on a phone. */
+.frame{width:1280px;max-width:100%;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 18px 44px -20px rgba(30,26,18,.34)}
+#w-390:checked  ~ .stage .frame{width:390px}
+#w-1024:checked ~ .stage .frame{width:1024px}
+#w-390:checked  ~ .stage .rail,#w-390:checked ~ .stage .top{display:none}
+#w-390:checked  ~ .stage .phonetop,#w-390:checked ~ .stage .tabbar{display:flex}
+#w-390:checked  ~ .stage .main{padding:14px 16px 64px}
+.wl{text-align:center;font-size:11px;color:#6E6A62;padding:0 0 7px}
+#w-390:checked  ~ .stage .wl::after{content:"Phone · 390px — one column, no side panel, tab bar. Nothing here changed."}
+#w-1024:checked ~ .stage .wl::after{content:"Laptop · 1024px — still one column. The split needs 1280 (see the write-up)."}
+#w-1280:checked ~ .stage .wl::after{content:"Wide · 1280px — the flow left, status pinned right."}
+
+/* the two columns — only at 1280, and only while the side panel is shut */
+.layout{display:flex;flex-direction:column;gap:24px}
+#w-1280:checked ~ .stage .layout{display:grid;grid-template-columns:minmax(0,1fr) 21rem;column-gap:28px;align-items:start;gap:0}
+#w-1280:checked ~ .stage .layout > header{grid-column:1/-1;margin-bottom:22px}
+#w-1280:checked ~ .stage .flow{grid-column:1;grid-row:2}
+#w-1280:checked ~ .stage .status{grid-column:2;grid-row:2;position:sticky;top:12px}
+/* …and the panel state collapses it: one right column at a time */
+#st-open:checked ~ .stage .layout{display:flex!important;flex-direction:column;gap:24px}
+#st-open:checked ~ .stage .status{position:static!important}
+#st-open:checked ~ .stage .main{padding-right:calc(clamp(340px,30vw,420px) + 24px)}
+#st-open:checked ~ .stage .insp{display:block}
+
+/* chrome */
+.top{display:flex;align-items:center;gap:13px;height:50px;padding:0 17px;border-bottom:1px solid var(--line-2);font-size:12px;color:var(--ink-2)}
+.top b{letter-spacing:.2em;font-size:11.5px;color:var(--ink)}
+.top .s{flex:1;max-width:340px;height:30px;border:1px solid var(--line);border-radius:var(--r-pill);display:flex;align-items:center;padding:0 12px;color:var(--ink-4);font-size:11.5px}
+.phonetop{display:none;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line-2);font-size:11px;letter-spacing:.2em;font-weight:800}
+.wrap{display:flex;align-items:flex-start;background:var(--paper);position:relative}
+.rail{width:172px;flex:none;border-right:1px solid var(--line-2);background:#fff;padding:13px 9px;font-size:12px;color:var(--ink-2);min-height:560px}
+.rail em{font-style:normal;display:block;font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-4);font-weight:800;padding:10px 6px 3px}
+.rail span{display:flex;justify-content:space-between;padding:5px 6px;border-radius:7px}
+.rail span.on{background:var(--gold-100);color:var(--gold);font-weight:700}
+.main{flex:1;min-width:0;padding:15px 20px 36px}
+.insp{display:none;position:absolute;top:0;right:0;bottom:0;width:clamp(340px,30vw,420px);border-left:1px solid var(--line-2);background:#fff;padding:14px 16px}
+.tabbar{display:none;align-items:center;justify-content:space-around;height:54px;border-top:1px solid var(--line-2);background:#fff;font-size:10px;color:var(--ink-3)}
+.tabbar span{display:flex;flex-direction:column;align-items:center;gap:3px}
+.tabbar span.on{color:var(--gold)}
+.tabbar i{width:15px;height:15px;border-radius:5px;background:currentColor;opacity:.7}
+
+/* shared */
+.eye{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:800}
+.sh{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.sh h2{font-size:15.5px}
+.cnt{border-radius:var(--r-pill);padding:2px 8px;font-size:10.5px;font-weight:800;background:var(--gold-100);color:var(--gold-800);font-family:ui-monospace,monospace}
+.sub{font-size:12px;color:var(--ink-2)}
+.tile{border:1px solid var(--line);border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh);padding:12px 14px}
+.rows{border:1px solid var(--line);border-radius:var(--r-lg);background:#fff;overflow:hidden;box-shadow:var(--sh)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid var(--line-2);font-size:13.5px}
+.rows .row:last-child{border-bottom:0}
+.row .l{flex:1;min-width:0}
+.row .l b{display:block;font-size:13.5px}
+.row .l span{display:block;font-size:12px;color:var(--ink-2)}
+.row .v{font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.p{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:var(--r-pill);font-size:10.5px;font-weight:700}
+.p.warn{background:var(--warn-soft);color:var(--warn-deep)}
+.p.ok{background:var(--ok-soft);color:var(--ok-deep)}
+.p.cta{background:#FBEAE3;color:var(--cta-2)}
+.p.gold{background:var(--gold-100);color:var(--gold-800)}
+.p.pl{background:#fff;border:1px solid var(--line);color:var(--ink-2)}
+.btn{height:32px;border-radius:var(--r-pill);padding:0 13px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;flex:none}
+.btn.fill{background:var(--cta);color:#fff}
+.btn.out{background:#fff;border:1px solid var(--gold-2);color:var(--gold)}
+.rk{width:25px;height:25px;flex:none;border-radius:var(--r-pill);display:flex;align-items:center;justify-content:center;font-family:ui-monospace,monospace;font-size:11.5px;font-weight:800;background:var(--gold);color:#fff}
+.rk.pl{background:#fff;border:1px solid var(--line);color:var(--ink-2)}
+
+.day{background:var(--night);color:var(--night-ink);border-radius:var(--r-xl);padding:15px}
+.day .eye{color:var(--night-gold)}
+.day .dt{font-size:21px;font-weight:700;margin-top:3px}
+.day .s{font-size:11.5px;color:var(--night-2);line-height:1.45}
+.day .cd{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.pb{height:5px;border-radius:var(--r-pill);background:rgba(255,255,255,.14);overflow:hidden;margin-top:8px}
+.pb i{display:block;height:100%;background:var(--night-gold)}
+.hr{height:1px;background:rgba(255,255,255,.12);margin:12px 0}
+.bc{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.bc span{border-radius:var(--r-pill);padding:3px 9px;font-size:10.5px;font-weight:600;background:rgba(255,255,255,.1)}
+
+.vit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.v1{border:1px solid var(--line);border-radius:var(--r-lg);background:#fff;padding:9px 10px;box-shadow:var(--sh)}
+.v1 .k{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:800;display:block}
+.v1 .n{font-size:18px;font-weight:800;letter-spacing:-.02em;display:block}
+.v1 .d{font-size:10.5px;color:var(--ink-2);line-height:1.3;display:block}
+.v1 .n.bad{color:var(--cta);font-size:12.5px;line-height:1.5}
+.sg{display:flex;height:4px;border-radius:var(--r-pill);overflow:hidden;background:var(--line-2);margin-top:4px}
+.sg i{display:block;height:100%}
+
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#w-390:checked ~ .stage .g2,#st-open:checked ~ .stage .g2{grid-template-columns:minmax(0,1fr)}
+.bc1{border:1px solid var(--line);border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh);overflow:hidden}
+.bh{display:flex;align-items:center;gap:8px;padding:10px 12px}
+.bh b{font-size:13.5px}
+.bh .c{font-size:12px;color:var(--ink-2)}
+.bh .ch{margin-left:auto;color:var(--ink-3)}
+.bb{border-top:1px solid var(--line-2);padding:8px 12px 10px;font-size:12.5px}
+.mn{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+.mn .sm{font-size:11px;color:var(--ink-2)}
+.ud{width:7px;height:7px;border-radius:var(--r-pill);background:var(--warn)}
+
+.rl{display:flex;gap:5px;overflow-x:auto;padding-bottom:3px}
+.sg1{flex:1;min-width:88px;border:1px solid var(--line);border-radius:var(--r-lg);background:#fff;padding:7px 8px}
+.sg1.on{border-color:var(--gold-2);background:var(--gold-100)}
+.sg1 b{font-size:12px;display:block}
+.sg1 .pc{font-size:10px;color:var(--ink-2)}
+.sg1 .pb{background:var(--line-2);margin-top:4px}
+.sg1 .pb i{background:var(--gold-2)}
+.hre{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);font-weight:800;display:block}
+
+/* B · one rail, six stops */
+.one{position:relative;height:6px;border-radius:var(--r-pill);background:var(--line-2);margin:4px 0 10px}
+.one .onefill{position:absolute;left:0;top:0;bottom:0;width:38%;border-radius:var(--r-pill);background:var(--gold-2)}
+.one .onehead{position:absolute;left:38%;top:-4px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#fff;border:3px solid var(--gold)}
+.stops{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.stp{font-size:11px;color:var(--ink-3);display:flex;align-items:center;gap:5px}
+.stp i{width:7px;height:7px;border-radius:50%;background:var(--line);flex:none}
+.stp.done{color:var(--ink-2)} .stp.done i{background:var(--gold-3)}
+.stp.cur{color:var(--ink);font-weight:700} .stp.cur i{background:var(--gold);width:9px;height:9px}
+.stp b{font-family:ui-monospace,monospace;font-size:11px;color:var(--gold-800)}
+/* C · just where you are */
+.ring{width:54px;height:54px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:conic-gradient(var(--gold-2) 0 52%, var(--line-2) 52% 100%)}
+.ring b{width:40px;height:40px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800}
+.refused{border-radius:16px;border-top:3px solid rgba(194,78,37,.7);background:rgba(194,78,37,.05);padding:12px 14px;font-size:12.5px;color:#4A4742;line-height:1.5}
+.refused strong{color:var(--ink)}
+.amber{border:1px solid #E8D5AE;border-left:4px solid var(--warn);background:#FDF6E7;border-radius:12px;padding:11px 13px}
+.amber .tg{display:inline-block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--warn-deep);background:#F6EAD2;border-radius:var(--r-pill);padding:2px 8px;margin-bottom:5px}
+.amber p{font-size:12px;color:#5C4726;line-height:1.5;margin-top:5px}
+.amber .st{text-decoration:line-through;color:var(--ink-3)}
+.atab{border-collapse:collapse;width:100%;margin-top:6px;font-size:11px}
+.atab th,.atab td{text-align:left;padding:3px 6px 3px 0;border-bottom:1px solid #EADFC4;color:#5C4726}
+.atab th{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.gone{border:1px dashed #C9B8A0;border-radius:12px;padding:10px 12px;font-size:12px;color:var(--ink-2);background:#FAF7F1}
+.gone b{color:var(--ink)}
+.sk{background:#EFEBE3;border-radius:8px;margin-bottom:8px}
+
+.stage{padding:16px;display:flex;flex-direction:column;align-items:center}
+@media (max-width:820px){.stage{padding:8px 6px}.writeup{margin:16px 6px 40px;padding:18px 16px}}
+.writeup{max-width:880px;margin:26px auto 50px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px 26px}
+.writeup h2{font-size:18px;margin-bottom:4px}
+.writeup h3{font-size:13.5px;margin:18px 0 5px;color:var(--gold-800)}
+.writeup p,.writeup li,.writeup td{font-size:12.5px;line-height:1.6;color:#3A382F}
+.writeup ul{margin:4px 0 0;padding-left:18px}
+.writeup li{margin-bottom:5px}
+.writeup table{border-collapse:collapse;width:100%;margin-top:6px}
+.writeup th,.writeup td{text-align:left;padding:5px 8px 5px 0;border-bottom:1px solid var(--line-2);vertical-align:top}
+.writeup th{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.writeup code{font-family:ui-monospace,monospace;font-size:11px;background:var(--soft);padding:1px 4px;border-radius:4px}
+.q{border-left:3px solid var(--gold-2);padding:6px 0 6px 11px;margin-top:9px}
+.q b{color:var(--gold-800)}
+.q .rec{display:block;color:var(--ink);font-weight:600;margin:2px 0}
+</style>
+</head>
+<body>
+
+<input type="radio" name="w" id="w-390"><input type="radio" name="w" id="w-1024"><input type="radio" name="w" id="w-1280" checked>
+<input type="radio" name="st" id="st-now" checked><input type="radio" name="st" id="st-open"><input type="radio" name="st" id="st-new"><input type="radio" name="st" id="st-clear"><input type="radio" name="st" id="st-free"><input type="radio" name="st" id="st-after"><input type="radio" name="st" id="st-failed"><input type="radio" name="st" id="st-loading">
+<input type="radio" name="pg" id="pg-a" checked><input type="radio" name="pg" id="pg-b"><input type="radio" name="pg" id="pg-c">
+
+<div class="bar">
+  <h2>Prototype · Event Overview · no script, so every button works in any viewer</h2>
+  <div class="g"><span class="lab">Screen</span>
+    <label for="w-390">Phone</label><label for="w-1024">Laptop 1024</label><label for="w-1280">Wide 1280</label></div>
+  <div class="g"><span class="lab">What you see</span>
+    <label for="st-now">Underway · 87 days</label>
+    <label for="st-open">A decision is selected</label>
+    <label for="st-new">Brand new · nothing decided</label>
+    <label for="st-clear">Nothing needs you</label>
+    <label for="st-free">Never bought Setnayan AI</label>
+    <label for="st-after">The day has happened</label>
+    <label for="st-failed">A read failed</label>
+    <label for="st-loading">Still loading</label></div>
+  <div class="g"><span class="lab">Progress bar</span>
+    <label for="pg-a">A · as it is today</label>
+    <label for="pg-b">B · one rail, six stops</label>
+    <label for="pg-c">C · just where you are</label></div>
+  <p class="note">“A decision is selected” is the one to check: the side panel takes the right, and the pinned status column
+     gives way — <b>one right column at a time</b>. It only exists at 1280; below that a row goes to its room, as it does today.</p>
+</div>
+
+<div class="stage">
+<div class="wl"></div>
+<div class="frame">
+  <div class="top"><b>SETNAYAN</b><span class="s">Search events, people, vendors</span><span style="margin-left:auto">Ice Casasola</span></div>
+  <div class="phonetop"><span>SETNAYAN</span><span style="letter-spacing:0">☰</span></div>
+  <div class="wrap">
+    <nav class="rail">
+      <span style="color:var(--ink-3)">← Back to events</span>
+      <em data-s="now open clear free after failed loading">Indalecio &amp; Claire</em>
+      <em data-s="new">[Your wedding]</em>
+      <em>Plan</em><span class="on">Overview</span>
+      <span>Guests <b style="font-weight:600;color:var(--ink-4)" data-s="now open clear free after failed loading">81</b><b style="font-weight:600;color:var(--ink-4)" data-s="new">0</b></span>
+      <span>Your Team <b style="font-weight:600;color:var(--ink-4)">25</b></span>
+      <span>Suite <b style="font-weight:600;color:var(--ink-4)" data-s="now open clear after failed loading">3</b><b style="font-weight:600;color:var(--ink-4)" data-s="free">2</b><b style="font-weight:600;color:var(--ink-4)" data-s="new">0</b></span>
+      <em>Go live</em><span>Event Hub Controller</span>
+      <em>Also in this event</em>
+      <span>Personalization</span><span>Hosts</span><span>Refer a couple</span><span>Schedule</span><span>Seat plan</span><span>Budget</span><span>Editorial</span><span>Galleries</span>
+    </nav>
+
+    <div class="main">
+      <!-- ══════ LOADING — the shipped loading.tsx shape ══════ -->
+      <div data-s="loading">
+        <div class="sk" style="height:15px;width:180px"></div>
+        <div class="sk" style="height:27px;width:65%;margin-bottom:20px"></div>
+        <div class="sk" style="height:184px"></div>
+        <div class="sk" style="height:15px;width:120px;margin-top:18px"></div>
+        <div class="sk" style="height:60px"></div><div class="sk" style="height:60px"></div><div class="sk" style="height:60px"></div>
+        <div class="sk" style="height:15px;width:100px;margin-top:18px"></div>
+        <div class="sk" style="height:104px"></div>
+        <p class="sub" style="margin-top:12px">This is the shipped <code>loading.tsx</code> shape — a skeleton, never a blank page and never a zero.</p>
+      </div>
+
+      <div class="layout" data-s="now open new clear free after failed">
+        <header>
+          <p class="sub" data-s="now open clear free after failed">Kumusta, Indalecio &amp; Claire · welcome back</p>
+          <p class="sub" data-s="new">Kumusta · welcome back</p>
+          <h1 style="font-size:24px;margin-top:4px">
+            <span data-s="now open clear free failed">Your wedding is taking shape. <span style="color:var(--ink-3)">Here’s today.</span></span>
+            <span data-s="new">Your wedding is taking shape. <span style="color:var(--ink-3)">Here’s today.</span></span>
+            <span data-s="after">Your wedding is complete.</span>
+          </h1>
+        </header>
+
+        <!-- ══════ STATUS — pinned right at 1280, and it yields ══════ -->
+        <aside class="status">
+          <div class="day">
+            <span class="eye">The wedding day</span>
+            <div data-s="now open clear free after failed"><div class="dt">Friday, December 18</div><div class="s">The date is locked</div></div>
+            <div data-s="new"><div class="dt">Date not set</div><div class="s">Pick it — everything below dates itself from it</div></div>
+            <div style="display:flex;align-items:baseline;gap:7px;margin-top:10px">
+              <span class="cd" data-s="now open clear free failed">87</span><span class="cd" data-s="new after">—</span>
+              <span class="s" data-s="now open clear free failed">days to go</span>
+              <span class="s" data-s="new">date not set</span><span class="s" data-s="after">it happened</span>
+            </div>
+            <div class="pb"><i style="width:8%" data-s="now open free after failed"></i><i style="width:92%" data-s="clear"></i><i style="width:0%" data-s="new"></i></div>
+            <div class="s" style="margin-top:4px"><b style="color:var(--night-gold)" data-s="now open free after failed">8%</b><b style="color:var(--night-gold)" data-s="clear">92%</b><b style="color:var(--night-gold)" data-s="new">0%</b> locked in</div>
+
+            <div data-s="now open clear after failed">
+              <div class="hr"></div>
+              <span class="eye">Sai · your briefing</span>
+              <p style="font-size:13.5px;font-weight:600;line-height:1.35;margin-top:4px" data-s="now open failed">You’re 8% locked in, 2 decisions need you, next deadline overdue by [N] days.</p>
+              <p style="font-size:13.5px;font-weight:600;line-height:1.35;margin-top:4px" data-s="clear">Nothing needs you today. Next date: 18 Oct · Accommodation.</p>
+              <p style="font-size:13.5px;font-weight:600;line-height:1.35;margin-top:4px" data-s="after">That’s a wrap. One thing left — your story.</p>
+              <div class="bc" data-s="now open failed"><span>87 days to go</span><span>Most urgent: lock your coordinator</span></div>
+              <div data-s="now open failed">
+                <div class="hr"></div>
+                <span class="eye">Setnayan AI · the watch · 1</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px">
+                  <span style="display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:#8FB3C9"></span><b style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase">Guard</b></span>
+                  <span class="s">read ›</span></div>
+                <p class="s" style="margin-top:4px">Two things land on Fri, Dec 18, 8:00 AM: Hair &amp; makeup / preparations and Vendor ingress &amp; styling. That’s a clash — want to resolve it now?</p>
+                <p class="s" style="margin-top:6px;font-size:10.5px">Sai fires a few alerts a week at most — deduped, most-urgent first.</p>
+              </div>
+            </div>
+            <div data-s="free"><div class="hr"></div><p class="s">Setnayan AI is off for this event. Nothing here stops working — you rank your own list.</p></div>
+            <div data-s="new"><div class="hr"></div><p class="s">Sai has nothing to brief yet — no date, no bookings.</p></div>
+          </div>
+
+          <div style="margin-top:11px">
+            <div class="sh"><h2 style="font-size:13px">Your numbers</h2></div>
+            <div class="vit">
+              <div class="v1" data-s="now open clear free"><span class="k">Guests</span><span class="n">4</span><span class="d">attending · 77 to reply</span><span class="sg"><i style="background:#5E7C52;width:5%"></i><i style="background:#B77E2E;width:95%"></i></span></div>
+              <div class="v1" data-s="new"><span class="k">Guests</span><span class="n">0</span><span class="d">nobody added yet</span></div>
+              <div class="v1" data-s="failed"><span class="k">Guests</span><span class="n bad">couldn’t load</span><span class="d">we didn’t get your guest list</span></div>
+              <div class="v1" data-s="now open clear free after"><span class="k">Budget</span><span class="n">₱26,499</span><span class="d">committed of ₱2,250,000</span><span class="sg"><i style="background:#8A6B39;width:1%"></i><i style="background:#EDE8DE;width:99%"></i></span></div>
+              <div class="v1" data-s="new"><span class="k">Budget</span><span class="n" style="font-size:13px">no target yet</span><span class="d">set one to see progress</span></div>
+              <div class="v1" data-s="failed"><span class="k">Budget</span><span class="n bad">couldn’t load</span><span class="d">we didn’t get your money</span></div>
+              <div class="v1" data-s="now open clear free failed"><span class="k">Papic</span><span class="n">100,050</span><span class="d">shots ready · 5 cameras out</span><span class="d" style="color:var(--ok-deep)">enough for your event</span></div>
+              <div class="v1" data-s="new"><span class="k">Papic</span><span class="n" style="font-size:14px">[free grant]</span><span class="d">your free camera is ready</span></div>
+              <div class="v1" data-s="after"><span class="k">Papic</span><span class="n">[n]</span><span class="d">photos in</span></div>
+              <div class="v1" data-s="now open clear free failed"><span class="k">Next</span><span class="n">18 Dec</span><span class="d">Hair &amp; makeup / preparations</span></div>
+              <div class="v1" data-s="new"><span class="k">Next</span><span class="n">—</span><span class="d">no program yet</span></div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- ══════ THE FLOW ══════ -->
+        <div class="flow">
+          <div data-s="failed" style="margin-bottom:22px"><p class="refused"><strong>Some of this page is missing — we couldn’t load your suppliers.</strong>
+            What you can see is real, but it isn’t everything, so please don’t go by it yet. Nothing has been lost — reload in a moment.</p></div>
+
+          <section>
+            <div class="sh">
+              <h2 data-s="now open new clear free failed">Decisions waiting on you</h2><h2 data-s="after">Still open</h2>
+              <span class="cnt" data-s="now open failed">4 open</span><span class="cnt" data-s="free">4 open</span>
+              <span class="cnt" data-s="new">1 open</span><span class="cnt" data-s="clear">all clear</span><span class="cnt" data-s="after">1 open</span>
+              <span class="sub" data-s="now open failed">· 6 dates coming</span>
+            </div>
+            <p class="sub" style="margin:-3px 0 8px" data-s="now open failed clear">Ranked by what closes soonest.</p>
+            <p class="sub" style="margin:-3px 0 8px" data-s="free">Choices only you can make.</p>
+
+            <div class="rows" data-s="now open failed free new after">
+              <div class="row" data-s="now open failed free">
+                <span class="rk" data-s="now open failed">1</span><span class="rk pl" data-s="free">1</span>
+                <span class="l"><span class="eye" data-s="now open failed">Today’s one thing</span>
+                  <b>Lock your coordinator</b>
+                  <span><span class="p warn" style="margin-right:5px">not booked yet</span>Nothing booked · overdue by [N] days</span></span>
+                <span class="btn fill" data-s="now open failed">Browse coordinators</span><span class="btn out" data-s="free">Browse coordinators</span></div>
+              <div class="row" data-s="now open failed free after">
+                <span class="rk" data-s="now open failed after">2</span><span class="rk pl" data-s="free">2</span>
+                <span class="l"><b>Papic Guest 500</b><span><span class="p cta" style="margin-right:5px">₱350 pending</span>Order placed · ref SNCNJ1E3Y8</span></span>
+                <span class="btn out">Settle payment</span></div>
+              <div class="row" data-s="now open failed free">
+                <span class="rk" data-s="now open failed">3</span><span class="rk pl" data-s="free">3</span>
+                <span class="l"><b>Pick your logistics &amp; misc</b><span>2 options saved · none locked yet</span></span>
+                <span class="btn out">Compare &amp; lock</span></div>
+              <div class="row" data-s="now open failed free">
+                <span class="rk" data-s="now open failed">4</span><span class="rk pl" data-s="free">4</span>
+                <span class="l"><b>77 guests haven’t replied yet</b><span>4 of 81 have answered</span></span>
+                <span class="v">→</span></div>
+              <div class="row" data-s="new">
+                <span class="rk">1</span>
+                <span class="l"><span class="eye">Today’s one thing</span><b>Set your wedding date</b>
+                  <span><span class="p warn" style="margin-right:5px">no date yet</span>Your public page, save-the-date and every deadline wait on it</span></span>
+                <span class="btn fill">Set the date</span></div>
+            </div>
+            <div class="tile" data-s="clear"><p class="sub">Nothing needs a decision right now — your plan keeps moving on its own.</p></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+              <span class="sub" data-s="now open failed free">Checklist 7% done</span><span class="sub" data-s="clear">Checklist 96% done</span>
+              <span class="sub" data-s="new">Checklist not started</span><span class="sub" data-s="after">Checklist 7% done</span>
+              <span style="font-size:12px;font-weight:700;color:var(--link)">Full checklist →</span></div>
+
+            <!-- the free-Sai offer, and the price that is wrong today -->
+            <!-- ══ THE FREE-SAI CARD · what ships, and what it is missing ══ -->
+            <div class="tile" style="margin-top:11px;border-color:var(--gold-2);background:#FDFBF6" data-s="free">
+              <span class="p gold">Setnayan AI · Free</span>
+              <b style="display:block;font-size:14.5px;margin-top:6px">Let Sai find your first venue shortlist — free</b>
+              <p class="sub" style="margin-top:4px">Sai picks up to 5 reception venues that fit your date, budget &amp; area and puts them on your shortlist.</p>
+              <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
+                <span class="btn out">Build my venue shortlist</span>
+                <span class="btn out" style="border-color:var(--line);color:var(--ink-2)">Browse on your own</span>
+              </div>
+              <p class="sub" style="margin-top:7px;color:var(--cta)">↑ These are the only two controls the shipped card has.</p>
+
+              <!-- the proposal: the true price, and a control that takes it -->
+              <div style="border-top:1px solid var(--line-2);margin-top:11px;padding-top:11px">
+                <span class="eye">Proposed — the missing half</span>
+                <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:5px">
+                  <b style="font-size:21px">₱1,999</b>
+                  <span class="sub" style="text-decoration:line-through">₱2,499</span>
+                  <span class="p cta">your 24 hours · [11h left]</span>
+                </div>
+                <p class="sub" style="margin-top:3px">Wedding · Tier A. Sign-up was ₱1,499; ₱1,999 is the midpoint of this tier's own two prices.</p>
+                <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
+                  <span class="btn fill">Unlock Setnayan AI · 20% off</span>
+                  <span class="btn out">What it changes</span>
+                </div>
+                <p class="sub" style="margin-top:6px">And once the 24 hours lapse — same card, list price, no countdown
+                  (your ruling, 2026-08-31: <i>“sai expired. should show a cta button to purchase still”</i>):</p>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px">
+                  <b style="font-size:17px">₱2,499</b><span class="sub">one-time, this wedding</span>
+                  <span class="btn fill">Unlock Setnayan AI</span>
+                </div>
+                <p class="sub" style="margin-top:6px">Label and destination are the shipped ones —
+                  <code>Unlock Setnayan AI</code> · <code>· N% off</code> when discounted, from
+                  <code>setnayan-ai-comeback-offer.tsx</code>. Not invented.</p>
+              </div>
+            </div>
+
+            <div class="amber" style="margin-top:9px" data-s="free">
+              <span class="tg">open question 2 · money</span>
+              <b style="font-size:14px">The card quotes a price and offers no way to pay it.</b>
+              <p>Measured on <code>origin/main</code>: <code>free-venue-shortlist-offer.tsx</code> has exactly
+                 <b>two controls</b> — a button that runs the free shortlist, and a link to the bench.
+                 <b>There is no purchase control anywhere on it.</b> So the framing being wrong is the smaller half;
+                 the money path is <b>absent</b>.</p>
+              <p class="st">Venue help starts free — the full Sai is ₱499 first 28 days → ₱799 per 28 days.</p>
+              <p>That line is a <b>subscription</b> framing on a <b>one-time, tiered</b> product, and both numbers are
+                 stale: ₱499 was Tier C's sign-up price before the 2026-08-28 ruling moved it to ₱539, and ₱799 is
+                 <code>SETNAYAN_AI_RENEW</code> — a row that is <code>is_active = false</code>. From
+                 <b>platform_retail_catalog_v2</b>, read 2026-09-22:</p>
+              <table class="atab">
+                <tr><th>Tier</th><th>Event types</th><th>Regular</th><th>Sign-up</th><th>Comeback</th></tr>
+                <tr style="font-weight:700"><td>A</td><td>wedding</td><td>₱2,499</td><td>₱1,499</td><td>₱1,999</td></tr>
+                <tr><td>B</td><td>debut · corporate · gala night</td><td>₱1,499</td><td>₱899</td><td>₱1,199</td></tr>
+                <tr><td>C</td><td>christening · birthday · travel …</td><td>₱899</td><td>₱539</td><td>₱719</td></tr>
+                <tr><td>D</td><td>tournament · gender reveal · date</td><td>₱199</td><td>₱119</td><td>₱159</td></tr>
+              </table>
+              <p><b>The correct price is computable today — this is wiring, not discovery.</b>
+                 <code>lib/setnayan-ai-event-pricing.ts</code> already exports <code>SETNAYAN_AI_SKU</code> and
+                 <code>resolveSetnayanAiTypePricePhp</code>.</p>
+              <p style="border-top:1px solid #EADFC4;margin-top:8px;padding-top:7px">🪤 <b>AND A TEST PINS THE WRONG
+                 NUMBER, WHICH WILL BITE WHOEVER FIXES THIS.</b> <code>lib/setnayan-ai-free-assist.test.ts</code> asserts
+                 the literal strings — <code>/₱499 first 28 days/</code> and <code>/₱799 per 28 days/</code> — so CI goes
+                 <b>red the moment anyone corrects the price</b>, and to a session in a hurry it reads as
+                 <i>“the ₱499 framing is intentional, leave it”</i>. <b>A guard protecting the defect.</b>
+                 I measured it: the stale figures appear in <b>4</b> assertions across <b>two</b> tests — the upsell line
+                 and <code>firstVenueShortlistConfirmation</code>. Both must be replaced with the property — that the
+                 line names whatever the resolver returns for this event's type — never a string.</p>
+            </div>
+          </section>
+
+          <!-- Coming up — AI-gated, which is open question 1 -->
+          <section data-s="now open failed clear">
+            <div class="sh"><h2>Coming up</h2><span class="cnt">6 dates</span></div>
+            <p class="sub" style="margin:-3px 0 8px">In the order Sai would take them.</p>
+            <div class="rows">
+              <div class="row"><span class="l"><b>Book your Accommodation</b><span>typical: 2 months before</span></span><span class="v">18 Oct ›</span></div>
+              <div class="row"><span class="l"><b>Book your Logistics &amp; Misc</b><span>typical: 2 months before</span></span><span class="v">18 Oct ›</span></div>
+              <div class="row"><span class="l"><b>Pre-Cana seminar cutoff</b><span>parish rule: 60 days before</span></span><span class="v">19 Oct ›</span></div>
+              <div class="row"><span class="l"><b>Book your Crew Meals</b><span>typical: 1 month before</span></span><span class="v">18 Nov ›</span></div>
+              <div class="row"><span class="l"><b>Hair &amp; makeup / preparations</b><span>12:00 AM – 12:00 PM</span></span><span class="v">18 Dec ›</span></div>
+              <div class="row"><span class="l"><b>Vendor ingress &amp; styling</b><span>2:00 AM – 1:00 PM</span></span><span class="v">18 Dec ›</span></div>
+            </div>
+          </section>
+          <div class="amber" data-s="free"><span class="tg">open question 1</span>
+            <b style="font-size:14px">A free event sees no dates at all.</b>
+            <p>The dates block is gated on Setnayan AI, and has been since it shipped — so this whole section is <b>absent</b> here.
+               Six real deadlines exist for this couple (Accommodation, Logistics, the Pre-Cana cutoff, Crew Meals and two schedule
+               blocks) and none is shown. Ungating it hands over part of what Sai sells. <b>Your call — I have not touched it.</b></p></div>
+          <div class="tile" data-s="new"><div class="sh"><h2 style="font-size:15px">Coming up</h2></div>
+            <p class="sub">No dates yet — they appear once your wedding has a date.</p></div>
+
+          <!-- Around your event — expand-in-place (your ruling, 2026-07-13) -->
+          <section>
+            <div class="sh"><h2>Around your event</h2></div>
+            <div class="g2">
+              <div class="bc1"><div class="bh"><b>Hosts</b><span class="c">1 account</span><span class="ch">›</span></div>
+                <div class="bb"><p class="sub">It’s just you so far — invite your partner, family, or a coordinator to plan this wedding together.</p></div></div>
+              <div class="bc1"><div class="bh"><b>Your team</b>
+                  <span class="c" data-s="now open free after">2 of 25 booked</span><span class="c" data-s="clear">25 of 25 booked</span>
+                  <span class="c" data-s="new">0 of 25 booked</span><span class="c" data-s="failed" style="color:var(--cta)">couldn’t load</span><span class="ch">›</span></div>
+                <div class="bb">
+                  <div data-s="now open clear free after"><div class="mn"><span>Seda Vertis North</span><span class="sm">venue · contracted</span></div>
+                    <div class="mn"><span>Santuario de San Vicente de Paul Parish &amp; Shrine of the Poor</span><span class="sm">religious venue · contracted</span></div></div>
+                  <p class="sub" data-s="new">No vendors booked yet — start with the ones that book out first: your venue and catering.</p>
+                  <p class="sub" data-s="failed" style="color:var(--cta)">We couldn’t load your suppliers. This does not mean there is none. Nothing has been lost or removed — reload in a moment.</p>
+                </div></div>
+              <div class="bc1"><div class="bh"><b>Conversations</b>
+                  <span class="c" data-s="now open free after failed">1 unread</span><span class="c" data-s="new clear">no unread</span>
+                  <span class="ud" data-s="now open free after failed"></span><span class="ch">›</span></div>
+                <div class="bb"><div class="mn" data-s="now open free after failed"><span>[Supplier thread]</span><span class="sm">1 unread</span></div>
+                  <p class="sub" data-s="new clear">All caught up — when a vendor replies, it lands right here.</p></div></div>
+              <div class="bc1"><div class="bh"><b>Your services</b>
+                  <span class="c" data-s="now open clear after failed">3 orders</span><span class="c" data-s="free">2 orders</span><span class="c" data-s="new">none yet</span><span class="ch">›</span></div>
+                <div class="bb">
+                  <div data-s="now open clear after failed"><div class="mn"><span>Papic Guest 500</span><span class="sm">payment pending</span></div>
+                    <div class="mn"><span>Setnayan AI</span><span class="sm">active</span></div>
+                    <div class="mn"><span>Papic Guest 100k</span><span class="sm">active</span></div></div>
+                  <div data-s="free"><div class="mn"><span>Papic Guest 500</span><span class="sm">payment pending</span></div>
+                    <div class="mn"><span>Papic Guest 100k</span><span class="sm">active</span></div></div>
+                  <p class="sub" data-s="new">Nothing ordered yet — the Studio has everything for the day, from your monogram to save-the-dates and live streaming.</p>
+                </div></div>
+              <div class="bc1"><div class="bh"><b>Schedule</b>
+                  <span class="c" data-s="now open clear free after failed">9 blocks</span><span class="c" data-s="new">none yet</span><span class="ch">›</span></div>
+                <div class="bb">
+                  <div data-s="now open clear free after failed">
+                    <div class="mn"><span>Hair &amp; makeup / preparations</span><span class="sm">18 Dec · pre-ceremony</span></div>
+                    <div class="mn"><span>Vendor ingress &amp; styling</span><span class="sm">18 Dec · pre-ceremony</span></div>
+                    <div class="mn"><span>Guests arrive</span><span class="sm">18 Dec · pre-ceremony</span></div>
+                    <div class="mn"><span>Ceremony</span><span class="sm">18 Dec · ceremony</span></div>
+                    <div class="mn"><span>+5 more blocks</span><span class="sm"></span></div></div>
+                  <p class="sub" data-s="new">No program yet — map out your ceremony &amp; reception, and your guests follow the timeline live on the day.</p>
+                </div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-top:8px;align-items:center">
+              <span class="sub">Vendors always appear by company — never a personal profile.</span>
+              <span style="font-size:12px;font-weight:700;color:var(--link)">See all recent activity →</span></div>
+          </section>
+
+          <section>
+            <div class="sh"><h2>Read your progress</h2>
+              <span class="sub" data-s="now open free after failed new">Inviting · 52%</span><span class="sub" data-s="clear">Finalizing · 64%</span></div>
+            <!-- ══ A · as it ships today. Six bars, six percentages, two of them
+                      zero, and "You are here" floating above its phase. ══ -->
+            <div data-pg="a">
+              <div class="rl">
+                <div class="sg1"><b>Dreaming</b><span class="pb"><i style="width:80%"></i></span><span class="pc">80% complete</span></div>
+                <div class="sg1"><b>Booking</b><span class="pb"><i style="width:8%"></i></span><span class="pc">8% complete</span></div>
+                <div class="sg1 on"><span class="hre">You are here</span><b>Inviting</b><span class="pb"><i style="width:52%"></i></span><span class="pc">52% complete</span></div>
+                <div class="sg1"><b>Finalizing</b><span class="pb"><i style="width:33%"></i></span><span class="pc">33% complete</span></div>
+                <div class="sg1"><b>Wedding day</b><span class="pb"><i style="width:0%"></i></span><span class="pc">0% complete</span></div>
+                <div class="sg1"><b>After</b><span class="pb"><i style="width:0%"></i></span><span class="pc">0% complete</span></div>
+              </div>
+              <p class="sub" style="margin-top:6px">Today: 6 bars · 6 percentages · 2 of them 0%.</p>
+            </div>
+
+            <!-- ══ B · ONE rail, six stops. The phases become marks on a single
+                      line; only the one you are on carries a number, and a phase
+                      at 0% gets no bar because there is nothing to fill. ══ -->
+            <div data-pg="b">
+              <div class="one">
+                <span class="onefill"></span>
+                <span class="onehead"></span>
+              </div>
+              <div class="stops">
+                <span class="stp done"><i></i>Dreaming</span>
+                <span class="stp done"><i></i>Booking</span>
+                <span class="stp cur"><i></i>Inviting <b>52%</b></span>
+                <span class="stp"><i></i>Finalizing</span>
+                <span class="stp"><i></i>Wedding day</span>
+                <span class="stp"><i></i>After</span>
+              </div>
+              <p class="sub" style="margin-top:7px">One bar, six stops. 1 percentage instead of 6; the two 0% phases are dots, not empty bars.</p>
+            </div>
+
+            <!-- ══ C · just where you are. The phase you are in, stated; the rest
+                      as a quiet line. Shortest on a phone. ══ -->
+            <div data-pg="c">
+              <div class="tile" style="display:flex;align-items:center;gap:12px">
+                <span class="ring"><b>52%</b></span>
+                <span style="min-width:0">
+                  <span class="eye">You are here</span>
+                  <b style="display:block;font-size:15px">Inviting</b>
+                  <span class="sub">3rd of 6 · Dreaming and Booking behind you, Finalizing next</span></span>
+              </div>
+              <p class="sub" style="margin-top:7px">One number, one phase name, the sequence in words. No bars at all.</p>
+            </div>
+
+            <div class="tile" style="margin-top:8px"><b style="font-size:13px">Inviting</b>
+              <div class="mn" style="margin-top:4px"><span>✓ Guest list built — 81 invited</span><span class="p ok">Set na ’yan</span></div>
+              <div class="mn"><span>✓ RSVPs coming in — 4 of 81 answered</span><span class="p ok">Set na ’yan</span></div>
+              <p class="sub" style="margin-top:5px">Nothing left in this stage.</p>
+              <p class="sub" style="color:var(--gold-800);margin-top:3px" data-s="now open clear after failed">✦ 4 attending so far — RSVPs typically take about 6 weeks to settle.</p></div>
+            <p class="sub" style="margin-top:7px">
+              <b>The six figures are measured, not drawn</b> — read off your own event on 2026-09-22:
+              Dreaming 80 · Booking 8 · Inviting 52 · Finalizing 33 · Wedding day 0 · After 0.
+              Treatments B and C show the same numbers, fewer of them at once.</p>
+          </section>
+
+          <div class="gone"><b>Removed from this page by these five builds</b> — not hidden behind a click; gone, and this is what replaced it:
+            <ul style="margin:6px 0 0;padding-left:17px">
+              <li>The <b>digest preview</b> (3 decision rows + “All N decisions ↗”) → the board below it was always the same list. The count stays.</li>
+              <li>The <b>“Today’s one thing” card</b> → row ① above, gold, keeping its name and the page’s one filled button.</li>
+              <li><b>“PRIORITY 1/2/3”</b> chips → the numbered mark. The word moved to <code>aria-label</code>, not deleted.</li>
+              <li><b>Eight description lines</b> (“…each one links to its room”, “this is the doorstep”, “Tap a stage…”, four “expand to see…”).</li>
+              <li>After the day: the <b>Guests</b> and <b>Next</b> tiles. Budget, Messages and Papic stay — a balance and an unread thread are still true.</li>
+            </ul></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- the real inspector rail: clamp(340px,30vw,420px) + 24px, master reflows -->
+    <aside class="insp">
+      <span class="eye">Book a vendor</span>
+      <h3 style="font-size:16px;margin-top:2px">Lock your coordinator</h3>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px"><span class="p warn">not booked yet</span><span class="p pl">23 of 25 categories not booked</span></div>
+      <p style="font-size:13px;line-height:1.5;color:#4A4742;margin-top:9px">Nothing booked · overdue by [N] days</p>
+      <p style="font-size:13px;line-height:1.5;color:#4A4742;margin-top:8px">Your day-of conductor. Best coordinators book 9-12 months out; the earlier you lock yours, the more they can shape every choice downstream.</p>
+      <span class="btn fill" style="margin-top:10px">Browse coordinators →</span>
+      <p class="sub" style="margin-top:7px">One action — the same room the row points at.</p>
+      <p class="sub" style="margin-top:12px;border-top:1px solid var(--line-2);padding-top:8px">This column is <code>.sn-inspector-rail</code>, which already ships:
+        <b>clamp(340px, 30vw, 420px) + 24px</b>, with the master reflowing. Measured on a served page: the flow is
+        <b>756px</b> with this shut and <b>782px</b> with it open — never the ~310px two fixed right columns would leave.</p>
+    </aside>
+  </div>
+  <nav class="tabbar"><span class="on"><i></i>Overview</span><span><i></i>Guests</span><span><i></i>Your Team</span><span><i></i>Suite</span></nav>
+</div>
+</div>
+
+<section class="writeup">
+  <h2>Event Overview — what these five builds do</h2>
+  <p class="sub">Route <code>/dashboard/[eventId]</code>. Measured live 2026-09-22 on your own event
+  (Indalecio &amp; Claire, 87 days out): <b>662 words · 40 controls · 6.2 phone screens · 3,165px on desktop</b>.
+  Every control on that page survives here — nothing was removed to remove its text.</p>
+
+  <h3>1 · What changes</h3>
+  <table>
+    <tr><th>Build</th><th>One line</th><th>Where</th></tr>
+    <tr><td><b>A date is not a decision</b></td><td>The board said “9 open decisions”; six were recommended deadlines nobody resolves by reading. They get their own <i>Coming up · 6 dates</i>. The count becomes <b>4</b>.</td><td>merged #5855</td></tr>
+    <tr><td><b>One decision list</b></td><td>The top panel stopped printing the first three rows of the board below it. “Lock your coordinator” rendered <b>three times</b> on one page.</td><td>merged #5863</td></tr>
+    <tr><td><b>Say it once</b></td><td>Eight lines gone, each describing something already on screen.</td><td>open #5865</td></tr>
+    <tr><td><b>One thing is row ①</b></td><td>The “Today’s one thing” card folds into the first row, keeping its name and the page’s single filled button.</td><td>in #5865</td></tr>
+    <tr><td><b>Status stays in view</b></td><td>At 1280 the flow takes the left, the day + numbers pin right — and give way when the side panel opens.</td><td>draft #5874</td></tr>
+  </table>
+
+  <h3>2 · What is deliberately NOT changing</h3>
+  <ul>
+    <li><b>The phone.</b> Every column rule is behind a min-width. Measured at 375px: no sideways scroll, same order, 3.1 screens against today’s 6.2.</li>
+    <li><b>Expand-in-place.</b> The band cards still expand rather than navigate — your ruling of 2026-07-13, which reversed the council’s “no accordion”.</li>
+    <li><b>The hopeful empty lines.</b> “No vendors booked yet — start with the ones that book out first…” and its four siblings all stay. See <i>Brand new</i>.</li>
+    <li><b>“Never a personal profile.”</b> The privacy promise, once, at the foot of the band.</li>
+    <li><b>Papic always holds a tile.</b> I tried gating it after the day; CI caught your 2026-07-30 ruling — <i>“always hold a slot”</i> — and I reverted.</li>
+  </ul>
+
+  <h3>3 · What this cannot prove</h3>
+  <ul>
+    <li><b>It is a drawing.</b> The real page is a 3,000-line server component reading your database.</li>
+    <li><b>I have never seen the real wide layout.</b> The Overview needs a sign-in and I do not type passwords. I verified the <i>mechanism</i> on a <b>served</b> page at <code>http://127.0.0.1</code> — never a <code>file://</code> URL, because a local file opens as a static snapshot and its script never runs. An <b><code>rd/…</code> branch does build a real Vercel preview</b> (<code>claude/*</code> is skipped by name in <code>apps/web/vercel.json</code>), which is how to see the real thing.</li>
+    <li><b>Brand-new and after-the-day are drawn, not measured.</b> Bracketed values are ones I could not source.</li>
+    <li><b>The overdue figure is <code>[N]</code> on purpose.</b> I measured “278 days” <i>before</i> #5860 repointed it at the lock-by floor. Printing 278 now would be a stale number wearing a confident face.</li>
+    <li><b>This file has no script</b>, so nothing here animates and no row really opens. Controls are drawn as they will look, not wired.</li>
+  </ul>
+
+  <h3>4 · Open questions — recommendation first, then the cost of getting it wrong</h3>
+  <div class="q"><b>1 · A free event sees no dates at all. Ungate it?</b>
+  <span class="rec">Recommend: no — but say something.</span>
+  The dates rail is part of what Setnayan AI sells. But a free couple has six real deadlines and no hint they exist —
+  press <i>Never bought Setnayan AI</i> and the section is simply missing. A one-line “Sai keeps your dates in order →” is honest and sells.
+  <br><i>Wrong either way:</i> ungate and you give away paid value permanently and quietly; stay silent and a free couple misses a parish cutoff they were never shown.</div>
+
+  <div class="q"><b>2 · There is no way to buy Setnayan AI on the free Overview.</b>
+  <span class="rec">Recommend: add the purchase control, priced from the catalogue for this event's type.</span>
+  You spotted this and it is worse than the framing problem I had flagged. Measured on <code>origin/main</code>:
+  the free-venue card has exactly <b>two</b> controls — run the free shortlist, or go to the bench. <b>No purchase
+  control at all.</b> It quotes a price and offers no way to pay it. The price is computable today
+  (<code>resolveSetnayanAiTypePricePhp</code>); a wedding is Tier A → <b>₱2,499</b>, or <b>₱1,999</b> inside the
+  24-hour window. Drawn in the prototype under <i>Never bought Setnayan AI</i>, using the shipped label
+  <code>Unlock Setnayan AI</code>.
+  <br>🪤 <b>A test pins the wrong price</b> — 4 assertions across two tests in
+  <code>setnayan-ai-free-assist.test.ts</code> match <code>₱499</code>/<code>₱799</code> literally, so CI turns red
+  the moment anyone corrects it, and it reads as though the stale framing were deliberate. Replace with the property,
+  not the string.
+  <br><i>Wrong:</i> a price on screen that nothing can charge, and a guard that makes fixing it look like the mistake.</div>
+
+  <div class="q"><b>3 · The progress bar does not look clean — three treatments, your pick.</b>
+  <span class="rec">Recommend: B, one rail with six stops.</span>
+  You said it reads cramped, and you did not say what you wanted instead, so I drew three rather than guess one —
+  switch between them with <i>Progress bar</i> in the top bar.
+  <b>A</b> is what ships: six bars, six percentages, two of them 0%, and “You are here” floating above its phase.
+  <b>B</b> makes them stops on one rail — one percentage instead of six, and a phase at 0% is a dot rather than an
+  empty bar, because there is nothing to fill. <b>C</b> drops bars entirely: the phase you are in, its number, and
+  the sequence in words — shortest on a phone.
+  The six figures are <b>measured</b>, off your own event on 2026-09-22 (80 · 8 · 52 · 33 · 0 · 0), and all three
+  treatments show the same numbers — B and C just show fewer at once.
+  <br><i>Wrong:</i> B hides the per-phase detail you might want when auditing a stage; C hides the shape of the
+  whole journey, which is the reassurance the rail was built for.</div>
+
+  <div class="q"><b>4 · “Open” means two different things on two pages.</b>
+  <span class="rec">Recommend: rename both; do not reconcile the numbers.</span>
+  This page says <i>23 categories still open</i>; Your Team says <i>27</i>. Different questions — 12 plan groups carry
+  <code>countsTowardLockable: false</code> and this page also scopes by event type, while Your Team counts groups engaged or inside their window.
+  Both right; the shared word is the defect. Proposed: here → <b>“23 of 25 categories not booked”</b>; Your Team → <b>“27 need a decision”</b>.
+  <br><i>Wrong:</i> force them to agree and you break one of two legitimate measures; leave it and the couple keeps meeting two numbers wearing one word.</div>
+</section>
+
+</body>
+</html>

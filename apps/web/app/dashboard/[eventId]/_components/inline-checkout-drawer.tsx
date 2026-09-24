@@ -88,6 +88,7 @@ import { SaveToContinue } from '@/app/_components/anon-gate/save-to-continue';
 import { SDLoader, LOADER_STEPS } from '@/components/sd-loader';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useIsStoreShell } from '@/lib/use-store-shell';
 import {
   applyVoucherAction,
   submitOrderAction,
@@ -250,12 +251,12 @@ export function InlineCheckoutDrawer({
   // the server-rendered (web) markup. (Supersedes the 2026-06-16 route-to-web
   // approach — that external link is itself a 3.1.1 violation; full Apple IAP
   // is the v1.1 plan.)
-  const [isNativeApp, setIsNativeApp] = useState(false);
-  useEffect(() => {
-    if (typeof navigator !== 'undefined' && /SetnayanApp/i.test(navigator.userAgent)) {
-      setIsNativeApp(true);
-    }
-  }, []);
+  //
+  // 🔑 2026-09-24: asks the STORE-SHELL question (lib/store-shell.ts), not
+  // `/SetnayanApp/i` — that regex also matched the desktop `SetnayanApp/desktop`
+  // UA, so the .dmg/.msi, which Apple never reviews, could not buy anything
+  // from this drawer despite the promise two paragraphs up.
+  const isNativeApp = useIsStoreShell();
 
   // Voucher state — managed locally because the apply action returns a
   // result we render inline · we don't navigate.

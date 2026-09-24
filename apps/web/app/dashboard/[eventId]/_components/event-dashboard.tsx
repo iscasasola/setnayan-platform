@@ -23,6 +23,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
@@ -983,7 +984,16 @@ export async function EventDashboard({
   // ever remove the surface, never grant it: entitlement still decides who is
   // allowed, this decides whether it may render at all. Defaults ON, so this
   // line changes nothing until someone sets the variable to '0'.
-  const aiActive = (aiEntitled || saiPreview) && cockpitEnabled();
+  //
+  // 🔒 AND NOT A WEB-BOUGHT SAI IN THE APP STORE / PLAY STORE SHELL (guideline
+  // 3.1.3(b); lib/store-shell.ts `storeShellAllowsPaidFeature`). Only while the
+  // paywall is on — a Sai that is free for everyone is planning and stays.
+  // The same flag withholds the Sai price from the free-venue offer below.
+  const storeShell = await isStoreShellRequest();
+  const aiActive =
+    (aiEntitled || saiPreview) &&
+    cockpitEnabled() &&
+    storeShellAllowsPaidFeature(storeShell, aiPaywallEnabled);
 
   // ---- Upcoming items — the Schedule card + the AI What's-next rail. ------
   const remindersEnabled =
@@ -1705,7 +1715,7 @@ export async function EventDashboard({
                           </span>
                         </InspectorTrigger>
                         {venueOfferInline && isSaiAssistFreeDecisionId(item.id) ? (
-                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" fullSaiPhp={fullSaiPhp} />
+                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" fullSaiPhp={fullSaiPhp} sell={!storeShell} />
                         ) : null}
                       </div>
                     ))}
@@ -2641,7 +2651,7 @@ export async function EventDashboard({
           </div>
           {venueOfferAvailable && !venueOfferInline ? (
             <div className="mb-3.5">
-              <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} />
+              <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} sell={!storeShell} />
             </div>
           ) : null}
           {decisionGroups.length > 0 ? (

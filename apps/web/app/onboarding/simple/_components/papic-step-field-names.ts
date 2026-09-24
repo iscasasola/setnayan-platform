@@ -26,3 +26,9 @@ export const PAPIC_FIELD_POOL_RUNG = 'papic_pool_rung';
  * indistinguishable from the field having been renamed away.
  */
 export const AI_FIELD_SELECTED = 'setnayan_ai_selected';
+
+/**
+ * Event Hub Pro's yes/no (owner 2026-09-25). Same shape and same reason as
+ * `AI_FIELD_SELECTED`: always posted, always the STRING 'true' or 'false'.
+ */
+export const HUB_PRO_FIELD_SELECTED = 'event_hub_pro_selected';

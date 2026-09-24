@@ -40,6 +40,7 @@ import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_c
 import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 /**
  * Force dynamic rendering · skip static prerender (mirrors /pricing/page.tsx).
@@ -161,9 +162,14 @@ export default async function OnboardingWeddingPage({
   // The services step (Papic + Setnayan AI), resolved server-side because the
   // shell is a client component. Flag OFF ⇒ null ⇒ the shell drops the screen
   // from buildSequence and this flow is byte-identical to today.
+  //
+  // 🔒 Never in the App Store / Play Store shell: the step prices Papic and
+  // Setnayan AI, and the shell sells nothing (guideline 3.1.1; lib/store-shell.ts).
+  // `storeShell` also tells the shell to drop the paywall tail, whatever its flag.
+  const storeShell = await isStoreShellRequest();
   let servicesStepView = null;
   let servicesStepAiValue = null;
-  if (onboardingServicesStepEnabled()) {
+  if (onboardingServicesStepEnabled() && !storeShell) {
     servicesStepView = await readServicesStepView(supabase, 'wedding');
     if (servicesStepView.ai != null) {
       const profile = await resolveProfile('wedding');
@@ -182,6 +188,7 @@ export default async function OnboardingWeddingPage({
 
   return (
     <OnboardingShell
+      storeShell={storeShell}
       servicesStepView={servicesStepView}
       servicesStepAiValue={servicesStepAiValue}
       authed={!!user}

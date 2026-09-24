@@ -20,7 +20,9 @@ import {
   poolStepOf,
   quoteServicesStepSelection,
   selectionHasPurchase,
+  quoteServicesStepLaterSelection,
   setAi,
+  setHubPro,
   stepPool,
 } from './onboarding-services-selection';
 
@@ -210,6 +212,7 @@ test('parse strips anything that is not one of the four fields', () => {
   assert.deepEqual(parseServicesStepSelection({ poolRungKey: 'P_A', evil: 'x', totalPhp: 0 }), {
     poolRungKey: 'P_A',
     ai: false,
+    hubPro: false,
   });
 });
 
@@ -225,7 +228,7 @@ test('a tab opened before the change buys nothing extra', () => {
     oneRungKey: 'O_A',
     oneExtraCameras: 3,
   });
-  assert.deepEqual(stale, { poolRungKey: 'P_A', ai: false });
+  assert.deepEqual(stale, { poolRungKey: 'P_A', ai: false, hubPro: false });
   assert.equal(selectionHasPurchase(stale), true, 'their shots still count as a purchase');
 
   // …and a payload naming ONLY cameras buys nothing at all.
@@ -317,7 +320,96 @@ test('the selection carries NO price and NO tier for AI', () => {
   // type. If a price or tier ever appears on this object, a tampered payload
   // could pick a cheaper one.
   const s = setAi(EMPTY_SERVICES_SELECTION, true);
-  assert.deepEqual(Object.keys(s).sort(), ['ai', 'poolRungKey']);
+  assert.deepEqual(Object.keys(s).sort(), ['ai', 'hubPro', 'poolRungKey']);
   const parsed = parseServicesStepSelection({ ai: true, aiPricePhp: 1, aiTier: 'D' });
-  assert.deepEqual(Object.keys(parsed).sort(), ['ai', 'poolRungKey']);
+  assert.deepEqual(Object.keys(parsed).sort(), ['ai', 'hubPro', 'poolRungKey']);
+});
+
+// ── event hub pro (owner 2026-09-25: "Papic, Setnayan AI, Event Hub Pro") ──
+//
+// The third card is the planner's twin: a yes/no, off by default, its own line
+// in the total. These are SHAPES, not the live price — the figure is the
+// catalog's, and pinning it here would fail the day it is repriced.
+
+const PRO_PHP = 700; // sign-up price (fixture)
+const PRO_LIST_PHP = 1_000; // later price (fixture)
+
+test('Event Hub Pro is OFF by default and adds nothing', () => {
+  assert.equal(EMPTY_SERVICES_SELECTION.hubPro, false);
+  const q = quoteServicesStepSelection(TYPES, EMPTY_SERVICES_SELECTION, AI_PHP, PRO_PHP);
+  assert.equal(q.hubProPhp, 0);
+  assert.equal(q.totalPhp, 0);
+});
+
+test('ticking Pro adds its OWN line; Papic and the planner do not move', () => {
+  let s = setAi(stepPool(POOL, EMPTY_SERVICES_SELECTION, 1), true);
+  const before = quoteServicesStepSelection(TYPES, s, AI_PHP, PRO_PHP);
+  s = setHubPro(s, true);
+  const after = quoteServicesStepSelection(TYPES, s, AI_PHP, PRO_PHP);
+  assert.equal(after.papicPhp, before.papicPhp, 'Pro must not move the Papic figure');
+  assert.equal(after.aiPhp, before.aiPhp, 'Pro must not move the planner figure');
+  assert.equal(after.hubProPhp, PRO_PHP);
+  assert.equal(after.totalPhp, before.totalPhp + PRO_PHP);
+  assert.equal(after.totalPhp, POOL.rungs[0]!.pricePhp + AI_PHP + PRO_PHP, 'three lines, summed');
+});
+
+test('Pro alone is a purchase — a couple may buy only the upgrade', () => {
+  const s = setHubPro(EMPTY_SERVICES_SELECTION, true);
+  assert.equal(selectionHasPurchase(s), true);
+  const q = quoteServicesStepSelection(TYPES, s, AI_PHP, PRO_PHP);
+  assert.equal(q.totalPhp, PRO_PHP);
+  assert.equal(q.papicPhp, 0);
+  assert.equal(q.aiPhp, 0);
+});
+
+test('a ticked Pro with NO card on this type quotes nothing', () => {
+  // `view.hubPro === null` — no Event Hub on this type, or no catalog price —
+  // means the card never rendered, so `hubPro: true` can only be stale or
+  // tampered. It must quote zero, never some other figure.
+  const s = setHubPro(EMPTY_SERVICES_SELECTION, true);
+  assert.equal(quoteServicesStepSelection(TYPES, s, AI_PHP, null).hubProPhp, 0);
+  assert.equal(quoteServicesStepSelection(TYPES, s, AI_PHP, 0).hubProPhp, 0);
+  assert.equal(quoteServicesStepSelection(TYPES, s).totalPhp, 0, 'omitted price ⇒ nothing');
+});
+
+test('the later total uses Pro’s later price, and only when ticked', () => {
+  const s = setHubPro(EMPTY_SERVICES_SELECTION, true);
+  assert.equal(quoteServicesStepLaterSelection(TYPES, s, null, PRO_LIST_PHP), PRO_LIST_PHP);
+  assert.equal(
+    quoteServicesStepLaterSelection(TYPES, EMPTY_SERVICES_SELECTION, null, PRO_LIST_PHP),
+    0,
+    'an unticked Pro contributes nothing to the "later" comparison',
+  );
+  // With every line ticked the later total is the sum of the later prices.
+  const all = setAi(setHubPro(stepPool(POOL, EMPTY_SERVICES_SELECTION, 1), true), true);
+  assert.equal(
+    quoteServicesStepLaterSelection(TYPES, all, 900, PRO_LIST_PHP),
+    POOL.rungs[0]!.listPricePhp + 900 + PRO_LIST_PHP,
+  );
+});
+
+test('un-ticking Pro removes it completely', () => {
+  const s = setHubPro(setHubPro(EMPTY_SERVICES_SELECTION, true), false);
+  assert.equal(s.hubPro, false);
+  assert.equal(selectionHasPurchase(s), false);
+  assert.equal(quoteServicesStepSelection(TYPES, s, AI_PHP, PRO_PHP).hubProPhp, 0);
+});
+
+test('setHubPro and setAi never touch each other', () => {
+  const s = setHubPro(setAi(EMPTY_SERVICES_SELECTION, true), true);
+  assert.deepEqual(setHubPro(s, false), { ...s, hubPro: false });
+  assert.equal(setHubPro(s, false).ai, true);
+  assert.equal(setAi(s, false).hubPro, true);
+});
+
+test("parse treats Pro's STRING 'false' as NO, exactly like the planner", () => {
+  // /onboarding/simple posts it as a form field.
+  for (const no of ['false', '0', '', 'yes', 1, null, undefined]) {
+    assert.equal(parseServicesStepSelection({ hubPro: no }).hubPro, false, String(no));
+  }
+  assert.equal(parseServicesStepSelection({ hubPro: true }).hubPro, true);
+  assert.equal(parseServicesStepSelection({ hubPro: 'true' }).hubPro, true);
+  // A price or a SKU riding along is dropped, never carried to the server.
+  const tampered = parseServicesStepSelection({ hubPro: true, hubProPricePhp: 1, sku: 'X' });
+  assert.deepEqual(Object.keys(tampered).sort(), ['ai', 'hubPro', 'poolRungKey']);
 });

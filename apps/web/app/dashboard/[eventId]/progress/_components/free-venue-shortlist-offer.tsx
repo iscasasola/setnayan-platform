@@ -42,6 +42,7 @@ export function FreeVenueShortlistOffer({
   eventId,
   variant,
   fullSaiPhp,
+  sell = true,
 }: {
   eventId: string;
   variant: 'card' | 'inline';
@@ -55,6 +56,15 @@ export function FreeVenueShortlistOffer({
    * the prop exists rather than a fetch.
    */
   fullSaiPhp?: number | null;
+  /**
+   * Whether this card may mention the PAID Sai at all. False in the App Store /
+   * Play Store shell (guideline 3.1.1; lib/store-shell.ts): the free shortlist
+   * is planning and stays, but "the full Sai is a one-time ₱…" — with or
+   * without the figure — is an advert for a digital purchase the app cannot
+   * sell. The parent decides server-side; default true keeps every other caller
+   * unchanged.
+   */
+  sell?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
   const [working, startWorking] = useTransition();
@@ -96,7 +106,7 @@ export function FreeVenueShortlistOffer({
           <span aria-hidden className="mr-1 text-terracotta">
             ✦
           </span>
-          {firstVenueShortlistConfirmation(phase.added, fullSaiPhp)}
+          {firstVenueShortlistConfirmation(phase.added, fullSaiPhp, { sell })}
         </p>
         <div className="mt-2">{benchLink('See your venue shortlist')}</div>
       </>
@@ -146,9 +156,11 @@ export function FreeVenueShortlistOffer({
             {phase.error}
           </p>
         ) : null}
-        <p className="mt-2 text-[11.5px] text-ink/45">
-          {firstVenueShortlistUpsell(fullSaiPhp)}
-        </p>
+        {sell ? (
+          <p className="mt-2 text-[11.5px] text-ink/45">
+            {firstVenueShortlistUpsell(fullSaiPhp)}
+          </p>
+        ) : null}
       </>
     );
   }

@@ -24,16 +24,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHELL = readFileSync(join(HERE, 'front-door-shell.tsx'), 'utf8');
 const CSS = readFileSync(join(HERE, 'front-door.css'), 'utf8');
 const RESPONSIVE = readFileSync(join(HERE, '..', '..', '..', 'lib', 'use-responsive.ts'), 'utf8');
 
-/** Comments stripped — a guard must never pass on the prose explaining it. */
-const stripTs = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-const stripCss = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
+/** Comments stripped with the repo's ONE stripper — a guard must never pass on
+ *  the prose explaining it. It reads CSS block comments the same way. */
+const stripTs = stripComments;
+const stripCss = stripComments;
 
 const SHELL_CODE = stripTs(SHELL);
 const CSS_CODE = stripCss(CSS);

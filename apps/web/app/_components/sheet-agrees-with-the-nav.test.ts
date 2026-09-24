@@ -27,6 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHEET = readFileSync(join(HERE, 'sheet.tsx'), 'utf8');
@@ -111,7 +112,7 @@ test('the wide drawer is still wider than the narrow one', () => {
 // cap could drift into the drawer band and be the half-transformed sheet the
 // first test exists to prevent.
 
-const FOLD_CSS = readFileSync(join(HERE, 'sheet-fold.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const FOLD_CSS = stripComments(readFileSync(join(HERE, 'sheet-fold.css'), 'utf8'));
 const RESPONSIVE = readFileSync(join(HERE, '..', '..', 'lib', 'use-responsive.ts'), 'utf8');
 
 /** The px value `lib/use-responsive.ts` gives a Tailwind breakpoint name. */

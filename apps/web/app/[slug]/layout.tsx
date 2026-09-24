@@ -3,11 +3,34 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { readGuestSession } from '@/lib/guest-session';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
-import { loadDayOfBroadcast, loadEventShell } from './_lib/loaders';
+import { GuestLookScope } from './_components/guest-look-scope';
+import { siteSkin } from './_components/skins/site-skin';
+import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
 
 /**
- * /[slug] guest-tree layout — the editorial-typography scope, and the ONE
- * mount of the coordinator's day-of announcement.
+ * /[slug] guest-tree layout — the editorial-typography scope, the ONE place the
+ * couple's look is worn, and the ONE mount of the coordinator's day-of
+ * announcement.
+ *
+ * ── THE COUPLE'S LOOK, ON EVERY PAGE (2026-09-25) ─────────────────────────
+ * Owner: *"event hub has the different menus that are not editable. but they
+ * should still adapt to their theme"* — then, on applying it once at the top of
+ * every guest page, *"yes place it there."*
+ *
+ * The theme, palette, art direction and the couple's Pro colours and face used
+ * to be stamped on the `<main>` of three pages. Every other page of the tree —
+ * the seat finder, the seat pass, the hub, the guest list, the venue — wore
+ * Clean-Editorial whatever the couple chose. They are worn HERE now, by
+ * `GuestLookScope`, and the pages that used to stamp them rely on it.
+ *
+ * `loadGuestLook` reads through the same `cache()`d `loadEventShell` row the
+ * announcement below reads, so this costs no second event read; its privacy
+ * argument and its gates are in its own docblock (`_lib/loaders.ts`). The door
+ * (`/invite/*`) dresses itself and is left alone — see
+ * `SEGMENTS_THAT_DRESS_THEMSELVES`.
+ *
+ * ⚠ BEST-EFFORT, LIKE THE ANNOUNCEMENT. A look that cannot be resolved renders
+ * the page in the house look rather than taking the page down.
  *
  * ── THE TYPOGRAPHY SCOPE (unchanged) ──────────────────────────────────────
  * The 2026-07-12 Atelier finalization flipped the root font variables to the
@@ -110,8 +133,32 @@ export default async function GuestTreeLayout({
     broadcast = null;
   }
 
+  // THE COUPLE'S LOOK — best-effort for the same reason: a page in the house
+  // look is a page; a page that 500s because a palette could not be read is not.
+  let look: GuestLook | null = null;
+  try {
+    look = await loadGuestLook(slug);
+  } catch {
+    look = null;
+  }
+  /*
+    The theme's font classes and the `--accent` its material mixes with come
+    from the site skin, the one place they are declared. Its `ground` is NOT
+    drawn here: the textured grounds carry the couple's reveal photo, and this
+    layout wraps the private landing (see `resolveHubTheme`). `GuestLookScope`
+    lays the plain paper instead.
+  */
+  const skin = look?.theme ? siteSkin(look.theme, { photo: null, accent: look.accent }) : undefined;
+  const style =
+    look && (look.vars || skin) ? { ...(look.vars ?? {}), ...((skin?.style as Record<string, string>) ?? {}) } : null;
+
   return (
-    <div className="sn-editorial contents">
+    <GuestLookScope
+      theme={look?.theme ?? null}
+      art={look?.art ?? null}
+      fontClassName={skin?.className ?? ''}
+      style={style}
+    >
       {/* THE COORDINATOR'S WORDS, ON EVERY PAGE OF THE TREE. Sticky so it
           follows the reader down a long page — the guest who needs "phones
           down" is the one already scrolled into their seat card. */}
@@ -121,6 +168,6 @@ export default async function GuestTreeLayout({
         </div>
       ) : null}
       {children}
-    </div>
+    </GuestLookScope>
   );
 }

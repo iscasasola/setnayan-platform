@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import {
@@ -73,24 +74,49 @@ export type HubLook = {
 };
 
 /**
- * House unless the couple SAVED a shipped theme, the event TYPE may carry the
- * Save-the-Date film, and — for a Pro theme — the event holds Event Hub Pro
- * right now. A lapse of either falls back to House with NO write, so the choice
- * comes back the moment the unlock or the event type does.
+ * Is Event Hub Pro (COUPLE_WEBSITE_PRO) live for this event RIGHT NOW — asked
+ * ONCE per request, however many surfaces ask.
+ *
+ * 🔑 THREE READERS, ONE ANSWER. The theme gate below, the guest-tree layout's
+ * Pro colours and face, and `loadMedia`'s watermark all ask this same question
+ * of the same event on the same request. Uncached, `[slug]/page.tsx` would pay
+ * for the order / bundle / grant chain once per reader from the day the layout
+ * started dressing every page. `cache()` keys on the event id alone and the
+ * admin client is built inside, so every caller lands on one key.
  */
-export async function resolveHubLook(event: HubLookEvent): Promise<HubLook> {
+export const websiteProActiveFor = cache(
+  async (eventId: string): Promise<boolean> =>
+    eventCoupleWebsiteProActive(createAdminClient(), eventId),
+);
+
+/** The Pro-theme gate's two reads, once per request, keyed on primitives. */
+const proThemeGate = cache(
+  async (eventId: string, eventType: string): Promise<[boolean, boolean]> =>
+    Promise.all([
+      websiteProActiveFor(eventId).catch(() => false),
+      resolveProfile(eventType)
+        .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
+        // A profile that cannot be read is not a wedding. An unmeasured type
+        // must fall to the free door, never open a paid one.
+        .catch(() => false),
+    ]),
+);
+
+/**
+ * WHICH theme is live — everything `resolveHubLook` answers except the photo.
+ *
+ * ⛔ THE GUEST-TREE LAYOUT CALLS THIS, NOT `resolveHubLook`, ON PURPOSE. The
+ * layout wraps every page of the tree — the private landing and the 404
+ * included — and it must never be the thing that hands a stranger the couple's
+ * presigned reveal photo. It draws no photo, so it never asks for one, and no
+ * URL is signed for a page that would not show it.
+ */
+export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook, 'photo'>> {
   const saved = event.invite_theme ?? null;
   const wantsPro = isInviteThemeId(saved) && INVITE_THEMES[saved].tier === 'pro';
 
   const [ownsPro, mayShowStdFilm] = wantsPro
-    ? await Promise.all([
-        eventCoupleWebsiteProActive(createAdminClient(), event.event_id).catch(() => false),
-        resolveProfile(event.event_type ?? '')
-          .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
-          // A profile that cannot be read is not a wedding. An unmeasured type
-          // must fall to the free door, never open a paid one.
-          .catch(() => false),
-      ])
+    ? await proThemeGate(event.event_id, event.event_type ?? '')
     : [false, false];
 
   const theme = resolveInviteTheme({ saved, ownsPro, mayShowStdFilm });
@@ -99,13 +125,24 @@ export async function resolveHubLook(event: HubLookEvent): Promise<HubLook> {
     monogram_text: event.monogram_text ?? null,
     monogram_color: event.monogram_color ?? null,
   });
+  return { theme, accent: mark.color, monogram: mark.text };
+}
 
-  if (theme === 'house') {
+/**
+ * House unless the couple SAVED a shipped theme, the event TYPE may carry the
+ * Save-the-Date film, and — for a Pro theme — the event holds Event Hub Pro
+ * right now. A lapse of either falls back to House with NO write, so the choice
+ * comes back the moment the unlock or the event type does.
+ */
+export async function resolveHubLook(event: HubLookEvent): Promise<HubLook> {
+  const look = await resolveHubTheme(event);
+
+  if (look.theme === 'house') {
     // No presign for a House event — the ground is never drawn, and signing a
     // URL nothing renders is a round trip per page view for nothing.
-    return { theme, photo: null, accent: mark.color, monogram: mark.text };
+    return { ...look, photo: null };
   }
 
   const ground = await resolveInviteGround(event.std_background);
-  return { theme, photo: ground.photo, accent: mark.color, monogram: mark.text };
+  return { ...look, photo: ground.photo };
 }

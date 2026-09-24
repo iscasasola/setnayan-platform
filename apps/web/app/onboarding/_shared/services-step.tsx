@@ -747,14 +747,14 @@ export function ServicesStep({
           {interactive ? (
             <button
               type="button"
-              role="switch"
-              aria-checked={selection.hubPro}
-              onClick={() => onSelectionChange(setHubPro(selection, !selection.hubPro))}
               className={`mt-5 flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
                 selection.hubPro
                   ? 'border-terracotta bg-terracotta/[0.07]'
                   : 'border-ink/15 hover:border-ink/30'
               }`}
+              role="switch"
+              aria-checked={selection.hubPro}
+              onClick={() => onSelectionChange(setHubPro(selection, !selection.hubPro))}
             >
               <span
                 className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs ${
@@ -774,7 +774,7 @@ export function ServicesStep({
               </span>
             </button>
           ) : (
-            <p className="mt-5 rounded-xl border border-ink/12 px-4 py-3 text-center text-sm text-ink/55">
+            <p className="mt-5 text-center text-sm text-ink/55">
               You&rsquo;ll find {hubPro.label} in your Event Hub the moment your {eventWord}{' '}
               is created.
             </p>

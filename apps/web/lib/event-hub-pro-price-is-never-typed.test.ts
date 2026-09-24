@@ -26,6 +26,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+import { stripComments } from './strip-comments';
+
 const WEB = process.cwd();
 
 /** Every figure Event Hub Pro has been sold at, plus today's sign-up price. */
@@ -57,13 +59,8 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Code only: block comments, JSX comments and line comments removed. */
-function code(src: string): string {
-  return src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
-}
+/** Code only — the repo's one string-aware stripper, never a local regex. */
+const code = (src: string): string => stripComments(src);
 
 /** A figure as a peso amount or a bare number, with or without a thousands comma. */
 const figure = (n: string) =>

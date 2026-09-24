@@ -28,6 +28,7 @@ import React from 'react';
 import { buildServicesStepView, type ServicesStepView } from './services-step-data';
 import { hubProBillLine, hubProOffered, splitProOffer } from '../onboarding-hub-pro';
 import { addOnHeroCopy } from '../add-ons-catalog';
+import { stripComments } from '../strip-comments';
 import {
   EMPTY_SERVICES_SELECTION,
   setHubPro,
@@ -38,11 +39,7 @@ import {
 
 const web = process.cwd();
 const read = (rel: string) => readFileSync(join(web, rel), 'utf8');
-const strip = (src: string) =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+const strip = (src: string) => stripComments(src);
 
 const PRO_COPY = addOnHeroCopy('website-pro');
 

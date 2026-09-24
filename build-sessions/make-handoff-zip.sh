@@ -31,7 +31,40 @@ else
 fi
 
 # ── 2 · plans, registers, prototypes ─────────────────────────────────────────
-cp -R "$REPO/build-sessions/." "$OUT/build-sessions/" 2>/dev/null
+#
+# 🔴 ORIGIN/MAIN FIRST, THE WORKING TREE SECOND — and that order is the fix.
+#
+# This used to copy `$REPO/build-sessions/` and nothing else. On 2026-09-24 it
+# was run from a checkout sitting **2,839 commits behind origin/main**, and the
+# bundle came out missing 68 files and 6 MB — the whole `assets/mb25` and
+# `assets/mb28` artwork sets, four AREA-CHECKLISTs, PROVE-THE-FLOW.md. Nothing
+# failed. The zip built, reported its counts, and was handed over incomplete.
+# It was caught only because a human noticed the file was SMALLER than the last
+# one.
+#
+# 🔑 A BUNDLE SILENTLY REFLECTS WHICHEVER CHECKOUT BUILT IT. Every session on
+# this machine works in a worktree on its own branch, so the odds that the
+# folder you are standing in is current are poor — and being behind looks
+# exactly like being complete.
+#
+# So: extract the canonical copy from `origin/main` (build-sessions is tracked
+# since 2026-09-24), then overlay the working tree WITHOUT clobbering, which
+# keeps any local note a session has not pushed yet. Union, never either alone.
+git -C "$REPO" fetch -q origin main 2>/dev/null
+BEHIND="$(git -C "$REPO" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')"
+if git -C "$REPO" cat-file -e origin/main:build-sessions 2>/dev/null; then
+  git -C "$REPO" archive origin/main build-sessions 2>/dev/null \
+    | tar -x -C "$OUT" -f - 2>/dev/null
+  echo "build-sessions from origin/main: $(find "$OUT/build-sessions" -type f | wc -l | tr -d ' ') files"
+else
+  echo "!! build-sessions NOT on origin/main — falling back to the working tree alone"
+fi
+# -n = no-clobber: origin/main wins any file that exists in both.
+cp -Rn "$REPO/build-sessions/." "$OUT/build-sessions/" 2>/dev/null
+echo "build-sessions after the working-tree overlay: $(find "$OUT/build-sessions" -type f | wc -l | tr -d ' ') files"
+if [ "$BEHIND" != "0" ]; then
+  echo "note: this checkout is $BEHIND commit(s) behind origin/main — the bundle took build-sessions from origin/main, not from here"
+fi
 
 # ── 3 · the repo's own instructions ──────────────────────────────────────────
 for f in CLAUDE.md STATUS.md CHANGELOG.md COWORK_INBOX.md WHAT_IS_LEFT.md; do

@@ -38,6 +38,36 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
     /// never fires.
     private var offlineFallbackDelegate: OfflineFallbackNavigationDelegate?
 
+    /// The launch deadline. Cancelled when the remote app finishes loading;
+    /// otherwise it shows the fallback even though no error ever arrived.
+    private var launchWatchdog: DispatchWorkItem?
+
+    /// How long the app may show nothing before the fallback takes over.
+    ///
+    /// 🔴 THIS NUMBER IS MEASURED, NOT CHOSEN. `.lighthouserc.json` asserts
+    /// this app's own throttled-mobile ceilings — 150ms RTT · 1638kbps · 4x CPU
+    /// slowdown — against `/`, `/pricing` and `/login`, and `/login` IS the
+    /// launch destination (the web middleware 307s `/` there for every app
+    /// request). Those assertions are documented as "current pilot-week
+    /// measurements + ~10% headroom":
+    ///
+    ///     first-contentful-paint   <= 1800ms
+    ///     speed-index              <= 3400ms
+    ///     largest-contentful-paint <= 4500ms
+    ///     interactive              <= 5200ms   <- the slowest thing asserted
+    ///
+    /// 12s is 2.3x the slowest measured ceiling. That is deliberate headroom
+    /// for a network materially worse than the CI profile — hotel wifi, a
+    /// congested cell, a captive portal that has not yet intercepted — while
+    /// staying inside the window where a person is still waiting rather than
+    /// concluding the app is broken. Apple's reviewer did the latter.
+    ///
+    /// ⚠ CHANGING IT: re-read the Lighthouse assertions first. If they are
+    /// ratcheted down (the file says to do that quarterly), this can follow
+    /// them down. If a REAL launch is ever measured slower than this, raise it
+    /// — a fallback that interrupts a working load is a different bug.
+    private static let launchDeadline: TimeInterval = 12
+
     override func viewDidLoad() {
         // Installing AFTER super is deliberate. `capacitorDidLoad()` is the
         // documented extension point, but it runs BEFORE `loadWebView()` and
@@ -60,8 +90,46 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
         let proxy = OfflineFallbackNavigationDelegate(forwardingTo: capacitorDelegate) { [weak self] in
             self?.showOfflineFallback()
         }
+        proxy.onContentRendered = { [weak self] in self?.cancelLaunchWatchdog() }
         offlineFallbackDelegate = proxy
         webView.navigationDelegate = proxy
+
+        startLaunchWatchdog()
+    }
+
+    deinit {
+        launchWatchdog?.cancel()
+    }
+
+    /// Starts the deadline that turns "nothing happened" into a visible page.
+    ///
+    /// 🛑 THE GAP THIS CLOSES, AND WHY THE ERROR PATH COULD NOT: everything
+    /// above reacts to a FAILURE. Apple's rejection (Guideline 2.1, 1.0 (3),
+    /// 2026-09-22, "The app crashed on launch") was the other shape — a load
+    /// that never arrives. A hung connection produces no `didFailProvisional`,
+    /// no `didFail`, no callback of any kind: the splash hides after
+    /// `launchShowDuration` (2s) and the WebView stays white forever. There was
+    /// no timer anywhere in this file, so nothing could notice.
+    private func startLaunchWatchdog() {
+        let deadline = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            // The proxy owns the one true answer to "has anything painted".
+            // Asking it here rather than keeping a second flag is what stops
+            // the two drifting apart.
+            guard self.offlineFallbackDelegate?.hasRenderedContent == false else { return }
+            NSLog(
+                "[launch-watchdog] nothing painted in %.0fs — showing the bundled fallback",
+                Self.launchDeadline
+            )
+            self.showOfflineFallback()
+        }
+        launchWatchdog = deadline
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.launchDeadline, execute: deadline)
+    }
+
+    private func cancelLaunchWatchdog() {
+        launchWatchdog?.cancel()
+        launchWatchdog = nil
     }
 
     /// Loads the bundled `public/index.html` — the same file Android serves
@@ -100,7 +168,11 @@ final class OfflineFallbackNavigationDelegate: NSObject, WKNavigationDelegate {
     /// page — mid-session, losing whatever the couple was doing — every time a
     /// single navigation failed. Android's `onReceivedError` has exactly that
     /// bug today; it is noted in the PR rather than fixed here.
-    private var hasRenderedContent = false
+    private(set) var hasRenderedContent = false
+
+    /// Called once the remote app has actually finished loading, so the view
+    /// controller can cancel its launch deadline.
+    var onContentRendered: (() -> Void)?
 
     init(forwardingTo target: NSObject, onUnreachable: @escaping () -> Void) {
         self.target = target
@@ -128,7 +200,30 @@ final class OfflineFallbackNavigationDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         hasRenderedContent = true
+        onContentRendered?()
         navigationTarget?.webView?(webView, didFinish: navigation)
+    }
+
+    /// ⚖ COMMIT IS FORWARDED AND DELIBERATELY DOES NOT STOP THE WATCHDOG.
+    ///
+    /// A committed navigation means the response STARTED — headers arrived and
+    /// the old page was torn down. It does not mean anything painted, and
+    /// "headers then a stalled body" is one of the two hang shapes this
+    /// watchdog exists for: the WebView is blank, WebKit is still waiting, and
+    /// no error will ever be raised. Cancelling here would re-open exactly the
+    /// hole Apple found, for the harder-to-reproduce half of it.
+    ///
+    /// The cost of not cancelling is bounded and recoverable: a genuinely
+    /// slow-but-working load that crosses the deadline gets replaced by the
+    /// fallback, which carries a Retry. The cost of cancelling is unbounded —
+    /// white, forever, with no control on screen. Given the deadline is 2.3x
+    /// the slowest ceiling this app asserts for itself, the first is rare and
+    /// the second is what got the app rejected.
+    ///
+    /// It is implemented rather than omitted so the forwarding stays explicit:
+    /// Capacitor's handler must still see the callback.
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        navigationTarget?.webView?(webView, didCommit: navigation)
     }
 
     /// Capacitor's own policy handler only recognises `server.url`. It treats
@@ -162,6 +257,7 @@ final class OfflineFallbackNavigationDelegate: NSObject, WKNavigationDelegate {
 
     private func handleFailure(_ error: Error) {
         guard !hasRenderedContent else { return }
+
         guard isUnreachable(error) else { return }
         onUnreachable()
     }

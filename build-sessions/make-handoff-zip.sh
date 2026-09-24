@@ -31,7 +31,40 @@ else
 fi
 
 # ── 2 · plans, registers, prototypes ─────────────────────────────────────────
-cp -R "$REPO/build-sessions/." "$OUT/build-sessions/" 2>/dev/null
+#
+# 🔴 ORIGIN/MAIN FIRST, THE WORKING TREE SECOND — and that order is the fix.
+#
+# This used to copy `$REPO/build-sessions/` and nothing else. On 2026-09-24 it
+# was run from a checkout sitting **2,839 commits behind origin/main**, and the
+# bundle came out missing 68 files and 6 MB — the whole `assets/mb25` and
+# `assets/mb28` artwork sets, four AREA-CHECKLISTs, PROVE-THE-FLOW.md. Nothing
+# failed. The zip built, reported its counts, and was handed over incomplete.
+# It was caught only because a human noticed the file was SMALLER than the last
+# one.
+#
+# 🔑 A BUNDLE SILENTLY REFLECTS WHICHEVER CHECKOUT BUILT IT. Every session on
+# this machine works in a worktree on its own branch, so the odds that the
+# folder you are standing in is current are poor — and being behind looks
+# exactly like being complete.
+#
+# So: extract the canonical copy from `origin/main` (build-sessions is tracked
+# since 2026-09-24), then overlay the working tree WITHOUT clobbering, which
+# keeps any local note a session has not pushed yet. Union, never either alone.
+git -C "$REPO" fetch -q origin main 2>/dev/null
+BEHIND="$(git -C "$REPO" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')"
+if git -C "$REPO" cat-file -e origin/main:build-sessions 2>/dev/null; then
+  git -C "$REPO" archive origin/main build-sessions 2>/dev/null \
+    | tar -x -C "$OUT" -f - 2>/dev/null
+  echo "build-sessions from origin/main: $(find "$OUT/build-sessions" -type f | wc -l | tr -d ' ') files"
+else
+  echo "!! build-sessions NOT on origin/main — falling back to the working tree alone"
+fi
+# -n = no-clobber: origin/main wins any file that exists in both.
+cp -Rn "$REPO/build-sessions/." "$OUT/build-sessions/" 2>/dev/null
+echo "build-sessions after the working-tree overlay: $(find "$OUT/build-sessions" -type f | wc -l | tr -d ' ') files"
+if [ "$BEHIND" != "0" ]; then
+  echo "note: this checkout is $BEHIND commit(s) behind origin/main — the bundle took build-sessions from origin/main, not from here"
+fi
 
 # ── 3 · the repo's own instructions ──────────────────────────────────────────
 for f in CLAUDE.md STATUS.md CHANGELOG.md COWORK_INBOX.md WHAT_IS_LEFT.md; do
@@ -124,13 +157,45 @@ S="$OUT/snapshot"
   gh pr list --state open --limit 40 --json number,title,headRefName,isDraft,statusCheckRollup \
     --jq '.[]|"- #\(.number) \(if .isDraft then "[DRAFT] " else "" end)`\(.headRefName)` — \(.title)  · failing=\([.statusCheckRollup[]?|select(.conclusion=="FAILURE")]|length) pending=\([.statusCheckRollup[]?|select(.status=="IN_PROGRESS" or .status=="QUEUED")]|length)"' 2>/dev/null
   echo
-  echo "## Branches with unlanded commits, touched in the last 3 days"
+  echo "## Branches with unlanded commits — active first, cold counted"
+  echo
+  echo "⚠ **Neither extreme works here, and both were tried in one sitting.** A 3-day"
+  echo "window hid \`s41-wip\` (2 commits, 97 files) and \`claude/the-gift-is-a-switch\`"
+  echo "(2 commits, one labelled *\"kept only so nothing is lost\"*) at 5 and 14 days —"
+  echo "**the stalest branch is the one most likely to be forgotten.** Removing the window"
+  echo "then listed 221 branches, 200 of them months dead, which nobody reads either."
+  echo "So: everything touched in the last 21 days in full, the rest as a count."
+  echo
+  echo "### Active — touched in the last 21 days"
+  echo
+  ACTIVE=0; COLD=0
   for b in $(git -C "$REPO" branch -r --no-merged origin/main 2>/dev/null | grep -v HEAD | sed 's/ *//'); do
-    d=$(git -C "$REPO" log -1 --format='%at' "$b" 2>/dev/null)
-    [ -z "$d" ] && continue
-    [ $(( ( $(date +%s) - d ) / 86400 )) -le 3 ] || continue
-    echo "- \`${b#origin/}\` ahead $(git -C "$REPO" rev-list --count origin/main.."$b" 2>/dev/null) · last $(git -C "$REPO" log -1 --format='%ad' --date=iso "$b" 2>/dev/null)"
-  done
+    d=$(git -C "$REPO" log -1 --format='%at' "$b" 2>/dev/null); [ -z "$d" ] && continue
+    ahead=$(git -C "$REPO" rev-list --count origin/main.."$b" 2>/dev/null)
+    [ "${ahead:-0}" = "0" ] && continue
+    age=$(( ( $(date +%s) - d ) / 86400 ))
+    if [ "$age" -le 21 ]; then
+      ACTIVE=$((ACTIVE+1))
+      printf '%04d\t- `%s` ahead %s · %sd ago (%s)\n' "$age" "${b#origin/}" "$ahead" "$age" \
+        "$(git -C "$REPO" log -1 --format='%ad' --date=short "$b" 2>/dev/null)"
+    else
+      COLD=$((COLD+1))
+    fi
+  done | sort | cut -f2- > "$S/_active.txt"
+  cat "$S/_active.txt"
+  echo
+  echo "### Cold"
+  echo
+  echo "$(git -C "$REPO" branch -r --no-merged origin/main 2>/dev/null | grep -cv HEAD) unmerged remote branches in total; the ones NOT listed above were last touched"
+  echo "over 21 days ago. They are abandonment, not work in flight — but re-measure rather"
+  echo "than trusting that sentence:"
+  echo
+  echo '```bash'
+  echo 'for b in $(git branch -r --no-merged origin/main | grep -v HEAD); do'
+  echo '  a=$(git rev-list --count origin/main..$b); [ "$a" = 0 ] && continue'
+  echo '  echo "$b ahead $a $(git log -1 --format=%cr $b)"'
+  echo 'done | sort -k4'
+  echo '```'
   echo
   echo "## What production is serving"
   echo '```'

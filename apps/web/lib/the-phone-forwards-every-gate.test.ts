@@ -132,38 +132,61 @@ test('🔒 the plan-phase Hub row is present when enabled and absent when not', 
   );
 });
 
-/* ══ 3 · THE ASYMMETRY THE FIX EXPOSED — recorded, NOT resolved ═══════════ */
+/* ══ 3 · THE GATE HAS NO NEGATIVE CASE — measured, not assumed ═══════════ */
 
 /**
- * ⚠ AN OPEN QUESTION FOR THE OWNER, PINNED SO IT CANNOT DRIFT UNNOTICED.
+ * 🛑 A CORRECTION TO THIS FILE'S OWN PREVIOUS SECTION, 2026-09-24.
  *
- * Forwarding the gate made the three phases comparable for the first time, and
- * they do not agree:
+ * It used to carry a test called *"📌 OPEN: day-of and after show the Hub even
+ * with no website surface"*, raised to the owner as a decision he had to make:
+ * the plan phase gates the Hub row on `websiteEnabled`, the day-of and after
+ * rosters do not, so an event kind with no website surface would be offered a
+ * Hub it does not have.
  *
- *     websiteEnabled=false  plan   → no Hub    ← gated
- *     websiteEnabled=false  dayof  → Hub       ← NOT gated
- *     websiteEnabled=false  after  → Hub       ← NOT gated
+ * **It was not a question.** Owner, verbatim: *"all events has a website"* —
+ * *"the only difference is the type of suppliers and the services and the
+ * complexity of AI to handle that service."* Measured against production the
+ * same minute, and he is right:
  *
- * So an event kind with **no website surface at all** is offered the Event Hub
- * Controller on the day and afterwards, on a phone. The desktop rail gates its
- * `launchItem` in every phase, so the two surfaces disagree — the same
- * disagreement `customer-menu.ts` says the plan-phase gate exists to prevent:
- * *"an event kind with no 'website' surface gets no Hub row on either surface,
- * and the two must not disagree about that."*
+ *     select event_type, ('website' = any(enabled_surfaces)) as has_website
+ *     from event_type_profiles order by 2, 1;
+ *     → 17 rows, has_website = true on every one of them
  *
- * 🔑 THIS TEST ASSERTS TODAY'S BEHAVIOUR, NOT THE DESIRED ONE. Closing the gap
- * REMOVES a tab, which is a different risk from restoring one, and it is the
- * owner's call rather than a tidy-up. Pinning it here means the day someone
- * gates those two rows, this test goes red and they must say so in the diff
- * instead of the change passing silently.
+ * All five code fallbacks agree. So `websiteEnabled` is `true` for every event
+ * that can exist, the disagreement between the phases describes a state nothing
+ * can reach, and asking the owner to rule on it spent his attention on nothing.
+ *
+ * 🔑 THE LESSON IS ABOUT THE SHAPE OF THE QUESTION, NOT THE ANSWER. A gate with
+ * no reachable negative case cannot protect anything — it can only subtract,
+ * which is exactly what it did: the row vanished from every planning phone
+ * because the flag arrived `undefined`, never because it arrived `false`.
+ * **Before escalating an inconsistency, measure whether either side is
+ * reachable.** An unreachable branch is dead code, not a decision.
+ *
+ * ⚠ SO THE GATE STAYS, AND THIS IS THE TRIPWIRE THAT MAKES THE QUESTION REAL IF
+ * IT EVER BECOMES REAL. The day an event type ships WITHOUT the website
+ * surface, this fails, and whoever ships it has to decide then — with a live
+ * case in front of them — what the phone should do on the day and after.
+ * Deleting the gate now would be the opposite mistake: removing the mechanism
+ * that makes an opt-out possible, on the strength of a reading taken today.
  */
-test('📌 OPEN: day-of and after show the Hub even with no website surface', async () => {
-  const { buildCustomerMenuTree } = await import('./customer-menu');
-  const has = (phase: 'dayof' | 'after') =>
-    buildCustomerMenuTree('EVT123', { websiteEnabled: false, phase })
-      .map((m) => m.key as string)
-      .includes('launch');
-
-  assert.equal(has('dayof'), true, 'day-of no longer shows the ungated Hub — was this intended?');
-  assert.equal(has('after'), true, 'after no longer shows the ungated Hub — was this intended?');
+test('📏 every code profile enables the website surface — so the gate has no negative case', async () => {
+  const P = await import('./event-type-profile');
+  const profiles = {
+    GENERIC: P.GENERIC_PROFILE,
+    SIMPLE: P.SIMPLE_PROFILE,
+    TRAVEL: P.TRAVEL_PROFILE,
+    WAKE: P.WAKE_PROFILE,
+    WEDDING: P.WEDDING_PROFILE,
+  };
+  for (const [name, profile] of Object.entries(profiles)) {
+    assert.ok(
+      P.surfaceEnabled(profile, 'website'),
+      `${name} no longer enables 'website'. That makes the plan/day-of/after ` +
+        'disagreement REACHABLE for the first time: the plan phone hides the Event Hub ' +
+        'row for this type and the day-of and after phones still show it, while the ' +
+        'desktop rail hides it in all three. Decide what the phone should do, then ' +
+        'update this test to say what you decided.',
+    );
+  }
 });

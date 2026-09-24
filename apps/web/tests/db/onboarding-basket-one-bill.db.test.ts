@@ -332,3 +332,68 @@ test('ownership counts a SKU bought inside a bill', () => {
   const active = ent.slice(ent.indexOf('export async function eventSkuActive'));
   assert.match(active.slice(0, 2000), /basketGrantsSku\(/, 'eventSkuActive ignores baskets');
 });
+
+// ── Event Hub Pro on the bill (owner 2026-09-25) ───────────────────────────
+
+test('an Event Hub Pro line on the bill is what ownership finds', async () => {
+  // Pro has NO activation hook — its gates read the order live — so the basket
+  // path is only real if the ownership RPC can see a Pro line inside a bill.
+  // Without that, a couple who bought Pro at onboarding stays locked after the
+  // payment is approved, and the Event Hub offers it to them again.
+  const order = await db.query<{ order_id: string }>(
+    `INSERT INTO public.orders
+       (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
+     VALUES ($1, NULL, 'ONBOARDING_SERVICES', 'basket', 1234, 'submitted', $2)
+     RETURNING order_id`,
+    [eventId, nextRef()],
+  );
+  const orderId = order.rows[0]!.order_id;
+  await db.query(
+    `INSERT INTO public.onboarding_order_items
+       (order_id, service_code, quantity, unit_price_php)
+     VALUES ($1, 'COUPLE_WEBSITE_PRO', 1, 1)`,
+    [orderId],
+  );
+
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'service_role', false)`);
+  try {
+    const pro = await db.query<{ order_id: string; status: string }>(
+      `SELECT * FROM public.event_basket_orders_granting($1::uuid, 'COUPLE_WEBSITE_PRO')`,
+      [eventId],
+    );
+    assert.ok(
+      pro.rows.some((r) => r.order_id === orderId && r.status === 'submitted'),
+      'a Pro line inside the bill is invisible to ownership — the couple would be sold it twice',
+    );
+    const ai = await db.query<{ order_id: string }>(
+      `SELECT * FROM public.event_basket_orders_granting($1::uuid, 'SETNAYAN_AI')`,
+      [eventId],
+    );
+    assert.ok(
+      !ai.rows.some((r) => r.order_id === orderId),
+      'a Pro-only bill must not confer the planner',
+    );
+  } finally {
+    await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+  }
+});
+
+test('the Pro row the card and the mint price from: ₱3,500 regular, ₱2,100 at sign-up', async () => {
+  // Owner 2026-09-25: "Regular Price is 3500 40% off when purchased on
+  // onboarding at 2100" · "so our regular price is 3500 to unlock pro".
+  // Migration 20271245494068. The sign-up price is the row's OWN
+  // onboarding_price_php — the per-SKU override every sign-up reader already
+  // honours — so neither Papic's nor Setnayan AI's family discount moves.
+  const r = await db.query<{
+    retail_price_php: string;
+    onboarding_price_php: string | null;
+    is_active: boolean;
+  }>(
+    `SELECT retail_price_php, onboarding_price_php, is_active
+       FROM public.platform_retail_catalog_v2 WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
+  );
+  assert.equal(r.rows.length, 1);
+  assert.equal(Number(r.rows[0]!.retail_price_php), 3500);
+  assert.equal(Number(r.rows[0]!.onboarding_price_php), 2100);
+  assert.equal(r.rows[0]!.is_active, true);
+});

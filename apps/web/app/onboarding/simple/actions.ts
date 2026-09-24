@@ -10,6 +10,7 @@ import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import {
   PAPIC_FIELD_POOL_RUNG,
   AI_FIELD_SELECTED,
+  HUB_PRO_FIELD_SELECTED,
 } from './_components/papic-step-field-names';
 import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -191,6 +192,8 @@ export async function commitSimpleEvent(formData: FormData) {
       // Arrives as the STRING 'true'/'false' — parseServicesStepSelection
       // accepts only a genuine yes, because Boolean('false') is true.
       ai: formData.get(AI_FIELD_SELECTED),
+      // Event Hub Pro — the same STRING yes/no, the same parse rule.
+      hubPro: formData.get(HUB_PRO_FIELD_SELECTED),
     },
   });
 

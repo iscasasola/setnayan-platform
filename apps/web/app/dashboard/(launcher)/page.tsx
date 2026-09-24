@@ -46,7 +46,7 @@ import {
   type CommunityWithRole,
 } from '@/lib/communities';
 import {
-  fetchChecklistItems,
+  readChecklistItems,
   checklistAnchorDateFor,
   checklistRunwayFor,
   daysUntilEvent,
@@ -54,8 +54,8 @@ import {
 } from '@/lib/checklist';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import {
-  fetchEventDecisionCounts,
-  fetchEventUnreadCounts,
+  readEventDecisionCounts,
+  readEventUnreadCounts,
   fetchVendorUnreadCounts,
   summarizeEventDecisions,
   type EventDecisionSummary,
@@ -409,10 +409,15 @@ export default async function LauncherPage({
     active.map(
       async (
         e,
-      ): Promise<[string, { pct: number | null; overdue: number }]> => {
+      ): Promise<[string, { pct: number | null; overdue: number | null; failed: boolean }]> => {
         try {
-          const items = await fetchChecklistItems(supabase, e.event_id);
-          if (items.length === 0) return [e.event_id, { pct: null, overdue: 0 }];
+          // 🔑 UNKNOWN IS NOT ZERO (collection template, 2026-09-24). A refused
+          // read used to arrive here as `[]` and leave the card saying nothing
+          // needs you. `readChecklistItems` returns `null` for "could not read",
+          // and the card then says so.
+          const items = await readChecklistItems(supabase, e.event_id);
+          if (items === null) return [e.event_id, { pct: null, overdue: null, failed: true }];
+          if (items.length === 0) return [e.event_id, { pct: null, overdue: 0, failed: false }];
           const done = items.filter((i) => i.status === 'done').length;
           // Same deadline ANCHOR the checklist page dates by — locked date, else
           // earliest candidate, else window start; weddings on the locked date
@@ -434,10 +439,10 @@ export default async function LauncherPage({
           }).length;
           return [
             e.event_id,
-            { pct: Math.round((done / items.length) * 100), overdue },
+            { pct: Math.round((done / items.length) * 100), overdue, failed: false },
           ];
         } catch {
-          return [e.event_id, { pct: null, overdue: 0 }];
+          return [e.event_id, { pct: null, overdue: null, failed: true }];
         }
       },
     ),
@@ -446,20 +451,37 @@ export default async function LauncherPage({
   const progressByEvent = new Map<string, number | null>(
     checklistEntries.map(([id, v]) => [id, v.pct]),
   );
+  // Which cards' progress could not be READ — distinct from "no checklist yet"
+  // (`pct: null` with `failed: false`), which shows no ring and claims nothing.
+  const progressFailed = new Set(
+    checklistEntries.filter(([, v]) => v.failed).map(([id]) => id),
+  );
 
   // "Needs a decision now" per event — the pay + approve signals (batched into
   // two queries) merged with the overdue-task count from the checklist pass. A
   // named action line, not a bare badge (owner 2026-07-10). Graceful-degrades to
   // an empty summary; a card with nothing pending shows no attention line.
+  // 🔑 A FAILED READ IS `null`, NEVER AN EMPTY MAP (collection template,
+  // 2026-09-24). These used to `.catch(() => new Map())` — and the helpers
+  // swallowed a refused query as zeros before that — so a read that never
+  // completed printed as "nothing needs you". `null` here reaches the card as
+  // `summary: null`, which renders "Couldn't load what needs you".
   const [decisionCounts, unreadByEvent] = await Promise.all([
-    fetchEventDecisionCounts(
+    readEventDecisionCounts(
       supabase,
       active.map((e) => e.event_id),
-    ).catch(() => new Map<string, { pay: number; approve: number }>()),
-    fetchEventUnreadCounts(supabase).catch(() => new Map<string, number>()),
+    ).catch(() => null),
+    readEventUnreadCounts(supabase).catch(() => null),
   ]);
-  const decisionByEvent = new Map<string, EventDecisionSummary>();
+  const decisionByEvent = new Map<string, EventDecisionSummary | null>();
   for (const e of active) {
+    // Overdue tasks are meaningless once the date has passed (below), so a
+    // failed checklist read only makes the summary unknown for a live event.
+    const overdueUnknown = !isPast(e) && checklistByEvent.get(e.event_id)?.overdue === null;
+    if (decisionCounts === null || unreadByEvent === null || overdueUnknown) {
+      decisionByEvent.set(e.event_id, null);
+      continue;
+    }
     const c = decisionCounts.get(e.event_id) ?? { pay: 0, approve: 0 };
     // Overdue tasks are meaningless once the date has passed, so a finished
     // event still surfaces pay / approve / message decisions but not a
@@ -1096,6 +1118,7 @@ export default async function LauncherPage({
                 index={i}
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
+                progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
               />
             </BoardCardWithMenu>
@@ -1153,6 +1176,7 @@ export default async function LauncherPage({
                 index={i}
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
+                progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
                 poster={posterById.get(event.event_id)}
               />
@@ -1198,6 +1222,7 @@ export default async function LauncherPage({
                     index={upcomingOnPage.length + i}
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
+                    progressFailed={progressFailed.has(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
                   />
                 </BoardCardWithMenu>
@@ -1312,6 +1337,7 @@ export default async function LauncherPage({
                     index={upcoming.length + i}
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
+                    progressFailed={progressFailed.has(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
                     storyHref={
                       storiesMeasured && canWriteStoryFor(event)
@@ -1369,6 +1395,7 @@ export default async function LauncherPage({
                 index={upcoming.length + unwritten.length + i}
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
+                progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
               />
             </BoardCardWithMenu>
@@ -1632,14 +1659,19 @@ function GlassEventCard({
   index = 0,
   todayISO,
   summary,
+  progressFailed = false,
   hasMenu = false,
   storyHref,
   poster,
 }: {
   event: EventWithRole;
   pct: number | null;
-  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
-  summary?: EventDecisionSummary;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0.
+   *  `null` ⇒ it could not be READ — the card says "couldn't load". */
+  summary?: EventDecisionSummary | null;
+  /** The checklist read for this event FAILED — the ring reads "couldn't
+   *  load" instead of vanishing as though there were no checklist. */
+  progressFailed?: boolean;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
   /** Resolved event-type hero (admin upload → repo asset) for the scene band.
@@ -1683,6 +1715,9 @@ function GlassEventCard({
   // (whose day has happened — a planning score on a celebrated day is the
   // board contradicting its own "Celebrated" badge one line up).
   const showRing = pct != null && stance !== 'invited' && !finished;
+  // Unknown ≠ none: only an organiser's live card carries a ring at all, so
+  // only there can a failed read be reported as one.
+  const ringUnknown = progressFailed && stance !== 'invited' && !finished;
   const resolvedHref = storyHref ?? href;
 
   // SEC-3: gated on read — both monogram columns are host-writable.
@@ -1770,7 +1805,7 @@ function GlassEventCard({
          along the plan is. Absent entirely when nothing waits. */
       attention={eventAttention(summary, stance)}
       progress={{
-        pct: showRing ? (pct as number) : undefined,
+        pct: ringUnknown ? null : showRing ? (pct as number) : undefined,
         remainder: status,
         // The ring is the ONE place the figure prints (the old "N% planned"
         // text beside it was the D-6 double-print); this keeps the word for
@@ -1928,11 +1963,15 @@ function deriveEventView(
  *    plan, which `deriveEventView` already refuses to do.
  */
 function eventAttention(
-  summary: EventDecisionSummary | undefined,
+  summary: EventDecisionSummary | null | undefined,
   stance: EventStance | null,
 ): CollectionAttention | undefined {
-  if (!summary || summary.total <= 0 || !summary.top) return undefined;
   if (stance === 'invited') return undefined;
+  // 3. A READ THAT FAILED IS NOT "NOTHING WAITING" (collection template,
+  //    2026-09-24): `null` is the reads' own "could not measure", and the card
+  //    says so instead of going quiet.
+  if (summary === null) return { count: null };
+  if (!summary || summary.total <= 0 || !summary.top) return undefined;
   /*
     `count` is the TOTAL waiting and `labelCount` is what the count-led label
     already says ("9 tasks overdue"). The row prints the total ahead of the

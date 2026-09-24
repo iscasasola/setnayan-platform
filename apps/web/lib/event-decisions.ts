@@ -49,13 +49,23 @@ export type EventDecisionSummary = {
 export async function fetchEventUnreadCounts(
   supabase: SupabaseClient,
 ): Promise<Map<string, number>> {
+  return (await readEventUnreadCounts(supabase)) ?? new Map<string, number>();
+}
+
+/**
+ * `fetchEventUnreadCounts`, honest about failing: `null` when the RPC errored
+ * or threw — never an empty map, which reads as "no unread messages".
+ */
+export async function readEventUnreadCounts(
+  supabase: SupabaseClient,
+): Promise<Map<string, number> | null> {
   const out = new Map<string, number>();
   try {
     const { data, error } = await supabase.rpc(
       'unread_message_threads_by_event',
     );
     if (error) console.error('[supabase-error] lib/event-decisions.ts · rpc:unread_message_threads_by_event', error);
-    if (error) return out;
+    if (error) return null;
     for (const row of (data ?? []) as Array<{
       event_id: string | null;
       unread_count: number | null;
@@ -63,7 +73,7 @@ export async function fetchEventUnreadCounts(
       if (row.event_id) out.set(row.event_id, Number(row.unread_count ?? 0));
     }
   } catch {
-    // graceful-degrade: no message line rather than a broken launcher.
+    return null;
   }
   return out;
 }
@@ -78,9 +88,34 @@ export async function fetchEventDecisionCounts(
   supabase: SupabaseClient,
   eventIds: string[],
 ): Promise<Map<string, { pay: number; approve: number }>> {
+  return (await countEventDecisions(supabase, eventIds)).counts;
+}
+
+/**
+ * `fetchEventDecisionCounts`, honest about failing: `null` when EITHER query
+ * errored or threw. The supabase builder RESOLVES with `{ data: null, error }`
+ * rather than rejecting, so the `try/catch` below never sees a refused read —
+ * it arrives as `data ?? []` and becomes part of a zero-seeded map: "no
+ * payments waiting" printed off a read that never completed. This one reads
+ * `error` and says so.
+ */
+export async function readEventDecisionCounts(
+  supabase: SupabaseClient,
+  eventIds: string[],
+): Promise<Map<string, { pay: number; approve: number }> | null> {
+  const { counts, failed } = await countEventDecisions(supabase, eventIds);
+  return failed ? null : counts;
+}
+
+/** The one pair of queries both of the above answer from. */
+async function countEventDecisions(
+  supabase: SupabaseClient,
+  eventIds: string[],
+): Promise<{ counts: Map<string, { pay: number; approve: number }>; failed: boolean }> {
   const out = new Map<string, { pay: number; approve: number }>();
   for (const id of eventIds) out.set(id, { pay: 0, approve: 0 });
-  if (eventIds.length === 0) return out;
+  if (eventIds.length === 0) return { counts: out, failed: false };
+  let failed = false;
 
   try {
     const [paysRes, proposalsRes] = await Promise.all([
@@ -110,6 +145,13 @@ export async function fetchEventDecisionCounts(
         // proposal awaiting the couple's decision.
         .in('status', ['sent', 'viewed']),
     ]);
+    if (paysRes.error || proposalsRes.error) {
+      failed = true;
+      console.error(
+        '[supabase-error] lib/event-decisions.ts · countEventDecisions',
+        paysRes.error ?? proposalsRes.error,
+      );
+    }
 
     for (const row of (paysRes.data ?? []) as Array<{
       event_id: string | null;
@@ -124,9 +166,11 @@ export async function fetchEventDecisionCounts(
       if (s) s.approve += 1;
     }
   } catch {
-    // graceful-degrade: return the zero-seeded map so the launcher still renders.
+    // graceful-degrade: the zero-seeded map so the launcher still renders —
+    // and `failed`, so a caller that prints a count can say it could not.
+    failed = true;
   }
-  return out;
+  return { counts: out, failed };
 }
 
 /**

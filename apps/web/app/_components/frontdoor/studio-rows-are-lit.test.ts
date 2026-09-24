@@ -107,8 +107,10 @@ test('the two halves really do overlap — the premise, measured, not assumed', 
     If this ever drops to zero the rest of this file is vacuous: there would be
     nothing for one resolver to arbitrate and every assertion below would pass
     for a reason unrelated to what it claims to test. Measured 2026-08-23 and
-    again 2026-09-24: a product URL is also claimed by a plain event row
-    (3D Plan's `/seating/lab` sits inside Seat plan's `/seating`).
+    again 2026-09-24: a product URL is also claimed by a plain event row.
+    Re-measured after the 3D Plan row folded into Seat plan (2026-09-24): the
+    contested set is now every `/studio/<product>` page, each sitting inside
+    the Suite row's `/studio` — `/seating/lab` is no longer a product row.
   */
   const contested = studio.filter((s) =>
     events.some((e) => activeRailKey([e], s.href) !== null),
@@ -139,11 +141,18 @@ test('the three measured overlaps resolve the way a person would read them', () 
     and an event row both match, and each is settled by the shipped specificity
     rule rather than by a special case:
   */
-  // The 3D plan is its own page. Neither row is exact-vs-prefix here — both
-  // claim by prefix — so length settles it, and 3D Plan's href is longer.
-  assert.equal(activeRailKey(rail, `${BASE}/seating/lab`), 'pa3d');
-  // Seat plan still owns the family it claims.
-  assert.equal(activeRailKey(rail, `${BASE}/seating`), 'seat');
+  /*
+    🔄 THE 3D PAIR IS NOW ONE ROW (owner 2026-09-24: *"remove the 3D Plan
+    menu. since the 3D version is on the seatplan already. but make sure
+    mapping stay consistent"*). `/seating/lab` used to be settled by length in
+    3D Plan's favour; the 3D Plan row is absorbed into Seat plan
+    (`STUDIO_ABSORBED`), which now CLAIMS the 3D view and the /plan3d control
+    centre. So every one of these lights Seat plan — and nothing lights 'pa3d'.
+  */
+  for (const p of ['/seating', '/seating/lab', '/plan3d']) {
+    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'seat', `${p} must light Seat plan`);
+  }
+  assert.ok(!rail.some((r) => r.key === 'pa3d'), 'a 3D Plan row is matchable again beside Seat plan');
   /*
     THE PAIR THAT FORCED "EXACT BEATS PREFIX" — RE-MEASURED 2026-09-02 (EH3).
 

@@ -25,9 +25,9 @@ import { join } from 'node:path';
 (globalThis as unknown as { React: unknown }).React = React;
 
 import {
-  CUSTOM_BODY_MAX,
+  CUSTOM_COLUMN_BODY_MAX,
   CUSTOM_SECTION_TYPES,
-  CUSTOM_TITLE_MAX,
+  CUSTOM_COLUMN_TITLE_MAX,
   customSectionHasContent,
   nextFreeCustomSlot,
   sanitizeCustomSection,
@@ -172,13 +172,25 @@ test('⛔ nothing a host writes becomes markup on a guest page', async () => {
   assert.doesNotMatch(src, /dangerouslySetInnerHTML/, 'and there is no path to raw HTML');
 });
 
-test('⛔ stored config is data — bounded, trimmed, and never assumed', () => {
+test('⛔ stored config is data — over the limit DROPPED (never cut), trimmed, never assumed', () => {
   assert.deepEqual(sanitizeCustomSection(null), { title: '', body: '' });
   assert.deepEqual(sanitizeCustomSection('a string'), { title: '', body: '' });
   assert.deepEqual(sanitizeCustomSection({ custom: { title: 42, body: [] } }), { title: '', body: '' });
-  const long = sanitizeCustomSection({ custom: { title: 'x'.repeat(500), body: 'y'.repeat(9000) } });
-  assert.equal(long.title.length, CUSTOM_TITLE_MAX);
-  assert.equal(long.body.length, CUSTOM_BODY_MAX);
+  // 2026-09-24: was "bounded" (truncated). Now the recap's rule — a section cut
+  // in half is a sentence we lost for them; see `sanitizeCustomSection`.
+  assert.deepEqual(
+    sanitizeCustomSection({ custom: { title: 'x'.repeat(CUSTOM_COLUMN_TITLE_MAX + 1), body: 'ok' } }),
+    { title: '', body: '' },
+  );
+  assert.deepEqual(
+    sanitizeCustomSection({ custom: { title: 'ok', body: 'y'.repeat(CUSTOM_COLUMN_BODY_MAX + 1) } }),
+    { title: '', body: '' },
+  );
+  const atLimit = sanitizeCustomSection({
+    custom: { title: 'x'.repeat(CUSTOM_COLUMN_TITLE_MAX), body: 'y'.repeat(CUSTOM_COLUMN_BODY_MAX) },
+  });
+  assert.equal(atLimit.title.length, CUSTOM_COLUMN_TITLE_MAX, 'exactly at the limit survives whole');
+  assert.equal(atLimit.body.length, CUSTOM_COLUMN_BODY_MAX);
   assert.deepEqual(sanitizeCustomSection({ custom: { title: '  Hi  ', body: '  there  ' } }), {
     title: 'Hi',
     body: 'there',

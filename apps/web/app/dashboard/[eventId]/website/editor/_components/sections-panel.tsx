@@ -5,13 +5,17 @@ import {
 } from '@/lib/invitation-widgets';
 import {
   customSectionEditorLabel,
+  customSectionHasContent,
   isCustomSectionType,
   nextFreeCustomSlot,
   sanitizeCustomSection,
-  CUSTOM_BODY_MAX,
-  CUSTOM_TITLE_MAX,
+  CUSTOM_COLUMN_BODY_MAX,
+  CUSTOM_COLUMN_TITLE_MAX,
 } from '@/lib/custom-sections';
 import {
+  HUB_ARRANGEMENTS,
+  HUB_ARRANGEMENT_LABEL,
+  HUB_DEFAULT_ARRANGEMENT,
   HUB_DEFAULT_FOCAL,
   HUB_DEFAULT_ZOOM,
   HUB_FOCAL_POINTS,
@@ -70,6 +74,10 @@ export function SectionsPanel({
   saveCustomAction,
   addCustomAction,
   photoChoices = [],
+  ownsPro = true,
+  customLock = null,
+  videoChoice = null,
+  colorChoices = [],
 }: {
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
@@ -89,12 +97,32 @@ export function SectionsPanel({
    *  `{ ref, url }`. Only these are offered, and only these are accepted
    *  server-side. */
   photoChoices?: readonly { ref: string; url: string }[];
+  /** The couple's own hero video — the ONE snippet source an event has, so this
+   *  is a single choice rather than a gallery of one pretending to be a list. */
+  videoChoice?: { ref: string; url: string } | null;
+  /** Their own palette. A flat ground is chosen FROM the wedding, never from a
+   *  free colour wheel that invites a ground fighting every other surface. */
+  colorChoices?: readonly string[];
   /** Move the crop of a section's background photo. */
   setCropAction?: (formData: FormData) => void | Promise<void>;
   /** Save one of the couple's own sections. */
   saveCustomAction?: (formData: FormData) => void | Promise<void>;
   /** Take the next free slot. Hidden once all six are in use. */
   addCustomAction?: (formData: FormData) => void | Promise<void>;
+  /**
+   * Does this event own Event Hub PRO? A section of the couple's own is Pro
+   * (owner 2026-09-22: "Free is the page we write. Pro is changing how it
+   * looks"). Defaults to true so a caller that has not wired it keeps today's
+   * behaviour; the server actions refuse independently either way.
+   */
+  ownsPro?: boolean;
+  /**
+   * The lock shown in place of a Pro-only control — the page's own
+   * `lockPanel(...)`, i.e. the shared `ProLockPanel`, passed in as an ELEMENT
+   * (never a component or function: a server→client function prop took
+   * production down on 2026-09-23).
+   */
+  customLock?: React.ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -444,7 +472,46 @@ export function SectionsPanel({
               {saveCustomAction && isCustomSectionType(row.widget_type) ? (
                 (() => {
                   const { title, body } = sanitizeCustomSection(row.config_json);
+                  /* The grandfather rule, the same one `lockedIf` states for
+                     every other Pro row: a couple who already has words here
+                     keeps editing them. Only an EMPTY section is locked. */
+                  const locked = !ownsPro && !customSectionHasContent(row.config_json);
+                  const arrangement =
+                    sanitizeHubCanvas(row.config_json).arrangement ?? HUB_DEFAULT_ARRANGEMENT;
+                  const removeForm = (
+                    /* ⛔ A CONFIRM THAT NEEDS NO JAVASCRIPT. This panel is a
+                       server component and the editor works without script, so
+                       the confirm is a disclosure: the first tap only reveals
+                       the real button. The row goes and the slot is free again. */
+                    <details className="mt-2 text-[0.66rem] text-ink/55">
+                      <summary className="cursor-pointer select-none hover:text-ink/80">
+                        Remove this section
+                      </summary>
+                      <form action={saveCustomAction} className="mt-1 flex items-center gap-2">
+                        <input type="hidden" name="event_id" value={eventId} />
+                        <input type="hidden" name="widget_id" value={row.widget_id} />
+                        <input type="hidden" name="intent" value="delete" />
+                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                        <span>Its words and layout go with it.</span>
+                        <button
+                          type="submit"
+                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[0.65rem] font-semibold text-white transition-colors hover:bg-danger-700"
+                        >
+                          Remove for good
+                        </button>
+                      </form>
+                    </details>
+                  );
+                  if (locked) {
+                    return (
+                      <div className="mt-2">
+                        {customLock}
+                        {removeForm}
+                      </div>
+                    );
+                  }
                   return (
+                    <>
                     <form
                       action={saveCustomAction}
                       className="mt-2 space-y-1.5 border-t border-dashed border-ink/10 pt-2"
@@ -459,7 +526,7 @@ export function SectionsPanel({
                         id={`custom-title-${row.widget_id}`}
                         name="title"
                         type="text"
-                        maxLength={CUSTOM_TITLE_MAX}
+                        maxLength={CUSTOM_COLUMN_TITLE_MAX}
                         defaultValue={title}
                         placeholder="Heading (optional)"
                         className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.74rem] text-ink placeholder:text-ink/40"
@@ -471,7 +538,7 @@ export function SectionsPanel({
                         id={`custom-body-${row.widget_id}`}
                         name="body"
                         rows={3}
-                        maxLength={CUSTOM_BODY_MAX}
+                        maxLength={CUSTOM_COLUMN_BODY_MAX}
                         defaultValue={body}
                         placeholder="Your own words — this section stays hidden until you write something."
                         className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[0.74rem] leading-relaxed text-ink placeholder:text-ink/40"
@@ -483,6 +550,41 @@ export function SectionsPanel({
                         Save this section
                       </button>
                     </form>
+
+                    {/* ══ LAYOUT ══════════════════════════════════════════
+                        The four chapter arrangements of the story, a closed
+                        set. The photo is the one chosen under "Photo" below —
+                        one photo per section, one home for it. Every layout
+                        stacks to a single column on a phone. */}
+                    <div className="mt-2">
+                      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+                        Layout
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {HUB_ARRANGEMENTS.map((a) => (
+                          <form key={a} action={saveCustomAction}>
+                            <input type="hidden" name="event_id" value={eventId} />
+                            <input type="hidden" name="widget_id" value={row.widget_id} />
+                            <input type="hidden" name="intent" value="arrange" />
+                            <input type="hidden" name="arrangement" value={a} />
+                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <button
+                              type="submit"
+                              aria-pressed={arrangement === a}
+                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[0.62rem] font-semibold transition-colors ${
+                                arrangement === a
+                                  ? 'border-ink bg-ink text-cream'
+                                  : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+                              }`}
+                            >
+                              {HUB_ARRANGEMENT_LABEL[a]}
+                            </button>
+                          </form>
+                        ))}
+                      </div>
+                    </div>
+                    {removeForm}
+                    </>
                   );
                 })()
               ) : null}
@@ -493,7 +595,10 @@ export function SectionsPanel({
                   return (
                     <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
                       <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
-                        Background
+                        {/* A section of their own places its photo by Layout —
+                            behind, beside, or not at all — so it is a Photo,
+                            not always a background. Same field either way. */}
+                        {isCustomSectionType(row.widget_type) ? 'Photo' : 'Background'}
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <form action={setBackgroundAction}>
@@ -513,6 +618,32 @@ export function SectionsPanel({
                             None
                           </button>
                         </form>
+                        {/* 🎬 THEIR OWN FOOTAGE, when they have some. One choice,
+                            not a gallery: `landing_page_hero_video_r2_key` is the
+                            only video an event owns, so offering a list would be
+                            offering a list of one and calling it a choice.
+                            It posts the SAME `media` field a photo does — one
+                            field, one allow-list, one ownership set. */}
+                        {videoChoice ? (
+                          <form action={setBackgroundAction}>
+                            <input type="hidden" name="event_id" value={eventId} />
+                            <input type="hidden" name="widget_id" value={row.widget_id} />
+                            <input type="hidden" name="media" value={videoChoice.ref} />
+                            <input type="hidden" name="kind" value="snippet" />
+                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <button
+                              type="submit"
+                              aria-pressed={canvas.kind === 'snippet'}
+                              className={`inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[0.6rem] font-semibold ${
+                                canvas.kind === 'snippet'
+                                  ? 'border-ink bg-ink text-cream'
+                                  : 'border-ink/15 bg-cream text-ink/55 hover:border-ink/30'
+                              }`}
+                            >
+                              Your video
+                            </button>
+                          </form>
+                        ) : null}
                         {photoChoices.map((photo) => {
                           const on = canvas.media === photo.ref;
                           return (
@@ -541,6 +672,40 @@ export function SectionsPanel({
                           );
                         })}
                       </div>
+
+                      {/* ── A FLAT COLOUR ──────────────────────────────────
+                          From the couple's OWN palette, not a colour wheel.
+                          Their mood board already decided what this wedding
+                          looks like; a free picker here invites a ground that
+                          fights every other surface on the page. */}
+                      {colorChoices.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
+                            Colour
+                          </span>
+                          {colorChoices.map((hex) => {
+                            const on = canvas.kind === 'color' && canvas.color === hex;
+                            return (
+                              <form key={hex} action={setBackgroundAction}>
+                                <input type="hidden" name="event_id" value={eventId} />
+                                <input type="hidden" name="widget_id" value={row.widget_id} />
+                                <input type="hidden" name="kind" value="color" />
+                                <input type="hidden" name="color" value={hex} />
+                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                <button
+                                  type="submit"
+                                  aria-pressed={on}
+                                  aria-label={on ? `Current background colour ${hex}` : `Use ${hex} as the background`}
+                                  style={{ backgroundColor: hex }}
+                                  className={`block h-7 w-7 rounded-md border-2 ${
+                                    on ? 'border-ink' : 'border-ink/15 hover:border-ink/40'
+                                  }`}
+                                />
+                              </form>
+                            );
+                          })}
+                        </div>
+                      ) : null}
 
                       {/* ══ THE CROP ════════════════════════════════════════
                           Only once a photo is actually set. A focal point with
@@ -646,7 +811,14 @@ export function SectionsPanel({
           names the same six — so there is no seventh to create, by this button
           or by a hand-crafted POST. It says WHY it is gone rather than sitting
           there refusing. */}
-      {addCustomAction ? (
+      {addCustomAction && !ownsPro ? (
+        /* Named and locked — never hidden. A free couple learns the feature
+           exists; the lock shows exactly what every other Pro row shows. */
+        <div className="mt-2">
+          <p className="mb-1 text-[0.7rem] font-medium text-ink/70">A section of your own</p>
+          {customLock}
+        </div>
+      ) : addCustomAction ? (
         nextFreeCustomSlot(rows.map((r) => r.widget_type)) ? (
           <form action={addCustomAction} className="mt-2">
             <input type="hidden" name="event_id" value={eventId} />
@@ -660,7 +832,7 @@ export function SectionsPanel({
           </form>
         ) : (
           <p className="mt-2 text-[0.66rem] text-ink/45">
-            You have all six of your own sections. Clear one you are not using to add another.
+            You have all six of your own sections. Remove one you are not using to add another.
           </p>
         )
       ) : null}

@@ -50,6 +50,7 @@ import { fileURLToPath } from 'node:url';
 import { railToolsSignedIn, railToolsSignedOut } from '@/lib/studio-rail';
 import { STUDIO_HUB_ALL_LABEL, studioHubHref } from '@/lib/studio-hub';
 import { STUDIO_APPS } from '@/lib/studio-apps';
+import { STUDIO_ABSORBED } from '@/lib/customer-menu';
 import { WEDDING_PROFILE } from '@/lib/event-type-profile';
 import { buildCustomerNavGroups } from '@/app/dashboard/[eventId]/_components/customer-nav-config';
 
@@ -92,12 +93,26 @@ test('inside an event every Studio product is still a row, at its moment', () =>
   const menu = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
   const rows = menu.flatMap((g) => g.items);
   /*
-    Every product row the group would have drawn, minus the two the ruling
+    Every product row the group would have drawn, minus the ones a ruling
     folds into an existing row: `pawebsite` (one door → the Event Hub
-    Controller row) and `__all__` (the `studio` row IS the Suite).
+    Controller row), `__all__` (the `studio` row IS the Suite), and — owner
+    2026-09-24, *"remove the 3D Plan menu. since the 3D version is on the
+    seatplan already"* — `pa3d`, ABSORBED into Seat plan.
   */
   for (const t of tools) {
     if (t.key === 'pawebsite' || t.key === '__all__') continue;
+    const absorbed = STUDIO_ABSORBED[t.key];
+    if (absorbed) {
+      // Folded is not lost: the host row stands, and CLAIMS the product's page.
+      const host = rows.find((r) => r.key === absorbed.into);
+      assert.ok(host, `${t.key} was absorbed into "${absorbed.into}", which is not in the menu — the product vanished`);
+      assert.ok(
+        host!.alsoMatch?.includes(t.href.split('?')[0]!),
+        `${t.key}'s page (${t.href}) lights nothing — the host row does not claim it`,
+      );
+      assert.ok(!rows.some((r) => r.key === t.key), `${t.key} is drawn beside the row it was folded into`);
+      continue;
+    }
     const row = rows.find((r) => r.key === t.key);
     assert.ok(row, `${t.key} vanished from the event menu when the Studio group dissolved`);
     assert.equal(row!.href, t.href, `${t.key} no longer opens THIS wedding's tool`);

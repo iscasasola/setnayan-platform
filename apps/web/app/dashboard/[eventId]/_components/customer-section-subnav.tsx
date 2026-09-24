@@ -38,7 +38,7 @@ import {
   buildCustomerMenuTree,
   buildEventMenuSections,
   eventMomentForPath,
-  EVENT_MENU_ICONS,
+  eventMomentChildren,
   matchesMenuSection,
   activeRouteChildKey,
   type CustomerMenuChild,
@@ -124,20 +124,9 @@ export function CustomerSectionSubnav({
         pathname,
         buildEventMenuSections(eventId, { phase, hideKeys, websiteEnabled, seatingEnabled, studioRows }),
       );
-  const momentChildren: CustomerMenuChild[] = (moment?.rows ?? []).map((r) => {
-    const path = r.href.split('?')[0];
-    const claims =
-      r.matchPrefix && r.matchPrefix !== '__home__' &&
-      (pathname === r.matchPrefix || pathname.startsWith(`${r.matchPrefix}/`));
-    return {
-      key: r.key,
-      label: r.label,
-      icon: EVENT_MENU_ICONS[r.icon],
-      kind: 'route' as const,
-      href: r.href,
-      match: claims ? (r.matchPrefix as string) : path,
-    };
-  });
+  // Each chip lights by the claim covering THIS page — incl. a product
+  // absorbed into its row (`/plan3d` → Seat plan). See `eventMomentChildren`.
+  const momentChildren: CustomerMenuChild[] = eventMomentChildren(pathname, moment);
   // Overlay the nav-registry admin override (label · icon · hidden) onto each
   // child by its slotKey — the registry SSOT now drives the sub-nav children,
   // not just the top-level menus. kind/href/tab/hash/match are untouched (only

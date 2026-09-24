@@ -24,7 +24,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
+import { PUBLIC_R2_BUCKET } from './r2-client-ref';
 import {
+  HUB_BACKGROUND_KINDS,
   HUB_ARRANGEMENTS,
   HUB_DIRECTIONS,
   hubCanvasVars,
@@ -234,10 +236,30 @@ test('⛔ no rule branches on a class the contract can never emit', () => {
   }
   emitted.add('hub-canvas-media');
   emitted.add('hub-canvas-body');
+  // The photo-BESIDE layers (left / right, Build 4). That the frame really
+  // renders them — and only for those two — is asserted by rendering it in
+  // `a-section-of-your-own-is-pro-and-laid-out.test.ts`, not by this list.
+  emitted.add('hub-canvas-photo');
+  emitted.add('hub-canvas-photo-img');
   for (const v of HUB_IN) emitted.add(`hub-in-${v}`);
   for (const v of HUB_OUT) emitted.add(`hub-out-${v}`);
   for (const v of HUB_DURING) emitted.add(`hub-during-${v}`);
   for (const v of HUB_TIMELINE) emitted.add(`hub-tl-${v}`);
+  /* 🪤 THE GROUND'S KINDS ARE MEASURED FROM `hubCanvasClass`, NOT DECLARED.
+     The first attempt added them straight from `HUB_BACKGROUND_KINDS` — and
+     that made this test unable to fail: deleting the line in `hubCanvasClass`
+     that emits `hub-bg-*` left it green, because the guard was reading the
+     VOCABULARY instead of the CODE. A guard whose expected set is built from
+     a constant can only ever agree with that constant.
+     So each kind is built into a real canvas and run through the real
+     function, exactly as the presets and arrangements above are. */
+  for (const kind of HUB_BACKGROUND_KINDS) {
+    const canvas =
+      kind === 'color'
+        ? { kind, color: '#a9834b' }
+        : { kind, media: `r2://${PUBLIC_R2_BUCKET}/events/E1/a.jpg` };
+    for (const c of hubCanvasClass(canvas, true).split(' ')) emitted.add(c);
+  }
 
   const used = new Set([...canvasBlock().matchAll(/\.(hub-[a-z0-9-]+)/g)].map((m) => m[1] as string));
   const orphanRules = [...used].filter((c) => !emitted.has(c));

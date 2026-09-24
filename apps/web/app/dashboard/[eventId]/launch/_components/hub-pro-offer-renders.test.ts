@@ -67,7 +67,7 @@ async function paint(opts: {
     React.createElement(HubProOffer, {
       offer,
       channelName,
-      priceLabel: opts.priceLabel === undefined ? '₱3,500' : opts.priceLabel,
+      priceLabel: opts.priceLabel === undefined ? '₱2,000' : opts.priceLabel,
       base: '/dashboard/S89E-ABCDEFGHJK',
     }),
   );
@@ -152,8 +152,8 @@ test('🔑 SHOW IT WORKING — the offer dims, greys and locks NOTHING', async (
 });
 
 test('⛔ AN UNREADABLE CATALOG OMITS THE FIGURE — it never remembers one', async () => {
-  const priced = await paint({ channel: 'rsvp', phase: 'plan', ownsPro: false, priceLabel: '₱3,500' });
-  assert.match(priced, /₱3,500/, 'the live figure is shown when the catalog answered');
+  const priced = await paint({ channel: 'rsvp', phase: 'plan', ownsPro: false, priceLabel: '₱2,000' });
+  assert.match(priced, /₱2,000/, 'the live figure is shown when the catalog answered');
 
   const unpriced = await paint({ channel: 'rsvp', phase: 'plan', ownsPro: false, priceLabel: null });
   assert.notEqual(unpriced, '', 'a failed price read must not blank the offer');

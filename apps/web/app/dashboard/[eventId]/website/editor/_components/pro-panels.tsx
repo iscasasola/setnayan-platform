@@ -11,14 +11,17 @@ import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Lock } from 'lucide-react';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { unlockLabel } from './unlock-label';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
  *
  * `ProLockPanel` is the LOCKED state of any Pro row: one honest line about what
  * the row is part of, plus the single umbrella CTA. There is deliberately no
- * per-feature buy button — the eight Pro items are ONE ₱3,500 unlock (owner
- * 2026-07-24), so eight separate purchase affordances would misrepresent it.
+ * per-feature buy button — the eight Pro items are ONE unlock (owner 2026-07-24),
+ * so eight separate purchase affordances would misrepresent it. Its price is NOT
+ * written here: the server page reads it live from `platform_retail_catalog_v2`
+ * and passes the formatted string down as `priceLabel` (see `unlock-label.ts`).
  *
  * `ColorsPanel` is the first unlocked Pro panel: two hex fields posting to the
  * SAME `updateSiteColors` action the sub-page uses, with the hidden `return_to`
@@ -44,9 +47,12 @@ export { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 export function ProLockPanel({
   featureName,
   unlockHref,
+  priceLabel,
 }: {
   featureName: string;
   unlockHref: string;
+  /** The live catalogue price, formatted — null when the catalogue did not answer. */
+  priceLabel: string | null;
 }) {
   return (
     <div className="border-t border-dashed border-amber-300/60 bg-amber-50/60 p-3">
@@ -62,7 +68,7 @@ export function ProLockPanel({
         href={unlockHref}
         className="mt-2 inline-flex items-center rounded-full bg-amber-400 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300"
       >
-        Unlock Event Hub PRO · ₱3,500
+        {unlockLabel(priceLabel)}
       </Link>
     </div>
   );

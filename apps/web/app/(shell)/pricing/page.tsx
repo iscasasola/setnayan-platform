@@ -210,12 +210,12 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Your Event Hub',
     items: [
-      // Website PRO REACTIVATED + repriced ₱3,500 (owner 2026-07-22): the umbrella
+      // Website PRO REACTIVATED (owner 2026-07-22): the umbrella
       // and the ONLY way to get Editorial PRO + the Cinematic Reveal, both now
       // bundle-only (is_active=false → their standalone rows auto-drop from
       // resolvedGroups). COUPLE_WEBSITE_PRO must be LISTED here or the reactivated
       // umbrella never appears (resolvedGroups only renders codes in a group).
-      { code: 'COUPLE_WEBSITE_PRO' }, // Website PRO ₱3,500 — includes Reveal + Editorial PRO
+      { code: 'COUPLE_WEBSITE_PRO' }, // Website PRO — price read from the catalogue; includes Reveal + Editorial PRO
       { code: 'EVENT_SUBDOMAIN' }, // Custom subdomain yourname.setnayan.com ₱999/year (owner 2026-07-10)
       { code: 'WEBSITE_UPGRADE', gate: true }, // only if active in the catalog
     ],

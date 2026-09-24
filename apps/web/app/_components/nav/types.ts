@@ -110,6 +110,12 @@ export type NavItem = {
    * where they are used). Presentation only — it changes no routing.
    */
   studio?: boolean;
+  /**
+   * Further route families this row claims for active matching — the pages of
+   * a product absorbed into it (event menu: `/seating/lab` and `/plan3d` light
+   * Seat plan, owner 2026-09-24). Read by `eventRailMatchRows`.
+   */
+  alsoMatch?: string[];
 };
 
 export type NavGroup = {

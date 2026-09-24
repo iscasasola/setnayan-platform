@@ -181,8 +181,9 @@ export type CustomerMenuCtx = {
      Book    → Your Team · Budget
      Look    → Mood Board ✦ · Logo Maker ✦ · Pakanta ✦
      Invite  → Guests · Hosts · Event Hub Controller
-     The day → Schedule · Check-in (day-of only) · Seat plan · 3D Plan ✦ ·
+     The day → Schedule · Check-in (day-of only) · Seat plan ·
                Live Studio ✦ · Patiktok ✦
+               (3D Plan ✦ is ABSORBED into Seat plan — see `STUDIO_ABSORBED`)
      end     → Setnayan AI ✦ · (any future product) · Suite · Refer a couple
 
    The existing event-type gating DROPS rows a kind lacks (hideKeys, the
@@ -248,6 +249,13 @@ export type EventMenuRow = {
   matchPrefix?: string;
   /** A Studio product — drawn with its ✦ at its moment, not under a heading. */
   studio?: boolean;
+  /**
+   * Further route families this row claims — the pages of a product ABSORBED
+   * into it (see `STUDIO_ABSORBED`). Each lights THIS row on the rail and in
+   * the moment strip, exactly as its `href` does. Plain strings: this crosses
+   * no boundary as anything else.
+   */
+  alsoMatch?: string[];
 };
 
 export type EventMenuSectionKey = 'event' | 'spine' | 'book' | 'look' | 'invite' | 'day' | 'end';
@@ -289,7 +297,8 @@ export type EventMenuCtx = {
  *                                  is where we collect photos and make
  *                                  memories"*)
  *   mood-board · palogo · pakanta → Look
- *   pa3d · panood · patiktok      → The day
+ *   panood · patiktok             → The day
+ *   pa3d                          → ABSORBED into Seat plan (`STUDIO_ABSORBED`)
  *   setnayan-ai                   → the end of the list
  *   pawebsite                     → DROPPED: the one-door ruling (2026-09-02)
  *                                  sends it to /launch, which Invite's Event
@@ -310,6 +319,41 @@ const STUDIO_PLACEMENT: Record<string, EventMenuIconName | 'drop'> = {
   pawebsite: 'drop',
   __all__: 'drop',
 };
+
+/**
+ * ─── A PRODUCT ABSORBED INTO A ROW (owner 2026-09-24) ─────────────────────
+ * Owner, on the new menu: *"seat plan also show 3D plan? so i think we can
+ * remove the 3D Plan menu. since the 3D version is on the seatplan already.
+ * but make sure mapping stay consistent"*.
+ *
+ * The 3D Plan row opened `/seating/lab` — the SAME page Seat plan's own
+ * `List | 2D | 3D` segment opens (`SeatingViewSegment`), and the lab links on
+ * to the 3D Plan control centre (`/plan3d`). So the product row was a second
+ * door to a view of the seat plan. It is not drawn; its pages are CLAIMED by
+ * the host row instead, so `/seating/lab` and `/plan3d` light **Seat plan** on
+ * the rail and in the phone's moment strip, exactly as `/seating` does.
+ *
+ * 🔒 THE KEY STAYS `pa3d`. It is still in `railToolsSignedIn` (the Suite
+ * parity count), still in `SECTION_ORDER.day` (its fallback slot) and still in
+ * `STUDIO_PLACEMENT` (its icon) — nothing that keys off it is renamed.
+ *
+ * ⚠ THIS IS NOT A DROP. If the host row is absent while the product is offered
+ * (today impossible: both ride the `seating` surface — `seatingEnabled` is
+ * `surfaceEnabled(profile, 'seating')` and pa3d's catalogue `surface` is
+ * `'seating'`), the product row stands in its own slot rather than vanishing.
+ */
+export const STUDIO_ABSORBED: Readonly<
+  Record<string, { into: string; routes: (base: string) => string[] }>
+> = {
+  pa3d: { into: 'seat', routes: (base) => [`${base}/seating/lab`, `${base}/plan3d`] },
+};
+
+/** Every path a row claims: its href, its `matchPrefix`, its `alsoMatch`. */
+export function eventMenuRowClaims(r: EventMenuRow): string[] {
+  return [r.href.split('?')[0]!, r.matchPrefix, ...(r.alsoMatch ?? [])].filter(
+    (m): m is string => !!m && m !== '__home__',
+  );
+}
 
 /**
  * The order each moment reads in — and, for a product, WHICH moment: a
@@ -389,6 +433,13 @@ export function buildEventMenuSections(
   for (const t of ctx.studioRows ?? []) {
     const icon = STUDIO_PLACEMENT[t.key];
     if (icon === 'drop') continue;
+    const absorbed = STUDIO_ABSORBED[t.key];
+    const host = absorbed ? rows.get(absorbed.into) : undefined;
+    if (absorbed && host) {
+      const claims = [t.href.split('?')[0]!, ...absorbed.routes(base)];
+      host.alsoMatch = [...new Set([...(host.alsoMatch ?? []), ...claims])];
+      continue;
+    }
     const placed = Object.values(SECTION_ORDER).some((keys) => keys.includes(t.key));
     const row: EventMenuRow = {
       key: t.key,
@@ -429,9 +480,9 @@ export function eventMenuRows(sections: EventMenuSection[]): EventMenuRow[] {
 /**
  * THE MOMENT STRIP (phone only) — the section the current page belongs to.
  *
- * Longest-prefix over every row's match (its `matchPrefix`, else its `href`),
- * so `/seating/lab` finds 3D Plan in The day, not Seat plan by accident of
- * order. Overview is excluded (it is the event's front page, not a moment), as
+ * Longest-prefix over every row's claims (`eventMenuRowClaims`: its href,
+ * `matchPrefix` and `alsoMatch`), so `/plan3d` — a page of the 3D Plan product
+ * absorbed into Seat plan — finds The day. Overview is excluded (it is the event's front page, not a moment), as
  * is the event's Details row. A moment with a single row is not a strip.
  */
 export function eventMomentForPath(
@@ -443,7 +494,7 @@ export function eventMomentForPath(
     if (section.key === 'event') continue;
     for (const r of section.rows) {
       if (r.key === 'home') continue;
-      for (const m of [r.href.split('?')[0], r.matchPrefix].filter(Boolean) as string[]) {
+      for (const m of eventMenuRowClaims(r)) {
         if (pathname === m || pathname.startsWith(`${m}/`)) {
           if (!best || m.length > best.len) best = { section, len: m.length };
         }
@@ -452,6 +503,33 @@ export function eventMomentForPath(
   }
   if (!best || best.section.rows.length < 2) return null;
   return best.section;
+}
+
+/**
+ * THE MOMENT STRIP'S CHIPS — one route child per row of the moment, each
+ * matching by the claim that covers THIS page (longest wins: its
+ * `matchPrefix`, or a page of a product absorbed into it — `/plan3d` → Seat
+ * plan), else its own path. The same claims `eventMomentForPath` used to pick
+ * the moment, so the strip that docks and the chip that lights can never
+ * disagree. Pure, so the lighting is tested rather than read off the JSX.
+ */
+export function eventMomentChildren(
+  pathname: string,
+  moment: EventMenuSection | null,
+): CustomerMenuChild[] {
+  return (moment?.rows ?? []).map((r) => {
+    const claim = eventMenuRowClaims(r)
+      .filter((m) => pathname === m || pathname.startsWith(`${m}/`))
+      .sort((a, b) => b.length - a.length)[0];
+    return {
+      key: r.key,
+      label: r.label,
+      icon: EVENT_MENU_ICONS[r.icon],
+      kind: 'route' as const,
+      href: r.href,
+      match: claim ?? r.href.split('?')[0],
+    };
+  });
 }
 
 /**

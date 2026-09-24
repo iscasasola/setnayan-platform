@@ -48,19 +48,17 @@ async function paint(opts: { slug: string | null; wired: boolean }): Promise<str
   };
   const guests = { shared: true, measured: true, invited: 90, replied: 61 };
   const standing = control.resolveHubStanding(read, NOW);
-  const idx = PUBLIC_SITE_PAGES.findIndex((p) => p.phaseParam === standing.stage);
 
   return renderToStaticMarkup(
     React.createElement(HubStage, {
       slug: read.slug,
       standing,
       facts: control.resolveHubFacts(read, guests, NOW),
-      channelName: idx >= 0 ? (PUBLIC_SITE_PAGES[idx]?.name ?? null) : null,
-      channelBlurb: idx >= 0 ? (PUBLIC_SITE_PAGES[idx]?.blurb ?? null) : null,
-      channelIndex: idx >= 0 ? idx + 1 : null,
-      channelCount: PUBLIC_SITE_PAGES.length,
+      livePhase: standing.stage,
+      initialPhase: standing.stage,
+      stages: PUBLIC_SITE_PAGES.map((p) => ({ phase: p.phaseParam, blurb: p.blurb })),
       editHref: '/dashboard/E1/website/editor',
-      roles: [],
+      rolesByPhase: {},
       armedRole: null,
       ...(opts.wired
         ? { eventId: 'E1', slugAction: async () => {} }

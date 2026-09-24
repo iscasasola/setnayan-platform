@@ -6,8 +6,6 @@ import {
   Camera,
   ArrowRight,
   Plus,
-  Globe,
-  ExternalLink,
   PencilLine,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -50,6 +48,7 @@ import {
   hubPreviewRoles,
   resolveArmedHubRole,
   resolveHubRoleView,
+  resolveHubStageSelection,
   type HubEventRead,
   type HubGuestRead,
   type HubEditorialRead,
@@ -84,7 +83,7 @@ type Props = {
   /** `?viewas=<role>` — VIEW AS. A string from the address bar and nothing
    *  more: `resolveArmedHubRole` checks it against the list this viewer was
    *  offered, so it can never arm a read they may not have. */
-  searchParams?: Promise<{ viewas?: string | string[] }>;
+  searchParams?: Promise<{ viewas?: string | string[]; stage?: string | string[] }>;
 };
 
 /**
@@ -447,9 +446,26 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     namedGuestEnabled: hubNamedGuestPreviewEnabled(),
   });
   const armedRole = resolveArmedHubRole({ param: search.viewas, offered: offeredRoles });
-  const roleViews = offeredRoles.map((role) =>
-    resolveHubRoleView({ role, standing, slug: eventSlug, guests: guestFacts }),
+  /*
+    ─── WHO × WHEN ─────────────────────────────────────────────────────────
+    Owner 2026-09-24, pointing at "View as" and the four stage cards: *"this 2
+    can integrate to each other"*. So each role's read is resolved for EACH of
+    the four stages, here, by the same pure function — and the stage picks the
+    row for whichever stage the couple is looking at. Five roles × four stages
+    of plain strings; no I/O, nothing new asked of the database.
+
+    `?stage=` is the "When" switch's deep link, checked against the four real
+    phases by `resolveHubStageSelection`; anything else opens on today's.
+  */
+  const roleViewsByPhase = Object.fromEntries(
+    PUBLIC_SITE_PAGES.map((page) => [
+      page.phaseParam,
+      offeredRoles.map((role) =>
+        resolveHubRoleView({ role, standing, slug: eventSlug, guests: guestFacts, stage: page.phaseParam }),
+      ),
+    ]),
   );
+  const initialStage = resolveHubStageSelection({ param: search.stage, live: standing.stage });
 
   /*
     ─── HAS THIS CELEBRATION ALREADY HAPPENED? ──────────────────────────────
@@ -458,8 +474,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     2026-08-21 on the day-of services: **"stop offering them."**
   */
   const eventHasHappened = standing.phase === 'after';
-  const activeChannelIndex = PUBLIC_SITE_PAGES.findIndex((p) => p.phaseParam === standing.stage);
-  const activeChannel = activeChannelIndex >= 0 ? PUBLIC_SITE_PAGES[activeChannelIndex] : null;
+  const activeChannel = PUBLIC_SITE_PAGES.find((p) => p.phaseParam === standing.stage) ?? null;
 
   type Service = {
     key: string;
@@ -645,14 +660,17 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         slug={eventSlug}
         standing={standing}
         facts={facts}
-        channelName={activeChannel?.name ?? null}
-        channelBlurb={activeChannel?.blurb ?? null}
-        channelIndex={activeChannel ? activeChannelIndex + 1 : null}
-        channelCount={PUBLIC_SITE_PAGES.length}
+        livePhase={activeChannel ? activeChannel.phaseParam : null}
+        initialPhase={initialStage}
+        /* 🛑 PLAIN DATA ONLY — `PUBLIC_SITE_PAGES` carries a lucide `Icon` per
+           stage, and the stage is a client component. A component crossing
+           server→client took production down on 2026-09-23. */
+        stages={PUBLIC_SITE_PAGES.map((page) => ({ phase: page.phaseParam, blurb: page.blurb }))}
         editHref={`${base}/website/editor`}
-        roles={roleViews}
+        rolesByPhase={roleViewsByPhase}
         armedRole={armedRole}
-        roleHrefBase={`${base}/launch`}
+        /* EH5 · channel 4 opens a workroom — same tab, the SHIPPED route. */
+        workroomHref={`${base}/story`}
         eventId={eventId}
         /* Lands BACK here. The action's seven redirects used to name the
            invitation page literally — see `lib/slug-return.ts`. */
@@ -693,108 +711,30 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         </section>
       )}
 
-      {/* ══ S4 · THE PARTS — the four stages of the ONE link first ══
-          One engine, one URL: `/[slug]` already renders each of these per
-          lifecycle phase. These cards NAME + PREVIEW them; the live QR keeps
-          resolving to the active one with no change. */}
-      <section className="mt-10">
-        <header className="space-y-1">
-          <p className="sn-eye">
-            <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Your public site
-          </p>
-          <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
-            The four stages of your one link
-          </h2>
-          <p className="max-w-prose text-sm text-ink/60">
-            Your site changes with the day. Preview each stage below — the one marked{' '}
-            <span className="font-medium text-ink/80">Active now</span> is what your QR opens today.
-          </p>
-        </header>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {PUBLIC_SITE_PAGES.map((page) => {
-            const Icon = page.Icon;
-            const isActive = page.phaseParam === standing.stage;
-            const previewHref = eventSlug ? `/${eventSlug}?phase=${page.phaseParam}` : null;
-            return (
-              <article
-                key={page.key}
-                className={`sn-row flex flex-col gap-3 p-4 sm:p-5 ${
-                  isActive ? 'border-terracotta/40 bg-terracotta/[0.03]' : ''
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <span
-                    className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                      isActive ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/40'
-                    }`}
-                  >
-                    <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-ink">{page.name}</h3>
-                      {isActive && (
-                        <span className="inline-flex items-center rounded-full bg-terracotta-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cream">
-                          Active now
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-ink/55">{page.blurb}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {/*
-                    EH5 · CHANNEL 4 OPENS A WORKROOM, NOT A SETTINGS ROW
-                    (design § 2.4). The other three stages are things the
-                    couple SETS and Preview is enough. The story is a thing
-                    they WORK ON for weeks with two other authors, so its card
-                    carries its own same-tab door straight into the existing
-                    editor — full screen, same route, no new page.
-                  */}
-                  {page.phaseParam === 'editorial' && (
-                    <Link
-                      href={`${base}/story`}
-                      className="inline-flex w-fit items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
-                    >
-                      Open the workroom
-                      <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    </Link>
-                  )}
-                  {previewHref ? (
-                    <Link
-                      href={previewHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-                    >
-                      Preview
-                      <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    </Link>
-                  ) : (
-                    <span className="text-xs text-ink/40">Preview available once your link is set.</span>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-
-        {/* ══ THE ONE UNLOCK, OFFERED AT THE POINT OF ABSENCE (§ 5.1 rule 1) ══
-            Attached to the channel above it, not parked in a rail at the foot of
+      {/* ══ S4 · THE FOUR STAGES OF THE ONE LINK — folded INTO the stage ══
+          Owner 2026-09-24: *"this 2 can integrate to each other"*. The four
+          bordered cards that stood here (Save-the-Date · RSVP · Day-of ·
+          Editorial, each with Preview ↗, Editorial with "Open the workroom →")
+          are now the stage's "When" switch: one frame, "Active now" on today's
+          stage, ONE Preview ↗ for the stage picked, and the workroom door when
+          Editorial is picked. Nothing was removed without its function moving —
+          see `SiteStage`. */}
+      {/* ══ THE ONE UNLOCK, OFFERED AT THE POINT OF ABSENCE (§ 5.1 rule 1) ══
+            Attached to the stage above it, not parked in a rail at the foot of
             the page: the controller sells only what the couple is currently
             looking at and cannot have. Null — owned, unmeasured, or the day
-            itself — renders nothing at all, and the cards above are UNCHANGED in
-            either case. Nothing here dims, greys or locks them. */}
-        {proOffer && !storeShell && (
+            itself — renders nothing at all, and the stage above is UNCHANGED in
+            either case. Nothing here dims, greys or locks it. */}
+      {proOffer && !storeShell && (
+        <section className="mt-6">
           <HubProOffer
             offer={proOffer}
             channelName={activeChannel?.name ?? null}
             priceLabel={proPriceLabel}
             base={base}
           />
-        )}
-      </section>
+        </section>
+      )}
 
       {/* ══ S4b · THE PARTS — then the three services that run on the day ══ */}
       <section className="mt-10">

@@ -47,6 +47,8 @@ async function paint(opts: {
   slug?: string | null;
   guestsShared?: boolean;
   guestsMeasured?: boolean;
+  /** `?stage=` — the "When" switch's deep link. */
+  stage?: string;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubStage }: Mod = await import('./hub-stage');
@@ -75,25 +77,29 @@ async function paint(opts: {
     namedGuestEnabled: opts.namedGuestEnabled ?? false,
   });
   const armedRole = control.resolveArmedHubRole({ param: opts.viewas, offered });
-  const roles = offered.map((role) =>
-    control.resolveHubRoleView({ role, standing, slug: read.slug, guests }),
+  // The page's own shape: every role's read, resolved for EACH of the four
+  // stages by the one pure function (see `roleViewsByPhase` in page.tsx).
+  const rolesByPhase = Object.fromEntries(
+    PUBLIC_SITE_PAGES.map((p) => [
+      p.phaseParam,
+      offered.map((role) =>
+        control.resolveHubRoleView({ role, standing, slug: read.slug, guests, stage: p.phaseParam }),
+      ),
+    ]),
   );
 
-  const idx = PUBLIC_SITE_PAGES.findIndex((p) => p.phaseParam === standing.stage);
-  const channel = idx >= 0 ? PUBLIC_SITE_PAGES[idx] : null;
   return renderToStaticMarkup(
     React.createElement(HubStage, {
       slug: read.slug,
       standing,
       facts,
-      channelName: channel?.name ?? null,
-      channelBlurb: channel?.blurb ?? null,
-      channelIndex: channel ? idx + 1 : null,
-      channelCount: PUBLIC_SITE_PAGES.length,
+      livePhase: standing.stage,
+      initialPhase: control.resolveHubStageSelection({ param: opts.stage, live: standing.stage }),
+      stages: PUBLIC_SITE_PAGES.map((p) => ({ phase: p.phaseParam, blurb: p.blurb })),
       editHref: '/dashboard/E1/website/editor',
-      roles,
+      workroomHref: '/dashboard/E1/story',
+      rolesByPhase,
       armedRole,
-      roleHrefBase: '/dashboard/E1/launch',
     }),
   );
 }
@@ -139,7 +145,31 @@ test('a host sees the switcher, and the FIVE generic chips', async () => {
   for (const chip of ['You', 'Coordinator', 'Supplier', 'Guest', 'Stranger']) {
     assert.match(html, new RegExp(`>${chip}<`), `the "${chip}" chip must be painted`);
   }
-  assert.match(html, /The stage above becomes their page/);
+  // 🔴 IT SAID "The stage above becomes their page", AND THE FRAME DOES NOT.
+  // The frame is always the host's own signed-in page; what becomes theirs is
+  // the read under it. The helper now says so, behind its (i).
+  assert.match(html, /the read under the frame becomes theirs, at the stage you picked/);
+  assert.doesNotMatch(html, /The stage above becomes their page/, 'the old promise the frame never kept');
+});
+
+test('⛔ WHO sits beside WHEN — one row of switches, the radios ahead of all they reveal', async () => {
+  const html = await paint({ memberType: 'couple' });
+  // The two switches are ONE control surface now (owner 2026-09-24: "this 2
+  // can integrate to each other"): the When chips and the View-as chips are
+  // painted together, above the frame, not at opposite ends of the stage.
+  const when = html.indexOf('aria-label="When"');
+  const who = html.indexOf('for="sn-viewas-host"');
+  const frame = html.indexOf('<iframe');
+  assert.ok(when > 0 && who > when && frame > who, 'When, then View as, then the frame');
+  // 🔒 `globals.css` reveals a read with `#sn-viewas-X:checked ~ div …`. That
+  // only fires if every radio is an EARLIER SIBLING of the divs holding the
+  // chips and the cards — wrap the radios in their own group and every rule
+  // silently stops matching while the markup still looks right.
+  assert.match(
+    html,
+    /<fieldset[^>]*><legend[^>]*>[^<]*<\/legend>(<input[^>]*name="sn-viewas"[^>]*\/>){5}<div/,
+    'the five radios must sit directly in the fieldset, ahead of the switches, frame and reads',
+  );
 });
 
 /*
@@ -171,8 +201,15 @@ test('a host sees the switcher, and the FIVE generic chips', async () => {
 function armedCard(html: string, role: string): string {
   const open = html.indexOf(`data-viewas="${role}"`);
   assert.ok(open > 0, `no card was rendered for '${role}'`);
+  // Ends at the next card, or at the fieldset that closes the reads. 🪤 It
+  // used to run to the END OF THE PAGE for the last card, which was harmless
+  // while the reads were the last thing painted — and the moment the stage's
+  // own "Open the live page" door sat after them, the stranger's card
+  // "carried" a signed-in door it does not have.
   const next = html.indexOf('data-viewas="', open + 10);
-  return html.slice(open, next > 0 ? next : undefined);
+  const close = html.indexOf('</fieldset>', open);
+  assert.ok(close > 0, 'the reads must sit inside the fieldset their radios head');
+  return html.slice(open, next > 0 && next < close ? next : close);
 }
 
 /** The role whose radio the server marked checked — what CSS reveals. */
@@ -331,3 +368,33 @@ test('every ●/◐/○ is spoken — a glyph alone tells a screen-reader user n
   assert.match(html, /Partly:/);
   assert.match(html, /No:/);
 });
+
+// ── WHO × WHEN — both choices reach the read ───────────────────────────────
+
+test('⭐ WHO × WHEN · a guest on the day is sent to the day, and the read says both', async () => {
+  const html = await paint({ memberType: 'couple', viewas: 'guest', stage: 'event' });
+  assert.equal(checkedRole(html), 'guest', 'WHO reached the render');
+  const card = armedCard(html, 'guest');
+  const { PUBLIC_STAGE_LABELS } = await import('@/lib/public-site-stage-labels');
+  assert.ok(card.includes(`Scanned a QR · ${PUBLIC_STAGE_LABELS.event}`), 'the eyebrow names who AND when');
+  assert.match(card, /href="\/maria-and-jomar\?phase=event"/, 'the door opens the stage PICKED, not today\u2019s');
+  assert.doesNotMatch(card, /phase=rsvp/, 'today\u2019s stage must not leak into an on-the-day read');
+});
+
+test('⭐ WHO × WHEN · the host picking a stage that is not today gets that stage, not the bare page', async () => {
+  const later = await paint({ memberType: 'couple', viewas: 'host', stage: 'editorial' });
+  assert.match(armedCard(later, 'host'), /href="\/maria-and-jomar\?phase=editorial"/);
+  const { PUBLIC_STAGE_LABELS } = await import('@/lib/public-site-stage-labels');
+  assert.ok(armedCard(later, 'host').includes(`Host · ${PUBLIC_STAGE_LABELS.editorial}`));
+  // Today's stage is the bare address — the page the QR opens, pin and all.
+  const today = await paint({ memberType: 'couple', viewas: 'host' });
+  assert.match(armedCard(today, 'host'), /href="\/maria-and-jomar"[^>]*target="_blank"/);
+});
+
+test('⛔ WHO × WHEN · the stranger still has no door at ANY stage', async () => {
+  for (const stage of ['save_the_date', 'rsvp', 'event', 'editorial']) {
+    const html = await paint({ memberType: 'couple', viewas: 'stranger', stage });
+    assert.doesNotMatch(armedCard(html, 'stranger'), /target="_blank"/, `a signed-in door leaked at ${stage}`);
+  }
+});
+

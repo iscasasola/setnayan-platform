@@ -24,6 +24,11 @@
  *       without a surface loses exactly those rows, and an emptied moment
  *       loses its heading.
  *   5 · THE MOMENT STRIP finds the right moment from the path.
+ *   6 · 3D PLAN LIVES IN SEAT PLAN (owner 2026-09-24: *"remove the 3D Plan
+ *       menu. since the 3D version is on the seatplan already. but make sure
+ *       mapping stay consistent"*). No 3D Plan row on any surface; its pages
+ *       light Seat plan on the rail AND the strip; the `pa3d` key survives;
+ *       and the seat plan itself still opens both the 3D view and /plan3d.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,8 +40,13 @@ import {
   buildEventMenuSections,
   eventMenuRows,
   eventMomentForPath,
+  eventMomentChildren,
+  activeRouteChildKey,
+  STUDIO_ABSORBED,
   type EventStudioRow,
 } from './customer-menu';
+import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
+import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 import { railToolsSignedIn } from './studio-rail';
 import { NAV_SLOT_DEFAULTS } from './nav-registry-defaults';
 import { toProfile, type ProfileRow, type EventTypeProfile } from './event-type-profile';
@@ -96,14 +106,15 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S SENTENCE ══════════════════════════════════════════════ */
 
-test('Logo Maker is row 9 of 21 on a wedding planning rail, directly under Mood Board', () => {
+test('Logo Maker is row 9 of 20 on a wedding planning rail, directly under Mood Board', () => {
   /*
     Counted the way the drawing counts: row 1 is the "Events" focus row above
     the event, row 2 is the event's name (Details), then every menu row.
   */
   const labels = ['Events', ...rail(WEDDING).flatMap((g) => g.items.map((i) => i.label))];
   const at = labels.indexOf('Logo Maker') + 1;
-  assert.equal(labels.length, 21, `the rail is ${labels.length} rows: ${labels.join(' · ')}`);
+  // 21 → 20 on 2026-09-24: the 3D Plan row folded into Seat plan (§6).
+  assert.equal(labels.length, 20, `the rail is ${labels.length} rows: ${labels.join(' · ')}`);
   assert.equal(at, 9, `Logo Maker is row ${at} — the owner found row 26 "so far"`);
   assert.equal(labels[at - 2], 'Mood Board', 'Logo Maker must sit directly under Mood Board');
   assert.deepEqual(labels, [
@@ -112,7 +123,7 @@ test('Logo Maker is row 9 of 21 on a wedding planning rail, directly under Mood 
     'Your Team', 'Budget',
     'Mood Board', 'Logo Maker', 'Pakanta',
     'Guests', 'Hosts', 'Event Hub Controller',
-    'Schedule', 'Seat plan', '3D Plan', 'Live Studio', 'Patiktok',
+    'Schedule', 'Seat plan', 'Live Studio', 'Patiktok',
     // NEXT_PUBLIC_SUITE is on in production (read 2026-09-22); the word
     // follows the one flag branch in lib/studio-hub.ts either way.
     'Setnayan AI', SUITE_NAV_ON ? 'Suite' : 'Studio', 'Refer a couple',
@@ -121,7 +132,7 @@ test('Logo Maker is row 9 of 21 on a wedding planning rail, directly under Mood 
 
 test('Check-in joins The day on the day; Editorial joins the spine after it', () => {
   const day = rail(WEDDING, 'dayof').find((g) => g.key === 'day')!.items.map((i) => i.key);
-  assert.deepEqual(day, ['schedule', 'checkin', 'seat', 'pa3d', 'panood', 'patiktok']);
+  assert.deepEqual(day, ['schedule', 'checkin', 'seat', 'panood', 'patiktok']);
   const spine = rail(WEDDING, 'after').find((g) => g.key === 'spine')!.items.map((i) => i.key);
   assert.deepEqual(spine, ['home', 'papic', 'galleries', 'editorial']);
   assert.ok(
@@ -206,7 +217,7 @@ for (const [label, profile] of [['wedding', WEDDING], ['date', DATE]] as const) 
   test(`${label}: every product the Suite offers is a ✦ row, and nothing is listed twice`, () => {
     const offered = studioRowsFor(profile)
       .map((r) => r.key)
-      .filter((k) => k !== 'pawebsite' && k !== '__all__');
+      .filter((k) => k !== 'pawebsite' && k !== '__all__' && !STUDIO_ABSORBED[k]);
     const rows = rail(profile).flatMap((g) => g.items);
     const products = rows.filter((r) => r.studio).map((r) => r.key);
     assert.deepEqual([...products].sort(), [...offered].sort());
@@ -254,10 +265,89 @@ test('the phone strip docks the moment the page belongs to', () => {
   assert.deepEqual(look.rows.map((r) => r.key), ['mood-board', 'palogo', 'pakanta']);
   assert.equal(at('/monogram'), 'look');
   assert.equal(at('/seating/lab'), 'day');
+  assert.equal(at('/plan3d'), 'day');
   assert.equal(at('/guests'), 'invite');
   assert.equal(at('/vendors'), 'book');
   assert.equal(at('/studio/papic'), 'spine');
   // Overview is the front page, not a moment; unlisted pages dock nothing.
   assert.equal(at(''), null);
   assert.equal(at('/messages'), null);
+});
+
+/* ══ 6 · 3D PLAN LIVES IN SEAT PLAN ═══════════════════════════════════════ */
+
+const THREE_D_PAGES = ['/seating/lab', '/seating/lab?mode=play', '/plan3d'];
+
+test('no surface draws a 3D Plan row — rail and ☰, phone bar, moment strip', () => {
+  for (const phase of ['plan', 'dayof', 'after'] as const) {
+    const rows = rail(WEDDING, phase).flatMap((g) => g.items);
+    assert.ok(
+      !rows.some((r) => r.key === 'pa3d' || r.label === '3D Plan'),
+      `${phase}: the rail / ☰ still draws a 3D Plan row`,
+    );
+    const bar = buildCustomerMenuTree(EVENT_ID, {
+      phase, websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
+    });
+    assert.ok(!bar.some((m) => (m.key as string) === 'pa3d' || m.label === '3D Plan'), `${phase}: the phone bar has a 3D Plan tab`);
+    const sections = buildEventMenuSections(EVENT_ID, {
+      phase, websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
+    });
+    for (const p of ['/seating', ...THREE_D_PAGES]) {
+      const strip = eventMomentChildren(`${BASE}${p}`, eventMomentForPath(`${BASE}${p.split('?')[0]}`, sections));
+      assert.ok(!strip.some((c) => c.key === 'pa3d' || c.label === '3D Plan'), `${phase}: the strip on ${p} draws 3D Plan`);
+    }
+  }
+});
+
+test('the 3D pages light Seat plan on the rail, exactly as /seating does', () => {
+  const matchRows = eventRailMatchRows({
+    eventId: EVENT_ID, websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
+  });
+  for (const p of ['/seating', ...THREE_D_PAGES.map((x) => x.split('?')[0]!), '/plan3d/anything']) {
+    assert.equal(activeRailKey(matchRows, `${BASE}${p}`), 'seat', `${p} does not light Seat plan on the rail`);
+  }
+});
+
+test('the 3D pages dock The day and light the Seat plan chip in the phone strip', () => {
+  const sections = buildEventMenuSections(EVENT_ID, {
+    websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
+  });
+  for (const p of ['/seating', '/seating/lab', '/plan3d']) {
+    const path = `${BASE}${p}`;
+    const moment = eventMomentForPath(path, sections);
+    assert.equal(moment?.key, 'day', `${p} docks ${moment?.key ?? 'nothing'}, not The day`);
+    assert.equal(
+      activeRouteChildKey(path, eventMomentChildren(path, moment)),
+      'seat',
+      `${p}: the strip docks but the Seat plan chip is dark`,
+    );
+  }
+});
+
+test('the pa3d key survives — still offered, absorbed by rule, and never silently lost', () => {
+  // Still in the Suite-parity product list (`studio-menu-adapts-to-event`).
+  assert.ok(studioRowsFor(WEDDING).some((r) => r.key === 'pa3d'), 'pa3d left railToolsSignedIn — the Suite parity breaks');
+  assert.equal(STUDIO_ABSORBED.pa3d?.into, 'seat', 'pa3d is no longer absorbed into Seat plan by the documented rule');
+  /*
+    ⚠ NOT A DROP. With the host row absent (seatingEnabled false) but the
+    product somehow offered, the 3D Plan row stands in its OWN slot in The day
+    — not at the unknown-product end, and not nowhere. Today both ride the one
+    `seating` surface, so this state cannot arise from the layout.
+  */
+  const day = buildEventMenuSections(EVENT_ID, {
+    seatingEnabled: false,
+    studioRows: studioRowsFor(WEDDING),
+  }).find((s) => s.key === 'day')!;
+  assert.deepEqual(day.rows.map((r) => r.key), ['schedule', 'pa3d', 'panood', 'patiktok']);
+});
+
+test('the seat plan still opens the 3D view, and the 3D view opens /plan3d', () => {
+  const src = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
+  const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  const frame = src('app/dashboard/[eventId]/seating/_components/seating-frame.tsx');
+  const lab = src('app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx');
+  assert.match(editor, /labUrl\s*=\s*`\/dashboard\/\$\{eventId\}\/seating\/lab`/, 'the 2D seat plan lost its URL to the 3D view');
+  assert.match(editor, /<SeatingViewSegment\b/, 'the 2D seat plan lost its List · 2D · 3D segment');
+  assert.match(frame, /key:\s*'3d',\s*label:\s*'3D'/, 'the segment lost its 3D option');
+  assert.match(lab, /href=\{`\/dashboard\/\$\{eventId\}\/plan3d`\}/, 'the 3D view lost its door to the 3D Plan control centre');
 });

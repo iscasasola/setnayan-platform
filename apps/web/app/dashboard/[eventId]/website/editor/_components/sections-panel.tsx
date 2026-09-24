@@ -33,6 +33,15 @@ import {
   focalToObjectPosition,
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
+import {
+  HUB_AUTO_SPEEDS,
+  HUB_AUTO_SPEED_LABEL,
+  HUB_DEFAULT_AUTO_SPEED,
+  HUB_TRANSITIONS,
+  HUB_TRANSITION_HINT,
+  HUB_TRANSITION_LABEL,
+  resolveTransition,
+} from '@/lib/hub-scenes';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -65,6 +74,7 @@ export function SectionsPanel({
   moveDownAction,
   setModeAction,
   setMotionAction,
+  transitionLocked = false,
   setBackgroundAction,
   setCropAction,
   saveCustomAction,
@@ -83,6 +93,14 @@ export function SectionsPanel({
   /** How this section MOVES (owner 2026-09-23). Optional so the panel keeps
    *  working for any caller that has not wired it yet. */
   setMotionAction?: (formData: FormData) => void | Promise<void>;
+  /**
+   * TRUE when the event does not own Event Hub Pro: Scrub and Auto-scroll are
+   * shown but locked (owner 2026-09-24 — one Pro unlock covers every advanced
+   * feature). A boolean, never a component — nothing callable crosses here.
+   * `setWidgetMotion` refuses a free couple independently; Scroll is never
+   * locked, so a look can always be taken off.
+   */
+  transitionLocked?: boolean;
   /** Set or clear one section's background photo. */
   setBackgroundAction?: (formData: FormData) => void | Promise<void>;
   /** The couple's own photos — hero first, then gallery — as
@@ -270,6 +288,115 @@ export function SectionsPanel({
                           </form>
                         ))}
                       </div>
+                      {/* ══ INTO THE NEXT SECTION — Scroll · Scrub · Auto-scroll ═
+                          Owner 2026-09-24: "some can scrub some can page move"
+                          ("hybrid perfect"), then "1. Scroll 2. Scrub 3.
+                          Auto-scroll (can set the speed)", then "from one scene
+                          to another there is a transition". So the value on a
+                          row is the transition from THIS section to the NEXT;
+                          the last row has no next, and gets a note instead of
+                          chips that would move nothing. Independent of the
+                          preset: the preset is how the section's parts arrive.
+                          The preview beside this panel is the guest page.
+                          ⛔ Scrub and Auto-scroll are Pro. Locked chips stay
+                          VISIBLE (a feature nobody can see is a feature nobody
+                          buys) and Scroll is never locked.
+                          ⚠ Auto-scroll is stored now and plays as Scroll until
+                          its own renderer lands — said here in the hint. */}
+                      {(() => {
+                        const transition = resolveTransition(canvas);
+                        const speed = canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
+                        if (i === rows.length - 1) {
+                          return (
+                            <p className="mt-1.5 text-[0.56rem] text-ink/45">
+                              Last section — nothing comes after it, so there is no transition to set.
+                            </p>
+                          );
+                        }
+                        return (
+                          <>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                Into the next section
+                              </span>
+                              {HUB_TRANSITIONS.map((t) => {
+                                const on = transition === t;
+                                const locked = transitionLocked && t !== 'scroll' && !on;
+                                return (
+                                  <form key={t} action={setMotionAction}>
+                                    <input type="hidden" name="event_id" value={eventId} />
+                                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                                    <input type="hidden" name="transition" value={t} />
+                                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                    <button
+                                      type="submit"
+                                      aria-pressed={on}
+                                      disabled={locked}
+                                      title={locked ? 'Comes with Event Hub Pro.' : HUB_TRANSITION_HINT[t]}
+                                      className={`inline-flex h-5 items-center gap-1 rounded-full border px-2 text-[0.58rem] ${
+                                        on
+                                          ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                          : locked
+                                            ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/30'
+                                            : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
+                                      }`}
+                                    >
+                                      {locked ? <Lock aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} /> : null}
+                                      {HUB_TRANSITION_LABEL[t]}
+                                    </button>
+                                  </form>
+                                );
+                              })}
+                              {transitionLocked ? (
+                                <a
+                                  href={`/dashboard/${eventId}/studio/website-pro`}
+                                  className="text-[0.58rem] font-semibold text-ink/60 underline underline-offset-2 hover:text-ink"
+                                >
+                                  Unlock with Event Hub Pro
+                                </a>
+                              ) : null}
+                            </div>
+                            {transition === 'auto' ? (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
+                                  Speed
+                                </span>
+                                {HUB_AUTO_SPEEDS.map((v) => {
+                                  const on = speed === v;
+                                  return (
+                                    <form key={v} action={setMotionAction}>
+                                      <input type="hidden" name="event_id" value={eventId} />
+                                      <input type="hidden" name="widget_id" value={row.widget_id} />
+                                      <input type="hidden" name="transition" value="auto" />
+                                      <input type="hidden" name="auto_speed" value={v} />
+                                      <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                      <button
+                                        type="submit"
+                                        aria-pressed={on}
+                                        disabled={transitionLocked && !on}
+                                        className={`inline-flex h-5 items-center rounded-full border px-2 text-[0.58rem] ${
+                                          on
+                                            ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
+                                            : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30 disabled:cursor-not-allowed disabled:text-ink/30'
+                                        }`}
+                                      >
+                                        {HUB_AUTO_SPEED_LABEL[v]}
+                                      </button>
+                                    </form>
+                                  );
+                                })}
+                                <span className="text-[0.56rem] text-ink/45">
+                                  Guests see it scroll with the page until Auto-scroll launches.
+                                </span>
+                              </div>
+                            ) : transition === 'scrub' ? (
+                              <p className="mt-1 text-[0.56rem] text-ink/45">
+                                {HUB_TRANSITION_HINT.scrub}
+                              </p>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                       {preset ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
                           <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">

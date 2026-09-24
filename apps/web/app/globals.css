@@ -4856,7 +4856,8 @@ html:active-view-transition .sn-page-enter { animation: none; }
    shrinks to a card title. Sections that already draw their own box (the
    countdown) simply become a card too. */
 .sn-hub-cards > section,
-.sn-hub-cards > div > section {
+.sn-hub-cards > div > section,
+.hub-scenes > .hub-scene > section {
   border-radius: var(--m-r-md);
   border: 1px solid rgb(var(--color-ink) / 0.08);
   background: rgb(var(--color-cream) / 1);
@@ -5010,6 +5011,47 @@ html:has([data-sticky-top]) {
   to   { transform: scale(var(--hub-zoom, 1)) translate3d(0, -2.5%, 0); }
 }
 
+/* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
+   contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)
+   ──────────────────────────────────────────────────────────────────────────
+   Approved prototype: prototypes/scenes_hold_crossfade_hybrid_2026-09-24.html.
+   A SCRUB section pins for one screen while a 170vh spacer after it drives it;
+   consecutive scrub sections form a RUN, overlap their spacers and truly
+   cross-fade; a SCROLL section is the ordinary page.
+
+   🔒 THE BASE BELOW IS THE PLAIN PAGE, and it is all a browser without
+   `timeline-scope` / `animation-range`, or a guest who asked for less motion,
+   ever sees: spacers and the progress mark are not drawn, nothing pins, and
+   the sections stack with the hub's own 1rem rhythm (the `space-y-4` the
+   wrapper replaced). Everything that pins or fades is inside the gates further
+   down. */
+.hub-scenes > .hub-prog ~ * ~ * { margin-top: 1rem; }
+.hub-run > .hub-scene ~ .hub-scene { margin-top: 1rem; }
+.hub-sp { display: none; }
+.hub-prog { display: none; }
+
+/* The scene keyframes. `visibility` rides with the fade on purpose: it
+   interpolates as "visible anywhere strictly between the ends", so a scene is
+   hidden — unfocusable, off the tab order, not clickable — ONLY at the fully
+   faded end, and a keyboard can never land on a link nobody can see.
+   `pointer-events` flips at the midpoint, so the scene arriving takes the taps
+   exactly when it becomes the stronger of the two.
+   ⛔ NO TRANSFORM, unlike the prototype's 28px drift. A scene wraps a WHOLE
+   widget, and a transform held by a fill mode — even an identity one — makes
+   the scene the containing block for every `position: fixed` thing inside it
+   (a sheet, a lightbox), unpinning it from the screen. That is exactly what
+   `an-identity-transform-unpins-every-fixed-child.test.ts` exists to stop
+   (measured on production 2026-09-18). The cross-fade is opacity alone. */
+@keyframes hub-scene-in {
+  from { opacity: 0; visibility: hidden; pointer-events: none; }
+  to   { opacity: 1; visibility: visible; pointer-events: auto; }
+}
+@keyframes hub-scene-out {
+  from { opacity: 1; visibility: visible; pointer-events: auto; }
+  to   { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+@keyframes hub-prog-fill { to { transform: scaleX(1); } }
+
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     /* ══ ONE RULE PER TIMELINE, KEYFRAMES BY CUSTOM PROPERTY ═══════════════
@@ -5139,6 +5181,163 @@ html:has([data-sticky-top]) {
     .hub-in-none.hub-out-none > .hub-canvas-body > * > * {
       animation: none;
       will-change: auto;
+    }
+
+    /* ══ SCROLL · SCRUB — THE SCENES ══════════════════════════════════════
+       🔒 A THIRD GATE, INSIDE THE FIRST TWO. `view()` alone is not enough: a
+       browser with view() but no `timeline-scope` would pin every scrub
+       section at full opacity, stacked (the prototype measured it). So
+       nothing below applies unless named timelines can cross siblings too.
+
+       🔑 "LIVE" = a scrub section whose widget drew something. A widget can
+       return nothing (Countdown with no date) and the renderer cannot see that
+       from outside the node, so the stylesheet decides: an empty scene (the
+       frame refused a null child) or an empty body drops out of its run
+       entirely. The run's first section is therefore always one a guest can
+       read — an empty first would otherwise be pulled up over the page above
+       it, and an empty middle simply closes up.
+       🪤 `:has()` CANNOT NEST. A selector with `:has(~ x:has(…))` is invalid
+       and the WHOLE RULE is dropped, silently — measured: the fade-out
+       vanished and the cross-fade read 0 of 80 positions. So the look-ahead
+       ("is a live scrub section after me?") uses the one-level test
+       `:not(:empty)`. The one case it misreads is an empty-BODY last section:
+       its predecessor then fades out while the run scrolls away, which is not
+       a blank screen. */
+    @supports (animation-range: entry 0% exit 100%) and (timeline-scope: none) {
+      .hub-scenes { timeline-scope: var(--hub-scope); }
+
+      /* A scroll section names its own box, only for its progress segment. */
+      .hub-scroll { view-timeline: var(--hub-tl) block; }
+
+      .hub-scrub:empty,
+      .hub-scrub:has(> .hub-canvas > .hub-canvas-body:empty) { display: none; }
+
+      /* Pinned, one screen tall. `svh` so it is never taller than what a phone
+         shows. The content centres with auto margins (never above the top), and
+         a section taller than the screen scrolls inside its own scene rather
+         than being cut off where nobody can reach it. */
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        height: 100svh;
+        display: flex;
+        flex-direction: column;
+        padding-block: max(4.75rem, 9vh) max(5rem, 8vh);
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      .hub-scrub > .hub-canvas { margin-block: auto; flex: none; }
+
+      /* The spacer: the scroll a scrub section consumes. ≥ 100vh is REQUIRED —
+         it is what makes spacer N's exit and spacer N+1's entry the same stretch
+         of scroll; the extra 70vh is the hold. */
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) + .hub-sp {
+        display: block;
+        height: 170vh;
+        view-timeline: var(--hub-tl) block;
+      }
+
+      /* ── The cross-fades. OUT on a live scrub section that has a live one
+         after it; IN (and pulled up by its own height, so the spacers abut and
+         it is already pinned when it fades in) on one that has a live one
+         before it; both on one in the middle. Shorthand first, THEN timeline and
+         range — the shorthand resets them. OUT is listed last so it wins once it
+         starts; it has no backwards fill, so before its window IN rules. ── */
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
+        animation: hub-scene-out linear forwards;
+        animation-timeline: var(--hub-tl);
+        animation-range: exit 25% exit 85%;
+      }
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) {
+        margin-top: -100vh;
+        margin-top: -100svh;
+        animation: hub-scene-in linear both;
+        animation-timeline: var(--hub-tl);
+        animation-range: entry 15% entry 75%;
+      }
+      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
+        animation: hub-scene-in linear both, hub-scene-out linear forwards;
+        animation-timeline: var(--hub-tl), var(--hub-tl);
+        animation-range: entry 15% entry 75%, exit 25% exit 85%;
+      }
+
+      /* ── WHILE IT HOLDS, THE SCROLL SCRUBS ITS CONTENTS ──────────────────
+         The scene's own fade IS the section's arrival, so the block-level
+         arrival is off (two opacities would multiply). When the couple chose
+         "one part after another", the first part is there when the scene
+         arrives and the rest arrive in turn while it is pinned — on the
+         SPACER's timeline, so scrolling back takes them away again. Their
+         chosen entrance (fade / move / from which side) is the keyframe. */
+      .hub-scrub > .hub-canvas > .hub-canvas-body,
+      .hub-scrub > .hub-canvas > .hub-canvas-body > * > *:first-child {
+        animation: none;
+      }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > * + * {
+        animation-name: var(--hub-in-kf, none);
+        animation-duration: auto;
+        animation-delay: 0s;
+        animation-fill-mode: both;
+        animation-timing-function: linear;
+        animation-timeline: var(--hub-tl);
+        animation-range: entry 30% entry 60%;
+      }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { animation-delay: 0s; animation-range: entry 30% entry 60%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { animation-delay: 0s; animation-range: entry 45% entry 75%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { animation-delay: 0s; animation-range: entry 60% entry 90%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { animation-delay: 0s; animation-range: entry 75% contain 5%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: 0s; animation-range: entry 90% contain 20%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: 0s; animation-range: contain 5% contain 35%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { animation-delay: 0s; animation-range: contain 20% contain 50%; }
+      /* The picture's slow lift follows the hold too — `view()` inside a pinned
+         scene would never move. */
+      .hub-scrub > .hub-during-lift.hub-has-media > .hub-canvas-media {
+        animation-timeline: var(--hub-tl);
+        animation-range: entry 0% exit 100%;
+      }
+
+      /* ── THE PROGRESS MARK — one segment per section. A pinned page hides
+         how much is left, so this shows it while the scenes are on screen.
+         Sticky at zero height rather than fixed: it cannot outlive the scenes,
+         and no transformed ancestor can knock it out of place. ── */
+      .hub-prog {
+        display: block;
+        position: sticky;
+        top: calc(8px + env(safe-area-inset-top, 0px));
+        z-index: 15;
+        height: 0;
+        pointer-events: none;
+      }
+      html:has([data-sticky-top]) .hub-prog { top: calc(4.5rem + env(safe-area-inset-top, 0px)); }
+      .hub-prog-bar {
+        display: flex;
+        gap: 4px;
+        max-width: 420px;
+        margin: 0 auto;
+        padding: 7px 10px;
+        border-radius: 100px;
+        background: rgb(var(--color-cream) / 0.82);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+      }
+      .hub-prog-bar > i {
+        flex: 1;
+        height: 2px;
+        border-radius: 2px;
+        overflow: hidden;
+        background: rgb(var(--color-ink) / 0.16);
+      }
+      .hub-prog-bar > i::after {
+        content: '';
+        display: block;
+        height: 100%;
+        background: rgb(var(--color-ink) / 0.72);
+        transform-origin: 0 50%;
+        transform: scaleX(0);
+        animation: hub-prog-fill linear both;
+        animation-timeline: var(--hub-tl);
+        animation-range: var(--hub-pr);
+      }
     }
   }
 }

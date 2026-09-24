@@ -38,6 +38,7 @@
  */
 
 import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -228,6 +229,14 @@ export type HubSectionCanvas = {
   duration?: number;
   /** Do the section's parts arrive together, or in turn? */
   sequence?: HubSequence;
+  /**
+   * Scroll · Scrub · Auto-scroll (owner 2026-09-24) — the transition FROM this
+   * scene TO THE NEXT one; the last scene's value is ignored. Absent means
+   * Scroll. Contract and renderer: `lib/hub-scenes.ts`.
+   */
+  transition?: HubTransition;
+  /** Only stored beside `transition: 'auto'`; absent means Normal. */
+  autoSpeed?: HubAutoSpeed;
 };
 
 /** What the preset means, once nothing is left to interpret. */
@@ -317,6 +326,12 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (inSet(HUB_DURING, canvas.during)) out.during = canvas.during;
   if (inSet(HUB_TIMELINE, canvas.timeline)) out.timeline = canvas.timeline;
   if (inSet(HUB_SEQUENCES, canvas.sequence)) out.sequence = canvas.sequence;
+  /* ⛔ Scroll is the default and an absence; a speed means nothing unless the
+     section auto-scrolls, so it is dropped anywhere else — the direction rule. */
+  const transition = hubTransition(canvas.transition);
+  if (transition && transition !== 'scroll') out.transition = transition;
+  const autoSpeed = hubAutoSpeed(canvas.autoSpeed);
+  if (autoSpeed && autoSpeed !== 'normal' && transition === 'auto') out.autoSpeed = autoSpeed;
   if (inSet(HUB_STAGGER, canvas.stagger)) out.stagger = canvas.stagger as number;
   if (inSet(HUB_DURATION, canvas.duration)) out.duration = canvas.duration as number;
   return out;

@@ -16,6 +16,13 @@ no migration.
 - Monogram Maker — the owned state now reads **"Included with Event Hub Pro"**
   when the animation came with Pro, so the vanished buy button reads as a
   benefit rather than a glitch. A ₱500-only buyer is not told that.
+- Event Hub Pro's included-items list (`lib/website-pro-items.ts`) names it:
+  **"Animated logo"** is the ninth item, so the Pro offer says what it buys.
+  The count moved with it — "Unlock all nine" on the controller offer, "One
+  unlock covers all nine" in the editor — plus pitch copy for the new chip
+  (for totality; no channel leads with it). Tests that pinned "eight" updated.
+  Not changed: the buy page's BENEFITS, the Studio blurb and the stored
+  catalogue description (the last needs a migration) — they don't name it yet.
 - Checkout has no duplicate-purchase ownership check for any SKU, so nothing to
   extend there; the buy CTA is withheld at the surface.
 

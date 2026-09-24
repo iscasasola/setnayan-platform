@@ -120,9 +120,9 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
   assert.notEqual(html, '', 'the offer must actually render');
   assert.match(html, /cinematic reveal/i, 'the item they are standing in front of, by name');
   assert.match(html, /Event Hub Pro/, 'the catalog’s own title for the one unlock');
-  assert.match(html, /Unlock all eight/, 'one CTA, for all eight');
+  assert.match(html, /Unlock all nine/, 'one CTA, for all nine');
   assert.match(html, /\/studio\/website-pro/, 'pointing at the shipped buy surface');
-  // All eight are named, including the free one — the unlock genuinely covers it.
+  // All nine are named, including the free one — the unlock genuinely covers it.
   for (const item of [
     'Cinematic Reveal',
     'Save-the-Date video',
@@ -131,8 +131,10 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
     'Editorial editing',
     'Background color',
     'Button color',
+    'Invite link theme',
+    'Animated logo',
   ]) {
-    assert.ok(html.includes(item), `"${item}" is one of the eight and must be shown`);
+    assert.ok(html.includes(item), `"${item}" is one of the nine and must be shown`);
   }
 });
 
@@ -159,5 +161,5 @@ test('⛔ AN UNREADABLE CATALOG OMITS THE FIGURE — it never remembers one', as
   assert.notEqual(unpriced, '', 'a failed price read must not blank the offer');
   assert.doesNotMatch(unpriced, /₱/, 'and must not fall back to a number from anywhere');
   assert.match(unpriced, /Event Hub Pro/, 'the offer still names itself');
-  assert.match(unpriced, /Unlock all eight/, 'and still has its one CTA');
+  assert.match(unpriced, /Unlock all nine/, 'and still has its one CTA');
 });

@@ -74,7 +74,9 @@ function shellInlineHook(): { bp: string; name: string } {
     m,
     'front-door-shell.tsx no longer asks `useIsDesktop(<bp>)` whether the rail is inline — nothing closes the drawer when the screen unfolds past it',
   );
-  return { name: m[1], bp: m[2] };
+  const [, name, bp] = m;
+  assert.ok(name && bp);
+  return { name, bp };
 }
 
 test('🚨 the shell closes the drawer when the rail becomes inline', () => {
@@ -82,7 +84,7 @@ test('🚨 the shell closes the drawer when the rail becomes inline', () => {
   // Find the effect that reads the hook and closes the drawer.
   const effects = [...SHELL_CODE.matchAll(/useEffect\(\s*\(\)\s*=>\s*{([\s\S]*?)}\s*,\s*\[([^\]]*)\]\s*\)/g)];
   const closer = effects.find(
-    ([, body, deps]) =>
+    ([, body = '', deps = '']) =>
       new RegExp(`\\b${name}\\b`).test(body) &&
       /setRailOpen\(\s*false\s*\)/.test(body) &&
       new RegExp(`\\b${name}\\b`).test(deps),

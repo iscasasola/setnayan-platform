@@ -462,6 +462,34 @@ const nextConfig: NextConfig = {
     // Next lever after webpackMemoryOptimizations (#1258) + ignoreBuildErrors
     // (#1425). Escalate to Vercel Enhanced Builds (paid) if this recurs.
     cpus: 1,
+    // ─── THE ROUTE CEILING ──────────────────────────────────────────────
+    // Vercel caps a deployment at 2048 routes in `.vercel/output/config.json`.
+    // On 2026-09-23 production could not deploy at all: three builds died at
+    // `process-and-upload-routes` with "Max is 2048, received 2053" — one of
+    // them carrying the fix for a LIVE outage, so a fix sat stuck behind a
+    // feature merge while every page inside an event 500'd for signed-in
+    // couples.
+    //
+    // 🔑 THE FIVE WERE NOT A FEATURE. THEY WERE THE LAST OF THE HEADROOM.
+    // Measured across the last good build and the first failing one: the SAME
+    // 360 static pages, ZERO route files added, routing config untouched, and
+    // an identical local `routes-manifest.json`. A no-cache rebuild of the
+    // same commit still reported 2053, which ruled the build cache out too.
+    // The count is structural — roughly 495 app pages x ~4 route entries each
+    // (the page, its `.rsc`, and TWO `.segment.rsc` prefetch entries).
+    //
+    // The client segment cache is 2 of those 4. Off, it returns on the order
+    // of a thousand routes: headroom measured in years rather than in merges.
+    //
+    // WHAT IT COSTS: client-side navigation prefetch is less eager. Nothing
+    // renders differently; pages are simply not pre-fetched as aggressively.
+    //
+    // ⚠ RE-MEASURE BEFORE TURNING THIS BACK ON. A deployment's route count is
+    // reported ONLY when it fails, so the honest sources are the number inside
+    // a `too_many_routes` error or `.vercel/output/config.json` from a local
+    // `vercel build`. Do NOT infer it from `routes-manifest.json` — that file
+    // does not count what Vercel counts, and believing it cost most of a day.
+    clientSegmentCache: false,
     serverActions: {
       bodySizeLimit: '6mb',
     },

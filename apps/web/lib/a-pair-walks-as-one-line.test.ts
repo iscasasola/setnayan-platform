@@ -181,7 +181,15 @@ test('⛔ reordering the processional cannot touch a chair', () => {
       `the walking-order action touches ${seatThing} — moving a pair would move a chair`,
     );
   }
-  assert.match(code, /entourage_order: index/, 'the action no longer writes the line position');
+  // ⚖ 2026-09-23: the write itself moved to `lib/entourage-write.ts` when it
+  // became ONE statement instead of one per person. Follow it — a "touches no
+  // chair" test that stops looking where the writing happens proves nothing.
+  const write = stripComments(readFileSync(join(process.cwd(), 'lib', 'entourage-write.ts'), 'utf8'));
+  for (const seatThing of ['event_seat_assignments', 'seating_priority']) {
+    assert.ok(!write.includes(seatThing), `the order write touches ${seatThing}`);
+  }
+  assert.match(write, /orders\.push\(index\)/, 'the write no longer gives the line its position');
+  assert.match(write, /rpc\('set_entourage_order'/, 'the write no longer reaches the order function');
 });
 
 // ── ⚖ "where is the arranging? why do you not build it?" (owner 2026-09-20) ──
@@ -220,13 +228,27 @@ test('the panel heads each group with its printed NAME, not a raw key', () => {
 });
 
 test('⚖ drag is ADDITIONAL — the buttons remain the always-available path', () => {
-  // The Move ↑ / ↓ forms are plain server-action posts: no JavaScript, works on
-  // a phone and under assistive tech. The drag layer wraps them, never replaces
-  // them, and hides its own handle below `sm`.
-  /* 🪤 Tag boundaries, for the THIRD time in this session: `<MoveButton` is a
-     substring of `<MoveButtonX`, so a bare match passes a renamed mount. A
-     substring is not a mount. */
-  assert.match(PANEL, /<MoveButton[\s/>]/, 'the always-available buttons are gone');
+  /*
+    The arrows are still the path that works on a phone, by keyboard and under
+    assistive tech, and the drag layer still never replaces them — it hides its
+    own handle below `sm`.
+
+    ⚖ 2026-09-23: they are no longer `<form action={serverAction}>` in the
+    PANEL; they are buttons inside the island. A form action redirects, which is
+    a 303 — the owner's "the whole screen refreshes… it goes back up and does
+    not stay on where we are editing". What that gave up is the no-JavaScript
+    path, and `the-march-moves-without-a-reload.test.ts` records why that was
+    never a path anybody could finish a processional through. What this pins is
+    unchanged: BOTH arrows exist, beside the drag, at every width.
+
+    🪤 Tag boundaries: `<MoveArrow` is a substring of `<MoveArrowX`, so a bare
+    match passes a renamed mount. A substring is not a mount.
+  */
+  assert.equal(
+    (DRAG.match(/<MoveArrow[\s/>]/g) ?? []).length,
+    2,
+    'expected both always-available arrows (up and down) beside every line',
+  );
   assert.match(PANEL, /<WalkingOrderLines[\s/>]/, 'the drag layer is not mounted');
   assert.match(DRAG, /hidden[^"]*sm:inline-flex/, 'the drag handle is offered on touch');
 });
@@ -254,7 +276,9 @@ test('⛔ the drag path posts NAMES, and touches no chair', () => {
   );
   const code = stripComments(action);
   assert.match(code, /setEntourageLineOrder/, 'the explicit-order action is gone');
-  assert.match(code, /order_is_stale/, 'a stale client order is applied instead of refused');
+  // ⚖ 2026-09-23: the refusal is RETURNED now rather than redirected with, so
+  // the marker is the reason, not the query-string key it used to travel as.
+  assert.match(code, /return \{ ok: false, reason: MARCH_STALE \}/, 'a stale client order is applied instead of refused');
   for (const seatThing of ['event_seat_assignments', 'seating_priority']) {
     assert.ok(!code.includes(seatThing), `the drag path touches ${seatThing}`);
   }
@@ -309,17 +333,24 @@ test('the walking order is a VIEW, not a banner bolted over the roster', () => {
 });
 
 test('⚖ a move keeps you in the view you made it from', () => {
-  // Dropping `gview` on the way back would bounce the couple out to the roster
-  // after every single move — the control would work and still feel broken.
-  const action = readFileSync(
-    join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'entourage-order-actions.ts'),
-    'utf8',
-  );
-  assert.match(
-    action,
-    /new URLSearchParams\(\{\s*gview: 'walk'/,
-    'the walking-order actions redirect back to the roster instead of the view',
-  );
+  /*
+    This used to pin `new URLSearchParams({ gview: 'walk', … })` in every
+    action's redirect: dropping `gview` on the way back would bounce the couple
+    out to the roster after every single move, so the control would work and
+    still feel broken.
+
+    ⚖ 2026-09-23 — THE PREMISE WENT AWAY, AND THE PROPERTY GOT STRONGER. There
+    is no way back to preserve, because there is no longer a way OUT: the
+    actions return a verdict and the island reconciles in place. A view you
+    never leave cannot be the wrong one — and the scroll position the owner kept
+    losing ("we need to always scroll back down") is kept for the same reason.
+  */
+  for (const file of ['entourage-order-actions.ts', 'march-actions.ts']) {
+    const code = stripComments(
+      readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', file), 'utf8'),
+    );
+    assert.doesNotMatch(code, /\bredirect\s*\(/, `${file} navigates away from the view the move was made in`);
+  }
 });
 
 test("⚖ the owner's word is the ONLY word the couple sees", () => {

@@ -21,6 +21,7 @@
  * consistent. This row is what makes the choice lossless.
  */
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import { SEARCH_SCOPES, type SearchScope } from '@/lib/search-scope';
 
 /**
  * ⚠ NOT A FILTERED ROW — the caller appends it AFTER filtering, deliberately.
@@ -31,9 +32,32 @@ import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/hom
  * Returns null on an empty query, so a palette nobody has typed into is a list
  * of your own things rather than an advert.
  */
-export function marketplaceEscapeItem(query: string): HomeCommandItem | null {
+export function marketplaceEscapeItem(
+  query: string,
+  /**
+   * WHERE THE SEARCHER IS STANDING (owner 2026-09-23 — "the search searches
+   * the place you are standing in"). Defaults to the widest scope, so every
+   * caller that has not been taught about scopes keeps its shipped behaviour
+   * byte for byte.
+   *
+   * 🔑 THIS ROW IS WHAT MAKES NARROWING SAFE. A box that quietly searches less
+   * than the whole product is only honest if the way OUT travels with what you
+   * already typed — otherwise the first person whose thing is one level up has
+   * to notice the scope, clear the box, navigate, and type again. Shopee's
+   * shop search is bearable for exactly this reason.
+   */
+  scope: SearchScope = SEARCH_SCOPES.discover,
+): HomeCommandItem | null {
   const q = query.trim();
   if (!q) return null;
+  /*
+    ⚠ NAME KEPT, DESTINATION LONG SINCE MOVED. This is no longer "the
+    marketplace row" — it lands on `/`, which answers suppliers, stories and
+    guides in its own body (see the note on `href` below). Renaming it is a
+    real cleanup and deliberately NOT folded into the scope change, so the
+    behaviour diff stays reviewable on its own.
+  */
+  const widest = scope.widerKey === null;
   return {
     id: 'action-explore-query',
     /*
@@ -70,8 +94,15 @@ export function marketplaceEscapeItem(query: string): HomeCommandItem | null {
       makes one promise whether or not you are logged in. If a noun is ever
       dropped there, drop it here in the same commit.
     */
-    label: `Search Setnayan for “${q}”`,
-    sublabel: 'Suppliers, stories and guides',
+    label: widest
+      ? `Search Setnayan for “${q}”`
+      : `Search all of Setnayan for “${q}”`,
+    sublabel: widest
+      ? 'Suppliers, stories and guides'
+      : // Say what the box was narrowed TO, not only where this goes — the
+        // person needs to know why their thing was missing, not just that
+        // there is another door.
+        `You’re searching ${scope.placeholder.replace(/^Search /, '')} · this looks everywhere`,
     /*
       ⚠ `/`, NOT `/explore`. The front door reads `?q=` and renders results in
       its own body. Sending this to the marketplace again re-creates the defect

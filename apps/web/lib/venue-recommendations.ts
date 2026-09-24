@@ -393,6 +393,7 @@ export async function findCeremonyVenuesByFaith(
  */
 const RECEPTION_VENUE_TYPES = [
   'hotel_ballroom',
+  'events_place',
   'garden',
   'beach',
   'destination_resort',
@@ -414,6 +415,8 @@ export function venueSettingToDirectoryType(setting: string): string | null {
   switch (setting) {
     case 'banquet_hall':
       return 'hotel_ballroom';
+    case 'events_place':
+      return 'events_place';
     case 'restaurant':
       return 'restaurant';
     case 'garden':
@@ -637,6 +640,8 @@ export function displayVenueType(venueType: string): string {
       return 'Civil Registrar';
     case 'hotel_ballroom':
       return 'Hotel Ballroom';
+    case 'events_place':
+      return 'Events Place';
     case 'garden':
       return 'Garden';
     case 'beach':
@@ -670,6 +675,8 @@ export function venueTypeToSetting(venueType: string): string | null {
   switch (venueType) {
     case 'hotel_ballroom':
       return 'banquet_hall';
+    case 'events_place':
+      return 'events_place';
     case 'restaurant':
       return 'restaurant';
     case 'garden':

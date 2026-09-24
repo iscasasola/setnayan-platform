@@ -206,6 +206,7 @@ export function CoverStep({
               bucket="media"
               pathPrefix={`editorial/${eventId}/hero`}
               name="story_cover_upload"
+              unsavedHint={null}
               acceptedTypes={COVER_IMAGE_TYPES}
               maxSizeMB={10}
               compressImage

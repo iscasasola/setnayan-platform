@@ -17,6 +17,7 @@ import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { EventRailContext } from './_components/event-rail-context';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import {
   eventRailMatchRows,
   type EventRailInputs,
@@ -480,14 +481,62 @@ export default async function EventLayout({ children, params }: Props) {
         contextMatchRows={eventRailMatchRows(eventRailInputs)}
         /* FOCUS (owner 2026-09-21): inside an event the rail is the event —
            its menu, its Studio, its suppliers — and one row back to the
-           events board. */
-        focus={{ href: '/dashboard', label: 'Back to events', caption: 'Events' }}
+           events board.
+
+           🔑 THE ROW IS NAMED "Events", NOT "Back to events" (owner
+           2026-09-23: *"it should only always say Events regardless where you
+           are"* · *"icon does not need to show a back button, keep the events
+           icons"*). It is the same destination, the same word and the same
+           drawing as the events row on every other surface — which is the
+           whole of the ask: one door, one name, wherever you meet it.
+
+           ⚠ THE OTHER THREE FOCUS ROWS ARE UNCHANGED and still wear the arrow
+           ("My Home", from HQ · the shop · an account spoke). Those say what
+           pressing them DOES; this one says where it goes. */
+        focus={{
+          href: '/dashboard',
+          label: 'Events',
+          caption: 'Events',
+          icon: 'events',
+        }}
         railContext={
           <EventRailContext
             {...eventRailInputs}
             /* Never blank — `plaqueName` falls back to the event type for an
                unnamed draft (council acceptance criterion 2026-07-16). */
             eventName={plaqueName}
+            /*
+              The event's own mark, above that name (owner 2026-09-23: *"on
+              top of this, show the logo/monogram of the event"*).
+
+              ⚠ NOT PART OF `eventRailInputs`, deliberately. That object is ONE
+              list with two consumers — it is also fed to `eventRailMatchRows`,
+              which decides which row is lit. A mark decides nothing about
+              lighting, and widening the shared input to carry it would hand
+              the resolver a field it must then be trusted to ignore.
+
+              🔒 `monogram_custom_svg` GOES THROUGH THE READ-TIME GATE, never
+              raw: both SVG columns are host-writable via PostgREST (SEC-3),
+              and `resolveEventMonogramSvg` also applies the app-wide
+              precedence — an uploaded mark outranks a bespoke one — which
+              `EventMonogram` cannot do alone because it reads one column.
+            */
+            eventMonogram={{
+              display_name: (event.display_name as string | null) ?? null,
+              monogram_text: (event.monogram_text as string | null) ?? null,
+              monogram_color: (event.monogram_color as string | null) ?? null,
+              monogram_frame_key:
+                (event.monogram_frame_key as string | null) ?? null,
+              monogram_font_key:
+                (event.monogram_font_key as string | null) ?? null,
+              monogram_style: (event.monogram_style as string | null) ?? null,
+              monogram_custom_svg: resolveEventMonogramSvg(
+                event as {
+                  monogram_uploaded_svg?: string | null;
+                  monogram_custom_svg?: string | null;
+                },
+              ),
+            }}
           />
         }
         topBarSlot={topBar}

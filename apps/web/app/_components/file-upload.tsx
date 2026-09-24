@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { unsavedTail } from '@/lib/upload-unsaved-line';
 import {
   AlertCircle,
   CheckCircle2,
@@ -43,7 +44,7 @@ export type FileUploadBucket =
   | 'samples'
   | 'vendor-verification';
 
-export type FileUploadProps = {
+type FileUploadBaseProps = {
   /** R2 bucket to write to. Maps to one of the five APAC-region R2 buckets. */
   bucket: FileUploadBucket;
   /**
@@ -66,6 +67,12 @@ export type FileUploadProps = {
   /**
    * Hidden-input `name` so a parent `<form action={…}>` reads the current
    * value via FormData. For multi-file, multiple inputs are emitted.
+   *
+   * 🔒 A `name` REQUIRES `unsavedHint` (see `FormBinding` below). The widget
+   * cannot know what the parent's button is called — it once told every
+   * caller "press Save below", and the open-shop wizard's button is
+   * "Continue" (owner, 2026-09-23, on /open-shop step 1: "asking me to
+   * press save when there is no save"). The parent names its own button.
    */
   name?: string;
   /** Existing value(s) to display on mount when editing an existing record. */
@@ -199,6 +206,27 @@ export type FileUploadProps = {
    */
   qrGuard?: boolean;
 };
+
+/**
+ * The form binding is ALL-OR-NOTHING. A widget that feeds a form (`name`)
+ * must say what happens to a fresh upload, because "Not saved yet — press
+ * Save below" was a lie on every page whose button is not called Save.
+ *
+ *   • `unsavedHint: string` — the tail after "Not saved yet — ", naming the
+ *     real control: "press Done below", "it goes in when you open your shop".
+ *   • `unsavedHint: null` — the parent saves the upload ITSELF on change (a
+ *     transition, an auto-submit on close) and shows its own Saving…/error,
+ *     so the widget makes no claim at all about a fresh item.
+ *
+ * A widget with no `name` feeds no form; there is nothing to save and the
+ * hint is refused by the type. `lib/upload-unsaved-line.ts` is the decision;
+ * `the-upload-names-its-button.test.ts` walks every mount in the tree.
+ */
+export type FileUploadFormBinding =
+  | { name: string; unsavedHint: string | null }
+  | { name?: undefined; unsavedHint?: undefined };
+
+export type FileUploadProps = FileUploadBaseProps & FileUploadFormBinding;
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
@@ -358,6 +386,7 @@ export function FileUpload({
   compressImage = false,
   maxVideoDurationS,
   qrGuard = false,
+  unsavedHint,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1136,10 +1165,12 @@ export function FileUpload({
                   feeding a form and there is nothing to save. */}
               <div className="flex items-center justify-between gap-3">
                 {name && !item.id.startsWith('seed-') ? (
-                  <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry-600">
-                    <AlertCircle aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
-                    <span className="truncate">Not saved yet — press Save below</span>
-                  </p>
+                  unsavedHint === null ? null : (
+                    <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry-600">
+                      <AlertCircle aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+                      <span className="truncate">Not saved yet — {unsavedTail(unsavedHint)}</span>
+                    </p>
+                  )
                 ) : (
                   <p className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
                     <CheckCircle2 aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />

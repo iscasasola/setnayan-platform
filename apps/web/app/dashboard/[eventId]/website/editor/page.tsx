@@ -6,7 +6,13 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
-import { EditorShell, done, todo, type RailGroup } from './_components/editor-shell';
+import { EditorShell, type RailGroup } from './_components/editor-shell';
+/* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
+   file is `'use client'`, and calling a client export from this server page is
+   what returned a 500 for the whole editor (production 2026-09-23, digest
+   2184633741). A component may be RENDERED across that boundary; a function may
+   not be CALLED across it. */
+import { done, todo } from './_components/rail-rows';
 import { TextPanel } from './_components/text-panel';
 import {
   invitationWordsDraft,
@@ -35,12 +41,11 @@ import {
   StdPanel,
   EditorialPanel,
 } from './_components/authoring-panels';
-import {
-  LaunchPhasePanel,
+import {LaunchPhasePanel,
   OpenBrowsePanel,
   RsvpBackdropPanel,
-  launchPhaseLabel,
-} from './_components/media-panels';
+  } from './_components/media-panels';
+import { launchPhaseLabel } from './_components/launch-phase-choices';
 import { clearRsvpBackdrop, saveRsvpBackdrop, setLaunchPhase, setOpenBrowse } from './actions';
 import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';
 import { updateOurStory } from '../our-story/actions';
@@ -53,10 +58,15 @@ import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
 import {
-  toggleWidgetVisibility,
-  moveWidgetUp,
+  addCustomSection,
   moveWidgetDown,
+  moveWidgetUp,
+  saveCustomSection,
   setSectionMode,
+  setWidgetBackground,
+  setWidgetCrop,
+  setWidgetMotion,
+  toggleWidgetVisibility,
 } from '../widgets/actions';
 import {
   computeSectionContentMap,
@@ -106,7 +116,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -196,6 +206,15 @@ export default async function WebsiteEditorPage({
     displayFor([musicRef, videoRef]),
   ]);
 
+  /* 🎨 The photos a couple may use as a section background — their own hero
+     first, then their gallery, each with the display URL this page ALREADY
+     signed for the inline uploaders. No second signing pass, and no photo from
+     anywhere but this event. */
+  const photoChoices = [heroRef, ...galleryRefs]
+    .filter((ref): ref is string => Boolean(ref))
+    .map((ref) => ({ ref, url: heroDisplay[ref] ?? galleryDisplay[ref] ?? '' }))
+    .filter((p) => p.url.length > 0);
+
   // Sections manager data — the same reads the widgets sub-editor does.
   const { data: widgetsRaw, error: widgetsRawError } = await supabase
     .from('invitation_widgets')
@@ -224,6 +243,9 @@ export default async function WebsiteEditorPage({
     supabase,
     eventId,
     event as Parameters<typeof computeSectionContentMap>[2],
+    // The couple's own sections keep their words on their OWN row, so the rows
+    // have to travel with the event for the map to know whether one is empty.
+    allWidgets,
   );
 
   // Public schedule blocks — the same set guests see (source of truth stays
@@ -380,6 +402,10 @@ export default async function WebsiteEditorPage({
               buttonColor={(event.site_button_color as string | null) ?? null}
               artDirection={
                 (event.site_art_direction as 'daylight' | 'candlelight' | null) ?? null
+              }
+              fontKey={(event as { site_font_key?: string | null }).site_font_key ?? null}
+              magicTraveller={
+                (event as { site_magic_traveller?: string | null }).site_magic_traveller ?? null
               }
             />
           ),
@@ -597,6 +623,12 @@ export default async function WebsiteEditorPage({
               moveUpAction={moveWidgetUp}
               moveDownAction={moveWidgetDown}
               setModeAction={setSectionMode}
+              setMotionAction={setWidgetMotion}
+              setBackgroundAction={setWidgetBackground}
+              setCropAction={setWidgetCrop}
+              saveCustomAction={saveCustomSection}
+              addCustomAction={addCustomSection}
+              photoChoices={photoChoices}
             />
           ),
         },

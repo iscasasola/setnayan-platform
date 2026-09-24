@@ -1,6 +1,6 @@
 import { KeyRound } from 'lucide-react';
 import type { OAuthIntegrationDef } from '@/lib/integrations/registry';
-import { saveOAuthConfig, clearOAuthSecret } from '../actions';
+import { saveOAuthConfig, saveOAuthField, clearOAuthSecret } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 // Integration Activation Console — PR3b. Generic card for an OAuth client:
@@ -15,6 +15,8 @@ type Field = {
   placeholder: string;
   value: string;
   fromEnv: boolean;
+  /** Rendered as its own form below the main one — see `saveOAuthField`. */
+  ownForm?: boolean;
 };
 
 export function OAuthCard({
@@ -73,7 +75,7 @@ export function OAuthCard({
           />
         </label>
 
-        {fields.map((field) => (
+        {fields.filter((f) => !f.ownForm).map((field) => (
           <label key={field.column} className="block">
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
               {field.label}
@@ -100,6 +102,55 @@ export function OAuthCard({
           Save
         </SubmitButton>
       </form>
+
+      {/* ══ FIELDS SAVED ON THEIR OWN ═══════════════════════════════════════
+          🔑 WHY THEY ARE NOT IN THE FORM ABOVE. That form posts every field at
+          once, and each input is pre-filled with the RESOLVED value — the
+          database value if there is one, otherwise the env var. So saving to
+          change ONE field copies every env-sourced sibling into the database,
+          and the database wins from then on. Identical values, so nothing
+          breaks that day; but a later change to that env var in Vercel would
+          silently not apply.
+
+          On a LIVE integration whose other fields are working and env-sourced,
+          adding a new key must not do that. `saveOAuthField` writes this column
+          and nothing else. */}
+      {fields
+        .filter((f) => f.ownForm)
+        .map((field) => (
+          <form
+            key={field.column}
+            action={saveOAuthField}
+            className="space-y-3 border-t border-ink/10 pt-4"
+          >
+            <input type="hidden" name="oauth_id" value={integration.id} />
+            <input type="hidden" name="field_column" value={field.column} />
+            <label className="block">
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                {field.label}
+                {field.fromEnv ? <span className="text-ink/40"> · from env</span> : null}
+              </span>
+              <input
+                type="text"
+                name={field.column}
+                defaultValue={field.value}
+                placeholder={field.placeholder}
+                autoComplete="off"
+                spellCheck={false}
+                className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-terracotta/50"
+              />
+              <span className="mt-1 block text-[11px] text-ink/45">
+                Saved on its own — this button changes nothing else on the card.
+              </span>
+            </label>
+            <SubmitButton
+              pendingLabel="Saving…"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+            >
+              Save this key
+            </SubmitButton>
+          </form>
+        ))}
 
       {secretInDb ? (
         <form action={clearOAuthSecret} className="border-t border-ink/10 pt-4">

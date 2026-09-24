@@ -9,6 +9,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { recheckRetailRemovability, computeRetailRemovabilityMap } from '@/lib/admin/pricing-removability';
 import { validateRetailRowFields, retailRowUnchanged } from '@/lib/admin/pricing-row-diff';
+import {
+  changedPriceFields,
+  describePriceChange,
+  CUSTOMER_PRICE_FIELDS,
+} from '@/lib/retail-price-change';
 
 /**
  * /admin/pricing server actions · per-row catalog editor (2026-08-26 rebuild)
@@ -118,6 +123,85 @@ export async function saveRetailRow(
     return { ok: true, message: 'No changes to save.' };
   }
 
+  // ── VENDOR AGREEMENT § 9.1 · changing what a customer PAYS takes two ─────
+  //
+  // Only the price fields are gated. The title, the customer-facing blurb, the
+  // active flag and `saas_overhead_cost_php` save immediately — renaming a SKU
+  // is copy, and the cost column is OUR margin, not anyone's bill. See
+  // lib/retail-price-change.ts for why this covers every price change rather
+  // than only mid-quarter ones: the corpus never bounds the review window, and
+  // a guessed boundary would decide whether a money change needs two admins.
+  const changed = changedPriceFields(prior, nextRow);
+
+  if (changed.length > 0) {
+    const summary = describePriceChange(prior, nextRow);
+
+    // One pending change per SKU. Two approvals in flight could be granted by
+    // two different admins and the last write would silently win.
+    const { data: alreadyPending } = await admin
+      .from('admin_approval_requests')
+      .select('approval_id')
+      .eq('action_type', 'approve_retail_price_change')
+      .eq('target_id', code)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (alreadyPending) {
+      return {
+        ok: false,
+        message: `A price change for ${code} is already waiting on a second admin — decide that one in /admin/approvals first.`,
+      };
+    }
+
+    // 🔑 SAVE THE COPY NOW. An admin fixing a typo in a SKU's blurb must not
+    // have that edit held hostage by a price change sitting in a queue — and
+    // discarding it silently would be worse.
+    const priceValues: Record<string, unknown> = {};
+    const copyOnly: Record<string, unknown> = { ...nextRow };
+    for (const f of changed) {
+      priceValues[f] = (nextRow as Record<string, unknown>)[f];
+      delete copyOnly[f];
+    }
+
+    const { error: copyErr } = await admin
+      .from('platform_retail_catalog_v2')
+      .update({ ...copyOnly, updated_by_admin_id: adminUserId })
+      .eq('service_code', code);
+    if (copyErr) {
+      return { ok: false, message: `Couldn't save — ${copyErr.message}` };
+    }
+
+    const { error: reqErr } = await admin.from('admin_approval_requests').insert({
+      action_type: 'approve_retail_price_change',
+      target_id: code,
+      payload: { service_code: code, fields: priceValues },
+      rationale: `Change what customers pay for ${code} — ${summary}`,
+      initiated_by: adminUserId,
+      // 72 hours, matching the comp and refund gates. A price is not an
+      // emergency; an expired request is re-opened deliberately rather than
+      // approved days later by someone who has forgotten the reasoning.
+      expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    });
+    if (reqErr) {
+      return { ok: false, message: `Could not open the approval: ${reqErr.message}` };
+    }
+
+    const { error: reqAuditErr } = await admin.from('admin_audit_log').insert({
+      action: 'v2_retail_price_change_requested',
+      target_id: code,
+      actor_user_id: adminUserId,
+      metadata: { table: 'platform_retail_catalog_v2', service_code: code, changed, summary },
+    });
+    if (reqAuditErr) {
+      console.error('[saveRetailRow] request audit insert failed (non-fatal):', reqAuditErr);
+    }
+
+    revalidateCatalogSurfaces();
+    return {
+      ok: false,
+      message: `Everything except the price was saved. Changing what customers pay needs a second admin (Vendor Agreement § 9.1) — the request is open in /admin/approvals: ${summary}`,
+    };
+  }
+
   const { error: updateErr } = await admin
     .from('platform_retail_catalog_v2')
     .update({ ...nextRow, updated_by_admin_id: adminUserId })
@@ -126,15 +210,102 @@ export async function saveRetailRow(
     return { ok: false, message: `Couldn't save — ${updateErr.message}` };
   }
 
-  await admin.from('admin_audit_log').insert({
+  // Reads its error now: this is the paper trail for a catalogue edit, and
+  // Supabase RESOLVES with { error } rather than throwing, so a discarded one
+  // is silent. Non-fatal — the edit has already succeeded above.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'v2_retail_sku_edit',
     target_id: code,
     actor_user_id: adminUserId,
     metadata: { table: 'platform_retail_catalog_v2', service_code: code, before: prior, after: nextRow },
   });
+  if (auditErr) {
+    console.error('[saveRetailRow] audit insert failed (non-fatal):', auditErr);
+  }
 
   revalidateCatalogSurfaces();
   return { ok: true, message: `Saved — ₱${nextRow.retail_price_php.toLocaleString('en-PH')}.` };
+}
+
+/**
+ * executeRetailPriceChange — the § 9.1 price change, run by the SECOND admin.
+ *
+ * Called only from the approvals dispatcher, which has already claimed the row
+ * atomically and enforced `decided_by <> initiated_by` (the DB constraint
+ * `admin_approval_four_eyes` enforces it again).
+ *
+ * 🔒 THE NUMBERS COME FROM THE PAYLOAD, NEVER RE-READ FROM A FORM. The second
+ * admin is approving the exact figures the first one proposed. Re-deriving
+ * anything here would let two admins agree to different prices — which is the
+ * whole failure this gate exists to prevent.
+ */
+export async function executeRetailPriceChange(
+  admin: ReturnType<typeof createAdminClient>,
+  params: {
+    payload: unknown;
+    initiatedByAdminId: string;
+    confirmingAdminId: string;
+  },
+): Promise<void> {
+  const body = (params.payload ?? {}) as {
+    service_code?: string;
+    fields?: Record<string, unknown>;
+  };
+  const code = body.service_code;
+  if (!code) throw new Error('Price approval has no service code');
+  const fields = body.fields ?? {};
+  const keys = Object.keys(fields);
+  if (keys.length === 0) throw new Error('Price approval carries no fields');
+
+  // Only ever write columns the rule module names as customer prices. A
+  // payload that names its own target column is a write primitive, and a
+  // second admin must not approve a column they were never shown.
+  const allowed = new Set<string>(CUSTOMER_PRICE_FIELDS);
+  const bad = keys.filter((k) => !allowed.has(k));
+  if (bad.length > 0) {
+    throw new Error(`Price approval names non-price column(s): ${bad.join(', ')}`);
+  }
+
+  // Re-read so the audit trail carries the real before-state: the request may
+  // have sat up to 72 hours, and the copy fields can have moved since.
+  const { data: before, error: readErr } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('service_code,title,retail_price_php,onboarding_price_php,billing_period,is_pax_priced,pax_floor_price_php,pax_increment_price_php')
+    .eq('service_code', code)
+    .maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!before) throw new Error(`SKU ${code} no longer exists — it may have been removed since the request.`);
+
+  const { error: updErr } = await admin
+    .from('platform_retail_catalog_v2')
+    .update({ ...fields, updated_by_admin_id: params.confirmingAdminId })
+    .eq('service_code', code);
+  if (updErr) throw new Error(`Price change failed: ${updErr.message}`);
+
+  // ⚠ The only place two admins are recorded together for this change. Loud
+  // but non-fatal: the price is already live and must not be rolled back
+  // because a log write did not land.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'v2_retail_price_changed',
+    target_id: code,
+    actor_user_id: params.confirmingAdminId,
+    metadata: {
+      table: 'platform_retail_catalog_v2',
+      service_code: code,
+      before,
+      after: fields,
+      initiated_by: params.initiatedByAdminId,
+      confirmed_by: params.confirmingAdminId,
+    },
+  });
+  if (auditErr) {
+    console.error(
+      '[executeRetailPriceChange] audit insert FAILED — the price is live but unrecorded:',
+      auditErr,
+    );
+  }
+
+  revalidateCatalogSurfaces();
 }
 
 export async function retireRetailRow(

@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { slugReturnPath, type SlugReturn } from '@/lib/slug-return';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -131,14 +132,18 @@ export async function reissueGuestToken(
 
 export async function updateEventSlug(
   eventId: string,
+  /* WHICH PAGE THE COUPLE GETS BACK. A name from `lib/slug-return.ts`, never a
+     path — see that file for why a bound argument must not be one. */
+  returnTo: SlugReturn,
   formData: FormData,
 ): Promise<void> {
+  const back = slugReturnPath(eventId, returnTo);
   const requested = String(formData.get('slug') ?? '')
     .trim()
     .toLowerCase();
 
   if (!requested || !/^[a-z0-9-]{3,32}$/.test(requested)) {
-    redirect(`/dashboard/${eventId}/invitation?slug_error=invalid_format`);
+    redirect(`${back}?slug_error=invalid_format`);
   }
 
   const admin = createAdminClient();
@@ -152,7 +157,7 @@ export async function updateEventSlug(
   // endpoint ask the same question.
   const conflict = await findSlugConflict(admin, requested, { eventId });
   if (conflict) {
-    redirect(`/dashboard/${eventId}/invitation?slug_error=${encodeURIComponent(conflict)}`);
+    redirect(`${back}?slug_error=${encodeURIComponent(conflict)}`);
   }
 
   // Read the old slug so we can log it.
@@ -183,13 +188,13 @@ export async function updateEventSlug(
 
   if (updateErr) {
     redirect(
-      `/dashboard/${eventId}/invitation?slug_error=${encodeURIComponent(updateErr.message)}`,
+      `${back}?slug_error=${encodeURIComponent(updateErr.message)}`,
     );
   }
 
   if (!updatedRows || updatedRows.length === 0) {
     redirect(
-      `/dashboard/${eventId}/invitation?slug_error=${encodeURIComponent(
+      `${back}?slug_error=${encodeURIComponent(
         'We couldn’t save that address. Please refresh and try again.',
       )}`,
     );
@@ -205,8 +210,8 @@ export async function updateEventSlug(
     });
   }
 
-  revalidatePath(`/dashboard/${eventId}/invitation`);
-  redirect(`/dashboard/${eventId}/invitation?slug_saved=1`);
+  revalidatePath(back);
+  redirect(`${back}?slug_saved=1`);
 }
 
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;

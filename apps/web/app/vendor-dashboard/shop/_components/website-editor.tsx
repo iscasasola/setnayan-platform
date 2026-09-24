@@ -40,6 +40,8 @@ export type MicrositeReviewOption = { id: string; label: string };
  * locked list + Upgrade — "paywall + free tastes". Curation is OPTIONAL: an
  * un-touched page still renders its auto-composed baseline.
  */
+import { CouldNotLoad } from './could-not-load';
+
 export function WebsiteEditor({
   publicPath,
   displayHost,
@@ -68,6 +70,8 @@ export function WebsiteEditor({
   galleryVideoLinks,
   igConfigured,
   igConnection,
+  igUnavailable,
+  reviewsUnavailable,
   igMedia,
   igFlash,
 }: {
@@ -99,6 +103,12 @@ export function WebsiteEditor({
   galleryVideoLinks: string[];
   igConfigured: boolean;
   igConnection: VendorIgConnectionStatus | null;
+  /* The READ failed, as opposed to there being nothing. Both of these
+     render as ordinary emptiness otherwise — "No reviews yet",
+     "not connected" — and tell a supplier who has both that they
+     have neither. */
+  igUnavailable?: boolean;
+  reviewsUnavailable?: boolean;
   igMedia: VendorIgMediaRow[];
   igFlash: { kind: 'ok' | 'error'; message: string } | null;
 }) {
@@ -323,6 +333,7 @@ export function WebsiteEditor({
         galleryVideoLinks={galleryVideoLinks}
         igConfigured={igConfigured}
         igConnection={igConnection}
+        igUnavailable={igUnavailable}
         igMedia={igMedia}
         igFlash={igFlash}
       />
@@ -550,7 +561,9 @@ export function WebsiteEditor({
 
             {/* Pinned review */}
             <Row title="Pinned review" tight>
-              {reviews.length === 0 ? (
+              {reviewsUnavailable ? (
+                <CouldNotLoad what="your reviews" />
+              ) : reviews.length === 0 ? (
                 <p className="text-sm text-ink/60">
                   No reviews yet — once couples review you, tap one to feature up top.
                 </p>
@@ -665,6 +678,7 @@ function GalleryMedia({
   galleryVideoLinks,
   igConfigured,
   igConnection,
+  igUnavailable,
   igMedia,
   igFlash,
 }: {
@@ -675,6 +689,9 @@ function GalleryMedia({
   galleryVideoLinks: string[];
   igConfigured: boolean;
   igConnection: VendorIgConnectionStatus | null;
+  /* `connection: null` is ALSO what "never connected" looks like, so the card
+     cannot tell the two apart on its own. */
+  igUnavailable?: boolean;
   igMedia: VendorIgMediaRow[];
   igFlash: { kind: 'ok' | 'error'; message: string } | null;
 }) {
@@ -711,6 +728,7 @@ function GalleryMedia({
           bucket="media"
           pathPrefix={`vendors/${vendorProfileId}/portfolio`}
           name="portfolio_r2_keys"
+          unsavedHint="press Save below"
           currentValue={portfolioRefs}
           initialDisplayUrls={portfolioDisplayMap}
           multiple
@@ -739,6 +757,7 @@ function GalleryMedia({
           /api/vendor/instagram/**). Inert ("Coming soon") until the Meta App
           env is set. Synced posts flow into the SAME unified public gallery. */}
       <div className="border-t pt-4" style={{ borderColor: 'var(--m-line)' }}>
+        {igUnavailable ? <CouldNotLoad what="your Instagram connection" /> : null}
         <InstagramConnectCard
           configured={igConfigured}
           connection={igConnection}

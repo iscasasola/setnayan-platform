@@ -189,8 +189,32 @@ test('the top bar label gives way to the pinned corner controls on a phone', () 
   // Seen live 2026-09-21: the music button, pinned top-right, covered the
   // invitation bar's "INVITATION" label at the top of the page.
   const shell = stripComments(read(join(COMPONENTS, 'invitation-shell.tsx')));
-  const labels = (shell.match(/className="sn-top-label /g) ?? []).length;
-  assert.equal(labels, 2, `both right-hand labels carry sn-top-label (found ${labels})`);
+  /*
+    🪤 THIS ASSERTED `labels === 2` AND WENT RED ON A CHANGE THAT KEPT ITS
+    PROPERTY. Magic Move added a THIRD right-hand label — the berth the couple's
+    mark flies into — carrying `sn-top-label` exactly like the two before it.
+    The rule this test exists for still held; only the number moved, and the
+    number was never the thing worth protecting. (CLAUDE.md rule 7: an anchor is
+    a string, never a number.)
+
+    ⛔ SO IT ASKS THE PROPERTY, and the new form is STRICTER rather than looser:
+    a count of 2 passes happily when one label is bare and some other span
+    carries the class twice. This cannot — EVERY span rendering a right-hand
+    label must carry it, however many there turn out to be.
+  */
+  const labelTags = [...shell.matchAll(/<span([^>]*)>\s*(?:\{monogramText\}|Invitation)\s*</g)].map(
+    (m) => m[1] as string,
+  );
+  assert.ok(
+    labelTags.length >= 2,
+    `precondition: the header still renders its right-hand labels (found ${labelTags.length})`,
+  );
+  const bare = labelTags.filter((t) => !/\bsn-top-label\b/.test(t));
+  assert.deepEqual(
+    bare,
+    [],
+    `every right-hand label must carry sn-top-label or the pinned corner controls cover it — ${bare.length} of ${labelTags.length} do not`,
+  );
   const music = stripComments(read(join(COMPONENTS, 'background-music.tsx')));
   const hub = stripComments(read(join(COMPONENTS, 'guest-hub-bar.tsx')));
   assert.match(music, /<div data-top-corner className=\{CORNER_ALONE\}>/, 'the lone music corner marks itself');

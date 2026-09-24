@@ -1,5 +1,6 @@
 'use client';
 
+import { LAUNCH_PHASE_CHOICES, launchPhaseLabel, type LaunchPhaseKey } from './launch-phase-choices';
 import { useFormStatus } from 'react-dom';
 import { FileUpload } from '@/app/_components/file-upload';
 import {
@@ -73,6 +74,7 @@ export function HeroPhotoPanel({
         bucket="media"
         pathPrefix={`events/${eventId}/landing-page-hero`}
         name="hero_image_url"
+        unsavedHint="press Save below"
         multiple={false}
         maxSizeMB={10}
         acceptedTypes={IMAGE_TYPES}
@@ -107,6 +109,7 @@ export function GalleryPanel({
         bucket="media"
         pathPrefix={`events/${eventId}/our-photos`}
         name="photos"
+        unsavedHint="press Save below"
         multiple
         maxFiles={maxFiles}
         maxSizeMB={10}
@@ -152,6 +155,7 @@ export function SiteChromePanel({
         bucket="media"
         pathPrefix={`events/${eventId}/site-music`}
         name="bg_music_url"
+        unsavedHint="press Save below"
         multiple={false}
         maxSizeMB={20}
         acceptedTypes={AUDIO_TYPES}
@@ -174,6 +178,7 @@ export function SiteChromePanel({
           bucket="media"
           pathPrefix={`events/${eventId}/landing-page-hero-video`}
           name="hero_video_url"
+          unsavedHint="press Save below"
           multiple={false}
           maxSizeMB={100}
           acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
@@ -264,18 +269,14 @@ export function OpenBrowsePanel({
 
 /** The four faces, in the order the site lives through them. Same words the
  *  owner ribbon on the live page uses for its preview links. */
-const LAUNCH_PHASE_CHOICES = [
-  { key: 'save_the_date', label: 'Save the Date', hint: 'The announcement. Asks nothing of guests yet.' },
-  { key: 'rsvp', label: 'Invitation', hint: 'The invitation guests reply to.' },
-  { key: 'event', label: 'On the day', hint: 'The page guests use at the celebration itself.' },
-  { key: 'editorial', label: 'After', hint: 'The page guests revisit afterwards. Replies are closed.' },
-] as const;
 
-export type LaunchPhaseKey = (typeof LAUNCH_PHASE_CHOICES)[number]['key'];
 
-export function launchPhaseLabel(key: LaunchPhaseKey): string {
-  return LAUNCH_PHASE_CHOICES.find((c) => c.key === key)?.label ?? key;
-}
+
+
+/* 🔴 `launchPhaseLabel()` MOVED OUT — see `launch-phase-choices.ts`. This file
+   is `'use client'`, the server editor page called it, and a client export is a
+   reference rather than a function in a production build. Not re-exported here:
+   a re-export would make the broken import path work again. */
 
 /**
  * "Which version guests see" — Automatic, or pin one phase (DAY-33 · owner

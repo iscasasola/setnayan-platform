@@ -609,6 +609,7 @@ export type VenueSceneFamily = 'hall' | 'heritage' | 'garden' | 'beach' | 'tent'
 
 const VENUE_SCENE: Record<VenueSetting, VenueSceneFamily> = {
   banquet_hall: 'hall',
+  events_place: 'hall',
   restaurant: 'hall',
   heritage: 'heritage',
   garden: 'garden',

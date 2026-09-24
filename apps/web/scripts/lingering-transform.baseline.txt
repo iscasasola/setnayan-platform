@@ -45,3 +45,15 @@
 .sn-reveal :: sn-rise
 .sn-veil :: sn-veil-lift
 .subnav-lift :: subnav-lift
+
+# The Event Hub canvas's background photo layer (owner 2026-09-23). It is a
+# SELF-CLOSING, CHILDLESS div — `<div aria-hidden className="hub-canvas-media" />`
+# in app/[slug]/_components/hub-canvas-frame.tsx — so it has no descendants at
+# all and can never be the containing block for a position:fixed one. The held
+# transform is also load-bearing rather than incidental: the couple's zoom is
+# composed INTO the keyframes (`scale(var(--hub-zoom))`), because an animation
+# replaces the whole transform, so `backwards` instead of `both` would drop the
+# zoom the moment the scroll range ended and the photo would jump back to 1x.
+# `a-section-background-is-a-ref.test.ts` holds the childless shape — in the
+# source AND in the rendered DOM — so this entry's reason cannot quietly rot.
+.hub-during-lift.hub-has-media > .hub-canvas-media :: hub-during-lift

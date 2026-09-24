@@ -578,6 +578,7 @@ function ProofForm({
         bucket="thread-files"
         pathPrefix={`payments/${orderId}`}
         name="screenshot_ref"
+        unsavedHint="press I’ve sent the payment below"
         label={preview ? 'Use a different picture' : 'Your payment screenshot'}
         help="PNG, JPEG, WebP or HEIC up to 5 MB."
         maxSizeMB={5}

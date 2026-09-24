@@ -1128,6 +1128,7 @@ function PaymentSection({
         <div className="col-span-2 sm:col-span-4">
           <FileUpload
             name="proof_r2_key"
+            unsavedHint="press Log below"
             bucket="thread-files"
             pathPrefix={`payment-proof/events/${eventId}`}
             maxSizeMB={5}

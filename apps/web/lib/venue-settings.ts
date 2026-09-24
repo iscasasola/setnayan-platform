@@ -68,6 +68,7 @@
  */
 export const VENUE_SETTINGS = [
   'banquet_hall',
+  'events_place',
   'restaurant',
   'garden',
   'beach',
@@ -84,18 +85,24 @@ export function isVenueSetting(value: unknown): value is VenueSetting {
 
 /** Long form — the couple's picker and Explore's facet chips. */
 export const VENUE_SETTING_LABEL: Record<VenueSetting, string> = {
-  banquet_hall: 'Hotel Ballroom / Banquet Hall',
+  // The couple's own onboarding words (refinements.ts `setting_*`) and the
+  // supplier's venue-type words (vendor-venue-type.ts) — one vocabulary, so a
+  // supplier's "Venues you work" reads exactly like the couple's picker.
+  // Owner 2026-09-23: "Venues here are different from our options."
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
   restaurant: 'Restaurant',
-  garden: 'Garden Estate',
+  garden: 'Garden',
   beach: 'Beach',
-  destination: 'Destination Resort',
-  heritage: 'Heritage / Hacienda',
-  outdoor_tent: 'Outdoor Tent',
+  destination: 'Resort / destination',
+  heritage: 'Heritage venue',
+  outdoor_tent: 'Outdoor tent',
 };
 
 /** Short form — inline banner copy ("Restaurant venues only"). */
 export const VENUE_SETTING_SHORT_LABEL: Record<VenueSetting, string> = {
-  banquet_hall: 'Banquet hall',
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
   restaurant: 'Restaurant',
   garden: 'Garden',
   beach: 'Beach',
@@ -129,6 +136,7 @@ export const AMBIGUOUS_VENUE_SETTING: VenueSetting = 'banquet_hall';
  */
 export const VENUE_SETTING_SCENE_PHRASE: Record<VenueSetting, string> = {
   banquet_hall: 'in a hotel ballroom',
+  events_place: 'in an events place function hall',
   restaurant: 'in a restaurant dining room',
   garden: 'in an outdoor garden',
   beach: 'on a beach',
@@ -239,6 +247,9 @@ export const CEREMONY_VENUE_SETTING_SHORT_LABEL: Record<CeremonyVenueSetting, st
  */
 export const VENUE_SETTING_TO_DIRECTORY_TYPE: Partial<Record<VenueSetting, string>> = {
   banquet_hall: 'hotel_ballroom',
+  // Its own directory type since 20271245297061. NOT `multi_purpose_hall`,
+  // which its migration defines as church halls / school auditoriums.
+  events_place: 'events_place',
   restaurant: 'restaurant',
   garden: 'garden',
   beach: 'beach',

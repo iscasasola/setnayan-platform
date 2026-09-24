@@ -36,6 +36,7 @@ import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability
 import { parseCoordPair } from '@/lib/parse-coord';
 import { parsePhPhone } from '@/lib/ph-phone';
 import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -1042,13 +1043,34 @@ export async function updateBusinessStartDate(formData: FormData): Promise<void>
   const value = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
 
   try {
-    await supabase
+    const { error } = await supabase
       .from('vendor_profiles')
       .update({ in_business_since_date: value })
       .eq('vendor_profile_id', profile.vendor_profile_id);
-  } catch {
-    // graceful-degrade: apply-lag or a transient error — nothing to surface on
-    // a plain-form action; the revalidate will show whether it persisted.
+    if (error) {
+      logQueryError('updateBusinessStartDate', error, {
+        vendorProfileId: profile.vendor_profile_id,
+        clearing: value === null,
+      });
+    }
+  } catch (err) {
+    /*
+     * 🔑 A FAILED SAVE USED TO RENDER EXACTLY LIKE A SUCCESSFUL ONE.
+     *
+     * This swallowed and said "the revalidate will show whether it persisted".
+     * It does not: the revalidate re-renders the OLD value, which is also what
+     * the screen looks like when the supplier typed the date they already had.
+     * Nothing distinguished "saved" from "silently lost", and nothing anywhere
+     * recorded that it failed.
+     *
+     * Still degrades rather than throwing — a plain-form action has nowhere to
+     * put an error, and an apply-lag on a not-yet-applied migration must not
+     * take the page down. But it now leaves a trail.
+     */
+    logQueryError('updateBusinessStartDate', err, {
+      vendorProfileId: profile.vendor_profile_id,
+      clearing: value === null,
+    });
   }
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard');

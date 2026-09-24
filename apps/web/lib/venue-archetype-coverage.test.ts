@@ -25,9 +25,14 @@ test('every venue a host can choose maps to a deliberate archetype', () => {
   // `banquet_hall` is the only setting allowed to resolve to the fall-back
   // archetype, because that IS its archetype. Anything else resolving there is
   // a setting nobody drew.
+  // `events_place` joined the vocabulary 2026-09-23 and is drawn as the SAME
+  // shell on purpose — a standalone function hall is a hall — and it is named
+  // in archetypeFor's switch, not caught by its default. A look of its own is a
+  // drawing task that has not been asked for; when it is, delete it from here.
+  const DRAWN_AS_THE_HALL = new Set<string>(['banquet_hall', 'events_place']);
   for (const setting of VENUE_SETTINGS) {
     const got = archetypeFor(setting);
-    if (setting === 'banquet_hall') {
+    if (DRAWN_AS_THE_HALL.has(setting)) {
       assert.equal(got, 'banquet_hall');
       continue;
     }

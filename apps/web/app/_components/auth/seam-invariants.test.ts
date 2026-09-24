@@ -209,7 +209,15 @@ test('the wordmark leaving did not lose the one-press way home', () => {
   const eventsRow = SHELL_CODE.match(/<Link href="\/dashboard" \{\.\.\.rowProps\('events'\)\}>/g) ?? [];
   assert.equal(eventsRow.length, 1, `the rail's events row → /dashboard is missing (found ${eventsRow.length})`);
   const railEvents = SHELL_CODE.slice(SHELL_CODE.indexOf("rowProps('events')"), SHELL_CODE.indexOf("rowProps('events')") + 600);
-  assert.match(railEvents, /Your events/, 'the rail events row no longer names the board');
+  /* "Events", not "Your events" (owner 2026-09-23) — and pinned as the LABEL
+     EXPRESSION, not as a loose word: `Events` on its own also matches the
+     row's `.fd-icon-caption`, so a row that lost its label entirely would
+     still have satisfied this. */
+  assert.match(
+    railEvents,
+    /slotLabel\(RAIL_SLOT\.events, 'Events'\)/,
+    'the rail events row no longer names the board',
+  );
 
   const acctMenu = SHELL_CODE.slice(SHELL_CODE.indexOf('function AccountMenu'));
   assert.match(
@@ -541,12 +549,64 @@ test('the front door mounts no bottom bar', () => {
    6 · THE RETURN ROW
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('the front door welcomes a signed-in visitor back rather than listing', () => {
+/* 🔴 INVERTED 2026-09-23, BY THE OWNER, AND THE OLD RULE IS LEFT READABLE.
+   This test used to assert the OPPOSITE — that the shell CONTAINS the string
+   "Back to your events", per `FRONT_DOOR_AND_SEAM_FINAL` §3.6: a signed-in
+   person out on the public site is a visitor here, not an ex-member, so the
+   row was a sentence about coming back rather than the name of a list.
+
+   The owner retired that, looking at the signed-in rail: *"it should only
+   always say Events regardless where you are"*, then, on the ArrowLeft beside
+   it, *"icon does not need to show a back button, keep the events icons"*.
+
+   🔑 THE GUARD IS TURNED AROUND RATHER THAN DELETED, because a deleted guard
+   is how the retired wording creeps back from the spec — which still says
+   §3.6 — with nothing red. The spec is the stale one now. */
+test('the events row says Events everywhere, and never points back', () => {
   const src = code(read('_components/frontdoor/front-door-shell.tsx'));
+  assert.doesNotMatch(
+    src,
+    /Back to (your )?events/i,
+    'The rail row is named "Events" on every surface (owner 2026-09-23). ' +
+      'A "Back to…" sentence is the retired §3.6 wording.',
+  );
+  // …and the row must still BE there, or the assertion above passes vacuously.
   assert.match(
     src,
-    /Back to your events/,
-    'A signed-in person on the public site is a visitor here, not an ex-member (FRONT_DOOR_AND_SEAM_FINAL §3.6).',
+    /slotLabel\(RAIL_SLOT\.events, 'Events'\)/,
+    'the events row no longer renders its label through the registry',
+  );
+  assert.match(
+    src,
+    /<RailIcon as=\{LayoutGrid\} \/>/,
+    'the events row lost the events icon',
+  );
+  /* THE FOCUS ROW IS THE OTHER HALF, and it lives in the event layout — a
+     guard that read only the shell would have called this fixed while the
+     rail inside every event still said "Back to events". */
+  const layout = code(read('dashboard/[eventId]/layout.tsx'));
+  assert.doesNotMatch(
+    layout,
+    /label: 'Back to events'/,
+    'the rail\'s focused row still says "Back to events" inside an event',
+  );
+  /* 🔴 THE DRAWING IS NAMED, NOT HANDED OVER (production outage 2026-09-23).
+     This used to pin `icon: LayoutGrid` — the component — which is exactly
+     what the SERVER layout then tried to pass to `front-door-shell.tsx`, a
+     client module. React refused to serialise it and every page inside an
+     event 500'd. The row must still carry the same drawing as the events row
+     elsewhere; it now says so by NAME, and the shell resolves it. Both halves
+     are checked, so "same drawing" is still proved, not assumed. */
+  assert.match(
+    code(read('_components/frontdoor/front-door-shell.tsx')),
+    /events: LayoutGrid,/,
+    'the shell no longer maps the focus name to the events drawing',
+  );
+  assert.match(
+    layout,
+    /label: 'Events',[\s\S]{0,80}icon: 'events'/,
+    'the focused row must carry the same word AND the same drawing as the ' +
+      'events row on every other surface.',
   );
 });
 

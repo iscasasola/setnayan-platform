@@ -1677,6 +1677,7 @@ function PhotoField({
           bucket="samples"
           pathPrefix={`taxonomy/${tile.id}`}
           name="photo_ref"
+          unsavedHint="press Save photo below"
           maxSizeMB={5}
           acceptedTypes={['image/webp', 'image/jpeg', 'image/png']}
           variant="square"
@@ -2804,6 +2805,7 @@ function LeafBlock({
                   bucket="samples"
                   pathPrefix={`refinements/${leaf.leafKey}`}
                   name="main_photo_url"
+                  unsavedHint="press Save refinement below"
                   maxSizeMB={5}
                   acceptedTypes={IMG_TYPES}
                   variant="wide"
@@ -3023,6 +3025,7 @@ function OptionCard({
               bucket="samples"
               pathPrefix={`refinements/${leaf.leafKey}`}
               name="photo_url"
+              unsavedHint="press Save below"
               maxSizeMB={5}
               acceptedTypes={IMG_TYPES}
               variant="square"
@@ -3126,6 +3129,7 @@ function AddOptionForm({ tile, leaf }: { tile: StudioTile; leaf: StudioRefinemen
           bucket="samples"
           pathPrefix={`refinements/${leaf.leafKey}`}
           name="photo_url"
+          unsavedHint="press Add option below"
           maxSizeMB={5}
           acceptedTypes={IMG_TYPES}
           variant="square"

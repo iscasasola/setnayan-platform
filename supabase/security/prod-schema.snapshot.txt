@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1478
-# tables: 402
-# columns: 5007
-# notnull: 3049
+# ledger: 1489
+# tables: 401
+# columns: 5012
+# notnull: 3048
 [ledger]
 20260512000000
 20260513000000
@@ -1486,10 +1486,21 @@
 20271238899699
 20271239096928
 20271239789106
+20271239794268
 20271240166185
 20271240202428
+20271240324859
+20271240512825
 20271240583196
 20271240604358
+20271240727195
+20271240919693
+20271241532112
+20271241619056
+20271242482874
+20271242648512
+20271243019419
+20271243295861
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3086,6 +3097,7 @@ events.papic_guest_capture_early
 events.papic_guest_spend_ceiling_on
 events.papic_guest_spend_ceiling_points
 events.papic_guest_spend_ceiling_released_at
+events.papic_guest_spend_floor_points
 events.papic_ltd_cap_php
 events.papic_mini_cap_php
 events.papic_quality_tier
@@ -4024,8 +4036,13 @@ papic_event_pool_config.floor_points
 papic_event_pool_config.free_grant_points
 papic_event_pool_config.free_one_camera_points
 papic_event_pool_config.is_active
+papic_event_pool_config.learned_at
+papic_event_pool_config.learned_points_per_guest
+papic_event_pool_config.learned_sample_size
+papic_event_pool_config.learning_min_sample
 papic_event_pool_config.pass_service_codes
 papic_event_pool_config.points_per_guest
+papic_event_pool_config.recommend_floor_points
 papic_event_pool_config.soft_stop_pct
 papic_event_pool_config.updated_at
 papic_event_pool_usage.created_at
@@ -4196,11 +4213,6 @@ papic_photos.wall_hidden_at
 papic_photos.wall_hidden_by_guest_id
 papic_photos.wall_safe_r2_key
 papic_photos.width_px
-papic_seat_allocations.event_id
-papic_seat_allocations.points
-papic_seat_allocations.seat_id
-papic_seat_allocations.updated_at
-papic_seat_allocations.updated_by
 papic_seat_day_usage.created_at
 papic_seat_day_usage.event_id
 papic_seat_day_usage.id
@@ -4588,6 +4600,8 @@ platform_settings.bir_authorized_rep_title
 platform_settings.bir_payor_address
 platform_settings.bir_payor_name
 platform_settings.bir_payor_zip
+platform_settings.booking_fee_free_from
+platform_settings.booking_fee_free_until
 platform_settings.booking_fee_rate_pct
 platform_settings.booking_fee_tail_rate_pct
 platform_settings.booking_fee_tier1_limit_php
@@ -5959,6 +5973,7 @@ vendor_proposal_templates.updated_at
 vendor_proposal_templates.vendor_profile_id
 vendor_proposals.created_at
 vendor_proposals.event_id
+vendor_proposals.includes_setnayan_gift
 vendor_proposals.line_items
 vendor_proposals.merge_snapshot
 vendor_proposals.payment_method_ids
@@ -5970,6 +5985,7 @@ vendor_proposals.rendered_terms
 vendor_proposals.resolved_at
 vendor_proposals.resolved_by_user_id
 vendor_proposals.sent_at
+vendor_proposals.service_card_ids
 vendor_proposals.status
 vendor_proposals.template_id
 vendor_proposals.title
@@ -8040,8 +8056,11 @@ papic_event_pool_config.floor_points
 papic_event_pool_config.free_grant_points
 papic_event_pool_config.free_one_camera_points
 papic_event_pool_config.is_active
+papic_event_pool_config.learned_sample_size
+papic_event_pool_config.learning_min_sample
 papic_event_pool_config.pass_service_codes
 papic_event_pool_config.points_per_guest
+papic_event_pool_config.recommend_floor_points
 papic_event_pool_config.soft_stop_pct
 papic_event_pool_config.updated_at
 papic_event_pool_usage.created_at
@@ -8133,10 +8152,6 @@ papic_photos.paparazzi_seat_id
 papic_photos.photo_id
 papic_photos.photo_type
 papic_photos.r2_object_key
-papic_seat_allocations.event_id
-papic_seat_allocations.points
-papic_seat_allocations.seat_id
-papic_seat_allocations.updated_at
 papic_seat_day_usage.created_at
 papic_seat_day_usage.event_id
 papic_seat_day_usage.id

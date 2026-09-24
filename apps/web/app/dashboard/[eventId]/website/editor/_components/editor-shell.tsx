@@ -1,5 +1,6 @@
 'use client';
 
+import { done, todo, type RowStatus } from './rail-rows';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -63,23 +64,19 @@ import { QrActions } from '@/app/_components/qr-actions';
  * Making it part of the type means a new row cannot COMPILE without answering,
  * which is the only version of this that cannot rot.
  */
-export type RowStatus = {
-  /** The words in the chip. */
-  label: string;
-  /** TRUE only when this row reports something the couple has actually done. */
-  filled: boolean;
-};
+/* `RowStatus` moved to `rail-rows.ts` with `done`/`todo` — one home, and this
+   file imports it like everyone else. */
 
 /** A row that reports something done — the green chip. */
-export function done(label: string): RowStatus {
-  return { label, filled: true };
-}
 
-/** A row with nothing in it yet — the quiet chip. Say this whenever the words
- *  mean "empty", "off", "private" or "none", however they are phrased. */
-export function todo(label: string): RowStatus {
-  return { label, filled: false };
-}
+
+/* 🔴 `done()` and `todo()` MOVED OUT OF THIS FILE — see `rail-rows.ts`.
+   They are pure helpers, this file is `'use client'`, and the server page
+   called them seventeen times. In a production build a client export is a
+   REFERENCE, not a function, and React refuses: "Attempted to call done() from
+   the server but done is on the client." The whole editor 500'd.
+   They are NOT re-exported here on purpose — a re-export would make the old
+   import path work again and put the trap straight back. */
 
 export type RailRow = {
   key: string;

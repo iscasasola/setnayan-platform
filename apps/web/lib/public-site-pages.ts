@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { CalendarHeart, MailOpen, Radio, Newspaper } from 'lucide-react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 
 /**
  * The couple's public site, NAMED as four pages (owner R5 · Option A · 2026-07-09).
@@ -20,7 +21,8 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
 export type PublicSitePage = {
   /** Stable key === the LifecyclePhase it maps to. */
   key: LifecyclePhase;
-  /** Friendly page name shown to the couple. */
+  /** Friendly page name shown to the couple — read from `PUBLIC_STAGE_LABELS`,
+   *  the ONE record of these words (owner is choosing the set, 2026-09-24). */
   name: string;
   /** One-line description of what this page is. */
   blurb: string;
@@ -37,28 +39,28 @@ export type PublicSitePage = {
 export const PUBLIC_SITE_PAGES: PublicSitePage[] = [
   {
     key: 'save_the_date',
-    name: 'Save-the-Date',
+    name: PUBLIC_STAGE_LABELS.save_the_date,
     blurb: 'The first look — your monogram, the date, and a countdown. Announces the day and asks nothing of guests yet.',
     phaseParam: 'save_the_date',
     Icon: CalendarHeart,
   },
   {
     key: 'rsvp',
-    name: 'RSVP',
+    name: PUBLIC_STAGE_LABELS.rsvp,
     blurb: 'The invitation proper — details, schedule, and the form guests reply on in the run-up to the day.',
     phaseParam: 'rsvp',
     Icon: MailOpen,
   },
   {
     key: 'event',
-    name: 'Day-of',
+    name: PUBLIC_STAGE_LABELS.event,
     blurb: 'The live wedding-day surface — schedule, each guest’s seat, the photo wall, and the livestream.',
     phaseParam: 'event',
     Icon: Radio,
   },
   {
     key: 'editorial',
-    name: 'Editorial',
+    name: PUBLIC_STAGE_LABELS.editorial,
     blurb: 'The after-story — your gallery and recap, kept for the guests who were there.',
     phaseParam: 'editorial',
     Icon: Newspaper,

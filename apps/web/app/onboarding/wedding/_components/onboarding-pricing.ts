@@ -73,9 +73,10 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   // (₱50 / 50 shots); the ₱100 rung reloads the same camera from the studio.
   // Was PAPIC_SEATS (₱2,999 · 5 seats), retired + deactivated 2026-07-29.
   papic_seats: 'PAPIC_CAMERA_MINI_DAY',
-  // "Advanced Website" = the reactivated Website PRO umbrella (owner 2026-07-22 ·
-  // ₱3,500). Was the legacy PRO_WEBSITE code, which is is_active=false (absorbed
-  // into COUPLE_WEBSITE_PRO) — so this now sells the live umbrella that also
+  // "Advanced Website" = the reactivated Website PRO umbrella (owner 2026-07-22;
+  // price lives in platform_retail_catalog_v2). Was the legacy PRO_WEBSITE code,
+  // which is is_active=false (absorbed into COUPLE_WEBSITE_PRO) — so this now
+  // sells the live umbrella that also
   // includes the bundle-only Editorial PRO + Cinematic Reveal.
   advanced_website: 'COUPLE_WEBSITE_PRO',
   animated_monogram: 'ANIMATED_MONOGRAM',

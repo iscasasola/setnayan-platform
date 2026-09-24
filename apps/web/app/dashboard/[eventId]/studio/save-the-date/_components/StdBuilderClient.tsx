@@ -205,7 +205,7 @@ export function StdBuilderClient({
   const proHref = `/dashboard/${eventId}/studio/website-pro`;
   const uploadLock = (what: string) =>
     ownsPro ? undefined : (
-      <p className="rounded-xl border border-mulberry/20 bg-mulberry/5 px-3.5 py-3 text-xs text-ink/70">
+      <p className="rounded-xl bg-mulberry/5 px-3.5 py-3 text-xs text-ink/70">
         Your own {what} is part of <span className="font-medium text-ink">Event Hub Pro</span>. Our
         backgrounds and your words stay free.{' '}
         <Link href={proHref} className="font-medium text-mulberry underline underline-offset-2">
@@ -1012,7 +1012,7 @@ export function StdBuilderClient({
               ) : null}
             </div>
           ) : result === 'pro' ? (
-            <p className="rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 text-center text-sm text-ink/75">
+            <p className="rounded-xl bg-mulberry/5 px-4 py-3 text-center text-sm text-ink/75">
               Nothing was saved — your own photo, film or song is part of Event Hub Pro.{' '}
               <Link href={proHref} className="font-medium text-mulberry underline underline-offset-2">
                 Unlock Event Hub Pro

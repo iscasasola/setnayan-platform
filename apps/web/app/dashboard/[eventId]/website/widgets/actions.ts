@@ -5,10 +5,15 @@ import { createClient } from '@/lib/supabase/server';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
+  customSectionHasContent,
+  customSectionIntent,
+  customSectionWriteAllowed,
   isCustomSectionType,
   nextFreeCustomSlot,
-  sanitizeCustomSection,
+  readCustomSectionInput,
 } from '@/lib/custom-sections';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   HUB_DIRECTIONS,
   HUB_FOCAL_POINTS,
@@ -19,6 +24,7 @@ import {
   hubOutMoves,
   HUB_SEQUENCES,
   HUB_ZOOMS,
+  hubArrangement,
   hubMediaRef,
   HUB_TIMELINE,
   sanitizeHubCanvas,
@@ -786,6 +792,18 @@ export async function addCustomSection(formData: FormData): Promise<void> {
   const eventId = eventIdRaw as string;
 
   await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
+
+  /* ⛔ PRO, CHECKED HERE AND NOT ONLY IN THE EDITOR. Adding a section is
+     arranging the page, not fixing a word we wrote (owner 2026-09-22). The
+     editor hides the button for a free couple; this refuses the hand-crafted
+     POST. Admin client for the SKU read, as `website/colors/actions.ts` does:
+     orders RLS is purchaser-scoped, and a co-host who did not place the order
+     must still resolve the event's Pro. */
+  await refuseCustomSectionWithoutPro(eventId, {
+    intent: 'add',
+    ownsPro: await eventCoupleWebsiteProActive(createAdminClient(), eventId),
+    hadContent: false,
+  });
   const supabase = await createClient();
 
   const { data: rows, error: readErr } = await supabase
@@ -822,15 +840,36 @@ export async function addCustomSection(formData: FormData): Promise<void> {
   redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
 }
 
+/** Redirect to the unlock page when the Pro line refuses this write. */
+async function refuseCustomSectionWithoutPro(
+  eventId: string,
+  input: Parameters<typeof customSectionWriteAllowed>[0],
+): Promise<void> {
+  if (!customSectionWriteAllowed(input)) redirect(`/dashboard/${eventId}/studio/website-pro`);
+}
+
 /**
- * Save one custom section's heading and words.
+ * One of the couple's own sections — its words, its layout, or its removal.
  *
- * ⛔ MERGES `config_json`, like every other writer here — the canvas (the
- * background, the crop, the motion) lives in the same bag, and a couple who
- * edited their words must not lose the arrangement they chose.
+ * 🔑 ONE EXPORT, THREE INTENTS (`intent` = save · arrange · delete; absent =
+ * save, which is what every form posted before this). Not three new exports:
+ * the Vercel route ceiling is near, and every `'use server'` export is a route.
  *
- * The title is optional: a couple who wants a bare passage between two sections
- * should not have to invent a heading for it.
+ *   save    — the heading and the words. REFUSED over the limit, never cut
+ *             (`readCustomSectionInput`); the inputs carry the same maxLength.
+ *   arrange — one of the four chapter arrangements, a closed set; anything
+ *             else is dropped (`hubArrangement` returns null → no write).
+ *   delete  — the row goes, so its slot is free again for "Add". Never
+ *             Pro-locked: taking your own words off your own page is not a
+ *             purchase.
+ *
+ * ⛔ MERGES `config_json` for save and arrange, like every other writer here —
+ * the canvas (photo, crop, motion) and the words share one bag, and a couple
+ * who changed one must not lose the other.
+ *
+ * ⛔ THE PRO LINE (`customSectionWriteAllowed`): a free couple may still edit a
+ * section that already HAS words — the editor's grandfather rule — but may not
+ * start filling an empty one.
  */
 export async function saveCustomSection(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -841,6 +880,8 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
   }
   const eventId = eventIdRaw as string;
   const widgetId = widgetIdRaw as string;
+  const intent = customSectionIntent(formData.get('intent'));
+  if (!intent) throw new Error('Unknown change to your section.');
 
   await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
   const supabase = await createClient();
@@ -854,8 +895,10 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
   if (readErr) throw new Error(`Failed to load the section: ${readErr.message}`);
   if (!row) throw new Error('Section not found on this event.');
   if (!isCustomSectionType(row.widget_type)) {
-    // Words belong only to a slot that HAS words. Writing them onto a shipped
-    // section would put a paragraph nothing renders inside its config.
+    // Words, layouts and removal belong only to a slot the couple added.
+    // Deleting a SHIPPED section's row would take a product section off the
+    // page with no way back; writing words onto one would put a paragraph
+    // nothing renders inside its config.
     throw new Error('That section is not one you write yourself.');
   }
 
@@ -863,18 +906,51 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
       ? (row.config_json as Record<string, unknown>)
       : {};
-  const custom = sanitizeCustomSection({
-    title: formData.get('title'),
-    body: formData.get('body'),
+
+  await refuseCustomSectionWithoutPro(eventId, {
+    intent,
+    ownsPro:
+      intent === 'delete' ? false : await eventCoupleWebsiteProActive(createAdminClient(), eventId),
+    hadContent: customSectionHasContent(existing),
   });
+
+  const back = (q: string) =>
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets${q}`, q);
+
+  if (intent === 'delete') {
+    /* 🔑 COUNT THE ROWS. A delete RLS refuses is not an error in PostgREST —
+       it is zero rows and a 204 — so without `.select()` a refusal would redirect
+       to "saved" with the section still on the page. */
+    const { data: gone, error: delErr } = await supabase
+      .from('invitation_widgets')
+      .delete()
+      .eq('widget_id', widgetId)
+      .eq('event_id', eventId)
+      .select('widget_id');
+    if (delErr) throw new Error(`Failed to remove your section: ${delErr.message}`);
+    if (!gone || gone.length !== 1) throw new Error('Your section could not be removed.');
+    await revalidateForWidgetChange(eventId);
+    redirect(back('?saved=1'));
+  }
+
+  let next: Record<string, unknown>;
+  if (intent === 'arrange') {
+    const arrangement = hubArrangement(formData.get('arrangement'));
+    if (!arrangement) redirect(back('?error=bad_arrangement'));
+    next = { ...existing, canvas: { ...sanitizeHubCanvas(existing), arrangement } };
+  } else {
+    const input = readCustomSectionInput(formData.get('title'), formData.get('body'));
+    if (!input.ok) redirect(back('?error=too_long'));
+    next = { ...existing, custom: input.value };
+  }
 
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
-    .update({ config_json: { ...existing, custom } })
+    .update({ config_json: next })
     .eq('widget_id', widgetId)
     .eq('event_id', eventId);
   if (updateErr) throw new Error(`Failed to save your section: ${updateErr.message}`);
 
   await revalidateForWidgetChange(eventId);
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
+  redirect(back('?saved=1'));
 }

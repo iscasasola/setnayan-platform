@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
 import { EditorShell, type RailGroup } from './_components/editor-shell';
@@ -13,6 +15,7 @@ import { EditorShell, type RailGroup } from './_components/editor-shell';
    2184633741). A component may be RENDERED across that boundary; a function may
    not be CALLED across it. */
 import { done, todo } from './_components/rail-rows';
+import { proPriceLabelFrom } from './_components/unlock-label';
 import { TextPanel } from './_components/text-panel';
 import {
   invitationWordsDraft,
@@ -144,7 +147,18 @@ export default async function WebsiteEditorPage({
   }
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const ownsPro = await eventCoupleWebsiteProActive(supabase, eventId);
+  const [ownsPro, proSku] = await Promise.all([
+    eventCoupleWebsiteProActive(supabase, eventId),
+    /*
+      ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
+      `platform_retail_catalog_v2` is admin-managed and is the only figure a
+      customer is ever charged. Null on failure, and every unlock button then
+      renders with no number rather than a remembered one (`unlock-label.ts`).
+    */
+    formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+  ]);
+  // A plain string crosses to the client panels — never a function or icon.
+  const proPriceLabel = proPriceLabelFrom(proSku?.price_php, formatPhp);
 
   const base = `/dashboard/${eventId}`;
   const w = `${base}/website`;
@@ -177,7 +191,11 @@ export default async function WebsiteEditorPage({
   const proUnlockHref = `${base}/studio/website-pro`;
   /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA. */
   const lockPanel = (featureName: string) => (
-    <ProLockPanel featureName={featureName} unlockHref={proUnlockHref} />
+    <ProLockPanel
+      featureName={featureName}
+      unlockHref={proUnlockHref}
+      priceLabel={proPriceLabel}
+    />
   );
 
   // Presigned display URLs so the inline uploaders show what's already set
@@ -644,10 +662,12 @@ export default async function WebsiteEditorPage({
               saveCustomAction={saveCustomSection}
               addCustomAction={addCustomSection}
               photoChoices={photoChoices}
-              /* How each section looks and moves is Pro (owner 2026-09-24) —
-                 the SAME panel every other Pro row uses, passed as an ELEMENT.
-                 The widget actions refuse a free couple independently. */
+              /* Two Pro locks, both the SAME panel every other Pro row uses,
+                 passed as ELEMENTS: a section of their own (owner 2026-09-22)
+                 and how each section looks and moves (owner 2026-09-24). The
+                 actions refuse a free couple independently. */
               ownsPro={ownsPro}
+              customLock={lockPanel('A section of your own')}
               lookLock={lockPanel('How each section looks and moves')}
             />
           ),
@@ -692,7 +712,12 @@ export default async function WebsiteEditorPage({
           locked: !ownsPro,
           // Free-vs-Pro split, honest in BOTH states (owner 2026-07-25).
           panel: (
-            <EditorialPanel eventId={eventId} ownsPro={ownsPro} unlockHref={proUnlockHref} />
+            <EditorialPanel
+              eventId={eventId}
+              ownsPro={ownsPro}
+              unlockHref={proUnlockHref}
+              priceLabel={proPriceLabel}
+            />
           ),
         },
       ],
@@ -706,6 +731,7 @@ export default async function WebsiteEditorPage({
       initialPhase={initialPhase}
       initialOpenRow={typeof openRow === 'string' ? openRow : null}
       proUnlockHref={proUnlockHref}
+      proPriceLabel={proPriceLabel}
       showProCta={!ownsPro}
       liveHref={slug ? `/${slug}` : null}
       goLiveSlot={

@@ -13,11 +13,11 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
  * cinematic openings layered ON TOP are the PREMIUM. This resolves whether an
  * event has bought that premium opening unlock.
  *
- * GATE WIRING (additive):
- *   RevealOverlay shows an opening when ANY of: the admin global toggle
- *   (config.enabled, the Reveal Studio master) · the ?reveal= preview override ·
- *   THIS per-event ownership. With the admin global toggle OFF (the default),
- *   ownership is the live gate → only couples who bought the unlock get openings.
+ * GATE WIRING (owner 2026-09-24, "all reveal is paid" · lib/reveal-access.ts):
+ *   THIS per-event ownership is the ONLY way a public guest sees an opening.
+ *   The admin global toggle (config.enabled) used to switch openings on for
+ *   every couple and no longer grants anything; the ?reveal= override works
+ *   only on a NEXT_PUBLIC_STD_REVEAL=1 staff preview build.
  *
  * ✅ ACTIVATED 2026-06-17 (owner-priced ₱799): the catalog row is seeded
  *   (migration 20270113942330 · platform_retail_catalog_v2 · STD_PREMIUM_OPENINGS)

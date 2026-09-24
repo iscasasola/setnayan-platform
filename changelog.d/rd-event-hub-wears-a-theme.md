@@ -31,5 +31,20 @@ Merge note: `build-sessions/MERGE-CONTROL.md` conflicted add/add against `main`.
 snapshot whose own header says to re-run the script rather than trust it, so `main`'s newer
 2026-09-23 snapshot was taken whole. A generated file is regenerated or replaced, never hand-merged.
 
+🔒 **One guard went red, and it was right to — but for the wrong reason.**
+`the-site-wears-the-doors-theme.test.ts` demanded a material block for `minimalist`, a door that
+cannot be opened. Its `PAINTED` set was `INVITE_THEME_IDS.filter(id => id !== 'house')` — an
+**exclusion list**, which is a guard that breaks on the next registration rather than on the next
+defect. It now reads `ready`, so PAINTED is what the picker actually offers.
+
+**That is a narrowing, not a weakening, and the ratchet is what proves it.** `ready` is the same
+flag the picker reads, so the moment a skin is switched on PAINTED grows and every assertion starts
+demanding its material block, its token prefix and its pair count. Probed both ways: flipping
+`minimalist` to `ready: true` with no skin takes the file to **2 failures**; restoring returns it to
+**13 pass** with `dirty=0`. A new sibling test asserts the narrowing's own premises — that PAINTED
+still holds at least four, that `house` stays out, and that every exempt theme is `ready: false` in
+the REGISTRY rather than merely absent from a list in the test, which is how an exclusion list grows
+back.
+
 SPEC IMPACT: None. The theme ids, tiers and `feels` mapping are unchanged; only the labels a couple
 reads, plus four registrations that render nothing.

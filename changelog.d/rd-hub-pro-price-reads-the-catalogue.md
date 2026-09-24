@@ -11,4 +11,11 @@ never ₱0. The label logic is one pure helper (`website/editor/_components/unlo
 re-spelled unlock CTA. Comment-only statements of the old price in `(shell)/pricing/page.tsx`,
 `onboarding-pricing.ts` and `lib/entitlements.ts` no longer state a number.
 
-SPEC IMPACT: None
+The migrations now agree with production. The owner repriced the row in prod ("okay price it at
+2000", 2026-09-23), but `20270915796315` and `20271171000513` still left a fresh or replayed DB at
+₱3,500. New data-only migration `20271245395425_event_hub_pro_settles_at_2000.sql` is an idempotent
+UPDATE (a no-op in prod) plus a settle-check that RAISEs unless the row is 2000 and active.
+`lib/llms-txt-guard-input.ts` now mirrors prod (2000, with provenance), and
+`hub-pro-offer-renders.test.ts` injects ₱2,000.
+
+SPEC IMPACT: None (DECISION_LOG already records the 2026-09-23 reprice)

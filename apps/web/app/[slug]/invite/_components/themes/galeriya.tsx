@@ -4,7 +4,7 @@ import type { InviteSkinInput } from './invite-skin';
 import styles from './galeriya.module.css';
 
 /**
- * GALERIYA — the Sophisticated invite theme (Event Hub Pro). See
+ * GALERIYA — the Modern invite theme (Event Hub Pro). See
  * galeriya.module.css for the port and its two measured corrections.
  *
  * The photo is painted as a CSS background whose URL goes through

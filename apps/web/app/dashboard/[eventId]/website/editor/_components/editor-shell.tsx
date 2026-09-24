@@ -1,6 +1,7 @@
 'use client';
 
 import { done, todo, type RowStatus } from './rail-rows';
+import { unlockLabel } from './unlock-label';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -196,6 +197,7 @@ export function EditorShell({
   initialPhase,
   initialOpenRow = null,
   proUnlockHref,
+  proPriceLabel,
   showProCta = true,
   liveHref,
   goLiveSlot,
@@ -207,6 +209,8 @@ export function EditorShell({
   /** `?open=<rowKey>` — the row a save redirected back to (PR-3). */
   initialOpenRow?: string | null;
   proUnlockHref: string;
+  /** The live catalogue price, formatted — null when the catalogue did not answer. */
+  proPriceLabel: string | null;
   /** Hide the umbrella CTA once the couple owns Website Pro (PR-4). */
   showProCta?: boolean;
   liveHref: string | null;
@@ -473,7 +477,7 @@ export function EditorShell({
                 href={proUnlockHref}
                 className="mt-2.5 inline-flex items-center rounded-full bg-amber-400 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300"
               >
-                Unlock Event Hub PRO · ₱3,500
+                {unlockLabel(proPriceLabel)}
               </Link>
             </div>
           ) : null}

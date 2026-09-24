@@ -12,6 +12,7 @@ import {
 } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const metadata = { title: 'Orders' };
 
@@ -35,6 +36,15 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
   const vatRatePct = await getEffectiveVatRatePct(supabase);
 
   const orders = await fetchOrdersForEvent(supabase, eventId);
+  /**
+   * 🔒 IN THE APP STORE / PLAY STORE SHELL THIS IS A RECORD, NOT A TILL. Every
+   * couple order is a Setnayan digital SKU, so "New order" and each order's
+   * detail page (a pay-now screen) are web-only — middleware refuses both
+   * routes (lib/store-shell.ts). Linking to them from here would be a dead end,
+   * so the button goes and the rows stop being links. The ledger itself stays:
+   * seeing what you already have is not a purchase.
+   */
+  const storeShell = await isStoreShellRequest();
 
   const flash =
     search.self_comp === '1'
@@ -50,13 +60,15 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
       <PageMasthead
         title="Orders"
         actions={
-          <Link
-            href={`/dashboard/${eventId}/orders/new`}
-            className="button-primary inline-flex items-center gap-2"
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            New order
-          </Link>
+          storeShell ? undefined : (
+            <Link
+              href={`/dashboard/${eventId}/orders/new`}
+              className="button-primary inline-flex items-center gap-2"
+            >
+              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+              New order
+            </Link>
+          )
         }
       />
 
@@ -73,18 +85,21 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
         <div className="sn-row border-dashed p-8 text-center">
           <Receipt aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm text-ink/55">
-            No orders yet. Use <span className="font-medium text-ink">New order</span> above
-            to request a custom quote.
+            {storeShell ? (
+              'No orders yet.'
+            ) : (
+              <>
+                No orders yet. Use <span className="font-medium text-ink">New order</span> above
+                to request a custom quote.
+              </>
+            )}
           </p>
         </div>
       ) : (
         <ul className="space-y-2">
-          {orders.map((o) => (
-            <li key={o.order_id}>
-              <Link
-                href={`/dashboard/${eventId}/orders/${o.order_id}`}
-                className="sn-row group flex flex-col gap-2 p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 sm:flex-row sm:items-center sm:justify-between"
-              >
+          {orders.map((o) => {
+            const row = (
+              <>
                 <div className="min-w-0 space-y-1">
                   <p className="line-clamp-1 text-sm font-semibold text-ink">
                     {o.description}
@@ -113,11 +128,29 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
                     {ORDER_STATUS_LABEL[o.status]}
                   </span>
                 </div>
-              </Link>
-            </li>
-          ))}
+              </>
+            );
+            return (
+              <li key={o.order_id}>
+                {storeShell ? (
+                  <div className={ORDER_ROW_CLASS}>{row}</div>
+                ) : (
+                  <Link
+                    href={`/dashboard/${eventId}/orders/${o.order_id}`}
+                    className={`${ORDER_ROW_CLASS} transition-colors hover:border-terracotta/40 hover:bg-terracotta/5`}
+                  >
+                    {row}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
   );
 }
+
+const ORDER_ROW_CLASS =
+  'sn-row group flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between';
+

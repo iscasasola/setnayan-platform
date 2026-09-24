@@ -2,25 +2,22 @@ import {
   Suspense,
   type ReactNode,
   type ComponentType,
-  type CSSProperties,
 } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   Store,
   ShieldCheck,
-  Plus,
   ArrowUpRight,
   Wand2,
-  AlertCircle,
   Users,
   Clapperboard,
   Heart,
   HeartHandshake,
-  MapPin,
   Baby,
   Mail,
   CalendarClock,
+  Plus,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
 import { createClient } from '@/lib/supabase/server';
@@ -49,7 +46,7 @@ import {
   type CommunityWithRole,
 } from '@/lib/communities';
 import {
-  fetchChecklistItems,
+  readChecklistItems,
   checklistAnchorDateFor,
   checklistRunwayFor,
   daysUntilEvent,
@@ -57,20 +54,33 @@ import {
 } from '@/lib/checklist';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import {
-  fetchEventDecisionCounts,
-  fetchEventUnreadCounts,
+  readEventDecisionCounts,
+  readEventUnreadCounts,
   fetchVendorUnreadCounts,
   summarizeEventDecisions,
   type EventDecisionSummary,
 } from '@/lib/event-decisions';
 import { getAdminQueueDigest, ADMIN_QUEUE_META } from '@/lib/admin/queue-counts';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ProgressRing } from '@/app/_components/progress-ring';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import {
+  CollectionCard,
+  CollectionEmptyState,
+  CollectionGrid,
+  CollectionPager,
+  NewThingTile,
+  collectionMarkClass,
+  type CollectionAttention,
+} from '@/app/_components/collection-card';
+import { paginateCollection, parseCollectionPage } from '@/lib/collection-pagination';
+import { EventPoster } from '@/app/_components/event-poster';
+import type { EventPosterFacts } from '@/lib/event-poster';
+import { resolveEventPoster } from '@/lib/event-poster.server';
+import { resolveMonogram } from '@/lib/monogram';
+import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { CountUp } from '@/app/_components/count-up';
 import { EventCardMenu } from './_components/event-card-menu';
 /*
   ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
@@ -107,8 +117,9 @@ export const metadata = {
  * block has exactly ONE home — no duplicated surfaces:
  *   • EVENTS — TWO ALWAYS-PRESENT SHELVES (owner 2026-08-13): "Coming up" as
  *     glass cards (badge · stance · monogram · place/date · gold progress ring
- *     · countdown), date DESCENDING (newest on top, per the 2026-07-13 timeline
- *     ordering rule) with UNDATED at the tail reading "Date to be set", ending
+ *     · countdown), SOONEST FIRST since 2026-09-24 (the collection template —
+ *     it reversed the 2026-07-13 newest-on-top rule for Planning only) with
+ *     UNDATED at the tail reading "Date to be set", ten per page, ending
  *     in a "New event" card — then "Finished", which reads "Celebrated" and is
  *     rendered WHETHER OR NOT it has anything in it. It used to hide behind a
  *     "Show all" (`?show=all`) toggle: **a thing you have to switch on reads as
@@ -191,7 +202,10 @@ export default async function LauncherPage({
   // put away BY HAND, and the switch prints how many there are, so it can never
   // read as "something might be missing" — which is the sentence that retired
   // the old one.
-  searchParams?: Promise<{ hub?: string; putaway?: string }>;
+  //
+  // `page` is the Planning shelf's page (the collection template, owner-approved
+  // 2026-09-24: ten per page). A URL, not state — see `planningPageHref`.
+  searchParams?: Promise<{ hub?: string; putaway?: string; page?: string }>;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
@@ -300,7 +314,10 @@ export default async function LauncherPage({
   // Timeline order (owner 2026-07-13): a Facebook-style feed — newest at the
   // top, OLDER as you scroll down. Coming up runs date DESCENDING with UNDATED
   // at the tail ("Date to be set" is a real state, not a missing value), then
-  // Finished continues oldest-toward-the-bottom. Both shelves ALWAYS RENDER
+  // Finished continues oldest-toward-the-bottom. ⚠ PLANNING IS RE-ORDERED
+  // SOONEST FIRST by `splitPlanningShelves` (collection template, owner-approved
+  // 2026-09-24) — this timeline order survives for the finished shelves and for
+  // `comingUp` as an input. Both shelves ALWAYS RENDER
   // (owner 2026-08-13) — the `?show=all` toggle that used to hide the second one
   // is gone.
   //
@@ -324,6 +341,11 @@ export default async function LauncherPage({
   } = splitPlanningShelves(comingUpAll, finishedAll, todayISO);
   const finished = boardFinished(finishedAll);
   const showPutAway = putAwayRequested;
+  // THE PLANNING SHELF PAGES AT TEN (the collection template, owner-approved
+  // 2026-09-24). `upcoming` is already soonest-first (`splitPlanningShelves`),
+  // so a page is a slice of it. Other shelves are not paged.
+  const planningPage = paginateCollection(upcoming.length, parseCollectionPage(sp.page));
+  const upcomingOnPage = upcoming.slice(planningPage.from, planningPage.to);
   // "You are expected in two places." Read off the shelves already in memory —
   // today's and the ones ahead — never the finished ones: a clash you can no
   // longer do anything about is a reproach, not a warning.
@@ -387,10 +409,15 @@ export default async function LauncherPage({
     active.map(
       async (
         e,
-      ): Promise<[string, { pct: number | null; overdue: number }]> => {
+      ): Promise<[string, { pct: number | null; overdue: number | null; failed: boolean }]> => {
         try {
-          const items = await fetchChecklistItems(supabase, e.event_id);
-          if (items.length === 0) return [e.event_id, { pct: null, overdue: 0 }];
+          // 🔑 UNKNOWN IS NOT ZERO (collection template, 2026-09-24). A refused
+          // read used to arrive here as `[]` and leave the card saying nothing
+          // needs you. `readChecklistItems` returns `null` for "could not read",
+          // and the card then says so.
+          const items = await readChecklistItems(supabase, e.event_id);
+          if (items === null) return [e.event_id, { pct: null, overdue: null, failed: true }];
+          if (items.length === 0) return [e.event_id, { pct: null, overdue: 0, failed: false }];
           const done = items.filter((i) => i.status === 'done').length;
           // Same deadline ANCHOR the checklist page dates by — locked date, else
           // earliest candidate, else window start; weddings on the locked date
@@ -412,10 +439,10 @@ export default async function LauncherPage({
           }).length;
           return [
             e.event_id,
-            { pct: Math.round((done / items.length) * 100), overdue },
+            { pct: Math.round((done / items.length) * 100), overdue, failed: false },
           ];
         } catch {
-          return [e.event_id, { pct: null, overdue: 0 }];
+          return [e.event_id, { pct: null, overdue: null, failed: true }];
         }
       },
     ),
@@ -424,20 +451,37 @@ export default async function LauncherPage({
   const progressByEvent = new Map<string, number | null>(
     checklistEntries.map(([id, v]) => [id, v.pct]),
   );
+  // Which cards' progress could not be READ — distinct from "no checklist yet"
+  // (`pct: null` with `failed: false`), which shows no ring and claims nothing.
+  const progressFailed = new Set(
+    checklistEntries.filter(([, v]) => v.failed).map(([id]) => id),
+  );
 
   // "Needs a decision now" per event — the pay + approve signals (batched into
   // two queries) merged with the overdue-task count from the checklist pass. A
   // named action line, not a bare badge (owner 2026-07-10). Graceful-degrades to
   // an empty summary; a card with nothing pending shows no attention line.
+  // 🔑 A FAILED READ IS `null`, NEVER AN EMPTY MAP (collection template,
+  // 2026-09-24). These used to `.catch(() => new Map())` — and the helpers
+  // swallowed a refused query as zeros before that — so a read that never
+  // completed printed as "nothing needs you". `null` here reaches the card as
+  // `summary: null`, which renders "Couldn't load what needs you".
   const [decisionCounts, unreadByEvent] = await Promise.all([
-    fetchEventDecisionCounts(
+    readEventDecisionCounts(
       supabase,
       active.map((e) => e.event_id),
-    ).catch(() => new Map<string, { pay: number; approve: number }>()),
-    fetchEventUnreadCounts(supabase).catch(() => new Map<string, number>()),
+    ).catch(() => null),
+    readEventUnreadCounts(supabase).catch(() => null),
   ]);
-  const decisionByEvent = new Map<string, EventDecisionSummary>();
+  const decisionByEvent = new Map<string, EventDecisionSummary | null>();
   for (const e of active) {
+    // Overdue tasks are meaningless once the date has passed (below), so a
+    // failed checklist read only makes the summary unknown for a live event.
+    const overdueUnknown = !isPast(e) && checklistByEvent.get(e.event_id)?.overdue === null;
+    if (decisionCounts === null || unreadByEvent === null || overdueUnknown) {
+      decisionByEvent.set(e.event_id, null);
+      continue;
+    }
     const c = decisionCounts.get(e.event_id) ?? { pay: 0, approve: 0 };
     // Overdue tasks are meaningless once the date has passed, so a finished
     // event still surfaces pay / approve / message decisions but not a
@@ -767,6 +811,11 @@ export default async function LauncherPage({
     }
   }
 
+  // THE POSTERS (the collection template, owner-approved 2026-09-24) — for the
+  // Planning page on screen only, never the whole shelf. Each follows the hero
+  // the couple built; see `planningPosters` and `lib/event-poster.ts`.
+  const posterById = await planningPosters(supabase, upcomingOnPage, ownHeroById, user.id);
+
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the
   // user owns or is on the team of (owner: "show what shop we have"), so a
@@ -1023,8 +1072,8 @@ export default async function LauncherPage({
           count travels with the event it belongs to, on every shelf and at
           every width. */}
       {/* COMING UP — the first of the board's TWO ALWAYS-PRESENT shelves
-          (owner 2026-08-13). Glass cards, date descending (newest on top, owner
-          2026-07-13 ordering), UNDATED at the tail reading "Date to be set".
+          (owner 2026-08-13). Glass cards, soonest first since 2026-09-24 (the
+          collection template), UNDATED at the tail reading "Date to be set".
           The FINISHED shelf follows as its own section — it is no longer hidden
           behind a "Show all" toggle. */}
       {/* NOW HAPPENING — the day itself (owner 2026-08-21).
@@ -1058,7 +1107,7 @@ export default async function LauncherPage({
             itself the morning after.
           </p>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <CollectionGrid>
           {happeningNow.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
@@ -1069,11 +1118,12 @@ export default async function LauncherPage({
                 index={i}
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
+                progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
               />
             </BoardCardWithMenu>
           ))}
-        </div>
+        </CollectionGrid>
       </section>
 
       <section
@@ -1083,19 +1133,40 @@ export default async function LauncherPage({
       >
         <SectionLabel
           sub="yours to run"
-          info="Everything you’re organising or were invited to. Put one away and it hides here until you switch it back on."
+          info="Everything you’re organising or were invited to, soonest first. Put one away and it hides here until you switch it back on."
           action={
-            putAway.length > 0 ? (
-              <PutAwaySwitch on={showPutAway} count={putAway.length} />
-            ) : null
+            <PlanningHeaderActions
+              count={upcoming.length}
+              putAwayOn={showPutAway}
+              putAwayCount={putAway.length}
+            />
           }
         >
           Planning
         </SectionLabel>
         <ClashNotice clashes={clashes} />
-        {/* DESKTOP grid (proto .evrow — 4 columns on the wide canvas). */}
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {upcoming.map((event, i) => (
+        {/* THE COLLECTION TEMPLATE (owner-approved 2026-09-24): soonest first,
+            undated last, ten per page. The dashed tile closes the grid only
+            while the page has room — a full page's way in is the header (+).
+            ⚠ THE EMPTY STATE MAKES NO ZERO-CLAIM: `fetchUserEvents` degrades
+            to [] on a refused read, and a person with finished celebrations
+            has an empty Planning shelf too — so it never says "no events". */}
+        {upcoming.length === 0 ? (
+          <CollectionEmptyState
+            title="Start a celebration"
+            body="Guests, suppliers, the day itself — everything you plan gathers here, soonest first."
+            action={
+              <Link
+                href="/dashboard/create-event"
+                className="sn-press inline-block rounded-full bg-ink px-[18px] py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-black"
+              >
+                Create an event
+              </Link>
+            }
+          />
+        ) : (
+        <CollectionGrid layout="poster">
+          {upcomingOnPage.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event}>
               <GlassEventCard
                 event={event}
@@ -1105,12 +1176,31 @@ export default async function LauncherPage({
                 index={i}
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
+                progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
+                poster={posterById.get(event.event_id)}
               />
             </BoardCardWithMenu>
           ))}
-          <NewEventCard delay={0.5 + upcoming.length * 0.08} />
-        </div>
+          {planningPage.hasRoomForNewTile ? (
+            <NewEventCard poster delay={0.5 + upcomingOnPage.length * 0.05} />
+          ) : null}
+        </CollectionGrid>
+        )}
+        <CollectionPager
+          label="Planning pages"
+          rangeLabel={planningPage.rangeLabel}
+          links={planningPage.stops.map((stop) =>
+            stop.kind === 'gap'
+              ? stop
+              : {
+                  kind: 'page' as const,
+                  href: planningPageHref(stop.page, showPutAway),
+                  label: stop.label,
+                  current: stop.current,
+                },
+          )}
+        />
         {/* THE ONES THEY PUT AWAY — only when asked for. Muted, and each still
             carries its own ⋯ menu, because the one thing a person wants here is
             "bring it back", which is exactly what that menu already offers on an
@@ -1120,7 +1210,7 @@ export default async function LauncherPage({
             <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--sn-ink-400)]">
               Put away
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <CollectionGrid>
               {putAway.map((event, i) => (
                 <BoardCardWithMenu key={event.event_id} event={event}>
                   <GlassEventCard
@@ -1129,14 +1219,15 @@ export default async function LauncherPage({
                     heroSrc={heroFor(event.event_type)}
                     ownHeroSrc={ownHeroById.get(event.event_id) ?? null}
                     finished
-                    index={upcoming.length + i}
+                    index={upcomingOnPage.length + i}
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
+                    progressFailed={progressFailed.has(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
                   />
                 </BoardCardWithMenu>
               ))}
-            </div>
+            </CollectionGrid>
           </div>
         ) : null}
         {/* ⚠ THE ALL-EVENTS SUBSCRIPTION BLOCK STOOD HERE AND IS RETIRED
@@ -1234,7 +1325,7 @@ export default async function LauncherPage({
                 refused read cannot vouch for, is not this shelf's call to make. */}
             {/* DESKTOP — the same glass cards, muted scene, reading
                 "Celebrated". */}
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            <CollectionGrid>
               {unwritten.map((event, i) => (
                 <BoardCardWithMenu key={event.event_id} event={event} finished>
                   <GlassEventCard
@@ -1246,6 +1337,7 @@ export default async function LauncherPage({
                     index={upcoming.length + i}
                     todayISO={todayISO}
                     summary={decisionByEvent.get(event.event_id)}
+                    progressFailed={progressFailed.has(event.event_id)}
                     hasMenu={event.member_type === 'couple'}
                     storyHref={
                       storiesMeasured && canWriteStoryFor(event)
@@ -1255,7 +1347,7 @@ export default async function LauncherPage({
                   />
                 </BoardCardWithMenu>
               ))}
-            </div>
+            </CollectionGrid>
           </>
         )}
       </section>
@@ -1291,7 +1383,7 @@ export default async function LauncherPage({
               : 'This is where the celebrations you have written up live.'}
           </p>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <CollectionGrid>
           {written.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event} finished>
               <GlassEventCard
@@ -1303,11 +1395,12 @@ export default async function LauncherPage({
                 index={upcoming.length + unwritten.length + i}
                 todayISO={todayISO}
                 summary={decisionByEvent.get(event.event_id)}
+                progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
               />
             </BoardCardWithMenu>
           ))}
-        </div>
+        </CollectionGrid>
         {/* ⚠ ONLY WHEN THERE IS SOMETHING TO READ. "These days are told"
             beside an empty shelf names days that are not there.
             🔑 THIS LINE USED TO SAY "chapters" AND POINT AT THE STORYTELLER.
@@ -1543,79 +1636,6 @@ function StanceChip({ stance }: { stance: EventStance }) {
 }
 
 /**
- * The press + hover affordances. Stripped from a card that has nowhere to go —
- * see CardShell. Kept as one list so "which classes make this look pressable"
- * has a single answer.
- */
-const PRESSABLE_CLASSES = ['sn-press', 'sn-lift-4'] as const;
-
-/**
- * …and every `hover:` variant, because a named list is a bill you keep paying.
- * The first cut stripped the two classes above and left `hover:border-mulberry/30`
- * on the desktop card, so a dead card still lit its border under the pointer.
- * Anything that changes on hover is an affordance.
- */
-const isHoverAffordance = (c: string) => c.startsWith('hover:');
-
-/**
- * A board card is a LINK when there is somewhere to send this person, and an
- * INERT panel when there is not — inert in look as well as in behaviour.
- *
- * 🪤 An INVITED event whose host has never opened a public page has no guest
- * surface at all — and one prod event is in exactly that state. The old card
- * would have linked to `/dashboard/<id>`, which admits organisers only, so the
- * person told they belong would have been shown a 404. Rendering the card
- * without a link is the honest version: they ARE invited, there is just nothing
- * to open yet, and `deriveEventView`'s `closedReason` puts that on the card.
- *
- * 🚨 AND THE FIRST CUT OF THIS SHELL WAS A DEAD CONTROL THAT LOOKED ALIVE.
- * It passed the caller's `className` straight through to the `<div>`, and that
- * string carries `sn-press` (`:active { scale: 0.97 }`) and `sn-lift-4`
- * (`:hover { translateY(-4px) }`) — both plain class selectors in globals.css,
- * so they fire on a div exactly as on a link. The card lifted when you pointed
- * at it and squashed when you pressed it, and then did nothing. Found by an
- * adversarial pass over my own merged work, 2026-08-13; the `cursor` never
- * changed (those rules cover buttons and anchors only), which made it quieter
- * still. **A control that animates under your finger has promised something.**
- */
-function CardShell({
-  href,
-  className,
-  style,
-  children,
-}: {
-  /** `null` renders an inert card (see the block above) — used ONLY when the
-   *  destination genuinely does not exist yet (an invited guest whose host
-   *  hasn't opened a public address). Never pass null to mean "use the
-   *  default" — callers that want the default simply don't override it. */
-  href: string | null;
-  className: string;
-  style?: CSSProperties;
-  children: ReactNode;
-}) {
-  if (!href) {
-    const inert = className
-      .split(/\s+/)
-      .filter(
-        (c) =>
-          !(PRESSABLE_CLASSES as readonly string[]).includes(c) &&
-          !isHoverAffordance(c),
-      )
-      .join(' ');
-    return (
-      <div className={inert} style={style}>
-        {children}
-      </div>
-    );
-  }
-  return (
-    <Link href={href} className={className} style={style}>
-      {children}
-    </Link>
-  );
-}
-
-/**
  * One EVENTS glass card (owner-approved final design 2026-07-15). A frosted
  * panel over the warm paper — the Atelier + macOS-glass language (owner-locked
  * 2026-07-12) — carrying the same signals as the old timeline node: badge ·
@@ -1639,13 +1659,19 @@ function GlassEventCard({
   index = 0,
   todayISO,
   summary,
+  progressFailed = false,
   hasMenu = false,
   storyHref,
+  poster,
 }: {
   event: EventWithRole;
   pct: number | null;
-  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0. */
-  summary?: EventDecisionSummary;
+  /** This event's own decision summary. `undefined` ⇒ no pill — never a 0.
+   *  `null` ⇒ it could not be READ — the card says "couldn't load". */
+  summary?: EventDecisionSummary | null;
+  /** The checklist read for this event FAILED — the ring reads "couldn't
+   *  load" instead of vanishing as though there were no checklist. */
+  progressFailed?: boolean;
   /** The board's PH-local day — the countdown and the shelf must share it. */
   todayISO: string;
   /** Resolved event-type hero (admin upload → repo asset) for the scene band.
@@ -1673,6 +1699,14 @@ function GlassEventCard({
    * other rules already live, not duplicated here.
    */
   storyHref?: string;
+  /**
+   * THE POSTER (the collection template, owner-approved 2026-09-24). When set,
+   * the cover IS the card: the event's poster, 3:4, printing the names and the
+   * date ONCE — so the body's title and date line are not drawn again and
+   * become the link's accessible name instead. Absent (every other shelf, or a
+   * Planning card whose words could not be resolved) → the glass card as before.
+   */
+  poster?: EventPosterFacts;
 }) {
   const { badge, dateLabel, place, status, keptNote, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
@@ -1681,48 +1715,64 @@ function GlassEventCard({
   // (whose day has happened — a planning score on a celebrated day is the
   // board contradicting its own "Celebrated" badge one line up).
   const showRing = pct != null && stance !== 'invited' && !finished;
+  // Unknown ≠ none: only an organiser's live card carries a ring at all, so
+  // only there can a failed read be reported as one.
+  const ringUnknown = progressFailed && stance !== 'invited' && !finished;
   const resolvedHref = storyHref ?? href;
 
+  // SEC-3: gated on read — both monogram columns are host-writable.
+  const markSvg = poster ? resolveEventMonogramSvg(event) : null;
+  /*
+    THE CARD IS THE COLLECTION CARD (build-sessions/STANDARD-collection-card.md,
+    step 1). This function is now only PLANNING'S SLOT MAPPING — which event
+    fact fills which slot. How a card is laid out lives in
+    `@/app/_components/collection-card`, and the no-fork guard keeps it there.
+  */
   return (
-    <CardShell
+    <CollectionCard
       href={resolvedHref}
-      className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex h-full min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
-        finished ? 'opacity-75 hover:opacity-100' : ''
-      }`}
-      style={{ animationDelay: `${0.5 + index * 0.08}s` }}
-    >
-      {/* THE SCENE (prototype `events()` → `.top`): the event's hero, scrimmed,
-          with the type badge, the monogram floating over the band's edge, and
-          the event's NAME + PLACE set on it — the thing that makes an event
-          imaginable instead of a stripe (owner 2026-07-30). The couple's OWN
-          hero when they have one; otherwise the same type hero (+ gradient
-          fallback) the create-event picker uses, under the per-event treatment
-          that keeps two events of one type from reading as the same
-          photograph. Nothing new is invented, and a type with no asset gets
-          its deterministic branded gradient, never another type's photo. */}
-      <div className="relative h-32 shrink-0 sm:h-36">
-        <EventScene
-          eventId={event.event_id}
-          eventType={event.event_type}
-          photoSrc={heroSrc}
-          ownPhotoSrc={ownHeroSrc}
-          muted={finished}
-        />
-        {/* Type badge + STANCE, one row: what kind of event this is, and which
-            side of it you are on. */}
-        <div
-          className={`absolute left-3 top-3 flex flex-wrap items-center gap-1.5 ${
-            hasMenu ? 'max-w-[calc(100%-3.75rem)]' : 'max-w-[calc(100%-1.5rem)]'
-          }`}
-        >
-          <span className="inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
-            {badge}
-          </span>
-          {stance ? <StanceChip stance={stance} /> : null}
-        </div>
-        {/* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
-            lettered). Uploaded outranks custom per app-wide precedence;
-            EventMonogram only reads monogram_custom_svg, so resolve it here. */}
+      /* THE POSTER (collection template, owner-approved 2026-09-24): with one,
+         the cover IS the card and prints the names and date once. */
+      layout={poster ? 'poster' : 'card'}
+      coverTone={poster?.dark ? 'dark' : 'light'}
+      inertReason={closedReason}
+      muted={finished}
+      index={index}
+      reserveMenuCorner={hasMenu}
+      /* THE SCENE (prototype `events()` → `.top`): the event's hero, scrimmed —
+         the thing that makes an event imaginable instead of a stripe (owner
+         2026-07-30). The couple's OWN hero when they have one; otherwise the
+         same type hero (+ gradient fallback) the create-event picker uses,
+         under the per-event treatment that keeps two events of one type from
+         reading as the same photograph. Nothing new is invented, and a type
+         with no asset gets its deterministic branded gradient, never another
+         type's photo. */
+      cover={
+        poster ? (
+          <EventPoster
+            poster={poster}
+            markText={resolveMonogram(event).text}
+            markSvgUri={markSvg ? bespokeSvgToDataUri(markSvg) : null}
+          />
+        ) : (
+          <EventScene
+            eventId={event.event_id}
+            eventType={event.event_type}
+            photoSrc={heroSrc}
+            ownPhotoSrc={ownHeroSrc}
+            muted={finished}
+          />
+        )
+      }
+      /* Type badge + STANCE, one row: what kind of event this is, and which
+         side of it you are on. */
+      kicker={stance ? [badge, <StanceChip stance={stance} key="stance" />] : [badge]}
+      /* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
+         lettered). Uploaded outranks custom per app-wide precedence;
+         EventMonogram only reads monogram_custom_svg, so resolve it here. */
+      /* The poster carries their mark itself — no second badge on it. */
+      mark={
+        poster ? undefined : (
         <EventMonogram
           event={{
             ...event,
@@ -1731,79 +1781,39 @@ function GlassEventCard({
           }}
           size="lg"
           shape="square"
-          className="absolute -bottom-4 right-3 border-2 border-white/80 shadow-[var(--sn-sh-tile)]"
+          className={collectionMarkClass}
         />
-        {/* Name + place ON the scene. `right-[4.75rem]` keeps them clear of the
-            monogram that overhangs the band's bottom-right corner. Place is
-            omitted (never guessed) when the event has neither a venue name nor
-            an address. */}
-        <div className="absolute inset-x-3 bottom-2.5 right-[4.75rem] min-w-0">
-          <p className="flex items-center gap-1.5 text-[15px] font-extrabold text-white drop-shadow-[0_1px_6px_rgba(23,22,15,0.6)]">
-            {event.is_primary ? (
-              <span
-                aria-hidden
-                className="shrink-0 text-xs text-[color:var(--sn-terra)]"
-              >
-                ★
-              </span>
-            ) : null}
-            <span className="truncate">{event.display_name}</span>
-          </p>
-          {place ? (
-            <p className="flex items-center gap-1 text-[11.5px] text-white/75">
-              <MapPin aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
-              <span className="truncate">{place}</span>
-            </p>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-4 pt-5">
-        <p className="truncate text-[12.5px] text-[color:var(--sn-ink-500)]">
-          {dateLabel ?? 'Date to be set'}
-        </p>
-        {/* THE COUNTER (owner 2026-08-20). Above the progress row so it is the
-            first thing read after the date — what is waiting outranks how far
-            along the plan is. Absent entirely when nothing waits. */}
-        <EventAttention summary={summary} stance={stance} />
-        <div className="mt-auto flex items-center gap-2.5 pt-1">
-          {showRing ? (
-            <ProgressRing
-              pct={pct as number}
-              size={44}
-              stroke={4.5}
-              trackColor="rgb(var(--color-ink) / 0.08)"
-              sweep={{ delayMs: 600 + 150 * index }}
-              className="rounded-full shadow-[0_6px_16px_-8px_rgba(30,26,18,0.3)]"
-            >
-              {/* Frosted inner disc behind the label (proto .ring inner). */}
-              <span
-                aria-hidden
-                className="absolute inset-[4.5px] rounded-full bg-white/[0.78] backdrop-blur-[6px]"
-              />
-              <span className="relative font-mono text-[10px] font-bold text-ink">
-                <CountUp value={pct as number} suffix="%" delayMs={600 + 150 * index} />
-                {/* The ring is the ONE place the figure prints (the old
-                    "N% planned" text beside it was the D-6 double-print);
-                    this keeps the word for screen readers. */}
-                <span className="sr-only"> planned</span>
-              </span>
-            </ProgressRing>
-          ) : null}
-          <div className="min-w-0">
-            <p className="truncate text-[12.5px] font-bold text-ink">{status}</p>
-            {keptNote ? (
-              <p className="truncate text-[11px] text-ink/45">{keptNote}</p>
-            ) : null}
-            {/* Why this card does not open. Rendered whenever there is no
-                destination, on EVERY shelf — a silent dead card reads as the
-                app being broken or the couple having pulled their page. */}
-            {closedReason ? (
-              <p className="text-[11px] leading-snug text-ink/45">{closedReason}</p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </CardShell>
+        )
+      }
+      starred={event.is_primary}
+      title={event.display_name}
+      /* Omitted (never guessed) when the event has neither a venue name nor an
+         address. */
+      place={poster ? null : place}
+      /* On a poster this is NOT printed — the poster already says it — and it
+         becomes the rest of the card's accessible name: kind, stance, the day. */
+      meta={
+        poster
+          ? [
+              stance ? `${badge}, ${stanceLabel(stance)}` : badge,
+              poster.date ? `${poster.weekday} ${poster.date}` : 'Date to be set',
+            ].join(' · ')
+          : (dateLabel ?? 'Date to be set')
+      }
+      /* THE COUNTER (owner 2026-08-20). Above the progress row so it is the
+         first thing read after the date — what is waiting outranks how far
+         along the plan is. Absent entirely when nothing waits. */
+      attention={eventAttention(summary, stance)}
+      progress={{
+        pct: ringUnknown ? null : showRing ? (pct as number) : undefined,
+        remainder: status,
+        // The ring is the ONE place the figure prints (the old "N% planned"
+        // text beside it was the D-6 double-print); this keeps the word for
+        // screen readers.
+        srLabel: 'planned',
+        note: keptNote ?? (poster && !poster.date ? 'Date to be set' : null),
+      }}
+    />
   );
 }
 
@@ -1930,71 +1940,14 @@ function deriveEventView(
  */
 
 /**
- * The "needs a decision now" line — a gold pill naming the top pending
- * action (+ "· N more" when other kinds are also waiting). Named, not a bare
- * count badge, so the couple knows WHAT before they click (owner 2026-07-10).
- * Reused on the vendor shop + admin HQ cards, and on every event card.
+ * The event-card counter — Planning's fill for the collection card's ONE
+ * attention row, or nothing at all.
  *
- * ─── `count` — THE TOTAL, LEADING (owner 2026-08-20) ────────────────────────
- * The owner asked for "a counter on the event card", having watched a banner
- * say "9 things need you" for one event while the rest said nothing. So the
- * event cards pass `count` and the pill leads with that whole number.
- *
- * 🔑 IT LEADS WITH THE NUMBER AND STILL NAMES THE ACTION, because BOTH owner
- * rulings are live and neither cancels the other: 2026-07-10 asked for a named
- * line rather than a bare badge ("so the couple knows WHAT before they click"),
- * and 2026-08-20 asked for the count to be visible per event. A bare "9" would
- * satisfy the new instruction by breaking the old one. The number is first so
- * that it survives truncation on the narrowest card — the label is what gives
- * way when there is no room, never the count.
- */
-function AttentionPill({
-  label,
-  more = 0,
-  count,
-}: {
-  label: string;
-  more?: number;
-  /** Total waiting on this surface. Omitted → the original label-only pill. */
-  count?: number;
-}) {
-  return (
-    <span className="flex items-center gap-1.5 rounded-lg bg-[color:var(--sn-warning-soft)] px-[9px] py-[5px] text-[color:var(--sn-warning)]">
-      <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
-      {count != null ? (
-        /*
-          🚨 THE TOTAL NEEDS ITS OWN NOUN, AND THE FIRST CUT DID NOT GIVE IT ONE.
-          `summarizeEventDecisions` returns a label that is ALREADY COUNT-LED —
-          "3 payments to settle" — so printing the total straight before it
-          rendered "9 3 payments to settle", and "3 3 payments to settle"
-          whenever one kind was the only kind waiting. Two numbers in a row with
-          nothing between them, on the pill the owner asked for by name.
-
-          "need you" is what makes the first number a TOTAL and the second one a
-          BREAKDOWN. It is also the banner's own word, so the count reads as the
-          same fact that used to sit at the top of the page.
-        */
-        <span className="shrink-0 font-mono text-[12px] font-bold leading-none">
-          {count} need you
-        </span>
-      ) : null}
-      <span className="truncate text-[11px] font-bold">
-        {count != null ? <span className="opacity-60">· </span> : null}
-        {label}
-        {/* `· N more` is SUPPRESSED once the total is shown: the total already
-            counts the remainder (9 = 3 + 6), so keeping both prints the same
-            arithmetic twice and invites the reader to add them again. */}
-        {more > 0 && count == null ? (
-          <span className="font-mono font-normal opacity-70"> · {more} more</span>
-        ) : null}
-      </span>
-    </span>
-  );
-}
-
-/**
- * The event-card counter — `AttentionPill` fed from a card's own decision
- * summary, or nothing at all.
+ * The row itself (the amber pill, "N need you", the rule that the total leads
+ * only when it says something the label does not) is the collection card's
+ * `CollectionAttentionRow` now; see its docblock for the owner's "9 need you ·
+ * 9 tasks overdue" and "9 3 payments to settle" history. This function only
+ * decides WHICH numbers Planning hands it.
  *
  * ─── THE TWO WAYS THIS MUST STAY SILENT ────────────────────────────────────
  * 1. NO SUMMARY, NO PILL. `decisionByEvent` is keyed on the organiser's ACTIVE
@@ -2009,43 +1962,28 @@ function AttentionPill({
  *    the same error as printing "% planned" on a card for somebody else's
  *    plan, which `deriveEventView` already refuses to do.
  */
-function EventAttention({
-  summary,
-  stance,
-}: {
-  summary: EventDecisionSummary | undefined;
-  stance: EventStance | null;
-}) {
-  if (!summary || summary.total <= 0 || !summary.top) return null;
-  if (stance === 'invited') return null;
+function eventAttention(
+  summary: EventDecisionSummary | null | undefined,
+  stance: EventStance | null,
+): CollectionAttention | undefined {
+  if (stance === 'invited') return undefined;
+  // 3. A READ THAT FAILED IS NOT "NOTHING WAITING" (collection template,
+  //    2026-09-24): `null` is the reads' own "could not measure", and the card
+  //    says so instead of going quiet.
+  if (summary === null) return { count: null };
+  if (!summary || summary.total <= 0 || !summary.top) return undefined;
   /*
-    🔴 THE TOTAL IS ONLY SHOWN WHEN IT SAYS SOMETHING THE LABEL DOES NOT.
-
-    Owner, looking at his own home screen: the card read
-    **"9 need you · 9 tasks overdue"** — nine, twice.
-
-    This is the second costume of the bug fixed the day before. That one was
-    "9 3 payments to settle", where the two numbers DIFFERED and ran together
-    with nothing between them. The noun ("need you") fixed the collision but not
-    the REPETITION: when everything waiting is a single kind, the total and the
-    top action's count are the same number, and the pill states it twice.
-
-    `summarizeEventDecisions` always returns a count-led label, so when
-    `total === top.count` the label alone is the whole truth — "9 tasks overdue"
-    says how many AND what. The total earns its place only when it is larger,
-    i.e. when other kinds are waiting that the label cannot name.
-
-    🔑 A SUMMARY THAT REPEATS ITSELF READS AS A BUG EVEN WHEN THE NUMBER IS
-    RIGHT. The owner did not have to check anything to see it was wrong.
+    `count` is the TOTAL waiting and `labelCount` is what the count-led label
+    already says ("9 tasks overdue"). The row prints the total ahead of the
+    label only when `count > labelCount` — other kinds are waiting that the
+    label cannot name — so one kind of thing never reads as the same number
+    twice.
   */
-  const otherKinds = Math.max(0, summary.total - summary.top.count);
-  return (
-    <AttentionPill
-      count={otherKinds > 0 ? summary.total : undefined}
-      label={summary.top.label}
-      more={0}
-    />
-  );
+  return {
+    count: summary.total,
+    label: summary.top.label,
+    labelCount: summary.top.count,
+  };
 }
 
 /**
@@ -2117,19 +2055,130 @@ function BoardCardWithMenu({
  * (not a page of content to preview), so this stays a navigation. At base a
  * compact dashed ROW (proto .mghost — a light footer to the Events block);
  * from `sm` the dashed ghost card with the same footprint as an event card
- * (proto .evghost — bare gold plus, no circle).
+ * (proto .evghost — bare gold plus, no circle). The tile itself is the
+ * collection standard's `NewThingTile`; Planning supplies where and what.
  */
-function NewEventCard({ delay = 0 }: { delay?: number }) {
+function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: boolean }) {
+  return (
+    <NewThingTile
+      href="/dashboard/create-event"
+      label="New event"
+      delay={delay}
+      layout={poster ? 'poster' : 'card'}
+    />
+  );
+}
+
+/**
+ * The Planning page's posters — each from `resolveEventPoster`
+ * (lib/event-poster.server.ts), the ONE resolver that reads an event's hero
+ * the way the Event Hub does (owner: "hero widget applies to save the date,
+ * invitation, on the day and the thumbnail poster").
+ *
+ * This only gathers what the board does not already hold: the couple's saved
+ * `invite_theme`, one read for the page. A refused read costs only the Capiz
+ * panes — decoration, never a word — so it falls to House, logged. A card
+ * whose words cannot be resolved gets no poster and keeps the glass cover.
+ */
+async function planningPosters(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  events: readonly EventWithRole[],
+  ownHeroById: ReadonlyMap<string, string>,
+  userId: string,
+): Promise<Map<string, EventPosterFacts>> {
+  const out = new Map<string, EventPosterFacts>();
+  if (events.length === 0) return out;
+  const saved = new Map<string, string | null>();
+  try {
+    const { data, error } = await supabase
+      .from('events')
+      .select('event_id, invite_theme')
+      .in(
+        'event_id',
+        events.map((e) => e.event_id),
+      );
+    if (error) {
+      logQueryError('Launcher (events.invite_theme SELECT)', error, { user_id: userId }, 'graceful_degrade');
+    } else {
+      for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null }>) {
+        saved.set(r.event_id, r.invite_theme);
+      }
+    }
+  } catch (caught) {
+    logQueryError(
+      'Launcher (invite theme read threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { user_id: userId },
+      'graceful_degrade',
+    );
+  }
+  await Promise.all(
+    events.map(async (e) => {
+      const poster = await resolveEventPoster(
+        { ...e, invite_theme: saved.get(e.event_id) ?? null },
+        ownHeroById.get(e.event_id) ?? null,
+      );
+      if (poster) out.set(e.event_id, poster);
+    }),
+  );
+  return out;
+}
+
+/**
+ * The Planning header's right side: how many are on the shelf (never a zero —
+ * see `CollectionEmptyState`), the put-away switch when there is anything put
+ * away, and the (+).
+ */
+function PlanningHeaderActions({
+  count,
+  putAwayOn,
+  putAwayCount,
+}: {
+  count: number;
+  putAwayOn: boolean;
+  putAwayCount: number;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-2.5">
+      {count > 0 ? (
+        <span className="text-[12px] tracking-[0.04em] text-[color:var(--sn-ink-400)]">
+          {count === 1 ? '1 event' : `${count} events`}
+        </span>
+      ) : null}
+      {putAwayCount > 0 ? <PutAwaySwitch on={putAwayOn} count={putAwayCount} /> : null}
+      <NewEventButton />
+    </span>
+  );
+}
+
+/**
+ * The Planning header's (+) — the template's always-present way to add one
+ * (owner-approved 2026-09-24). The dashed tile leaves a FULL page, so without
+ * this a person on page 1 of 30 events would have no door to a new one.
+ */
+function NewEventButton() {
   return (
     <Link
       href="/dashboard/create-event"
-      className="sn-press sn-reveal group flex flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-ink/20 bg-white/[0.35] px-4 py-3.5 text-[13px] font-bold text-[color:var(--sn-ink-500)] transition-[color,background-color,border-color,transform] duration-200 hover:-translate-y-[3px] hover:border-terracotta hover:bg-white/50 hover:text-[color:var(--sn-gold-700)] sm:min-h-[196px] sm:flex-col sm:rounded-2xl sm:p-4"
-      style={{ animationDelay: `${delay}s` }}
+      aria-label="New event"
+      className="sn-press inline-grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-ink text-white transition-colors hover:bg-black"
     >
-      <Plus aria-hidden className="h-[22px] w-[22px] text-[color:var(--sn-gold-600)]" />
-      New event
+      <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
     </Link>
   );
+}
+
+/**
+ * A Planning page's URL. Page 1 is the bare board (no `page=1` noise), the
+ * put-away switch rides along, and `#events` lands the person on the shelf
+ * rather than the top of the board.
+ */
+function planningPageHref(page: number, putAway: boolean): string {
+  const q = new URLSearchParams();
+  if (putAway) q.set('putaway', '1');
+  if (page > 1) q.set('page', String(page));
+  const qs = q.toString();
+  return `/dashboard${qs ? `?${qs}` : ''}#events`;
 }
 
 type SpaceCardProps = {

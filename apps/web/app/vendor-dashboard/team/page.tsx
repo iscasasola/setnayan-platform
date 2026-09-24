@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { Gavel, LogOut, Mail, Trash2, UserPlus, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -122,6 +123,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
     votesByMotion.set(v.motion_id, list);
   }
 
+  const storeShell = await isStoreShellRequest();
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-3">
@@ -287,7 +289,9 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       </section>
 
       {/* ── Extra seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ── */}
-      {canBuySeats ? (
+      {/* 🔒 Never in the App Store / Play Store shell — a seat is a paid add-on
+          (guideline 3.1.1; lib/store-shell.ts). */}
+      {canBuySeats && !storeShell ? (
         <section className="space-y-3 rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5">
           <h2 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             <UserPlus className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden /> Extra

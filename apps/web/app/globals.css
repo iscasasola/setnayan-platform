@@ -3655,6 +3655,80 @@ html.dark {
   color: var(--sn-ink-700);
 }
 
+/* `.sn-side-panel` — deep actions slide in from the right at EVERY width
+ * (brief §1: "off-canvas slide-out panels … rather than centered modal
+ * boxes"). The geometry and the two keyframes are `.sn-inspector-sheet` /
+ * `.sn-inspector-peek`'s (the guest card, 2026-09-22), reused rather than
+ * re-drawn; unlike those, it is NOT hidden at ≥xl. Borderless: it is seated
+ * by shadow. Enters with `backwards` (never `both`: a held transform unpins
+ * every fixed child). Leaves by TRANSITION on `data-closing`, then unmounts.
+ * (Taken from `rd/design-foundation-parts` with its first adopter, the
+ * collection template's add flow — build-sessions/DESIGN-FOUNDATION.md.) */
+.sn-side-panel-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sn-z-scrim);
+  border: 0;
+  background: rgba(30, 26, 18, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: sn-peek-in var(--sn-dur-elem) var(--sn-ease) backwards;
+  transition: opacity var(--sn-dur-elem) var(--sn-ease);
+}
+.sn-side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 3.5rem;
+  z-index: var(--sn-z-panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--m-r-lg) 0 0 var(--m-r-lg);
+  background: var(--sn-glass-bg-raised);
+  backdrop-filter: var(--sn-glass-blur);
+  -webkit-backdrop-filter: var(--sn-glass-blur);
+  box-shadow: var(--sn-sh-panel);
+  animation: sn-sheet-in var(--sn-dur-elem) var(--sn-ease) backwards;
+  transition:
+    opacity var(--sn-dur-elem) var(--sn-ease),
+    translate var(--sn-dur-elem) var(--sn-ease);
+}
+@media (min-width: 768px) {
+  .sn-side-panel { left: auto; width: min(30rem, calc(100vw - 3.5rem)); }
+  .sn-side-panel[data-size='wide'] { width: min(44rem, calc(100vw - 3.5rem)); }
+}
+.sn-side-panel[data-closing='true'] { opacity: 0; translate: 34px 0; pointer-events: none; }
+.sn-side-panel-scrim[data-closing='true'] { opacity: 0; pointer-events: none; }
+/* The scrim is a <button> (keyboard users get a way back), so the universal
+ * press scale in @layer base would shrink the whole backdrop on tap. */
+.sn-side-panel-scrim:active { scale: none; filter: none; }
+.sn-side-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+}
+/* `data-phone='sheet'` — BELOW 768px the panel RISES from the bottom as a sheet
+ * instead of sliding in from the right (collection template add flow, owner-
+ * approved 2026-09-24: "right panel on desktop, bottom sheet on phone"). The
+ * top strip above it is the way back, as the left strip is on the side panel.
+ * From 768px it is the ordinary right-hand panel above, unchanged. */
+@media (max-width: 767.98px) {
+  .sn-side-panel[data-phone='sheet'] {
+    top: 3.5rem;
+    left: 0;
+    border-radius: var(--m-r-lg) var(--m-r-lg) 0 0;
+    animation-name: sn-sheet-rise;
+  }
+  .sn-side-panel[data-phone='sheet'][data-closing='true'] { translate: 0 34px; }
+}
+@keyframes sn-sheet-rise {
+  from { transform: translateY(34px); opacity: 0 }
+  to { transform: none; opacity: 1 }
+}
+
 
 /* ---------- home-launcher fidelity surfaces (2026-07-15 pixel pass) ----------
  * Each recipe defined ONCE here (owner: "do not hard code values that should be
@@ -4996,6 +5070,73 @@ html:has([data-sticky-top]) {
   background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
 }
 .hub-has-media > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+
+/* ── THE OTHER TWO KINDS OF GROUND ─────────────────────────────────────────
+   A photo is the rule above. These two are the same LAYER with a different
+   substance, so they inherit the scrim and the body's lift rather than
+   restating them.
+
+   🔑 A SNIPPET IS A <video> WEARING THE SAME CLASS. The photo rule paints
+   `background-image` on a div; a video element ignores that property entirely
+   and needs `object-fit` instead — the same cover/crop, expressed the way a
+   replaced element takes it. `--hub-focal` and `--hub-zoom` drive both, so the
+   couple's 3×3 point and zoom mean the same thing whichever they chose. */
+.hub-bg-snippet > video.hub-canvas-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--hub-focal);
+  transform: scale(var(--hub-zoom, 1));
+  transform-origin: var(--hub-focal);
+  pointer-events: none;
+}
+/* The same scrim the photo gets. Drawn on the PARENT because a <video> has no
+   ::after of its own — a replaced element cannot carry generated content, so
+   the photo layer's own generated-content scrim silently does nothing here.
+   (Named, not written as a selector: `a-section-background-is-a-ref.test.ts`
+   finds its rules with a raw indexOf over UNSTRIPPED css, so a selector quoted
+   in a comment is counted as a third rule and the guard goes red on prose.)
+   That
+   is the one difference between the two that is easy to miss and would leave
+   the couple's words unreadable over bright footage. */
+.hub-bg-snippet::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.94));
+}
+.hub-bg-snippet { position: relative; }
+
+/* A flat colour needs no layer and no scrim: the couple chose the ground
+   itself, so there is nothing to see through and nothing to soften. */
+.hub-bg-color { background-color: var(--hub-bg-color); }
+.hub-bg-color > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+
+/* 🛑 REDUCED MOTION IS NOT HANDLED HERE, AND IT IS NOT HANDLED BY CSS AT ALL.
+   The first draft of this block carried a reduced-motion media query that set
+   the snippet video's CSS animation-play-state to paused. That is valid CSS,
+   it matches correctly, and it does NOTHING: that property governs CSS
+   animations, and a video element playing its own timeline is not one.
+
+   ⚠ The rule is DESCRIBED rather than quoted, on purpose. A source guard that
+   greps this stylesheet would match the literal text of the broken rule sitting
+   in the comment explaining why it was removed — convicting the documentation
+   of the fix, which this project has been caught by before.
+   It would have read in review as "reduced motion is covered" while moving
+   wallpaper kept playing behind the words for exactly the guests who asked it
+   not to.
+
+   ⛔ So the rule is gone rather than left in looking right. Pausing a video
+   needs script — the page already removes `.pahina-js` under reduced motion,
+   so the honest fix is for a mounted script to read that and call `.pause()`.
+   That is deliberately NOT smuggled in here: it is a mount, and mounts are
+   what `ugat-both-ends` exists to make visible. Flagged as the one open item
+   on this build rather than quietly half-done. */
 /* No picture, no padding change — the section keeps the spacing it had.
    🔴 `display: block`, NOT `display: contents`. A `contents` box is not
    generated at all, and an element that generates no box CANNOT BE ANIMATED —

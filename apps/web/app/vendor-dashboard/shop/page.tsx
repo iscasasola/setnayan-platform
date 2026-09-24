@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { redirect } from 'next/navigation';
 import {
   ArrowRight,
@@ -1722,7 +1723,7 @@ function TeamPanel({
   );
 }
 
-function BranchPanel({
+async function BranchPanel({
   city,
   branchLocations,
   tier,
@@ -1750,6 +1751,11 @@ function BranchPanel({
   branchPay: PayInfo;
 }) {
   const isEnterprise = isTierAtLeast(tier, 'enterprise');
+  // 🔒 A branch is a paid add-on (₱ per 28 days), bought AND managed in the
+  // BranchManager below. The App Store / Play Store shell neither sells nor
+  // runs it (guideline 3.1.1 / 3.1.3(b); lib/store-shell.ts), so the manager
+  // and its Enterprise pitch are not mounted there. Web / desktop unchanged.
+  const storeShell = await isStoreShellRequest();
   const hasCoords = hqLat !== null && hqLng !== null;
   const hasRing = Number.isFinite(reachKm) && reachKm > 0;
   const from = city ?? 'your headquarters';
@@ -1815,7 +1821,7 @@ function BranchPanel({
         </p>
       )}
 
-      {isEnterprise ? (
+      {storeShell ? null : isEnterprise ? (
         <BranchManager
           branches={branches}
           feePhp={branchFeePhp}

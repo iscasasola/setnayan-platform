@@ -144,11 +144,44 @@ test('the named-guest read reaches the gate as a FLAG, and the page reads no gue
 
 test('the stage is HANDED the resolved reads — it resolves no role of its own', () => {
   const src = page();
-  assert.match(src, /roles=\{roleViews\}/);
+  assert.match(src, /rolesByPhase=\{roleViewsByPhase\}/);
   assert.match(src, /armedRole=\{armedRole\}/);
   assert.match(
     src,
-    /resolveHubRoleView\(\{\s*role,\s*standing,\s*slug:\s*eventSlug,\s*guests:\s*guestFacts\s*\}\)/,
-    'the role reads are built from the SAME standing and guest facts the stage shows',
+    /resolveHubRoleView\(\{\s*role,\s*standing,\s*slug:\s*eventSlug,\s*guests:\s*guestFacts,\s*stage:\s*page\.phaseParam\s*\}\)/,
+    'the role reads are built from the SAME standing and guest facts the stage shows — once per stage',
   );
+});
+
+/*
+  ── WHO × WHEN — the second half of the wiring ─────────────────────────────
+  The "When" switch opens on a stage the SERVER chose, from `?stage=` checked
+  against the four phases, falling back to the one the guests are on today.
+  A page that read `search.stage` straight into the stage — or a literal —
+  would open a stage the event is not on and call it chosen.
+*/
+test('the picked stage is resolved against the four phases and TODAY, never taken raw', () => {
+  const src = page();
+  assert.match(
+    src,
+    /resolveHubStageSelection\(\{\s*param:\s*search\.stage,\s*live:\s*standing\.stage\s*\}\)/,
+  );
+  assert.match(src, /initialPhase=\{initialStage\}/);
+  assert.doesNotMatch(src, /initialPhase=\{search\.stage/, 'the address bar is not the authority');
+  assert.match(
+    src,
+    /livePhase=\{activeChannel \? activeChannel\.phaseParam : null\}/,
+    '"Active now" is today\u2019s stage from the ONE stage resolver',
+  );
+});
+
+test('🛑 the stages cross to the client as PLAIN DATA — no icon component rides along', () => {
+  // A LucideIcon prop crossing server→client took production down 2026-09-23.
+  // `PUBLIC_SITE_PAGES` carries one per stage, so it may never be handed over whole.
+  const src = page();
+  assert.match(
+    src,
+    /stages=\{PUBLIC_SITE_PAGES\.map\(\(page\) => \(\{ phase: page\.phaseParam, blurb: page\.blurb \}\)\)\}/,
+  );
+  assert.doesNotMatch(src, /stages=\{PUBLIC_SITE_PAGES\}/);
 });

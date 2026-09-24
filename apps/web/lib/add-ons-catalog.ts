@@ -1119,6 +1119,15 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = liveStudioRoamEnabled()
   ? [...BASE_ADD_ONS, LIVE_STUDIO_ENTRY]
   : BASE_ADD_ONS;
 
+/**
+ * Every entry the catalog CAN hold, whatever the launch flags say today. For
+ * rules that must hold the day a flag flips — lib/store-shell.test.ts derives
+ * the App Store hide-list from this, because deriving it from ADD_ONS let the
+ * flag-gated Live Studio tile through while the flag was off in the test run.
+ * Not for rendering: surfaces keep reading ADD_ONS.
+ */
+export const EVERY_ADD_ON: ReadonlyArray<AddOnEntry> = [...BASE_ADD_ONS, LIVE_STUDIO_ENTRY];
+
 // `StudioFreeTool` + `studioFreeTools()` removed 2026-07-11 — dead code, imported
 // nowhere (the Studio hub renders the four free planning tools via the couple
 // sidebar / free-tools strip, not this factory). The free core tools (Guests /

@@ -8,6 +8,7 @@ import {
   type InlineCheckoutDrawerProps,
 } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useIsStoreShell } from '@/lib/use-store-shell';
 
 // Client-side "Choose plan" sheet rendered as the App Store-style GET button.
 // On mobile it slides up from the bottom (single-thumb reach); on desktop
@@ -128,6 +129,15 @@ export function ChoosePlanSheet({
   const checkoutLocked = !!acknowledgement && !accepted;
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
+  /**
+   * 🔒 A PLAN SHEET IS A PRICE LIST. The drawer inside it goes inert in the App
+   * Store / Play Store shell, but the trigger (`· ₱…`) and every row's price do
+   * not — so on the store shell the whole sheet withdraws itself (guideline
+   * 3.1.1; lib/store-shell.ts). This is the safety net for callers that forget
+   * to gate server-side; the primary gate is the caller not mounting it.
+   */
+  const storeShell = useIsStoreShell();
+  if (storeShell) return null;
 
   return (
     <>

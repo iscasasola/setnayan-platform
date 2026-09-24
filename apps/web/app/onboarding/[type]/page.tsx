@@ -30,6 +30,7 @@ import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_c
 import { isGatedLifeType } from '@/lib/life-event-gate';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { GenericOnboarding } from './_components/generic-onboarding';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const dynamic = 'force-dynamic';
 
@@ -164,9 +165,12 @@ export default async function GenericOnboardingPage({
   // where the cards are shown. `aiValue` is the type-aware capability list
   // rendered as a Server Component and passed down as a node — its own copy is
   // owned by #3865 and is never re-authored in onboarding.
-  const servicesStepView = onboardingServicesStepEnabled()
-    ? await readServicesStepView(supabase, type)
-    : null;
+  // 🔒 Never in the App Store / Play Store shell — the step prices paid
+  // features (guideline 3.1.1; lib/store-shell.ts). Null drops the step.
+  const servicesStepView =
+    onboardingServicesStepEnabled() && !(await isStoreShellRequest())
+      ? await readServicesStepView(supabase, type)
+      : null;
   const aiValueNode =
     servicesStepView?.ai != null ? (
       <SetnayanAiValue

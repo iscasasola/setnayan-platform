@@ -52,7 +52,7 @@ import { resolveEverythingElseRows } from '../_lib/everything-else-rows';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
-import { invitationCard } from '../_lib/invitation-card';
+import { invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -968,6 +968,7 @@ export async function SiteBody({
              demoted to the cover plate below the type (STRUCTURAL: was a
              text-over-scrim banner). Monogram mount + personalization unchanged. */
           <PahinaMasthead
+            eyebrow={mastheadEyebrow(clientWords)}
             displayName={event.display_name}
             twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
@@ -992,6 +993,7 @@ export async function SiteBody({
               {!hasHeroMedia ? (
                 /* Pahina masthead, text-only variant (wave A PR-2). */
                 <PahinaMasthead
+                  eyebrow={mastheadEyebrow(clientWords)}
                   displayName={event.display_name}
                   card={inviteCard ?? undefined}
                   twoPeople={clientWords.twoPeople}
@@ -1561,6 +1563,7 @@ export async function SiteBody({
             /* Pahina masthead (wave A PR-2) — typographic hero + cover plate
                (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
             <PahinaMasthead
+              eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
@@ -1579,6 +1582,7 @@ export async function SiteBody({
             />
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
             <PahinaMasthead
+              eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               card={inviteCard ?? undefined}
               twoPeople={clientWords.twoPeople}

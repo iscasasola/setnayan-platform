@@ -19,6 +19,8 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { MiniTour } from '@/app/_components/mini-tour';
 
 import { getCurrentUser } from '@/lib/auth';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -1042,10 +1044,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
   const aiGateOpts = { paywallEnabled };
-  const aiActive = isSetnayanAiActiveForEvent(
-    ev ? { ...ev, planning_mode: null } : ev,
-    aiGateOpts,
-  );
+  const storeShell = await isStoreShellRequest();
+  // 🔒 A web-bought Sai does not light up in the App Store / Play Store shell
+  // (guideline 3.1.3(b); lib/store-shell.ts) — unless the paywall is off and
+  // Sai is free for everyone, in which case it is planning and stays.
+  const aiActive =
+    isSetnayanAiActiveForEvent(ev ? { ...ev, planning_mode: null } : ev, aiGateOpts) &&
+    storeShellAllowsPaidFeature(storeShell, paywallEnabled);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -1117,7 +1122,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (shouldOfferSetnayanAiPurchase returns false while the paywall is off → no
   // banner today). Links to the /studio/setnayan-ai buy page (catalog price +
   // checkout). Renders in both the takeover shortlist slot and the bare return.
-  const aiOffer = shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts);
+  // Never in the App Store / Play Store shell: it advertises a paid purchase and
+  // links to a route the store shell is refused (lib/store-shell.ts).
+  const aiOffer = !storeShell && shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

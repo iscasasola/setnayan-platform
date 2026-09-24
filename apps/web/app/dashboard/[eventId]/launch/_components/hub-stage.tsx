@@ -1,36 +1,15 @@
 import Link from 'next/link';
 import { Eye, PencilLine } from 'lucide-react';
 import type { HubFact, HubRole, HubRoleView, HubStanding } from '@/lib/event-hub-control';
+import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { SlugField } from '@/app/dashboard/[eventId]/invitation/_components/slug-field';
+import { OB } from '@/app/_components/site-stage/obsidian';
+import { SiteStage, type SiteStageStage } from '@/app/_components/site-stage/site-stage';
 
-/*
-  ── THE OBSIDIAN STAGE, MEASURED ───────────────────────────────────────────
-  🚨 The app is LIGHT-LOCKED. Every Tailwind theme token resolves to its LIGHT
-  value on this dark island and fails silently: `text-ink` is 1.27:1 here and
-  `text-mulberry` is 3.81:1. So the stage paints from literals, exactly the way
-  `studio/papic/_components/papic-stage.tsx` does, with the ratios written down:
-
-    text  #FBFAF7 on #17160F ... 17.37:1  AAA
-    soft  #B6B9BE on #17160F .... 9.22:1  AAA
-    gold  #CBA766 on #17160F .... 7.99:1  AAA   ← gold is safe HERE and only here
-    cta   #E5794E on #17160F .... 6.20:1  AA    (obsidian label on it: 6.20:1)
-    card  #1E2229 raised panel — text 15.29:1 · soft 8.11:1 · gold 7.04:1
-
-  ⛔ NEVER `--pos #4F6B4A` on this ground: 2.7:1. It is a light-ground token.
-  ⚠ And the Tailwind slot named `terracotta` is the GOLD; the CTA is `mulberry`.
-  These are the `--sn-ob-*` values from globals.css, inlined rather than
-  referenced because this panel is obsidian in BOTH themes and a themed token
-  would break exactly one of them.
-*/
-export const OB = {
-  page: '#17160F',
-  card: '#1E2229',
-  text: '#FBFAF7',
-  soft: '#B6B9BE',
-  gold: '#CBA766',
-  cta: '#E5794E',
-  hairline: 'rgba(255,255,255,0.10)',
-} as const;
+/* The obsidian colour table moved to `app/_components/site-stage/obsidian.ts`
+   so the shared (client) stage can read it without importing this server file.
+   Re-exported here because `plan3d-stage.tsx` imports it from this path. */
+export { OB };
 
 /**
  * S1 · THE STAGE and S2 · THE FOUR FACTS — the couple's own public page, as it
@@ -53,59 +32,55 @@ export const OB = {
  * apologising for being empty, and never a stranger's wedding as a sample.
  *
  * TWO THINGS SILENCE THE MINIATURE, AND ONLY TWO: a read that did not happen
- * (`channelName === null`), which withdraws the whole card; and an event with
+ * (`livePhase === null`), which withdraws the whole stage; and an event with
  * no address yet (`slug === null`), which keeps the card and its countdown but
  * draws no frame — there is no page to photograph. Neither is an apology and
  * neither is a zero. Held by `hub-stage-renders.test.ts`.
+ *
+ * ── WHO × WHEN (owner, 2026-09-24: *"this 2 can integrate to each other"*) ──
+ * The frame, the "When" switch that picks which of the four stages it shows,
+ * the "View as" switch beside it, and the per-stage doors (Preview ↗, the
+ * Editorial workroom) are ONE shared client component —
+ * `app/_components/site-stage/site-stage.tsx` — so the site editor can adopt
+ * the same stage. This file hands it plain data only.
  */
-/**
- * ● full · ◐ partial or read-only · ○ nothing, on purpose — the § 3.2 key.
- * Paired with a WORD for screen readers: a glyph alone tells a person using one
- * nothing at all, and "what each role sees" is the entire content here.
- */
-const MARK_GLYPH = { full: '\u25CF', partial: '\u25D0', none: '\u25CB' } as const;
-const MARK_WORD = { full: 'Yes:', partial: 'Partly:', none: 'No:' } as const;
-
 export function HubStage({
   slug,
   standing,
   facts,
-  channelName,
-  channelBlurb,
-  channelIndex,
-  channelCount,
+  livePhase,
+  initialPhase,
+  stages,
   editHref,
-  roles,
+  rolesByPhase,
   armedRole,
-  roleHrefBase,
+  workroomHref = null,
   eventId,
   slugAction,
 }: {
   slug: string | null;
   standing: HubStanding;
   facts: readonly HubFact[];
-  /** The live channel's own name, or null when the event could not be read. */
-  channelName: string | null;
-  channelBlurb: string | null;
-  /** 1-based, for "Stage 2 of 4". */
-  channelIndex: number | null;
-  channelCount: number;
+  /**
+   * The stage the guests are on TODAY, or null when the event could not be
+   * read — which withdraws the whole stage rather than guessing one.
+   */
+  livePhase: LifecyclePhase | null;
+  /** Which stage the "When" switch opens on — `resolveHubStageSelection`. */
+  initialPhase: LifecyclePhase | null;
+  /** The four stages, in order, as plain data (no icons cross this line). */
+  stages: readonly SiteStageStage[];
   editHref: string;
   /**
-   * VIEW AS — the reads this viewer may look through, already resolved and
-   * already gated. EMPTY means the switcher does not render: the offer list is
-   * produced by `hubPreviewRoles`, which returns nothing for a non-host.
+   * VIEW AS — each role's read, per stage, already resolved and already gated.
+   * EMPTY means the switcher does not render: the offer list is produced by
+   * `hubPreviewRoles`, which returns nothing for a non-host.
    */
-  roles: readonly HubRoleView[];
+  rolesByPhase: Partial<Record<LifecyclePhase, readonly HubRoleView[]>>;
   /** Which chip is armed. Null when there is nothing to arm. */
   armedRole: HubRole | null;
-  /**
-   * `/dashboard/<eventId>/launch`. No longer used to BUILD a chip — the chips
-   * are radios and nothing navigates — but kept on the contract because
-   * `?viewas=` is still an honest deep link: the server resolves the armed role
-   * and it is the radio that starts checked.
-   */
-  roleHrefBase?: string;
+  /** `/dashboard/<id>/story` — Editorial's workroom door. */
+  workroomHref?: string | null;
   /**
    * THE ADDRESS IS EDITABLE HERE — owner, 2026-09-23, pointing at the heading
    * below: *"should be editable here. and verified if it is available."*
@@ -125,9 +100,6 @@ export function HubStage({
   eventId?: string;
   slugAction?: (formData: FormData) => Promise<void>;
 }) {
-  /* The armed VIEW, not just its key — looked up in the list this viewer was
-     actually offered, so a role that is not on it can never be rendered. */
-  const armed = roles.find((r) => r.role === armedRole) ?? null;
   return (
     <section
       aria-labelledby="hub-stage-address"
@@ -163,109 +135,22 @@ export function HubStage({
           </div>
         ) : null}
 
-        {/* ══ THE MINIATURE — the page itself, not a sentence about it ══
-            The docblock on this component has promised a miniature since it was
-            written. What actually stood here was PROSE — "Day-of · the running
-            order, live" — so the controller described a page it had never once
-            looked at, which is the house disease with a nicer typeface.
-
-            🔑 IT IS THE SAME ADDRESS AS THE BUTTON UNDER IT. `/{slug}`: no
-            `?phase=`, no `?as=`, no `?editor=1`. If the page's own resolution
-            ever disagrees with the stage we computed, the frame SHOWS the
-            disagreement rather than letting the caption paper over it.
-
-            ⚠ THE OWNER RIBBON RIDES THIS FRAME, and that is why the eyebrow
-            above no longer says "as your guests see it". A host cannot stop
-            being signed in, and `buildOwnerRibbon` gates on the server-verified
-            capability ALONE — no param, no cookie, no prop a caller may set
-            (`lib/owner-ribbon.ts`, owner-locked 2026-07-26). Inventing a
-            hide-the-ribbon param to make a label true would be weakening a
-            locked gate to win an argument with a caption. So the frame is
-            labelled as the host's own view and the caption names the strip.
-
-            Phone width and CLIPPED, never scaled: the page is already
-            responsive, so a 420px frame renders the real mobile layout at 1:1
-            instead of a transform that lies about type size. Same reason
-            `website/editor/_components/editor-shell.tsx` opens on `max-w-[430px]`.
-
-            It is INERT — `inert` + `tabIndex={-1}` + `pointer-events-none`. A
-            picture of the page; the lit button beneath it is the door. */}
-        {/* 🖥 SIDE BY SIDE ON A WIDE SCREEN, stacked on a phone.
-            Owner, 2026-09-23, looking at it live: *"the page should directly
-            fill the whole body and use the space."* He was right — a 420px
-            phone frame centred in a 1,100px card left two columns of empty
-            obsidian, and the words sat under it rather than beside it.
-
-            The frame stays a PHONE, because that is what a guest holds and
-            scaling it up would be a picture of a page nobody opens. What
-            changes is what sits next to it: on `lg` the caption moves into its
-            own column and the dead space becomes the text.
-
-            📐 The shape is `plan3d-stage.tsx`'s — `grid` with an asymmetric
-            two-column track — rather than a new one, because that panel sits a
-            menu slot away and two stages that lay out differently read as two
-            products. */}
-        {channelName ? (
-          /* 🪤 THE TWO-COLUMN TRACK PUT THE PREVIEW IN THE *SMALL* COLUMN.
-             It read `lg:grid-cols-[minmax(0,420px)_1fr]` — preview capped at
-             420px, prose handed the rest — so the thing the section exists to
-             show stayed the width of a phone however wide the window got, and
-             the card around it drew a second frame inside a page that already
-             has one. Owner, 2026-09-23, with the shell's own gutter selected:
-             *"remove the framing and let it consume the space"*.
-             ⛔ NO CARD, NO CAP, NO GRID. The preview is the full measure of
-             the column it sits in and the caption reads underneath it. The
-             page's gutter is left alone on purpose — it is the dashboard
-             shell's (`px-4 sm:px-6 lg:px-8`), shared by every sibling page,
-             and eating it here would make this one page sit differently from
-             the rest of the dashboard. */
-          <figure className="m-0">
-            {slug ? (
-              <div
-                className="relative h-[300px] w-full overflow-hidden rounded-xl sm:h-[420px] lg:h-[560px]"
-                style={{ border: `1px solid ${OB.hairline}` }}
-              >
-                <iframe
-                  src={`/${slug}`}
-                  title={`Your page as it stands right now — ${channelName}`}
-                  loading="lazy"
-                  inert
-                  tabIndex={-1}
-                  className="pointer-events-none absolute left-0 top-0 h-[1100px] w-full border-0"
-                />
-              </div>
-            ) : null}
-            <figcaption className="pt-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className="inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em]"
-                  style={{ backgroundColor: OB.cta, color: OB.page }}
-                >
-                  Active now
-                </span>
-                {channelIndex !== null && (
-                  <span
-                    className="font-mono text-[10px] uppercase tracking-[0.12em]"
-                    style={{ color: OB.soft }}
-                  >
-                    Stage {channelIndex} of {channelCount}
-                  </span>
-                )}
-              </div>
-              <p className="mt-3 text-base font-semibold" style={{ color: OB.text }}>
-                {channelName}
-              </p>
-              <p className="mt-1 max-w-prose text-sm" style={{ color: OB.soft }}>
-                {channelBlurb}
-              </p>
-              {slug ? (
-                <p className="mt-2 max-w-prose text-[11.5px]" style={{ color: OB.soft }}>
-                  That strip across the top is yours alone — you are signed in, so your page
-                  knows you. Your guests never see it.
-                </p>
-              ) : null}
-            </figcaption>
-          </figure>
+        {/* ══ THE STAGE — who × when ══
+            Two things silence it: a read that did not happen (no live phase),
+            and nothing else. No address yet keeps the switch and the caption
+            and simply draws no frame. */}
+        {livePhase && initialPhase ? (
+          <SiteStage
+            slug={slug}
+            stages={stages}
+            livePhase={livePhase}
+            initialPhase={initialPhase}
+            rolesByPhase={rolesByPhase}
+            armedRole={armedRole}
+            workroomHref={workroomHref}
+            initialDevice="desktop"
+            urlParam="stage"
+          />
         ) : (
           /* NOT "you have no page". We could not read the event, so we say
              exactly that and nothing more — and we draw NO frame, because a
@@ -354,151 +239,6 @@ export function HubStage({
         ))}
       </dl>
 
-      {/* ══ VIEW AS — the couple CHECKS the role matrix instead of trusting it ══
-          Owner 2026-09-02: "make sure it also has view as (they pick what each
-          role sees)." It rides the stage's LOWER EDGE, under the facts, because
-          it is a property of the stage and not a setting — it never moves into
-          a sheet (design § 3, prototype § 3).
-
-          🔒 It renders NOTHING for a viewer `hubPreviewRoles` refused. The list
-          arrives empty for a `guest`-typed `event_members` row, which is the
-          person `Boolean(memberRow)` once waved through into a private site.
-
-          Server-rendered links, not a client switch: the armed read is resolved
-          by the same pure function the tests call, so what a person SEES is the
-          thing under test — and it works with no JavaScript at all.
-
-          📐 THE IDIOM IS ALREADY IN THIS REPO — `LensChip` in
-          `schedule/_components/ros-p2.tsx`, whose own row is captioned "View
-          as": chips, an href carrying the lens, one active. Same shape, painted
-          from `OB` rather than reused, and NOT out of preference — that
-          component is `bg-white text-ink/60`, and `text-ink` measures 1.27:1 on
-          this obsidian ground. A light-ground token fails here silently, which
-          is the whole reason `OB` exists. */}
-      {armed ? (
-        <div
-          className="sn-viewas"
-          style={{ borderTop: `1px solid ${OB.hairline}`, backgroundColor: 'rgba(255,255,255,0.03)' }}
-        >
-          {/* ══ VIEW AS — NOTHING NAVIGATES ══════════════════════════════════
-              Owner, 2026-09-23, pressing a chip on the live page: *"clicking
-              here refreshes the whole page, it should only refresh the lower
-              part since that is the one that changes."* He is right, and it was
-              worse than it looked: each chip was a `<Link>` carrying
-              `?viewas=`, so one press re-ran the whole server page — the four
-              facts, the stage cards, the day-of list — AND re-signed every
-              background URL, to swap one description.
-
-              🔑 SO ALL SIX READS ARE RENDERED AND CSS SHOWS ONE. Native radios,
-              labels as the chips, `globals.css` revealing the card whose radio
-              is checked. No navigation, no round trip, and the miniature above
-              is never touched — an iframe that does not re-mount does not
-              reload the couple's page.
-
-              ✅ AND IT STILL WORKS WITH NO JAVASCRIPT, which is the property
-              the `<Link>` version was built for in the first place. Every read
-              is still resolved server-side by the same pure function the tests
-              call; the only thing that moved to CSS is WHICH ONE IS SHOWN.
-
-              🔗 `?viewas=` stays a real deep link: the armed role arrives from
-              the server and is the radio that starts checked, so a link into a
-              particular read still opens on it. */}
-          <fieldset className="m-0 border-0 p-0">
-            <legend className="sr-only">View this page as</legend>
-            {roles.map((r) => (
-              <input
-                key={r.role}
-                type="radio"
-                name="sn-viewas"
-                id={`sn-viewas-${r.role}`}
-                defaultChecked={r.role === armed.role}
-                className="sr-only"
-              />
-            ))}
-            <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
-              <span
-                className="font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
-                style={{ color: OB.soft }}
-              >
-                View as
-              </span>
-              {roles.map((r) => (
-                <label
-                  key={r.role}
-                  htmlFor={`sn-viewas-${r.role}`}
-                  className="sn-viewas-chip cursor-pointer rounded-full px-2.5 py-1 text-[11.5px] font-medium"
-                  style={{ border: `1px solid ${OB.hairline}`, color: OB.soft }}
-                >
-                  {r.name}
-                </label>
-              ))}
-              <span className="ml-auto text-[10.5px]" style={{ color: OB.soft }}>
-                The stage above becomes their page
-              </span>
-            </div>
-
-            <div className="px-4 pb-4 sm:px-5 sm:pb-5">
-              {roles.map((r) => (
-                <div
-                  key={r.role}
-                  className="sn-viewas-card rounded-xl p-4"
-                  data-viewas={r.role}
-                  style={{ backgroundColor: OB.card }}
-                >
-                  <p
-                    className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em]"
-                    style={{ color: OB.gold }}
-                  >
-                    {r.who}
-                  </p>
-                  <p className="mt-2 text-[15px] font-semibold" style={{ color: OB.text }}>
-                    {r.headline}
-                  </p>
-                  <p className="mt-1 max-w-prose text-[13px] leading-snug" style={{ color: OB.soft }}>
-                    {r.blurb}
-                  </p>
-                  <ul className="mt-3 space-y-1.5">
-                    {r.cells.map((cell) => (
-                      <li key={cell.text} className="flex items-start gap-2 text-[12.5px]">
-                        <span
-                          aria-hidden
-                          className="mt-px font-mono text-[11px] leading-5"
-                          style={{ color: cell.mark === 'none' ? OB.soft : OB.gold }}
-                        >
-                          {MARK_GLYPH[cell.mark]}
-                        </span>
-                        {/* 🔑 An unknown line says it could not be read. It NEVER
-                            renders as a zero and never as a shape we guessed. */}
-                        <span style={{ color: cell.known ? OB.text : OB.soft }}>
-                          <span className="sr-only">{MARK_WORD[cell.mark]} </span>
-                          {cell.text}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {r.previewHref ? (
-                      <a
-                        href={r.previewHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium"
-                        style={{ backgroundColor: OB.cta, color: OB.page }}
-                      >
-                        <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        {r.previewLabel}
-                      </a>
-                    ) : null}
-                    <p className="text-[11.5px]" style={{ color: OB.soft }}>
-                      {r.footnote}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </fieldset>
-        </div>
-      ) : null}
     </section>
   );
 }

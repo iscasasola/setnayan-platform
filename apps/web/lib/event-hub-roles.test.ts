@@ -28,6 +28,7 @@ import {
   HUB_GENERIC_ROLES,
   hubPreviewRoles,
   resolveHubRoleView,
+  resolveHubStageSelection,
   resolveHubStanding,
   NOT_SHARED,
   type HubEventRead,
@@ -223,3 +224,38 @@ test('a real, measured zero is spoken plainly — the honest read still works', 
   assert.equal(cell.known, true);
   assert.match(cell.text, /Everyone has replied/i);
 });
+
+// ── 4 · WHO × WHEN — the picked stage moves the door, never the permission ──
+
+const at_ = (role: HubRole, stage: 'save_the_date' | 'rsvp' | 'event' | 'editorial') =>
+  resolveHubRoleView({ role, standing: standing(), slug: EVENT.slug ?? null, guests: GUESTS, stage });
+
+test('a picked stage reaches every door that has one — and the stranger/supplier still have none', () => {
+  // 14 days out, the guests are on `rsvp`.
+  assert.equal(at_('guest', 'event').previewHref, '/maria-and-jomar?phase=event');
+  assert.equal(at_('host', 'editorial').previewHref, '/maria-and-jomar?phase=editorial');
+  assert.equal(at_('coordinator', 'save_the_date').previewHref, '/maria-and-jomar?phase=save_the_date');
+  // Today's stage is the bare address — the page the QR opens, pin and all.
+  assert.equal(at_('host', 'rsvp').previewHref, '/maria-and-jomar');
+  for (const stage of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) {
+    assert.equal(at_('stranger', stage).previewHref, null, `stranger grew a door at ${stage}`);
+    assert.equal(at_('supplier', stage).previewHref, null, `supplier grew a door at ${stage}`);
+  }
+});
+
+test('omitting the stage is exactly the old behaviour — the door opens today\u2019s stage', () => {
+  for (const role of HUB_ROLES) {
+    assert.equal(view(role).previewHref, at_(role, 'rsvp').previewHref, role);
+  }
+});
+
+test('`?stage=` is checked against the four phases and falls back to TODAY', () => {
+  assert.equal(resolveHubStageSelection({ param: 'editorial', live: 'rsvp' }), 'editorial');
+  assert.equal(resolveHubStageSelection({ param: undefined, live: 'rsvp' }), 'rsvp');
+  assert.equal(resolveHubStageSelection({ param: 'EVENT', live: 'rsvp' }), 'rsvp', 'no case-folding a param into a phase');
+  assert.equal(resolveHubStageSelection({ param: ['event', 'rsvp'], live: 'save_the_date' }), 'save_the_date');
+  assert.equal(resolveHubStageSelection({ param: 'wedding', live: 'event' }), 'event');
+  // An event we could not read has no "today", so no switch opens anywhere.
+  assert.equal(resolveHubStageSelection({ param: 'editorial', live: null }), null);
+});
+

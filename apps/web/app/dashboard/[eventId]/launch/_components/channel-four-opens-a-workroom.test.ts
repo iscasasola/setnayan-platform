@@ -25,22 +25,37 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const page = () => stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
 
+/*
+  ── 2026-09-24 · THE CARDS FOLDED INTO THE STAGE ──────────────────────────
+  Owner: *"this 2 can integrate to each other"*. The four stage cards are the
+  stage's "When" switch now (`app/_components/site-stage/site-stage.tsx`), so
+  the workroom door and the Preview door live THERE and follow the picked
+  stage. The claims are unchanged — only where they are read from moved.
+  `hub-stage-renders.test.ts` renders both doors; these hold the wiring.
+*/
+const stage = () =>
+  stripComments(
+    readFileSync(resolve(HERE, '..', '..', '..', '..', '_components', 'site-stage', 'site-stage.tsx'), 'utf8'),
+  );
+
 test('channel 4 alone gets the workroom door, and it is same-tab into the real route', () => {
   const src = page();
   assert.match(
     src,
-    /page\.phaseParam === 'editorial' &&/,
-    'the extra door must be scoped to the editorial channel only, not every card',
-  );
-  const workroomBlock = src.slice(
-    src.indexOf("page.phaseParam === 'editorial' &&"),
-    src.indexOf("Open the workroom") + 40,
-  );
-  assert.match(
-    workroomBlock,
-    /href=\{`\$\{base\}\/story`\}/,
+    /workroomHref=\{`\$\{base\}\/story`\}/,
     'the workroom door must point at the SHIPPED editorial route — no new page',
   );
+  const st = stage();
+  assert.match(
+    st,
+    /phase === 'editorial' && workroomHref \?/,
+    'the extra door must be scoped to the editorial stage only, not every stage',
+  );
+  const workroomBlock = st.slice(
+    st.indexOf("phase === 'editorial' && workroomHref"),
+    st.indexOf('Open the workroom') + 40,
+  );
+  assert.match(workroomBlock, /href=\{workroomHref\}/);
   assert.doesNotMatch(
     workroomBlock,
     /target=["']_blank["']/,
@@ -48,14 +63,17 @@ test('channel 4 alone gets the workroom door, and it is same-tab into the real r
   );
 });
 
-test('the other three channels keep their Preview-in-a-new-tab door, unchanged', () => {
-  const src = page();
-  assert.match(src, /previewHref \? \(/, 'the generic Preview branch must still exist');
+test('every stage keeps its Preview-in-a-new-tab door — ONE door, for the stage picked', () => {
+  const st = stage();
+  assert.match(st, /const previewHref = slug \? `\/\$\{slug\}\?phase=\$\{phase\}` : null;/);
+  assert.match(st, /previewHref \? \(/, 'the Preview branch must still exist');
   assert.match(
-    src,
+    st,
     /href=\{previewHref\}\s*\n\s*target="_blank"/,
-    'Preview still opens the public rendering of the stage, in a new tab, for every channel',
+    'Preview still opens the public rendering of the stage, in a new tab',
   );
+  // The four cards are gone from the page — and so is the second copy of the door.
+  assert.doesNotMatch(page(), /PUBLIC_SITE_PAGES\.map\(\(page\) => \{/, 'the four-card loop was folded, not duplicated');
 });
 
 test('the four facts on the story channel are wired through resolveHubFacts — no second mechanism', () => {

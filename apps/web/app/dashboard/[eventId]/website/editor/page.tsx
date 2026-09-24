@@ -233,6 +233,22 @@ export default async function WebsiteEditorPage({
     .map((ref) => ({ ref, url: heroDisplay[ref] ?? galleryDisplay[ref] ?? '' }))
     .filter((p) => p.url.length > 0);
 
+  /* 🎬 The ONE video an event owns. `displayFor([musicRef, videoRef])` above
+     already signed it for the inline uploader, so this is a lookup, not a
+     second signing pass. Null when they have none — the picker then simply
+     does not offer a snippet, rather than offering a control that cannot work. */
+  const videoDisplay = chromeDisplay[videoRef ?? ''] ?? '';
+  const videoChoice =
+    videoRef && videoDisplay ? { ref: videoRef, url: videoDisplay } : null;
+
+  /* 🎨 A flat ground is chosen FROM the wedding. `paletteSwatches` is the same
+     reader the dress-code panel seeds from, so the colours a couple sees here
+     are the colours they already picked — not a free wheel that invites a
+     ground fighting every other surface on the page. */
+  const colorChoices = paletteSwatches(
+    (event as { role_palette?: RolePalette | null }).role_palette ?? null,
+  ).slice(0, 8);
+
   // Sections manager data — the same reads the widgets sub-editor does.
   const { data: widgetsRaw, error: widgetsRawError } = await supabase
     .from('invitation_widgets')
@@ -653,6 +669,8 @@ export default async function WebsiteEditorPage({
                  The actions refuse a free couple independently. */
               ownsPro={ownsPro}
               customLock={lockPanel('A section of your own')}
+              videoChoice={videoChoice}
+              colorChoices={colorChoices}
             />
           ),
         },

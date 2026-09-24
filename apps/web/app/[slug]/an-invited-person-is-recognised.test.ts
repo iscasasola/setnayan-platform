@@ -46,6 +46,9 @@ const SLUG_PAGE = resolve(HERE, 'page.tsx');
 const SEAT_LOOKUP = resolve(WEBROOT, 'lib', 'guest-membership-session.ts');
 const CONNECT_ROUTE = resolve(APP, 'join', '[eventId]', 'connect', 'route.ts');
 const LAUNCHER = resolve(APP, 'dashboard', '(launcher)', 'page.tsx');
+/** The board card's SHELL (link-or-inert) moved here 2026-09-24 — the
+ *  collection-card standard, step 1. The launcher fills its slots. */
+const COLLECTION_CARD = resolve(APP, '_components', 'collection-card.tsx');
 const AUTOSURFACE = resolve(WEBROOT, 'lib', 'account-autosurface.ts');
 const ACCOUNT_LINK = resolve(WEBROOT, 'lib', 'event-account-link.ts');
 
@@ -424,7 +427,8 @@ test('a linkless card keeps no hover affordance either', () => {
   // The first cut stripped `sn-press` and `sn-lift-4` and left
   // `hover:border-mulberry/30`, so a dead card still lit its border under the
   // pointer. A named list is a bill you keep paying.
-  const src = read(LAUNCHER);
+  // The shell lives in the collection card now; the launcher renders through it.
+  const src = read(COLLECTION_CARD);
   assert.match(
     src,
     /const isHoverAffordance = \(c: string\) => c\.startsWith\('hover:'\);/,

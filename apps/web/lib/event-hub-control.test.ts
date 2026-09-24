@@ -79,7 +79,7 @@ test('⭐ 107 DAYS OUT — the save-the-date is the live page, and the page is p
   assert.equal(standing.phase, 'plan', 'and the couple is still planning');
 
   const [stage, replies, quiet, day] = resolveHubFacts(read, guests(), NOW);
-  assert.equal(stage.value, 'Save-the-Date live');
+  assert.equal(stage.value, 'Save the Date live');
   assert.equal(replies.value, '61 of 90 in');
   assert.equal(quiet.value, '29 have not replied');
   assert.equal(day.value, 'In 107 days', 'the fourth fact is the countdown, in the venue clock');
@@ -344,7 +344,7 @@ test('an event with no date set says so, rather than counting down to nothing', 
   const [stage, , , day] = resolveHubFacts(undated, guests(), NOW);
   assert.equal(day.value, 'Not set yet');
   assert.equal(day.known, true, 'a measured absence is a fact, unlike an unread one');
-  assert.equal(stage.value, 'Save-the-Date live', 'and no date is the very start of the life');
+  assert.equal(stage.value, 'Save the Date live', 'and no date is the very start of the life');
 });
 
 test('the countdown is read in the VENUE clock, not the server clock', () => {

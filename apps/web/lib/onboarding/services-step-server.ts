@@ -16,6 +16,7 @@
  *   • Free One points    → papic_event_pool_config.free_one_camera_points
  *   • Photo / clip weight→ lib/papic-cameras.ts constants, via papic-tier-copy
  *   • Setnayan AI price  → the type's tier SKU, via resolveSetnayanAiTypePricePhp
+ *   • Event Hub Pro price→ platform_retail_catalog_v2 COUPLE_WEBSITE_PRO (same rule as the rungs)
  * A rung whose tier row is inactive, or whose catalog price is missing/inactive,
  * DISAPPEARS from the ladder rather than rendering at a stale or invented price.
  * That degradation is the point: the couple sees a shorter true ladder, never a
@@ -43,7 +44,9 @@ import {
 } from '@/lib/papic-tier-config-read';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
-import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { buildServicesStepView, type ServicesStepView } from './services-step-data';
 
 /**
@@ -170,6 +173,25 @@ export async function readServicesStepView(
     customerSkus.map((s) => [s.service_code, Number(s.retail_price_php)]),
   );
 
+  /**
+   * ── CARD 3 · EVENT HUB PRO (owner 2026-09-25) ──────────────────────────────
+   * Priced by the SAME rule and the SAME maps as the Papic rungs above — the
+   * catalog row through `setupPricePhp` — because that is exactly what the mint
+   * charges for it (`priceOf` in onboarding-services-orders.ts). No resolver of
+   * its own: Pro has one price for every event type, unlike the planner.
+   *
+   * Offered only where the type HAS an Event Hub — `surfaceEnabled(profile,
+   * 'website')`, the gate the dashboard's Launch row already reads. The words are
+   * the existing Pro offer (`addOnHeroCopy('website-pro')`); that function throws
+   * on a missing entry, and a card that cannot say what it sells is not shown.
+   */
+  let hubProCopy: { label: string; blurb: string } | null = null;
+  try {
+    hubProCopy = addOnHeroCopy('website-pro');
+  } catch {
+    hubProCopy = null;
+  }
+
   return buildServicesStepView({
     eventWord: profile.terminology.eventWord,
     poolTiers,
@@ -180,5 +202,11 @@ export async function readServicesStepView(
     freeOnePoints,
     aiPricePhp: aiOffered ? aiPricePhp : null,
     aiListPricePhp: aiOffered ? aiListPricePhp : null,
+    hubPro: {
+      websiteEnabled: surfaceEnabled(profile, 'website'),
+      pricePhp: pricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
+      listPricePhp: listPricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
+      copy: hubProCopy,
+    },
   });
 }

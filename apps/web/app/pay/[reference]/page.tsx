@@ -12,6 +12,8 @@ import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
 import { isChannelOpen } from '@/lib/payment-channels';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -72,6 +74,15 @@ export default async function PayPage({ params, searchParams }: Props) {
   );
   // Not yours and not real are the same answer on purpose — see the resolver.
   if (!payable) notFound();
+
+  // 🔒 THE STORE SHELL PAYS ONLY FOR REAL-WORLD SERVICES. This page takes money
+  // for every order — a supplier's booking fee AND every Setnayan digital SKU —
+  // so middleware cannot refuse it by path. Here, with the order in hand, the
+  // App Store / Play Store shell is sent to /web-only for anything that is not
+  // a booking fee (guideline 3.1.1; lib/store-shell.ts). Desktop is unaffected.
+  if (storeShellRefusesPayable(payable, await isStoreShellRequest())) {
+    redirect(STORE_SHELL_WEB_ONLY_PATH);
+  }
 
   const settings = await fetchPlatformSettings(supabase);
 

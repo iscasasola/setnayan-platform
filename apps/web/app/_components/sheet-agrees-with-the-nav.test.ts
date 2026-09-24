@@ -103,3 +103,51 @@ test('the wide drawer is still wider than the narrow one', () => {
     `the "wide" drawer (${w}rem) is not wider than the default (${n}rem)`,
   );
 });
+
+// ── FOLDABLES (2026-09-25) ─────────────────────────────────────────────────
+// `sheet-fold.css` caps the bottom sheet on tablets and unfolded phones and
+// keeps it off a hinge. It lives in CSS precisely so the class-level rule above
+// stays true — which means this file must hold the CSS to the same line, or the
+// cap could drift into the drawer band and be the half-transformed sheet the
+// first test exists to prevent.
+
+const FOLD_CSS = readFileSync(join(HERE, 'sheet-fold.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const RESPONSIVE = readFileSync(join(HERE, '..', '..', 'lib', 'use-responsive.ts'), 'utf8');
+
+/** The px value `lib/use-responsive.ts` gives a Tailwind breakpoint name. */
+function breakpointPx(name: string): number {
+  const m = new RegExp(`\\b${name}\\s*:\\s*(\\d+)`).exec(strip(RESPONSIVE));
+  assert.ok(m, `lib/use-responsive.ts no longer declares "${name}"`);
+  return Number(m[1]);
+}
+
+test('🚨 the tablet cap on the bottom sheet ends exactly where the sheet docks', () => {
+  const m =
+    /@media\s*\(min-width:\s*(\d+)px\)\s*and\s*\(max-width:\s*([\d.]+)px\)\s*{\s*\[data-sheet\]\s*>\s*\[data-sheet-panel\]\s*{[^}]*max-width:/.exec(
+      FOLD_CSS,
+    );
+  assert.ok(m, 'sheet-fold.css no longer caps the bottom sheet inside a min/max-width band');
+  const ceiling = Number(m[2]);
+  const dock = breakpointPx(sheetDockPoint());
+  assert.ok(
+    dock > ceiling && dock - ceiling < 1,
+    `the bottom-sheet cap runs to ${ceiling}px but the sheet docks at ${dock}px — ` +
+      'the cap would either leak onto the desktop drawer or leave a band where a tablet sheet is stretched again',
+  );
+});
+
+test('the fold rules reach the sheet — the hooks they select are on the component and the file is loaded', () => {
+  assert.match(SHEET_CODE, /import\s+'\.\/sheet-fold\.css'/, 'sheet.tsx no longer imports sheet-fold.css');
+  assert.match(SHEET_CODE, /\bdata-sheet=/, 'the dialog wrapper lost its data-sheet hook');
+  assert.match(SHEET_CODE, /\bdata-sheet-panel=/, 'the sheet body lost its data-sheet-panel hook');
+  assert.match(
+    FOLD_CSS,
+    /@media\s*\(horizontal-viewport-segments:\s*2\)/,
+    'the book-posture (side-by-side segments) rule is gone',
+  );
+  assert.match(
+    FOLD_CSS,
+    /@media\s*\(vertical-viewport-segments:\s*2\)/,
+    'the tabletop-posture (stacked segments) rule is gone',
+  );
+});

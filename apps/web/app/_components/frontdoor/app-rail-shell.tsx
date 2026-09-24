@@ -45,6 +45,7 @@ import 'server-only';
 import { getNavSlotMap } from '@/lib/nav-registry';
 
 import './front-door.css';
+import './front-door-fold.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
 import type { RailFocus } from './rail-focus';
 import type { RailMatchRow } from './rail-active';

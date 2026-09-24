@@ -94,7 +94,7 @@ export function NameSearch({
           }}
           placeholder="Your name"
           aria-label="Your name"
-          className="w-full rounded-xl border border-ink/15 bg-white py-3 pl-4 pr-10 text-base text-ink shadow-sm outline-none placeholder:text-ink/35 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20"
+          className="w-full rounded-xl border border-ink/15 bg-cream py-3 pl-4 pr-10 text-base text-ink shadow-sm outline-none placeholder:text-ink/35 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20"
         />
         {loading ? (
           <span
@@ -135,7 +135,7 @@ function MatchCard({ match }: { match: SeatMatch }) {
   const video = match.walk_video_url ?? null;
 
   return (
-    <li className="overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
+    <li className="overflow-hidden rounded-xl border border-ink/10 bg-cream shadow-sm">
       {/* The table label is the WHOLE point of the finder — render it as the
           largest, most unmistakable element on screen (Guest Legibility Floor:
           a job-to-be-done leads on legibility, not subtlety). */}

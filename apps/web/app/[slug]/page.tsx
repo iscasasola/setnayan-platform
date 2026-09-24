@@ -456,7 +456,6 @@ async function InvitationBody({
     monogram,
     animatedMonogram,
     proWatermarkHidden,
-    siteColorVars,
     bespokeSvg,
     studioAnim,
     heroPhotoUrl,
@@ -667,7 +666,6 @@ async function InvitationBody({
           animatedMonogram={animatedMonogram}
           bespokeSvg={bespokeSvg}
           proWatermarkHidden={proWatermarkHidden}
-          siteColorVars={siteColorVars}
         />
       );
     }
@@ -1028,7 +1026,6 @@ async function InvitationBody({
     broadcastPlanned,
     doorwayFacts,
     proWatermarkHidden,
-    siteColorVars,
     editorMode,
     // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
     // both had consumers. `ownerCapability` drives the read-only owner ribbon

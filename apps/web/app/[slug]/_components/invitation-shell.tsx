@@ -1,8 +1,5 @@
 import { Logo } from '@/app/_components/logo';
-import { sanitizeRolePalette } from '@/lib/mood-board';
-import { buildSitePaletteVars } from '@/lib/site-palette';
 import type { InviteThemeId } from '@/lib/invite-themes';
-import { siteSkin } from './skins/site-skin';
 import {
   PahinaCoverParallax,
   PahinaMotionObserver,
@@ -24,37 +21,33 @@ import type { MagicTraveller } from '@/lib/magic-move';
  * The footer goes transparent over the backdrop's bottom vignette.
  */
 export function InvitationShell({
-  artDirection,
   hubTheme,
-  hubPhoto,
-  hubAccent,
   children,
   backdrop,
-  rolePalette,
   monogramText,
   fullBleed = false,
   hideWatermark = false,
-  customColorVars,
   magicTraveller = null,
 }: {
-  /** Pahina art direction (PR-5b). Only 'candlelight' stamps an attribute —
-   *  daylight renders exactly today's DOM, so every existing event is
-   *  byte-stable. The dark recipe is a var block in globals.css. */
-  artDirection?: 'daylight' | 'candlelight' | null;
   /**
    * The Event Hub theme, ALREADY RESOLVED by `resolveInviteTheme` upstream —
-   * Pro ownership and the wedding fence are decided there, not here. 'house'
-   * (or undefined) renders exactly today's page: no attribute, no ground.
+   * Pro ownership and the wedding fence are decided there, not here.
    *
-   * 🔑 The caller resolves it because the gate needs an orders lookup and a
-   * profile, and a shell that took the raw column would be a second opinion
-   * about who owns what. See `lib/invite-themes.ts`.
+   * ⛔ THE SHELL NO LONGER WEARS THE LOOK — `[slug]/layout.tsx` does, once, for
+   * every page of the guest tree (owner 2026-09-25: *"yes place it there"*).
+   * The theme's attribute, its fonts, the couple's `--accent`, the mood-board
+   * palette, the Pro colours and face and the candlelight art direction all
+   * used to be stamped on THIS `<main>`, which only the landing page and the
+   * private landing render — so `/find-seat`, `/seat`, `/hub`, `/everyone` and
+   * the rest never wore any of it. Stamping them here as well would re-declare
+   * them on a descendant, and a re-declared `data-hub-theme` beneath the
+   * layout's inline palette would let the theme's stylesheet beat the couple's
+   * own colours — the precedence `theme < palette < their own hex` inverted.
+   *
+   * What the shell still needs is the NAME, for one decision: a themed page
+   * leaves its paper off (see `themed` below).
    */
   hubTheme?: InviteThemeId | null;
-  /** The couple's reveal background, presigned (`lib/invite-ground.ts`), or null. */
-  hubPhoto?: string | null;
-  /** The couple's colour — ornament only, mixed into the theme's material. */
-  hubAccent?: string | null;
   children: React.ReactNode;
   /** Pahina (wave A PR-2): couple's monogram text for the header right slot —
    *  gild Fraunces italic. Falls back to the mono "Invitation" label. */
@@ -65,22 +58,10 @@ export function InvitationShell({
   // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
   // + threaded through each render branch. Defaults false → free site keeps it.
   hideWatermark?: boolean;
-  // Couple's mood-board palette (events.role_palette). When present + themeable,
-  // it overrides the --color-* tokens for THIS subtree only, re-skinning every
-  // cream/ink/terracotta/mulberry class on the couple site (all four phases).
-  // Null/thin palette → no override → the Clean-Editorial defaults apply.
-  rolePalette?: unknown;
   // Full-screen mode (owner 2026-06-19): the Save-the-Date film IS the whole
   // experience — drop the Setnayan/Invitation top bar + footer + the centred
   // max-width column so it plays edge-to-edge with no chrome.
   fullBleed?: boolean;
-  // Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
-  // pre-computed --color-* overrides (lib/site-palette buildCustomSiteColorVars),
-  // ALREADY gated on ACTIVE Website Pro upstream (loadMedia). When present they
-  // layer OVER the Mood-Board palette (couple's manual pick wins). When
-  // undefined/null the merge is a NO-OP: `themeVars` stays byte-identical to the
-  // palette-only result, so a non-Pro / unset event renders exactly as today.
-  customColorVars?: Record<string, string> | null;
   /**
    * MAGIC MOVE — which element travels, already sanitized upstream, or null.
    *
@@ -92,65 +73,28 @@ export function InvitationShell({
    * are set from ONE column.
    *
    * ⛔ NULL RENDERS THE PAGE THAT SHIPPED BEFORE THIS EXISTED. No attribute, no
-   * script tag, no rule that matches — the same byte-safety `hubThemeAttr` and
-   * `customColorVars` hold themselves to.
+   * script tag, no rule that matches — the same byte-safety the layout's look
+   * holds itself to.
    */
   magicTraveller?: MagicTraveller | null;
 }) {
-  const paletteVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
   /*
-    The theme's ground + the `--accent` its material mixes with. `siteSkin`
-    returns undefined for House and for any theme upstream turned into House, so
-    everything below is a no-op for an event that never chose one.
+    House — and anything upstream turned into House — keeps today's opaque
+    paper, so an event that never chose a theme renders the DOM it always did.
   */
-  const skin =
-    hubTheme && hubTheme !== 'house'
-      ? siteSkin(hubTheme, { photo: hubPhoto ?? null, accent: hubAccent ?? 'currentColor' })
-      : undefined;
-  /*
-    ⚠ `data-hub-theme` IS WITHHELD WHEN THE SKIN IS UNDEFINED, not set to
-    'house'. React omits an undefined attribute entirely, so an unthemed event
-    renders the DOM it rendered before this feature existed — the same
-    byte-safety property `artDirection`'s daylight path has, and the reason a
-    theme rollout cannot quietly restyle a page a couple already shared.
-  */
-  const hubThemeAttr = skin ? hubTheme ?? undefined : undefined;
-  // Byte-safety: when there are no custom colours, `themeVars` is IDENTICAL to
-  // `paletteVars` (the pre-PR-C value). Only when custom colours exist do we
-  // spread them over the palette (custom wins per-role).
-  const colourVars =
-    customColorVars && Object.keys(customColorVars).length > 0
-      ? { ...(paletteVars ?? {}), ...customColorVars }
-      : paletteVars;
-  /*
-    🔑 THE SKIN'S `--accent` IS MERGED IN, THE THEME'S COLOURS ARE NOT. The
-    material lives in a STYLESHEET block (globals.css), deliberately: inline
-    style beats any stylesheet, so a theme expressed inline would silently
-    overwrite the couple's own mood-board palette and Pro hex colours, which
-    arrive right here. As a stylesheet the precedence falls out correct for
-    free — theme < palette < the couple's own hex. `--accent` is the one
-    exception because it IS the couple's colour, not the theme's.
-  */
-  const themeVars =
-    skin || colourVars
-      ? { ...(colourVars ?? {}), ...(skin?.style ?? {}) }
-      : undefined;
+  const themed = Boolean(hubTheme && hubTheme !== 'house');
   if (fullBleed) {
     return (
       <main
         /*
           🔴 `bg-cream` IS DROPPED WHEN A GROUND IS PRESENT. It is opaque, and it
-          sits ON TOP of the fixed layer below — paint it and the theme's ground
-          is invisible on every page while every test still passes. The spatial
-          backdrop path has always done this; a skin needs it for the same
-          reason. `relative` replaces it so the content still stacks above.
+          sits ON TOP of the fixed ground the layout lays behind every themed
+          page — paint it and a theme's ground is invisible while every test
+          still passes. The spatial backdrop path has always done this; a theme
+          needs it for the same reason. `relative` replaces it so the content
+          still stacks above.
         */
-        className={`min-h-dvh text-ink ${skin ? 'relative' : 'bg-cream'} ${
-          skin?.className ?? ''
-        }`.trim()}
-        data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
-        data-hub-theme={hubThemeAttr}
-        style={themeVars ? (themeVars as React.CSSProperties) : undefined}
+        className={`min-h-dvh text-ink ${themed ? 'relative' : 'bg-cream'}`}
       >
         {children}
       </main>
@@ -158,12 +102,7 @@ export function InvitationShell({
   }
   return (
     <main
-      className={`min-h-dvh text-ink ${backdrop || skin ? 'relative' : 'bg-cream'} ${
-        skin?.className ?? ''
-      }`.trim()}
-      data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
-      data-hub-theme={hubThemeAttr}
-      style={themeVars ? (themeVars as React.CSSProperties) : undefined}
+      className={`min-h-dvh text-ink ${backdrop || themed ? 'relative' : 'bg-cream'}`}
     >
       {/* Scroll choreography (design §6). Deliberately NOT on the fullBleed
           path above — the veil reveal and STD film own their own motion and the

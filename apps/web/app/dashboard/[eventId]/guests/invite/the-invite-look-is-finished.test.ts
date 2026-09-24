@@ -292,7 +292,19 @@ test('the DOOR asks the fence too — the only one that protects an already-save
     'the measurement is taken and then not used',
   );
   // …and it costs a House event nothing: both reads sit behind `wantsPro`.
-  assert.match(look, /\? await Promise\.all\(\[/, 'the fence read is no longer skipped for a House event');
+  // 🪤 RE-ANCHORED 2026-09-25: the two reads moved into `proThemeGate`, a
+  // per-request `cache()` (the guest-tree layout now asks the same question on
+  // every page), so the ternary names the gate and the gate holds the pair.
+  assert.match(
+    look,
+    /wantsPro\s*\?\s*await proThemeGate\(/,
+    'the fence read is no longer skipped for a House event',
+  );
+  assert.match(
+    look,
+    /const proThemeGate = cache\([\s\S]{0,200}Promise\.all\(\[/,
+    'the gate no longer reads the Pro unlock and the fence together',
+  );
 });
 
 test('the fence is the reveal’s, not a second copy of it', () => {

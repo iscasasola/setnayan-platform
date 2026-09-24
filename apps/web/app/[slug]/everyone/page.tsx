@@ -171,7 +171,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       {groups.length > 0 ? (
         <EntourageSection groups={groups} />
       ) : (
-        <p className="rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-10 text-center text-sm text-ink/60">
+        <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
           The entourage hasn&rsquo;t been shared yet. Check back closer to the day.
         </p>
       )}
@@ -200,7 +200,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
           /* ⚠ SAY WHY, AND SAY IT AS A FACT ABOUT THE READER — not "you are not
              allowed". A relative opening a forwarded link is not doing anything
              wrong; they simply are not holding an invitation. */
-          <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-8 text-center text-sm text-ink/60">
+          <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/60">
             The rest of the guest list is for invited guests. Open your own
             invitation link, or scan your QR, and it will appear here.
           </p>

@@ -85,6 +85,44 @@ export function isChurchCeremony(ceremonyType: string | null | undefined): boole
 }
 
 /**
+ * Whether a checklist item belongs on an event whose type profile is
+ * `marketplaceEnabled: false` and/or has the `budget` surface off
+ * (event-type-profile.ts — owner 2026-09-25: "the simple event is only for
+ * our own services"). A `vendors`-category task ("Book a photographer") is
+ * meaningless where there is no vendor marketplace to book through; a
+ * `foundations` budget task ("Set your budget") is meaningless where the
+ * type's profile never turns the budget surface on. Matches the existing
+ * `/budget/.test(key)` convention this file already uses to spot a budget
+ * task by its template key (see `checklistItemHref`).
+ *
+ * Gated on the profile FLAGS, never on the type's name, and shared by two
+ * call sites for two different reasons:
+ *  - the SEED path (checklist-actions.ts) filters the template BEFORE
+ *    building rows, so a new event never gets one of these in the first
+ *    place;
+ *  - the READ path (checklist/page.tsx) filters the rows AFTER fetching them,
+ *    because seeding is top-up-only and never deletes — an event seeded
+ *    before this gate existed keeps its old rows in the database forever,
+ *    and this is what hides them without touching that data.
+ */
+export function checklistItemAllowedForProfile(
+  category: ChecklistCategory | string | null,
+  templateKey: string | null | undefined,
+  profile: { marketplaceEnabled: boolean; enabledSurfaces: readonly string[] },
+): boolean {
+  if (!profile.marketplaceEnabled && category === 'vendors') return false;
+  if (
+    !profile.enabledSurfaces.includes('budget') &&
+    category === 'foundations' &&
+    !!templateKey &&
+    /budget/i.test(templateKey)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * True when this event should receive the PH-WEDDING checklist template.
  * `CHECKLIST_TEMPLATE` is entirely wedding-shaped (marriage license, pre-Cana,
  * ninong/ninang, reception-vs-ceremony venue). Null/unset `event_type` is

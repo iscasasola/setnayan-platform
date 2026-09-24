@@ -104,14 +104,15 @@ export type EventRow = {
   secondary_ceremony_type?: string | null;
   // Couple's mood-board palette (events.role_palette JSONB, iteration 0010).
   // Read here to skin the public site's --color-* tokens via buildSitePaletteVars
-  // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
+  // in `loadGuestLook`, which `[slug]/layout.tsx` wears for every page. Shape is Partial<Record<PaletteKey, string[]>>; typed
   // unknown + sanitized at use so a thin/absent palette degrades to defaults.
   role_palette?: unknown;
   // Website Pro net-new manual site colours (events.site_bg_color /
   // site_button_color · #rrggbb hex · migration 20270930244819). Override the
   // Mood-Board-derived --color-cream / --color-mulberry tokens on the guest
   // site, applied ONLY when set AND the event owns active Website Pro
-  // (loadMedia gates + resolves them into `siteColorVars`). NULL = inert.
+  // (`proSiteVarsFor` gates them; `[slug]/layout.tsx` paints them on every
+  // page of the guest tree). NULL = inert.
   /** Pahina art direction (migration 20271003190000). 'candlelight' flips the
    *  guest site to the dark direction; absent/'daylight' = today's look. */
   site_art_direction?: 'daylight' | 'candlelight' | null;
@@ -263,9 +264,6 @@ export type EventMedia = {
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
   proWatermarkHidden: boolean;
-  // Website Pro net-new manual site colour overrides (PR-C) — pre-gated on
-  // ACTIVE Website Pro + non-NULL columns; null when inert (renders as today).
-  siteColorVars: Record<string, string> | null;
   bespokeSvg: string | null;
   studioAnim: StudioAnim;
   heroPhotoUrl: string | null;

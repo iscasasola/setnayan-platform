@@ -3,7 +3,7 @@ import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { RevealOverlay } from './reveal-overlay';
-import { StdTouchGlow } from './std-touch-glow';
+import { RevealMount } from './reveal-mount';
 
 /**
  * `seenEventId` is omitted on purpose: it is DERIVED from `eventId` below, not
@@ -43,39 +43,19 @@ const stdOpeningsActiveCached = cache(async (eventId: string) =>
 );
 export async function RevealOverlayServer({ eventId, ...props }: Props) {
   const config = await fetchRevealConfig();
-  // Fires when the reveal is enabled for this phase (`enabled` — now the
-  // Save-the-Date window OR the invitation) AND the admin global toggle is not
-  // already unlocking openings for everyone. Cached per request; see above.
-  const premiumUnlocked =
-    props.enabled && !config.enabled && eventId
-      ? await stdOpeningsActiveCached(eventId)
-      : false;
-  const glow = config.touchGlow;
+  // ALL REVEAL IS PAID (owner 2026-09-24): Event Hub Pro ownership is now the
+  // ONLY gate, so it is read whenever the reveal's phase is on (`enabled` — the
+  // Save-the-Date window OR the invitation). It used to be SKIPPED when the
+  // admin master toggle was on, because that toggle handed the paid veil to
+  // every free couple. Cached per request; see above.
+  const ownsPro = props.enabled && eventId ? await stdOpeningsActiveCached(eventId) : false;
   return (
-    <>
-      {/* Press-to-glow runs wherever the reveal is enabled (`enabled`) when the
-          admin has it on — independent of whether the premium reveal shows, so
-          it brightens both the reveal and the bare film underneath. Since
-          2026-08-29 that is the Save-the-Date window AND the invitation. */}
-      {props.enabled && glow.enabled ? (
-        <StdTouchGlow
-          color={glow.color}
-          intensity={glow.intensity}
-          size={glow.size}
-        />
-      ) : null}
-      <RevealOverlay
-        {...props}
-        petalsColor={props.petalsColor ?? config.petalsColor}
-        config={config}
-        premiumUnlocked={premiumUnlocked}
-        /* ONE REVEAL ON THE WAY IN (owner Q6 = B). The id is already held here
-           for the ownership read; forwarding it is what lets the mark be keyed
-           per event, so two invitations open in one tab cannot silence each
-           other. `oncePerVisit` rides in through `...props` from the two mounts
-           that take a side — the invite door records, the Event Hub defers. */
-        seenEventId={eventId ?? null}
-      />
-    </>
+    <RevealMount
+      {...props}
+      config={config}
+      ownsPro={ownsPro}
+      eventId={eventId}
+      isStaffPreview={process.env.NEXT_PUBLIC_STD_REVEAL === '1'}
+    />
   );
 }

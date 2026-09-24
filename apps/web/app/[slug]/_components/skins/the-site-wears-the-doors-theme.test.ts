@@ -212,18 +212,24 @@ test('the page has exactly one opinion about which theme is live', () => {
   // The gate is an orders lookup plus a profile read, and both can lapse after
   // the couple saved. A second copy means House on the door and Capiz on the
   // page, with each surface passing its own suite.
+  /*
+    `recap/page.tsx` and `pabuya/page.tsx` LEFT this list on 2026-09-25: they no
+    longer decide a theme at all — `[slug]/layout.tsx` wears it for every page
+    (`every-guest-page-wears-the-theme.test.ts`), through `loadGuestLook` in
+    `_lib/loaders.ts`, which took their place here. `resolveHubTheme` is the
+    same gate as `resolveHubLook` without the reveal photo, so either counts.
+  */
   for (const rel of [
     ['app', '[slug]', '_components', 'site-body.tsx'],
     ['app', '[slug]', '_components', 'private-landing.tsx'],
-    ['app', '[slug]', 'recap', 'page.tsx'],
-    ['app', '[slug]', 'pabuya', 'page.tsx'],
+    ['app', '[slug]', '_lib', 'loaders.ts'],
     ['app', '[slug]', 'invite', '_lib', 'load-invite-look.ts'],
   ]) {
     const src = stripComments(read(...rel));
     assert.match(
       src,
-      /resolveHubLook/,
-      `${rel.join('/')} does not go through resolveHubLook`,
+      /resolveHubLook|resolveHubTheme/,
+      `${rel.join('/')} does not go through resolveHubLook / resolveHubTheme`,
     );
     /*
       🪤 NARROWED, AND THE FIRST VERSION WAS WRONG IN THE EXPENSIVE DIRECTION.
@@ -248,29 +254,41 @@ test('the page has exactly one opinion about which theme is live', () => {
   }
 });
 
-test('every guest <main> wears the theme, and House wears nothing', () => {
+test('every guest page wears the theme from ONE stamp, and House wears nothing', () => {
+  /*
+    🔁 RESHAPED 2026-09-25, NOT RELAXED. This used to count one `data-hub-theme`
+    stamp per `<main>` in the shell, the recap and the money gift — and that was
+    exactly why the other nine guest pages never wore a theme: the property was
+    held per page, so a page nobody listed was never asked. The owner's ruling
+    (*"yes place it there"*) moved the stamp to `[slug]/layout.tsx`, which wraps
+    every page. So the assertion inverts: the pages must stamp NOTHING (a second
+    stamp below the layout's inline palette would let the theme beat the
+    couple's own colours), and the one stamp must be the scope's. The full
+    structural guard — every page inside the scope, the door exempted only by
+    proof — is `app/[slug]/every-guest-page-wears-the-theme.test.ts`.
+  */
   for (const rel of [
     ['app', '[slug]', '_components', 'invitation-shell.tsx'],
     ['app', '[slug]', 'recap', 'page.tsx'],
     ['app', '[slug]', 'pabuya', 'page.tsx'],
   ]) {
     const src = stripComments(read(...rel));
-    const mains = (src.match(/<main\b/g) ?? []).length;
-    const stamps = (src.match(/data-hub-theme=\{/g) ?? []).length;
-    assert.ok(mains > 0, `${rel.join('/')} has no <main> — this guard is looking at nothing`);
-    assert.equal(
-      stamps,
-      mains,
-      `${rel.join('/')} has ${mains} <main> but stamps ${stamps} — a half-themed page reads ` +
-        'as a broken theme, and the un-wired branch is usually the full-bleed Save-the-Date film',
+    assert.ok(/<main\b/.test(src), `${rel.join('/')} has no <main> — this guard is looking at nothing`);
+    assert.doesNotMatch(
+      src,
+      /data-hub-theme=\{/,
+      `${rel.join('/')} stamps data-hub-theme again — the layout already wears it for every page`,
     );
   }
   // House must resolve to `undefined`, never to the string: React omits an
   // undefined attribute entirely, which is what makes an unthemed event's DOM
   // byte-identical to before this shipped.
+  const scope = stripComments(read('app', '[slug]', '_components', 'guest-look-scope.tsx'));
+  assert.match(scope, /data-hub-theme=\{worn && theme \? theme : undefined\}/, 'House would stamp an attribute');
+  const loaders = stripComments(read('app', '[slug]', '_lib', 'loaders.ts'));
+  assert.match(loaders, /theme: hub\.theme === 'house' \? null : hub\.theme/, 'House reaches the scope as a theme');
   const shell = stripComments(read('app', '[slug]', '_components', 'invitation-shell.tsx'));
   assert.match(shell, /hubTheme !== 'house'/, 'the shell does not exclude House from painting');
-  assert.match(shell, /skin \? hubTheme \?\? undefined : undefined/, 'House would stamp an attribute');
 });
 
 test('the shared block gives House nothing to wear', () => {
@@ -315,9 +333,11 @@ test('the opaque paper yields to the ground — or the theme renders as nothing'
       /bg-cream/.test(main),
       `branch ${i}: no bg-cream at all — this guard is looking at the wrong thing`,
     );
+    // `themed` since 2026-09-25: the shell no longer builds a skin (the layout
+    // wears the look and lays the ground), it only needs to know a theme is on.
     assert.match(
       main,
-      /\bskin\b[^`]*\?\s*'relative'\s*:\s*'bg-cream'/,
+      /\bthemed\b[^`]*\?\s*'relative'\s*:\s*'bg-cream'/,
       `branch ${i} paints bg-cream regardless of the skin — it is opaque and sits ON the ` +
         "ground, so the theme would render as nothing while every other assertion here passes",
     );

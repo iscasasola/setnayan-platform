@@ -85,7 +85,7 @@ import { OurStory } from './our-story';
    See that function's docblock for what the old one-input version got wrong. */
 
 import { GuestColumnCard } from './guest-column-card';
-import { resolveHubLook } from '../_lib/hub-look';
+import { resolveHubTheme } from '../_lib/hub-look';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
 import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
@@ -328,10 +328,6 @@ type SiteBodyProps = {
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
-  /** Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
-   *  pre-gated --color-* overrides (null when inert). Layered over the Mood-Board
-   *  palette in InvitationShell; null → no override → renders as today. */
-  siteColorVars: Record<string, string> | null;
   /** Unified Website Editor (PR-1) — TRUE only when the page resolved
    *  `?editor=1` AND server-verified host membership. Mounts the click-to-edit
    *  bridge for the editor's preview iframe. FALSE for every guest/anonymous
@@ -401,7 +397,6 @@ export async function SiteBody({
   broadcastPlanned = false,
   doorwayFacts = null,
   proWatermarkHidden,
-  siteColorVars,
   editorMode = false,
   ownerCapability = null,
   vendorCapability = null,
@@ -2250,24 +2245,25 @@ export async function SiteBody({
 
   /*
     THE EVENT HUB'S THEME — the one the couple already chose for their invite
-    door (owner 2026-09-22). `resolveHubLook` owns the gating, so this is the
+    door (owner 2026-09-22). `resolveHubTheme` owns the gating, so this is the
     only opinion on the page about which theme is live; a Pro theme whose unlock
     lapsed comes back as House here exactly as it does on the door.
+
+    ⚠ ONLY THE THEME'S NAME TRAVELS. The palette, the art direction, the Pro
+    colours and face, and the theme's attribute are worn ONCE by
+    `[slug]/layout.tsx` for every page of the tree (owner 2026-09-25) — the
+    shell needs the name only to leave its paper off a themed ground. The Pro
+    gate inside is `cache()`d, so this costs no second order lookup.
   */
-  const hubLook = await resolveHubLook(event);
+  const hubLook = await resolveHubTheme(event);
 
   return (
     <InvitationShell
       monogramText={event.monogram_text}
-      artDirection={event.site_art_direction ?? null}
       hubTheme={hubLook.theme}
-      hubPhoto={hubLook.photo}
-      hubAccent={hubLook.accent}
       backdrop={backdrop}
-      rolePalette={event.role_palette}
       fullBleed={plan.fullBleed}
       hideWatermark={proWatermarkHidden}
-      customColorVars={siteColorVars}
       magicTraveller={magicTraveller}
     >
       {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the

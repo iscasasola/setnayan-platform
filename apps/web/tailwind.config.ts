@@ -139,6 +139,13 @@ const config: Config = {
         ink: {
           DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
           soft: 'rgb(var(--ink-soft) / <alpha-value>)',
+          // The ink for text on a surface that stays LIGHT whatever the theme
+          // (a tinted notice on a literal `-50` wash). Falls back to
+          // `--color-ink`, so it IS `text-ink` everywhere except a dark Event
+          // Hub look (Velvet, candlelight), where `--color-ink` is the ground's
+          // cream and would vanish on the light surface; those set
+          // `--color-ink-on-light` in globals.css.
+          'on-light': 'rgb(var(--color-ink-on-light, var(--color-ink)) / <alpha-value>)',
         },
         terracotta: {
           DEFAULT: 'rgb(var(--color-terracotta) / <alpha-value>)',

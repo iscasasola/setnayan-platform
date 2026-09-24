@@ -83,3 +83,40 @@ export async function eventAnimatedMonogramActive(
 ): Promise<boolean> {
   return eventSkuActive(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
 }
+
+/**
+ * ⭐ EVENT HUB PRO INCLUDES THE ANIMATION (owner ruling 2026-09-24, "A then").
+ *
+ * `COUPLE_WEBSITE_PRO` confers ANIMATED_MONOGRAM through SKU_OWNERSHIP_ALIASES
+ * (lib/entitlements.ts), so the two readers above already say "owned" for a
+ * Pro couple and the ₱500 buy is never offered to them. What the maker still
+ * owes that couple is the REASON: without it a Pro couple sees the paid button
+ * simply vanish, and cannot tell whether they bought it, were comped, or hit a
+ * bug. This names the source on the owned state.
+ *
+ * Bundle-aware + counts a pending order, the same buy-surface rule as
+ * eventOwnsAnimatedMonogram — so the note shows exactly when the buy is hidden.
+ */
+export const HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
+
+export const INCLUDED_WITH_HUB_PRO = 'Included with Event Hub Pro';
+
+export async function eventGetsAnimatedMonogramFromHubPro(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return eventOwnsSku(supabase, eventId, HUB_PRO_SERVICE_KEY);
+}
+
+/**
+ * The note on the owned state — PURE, so the rule is testable without a
+ * render. Null unless the animation is owned AND the event holds Event Hub
+ * Pro: a couple who bought the ₱500 standalone is not told it came with a
+ * product they do not have.
+ */
+export function animatedMonogramIncludedNote(
+  owned: boolean,
+  ownsHubPro: boolean,
+): string | null {
+  return owned && ownsHubPro ? INCLUDED_WITH_HUB_PRO : null;
+}

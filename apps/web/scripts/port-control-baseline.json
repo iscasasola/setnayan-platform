@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "26e82d686",
-  "routeCount": 431,
-  "destinations": 927,
+  "generatedFromRef": "e33386fa1",
+  "routeCount": 432,
+  "destinations": 926,
   "actions": 663,
-  "blocks": 4636,
+  "blocks": 4644,
   "routes": {
     "/": {
       "files": [
@@ -48,6 +48,7 @@
         "SiteChrome",
         "SiteFooterChrome",
         "StaleTabNotice",
+        "StoreShellLinkGuard",
         "Suspense",
         "T",
         "ThemeProvider",
@@ -2368,8 +2369,7 @@
       ],
       "destinations": [
         "/admin/event-types/wedding/profile",
-        "/admin/taxonomy?view=vocab-event",
-        "/onboarding/[seg]"
+        "/admin/taxonomy?view=vocab-event"
       ],
       "actions": [
         "resetOnboardingSpec",
@@ -4671,6 +4671,7 @@
     },
     "/dashboard/(launcher)": {
       "files": [
+        "dashboard/(launcher)/_components/create-event-panel.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
@@ -4703,11 +4704,14 @@
         "BoardCardWithMenu",
         "ClashNotice",
         "CollectionCard",
+        "CollectionEmptyState",
         "CollectionGrid",
+        "CollectionPager",
         "DeletionImpact",
         "EmptyYear",
         "EventCardMenu",
         "EventMonogram",
+        "EventPoster",
         "EventScene",
         "GlassEventCard",
         "HTMLDialogElement",
@@ -4719,15 +4723,18 @@
         "ImpactLines",
         "Link",
         "MomentRow",
+        "NewEventButton",
         "NewEventCard",
         "NewThingTile",
         "PermanenceWarning",
+        "PlanningHeaderActions",
         "PutAwaySwitch",
         "ReasonNote",
         "ReasonPicker",
         "RemoveDialog",
         "SectionLabel",
         "ShelfInfo",
+        "SidePanel",
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
@@ -4735,6 +4742,17 @@
         "UnreadBellBadge",
         "YearMomentsList",
         "YearMomentsStrip"
+      ]
+    },
+    "/dashboard/(launcher)/@modal/(.)create-event": {
+      "files": [
+        "dashboard/(launcher)/@modal/(.)create-event/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CreateEventPage",
+        "CreateEventPanel"
       ]
     },
     "/dashboard/[eventId]": {
@@ -5909,6 +5927,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "SiteStage",
         "SlugField"
       ]
     },

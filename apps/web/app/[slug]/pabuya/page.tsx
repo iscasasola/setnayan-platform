@@ -1,5 +1,4 @@
 import { RoomFooter } from '../_components/room-footer';
-import { resolveHubLook, type HubLookEvent } from '../_lib/hub-look';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import { cache } from 'react';
 import Link from 'next/link';
@@ -9,8 +8,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
-import { sanitizeRolePalette } from '@/lib/mood-board';
-import { buildSitePaletteVars } from '@/lib/site-palette';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
 import {
@@ -92,23 +89,17 @@ export default async function PabuyaPublicPage({
     enabledOnly: true,
   });
 
-  const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
-  const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
   /*
     THE THEME REACHES HERE TOO (owner 2026-09-22: every guest page). A couple
-    whose invitation is Capiz and whose recap is Clean-Editorial reads that as a
-    broken theme, not as a page nobody got round to. `resolveHubLook` is the one
-    opinion about which theme is live; House stamps no attribute and renders
-    exactly today's page.
+    whose invitation is Capiz and whose money-gift page is Clean-Editorial reads
+    that as a broken theme, not as a page nobody got round to.
 
-    ⚠ THE GROUND IS NOT DRAWN ON THIS SURFACE — only the material tokens. These
-    pages compose their own `<main>` rather than going through InvitationShell,
-    and a fixed ground behind a page that was never designed for one is a
-    change this build did not measure. The paper, the metal and the ornament
-    still move, which is what makes the surfaces agree.
+    ⛔ AND IT IS NOT STAMPED HERE ANY MORE. The palette and `data-hub-theme` this
+    page used to put on its own `<main>` are worn by `[slug]/layout.tsx` for
+    every page of the guest tree (owner 2026-09-25: *"yes place it there"*).
+    Re-stamping the attribute here would re-declare the theme BELOW the
+    layout's inline palette and let it beat the couple's own colours.
   */
-  const hubTheme = (await resolveHubLook(event as HubLookEvent)).theme;
-  const hubThemeAttr = hubTheme === 'house' ? undefined : hubTheme;
 
   /*
     ══ 🔒 AN ACCOUNT NUMBER IS NOT PUBLIC CONTENT ══════════════════════════════
@@ -206,7 +197,7 @@ export default async function PabuyaPublicPage({
   const hostName = event.display_name ?? words.theOrganizer;
 
   return (
-    <main className="min-h-dvh bg-cream text-ink" style={wrapStyle} data-hub-theme={hubThemeAttr}>
+    <main className="min-h-dvh bg-cream text-ink">
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
@@ -220,7 +211,7 @@ export default async function PabuyaPublicPage({
 
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-gold-deep">
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-terracotta-700">
             {/* Owner 2026-08-17: a wake MAY accept money — abuloy is normal at a
                 Filipino wake — "with gentler wording than a wedding's digital
                 money dance". Pinning cash is the dance's own gesture, so the
@@ -273,14 +264,14 @@ export default async function PabuyaPublicPage({
                 filled the form in wrong. This is the difference between a gate
                 and a bug. */}
             {identifiersWithheld ? (
-              <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-6 text-center text-sm text-ink/65">
+              <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-6 text-center text-sm text-ink/65">
                 Payment details are shown to invited guests. Open your own
                 invitation link, or scan your QR, and the account numbers appear here.
               </p>
             ) : null}
           </>
         ) : (
-          <p className="rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-10 text-center text-sm text-ink/60">
+          <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
             {hostName} hasn&rsquo;t set up e-gifts yet. Check back soon — or
             visit their page in the meantime.
           </p>

@@ -27,6 +27,7 @@ import { formatEventDate } from '@/lib/events';
 import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { saveAllStdContent, presignStdBackground } from '../actions';
 import { LOOK_PRO_REQUIRED } from '@/lib/hub-look-pro';
+import { REVEAL_NEEDS_PRO } from '@/lib/reveal-access';
 import { useSaveLoader } from '@/components/sd-loader';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
@@ -199,7 +200,7 @@ export function StdBuilderClient({
   const [accentColor, setAccentColor] = useState<string | null>(initialFilmAccentColor ?? null);
 
   const [saving, startSave] = useTransition();
-  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'pro'>('idle');
+  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'pro' | 'needs-pro'>('idle');
   /* One lock, three places — the background, film and song uploaders. Built
      here as an ELEMENT and handed down, never a component or function prop. */
   const proHref = `/dashboard/${eventId}/studio/website-pro`;
@@ -439,8 +440,17 @@ export function StdBuilderClient({
         { steps: ['Saving your Save-the-Date'], hint: 'Saving' },
       );
       // A Pro refusal is a SENTENCE, not "something went wrong" — the couple
-      // must learn why the film did not change and what would change it.
-      setResult(r.ok ? 'ok' : r.error === LOOK_PRO_REQUIRED ? 'pro' : 'error');
+      // must learn why the film did not change and what would change it. Two
+      // gates can refuse this save, each with its own code: the couple's own
+      // media (LOOK_PRO_REQUIRED, lib/hub-look-pro.ts) and a reveal-only
+      // effect (REVEAL_NEEDS_PRO, lib/reveal-access.ts).
+      setResult(
+        r.ok
+          ? 'ok'
+          : r.error === LOOK_PRO_REQUIRED ? 'pro'
+            : r.error === REVEAL_NEEDS_PRO ? 'needs-pro'
+              : 'error',
+      );
     });
   };
 
@@ -1018,9 +1028,11 @@ export function StdBuilderClient({
                 Unlock Event Hub Pro
               </Link>
             </p>
-          ) : result === 'error' ? (
+          ) : result === 'error' || result === 'needs-pro' ? (
             <p className="rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-center text-sm text-terracotta">
-              Something went wrong — please try again.
+              {result === 'needs-pro'
+                ? 'Opening effects need Event Hub Pro — nothing was saved. Turn the effect back off to save your film.'
+                : 'Something went wrong — please try again.'}
             </p>
           ) : null}
 

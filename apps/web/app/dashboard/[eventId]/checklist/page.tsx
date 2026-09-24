@@ -6,7 +6,9 @@ import {
   groupChecklistByPhase,
   checklistChrome,
   checklistAnchorDateFor,
+  checklistItemAllowedForProfile,
 } from '@/lib/checklist';
+import { resolveProfile } from '@/lib/event-type-profile';
 import {
   computeBudgetHealth,
   BUDGET_HEALTH_UNREADABLE,
@@ -146,7 +148,19 @@ export default async function EventChecklistPage({ params }: Props) {
   });
   const chrome = checklistChrome(eventType);
 
-  const rows = await fetchChecklistItems(supabase, eventId);
+  const rawRows = await fetchChecklistItems(supabase, eventId);
+  // Vendor-free / budget-off gate (owner 2026-09-25 — "the simple event is
+  // only for our own services"). Seeding is top-up-only and never deletes
+  // (see ensureChecklistSeeded's docblock), so an event seeded before this
+  // gate existed — every Simple Event created before today — keeps its
+  // 'Book a photographer' / 'Set your budget' rows in the database forever.
+  // Hidden HERE, at read time, on the same profile flag the seed path now
+  // filters on: no user data is deleted, and a couple never sees a task it
+  // can never complete through this product.
+  const checklistProfile = await resolveProfile(eventType ?? 'wedding');
+  const rows = rawRows.filter((r) =>
+    checklistItemAllowedForProfile(r.category, r.template_key, checklistProfile),
+  );
   const now = new Date();
   // Runway anchor — the day the plan came into existence. Without it a `date`
   // or `hangout` created FOR TONIGHT rendered its whole 7/5/3/1 template into

@@ -1,5 +1,4 @@
 import { RoomFooter } from '../_components/room-footer';
-import { resolveHubLook, type HubLookEvent } from '../_lib/hub-look';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import type { RoomLink } from '../_lib/room-links';
 import { cache } from 'react';
@@ -12,8 +11,6 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
-import { sanitizeRolePalette } from '@/lib/mood-board';
-import { buildSitePaletteVars } from '@/lib/site-palette';
 import { isRecapPublished, assembleRecapModel, type RecapModel } from '@/lib/auto-recap';
 import {
   resolveEventMonogram,
@@ -178,23 +175,18 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
     redirect(`/${slug}`);
   }
 
-  const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
-  const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
   /*
     THE THEME REACHES HERE TOO (owner 2026-09-22: every guest page). A couple
     whose invitation is Capiz and whose recap is Clean-Editorial reads that as a
-    broken theme, not as a page nobody got round to. `resolveHubLook` is the one
-    opinion about which theme is live; House stamps no attribute and renders
-    exactly today's page.
+    broken theme, not as a page nobody got round to.
 
-    ⚠ THE GROUND IS NOT DRAWN ON THIS SURFACE — only the material tokens. These
-    pages compose their own `<main>` rather than going through InvitationShell,
-    and a fixed ground behind a page that was never designed for one is a
-    change this build did not measure. The paper, the metal and the ornament
-    still move, which is what makes the surfaces agree.
+    ⛔ AND IT IS NOT STAMPED HERE ANY MORE. The palette and `data-hub-theme` this
+    page used to put on its own `<main>` are worn by `[slug]/layout.tsx` for
+    every page of the guest tree (owner 2026-09-25: *"yes place it there"*),
+    together with the Pro colours, the face and the art direction this page
+    never had. Re-stamping the attribute here would re-declare the theme BELOW
+    the layout's inline palette and let it beat the couple's own colours.
   */
-  const hubTheme = (await resolveHubLook(event as HubLookEvent)).theme;
-  const hubThemeAttr = hubTheme === 'house' ? undefined : hubTheme;
 
   // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
   // recap sheds the freemium "Powered by Setnayan · setnayan.com" footer
@@ -216,7 +208,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
 
   if (!(await isRecapPublished(event.event_id))) {
     return (
-      <main className="min-h-dvh bg-cream text-ink" style={wrapStyle} data-hub-theme={hubThemeAttr}>
+      <main className="min-h-dvh bg-cream text-ink">
         <RecapHeader />
         <div className="mx-auto flex max-w-2xl flex-col items-center px-6 py-24 text-center">
           <Sparkles aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.5} />
@@ -272,7 +264,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const storyFilename = `${event.slug}-recap`;
 
   return (
-    <main className="min-h-dvh bg-cream text-ink" style={wrapStyle} data-hub-theme={hubThemeAttr}>
+    <main className="min-h-dvh bg-cream text-ink">
       <RecapHeader />
       <article className="mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-6">
         <RecapHero model={model} mono={mono} />

@@ -3456,6 +3456,128 @@ html.dark {
   }
 }
 
+/* ── …and what the FIXED pages need to stay readable (owner 2026-09-25) ──────
+   Owner: *"event hub has the different menus that are not editable. but they
+   should still adapt to their theme"*. Since then `[slug]/layout.tsx` wears the
+   theme on EVERY guest page — the seat finder, the seat pass, the hub, the guest
+   list, the plus-one door, the money gift — not only on the three pages that
+   used to stamp it. Every one of those pages was drawn on the House look, and a
+   real-browser sweep of 12 pages × 5 themes (sample data, WCAG AA) measured what
+   broke when they started wearing a ground they were never drawn on.
+
+   🔑 THE RULE EACH LINE BELOW HOLDS: a theme may never make a word harder to
+   read than House makes it. Where House already clears AA, the theme must too;
+   where House itself is below AA (its muted `ink/45…/60` labels and the gold
+   eyebrow — the default design, not a theme's doing), the theme must not be
+   worse. Every fix is a TOKEN, set here, once — not a colour on a page — so the
+   landing page, which wore these themes before, gets the same repair.
+
+   ⚠ STYLESHEET RULES, SO THE COUPLE STILL WINS. The mood-board palette and the
+     couple's own hex colours arrive INLINE on the same element; anything they
+     set overrides these, exactly as for the material blocks above.
+
+   The failures, as measured (House → theme, before these lines):
+     · muted ink on a darker ground — capiz pearl 3.98 → 3.81, galeriya wall
+       3.98 → 3.72, abaca kraft 3.98 → 2.96 (`text-ink/60`); `text-ink/65` fell
+       under AA on capiz and galeriya (4.62 → 4.40 / 4.27);
+     · the gold eyebrow `text-terracotta` — 3.48 on House, 3.09 capiz, 2.89
+       galeriya and 1.44 on abaca, where gold on kraft simply vanishes;
+     · the CTA's label is `text-cream` — the PAGE's paper. On kraft that is a
+       kraft label on a rust button (1.97); on velvet a near-black one (3.74);
+     · every `bg-surface` card (the plus-one door's card is one) stayed WHITE
+       while the ink went cream on Velvet: 1.2. */
+
+/* Every themed tree: a card IS the page's paper, as House already has it
+   (`--surface: #ffffff` over a `#ffffff` cream — "card = page" in the root
+   block). Left as a literal white, a dark theme draws its light ink on it. */
+[data-hub-theme],
+[data-art='candlelight'] {
+  --surface: rgb(var(--color-cream));
+}
+
+/* CANDLELIGHT — Pahina's dark art direction reached one page before; the layout
+   now wears it on every page, so it gets Velvet's repairs in its own metal:
+   the gild (7.67:1 on its stock) for the CTA and the accent's deeper steps, and
+   the wordmark in the page's ink. A theme worn WITH candlelight wins over these
+   (its block comes later), exactly as it wins over candlelight's paper. */
+[data-art='candlelight'] {
+  --color-terracotta-600: var(--color-gild);
+  --color-terracotta-700: var(--color-gild);
+  --color-mulberry: var(--color-gild);
+  --color-mulberry-600: var(--color-gild);
+  --color-mulberry-700: var(--color-gild);
+  --m-ink: rgb(var(--color-ink));
+  /* Text on a surface that stays light (`text-ink-on-light`, e.g. the money
+     gift's green trust note): House's own espresso, since this stock has no
+     light plate of its own to take an ink from. */
+  --color-ink-on-light: 44 42 41;
+}
+
+/* CAPIZ — the pearl is darker than House white, so the ink deepens with it: a
+   darker pull of the theme's own espresso (the mullion and frame are
+   `rgb(44 42 41)`, House's ink). Every muted step is back at or above House
+   (`ink/60` 4.22, `ink/65` 4.93). The accent and the CTA take the design
+   system's OWN deepest steps rather than a new colour: gold 4.45 on pearl,
+   the button's pearl label 5.89. */
+[data-hub-theme='capiz'] {
+  --color-ink: 32 30 29;
+  --color-terracotta: 140 105 50; /* = House's `--color-terracotta-700`, #8C6932 */
+  --color-terracotta-700: 92 71 38; /* = `--sn-gold-800`, #5C4726 — the next step down */
+  /* = House's `--color-mulberry-700`, #9D3F1E — written out, not `var()`d, so
+     candlelight (which lifts the 700 step to its gild) cannot drag it light. */
+  --color-mulberry: 157 63 30;
+  --color-mulberry-600: 157 63 30;
+}
+
+/* GALERIYA — the wall is the coolest, darkest light ground, so the label ink is
+   a cool near-black to match (`ink/60` 4.29, `ink/65` 5.01, full ink 14.5).
+   Same deepest accent and CTA steps as Capiz: gold 4.17, the wall label 5.51. */
+[data-hub-theme='galeriya'] {
+  --color-ink: 24 26 30;
+  --color-terracotta: 140 105 50; /* = House's `--color-terracotta-700`, #8C6932 */
+  --color-terracotta-700: 92 71 38; /* = `--sn-gold-800`, #5C4726 — the next step down */
+  /* = House's `--color-mulberry-700`, #9D3F1E — written out, not `var()`d, so
+     candlelight (which lifts the 700 step to its gild) cannot drag it light. */
+  --color-mulberry: 157 63 30;
+  --color-mulberry-600: 157 63 30;
+}
+
+/* ABACA — kraft is a MID-TONE, and nothing lighter than near-black holds a
+   muted label on it: the stamp's ink, 8.5:1 in full and every muted step at or
+   above House or AA (`ink/60` 4.00, `ink/65` 4.54). Abaca carries no metal
+   (its gild is already its ink), so the accent prints in the theme's own
+   `--ab-ink` (6.5:1), and the CTA is an ink stamp with a kraft label (6.5:1)
+   — the door's arrangement, and the only fill kraft reads on.
+   ⚠ This moves `--color-ink` again, and the plate moves with it: on the
+   `240 227 206` pull it measures 16:1 — the guard below re-measures both. */
+[data-hub-theme='abaca'] {
+  --color-ink: 4 3 2;
+  --color-terracotta: var(--ab-ink-ch);
+  --color-terracotta-600: var(--ab-ink-ch);
+  --color-terracotta-700: var(--ab-ink-ch);
+  --color-mulberry: var(--ab-ink-ch);
+  --color-mulberry-600: var(--ab-ink-ch);
+  --color-mulberry-700: var(--ab-ink-ch);
+}
+
+/* VELVET — the dark theme. Its metal is foil, and foil is what reads on velvet:
+   the CTA becomes a foil button carrying the velvet as its label (7.25:1), and
+   the accent's deeper steps — drawn for a LIGHT page, 3.55 here — lift to foil
+   as well. The base accent already reads (5.12) and is left alone. */
+[data-hub-theme='velvet'] {
+  --color-terracotta-600: var(--vl-foil-ch);
+  --color-terracotta-700: var(--vl-foil-ch);
+  --color-mulberry: var(--vl-foil-ch);
+  --color-mulberry-600: var(--vl-foil-ch);
+  --color-mulberry-700: var(--vl-foil-ch);
+  /* `<Wordmark>` inks itself with an INLINE `var(--m-ink)` — House espresso,
+     1.25:1 on the velvet (the plus-one door's mark, measured). The velvet DOOR
+     rebinds the same token for the same reason (`invite/…/themes/velvet.tsx`). */
+  --m-ink: rgb(var(--color-ink));
+  /* Text on a surface that stays light (`text-ink-on-light`): the plates' ink. */
+  --color-ink-on-light: var(--vl-ink-ch);
+}
+
 /* ---------- ambient backdrop (dashboard shell page background) ----------
  * The canonical Atelier warm wash — ONE canvas under every glass shell (event /
  * vendor / admin via SidebarShell, launcher, and the account spokes). Glass

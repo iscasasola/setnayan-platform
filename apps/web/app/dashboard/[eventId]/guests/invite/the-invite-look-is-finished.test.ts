@@ -159,14 +159,16 @@ test('nothing still calls them "the seven"', () => {
     assert.ok(src.length > 200, `${rel} scanned nearly empty — the guard is looking at nothing`);
     assert.doesNotMatch(
       src,
-      /\bsevens?\b/i,
-      `${rel} still says "seven" about a list of ${WEBSITE_PRO_ITEMS.length}`,
+      /\b(sevens?|eights?)\b/i,
+      `${rel} still says an old count about a list of ${WEBSITE_PRO_ITEMS.length}`,
     );
   }
-  assert.match(read('lib/event-hub-pro.ts'), /ctaLabel: 'Unlock all eight'/, 'the one button says the wrong number');
+  // Nine since 2026-09-24 — the animated logo joined (owner "A then").
+  assert.equal(WEBSITE_PRO_ITEMS.length, 9, 'the list and the sentences below disagree on the count');
+  assert.match(read('lib/event-hub-pro.ts'), /ctaLabel: 'Unlock all nine'/, 'the one button says the wrong number');
   assert.match(
     read('app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx'),
-    /One unlock covers all eight:/,
+    /One unlock covers all nine:/,
     'the editor tells the couple the wrong number',
   );
 
@@ -186,10 +188,10 @@ test('nothing still calls them "the seven"', () => {
     assert.ok(raw.length > 200, `${rel} scanned nearly empty — the guard is looking at nothing`);
     assert.doesNotMatch(
       raw,
-      /(seven Pro items|for all seven)/,
-      `${rel} still says "seven" about a list of ${WEBSITE_PRO_ITEMS.length}`,
+      /(seven Pro items|for all seven|eight Pro items|for all eight)/,
+      `${rel} still says an old count about a list of ${WEBSITE_PRO_ITEMS.length}`,
     );
-    assert.match(raw, /(eight Pro items|for all eight)/, `${rel} stopped naming the count at all`);
+    assert.match(raw, /(nine Pro items|for all nine)/, `${rel} stopped naming the count at all`);
   }
 });
 
@@ -292,7 +294,19 @@ test('the DOOR asks the fence too — the only one that protects an already-save
     'the measurement is taken and then not used',
   );
   // …and it costs a House event nothing: both reads sit behind `wantsPro`.
-  assert.match(look, /\? await Promise\.all\(\[/, 'the fence read is no longer skipped for a House event');
+  // 🪤 RE-ANCHORED 2026-09-25: the two reads moved into `proThemeGate`, a
+  // per-request `cache()` (the guest-tree layout now asks the same question on
+  // every page), so the ternary names the gate and the gate holds the pair.
+  assert.match(
+    look,
+    /wantsPro\s*\?\s*await proThemeGate\(/,
+    'the fence read is no longer skipped for a House event',
+  );
+  assert.match(
+    look,
+    /const proThemeGate = cache\([\s\S]{0,200}Promise\.all\(\[/,
+    'the gate no longer reads the Pro unlock and the fence together',
+  );
 });
 
 test('the fence is the reveal’s, not a second copy of it', () => {

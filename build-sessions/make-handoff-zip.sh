@@ -157,13 +157,45 @@ S="$OUT/snapshot"
   gh pr list --state open --limit 40 --json number,title,headRefName,isDraft,statusCheckRollup \
     --jq '.[]|"- #\(.number) \(if .isDraft then "[DRAFT] " else "" end)`\(.headRefName)` — \(.title)  · failing=\([.statusCheckRollup[]?|select(.conclusion=="FAILURE")]|length) pending=\([.statusCheckRollup[]?|select(.status=="IN_PROGRESS" or .status=="QUEUED")]|length)"' 2>/dev/null
   echo
-  echo "## Branches with unlanded commits, touched in the last 3 days"
+  echo "## Branches with unlanded commits — active first, cold counted"
+  echo
+  echo "⚠ **Neither extreme works here, and both were tried in one sitting.** A 3-day"
+  echo "window hid \`s41-wip\` (2 commits, 97 files) and \`claude/the-gift-is-a-switch\`"
+  echo "(2 commits, one labelled *\"kept only so nothing is lost\"*) at 5 and 14 days —"
+  echo "**the stalest branch is the one most likely to be forgotten.** Removing the window"
+  echo "then listed 221 branches, 200 of them months dead, which nobody reads either."
+  echo "So: everything touched in the last 21 days in full, the rest as a count."
+  echo
+  echo "### Active — touched in the last 21 days"
+  echo
+  ACTIVE=0; COLD=0
   for b in $(git -C "$REPO" branch -r --no-merged origin/main 2>/dev/null | grep -v HEAD | sed 's/ *//'); do
-    d=$(git -C "$REPO" log -1 --format='%at' "$b" 2>/dev/null)
-    [ -z "$d" ] && continue
-    [ $(( ( $(date +%s) - d ) / 86400 )) -le 3 ] || continue
-    echo "- \`${b#origin/}\` ahead $(git -C "$REPO" rev-list --count origin/main.."$b" 2>/dev/null) · last $(git -C "$REPO" log -1 --format='%ad' --date=iso "$b" 2>/dev/null)"
-  done
+    d=$(git -C "$REPO" log -1 --format='%at' "$b" 2>/dev/null); [ -z "$d" ] && continue
+    ahead=$(git -C "$REPO" rev-list --count origin/main.."$b" 2>/dev/null)
+    [ "${ahead:-0}" = "0" ] && continue
+    age=$(( ( $(date +%s) - d ) / 86400 ))
+    if [ "$age" -le 21 ]; then
+      ACTIVE=$((ACTIVE+1))
+      printf '%04d\t- `%s` ahead %s · %sd ago (%s)\n' "$age" "${b#origin/}" "$ahead" "$age" \
+        "$(git -C "$REPO" log -1 --format='%ad' --date=short "$b" 2>/dev/null)"
+    else
+      COLD=$((COLD+1))
+    fi
+  done | sort | cut -f2- > "$S/_active.txt"
+  cat "$S/_active.txt"
+  echo
+  echo "### Cold"
+  echo
+  echo "$(git -C "$REPO" branch -r --no-merged origin/main 2>/dev/null | grep -cv HEAD) unmerged remote branches in total; the ones NOT listed above were last touched"
+  echo "over 21 days ago. They are abandonment, not work in flight — but re-measure rather"
+  echo "than trusting that sentence:"
+  echo
+  echo '```bash'
+  echo 'for b in $(git branch -r --no-merged origin/main | grep -v HEAD); do'
+  echo '  a=$(git rev-list --count origin/main..$b); [ "$a" = 0 ] && continue'
+  echo '  echo "$b ahead $a $(git log -1 --format=%cr $b)"'
+  echo 'done | sort -k4'
+  echo '```'
   echo
   echo "## What production is serving"
   echo '```'

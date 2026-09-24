@@ -27,4 +27,24 @@ a build from a current tree, with the note printed.
 archive's paths already begin with `build-sessions/`, so stripping one component removed exactly the
 directory it needed. The count line is what caught it.
 
+## Same file, second defect — the snapshot's branch list
+
+The bundle's `snapshot/BOARD.md` listed *"branches with unlanded commits, touched in the last 3
+days"*. A sweep for work existing only on this machine found five such branches, and **the 3-day
+window would have hidden two of them**: `s41-wip` (2 commits, 97 files) at 5 days, and
+`claude/the-gift-is-a-switch` at 14 days — the latter carrying a commit literally labelled *"kept
+only so nothing is lost"*.
+
+🔑 **The stalest branch is the one most likely to be forgotten, so it is exactly the one a handoff
+must name.** A recency filter on a list of unfinished work hides its most endangered rows.
+
+⚠ **And removing the window was equally useless** — it printed 221 branches, 200 of them months
+dead, which nobody reads either. Both extremes were tried in one sitting, and neither is a list
+somebody acts on.
+
+So the snapshot now prints **everything touched in the last 21 days in full** (21 rows, all five
+preserved branches among them), then the cold remainder as a **count** plus the command that
+re-measures it. The section says why the window is 21 rather than leaving the next person to
+rediscover both failures.
+
 SPEC IMPACT: None. Tooling only.

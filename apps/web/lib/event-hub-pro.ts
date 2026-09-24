@@ -3,7 +3,7 @@
  *
  * ONE UNLOCK, OFFERED WHERE IT IS MISSED — the Event Hub controller's Pro offer.
  * Design: `EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md` § 5.1 rule 1 (*"every
- * upgrade is offered at the point of absence"*) and § 5.3 (the eight items and
+ * upgrade is offered at the point of absence"*) and § 5.3 (the Pro items and
  * the channel each belongs to). Drawing: prototype § 4.
  *
  * Owner, 2026-09-02: *"the cinematic reveal, added features like background
@@ -11,7 +11,7 @@
  * controller as well."*
  *
  * ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
- * It is NOT eight upgrade slots, and it is NOT a shop tab. The eight Pro items
+ * It is NOT nine upgrade slots, and it is NOT a shop tab. The nine Pro items
  * are ONE unlock — `COUPLE_WEBSITE_PRO`, titled "Event Hub Pro" in the live
  * catalog — and `pro-panels.tsx` has said so since it shipped: *"the Pro items
  * are ONE unlock … no per-feature buy button."* So the controller grows
@@ -50,7 +50,7 @@ import {
   type WebsiteProItem,
 } from '@/lib/website-pro-items';
 
-/** One chip in the eight — `here` is the item this channel is being sold on. */
+/** One chip in the nine — `here` is the item this channel is being sold on. */
 export type HubProChip = {
   name: WebsiteProItem;
   /** True for exactly one chip: the item the couple is standing in front of. */
@@ -65,7 +65,7 @@ export type HubProOffer = {
   channel: LifecyclePhase;
   headline: string;
   blurb: string;
-  /** All eight, in catalog order, exactly one flagged `here`. */
+  /** All nine, in catalog order, exactly one flagged `here`. */
   chips: readonly HubProChip[];
   ctaLabel: string;
   /** Path RELATIVE to `/dashboard/<eventId>` — the shipped buy surface. */
@@ -169,6 +169,18 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     blurb:
       'A guest tapping your link first watches a veil lift, then lands on a card set against your own photo. Your monogram sits on its edge like a wax seal, and the one button on the card is painted in the colour you chose.',
   },
+  /*
+    THE NINTH (owner "A then", 2026-09-24): Event Hub Pro also unlocks the
+    logo animation. Like the invite theme, NOT led on by any channel —
+    `LEAD_BY_CHANNEL` is unchanged — so this copy is here for totality.
+    Grounded only in what ships: the Logo Maker's five reveal effects play
+    the couple's own mark, and the chosen one plays for guests once owned.
+  */
+  'Animated logo': {
+    headline: 'Your monogram, drawn in front of your guests.',
+    blurb:
+      'The mark you made in the Logo Maker plays its reveal on your page instead of sitting still. Pick the effect there; your guests see it move.',
+  },
 };
 
 /**
@@ -236,7 +248,7 @@ export function resolveHubProOffer(args: {
     headline: PITCH[lead].headline,
     blurb: PITCH[lead].blurb,
     chips: WEBSITE_PRO_ITEMS.map((name) => ({ name, here: name === lead })),
-    ctaLabel: 'Unlock all eight',
+    ctaLabel: 'Unlock all nine',
     // The SHIPPED buy surface — the same href `website/editor/page.tsx` uses for
     // `ProLockPanel`. No new checkout, no new route.
     ctaPath: '/studio/website-pro',

@@ -229,6 +229,12 @@ export async function eventCompActiveSkus(
  * is_active=false, so COUPLE_WEBSITE_PRO (the umbrella) is the ONLY way to
  * buy them. These aliases become the sole purchase→ownership path.
  *
+ * ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A then"):
+ * Event Hub Pro also unlocks the logo animation, so a Pro couple is never
+ * asked for the ₱500 again. The standalone SKU keeps selling to couples who
+ * only want the animated logo. Not a bundle — COUPLE_WEBSITE_PRO is a bundle
+ * CHILD, so this alias map is the only place the grant can live (see above).
+ *
  * ⛔ LIVE_BACKGROUND ← ANIMATED_MONOGRAM (owner-locked 2026-07-22) is REMOVED
  * 2026-08-11. It folded the LED wall backdrop into Monogram PRO, so ₱1,000 was
  * partly payment for a backdrop nothing could render — the maker saved a draft
@@ -290,6 +296,14 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
   Object.freeze({
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
     STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A
+    // then"): Event Hub Pro ALSO unlocks the logo animation. The standalone
+    // ANIMATED_MONOGRAM row stays on sale for couples who only want the
+    // animated logo — no bundle, no price change. One-directional like its
+    // siblings: buying the animation does NOT confer Event Hub Pro. Read side
+    // only, so it covers past AND pending Pro orders (a pending one suppresses
+    // the monogram buy CTA; the animation plays once the payment is approved).
+    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO']),
     // LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE (owner 2026-08-11, "remove
     // wall backdrop"). It was the line that made a ₱1,000 monogram purchase
     // unlock an LED maker whose output nothing could produce. The whole

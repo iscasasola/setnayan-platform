@@ -18,8 +18,8 @@ import { unlockLabel } from './unlock-label';
  *
  * `ProLockPanel` is the LOCKED state of any Pro row: one honest line about what
  * the row is part of, plus the single umbrella CTA. There is deliberately no
- * per-feature buy button — the eight Pro items are ONE unlock (owner 2026-07-24),
- * so eight separate purchase affordances would misrepresent it. Its price is NOT
+ * per-feature buy button — the nine Pro items are ONE unlock (owner 2026-07-24),
+ * so nine separate purchase affordances would misrepresent it. Its price is NOT
  * written here: the server page reads it live from `platform_retail_catalog_v2`
  * and passes the formatted string down as `priceLabel` (see `unlock-label.ts`).
  *
@@ -34,11 +34,11 @@ import { unlockLabel } from './unlock-label';
  */
 
 /**
- * The eight Pro items, named the way the couple sees them.
+ * The nine Pro items, named the way the couple sees them.
  *
  * 🔑 THE LIST NOW LIVES IN `lib/website-pro-items.ts` AND IS RE-EXPORTED HERE
  * UNDER ITS OWN NAME — the Event Hub controller offers the same one unlock on
- * whichever channel the couple is standing on, and it needs these eight names on
+ * whichever channel the couple is standing on, and it needs these nine names on
  * the server. Copying them would have made two lists of one fact, each passing
  * its own suite. Nothing that imports `WEBSITE_PRO_ITEMS` from this file moves.
  */
@@ -61,7 +61,7 @@ export function ProLockPanel({
         {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">
-        One unlock covers all eight: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
+        One unlock covers all nine: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
         “Powered by Setnayan” mark from your page.
       </p>
       <Link

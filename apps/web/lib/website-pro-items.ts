@@ -1,7 +1,13 @@
 /**
  * apps/web/lib/website-pro-items.ts
  *
- * THE EIGHT PRO ITEMS — one list, named the way the couple sees them.
+ * THE NINE PRO ITEMS — one list, named the way the couple sees them.
+ *
+ * 🔄 EIGHT → NINE, 2026-09-24. Owner ("A then", DECISION_LOG "Event Hub Pro
+ * includes the logo animation"): `COUPLE_WEBSITE_PRO` now also confers
+ * `ANIMATED_MONOGRAM` (SKU_OWNERSHIP_ALIASES in lib/entitlements.ts). The ₱500
+ * standalone stays on sale; this list names the inclusion so the Pro offer
+ * says what it buys.
  *
  * 🔄 SEVEN → EIGHT, 2026-09-11. Owner (Q3 = A, DECISION_LOG "the seven
  * invite-theme questions"): *"the invite theme becomes the eighth Event Hub Pro
@@ -12,7 +18,7 @@
  *
  * These names shipped inside `app/dashboard/[eventId]/website/editor/
  * _components/pro-panels.tsx`, which is a `'use client'` component file. The
- * Event Hub controller needs the SAME eight names on the server, and a resolver
+ * Event Hub controller needs the SAME names on the server, and a resolver
  * that imported them from a client component would drag `next/link` and
  * `lucide-react` into a pure module and into every test that touches it.
  *
@@ -23,13 +29,13 @@
  * `pro-panels.tsx` under its old name so nothing that already imports it moves.
  *
  * ⛔ NO PRICE LIVES HERE. `COUPLE_WEBSITE_PRO` (titled "Event Hub Pro") is the
- * ONE unlock that opens all eight, and its figure is read live from
+ * ONE unlock that opens all nine, and its figure is read live from
  * `platform_retail_catalog_v2` via `formatV2Sku` — never typed into source. The
  * `couple-website-pro.ts` docblock records why: three different figures for one
  * product once lived in a single file.
  */
 
-/** The eight Pro items, named the way the couple sees them. */
+/** The nine Pro items, named the way the couple sees them. */
 export const WEBSITE_PRO_ITEMS = [
   'Cinematic Reveal',
   'Save-the-Date video',
@@ -42,6 +48,10 @@ export const WEBSITE_PRO_ITEMS = [
   // siblings; the couple meets it as "How your invite looks" on
   // Guests → Invite link, which is the only place it is set.
   'Invite link theme',
+  // The logo animation (owner 2026-09-24, "A then"). Granted by the
+  // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO alias; the couple meets it on the
+  // Logo Maker, where the owned state reads "Included with Event Hub Pro".
+  'Animated logo',
 ] as const;
 
 export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];
@@ -55,7 +65,7 @@ export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];
  * *"Event Hub PRO may NOT be SOLD on this inclusion while it is free."*
  *
  * It stays in the list — the controller SHOWS it, because it is genuinely one of
- * the eight the unlock covers — but it may never be the reason a couple is asked
+ * the nine the unlock covers — but it may never be the reason a couple is asked
  * for money. The free ruling is reversible and the owner's to reverse; until he
  * does, this constant is what keeps the offer honest.
  */

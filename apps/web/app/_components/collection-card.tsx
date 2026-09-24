@@ -1,0 +1,409 @@
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
+import Link from 'next/link';
+import { AlertCircle, MapPin, Plus } from 'lucide-react';
+import { ProgressRing } from '@/app/_components/progress-ring';
+import { CountUp } from '@/app/_components/count-up';
+
+/**
+ * THE COLLECTION CARD — one shell that every collection fills.
+ *
+ * Owner, 2026-09-23: *"should be the standard look on alaga, samahan,
+ * shortlist. These is a proper template that can help us manage and have a
+ * unified design."* The standard is `build-sessions/STANDARD-collection-card.md`
+ * — seven slots (cover · kicker · title · mark · meta · attention · progress),
+ * six rules, and the closing `+ New <thing>` tile.
+ *
+ * ─── WHERE THIS CAME FROM ──────────────────────────────────────────────────
+ * It was `GlassEventCard`'s body, inline in `app/dashboard/(launcher)/page.tsx`.
+ * Step 1 of the standard is extraction with Planning as the only caller and
+ * NOTHING changing on screen; the extraction was proved by rendering the old
+ * inline card and this one for the same fixture events and comparing the HTML
+ * byte for byte. The Planning-specific decisions (which stance, which href,
+ * when the ring shows, what the attention row counts) stayed with Planning —
+ * this file only knows how a card is LAID OUT, never what an event is.
+ *
+ * ─── NO FORKS ──────────────────────────────────────────────────────────────
+ * `collection-card-is-the-only-card.test.ts` fails if the shell's markup
+ * reappears in another file. A second collection adopts this component and
+ * fills its slots; it does not copy the card and restyle it. Four lookalikes
+ * is exactly what the owner's ruling exists to stop.
+ *
+ * ─── SERVER-SAFE BY CONSTRUCTION ───────────────────────────────────────────
+ * No `'use client'`, no hooks, no function props. Every slot is data or an
+ * already-rendered element, so a server page can fill it and nothing callable
+ * ever crosses into a client bundle (a LucideIcon prop took prod down
+ * 2026-09-23).
+ */
+
+/**
+ * A kicker chip. A plain string renders in the house mono chip (the type
+ * badge — "KASAL"); an element renders as given (Planning's stance chip).
+ */
+export type CollectionChip = string | ReactElement;
+
+/**
+ * THE ONE ATTENTION ROW (rule 1 — one row, never two).
+ *
+ * 🔑 UNKNOWN IS NOT ZERO (rule 2). `count: null` means the count could not be
+ * read, and it renders "couldn't load" — never a number, never silence. A
+ * confident "0 need you" printed off a failed read is this codebase's
+ * signature defect; the type makes the caller choose.
+ *
+ *   • `count: null`           → the couldn't-load row.
+ *   • `count <= 0`            → no row: nothing is waiting, and that is known.
+ *   • `count > 0` + `label`   → the amber row naming the most urgent thing.
+ *
+ * `count` is the TOTAL waiting; `label` names the top item and is count-led
+ * ("9 tasks overdue"); `labelCount` is how many the label itself covers. The
+ * total leads ("24 need you · …") only when it says something the label does
+ * not — i.e. when other kinds are waiting too. When they are equal, printing
+ * both is the "9 need you · 9 tasks overdue" repetition the owner caught.
+ *
+ * An ABSENT `attention` prop means the collection does not track attention
+ * for this item at all (an invited card) — not "couldn't load".
+ */
+export type CollectionAttention =
+  | { count: null; unknownLabel?: string }
+  | { count: number; label: string; labelCount?: number };
+
+/**
+ * THE PROGRESS ROW — ring + plain-language remainder (rule 3: the sentence is
+ * the information, the ring is decoration).
+ *
+ *   • `pct: undefined` → no ring (not applicable — a finished or invited card).
+ *   • `pct: null`      → no ring and a "couldn't load" line (rule 2).
+ *   • `pct: number`    → the ring, printing the figure once.
+ */
+export type CollectionProgress = {
+  pct?: number | null;
+  /** The plain-language remainder — "86 days to go". */
+  remainder: string;
+  /** Screen-reader noun after the ring's figure ("planned"). */
+  srLabel?: string;
+  /** One quiet line under the remainder ("Kept for good"). */
+  note?: string | null;
+};
+
+export type CollectionCardProps = {
+  /** Where the whole card goes (rule 6). `null` renders an INERT card —
+   *  inert in look as well as behaviour — see `CardShell`. */
+  href: string | null;
+  /** Why an inert card does not open. Shown whenever `href` is null and this
+   *  is set — a silent dead card reads as the app being broken. */
+  inertReason?: string | null;
+  /** The thing's name. The only required slot (rule 4). */
+  title: string;
+  /** A leading ★ before the title (Planning: the primary event). */
+  starred?: boolean;
+  /** The quiet place line under the title, on the cover. Omitted, never guessed. */
+  place?: string | null;
+  /** The image layer behind the head. Absent → the house fallback treatment. */
+  cover?: ReactNode;
+  /** Up to two chips over the cover. */
+  kicker?: readonly [CollectionChip] | readonly [CollectionChip, CollectionChip];
+  /** Monogram / logo at the cover's edge. Position it with `collectionMarkClass`. */
+  mark?: ReactNode;
+  /** One quiet line ("Dec 18"). */
+  meta?: string | null;
+  attention?: CollectionAttention;
+  progress?: CollectionProgress;
+  /** A kept / put-away card: quieter until pointed at. */
+  muted?: boolean;
+  /** Position in the grid — drives the entrance cascade and ring stagger. */
+  index?: number;
+  /** Reserve the cover's top-right corner for the overflow ⋮ (a SIBLING of
+   *  the card, never nested inside the link — rule 6). */
+  reserveMenuCorner?: boolean;
+};
+
+/** Where a `mark` sits: overhanging the cover's bottom-right corner. */
+export const collectionMarkClass =
+  'absolute -bottom-4 right-3 border-2 border-white/80 shadow-[var(--sn-sh-tile)]';
+
+/**
+ * The press + hover affordances. Stripped from a card that has nowhere to go —
+ * see CardShell. Kept as one list so "which classes make this look pressable"
+ * has a single answer.
+ */
+const PRESSABLE_CLASSES = ['sn-press', 'sn-lift-4'] as const;
+
+/**
+ * …and every `hover:` variant, because a named list is a bill you keep paying.
+ * The first cut stripped the two classes above and left `hover:border-mulberry/30`
+ * on the desktop card, so a dead card still lit its border under the pointer.
+ * Anything that changes on hover is an affordance.
+ */
+const isHoverAffordance = (c: string) => c.startsWith('hover:');
+
+/**
+ * A card is a LINK when there is somewhere to send this person, and an INERT
+ * panel when there is not — inert in look as well as in behaviour.
+ *
+ * 🪤 An INVITED event whose host has never opened a public page has no guest
+ * surface at all — and one prod event is in exactly that state. Linking it to
+ * `/dashboard/<id>`, which admits organisers only, would show the person told
+ * they belong a 404. Rendering the card without a link is the honest version.
+ *
+ * 🚨 AND THE FIRST CUT OF THIS SHELL WAS A DEAD CONTROL THAT LOOKED ALIVE.
+ * It passed the caller's `className` straight through to the `<div>`, and that
+ * string carries `sn-press` (`:active { scale: 0.97 }`) and `sn-lift-4`
+ * (`:hover { translateY(-4px) }`) — both plain class selectors in globals.css,
+ * so they fire on a div exactly as on a link. The card lifted when you pointed
+ * at it and squashed when you pressed it, and then did nothing (found
+ * 2026-08-13). **A control that animates under your finger has promised
+ * something.**
+ */
+function CardShell({
+  href,
+  className,
+  style,
+  children,
+}: {
+  href: string | null;
+  className: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  if (!href) {
+    const inert = className
+      .split(/\s+/)
+      .filter(
+        (c) =>
+          !(PRESSABLE_CLASSES as readonly string[]).includes(c) &&
+          !isHoverAffordance(c),
+      )
+      .join(' ');
+    return (
+      <div className={inert} style={style}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <Link href={href} className={className} style={style}>
+      {children}
+    </Link>
+  );
+}
+
+/** The house chip for a string kicker (the type badge). */
+function KickerChip({ chip }: { chip: CollectionChip }) {
+  if (typeof chip !== 'string') return chip;
+  return (
+    <span className="inline-flex rounded-full bg-white/85 px-2 py-1 font-mono text-[9px] font-normal uppercase tracking-[0.12em] text-[color:var(--sn-gold-700)] shadow-[0_2px_8px_rgba(30,26,18,0.08)]">
+      {chip}
+    </span>
+  );
+}
+
+/**
+ * The attention row — see `CollectionAttention` for the three states.
+ *
+ * 🚨 THE TOTAL NEEDS ITS OWN NOUN. The label is ALREADY count-led ("3 payments
+ * to settle"), so printing the total straight before it rendered "9 3 payments
+ * to settle". "need you" is what makes the first number a TOTAL and the second
+ * a BREAKDOWN. The number is first so it survives truncation on the narrowest
+ * card — the label is what gives way, never the count.
+ */
+export function CollectionAttentionRow({
+  attention,
+}: {
+  attention: CollectionAttention | undefined;
+}) {
+  if (!attention) return null;
+  if (attention.count === null) {
+    return (
+      <span className="flex items-center gap-1.5 rounded-lg bg-ink/[0.05] px-[9px] py-[5px] text-[color:var(--sn-ink-500)]">
+        <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
+        <span className="truncate text-[11px] font-bold">
+          {attention.unknownLabel ?? 'Couldn’t load what needs you'}
+        </span>
+      </span>
+    );
+  }
+  if (attention.count <= 0) return null;
+  const count =
+    attention.labelCount != null && attention.count > attention.labelCount
+      ? attention.count
+      : undefined;
+  return (
+    <span className="flex items-center gap-1.5 rounded-lg bg-[color:var(--sn-warning-soft)] px-[9px] py-[5px] text-[color:var(--sn-warning)]">
+      <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
+      {count != null ? (
+        <span className="shrink-0 font-mono text-[12px] font-bold leading-none">
+          {count} need you
+        </span>
+      ) : null}
+      <span className="truncate text-[11px] font-bold">
+        {count != null ? <span className="opacity-60">· </span> : null}
+        {attention.label}
+      </span>
+    </span>
+  );
+}
+
+export function CollectionCard({
+  href,
+  inertReason = null,
+  title,
+  starred = false,
+  place = null,
+  cover,
+  kicker,
+  mark,
+  meta = null,
+  attention,
+  progress,
+  muted = false,
+  index = 0,
+  reserveMenuCorner = false,
+}: CollectionCardProps) {
+  const pct = progress?.pct;
+  const showBottom = progress != null || inertReason != null;
+  return (
+    <CardShell
+      href={href}
+      className={`sn-tile-glass sn-lift-4 sn-press sn-reveal group flex h-full min-h-[196px] flex-col overflow-hidden rounded-2xl hover:border-mulberry/30 ${
+        muted ? 'opacity-75 hover:opacity-100' : ''
+      }`}
+      style={{ animationDelay: `${0.5 + index * 0.08}s` }}
+    >
+      <div className="relative h-32 shrink-0 sm:h-36">
+        {cover ?? (
+          // Rule 4 — no cover still looks deliberate: a dark wash the white
+          // title stays legible on, never a blank box.
+          <span
+            aria-hidden
+            className="absolute inset-0 block bg-gradient-to-br from-ink/80 via-ink/65 to-ink/50"
+          />
+        )}
+        {kicker && kicker.length > 0 ? (
+          <div
+            className={`absolute left-3 top-3 flex flex-wrap items-center gap-1.5 ${
+              reserveMenuCorner ? 'max-w-[calc(100%-3.75rem)]' : 'max-w-[calc(100%-1.5rem)]'
+            }`}
+          >
+            {kicker.map((chip, i) => (
+              <KickerChip key={i} chip={chip} />
+            ))}
+          </div>
+        ) : null}
+        {mark}
+        {/* Title + place ON the cover. `right-[4.75rem]` keeps them clear of
+            the mark that overhangs the cover's bottom-right corner. */}
+        <div className="absolute inset-x-3 bottom-2.5 right-[4.75rem] min-w-0">
+          <p className="flex items-center gap-1.5 text-[15px] font-extrabold text-white drop-shadow-[0_1px_6px_rgba(23,22,15,0.6)]">
+            {starred ? (
+              <span
+                aria-hidden
+                className="shrink-0 text-xs text-[color:var(--sn-terra)]"
+              >
+                ★
+              </span>
+            ) : null}
+            <span className="truncate">{title}</span>
+          </p>
+          {place ? (
+            <p className="flex items-center gap-1 text-[11.5px] text-white/75">
+              <MapPin aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+              <span className="truncate">{place}</span>
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-4 pt-5">
+        {meta != null ? (
+          <p className="truncate text-[12.5px] text-[color:var(--sn-ink-500)]">
+            {meta}
+          </p>
+        ) : null}
+        {/* What is waiting outranks how far along it is — above the progress
+            row. Absent entirely when nothing waits. */}
+        <CollectionAttentionRow attention={attention} />
+        {showBottom ? (
+          <div className="mt-auto flex items-center gap-2.5 pt-1">
+            {typeof pct === 'number' ? (
+              <ProgressRing
+                pct={pct}
+                size={44}
+                stroke={4.5}
+                trackColor="rgb(var(--color-ink) / 0.08)"
+                sweep={{ delayMs: 600 + 150 * index }}
+                className="rounded-full shadow-[0_6px_16px_-8px_rgba(30,26,18,0.3)]"
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-[4.5px] rounded-full bg-white/[0.78] backdrop-blur-[6px]"
+                />
+                <span className="relative font-mono text-[10px] font-bold text-ink">
+                  <CountUp value={pct} suffix="%" delayMs={600 + 150 * index} />
+                  {/* The ring is the ONE place the figure prints; this keeps
+                      the noun for screen readers. */}
+                  {progress?.srLabel ? (
+                    <span className="sr-only">{` ${progress.srLabel}`}</span>
+                  ) : null}
+                </span>
+              </ProgressRing>
+            ) : null}
+            <div className="min-w-0">
+              {progress ? (
+                <p className="truncate text-[12.5px] font-bold text-ink">
+                  {progress.remainder}
+                </p>
+              ) : null}
+              {progress?.note ? (
+                <p className="truncate text-[11px] text-ink/45">{progress.note}</p>
+              ) : null}
+              {pct === null ? (
+                <p className="truncate text-[11px] text-ink/45">
+                  Progress couldn’t load
+                </p>
+              ) : null}
+              {href === null && inertReason ? (
+                <p className="text-[11px] leading-snug text-ink/45">{inertReason}</p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </CardShell>
+  );
+}
+
+/** The grid every collection lays its cards in — one column on a phone, two
+ *  from `sm`, three from `lg`, four from `xl`. */
+export function CollectionGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The grid's closing `+ New <thing>` tile (rule 5 — part of the grid, not a
+ * button elsewhere; it is how a collection says it can grow). At base a
+ * compact dashed ROW; from `sm` the dashed ghost card with the same footprint
+ * as a card.
+ */
+export function NewThingTile({
+  href,
+  label,
+  delay = 0,
+}: {
+  href: string;
+  /** "New event" — the whole visible label. */
+  label: string;
+  delay?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className="sn-press sn-reveal group flex flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-ink/20 bg-white/[0.35] px-4 py-3.5 text-[13px] font-bold text-[color:var(--sn-ink-500)] transition-[color,background-color,border-color,transform] duration-200 hover:-translate-y-[3px] hover:border-terracotta hover:bg-white/50 hover:text-[color:var(--sn-gold-700)] sm:min-h-[196px] sm:flex-col sm:rounded-2xl sm:p-4"
+      style={{ animationDelay: `${delay}s` }}
+    >
+      <Plus aria-hidden className="h-[22px] w-[22px] text-[color:var(--sn-gold-600)]" />
+      {label}
+    </Link>
+  );
+}

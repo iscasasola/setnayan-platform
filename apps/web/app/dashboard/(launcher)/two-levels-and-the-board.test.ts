@@ -76,6 +76,10 @@ const PICKER = resolve(
 
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 const launcher = () => read(LAUNCHER);
+/** The card SHELL (link-or-inert, `CardShell`) moved to the collection card
+ *  2026-09-24 — the standard's step 1. The launcher fills its slots. */
+const COLLECTION_CARD = resolve(HERE, '..', '..', '_components', 'collection-card.tsx');
+const collectionCard = () => read(COLLECTION_CARD);
 
 /** Count non-overlapping matches — the number a mutation run has to move. */
 function count(src: string, re: RegExp): number {
@@ -628,7 +632,13 @@ test('CardShell actually renders a LINK when there is a destination', () => {
   // HANDED to CardShell. Nothing proved CardShell renders a <Link> at all, so it
   // could have returned a <div> in every case and **every card on the board would
   // have stopped being clickable with all tests green.**
-  const body = fnBody(launcher(), 'CardShell');
+  const body = fnBody(collectionCard(), 'CardShell');
+  // And the board's card really goes through it, carrying its destination.
+  assert.match(
+    fnBody(launcher(), 'GlassEventCard'),
+    /<CollectionCard\s+href=\{resolvedHref\}/,
+    'The board card stopped handing its destination to the collection card.',
+  );
   assert.match(
     body,
     /<Link href=\{href\} className=\{className\} style=\{style\}>/,
@@ -648,7 +658,7 @@ test('a card with no destination is inert to look at, not just to press', () => 
   // Both are plain class selectors in globals.css, so they fire on a div exactly
   // as on a link: the card lifted under the pointer and squashed under the
   // finger, then did nothing. A control that animates has promised something.
-  const body = fnBody(launcher(), 'CardShell');
+  const body = fnBody(collectionCard(), 'CardShell');
   assert.match(
     body,
     /PRESSABLE_CLASSES/,
@@ -662,7 +672,7 @@ test('a card with no destination is inert to look at, not just to press', () => 
     'The affordance strip is gone or no longer consults PRESSABLE_CLASSES.',
   );
   assert.match(
-    launcher(),
+    collectionCard(),
     /const PRESSABLE_CLASSES = \['sn-press', 'sn-lift-4'\] as const;/,
     'The affordance list changed. Every class that makes a card LOOK pressable ' +
       'must be in it, or a dead card animates again.',

@@ -8,7 +8,7 @@ import { TOURS, type TourKey } from '@/lib/tours';
  * Owner-final (DECISION_LOG 2026-09-24/25, `EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md`
  * Phase 1):
  *
- *     Logo · Hero · Reveal · Love Story · Details │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
+ *     Details · Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
  *
  * Three groups, two dividers. The middle group is the four stages of the ONE
  * public link and its words are NOT typed here — they are `PUBLIC_STAGE_LABELS`
@@ -39,11 +39,12 @@ export type MakerBarItem =
   | { key: 'prints'; label: string; group: 'prints'; kind: 'tool' };
 
 export const MAKER_BAR: readonly MakerBarItem[] = [
+  // Owner-final order: DETAILS first ("DETAILS LOGO HERO REVEAL LOVE STORY / …").
+  { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
   { key: 'logo', label: 'Logo', group: 'made-once', kind: 'tool' },
   { key: 'hero', label: 'Hero', group: 'made-once', kind: 'tool' },
   { key: 'reveal', label: 'Reveal', group: 'made-once', kind: 'tool' },
   { key: 'love-story', label: 'Love Story', group: 'made-once', kind: 'tool' },
-  { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
   ...PUBLIC_STAGE_ORDER.map(
     (phase) =>
       ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,

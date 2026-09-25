@@ -2,7 +2,7 @@
 
 Event Hub Maker **Phase 9** (`EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md`) plus the owner's same-evening
 rulings (watermark, low-res, formats, Details, QR-always, NFC 25 mm). The bar's "Prints & Tickets"
-stops saying "coming next"; a new made-once item, **Details**, joins Logo · Hero · Reveal · Love Story.
+stops saying "coming next"; a new made-once item, **Details**, leads the bar (owner-final: Details · Logo · Hero · Reveal · Love Story │ stages │ Prints & Tickets).
 
 **Guest list — "Download QR codes (PDF)"** (owner: *"the free version is the PDF of QRs … found on
 Guestlist"*). A trailing door in the roster row (`lib/roster-doors.ts`, a plain `<a download>`),

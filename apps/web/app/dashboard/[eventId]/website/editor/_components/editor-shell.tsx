@@ -1315,9 +1315,9 @@ function Inspector({
           Open Our Love Story
           <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
-        {/* The scrapbook writes `events.love_story` live — the draft does not hold
-            it yet (moments carry photos that Apply would have to re-screen). */}
-        <HubSavesImmediately className="ml-2" />
+        {/* The scrapbook saves into the draft (`love_story` · 2026-09-25): its
+            moments reach guests only when you press Apply here, and Apply
+            re-screens any photo the live story did not already show. */}
         {(TOOL_ROWS['love-story'] ?? []).filter((k) => rows[k]).map((k) => (
           <RowBlock key={k} row={rows[k]!} />
         ))}

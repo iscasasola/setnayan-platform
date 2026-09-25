@@ -149,7 +149,9 @@ test('the editor offers the draft, and only into an empty box', () => {
   assert.match(src, /invitationWordsDraft\(\{/, 'the editor stopped offering a draft');
   assert.match(
     src,
-    /\(event\.special_message as string \| null\) \|\|\s*\n?\s*invitationWordsDraft/,
+    // `drafted` = the draft laid over the live row (the Text panel saves to the
+    // draft since 2026-09-25) — still the couple's own words, still first.
+    /\((?:event|drafted)\.special_message as string \| null\) \|\|\s*\n?\s*invitationWordsDraft/,
     'the draft is no longer behind the stored value — it can now sit on top of ' +
       'words the couple wrote themselves',
   );
@@ -160,7 +162,7 @@ test('the editor offers the draft, and only into an empty box', () => {
   );
   // The hint must not appear once they HAVE written something: it would be
   // telling them their own message is our starting point.
-  assert.match(src, /event\.special_message \? undefined : INVITATION_WORDS_HINT/);
+  assert.match(src, /(?:event|drafted)\.special_message \? undefined : INVITATION_WORDS_HINT/);
 });
 
 test('no write path was added — the draft never reaches the database on its own', () => {

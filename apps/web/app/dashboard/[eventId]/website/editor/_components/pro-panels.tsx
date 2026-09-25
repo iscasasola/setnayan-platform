@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 import { unlockLabel } from './unlock-label';
-import { HubSavesImmediately } from '../../_components/hub-draft-field';
+import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 
@@ -109,7 +109,9 @@ export function ColorsPanel({
 }) {
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
-      <HubSavesImmediately />
+      {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
+          Pro half here and pays at Apply. */}
+      <HubDraftField />
       <input
         type="hidden"
         name="return_to"

@@ -63,6 +63,10 @@ export type EventRailInputs = {
    * boundary took production down on 2026-09-23.
    */
   studioRows?: ReadonlyArray<EventStudioRow>;
+  /** The App Store / Play Store shell (`isStoreShellRequest()` in layout.tsx).
+   *  Carried HERE so the rail's rows and the rows it lights are built from the
+   *  same filtered tree — a refused row is neither drawn nor matched. */
+  storeShell?: boolean;
 };
 
 /**

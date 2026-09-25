@@ -39,6 +39,7 @@ export function CustomerBottomNav({
   seatingEnabled,
   websiteEnabled,
   studioRows,
+  storeShell,
 }: {
   eventId: string;
   phase?: MenuLifecyclePhase;
@@ -94,8 +95,15 @@ export function CustomerBottomNav({
    * layout; a function prop here is the 2026-09-23 seven-hour outage.
    */
   studioRows?: ReadonlyArray<EventStudioRow>;
+  /**
+   * The App Store / Play Store shell, resolved server-side (`isStoreShellRequest()`
+   * in layout.tsx). The one tree drops every tab whose door `lib/store-shell.ts`
+   * refuses, so the bar draws four tabs spread across the width instead of five
+   * with a blank fifth (the Papic slot the owner saw on 2026-09-25).
+   */
+  storeShell?: boolean;
 }) {
-  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys, seatingEnabled, websiteEnabled, studioRows });
+  const tree = buildCustomerMenuTree(eventId, { phase, dayOfOpen: false, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
     // All phases apply nav-registry overrides (label + icon) — plan, day-of, and

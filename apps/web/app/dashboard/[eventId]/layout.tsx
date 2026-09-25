@@ -25,6 +25,8 @@ import {
   type EventRailInputs,
 } from './_components/event-rail-match-rows';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
+import { BottomDock } from '@/app/_components/nav/bottom-nav';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { CustomerNavFab } from './_components/customer-nav-fab';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -448,6 +450,17 @@ export default async function EventLayout({ children, params }: Props) {
   const navSlots = await getNavSlotMap();
 
   /*
+    🍎 THE APP STORE / PLAY STORE SHELL, ASKED ONCE, HERE (2026-09-25).
+    Every event menu — the rail, the ☰ drawer, the moment strip and the bottom
+    bar — is built from `eventRailInputs` or from the props below, and the one
+    tree drops each row whose door `lib/store-shell.ts` refuses
+    (`storeShellRefusesMenuRow`). Server-side, so the FIRST paint is already
+    right: before this the Papic tab was built, painted, and then hidden by
+    `StoreShellLinkGuard` after load, leaving a blank slot in the bar.
+  */
+  const storeShell = await isStoreShellRequest();
+
+  /*
     Everything the event menu is built from, in ONE place. See the
     `contextMatchRows` note below for why this is an object rather than two
     parallel argument lists.
@@ -463,6 +476,7 @@ export default async function EventLayout({ children, params }: Props) {
     phase,
     seatingEnabled,
     studioRows,
+    storeShell,
   };
 
   return (
@@ -597,14 +611,27 @@ export default async function EventLayout({ children, params }: Props) {
       */}
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
-          {/* Pad the bottom on mobile so BottomNav doesn't cover the last
-              row of content. The desktop offset is the rail's grid now, so
-              there is no padding math left here.
-              `data-shell-main` is the hook globals.css uses to add EXTRA bottom
-              room on routes where <CustomerSectionSubnav> docks a second floating
-              pill above the bottom nav (see globals.css `html.subnav-docked`). */}
-          <div data-shell-main className="pb-20 lg:pb-0">
-            <div className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
+          {/* ⚓ THE PAGE CLEARS THE ANCHORED DOCK (2026-09-25). No padding
+              utility here: `[data-shell-main]` in globals.css pads the bottom
+              by the dock's MEASURED height (`--sn-bottomdock-h`, published by
+              <BottomDock> — bar + strip + the home-indicator inset), so the
+              last row of content is never under the chrome whether or not a
+              strip is up. The old `pb-20` was a flat 80px that never counted
+              the safe area: on an iPhone the floating bar's top sat ~110px up,
+              so the last ~30px of every page hid behind it. Desktop gets 0 —
+              the rail's grid is the offset there. */}
+          <div data-shell-main>
+            {/* ↕ MOBILE PORTRAIT STARTS HIGHER (owner 2026-09-25: *"big space on
+                top"*). Every event page ALREADY opens with its own
+                `py-6` container, and most follow an sr-only masthead with a
+                `mt-6` block — so this wrapper's own 24px made 72px of blank
+                cream under the header on Galleries, Guests, Mood Board and the
+                rest. Below `sm` this wrapper's top padding drops to 12px — not
+                zero, because the pages that open straight on a `space-y-6`
+                section (Suite, Hosts, Orders, People…) have no top padding of
+                their own and would otherwise touch the header. From `sm` up
+                nothing changes. */}
+            <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
               {/* Live "free this weekend" promo announcement (self-gates to null
                   when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
               <PromoFreeWindowBanner />
@@ -614,26 +641,32 @@ export default async function EventLayout({ children, params }: Props) {
         </main>
       </div>
       </AppRailShell>
-      {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
-          BottomNav primitive. Sits outside the rail's content column so it
-          doesn't inherit it. */}
-      <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} />
+      {/*
+        ⚓ ONE DOCK FOR THE PHONE'S BOTTOM CHROME (owner 2026-09-25: *"the
+        bottom nav is not fixed"*). The moment/section strip and the bar render
+        INSIDE one <BottomDock> — anchored flush to the bottom edge, the strip
+        attached directly above the tabs — instead of two floating pills with the
+        page showing between and under them. Strip first, bar second: that is
+        their order on screen. Both self-hide at lg (the dock is `lg:hidden`),
+        and both sit outside the rail's content column so they don't inherit it.
+
+        ONE docked section sub-nav for all menus (owner 2026-06-17 "sub nav are
+        child menus of the 6 menus"), which is also the MOMENT strip (owner
+        2026-09-24). Reads the canonical tree in lib/customer-menu.ts; mounted
+        here (a layout sibling of <CustomerBottomNav>, NOT inside any page) so
+        it paints the instant a section opens. Self-gates to null outside any
+        menu's section or moment. eventDate drives the Guests Day-of time-gate.
+      */}
+      <BottomDock>
+        <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} seatingEnabled={seatingEnabled} studioRows={studioRows} slug={(event.slug as string | null) ?? null} storeShell={storeShell} />
+        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} />
+      </BottomDock>
       {/* NAV-2 broken-out primary action (the Shazam satellite) — a SIBLING of
-          the locked BottomNav pill, never a 7th tab. Floats above the pill's
-          right end, hides when the docked SubNav is up + in the After phase. */}
+          the dock, never a 7th tab. Sits in the BAR's row at the right end
+          (centred on `--sn-bottomnav-h`), with the bar's tabs pulled in to
+          make room (globals.css `html[data-sn-fab]`). Hidden in the After
+          phase. */}
       <CustomerNavFab eventId={eventId} phase={phase} />
-      {/* ONE docked section sub-nav for all 6 menus (owner 2026-06-17 "sub nav
-          are child menus of the 6 menus"). Reads the canonical tree in
-          lib/customer-menu.ts and renders whichever menu's CHILDREN belong to the
-          current route — the Guests journey (Build·Invite·Confirm·Seat·Day-of,
-          routed) and the Explore takeover (Summary·Shortlist·Build·Compare·Lock,
-          in-page tabs) today; Studio/Design/Budget/Home children land in later
-          PRs. Mounted here (a layout sibling of <CustomerBottomNav>, NOT inside
-          any page) so it paints + responds the instant a section opens, ahead of
-          the server-built panel, and the bottom nav collapses to icons-only while
-          it's docked. Self-gates to null outside any menu's section. eventDate
-          drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} seatingEnabled={seatingEnabled} studioRows={studioRows} slug={(event.slug as string | null) ?? null} />
     </>
   );
 }

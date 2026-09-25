@@ -43,6 +43,8 @@ import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { isCustomSectionType, customSectionEditorLabel } from './custom-sections';
 import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
+import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
+import type { SceneTemplateId } from './scene-templates';
 
 /** The sections that are always in their place on a stage — never dragged. */
 export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'entourage' | 'story';
@@ -63,6 +65,35 @@ export type MakerTile =
       widgetId: string;
       type: WidgetType;
       label: string;
+    }
+  | {
+      /**
+       * 📖 A POST EVENT SCENE (Event Hub Maker Phase 8, `lib/post-event-scenes.ts`).
+       * Post Event's body is the story the Maker wrote after the day, one scene
+       * per part; when the compiled list is handed in, its scenes take the place
+       * of the single "The story after the day" tile.
+       *
+       * Listed in the PAGE's order, and listed even when the page does not draw
+       * it — a skipped, hidden or optional scene is shown AS SUCH (`drawn:
+       * false` + its `note`), never as an empty tile and never silently dropped.
+       */
+      kind: 'post-event';
+      key: `p:${string}`;
+      /** The canvas marker to scroll to — null when the page does not draw it. */
+      anchor: `p:${string}` | null;
+      scene: string;
+      label: string;
+      status: PostEventSceneStatus;
+      hidden: boolean;
+      /** True only when guests meet it: filled AND not hidden. */
+      drawn: boolean;
+      /** 1-based among the scenes guests meet; null for a skipped / hidden / optional one. */
+      position: number | null;
+      template: SceneTemplateId | null;
+      source: string;
+      note: string | null;
+      open: OpenUpKind | null;
+      pinned: boolean;
     };
 
 export type MakerFolded = {
@@ -155,7 +186,41 @@ export type MakerStageInput = {
   storyRenders: boolean;
   /** The countdown retires once the day arrives. */
   countdownPast?: boolean;
+  /**
+   * 📖 Post Event's compiled scenes, in the page's order
+   * (`postEventSceneList`). Absent/empty → the one "story after the day" tile.
+   */
+  postEvent?: readonly PostEventListRow[] | null;
 };
+
+/**
+ * Post Event's rows → navigator tiles. A scene the page draws scrolls to its
+ * canvas marker: the chapters after the first share the chapters block's
+ * marker, and Before the day sits on the cover's page. A scene the page does
+ * not draw has no anchor — the tile still says what it is and why.
+ */
+function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
+  return rows.map((r) => {
+    const drawn = r.status === 'auto' && !r.hidden;
+    const anchorScene = r.block === 'chapters' ? 'ch-1' : r.key === 'before' ? 'cover' : r.key;
+    return {
+      kind: 'post-event',
+      key: `p:${r.key}`,
+      anchor: drawn ? (`p:${anchorScene}` as const) : null,
+      scene: r.key,
+      label: r.name,
+      status: r.status,
+      hidden: r.hidden,
+      drawn,
+      position: r.position === null ? null : r.position + 1,
+      template: r.template,
+      source: r.source,
+      note: r.note,
+      open: r.open,
+      pinned: r.pin !== null,
+    };
+  });
+}
 
 /** Where a section DOES show, for the ⓘ: "Shows on the Invitation and On the Day". */
 function showsOn(type: WidgetType): string {
@@ -230,7 +295,12 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   const shown: MakerTile[] = [];
   // The body's own lead (site-body.tsx `phasedBody`): the editorial cover
   // after the day, the film on the Save the Date.
-  if (plan.body === 'editorial') shown.push(fixed('editorial'));
+  // 📖 Post Event (Maker Phase 8): the story's own scenes, when the compiled
+  // list was handed in — otherwise the one tile that stands for all of it.
+  if (plan.body === 'editorial') {
+    if (input.postEvent && input.postEvent.length > 0) shown.push(...postEventTiles(input.postEvent));
+    else shown.push(fixed('editorial'));
+  }
   if (plan.body === 'save_the_date') shown.push(fixed('film'));
   // The masthead: the full-bleed banner (normal body + hero media) or the
   // text masthead inside the body (no hero media).

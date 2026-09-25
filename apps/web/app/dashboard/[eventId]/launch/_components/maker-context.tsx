@@ -27,6 +27,8 @@ export type MakerSelection =
   | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'prints' | 'details' }
   | { kind: 'main' }
   | { kind: 'row'; key: string }
+  /** 📖 One of Post Event's written scenes (Maker Phase 8) — by its scene key. */
+  | { kind: 'post-event'; scene: string }
   | null;
 
 export type MakerSceneTab = 'format' | 'animate' | 'transition' | 'content';

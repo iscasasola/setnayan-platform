@@ -25,8 +25,15 @@ const DEFAULT_BG = '#FAF7F2'; // cream
  *   "Maria & Juan"          → "M & J"
  *   "Maria and Juan"        → "M & J"
  *   "Maria & Juan (Demo)"   → "M & J"
- *   "Aira-Boy"              → "A & B"
+ *   "Mary-Anne & Jose"      → "M & J"  (a tight hyphen inside ONE name never splits)
+ *   "Aira - Boy"            → "A & B"  (a SPACED hyphen still splits two names)
  *   "Setnayan"              → "S"
+ *
+ * 🪤 "and" WAS A SUBSTRING MATCH (owner: "I made A&B Monogram. it showed A&A"
+ * for "amanda & ben" — the "and" inside "amANDa" split the name into
+ * "am"/"a"/"ben"). "and" now only matches as its OWN WORD (`\band\b`), and a
+ * hyphen only splits with SPACE on both sides, so a tight hyphen inside one
+ * name ("Mary-Anne") never gets mistaken for a joiner between two names.
  *
  * Couples can override via events.monogram_text in the Branding section.
  */
@@ -34,9 +41,11 @@ export function deriveMonogram(displayName: string | null | undefined): string {
   if (!displayName) return 'S';
   // Strip parenthetical annotations like "(Demo)" first.
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();
-  // Split on "&", "and" (case-insensitive), or hyphens.
+  // Split on "&", "+", "/", the whole WORD "and" (never a substring inside a
+  // name, e.g. "amANDa"), or a hyphen with a space on both sides (never a
+  // tight hyphen inside one name, e.g. "Mary-Anne").
   const parts = cleaned
-    .split(/\s*(?:&|and|\+|\/|-)\s*/i)
+    .split(/\s*(?:&|\+|\/|\band\b)\s*|\s+-\s+/i)
     .map((s) => s.trim())
     .filter(Boolean);
 

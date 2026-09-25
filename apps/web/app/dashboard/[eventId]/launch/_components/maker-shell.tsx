@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Info, Monitor, MoreHorizontal, PanelLeft, Play, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { MAKER_BAR, MAKER_COMING_NEXT, isStagePhase, type MakerBarItem } from './maker-bar';
 import {
@@ -490,14 +491,10 @@ export function ComingNext({
 }
 
 function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  /* It says aria-modal, so it manages focus: in, trapped, restored, Esc
+     closes (the house `useModalA11y`, `modal-a11y-adoption.test.ts`). */
+  const sheetRef = useRef<HTMLElement>(null);
+  useModalA11y({ open, onClose, containerRef: sheetRef });
   return (
     <div hidden={!open} className="absolute inset-0 z-40">
       <button
@@ -507,6 +504,7 @@ function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => 
         className="absolute inset-0 h-full w-full cursor-default bg-ink/25 backdrop-blur-[2px]"
       />
       <aside
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Your Event Hub"

@@ -1668,6 +1668,14 @@ html.hr-snap {
   font-size: 13.5px;
   color: var(--hr-foot-ink);
   transition: color 0.18s ease;
+  /* 40px tap target (mobile audit item 2: every footer link measured
+     17-20px). Grows each row's own box rather than clawing the height back
+     with a negative margin — the footer runs taller, which costs nothing
+     down here at the foot of the page, and the extra room between links is
+     a fair trade for a link that is actually easy to hit. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
 }
 .home-reskin .hr-foot-linkbtn {
   background: none;
@@ -2150,11 +2158,14 @@ html.hr-snap {
   margin-bottom: 18px;
 }
 .home-reskin-ov .hr-ov-x {
+  /* 40px tap target (mobile audit item 3: was 34px on /login). The glyph and
+     position stay put — `top`/`right` shift with it so the circle still sits
+     the same visual distance from the card's corner. */
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 34px;
-  height: 34px;
+  top: 13px;
+  right: 13px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 1px solid var(--hr-line);
   background: #fff;
@@ -2663,7 +2674,12 @@ html.hr-snap {
   font-size: 12.5px;
 }
 .home-reskin-ov .hr-si-remember {
+  /* 40px tap height (mobile audit item 3: the Terms checkbox on /signup and
+     the "Stay signed in" checkbox — same class, both pages — measured 15px).
+     Enlarging the LABEL's hit area, not the 15px input itself: the input
+     stays its designed size, the label just claims more room around it. */
   display: inline-flex;
+  min-height: 40px;
   align-items: center;
   gap: 7px;
   color: var(--hr-grey);

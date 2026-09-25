@@ -200,7 +200,9 @@ export default async function PabuyaPublicPage({
     <main className="min-h-dvh bg-cream text-ink">
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
+          {/* min-h-[40px] (mobile audit item 3: this icon-only back link
+              measured 26px). */}
+          <Link href={`/${slug}`} className="flex min-h-[40px] items-center gap-2 text-ink">
             <Logo height={26} />
           </Link>
           <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">

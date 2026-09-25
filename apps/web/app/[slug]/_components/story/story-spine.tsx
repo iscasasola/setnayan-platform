@@ -140,7 +140,10 @@ export function StorySpine({
   own,
   storyCard,
   sheets = [],
+  makerMarkers = false,
 }: {
+  /** 🧭 The Maker's canvas only — a hidden `p:you` marker for the navigator (Maker Phase 8). */
+  makerMarkers?: boolean;
   data: EditorialData;
   facts: StorySpineFacts;
   words: EventWords;
@@ -898,6 +901,7 @@ export function StorySpine({
       {/* 🔓 OPEN-UP (Event Hub Maker Phase 8): one line in the flow; their own
           day opens full screen and closes back here. The body is the shipped
           panel, unchanged — still no name field, for anyone. */}
+      {makerMarkers ? <span hidden data-maker-section="p:you" /> : null}
       <OpenUpScene
         kind="you"
         className="mx-auto mt-14 max-w-5xl px-4 min-[1100px]:max-w-6xl"

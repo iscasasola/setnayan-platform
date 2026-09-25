@@ -19,7 +19,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
 import {
   loadEditorialData,
@@ -65,7 +65,7 @@ import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/stor
 import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { galleryTabsFor, postEventReader } from '@/lib/post-event-scenes';
+import { galleryTabsFor, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
 import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 
 const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
@@ -90,6 +90,7 @@ export async function EditorialContent({
   galleryAnchorId = null,
   viewer = STRANGER,
   magicTraveller = null,
+  makerMarkers = false,
 }: {
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
@@ -129,6 +130,14 @@ export async function EditorialContent({
    * wrapper element at all, not an unstamped one.
    */
   magicTraveller?: 'mark' | null;
+  /**
+   * 🧭 THE MAKER'S CANVAS ONLY (Event Hub Maker Phase 8). Stamps a hidden
+   * `[data-maker-section="p:<scene>"]` marker in front of each Post Event scene
+   * so the navigator can scroll to it (the same marker contract `site-body.tsx`
+   * uses for every other stage). False — every guest, every stranger — renders
+   * no marker at all, so their HTML is unchanged.
+   */
+  makerMarkers?: boolean;
 }): Promise<ReactElement> {
   // The event's own words. This page is the STORY AFTER the event and was the
   // densest pocket of wedding language left — eleven sentences, including two
@@ -458,6 +467,8 @@ export async function EditorialContent({
     🔒 "Yours" is the signed Papic session's own photos (`loadYourOwnDay`) —
     never a name lookup. A reader without one is told so, not shown an empty grid.
   */
+  const marker = (scene: string): ReactNode =>
+    makerMarkers ? <span hidden data-maker-section={`p:${scene}`} /> : null;
   const ownPhotos = Array.from(
     new Set(
       [...own.appearsIn, ...own.shot]
@@ -525,7 +536,9 @@ export async function EditorialContent({
         </p>
       ) : null}
 
+      {marker('cover')}
       <StorySpine
+        makerMarkers={makerMarkers}
         data={data}
         facts={spineFacts}
         words={w}
@@ -641,6 +654,7 @@ export async function EditorialContent({
             ) : null}
           </div>
 
+          {isOn('byTheNumbers') ? marker('numbers') : null}
           {isOn('byTheNumbers') ? (
             <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
               <ByTheNumbers data={data} words={w} />
@@ -852,7 +866,18 @@ export async function EditorialContent({
           return sectionOrder.map((k) => {
             const id = customColumnId(k);
             const col = id ? byId.get(id) : undefined;
-            if (!col) return nodes[k as EditorialOrderKey];
+            if (!col) {
+              const node = nodes[k as EditorialOrderKey];
+              const scene = postEventSceneKeyForBlock(k as EditorialOrderKey);
+              return node && makerMarkers && scene ? (
+                <Fragment key={k}>
+                  {marker(scene)}
+                  {node}
+                </Fragment>
+              ) : (
+                node
+              );
+            }
             return (
               <div key={k}>
                 <SectionRule title={col.title} />
@@ -868,12 +893,14 @@ export async function EditorialContent({
             excluded from sectionOrder so no reorder can move them. ------------- */}
         {isOn('fromTheCouple') && data.specialMessage ? (
           <>
+            {marker('couple')}
             <SectionRule title={`From ${capitaliseWords(w.theOrganizer)}`} />
             <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
           </>
         ) : null}
         {data.song.url || data.song.label ? (
           <>
+            {marker('song')}
             <SectionRule title="Their Song" />
             <TheirSong song={data.song} names={data.firstNames} words={w} />
           </>
@@ -896,6 +923,7 @@ export async function EditorialContent({
           their song, and nothing below moves either. Absent, not empty, when the
           host announced nothing.
         */}
+        {backCover ? marker('next') : null}
         <BackCoverBlock cover={backCover} />
       </article>
     </div>

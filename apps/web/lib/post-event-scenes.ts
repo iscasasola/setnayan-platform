@@ -282,6 +282,15 @@ const SCENE_FOR_BLOCK: Record<Exclude<EditorialOrderKey, 'chapters'>, keyof type
   vendorsWeLoved: 'loved',
 };
 
+/**
+ * The scene a reorderable block of the page draws — the key the Maker's canvas
+ * marker carries (`p:<scene>`). The chapters block is the first chapter's.
+ */
+export function postEventSceneKeyForBlock(block: EditorialOrderKey): string | null {
+  if (block === 'chapters') return 'ch-1';
+  return SCENE_FOR_BLOCK[block] ?? null;
+}
+
 function build(def: Def, s: PostEventSources): PostEventScene {
   const { fill, ...rest } = def;
   const r = fill(s);

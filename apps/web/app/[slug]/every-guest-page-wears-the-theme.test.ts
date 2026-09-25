@@ -196,6 +196,23 @@ test('4 · the scope renders the look — and House renders the element it alway
   assert.match(velvet, /data-guest-ground="true"/, 'no paper under a themed page — Velvet\'s cream ink lands on a white body');
   assert.ok(velvet.indexOf('<p>page</p>') > velvet.indexOf('data-hub-theme'), 'the page is not inside the scope');
 
+  // THE THEME'S LOOP, when it has one: muted + inline (iPhone plays it without a
+  // tap), hidden under reduced motion, with the page's own paper as the scrim.
+  const looped = render({
+    theme: 'velvet',
+    art: null,
+    fontClassName: '',
+    style: null,
+    ground: { loop: 'https://r2.example/luxe-loop.mp4', poster: 'https://r2.example/luxe-poster.jpg', scrim: 0.62, foil: true },
+  });
+  assert.match(looped, /<video[^>]*data-theme-loop/, 'the theme loop is not drawn');
+  assert.match(looped, /<video[^>]*muted/, 'the loop is not muted — iPhone Safari will not autoplay it');
+  assert.match(looped, /<video[^>]*playsinline/i, 'the loop is not inline — iPhone takes it full-screen');
+  assert.match(looped, /<video[^>]*motion-reduce:hidden/, 'the loop still plays under reduced motion');
+  assert.match(looped, /data-theme-scrim[^>]*rgb\(var\(--color-cream\) \/ 0\.62\)/, 'the scrim is not the page\'s own paper');
+  assert.match(looped, /data-hub-foil=""/, 'Luxe does not shimmer its names');
+  assert.doesNotMatch(velvet, /<video/, 'a theme with no ground resolved drew a video anyway');
+
   const candle = render({ theme: null, art: 'candlelight', fontClassName: '', style: null });
   assert.match(candle, /data-art="candlelight"/, 'the candlelight art direction is not worn');
 
@@ -215,7 +232,16 @@ test('4 · the scope renders the look — and House renders the element it alway
 test('5 · the layout never resolves the couple\'s reveal photo', () => {
   const layout = stripComments(read('layout.tsx'));
   assert.doesNotMatch(layout, /resolveHubLook|resolveInviteGround/, 'the layout resolves the reveal photo');
-  assert.match(layout, /photo: null/, 'the layout hands the site skin a photo');
+  assert.doesNotMatch(layout, /siteSkin\([^)]*photo/, 'the layout hands the site skin a photo');
+  // The ground it DOES draw is the theme's own public loop — never the couple's.
+  assert.match(layout, /resolveThemeGround\(/, 'the layout no longer draws the theme ground');
+  const ground = stripComments(read('_lib', 'theme-ground.ts'));
+  assert.doesNotMatch(
+    ground,
+    /resolveInviteGround|std_background|displayUrlForStoredAsset|landing_page_hero/,
+    'the theme ground reads the couple\'s own media — the layout wraps the private landing',
+  );
+  assert.match(ground, /INVITE_THEMES\[theme\]/, 'the theme ground no longer reads the registry');
 
   const loaders = stripComments(read('_lib', 'loaders.ts'));
   const body = loaders.slice(loaders.indexOf('export const loadGuestLook'));

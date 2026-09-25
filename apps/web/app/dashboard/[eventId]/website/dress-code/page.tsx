@@ -115,7 +115,7 @@ export default async function DressCodeEditorPage({
             className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Saved — your guests will see this on the {eventNoun(event.event_type)} website.
+            Saved — your guests will see this on the {eventNoun(event.event_type)} Event Hub.
           </div>
         ) : null}
         {error ? (
@@ -171,10 +171,10 @@ export default async function DressCodeEditorPage({
                 rel="noreferrer"
                 className="font-medium text-terracotta underline-offset-2 hover:underline"
               >
-                your {eventNoun(event.event_type)} website
+                your {eventNoun(event.event_type)} Event Hub
               </Link>
             ) : (
-              `your ${eventNoun(event.event_type)} website`
+              `your ${eventNoun(event.event_type)} Event Hub`
             )}
             . Save changes to see them live.
           </p>

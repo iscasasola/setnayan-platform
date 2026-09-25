@@ -693,11 +693,13 @@ function deriveCity(venueName: string | null, venueAddress: string | null): stri
   return null;
 }
 
-/** Best-effort first-name pair for the headline, e.g. "Maria & Juan". */
+/** Best-effort first-name pair for the headline, e.g. "Maria & Juan".
+ *  🪤 "and" must match only as its OWN WORD — a substring match split
+ *  "amanda & ben" into "am"/"a"/"ben" (see deriveMonogramFallback above). */
 function deriveFirstNames(displayName: string): string {
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();
   const parts = cleaned
-    .split(/\s*(?:&|and|\+|\/)\s*/i)
+    .split(/\s*(?:&|\+|\/|\band\b)\s*/i)
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length >= 2) {
@@ -3193,11 +3195,16 @@ function extractParagraphs(draftJson: Record<string, unknown>): string[] | null 
 }
 
 /** Local monogram fallback (mirrors lib/monogram deriveMonogram, kept inline so
- *  this module stays self-contained and never imports outside _components). */
+ *  this module stays self-contained and never imports outside _components).
+ *  🪤 "and" must match only as its OWN WORD (`\band\b`), never as a substring
+ *  inside a name ("amANDa" → "am"/"a"/"ben", owner: "I made A&B Monogram. it
+ *  showed A&A"); a hyphen only splits with a space on both sides, so a tight
+ *  hyphen inside one name ("Mary-Anne") never reads as a joiner between two —
+ *  kept in sync BY HAND with lib/monogram.ts's deriveMonogram. */
 function deriveMonogramFallback(displayName: string): string {
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();
   const parts = cleaned
-    .split(/\s*(?:&|and|\+|\/|-)\s*/i)
+    .split(/\s*(?:&|\+|\/|\band\b)\s*|\s+-\s+/i)
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length >= 2) {

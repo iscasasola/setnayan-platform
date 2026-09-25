@@ -125,7 +125,7 @@ export type AddOnEntry = {
   category: InAppServiceCategory;
   blurb: string;
   /**
-   * Short browse/filter tags (e.g. 'Photos', 'Website', 'Day-of', 'Free') shown
+   * Short browse/filter tags (e.g. 'Photos', 'Event Hub', 'Day-of', 'Free') shown
    * as chips on the Suite card/row and indexed by the Suite search box. Keep
    * them 1–2 words, Title Case. Optional — untagged services still render + are
    * searchable by label + blurb.
@@ -371,7 +371,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'save-the-date',
     // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
     dayOfOnly: true,
-    tags: ['Invitation', 'Website', 'Before', 'Free'],
+    tags: ['Invitation', 'Event Hub', 'Before', 'Free'],
     surface: 'save_the_date',
     label: 'Save the Date',
     Icon: Sparkles,
@@ -408,7 +408,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // stay `studioGroup: 'website'` below; `event` and `editorial` do not.
   {
     key: 'rsvp',
-    tags: ['Website', 'Invitation', 'Guests', 'Free'],
+    tags: ['Event Hub', 'Invitation', 'Guests', 'Free'],
     surface: 'rsvp',
     opensDirect: true,
     label: 'RSVP',
@@ -433,7 +433,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'event',
     // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
     dayOfOnly: true,
-    tags: ['Website', 'Guests', 'Day-of', 'Free'],
+    tags: ['Event Hub', 'Guests', 'Day-of', 'Free'],
     surface: 'website',
     opensDirect: true,
     label: 'Event',
@@ -464,7 +464,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'editorial',
-    tags: ['Website', 'Keepsake', 'After', 'Free'],
+    tags: ['Event Hub', 'Keepsake', 'After', 'Free'],
     surface: 'website',
     opensDirect: true,
     label: 'Editorial',
@@ -506,7 +506,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // docblock; the rule is that a blurb may name only what a non-buyer is
     // actually refused.
     key: 'website-pro',
-    tags: ['Website', 'Upgrade', 'Popular'],
+    tags: ['Event Hub', 'Upgrade', 'Popular'],
     surface: 'website',
     opensDirect: true,
     label: 'Event Hub PRO',
@@ -529,7 +529,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'landing-page',
-    tags: ['Website', 'Free'],
+    tags: ['Event Hub', 'Free'],
     surface: 'website',
     opensDirect: true,
     // THE ONE WEBSITE DOORWAY (2026-08-14 · verdict §2 defect 1, owner

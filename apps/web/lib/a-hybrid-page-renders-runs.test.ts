@@ -42,8 +42,10 @@ const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
 
 test('⭐ a hybrid page emits its runs, its spacers and one progress segment per section', async () => {
   // Each value is the transition INTO THE NEXT scene. A ⟶scrub⟶ B, B → C
-  // scroll, C → D scroll, D ⟶scrub⟶ E, E → F auto (renders as scroll), and F
-  // is the tail. So: run(A,B) · C · run(D,E) · F.
+  // scroll, C → D scroll, D ⟶scrub⟶ E, E → F auto — but E already belongs to
+  // D's scrub run and one scene cannot sit in two runs, so E hands over to F
+  // like a page (first come wins, `groupSceneRuns`) — and F is the tail. So:
+  // run(A,B) · C · run(D,E) · F.
   const widgets = [row('A', 'scrub'), row('B'), row('C'), row('D', 'scrub'), row('E', 'auto'), row('F', 'scrub')];
   const { html } = await render(widgets, true);
 
@@ -74,14 +76,26 @@ test('⭐ a hybrid page emits its runs, its spacers and one progress segment per
 });
 
 test('⛔ every class in the exported vocabulary is really emitted (the list the CSS guard trusts)', async () => {
-  const { html } = await render([row('A', 'scrub'), row('B'), row('C')], true);
+  // A scrub run AND an auto run, so both vocabularies are rendered, not declared.
+  const { html } = await render([row('A', 'scrub'), row('B'), row('C', 'auto'), row('D'), row('E')], true);
   for (const c of HUB_SCENE_CLASSES) assert.match(html, new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is emitted`);
+});
+
+test('🎬 an auto run renders its scenes in ONE wrapper, one progress segment, and the page is otherwise untouched', async () => {
+  const { html } = await render([row('A'), row('B', 'auto'), row('C', 'auto'), row('D'), row('E')], true);
+  assert.equal(count(html, /class="hub-arun"/g), 1, 'one auto run: B·C·D');
+  assert.equal(count(html, /class="hub-scene hub-auto"/g), 3);
+  assert.equal(count(html, /class="hub-scene hub-scroll"/g), 2, 'A and E scroll');
+  const bar = html.slice(html.indexOf('hub-prog-bar'), html.indexOf('</span>', html.indexOf('hub-prog-bar')));
+  assert.equal(count(bar, /<i /g), 3, 'A · the run · E');
+  // Unarmed on the server: no data-armed, so no rule that hides a scene applies.
+  assert.doesNotMatch(html, /data-armed|data-playing|data-auto-in|data-auto-out/);
 });
 
 test('⛔ NO SCRUB, NO CHANGE — the page is byte-identical to the children', async () => {
   for (const [label, widgets, pro] of [
     ['nobody chose anything', [row('A'), row('B')], true],
-    ['only Auto-scroll (renders as Scroll for now)', [row('A', 'auto'), row('B', 'auto')], true],
+    ['Auto-scroll without Pro', [row('A', 'auto'), row('B', 'auto')], false],
     ['Scrub without Pro', [row('A', 'scrub'), row('B', 'scrub')], false],
     ['a malformed value', [row('A', 'hold'), row('B', 'move')], true],
     ['Scrub only on the LAST scene (the tail has no next)', [row('A'), row('B', 'scrub')], true],
@@ -209,8 +223,37 @@ test('⛔ setWidgetMotion refuses a free couple landing on Scrub / Auto-scroll �
   const body = src.slice(at, src.indexOf('\nexport async function', at + 10));
   assert.match(
     body,
-    /const step = nextTransition\(canvas, transitionRaw, autoSpeedRaw\);\s*if \(step\.needsPro && !\(await eventCoupleWebsiteProActive\(createAdminClient\(\), eventId\)\)\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/studio\/website-pro`\);/,
+    /const step = nextTransition\(canvas, transitionRaw, autoSpeedRaw\);\s*if \((?:!drafting && )?step\.needsPro && !\(await eventCoupleWebsiteProActive\(createAdminClient\(\), eventId\)\)\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/studio\/website-pro`\);/,
   );
   // …and the gate runs BEFORE the row is written.
   assert.ok(body.indexOf('step.needsPro') < body.indexOf('.update({ config_json: next })'));
+  // 💾 Event Hub Maker Phase 2: the gate is skipped ONLY for a DRAFT save
+  // (`draft=1`), which diverts to the draft BEFORE this live update and never
+  // reaches it — the Pro gate for a draft is `hubDraftAction` apply
+  // (`lib/hub-draft-wiring.test.ts` holds both halves).
+  if (/!drafting && step\.needsPro/.test(body)) {
+    const divert = body.indexOf('if (drafting) await saveCanvasToDraft(', body.indexOf('step.needsPro'));
+    assert.ok(divert > 0 && divert < body.indexOf('.update({ config_json: next })'), 'a skipped gate must divert to the draft before the live write');
+  }
+});
+
+/* ══ AUTO RUNS IN THE STYLESHEET ═════════════════════════════════════════ */
+
+test('🎬 the auto clock lives behind every gate AND the island’s own [data-armed] — no script, no hiding', () => {
+  const gate = scenesGate();
+  for (const attr of ['data-auto-in', 'data-auto-out', 'data-auto-skip']) {
+    const rules = [...gate.matchAll(/([^{}]*)\{/g)].map((m) => m[1] as string).filter((r) => r.includes(`[${attr}]`));
+    assert.ok(rules.length > 0, `${attr} is styled inside the gate`);
+    for (const r of rules) assert.match(r, /\.hub-arun\[data-armed\]/, `${attr} rule is armed-only: ${r.trim()}`);
+  }
+  const outside = CSS.replace(gate, '');
+  assert.doesNotMatch(outside, /data-auto-(in|out|skip)|\.hub-arun\[data-armed\]/, 'nothing outside the gate touches the clock');
+});
+
+test('🪤 "playing" out-ranks "paused" — measured: at a lower specificity nothing ever moved', () => {
+  const gate = scenesGate();
+  const paused = gate.indexOf('.hub-arun[data-armed] > .hub-auto[data-auto-in][data-auto-out] {');
+  const running = gate.indexOf('.hub-arun[data-armed][data-playing] > .hub-auto[data-auto-in][data-auto-out] {');
+  assert.ok(paused > 0 && running > paused, 'the running rule is as specific as the paused one and comes after it');
+  assert.match(gate.slice(running, gate.indexOf('}', running)), /animation-play-state:\s*running/);
 });

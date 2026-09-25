@@ -78,6 +78,8 @@
  * one direction and severe in the other.
  */
 
+import { unstable_isUnrecognizedActionError } from 'next/navigation';
+
 /** Error shapes a browser produces when the JS it wants is no longer deployed. */
 const STALE_PATTERNS = [
   /loading chunk \S+ failed/i,
@@ -131,8 +133,68 @@ export function isStaleBundleError(error: unknown): boolean {
   return STALE_PATTERNS.some((p) => p.test(message));
 }
 
+/**
+ * ── A THIRD SHAPE: A REJECTED ACTION, NOT AN UNREADABLE ONE (2026-09-25) ────
+ *
+ * Incident: the iOS app (a Capacitor WebView on www.setnayan.com) opened
+ * /login before a production deploy had finished posting to the NEW
+ * deployment. Vercel's runtime log:
+ *
+ *     POST /login 404 … [Error: Failed to find Server Action "40ba73…".
+ *     This request might be from an older or newer deployment.]
+ *
+ * The person saw the generic crash card. Unlike the transport-error shape
+ * above, the server never ran the action at all — it could not find it. Same
+ * disease as the other two shapes (a tab older than the server), a different
+ * throw site, and it does NOT match any `STALE_PATTERNS` regex above.
+ *
+ * Confirmed by reading Next's own source for the version pinned in
+ * package.json (`node_modules/next/dist/client/components/router-reducer/
+ * reducers/server-action-reducer.js`): the client checks a response header
+ * BEFORE ever falling through to the generic "unexpected response" branch —
+ *
+ *     const unrecognizedActionHeader = res.headers.get(NEXT_ACTION_NOT_FOUND_HEADER);
+ *     if (unrecognizedActionHeader === '1') {
+ *       throw new UnrecognizedActionError('Server Action "' + actionId + '" was not found on the server. ...');
+ *     }
+ *
+ * — and the server-side throw producing the Vercel log line above lives in
+ * `server/app-render/action-utils.ts`'s `getActionNotFoundError`. Next ships
+ * its own public discriminator for exactly this: `next/navigation`'s
+ * `unstable_isUnrecognizedActionError`, documented at
+ * `node_modules/next/dist/client/components/unrecognized-action-error.d.ts`
+ * as "This can happen if the client and the server are not from the same
+ * deployment... Reloading the page will fix this mismatch." Preferred over
+ * this file's usual `name`/`message` fallback: Next owns both the throw site
+ * and the check, so hand-matching would drift the moment either changes. The
+ * `name === 'UnrecognizedActionError'` / message fallback below exists only
+ * for a test (or a future caller) constructing the shape without importing
+ * the real class.
+ */
+export function isDeploymentSkewError(error: unknown): boolean {
+  if (unstable_isUnrecognizedActionError(error)) return true;
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { name?: unknown; message?: unknown };
+  if (e.name === 'UnrecognizedActionError') return true;
+  const message = typeof e.message === 'string' ? e.message : '';
+  if (!message) return false;
+  return (
+    /failed to find server action/i.test(message) ||
+    /this request might be from an older or newer deployment/i.test(message)
+  );
+}
+
 /** Where the one-shot marker lives. Session-scoped: a new tab starts fresh. */
 export const STALE_RELOAD_KEY = 'setnayan:stale-bundle-reloaded';
+
+/**
+ * Where a deployment-skew reload's cause is kept ACROSS the reload, so
+ * `DeferredObservability` can tell Sentry it happened once the app is back up
+ * — at level 'info', never as an error, because the reload already fixed it.
+ * Mirrors `STYLESHEET_FAILURE_KEY` in lib/stylesheet-recovery.ts, the sibling
+ * mitigation for the CSS-never-arrived case, which established this pattern.
+ */
+export const DEPLOYMENT_SKEW_FAILURE_KEY = 'setnayan:deployment-skew-failure';
 
 /**
  * Reload once to pick up the current build. Returns true when it started one.
@@ -151,4 +213,34 @@ export function reloadForStaleBundle(
   storage.setItem(STALE_RELOAD_KEY, '1');
   reload();
   return true;
+}
+
+/**
+ * Reload once for a deployment-skew error, recording why first so the report
+ * survives the reload (see `DEPLOYMENT_SKEW_FAILURE_KEY` above).
+ *
+ * Deliberately shares `reloadForStaleBundle`'s ONE-per-session budget
+ * (`STALE_RELOAD_KEY`): whichever of the two shapes a tab hits first, it gets
+ * exactly one automatic reload, not one of each. A tab that reloaded once for
+ * a stale SCRIPT and then, on the fresh load, still somehow posts a stale
+ * ACTION should show the normal error card, not a second silent refresh.
+ */
+export function reloadForDeploymentSkew(
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
+  reload: () => void,
+  error: unknown,
+): boolean {
+  try {
+    storage.setItem(
+      DEPLOYMENT_SKEW_FAILURE_KEY,
+      JSON.stringify({
+        message: error instanceof Error ? error.message : String(error),
+        path: typeof window !== 'undefined' ? window.location.pathname : '',
+        at: new Date().toISOString(),
+      }),
+    );
+  } catch {
+    // Storage disabled — the reload still happens; only the report is lost.
+  }
+  return reloadForStaleBundle(storage, reload);
 }

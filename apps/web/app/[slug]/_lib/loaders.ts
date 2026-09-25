@@ -68,6 +68,8 @@ import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-backdrop';
+import { readHubDraftForHostPreview } from '@/lib/hub-draft-store';
+import type { HubDraft } from '@/lib/hub-draft';
 import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
@@ -333,6 +335,25 @@ export const loadHostMembership = cache(
         .maybeSingle(),
     ]);
     return Boolean(memberRow) || Boolean(moderatorRow);
+  },
+);
+
+/**
+ * 💾 THE HOST'S DRAFT — for the Event Hub Maker's own preview, never a guest's.
+ *
+ * Event Hub Maker Phase 2 (owner 2026-09-24: edits are a draft guests do not see
+ * until Apply). The page calls this ONLY for `?editor=1`, with the viewer's user
+ * id resolved outside (no cookie read in a cached loader), and it answers null
+ * unless that viewer passes the SAME host check `?editor=1` already uses. The
+ * page then lays the draft over its own copies of the event row and the widget
+ * rows (`lib/hub-draft.ts` overlays — new objects; the `cache()`d rows other
+ * readers share are never mutated). Every guest request skips this entirely, so
+ * guest HTML is unchanged byte-for-byte.
+ */
+export const loadHostPreviewDraft = cache(
+  async (admin: AdminClient, eventId: string, userId: string): Promise<HubDraft | null> => {
+    if (!(await loadHostMembership(admin, eventId, userId))) return null;
+    return readHubDraftForHostPreview(admin, eventId);
   },
 );
 
@@ -755,7 +776,14 @@ export const loadLiveLayer = cache(
     // the live day-of page stays lean for weak venue WiFi, and the post-event
     // page belongs to the editorial treatment.
     let backdropConfig: RsvpBackdropConfig | null = null;
-    if (dayOfPhase === 'pre' || dayOfPhase === 'inactive') {
+    // 💾 A HOST'S DRAFT (Event Hub Maker Phase 2) rides in on the event row the
+    // page overlaid for `?editor=1` (`overlayHubDraftEvent`). `loadEventShell`'s
+    // select never names this column, so for every guest the key is ABSENT and
+    // the tolerant read below runs exactly as before.
+    const draftedBackdrop = event as { rsvp_backdrop?: unknown };
+    if ((dayOfPhase === 'pre' || dayOfPhase === 'inactive') && 'rsvp_backdrop' in draftedBackdrop) {
+      backdropConfig = parseRsvpBackdropConfig(draftedBackdrop.rsvp_backdrop);
+    } else if (dayOfPhase === 'pre' || dayOfPhase === 'inactive') {
       const { data: backdropRow, error: backdropError } = await admin
         .from('events')
         .select('rsvp_backdrop')

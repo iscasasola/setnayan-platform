@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import {
   INVITE_THEMES,
-  isInviteThemeId,
+  normalizeThemeId,
   resolveInviteTheme,
   type InviteThemeId,
 } from '@/lib/invite-themes';
@@ -113,7 +113,12 @@ const proThemeGate = cache(
  */
 export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook, 'photo'>> {
   const saved = event.invite_theme ?? null;
-  const wantsPro = isInviteThemeId(saved) && INVITE_THEMES[saved].tier === 'pro';
+  // A RETIRED id is read as its alias BEFORE the Pro question is asked — the
+  // owner's own page is saved as `capiz`, which now means Vintage (Pro). Asking
+  // `isInviteThemeId('capiz')` here would skip the ownership read and render a
+  // paid theme as House.
+  const wanted = normalizeThemeId(saved);
+  const wantsPro = wanted !== null && INVITE_THEMES[wanted].tier === 'pro';
 
   const [ownsPro, mayShowStdFilm] = wantsPro
     ? await proThemeGate(event.event_id, event.event_type ?? '')

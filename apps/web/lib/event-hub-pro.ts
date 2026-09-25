@@ -160,14 +160,14 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     here for totality (the `Record` is exhaustive) and for the day a channel is
     added — the same reason 'Editorial editing' carries copy it never shows.
   */
-  'Invite link theme': {
+  '9 Event Hub themes, invite link included': {
     // Drafted with the Fable model (the owner's standing preference for product
     // copy), 2026-09-13. Its opening clause — "With Event Hub Pro," — is the one
     // edit: this chip is rendered INSIDE the Event Hub Pro offer, so the words
     // named the panel the reader is already looking at.
-    headline: 'Your invite opens the way you pictured it.',
+    headline: 'Your whole Event Hub, in the look you pictured.',
     blurb:
-      'A guest tapping your link first watches a veil lift, then lands on a card set against your own photo. Your monogram sits on its edge like a wax seal, and the one button on the card is painted in the colour you chose.',
+      'Choose Rustic, Modern, Cinderella, Luxe, Vintage, Whimsical, Regency, Great Gatsby or Cyber Neon. Each one sets the background film, the colours, the lettering and how every section moves, from your invite link to the last page.',
   },
   /*
     THE NINTH (owner "A then", 2026-09-24): Event Hub Pro also unlocks the

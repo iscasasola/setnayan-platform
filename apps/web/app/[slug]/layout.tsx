@@ -6,6 +6,7 @@ import { DayOfAnnouncement } from './_components/day-of-announcement';
 import { GuestLookScope } from './_components/guest-look-scope';
 import { siteSkin } from './_components/skins/site-skin';
 import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
+import { resolveThemeGround } from './_lib/theme-ground';
 
 /**
  * /[slug] guest-tree layout — the editorial-typography scope, the ONE place the
@@ -148,9 +149,15 @@ export default async function GuestTreeLayout({
     layout wraps the private landing (see `resolveHubTheme`). `GuestLookScope`
     lays the plain paper instead.
   */
-  const skin = look?.theme ? siteSkin(look.theme, { photo: null, accent: look.accent }) : undefined;
+  const skin = look?.theme ? siteSkin(look.theme, { accent: look.accent }) : undefined;
   const style =
     look && (look.vars || skin) ? { ...(look.vars ?? {}), ...((skin?.style as Record<string, string>) ?? {}) } : null;
+  /*
+    The theme's LOOP and scrim. Unlike the couple's reveal photo this is
+    Setnayan's own public theme art, so the layout may draw it on every page —
+    the private landing included — and it is resolved here, once, not per page.
+  */
+  const ground = look?.theme ? resolveThemeGround(look.theme, { ownColours: Boolean(look.vars) }) : null;
 
   return (
     <GuestLookScope
@@ -158,6 +165,7 @@ export default async function GuestTreeLayout({
       art={look?.art ?? null}
       fontClassName={skin?.className ?? ''}
       style={style}
+      ground={ground}
     >
       {/* THE COORDINATOR'S WORDS, ON EVERY PAGE OF THE TREE. Sticky so it
           follows the reader down a long page — the guest who needs "phones

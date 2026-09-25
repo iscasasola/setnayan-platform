@@ -5,7 +5,16 @@ import { pickableInviteThemes, type InviteThemeId } from '@/lib/invite-themes';
 import { setInviteTheme } from '../actions';
 
 /**
- * How your invite looks — the couple's theme picker (lib/invite-themes.ts).
+ * How your Event Hub looks — the couple's theme picker, the TEN themes of
+ * lib/invite-themes.ts (Event Hub Maker Phase 3, 2026-09-25). Each theme is a
+ * whole look — background film, colours, lettering, motion — shown here as its
+ * own palette swatch so a couple sees the look, not just its name. The Event
+ * Hub Maker's Theme panel mounts this same component.
+ *
+ * 🔒 IN THE STORE SHELL THE PRO THEMES ARE HIDDEN, NOT LOCKED, AND NO ₱ APPEARS
+ * (build plan D13, Apple 3.1.3(b)): only Classic is listed — plus the couple's
+ * own saved theme, if it is a Pro one, so saving from the app can never quietly
+ * reset a look they already have.
  *
  * House is free and always available. The Pro themes come with Event Hub Pro
  * (COUPLE_WEBSITE_PRO); without it they are shown, named and disabled, with the
@@ -30,6 +39,7 @@ export function InviteThemePicker({
   mayShowStdFilm,
   notice,
   returnTo = 'invite',
+  storeShell = false,
 }: {
   eventId: string;
   selected: InviteThemeId;
@@ -47,8 +57,12 @@ export function InviteThemePicker({
   /** Which page this picker sits on, so saving returns there. The guest list's
    *  Share the link tab passes 'guests-share'; the invite page the default. */
   returnTo?: InviteReturn;
+  /** `isStoreShellRequest()` — the native app, where Pro is hidden, not sold. */
+  storeShell?: boolean;
 }) {
-  const themes = pickableInviteThemes({ mayShowStdFilm });
+  const themes = pickableInviteThemes({ mayShowStdFilm }).filter(
+    (t) => !storeShell || t.tier === 'free' || (ownsPro && t.id === selected),
+  );
   const action = setInviteTheme.bind(null, eventId);
   return (
     <section className="mt-6 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6" aria-labelledby="invite-theme-heading">
@@ -126,6 +140,17 @@ export function InviteThemePicker({
                 disabled={locked}
                 className="mt-1 h-4 w-4 shrink-0 accent-ink"
               />
+              {/* The theme's own palette — ground, plate, metal, ink — so the look
+                  is seen before it is chosen. Decorative; the name carries it. */}
+              <span
+                aria-hidden
+                className="mt-0.5 flex h-8 w-8 shrink-0 overflow-hidden rounded-md border border-ink/15"
+                style={{ backgroundColor: t.palette.canvas }}
+              >
+                <span className="h-full w-1/3" style={{ backgroundColor: t.palette.surface }} />
+                <span className="h-full w-1/3" style={{ backgroundColor: t.palette.accent }} />
+                <span className="h-full w-1/3" style={{ backgroundColor: t.palette.ink }} />
+              </span>
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-ink">{t.name}</span>
@@ -140,13 +165,14 @@ export function InviteThemePicker({
         })}
         {/* Not on a celebration that cannot have them (Q7) — an upsell for
             something no purchase would turn on is worse than silence. */}
-        {ownsPro || !mayShowStdFilm ? null : (
+        {ownsPro || !mayShowStdFilm || storeShell ? null : (
           <p className="text-sm text-ink/70">
             The Pro themes come with{' '}
             <Link className="font-medium text-link underline-offset-2 hover:underline" href={`/dashboard/${eventId}/studio/website-pro`}>
               Event Hub Pro
             </Link>
-            , together with your cinematic reveal and your site colours.
+            : nine themes, each with its own background film, colours and lettering, together
+            with your cinematic reveal and your site colours.
           </p>
         )}
         <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving…">

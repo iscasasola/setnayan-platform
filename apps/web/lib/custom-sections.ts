@@ -61,6 +61,8 @@ import {
   CUSTOM_COLUMN_BODY_MAX,
   CUSTOM_COLUMN_TITLE_MAX,
 } from '@/app/[slug]/_components/editorial/custom-columns';
+import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 export { CUSTOM_COLUMN_BODY_MAX, CUSTOM_COLUMN_TITLE_MAX };
 
 export function isCustomSectionType(value: unknown): value is CustomSectionType {
@@ -156,7 +158,15 @@ export function readCustomSectionInput(title: unknown, body: unknown): CustomSec
 
    Prod measured 2026-09-24 by the controller: 0 custom rows on any event, so
    the gate takes nothing away from anybody today. */
-export const CUSTOM_SECTION_INTENTS = ['save', 'arrange', 'delete'] as const;
+export const CUSTOM_SECTION_INTENTS = [
+  'save',
+  'arrange',
+  'delete',
+  // Event Hub Maker Phase 5 — a scene's template, one of its slots, its clip's playback.
+  'template',
+  'slot',
+  'video',
+] as const;
 export type CustomSectionIntent = (typeof CUSTOM_SECTION_INTENTS)[number] | 'add';
 
 export function customSectionIntent(raw: unknown): (typeof CUSTOM_SECTION_INTENTS)[number] | null {
@@ -187,7 +197,18 @@ export function customSectionWriteAllowed(input: {
  * does not publish on its own.
  */
 export function customSectionHasContent(raw: unknown): boolean {
-  return sanitizeCustomSection(raw).body.length > 0;
+  if (sanitizeCustomSection(raw).body.length > 0) return true;
+  /* 🎬 A SCENE FROM A TEMPLATE (Event Hub Maker Phase 5) has content when the
+     couple put something in it — a heading, a picture, a word block — or when
+     it is one of the templates built on a shipped part (names, monogram, the
+     countdown, the special message, the milestones), which fill themselves
+     from the event. `renderScene` still returns null if that part turns out
+     empty at render (a countdown after the day), and the frame drops it. */
+  const canvas = sanitizeHubCanvas(raw);
+  if (!canvas.template) return false;
+  if (sanitizeCustomSection(raw).title.length > 0) return true;
+  if ((canvas.slots ?? []).some((s) => s.media || s.head || s.text)) return true;
+  return SCENE_TEMPLATES[canvas.template].builtOn !== null;
 }
 
 /** The slot a new section should take, or null when all six are in use. */

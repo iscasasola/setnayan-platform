@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { nextTransition } from '@/lib/hub-scenes';
+import { sceneTemplateDefaults, sceneTemplateIdFromForm } from '@/lib/scene-templates';
+import { applySceneSlot, applySceneTemplate, applySceneVideo, type SlotPatch } from '@/lib/scene-writes';
+import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
@@ -53,6 +56,13 @@ const isHubDirection = (v: unknown): v is HubDirection =>
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { HUB_CANVAS_MOTION_KEYS, canvasHasMotion, sectionBackgroundChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
+import type { HubDraftPatch, HubDraftWidget } from '@/lib/hub-draft';
+import {
+  draftedDisplayOrders,
+  draftedWidgetConfig,
+  isHubDraftWrite,
+  saveHubDraftPatch,
+} from '@/lib/hub-draft-store';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
 import {
@@ -308,6 +318,9 @@ export async function setSectionMode(formData: FormData): Promise<void> {
     }
   }
 
+  if (isHubDraftWrite(formData)) {
+    await saveWidgetToDraft(formData, eventId, widgetType, { mode: nextMode });
+  }
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ mode: nextMode })
@@ -392,6 +405,18 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
     is_always_on: boolean;
   }>;
 
+  // 💾 In the DRAFT the order is the drafted one — swap neighbours as the couple
+  // sees them in their preview, not as guests see them.
+  const drafting = isHubDraftWrite(formData);
+  if (drafting) {
+    const drafted = await draftedDisplayOrders(eventId);
+    for (const r of rows) {
+      const o = drafted[r.widget_type];
+      if (o !== undefined) r.display_order = o;
+    }
+    rows.sort((a, b) => a.display_order - b.display_order);
+  }
+
   const movingIndex = rows.findIndex((r) => r.widget_id === widgetId);
   if (movingIndex === -1) {
     // Widget either doesn't exist on this event OR is_always_on (we
@@ -410,6 +435,16 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   }
 
   const neighborRow = rows[neighborIndex]!;
+
+  if (drafting) {
+    await saveHubDraftPatch(eventId, {
+      widgets: {
+        [movingRow.widget_type]: { display_order: neighborRow.display_order },
+        [neighborRow.widget_type]: { display_order: movingRow.display_order },
+      } as HubDraftPatch['widgets'],
+    });
+    finishDraftSave(formData, eventId);
+  }
 
   // Two parallel UPDATEs. No transaction needed — even if the second
   // update fails, we have not introduced data corruption: both rows
@@ -493,7 +528,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: row, error: readErr } = await supabase
     .from('invitation_widgets')
-    .select('widget_id, config_json')
+    .select('widget_id, widget_type, config_json')
     .eq('widget_id', widgetId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -501,19 +536,20 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
   if (!row) throw new Error('Section not found on this event.');
 
-  const existing =
-    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
-      ? (row.config_json as Record<string, unknown>)
-      : {};
+  const drafting = isHubDraftWrite(formData);
+  const existing = await canvasBase(drafting, eventId, row);
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
   /* ⛔ HOW A SECTION MOVES IS HOW THE PAGE LOOKS — PRO (owner 2026-09-24).
      `reset=1` is the one motion write a free couple may always make: it takes
      every motion choice OFF the section, back to the page we wrote. Anything
-     else is a choice, and a choice needs Pro. */
+     else is a choice, and a choice needs Pro.
+     💾 A DRAFT save is not gated here — trying is free; `hubDraftAction` apply
+     is the gate (owner 2026-09-25, "Try then pay"). */
   if (formData.get('reset') === '1') {
-    await requireLookPro(eventId, canvasHasMotion(canvas) ? 'remove' : 'none');
+    if (!drafting) await requireLookPro(eventId, canvasHasMotion(canvas) ? 'remove' : 'none');
     for (const k of HUB_CANVAS_MOTION_KEYS) delete canvas[k];
+    if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
     const { error: resetErr } = await supabase
       .from('invitation_widgets')
       .update({ config_json: { ...existing, canvas } })
@@ -525,7 +561,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
       resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
     );
   }
-  await requireLookPro(eventId, 'change');
+  if (!drafting) await requireLookPro(eventId, 'change');
 
   if (isHubMotionPreset(presetRaw)) canvas.preset = presetRaw;
   if (timelineRaw === 'auto') delete canvas.timeline;
@@ -581,7 +617,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   const autoSpeedRaw = formData.get('auto_speed');
   if (transitionRaw !== null || autoSpeedRaw !== null) {
     const step = nextTransition(canvas, transitionRaw, autoSpeedRaw);
-    if (step.needsPro && !(await eventCoupleWebsiteProActive(createAdminClient(), eventId))) {
+    if (!drafting && step.needsPro && !(await eventCoupleWebsiteProActive(createAdminClient(), eventId))) {
       redirect(`/dashboard/${eventId}/studio/website-pro`);
     }
     delete canvas.transition;
@@ -590,6 +626,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
     if (step.autoSpeed) canvas.autoSpeed = step.autoSpeed;
   }
 
+  if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
   const next = { ...existing, canvas };
 
   const { error: updateErr } = await supabase
@@ -647,7 +684,7 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
   const [{ data: row, error: readErr }, { data: ev, error: evErr }] = await Promise.all([
     supabase
       .from('invitation_widgets')
-      .select('widget_id, config_json')
+      .select('widget_id, widget_type, config_json')
       .eq('widget_id', widgetId)
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -677,10 +714,8 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
     ].filter((r): r is string => Boolean(r)),
   );
 
-  const existing =
-    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
-      ? (row.config_json as Record<string, unknown>)
-      : {};
+  const drafting = isHubDraftWrite(formData);
+  const existing = await canvasBase(drafting, eventId, row);
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
   /* WHICH KIND the couple asked for. Absent = photo, the same rule
@@ -694,8 +729,11 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
      in any direction (`sectionBackgroundChange` answers 'none' or, when it
      takes media down, 'remove'). Taking media off (`media=''`) is never gated;
      putting a photo or snippet up, or swapping it, is. Asked BEFORE any branch
-     below writes, so no kind can reach the update ungated. */
-  await requireLookPro(
+     below writes, so no kind can reach the update ungated.
+     💾 A DRAFT save skips it: trying is free, and `hubDraftAction` apply asks
+     the same classifier before anything reaches the live row. The ownership
+     check below still runs for a draft — a draft may only hold THEIR photo. */
+  if (!drafting) await requireLookPro(
     eventId,
     sectionBackgroundChange({
       currentMedia: typeof canvas.media === 'string' ? canvas.media : null,
@@ -745,6 +783,7 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
     else delete canvas.kind;
   }
 
+  if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ config_json: { ...existing, canvas } })
@@ -793,7 +832,7 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: row, error: readErr } = await supabase
     .from('invitation_widgets')
-    .select('widget_id, config_json')
+    .select('widget_id, widget_type, config_json')
     .eq('widget_id', widgetId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -801,10 +840,8 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
   if (readErr) throw new Error(`Failed to load section: ${readErr.message}`);
   if (!row) throw new Error('Section not found on this event.');
 
-  const existing =
-    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
-      ? (row.config_json as Record<string, unknown>)
-      : {};
+  const drafting = isHubDraftWrite(formData);
+  const existing = await canvasBase(drafting, eventId, row);
   const canvas: Record<string, unknown> = { ...sanitizeHubCanvas(existing) };
 
   if (!canvas.media) {
@@ -819,12 +856,14 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
 
   /* ⛔ THE CROP AND ZOOM ARE HOW THE PAGE LOOKS — PRO (owner 2026-09-24). A free
      couple's existing crop stays as it is; moving it is a change. */
-  await requireLookPro(eventId, 'change');
+  if (!drafting) await requireLookPro(eventId, 'change');
 
   const focalRaw = Number(formData.get('focal'));
   const zoomRaw = Number(formData.get('zoom'));
   if ((HUB_FOCAL_POINTS as readonly number[]).includes(focalRaw)) canvas.focal = focalRaw;
   if ((HUB_ZOOMS as readonly number[]).includes(zoomRaw)) canvas.zoom = zoomRaw;
+
+  if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
 
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
@@ -896,12 +935,19 @@ export async function addCustomSection(formData: FormData): Promise<void> {
   }
 
   const bottom = (rows ?? []).reduce((max, r) => Math.max(max, Number(r.display_order) || 0), 0);
+  /* 🎬 FROM A TEMPLATE (owner 2026-09-24: "+" opens the 25 templates — "we do
+     not have the blank anymore"). The picker posts `template`; the scene starts
+     with that template and its default effect. Adding is already Pro (above),
+     so the default motion is written too. A POST with no template (an older
+     form) still adds the plain section it always did. */
+  const template = sceneTemplateIdFromForm(formData.get('template'));
   const { error: insertErr } = await supabase.from('invitation_widgets').insert({
     event_id: eventId,
     widget_type: slot,
     display_order: bottom + 1,
     is_visible: true,
     is_always_on: false,
+    ...(template ? { config_json: { canvas: sceneTemplateDefaults(template, true) } } : {}),
   });
   if (insertErr) throw new Error(`Failed to add a section: ${insertErr.message}`);
 
@@ -920,9 +966,10 @@ async function refuseCustomSectionWithoutPro(
 /**
  * One of the couple's own sections — its words, its layout, or its removal.
  *
- * 🔑 ONE EXPORT, THREE INTENTS (`intent` = save · arrange · delete; absent =
- * save, which is what every form posted before this). Not three new exports:
- * the Vercel route ceiling is near, and every `'use server'` export is a route.
+ * 🔑 ONE EXPORT, SIX INTENTS (`intent` = save · arrange · delete · template ·
+ * slot · video; absent = save, which is what every form posted before this).
+ * Not six exports: the Vercel route ceiling is near, and the Maker plan's
+ * Phase 5 budget is zero new server actions.
  *
  *   save    — the heading and the words. REFUSED over the limit, never cut
  *             (`readCustomSectionInput`); the inputs carry the same maxLength.
@@ -931,6 +978,9 @@ async function refuseCustomSectionWithoutPro(
  *   delete  — the row goes, so its slot is free again for "Add". Never
  *             Pro-locked: taking your own words off your own page is not a
  *             purchase.
+ *   template · slot · video — a scene made from one of the 25 templates
+ *             (Event Hub Maker Phase 5): which template, what fills one slot,
+ *             how its clip plays. Rules in `lib/scene-writes.ts`.
  *
  * ⛔ MERGES `config_json` for save and arrange, like every other writer here —
  * the canvas (photo, crop, motion) and the words share one bag, and a couple
@@ -1003,7 +1053,66 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
   }
 
   let next: Record<string, unknown>;
-  if (intent === 'arrange') {
+  if (intent === 'template' || intent === 'slot' || intent === 'video') {
+    /* 🎬 A SCENE'S TEMPLATE, ONE OF ITS SLOTS, OR HOW ITS CLIP PLAYS (Event Hub
+       Maker Phase 5). The rules are pure and tested in `lib/scene-writes.ts`;
+       here they meet the row. Words and the template pick are free under the
+       grandfather rule above; PUTTING A PICTURE OR A CLIP INTO A SCENE, or a
+       non-default playback, is Event Hub Pro (owner: media is Pro) — asked of
+       `requireLookPro` before anything is written. Taking one off never is. */
+    const canvas = sanitizeHubCanvas(existing);
+    let nextCanvas: HubSectionCanvas;
+    if (intent === 'template') {
+      const id = sceneTemplateIdFromForm(formData.get('template'));
+      if (!id) redirect(back('?error=bad_template'));
+      nextCanvas = applySceneTemplate(
+        canvas,
+        id,
+        await eventCoupleWebsiteProActive(createAdminClient(), eventId),
+      );
+    } else if (intent === 'slot') {
+      const field = (k: string) => {
+        const v = formData.get(k);
+        return typeof v === 'string' ? v : undefined;
+      };
+      const kind = field('kind');
+      const patch: SlotPatch = {
+        media: field('media'),
+        kind: kind === 'snippet' ? 'snippet' : kind === 'photo' ? 'photo' : undefined,
+        head: field('head'),
+        text: field('text'),
+      };
+      /* 🔒 THE PICTURES THIS COUPLE MAY PUT IN A SCENE — their hero, their
+         gallery and their hero clip, the same set `setWidgetBackground` allows.
+         Read only when a picture is actually being put up. */
+      let ownRefs = new Set<string>();
+      if (patch.media) {
+        const { data: ev, error: evErr } = await supabase
+          .from('events')
+          .select('landing_page_hero_image_url, our_photos, landing_page_hero_video_r2_key')
+          .eq('event_id', eventId)
+          .maybeSingle();
+        if (evErr) throw new Error(`Failed to load your photos: ${evErr.message}`);
+        ownRefs = new Set(
+          [
+            siteMediaServeRef(ev?.landing_page_hero_image_url),
+            ...siteMediaServeRefs(ev?.our_photos),
+            siteMediaServeRef(ev?.landing_page_hero_video_r2_key),
+          ].filter((r): r is string => Boolean(r)),
+        );
+      }
+      const w = applySceneSlot(canvas, Number(formData.get('slot')), patch, ownRefs);
+      if (!w.ok) redirect(back(`?error=${w.reason}`));
+      if (w.putsMediaUp) await requireLookPro(eventId, 'change');
+      nextCanvas = w.canvas;
+    } else {
+      const v = applySceneVideo(canvas, formData.get('play'), formData.get('open'));
+      if (!v) redirect(back('?error=bad_video'));
+      if (v.putsUp) await requireLookPro(eventId, 'change');
+      nextCanvas = v.canvas;
+    }
+    next = { ...existing, canvas: sanitizeHubCanvas({ canvas: nextCanvas }) };
+  } else if (intent === 'arrange') {
     const arrangement = hubArrangement(formData.get('arrangement'));
     if (!arrangement) redirect(back('?error=bad_arrangement'));
     next = { ...existing, canvas: { ...sanitizeHubCanvas(existing), arrangement } };
@@ -1022,4 +1131,52 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
 
   await revalidateForWidgetChange(eventId);
   redirect(back('?saved=1'));
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   💾 THE DRAFT DOOR (Event Hub Maker Phase 2, owner 2026-09-24/25)
+   ════════════════════════════════════════════════════════════════════════════
+   A form that carries `draft=1` (`HUB_DRAFT_FIELD`) is the Maker editing a
+   DRAFT: every validation above still runs (the section must be this event's,
+   a background must be the couple's own photo, "Shown" must have content), but
+   the result goes into `event_site_drafts` instead of the live row, and the Pro
+   gate moves to `hubDraftAction` apply — trying is free, applying is not.
+   A form WITHOUT the field behaves byte-for-byte as before. */
+
+/** The config a canvas writer builds on: the drafted canvas in draft mode. */
+async function canvasBase(
+  drafting: boolean,
+  eventId: string,
+  row: { config_json: unknown; widget_type: string },
+): Promise<Record<string, unknown>> {
+  const live =
+    row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
+      ? (row.config_json as Record<string, unknown>)
+      : {};
+  return drafting ? draftedWidgetConfig(eventId, row.widget_type, live) : live;
+}
+
+/** Back to where the couple was, marked as a draft save. Never returns. */
+function finishDraftSave(formData: FormData, eventId: string): never {
+  revalidateWebsiteEditor(eventId, 'widgets');
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?drafted=1`, '?drafted=1'));
+}
+
+async function saveWidgetToDraft(
+  formData: FormData,
+  eventId: string,
+  widgetType: string,
+  patch: HubDraftWidget,
+): Promise<never> {
+  await saveHubDraftPatch(eventId, { widgets: { [widgetType]: patch } as HubDraftPatch['widgets'] });
+  finishDraftSave(formData, eventId);
+}
+
+async function saveCanvasToDraft(
+  formData: FormData,
+  eventId: string,
+  widgetType: string,
+  canvas: Record<string, unknown>,
+): Promise<never> {
+  return saveWidgetToDraft(formData, eventId, widgetType, { canvas: sanitizeHubCanvas({ canvas }) });
 }

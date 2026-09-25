@@ -55,7 +55,8 @@ const HUB_KEY = 'launch';
    controls what it contains. Every row this file governs is a dashboard row, so
    all of them take the longer word — and the bare word is now a RETIRED label
    here, in exactly the sense "Launch" and "Services" already were. */
-const HUB_LABEL = 'Event Hub Controller';
+// ✏️ 2026-09-25: the controller is the Event Hub Maker (owner, label change only).
+const HUB_LABEL = 'Event Hub Maker';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
 /** Every menu word the phone shows in a phase — top-level tabs AND docked
@@ -296,11 +297,15 @@ test('the editor and the editorial maker are still reachable', () => {
     );
   }
 
-  /* And on the desktop, the after-phase rail keeps its own row straight to the
+  /* And on the desktop, the after-phase rail keeps a way to the editorial
      maker (added 2026-08-21 after the owner asked "how do i see the editorial
-     maker?"). The Hub taking the phone's tab must not undo that. */
+     maker?").
+     ✏️ 2026-09-25: its own row left the tree — the owner's one sidebar row
+     "Event Hub Maker" holds Logo Maker · Editorial · Love Story, and the Maker
+     bar's "Post Event" is the door. So what must survive is that ROW, on the
+     After rail, and the Maker's own links to /story asserted just above. */
   assert.ok(
-    railEntries('after').some((e) => e.href === `${BASE}/story`),
-    'the After rail lost its row for the editorial maker',
+    railEntries('after').some((e) => e.href === `${BASE}/launch`),
+    'the After rail lost the Event Hub Maker — the editorial maker has no door',
   );
 });

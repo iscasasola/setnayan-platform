@@ -4,7 +4,9 @@ import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { ROLE_LABELS } from '@/lib/guests';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
-import { CustomSectionWidget } from './custom-section-widget';
+import { renderCustomSection } from './custom-section-widget';
+import { sceneFactsFor } from '../_lib/scene-facts';
+import type { InviteThemeId } from '@/lib/invite-themes';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -50,6 +52,8 @@ type HideableWidgetProps = {
   ourPhotoUrls: string[];
   /** ref → presigned URL for section backgrounds, resolved once by SiteBody. */
   canvasMediaUrls?: Readonly<Record<string, string>>;
+  /** The live theme, so a scene's text follows its own background (free). */
+  hubTheme?: InviteThemeId;
 };
 
 /**
@@ -68,6 +72,7 @@ function HideableWidgetBody({
   isLimitedPlusOne,
   ourPhotoUrls,
   words,
+  canvasMediaUrls,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -163,7 +168,12 @@ function HideableWidgetBody({
     case 'custom_4':
     case 'custom_5':
     case 'custom_6':
-      return <CustomSectionWidget config={widget.config_json} />;
+      // 🎬 A scene from one of the 25 templates, or the plain words it always was.
+      return renderCustomSection({
+        config: widget.config_json,
+        mediaUrls: canvasMediaUrls,
+        facts: sceneFactsFor(event, { solemn: words.solemn }),
+      });
 
     case 'our_love_story':
       return <OurLoveStoryWidget config={event.love_story} />;
@@ -215,5 +225,5 @@ function Detail({
  * here — lives in `hub-canvas-frame.tsx`.
  */
 export function HideableWidgetRender(props: HideableWidgetProps) {
-  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls}>{HideableWidgetBody(props)}</HubCanvasFrame>;
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>{HideableWidgetBody(props)}</HubCanvasFrame>;
 }

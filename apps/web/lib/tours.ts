@@ -450,21 +450,21 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     ],
   },
   /*
-    THE OMBRÉ'S FIRST-VISIT HINT (owner 2026-09-25: "color setup can be like
-    plain color or like apples ombe style" · "every feature gets a first-visit
-    tour"). Mounted beside the Maker's Colors panel. It sells nothing — the
+    THE BACKGROUND'S FIRST-VISIT HINT (owner 2026-09-25: "so the pick a color,
+    and you apply either plain, dawn, diagonal or glow effect. that's it" ·
+    "every feature gets a first-visit tour"). Mounted beside the Maker's Colors panel. It sells nothing — the
     ombré ships free (`OMBRE_IS_PRO`, lib/ombre.ts) — so the store shell keeps
     every slide.
   */
   customer_ombre_background_v1: {
     key: 'customer_ombre_background_v1',
-    label: 'Plain or ombré background',
-    blurb: 'The page’s colour can be one colour, or a soft blend made for the theme.',
+    label: 'One colour, one effect',
+    blurb: 'Pick a colour, then Plain, Dawn, Diagonal or Glow.',
     slides: [
       {
         Icon: Palette,
-        title: 'Plain, or a soft ombré',
-        body: 'One colour, or a gentle blend of two or three &mdash; the way a wallpaper fades. Pick a blend made for your theme, or make your own with your colours and a shape.',
+        title: 'One colour, one effect',
+        body: 'Pick a colour, then choose how it sits on the page: Plain, or a soft blend &mdash; Dawn, Diagonal or Glow &mdash; made from that one colour, the way a wallpaper fades.',
       },
       {
         Icon: CheckCircle2,

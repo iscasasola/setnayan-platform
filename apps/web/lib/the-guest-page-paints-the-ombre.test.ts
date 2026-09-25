@@ -107,16 +107,16 @@ test('4 · the invitation shell leaves its opaque paper off for an ombré, Class
 
 /* ── 5 · the draft ───────────────────────────────────────────────────────── */
 
-const SPEC: OmbreSpec = { shape: 'diagonal', stops: ['#1a0608', '#3a0f1a'] };
+const SPEC: OmbreSpec = { shape: 'diagonal', base: '#1a0608' };
 const STORED = encodeOmbre(SPEC);
 
 const LIVE: HubLiveState = { events: { site_bg_color: '#f5efe6' }, widgets: [] };
 
 test('5 · the draft holds an ombré exactly, overlays it on the row, and Apply copies it over as a FREE change', () => {
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', STORED), STORED);
-  assert.equal(sanitizeHubDraftEventValue('site_bg_color', ' OMBRE:DIAGONAL:#1A0608,#3A0F1A '.toLowerCase()), STORED);
+  assert.equal(sanitizeHubDraftEventValue('site_bg_color', ' ombre:diagonal:#1A0608 '), STORED);
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', '#F5EFE6'), '#f5efe6', 'a plain hex still lands');
-  assert.equal(sanitizeHubDraftEventValue('site_bg_color', 'ombre:swirl:#000000,#ffffff'), undefined, 'noise is dropped');
+  assert.equal(sanitizeHubDraftEventValue('site_bg_color', 'ombre:swirl:#000000'), undefined, 'noise is dropped');
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', null), null, 'null still clears');
 
   const draft = mergeHubDraft(emptyHubDraft(), { events: { site_bg_color: STORED } });
@@ -164,13 +164,15 @@ test('6 · the Colors panel posts ONE bg_color, filled by the Plain | Ombré fie
   assert.doesNotMatch(panel, /name="bg_color"/, 'the panel must not post a second bg_color beside the field');
   const field = fn(src, 'BackgroundField');
   assert.equal((field.match(/name="bg_color"/g) ?? []).length, 1, 'exactly one bg_color is posted');
-  assert.match(field, /const posted = mode === 'plain' \? hex : encodeOmbre\(ombre\);/);
-  assert.match(field, /aria-pressed=\{mode === m\}/, 'the two-way switch is a pressed pair');
-  assert.match(field, /ombrePresetsFor\(themeId\)/, 'the presets are the theme’s');
-  assert.match(field, /style=\{\{ backgroundImage: ombreCss\(p\.spec\) \}\}/, 'a preset swatch is a REAL gradient');
+  // One colour + one effect → the column's own text form (owner: "pick a color,
+  // and you apply either plain, dawn, diagonal or glow effect. that's it").
+  assert.match(field, /const posted = encodeBackgroundChoice\(hex, effect\);/);
+  assert.equal((field.match(/type="color"/g) ?? []).length, 1, 'exactly ONE colour picker — no multi-colour builder');
+  assert.match(field, /BACKGROUND_EFFECTS\.map\(/, 'the four effects are offered from the one list');
+  assert.match(field, /aria-pressed=\{on\}/, 'the effects are a pressed set');
+  assert.match(field, /backgroundImage: ombreCss\(\{ shape: e, base: previewBase \}\)/, 'an effect chip is a REAL gradient of the picked colour');
   assert.match(field, /style=\{\{ color: look\.legibility\.ink \}\}/, 'the preview shows the ink the page will use');
-  // Every shape is offered, by its label.
-  assert.match(field, /OMBRE_SHAPES\.map\(/);
+  assert.doesNotMatch(src, /ombrePresetsFor|Make my own|OMBRE_MAX_STOPS/, 'the preset gallery and the multi-colour builder are gone');
   // The editor page hands the live theme in, beside the first-visit hint.
   const page = read(`${W}editor/page.tsx`);
   assert.match(page, /<MiniTour tourKey="customer_ombre_background_v1" storeShell=\{storeShell\} \/>\s*<ColorsPanel/);

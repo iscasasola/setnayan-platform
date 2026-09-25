@@ -1,16 +1,27 @@
 /**
- * apps/web/lib/ombre.ts — PLAIN OR OMBRÉ: the page's background, as the couple chose it.
+ * apps/web/lib/ombre.ts — ONE COLOUR, ONE EFFECT: the page's background, as the couple chose it.
  *
  * Owner, 2026-09-25 (DECISION_LOG "BACKGROUND COLOUR: PLAIN OR APPLE-STYLE
  * OMBRÉ"), verbatim: *"color setup can be like plain color or like apples ombe
- * style."* So the Maker's Colours panel offers two ways to colour the page:
+ * style."* — then, the same day, simplifying it ("COLOUR SETUP = PICK ONE
+ * COLOUR + ONE EFFECT"), verbatim: *"so the pick a color, and you apply either
+ * plain, dawn, diagonal or glow effect. that's it"*.
  *
- *   PLAIN — one colour. `events.site_bg_color` holds `#rrggbb`, as it has since
- *           migration 20270930244819. Nothing about it changes here.
- *   OMBRÉ — a soft multi-stop gradient in the spirit of Apple's wallpapers:
- *           2–3 colours the couple picked (or one of the curated presets below),
- *           interpolated in OKLCH so the ramp stays luminous instead of greying
- *           through the middle, laid as one of three shapes.
+ * So the Maker's Colours panel is: the couple PICKS ONE COLOUR, then one of
+ * four effects —
+ *
+ *   PLAIN    — the flat colour. `events.site_bg_color` holds `#rrggbb`, as it
+ *              has since migration 20270930244819. Nothing about it changes.
+ *   DAWN     — a vertical ombré, darker at the top and lighter at the horizon.
+ *   DIAGONAL — a soft 160° ombré with a light bloom in the top-left corner.
+ *   GLOW     — a radial ombré, lit from the top centre.
+ *
+ * The three ombrés are DERIVED FROM THAT ONE COLOUR in OKLCH: a lighter step
+ * above it and a darker step below it (lightness moved, chroma kept alive, the
+ * hue turned a few degrees each way), then interpolated in OKLCH so the ramp
+ * stays luminous instead of greying through the middle — the Apple-wallpaper
+ * softness, from one swatch. There is no preset gallery and no multi-colour
+ * builder: one colour, one effect, that's it.
  *
  * ── STORAGE: THE SAME COLUMN, A SMALL ENCODED SPEC, NO MIGRATION ──────────
  * `site_bg_color` is TEXT with no CHECK (`grep -n site_bg_color supabase/
@@ -18,16 +29,14 @@
  * SELECT and UPDATE (20271005100000) and already in the draft
  * (`HUB_DRAFT_LOOK_COLUMNS`). An ombré is stored in it as
  *
- *     ombre:<shape>:<#rrggbb>,<#rrggbb>[,<#rrggbb>]      e.g. ombre:dawn:#fbf7ef,#ece1cf
+ *     ombre:<effect>:<#rrggbb>          e.g. ombre:dawn:#f4ecdd     (≤ 22 chars)
  *
- * ≤ 40 characters, one grammar for presets and custom alike (a preset is stored
- * EXPANDED, so a guest render never depends on the preset list still holding
- * it). `parseSiteBackground` is the ONE reader of the column's two shapes; every
+ * `parseSiteBackground` is the ONE reader of the column's two shapes; every
  * writer and sanitiser goes through it, so a malformed value is dropped, never
  * repaired — the canvas rule.
  *
  * ── HOW IT REACHES THE PAGE ───────────────────────────────────────────────
- * `guestLookFor` (`app/[slug]/_lib/loaders.ts`) asks `ombreLook(theme, spec)`
+ * `guestLookFrom` (`app/[slug]/_lib/loaders.ts`) asks `ombreLook(theme, spec)`
  * for the gradient CSS and the vars, and `GuestLookScope` paints the CSS on the
  * page's fixed paper (`GuestGround`) IN PLACE OF the theme's loop — an ombré is
  * a background, the loop is a background, and a guest's phone should not decode
@@ -39,9 +48,9 @@
  * The gradient is sampled at `OMBRE_RAMP_STEPS` points and handed to
  * `hubLegibility(theme, { kind: 'media', samples })` — the theme's two inks are
  * tried over the LIGHTEST and DARKEST sample and the one that needs the lighter
- * veil wins; when neither clears AA bare, the veil it asked for is baked into the
- * CSS as the top layer. Every curated preset is tuned so the veil is 0
- * (`lib/ombre.test.ts` holds it); a couple's own three colours may raise one.
+ * veil wins; when neither clears AA bare (a mid-tone colour), the veil it asked
+ * for is baked into the CSS as the top layer. `lib/ombre.test.ts` measures it
+ * over every theme's own colours and a sweep of a couple's possible picks.
  *
  * ── FREE, BEHIND ONE CONSTANT ─────────────────────────────────────────────
  * Plain colour is free (owner 2026-09-24). The owner has been asked whether the
@@ -51,12 +60,12 @@
  * `lib/hub-draft.ts`) and refused by the live writer (`ombreLookChange` in
  * `website/colors/actions.ts`) — with no other line changing.
  *
- * Pure. No I/O. Client-safe (the Maker panel draws the swatches with it).
+ * Pure. No I/O. Client-safe (the Maker panel draws the effect swatches with it).
  */
 import { hexOfOklch, oklchOfHex, type Oklch } from '@/lib/color-space';
 import { hubLegibility, type HubLegibility } from '@/lib/hub-legibility';
 import { refChange, type LookChange } from '@/lib/hub-look-pro';
-import { INVITE_THEME_IDS, LEGACY_THEME_ALIASES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
+import type { InviteTheme } from '@/lib/invite-themes';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    THE ONE SWITCH
@@ -76,23 +85,25 @@ export const OMBRE_IS_PRO = false;
    THE SPEC
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/** The three shapes — deliberately no more (owner: keep it simple). */
-export const OMBRE_SHAPES = ['diagonal', 'glow', 'dawn'] as const;
+/** The three ombré effects — with Plain, the owner's four. No more. */
+export const OMBRE_SHAPES = ['dawn', 'diagonal', 'glow'] as const;
 export type OmbreShape = (typeof OMBRE_SHAPES)[number];
 
-export const OMBRE_SHAPE_LABEL: Record<OmbreShape, string> = {
-  diagonal: 'Soft diagonal',
-  glow: 'Radial glow',
-  dawn: 'Vertical dawn',
-};
+/** The four effects as the couple reads them, in the panel's order. */
+export const BACKGROUND_EFFECTS = ['plain', ...OMBRE_SHAPES] as const;
+export type BackgroundEffect = (typeof BACKGROUND_EFFECTS)[number];
 
-export const OMBRE_MIN_STOPS = 2;
-export const OMBRE_MAX_STOPS = 3;
+export const BACKGROUND_EFFECT_LABEL: Record<BackgroundEffect, string> = {
+  plain: 'Plain',
+  dawn: 'Dawn',
+  diagonal: 'Diagonal',
+  glow: 'Glow',
+};
 
 export type OmbreSpec = {
   shape: OmbreShape;
-  /** 2–3 lowercase `#rrggbb`, first to last along the shape. */
-  stops: readonly string[];
+  /** The one colour the couple picked, lowercase `#rrggbb`. */
+  base: string;
 };
 
 /** What `events.site_bg_color` can hold, read. */
@@ -110,21 +121,19 @@ export function normalizeHex(raw: unknown): string | null {
 
 /** The stored form of an ombré. Always canonical: lowercase, no spaces. */
 export function encodeOmbre(spec: OmbreSpec): string {
-  return `${OMBRE_PREFIX}${spec.shape}:${spec.stops.join(',')}`;
+  return `${OMBRE_PREFIX}${spec.shape}:${spec.base}`;
 }
 
-/** `ombre:<shape>:<hex>,<hex>[,<hex>]` → the spec, or null for anything else. */
+/** `ombre:<effect>:<hex>` → the spec, or null for anything else. */
 export function parseOmbre(raw: unknown): OmbreSpec | null {
   if (typeof raw !== 'string') return null;
   const v = raw.trim();
   if (!v.startsWith(OMBRE_PREFIX)) return null;
-  const [shape, list, ...rest] = v.slice(OMBRE_PREFIX.length).split(':');
-  if (rest.length > 0 || !shape || !list) return null;
+  const [shape, hex, ...rest] = v.slice(OMBRE_PREFIX.length).split(':');
+  if (rest.length > 0 || !shape || !hex) return null;
   if (!(OMBRE_SHAPES as readonly string[]).includes(shape)) return null;
-  const stops = list.split(',').map(normalizeHex);
-  if (stops.length < OMBRE_MIN_STOPS || stops.length > OMBRE_MAX_STOPS) return null;
-  if (stops.some((s) => s === null)) return null;
-  return { shape: shape as OmbreShape, stops: stops as string[] };
+  const base = normalizeHex(hex);
+  return base ? { shape: shape as OmbreShape, base } : null;
 }
 
 /**
@@ -143,20 +152,69 @@ export function encodeSiteBackground(bg: SiteBackground): string {
   return bg.kind === 'plain' ? bg.hex : encodeOmbre(bg.ombre);
 }
 
+/** One colour + one effect → the stored form (`''` when there is no colour). */
+export function encodeBackgroundChoice(hex: string | null, effect: BackgroundEffect): string {
+  const base = normalizeHex(hex);
+  if (!base) return '';
+  return effect === 'plain' ? base : encodeOmbre({ shape: effect, base });
+}
+
 /** Is this stored value an ombré (and not a plain hex, a blank, or noise)? */
 export function isOmbreValue(raw: unknown): boolean {
   return parseOmbre(raw) !== null;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   THE RAMP — interpolated in OKLCH so it stays luminous
+   THE RAMP — three OKLCH anchors from one colour, interpolated in OKLCH
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/** How many colours the gradient is drawn and measured with. Odd, so t = 0.5 is a sample. */
+/** How many colours the gradient is drawn and measured with. Odd, so the base sits at t = 0.5. */
 export const OMBRE_RAMP_STEPS = 9;
+
+/** How far the lighter and darker anchors sit from the colour, in OKLCH lightness. */
+export const OMBRE_LIFT = 0.1;
+export const OMBRE_DROP = 0.12;
+/** The lightest and darkest an anchor may go — a pure white or black end bands and glares. */
+const L_MAX = 0.975;
+const L_MIN = 0.06;
+/** A few degrees of hue turn each way — what keeps a one-colour ombré from reading as a tint. */
+const HUE_TURN = 6;
 
 /** Below this chroma a colour is grey and its hue is noise — take the other end's. */
 const GREY_C = 0.02;
+
+/** The least a step must move to be worth drawing; under it the anchor is dropped, not faked. */
+const MIN_STEP = 0.03;
+
+/**
+ * The anchors, lightest first — lighter · the colour · darker — as `#rrggbb`.
+ * The couple's colour is ALWAYS one of them. When it is already at an edge
+ * (near-white, near-black) the step that cannot move is dropped and its room
+ * is given to the other side, so the colour becomes that end of the ramp and
+ * the ramp still spans the full `OMBRE_LIFT + OMBRE_DROP` of lightness — never
+ * a flat fill, never a step too small to see followed by a cliff.
+ */
+export function ombreAnchors(base: string): string[] {
+  const hex = base.toLowerCase();
+  const c = oklchOfHex(base);
+  const span = OMBRE_LIFT + OMBRE_DROP;
+  // Lighter tones carry a little less chroma, darker ones a little more —
+  // the way a lit surface actually reads. `hexOfOklch` clamps to the gamut.
+  const lighter = (L: number) => hexOfOklch(L, c.C * 0.85, c.H - HUE_TURN).toLowerCase();
+  const darker = (L: number) => hexOfOklch(L, c.C * 1.1, c.H + HUE_TURN).toLowerCase();
+  let lightL = Math.min(L_MAX, c.L + OMBRE_LIFT);
+  let darkL = Math.max(L_MIN, c.L - OMBRE_DROP);
+  // Room a clamped side lost goes to the other side, so the full span is kept.
+  const lostLift = c.L + OMBRE_LIFT - lightL;
+  const lostDrop = darkL - (c.L - OMBRE_DROP);
+  lightL = Math.min(L_MAX, lightL + lostDrop);
+  darkL = Math.max(L_MIN, darkL - lostLift);
+  const canLift = lightL - c.L >= MIN_STEP;
+  const canDrop = c.L - darkL >= MIN_STEP;
+  if (!canLift) return [hex, darker(Math.max(L_MIN, c.L - span))];
+  if (!canDrop) return [lighter(Math.min(L_MAX, c.L + span)), hex];
+  return [lighter(lightL), hex, darker(darkL)];
+}
 
 /** One point between two colours, in OKLCH: L and C linear, H along the shorter arc. */
 function mixOklch(a: Oklch, b: Oklch, t: number): string {
@@ -176,25 +234,27 @@ function mixOklch(a: Oklch, b: Oklch, t: number): string {
 }
 
 /**
- * The gradient's colours from first stop to last, `steps` of them, endpoints
- * included; three stops are two half-ramps. These are BOTH what the CSS draws
- * and what legibility measures — one ramp, so the words are measured over the
- * exact colours the guest sees.
+ * The gradient's colours from lightest to darkest, `steps` of them, anchors
+ * included (the couple's own colour is one of them — the middle, or an end
+ * when the colour is already near white or black). These are BOTH what the
+ * CSS draws and what legibility measures — one ramp, so the words are
+ * measured over the exact colours the guest sees.
  */
 export function ombreRamp(spec: OmbreSpec, steps = OMBRE_RAMP_STEPS): string[] {
-  const anchors = spec.stops.map((h) => oklchOfHex(h));
+  const stops = ombreAnchors(spec.base);
+  const anchors = stops.map((h) => oklchOfHex(h));
   const segments = anchors.length - 1;
   const out: string[] = [];
   for (let i = 0; i < steps; i++) {
     const t = steps === 1 ? 0 : i / (steps - 1);
     const seg = Math.min(segments - 1, Math.floor(t * segments));
     const local = t * segments - seg;
-    // A sample that lands ON a stop is the couple's own colour exactly — a round
-    // trip through OKLCH can move a channel by one, and the swatch they picked
-    // should be the swatch they see at that point of the ramp.
-    out.push(local === 0 ? spec.stops[seg]! : mixOklch(anchors[seg]!, anchors[seg + 1]!, local));
+    // A sample that lands ON an anchor is that anchor exactly — a round trip
+    // through OKLCH can move a channel by one, and the swatch the couple picked
+    // should be the swatch they see where it sits in the ramp.
+    out.push(local === 0 ? stops[seg]! : mixOklch(anchors[seg]!, anchors[seg + 1]!, local));
   }
-  out[out.length - 1] = spec.stops[spec.stops.length - 1]!;
+  out[out.length - 1] = stops[stops.length - 1]!;
   return out;
 }
 
@@ -220,10 +280,10 @@ function stopsList(ramp: readonly string[]): string {
 /**
  * The `background-image` value for an ombré — a gradient stack, top layer first.
  *
- *   diagonal — a 160° ramp with a soft light bloom from the top-left corner in
- *              the first colour, so it reads as lit, not as a two-tone fill;
- *   glow     — the ramp radiating from the top centre;
- *   dawn     — the ramp top to bottom.
+ *   dawn     — the ramp top to bottom, DARK above and LIGHT at the horizon;
+ *   diagonal — a 160° ramp, light to dark, with a soft bloom of the light end
+ *              in the top-left corner so it reads as lit, not as a two-tone fill;
+ *   glow     — the ramp radiating from the top centre, light to dark.
  *
  * `veil`, when given, is laid over everything as a flat layer — the scrim the
  * legibility rule asked for, baked into the same value so a scene that reads the
@@ -238,6 +298,9 @@ export function ombreCss(spec: OmbreSpec, veil?: { color: string; opacity: numbe
     layers.push(`linear-gradient(${v}, ${v})`);
   }
   switch (spec.shape) {
+    case 'dawn':
+      layers.push(`linear-gradient(180deg, ${stopsList([...ramp].reverse())})`);
+      break;
     case 'diagonal':
       layers.push(
         `radial-gradient(ellipse 110% 75% at 12% 0%, ${rgba(ramp[0]!, 0.55)} 0%, ${rgba(ramp[0]!, 0)} 65%)`,
@@ -246,9 +309,6 @@ export function ombreCss(spec: OmbreSpec, veil?: { color: string; opacity: numbe
       break;
     case 'glow':
       layers.push(`radial-gradient(ellipse 140% 105% at 50% 0%, ${stopsList(ramp)})`);
-      break;
-    case 'dawn':
-      layers.push(`linear-gradient(180deg, ${stopsList(ramp)})`);
       break;
   }
   return layers.join(', ');
@@ -268,9 +328,9 @@ export type OmbreLook = {
   css: string;
   /**
    * Inline custom properties for the look scope: the paper token moved to the
-   * ramp's middle colour (so `bg-cream` chips and the sticky bar sit in the
-   * gradient's own family) and the legibility answer on the channel tokens the
-   * words are painted with (`scene-legibility.ts`'s tokens).
+   * couple's colour (the ramp's middle — so `bg-cream` chips and the sticky bar
+   * sit in the gradient's own family) and the legibility answer on the channel
+   * tokens the words are painted with (`scene-legibility.ts`'s tokens).
    *
    * 🔴 EXCEPT `--color-ink-on-plate`, WHICH IS PINNED TO THE THEME'S OWN INK.
    * A `.pahina-plate` (the When/Where box, the reply card) keeps its own light
@@ -289,13 +349,11 @@ export type OmbreLook = {
 
 /** Everything the guest page needs to wear one ombré under one theme. */
 export function ombreLook(theme: InviteTheme, spec: OmbreSpec): OmbreLook {
-  const ramp = ombreRamp(spec);
   const legibility = ombreLegibility(theme, spec);
-  const mid = ramp[Math.floor(ramp.length / 2)]!;
   return {
     css: ombreCss(spec, legibility.scrim),
     vars: {
-      '--color-cream': hexChannels(mid),
+      '--color-cream': hexChannels(spec.base),
       '--color-ink': hexChannels(legibility.ink),
       '--color-ink-on-plate': hexChannels(theme.palette.ink),
       '--color-terracotta': hexChannels(legibility.accent),
@@ -320,102 +378,4 @@ export function ombreLookChange(current: unknown, next: string | null | undefine
   if (!OMBRE_IS_PRO || next === undefined) return 'none';
   const ombre = (v: unknown) => (isOmbreValue(v) ? encodeOmbre(parseOmbre(v)!) : null);
   return refChange(ombre(current), ombre(next));
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   THE PRESETS — three or four per theme, tuned to its palette
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-export type OmbrePreset = {
-  /** Stable id — `<theme>-<slug>`. Never stored: the spec is stored expanded. */
-  id: string;
-  /** What the couple reads under the swatch. */
-  name: string;
-  theme: InviteThemeId;
-  spec: OmbreSpec;
-};
-
-const p = (theme: InviteThemeId, slug: string, name: string, shape: OmbreShape, ...stops: string[]): OmbrePreset => ({
-  id: `${theme}-${slug}`,
-  name,
-  theme,
-  spec: { shape, stops: stops.map((s) => s.toLowerCase()) },
-});
-
-/**
- * Light themes take airy ombrés and keep their dark ink; the three dark themes
- * (Luxe · Great Gatsby · Cyber) take deep ones and keep their light ink. Every
- * preset clears AA for body text with NO veil — `lib/ombre.test.ts` measures it
- * over the whole ramp, and a preset that needed a veil would not be premium.
- */
-export const OMBRE_PRESETS: readonly OmbrePreset[] = [
-  // Classic — warm ivory, gold heading.
-  p('house', 'linen', 'Morning linen', 'dawn', '#fbf7ef', '#ece1cf'),
-  p('house', 'champagne', 'Champagne', 'diagonal', '#f9f2e5', '#e9d9b6'),
-  p('house', 'blush', 'Blush', 'glow', '#fcf2ec', '#efd5cc'),
-  p('house', 'sage', 'Sage', 'diagonal', '#f2f5ed', '#d8e1cd'),
-  // Rustic — cream, terracotta accent.
-  p('abaca', 'sunrise', 'Sunrise field', 'dawn', '#fdf4e7', '#f0cea6'),
-  p('abaca', 'terracotta', 'Terracotta haze', 'diagonal', '#f9e7d5', '#e7b78f'),
-  p('abaca', 'olive', 'Olive grove', 'glow', '#f4f2e4', '#cdd3a9'),
-  p('abaca', 'dusk', 'Dusk', 'diagonal', '#f5e0d3', '#dbb3a7', '#efe2d1'),
-  // Modern — stone, olive.
-  p('galeriya', 'white', 'Gallery white', 'dawn', '#fafaf7', '#e6e4dd'),
-  p('galeriya', 'stone', 'Stone', 'diagonal', '#f0ede6', '#cfcabf'),
-  p('galeriya', 'moss', 'Moss', 'glow', '#eff2e7', '#c7d1b3'),
-  p('galeriya', 'slate', 'Slate dawn', 'diagonal', '#e9ecef', '#c9d0d6', '#f2eee7'),
-  // Cinderella — sky blue, silver.
-  p('cinderella', 'sky', 'Sky', 'dawn', '#f4f8fc', '#cfdeea'),
-  p('cinderella', 'pearl', 'Pearl', 'glow', '#fdfdff', '#dfe6f0'),
-  p('cinderella', 'lilac', 'Lilac hour', 'diagonal', '#f1eef8', '#d4cfe6', '#e6eef8'),
-  p('cinderella', 'silver', 'Silver', 'diagonal', '#f5f7fa', '#cbd5df'),
-  // Luxe — near-black, copper foil.
-  p('velvet', 'wine', 'Midnight wine', 'diagonal', '#1a0608', '#3a0f1a'),
-  p('velvet', 'ember', 'Ember', 'glow', '#3a1a0e', '#0e0504'),
-  p('velvet', 'gold', 'Black gold', 'diagonal', '#0e0504', '#2a1d0f', '#0e0504'),
-  p('velvet', 'plum', 'Plum night', 'dawn', '#1e0a1d', '#0b0304'),
-  // Vintage — parchment, sepia.
-  p('vintage', 'paper', 'Old paper', 'dawn', '#f3e9d6', '#dcc7a6'),
-  p('vintage', 'rose', 'Faded rose', 'diagonal', '#edd6cd', '#dab8ae'),
-  p('vintage', 'sepia', 'Sepia', 'glow', '#efe3cf', '#cdb491'),
-  p('vintage', 'tea', 'Tea', 'diagonal', '#e9ddc8', '#d0bd9d', '#ebe0cd'),
-  // Whimsical — pastels.
-  p('whimsical', 'candy', 'Cotton candy', 'diagonal', '#fde9ef', '#e7dcf5', '#dff0f7'),
-  p('whimsical', 'peach', 'Peach cream', 'dawn', '#fff2e9', '#f6cfbb'),
-  p('whimsical', 'meadow', 'Meadow', 'glow', '#f3fae9', '#d0e6c3'),
-  p('whimsical', 'lavender', 'Lavender mist', 'diagonal', '#f4eefb', '#d8caee'),
-  // Regency — wisteria, powder blue.
-  p('regency', 'wisteria', 'Wisteria', 'diagonal', '#f1e9f3', '#d7c4de'),
-  p('regency', 'powder', 'Powder blue', 'dawn', '#eef3f8', '#c9d8e6'),
-  p('regency', 'apricot', 'Apricot', 'glow', '#fbeee1', '#efcba6'),
-  p('regency', 'green', 'Regency green', 'diagonal', '#eef3ea', '#c6d7c2', '#f3efe4'),
-  // Great Gatsby — black, brass, emerald.
-  p('gatsby', 'gilded', 'Gilded night', 'diagonal', '#110504', '#3b2a12', '#110504'),
-  p('gatsby', 'emerald', 'Emerald', 'glow', '#0f2a22', '#070f0c'),
-  p('gatsby', 'jazz', 'Jazz', 'dawn', '#1a0b1f', '#0c0405'),
-  p('gatsby', 'brass', 'Brass', 'diagonal', '#2a1a0a', '#0f0705'),
-  // Cyber — neon on ink.
-  p('cyber', 'dusk', 'Neon dusk', 'diagonal', '#1a0b2e', '#3a0f4a', '#0b0a12'),
-  p('cyber', 'electric', 'Electric', 'glow', '#0b2a4a', '#0b0a12'),
-  p('cyber', 'magenta', 'Magenta', 'dawn', '#2a0b26', '#0b0a12'),
-  p('cyber', 'aurora', 'Aurora', 'diagonal', '#0b1a2a', '#0b2a24', '#1a0b2e'),
-];
-
-/**
- * The curated ombrés for one theme, in the order they are shown. A stored
- * legacy id (`capiz`, `minimalist`, …) is read as its alias, exactly as the
- * theme registry reads it; anything else is Classic's list — never an empty one.
- */
-export function ombrePresetsFor(theme: InviteThemeId | string): OmbrePreset[] {
-  const id: InviteThemeId = (INVITE_THEME_IDS as readonly string[]).includes(theme)
-    ? (theme as InviteThemeId)
-    : (LEGACY_THEME_ALIASES[theme] ?? 'house');
-  return OMBRE_PRESETS.filter((x) => x.theme === id);
-}
-
-/** The preset a stored spec IS, if it is one — for the picker's selected state. */
-export function ombrePresetMatching(spec: OmbreSpec | null): OmbrePreset | null {
-  if (!spec) return null;
-  const encoded = encodeOmbre(spec);
-  return OMBRE_PRESETS.find((x) => encodeOmbre(x.spec) === encoded) ?? null;
 }

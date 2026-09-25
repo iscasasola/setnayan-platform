@@ -45,6 +45,7 @@ import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { BUDGET_BUILD_TABS, TAB_META, tabLabel } from './budget-build';
 import { isExploreReplanEnabled } from './explore-replan-flag';
 import { SUITE_NAV_ON, studioHubHref } from './studio-hub';
+import { isStoreShellWebOnlyPath } from './store-shell';
 
 /* The Suite doorway flag + href come from `lib/studio-hub.ts` — one branch,
    read by every surface (it used to be re-typed here). */
@@ -153,6 +154,8 @@ export type CustomerMenuCtx = {
   slug?: string | null;
   /** The event's Studio products as plain data — see `EventMenuCtx`. */
   studioRows?: EventMenuCtx['studioRows'];
+  /** The App Store / Play Store shell — see `EventMenuCtx.storeShell`. */
+  storeShell?: boolean;
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -285,7 +288,43 @@ export type EventMenuCtx = {
    * `the-event-menu-is-one-tree.test.ts` fails if the layout stops passing it.
    */
   studioRows?: ReadonlyArray<EventStudioRow>;
+  /**
+   * Is this the App Store / Play Store shell? Resolved ONCE, server-side, by
+   * `isStoreShellRequest()` in `layout.tsx`. When true, every row whose door
+   * `lib/store-shell.ts` refuses is DROPPED from the tree — see
+   * `storeShellRefusesMenuRow` below for why here and nowhere else.
+   * Undefined → the web: nothing is dropped.
+   */
+  storeShell?: boolean;
 };
+
+/**
+ * ─── THE STORE SHELL'S ONE ROSTER FILTER (2026-09-25) ─────────────────────
+ * Owner, testing the iOS app: *"the bottom nav is not fixed."* One of the four
+ * things wrong on that bar was a BLANK SLOT between Overview and Your Team.
+ *
+ * 🔑 ROOT CAUSE: the Papic tab opens `/studio/papic`, a route
+ * `lib/store-shell.ts` refuses (Apple 3.1.1 / 3.1.3(b)). The menu still BUILT
+ * the tab; `StoreShellLinkGuard` then hid its `<a>` with `display:none` after
+ * paint — and left the tab's `<li>` standing in a five-column grid. An
+ * invisible box. The same hand-off put "Setnayan AI" in the Suite's moment
+ * strip, where tapping it landed on "Not available in the app" — the
+ * incomplete-functionality shape App Review rejects.
+ *
+ * So the refusal happens HERE, in the one tree every event menu reads — the
+ * rail, the ☰ drawer, the moment strip and the bottom bar — and a refused row
+ * is never built at all. The four surfaces then lay out what is left, which
+ * is how the remaining tabs re-spread. The link guard stays as the net for
+ * links drawn anywhere else; it was never meant to be the menu's filter.
+ *
+ * ⚠ THE REFUSED LIST IS NOT RESTATED. It is `isStoreShellWebOnlyPath` — the
+ * same function middleware uses — so a menu can never offer a door the app
+ * would answer with /web-only.
+ */
+export function storeShellRefusesMenuRow(href: string, storeShell: boolean | undefined): boolean {
+  if (!storeShell) return false;
+  return isStoreShellWebOnlyPath(href.split('#')[0]!.split('?')[0]!);
+}
 
 /**
  * WHERE EACH STUDIO PRODUCT SITS (its icon here; its moment is its entry in
@@ -452,11 +491,13 @@ export function buildEventMenuSections(
     else unknown.push(row);
   }
 
+  // 🍎 A row the store shell refuses is never built — `storeShellRefusesMenuRow`.
+  const refused = (r: EventMenuRow) => storeShellRefusesMenuRow(r.href, ctx.storeShell);
   const pick = (keys: string[]): EventMenuRow[] =>
     keys.flatMap((k) => {
-      if (k === '__unknown__') return unknown.filter((r) => !hide.has(r.key));
+      if (k === '__unknown__') return unknown.filter((r) => !hide.has(r.key) && !refused(r));
       const r = rows.get(k);
-      return r && !hide.has(k) ? [r] : [];
+      return r && !hide.has(k) && !refused(r) ? [r] : [];
     });
 
   const sections: EventMenuSection[] = [
@@ -501,8 +542,24 @@ export function eventMomentForPath(
       }
     }
   }
-  if (!best || best.section.rows.length < 2) return null;
+  if (!best || stripRows(best.section).length < 2) return null;
   return best.section;
+}
+
+/**
+ * The rows a moment strip DRAWS. Overview is never one of them: it is the
+ * event's front page, not a step of a moment, and it is always on the bar
+ * directly below the strip — so on Galleries the strip read "Overview ·
+ * Papic · Galleries" over a bar that already said Overview. The binding
+ * drawing (`event_menu_by_moment_2026-09-24.html`) draws the spine strip as
+ * Papic · Galleries · Editorial, with no Overview chip.
+ *
+ * ⚠ ONLY OVERVIEW. The drawing keeps the other bar twins in their strips —
+ * Your Team in Book, Guests and the Event Hub Controller in Invite — because
+ * there they are the NEXT STEP of the moment, which is the strip's whole job.
+ */
+function stripRows(section: EventMenuSection): EventMenuRow[] {
+  return section.rows.filter((r) => r.key !== 'home');
 }
 
 /**
@@ -517,7 +574,7 @@ export function eventMomentChildren(
   pathname: string,
   moment: EventMenuSection | null,
 ): CustomerMenuChild[] {
-  return (moment?.rows ?? []).map((r) => {
+  return (moment ? stripRows(moment) : []).map((r) => {
     const claim = eventMenuRowClaims(r)
       .filter((m) => pathname === m || pathname.startsWith(`${m}/`))
       .sort((a, b) => b.length - a.length)[0];

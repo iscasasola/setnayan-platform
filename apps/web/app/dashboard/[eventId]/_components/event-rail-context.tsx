@@ -83,6 +83,7 @@ export function EventRailContext({
   phase,
   seatingEnabled,
   studioRows,
+  storeShell,
 }: {
   eventId: string;
   /** Already resolved server-side, and never blank — see the layout's
@@ -130,6 +131,10 @@ export function EventRailContext({
   /** The event's Studio products as PLAIN DATA (key · href · name) — see
    *  `EventRailInputs.studioRows`. Placed at their moments by the one tree. */
   studioRows?: ReadonlyArray<EventStudioRow>;
+  /** The App Store / Play Store shell — the one tree drops every row whose
+   *  door `lib/store-shell.ts` refuses (`storeShellRefusesMenuRow`). This is
+   *  the ☰ drawer on a phone, so it must not offer "Not available in the app". */
+  storeShell?: boolean;
 }) {
   /*
     THE SAME BUILDER AND THE SAME REGISTRY OVERLAY THE SIDEBAR USES.
@@ -155,6 +160,7 @@ export function EventRailContext({
       phase,
       seatingEnabled,
       studioRows,
+      storeShell,
     }),
     navSlots,
   );

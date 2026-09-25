@@ -5,7 +5,13 @@
  *
  * The reusable companion to <BottomNav> (project_setnayan_bottom_nav_canonical):
  * when a page's primary bottom-nav tab owns sub-sections, mount a <SubNav> and
- * pass only its own tabs. It renders a floating frosted pill — one size down
+ * pass only its own tabs.
+ *
+ * ⚓ INSIDE A <BottomDock> (2026-09-25) it is the dock's top row, attached to
+ * the bar as one anchored unit — the event layout mounts it that way. The
+ * floating pill described next is only what it draws with NO dock around it.
+ *
+ * Undocked, it renders a floating frosted pill — one size down
  * from the bottom-nav pill so it reads as that tab's subordinate shelf — docked
  * just above the bottom nav, and LIFTS into place on mount (owner-picked reveal
  * 2026-06-16; the `.subnav-lift` keyframe lives in globals.css). Items are
@@ -26,6 +32,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { useInBottomDock } from './bottom-nav';
 
 export type SubNavItem = {
   key: string;
@@ -80,6 +87,7 @@ export function SubNav({
   onSelect: (key: string) => void;
   ariaLabel?: string;
 }) {
+  const docked = useInBottomDock();
   // Register as docked for the lifetime of this component → the bottom nav goes
   // icons-only while we're on screen, and restores its labels when we unmount
   // (e.g. navigating away from the section).
@@ -93,6 +101,30 @@ export function SubNav({
   }, []);
 
   if (items.length < 1) return null;
+
+  /*
+    ⚓ DOCKED: ONE UNIT WITH THE BAR (2026-09-25). Inside a <BottomDock> the
+    strip is the dock's TOP ROW — no `fixed`, no pill, no shadow of its own;
+    the dock's glass is its surface and the bar sits directly under it.
+    Measured in the iOS simulator on the Event Hub Controller before this: the
+    strip floated as a second pill 20px above the bar pill, both over the page,
+    with "Edit this site" showing between and under them. The design says the
+    strip "docks above the bar" — attached, not stacked.
+  */
+  if (docked) {
+    return (
+      <nav
+        role="tablist"
+        aria-label={ariaLabel}
+        data-dock-strip
+        className="flex w-full select-none gap-1 px-1.5 pt-1.5 lg:hidden"
+      >
+        {items.map((it) => (
+          <SubNavTab key={it.key} item={it} on={it.key === activeKey} onSelect={onSelect} />
+        ))}
+      </nav>
+    );
+  }
 
   return (
     <nav
@@ -117,49 +149,62 @@ export function SubNav({
         boxShadow: '0 10px 30px -12px rgba(30, 34, 41, 0.35)',
       }}
     >
-      {items.map((it) => {
-        const Icon = it.icon;
-        const on = it.key === activeKey;
-        // A muted (e.g. time-gated) item reads as "not yet": dimmed, but only
-        // while it isn't the active tab — selecting it still lights it fully.
-        const dim = it.muted && !on;
-        return (
-          <button
-            key={it.key}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onSelect(it.key)}
-            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 transition-[background-color,color,transform] duration-300 ease-in-out active:scale-95"
-            style={{
-              color: on ? 'var(--m-ink)' : 'var(--m-slate)',
-              opacity: dim ? 0.45 : 1,
-              // Active = the bottom-nav pill's translucent-grey fill (not the
-              // white sn-seg pill) so the docked shelf matches the adjacent bar.
-              background: on
-                ? 'color-mix(in srgb, var(--m-ink) 15%, transparent)'
-                : 'transparent',
-              WebkitTapHighlightColor: 'transparent',
-              touchAction: 'manipulation',
-            }}
-          >
-            {/* One size down from the nav's 22px icon — subordinate, never the
-                same weight as the primary bar. */}
-            <Icon
-              aria-hidden
-              className="h-5 w-5 shrink-0"
-              strokeWidth={1.75}
-              style={{ color: on ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
-            />
-            <span
-              className="max-w-full truncate text-[10px] tracking-wide"
-              style={{ fontWeight: on ? 600 : 400 }}
-            >
-              {it.label}
-            </span>
-          </button>
-        );
-      })}
+      {items.map((it) => (
+        <SubNavTab key={it.key} item={it} on={it.key === activeKey} onSelect={onSelect} />
+      ))}
     </nav>
+  );
+}
+
+/** One strip tab — the same cell whether the strip floats or is docked. */
+function SubNavTab({
+  item: it,
+  on,
+  onSelect,
+}: {
+  item: SubNavItem;
+  on: boolean;
+  onSelect: (key: string) => void;
+}) {
+  const Icon = it.icon;
+  // A muted (e.g. time-gated) item reads as "not yet": dimmed, but only
+  // while it isn't the active tab — selecting it still lights it fully.
+  const dim = it.muted && !on;
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={on}
+      onClick={() => onSelect(it.key)}
+      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 transition-[background-color,color,transform] duration-300 ease-in-out active:scale-95"
+      style={{
+        color: on ? 'var(--m-ink)' : 'var(--m-slate)',
+        opacity: dim ? 0.45 : 1,
+        // Active = the bottom-nav pill's translucent-grey fill (not the
+        // white sn-seg pill) so the docked shelf matches the adjacent bar.
+        background: on
+          ? 'color-mix(in srgb, var(--m-ink) 15%, transparent)'
+          : 'transparent',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+      }}
+    >
+      {/* One size down from the nav's 22px icon — subordinate, never the
+          same weight as the primary bar. */}
+      <Icon
+        aria-hidden
+        className="h-5 w-5 shrink-0"
+        strokeWidth={1.75}
+        style={{ color: on ? 'var(--m-nav-active)' : 'var(--m-slate)' }}
+      />
+      {/* Two centred lines, never an ellipsis — the same rule as the bar's
+          labels ("Event Hub Controller" sits in the Invite strip too). */}
+      <span
+        className="line-clamp-2 max-w-full break-words text-center text-[10px] leading-[1.1] tracking-wide"
+        style={{ fontWeight: on ? 600 : 400 }}
+      >
+        {it.label}
+      </span>
+    </button>
   );
 }

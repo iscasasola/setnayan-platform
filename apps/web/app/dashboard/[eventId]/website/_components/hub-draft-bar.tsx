@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { hubDraftAction } from '../hub-draft-actions';
+import { useMaker } from '../../launch/_components/maker-context';
 import {
   HUB_DRAFT_FIELD,
   HUB_RESET_NEVER_TOUCHES,
@@ -14,16 +15,13 @@ import {
 } from '@/lib/hub-draft';
 
 /**
- * THE DRAFT BAR — Apply · Restore · Reset, and the "Draft" badge (Event Hub Maker
- * Phase 2). Self-contained: the Maker shell mounts it; it owns no layout beyond
- * its own row.
+ * THE DRAFT CONTROLS — Apply · Undo · Restore · Reset, and the "Draft" badge
+ * (Event Hub Maker Phase 2). Mounted once, in the Maker toolbar's `applySlot`,
+ * through the server `HubDraftDock` (`launch/page.tsx`).
  *
- *   const bar = await loadHubDraftBarData(eventId);   // lib/hub-draft-store.ts
- *   <HubDraftBadge summary={bar.summary} />
- *   <HubDraftBar {...bar} />
- *   <HubDraftReset eventId={eventId} />               // always reachable
- *   <form …><HubDraftField /> … </form>                // an existing panel's form
- *                                                      // now saves to the draft
+ *   <MakerShell applySlot={<HubDraftDock eventId={eventId} />} …>
+ *   <form …><HubDraftField /> … </form>   // an existing panel's form now saves
+ *                                          // to the draft instead of going live
  *
  * 🔑 IT SAYS WHAT HAPPENED, EVERY TIME. An Apply that held keys back lists them
  * with the reason in words; a draft that could not be read says so rather than
@@ -117,92 +115,6 @@ function ResultLine({ result }: { result: HubDraftActionResult | null }) {
   );
 }
 
-/**
- * Apply · Undo · Restore. Renders nothing while there is no draft — except the
- * outcome of the last Apply, and a read failure, which are always shown.
- */
-export function HubDraftBar({ eventId, summary, storeShell, priceLabel, proHref, readError }: HubDraftBarProps) {
-  const { pending, result, run } = useDraftIntent(eventId);
-
-  if (readError) {
-    return (
-      <p role="alert" className="text-sm text-terracotta-700">
-        Your draft could not be loaded just now. Nothing was lost — reload to try again.
-      </p>
-    );
-  }
-  if (!summary.hasChanges) return <ResultLine result={result} />;
-
-  const onlyPro = summary.proCount > 0 && summary.proCount === summary.changeCount;
-  const freeCount = summary.changeCount - summary.proCount;
-
-  return (
-    <section
-      aria-label="Your draft"
-      className="flex flex-col gap-2 bg-cream/95 px-4 py-3 shadow-lg backdrop-blur"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <HubDraftBadge summary={summary} />
-        <p className="text-sm text-ink/80">
-          {summary.changeCount} {summary.changeCount === 1 ? 'change' : 'changes'} guests do not see yet.
-        </p>
-      </div>
-
-      {summary.proCount > 0 &&
-        (storeShell ? (
-          <p className="text-sm text-ink/70">
-            {summary.proCount === 1 ? 'One change' : `${summary.proCount} changes`} can be applied on the web.
-          </p>
-        ) : (
-          <p className="text-sm text-ink/70">
-            Apply needs Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
-            {proHref && (
-              <>
-                {' '}
-                <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
-                  Get Event Hub Pro
-                </Link>
-              </>
-            )}
-          </p>
-        ))}
-
-      <div className="flex flex-wrap items-center gap-2">
-        {!onlyPro && (
-          <button
-            type="button"
-            className="button-primary inline-flex"
-            disabled={pending}
-            onClick={() => run({ intent: 'apply' })}
-          >
-            {summary.proCount > 0 ? `Apply ${freeCount} ${freeCount === 1 ? 'change' : 'changes'}` : 'Apply'}
-          </button>
-        )}
-        {summary.canUndo && (
-          <button
-            type="button"
-            className="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-            disabled={pending}
-            onClick={() => run({ intent: 'undo' })}
-          >
-            Undo
-          </button>
-        )}
-        <button
-          type="button"
-          className="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          disabled={pending}
-          onClick={() => run({ intent: 'restore' })}
-        >
-          Restore what guests see
-        </button>
-        {pending && <span className="text-xs text-ink/50">Saving…</span>}
-      </div>
-      <ResultLine result={result} />
-    </section>
-  );
-}
-
 const RESET_LABEL: Record<HubResetScope, string> = {
   save_the_date: 'Save the Date',
   rsvp: 'Invitation',
@@ -211,65 +123,132 @@ const RESET_LABEL: Record<HubResetScope, string> = {
   all: 'the whole Event Hub',
 };
 
+const quietButton =
+  'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5';
+
 /**
- * Reset to default — our design for one stage, written into the DRAFT (so Undo
- * or Restore can take it back until Apply). The confirm names what it will not
- * touch, from the same list the tests hold the reset plan to.
+ * THE MAKER TOOLBAR'S DRAFT CONTROLS — compact: the "Draft" badge and Apply sit
+ * in the bar; Undo · Restore · Reset and the outcome of the last action open
+ * from one small menu beside them. Reset uses the stage the couple is looking
+ * at (`useMaker().stage`; Invitation outside the Maker).
+ *
+ * The menu opens by itself when an action reports back, so an Apply that held
+ * keys back is never a silent one.
  */
-export function HubDraftReset({ eventId, stage = 'rsvp' }: { eventId: string; stage?: HubResetScope }) {
+export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proHref, readError }: HubDraftBarProps) {
+  const maker = useMaker();
+  const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, result, run } = useDraftIntent(eventId);
+  const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);
-  if (!asking) {
-    return (
-      <div className="flex flex-col gap-1">
-        <button
-          type="button"
-          className="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          onClick={() => setAsking(true)}
-        >
-          Reset {RESET_LABEL[stage]} to our design…
-        </button>
-        {result?.ok && result.intent === 'reset' && (
-          <p role="status" className="text-sm text-ink/70">
-            Reset in your draft. Guests still see the old page until you Apply.
-          </p>
-        )}
-        <ResultLine result={result} />
-      </div>
-    );
-  }
+  const act = (fields: Record<string, string>) => {
+    run(fields);
+    setAsking(false);
+    setOpen(true);
+  };
+
+  const onlyPro = summary.proCount > 0 && summary.proCount === summary.changeCount;
+  const freeCount = summary.changeCount - summary.proCount;
+
   return (
-    <div role="dialog" aria-label="Reset to our design" className="flex flex-col gap-2 bg-cream/95 px-4 py-3 shadow-lg">
-      <p className="text-sm text-ink">
-        Reset {RESET_LABEL[stage]} to the page we designed? It goes into your draft — guests see nothing until you
-        Apply, and Undo or Restore takes it back.
-      </p>
-      <p className="text-sm text-ink/70">It never touches:</p>
-      <ul className="list-disc pl-5 text-sm text-ink/70">
-        {HUB_RESET_NEVER_TOUCHES.map((t) => (
-          <li key={t}>{t}</li>
-        ))}
-      </ul>
-      <div className="flex flex-wrap gap-2">
+    <div className="flex items-center gap-1.5">
+      {readError ? (
+        <span role="alert" className="text-xs text-terracotta-700">
+          Draft could not be loaded — reload
+        </span>
+      ) : null}
+      <HubDraftBadge summary={summary} />
+      {summary.hasChanges && !onlyPro ? (
         <button
           type="button"
           className="button-primary inline-flex"
           disabled={pending}
-          onClick={() => {
-            run({ intent: 'reset', stage });
-            setAsking(false);
-          }}
+          onClick={() => act({ intent: 'apply' })}
         >
-          Reset in my draft
+          {summary.proCount > 0 ? `Apply ${freeCount}` : 'Apply'}
         </button>
-        <button
-          type="button"
-          className="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          onClick={() => setAsking(false)}
-        >
-          Cancel
-        </button>
-      </div>
+      ) : null}
+      <details className="relative" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+        <summary className={`${quietButton} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
+          {pending ? 'Saving…' : summary.hasChanges ? `${summary.changeCount} not live` : 'Draft'}
+        </summary>
+        <div className="absolute right-0 top-full z-40 mt-2 flex w-80 flex-col gap-2 rounded-xl bg-cream p-3 shadow-lg">
+          {summary.hasChanges ? (
+            <p className="text-sm text-ink/80">
+              {summary.changeCount} {summary.changeCount === 1 ? 'change' : 'changes'} guests do not see yet.
+            </p>
+          ) : readError ? null : (
+            <p className="text-sm text-ink/70">No draft — the preview is what guests see.</p>
+          )}
+          {summary.proCount > 0 &&
+            (storeShell ? (
+              <p className="text-sm text-ink/70">
+                {summary.proCount === 1 ? 'One change' : `${summary.proCount} changes`} can be applied on the web.
+              </p>
+            ) : (
+              <p className="text-sm text-ink/70">
+                Apply needs Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
+                {proHref && (
+                  <>
+                    {' '}
+                    <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
+                      Get Event Hub Pro
+                    </Link>
+                  </>
+                )}
+              </p>
+            ))}
+          <div className="flex flex-wrap gap-1">
+            {summary.canUndo ? (
+              <button type="button" className={quietButton} disabled={pending} onClick={() => act({ intent: 'undo' })}>
+                Undo
+              </button>
+            ) : null}
+            {summary.hasChanges ? (
+              <button type="button" className={quietButton} disabled={pending} onClick={() => act({ intent: 'restore' })}>
+                Restore what guests see
+              </button>
+            ) : null}
+            {!asking ? (
+              <button type="button" className={quietButton} onClick={() => setAsking(true)}>
+                Reset {RESET_LABEL[stage]}…
+              </button>
+            ) : null}
+          </div>
+          {asking ? (
+            <div role="group" aria-label="Reset to our design" className="flex flex-col gap-2">
+              <p className="text-sm text-ink">
+                Reset {RESET_LABEL[stage]} to the page we designed? It goes into your draft — guests see nothing
+                until you Apply, and Undo or Restore takes it back. It never touches:
+              </p>
+              <ul className="list-disc pl-5 text-sm text-ink/70">
+                {HUB_RESET_NEVER_TOUCHES.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  className="button-primary inline-flex"
+                  disabled={pending}
+                  onClick={() => act({ intent: 'reset', stage })}
+                >
+                  Reset in my draft
+                </button>
+                <button type="button" className={quietButton} onClick={() => setAsking(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {result?.ok && result.intent === 'reset' ? (
+            <p role="status" className="text-sm text-ink/70">
+              Reset in your draft. Guests still see the old page until you Apply.
+            </p>
+          ) : null}
+          <ResultLine result={result} />
+        </div>
+      </details>
     </div>
   );
 }

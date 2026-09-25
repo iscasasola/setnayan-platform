@@ -40,18 +40,22 @@ Until now every Event Hub writer wrote the live columns guests read. Now:
 - **The host sees the draft, guests see live** — `app/[slug]/page.tsx` reads the
   draft only for `?editor=1`, through `loadHostPreviewDraft` (host check), and
   lays it over its own copies of the event row and widget rows.
-- **UI for the Maker shell** —
-  `app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx`
-  (`HubDraftBar`, `HubDraftBadge`, `HubDraftReset`, `HubDraftField`) and the
-  one-line server mount `hub-draft-dock.tsx` (`<HubDraftDock eventId stage />`).
-  Price only from `platform_retail_catalog_v2` via `formatV2Sku`; none fetched
-  or shown in the store shell.
+- **Mounted in the Maker toolbar** — `launch/page.tsx` passes
+  `applySlot={<HubDraftDock eventId />}` (server: `hub-draft-dock.tsx`) to the
+  Phase 1 shell; the compact client `HubDraftToolbar`
+  (`website/_components/hub-draft-bar.tsx`) shows the Draft badge + Apply in the
+  bar and Undo · Restore · Reset (for the stage `useMaker()` is on) plus the
+  last outcome in one menu. `HubDraftField` is the hidden `draft=1` input for
+  forms. Price only from `platform_retail_catalog_v2` via `formatV2Sku`; none
+  fetched or shown in the store shell.
 
 Not in this PR (named, not hidden): the page colours / face / art direction are
 painted by `[slug]/layout.tsx`, which cannot see `?editor=1`, so they are not
 draftable yet (a drafted colour would be a save the preview never shows); draft
 media uploads (open decision D6); custom-section words and `toggleWidgetVisibility`
-stay live; Phase 1's shell must mount the dock and add `draft=1` to its forms.
+stay live. ⚠ **The Maker's own forms do not post `draft=1` yet**, so its edits
+still go live until they carry `<HubDraftField />` — and the navigator's eye also
+writes `is_visible` through `toggleWidgetVisibility`, which has no draft door yet.
 
 Guards: `lib/hub-draft.test.ts` (17), `lib/hub-draft-wiring.test.ts` (5),
 `tests/db/a-guest-cannot-read-the-draft.db.test.ts`; `hub-look-is-pro.test.ts`

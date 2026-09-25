@@ -11,14 +11,17 @@
 
 import {
   Apple,
+  BookOpen,
   Briefcase,
   Calendar,
   Camera,
   CheckCircle2,
+  EyeOff,
   Heart,
   Images,
   ClipboardList,
   LayoutPanelLeft,
+  Maximize2,
   Mailbox,
   MessageSquare,
   MousePointerClick,
@@ -88,6 +91,7 @@ export type TourKey =
   | 'customer_papic_v1'
   | 'customer_love_story_v1'
   | 'customer_event_hub_maker_v1'
+  | 'customer_post_event_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -101,6 +105,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_papic_v1',
   'customer_love_story_v1',
   'customer_event_hub_maker_v1',
+  'customer_post_event_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -406,6 +411,38 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Sparkles,
         title: 'What Event Hub Pro adds',
         body: 'Themes beyond Classic, the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.',
+        sells: true,
+      },
+    ],
+  },
+  /* Event Hub Maker Phase 8 — Post Event as scenes, written for them. Shown on
+     the couple's first Maker visit after the day (after the Maker's own welcome,
+     never on top of it). The last slide names Pro and is marked `sells`, so the
+     app-store shell drops it. */
+  customer_post_event_v1: {
+    key: 'customer_post_event_v1',
+    label: 'Post Event — your story, written for you',
+    blurb: 'How the story after the day is written from what happened, scene by scene.',
+    slides: [
+      {
+        Icon: BookOpen,
+        title: 'Your story after the day, written for you',
+        body: 'After the day, the Event Hub Maker wrote Post Event from what happened &mdash; the chapters of your day, the gallery, the film, the wishes. There was nothing to type, and every scene says what filled it.',
+      },
+      {
+        Icon: EyeOff,
+        title: 'Nothing to show? The scene is skipped',
+        body: 'A part of the day with nothing in it yet &mdash; no reviews, no Live Photo Wall &mdash; is marked <b>Skipped</b>, and your guests never meet an empty box. It appears on its own when something arrives.',
+      },
+      {
+        Icon: Maximize2,
+        title: 'Tap to open it full screen',
+        body: 'The gallery, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s gallery shows <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
+      },
+      {
+        Icon: Sparkles,
+        title: 'Free — and yours to change',
+        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme, a different template for a scene and your own photos come with Event Hub Pro.',
         sells: true,
       },
     ],

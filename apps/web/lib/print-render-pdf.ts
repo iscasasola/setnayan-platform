@@ -2,12 +2,14 @@
  * lib/print-render-pdf.ts — a print piece as a PDF, with pdf-lib.
  *
  * Draws the SAME `PrintDoc` the Maker shows on screen (lib/print-layout.ts),
- * so the file is the card the couple approved (owner 2026-09-25, "PRINTABLES
- * ARE PRO"). A FREE couple never receives anything from this file except the
- * plain QR sheet: their samples are flattened JPEGs (lib/print-sample-raster.ts),
- * and the route checks Pro before it ever calls `renderPrintPdf` in `print` mode.
+ * so the file is the card the couple approved. Owner 2026-09-25, "EVERY PRINT
+ * IS FREE IN THE CLASSIC LOOK; THE THEMED VERSION IS PRO": a Classic piece is
+ * drawn here in `print` mode for everyone, and so are the free group's plain
+ * A4 documents; a THEMED piece reaches `print` mode only after the route's
+ * `mayServe` says Pro. A free couple's themed samples are flattened JPEGs
+ * (lib/print-sample-raster.ts), never this file.
  *
- *   · PRINT — Event Hub Pro, NO watermark. 3 mm bleed with the paper and the still running
+ *   · PRINT — NO watermark. 3 mm bleed with the paper and the still running
  *     into it, TrimBox + BleedBox set, crop marks in the slug, the full-
  *     resolution still, and the spot work on NAMED LAYERS a print shop expects
  *     (optional content groups): "Foil", "White ink", "Die cut". Layers show in
@@ -34,7 +36,7 @@ import {
   type PDFPage,
   type PDFRef,
 } from 'pdf-lib';
-import { BLEED_MM, PT_PER_MM } from '@/lib/print-pieces';
+import { BLEED_MM, PRINT_PIECES, PT_PER_MM } from '@/lib/print-pieces';
 import type { PrintDoc, PrintImages, PrintLayer, PrintOp } from '@/lib/print-layout';
 
 /**
@@ -272,7 +274,8 @@ export async function renderPrintPdf(
 
   for (const doc of docs) {
     const bleed = opts.mode === 'print' ? doc.bleed || BLEED_MM * PT_PER_MM : 0;
-    const margin = opts.mode === 'print' && doc.piece !== 'qr-codes' ? bleed + SLUG_PT : 0;
+    const plainSheet = PRINT_PIECES[doc.piece].kind === 'free';
+    const margin = opts.mode === 'print' && !plainSheet ? bleed + SLUG_PT : 0;
     const pageW = doc.w + margin * 2;
     const pageH = doc.h + margin * 2;
     const page = pdf.addPage([pageW, pageH]);
@@ -290,7 +293,7 @@ export async function renderPrintPdf(
     for (const o of doc.ops) drawOp(page, o, ox, oy, pageH, imgs, opts.mode);
     page.pushOperators(popGraphicsState());
 
-    if (opts.mode === 'print' && doc.piece !== 'qr-codes') {
+    if (opts.mode === 'print' && !plainSheet) {
       // The die line — its own layer, a thin magenta stroke the cutter follows.
       beginLayer(page, 'die');
       page.drawSvgPath(doc.diePath, { x: ox, y: pageH - oy, borderColor: rgb(1, 0, 1), borderWidth: 0.25 });

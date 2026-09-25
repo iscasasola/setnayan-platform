@@ -29,13 +29,16 @@
  * real tabs with a current state. Share the link is a different page, so it is
  * a link styled to sit in the row — it never claims to be the current tab.
  *
- * Server component: plain links, no client state. The dropdown that needs a
- * client arrives through `trailing`, so this file imports nothing client-side.
+ * Server component: no state of its own. The dropdown that needs one arrives
+ * through `trailing`; the QR PDF door (below) mounts `SaveFileLink`, a client
+ * component, for the same reason — a Server Component may render a Client
+ * Component directly, so this stays a plain server component either way.
  */
 
 import Link from 'next/link';
 import { ClipboardCheck, LayoutGrid, QrCode, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 export type RosterView = 'list' | 'map' | 'walk' | 'share';
 
@@ -126,20 +129,29 @@ export function RosterTabs({
           ) : d.kind === 'shareMenu' ? (
             <span key={d.key}>{shareMenu}</span>
           ) : d.kind === 'download' ? (
-            // The free QR sheet — a FILE from /api/hub-print, so a plain
-            // download link (a Link would try to route to a PDF).
-            <a
+            // The free QR sheet — a FILE from /api/hub-print, so this must
+            // never be a `Link` (which would try to ROUTE to a PDF) or a bare
+            // `<a download>` (which iOS Safari / the Capacitor shell can
+            // ignore, opening the PDF as a page instead of saving it — the
+            // owner's report, 2026-09-25). SaveFileLink still renders an
+            // anchor with `download` set (the no-JS fallback); it just also
+            // intercepts the click to fetch → blob → save/share.
+            <SaveFileLink
               key={d.key}
               href={d.href}
-              download
+              filename="guest-qr-codes.pdf"
               data-guest-qr-pdf=""
               title={d.label}
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
             >
-              <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <span className="hidden sm:inline">{d.label}</span>
-              <span className="sr-only sm:hidden">{d.label}</span>
-            </a>
+              {() => (
+                <>
+                  <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  <span className="hidden sm:inline">{d.label}</span>
+                  <span className="sr-only sm:hidden">{d.label}</span>
+                </>
+              )}
+            </SaveFileLink>
           ) : null,
         )}
       </div>

@@ -100,9 +100,23 @@ test('the free QR PDF is on the Guest list before and after the day, and it is a
     assert.equal(qr.href, '/api/hub-print/qr-codes?event=E');
     assert.equal(qr.label, 'Download QR codes (PDF)');
   }
-  // …and the tab row renders it as a DOWNLOAD, not a navigation.
+  // …and the tab row renders it as a DOWNLOAD, not a navigation — through
+  // SaveFileLink (2026-09-25), not a bare `<a download>` (which iOS Safari /
+  // the Capacitor shell can ignore and open as a page instead of saving —
+  // owner report, same date) and never a `<Link>` (which would try to ROUTE
+  // to a PDF, the original defect this guard existed to catch).
   const tabs = stripComments(
     readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'roster-tabs.tsx'), 'utf8'),
   );
-  assert.match(tabs, /d\.kind === 'download'[\s\S]{0,400}<a\b[\s\S]{0,200}\bdownload\b/);
+  assert.match(tabs, /d\.kind === 'download'[\s\S]{0,700}<SaveFileLink\b[\s\S]{0,200}\bfilename\b/);
+  // Bounded window, not an open-ended slice: the `Tab` helper further down
+  // this same file legitimately renders a `<Link>` for an unrelated door, and
+  // an unbounded scan from here to end-of-file would trip on that one.
+  const downloadAt = tabs.indexOf("d.kind === 'download'");
+  const downloadBlock = tabs.slice(downloadAt, downloadAt + 700);
+  assert.doesNotMatch(
+    downloadBlock,
+    /<Link\b/,
+    'the QR PDF door became a Next <Link> again — that tries to ROUTE to a PDF',
+  );
 });

@@ -21,6 +21,7 @@ import {
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES } from '@/lib/invite-themes';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
@@ -552,12 +553,18 @@ export default async function WebsiteEditorPage({
           pro: true,
           locked: false,
           panel: (
+            <>
+              {/* 🌈 First visit = the hint (owner 2026-09-25: every feature gets
+                  a first-visit tour). Mounted beside the panel it explains, as
+                  the adaptive theme's is; sells nothing, so the shell keeps it. */}
+              <MiniTour tourKey="customer_ombre_background_v1" storeShell={storeShell} />
             <ColorsPanel
               action={updateSiteColors.bind(null, eventId)}
               eventId={eventId}
               rowKey="colors"
               proLocked={colorsProLocked}
               proLock={lockPanel('Button colour, typeface and motion')}
+              themeId={currentThemeId}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
               artDirection={
@@ -568,6 +575,7 @@ export default async function WebsiteEditorPage({
                 (drafted as { site_magic_traveller?: string | null }).site_magic_traveller ?? null
               }
             />
+            </>
           ),
         },
         {

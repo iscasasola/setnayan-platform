@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, guestDisplayName, MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { layoutReport, printFileName } from '@/lib/print-report';
+import { renderPrintPdf } from '@/lib/print-render-pdf';
+import { renderPrintSvg } from '@/lib/print-render-svg';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +45,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // plan to, and that widening is not what the owner ruled on.
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, event_date')
+    .select('display_name, event_date, slug')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
@@ -100,6 +103,86 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="Caterer-Meal-Counts-${safeName}.csv"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+
+  // ── THE FILE (owner 2026-09-25, "PRINTS & TICKETS HOLDS EVERY PRINT": every
+  // free print SAVES a file). `?format=pdf` is this same report as an A4 PDF —
+  // the App Store app's web view has no print dialog, so the HTML's "Save as
+  // PDF" button is nothing there. `?format=preview` is page 1 as an SVG, the
+  // thumbnail Prints & Tickets shows. Same numbers, same rules: CONFIRMED
+  // guests only, linked tables as one unit, unseated attendees in their own row.
+  const format = new URL(req.url).searchParams.get('format');
+  if (format === 'pdf' || format === 'preview') {
+    const countMeals = (list: typeof attending) => {
+      const m = new Map<string, number>();
+      for (const g of list) m.set(mealOf(g.meal_preference), (m.get(mealOf(g.meal_preference)) ?? 0) + 1);
+      return [...m.entries()].sort((a, b) => b[1] - a[1]);
+    };
+    const unitKeysPdf = [...new Set([...tables.map((t) => t.link_group_id ?? t.table_id), UNSEATED])];
+    const dateLabel = (() => {
+      if (!event.event_date) return null;
+      const d = new Date(event.event_date as string);
+      return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    })();
+    const docs = layoutReport({
+      piece: 'caterer-report',
+      title: 'Caterer meal counts',
+      subtitle: [event.display_name || 'Wedding', dateLabel].filter(Boolean).join(' · '),
+      summary: `${attending.length} confirmed${tentativeCount > 0 ? ` · ${tentativeCount} tentative (pending replies)` : ''} · meal counts are confirmed guests only`,
+      sections: [
+        {
+          heading: 'Totals',
+          columns: [
+            { label: 'Meal', width: 0.75 },
+            { label: 'Count', width: 0.25, align: 'right' },
+          ],
+          rows: countMeals(attending).map(([meal, n]) => ({ cells: [meal, String(n)] })),
+          empty: 'No attending guests yet.',
+        },
+        {
+          heading: 'Per table',
+          columns: [
+            { label: 'Table', width: 0.26 },
+            { label: 'Guests', width: 0.12, align: 'center' },
+            { label: 'Meals', width: 0.62, wrap: true },
+          ],
+          rows: unitKeysPdf
+            .map((key) => ({ key, members: attending.filter((g) => unitOf(g.guest_id) === key) }))
+            .filter((u) => u.members.length > 0)
+            .map((u) => ({
+              cells: [labelOfUnit(u.key), String(u.members.length), countMeals(u.members).map(([meal, n]) => `${n}× ${meal}`).join(' · ')],
+            })),
+          empty: 'No one seated yet.',
+        },
+        {
+          heading: 'All dietary restrictions',
+          columns: [
+            { label: 'Guest', width: 0.32 },
+            { label: 'Table', width: 0.2 },
+            { label: 'Restriction', width: 0.48, wrap: true },
+          ],
+          rows: attending
+            .filter((g) => g.dietary_restrictions)
+            .map((g) => ({ cells: [guestDisplayName(g), labelOfUnit(unitOf(g.guest_id)), g.dietary_restrictions!] })),
+          empty: 'None recorded.',
+        },
+      ],
+    });
+    if (format === 'preview') {
+      return new NextResponse(renderPrintSvg(docs[0]!, {}), {
+        status: 200,
+        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+      });
+    }
+    const bytes = await renderPrintPdf(docs, {}, { mode: 'plain', title: `${event.display_name || 'Wedding'} — caterer meal counts` });
+    return new NextResponse(Buffer.from(bytes), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${printFileName(event.slug, 'caterer-meal-counts')}"`,
         'Cache-Control': 'no-store',
       },
     });

@@ -512,17 +512,17 @@ async function InvitationBody({
      (every guest, always) `hostDraft` is null, both overlays return their input,
      and nothing below reads anything different. */
   let hostDraft: HubDraft | null = null;
+  // 🐢 → 🐇 (Maker phone-polish, 2026-09-26): this used a bare
+  // `supabase.auth.getUser()` — its own network round-trip to the Auth
+  // server — where FOUR other places lower in this same render made that
+  // identical call again. `getCurrentUser()` (`lib/auth.ts`) is the
+  // `cache()`-wrapped version already used to fix this exact shape on the
+  // dashboard ("four sequential auth-server round-trips… now resolve to
+  // the same Promise"); this route just never adopted it. All five now
+  // share ONE auth round-trip per request instead of five in a row.
+  // Timed here because this is the FIRST call — every later `getCurrentUser()`
+  // in this render resolves to the same memoized Promise for free.
   if (asksForHostCanvas(search)) {
-    // 🐢 → 🐇 (Maker phone-polish, 2026-09-26): this used a bare
-    // `supabase.auth.getUser()` — its own network round-trip to the Auth
-    // server — where FOUR other places lower in this same render made that
-    // identical call again. `getCurrentUser()` (`lib/auth.ts`) is the
-    // `cache()`-wrapped version already used to fix this exact shape on the
-    // dashboard ("four sequential auth-server round-trips… now resolve to
-    // the same Promise"); this route just never adopted it. All five now
-    // share ONE auth round-trip per request instead of five in a row.
-    // Timed here because this is the FIRST call — every later `getCurrentUser()`
-    // in this render resolves to the same memoized Promise for free.
     const previewer = await timer.track('auth', () => getCurrentUser());
     if (previewer) hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id, previewer.id);
   }

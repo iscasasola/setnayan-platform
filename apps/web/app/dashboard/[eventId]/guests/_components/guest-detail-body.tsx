@@ -26,66 +26,7 @@ import {
   plusOneSeats,
 } from '@/lib/guests';
 import { QrActions } from '@/app/_components/qr-actions';
-
-// ── decorative QR (seeded from the real qr_token) ──────────────────────────
-
-/** Stable 32-bit hash of the guest's real qr_token → the QR pattern seed. This
- *  code is an aesthetic PREVIEW only (never scannable) — the guest's REAL QR is
- *  reached via the section's actions (branded PNG download when the upgrade is
- *  active, else the Invitation page). Seeding from the token keeps each guest's
- *  decorative code distinct and stable. */
-function hashToken(token: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < token.length; i += 1) {
-    h ^= token.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function DecorativeQr({ token }: { token: string }) {
-  const N = 13;
-  const m = 7;
-  const SZ = N * m;
-  let r = (hashToken(token) + 7) >>> 0;
-  const rnd = () => {
-    r ^= r << 13;
-    r >>>= 0;
-    r ^= r >>> 17;
-    r ^= r << 5;
-    r >>>= 0;
-    return r / 4294967296;
-  };
-  const inEye = (x: number, y: number) => {
-    const e = (cx: number, cy: number) => x >= cx && x < cx + 3 && y >= cy && y < cy + 3;
-    return e(0, 0) || e(N - 3, 0) || e(0, N - 3);
-  };
-  const cells: string[] = [];
-  for (let y = 0; y < N; y += 1) {
-    for (let x = 0; x < N; x += 1) {
-      if (inEye(x, y)) continue;
-      if (rnd() > 0.5) cells.push(`M${x * m} ${y * m}h${m}v${m}h${-m}z`);
-    }
-  }
-  const eye = (cx: number, cy: number) =>
-    `M${cx * m} ${cy * m}h${3 * m}v${3 * m}h${-3 * m}z`;
-  return (
-    <svg
-      viewBox={`-4 -4 ${SZ + 8} ${SZ + 8}`}
-      width="96"
-      height="96"
-      className="shrink-0 rounded-lg border border-ink/10 bg-paper"
-      aria-hidden
-    >
-      <path d={cells.join('')} fill="currentColor" className="text-terracotta-700" />
-      <path
-        d={`${eye(0, 0)} ${eye(N - 3, 0)} ${eye(0, N - 3)}`}
-        fill="currentColor"
-        className="text-terracotta-700"
-      />
-    </svg>
-  );
-}
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 // ── chips ─────────────────────────────────────────────────────────────────
 
@@ -125,11 +66,39 @@ export function GuestQrCard({
 }) {
   const name = guestDisplayName(guest);
   const qrFileName = `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
-  // Personal QR — decorative preview + the real-QR doorway (2026-07-15).
+  // The SAME route Download uses below (2026-09-25, owner: the drawer's QR
+  // "is not real... it should already be the real QR"). Until 2026-09-25 this
+  // slot held a decorative pattern seeded from a hash of the token — visually
+  // guest-distinct, but never encoding anything, so scanning it did nothing.
+  // An <img> of the gated PNG route is trivially the same generator and the
+  // same payload as the download: it IS the download, rendered inline. The
+  // route is free for every event (CUSTOM_QR_GUEST ∈ FREE_FOR_ALL_SKUS, see
+  // lib/entitlements.ts), so this is not behind `brandedQrActive` — a token
+  // this component was handed is a code that exists; there is no "not yet".
+  const qrImageSrc = `/api/website/qr/guest/${guest.guest_id}`;
   return (
     <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5">
     <div className="flex items-start gap-3">
-      <DecorativeQr token={guest.qr_token} />
+      {guest.qr_token ? (
+        // eslint-disable-next-line @next/next/no-img-element -- our own gated API route, not an optimizable static asset; same bytes as Download.
+        <img
+          src={qrImageSrc}
+          alt={`${name}'s real, scannable QR — opens their invitation`}
+          width={96}
+          height={96}
+          className="h-24 w-24 shrink-0 rounded-lg border border-ink/10 bg-white object-contain p-1"
+        />
+      ) : (
+        // Plain text, no border — a fallback message is not a card
+        // (lint:no-card). The h-24/w-24 footprint matches the <img> above it
+        // so the row does not jump when a code shows up.
+        <div
+          role="status"
+          className="flex h-24 w-24 shrink-0 items-center justify-center p-2 text-center text-[10px] leading-tight text-ink/50"
+        >
+          No QR code yet
+        </div>
+      )}
       <div className="min-w-0">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50">
           Personal QR
@@ -149,7 +118,7 @@ export function GuestQrCard({
         download={
           brandedQrActive
             ? {
-                href: `/api/website/qr/guest/${guest.guest_id}`,
+                href: qrImageSrc,
                 filename: qrFileName,
                 label: 'Download QR',
               }
@@ -160,15 +129,24 @@ export function GuestQrCard({
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/[0.06] pt-3">
       {brandedQrActive ? (
         // Owner of the branded upgrade: one-click download of the REAL
-        // palette-tinted PNG — same gated route the Invitation surface uses.
-        <a
-          href={`/api/website/qr/guest/${guest.guest_id}`}
-          download={qrFileName}
+        // palette-tinted PNG — same gated route the Invitation surface uses,
+        // and the same one the preview above is an <img> of. Goes through
+        // SaveFileLink (2026-09-25) rather than a bare `<a download>` — see
+        // save-file-link.tsx: iOS Safari / the Capacitor shell can ignore
+        // `download` on a same-origin GET and open the file as a page instead
+        // of saving it, which is the exact bug the owner reported.
+        <SaveFileLink
+          href={qrImageSrc}
+          filename={qrFileName}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"
         >
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Download QR
-        </a>
+          {(state) => (
+            <>
+              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {state === 'saving' ? 'Saving…' : 'Download QR'}
+            </>
+          )}
+        </SaveFileLink>
       ) : (
         // No branded upgrade — the gated PNG would 403. Route to the
         // Invitation page, where every guest's free default scannable QR

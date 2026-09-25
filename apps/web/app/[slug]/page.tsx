@@ -67,9 +67,17 @@ import {
   loadWidgets,
   loadEntourage,
   loadHostPreviewDraft,
+  guestLookFrom,
   type EventShellRow,
 } from './_lib/loaders';
-import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
+import {
+  HUB_DRAFT_LOOK_COLUMNS,
+  overlayHubDraftEvent,
+  overlayHubDraftWidgets,
+  type HubDraft,
+} from '@/lib/hub-draft';
+import { HostDraftLook } from './_components/host-draft-look';
+import { resolveHubTheme } from './_lib/hub-look';
 import {
   anonymousIdentity,
   guestIdentity,
@@ -489,6 +497,18 @@ async function InvitationBody({
     if (previewer) hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id, previewer.id);
   }
   const event = overlayHubDraftEvent(liveEvent, hostDraft);
+  /* 🎨 THE DRAFTED COLOURS AND FACE — worn again, from the overlaid row, by
+     `HostDraftLook` (the layout that wears them for guests cannot see the
+     draft). Only when the host's draft holds a Colors-panel column; for every
+     guest `hostDraft` is null and `wearDraft` returns its input untouched. */
+  const draftLook =
+    hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events)
+      ? await resolveHubTheme(event)
+          .then((hub) => guestLookFrom(event, hub, true))
+          .catch(() => null)
+      : null;
+  const wearDraft = (node: React.ReactNode) =>
+    draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
 
   // Hero / photos / monogram / Save-the-Date media resolution — moved verbatim
   // to `loadMedia` (_lib/loaders.ts · OPEN-BROWSE PR2). Runs BEFORE the private
@@ -1154,7 +1174,7 @@ async function InvitationBody({
         })}
       />
     ) : null;
-  const renderAnonymous = (reason: AnonymousReason) => (
+  const renderAnonymous = (reason: AnonymousReason) => wearDraft(
     <>
     <SiteBody
       {...siteProps}
@@ -1191,7 +1211,7 @@ async function InvitationBody({
       eventId: event.event_id,
     })
   ) {
-    return (
+    return wearDraft(
       <>
         <SiteBody
           {...siteProps}
@@ -1393,7 +1413,7 @@ async function InvitationBody({
     timeZone: venueTz,
   });
 
-  return (
+  return wearDraft(
     <>
       <SiteBody
         {...siteProps}

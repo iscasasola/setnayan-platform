@@ -18,6 +18,7 @@ import { sanitizeHubCanvas, resolveHubBackground } from '@/lib/hub-canvas';
 import { sanitizeCustomSection, isCustomSectionType } from '@/lib/custom-sections';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { loveStoryScenes } from '@/lib/love-story-moments';
+import type { PostEventMakerRead } from '@/lib/post-event-scenes';
 
 export type SceneMini = {
   eyebrow?: string;
@@ -35,6 +36,12 @@ export type MakerNavigatorData = {
   minis: Record<string, SceneMini>;
   /** The theme's page ground / ink / accent, for tiles with no ground of their own. */
   tint: { canvas: string; ink: string; accent: string };
+  /**
+   * 📖 POST EVENT (Maker Phase 8) — when the story was written, or that its
+   * scenes could not be read (then the one "story after the day" tile stands
+   * in, and the navigator SAYS the list is unavailable). Null before the day.
+   */
+  postEvent: { generatedAt: string } | 'unreadable' | null;
 };
 
 const firstLine = (s: unknown, max = 70): string | undefined => {
@@ -67,6 +74,8 @@ export function buildMakerNavigatorData(input: {
   };
   /** ref → signed URL, for section photo grounds (the page already signed them). */
   photoUrls: Readonly<Record<string, string>>;
+  /** Post Event's compiled scenes (`readPostEventForMaker`) — null before the day. */
+  postEvent?: PostEventMakerRead | null;
 }): MakerNavigatorData {
   const { facts } = input;
   const minis: Record<string, SceneMini> = {};
@@ -125,8 +134,24 @@ export function buildMakerNavigatorData(input: {
     };
   }
 
+  /* 📖 Post Event's scenes: each tile shows its template, what filled it — or,
+     for a skipped one, why it is skipped. The cover wears the cover's picture
+     (the hero until a post-event cover is chosen). */
+  const pe = input.postEvent && input.postEvent.ok ? input.postEvent : null;
+  for (const r of pe?.rows ?? []) {
+    const tpl = r.template ? SCENE_TEMPLATES[r.template]?.name : null;
+    minis[`p:${r.key}`] = {
+      eyebrow:
+        r.status === 'skipped' ? 'Skipped' : r.status === 'optional' ? 'Optional' : r.open ? 'Opens full screen' : (tpl ?? 'Auto'),
+      title: r.name,
+      line: r.status === 'auto' ? r.source : (r.note ?? undefined),
+      ...(r.key === 'cover' && pe?.coverPhotoUrl ? { photoUrl: pe.coverPhotoUrl } : {}),
+    };
+  }
+
   return {
-    stageLists: makerStageLists(input.plan),
+    postEvent: pe ? { generatedAt: pe.generatedAt } : input.postEvent && !input.postEvent.ok ? 'unreadable' : null,
+    stageLists: makerStageLists({ ...input.plan, postEvent: pe?.rows ?? null }),
     fullOrder: input.sectionRows.map((r) => r.widget_id),
     minis,
     tint: input.tint,

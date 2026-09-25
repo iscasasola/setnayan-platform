@@ -13,6 +13,7 @@ import {
   type PhotoMomentMode,
   type PhotoMomentsConfig,
 } from '../config';
+import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 
 /**
  * Client-side editor for the Photo Moments JSONB column. Keeps the
@@ -36,9 +37,16 @@ import {
 export function PhotoMomentsEditor({
   eventId,
   initial,
+  draft = false,
 }: {
   eventId: string;
   initial: PhotoMomentsConfig;
+  /**
+   * The Event Hub Maker's Camera cues panel: the save goes into the couple's
+   * DRAFT (`draft=1`, the field every Maker form posts) and guests keep the
+   * live list until Apply. The sub-page leaves it off and saves live.
+   */
+  draft?: boolean;
 }) {
   const [intro, setIntro] = useState(initial.intro_copy);
   const [moments, setMoments] = useState<PhotoMoment[]>(() =>
@@ -107,6 +115,7 @@ export function PhotoMomentsEditor({
 
     const formData = new FormData();
     formData.set('event_id', eventId);
+    if (draft) formData.set(HUB_DRAFT_FIELD, '1');
     formData.set('intro_copy', intro);
     for (const m of moments) {
       formData.append('time_label[]', m.time_label);
@@ -229,7 +238,9 @@ export function PhotoMomentsEditor({
           role="status"
           className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
-          Saved. Your guests will see the new list on their next visit.
+          {draft
+            ? 'Saved to your draft. Guests see it after you press Apply.'
+            : 'Saved. Your guests will see the new list on their next visit.'}
         </p>
       ) : null}
 

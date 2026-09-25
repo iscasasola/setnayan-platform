@@ -12,6 +12,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { requireHostMembership } from '@/lib/host-gate';
+import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
 const NOTE_MAX = 600;
 
@@ -24,6 +26,13 @@ export async function updateWhatToBring(
 
   const raw = formData.get('note');
   const note = (typeof raw === 'string' ? raw.trim() : '').slice(0, NOTE_MAX);
+
+  /* 💾 THE DRAFT DOOR — from the Event Hub Maker (`<HubDraftField />`) the
+     words go into the couple's draft; guests keep the live page until Apply. */
+  if (isHubDraftWrite(formData)) {
+    await requireHostMembership(eventId);
+    await draftEventsAndReturn(eventId, { what_to_bring: note || null }, formData, `/dashboard/${eventId}/website/editor?open=what-to-bring`);
+  }
 
   const supabase = await createClient();
   const { data: event, error } = await supabase

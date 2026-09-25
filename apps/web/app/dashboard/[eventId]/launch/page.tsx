@@ -38,9 +38,11 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
+import { readHubDraft } from '@/lib/hub-draft-store';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
@@ -944,6 +946,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     ]);
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
+      /* 💾 The special message saves into the DRAFT from here (the same door
+         the editor's Text panel uses), so the box shows the drafted words when
+         the draft holds them. A draft that cannot be read shows the live words. */
+      let specialMessage: string | null = printEvent.special_message;
+      try {
+        const d = await readHubDraft(supabase, eventId);
+        if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
+      } catch (e) {
+        console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
+      }
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
          line of wording — each read from its one home. */
       details = (
@@ -953,7 +965,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           hosts={rsvpHosts}
           parents={printParents}
           pabuyaMessage={printEvent.pabuya_message}
-          specialMessage={printEvent.special_message}
+          specialMessage={specialMessage}
           specialMessageAction={updateSpecialMessage.bind(null, eventId)}
           hasPalette={hasPalette(printEvent.role_palette)}
           hasGifts={egifts.length > 0}
@@ -1023,6 +1035,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} /> : null}
     >
+      {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
+          has happened. Never on the Maker's very first visit: the Maker's own
+          welcome goes first, and two tours must not stack. Rendered INSIDE the
+          shell so its dialog sits in the shell's layer, above the toolbar. */}
+      {hasWork && eventHasHappened && !firstVisit ? (
+        <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} />
+      ) : null}
       {hasWork ? (
         <WebsiteEditorPage
           params={Promise.resolve({ eventId })}

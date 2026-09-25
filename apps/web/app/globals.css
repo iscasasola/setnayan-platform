@@ -3458,11 +3458,14 @@ html.dark {
    the page as it renders today.
 
    Each block also folds in what the fixed pages need (the rule above: a theme
-   may never make a word harder to read than House does): the eyebrow
-   (`--color-terracotta*`) is the theme's heading or accent only where it clears
-   4.5:1 on the canvas, and the CTA fill (`--color-mulberry*`) is chosen so its
-   `text-cream` label — the canvas — clears 4.5:1 too. The ratios are in each
-   block's comment and re-measured by the guard.
+   may never make a word harder to read than House does) — decided by
+   `hubThemePageTokens` (lib/hub-theme-tokens.ts), not by hand: the ink is the
+   spec's, pushed away from the canvas only as far as House's muted
+   `text-ink/45…/80` steps need; the eyebrow (`--color-terracotta*`) and the gild
+   are the theme's heading / accent only where they clear 4.5:1; the CTA fill
+   (`--color-mulberry*`) is chosen so its `text-cream` label — the canvas —
+   clears 4.5:1. The ratios are in each block's comment and the guard re-derives
+   every channel.
 
    `--hub-*` are the palette as hex, for the Maker's panels and the scene
    legibility rule (`lib/hub-legibility.ts`). The theme's LOOP is not here: it
@@ -3472,7 +3475,7 @@ html.dark {
    arrive inline on the same element. Placed AFTER candlelight so a theme worn
    with candlelight keeps its own metal. */
 
-/* RUSTIC (`abaca`) — ink on canvas 14.5:1 · on plates 11.6:1 ·
+/* RUSTIC (`abaca`) — ink #261a0e (spec #2b1d10, pushed so every muted step matches House) on canvas 15.1:1 · on plates 12.0:1 ·
    eyebrow 5.5:1 · CTA label 5.5:1. Faces: Fraunces (the spec face). */
 [data-hub-theme='abaca'] {
   --hub-canvas: #fbf0e4;
@@ -3487,8 +3490,8 @@ html.dark {
   --color-paper: 251 240 228;
   --color-veil: 251 240 228;
   --color-paper-deep: 240 213 180;
-  --color-ink: 43 29 16;
-  --color-ink-on-plate: 43 29 16;
+  --color-ink: 38 26 14;
+  --color-ink-on-plate: 38 26 14;
   --color-gild: 139 83 51;
   --color-terracotta: 139 83 51;
   --color-terracotta-600: 139 83 51;
@@ -3504,7 +3507,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* MODERN (`galeriya`) — ink on canvas 12.7:1 · on plates 9.2:1 ·
+/* MODERN (`galeriya`) — ink #1c1c11 (spec #2b2b1a, pushed so every muted step matches House) on canvas 15.2:1 · on plates 11.1:1 ·
    eyebrow 8.5:1 · CTA label 8.5:1. Faces: Playfair stands in for Instrument Serif; Jost is the spec face. */
 [data-hub-theme='galeriya'] {
   --hub-canvas: #f5f0eb;
@@ -3519,8 +3522,8 @@ html.dark {
   --color-paper: 245 240 235;
   --color-veil: 245 240 235;
   --color-paper-deep: 214 206 201;
-  --color-ink: 43 43 26;
-  --color-ink-on-plate: 43 43 26;
+  --color-ink: 28 28 17;
+  --color-ink-on-plate: 28 28 17;
   --color-gild: 58 74 28;
   --color-terracotta: 58 74 28;
   --color-terracotta-600: 58 74 28;
@@ -3537,7 +3540,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* CINDERELLA (`cinderella`) — ink on canvas 12.1:1 · on plates 9.9:1 ·
+/* CINDERELLA (`cinderella`) — ink #171d23 (spec #253039, pushed so every muted step matches House) on canvas 15.2:1 · on plates 12.5:1 ·
    eyebrow 12.1:1 · CTA label 12.1:1. Faces: Cinzel stands in for Italiana. */
 [data-hub-theme='cinderella'] {
   --hub-canvas: #eef3f8;
@@ -3552,9 +3555,9 @@ html.dark {
   --color-paper: 238 243 248;
   --color-veil: 238 243 248;
   --color-paper-deep: 212 223 231;
-  --color-ink: 37 48 57;
-  --color-ink-on-plate: 37 48 57;
-  --color-gild: 138 158 174;
+  --color-ink: 23 29 35;
+  --color-ink-on-plate: 23 29 35;
+  --color-gild: 37 48 57;
   --color-terracotta: 37 48 57;
   --color-terracotta-600: 37 48 57;
   --color-terracotta-700: 37 48 57;
@@ -3569,7 +3572,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* LUXE (`velvet`) — ink on canvas 16.6:1 · on plates 13.9:1 ·
+/* LUXE (`velvet`) — ink #f3e7dc on canvas 16.6:1 · on plates 13.9:1 ·
    eyebrow 9.7:1 · CTA label 9.7:1. Faces: Bodoni Moda (the spec face); Cinzel stands in for Cormorant SC. */
 [data-hub-theme='velvet'] {
   --hub-canvas: #0e0504;
@@ -3603,7 +3606,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* VINTAGE (`vintage`) — ink on canvas 10.8:1 · on plates 9.5:1 ·
+/* VINTAGE (`vintage`) — ink #1a130d (spec #33261a, pushed so every muted step matches House) on canvas 13.5:1 · on plates 11.9:1 ·
    eyebrow 6.0:1 · CTA label 6.0:1. Faces: Playfair Display (the spec face). */
 [data-hub-theme='vintage'] {
   --hub-canvas: #eadbc6;
@@ -3618,8 +3621,8 @@ html.dark {
   --color-paper: 234 219 198;
   --color-veil: 234 219 198;
   --color-paper-deep: 225 205 185;
-  --color-ink: 51 38 26;
-  --color-ink-on-plate: 51 38 26;
+  --color-ink: 26 19 13;
+  --color-ink-on-plate: 26 19 13;
   --color-gild: 99 75 47;
   --color-terracotta: 99 75 47;
   --color-terracotta-600: 99 75 47;
@@ -3635,7 +3638,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* WHIMSICAL (`whimsical`) — ink on canvas 11.1:1 · on plates 11.0:1 ·
+/* WHIMSICAL (`whimsical`) — ink #221d15 (spec #3f3626, pushed so every muted step matches House) on canvas 15.7:1 · on plates 15.5:1 ·
    eyebrow 7.6:1 · CTA label 7.6:1. Faces: Vidaloka stands in for Yeseva One; Jost for Quicksand. */
 [data-hub-theme='whimsical'] {
   --hub-canvas: #fbf7f0;
@@ -3650,9 +3653,9 @@ html.dark {
   --color-paper: 251 247 240;
   --color-veil: 251 247 240;
   --color-paper-deep: 250 246 238;
-  --color-ink: 63 54 38;
-  --color-ink-on-plate: 63 54 38;
-  --color-gild: 201 170 179;
+  --color-ink: 34 29 21;
+  --color-ink-on-plate: 34 29 21;
+  --color-gild: 90 74 94;
   --color-terracotta: 90 74 94;
   --color-terracotta-600: 90 74 94;
   --color-terracotta-700: 90 74 94;
@@ -3668,7 +3671,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* REGENCY (`regency`) — ink on canvas 12.8:1 · on plates 8.1:1 ·
+/* REGENCY (`regency`) — ink #221915 (spec #33261f, pushed so every muted step matches House) on canvas 15.1:1 · on plates 9.5:1 ·
    eyebrow 12.8:1 · CTA label 12.8:1. Faces: Bodoni Moda stands in for Prata. */
 [data-hub-theme='regency'] {
   --hub-canvas: #f6efe6;
@@ -3683,9 +3686,9 @@ html.dark {
   --color-paper: 246 239 230;
   --color-veil: 246 239 230;
   --color-paper-deep: 226 185 151;
-  --color-ink: 51 38 31;
-  --color-ink-on-plate: 51 38 31;
-  --color-gild: 220 172 125;
+  --color-ink: 34 25 21;
+  --color-ink-on-plate: 34 25 21;
+  --color-gild: 51 38 31;
   --color-terracotta: 51 38 31;
   --color-terracotta-600: 51 38 31;
   --color-terracotta-700: 51 38 31;
@@ -3700,7 +3703,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* GREAT GATSBY (`gatsby`) — ink on canvas 16.4:1 · on plates 13.6:1 ·
+/* GREAT GATSBY (`gatsby`) — ink #f7e6cf on canvas 16.4:1 · on plates 13.6:1 ·
    eyebrow 11.9:1 · CTA label 11.9:1. Faces: Cinzel stands in for Limelight; Jost for Poiret One. */
 [data-hub-theme='gatsby'] {
   --hub-canvas: #110504;
@@ -3734,7 +3737,7 @@ html.dark {
   --pahina-rule-len: 3rem;
 }
 
-/* CYBER NEON (`cyber`) — ink on canvas 17.0:1 · on plates 13.4:1 ·
+/* CYBER NEON (`cyber`) — ink #f1ecf7 on canvas 17.0:1 · on plates 13.4:1 ·
    eyebrow 19.7:1 · CTA label 8.7:1. Faces: Hanken Grotesk stands in for Syne; Space Mono for the HUD labels. */
 [data-hub-theme='cyber'] {
   --hub-canvas: #0b0a12;

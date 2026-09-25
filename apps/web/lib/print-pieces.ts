@@ -6,10 +6,15 @@
  *   · "printables that align to their event hub"  → every piece wears the theme
  *     the couple chose (`lib/invite-themes.ts`), never a print-only look;
  *   · "print outs are pro feature. but we can show them a sample. just
- *     compressed so not print ready"             → `printAccess` below;
+ *     compressed so not print ready"             → `printAccess` below, as
+ *     narrowed the same day by "let's allow free for all? but if they want to
+ *     print with theme is pro?": CLASSIC prints free and print-ready, the
+ *     couple's THEME is Pro (`CLASSIC_PRINT_THEME`, `mayServe`);
  *   · "the free version is the PDF of QRs if they want to do it themselves" /
  *     "found on Guestlist"                        → the `qr-codes` piece is free
- *     for every event and lives on the Guest list, not in the Maker;
+ *     for every event; with the rest of the free group (registry, seating
+ *     pack, caterer report) it is also listed in the Maker's Prints & Tickets
+ *     ("PRINTS & TICKETS HOLDS EVERY PRINT", `lib/free-prints.ts`);
  *   · media themes print the loop's FIRST frame (`<slug>-poster.jpg`, paper
  *     cannot move); Classic prints on paper alone (THEMES-2026-09-24.md).
  *
@@ -39,7 +44,10 @@ export type PrintPieceKey =
   | 'poster'
   | 'card'
   | 'passes'
-  | 'qr-codes';
+  | 'qr-codes'
+  | 'guest-registry'
+  | 'seating-pack'
+  | 'caterer-report';
 
 export type PrintPieceSpec = {
   key: PrintPieceKey;
@@ -74,7 +82,43 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
   card: { key: 'card', label: 'Event card', size: 'A5 · index card', widthPt: inch(4.5), heightPt: inch(6), kind: 'set' },
   passes: { key: 'passes', label: 'Every guest’s pass', size: 'ganged on A4 with cut lines', widthPt: 90 * (72 / 25.4), heightPt: 54 * (72 / 25.4), kind: 'batch' },
   'qr-codes': { key: 'qr-codes', label: 'QR codes', size: 'A4 · every guest', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
+  // The FREE group's documents (owner 2026-09-25, "PRINTS & TICKETS HOLDS EVERY
+  // PRINT"). Each is an A4 PDF laid out in the same op vocabulary
+  // (lib/print-report.ts); none has a themed version, so none is ever Pro.
+  'guest-registry': { key: 'guest-registry', label: 'Guest list registry', size: 'A4 · the reception desk list', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
+  'seating-pack': { key: 'seating-pack', label: 'Table signs & place cards', size: 'A4 · directory, signs, cards', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
+  'caterer-report': { key: 'caterer-report', label: 'Caterer meal counts', size: 'A4 · attending guests', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
 };
+
+/**
+ * CLASSIC IS FREE (owner 2026-09-25, DECISION_LOG "EVERY PRINT IS FREE IN THE
+ * CLASSIC LOOK; THE THEMED VERSION IS PRO"): *"let's allow free for all? but if
+ * they want to print with theme is pro?"* → *"oaky build it that way."* Every
+ * piece prints print-ready and unwatermarked in Classic (`house`) for every
+ * event; the same piece in any other theme is Event Hub Pro.
+ */
+export const CLASSIC_PRINT_THEME = 'house' as const satisfies InviteThemeId;
+
+/**
+ * `<event slug>-<print>.pdf` — the owner's file-naming rule for everything a
+ * couple saves (the per-guest QR is `eventname-guestname.jpg`): the event
+ * first, then what the file is. A missing or unsafe slug falls back to `event`.
+ */
+export function printFileName(slug: string | null | undefined, print: string, ext = 'pdf'): string {
+  const base =
+    (slug ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'event';
+  return `${base}-${print}.${ext}`;
+}
+
+/** Is this a themed (Pro) print, or the free Classic one? */
+export function isThemedPrint(theme: InviteThemeId): boolean {
+  return theme !== CLASSIC_PRINT_THEME;
+}
 
 /** The six themed pieces, in the Maker's order. */
 export const PRINT_SET_KEYS = ['invitation', 'entourage', 'details', 'pass', 'poster', 'card'] as const satisfies readonly PrintPieceKey[];
@@ -201,7 +245,7 @@ export const DIE_CUTS: Record<InviteThemeId, DieCut> = {
  */
 export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey): DieCut {
   if (piece === 'pass' || piece === 'passes') return 'rounded';
-  if (piece === 'poster' || piece === 'qr-codes') return 'rect';
+  if (piece === 'poster' || PRINT_PIECES[piece].kind === 'free') return 'rect';
   return DIE_CUTS[theme];
 }
 
@@ -341,14 +385,22 @@ export function printLookFor(theme: InviteThemeId): PrintLook {
 export type PrintMode = 'screen' | 'sample' | 'print';
 
 /**
- * The gate, in one place (owner 2026-09-25 "PRINTABLES ARE PRO"):
- *   · everyone who can edit the event sees and downloads SAMPLES — compressed,
- *     screen resolution, a "Sample" mark, no bleed, no crop marks, no layers;
- *   · the PRINT-READY PDF and the per-guest pass batch need Event Hub Pro;
- *   · the plain QR sheet (`qr-codes`) is free for every event, store shell
- *     included — a QR is not a purchase;
- *   · in the app-store shell the Pro path is ABSENT, not locked (App Review
- *     3.1.1), so `printReady` is false there whatever the unlock says.
+ * The gate, in one place. Owner 2026-09-25, in two steps — "PRINTABLES ARE
+ * PRO" (the P9 split), then "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE
+ * THEMED VERSION IS PRO", which supersedes it:
+ *   · every piece in CLASSIC (`house`) downloads print-ready — bleed, crop
+ *     marks, no watermark — for every event, store shell included; Classic is
+ *     not a purchase;
+ *   · the SAME piece in any other theme is Event Hub Pro. Without Pro a themed
+ *     piece is a SAMPLE — compressed, screen resolution, a "Sample" mark, no
+ *     bleed, no crop marks, no layers — and the per-guest pass batch in a theme
+ *     is refused;
+ *   · the FREE group (`kind: 'free'` — the QR sheet, the registry, the seating
+ *     pack, the caterer report) has no themed version, so it is always free;
+ *   · in the app-store shell the THEMED print-ready path is ABSENT, not locked
+ *     (App Review 3.1.1), so `printReady` is false there whatever the unlock says.
+ *
+ * `printReady` therefore means "may download THEMED print-ready files".
  */
 export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
   samples: boolean;
@@ -359,9 +411,19 @@ export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
   return { samples: true, printReady, offerPro: !input.ownsPro && !input.storeShell };
 }
 
-/** May this mode of this piece be served to this viewer? The route's refusal. */
-export function mayServe(piece: PrintPieceKey, mode: PrintMode, access: { printReady: boolean }): boolean {
-  if (piece === 'qr-codes') return true;
+/**
+ * May this mode of this piece, drawn in this theme, be served to this viewer?
+ * The route's refusal. Classic and the free group are always yes; a themed
+ * print-ready file (or the themed pass batch) needs `printReady`.
+ */
+export function mayServe(
+  piece: PrintPieceKey,
+  mode: PrintMode,
+  access: { printReady: boolean },
+  theme: InviteThemeId,
+): boolean {
+  if (PRINT_PIECES[piece].kind === 'free') return true;
+  if (!isThemedPrint(theme)) return true;
   if (piece === 'passes') return access.printReady;
   if (mode === 'print') return access.printReady;
   return true;

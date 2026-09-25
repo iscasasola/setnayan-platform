@@ -966,6 +966,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       prints = (
         <MakerPrints
           eventId={eventId}
+          slug={printEvent.slug}
           theme={printThemeFor(printEvent, one(search.print_theme))}
           savedTheme={printThemeFor(printEvent)}
           ownsPro={printPro}

@@ -34,7 +34,8 @@ export function PickFromOurEvents({
   proPrice,
   action,
 }: {
-  events: readonly OtherEvent[];
+  /** NULL = the read was refused — said on screen, never drawn as "none". */
+  events: readonly OtherEvent[] | null;
   moments: readonly LoveStoryMoment[];
   ownsPro: boolean;
   storeShell: boolean;
@@ -42,6 +43,19 @@ export function PickFromOurEvents({
   proPrice: string | null;
   action: (formData: FormData) => void | Promise<void>;
 }) {
+  if (events === null) {
+    return (
+      <section id="pick" aria-labelledby="pick-title" className="scroll-mt-16 border-t border-[color:var(--ls-rule)] pt-10">
+        <p className={eye}>From what Setnayan already holds</p>
+        <h2 id="pick-title" className="mt-1 font-pahina text-3xl font-light">
+          Pick from <i className="text-[color:var(--ls-heading)]">our events</i>
+        </h2>
+        <p role="status" className="mt-3 text-[14px] text-[color:var(--ls-muted)]">
+          We could not look up your other events just now. Refresh the page to try again.
+        </p>
+      </section>
+    );
+  }
   const withPhotos = events.filter((e) => e.photos.length > 0);
   return (
     <section id="pick" aria-labelledby="pick-title" className="scroll-mt-16 border-t border-[color:var(--ls-rule)] pt-10">

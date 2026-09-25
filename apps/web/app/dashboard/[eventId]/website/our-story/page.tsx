@@ -15,6 +15,7 @@ import { formatPhp } from '@/lib/php';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { formatEventDate } from '@/lib/events';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { HUB_MOTION_PRESET_LABEL } from '@/lib/hub-canvas';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
@@ -61,7 +62,7 @@ export default async function OurStoryEditorPage({
   const [
     { data: membership, error: membershipError },
     { data: event, error: eventError },
-    { data: widget },
+    { data: widget, error: widgetError },
   ] = await Promise.all([
     supabase
       .from('event_members')
@@ -89,6 +90,10 @@ export default async function OurStoryEditorPage({
   if (eventError) {
     logQueryError('OurStoryPage.event', eventError, { event_id: eventId }, 'graceful_degrade');
   }
+  // Only a MEASURED hidden section is reported as hidden; a refused read says nothing.
+  if (widgetError) {
+    logQueryError('OurStoryPage.widget', widgetError, { event_id: eventId }, 'graceful_degrade');
+  }
 
   if (!event) redirect(`/dashboard/${eventId}`);
   // Couple-only, like the website hub (moderators are read-only on events —
@@ -115,7 +120,7 @@ export default async function OurStoryEditorPage({
 
   // Every photo the page draws, signed in ONE pass.
   const refs = [...new Set(moments.flatMap((m) => m.media ?? []))];
-  const signed = await Promise.all(refs.map((r) => displayUrlForStoredAsset(r).catch(() => null)));
+  const signed = await Promise.all(refs.map((r) => displayUrlForStoredAsset(siteMediaServeRef(r)).catch(() => null)));
   const mediaUrls: Record<string, string> = {};
   refs.forEach((r, i) => {
     const url = signed[i];
@@ -188,7 +193,7 @@ export default async function OurStoryEditorPage({
         proHref={proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`}
         proPrice={proPrice}
         refused={refused}
-        sectionHidden={widget?.mode === 'hidden'}
+        sectionHidden={!widgetError && widget?.mode === 'hidden'}
         mediaUrls={mediaUrls}
         action={action}
         pickSlot={
@@ -236,12 +241,16 @@ function daysToTheDay(eventDate: string | null, timezone: string | null): number
   return Math.round((b - a) / 86_400_000);
 }
 
-/** The couple's OTHER events and the public photos each already shows. */
+/**
+ * The couple's OTHER events and the public photos each already shows — or
+ * NULL when either read was refused, so the block says it could not look
+ * rather than "this is the only event you host".
+ */
 async function readOtherEvents(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   eventId: string,
-): Promise<OtherEvent[]> {
+): Promise<OtherEvent[] | null> {
   const { data: rows, error } = await supabase
     .from('event_members')
     .select('event_id')
@@ -249,14 +258,18 @@ async function readOtherEvents(
     .eq('member_type', 'couple');
   if (error) {
     logQueryError('OurStoryPage.otherEvents', error, { event_id: eventId }, 'graceful_degrade');
-    return [];
+    return null;
   }
   const ids = (rows ?? []).map((r) => r.event_id as string).filter((id) => id !== eventId);
   if (ids.length === 0) return [];
-  const { data: events } = await supabase
+  const { data: events, error: eventsError } = await supabase
     .from('events')
     .select('event_id, display_name, event_date, our_photos, landing_page_hero_image_url')
     .in('event_id', ids);
+  if (eventsError) {
+    logQueryError('OurStoryPage.otherEventRows', eventsError, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
   return Promise.all(
     (events ?? []).map(async (e) => {
       // One ref at a time — `readMomentMedia` caps a LIST at a moment's four.
@@ -265,7 +278,7 @@ async function readOtherEvents(
       const photos = (
         await Promise.all(
           pool.map(async (ref) => {
-            const url = await displayUrlForStoredAsset(ref).catch(() => null);
+            const url = await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null);
             return url ? { ref, url } : null;
           }),
         )

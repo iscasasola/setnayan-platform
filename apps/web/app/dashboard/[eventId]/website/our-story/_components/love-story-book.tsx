@@ -28,7 +28,7 @@ import { LoveStoryProLine } from './love-story-pro-line';
  * theme is found on the Event Hub Maker"*). The book wears the event's theme
  * through `--ls-*` custom properties the page sets from the registry, and says
  * so in one line with a link to where the theme IS chosen.
- * `the-love-story-has-no-theme-picker.test.ts` holds that.
+ * `the-love-story-reaches-the-pixels.test.ts` holds that.
  *
  * Presentational: every fact arrives resolved from the page, so a test can
  * render it. The one action is passed in bound.
@@ -204,7 +204,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
         </aside>
 
         {/* ── THE BOOK ── */}
-        <main className="min-w-0 flex-1 space-y-16">
+        <div className="min-w-0 flex-1 space-y-16">
           {chapters.map(({ chapter, moments }) => {
             const numbered = chapter !== 'before';
             if (numbered) chapterNo += 1;
@@ -351,7 +351,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
               </p>
             ) : null}
           </section>
-        </main>
+        </div>
       </div>
 
     </div>

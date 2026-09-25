@@ -189,6 +189,15 @@ const ANIM = {
  */
 export const STD_FILM_EXIT_EVENT = 'std:film-exit';
 
+/**
+ * 🎬 The film has reached its CLOSE (the last beat, which holds for good). The
+ * stage's Auto runner (`stage-autoplay.tsx`) listens for it to carry the stage
+ * on to its next scenes — before this, nothing heard the end, so the Save the
+ * Date stopped on its close and the names and entourage never followed.
+ * Fired once per showing, never in the builder's preview.
+ */
+export const STD_FILM_CLOSE_EVENT = 'std:film-close';
+
 export type StdLockup = {
   /** events monogram design columns (HeroMonogram reads these). */
   design: {
@@ -930,6 +939,7 @@ export function SaveTheDateFilm({
 
   // RAF player — advances timed slides. The video beat (dur Infinity) holds on
   // a timer; it autoplays and the video effect advances it on 'ended'.
+  const closedRef = useRef(false);
   useEffect(() => {
     let raf = 0;
     const go = (j: number) => {
@@ -937,6 +947,10 @@ export function SaveTheDateFilm({
       idxRef.current = k;
       setIdx(k);
       startRef.current = performance.now();
+      if (k === N - 1 && N > 1 && !preview && !closedRef.current) {
+        closedRef.current = true;
+        window.dispatchEvent(new CustomEvent(STD_FILM_CLOSE_EVENT));
+      }
     };
     goRef.current = go;
 

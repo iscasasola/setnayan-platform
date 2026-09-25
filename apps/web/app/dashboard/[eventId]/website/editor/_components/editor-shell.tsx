@@ -22,6 +22,9 @@ import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, type MakerFixedKey } from '@/lib/maker-scene-list';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
+import { ScenePreview } from './scene-preview';
+import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
+import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -300,6 +303,107 @@ export function MakerWork({
     return () => window.removeEventListener('message', onMessage);
   }, [rows, scenes, select]);
 
+  /* 🖼 THE TILES' PREVIEWS (owner 2026-09-26: *"the navigator preview must
+     really show the preview"*). Each tile shows a static copy of its section
+     out of this canvas (`lib/maker-tile-preview.ts`). They are re-taken
+     whenever the canvas is new — it announces itself with `ready` after an
+     edit, an Apply, a stage change or View as — and whenever it changes width
+     (Desktop ⇄ Phone, a resized window). One pass reads every shown section
+     once; `performance.measure('maker-tile-snapshots')` records its cost. */
+  const [tileHead, setTileHead] = useState<TileHead | null>(null);
+  const [tileSnaps, setTileSnaps] = useState<Record<string, TileSnapshot>>({});
+  const [navList, setNavList] = useState<HTMLOListElement | null>(null);
+  const tileKeysRef = useRef<string[]>([]);
+  const snapTimer = useRef<number | null>(null);
+  const takeSnapshots = useCallback(() => {
+    const doc = canvasDocument(frameRef.current);
+    if (!doc) return;
+    const t0 = performance.now();
+    const head = readTileHead(doc);
+    const next: Record<string, TileSnapshot> = {};
+    for (const key of tileKeysRef.current) {
+      const snap = snapshotSection(doc, key);
+      if (snap) next[key] = snap;
+    }
+    try {
+      performance.measure('maker-tile-snapshots', { start: t0, end: performance.now() });
+    } catch {
+      /* an older browser without measure options — the pass still ran */
+    }
+    setTileHead((prev) =>
+      prev && prev.styles.join('') === head.styles.join('') &&
+      JSON.stringify([prev.htmlAttrs, prev.bodyAttrs]) === JSON.stringify([head.htmlAttrs, head.bodyAttrs])
+        ? prev
+        : head,
+    );
+    // Keep the SAME object for a section that did not change, so its tile keeps
+    // its document instead of reloading it.
+    setTileSnaps((prev) => {
+      const merged: Record<string, TileSnapshot> = {};
+      let changed = Object.keys(prev).length !== Object.keys(next).length;
+      for (const [k, v] of Object.entries(next)) {
+        const old = prev[k];
+        const same =
+          old && old.section === v.section && old.frameWidth === v.frameWidth &&
+          JSON.stringify(old.chain) === JSON.stringify(v.chain);
+        merged[k] = same ? old : v;
+        if (!same) changed = true;
+      }
+      return changed ? merged : prev;
+    });
+  }, []);
+  const scheduleSnapshots = useCallback(
+    (ms: number) => {
+      if (snapTimer.current) window.clearTimeout(snapTimer.current);
+      snapTimer.current = window.setTimeout(() => {
+        snapTimer.current = null;
+        takeSnapshots();
+      }, ms);
+    },
+    [takeSnapshots],
+  );
+  useEffect(() => () => {
+    if (snapTimer.current) window.clearTimeout(snapTimer.current);
+  }, []);
+
+  /* A canvas that is READY: re-take the previews, and bring the scene being
+     edited back into view — a reload (the Guest bars switch among them) must
+     not drop the couple back at the top of the page. */
+  const selectedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const onReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { source?: string; t?: string } | null;
+      if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
+      scheduleSnapshots(700);
+      const key = selectedKeyRef.current;
+      if (key) {
+        frameRef.current?.contentWindow?.postMessage(
+          { source: 'setnayan-editor', t: 'scrollTo', key },
+          window.location.origin,
+        );
+      }
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [scheduleSnapshots]);
+
+  /* Desktop ⇄ Phone and window resizes change the canvas's width. */
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let first = true;
+    const ro = new ResizeObserver(() => {
+      if (first) {
+        first = false;
+        return;
+      }
+      scheduleSnapshots(450);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scheduleSnapshots, stage, maker?.renderStamp, maker?.viewAsHref]);
+
   /* ▶ "Play this scene" (the toolbar's ▶ menu) — played IN PLACE in the
      canvas: the bridge replays the selected section's entrance where it sits. */
   useEffect(() => {
@@ -422,6 +526,13 @@ export function MakerWork({
      follows it (a hidden or off-stage one), or the end. */
   const lastShown = shownSceneIds[shownSceneIds.length - 1];
   const afterLastShown = lastShown ? (fullOrder[fullOrder.indexOf(lastShown) + 1] ?? null) : null;
+  tileKeysRef.current = list.shown.map((t) => t.key);
+  selectedKeyRef.current =
+    list.shown.find((t) =>
+      t.kind === 'scene'
+        ? selectedScene?.id === t.widgetId
+        : selection?.kind === 'tool' && selection.key === FIXED_TOOL[t.fixed],
+    )?.key ?? null;
 
   if (!maker) {
     return (
@@ -449,7 +560,7 @@ export function MakerWork({
           navOpen ? '' : 'lg:hidden'
         }`}
       >
-        <ol className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4">
+        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4">
           <li className="shrink-0 lg:mb-3">
             <button
               type="button"
@@ -523,9 +634,27 @@ export function MakerWork({
                         Desktop, a tall phone on Phone — and the eye sits on it. */}
                     <div
                       className={`relative ${
-                        device === 'phone' ? 'aspect-[9/19.5] w-14 lg:w-[46%]' : 'aspect-[16/10] w-24 lg:w-full'
+                        device === 'phone' ? 'aspect-[9/19.5] w-16 lg:w-[46%]' : 'aspect-[16/10] w-28 lg:w-full'
                       }`}
                     >
+                    {/* 🖼 WHAT THE TILE SHOWS — the section as the canvas drew it
+                        (`ScenePreview`), over its words-only card, which stays
+                        underneath as the stand-in until the copy has drawn (or
+                        for a section the canvas does not draw). */}
+                    <span
+                      aria-hidden
+                      className={`absolute inset-0 block overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] transition-opacity duration-sn-control ease-sn ${
+                        showing ? '' : 'opacity-50'
+                      }`}
+                    >
+                      <SceneMiniature mini={minis[tile.key]} fallback={tile.label} tint={tint} device={device} />
+                      <ScenePreview
+                        head={tileHead}
+                        snapshot={tileSnaps[tile.key] ?? null}
+                        device={device}
+                        observeRoot={navList}
+                      />
+                    </span>
                     <button
                       type="button"
                       data-maker-scene={tile.kind === 'scene' ? tile.type : undefined}
@@ -544,11 +673,8 @@ export function MakerWork({
                         e.currentTarget.addEventListener('pointerup', clear, { once: true });
                         e.currentTarget.addEventListener('pointerleave', clear, { once: true });
                       }}
-                      className={`sn-press absolute inset-0 block h-full w-full overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] outline outline-2 outline-offset-2 transition-[outline-color,opacity] duration-sn-control ease-sn ${canDrag ? 'cursor-grab' : 'cursor-pointer'} ${on ? 'outline-terracotta' : 'outline-transparent'} ${
-                        showing ? '' : 'opacity-50'
-                      }`}
+                      className={`sn-press absolute inset-0 block h-full w-full rounded-md bg-transparent outline outline-2 outline-offset-2 transition-[outline-color] duration-sn-control ease-sn ${canDrag ? 'cursor-grab' : 'cursor-pointer'} ${on ? 'outline-terracotta' : 'outline-transparent'}`}
                     >
-                      <SceneMiniature mini={minis[tile.key]} fallback={tile.label} tint={tint} device={device} />
                       {tile.kind === 'fixed' ? (
                         <span className="absolute left-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm">
                           <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />

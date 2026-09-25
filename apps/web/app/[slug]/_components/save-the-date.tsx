@@ -88,6 +88,10 @@ type Props = {
   /** Film accent hex (button + accent marks) — resolved upstream as the couple's
    *  manual override ?? Mood-Board accent ?? mulberry. Film only (2026-06-19). */
   accentHex?: string | null;
+  /** 🖼 The Maker's canvas: draw the film as ONE SLIDE in the page's flow (a
+   *  screen tall, muted, playing in place) instead of the full-screen takeover.
+   *  The same film the builder previews (`preview` + `fill`). */
+  slide?: boolean;
 };
 
 export function SaveTheDateView({
@@ -117,6 +121,7 @@ export function SaveTheDateView({
   background,
   backgroundImageUrl,
   accentHex,
+  slide = false,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -149,6 +154,28 @@ export function SaveTheDateView({
       videoPosterUrl,
       galleryUrls,
     });
+    if (slide) {
+      return (
+        <section
+          data-std-slide=""
+          className="relative isolate h-[100svh] max-h-[1000px] min-h-[520px] w-full overflow-hidden"
+        >
+          {background ? <StdBackgroundLayer background={background} imageUrl={backgroundImageUrl ?? null} /> : null}
+          <SaveTheDateFilm
+            preview
+            fill
+            content={content}
+            themeId={resolveStdTheme(themeId)}
+            transparent={Boolean(background)}
+            tone={background ? resolveStdLegibility(background).tone : null}
+            lockup={lockup ?? null}
+            accentHex={accentHex ?? null}
+            animatedMonogram={animatedMonogram ?? false}
+            studioAnim={studioAnim}
+          />
+        </section>
+      );
+    }
     return (
       <section className="py-2">
         {background ? (

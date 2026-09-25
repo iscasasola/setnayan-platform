@@ -537,7 +537,19 @@ export async function SiteBody({
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
   // canvas they are drawn as a GUEST sees them — the host's "Manage" slot is
   // editor noise, not something a guest could ever sit under.
-  const showGuestBars = !isEditorCanvas || canvasGuestBars;
+  //
+  // 🎬 "PREVIEW THE WHOLE STAGE" IS THE WHOLE GUEST EXPERIENCE (owner
+  // 2026-09-26, verbatim: *"guest bars should only show on the slide and not
+  // the actual whole stage openning. that role is for the preview stage"*).
+  // Two host doors, two jobs:
+  //   · the Maker's canvas (`?editor=1`, `isMakerCanvas`) is the scenes, one
+  //     after another, to edit — no opening, no film takeover; its "Guest
+  //     bars" switch frames whichever slide is in view;
+  //   · the preview tab (`?preview=draft`, `isStagePreview`) plays the stage as
+  //     a guest meets it — opening, film, hand-over and the guest's bars.
+  const isMakerCanvas = isEditorCanvas && editorBridge;
+  const isStagePreview = isEditorCanvas && !editorBridge;
+  const showGuestBars = !isEditorCanvas || canvasGuestBars || isStagePreview;
 
   // 🧭 THE NAVIGATOR'S HANDLES — in the Maker's canvas only. A hidden, empty
   // marker sits immediately BEFORE each section the navigator lists
@@ -840,10 +852,20 @@ export async function SiteBody({
       // no-backfill verdict: `normalBody()` is that event's OWN body, the same
       // one it renders inside 90 days. The only change is that it now exists to
       // step into.
-      <>
-        {makerMark('f:film')}
-        <StdFilmHandoff film={stdFilmView()}>{normalBody()}</StdFilmHandoff>
-      </>
+      /* 🧭 The film's handle rides INSIDE the handoff, immediately before the
+         film itself — outside it, the marker's next element was the page
+         column, so the navigator's film tile pointed at the names below.
+         🖼 In the Maker's canvas the film is one SLIDE in the stage's order
+         (film → names → …), never the full-screen takeover: the takeover, the
+         opening and the hand-over belong to "Preview the whole stage". */
+      <StdFilmHandoff
+        film={stdFilmView()}
+        marker={makerMark('f:film')}
+        asSlide={isMakerCanvas}
+        autoplay={!isMakerCanvas}
+      >
+        {normalBody()}
+      </StdFilmHandoff>
     ) : (
       normalBody()
     );
@@ -890,6 +912,9 @@ export async function SiteBody({
         accentHex={stdAccentColor(event)}
         // Always escapable. See the handoff note above.
         canExit
+        // 🖼 The Maker's canvas draws the film as a slide in place — muted,
+        // no opening to wait for, no full screen.
+        slide={isMakerCanvas}
       />
   );
 
@@ -2375,7 +2400,10 @@ export async function SiteBody({
           component is not the last thing on a guest's page. */}
       {plan.stdViewBeacon ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
-        enabled={plan.revealEnabled}
+        /* 🎬 The opening is the preview tab's and the guests' — never the
+           Maker's canvas, where it replayed on every reload (a Guest bars tap
+           among them) and hid the scene being edited. */
+        enabled={plan.revealEnabled && !isMakerCanvas}
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
         waxColor={revealWaxColor(event.role_palette)}

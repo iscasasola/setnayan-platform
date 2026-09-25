@@ -80,21 +80,21 @@ export function MakerRevealPicker({
 
   const maker = useMaker();
   const replay = () => {
-    /* The opening plays where guests meet it: as the Save the Date opens, and
-       at the invitation door (`[slug]/invite`). The Event Hub body plays it only
-       on the Save the Date stage (`cinematicRevealPlays`), so "Play" turns the
-       canvas to that stage — the draft and the theme's dressing ride along —
-       and, if it is already there, reloads it so the opening plays again. */
-    if (maker && maker.stage !== 'save_the_date') {
-      maker.setStage('save_the_date');
+    /* 🎬 THE OPENING PLAYS IN "PREVIEW THE WHOLE STAGE", NEVER IN THE CANVAS
+       (owner 2026-09-26: *"that role is for the preview stage"*). The canvas is
+       the scenes to edit; the Save the Date preview tab plays the stage as a
+       guest meets it — the opening, the film, then the scenes on Auto — with
+       the draft and the theme's dressing. The page's own path comes from the
+       canvas; with no canvas yet, turn to the Save the Date stage instead. */
+    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-shell] iframe');
+    const src = frame?.getAttribute('src');
+    if (src) {
+      const path = new URL(src, window.location.origin).pathname;
+      window.open(`${path}?phase=save_the_date&preview=draft`, '_blank', 'noopener');
       return;
     }
-    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-shell] iframe');
-    try {
-      frame?.contentWindow?.location.reload();
-    } catch {
-      router.refresh();
-    }
+    if (maker && maker.stage !== 'save_the_date') maker.setStage('save_the_date');
+    else router.refresh();
   };
 
   const Row = ({ id, label, note, pro }: { id: string; label: string; note: string; pro: boolean }) => {

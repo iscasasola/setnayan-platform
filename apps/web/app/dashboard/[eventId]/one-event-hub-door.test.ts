@@ -46,7 +46,7 @@ function everyPage(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-test('exactly ONE surface in the whole app declares the name "Event Hub Controller"', () => {
+test('exactly ONE surface in the whole app declares the name "Event Hub Maker"', () => {
   const pages = everyPage(APP_DIR);
   /*
     The window is every page in the app, not the two files this change touched.
@@ -67,15 +67,15 @@ test('exactly ONE surface in the whole app declares the name "Event Hub Controll
      kept passing while measuring the wrong string, which is the failure mode it
      was written against in the first place. */
   const claimants = pages.filter((p) =>
-    /export const metadata\s*=\s*\{[^}]*title:\s*'Event Hub Controller'/.test(fs.readFileSync(p, 'utf8')),
+    /export const metadata\s*=\s*\{[^}]*title:\s*'Event Hub Maker'/.test(fs.readFileSync(p, 'utf8')),
   );
 
   assert.equal(
     claimants.length,
     1,
     claimants.length === 0
-      ? 'NO surface declares "Event Hub Controller" — the controller lost its own name'
-      : `${claimants.length} surfaces declare "Event Hub Controller": ` +
+      ? 'NO surface declares "Event Hub Maker" — the maker lost its own name'
+      : `${claimants.length} surfaces declare "Event Hub Maker": ` +
         `${claimants.map((c) => path.relative(APP_DIR, c)).join(' · ')}. ` +
         'One word, two doors, is the defect the 2026-09-02 ruling closed.',
   );

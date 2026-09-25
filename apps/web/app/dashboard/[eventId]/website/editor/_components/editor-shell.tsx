@@ -278,7 +278,7 @@ export function EditorShell({
       {/* Topbar — identity, go-live, view-live (absorbs the old Launch hero) */}
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-ink/10 bg-white px-4 py-2.5">
         <p className="font-mono text-[0.65rem] uppercase tracking-[0.2em] text-terracotta">
-          Website editor
+          Event Hub editor
         </p>
         <p className="min-w-0 truncate text-sm font-semibold text-ink">
           {publicLandingUrl ? `setnayan.com${publicLandingUrl}` : 'Set your Event Hub address'}
@@ -316,7 +316,7 @@ export function EditorShell({
                   {/* eslint-disable-next-line @next/next/no-img-element -- dynamic same-origin PNG from our QR route */}
                   <img
                     src={`/api/website/qr${liveHref}`}
-                    alt="QR code that opens your live website"
+                    alt="QR code that opens your live Event Hub"
                     width={168}
                     height={168}
                     className="h-auto w-full rounded-lg"

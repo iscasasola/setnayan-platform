@@ -47,7 +47,11 @@ import { RETAIL } from '@/lib/llms-txt-guard-input';
 const EVENT_ID = 'S89E-TESTEVENT';
 const BASE = `/dashboard/${EVENT_ID}`;
 const HUB_HREF = `${BASE}/launch`;
-const CONTROLLER = 'Event Hub Controller';
+/* ✏️ 2026-09-25: the controller is now the EVENT HUB MAKER (owner, "label change
+   only; menu key `launch` and routes unchanged"). The ruling this file holds —
+   the dashboard screen is NOT called by the guest site's bare name — is
+   unchanged; only the qualified name moved. */
+const CONTROLLER = 'Event Hub Maker';
 const GUEST_WORD = 'Event Hub';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
@@ -99,7 +103,7 @@ function railRows(phase: (typeof PHASES)[number]) {
 
 /* ══ 1 · THE DASHBOARD SAYS "CONTROLLER", ON BOTH SURFACES, IN EVERY PHASE ══ */
 
-test('every dashboard row that opens the controller is called "Event Hub Controller"', () => {
+test('every dashboard row that opens the maker is called "Event Hub Maker"', () => {
   let checked = 0;
   for (const phase of PHASES) {
     for (const [surface, rows] of [
@@ -170,7 +174,7 @@ test('the controller page declares the controller name, in metadata and on the m
   const src = code(path.join('app', 'dashboard', '[eventId]', 'launch', 'page.tsx'));
   assert.match(
     src,
-    /export const metadata = \{ title: 'Event Hub Controller' \}/,
+    /export const metadata = \{ title: 'Event Hub Maker' \}/,
     'the controller page no longer declares its own name',
   );
   /*
@@ -179,7 +183,7 @@ test('the controller page declares the controller name, in metadata and on the m
     are set 500 lines apart. All three phases are counted rather than spot-checked
     — the day-of arm is the one a reviewer never opens.
   */
-  const mastheads = src.match(/'Your Event Hub Controller[^']*'/g) ?? [];
+  const mastheads = src.match(/'Your Event Hub Maker[^']*'/g) ?? [];
   assert.equal(
     mastheads.length,
     3,

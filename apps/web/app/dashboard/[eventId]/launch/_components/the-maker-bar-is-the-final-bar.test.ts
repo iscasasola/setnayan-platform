@@ -20,7 +20,10 @@ import { TOURS } from '@/lib/tours';
  * drops an item, merges a group, or forgets a divider.
  */
 
+/* Owner, FINAL (2026-09-25): "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
+   INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS". */
 const FINAL = [
+  'Details',
   'Logo',
   'Hero',
   'Reveal',
@@ -52,7 +55,7 @@ test('the list is the final bar', () => {
   assert.deepEqual(MAKER_BAR.map((i) => i.label), FINAL);
 });
 
-test('the rendered bar has the nine items in order and exactly two dividers', async () => {
+test('the rendered bar has the ten items in order and exactly two dividers', async () => {
   const html = await paint();
   const order = FINAL.map((label) => html.indexOf(label.replace('&', '&amp;')));
   for (const [i, at] of order.entries()) assert.ok(at > -1, `"${FINAL[i]}" is missing from the bar`);
@@ -62,8 +65,8 @@ test('the rendered bar has the nine items in order and exactly two dividers', as
   assert.equal((html.match(/data-maker-divider/g) ?? []).length, 2, 'two dividers, three groups');
   const firstDivider = html.indexOf('data-maker-divider');
   const secondDivider = html.indexOf('data-maker-divider', firstDivider + 1);
-  assert.ok(order[3]! < firstDivider && firstDivider < order[4]!, 'the first divider sits after Love Story');
-  assert.ok(order[7]! < secondDivider && secondDivider < order[8]!, 'the second sits before Prints & Tickets');
+  assert.ok(order[4]! < firstDivider && firstDivider < order[5]!, 'the first divider sits after Love Story');
+  assert.ok(order[8]! < secondDivider && secondDivider < order[9]!, 'the second sits before Prints & Tickets');
 });
 
 test('the live stage wears the red dot, and only it', async () => {
@@ -74,7 +77,8 @@ test('the live stage wears the red dot, and only it', async () => {
 test('no bar item is a dead button', async () => {
   const html = await paint();
   assert.match(html, /data-maker-bar-item="prints"/, 'Prints & Tickets opens its coming-next line');
-  assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, 9, 'every item is a button');
+  assert.match(html, /data-maker-bar-item="details"/, 'Details opens its coming-next line until Phase 9 fills it');
+  assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, FINAL.length, 'every item is a button');
 });
 
 test('the tour: the store shell drops the paid slide, and a price is only ever the catalogue’s', async () => {

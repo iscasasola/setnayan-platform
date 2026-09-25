@@ -47,6 +47,10 @@ fades an edge only while there is more to scroll, scrolls the active item into v
 The Maker's own form guard (`every-maker-form-drafts-or-says-so`) now reads the three made-once files,
 and `uploadHeroPhoto` / `removeHeroPhoto` join its draft doors.
 
+**The final bar order** (owner, verbatim: "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE INVITATION
+ON THE DAY POST EVENT | PRINTS AND TICKETS") — **Details** first, in the one `MAKER_BAR` array; until
+Phase 9 fills its panel it opens one "coming in the next build" line (never a dead button).
+
 **One highlight in the bar** (owner: "there should also be only one highlighted here. stage must leave" ·
 "allow other to be highlighted"). An open tool (Logo · Hero · Reveal · Love Story) is THE highlighted
 item and the stage pill clears; picking a stage closes the tool. The live stage keeps only its dot. A

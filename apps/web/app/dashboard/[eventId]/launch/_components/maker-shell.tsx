@@ -392,8 +392,9 @@ export function MakerBar({
                 <ComingNext
                   key={item.key}
                   label={item.label}
-                  note={item.kind === 'next' ? MAKER_COMING_NEXT.prints : 'Only the couple can open this part of the Event Hub Maker.'}
-                  align="end"
+                  itemKey={item.key}
+                  note={item.kind === 'next' ? MAKER_COMING_NEXT[item.key] : 'Only the couple can open this part of the Event Hub Maker.'}
+                  align={gi === 0 ? 'start' : 'end'}
                   chip
                 >
                   {item.label}
@@ -519,8 +520,11 @@ export function ComingNext({
   align = 'center',
   chip = false,
   small = false,
+  itemKey,
   children,
 }: {
+  /** The bar item this chip is (`data-maker-bar-item`). */
+  itemKey?: string;
   label: string;
   note: string;
   align?: 'center' | 'start' | 'end';
@@ -565,7 +569,7 @@ export function ComingNext({
         aria-expanded={open}
         aria-label={chip ? undefined : label}
         title={chip ? undefined : label}
-        data-maker-bar-item={chip ? 'prints' : undefined}
+        data-maker-bar-item={chip ? (itemKey ?? 'prints') : undefined}
         onClick={() => {
           place();
           setOpen((o) => !o);

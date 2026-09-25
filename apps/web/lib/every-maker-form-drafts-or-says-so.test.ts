@@ -291,7 +291,6 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   [`${C}authoring-panels.tsx`, /<HubSavesImmediately\b[^>]*\/>[\s{}]*<PhotoMomentsEditor\b/, 'camera cues post from a transition'],
   [PAGE, /<HubSavesImmediately\b[^>]*\/>[\s{}]*<LaunchStdButton\b/, 'go-live publishes the page'],
   ['app/dashboard/[eventId]/launch/_components/hub-stage.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
-  [`${C}editor-shell.tsx`, /Open Our Love Story[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the scrapbook writes love_story live'],
   [`${C}editor-shell.tsx`, /Choose your theme[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the theme picker writes events.invite_theme live'],
   // Phase 9 · Details: the address (the shipped SlugField — never drafted) and
   // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).

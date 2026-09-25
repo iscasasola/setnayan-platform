@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES, type RevealStage } from '@/lib/reveal-stages';
+import type { RevealEffects } from '@/lib/std-reveal-effects';
 
 /**
  * THE REVEAL — chosen once, in the Maker (Phase 6).
@@ -40,6 +41,8 @@ export function MakerRevealPicker({
   drafted,
   stages,
   stagesDrafted,
+  effects,
+  effectsDrafted,
   themeName,
   defaultOpening,
   defaultIsTheme,
@@ -55,6 +58,10 @@ export function MakerRevealPicker({
   stages: readonly RevealStage[];
   /** The draft holds a different choice of stages from what guests see. */
   stagesDrafted: boolean;
+  /** The reveal's effects (drafted over live, resolved) — the fine-tuning. */
+  effects: RevealEffects;
+  /** The draft holds different effects from what guests see. */
+  effectsDrafted: boolean;
   eventId: string;
   /** The drafted-over-live `std_reveal_template`: an id · 'none' · null (not chosen). */
   current: string | null;
@@ -108,6 +115,24 @@ export function MakerRevealPicker({
         setError('Where your reveal plays could not be saved. Please try again.');
       }
     });
+  /* 🎛 FINE-TUNING (owner 2026-09-25: "pick a reveal and see the effects, fine
+     tune it to your liking") — the couple's own effects, the same keys the
+     Save-the-Date studio sets, saved to the DRAFT; the canvas replays with them. */
+  const setEffects = (next: RevealEffects) =>
+    start(async () => {
+      setError(null);
+      try {
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set('patch', JSON.stringify({ events: { std_reveal_effects: next } }));
+        const r = await hubDraftAction(eventId, fd);
+        if (!r.ok) setError(r.error);
+        else router.refresh();
+      } catch {
+        setError('Your reveal’s effects could not be saved. Please try again.');
+      }
+    });
+
   const toggleStage = (s: RevealStage) =>
     setStages(REVEAL_STAGE_CHOICES.filter((x) => (x === s ? !stages.includes(s) : stages.includes(x))));
 
@@ -188,6 +213,15 @@ export function MakerRevealPicker({
           Play the opening
         </button>
       ) : null}
+      {effective !== 'none' ? (
+        <FineTune
+          opening={effective}
+          effects={effects}
+          drafted={effectsDrafted}
+          pending={pending}
+          onChange={setEffects}
+        />
+      ) : null}
       <fieldset className="flex flex-col gap-1.5" data-maker-reveal-stages="">
         <legend className="mb-1 text-[13px] font-semibold text-ink">Where it plays</legend>
         <div className="flex flex-wrap gap-1.5">
@@ -229,5 +263,146 @@ export function MakerRevealPicker({
         </p>
       ) : null}
     </section>
+  );
+}
+
+const ENVELOPES = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
+
+/**
+ * The opening's own fine-tuning — only what THIS opening uses (an envelope lets
+ * butterflies out; the doors and the veil let petals fall; the veil takes its
+ * tulle and petal colours). Every change saves to the draft and replays.
+ */
+function FineTune({
+  opening,
+  effects,
+  drafted,
+  pending,
+  onChange,
+}: {
+  opening: string;
+  effects: RevealEffects;
+  drafted: boolean;
+  pending: boolean;
+  onChange: (next: RevealEffects) => void;
+}) {
+  const envelope = ENVELOPES.has(opening);
+  const veil = opening === 'veil-sheer';
+  const Switch = ({ on, label, hint, flip }: { on: boolean; label: string; hint: string; flip: () => void }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      disabled={pending}
+      onClick={flip}
+      className="sn-press flex min-h-12 w-full items-center gap-3 rounded-md bg-white/70 px-3 py-2 text-left hover:bg-white disabled:opacity-60"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13.5px] font-semibold text-ink">{label}</span>
+        <span className="block text-[12px] text-ink/60">{hint}</span>
+      </span>
+      <span
+        aria-hidden
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? 'bg-terracotta-700' : 'bg-ink/20'}`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`}
+        />
+      </span>
+    </button>
+  );
+  return (
+    <fieldset className="flex flex-col gap-1.5" data-maker-reveal-finetune={opening}>
+      <legend className="mb-1 text-[13px] font-semibold text-ink">Fine-tune</legend>
+      {envelope ? (
+        <Switch
+          on={effects.butterflies}
+          label="Butterflies"
+          hint="They fly out as the envelope opens."
+          flip={() => onChange({ ...effects, butterflies: !effects.butterflies })}
+        />
+      ) : (
+        <Switch
+          on={effects.petals}
+          label="Falling petals"
+          hint="Rose petals drift down through the opening."
+          flip={() => onChange({ ...effects, petals: !effects.petals })}
+        />
+      )}
+      {veil ? (
+        <>
+          <ColourRow
+            label="Veil colour"
+            value={effects.veilColor}
+            disabled={pending}
+            onCommit={(hex) => onChange({ ...effects, veilColor: hex })}
+          />
+          <ColourRow
+            label="Petal colour"
+            value={effects.petalColor}
+            disabled={pending}
+            onCommit={(hex) => onChange({ ...effects, petalColor: hex })}
+          />
+        </>
+      ) : null}
+      {drafted ? (
+        <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
+          In your draft — guests see it after you Apply.
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
+/** A colour, or "from your Mood Board" (null). Saved when the picker settles. */
+function ColourRow({
+  label,
+  value,
+  disabled,
+  onCommit,
+}: {
+  label: string;
+  value: string | null;
+  disabled: boolean;
+  onCommit: (hex: string | null) => void;
+}) {
+  const [local, setLocal] = useState(value ?? '#f3ece1');
+  const timer = useRef<number | null>(null);
+  useEffect(() => setLocal(value ?? '#f3ece1'), [value]);
+  useEffect(() => () => {
+    if (timer.current) window.clearTimeout(timer.current);
+  }, []);
+  return (
+    <div className="flex min-h-12 items-center gap-3 rounded-md bg-white/70 px-3 py-2">
+      <label className="flex min-w-0 flex-1 items-center gap-3">
+        <input
+          type="color"
+          value={local}
+          disabled={disabled}
+          aria-label={label}
+          onChange={(e) => {
+            const hex = e.target.value;
+            setLocal(hex);
+            if (timer.current) window.clearTimeout(timer.current);
+            timer.current = window.setTimeout(() => onCommit(hex), 700);
+          }}
+          className="h-10 w-10 shrink-0 cursor-pointer rounded-full border border-ink/15 bg-transparent p-0.5"
+        />
+        <span className="min-w-0">
+          <span className="block text-[13.5px] font-semibold text-ink">{label}</span>
+          <span className="block text-[12px] text-ink/60">{value ? value.toUpperCase() : 'From your Mood Board'}</span>
+        </span>
+      </label>
+      {value ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onCommit(null)}
+          className="sn-press inline-flex min-h-10 items-center rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink hover:bg-ink/10"
+        >
+          Reset
+        </button>
+      ) : null}
+    </div>
   );
 }

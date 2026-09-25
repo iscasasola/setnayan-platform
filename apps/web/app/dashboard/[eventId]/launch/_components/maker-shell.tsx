@@ -335,12 +335,19 @@ export function MakerShell({
               feed is the body, the fields sit where a stage's controls sit. It
               covers the work area — the editor keeps its state underneath — as
               a page in the body, never a dialog. */}
-          {details && selection?.kind === 'tool' && selection.key === 'details' ? (
+          {hasWork && selection?.kind === 'tool' && selection.key === 'details' ? (
             <div className="absolute inset-0 z-30 flex bg-cream" data-maker-details-layer="">
               <MakerPage
                 pageKey="details"
-                page={details.page}
-                controls={details.controls}
+                page={
+                  details?.page ?? (
+                    /* A read that failed is SAID, never an empty page. */
+                    <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
+                      Your details could not be loaded just now. Nothing was changed — please reopen this in a moment.
+                    </p>
+                  )
+                }
+                controls={details?.controls ?? null}
                 onClose={() => select(null)}
                 closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
               />

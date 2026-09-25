@@ -70,6 +70,7 @@ import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
 import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
 import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
 import { resolveRevealStages, sanitizeRevealStages } from '@/lib/reveal-stages';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -98,6 +99,13 @@ export const HUB_DRAFT_HISTORY_LIMIT = 10;
  *     where the want to keep it"): Save the Date · Invitation · On the Day,
  *     sanitised by `sanitizeRevealStages`. Free to choose — the opening itself is
  *     the Pro part. The host's preview reads it off the overlaid event row.
+ *   · `std_reveal_effects` — the reveal's FINE-TUNING from the Maker's Reveal
+ *     page (owner 2026-09-25: *"pick a reveal and see the effects, fine tune it
+ *     to your liking"*): butterflies, falling petals, the veil's and the petals'
+ *     colours — `resolveRevealEffects`, the guest render's own parser. Changing
+ *     any of them is Pro at Apply (`revealEffectsWriteAllowed`, the Save-the-Date
+ *     studio's own rule); the film's `music` switch is not the Maker's and Apply
+ *     keeps the live one (`hub-draft-actions.ts`).
  */
 export const HUB_DRAFT_EVENT_COLUMNS = [
   'rsvp_backdrop',
@@ -106,6 +114,7 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   'monogram_custom_svg',
   'monogram_studio_config',
   'reveal_stages',
+  'std_reveal_effects',
 ] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
@@ -178,6 +187,8 @@ export function sanitizeHubDraftEventValue(
       return sanitizeStudioConfig(raw) ?? undefined;
     case 'reveal_stages':
       return sanitizeRevealStages(raw);
+    case 'std_reveal_effects':
+      return raw && typeof raw === 'object' && !Array.isArray(raw) ? resolveRevealEffects(raw) : undefined;
   }
 }
 
@@ -398,6 +409,14 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       const n = key(next) ?? resolveRevealStages(null).join(',');
       return l === n ? refChange('same', 'same') : refChange(l, n);
     }
+    case 'std_reveal_effects': {
+      // Only what the reveal shows — the film's `music` is not the Maker's.
+      const key = (v: unknown) => {
+        const { music: _music, ...reveal } = resolveRevealEffects(v);
+        return JSON.stringify(reveal);
+      };
+      return key(live) === key(next) ? refChange('same', 'same') : refChange('live', 'drafted');
+    }
   }
 }
 
@@ -412,6 +431,9 @@ export function eventItemIsPro(column: HubDraftEventColumn, value: unknown, chan
   if (column === 'std_reveal_template') {
     return !revealTemplateWriteAllowed(typeof value === 'string' ? value : null, false);
   }
+  // A changed reveal effect is Pro — `revealEffectsWriteAllowed`'s rule; the
+  // classification above already ignores the film's music switch.
+  if (column === 'std_reveal_effects') return true;
   return eventColumnIsPro(column);
 }
 
@@ -702,6 +724,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   monogram_custom_svg: 'Your logo',
   monogram_studio_config: 'Your logo design',
   reveal_stages: 'Where your reveal plays',
+  std_reveal_effects: 'Your reveal’s effects',
 };
 
 /** A sentence-ready name for one draft key. */

@@ -552,7 +552,11 @@ export function MakerWork({
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
       {/* 🪞 The Maker never draws inside a frame of itself. */}
       <MakerRefusesToBeFramed />
-      {pageView ?? (<>
+      {/* No navigator under a made-once page (owner 2026-09-25: *"logo and hero
+          and reveal and love story has no navigation since it is just full
+          create your logo"*) — and none under Details, which the shell draws
+          over this area: the navigator belongs to the four stages only. */}
+      {pageView ?? (selection?.kind === 'tool' && selection.key === 'details' ? null : <>
       {/* ══ 2 · THE NAVIGATOR ══ */}
       <nav
         aria-label="Scenes"

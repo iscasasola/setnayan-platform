@@ -167,3 +167,37 @@ test('the Maker saves the choice to the draft, never live', () => {
   assert.match(draft, /'reveal_stages'/, 'the draft must hold the choice');
   assert.match(draft, /case 'reveal_stages':\s*return sanitizeRevealStages\(raw\)/);
 });
+
+test('fine-tuning the reveal goes to the draft; a changed effect is Pro at Apply; where it plays is free', async () => {
+  const { mergeHubDraft, emptyHubDraft, planHubDraftApply } = await import('./hub-draft');
+  const { resolveRevealEffects } = await import('./std-reveal-effects');
+  const live = { events: { std_reveal_effects: null, reveal_stages: null }, widgets: [] };
+
+  // Butterflies on: a reveal effect changed → held without Pro, applied with it.
+  const fx = mergeHubDraft(emptyHubDraft(), {
+    events: { std_reveal_effects: { ...resolveRevealEffects(null), butterflies: true } },
+  });
+  assert.equal(planHubDraftApply(fx, live, false).refused.length, 1, 'a changed effect needs Pro');
+  assert.equal(planHubDraftApply(fx, live, true).apply.length, 1);
+
+  // Only the film's music differs → nothing for the Maker to apply.
+  const music = mergeHubDraft(emptyHubDraft(), {
+    events: { std_reveal_effects: { ...resolveRevealEffects(null), music: false } },
+  });
+  const m = planHubDraftApply(music, live, true);
+  assert.equal(m.apply.length + m.refused.length, 0, 'the music switch is not the Maker’s');
+
+  // Where it plays: free, and never-chosen vs "Save the Date only" is no change.
+  const where = mergeHubDraft(emptyHubDraft(), { events: { reveal_stages: ['save_the_date', 'rsvp'] } });
+  const w = planHubDraftApply(where, live, false);
+  assert.equal(w.refused.length, 0, 'choosing where it plays is free');
+  assert.equal(w.apply.length, 1);
+  const same = mergeHubDraft(emptyHubDraft(), { events: { reveal_stages: ['save_the_date'] } });
+  assert.equal(planHubDraftApply(same, live, false).apply.length, 0, 'the default is not a change');
+
+  // The Maker posts the effects to the draft; Apply keeps the live music.
+  const picker = read('app/dashboard/[eventId]/launch/_components/maker-reveal.tsx');
+  assert.match(picker, /JSON\.stringify\(\{ events: \{ std_reveal_effects: next \} \}\)/);
+  const actions = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
+  assert.match(actions, /music: resolveRevealEffects\(live\.events\.std_reveal_effects\)\.music/);
+});

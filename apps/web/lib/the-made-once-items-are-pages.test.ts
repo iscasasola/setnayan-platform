@@ -176,6 +176,19 @@ test('Hero · Reveal · Logo · Love Story each render as a page in the body, wi
   assert.match(story, /data-maker-page-controls=""[\s\S]*data-stub="story-words"/, 'the story words sit beside it');
 });
 
+test('no navigator renders while any of the five is picked — it belongs to the four stages', async () => {
+  // Owner 2026-09-25: "logo and hero and reveal and love story has no navigation
+  // since it is just full create your logo". Details is drawn by the shell over
+  // this area, and the navigator is not mounted under it either.
+  for (const key of MAKER_PAGE_KEYS) {
+    const html = await paintWork({ kind: 'tool', key });
+    assert.doesNotMatch(html, /aria-label="Scenes"/, `${key}: the scene navigator rendered`);
+    assert.doesNotMatch(html, /data-maker-stage="/, `${key}: the stage canvas rendered`);
+  }
+  // …and with a stage picked, it is back.
+  assert.match(await paintWork(null), /aria-label="Scenes"/, 'the navigator is missing on a stage');
+});
+
 test('picking a stage draws the stage again — navigator and canvas, no page', async () => {
   const html = await paintWork(null);
   assert.doesNotMatch(html, /data-maker-page="/);

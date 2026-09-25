@@ -69,6 +69,7 @@ import {
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -215,6 +216,14 @@ export async function hubDraftAction(
     if (typeof eventsPatch.monogram_custom_svg === 'string') {
       // `saveStudioAction`: one source owns the mark.
       eventsPatch.monogram_cipher_config = null;
+    }
+    if (eventsPatch.std_reveal_effects && typeof eventsPatch.std_reveal_effects === 'object') {
+      // The reveal's effects are the Maker's; the film's "Play music" switch in
+      // the same JSON is the Save-the-Date studio's — Apply keeps the live one.
+      eventsPatch.std_reveal_effects = {
+        ...(eventsPatch.std_reveal_effects as Record<string, unknown>),
+        music: resolveRevealEffects(live.events.std_reveal_effects).music,
+      };
     }
     if (Object.keys(eventsPatch).length > 0) {
       const { data: evRows, error: evErr } = await supabase

@@ -18,6 +18,7 @@ import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -52,7 +53,7 @@ import { MakerLogoDoor } from './maker-logo';
  */
 
 const EVENT_SELECT =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, reveal_stages, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, reveal_stages, std_reveal_effects, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
 
 type MadeOnceRow = {
   event_id: string;
@@ -67,6 +68,7 @@ type MadeOnceRow = {
   landing_page_hero_video_r2_key: string | null;
   std_reveal_template: string | null;
   reveal_stages: unknown;
+  std_reveal_effects: unknown;
   monogram_custom_svg: string | null;
   monogram_studio_config: unknown;
   monogram_uploaded_svg: string | null;
@@ -286,6 +288,11 @@ export async function MakerRevealPanel({
       stages={resolveRevealStages(m.drafted.reveal_stages)}
       stagesDrafted={
         resolveRevealStages(m.drafted.reveal_stages).join() !== resolveRevealStages(m.live.reveal_stages).join()
+      }
+      effects={resolveRevealEffects(m.drafted.std_reveal_effects)}
+      effectsDrafted={
+        JSON.stringify(resolveRevealEffects(m.drafted.std_reveal_effects)) !==
+        JSON.stringify(resolveRevealEffects(m.live.std_reveal_effects))
       }
     />
   );

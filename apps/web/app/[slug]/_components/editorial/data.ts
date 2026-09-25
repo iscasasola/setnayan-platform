@@ -22,6 +22,7 @@ import { storyAudienceOf, type StoryAudience } from '@/lib/who-can-see-your-stor
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
+import { resolveHero } from '@/lib/event-hero';
 import { displayChallengePrompt } from '@/lib/papic-missions';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -1431,6 +1432,24 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       }
     } catch {
       heroPhotoUrl = null;
+    }
+  }
+  // THE ONE HERO, BEFORE THE AUTO-PICK (Event Hub Maker Phase 8 · owner
+  // 2026-09-24/25): Post Event keeps its own cover but STARTS from the hero —
+  // the same photo every stage and the poster show (`resolveHero`) — until the
+  // couple chooses a post-event picture (their upload or a curated capture,
+  // above). A capture the software picked is not a choice, so it now comes
+  // after the hero instead of in front of it. The Maker's Post Event cover
+  // scene reads the same order (`lib/post-event-scenes.ts`), so the navigator
+  // names the picture this page actually draws.
+  if (!heroPhotoUrl) {
+    const heroOfEvent = resolveHero(event as Record<string, unknown>).photoRef;
+    if (heroOfEvent) {
+      try {
+        heroPhotoUrl = await displayUrlForStoredAsset(heroOfEvent);
+      } catch {
+        heroPhotoUrl = null;
+      }
     }
   }
   // Fallback A — AUTO-PICK from the day. When the couple never curated an

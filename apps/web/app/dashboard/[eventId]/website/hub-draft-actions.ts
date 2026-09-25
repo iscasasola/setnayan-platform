@@ -69,6 +69,8 @@ import {
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
+import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -215,6 +217,29 @@ export async function hubDraftAction(
     if (typeof eventsPatch.monogram_custom_svg === 'string') {
       // `saveStudioAction`: one source owns the mark.
       eventsPatch.monogram_cipher_config = null;
+    }
+    /* 💌 A DRAFTED LOVE STORY'S NEW PHOTOS ARE SCREENED BEFORE THEY GO LIVE —
+       `loveStoryMomentAction`'s own rule, fail-closed, asked again here because
+       a draft `save` is a public POST that may carry a ref the moment action
+       never saw. `love_story` has no moderation state: a ref in it IS on the
+       public page. A blocked photo is taken off its moment (the words stay),
+       exactly as the moment action does. */
+    if (eventsPatch.love_story && typeof eventsPatch.love_story === 'object') {
+      const story = eventsPatch.love_story as Record<string, unknown>;
+      const held = new Set(resolveMoments(live.events.love_story ?? null).flatMap((m) => m.media ?? []));
+      const drafted = resolveMoments(story);
+      const fresh = [...new Set(drafted.flatMap((m) => m.media ?? []))].filter((r) => !held.has(r));
+      if (fresh.length > 0) {
+        const blocked = await screenNewPhotoRefs(fresh);
+        if (blocked.length > 0) {
+          eventsPatch.love_story = {
+            ...story,
+            moments: storableMoments(
+              drafted.map((m) => (m.media ? { ...m, media: m.media.filter((r) => !blocked.includes(r)) } : m)),
+            ),
+          };
+        }
+      }
     }
     if (Object.keys(eventsPatch).length > 0) {
       const { data: evRows, error: evErr } = await supabase

@@ -154,6 +154,6 @@ test('5b · SOURCE: the preview is a sandboxed, script-less copy that refreshes 
   assert.match(SNAPSHOT, /findMakerSection\(doc, key\)/, 'the copy is found by the SAME key the canvas stamps');
   // refresh: a new canvas (edit, Apply, stage, View as) announces itself with `ready`,
   // and a Desktop/Phone switch resizes the canvas — both re-take the copies.
-  assert.match(SHELL, /data\.t === 'ready'/, 'the navigator re-takes its previews when the canvas is ready');
+  assert.match(SHELL, /data\.t !== 'ready'\) return;\s*scheduleSnapshots\(/, 'the navigator re-takes its previews when the canvas is ready');
   assert.match(SHELL, /new ResizeObserver\(/, 'the navigator re-takes its previews when the canvas resizes');
 });

@@ -46,6 +46,12 @@ export type MakerState = {
   renderStamp: string;
   /** App-store shell: Pro-only controls are HIDDEN, not locked, and no price. */
   storeShell: boolean;
+  /**
+   * VIEW AS (moved from the ⋯ sheet's old stage, owner 2026-09-25): the guest
+   * page as one role sees it, or null for the host's own editing preview. The
+   * canvas iframe loads this instead of `?editor=1` while it is set.
+   */
+  viewAsHref: string | null;
 };
 
 export const MakerContext = createContext<MakerState | null>(null);

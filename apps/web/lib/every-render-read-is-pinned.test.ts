@@ -109,7 +109,9 @@ test('C · website media is held to the public bucket wherever it is signed', ()
   const unwrapped: string[] = [];
   for (const s of sources()) {
     if (!SITE_MEDIA_COLUMN.test(s.code) || !SITE_RESOLVER.test(s.code)) continue;
-    if (!s.code.includes('@/lib/site-media-ref')) missingImport.push(s.rel);
+    // `@/lib/event-hero` (`resolveHero`) wraps the hero columns in
+    // `siteMediaServeRef` itself — it is the one hero resolver (Maker Phase 6).
+    if (!s.code.includes('@/lib/site-media-ref') && !s.code.includes('@/lib/event-hero')) missingImport.push(s.rel);
     for (const fn of ['displayUrlForStoredAsset', 'displayUrlForStdBackground', 'displayUrlsForStoredAssets']) {
       for (const arg of callArgs(s.code, fn)) {
         if (SITE_MEDIA_COLUMN.test(arg) && !/\bsiteMediaServeRefs?\s*\(/.test(arg)) {

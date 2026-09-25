@@ -55,6 +55,7 @@
 
 import { contrastRatio, rgbOfHex, type Rgb } from './story-light';
 import { resolveStdTheme } from './std-themes';
+import { resolveHero } from './event-hero';
 
 /** WCAG AA for normal text. A name set on a sheet is reading matter, not decoration. */
 export const POSTER_TEXT_MIN = 4.5;
@@ -123,7 +124,9 @@ export function resolvePoster(event: PosterInput): Poster {
     the moon over a photograph: the owner ruled it out, so leaving one would be
     a dead path a later reader would wonder about.
   */
-  const heroUrl = event.landing_page_hero_image_url?.trim() || null;
+  // THE ONE HERO (`lib/event-hero.ts`) — the same answer the Event Hub's hero
+  // reads, so the poster can never show a photo the hub does not (or the reverse).
+  const heroUrl = resolveHero(event).photoRef;
   if (heroUrl) {
     const hrgb = accentHex ? rgbOfHex(accentHex) : null;
     return {

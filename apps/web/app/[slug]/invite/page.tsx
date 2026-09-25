@@ -16,6 +16,7 @@ import {
 import { fallbackSeedFromPublicId } from '@/lib/wax-seal/types';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { INVITE_THEMES } from '@/lib/invite-themes';
+import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { inviteRevealPlays } from '@/lib/invite-reveal';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -152,6 +153,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id as string)}
         veilColor={revealVeilColor(event.role_palette)}
         eventTemplate={coerceRevealTemplate(event.std_reveal_template) ?? INVITE_THEMES[look.theme].opening}
+        materials={revealMaterialsFor(look.theme)}
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id as string}
         /* ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11). This door is the

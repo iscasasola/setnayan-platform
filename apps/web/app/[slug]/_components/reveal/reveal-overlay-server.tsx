@@ -16,6 +16,15 @@ type Props = Omit<
 > & {
   /** Event whose premium-openings ownership gates the reveal (PR4 P5). */
   eventId?: string;
+  /**
+   * TRY THEN PAY, in the host's own preview only (Maker Phase 6 · owner
+   * 2026-09-25). TRUE only when `site-body` is in `editorMode` — a verified host
+   * of this event inside the Maker's `?editor=1` frame — so a free couple can
+   * watch the opening they drafted. No guest request can set it: every guest
+   * render passes `editorMode = false`, and `reveal-mount.test.ts` still pins
+   * that a free couple's GUEST page mounts no reveal.
+   */
+  hostTrial?: boolean;
 };
 
 /**
@@ -41,14 +50,14 @@ type Props = Omit<
 const stdOpeningsActiveCached = cache(async (eventId: string) =>
   eventStdOpeningsActive(createAdminClient(), eventId),
 );
-export async function RevealOverlayServer({ eventId, ...props }: Props) {
+export async function RevealOverlayServer({ eventId, hostTrial = false, ...props }: Props) {
   const config = await fetchRevealConfig();
   // ALL REVEAL IS PAID (owner 2026-09-24): Event Hub Pro ownership is now the
   // ONLY gate, so it is read whenever the reveal's phase is on (`enabled` — the
   // Save-the-Date window OR the invitation). It used to be SKIPPED when the
   // admin master toggle was on, because that toggle handed the paid veil to
   // every free couple. Cached per request; see above.
-  const ownsPro = props.enabled && eventId ? await stdOpeningsActiveCached(eventId) : false;
+  const ownsPro = props.enabled && eventId ? hostTrial || (await stdOpeningsActiveCached(eventId)) : false;
   return (
     <RevealMount
       {...props}

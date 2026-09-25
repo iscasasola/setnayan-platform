@@ -13,7 +13,9 @@ import assert from 'node:assert/strict';
 
 import {
   HUB_DRAFT_EVENT_COLUMNS,
+  HUB_DRAFT_EVENT_LABEL,
   HUB_DRAFT_HISTORY_LIMIT,
+  HUB_RESET_EVENT_COLUMNS,
   HUB_RESET_SCOPES,
   canvasLookChange,
   classifyHubDraft,
@@ -246,6 +248,94 @@ test('Reset never touches the couple’s own sections, and puts shipped ones bac
   // A stage reset only names that stage's sections.
   const std = hubResetPatch('save_the_date');
   assert.deepEqual(Object.keys(std.widgets ?? {}).sort(), ['hero']);
+});
+
+
+/* ── Maker Phase 6 — the made-once group: hero · reveal · logo ─────────────── */
+
+const LIVE_BARE: HubLiveState = { events: {}, widgets: [] };
+const HERO_REF = 'r2://setnayan-media/events/e1/landing-page-hero/new.jpg';
+const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0L10 10"/></svg>';
+
+test('the made-once columns are draftable, each with a sentence-ready label', () => {
+  for (const c of ['landing_page_hero_image_url', 'std_reveal_template', 'monogram_custom_svg', 'monogram_studio_config']) {
+    assert.ok((HUB_DRAFT_EVENT_COLUMNS as readonly string[]).includes(c), `${c} is not draftable`);
+  }
+  for (const c of HUB_DRAFT_EVENT_COLUMNS) assert.ok(HUB_DRAFT_EVENT_LABEL[c].length > 0, `${c} has no label`);
+});
+
+test('a drafted hero is held to the public bucket; a private ref or a URL never lands', () => {
+  const d = sanitizeHubDraft({
+    events: { landing_page_hero_image_url: 'r2://payment-proofs/events/e1/receipt.jpg' },
+  });
+  assert.equal('landing_page_hero_image_url' in d.events, false);
+  assert.equal('landing_page_hero_image_url' in sanitizeHubDraft({ events: { landing_page_hero_image_url: 'https://x.test/a.jpg' } }).events, false);
+  assert.equal(sanitizeHubDraft({ events: { landing_page_hero_image_url: HERO_REF } }).events.landing_page_hero_image_url, HERO_REF);
+  assert.equal(sanitizeHubDraft({ events: { landing_page_hero_image_url: null } }).events.landing_page_hero_image_url, null);
+});
+
+test('the hero: a free couple TRIES a photo (refused at Apply), removes one freely; an owning couple applies', () => {
+  const add = mergeHubDraft(emptyHubDraft(), { events: { landing_page_hero_image_url: HERO_REF } });
+  const free = planHubDraftApply(add, LIVE_BARE, false);
+  assert.equal(free.apply.length, 0);
+  assert.equal(free.refused.length, 1);
+  assert.equal(free.remaining.events.landing_page_hero_image_url, HERO_REF, 'a refused try stays in the draft');
+  assert.equal(planHubDraftApply(add, LIVE_BARE, true).apply.length, 1);
+  const off = mergeHubDraft(emptyHubDraft(), { events: { landing_page_hero_image_url: null } });
+  const removal = planHubDraftApply(off, { events: { landing_page_hero_image_url: PHOTO }, widgets: [] }, false);
+  assert.equal(removal.refused.length, 0, 'taking the photo off is never Pro');
+  assert.equal(removal.apply.length, 1);
+});
+
+test('the reveal: "No reveal" is free, every opening is Pro — both answers of the gate', () => {
+  const plan = (v: string | null, ownsPro: boolean, live: string | null = null) =>
+    planHubDraftApply(
+      mergeHubDraft(emptyHubDraft(), { events: { std_reveal_template: v } }),
+      { events: { std_reveal_template: live }, widgets: [] },
+      ownsPro,
+    );
+  for (const opening of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors', 'veil-sheer']) {
+    assert.equal(plan(opening, false).refused.length, 1, `${opening} applied for a free couple`);
+    assert.equal(plan(opening, true).apply.length, 1, `${opening} refused for an owning couple`);
+  }
+  assert.equal(plan('none', false).apply.length, 1, '"No reveal" must be free');
+  assert.equal(plan('none', false).refused.length, 0);
+  assert.equal(plan(null, false, 'four-flap').refused.length, 0, 'clearing a reveal is free');
+  // An unknown opening never lands in a draft.
+  assert.equal('std_reveal_template' in sanitizeHubDraft({ events: { std_reveal_template: 'gold-monogram' } }).events, false);
+});
+
+test('the logo autosave: the studio mark is sanitised like saveStudioAction, and is free to apply', () => {
+  const hostile = sanitizeHubDraft({ events: { monogram_custom_svg: '<svg><script>alert(1)</script></svg>' } });
+  assert.equal('monogram_custom_svg' in hostile.events, false, 'a hostile SVG must never survive into a draft');
+  const huge = sanitizeHubDraft({ events: { monogram_custom_svg: SVG + ' '.repeat(400_001) } });
+  assert.equal('monogram_custom_svg' in huge.events, false);
+  const d = mergeHubDraft(emptyHubDraft(), { events: { monogram_custom_svg: SVG } });
+  const kept = d.events.monogram_custom_svg;
+  assert.equal(typeof kept, 'string', 'a clean studio mark must be kept');
+  const free = planHubDraftApply(d, { events: { monogram_custom_svg: null }, widgets: [] }, false);
+  assert.equal(free.refused.length, 0, 'letters, frame and ink are free');
+  assert.equal(free.apply.length, 1);
+});
+
+test('Reset — even "all" — never erases the hero photo, the reveal or the logo', () => {
+  assert.deepEqual([...HUB_RESET_EVENT_COLUMNS], ['rsvp_backdrop']);
+  for (const scope of HUB_RESET_SCOPES) {
+    const ev = hubResetPatch(scope).events ?? {};
+    for (const c of ['landing_page_hero_image_url', 'std_reveal_template', 'monogram_custom_svg', 'monogram_studio_config']) {
+      assert.equal(c in ev, false, `reset ${scope} would erase ${c}`);
+    }
+  }
+});
+
+test('the host preview shows the drafted hero, reveal and logo (the overlay is by column)', () => {
+  const d = mergeHubDraft(emptyHubDraft(), {
+    events: { landing_page_hero_image_url: HERO_REF, std_reveal_template: 'four-flap' },
+  });
+  const row = overlayHubDraftEvent({ landing_page_hero_image_url: null, std_reveal_template: null, x: 1 }, d);
+  assert.equal(row.landing_page_hero_image_url, HERO_REF);
+  assert.equal(row.std_reveal_template, 'four-flap');
+  assert.equal(row.x, 1);
 });
 
 /* ── the eye (is_visible) — the navigator's visibility, drafted ─────────────── */

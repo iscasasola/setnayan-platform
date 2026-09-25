@@ -59,8 +59,12 @@ export function MakerShell({
   more,
   applySlot = null,
   hasWork,
+  viewAs = {},
   children,
 }: {
+  /** VIEW AS, per stage — each role's chip word and its server-gated preview
+   *  door (`resolveHubRoleView`), or null when there is honestly none. */
+  viewAs?: Partial<Record<LifecyclePhase, ReadonlyArray<{ role: string; name: string; href: string | null }>>>;
   eventId: string;
   slug: string | null;
   /** The stage guests meet today — the bar's red dot. Null when unmeasured. */
@@ -88,6 +92,9 @@ export function MakerShell({
   const [selection, setSelection] = useState<MakerSelection>(initialSelection);
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
+  const [viewAsRole, setViewAsRole] = useState<string | null>(null);
+  const stageRoles = viewAs[stage] ?? [];
+  const viewAsHref = viewAsRole ? (stageRoles.find((r) => r.role === viewAsRole)?.href ?? null) : null;
 
   /*
     🪤 MEASURED IN THE BROWSER: EVERY SAVE REMOUNTS THIS SHELL. Each panel
@@ -124,6 +131,9 @@ export function MakerShell({
     }
   }, [memoryKey, stage, device, navOpen, selection]);
 
+  /* A role is read per stage: a new stage starts back on the host's preview. */
+  useEffect(() => setViewAsRole(null), [stage]);
+
   /* The document under the Maker must not scroll behind it. */
   useEffect(() => {
     const root = document.documentElement;
@@ -145,13 +155,19 @@ export function MakerShell({
       moreOpen,
       renderStamp,
       storeShell,
+      viewAsHref,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell],
+    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref],
   );
 
+  /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
+     here. stage must leave" · "allow other to be highlighted"). Picking a stage
+     closes an open made-once tool; opening a tool takes the highlight from the
+     stage (see `MakerBar`). The canvas keeps showing the stage either way. */
   const pressBar = (item: MakerBarItem) => {
     if (item.kind === 'stage') {
       setStage(item.key);
+      if (selection?.kind === 'tool') select(null);
       return;
     }
     if (item.kind === 'tool' && hasWork) select({ kind: 'tool', key: item.key });
@@ -239,6 +255,9 @@ export function MakerShell({
 
           <div className="hidden items-center gap-1 md:flex">
             {applySlot ? <div data-maker-apply-slot="">{applySlot}</div> : null}
+            {hasWork && stageRoles.length > 0 ? (
+              <ViewAsSwitch roles={stageRoles} value={viewAsRole} onChange={setViewAsRole} />
+            ) : null}
             <div role="group" aria-label="Preview on" className="flex items-center rounded-full bg-ink/5 p-0.5">
               <DeviceButton on={device === 'desktop'} label="Desktop" onClick={() => setDevice('desktop')}>
                 <Monitor aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -313,14 +332,61 @@ export function MakerBar({
     if (last && last[0]!.group === item.group) last.push(item);
     else groups.push([item]);
   }
+
+  /*
+    🪤 OWNER, ON THE LIVE MAKER (2026-09-25): "cannot see logo anymore even if i
+    scroll". The bar was `justify-content: center` on a scroll container — when
+    the items are wider than the bar, centring pushes the overflow off BOTH
+    edges and the left half can never be scrolled to (Logo was clipped, "Prints
+    & Tick…" cut). Centring now comes from `margin-inline: auto` on the first and
+    last groups (`ms-auto` / `me-auto`): with room to spare they centre the bar;
+    without it they collapse to 0 and every item is reachable by scrolling.
+    `the-maker-bar-is-the-final-bar.test.ts` holds the rule.
+  */
+  const navRef = useRef<HTMLElement>(null);
+  const [fade, setFade] = useState<{ l: boolean; r: boolean }>({ l: false, r: false });
+  const measure = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setFade({ l: el.scrollLeft > 2, r: el.scrollLeft < max - 2 });
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure]);
+  /* The ACTIVE item is scrolled into view when the Maker opens and whenever it
+     changes — on a phone the stage the couple is on may sit past the edge. */
+  useEffect(() => {
+    const el = navRef.current;
+    const on = el?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!el || !on) return;
+    const left = on.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+    if (left < el.scrollLeft || left + on.offsetWidth > el.scrollLeft + el.clientWidth) {
+      el.scrollTo({ left: Math.max(0, left - el.clientWidth / 2 + on.offsetWidth / 2) });
+    }
+    measure();
+  }, [stage, selection, measure]);
+  const mask =
+    fade.l || fade.r
+      ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`
+      : undefined;
+
   return (
     <nav
+      ref={navRef}
       aria-label="Event Hub Maker"
       data-maker-bar=""
-      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto px-2 [scrollbar-width:none] md:mx-auto md:justify-center"
+      onScroll={measure}
+      style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
+      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto scroll-px-4 px-2 [scrollbar-width:none] md:mx-auto"
     >
       {groups.map((group, gi) => (
-        <span key={group[0]!.group} className="flex shrink-0 items-center gap-0.5">
+        <span
+          key={group[0]!.group}
+          className={`flex shrink-0 items-center gap-0.5 ${gi === 0 ? 'ms-auto' : ''} ${gi === groups.length - 1 ? 'me-auto' : ''}`}
+        >
           {gi > 0 ? <i aria-hidden data-maker-divider="" className="mx-1.5 block h-5 w-px bg-ink/15" /> : null}
           {group.map((item) => {
             if (item.kind === 'next' || (item.kind === 'tool' && !hasWork)) {
@@ -328,17 +394,19 @@ export function MakerBar({
                 <ComingNext
                   key={item.key}
                   label={item.label}
-                  note={item.kind === 'next' ? MAKER_COMING_NEXT.prints : 'Only the couple can open this part of the Event Hub Maker.'}
-                  align="end"
+                  itemKey={item.key}
+                  note={item.kind === 'next' ? MAKER_COMING_NEXT[item.key] : 'Only the couple can open this part of the Event Hub Maker.'}
+                  align={gi === 0 ? 'start' : 'end'}
                   chip
                 >
                   {item.label}
                 </ComingNext>
               );
             }
+            // ONE highlight: an open tool takes it; otherwise the stage has it.
             const on =
               item.kind === 'stage'
-                ? stage === item.key
+                ? stage === item.key && selection?.kind !== 'tool'
                 : selection?.kind === 'tool' && selection.key === item.key;
             return (
               <button
@@ -361,6 +429,42 @@ export function MakerBar({
         </span>
       ))}
     </nav>
+  );
+}
+
+/**
+ * VIEW AS — compact, in the toolbar (moved from the ⋯ sheet's old stage). It
+ * re-points the canvas at the page as that role meets it, through the SAME
+ * server-gated door the controller's stage used; a role with no door is listed
+ * but cannot be chosen, and says why.
+ */
+function ViewAsSwitch({
+  roles,
+  value,
+  onChange,
+}: {
+  roles: ReadonlyArray<{ role: string; name: string; href: string | null }>;
+  value: string | null;
+  onChange: (role: string | null) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1 rounded-full bg-ink/5 px-2 text-[12px] font-semibold text-ink/70">
+      <span className="whitespace-nowrap">View as</span>
+      <select
+        data-maker-view-as=""
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="h-9 max-w-[9.5rem] cursor-pointer rounded-full bg-transparent pr-1 text-[12.5px] font-semibold text-ink focus:outline-none"
+      >
+        <option value="">You · editing</option>
+        {roles.map((r) => (
+          <option key={r.role} value={r.role} disabled={!r.href}>
+            {r.name}
+            {r.href ? '' : ' — no preview'}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -418,8 +522,11 @@ export function ComingNext({
   align = 'center',
   chip = false,
   small = false,
+  itemKey,
   children,
 }: {
+  /** The bar item this chip is (`data-maker-bar-item`). */
+  itemKey?: string;
   label: string;
   note: string;
   align?: 'center' | 'start' | 'end';
@@ -464,7 +571,7 @@ export function ComingNext({
         aria-expanded={open}
         aria-label={chip ? undefined : label}
         title={chip ? undefined : label}
-        data-maker-bar-item={chip ? 'prints' : undefined}
+        data-maker-bar-item={chip ? (itemKey ?? 'prints') : undefined}
         onClick={() => {
           place();
           setOpen((o) => !o);

@@ -12,9 +12,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { paidMarkLabel, paidMarkState } from './paid-mark';
 
 (globalThis as unknown as { React: unknown }).React = React;
+
+/* ── `server-only` shim (same as money-reads-are-honest.test.ts) — the editor's
+   panels import a server action whose store is `server-only`, which this
+   runner cannot resolve. Rendering them needs the import to succeed, nothing
+   more. */
+type CjsModuleCtor = {
+  _resolveFilename: (request: string, ...rest: unknown[]) => string;
+  _cache: Record<string, unknown>;
+  new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] };
+};
+{
+  const nodeRequire = createRequire(import.meta.url);
+  const CjsModule = (nodeRequire('node:module') as { Module: CjsModuleCtor }).Module;
+  const STUB = path.join(process.cwd(), '__server_only_stub_paid_mark__.js');
+  const stub = new CjsModule(STUB);
+  stub.filename = STUB;
+  stub.loaded = true;
+  stub.exports = {};
+  stub.paths = [];
+  CjsModule._cache[STUB] = stub;
+  const original = CjsModule._resolveFilename;
+  CjsModule._resolveFilename = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only') return STUB;
+    return original.call(this, request, ...rest);
+  };
+}
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 

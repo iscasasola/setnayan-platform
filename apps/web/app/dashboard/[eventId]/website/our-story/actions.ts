@@ -29,6 +29,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveReturnTo } from '@/lib/editor-return';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite } from '@/lib/revalidate-site';
+import { requireHostMembership } from '@/lib/host-gate';
+import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib/hub-draft-store';
+import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import {
   MOMENT_BY_MAX,
   MOMENT_LINE_MAX,
@@ -101,6 +104,11 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
   if (!user) redirect('/login');
 
   const supabase = await createClient();
+  // 💾 From the Event Hub Maker (`<HubDraftField />`) the story goes into the
+  // couple's draft, built on what they already drafted (a moment added in the
+  // scrapbook must survive a words save) — guests keep the live story until Apply.
+  const drafting = isHubDraftWrite(formData);
+  if (drafting) await requireHostMembership(eventId);
 
   // Read the stored blob first so unedited/unknown keys survive the merge.
   const { data: current } = await supabase
@@ -108,9 +116,11 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
     .select('love_story')
     .eq('event_id', eventId)
     .maybeSingle();
+  const draftedStory = drafting ? await draftedEventColumn(eventId, 'love_story') : null;
+  const base: unknown = draftedStory?.drafted ? draftedStory.value : current?.love_story;
   const existing =
-    current?.love_story && typeof current.love_story === 'object'
-      ? (current.love_story as Record<string, unknown>)
+    base && typeof base === 'object' && !Array.isArray(base)
+      ? (base as Record<string, unknown>)
       : {};
   const existingAnchors =
     existing.anchors && typeof existing.anchors === 'object'
@@ -131,6 +141,15 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
   // events.together_since column, and public readers PREFER the column
   // (editorial data.ts, event-brief). Keep both in sync or edits are no-ops.
   const togetherSince = str(formData.get('together_since'), SHORT_MAX);
+
+  if (drafting) {
+    await draftEventsAndReturn(
+      eventId,
+      { love_story: merged, together_since: togetherSince || null },
+      formData,
+      `/dashboard/${eventId}/website/our-story?saved=1&drafted=1`,
+    );
+  }
 
   const { data: event, error } = await supabase
     .from('events')
@@ -234,13 +253,28 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   const intent = intentRaw as MomentIntent;
 
   const supabase = await createClient();
+  /* 💾 THE DRAFT DOOR (2026-09-25). From the scrapbook the moments go into the
+     couple's draft — guests keep the live story until Apply in the Maker. The
+     edit builds on the DRAFTED moments (a second drafted moment must not drop
+     the first), and the cap and the photo screen below run exactly as live:
+     both are the server's, whichever way the save is going. */
+  const drafting = isHubDraftWrite(formData);
+  if (drafting) await requireHostMembership(eventId);
   const { data: current, error: readError } = await supabase
     .from('events')
     .select('love_story')
     .eq('event_id', eventId)
     .maybeSingle();
   if (readError || !current) return fail('Could not open your story. Please try again.');
-  const stored: unknown = current.love_story;
+  let draftedStory: Awaited<ReturnType<typeof draftedEventColumn>> | null = null;
+  if (drafting) {
+    try {
+      draftedStory = await draftedEventColumn(eventId, 'love_story');
+    } catch {
+      return fail('Could not open your draft. Nothing changed — please try again.');
+    }
+  }
+  const stored: unknown = draftedStory?.drafted ? draftedStory.value : current.love_story;
   const existing: Record<string, unknown> =
     stored && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {};
 
@@ -294,15 +328,35 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   const held = new Set(before.flatMap((m) => m.media ?? []));
   const newRefs = [...new Set(after.flatMap((m) => m.media ?? []))].filter((r) => !held.has(r));
   if (newRefs.length > 0) {
-    const blocked = await screenNewRefs(newRefs);
+    const blocked = await screenNewPhotoRefs(newRefs);
     if (blocked.length > 0) {
       after = after.map((m) => (m.media ? { ...m, media: m.media.filter((r) => !blocked.includes(r)) } : m));
     }
   }
 
+  let slotted = '';
+  if (touched && (intent === 'add' || intent === 'edit')) {
+    const chapter = chapterOf(touched, after);
+    slotted = `&slotted=${encodeURIComponent(
+      `${formatMomentDate(touched.date)} · ${LOVE_STORY_CHAPTER_LABEL[chapter]}`,
+    )}#moment-${touched.id}`;
+  }
+
+  // The ONE place the moments are written — the draft and the live row get the same value.
+  const nextStory = { ...existing, moments: storableMoments(after) };
+
+  if (drafting) {
+    await draftEventsAndReturn(
+      eventId,
+      { love_story: nextStory },
+      formData,
+      `${back}?saved=1&drafted=1${slotted}`,
+    );
+  }
+
   const { data: saved, error } = await supabase
     .from('events')
-    .update({ love_story: { ...existing, moments: storableMoments(after) } })
+    .update({ love_story: nextStory })
     .eq('event_id', eventId)
     .select('slug')
     .maybeSingle();
@@ -313,13 +367,6 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   revalidatePath(`/dashboard/${eventId}/website`);
   revalidateGuestSite(saved.slug);
 
-  let slotted = '';
-  if (touched && (intent === 'add' || intent === 'edit')) {
-    const chapter = chapterOf(touched, after);
-    slotted = `&slotted=${encodeURIComponent(
-      `${formatMomentDate(touched.date)} · ${LOVE_STORY_CHAPTER_LABEL[chapter]}`,
-    )}#moment-${touched.id}`;
-  }
   redirect(`${back}?saved=1${slotted}`);
 }
 
@@ -346,24 +393,4 @@ async function myEventPhotoRefs(
     for (const v of all) for (const ref of readMomentMedia([v])) out.add(ref);
   }
   return out;
-}
-
-/** The `updateOurPhotos` screen: any undecidable ref is BLOCKED, never passed. */
-async function screenNewRefs(refs: string[]): Promise<string[]> {
-  const [{ classifyImageBytes, decideNsfw, parseR2Ref }, { readR2Object }, { R2_BUCKETS }] = await Promise.all([
-    import('@/lib/nsfw-screen'),
-    import('@/lib/drive-upload'),
-    import('@/lib/r2'),
-  ]);
-  const blocked: string[] = [];
-  for (const ref of refs) {
-    try {
-      const { bucket, key } = parseR2Ref(ref);
-      const bytes = await readR2Object(key, bucket ?? R2_BUCKETS.media);
-      if (decideNsfw(await classifyImageBytes(bytes)) === 'nsfw_blocked') blocked.push(ref);
-    } catch {
-      blocked.push(ref);
-    }
-  }
-  return blocked;
 }

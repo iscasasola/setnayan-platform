@@ -68,6 +68,14 @@ const DRAFTABLE: Array<[file: string, name: string, divert: RegExp]> = [
   // Maker Phase 6 — the one hero.
   [HERO, 'uploadHeroPhoto', /draftHero\(/],
   [HERO, 'removeHeroPhoto', /draftHero\(/],
+  // 2026-09-25 — the Maker's live savers: colours and the couple's words.
+  ['app/dashboard/[eventId]/website/colors/actions.ts', 'updateSiteColors', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/website/special-message/actions.ts', 'updateSpecialMessage', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/website/what-to-bring/actions.ts', 'updateWhatToBring', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/website/our-story/actions.ts', 'updateOurStory', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/website/our-story/actions.ts', 'loveStoryMomentAction', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/website/dress-code/actions.ts', 'updateDressCode', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/website/photo-moments/actions.ts', 'updatePhotoMoments', /saveHubDraftPatch\(/],
 ];
 
 test('every draftable writer diverts to the draft before its first live write', () => {

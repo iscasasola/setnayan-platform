@@ -1,5 +1,8 @@
 import 'server-only';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { resolveReturnTo } from '@/lib/editor-return';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -13,6 +16,8 @@ import {
   sanitizeHubDraft,
   summarizeHubDraft,
   type HubDraft,
+  type HubDraftEventColumn,
+  type HubDraftEvents,
   type HubDraftPatch,
   type HubDraftSummary,
   type HubLiveState,
@@ -107,6 +112,46 @@ export async function draftedWidgetConfig(
   if (w.canvas === null) delete next.canvas;
   else next.canvas = w.canvas;
   return next;
+}
+
+/**
+ * THE WORDS-AND-COLOURS DOOR — one writer's validated `events` values into the
+ * draft, then back to where the form came from (its `return_to`, the same
+ * field every Maker panel already posts). Never returns.
+ *
+ * Called by `updateSiteColors`, `updateSpecialMessage`, `updateWhatToBring`,
+ * `updateOurStory`, `updateDressCode` and `loveStoryMomentAction` on `draft=1`,
+ * AFTER their own validation and BEFORE their live `.update(` (held per
+ * function by `hub-draft-wiring.test.ts`). Guests see nothing until Apply.
+ */
+export async function draftEventsAndReturn(
+  eventId: string,
+  events: HubDraftEvents,
+  formData: FormData,
+  fallback: string,
+): Promise<never> {
+  await saveHubDraftPatch(eventId, { events });
+  revalidatePath(`/dashboard/${eventId}/website`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/launch`);
+  redirect(resolveReturnTo(formData, fallback));
+}
+
+/**
+ * The drafted value of one `events` column, for a writer about to MERGE into it
+ * (`love_story`: a moment edit must build on the moments already drafted, or a
+ * second drafted moment would silently drop the first). `{ drafted: false }`
+ * when the draft does not hold the column — the writer then builds on live.
+ * A failed read THROWS (`readHubDraft`): building on live after a refused read
+ * would overwrite the couple's drafted work.
+ */
+export async function draftedEventColumn(
+  eventId: string,
+  column: HubDraftEventColumn,
+): Promise<{ drafted: true; value: unknown } | { drafted: false }> {
+  const supabase = await createClient();
+  const draft = await readHubDraft(supabase, eventId);
+  if (!draft || !(column in draft.events)) return { drafted: false };
+  return { drafted: true, value: draft.events[column] };
 }
 
 /** The drafted display orders, by widget type (for a draft-mode reorder). */

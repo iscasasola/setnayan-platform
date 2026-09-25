@@ -103,12 +103,24 @@ test('the pill and the FAB each carry a name of their own', () => {
     `No sn-navfab name — the broken-out FAB shares the pill's bar row, so leaving it in \`root\` makes half ` +
       `the row disappear while the other half stays.`,
   );
-  assert.equal(byName.get('sn-bottomnav'), "nav[aria-label='Primary navigation']");
+  // ⚓ 2026-09-25: the name sits on the anchored DOCK, which holds the bar AND
+  // the moment strip above it. Naming only the <nav> would leave the strip in
+  // `root`, under the sliding page, for 320ms of every tab press.
+  assert.equal(byName.get('sn-bottomnav'), '[data-bottom-dock]');
   assert.equal(byName.get('sn-navfab'), '.sn-vt-fab');
 });
 
 test('each of those selectors still matches a mounted element', () => {
   const bar = readFileSync(join(webRoot, 'app', '_components', 'nav', 'bottom-nav.tsx'), 'utf8');
+  // The element the name is on: ONE `data-bottom-dock` attribute in JSX. A
+  // second would be two docks mounted at once — a duplicate name.
+  const docks = bar.match(/^\s*data-bottom-dock\s*$/gm) ?? [];
+  assert.equal(
+    docks.length,
+    1,
+    `bottom-nav.tsx renders ${docks.length} data-bottom-dock elements — the sn-bottomnav name must reach ` +
+      `exactly one. Zero leaves the whole bottom chrome under the sliding page again.`,
+  );
   const marks = bar.match(/aria-label="Primary navigation"/g) ?? [];
   assert.equal(
     marks.length,

@@ -247,6 +247,36 @@
   }
 
   /*
+   * ⓘ A ROUND ICON BUTTON STAYS ROUND (owner 2026-09-25: *"(i) is not round"*).
+   *
+   * 🔑 ROOT CAUSE: the rule just above. `min-height: 44px` on every <button>
+   * beats a 16px or 22px HEIGHT — so the design foundation's <InfoTip>
+   * (`h-4 w-4 rounded-full`) and the Your Team category ⓘ (`.cat-info`,
+   * 22×22) each rendered 44px TALL at their own width: a capsule standing on
+   * end. Every width, not just the phone — the phone is simply where it was
+   * seen. Nothing about the circles themselves was wrong.
+   *
+   * `.sn-dot-btn` is the one opt-out: it drops the floor, pins the box square
+   * (`aspect-ratio`) and keeps the shape from being squeezed in a flex row. The
+   * touch floor is not given up — an invisible `::after` halo widens the
+   * target past the drawn circle. The halo is 8px each side, not a full 44pt:
+   * these circles sit beside a label or a row's own button, and a 44pt halo
+   * would take taps meant for those.
+   */
+  .sn-dot-btn {
+    position: relative;
+    min-height: 0;
+    aspect-ratio: 1 / 1;
+    flex-shrink: 0;
+  }
+  .sn-dot-btn::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 9999px;
+  }
+
+  /*
    * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
    * buttons; no animation when pressed"; made universal 2026-06-13). We kill
    * the default mobile tap-highlight above, so every button-like control needs
@@ -575,22 +605,35 @@
 }
 
 /*
- * Bottom-clearance for a docked <SubNav>. When a section shelf is on screen it
- * flags <html> — <GuestsSectionSubnav> uses `guests-subnav-docked`,
- * <VendorsSectionSubnav> (Explore/Services takeover) uses the shared
- * `subnav-docked`, and <TeamSummaryChip> (the Marketplace's mobile team chip,
- * which replaced that takeover dock) uses its own `teamchip-docked` so two
- * components can never fight over one class — and the floating pill sits ~76px–132px above the viewport
- * bottom, above the layout's own pb-20 (80px) for the bottom nav. Without extra
- * room the last ~50px of scrolling content would hide behind the pill, so give
- * the shell-main column enough bottom padding to clear it. Mobile-only — the
- * pill is lg:hidden, so cancel the padding on desktop where it would just be
- * dead space.
+ * ⚓ THE PAGE CLEARS THE ANCHORED DOCK (2026-09-25).
+ *
+ * The phone's bottom chrome is ONE anchored box now — <BottomDock> in
+ * bottom-nav.tsx: the moment/section strip (when one is up) attached directly
+ * above the bar, flush to the bottom edge, with the home-indicator inset as
+ * its own padding. It publishes its measured height to `--sn-bottomdock-h`,
+ * and the event layout's content column (`[data-shell-main]`) reserves exactly
+ * that much plus a breath, so the last row of content always ends above the
+ * chrome — strip or no strip, notch or no notch.
+ *
+ * 🔑 WHY A MEASURED VAR AND NOT A NUMBER. The column used to carry a flat
+ * `pb-20` (80px) that never counted the safe area, plus an 8.5rem override
+ * whenever a strip was up. On an iPhone the floating bar's top sat ~110px up,
+ * so the last ~30px of every page hid behind it. A height that changes with
+ * the strip, the labels and the device cannot be one number. The fallback is
+ * the bar's design height, for the first paint before the dock is measured.
+ *
+ * A pill that still floats ABOVE the dock — <TeamSummaryChip> on the Your Team
+ * root, which flags `teamchip-docked` — adds its own room on top. The strip no
+ * longer needs a class of its own (`subnav-docked` used to add 8.5rem): it is
+ * inside the dock, so the dock's height already counts it. Mobile-only — the
+ * dock is lg:hidden, so desktop cancels all of it below.
  */
+[data-shell-main] {
+  padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 1.5rem);
+}
 html.guests-subnav-docked [data-shell-main],
-html.teamchip-docked [data-shell-main],
-html.subnav-docked [data-shell-main] {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8.5rem);
+html.teamchip-docked [data-shell-main] {
+  padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 5.5rem);
 }
 
 /*
@@ -625,9 +668,9 @@ html.subnav-docked [data-shell-main] {
   }
 }
 @media (min-width: 1024px) {
+  [data-shell-main],
   html.guests-subnav-docked [data-shell-main],
-  html.teamchip-docked [data-shell-main],
-  html.subnav-docked [data-shell-main] {
+  html.teamchip-docked [data-shell-main] {
     padding-bottom: 0;
   }
 }
@@ -2364,7 +2407,18 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
  * The two named here are fixed elements already, so they are already the
  * containing block for their own descendants and nothing moves.
  */
-nav[aria-label='Primary navigation'] {
+/*
+ * ⚓ THE NAME MOVED FROM THE BAR TO ITS DOCK (2026-09-25). The bar is now the
+ * bottom row of <BottomDock> (bottom-nav.tsx), with the moment/section strip
+ * as the row above it — ONE fixed box. Naming only the `<nav>` would leave the
+ * strip in `root`, under the sliding page, so on every tab press the strip
+ * would vanish for 320ms while the bar held still. The dock is the element
+ * that is fixed, so it is the one that carries the name; one dock mounts per
+ * doorway (a bar without one wraps itself in one), so the name is still
+ * unique. Its children are static, so "a named element is a containing block
+ * for fixed descendants" moves nothing.
+ */
+[data-bottom-dock] {
   view-transition-name: sn-bottomnav;
 }
 .sn-vt-fab {
@@ -2433,8 +2487,12 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
  * Tailwind `right-[14px]` class, so no `!important`). No FAB → no attr → the pill
  * keeps its full-width `right:14px`.
  */
-html[data-sn-fab] nav[aria-label='Primary navigation'] {
-  right: 78px;
+/* ⚓ 2026-09-25 — the bar is a row of the anchored dock now, not a positioned
+   pill, so it makes room with PADDING instead of a `right` inset: the dock's
+   glass still runs to the edge behind the circle, and only the tabs pull in.
+   The strip row above (when one is up) keeps the full width. */
+html[data-sn-fab] [data-bottom-dock] > nav[aria-label='Primary navigation'] {
+  padding-right: 78px;
 }
 
 /*

@@ -487,7 +487,7 @@ function ExploreInfoToggle() {
         aria-expanded={open}
         aria-controls="explore-info-panel"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-ink/55 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        className="sn-dot-btn inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-ink/55 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <Info className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
       </button>

@@ -183,6 +183,15 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   '/pa3d',
   '/pa3d/try',
   '/setnayan-ai',
+  // The supplier-recruitment marketing page — its whole subject is the vendor
+  // subscription tiers (Solo/Pro/Enterprise), priced live from
+  // getVendorPrices()/vendor_billing_catalog and quoted in its own metadata.
+  // Reachable from the ☰ drawer's footer ("For suppliers") on every surface
+  // this app shell wraps (2026-09-25 audit). Distinct from
+  // `/dashboard/[eventId]/vendors` (a couple's marketplace shortlist — no
+  // prices of its own) and `/vendor-dashboard/subscription` (already refused
+  // by WEB_ONLY_FEATURE_ROUTE below) — this is the public price ladder.
+  '/vendors',
 ]);
 
 /**

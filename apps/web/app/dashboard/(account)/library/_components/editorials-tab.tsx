@@ -207,11 +207,14 @@ function StatusChip({ published }: { published: boolean }) {
   );
 }
 
-/** Best-effort "M & J"-style initials for the no-photo monogram fallback. */
+/** Best-effort "M & J"-style initials for the no-photo monogram fallback.
+ *  🪤 "and" must match only as its OWN WORD — a substring match split
+ *  "amanda & ben" into "am"/"a"/"ben" (owner: "I made A&B Monogram. it showed
+ *  A&A"). See lib/monogram.ts's deriveMonogram, which this mirrors. */
 function deriveInitials(displayName: string): string {
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();
   const parts = cleaned
-    .split(/\s*(?:&|and|\+|\/)\s*/i)
+    .split(/\s*(?:&|\+|\/|\band\b)\s*/i)
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length >= 2) {

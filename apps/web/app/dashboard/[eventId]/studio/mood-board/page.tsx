@@ -828,12 +828,21 @@ export default async function MoodBoardPage({ params }: Props) {
       <PageMasthead title="Mood Board" />
 
       <div className="space-y-6">
-        <Link
-          href={`/dashboard/${eventId}/studio`}
-          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
-        >
-          ‹ Back to add-ons
-        </Link>
+        {/* 🔒 Hidden in the store shell (App Review 3.1.1): the studio hub this
+            points at is the paid add-ons catalogue (Setnayan AI, Pakanta,
+            Animated Monogram, …) — it already filters its OWN grid down to the
+            free tiles for a store-shell visitor, but a native reviewer should
+            never be one tap from a screen framed as "add-ons" in the first
+            place. Mood Board itself stays open (a free planning tool); only
+            this back-link is withheld. */}
+        {storeShell ? null : (
+          <Link
+            href={`/dashboard/${eventId}/studio`}
+            className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+          >
+            ‹ Back to add-ons
+          </Link>
+        )}
 
         {event.mood_board_updated_at ? (
           <p className="-mt-3 text-xs text-ink/55">

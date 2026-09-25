@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { DoorSkin } from '@/app/_components/door/door-shell';
-import type { InviteThemeId } from '@/lib/invite-themes';
+import { inviteDoorFor, type InviteThemeId } from '@/lib/invite-themes';
 import { resolveInviteButton } from '@/lib/invite-button-color';
 import { resolveHubLook, HUB_LOOK_COLUMNS, type HubLookEvent } from '../../_lib/hub-look';
 import { inviteSkin } from '../_components/themes/invite-skin';
@@ -38,7 +38,12 @@ export async function loadInviteLook(event: InviteLookEvent): Promise<{
   const look = await resolveHubLook(event);
   if (look.theme === 'house') return { theme: look.theme, skin: undefined };
 
-  const skin = inviteSkin(look.theme, {
+  /*
+    Ten THEMES open through four door COMPOSITIONS (capiz · velvet · galeriya ·
+    abaca — owner-approved card-on-a-ground designs). The theme names its door
+    (`INVITE_THEMES[id].door`); the page behind the door wears the theme itself.
+  */
+  const skin = inviteSkin(inviteDoorFor(look.theme), {
     photo: look.photo,
     accent: look.accent,
     monogram: look.monogram,

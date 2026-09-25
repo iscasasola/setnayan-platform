@@ -131,7 +131,7 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
     'Editorial editing',
     'Background color',
     'Button color',
-    'Invite link theme',
+    '9 Event Hub themes, invite link included',
     'Animated logo',
   ]) {
     assert.ok(html.includes(item), `"${item}" is one of the nine and must be shown`);

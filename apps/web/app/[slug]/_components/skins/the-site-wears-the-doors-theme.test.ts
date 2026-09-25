@@ -62,6 +62,14 @@ const SITE_DIR = join(WEB, 'app', '[slug]', '_components', 'skins');
 */
 const PAINTED = INVITE_THEME_IDS.filter((id) => id !== 'house' && INVITE_THEMES[id].ready);
 
+/*
+  DOORS = the invite-door COMPOSITIONS the painted themes open through
+  (`INVITE_THEMES[id].door`, 2026-09-25). Ten themes, four compositions: the
+  door's material is keyed on the composition, the page's on the theme. So the
+  door assertions below iterate DOORS, and the page assertions PAINTED.
+*/
+const DOORS: string[] = [...new Set(PAINTED.map((id) => INVITE_THEMES[id].door))].filter((d) => d !== 'house');
+
 /** Every `[data-hub-theme='id'] { … }` body — the SITE's reading of a material. */
 function cssBlocksFor(id: string): string[] {
   const out: string[] = [];
@@ -108,17 +116,18 @@ test('🔒 PAINTED tracks the picker, and an unready theme really is unpaintable
   }
 });
 
-test('every painted theme has a material block, and BOTH surfaces are on it', () => {
-  for (const id of PAINTED) {
-    const block = new RegExp(
-      `\\[data-invite-theme='${id}'\\],\\s*\\n\\[data-hub-theme='${id}'\\] \\{`,
-    );
+test('every door composition has a material block, and every painted theme a page block', () => {
+  assert.ok(DOORS.length >= 4, `only ${DOORS.length} door compositions in use`);
+  for (const id of DOORS) {
     assert.match(
       CSS,
-      block,
-      `${id}: the material block must name BOTH selectors — drop the door's and ` +
-        'its skin renders unpainted, from a change that never mentions colour',
+      new RegExp(`\\[data-invite-theme='${id}'\\][^{]*\\{`),
+      `${id}: the door's material block is gone — its skin renders unpainted, from a change ` +
+        'that never mentions colour',
     );
+  }
+  for (const id of PAINTED) {
+    assert.ok(cssBlocksFor(id).length >= 1, `${id} is offered to couples but paints no page block`);
   }
 });
 
@@ -128,7 +137,9 @@ test('neither surface re-declares a material token', () => {
     [SITE_DIR, 'site'],
   ] as const) {
     const sheets = readdirSync(dir).filter((f) => f.endsWith('.module.css'));
-    assert.ok(sheets.length >= 4, `${label}: found ${sheets.length} theme stylesheets, expected 4+`);
+    // The door keeps its four compositions; the site has none since 2026-09-25
+    // (its ground is the scope's: the theme loop under the page's own paper).
+    if (label === 'door') assert.ok(sheets.length >= 4, `door: found ${sheets.length} theme stylesheets, expected 4+`);
     for (const sheet of sheets) {
       const src = stripComments(readFileSync(join(dir, sheet), 'utf8'));
       const declared = [...src.matchAll(/^\s*(--(?:cz|vl|ga|ab)-[a-z-]+)\s*:/gm)].map((m) => m[1]!);
@@ -198,7 +209,7 @@ test('the door still stamps the attribute its own material is keyed on', () => {
     /data-invite-theme=\{skin\?\.themeId\}/,
     'DoorShell no longer stamps data-invite-theme — every door skin renders unpainted',
   );
-  for (const id of PAINTED) {
+  for (const id of DOORS) {
     const src = stripComments(readFileSync(join(DOOR_DIR, `${id}.tsx`), 'utf8'));
     assert.match(
       src,
@@ -445,51 +456,22 @@ test('a plate reads its own ink, so a dark theme can hold a bright card', () => 
 
 test('no site skin paints its own ground colour — the page\'s paper is the only one', () => {
   /*
-    🔴 THE STRUCTURAL HALF OF THE VELVET BUG, and the reason the contrast test
-    above could not catch it on its own.
+    🔴 THE STRUCTURAL HALF OF THE VELVET BUG: a token and a stylesheet disagreeing
+    about the same plane is not something a colour calculation can see. Velvet's
+    mapping once claimed a near-white paper while its skin painted near-black
+    behind the page.
 
-    Velvet's mapping claimed a near-white paper while its skin painted near-black
-    behind the page. Contrast arithmetic on the TOKEN reads 17:1 and passes; the
-    pixels were unreadable. A token and a stylesheet disagreeing about the same
-    plane is not something a colour calculation can see.
-
-    So the possibility is removed rather than watched: every ground paints
-    `rgb(var(--color-cream))`, the same variable the page computes its ink
-    against. Textures, veils and scrims layer on top — that is what makes each
-    theme look like itself — but the base plane is the page's own paper by
-    construction, and cannot drift from it.
-
-    ⚠ This bans a ground COLOUR, not a ground. `background-image` is untouched:
-    the lattice, the veil, the kraft pull and the hung rule are all still theirs.
+    ✅ Since 2026-09-25 the possibility is removed outright: the site has NO skin
+    stylesheet at all. The only ground behind a guest page is `GuestLookScope`'s
+    — `bg-cream` (the page's own paper), the theme's loop, and a scrim painted in
+    `rgb(var(--color-cream) / …)`, the very variable every ink is computed against.
   */
-  const dir = SITE_DIR;
-  const sheets = readdirSync(dir).filter((f) => f.endsWith('.module.css'));
-  assert.equal(sheets.length, 4, `expected 4 site skins, found ${sheets.length}`);
-  for (const sheet of sheets) {
-    const src = stripComments(readFileSync(join(dir, sheet), 'utf8'));
-    const ground = /\.ground \{([^}]*)\}/.exec(src);
-    assert.ok(ground, `${sheet} has no .ground rule — re-anchor this guard rather than deleting it`);
-    assert.match(
-      ground[1]!,
-      /background-color:\s*rgb\(var\(--color-cream\)\)/,
-      `${sheet}'s .ground does not paint rgb(var(--color-cream)) — its ground and the page's ` +
-        'ink would be free to describe different planes, which is exactly what shipped',
-    );
-    /*
-      🪤 THE FIRST VERSION USED A NEGATIVE LOOKAHEAD — `\s*(?!rgb\(var\(--color-cream\)\))`
-      — and it convicted every correct file. `\s*` can match ZERO characters, so
-      the engine backtracks, puts the lookahead in front of the SPACE, sees that
-      " rgb(…" is not "rgb(…", and matches the very value it was written to
-      exempt. A lookahead behind a variable-width match is a lookahead you can
-      step around. So the values are parsed and compared as strings instead.
-    */
-    const own = [...ground[1]!.matchAll(/background(?:-color)?:([^;]+);/g)]
-      .map((m) => m[1]!.trim())
-      .filter((v) => v !== 'rgb(var(--color-cream))');
-    assert.deepEqual(
-      own,
-      [],
-      `${sheet}'s .ground paints a second base colour of its own`,
-    );
-  }
+  const sheets = readdirSync(SITE_DIR).filter((f) => f.endsWith('.module.css'));
+  assert.deepEqual(sheets, [], `the site grew a skin stylesheet again: ${sheets.join(', ')}`);
+  const scope = stripComments(read('app', '[slug]', '_components', 'guest-look-scope.tsx'));
+  const ground = scope.slice(scope.indexOf('function GuestGround'));
+  assert.ok(ground.length > 100, 'GuestGround is gone — re-anchor this guard rather than deleting it');
+  assert.match(ground, /fixed inset-0 -z-10 bg-cream/, 'the ground no longer paints the page\'s own paper');
+  assert.match(ground, /rgb\(var\(--color-cream\) \/ /, 'the scrim is not the page\'s own paper');
+  assert.doesNotMatch(ground, /backgroundColor:\s*['"`]#/, 'the ground paints a literal colour of its own');
 });

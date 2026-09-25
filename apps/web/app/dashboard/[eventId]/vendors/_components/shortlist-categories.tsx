@@ -558,6 +558,12 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
    beside a category name, the "Not needed? Remove" line at the foot of an open
    category, and the "＋ Add to your event" chip pool at the foot of a folder.
    Every token is the bench's own — no new colour, no new type scale. */
+/* The two head buttons SHRINK in their rows (2026-09-25). Each is 'width:100%' in a
+   flex row beside its ⓘ (and the saved-request icon); a flex item's automatic
+   minimum is its min-content, and the name inside is 'nowrap', so the head
+   refused to shrink and pushed the ⓘ past the right edge of a phone — clipped.
+   'min-width:0' lets the head give way; the name already ellipsises. */
+.slcat .cat-head-row>.cat-head,.slcat .fold-head-row>.fold-head{min-width:0}
 .slcat .cat-info{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 auto;margin-left:6px;padding:0;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:var(--m-r-full);cursor:pointer;font:inherit;font-family:var(--serif);font-style:italic;font-size:12px;font-weight:600;line-height:1;transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
 .slcat .cat-info:hover{background:rgba(30,26,18,.07);color:var(--mulberry)}
 .slcat .cat-info[aria-expanded='true']{background:rgba(169,131,75,.16);border-color:var(--gold);color:var(--gold-deep)}
@@ -2956,7 +2962,7 @@ export function ShortlistCategories({
                 levels look and behave identically. */}
             <button
               type="button"
-              className="cat-info"
+              className="cat-info sn-dot-btn"
               aria-expanded={hintFolder === folder.folder}
               aria-label={folderHintButtonLabel(folder.label)}
               title={folderHintButtonLabel(folder.label)}
@@ -3159,7 +3165,7 @@ export function ShortlistCategories({
                         {hint ? (
                           <button
                             type="button"
-                            className="cat-info"
+                            className="cat-info sn-dot-btn"
                             aria-expanded={hintTile === t.tile}
                             aria-label={categoryHintButtonLabel(t.label)}
                             title={categoryHintButtonLabel(t.label)}

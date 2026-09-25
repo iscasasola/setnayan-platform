@@ -114,7 +114,7 @@ export function InfoTip({
         onClick={() => dispatch({ type: 'click' })}
         onFocus={() => dispatch({ type: 'focus' })}
         onBlur={() => dispatch({ type: 'blur' })}
-        className="sn-press inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
+        className="sn-press sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
       >
         <span aria-hidden="true">i</span>
       </button>

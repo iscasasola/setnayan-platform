@@ -762,6 +762,29 @@ export function FrontDoorShell({
   const MainEl = ownsMain ? 'div' : 'main';
   const pathname = usePathname();
   const router = useRouter();
+
+  /*
+    ☰ ARRIVING SOMEWHERE CLOSES THE DRAWER (iOS app, 2026-09-25). Tapping
+    "Galleries" in the drawer navigated BEHIND it — the page changed under a
+    drawer that stayed open until the scrim was tapped. A drawer row is a
+    door: once the route has changed, the drawer has done its job.
+
+    🔑 KEYED ON THE PATH CHANGING, NOT ON THE ROW BEING TAPPED. A click
+    handler on each row would miss every other way the route moves while the
+    drawer is up (the back gesture, a link inside the drawer's own header, a
+    redirect) and would have to be remembered on each new row. The previous
+    path is held in a ref so opening the drawer — which re-runs this effect —
+    is never mistaken for arriving. `closeRail` animates it shut, exactly as
+    the scrim does; the foldables close above (`railIsInline`) stays the
+    instant one, because at that width there is no drawer to slide.
+  */
+  const drawerPath = useRef(pathname);
+  useEffect(() => {
+    if (drawerPath.current === pathname) return;
+    drawerPath.current = pathname;
+    if (railOpen && !railClosing) closeRail();
+  }, [pathname, railOpen, railClosing, closeRail]);
+
   /*
     ⚠ EXACT PATH MATCH, read during render so the class is server-rendered
     rather than applied in an effect after paint. `usePathname()` already

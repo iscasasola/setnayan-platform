@@ -30,11 +30,20 @@
  * Owner-locked baseline 2026-06-13: 500ms · grow 1.15 · glow 1.2 ·
  * stretch 1.1 · white light.
  *
- * SCOPE: mobile-only (`lg:hidden`). A FLOATING PILL bar — inset 14px from
- * each edge, floating 12px above the safe-area, fully rounded (NOT an
- * edge-to-edge strip). Evenly distributed columns, one per item up to 6
- * (the customer 6-tab row); the active pill is a consistent centered
- * capsule so 3/4/5/6-tab bars all read the same.
+ * SCOPE: mobile-only (`lg:hidden`). ⚓ AN ANCHORED BAR (2026-09-25) — it
+ * sits FLUSH on the bottom edge inside <BottomDock>, edge to edge, and the
+ * dock's own padding covers the home-indicator safe area, so nothing scrolls
+ * visibly beneath it. It USED to be a floating pill (inset 14px, 12px above
+ * the safe area, rounded-full — owner-locked 2026-06-13). The owner, testing
+ * the iOS app on 2026-09-25: *"the bottom nav is not fixed."* It was
+ * `position: fixed` all along; what read as loose was the page showing
+ * through the 12px gap and the 14px margins, which a native tab bar never
+ * does (DESIGN_BRIEF_2026-09-24, Mobile Portrait: "a persistent bottom
+ * navigation bar", native app shell). The interaction lock — the traveling
+ * pill, the press light, the icon grow, the four knobs — is untouched: those
+ * are INSIDE the bar. Evenly distributed columns, one per item up to 6; the
+ * active pill is a consistent centered capsule so 3/4/5/6-tab bars all read
+ * the same.
  *
  * ACTIVE DETECTION: each item's `activeMatch` accepts a single prefix
  * string OR an array of prefixes (any-of). Match is exact-equal OR
@@ -42,9 +51,14 @@
  * so `/budgets` never mis-matches `/budget`. `activeMatchExact` suppresses
  * the startsWith branch for Home-style tabs that prefix every sibling.
  *
- * SAFE-AREA: the bar's bottom offset is `calc(env(safe-area-inset-bottom)
- * + 12px)`, floating it clear of the iOS home indicator. Z-INDEX: z-30
- * (same layer as <SidebarShell>).
+ * SAFE-AREA: the DOCK pads its own bottom by `env(safe-area-inset-bottom)`,
+ * so the tabs clear the iOS home indicator while the glass reaches the very
+ * edge. Z-INDEX: z-30 (same layer as <SidebarShell>).
+ *
+ * ONE DOCK, NEVER TWO PILLS: a section/moment strip (<SubNav>) renders INSIDE
+ * the same <BottomDock>, directly above the tabs, as one unit. Mount
+ * `<BottomDock>{strip}{bar}</BottomDock>`; a bar mounted without a dock
+ * wraps itself in one, so the vendor and admin doorways are anchored too.
  *
  * ──────────────────────────────────────────────────────────────────────
  * ACCORDION MODE (0021 ADDENDUM · owner-locked 2026-06-15). A strictly
@@ -63,7 +77,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -71,6 +87,8 @@ import {
 } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
+import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { useIsStoreShell } from '@/lib/use-store-shell';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -127,11 +145,30 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+/**
+ * The tabs a bar may DRAW in the App Store / Play Store shell: every item whose
+ * door `lib/store-shell.ts` refuses is dropped, and the grid is sized from what
+ * is left — so the remaining tabs re-spread instead of leaving a gap.
+ *
+ * 🔑 THE NET, NOT THE FILTER. The couple's bar never hands this a refused tab:
+ * `buildEventMenuSections` drops it server-side (`storeShellRefusesMenuRow`),
+ * so the first paint is already right. This catches a doorway that forgets —
+ * the vendor and admin bars, or a tab added tomorrow. Before it, the only
+ * thing between a refused tab and the bar was `StoreShellLinkGuard`, which
+ * hides the `<a>` and leaves its `<li>` holding a grid column: the blank slot
+ * the owner saw between Overview and Your Team (2026-09-25).
+ */
+export function barItemsForShell<T extends { href: string }>(items: T[], storeShell: boolean): T[] {
+  if (!storeShell) return items;
+  return items.filter((it) => !isStoreShellWebOnlyPath(it.href.split('#')[0]!.split('?')[0]!));
+}
+
 export function BottomNav(props: Props) {
+  const storeShell = useIsStoreShell();
   if (props.menus) {
-    return <BottomNavAccordion menus={props.menus} />;
+    return <BottomNavAccordion menus={barItemsForShell(props.menus, storeShell)} />;
   }
-  return <BottomNavFlat items={props.items ?? []} />;
+  return <BottomNavFlat items={barItemsForShell(props.items ?? [], storeShell)} />;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -645,19 +682,96 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
 
 /* ── shared chrome ─────────────────────────────────────────────────────── */
 
-/** The floating frosted-glass pill shell + the four central tuning knobs.
- *  Shared by both the flat and accordion render paths so the bar geometry +
- *  the --bn-* knobs stay a single source of truth (lint guard markers live
- *  here). */
+/* ── the dock: ONE anchored unit for the strip and the bar ─────────────── */
+
+/**
+ * True inside a <BottomDock>. A <BottomNav> or <SubNav> that reads `true`
+ * renders IN the dock's flow (no `fixed` of its own); a bar that reads `false`
+ * wraps itself in a dock — so no doorway can mount a bar that floats.
+ */
+const BottomDockContext = createContext(false);
+
+/** Is this component rendering inside a <BottomDock>? */
+export function useInBottomDock(): boolean {
+  return useContext(BottomDockContext);
+}
+
+/**
+ * <BottomDock> — the phone's bottom chrome, ANCHORED (owner 2026-09-25: *"the
+ * bottom nav is not fixed"*).
+ *
+ * One `fixed` box, flush to the bottom edge and edge to edge, whose own
+ * padding covers `env(safe-area-inset-bottom)` — so the glass reaches the
+ * screen's edge and nothing scrolls visibly beneath it, the way a native tab
+ * bar sits. Its children stack top to bottom: the moment/section strip (when
+ * one is up), then the bar. That is what "the moment strip docks above the
+ * bar" means — ATTACHED, one unit — rather than a second pill floating over
+ * the page with content showing between the two (as measured in the iOS
+ * simulator on the Event Hub Controller, 2026-09-25).
+ *
+ * It publishes its REAL height to `--sn-bottomdock-h`, which globals.css
+ * turns into the page's bottom padding (`[data-shell-main]`), so the last row
+ * of content always clears the dock whether or not a strip is up.
+ *
+ * 🔒 The fill is the bar's locked frosted paper (`rgba(248, 246, 240, 0.92)`,
+ * NAV-9 — the white press light reads against it). It moved from the pill to
+ * the dock so the strip and the bar are one surface. No border: depth (blur +
+ * shadow) separates chrome from page (house style 2026-09-24).
+ *
+ * The view-transition name `sn-bottomnav` sits on THIS box (globals.css), so
+ * the strip rides above the sliding page with the bar instead of vanishing
+ * under it for 320ms on every tab press.
+ */
+export function BottomDock({ children }: { children: ReactNode }) {
+  const dockRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const root = document.documentElement;
+    const publish = () =>
+      root.style.setProperty(
+        '--sn-bottomdock-h',
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      // A doorway without a dock must not inherit this one's clearance.
+      root.style.removeProperty('--sn-bottomdock-h');
+    };
+  }, []);
+
+  return (
+    <BottomDockContext.Provider value={true}>
+      <div
+        ref={dockRef}
+        data-bottom-dock
+        className="fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur lg:hidden"
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          background: 'rgba(248, 246, 240, 0.92)', // --m-paper-2 @ 92% alpha
+          // Cast UPWARD: the page is above the dock, not below it.
+          boxShadow: '0 -10px 30px -14px rgba(30, 34, 41, 0.28)',
+        }}
+      >
+        {children}
+      </div>
+    </BottomDockContext.Provider>
+  );
+}
+
+/** The bar itself + the four central tuning knobs. Shared by both the flat
+ *  and accordion render paths so the bar geometry + the --bn-* knobs stay a
+ *  single source of truth (lint guard markers live here). */
 function NavShell({ children }: { children: ReactNode }) {
-  // Publish the pill's REAL rendered height to a CSS var (--sn-bottomnav-h) so
-  // anything that stacks above the bar — the docked <SubNav> — can sit a fixed
-  // gap above it WITHOUT hardcoding the bar's height. Fail-proof: a
-  // ResizeObserver keeps the var in sync with whatever the bar actually renders
-  // (label changes, tab count, font scaling, safe-area), so the sub-nav gap can
-  // never drift or overlap. Falls back to the 64px design height until measured
-  // (SSR / pre-hydration), so the default position is already correct.
+  // Publish the bar's REAL rendered height to a CSS var (--sn-bottomnav-h) so
+  // anything that sits against the bar row — the <NavFab> centres itself in
+  // it, the Your Team chip docks above it — reads the measured height rather
+  // than a guess. Falls back to the 64px design height until measured.
   const shellRef = useRef<HTMLElement>(null);
+  const docked = useInBottomDock();
   useEffect(() => {
     const el = shellRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -672,23 +786,16 @@ function NavShell({ children }: { children: ReactNode }) {
     return () => ro.disconnect();
   }, []);
 
-  return (
+  const bar = (
     <nav
       ref={shellRef}
       aria-label="Primary navigation"
-      className="fixed left-[14px] right-[14px] bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 overflow-hidden rounded-full border backdrop-blur lg:hidden"
+      // IN the dock's flow — never `fixed` itself. The dock is the anchored
+      // box; the bar is its bottom row. `px-1.5` keeps the outer tabs' pills
+      // off the screen edge now that the bar runs edge to edge.
+      className="relative w-full px-1.5"
       style={
         {
-          // FLOATING PILL bar (owner-locked 2026-06-13 "long floating pill,
-          // use as the template"). Inset 14px from each edge, floating 12px
-          // above the safe-area, fully rounded (rounded-full) — NOT an
-          // edge-to-edge bottom strip. Frosted-glass: slightly desaturated
-          // paper so the WHITE press light reads against it (a white glow on
-          // pure white is invisible — same reason Instagram's bar is grey).
-          background: 'rgba(248, 246, 240, 0.92)', // --m-paper-2 @ 92% alpha
-          borderColor: 'var(--m-line)',
-          // Soft drop shadow gives the "floating above the page" read.
-          boxShadow: '0 10px 30px -12px rgba(30, 34, 41, 0.35)',
           // 🔒 The four central tuning knobs (owner-locked baseline 2026-06-13).
           // Retune the whole app's nav feel by editing ONLY these four.
           '--bn-dur': '500ms',
@@ -701,6 +808,10 @@ function NavShell({ children }: { children: ReactNode }) {
       {children}
     </nav>
   );
+
+  // A bar mounted without a dock (the vendor and admin doorways) docks
+  // itself, so every bottom bar in the app is anchored the same way.
+  return docked ? bar : <BottomDock>{bar}</BottomDock>;
 }
 
 /** The traveling dark stadium pill (--m-ink @ 15%) — travels on release with
@@ -846,12 +957,20 @@ function BottomNavTab({
         </span>
         {/* Label collapses to nothing in compact mode (height + fade) — only the
             text is lost, the icon above is untouched. Kept in the DOM (not
-            unmounted) so the accessible name survives and the transition runs. */}
+            unmounted) so the accessible name survives and the transition runs.
+
+            ⚠ TWO LINES, NEVER AN ELLIPSIS (2026-09-25). On a 390pt phone the
+            fifth tab read "Event Hub …". The fix is NOT a shorter word: owner
+            ruling 2026-09-03 — "Event Hub" is the GUEST site, "Event Hub
+            Controller" is this dashboard (`the-hub-and-its-controller-are-two-
+            words.test.ts`) — so the bar may not say the guest word. The binding
+            drawing (`event_menu_by_moment_2026-09-24.html`, `.bb label`) wraps a
+            long label onto a second centred line instead, and so does this. */}
         <span
-          className="max-w-full truncate whitespace-nowrap text-[10px] tracking-wide"
+          className="line-clamp-2 max-w-full break-words text-center text-[10px] leading-[1.1] tracking-wide"
           style={{
             fontWeight: active ? 600 : 400,
-            maxHeight: compact ? 0 : 16,
+            maxHeight: compact ? 0 : 24,
             opacity: compact ? 0 : 1,
             overflow: 'hidden',
             transition: 'max-height 200ms ease, opacity 150ms ease',
@@ -944,7 +1063,7 @@ function AccordionCell({
         ) : null}
       </span>
       <span
-        className="max-w-full truncate whitespace-nowrap text-[10px] tracking-wide"
+        className="line-clamp-2 max-w-full break-words text-center text-[10px] leading-[1.1] tracking-wide"
         style={{ fontWeight: active ? 600 : 400 }}
       >
         {item.label}

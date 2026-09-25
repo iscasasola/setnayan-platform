@@ -79,6 +79,9 @@ export function buildCustomerNavGroups(
     phase?: MenuLifecyclePhase;
     /** The event's Studio products, plain data from `railToolsSignedIn`. */
     studioRows?: ReadonlyArray<EventStudioRow>;
+    /** The App Store / Play Store shell — refused rows are dropped by the one
+     *  tree (`storeShellRefusesMenuRow`), on the rail and ☰ drawer too. */
+    storeShell?: boolean;
   },
 ): NavGroup[] {
   // The Guests head-count badge, built ONCE by the shared helper that the
@@ -92,6 +95,7 @@ export function buildCustomerNavGroups(
     websiteEnabled: opts?.websiteEnabled,
     seatingEnabled: opts?.seatingEnabled,
     studioRows: opts?.studioRows,
+    storeShell: opts?.storeShell,
   }).map((section) => ({
     key: section.key,
     label: section.label,

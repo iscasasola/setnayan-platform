@@ -60,9 +60,11 @@ export function NavFab({
       aria-label={label}
       className="sn-vt-fab fixed right-[14px] z-30 flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform active:scale-95 motion-reduce:transition-none lg:hidden"
       style={{
-        // Centered in the bar row: the pill floats 12px above the safe-area inset
-        // and is `--sn-bottomnav-h` tall; center the 56px circle within that.
-        bottom: 'calc(env(safe-area-inset-bottom) + 12px + (var(--sn-bottomnav-h, 64px) - 56px) / 2)',
+        // Centered in the bar row: the bar is the ANCHORED dock's bottom row
+        // (2026-09-25), sitting directly on the safe-area inset, and is
+        // `--sn-bottomnav-h` tall; center the 56px circle within that. (It used
+        // to add the floating pill's 12px lift, which no longer exists.)
+        bottom: 'calc(env(safe-area-inset-bottom) + (var(--sn-bottomnav-h, 64px) - 56px) / 2)',
         background: 'var(--m-mulberry)',
         boxShadow: 'var(--m-shadow-md)',
       }}

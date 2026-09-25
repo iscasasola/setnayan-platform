@@ -27,8 +27,10 @@
  *
  * Self-gates: renders only while the pathname is inside a menu's narrow
  * `sectionMatch` AND that menu has children — null everywhere else (so it never
- * double-stacks). Flags `html.subnav-docked` while docked → globals.css pads the
- * page bottom clear of the floating pill.
+ * double-stacks). It renders INSIDE the layout's <BottomDock>, so it is the
+ * dock's top row, attached to the bar; the page's bottom padding follows the
+ * dock's measured height, so no class on <html> is needed any more (the
+ * `subnav-docked` flag it used to set had nothing left reading it, 2026-09-25).
  */
 
 import { useEffect, useState } from 'react';
@@ -60,6 +62,7 @@ export function CustomerSectionSubnav({
   seatingEnabled,
   studioRows,
   slug,
+  storeShell,
 }: {
   eventId: string;
   eventDate: string | null;
@@ -82,6 +85,9 @@ export function CustomerSectionSubnav({
   /** The event's public slug — points the "Launch" child at the couple's live
    *  personal website (`/[slug]`). Resolved from the event row in layout.tsx. */
   slug?: string | null;
+  /** The App Store / Play Store shell — the strip never offers a chip the app
+   *  would answer with /web-only (e.g. Setnayan AI on the Suite). */
+  storeShell?: boolean;
 }) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -94,7 +100,7 @@ export function CustomerSectionSubnav({
     setDayOfOpen(isDayOfOpen(eventDate, new Date()));
   }, [eventDate]);
 
-  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase, hideKeys, websiteEnabled, seatingEnabled, slug, studioRows });
+  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase, hideKeys, websiteEnabled, seatingEnabled, slug, studioRows, storeShell });
   const activeMenu = tree.find((m) => matchesMenuSection(pathname, m)) ?? null;
 
   /*
@@ -122,7 +128,7 @@ export function CustomerSectionSubnav({
     ? null
     : eventMomentForPath(
         pathname,
-        buildEventMenuSections(eventId, { phase, hideKeys, websiteEnabled, seatingEnabled, studioRows }),
+        buildEventMenuSections(eventId, { phase, hideKeys, websiteEnabled, seatingEnabled, studioRows, storeShell }),
       );
   // Each chip lights by the claim covering THIS page — incl. a product
   // absorbed into its row (`/plan3d` → Seat plan). See `eventMomentChildren`.
@@ -199,15 +205,6 @@ export function CustomerSectionSubnav({
     // children is rederived each render; pathname is the real entry signal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inSection, hasAnchorChildren, pathname]);
-
-  // While docked, flag <html> so globals.css pads the page bottom clear of the
-  // floating pill (shared `subnav-docked` class). Reverses on leaving the section.
-  useEffect(() => {
-    if (!inSection) return;
-    const el = document.documentElement;
-    el.classList.add('subnav-docked');
-    return () => el.classList.remove('subnav-docked');
-  }, [inSection]);
 
   if (!inSection) return null;
 

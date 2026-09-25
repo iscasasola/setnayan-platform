@@ -43,7 +43,7 @@ import { invitationCard } from '@/app/[slug]/_lib/invitation-card';
 import type { EventWords } from '@/app/[slug]/_lib/event-words';
 import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { relativeLuminance } from '@/lib/booth-studio';
-import type { InviteThemeId } from '@/lib/invite-themes';
+import { inviteDoorFor, type InviteThemeId } from '@/lib/invite-themes';
 
 export type PosterKind = 'quiet' | 'photo' | 'deep' | 'moon' | 'invitation';
 
@@ -51,7 +51,8 @@ export type EventPosterFacts = {
   kind: PosterKind;
   /** The validated accent hex, or null. Never an unchecked column value. */
   accent: string | null;
-  /** Deep only: draw the Capiz panes (the invite wears Capiz). */
+  /** Deep only: draw the Capiz panes — the invite opens through the capiz door
+   *  (Vintage, Cinderella, Regency since the ten themes, 2026-09-25). */
   capiz: boolean;
   /** True when the art is dark enough that chips and the strip go dark glass. */
   dark: boolean;
@@ -133,7 +134,7 @@ export function posterFor(input: {
     return { ...base, kind: 'photo', dark: true, photoSrc: input.heroSrc };
   }
   if (accent && whiteContrastOn(accent) >= WHITE_TYPE_MIN_CONTRAST) {
-    return { ...base, kind: 'deep', dark: true, capiz: input.theme === 'capiz' };
+    return { ...base, kind: 'deep', dark: true, capiz: inviteDoorFor(input.theme) === 'capiz' };
   }
   if (accent) {
     return { ...base, kind: 'moon', dark: false };

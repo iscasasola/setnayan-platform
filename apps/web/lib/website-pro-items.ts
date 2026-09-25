@@ -44,10 +44,12 @@ export const WEBSITE_PRO_ITEMS = [
   'Editorial editing',
   'Background color',
   'Button color',
-  // The invite link's theme (owner Q3 = A, 2026-09-11). Spelt to sit beside its
-  // siblings; the couple meets it as "How your invite looks" on
-  // Guests → Invite link, which is the only place it is set.
-  'Invite link theme',
+  // The NINE Pro themes (owner 2026-09-24/25: "themes are part of pro except
+  // classic"; build plan Phase 3: "Invite link theme" → "9 themes"). Still names
+  // the invite link, because the theme dresses the invite door too — and the
+  // number is the registry's count of Pro themes, held by
+  // `says-what-it-includes.test.ts` so the copy cannot outlive it.
+  '9 Event Hub themes, invite link included',
   // The logo animation (owner 2026-09-24, "A then"). Granted by the
   // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO alias; the couple meets it on the
   // Logo Maker, where the owned state reads "Included with Event Hub Pro".

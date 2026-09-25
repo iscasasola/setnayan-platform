@@ -79,6 +79,11 @@ const code = (src: string) => stripComments(src);
 
 const THEMES_DIR = 'app/[slug]/invite/_components/themes';
 
+/** The door compositions the ready themes open through, House included. */
+const LIVE_DOORS: string[] = [
+  ...new Set(INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].ready).map((id) => INVITE_THEMES[id].door)),
+];
+
 /* ══════════════════════════════════════════════════════════════════════════
    THE MODEL
    ══════════════════════════════════════════════════════════════════════════ */
@@ -195,8 +200,9 @@ test('the model reproduces the browser — all 30 measured cells, within 4px', (
 test('"Continue" is above the fold on every live theme, at 27 characters and at 45', () => {
   const rows: string[] = [];
   const over: string[] = [];
-  for (const themeId of INVITE_THEME_IDS) {
-    if (!INVITE_THEMES[themeId].ready) continue;
+  // The door is drawn by its COMPOSITION (`INVITE_THEMES[id].door`) — ten themes,
+  // five doors — so each live door is measured once.
+  for (const themeId of LIVE_DOORS) {
     for (const name of [SHORT, LONG, LONGEST]) {
       // The venue line is the case a real couple has, so it is the one asserted.
       const y = Math.round(actionY(themeId, name, { venue: true }));
@@ -287,8 +293,8 @@ test('the zoom rule exists, is scoped to a door, and only applies where there is
    ══════════════════════════════════════════════════════════════════════════ */
 
 test('every live theme is modelled, and the modelled name size is the size its skin sets', () => {
-  const live = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].ready);
-  assert.ok(live.length >= 5, `only ${live.length} themes are ready — all five have shipped, and this rule derives its set, so a derivation that stopped matching reads exactly like a pass`);
+  const live = LIVE_DOORS;
+  assert.ok(live.length >= 5, `only ${live.length} doors are live — House and four compositions have shipped, and this rule derives its set, so a derivation that stopped matching reads exactly like a pass`);
   const missing = live.filter((id) => !MODEL[id]);
   assert.deepEqual(
     missing,

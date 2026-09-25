@@ -1,5 +1,5 @@
 import type { DoorSkin } from '@/app/_components/door/door-shell';
-import type { InviteThemeId } from '@/lib/invite-themes';
+import type { InviteDoorId } from '@/lib/invite-themes';
 import { abacaSkin } from './abaca';
 import { capizSkin } from './capiz';
 import { galeriyaSkin } from './galeriya';
@@ -16,12 +16,12 @@ export type InviteSkinInput = {
 };
 
 /**
- * The skin for a RESOLVED theme (lib/invite-themes.ts `resolveInviteTheme`).
- * House is the bare door — no skin — and so is any theme whose skin has not
- * shipped, which `resolveInviteTheme` already turns into House.
+ * The skin for a door COMPOSITION — `inviteDoorFor(resolvedTheme)`. Ten themes
+ * open through these four (lib/invite-themes.ts `door`); House is the bare door
+ * and has no skin.
  */
-export function inviteSkin(theme: InviteThemeId, input: InviteSkinInput): DoorSkin | undefined {
-  switch (theme) {
+export function inviteSkin(door: InviteDoorId, input: InviteSkinInput): DoorSkin | undefined {
+  switch (door) {
     case 'capiz':
       return capizSkin(input);
     case 'velvet':

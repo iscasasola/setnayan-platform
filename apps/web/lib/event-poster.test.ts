@@ -51,7 +51,7 @@ test('a wake keeps its quiet masthead — even with a photo and a colour set', (
 });
 
 test('the couple’s own hero photo wins over their colour and their theme', () => {
-  const p = posterFor({ ...base, heroSrc: 'https://r2.example/hero.jpg', accent: '#9a244f', theme: 'capiz' });
+  const p = posterFor({ ...base, heroSrc: 'https://r2.example/hero.jpg', accent: '#9a244f', theme: 'vintage' });
   assert.equal(p.kind, 'photo');
   assert.equal(p.photoSrc, 'https://r2.example/hero.jpg');
   assert.equal(p.dark, true);
@@ -64,7 +64,7 @@ test('a colour that carries white type → deep; Capiz panes only when the invit
   assert.equal(plain.kind, 'deep');
   assert.equal(plain.capiz, false);
   assert.equal(plain.accent, '#9a244f', 'the accent is normalised');
-  const capiz = posterFor({ ...base, accent: '#9a244f', theme: 'capiz' });
+  const capiz = posterFor({ ...base, accent: '#9a244f', theme: 'vintage' });
   assert.equal(capiz.kind, 'deep');
   assert.equal(capiz.capiz, true);
 });

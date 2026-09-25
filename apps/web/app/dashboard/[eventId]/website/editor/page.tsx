@@ -8,7 +8,16 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
-import { EditorShell, type RailGroup } from './_components/editor-shell';
+import {
+  MakerWork,
+  type MakerRowPanel,
+  type MakerScene,
+  type RailGroup,
+} from './_components/editor-shell';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
    what returned a 500 for the whole editor (production 2026-09-23, digest
@@ -77,13 +86,16 @@ import {
 } from '@/lib/website-section-content';
 import {
   isWidgetType,
+  WIDGET_CATALOG_BY_TYPE,
   visibleHideableWidgets,
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
 import { updateSpecialMessage } from '../special-message/actions';
 import { updateWhatToBring } from '../what-to-bring/actions';
 
-export const metadata = { title: 'Website editor' };
+/* No `metadata` of its own: opened directly this page only forwards, and inside
+   the Maker the Maker's page names the tab. Only ONE surface may declare
+   "Event Hub Maker" (`one-event-hub-door.test.ts`). */
 
 /**
  * /dashboard/[eventId]/website/editor — THE unified website editor
@@ -101,16 +113,33 @@ export const metadata = { title: 'Website editor' };
  * them to inline panels calling those SAME server actions (never a new write
  * path). Entitlement presentation only — the Pro gating truth stays in the
  * per-editor gates shipped in PR #3664.
+ *
+ * ══ 2026-09-25 · THIS IS NOW THE EVENT HUB MAKER'S WORK AREA ══
+ * (`EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md` Phase 1.) The Maker lives at
+ * `/dashboard/[eventId]/launch` — menu key `launch`, owner "label change only".
+ * That page renders THIS component inside its full-screen shell with
+ * `maker=1`, and every panel below is built exactly as before — same reads,
+ * same bound actions, same Pro locks — then handed to `MakerWork`, which lays
+ * them out as navigator · canvas · inspector instead of a rail.
+ * Opened directly (a bookmark, an old link, a save that returns here), it
+ * redirects into the Maker, carrying `?open=` / `?pin=` so the row the couple
+ * was on is the row they land on.
  */
 export default async function WebsiteEditorPage({
   params,
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ open?: string; pin?: string }>;
+  searchParams: Promise<{ open?: string; pin?: string; maker?: string; scene?: string; chain?: string }>;
 }) {
   const { eventId } = await params;
-  const { open: openRow, pin: pinResult } = await searchParams;
+  const {
+    open: openRow,
+    pin: pinResult,
+    maker: inMaker,
+    scene: sceneParam,
+    chain: chainParam,
+  } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -119,7 +148,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -185,18 +214,32 @@ export default async function WebsiteEditorPage({
   );
   const initialPhase = pinnedPhase ?? clockPhase;
 
+  /* Opened on its own — not from inside the Maker — this address forwards to
+     the Maker, on the stage the site is in today and on the row the couple was
+     editing. The panels' saves still name this path; this is where they land. */
+  if (inMaker !== '1') {
+    const q = new URLSearchParams({ stage: initialPhase });
+    if (typeof openRow === 'string') q.set('open', openRow);
+    if (typeof pinResult === 'string') q.set('pin', pinResult);
+    redirect(`/dashboard/${eventId}/launch?${q.toString()}`);
+  }
+  // 🔒 App-store shell: Pro-only rows and their locks are HIDDEN, not locked.
+  const storeShell = await isStoreShellRequest();
+
   // Locked = no Pro AND no existing content (the grandfather rule shipped in
   // PR #3664 — a couple who already has content keeps editing it).
   const lockedIf = (hasContent: boolean) => !ownsPro && !hasContent;
   const proUnlockHref = `${base}/studio/website-pro`;
-  /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA. */
-  const lockPanel = (featureName: string) => (
-    <ProLockPanel
-      featureName={featureName}
-      unlockHref={proUnlockHref}
-      priceLabel={proPriceLabel}
-    />
-  );
+  /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA.
+   *  Nothing at all in the store shell — no pitch, no price (App Review 3.1.1). */
+  const lockPanel = (featureName: string) =>
+    storeShell ? null : (
+      <ProLockPanel
+        featureName={featureName}
+        unlockHref={proUnlockHref}
+        priceLabel={proPriceLabel}
+      />
+    );
 
   // Presigned display URLs so the inline uploaders show what's already set
   // (same helper the sub-pages use).
@@ -363,7 +406,7 @@ export default async function WebsiteEditorPage({
       rows: [
         {
           key: 'url',
-          label: 'Website address',
+          label: 'Event Hub address',
           blurb: 'Your one link, on every QR and invite.',
           href: `${w}/editor`,
           status: slug ? done(slug) : todo('Not set'),
@@ -754,24 +797,111 @@ export default async function WebsiteEditorPage({
     },
   ];
 
+  /* ══ THE MAKER'S PARTS ══════════════════════════════════════════════════
+     The rows above are the same rows the rail carried, with the same panels.
+     The Maker addresses them by key: the navigator's scenes open their own
+     section controls, the bar's tools open a row, "Main" opens the look. */
+  const rows: Record<string, MakerRowPanel> = {};
+  for (const row of groups.flatMap((g) => g.rows)) {
+    if (!row.panel) continue;
+    // 🔒 Store shell: a locked Pro row is HIDDEN, not shown locked.
+    if (storeShell && row.pro && row.locked) continue;
+    rows[row.key] = {
+      label: row.label,
+      blurb: row.blurb,
+      anchor: row.anchor,
+      status: row.status,
+      node: row.panel,
+    };
+  }
+  // The go-live control the rail's top carried — now in the ⋯ sheet.
+  rows['go-live'] = {
+    label: 'Go live',
+    blurb: 'Open your Event Hub to guests, or schedule it.',
+    node: (
+      <LaunchStdButton
+        eventId={eventId}
+        slug={slug}
+        initialLaunched={stdLaunched}
+        initialScheduledAt={scheduledAt}
+      />
+    ),
+  };
+
+  /* One scene per section of the page, in the order guests meet them. The
+     transition label is the section's own (`resolveTransition`), read from the
+     same canvas JSON the guest page reads. */
+  const scenes: MakerScene[] = sectionRows.map((row) => ({
+    id: row.widget_id,
+    type: row.widget_type,
+    label: WIDGET_CATALOG_BY_TYPE[row.widget_type]?.label ?? row.widget_type,
+    mode: (row.mode ?? 'auto') as MakerScene['mode'],
+    isVisible: row.is_visible,
+    hasContent: sectionContent[row.widget_type] !== false,
+    transitionLabel: HUB_TRANSITION_LABEL[resolveTransition(sanitizeHubCanvas(row.config_json))],
+  }));
+  const scenePanels = Object.fromEntries(
+    sectionRows.map((row) => [
+      row.widget_id,
+      <SectionsPanel
+        key={row.widget_id}
+        only={row.widget_id}
+        returnTo={`/dashboard/${eventId}/launch?scene=${row.widget_id}`}
+        hideLocked={storeShell}
+        eventId={eventId}
+        rows={sectionRows}
+        contentMap={sectionContent}
+        toggleAction={toggleWidgetVisibility}
+        moveUpAction={moveWidgetUp}
+        moveDownAction={moveWidgetDown}
+        setModeAction={setSectionMode}
+        setMotionAction={setWidgetMotion}
+        transitionLocked={!ownsPro}
+        setBackgroundAction={setWidgetBackground}
+        setCropAction={setWidgetCrop}
+        saveCustomAction={saveCustomSection}
+        addCustomAction={addCustomSection}
+        photoChoices={photoChoices}
+        ownsPro={ownsPro}
+        customLock={lockPanel('A section of your own')}
+        lookLock={lockPanel('How each section looks and moves')}
+        videoChoice={videoChoice}
+        colorChoices={colorChoices}
+      />,
+    ]),
+  );
+
+  /* The theme panel reads the registry as it stands at merge time (Phase 3
+     owns it). Only id · name · ready cross — plain strings. */
+  const currentTheme = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
+  const themes = Object.values(INVITE_THEMES).map((t) => ({
+    id: t.id,
+    name: t.name,
+    ready: t.ready,
+    current: t.id === currentTheme,
+  }));
+
   return (
-    <EditorShell
-      groups={groups}
+    <MakerWork
+      eventId={eventId}
       publicLandingUrl={slug ? `/${slug}` : null}
-      initialPhase={initialPhase}
+      scenes={scenes}
+      scenePanels={scenePanels}
+      rows={rows}
+      themes={themes}
+      themeHref={`${base}/guests/invite`}
+      ownsPro={ownsPro}
+      initialScene={typeof sceneParam === 'string' ? sceneParam : null}
       initialOpenRow={typeof openRow === 'string' ? openRow : null}
+      chain={typeof chainParam === 'string' ? chainParam : null}
+      toggleAction={toggleWidgetVisibility}
+      setModeAction={setSectionMode}
+      moveUpAction={moveWidgetUp}
+      moveDownAction={moveWidgetDown}
       proUnlockHref={proUnlockHref}
       proPriceLabel={proPriceLabel}
-      showProCta={!ownsPro}
-      liveHref={slug ? `/${slug}` : null}
-      goLiveSlot={
-        <LaunchStdButton
-          eventId={eventId}
-          slug={slug}
-          initialLaunched={stdLaunched}
-          initialScheduledAt={scheduledAt}
-        />
-      }
+      /* 🔒 Never in the store shell — no pitch, no price (App Review 3.1.1). */
+      showProCta={!ownsPro && !storeShell}
     />
   );
 }

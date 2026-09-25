@@ -69,12 +69,18 @@ export function GuestLookScope({
   art,
   fontClassName,
   style,
+  ground = null,
   children,
 }: {
   theme: Exclude<InviteThemeId, 'house'> | null;
   art: 'candlelight' | null;
   fontClassName: string;
   style: Record<string, string> | null;
+  /**
+   * The theme's loop, still and scrim (`_lib/theme-ground.ts`) — Setnayan's own
+   * public theme art, never the couple's photo. Null for Classic and House.
+   */
+  ground?: GuestThemeGround | null;
   children: React.ReactNode;
 }) {
   const worn = lookIsWorn(useSelectedLayoutSegment(), { theme, art, style });
@@ -94,9 +100,10 @@ export function GuestLookScope({
       data-hub-theme={worn && theme ? theme : undefined}
       data-art={worn && art ? art : undefined}
       data-guest-look={worn ? '' : undefined}
+      data-hub-foil={worn && ground?.foil ? '' : undefined}
       style={worn && style ? (style as React.CSSProperties) : undefined}
     >
-      {worn ? <GuestGround /> : null}
+      {worn ? <GuestGround media={theme ? ground : null} /> : null}
       {children}
     </div>
   );
@@ -125,12 +132,59 @@ export function GuestLookScope({
  * private landing, and a stranger there must see nothing the private landing
  * did not already show.
  */
-function GuestGround() {
+function GuestGround({ media }: { media: GuestThemeGround | null }) {
   return (
     <div
       aria-hidden
       data-guest-ground
       className="pointer-events-none fixed inset-0 -z-10 bg-cream"
-    />
+    >
+      {media && (media.loop || media.poster) ? (
+        <>
+          {/* THE THEME'S LOOP (owner 2026-09-24: "all event hub themes use
+              video"). Muted, inline and looping so iPhone Safari plays it
+              without a tap; the still sits under it for the first frame and
+              for reduced motion, where the video is not drawn at all. */}
+          {media.poster ? (
+            <div
+              data-theme-poster
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${JSON.stringify(media.poster)})` }}
+            />
+          ) : null}
+          {media.loop ? (
+            <video
+              data-theme-loop
+              className="absolute inset-0 h-full w-full object-cover motion-reduce:hidden"
+              src={media.loop}
+              poster={media.poster ?? undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+            />
+          ) : null}
+          {/* THE SCRIM IS THE PAGE'S OWN PAPER — `--color-cream`, the colour every
+              ink on the page is computed against — at the strength the legibility
+              rule measured (lib/hub-legibility.ts). A couple's palette moves the
+              paper and the scrim together, so text and ground never describe two
+              different planes. */}
+          <div
+            data-theme-scrim
+            className="absolute inset-0"
+            style={{ backgroundColor: `rgb(var(--color-cream) / ${media.scrim.toFixed(2)})` }}
+          />
+        </>
+      ) : null}
+    </div>
   );
 }
+
+/** The theme ground as plain data — resolved on the server, drawn here. */
+export type GuestThemeGround = {
+  loop: string | null;
+  poster: string | null;
+  scrim: number;
+  foil: boolean;
+};

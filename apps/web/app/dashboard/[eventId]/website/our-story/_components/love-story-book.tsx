@@ -92,7 +92,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
       triggerClassName="button-primary inline-flex items-center gap-1.5"
     />
   ) : (
-    <div data-love-story-cap="reached" className="text-right">
+    <div data-love-story-cap="reached">
       <p className="text-[13px] text-[color:var(--ls-muted)]">
         {FREE_MOMENT_CAP} of {FREE_MOMENT_CAP} free stories told
       </p>
@@ -159,6 +159,10 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
             the Event Hub Maker, not here.
           </InfoTip>
         </p>
+        {/* The prototype's phone dock, placed IN the page rather than pinned:
+            the phone already stacks the moment strip and the nav at the foot,
+            and a third pinned bar slid under them (harness, 2026-09-25). */}
+        {p.refused ? null : <div className="mt-6 flex justify-center">{addButton}</div>}
         {p.refused ? (
           <div role="status" data-love-story-refused={p.refused} className="mx-auto mt-6 max-w-md">
             <p className="text-[14px]">
@@ -350,16 +354,6 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
         </main>
       </div>
 
-      {/* ── PHONE DOCK ── */}
-      {canAdd ? (
-        <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-20 flex justify-center lg:hidden">
-          <MomentSheet
-            {...sheetProps}
-            trigger={<AddMomentLabel />}
-            triggerClassName="button-primary inline-flex items-center gap-1.5 shadow-lg"
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

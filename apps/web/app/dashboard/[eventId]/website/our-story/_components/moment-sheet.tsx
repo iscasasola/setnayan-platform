@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -68,6 +69,22 @@ export function MomentSheet({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  /* The portal leaves the page's `--ls-*` theme properties behind; carry them. */
+  const [vars, setVars] = useState<Record<string, string>>({});
+  const openSheet = () => {
+    const el = triggerRef.current;
+    if (el) {
+      const cs = getComputedStyle(el);
+      const next: Record<string, string> = {};
+      for (const k of ['canvas', 'surface', 'ink', 'muted', 'heading', 'accent', 'accent-ink', 'rule']) {
+        const v = cs.getPropertyValue(`--ls-${k}`).trim();
+        if (v) next[`--ls-${k}`] = v;
+      }
+      setVars(next);
+    }
+    setOpen(true);
+  };
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: ref });
 
   const d = moment?.date;
@@ -103,11 +120,17 @@ export function MomentSheet({
 
   return (
     <>
-      <button type="button" className={triggerClassName} onClick={() => setOpen(true)}>
+      <button ref={triggerRef} type="button" className={triggerClassName} onClick={openSheet}>
         {trigger}
       </button>
-      {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 lg:items-stretch lg:justify-end">
+      {open && typeof document !== 'undefined' ? createPortal(
+        /* Portalled to <body>: the dashboard's content column is its own
+           stacking context, and a fixed sheet inside it slid UNDER the top bar
+           (measured in the harness, 2026-09-25). */
+        <div
+          style={vars as React.CSSProperties}
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 lg:items-stretch lg:justify-end"
+        >
           <div
             ref={ref}
             role="dialog"
@@ -349,7 +372,8 @@ export function MomentSheet({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );

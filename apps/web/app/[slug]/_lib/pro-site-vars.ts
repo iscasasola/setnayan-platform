@@ -72,15 +72,23 @@ export function proSiteVarsFor(
 ): Record<string, string> | null {
   const bgHex = typeof event.site_bg_color === 'string' ? event.site_bg_color : null;
   const theme = INVITE_THEMES[themeId] ?? INVITE_THEMES.house;
+  // Built by plain assignment, never by spreading a conditional object —
+  // a `cond ? {a} : {}` ternary infers a union where `a` is optional/undefined
+  // on the empty branch, which `Record<string, string>` below then refuses.
+  const proSiteVars: Record<string, string> = {};
+
   // FREE, for every event: the background colour itself, plus the page ink
   // that keeps text legible on it, plus a PINNED plate ink so a plate's own
   // still-light paper never inherits that adapted (possibly light) page ink.
-  const bgVars = buildCustomSiteColorVars(bgHex, null) ?? {};
-  const inkHex =
-    bgHex && Object.keys(bgVars).length > 0 ? hubLegibility(theme, { kind: 'color', hex: bgHex }).ink : null;
-  const inkVars = inkHex
-    ? { '--color-ink': channels(inkHex), '--color-ink-on-plate': channels(theme.palette.ink) }
-    : {};
+  const bgVars = buildCustomSiteColorVars(bgHex, null);
+  if (bgVars) {
+    Object.assign(proSiteVars, bgVars);
+    if (bgHex) {
+      const inkHex = hubLegibility(theme, { kind: 'color', hex: bgHex }).ink;
+      proSiteVars['--color-ink'] = channels(inkHex);
+      proSiteVars['--color-ink-on-plate'] = channels(theme.palette.ink);
+    }
+  }
 
   // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG AND THE SAME GATE AS THE
   // BUTTON. `hubFontVars` contributes `--pahina-face` / `--font-display`, which
@@ -92,13 +100,11 @@ export function proSiteVarsFor(
   // ⛔ An unset face contributes `{}`, so a couple who never chose one gets
   // markup byte-identical to before this existed — and `null` still means
   // "add no style attribute at all".
-  const proOnlyVars = proWatermarkHidden
-    ? {
-        ...(buildCustomSiteColorVars(null, event.site_button_color as string | null) ?? {}),
-        ...hubFontVars(event.site_font_key),
-      }
-    : {};
+  if (proWatermarkHidden) {
+    const buttonVars = buildCustomSiteColorVars(null, event.site_button_color as string | null);
+    if (buttonVars) Object.assign(proSiteVars, buttonVars);
+    Object.assign(proSiteVars, hubFontVars(event.site_font_key));
+  }
 
-  const proSiteVars = { ...bgVars, ...inkVars, ...proOnlyVars };
   return Object.keys(proSiteVars).length > 0 ? proSiteVars : null;
 }

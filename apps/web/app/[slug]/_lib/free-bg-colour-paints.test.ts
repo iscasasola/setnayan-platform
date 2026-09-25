@@ -20,6 +20,16 @@ import { contrastRatio } from '@/lib/hub-legibility';
 const DARK_BG = '#101010';
 const LIGHT_BG = '#f5f0e6';
 
+/** "r g b" (a `--color-*` custom-property value) → `#rrggbb`, for feeding
+ *  `contrastRatio`. `.split(' ').map(Number)` types as `number[]`, not a
+ *  3-tuple, so indexing it can be `undefined` under `strict` — `?? 0` keeps
+ *  every element a plain `number` rather than asserting past the checker. */
+function channelsToHex(ch: string): string {
+  const parts = ch.split(' ').map(Number);
+  const [r, g, b] = [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+  return `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
+}
+
 test('a free (non-Pro) event still paints its saved background colour', () => {
   const vars = proSiteVarsFor({ site_bg_color: LIGHT_BG, site_button_color: null, site_font_key: null }, false);
   assert.ok(vars, 'a free event with a saved bg colour got no vars at all — the colour never reaches the guest');
@@ -56,10 +66,6 @@ test('text ink adapts to the couple’s own background — dark bg gets light in
   const onLight = proSiteVarsFor({ site_bg_color: LIGHT_BG, site_button_color: null, site_font_key: null }, false);
   assert.ok(onDark && onLight, 'expected vars for both backgrounds');
 
-  const channelsToHex = (ch: string) => {
-    const [r, g, b] = ch.split(' ').map((n) => Number(n));
-    return `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
-  };
   const darkBgInk = channelsToHex(onDark!['--color-ink']!);
   const lightBgInk = channelsToHex(onLight!['--color-ink']!);
 
@@ -96,10 +102,6 @@ test('a plate keeps its own (dark, house) ink, decoupled from the adapted PAGE i
     vars!['--color-ink'],
     'the plate ink is the SAME as the (light, for this dark bg) page ink — it will go blank on the plate\'s own light paper',
   );
-  const channelsToHex = (ch: string) => {
-    const [r, g, b] = ch.split(' ').map((n) => Number(n));
-    return `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
-  };
   const plateInkHex = channelsToHex(vars!['--color-ink-on-plate']!);
   const PLATE_PAPER = '#f1f1f0'; // --color-paper-deep's root default (globals.css) — unset here, no mood board
   assert.ok(

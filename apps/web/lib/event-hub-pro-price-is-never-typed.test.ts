@@ -1,9 +1,10 @@
 /**
  * event-hub-pro-price-is-never-typed.test.ts — no Event Hub Pro figure in code.
  *
- * ⚖ Owner, 2026-09-25: *"we will change every location of the price of Event Hub
- * Pro"* — ₱3,500 regular, ₱2,100 at sign-up, replacing the ₱2,000 of two days
- * earlier, which had itself replaced ₱3,500, which had replaced ₱4,999.
+ * ⚖ Owner, 2026-09-25: *"make it 5000 with 40% off becoming 3000 on
+ * onboarding"* — ₱5,000 regular, ₱3,000 at sign-up, replacing the same-day
+ * ₱3,500 regular / ₱2,100 sign-up, which had itself replaced the ₱2,000 of two
+ * days earlier, which had replaced ₱3,500, which had replaced ₱4,999.
  *
  * 🔑 "EVERY LOCATION" MUST BE ONE LOCATION. The only place Event Hub Pro's price
  * may live is its catalog row (`platform_retail_catalog_v2` · COUPLE_WEBSITE_PRO),
@@ -31,7 +32,7 @@ import { stripComments } from './strip-comments';
 const WEB = process.cwd();
 
 /** Every figure Event Hub Pro has been sold at, plus today's sign-up price. */
-const PRO_FIGURES = ['2000', '2100', '3500', '3999', '4999'];
+const PRO_FIGURES = ['2000', '2100', '3000', '3500', '3999', '4999', '5000'];
 
 /** What counts as naming the product in code. */
 const PRO_NAME = /COUPLE_WEBSITE_PRO|Event Hub PRO|Event Hub Pro|'website-pro'|WebsitePro|HubPro/g;

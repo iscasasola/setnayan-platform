@@ -4,8 +4,11 @@
  *
  * Protects: the hub's sections render inside the `.sn-hub-cards` wrapper on
  * BOTH the stranger's and the guest's page, the card look lives in one CSS
- * block, and before the day the programme is a short card with "All N
- * moments" — while on the day it stays the full run of show.
+ * block, and the programme is NEVER shortened on the Event Hub — before the
+ * day or on it. Owner, 2026-09-25 (DECISION_LOG "THE EVENT HUB SCHEDULE AND
+ * GUEST LIST EXTEND IN PLACE"): *"event schedule on the event hub should not
+ * be see other schedule it will extend as needed."* This test used to pin the
+ * pre-day "All N moments" card; the design moved, so the property moved.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,17 +49,13 @@ test('the card look is one CSS block', () => {
   assert.match(css, /\.sn-hub-cards \.pahina-eyebrow > span\[aria-hidden\]:first-child \{\s*display: none;/);
 });
 
-test('before the day the programme is a short card; on the day it is whole', () => {
-  const w = stripComments(read(join(C, 'schedule-widget.tsx')));
-  assert.match(w, /const COMPACT_MOMENTS = 3;/);
-  assert.match(w, /compact && !showAll \? ordered\.slice\(0, COMPACT_MOMENTS\) : ordered/);
-  assert.match(w, /`All \$\{ordered\.length\} moments`/);
-  assert.match(w, /aria-expanded=\{showAll\}/);
+test('the Event Hub never shortens the programme — every moment, before the day and on it', () => {
   for (const f of ['hideable-widget-render.tsx', 'public-hideable-widget.tsx']) {
     const src = stripComments(read(join(C, f)));
-    const call = src.slice(src.indexOf('<ScheduleWidget'), src.indexOf('/>', src.indexOf('<ScheduleWidget')));
-    assert.match(call, /\bcompact\b/, `${f}: the pre-day programme is compact`);
-    assert.match(src, /!isLive && scheduleBlocks\.length > 0/, `${f}: only before the day`);
+    const at = src.indexOf('<ScheduleWidget');
+    assert.ok(at >= 0, `${f}: still mounts the programme`);
+    const call = src.slice(at, src.indexOf('/>', at));
+    assert.doesNotMatch(call, /\bcompact\b/, `${f}: the hub programme extends in place, never compact`);
   }
   const body = stripComments(read(join(C, 'site-body.tsx')));
   const live = body.slice(body.indexOf('aria-label="Day-of schedule"'), body.indexOf('aria-label="Day-of schedule"') + 400);

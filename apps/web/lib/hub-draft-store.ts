@@ -62,26 +62,59 @@ export async function readHubDraft(supabase: SessionClient, eventId: string): Pr
   return sanitizeHubDraft((data as { draft_json: unknown }).draft_json);
 }
 
-/** Write a whole draft (upsert). Asks for the row back: zero rows is a refusal. */
+/**
+ * Write a whole draft. UPDATE first, INSERT only when there is no row yet.
+ *
+ * NOT an upsert: PostgREST's `upsert(…, { onConflict: 'event_id' })` compiles to
+ * `ON CONFLICT (event_id) DO UPDATE SET event_id = excluded.event_id, …`, and
+ * `authenticated` holds UPDATE only on (draft_json, applied_snapshot) — the
+ * column grants in 20271246169682 keep `event_id` and the timestamps
+ * server-owned. So the upsert worked for the FIRST save (a plain INSERT) and
+ * failed every save after it with 42501 "permission denied for table
+ * event_site_drafts" (prod, 2026-09-25, digest 456793547 — the owner pressing
+ * Hide). Keep the grant tight; write the columns the grant allows.
+ *
+ * Asks for the row back each time: zero rows is a refusal, never a success.
+ */
 export async function writeHubDraft(
   supabase: SessionClient,
   eventId: string,
   draft: HubDraft,
   appliedSnapshot?: Record<string, unknown>,
 ): Promise<void> {
-  const { data, error } = await supabase
+  const fields = {
+    draft_json: draft,
+    ...(appliedSnapshot ? { applied_snapshot: appliedSnapshot } : {}),
+  };
+  const updated = await supabase
     .from('event_site_drafts')
-    .upsert(
-      {
-        event_id: eventId,
-        draft_json: draft,
-        ...(appliedSnapshot ? { applied_snapshot: appliedSnapshot } : {}),
-      },
-      { onConflict: 'event_id' },
-    )
+    .update(fields)
+    .eq('event_id', eventId)
     .select('event_id');
-  if (error) throw new Error(`Could not save the Event Hub draft: ${error.message}`);
-  if (!Array.isArray(data) || data.length === 0) {
+  if (updated.error) {
+    throw new Error(`Could not save the Event Hub draft: ${updated.error.message}`);
+  }
+  if (Array.isArray(updated.data) && updated.data.length > 0) return;
+
+  const inserted = await supabase
+    .from('event_site_drafts')
+    .insert({ event_id: eventId, ...fields })
+    .select('event_id');
+  if (inserted.error) {
+    // Two first saves raced and the other one created the row: update it.
+    if (inserted.error.code === '23505') {
+      const retry = await supabase
+        .from('event_site_drafts')
+        .update(fields)
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (retry.error) throw new Error(`Could not save the Event Hub draft: ${retry.error.message}`);
+      if (Array.isArray(retry.data) && retry.data.length > 0) return;
+      throw new Error('Could not save the Event Hub draft: the write was refused.');
+    }
+    throw new Error(`Could not save the Event Hub draft: ${inserted.error.message}`);
+  }
+  if (!Array.isArray(inserted.data) || inserted.data.length === 0) {
     throw new Error('Could not save the Event Hub draft: the write was refused.');
   }
 }

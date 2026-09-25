@@ -8,6 +8,7 @@ import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
+import { guestQrFileName } from '@/app/api/guest/qr/route';
 
 /**
  * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
@@ -59,7 +60,10 @@ export async function GET(
   // (or signed-out caller) gets no row → 404.
   const { data: guest } = await supabase
     .from('guests')
-    .select('guest_id, event_id, qr_token')
+    // first_name/display_name are read ONLY so the saved file is named after
+    // the guest (guestQrFileName, shared with /api/guest/qr) — the same
+    // reason that route reads them.
+    .select('guest_id, event_id, qr_token, first_name, display_name')
     .eq('guest_id', guestId)
     .maybeSingle();
   if (!guest) {
@@ -139,6 +143,15 @@ export async function GET(
       // Private cache only — this is a per-guest, gated asset. Re-derived each
       // visit (slug/palette/token can change), so keep the window short.
       'Cache-Control': 'private, max-age=300',
+      // 🚨 THIS WAS MISSING (owner, 2026-09-25: "when we try to download the
+      // QR code... it should just save and not open a new page"). Every other
+      // saved-QR route (/api/guest/qr) names the file on the wire; this one
+      // didn't, so a browser that ignores the anchor's `download` attribute —
+      // which iOS Safari and the Capacitor iOS shell both do for a same-origin
+      // GET — rendered the PNG as a page instead of saving it. Naming the file
+      // here is what makes a bare `<a download>` (and the fetch→blob fallback
+      // in SaveFileLink) actually save rather than navigate.
+      'Content-Disposition': `attachment; filename="${guestQrFileName(guest.first_name, guest.display_name)}"`,
     },
   });
 }

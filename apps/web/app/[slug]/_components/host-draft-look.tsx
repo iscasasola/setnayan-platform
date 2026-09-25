@@ -33,6 +33,8 @@ export function lookScopeProps(look: GuestLook | null) {
     fontClassName: skin?.className ?? '',
     style,
     ground,
+    // 🌈 The couple's ombré — painted by the scope's paper in place of the loop.
+    ombre: look?.ombre ?? null,
   };
 }
 

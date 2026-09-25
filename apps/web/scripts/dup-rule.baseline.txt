@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 373
+# facts: 381
 #   shadow  20
-#   omit    353
+#   omit    361
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -182,6 +182,14 @@ omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to
 omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
 omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	updated_at
 omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	last_name
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	middle_name
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
+omit	app/api/website/qr/guest/[guestId]/route.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/dashboard/[eventId]/alaala/assignments/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/dashboard/[eventId]/alaala/assignments/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/dashboard/[eventId]/alaala/assignments/page.tsx	guests	ENTOURAGE_COLUMNS	last_name

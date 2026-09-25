@@ -129,9 +129,10 @@ export default async function FindSeatPage({ params }: Props) {
       )}
 
       <div className="mt-8 text-center">
+        {/* min-h-[40px] (mobile audit item 3: measured 28px). */}
         <Link
           href={`/${slug}`}
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Back to the invitation

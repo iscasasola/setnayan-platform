@@ -131,6 +131,7 @@ import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
+import { isOmbreValue } from '@/lib/ombre';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
@@ -1242,8 +1243,13 @@ export async function SiteBody({
             {/* THE ENTOURAGE — under Details, never a sixth tab (owner ruling
                 2026-09-14). Its own anchor so the couple can link straight at
                 it; no slot, so `_lib/site-nav.ts`'s five-slot budget is
-                untouched. Draws nothing when nobody holds a role. */}
-            <EntourageSection groups={entourage} id="site-entourage" previewHref={`/${event.slug}/everyone`} />
+                untouched. Draws nothing when nobody holds a role.
+
+                No `previewHref` (owner, 2026-09-26: "same goes to the guest
+                list" — it should not "see other [list]", it should extend as
+                needed). Everyone shows inline; `/[slug]/everyone` keeps
+                working for old links, it just isn't linked from here. */}
+            <EntourageSection groups={entourage} id="site-entourage" />
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
@@ -2196,8 +2202,10 @@ export async function SiteBody({
                   SECTION: the anonymous and guest trees are separate subtrees
                   and a single mount above the fork would land outside Details
                   in one of them. `the-entourage-is-mounted-in-both-trees.test.ts`
-                  fails if either disappears. */}
-              <EntourageSection groups={entourage} id="site-entourage" previewHref={`/${event.slug}/everyone`} />
+                  fails if either disappears.
+
+                  No `previewHref` here either — see the anonymous mount above. */}
+              <EntourageSection groups={entourage} id="site-entourage" />
 
               {isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
@@ -2366,6 +2374,10 @@ export async function SiteBody({
     <InvitationShell
       monogramText={event.monogram_text}
       hubTheme={hubLook.theme}
+      /* 🌈 An ombré is painted by the layout's paper (draft-overlaid for the
+         host's canvas, since `event` is the overlaid row) — the shell leaves
+         its opaque paper off for it, Classic included. */
+      ownGround={isOmbreValue(event.site_bg_color)}
       backdrop={backdrop}
       fullBleed={plan.fullBleed}
       editorCanvas={!showGuestBars}

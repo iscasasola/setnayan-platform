@@ -39,8 +39,10 @@
  *           PHOTO is the exception (Phase 6): its live writer checks nothing but
  *           the `r2://` scheme, the draft holds it to the public bucket, and
  *           Apply holds it to THIS event's own uploads (`not_your_photo`).
- * widgets — per section: `mode` (Auto · Shown · Hidden), `display_order`, and the
- *           section's whole `canvas` (background, crop, motion, transition),
+ * widgets — per section: `mode` (Auto · Shown · Hidden), `is_visible` (the
+ *           navigator's eye — the legacy gate `mode: 'auto'` falls back to),
+ *           `display_order`, and the section's whole `canvas` (background, crop,
+ *           motion, transition),
  *           sanitised by `sanitizeHubCanvas` — the same function the guest render
  *           reads through. `canvas: null` means "take the canvas off".
  */
@@ -115,6 +117,8 @@ export type HubDraftEvents = Partial<Record<HubDraftEventColumn, unknown>>;
 
 export type HubDraftWidget = {
   mode?: HubSectionMode;
+  /** The eye (`toggleWidgetVisibility`). Never Pro — show and hide are the page we write. */
+  is_visible?: boolean;
   display_order?: number;
   /** The section's whole canvas, or `null` to take it off. */
   canvas?: HubSectionCanvas | null;
@@ -176,6 +180,7 @@ function sanitizeWidget(raw: unknown): HubDraftWidget | null {
   if (typeof src.mode === 'string' && (HUB_SECTION_MODES as readonly string[]).includes(src.mode)) {
     out.mode = src.mode as HubSectionMode;
   }
+  if (typeof src.is_visible === 'boolean') out.is_visible = src.is_visible;
   if (
     typeof src.display_order === 'number' &&
     Number.isInteger(src.display_order) &&
@@ -312,6 +317,7 @@ export function overlayHubDraftWidgets(
     return {
       ...row,
       ...(w.mode !== undefined && !row.is_always_on ? { mode: w.mode } : {}),
+      ...(w.is_visible !== undefined && !row.is_always_on ? { is_visible: w.is_visible } : {}),
       ...(w.display_order !== undefined && !row.is_always_on ? { display_order: w.display_order } : {}),
       ...(w.canvas !== undefined ? { config_json: configWithCanvas(row.config_json, w.canvas) } : {}),
     };
@@ -325,7 +331,12 @@ export function overlayHubDraftWidgets(
 /** What the live page holds, as Apply reads it just before writing. */
 export type HubLiveState = {
   events: Partial<Record<HubDraftEventColumn, unknown>>;
-  widgets: ReadonlyArray<Pick<InvitationWidgetRow, 'widget_id' | 'widget_type' | 'is_always_on' | 'display_order' | 'config_json' | 'mode'>>;
+  widgets: ReadonlyArray<
+    Pick<InvitationWidgetRow, 'widget_id' | 'widget_type' | 'is_always_on' | 'display_order' | 'config_json' | 'mode'> &
+      // Optional so a live read from before the eye was draftable still types;
+      // absent reads as visible, the column's own default.
+      Partial<Pick<InvitationWidgetRow, 'is_visible'>>
+  >;
 };
 
 export type HubDraftItem =
@@ -341,7 +352,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'display_order' | 'canvas';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -399,7 +410,8 @@ export function eventColumnIsPro(column: HubDraftEventColumn): boolean {
 
 /**
  * A section's canvas, live → drafted. Media behind the section (photo or
- * snippet) is classified like any other ref; a COLOUR is never an input, so a
+ * snippet), and media in a template scene's slots, is classified like any
+ * other ref; a COLOUR is never an input, so a
  * colour background stays free in every direction; every other look key
  * (crop, arrangement, motion, transition) adds, changes or removes.
  */
@@ -411,6 +423,20 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
     if (k === 'media') continue;
     changes.push(refChange(asText(live[k]), asText(next[k])));
   }
+  /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
+     line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a
+     picture or a clip into a slot, or swapping it, is Pro; taking one off is
+     not; any non-default playback (tap to play) is Pro, back to Loop is not.
+     The template pick and a slot's WORDS are free, so they are not inputs.
+     Without these lines a free couple could draft a slot photo and Apply it —
+     the gate would see no look key change at all. */
+  const slotRef = (c: HubSectionCanvas, i: number) => {
+    const s = c.slots?.[i];
+    return s?.media ? `${s.kind ?? 'photo'}:${s.media}` : null;
+  };
+  const slotCount = Math.max(live.slots?.length ?? 0, next.slots?.length ?? 0);
+  for (let i = 0; i < slotCount; i += 1) changes.push(refChange(slotRef(live, i), slotRef(next, i)));
+  changes.push(refChange(asText(live.video), asText(next.video)));
   return combineChanges(...changes);
 }
 
@@ -419,7 +445,7 @@ const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(co
 /**
  * Every key in the draft that differs from live, in THE fixed order Apply writes
  * them: the `events` columns in `HUB_DRAFT_EVENT_COLUMNS` order, then each
- * section in `WIDGET_TYPES` order — mode, then order, then canvas. A key equal to
+ * section in `WIDGET_TYPES` order — mode, then visibility, then order, then canvas. A key equal to
  * what is live is not an item (Apply writes nothing for it).
  *
  * A drafted section with no live row (a custom section that was deleted) is
@@ -456,6 +482,9 @@ export function classifyHubDraft(
     }
     if (w.mode !== undefined && !row.is_always_on && w.mode !== (row.mode ?? 'auto')) {
       items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'mode', value: w.mode, change: 'change', pro: false });
+    }
+    if (w.is_visible !== undefined && !row.is_always_on && w.is_visible !== (row.is_visible ?? true)) {
+      items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'is_visible', value: w.is_visible, change: 'change', pro: false });
     }
     if (w.display_order !== undefined && !row.is_always_on && w.display_order !== row.display_order) {
       items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'display_order', value: w.display_order, change: 'change', pro: false });
@@ -661,6 +690,11 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
-  const what = item.field === 'mode' ? 'shown or hidden' : item.field === 'display_order' ? 'its place' : 'how it looks';
+  const what =
+    item.field === 'mode' || item.field === 'is_visible'
+      ? 'shown or hidden'
+      : item.field === 'display_order'
+        ? 'its place'
+        : 'how it looks';
   return `${sectionLabel(item.widgetType)} · ${what}`;
 }

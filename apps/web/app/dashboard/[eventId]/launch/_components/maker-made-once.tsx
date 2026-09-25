@@ -156,7 +156,7 @@ export async function MakerHeroPanel({
       </p>
 
       <div className="flex items-start gap-3">
-        <div className="w-32 shrink-0 overflow-hidden rounded-md shadow-sm" data-made-once-poster="">
+        <div className="relative aspect-[3/4] w-32 shrink-0 overflow-hidden rounded-md shadow-sm" data-made-once-poster="">
           {poster ? (
             <EventPoster
               poster={poster}

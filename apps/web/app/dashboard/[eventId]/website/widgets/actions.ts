@@ -185,6 +185,12 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
     );
   }
 
+  /* 💾 THE EYE IN THE MAKER EDITS THE DRAFT. Every check above still ran (the
+     row is this event's, an always-on section cannot be hidden); a `draft=1`
+     form then stops here and guests see nothing until Apply. */
+  if (isHubDraftWrite(formData)) {
+    await saveWidgetToDraft(formData, eventId, row.widget_type as WidgetType, { is_visible: nextVisible });
+  }
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ is_visible: nextVisible })
@@ -1052,6 +1058,12 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     redirect(back('?saved=1'));
   }
 
+  /* 💾 In the Maker (`draft=1`) a scene's template, slots, clip playback and
+     layout go to the DRAFT: they are all the section's canvas. Every check
+     still runs; the Pro question moves to Apply (`hubDraftAction`), which
+     classifies slot media and playback exactly as the gates below do. The
+     words (`save`) and removal (`delete`) stay live — the Maker marks them. */
+  const drafting = isHubDraftWrite(formData);
   let next: Record<string, unknown>;
   if (intent === 'template' || intent === 'slot' || intent === 'video') {
     /* 🎬 A SCENE'S TEMPLATE, ONE OF ITS SLOTS, OR HOW ITS CLIP PLAYS (Event Hub
@@ -1060,7 +1072,8 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
        grandfather rule above; PUTTING A PICTURE OR A CLIP INTO A SCENE, or a
        non-default playback, is Event Hub Pro (owner: media is Pro) — asked of
        `requireLookPro` before anything is written. Taking one off never is. */
-    const canvas = sanitizeHubCanvas(existing);
+    // In the draft, build on what is already drafted — never on the live canvas.
+    const canvas = sanitizeHubCanvas(drafting ? await canvasBase(true, eventId, row) : existing);
     let nextCanvas: HubSectionCanvas;
     if (intent === 'template') {
       const id = sceneTemplateIdFromForm(formData.get('template'));
@@ -1103,18 +1116,29 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
       }
       const w = applySceneSlot(canvas, Number(formData.get('slot')), patch, ownRefs);
       if (!w.ok) redirect(back(`?error=${w.reason}`));
-      if (w.putsMediaUp) await requireLookPro(eventId, 'change');
+      if (w.putsMediaUp) {
+        if (!drafting) await requireLookPro(eventId, 'change');
+      }
       nextCanvas = w.canvas;
     } else {
       const v = applySceneVideo(canvas, formData.get('play'), formData.get('open'));
       if (!v) redirect(back('?error=bad_video'));
-      if (v.putsUp) await requireLookPro(eventId, 'change');
+      if (v.putsUp) {
+        if (!drafting) await requireLookPro(eventId, 'change');
+      }
       nextCanvas = v.canvas;
     }
+    if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, nextCanvas);
     next = { ...existing, canvas: sanitizeHubCanvas({ canvas: nextCanvas }) };
   } else if (intent === 'arrange') {
     const arrangement = hubArrangement(formData.get('arrangement'));
     if (!arrangement) redirect(back('?error=bad_arrangement'));
+    /* 💾 A layout is the section's canvas, so in the Maker it goes to the draft —
+       merged onto what is already drafted, like every other canvas writer. */
+    if (drafting) {
+      const base = await canvasBase(true, eventId, row);
+      await saveCanvasToDraft(formData, eventId, row.widget_type, { ...sanitizeHubCanvas(base), arrangement });
+    }
     next = { ...existing, canvas: { ...sanitizeHubCanvas(existing), arrangement } };
   } else {
     const input = readCustomSectionInput(formData.get('title'), formData.get('body'));

@@ -137,8 +137,9 @@ export async function hubDraftAction(
       reason: storeShell ? 'apply_on_the_web' : 'needs_pro',
     }));
 
-    /* 🔒 A DRAFTED BACKGROUND MUST STILL BE THIS COUPLE'S OWN PHOTO — the same
-       ownership set `setWidgetBackground` checks, re-checked here because a
+    /* 🔒 A DRAFTED BACKGROUND (or slot picture) MUST STILL BE THIS COUPLE'S OWN
+       PHOTO — the same ownership set `setWidgetBackground` and the scene slot
+       writer check, re-checked here because a
        `save` patch is a public POST like any other. */
     const { data: own, error: ownErr } = await supabase
       .from('events')
@@ -176,8 +177,12 @@ export async function hubDraftAction(
         }
       }
       if (item.kind === 'widget' && item.field === 'canvas') {
-        const media = (item.value as HubSectionCanvas | null)?.media;
-        if (media && !ownRefs.has(media)) {
+        const drafted = item.value as HubSectionCanvas | null;
+        // The background AND every picture in a template scene's slots (Phase 5).
+        const refs = [drafted?.media, ...(drafted?.slots ?? []).map((s) => s.media)].filter(
+          (r): r is string => Boolean(r),
+        );
+        if (refs.some((r) => !ownRefs.has(r))) {
           held.push({ item, reason: 'not_your_photo' });
           continue;
         }
@@ -239,6 +244,9 @@ export async function hubDraftAction(
         if (item.field === 'mode') {
           patch.mode = item.value;
           before.mode = row.mode ?? 'auto';
+        } else if (item.field === 'is_visible') {
+          patch.is_visible = item.value;
+          before.is_visible = row.is_visible ?? true;
         } else if (item.field === 'display_order') {
           patch.display_order = item.value;
           before.display_order = row.display_order;

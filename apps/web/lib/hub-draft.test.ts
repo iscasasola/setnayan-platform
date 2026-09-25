@@ -83,10 +83,19 @@ test('sanitize drops unknown keys, unknown sections and refs outside the public 
   assert.deepEqual(d.history, []);
 });
 
-test('the draft holds no WORDS column and no free-colour column — only look it can preview', () => {
+test('every drafted column is look, the one free colour, or the couple\'s words — and only look is Pro', () => {
+  // 2026-09-25 — the Maker's live savers went into the draft: words and the
+  // background colour joined. Each column is still exactly ONE kind, and only
+  // the look kind asks for Pro (the Love Story's moment cap is its own rule,
+  // proven in maker-live-savers-draft.test.ts).
+  const words = [...HUB_WORDS_EVENT_COLUMNS, 'together_since'] as readonly string[];
   for (const c of HUB_DRAFT_EVENT_COLUMNS) {
-    assert.ok(!(HUB_WORDS_EVENT_COLUMNS as readonly string[]).includes(c), `${c} is words`);
-    assert.ok(!(HUB_FREE_LOOK_EVENT_COLUMNS as readonly string[]).includes(c), `${c} is a free colour`);
+    const look = (HUB_LOOK_EVENT_COLUMNS as readonly string[]).includes(c);
+    const free = (HUB_FREE_LOOK_EVENT_COLUMNS as readonly string[]).includes(c);
+    const word = words.includes(c);
+    const made = ['std_reveal_template', 'monogram_custom_svg', 'monogram_studio_config'].includes(c);
+    assert.equal([look, free, word, made].filter(Boolean).length, 1, `${c} must be exactly one kind`);
+    if (free || word) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
   }
 });
 

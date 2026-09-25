@@ -70,11 +70,14 @@ export async function fillAccountNameFromSeat(
       .join(' ');
     const name = (own || formal).slice(0, 200);
     if (!name) return;
-    await admin
+    const { error: nameError } = await admin
       .from('users')
       .update({ display_name: name })
       .eq('user_id', userId)
       .is('display_name', null);
+    // Best-effort, but never silent: a refused name fill is logged, and the
+    // link itself (already written above) still stands.
+    if (nameError) console.warn('[link-guest-account] name fill refused:', nameError.message);
   } catch {
     // Best-effort — a missing name must never cost somebody their link.
   }

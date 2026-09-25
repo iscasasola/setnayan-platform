@@ -19,6 +19,15 @@ guests. This wires the Maker to the draft, and marks what cannot be drafted yet.
   as a free key, never on an always-on section). No migration — the draft table
   holds it.
 
+**Phase 5 scenes (#5971), wired in the same PR.** A template scene's template
+pick, slot pictures and words, and clip playback (`saveCustomSection`
+`template` · `slot` · `video`) now draft too, built on the drafted canvas; their
+Pro gates are skipped only on the draft path. Apply classifies a slot picture
+(put up or swapped) and tap-to-play as Pro — without that a free couple could
+draft a slot photo and Apply it, since no pre-P5 look key changes — and re-checks
+that every slot picture is the couple's own. "Change template" drafts; "+ Add a
+scene" inserts a row at once and says "Saves immediately".
+
 **The Maker now SHOWS the draft it edits.** `website/editor/page.tsx` lays the draft
 over the live rows with the same `overlayHubDraftWidgets` the `?editor=1` preview
 uses, so a drafted eye flips, a drafted order moves and a drafted motion reads as

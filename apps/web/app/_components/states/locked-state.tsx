@@ -1,5 +1,5 @@
-import { Lock } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { PaidMark } from '@/app/_components/paid-mark';
 
 type Props = {
   /** The tier that unlocks it, e.g. "Pro Vendor" — worn as a pill. */
@@ -42,7 +42,7 @@ export function LockedState({ tierLabel, title, blurb, action, preview }: Props)
         }
       >
         <span className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-terracotta/30 bg-cream text-terracotta-700">
-          <Lock aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          <PaidMark state="locked" label={`Locked — part of ${tierLabel}`} size="lg" tone="current" />
         </span>
         <span className="mb-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-terracotta-700">
           {tierLabel}

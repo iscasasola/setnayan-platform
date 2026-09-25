@@ -3,6 +3,8 @@ import { type LucideIcon } from 'lucide-react';
 import type { RowPill } from '../../studio/_components/studio-app-row';
 import { ServiceTags } from '../../studio/_components/service-tags';
 import styles from './suite-vignette.module.css';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * SuiteVignetteCard — Suite PR-2 (Whats_Next_Suite_AI_Pricing §2): each
@@ -239,8 +241,11 @@ export function SuiteVignetteCard({
             <span className="min-w-0 truncate text-[15px] font-semibold text-ink">{label}</span>
             {pill ? (
               <span
-                className={`shrink-0 rounded-full px-3 py-0.5 text-xs font-bold tracking-tight ${PILL_CLS[pill.tone]}`}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-0.5 text-xs font-bold tracking-tight ${PILL_CLS[pill.tone]}`}
               >
+                {pill.tone === 'active' ? (
+              <PaidMark state="unlocked" label={paidMarkLabel('unlocked', label)} size="xs" tone="current" />
+            ) : null}
                 {pill.text}
               </span>
             ) : null}

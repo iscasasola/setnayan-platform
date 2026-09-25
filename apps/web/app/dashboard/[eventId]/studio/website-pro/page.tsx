@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, CheckCircle2, Clock, Globe2, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Clock, Globe2, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -15,6 +15,8 @@ import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inli
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 export const metadata = { title: 'Event Hub PRO' };
 
@@ -151,7 +153,7 @@ export default async function WebsiteProBuyPage({ params }: Props) {
         /* ── Owned + admin-approved. ── */
         <div className="rounded-xl border border-success-200 bg-success-50 p-5">
           <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <CheckCircle2 aria-hidden className="h-5 w-5" strokeWidth={2} /> Unlocked
+            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="lg" tone="current" /> Unlocked
           </p>
           <p className="text-sm text-ink/70">
             Event Hub PRO is active. Every premium touch is on across your Event Hub, watermark-free.

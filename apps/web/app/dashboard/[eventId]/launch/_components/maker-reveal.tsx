@@ -5,6 +5,8 @@ import { useState, useTransition } from 'react';
 import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { useMaker } from './maker-context';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 
 /**
  * THE REVEAL — chosen once, in the Maker (Phase 6).
@@ -99,6 +101,7 @@ export function MakerRevealPicker({
 
   const Row = ({ id, label, note, pro }: { id: string; label: string; note: string; pro: boolean }) => {
     const on = effective === id;
+    const mark = pro ? paidMarkState({ owns: ownsPro, storeShell }) : null;
     return (
       <li>
         <button
@@ -115,8 +118,8 @@ export function MakerRevealPicker({
             <span className="block text-[13.5px] font-semibold">{label}</span>
             <span className={`block text-[12px] ${on ? 'text-cream/80' : 'text-ink/60'}`}>{note}</span>
           </span>
-          {pro && !ownsPro && !storeShell ? (
-            <span className={`text-[11px] font-semibold ${on ? 'text-cream/80' : 'text-ink/55'}`}>Pro</span>
+          {mark ? (
+            <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} tone={on ? 'current' : 'auto'} />
           ) : null}
           {on ? <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
         </button>

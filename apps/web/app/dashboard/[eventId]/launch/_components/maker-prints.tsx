@@ -13,6 +13,8 @@ import {
   type PrintFormatId,
 } from '@/lib/print-pieces';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * PRINTS & TICKETS — the third group of the Event Hub Maker's bar (Phase 9).
@@ -112,6 +114,7 @@ export function MakerPrints({
           <p className="text-sm text-ink/75">
             {access.printReady ? (
               <>
+                <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
                 <span className="font-semibold text-ink">Print-ready.</span> 3 mm bleed, crop marks
                 {spot.foil || spot.whiteInk
                   ? `, and ${[spot.foil ? 'foil' : null, spot.whiteInk ? 'white ink' : null].filter(Boolean).join(' and ')} on their own layers`
@@ -122,7 +125,13 @@ export function MakerPrints({
               <>
                 <span className="font-semibold text-ink">These are samples</span> — low-resolution pictures marked
                 &ldquo;Sample&rdquo;, with placeholder QR codes, so you can see your own names on every piece.
-                {access.offerPro ? ' Event Hub Pro makes them print-ready.' : ''}
+                {access.offerPro ? (
+                  <>
+                    {' '}
+                    <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} className="mx-0.5 align-middle" />
+                    Event Hub Pro makes them print-ready.
+                  </>
+                ) : null}
               </>
             )}
           </p>

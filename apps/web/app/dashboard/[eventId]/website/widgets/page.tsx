@@ -26,6 +26,10 @@ import {
 } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel, paidMarkState, type PaidMarkState } from '@/lib/paid-mark';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 /**
  * Widgets that auto-populate their content from another part of the couple's
@@ -93,6 +97,15 @@ export default async function WidgetsEditorPage({
     .maybeSingle();
 
   if (!event) redirect(`/dashboard/${eventId}`);
+
+  // 🔒💎 The Pro rows' mark follows the event's MEASURED Event Hub Pro — a
+  // padlock until it is owned, a diamond after (owner 2026-09-25). A failed
+  // read is "not owned": it can only show a padlock, never open a paid door.
+  const [ownsPro, storeShell] = await Promise.all([
+    eventCoupleWebsiteProActive(supabase, eventId).catch(() => false),
+    isStoreShellRequest(),
+  ]);
+  const proMark = paidMarkState({ owns: ownsPro, storeShell });
 
   // Load every widget row for this event. RLS guarantees the user is
   // either an accepted moderator or a legacy couple — the migration
@@ -327,6 +340,7 @@ export default async function WidgetsEditorPage({
         <ul className="space-y-2">
           {alwaysOnRows.map((row) => (
             <WidgetRow
+                proMark={proMark}
               key={row.widget_id}
               row={row}
               eventId={eventId}
@@ -361,6 +375,7 @@ export default async function WidgetsEditorPage({
           <ul className="space-y-2">
             {hideableRows.map((row, index) => (
               <WidgetRow
+                proMark={proMark}
                 key={row.widget_id}
                 row={row}
                 eventId={eventId}
@@ -399,7 +414,10 @@ function WidgetRow({
   hasContent: rowHasContent,
   isFirstHideable,
   isLastHideable,
+  proMark,
 }: {
+  /** The Event Hub Pro mark for a Pro row — null in the store shell when not owned. */
+  proMark: PaidMarkState | null;
   row: InvitationWidgetRow;
   eventId: string;
   noun: 'wedding' | 'event';
@@ -450,10 +468,8 @@ function WidgetRow({
               Always on
             </span>
           ) : null}
-          {row.tier === 'pro' ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-terracotta-700">
-              Pro
-            </span>
+          {row.tier === 'pro' && proMark ? (
+            <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} text="Pro" size="xs" />
           ) : null}
         </div>
         {/* ⚠ THE HOST'S OWN WORD, NOT ALWAYS "wedding". Five of the sixteen

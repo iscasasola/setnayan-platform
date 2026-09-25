@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { type LucideIcon } from 'lucide-react';
 import type { RowPill } from '../../studio/_components/studio-app-row';
 import { ServiceTags } from '../../studio/_components/service-tags';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * SuiteServiceCard — the Suite's grid tile. A compact BOX (icon + status/price
@@ -62,8 +64,11 @@ export function SuiteServiceCard({
         </span>
         {pill ? (
           <span
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold tracking-tight ${PILL_CLS[pill.tone]}`}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-bold tracking-tight ${PILL_CLS[pill.tone]}`}
           >
+            {pill.tone === 'active' ? (
+              <PaidMark state="unlocked" label={paidMarkLabel('unlocked', label)} size="xs" tone="current" />
+            ) : null}
             {pill.text}
           </span>
         ) : null}

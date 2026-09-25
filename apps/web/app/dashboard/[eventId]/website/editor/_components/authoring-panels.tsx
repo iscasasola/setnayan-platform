@@ -7,6 +7,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { unlockLabel } from './unlock-label';
 import { resolveMoments } from '@/lib/love-story-moments';
 import { HubSavesImmediately } from '../../_components/hub-draft-field';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * Authoring panels for the unified editor (PR-8) — the last multi-field
@@ -270,7 +272,12 @@ export function EditorialPanel({
         <li>Approved wedding photos gathered automatically</li>
         <li>Your thank-you note (Special message)</li>
       </ul>
-      <p className="mt-2 text-[0.7rem] font-semibold text-amber-800">
+      <p className="mt-2 flex items-center gap-1 text-[0.7rem] font-semibold text-amber-800">
+        <PaidMark
+          state={ownsPro ? 'unlocked' : 'locked'}
+          label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')}
+          size="xs"
+        />
         Event Hub PRO — the editor&rsquo;s desk
       </p>
       <ul className="mt-0.5 list-disc pl-4 text-[0.7rem] text-ink/60">

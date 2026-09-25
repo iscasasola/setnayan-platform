@@ -6,7 +6,6 @@ import { useState, useTransition } from 'react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { useMaker } from '../../launch/_components/maker-context';
 import {
-  HUB_DRAFT_FIELD,
   HUB_RESET_NEVER_TOUCHES,
   type HubDraftActionResult,
   type HubDraftRefusal,
@@ -43,10 +42,10 @@ export type HubDraftBarProps = {
   readError?: boolean;
 };
 
-/** The hidden field that sends an existing Event Hub form's save to the draft. */
-export function HubDraftField() {
-  return <input type="hidden" name={HUB_DRAFT_FIELD} value="1" />;
-}
+/* The hidden field lives in `hub-draft-field.tsx` — a module with no server
+   imports, so panels that render tests load can carry it. Re-exported here for
+   the callers that name this file. */
+export { HubDraftField } from './hub-draft-field';
 
 /** "Draft" — shown only while the draft differs from what guests see. */
 export function HubDraftBadge({ summary }: { summary: HubDraftSummary }) {

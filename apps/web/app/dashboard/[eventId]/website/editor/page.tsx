@@ -96,6 +96,9 @@ import {
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
 import { updateSpecialMessage } from '../special-message/actions';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
+import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
 
 /* No `metadata` of its own: opened directly this page only forwards, and inside
@@ -311,11 +314,29 @@ export default async function WebsiteEditorPage({
   if (widgetsRawError) {
     logQueryError('WebsiteEditorPage.widgetsRaw', widgetsRawError, { eventId }, 'graceful_degrade');
   }
-  const allWidgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
+  const liveWidgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
     Omit<InvitationWidgetRow, 'widget_type'> & { widget_type: string }
   >)
     .filter((r): r is InvitationWidgetRow => isWidgetType(r.widget_type))
     .map((r) => r as InvitationWidgetRow);
+
+  /* 💾 THE MAKER EDITS THE DRAFT, SO IT SHOWS THE DRAFT (Phase 2). Every
+     draft-capable form below posts `draft=1`; if the panels and the navigator
+     then read the LIVE rows, a drafted eye would never flip and a drafted motion
+     would never look chosen — the couple would press it again and again. So the
+     draft is laid over the live rows here, with the SAME overlay the host's
+     `?editor=1` preview uses (`overlayHubDraftWidgets`), and every control reads
+     what the preview shows.
+     ⚠ A draft that cannot be read is logged and the live rows are shown; the
+     toolbar's own read (`loadHubDraftBarData`) renders that failure as
+     "could not read your draft", never as "no changes". */
+  let hubDraft: HubDraft | null = null;
+  try {
+    hubDraft = await readHubDraft(supabase, eventId);
+  } catch (e) {
+    console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
+  }
+  const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
   // Hideable rows only — always-on sections can't be hidden or moved, so
   // offering the controls would be a lie. Ordered by display_order.
   const sectionRows = [...allWidgets]
@@ -379,7 +400,8 @@ export default async function WebsiteEditorPage({
   // guard the site uses, so a malformed row shows as "off" here exactly as it
   // shows as no backdrop there — the editor and the page cannot disagree.
   const rsvpBackdrop = parseRsvpBackdropConfig(
-    (event as { rsvp_backdrop?: unknown }).rsvp_backdrop,
+    // The drafted backdrop when there is one — the panel shows what the preview shows.
+    overlayHubDraftEvent(event as Record<string, unknown>, hubDraft).rsvp_backdrop,
   );
 
   /* 🎨 The background colour is FREE (owner 2026-09-24: "changing background
@@ -829,12 +851,15 @@ export default async function WebsiteEditorPage({
     label: 'Go live',
     blurb: 'Open your Event Hub to guests, or schedule it.',
     node: (
+      <>
+      <HubSavesImmediately className="mb-2" />
       <LaunchStdButton
         eventId={eventId}
         slug={slug}
         initialLaunched={stdLaunched}
         initialScheduledAt={scheduledAt}
       />
+      </>
     ),
   };
 

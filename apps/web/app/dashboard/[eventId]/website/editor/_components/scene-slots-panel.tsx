@@ -2,6 +2,7 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { HUB_SLOT_HEAD_MAX, HUB_SLOT_TEXT_MAX, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { SCENE_BUILT_ON_LABEL, SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { SceneTemplatePicker, type SceneView } from './scene-template-picker';
+import { HubDraftField } from '../../_components/hub-draft-field';
 
 /**
  * ONE TEMPLATE SCENE'S OWN CONTROLS — which template, what fills its slots, how
@@ -81,6 +82,7 @@ export function SceneSlotsPanel({
         triggerLabel="Change template"
         currentTemplate={t.id}
         initialView={initialView}
+        draft
         hideMediaSlots={hideLocked && !ownsPro}
       />
 
@@ -98,6 +100,7 @@ export function SceneSlotsPanel({
                 {slot.media ? (
                   <form action={saveAction}>
                     {hiddenInputs({ ...base, intent: 'slot', slot: String(i), media: '' })}
+                    <HubDraftField />
                     <button
                       type="submit"
                       className="inline-flex h-9 items-center rounded-md border border-ink/15 bg-cream px-2 text-[0.6rem] font-semibold text-ink/60 hover:border-ink/30"
@@ -119,6 +122,7 @@ export function SceneSlotsPanel({
                     {videoChoice && (t.clip || t.family === 'media' || t.family === 'media_text') ? (
                       <form action={saveAction}>
                         {hiddenInputs({ ...base, intent: 'slot', slot: String(i), media: videoChoice.ref, kind: 'snippet' })}
+                        <HubDraftField />
                         <button
                           type="submit"
                           aria-pressed={slot.kind === 'snippet'}
@@ -138,6 +142,7 @@ export function SceneSlotsPanel({
                       return (
                         <form key={photo.ref} action={saveAction}>
                           {hiddenInputs({ ...base, intent: 'slot', slot: String(i), media: photo.ref })}
+                          <HubDraftField />
                           <button
                             type="submit"
                             aria-pressed={on}
@@ -192,6 +197,7 @@ export function SceneSlotsPanel({
             return (
               <form key={text} action={saveAction}>
                 {hiddenInputs({ ...base, intent: 'video', play, ...(open ? { open } : {}) })}
+                <HubDraftField />
                 <button
                   type="submit"
                   aria-pressed={on}
@@ -215,6 +221,7 @@ export function SceneSlotsPanel({
             return (
               <form key={i} action={saveAction} className="space-y-1 rounded-md border border-ink/10 bg-white/60 p-2">
                 {hiddenInputs({ ...base, intent: 'slot', slot: String(i) })}
+                <HubDraftField />
                 <label className="sr-only" htmlFor={`slot-head-${row.widget_id}-${i}`}>
                   {blockWords.head} {i + 1}
                 </label>

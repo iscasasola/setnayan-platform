@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { nextTransition } from '@/lib/hub-scenes';
+import { sceneTemplateDefaults, sceneTemplateIdFromForm } from '@/lib/scene-templates';
+import { applySceneSlot, applySceneTemplate, applySceneVideo, type SlotPatch } from '@/lib/scene-writes';
+import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
@@ -182,6 +185,12 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
     );
   }
 
+  /* 💾 THE EYE IN THE MAKER EDITS THE DRAFT. Every check above still ran (the
+     row is this event's, an always-on section cannot be hidden); a `draft=1`
+     form then stops here and guests see nothing until Apply. */
+  if (isHubDraftWrite(formData)) {
+    await saveWidgetToDraft(formData, eventId, row.widget_type as WidgetType, { is_visible: nextVisible });
+  }
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ is_visible: nextVisible })
@@ -932,12 +941,19 @@ export async function addCustomSection(formData: FormData): Promise<void> {
   }
 
   const bottom = (rows ?? []).reduce((max, r) => Math.max(max, Number(r.display_order) || 0), 0);
+  /* 🎬 FROM A TEMPLATE (owner 2026-09-24: "+" opens the 25 templates — "we do
+     not have the blank anymore"). The picker posts `template`; the scene starts
+     with that template and its default effect. Adding is already Pro (above),
+     so the default motion is written too. A POST with no template (an older
+     form) still adds the plain section it always did. */
+  const template = sceneTemplateIdFromForm(formData.get('template'));
   const { error: insertErr } = await supabase.from('invitation_widgets').insert({
     event_id: eventId,
     widget_type: slot,
     display_order: bottom + 1,
     is_visible: true,
     is_always_on: false,
+    ...(template ? { config_json: { canvas: sceneTemplateDefaults(template, true) } } : {}),
   });
   if (insertErr) throw new Error(`Failed to add a section: ${insertErr.message}`);
 
@@ -956,9 +972,10 @@ async function refuseCustomSectionWithoutPro(
 /**
  * One of the couple's own sections — its words, its layout, or its removal.
  *
- * 🔑 ONE EXPORT, THREE INTENTS (`intent` = save · arrange · delete; absent =
- * save, which is what every form posted before this). Not three new exports:
- * the Vercel route ceiling is near, and every `'use server'` export is a route.
+ * 🔑 ONE EXPORT, SIX INTENTS (`intent` = save · arrange · delete · template ·
+ * slot · video; absent = save, which is what every form posted before this).
+ * Not six exports: the Vercel route ceiling is near, and the Maker plan's
+ * Phase 5 budget is zero new server actions.
  *
  *   save    — the heading and the words. REFUSED over the limit, never cut
  *             (`readCustomSectionInput`); the inputs carry the same maxLength.
@@ -967,6 +984,9 @@ async function refuseCustomSectionWithoutPro(
  *   delete  — the row goes, so its slot is free again for "Add". Never
  *             Pro-locked: taking your own words off your own page is not a
  *             purchase.
+ *   template · slot · video — a scene made from one of the 25 templates
+ *             (Event Hub Maker Phase 5): which template, what fills one slot,
+ *             how its clip plays. Rules in `lib/scene-writes.ts`.
  *
  * ⛔ MERGES `config_json` for save and arrange, like every other writer here —
  * the canvas (photo, crop, motion) and the words share one bag, and a couple
@@ -1038,10 +1058,87 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     redirect(back('?saved=1'));
   }
 
+  /* 💾 In the Maker (`draft=1`) a scene's template, slots, clip playback and
+     layout go to the DRAFT: they are all the section's canvas. Every check
+     still runs; the Pro question moves to Apply (`hubDraftAction`), which
+     classifies slot media and playback exactly as the gates below do. The
+     words (`save`) and removal (`delete`) stay live — the Maker marks them. */
+  const drafting = isHubDraftWrite(formData);
   let next: Record<string, unknown>;
-  if (intent === 'arrange') {
+  if (intent === 'template' || intent === 'slot' || intent === 'video') {
+    /* 🎬 A SCENE'S TEMPLATE, ONE OF ITS SLOTS, OR HOW ITS CLIP PLAYS (Event Hub
+       Maker Phase 5). The rules are pure and tested in `lib/scene-writes.ts`;
+       here they meet the row. Words and the template pick are free under the
+       grandfather rule above; PUTTING A PICTURE OR A CLIP INTO A SCENE, or a
+       non-default playback, is Event Hub Pro (owner: media is Pro) — asked of
+       `requireLookPro` before anything is written. Taking one off never is. */
+    // In the draft, build on what is already drafted — never on the live canvas.
+    const canvas = sanitizeHubCanvas(drafting ? await canvasBase(true, eventId, row) : existing);
+    let nextCanvas: HubSectionCanvas;
+    if (intent === 'template') {
+      const id = sceneTemplateIdFromForm(formData.get('template'));
+      if (!id) redirect(back('?error=bad_template'));
+      nextCanvas = applySceneTemplate(
+        canvas,
+        id,
+        await eventCoupleWebsiteProActive(createAdminClient(), eventId),
+      );
+    } else if (intent === 'slot') {
+      const field = (k: string) => {
+        const v = formData.get(k);
+        return typeof v === 'string' ? v : undefined;
+      };
+      const kind = field('kind');
+      const patch: SlotPatch = {
+        media: field('media'),
+        kind: kind === 'snippet' ? 'snippet' : kind === 'photo' ? 'photo' : undefined,
+        head: field('head'),
+        text: field('text'),
+      };
+      /* 🔒 THE PICTURES THIS COUPLE MAY PUT IN A SCENE — their hero, their
+         gallery and their hero clip, the same set `setWidgetBackground` allows.
+         Read only when a picture is actually being put up. */
+      let ownRefs = new Set<string>();
+      if (patch.media) {
+        const { data: ev, error: evErr } = await supabase
+          .from('events')
+          .select('landing_page_hero_image_url, our_photos, landing_page_hero_video_r2_key')
+          .eq('event_id', eventId)
+          .maybeSingle();
+        if (evErr) throw new Error(`Failed to load your photos: ${evErr.message}`);
+        ownRefs = new Set(
+          [
+            siteMediaServeRef(ev?.landing_page_hero_image_url),
+            ...siteMediaServeRefs(ev?.our_photos),
+            siteMediaServeRef(ev?.landing_page_hero_video_r2_key),
+          ].filter((r): r is string => Boolean(r)),
+        );
+      }
+      const w = applySceneSlot(canvas, Number(formData.get('slot')), patch, ownRefs);
+      if (!w.ok) redirect(back(`?error=${w.reason}`));
+      if (w.putsMediaUp) {
+        if (!drafting) await requireLookPro(eventId, 'change');
+      }
+      nextCanvas = w.canvas;
+    } else {
+      const v = applySceneVideo(canvas, formData.get('play'), formData.get('open'));
+      if (!v) redirect(back('?error=bad_video'));
+      if (v.putsUp) {
+        if (!drafting) await requireLookPro(eventId, 'change');
+      }
+      nextCanvas = v.canvas;
+    }
+    if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, nextCanvas);
+    next = { ...existing, canvas: sanitizeHubCanvas({ canvas: nextCanvas }) };
+  } else if (intent === 'arrange') {
     const arrangement = hubArrangement(formData.get('arrangement'));
     if (!arrangement) redirect(back('?error=bad_arrangement'));
+    /* 💾 A layout is the section's canvas, so in the Maker it goes to the draft —
+       merged onto what is already drafted, like every other canvas writer. */
+    if (drafting) {
+      const base = await canvasBase(true, eventId, row);
+      await saveCanvasToDraft(formData, eventId, row.widget_type, { ...sanitizeHubCanvas(base), arrangement });
+    }
     next = { ...existing, canvas: { ...sanitizeHubCanvas(existing), arrangement } };
   } else {
     const input = readCustomSectionInput(formData.get('title'), formData.get('body'));

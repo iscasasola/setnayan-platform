@@ -2,6 +2,7 @@ import { formatEventDate } from '@/lib/events';
 import { formatMomentDate, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LoveStoryProLine } from './love-story-pro-line';
+import { HubSavesImmediately } from '../../_components/hub-draft-field';
 
 /**
  * PICK FROM OUR EVENTS — "From what Setnayan already holds" (prototype § pick).
@@ -87,6 +88,7 @@ export function PickFromOurEvents({
         ) : null
       ) : withPhotos.length > 0 && moments.length > 0 ? (
         <form action={action} className="mt-5 space-y-4">
+          <HubSavesImmediately />
           <input type="hidden" name="intent" value="pick" />
           {withPhotos.map((e) => (
             <fieldset key={e.eventId}>

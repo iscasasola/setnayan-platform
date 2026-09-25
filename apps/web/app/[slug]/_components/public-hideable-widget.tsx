@@ -3,7 +3,9 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
-import { CustomSectionWidget } from './custom-section-widget';
+import { renderCustomSection } from './custom-section-widget';
+import { sceneFactsFor } from '../_lib/scene-facts';
+import type { InviteThemeId } from '@/lib/invite-themes';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -43,6 +45,8 @@ type PublicHideableWidgetProps = {
   ourPhotoUrls: string[];
   /** ref → presigned URL for section backgrounds, resolved once by SiteBody. */
   canvasMediaUrls?: Readonly<Record<string, string>>;
+  /** The live theme, so a scene's text follows its own background (free). */
+  hubTheme?: InviteThemeId;
 };
 
 /**
@@ -55,7 +59,7 @@ type PublicHideableWidgetProps = {
  * both doors; the reasoning lives in `hub-canvas-frame.tsx`.
  */
 export function PublicHideableWidget(props: PublicHideableWidgetProps) {
-  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls}>{PublicHideableWidgetBody(props)}</HubCanvasFrame>;
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>{PublicHideableWidgetBody(props)}</HubCanvasFrame>;
 }
 
 function PublicHideableWidgetBody({
@@ -132,7 +136,12 @@ function PublicHideableWidgetBody({
     case 'custom_4':
     case 'custom_5':
     case 'custom_6':
-      return <CustomSectionWidget config={widget.config_json} />;
+      // 🎬 A scene from one of the 25 templates, or the plain words it always was.
+      return renderCustomSection({
+        config: widget.config_json,
+        mediaUrls: canvasMediaUrls,
+        facts: sceneFactsFor(event, { solemn: words.solemn }),
+      });
 
     case 'our_love_story':
       return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} />;

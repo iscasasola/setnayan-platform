@@ -291,14 +291,17 @@ test('⛔ a free couple sees it NAMED and LOCKED — never an Add button, never 
     );
 
   const free = render(false);
-  assert.doesNotMatch(free, /Add a section of your own/, 'no Add button for a free couple');
+  assert.doesNotMatch(free, /Add a scene|Add a section of your own/, 'no Add button for a free couple');
   assert.match(free, /A section of your own/, 'but the feature is named');
   assert.equal((free.match(/data-lock="yes"/g) ?? []).length, 2, 'locked twice: the empty slot and Add');
   assert.equal((free.match(/name="title"/g) ?? []).length, 1, 'the slot WITH words keeps its editor (grandfather)');
   assert.equal((free.match(/value="delete"/g) ?? []).length, 2, 'and both can still be removed');
 
   const pro = render(true);
-  assert.match(pro, /Add a section of your own/);
+  // 🎬 Phase 5: "+" opens the 25 templates — there is no blank "Add a section"
+  // any more (owner 2026-09-24: "we do not have the blank anymore").
+  assert.match(pro, /\+ Add a scene/);
+  assert.doesNotMatch(pro, /Add a section of your own/, 'the blank add is gone');
   assert.doesNotMatch(pro, /data-lock/);
   assert.equal((pro.match(/name="title"/g) ?? []).length, 2);
   assert.equal((pro.match(/name="arrangement"/g) ?? []).length, 2 * HUB_ARRANGEMENTS.length, 'four layouts per section');

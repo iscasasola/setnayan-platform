@@ -16,6 +16,7 @@ import {
   type MomentAnchor,
 } from '@/lib/love-story-moments';
 import { LoveStoryProLine } from './love-story-pro-line';
+import { HubSavesImmediately } from '../../_components/hub-draft-field';
 
 /**
  * ADD A MOMENT — the sheet (phone) / side panel (laptop) from the prototype
@@ -157,6 +158,7 @@ export function MomentSheet({
             </div>
 
             <form action={action} className="mt-5 space-y-6">
+              <HubSavesImmediately />
               <input type="hidden" name="intent" value={moment ? 'edit' : 'add'} />
               {moment ? <input type="hidden" name="id" value={moment.id} /> : null}
 

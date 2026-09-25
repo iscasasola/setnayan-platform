@@ -1,4 +1,9 @@
 import { redirect } from 'next/navigation';
+import { resolveMonogram } from '@/lib/monogram';
+import { countdownTargetMs } from '@/lib/countdown-target';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { nextFreeCustomSlot } from '@/lib/custom-sections';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -91,6 +96,9 @@ import {
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
 import { updateSpecialMessage } from '../special-message/actions';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
+import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
 
 /* No `metadata` of its own: opened directly this page only forwards, and inside
@@ -306,11 +314,29 @@ export default async function WebsiteEditorPage({
   if (widgetsRawError) {
     logQueryError('WebsiteEditorPage.widgetsRaw', widgetsRawError, { eventId }, 'graceful_degrade');
   }
-  const allWidgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
+  const liveWidgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
     Omit<InvitationWidgetRow, 'widget_type'> & { widget_type: string }
   >)
     .filter((r): r is InvitationWidgetRow => isWidgetType(r.widget_type))
     .map((r) => r as InvitationWidgetRow);
+
+  /* 💾 THE MAKER EDITS THE DRAFT, SO IT SHOWS THE DRAFT (Phase 2). Every
+     draft-capable form below posts `draft=1`; if the panels and the navigator
+     then read the LIVE rows, a drafted eye would never flip and a drafted motion
+     would never look chosen — the couple would press it again and again. So the
+     draft is laid over the live rows here, with the SAME overlay the host's
+     `?editor=1` preview uses (`overlayHubDraftWidgets`), and every control reads
+     what the preview shows.
+     ⚠ A draft that cannot be read is logged and the live rows are shown; the
+     toolbar's own read (`loadHubDraftBarData`) renders that failure as
+     "could not read your draft", never as "no changes". */
+  let hubDraft: HubDraft | null = null;
+  try {
+    hubDraft = await readHubDraft(supabase, eventId);
+  } catch (e) {
+    console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
+  }
+  const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
   // Hideable rows only — always-on sections can't be hidden or moved, so
   // offering the controls would be a lie. Ordered by display_order.
   const sectionRows = [...allWidgets]
@@ -374,7 +400,8 @@ export default async function WebsiteEditorPage({
   // guard the site uses, so a malformed row shows as "off" here exactly as it
   // shows as no backdrop there — the editor and the page cannot disagree.
   const rsvpBackdrop = parseRsvpBackdropConfig(
-    (event as { rsvp_backdrop?: unknown }).rsvp_backdrop,
+    // The drafted backdrop when there is one — the panel shows what the preview shows.
+    overlayHubDraftEvent(event as Record<string, unknown>, hubDraft).rsvp_backdrop,
   );
 
   /* 🎨 The background colour is FREE (owner 2026-09-24: "changing background
@@ -742,6 +769,11 @@ export default async function WebsiteEditorPage({
               lookLock={lockPanel('How each section looks and moves')}
               videoChoice={videoChoice}
               colorChoices={colorChoices}
+              sceneStage={
+                /* The prototype's heading words: "Add a scene to the Invitation",
+                   "…to Save the Date", "…to On the Day", "…to Post Event". */
+                initialPhase === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[initialPhase]
+              }
             />
           ),
         },
@@ -819,12 +851,15 @@ export default async function WebsiteEditorPage({
     label: 'Go live',
     blurb: 'Open your Event Hub to guests, or schedule it.',
     node: (
+      <>
+      <HubSavesImmediately className="mb-2" />
       <LaunchStdButton
         eventId={eventId}
         slug={slug}
         initialLaunched={stdLaunched}
         initialScheduledAt={scheduledAt}
       />
+      </>
     ),
   };
 
@@ -834,7 +869,12 @@ export default async function WebsiteEditorPage({
   const scenes: MakerScene[] = sectionRows.map((row) => ({
     id: row.widget_id,
     type: row.widget_type,
-    label: WIDGET_CATALOG_BY_TYPE[row.widget_type]?.label ?? row.widget_type,
+    // A scene from a template is named by its template ("Three mosaic"), so
+    // six "Your own section" rows are told apart in the navigator.
+    label: (() => {
+      const t = sanitizeHubCanvas(row.config_json).template;
+      return t ? SCENE_TEMPLATES[t].name : (WIDGET_CATALOG_BY_TYPE[row.widget_type]?.label ?? row.widget_type);
+    })(),
     mode: (row.mode ?? 'auto') as MakerScene['mode'],
     isVisible: row.is_visible,
     hasContent: sectionContent[row.widget_type] !== false,
@@ -902,6 +942,36 @@ export default async function WebsiteEditorPage({
       proPriceLabel={proPriceLabel}
       /* 🔒 Never in the store shell — no pitch, no price (App Review 3.1.1). */
       showProCta={!ownsPro && !storeShell}
+      /* 🎬 "+ Add a scene" — the 25 templates (Phase 5). A scene of their own
+         is Pro (`addCustomSection` refuses without it), and six is the shape
+         (`nextFreeCustomSlot`), so the control appears only where it can
+         succeed and otherwise says why. Hidden in the store shell (a Pro
+         feature there would be a paid pitch). */
+      sceneFacts={{
+        names: (event.display_name as string | null) ?? null,
+        monogram: resolveMonogram({
+          display_name: (event.display_name as string | null) ?? null,
+          monogram_text: (event as { monogram_text?: string | null }).monogram_text ?? null,
+          monogram_color: null,
+        }).text,
+        days: (() => {
+          const target = countdownTargetMs(
+            (event.event_date as string | null) ?? null,
+            ((event as { timezone?: string | null }).timezone) ?? undefined,
+          );
+          const d = target === null ? null : Math.ceil((target - Date.now()) / 86_400_000);
+          return d !== null && d >= 0 ? d : null;
+        })(),
+      }}
+      addScene={
+        storeShell
+          ? null
+          : !ownsPro
+            ? { note: 'Scenes of your own, from 25 templates, come with Event Hub Pro.' }
+            : !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
+              ? { note: 'You have all six of your own scenes. Remove one you are not using to add another.' }
+              : { action: addCustomSection, returnTo: `/dashboard/${eventId}/launch` }
+      }
     />
   );
 }

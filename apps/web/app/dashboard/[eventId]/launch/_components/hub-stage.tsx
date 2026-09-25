@@ -3,6 +3,7 @@ import { Eye, PencilLine } from 'lucide-react';
 import type { HubFact, HubRole, HubRoleView, HubStanding } from '@/lib/event-hub-control';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { SlugField } from '@/app/dashboard/[eventId]/invitation/_components/slug-field';
+import { HubSavesImmediately } from '@/app/dashboard/[eventId]/website/_components/hub-draft-field';
 import { OB } from '@/app/_components/site-stage/obsidian';
 import { SiteStage, type SiteStageStage } from '@/app/_components/site-stage/site-stage';
 
@@ -132,6 +133,8 @@ export function HubStage({
             style={{ backgroundColor: OB.card, border: `1px solid ${OB.hairline}` }}
           >
             <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+            {/* The address is never drafted (the build plan's rule) — say so. */}
+            <HubSavesImmediately className="mt-2" />
           </div>
         ) : null}
 

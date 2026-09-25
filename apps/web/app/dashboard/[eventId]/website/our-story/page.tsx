@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { updateOurStory, loveStoryMomentAction } from './actions';
 import { StoryFields, type LoveStoryBlob } from './_components/story-fields';
 import { LoveStoryBook } from './_components/love-story-book';
+import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-events';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -215,6 +216,7 @@ export default async function OurStoryEditorPage({
             The words your invitation weaves into its story paragraph
           </summary>
           <form action={updateAction} className="mt-6 space-y-8">
+            <HubSavesImmediately />
             <StoryFields story={story} />
             <SubmitButton pendingLabel="Saving…" className="button-primary">
               Save our story

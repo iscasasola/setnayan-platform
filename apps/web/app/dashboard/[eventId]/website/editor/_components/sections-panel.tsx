@@ -38,6 +38,7 @@ import {
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
 import { canvasHasMotion } from '@/lib/hub-look-pro';
+import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import {
   HUB_AUTO_SPEEDS,
   HUB_AUTO_SPEED_LABEL,
@@ -47,6 +48,8 @@ import {
   HUB_TRANSITION_LABEL,
   resolveTransition,
 } from '@/lib/hub-scenes';
+import { SceneSlotsPanel } from './scene-slots-panel';
+import { SceneTemplatePicker } from './scene-template-picker';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -93,6 +96,7 @@ export function SectionsPanel({
   only = null,
   returnTo = null,
   hideLocked = false,
+  sceneStage = 'your Event Hub',
 }: {
   /**
    * THE EVENT HUB MAKER'S INSPECTOR (2026-09-25) shows ONE section at a time.
@@ -109,6 +113,11 @@ export function SectionsPanel({
    * is a paid pitch). Free controls are untouched.
    */
   hideLocked?: boolean;
+  /**
+   * The stage a new scene is added to, as the couple reads it ("the
+   * Invitation") — the template picker is headed with it (owner 2026-09-24).
+   */
+  sceneStage?: string;
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
    *  can never be hidden or moved, so a control would be a lie). */
@@ -211,6 +220,7 @@ export function SectionsPanel({
 
                 {/* show / hide */}
                 <form action={toggleAction}>
+                  <HubDraftField />
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
                   <input type="hidden" name="widget_type" value={row.widget_type} />
@@ -236,6 +246,7 @@ export function SectionsPanel({
 
                 {/* reorder */}
                 <form action={moveUpAction}>
+                  <HubDraftField />
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
                   <input type="hidden" name="return_to" value={back} />
@@ -249,6 +260,7 @@ export function SectionsPanel({
                   </button>
                 </form>
                 <form action={moveDownAction}>
+                  <HubDraftField />
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
                   <input type="hidden" name="return_to" value={back} />
@@ -270,6 +282,7 @@ export function SectionsPanel({
                   const blocked = m === 'shown' && !hasContent;
                   return (
                     <form key={m} action={setModeAction} className="flex">
+                      <HubDraftField />
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="widget_id" value={row.widget_id} />
                       <input type="hidden" name="next_mode" value={m} />
@@ -327,6 +340,7 @@ export function SectionsPanel({
                    is the one motion write `setWidgetMotion` never gates. */
                 canvasHasMotion(sanitizeHubCanvas(row.config_json)) ? (
                   <form action={setMotionAction} className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                    <HubDraftField />
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="widget_id" value={row.widget_id} />
                     <input type="hidden" name="reset" value="1" />
@@ -351,6 +365,7 @@ export function SectionsPanel({
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_MOTION_PRESETS.map((p) => (
                           <form key={p} action={setMotionAction}>
+                            <HubDraftField />
                             <input type="hidden" name="event_id" value={eventId} />
                             <input type="hidden" name="widget_id" value={row.widget_id} />
                             <input type="hidden" name="preset" value={p} />
@@ -382,8 +397,8 @@ export function SectionsPanel({
                           ⛔ Scrub and Auto-scroll are Pro. Locked chips stay
                           VISIBLE (a feature nobody can see is a feature nobody
                           buys) and Scroll is never locked.
-                          ⚠ Auto-scroll is stored now and plays as Scroll until
-                          its own renderer lands — said here in the hint. */}
+                          ✅ Auto-scroll plays on the guest page since Event Hub
+                          Maker Phase 5 (`hub-auto-run.tsx`). */}
                       {(() => {
                         const transition = resolveTransition(canvas);
                         const speed = canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
@@ -406,6 +421,7 @@ export function SectionsPanel({
                                 if (locked && hideLocked) return null;
                                 return (
                                   <form key={t} action={setMotionAction}>
+                                    <HubDraftField />
                                     <input type="hidden" name="event_id" value={eventId} />
                                     <input type="hidden" name="widget_id" value={row.widget_id} />
                                     <input type="hidden" name="transition" value={t} />
@@ -447,6 +463,7 @@ export function SectionsPanel({
                                   const on = speed === v;
                                   return (
                                     <form key={v} action={setMotionAction}>
+                                      <HubDraftField />
                                       <input type="hidden" name="event_id" value={eventId} />
                                       <input type="hidden" name="widget_id" value={row.widget_id} />
                                       <input type="hidden" name="transition" value="auto" />
@@ -468,7 +485,7 @@ export function SectionsPanel({
                                   );
                                 })}
                                 <span className="text-[0.56rem] text-ink/45">
-                                  Guests see it scroll with the page until Auto-scroll launches.
+                                  {HUB_TRANSITION_HINT.auto} Guests can pause it, and a tap stops it.
                                 </span>
                               </div>
                             ) : transition === 'scrub' ? (
@@ -488,6 +505,7 @@ export function SectionsPanel({
                             const on = t === 'auto' ? !canvas.timeline : canvas.timeline === t;
                             return (
                               <form key={t} action={setMotionAction}>
+                                <HubDraftField />
                                 <input type="hidden" name="event_id" value={eventId} />
                                 <input type="hidden" name="widget_id" value={row.widget_id} />
                                 <input type="hidden" name="preset" value={preset} />
@@ -549,6 +567,7 @@ export function SectionsPanel({
                                 const on = v === 'auto' ? isAuto : !isAuto && current === v;
                                 return (
                                   <form key={v} action={setMotionAction}>
+                                    <HubDraftField />
                                     <input type="hidden" name="event_id" value={eventId} />
                                     <input type="hidden" name="widget_id" value={row.widget_id} />
                                     <input type="hidden" name="preset" value={preset} />
@@ -604,6 +623,7 @@ export function SectionsPanel({
                             const on = q === 'auto' ? !canvas.sequence : canvas.sequence === q;
                             return (
                               <form key={q} action={setMotionAction}>
+                                <HubDraftField />
                                 <input type="hidden" name="event_id" value={eventId} />
                                 <input type="hidden" name="widget_id" value={row.widget_id} />
                                 <input type="hidden" name="preset" value={preset} />
@@ -669,6 +689,7 @@ export function SectionsPanel({
                         Remove this section
                       </summary>
                       <form action={saveCustomAction} className="mt-1 flex items-center gap-2">
+                        <HubSavesImmediately />
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="widget_id" value={row.widget_id} />
                         <input type="hidden" name="intent" value="delete" />
@@ -697,6 +718,7 @@ export function SectionsPanel({
                       action={saveCustomAction}
                       className="mt-2 space-y-1.5 border-t border-dashed border-ink/10 pt-2"
                     >
+                      <HubSavesImmediately />
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="widget_id" value={row.widget_id} />
                       <input type="hidden" name="return_to" value={back} />
@@ -736,14 +758,18 @@ export function SectionsPanel({
                         The four chapter arrangements of the story, a closed
                         set. The photo is the one chosen under "Photo" below —
                         one photo per section, one home for it. Every layout
-                        stacks to a single column on a phone. */}
-                    <div className="mt-2">
+                        stacks to a single column on a phone.
+                        🎬 A scene made from a TEMPLATE lays itself out, so the
+                        four arrangements would move nothing there — they are
+                        hidden, and the template's own controls follow. */}
+                    <div className="mt-2" hidden={Boolean(sanitizeHubCanvas(row.config_json).template)}>
                       <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
                         Layout
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_ARRANGEMENTS.map((a) => (
                           <form key={a} action={saveCustomAction}>
+                            <HubDraftField />
                             <input type="hidden" name="event_id" value={eventId} />
                             <input type="hidden" name="widget_id" value={row.widget_id} />
                             <input type="hidden" name="intent" value="arrange" />
@@ -764,6 +790,18 @@ export function SectionsPanel({
                         ))}
                       </div>
                     </div>
+                    {/* 🎬 The template, its pictures and word blocks (Phase 5). */}
+                    <SceneSlotsPanel
+                      eventId={eventId}
+                      row={row}
+                      saveAction={saveCustomAction}
+                      photoChoices={photoChoices}
+                      videoChoice={videoChoice}
+                      ownsPro={ownsPro}
+                      hideLocked={hideLocked}
+                      returnTo={back}
+                      stageLabel={sceneStage}
+                    />
                     {removeForm}
                     </>
                   );
@@ -784,6 +822,7 @@ export function SectionsPanel({
                     <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
                       {canvas.media ? (
                         <form action={setBackgroundAction}>
+                          <HubDraftField />
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="widget_id" value={row.widget_id} />
                           <input type="hidden" name="media" value="" />
@@ -822,6 +861,7 @@ export function SectionsPanel({
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <form action={setBackgroundAction}>
+                          <HubDraftField />
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="widget_id" value={row.widget_id} />
                           <input type="hidden" name="media" value="" />
@@ -846,6 +886,7 @@ export function SectionsPanel({
                             field, one allow-list, one ownership set. */}
                         {videoChoice ? (
                           <form action={setBackgroundAction}>
+                            <HubDraftField />
                             <input type="hidden" name="event_id" value={eventId} />
                             <input type="hidden" name="widget_id" value={row.widget_id} />
                             <input type="hidden" name="media" value={videoChoice.ref} />
@@ -868,6 +909,7 @@ export function SectionsPanel({
                           const on = canvas.media === photo.ref;
                           return (
                             <form key={photo.ref} action={setBackgroundAction}>
+                              <HubDraftField />
                               <input type="hidden" name="event_id" value={eventId} />
                               <input type="hidden" name="widget_id" value={row.widget_id} />
                               <input type="hidden" name="media" value={photo.ref} />
@@ -945,6 +987,7 @@ export function SectionsPanel({
                                   <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
                                     {HUB_FOCAL_POINTS.map((f) => (
                                       <form key={f} action={setCropAction} className="contents">
+                                        <HubDraftField />
                                         <input type="hidden" name="event_id" value={eventId} />
                                         <input type="hidden" name="widget_id" value={row.widget_id} />
                                         <input type="hidden" name="focal" value={f} />
@@ -968,6 +1011,7 @@ export function SectionsPanel({
                                   <div className="flex flex-wrap gap-1">
                                     {HUB_ZOOMS.map((z) => (
                                       <form key={z} action={setCropAction}>
+                                        <HubDraftField />
                                         <input type="hidden" name="event_id" value={eventId} />
                                         <input type="hidden" name="widget_id" value={row.widget_id} />
                                         <input type="hidden" name="zoom" value={z} />
@@ -1016,16 +1060,17 @@ export function SectionsPanel({
         </div>
       ) : addCustomAction ? (
         nextFreeCustomSlot(rows.map((r) => r.widget_type)) ? (
-          <form action={addCustomAction} className="mt-2">
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="return_to" value={back} />
-            <button
-              type="submit"
-              className="inline-flex h-7 items-center rounded-full border border-dashed border-ink/25 px-3 text-[0.68rem] font-medium text-ink/70 hover:border-ink/45"
-            >
-              + Add a section of your own
-            </button>
-          </form>
+          /* 🎬 "+" OPENS THE 25 TEMPLATES — and nothing else (owner
+             2026-09-24: "we do not have the blank anymore"). Each tile posts
+             this same `addCustomAction` with its `template`. */
+          <SceneTemplatePicker
+            overlay
+            action={addCustomAction}
+            hidden={{ event_id: eventId, return_to: back }}
+            stageLabel={sceneStage}
+            heading="Add a scene to"
+            triggerLabel="+ Add a scene"
+          />
         ) : (
           <p className="mt-2 text-[0.66rem] text-ink/45">
             You have all six of your own sections. Remove one you are not using to add another.
@@ -1078,6 +1123,7 @@ function SectionColourChoices({
       </span>
       {withNone && colourOn ? (
         <form action={action}>
+          <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="widget_id" value={widgetId} />
           <input type="hidden" name="kind" value="color" />
@@ -1095,6 +1141,7 @@ function SectionColourChoices({
         const on = colourOn && canvas.color === hex;
         return (
           <form key={hex} action={action}>
+            <HubDraftField />
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="widget_id" value={widgetId} />
             <input type="hidden" name="kind" value="color" />

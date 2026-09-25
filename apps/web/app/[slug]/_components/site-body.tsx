@@ -470,6 +470,11 @@ export async function SiteBody({
     );
   }
 
+  // 🔤 The live theme, for the scenes' readable ink over their own grounds
+  // (free — `lib/scene-legibility.ts`). Its one I/O, the Pro gate, is
+  // `cache()`d, so the shell's own call further down costs nothing extra.
+  const sceneTheme = (await resolveHubTheme(event)).theme;
+
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
   // OWNER LAYER · surface 1 (2026-07-26). `null` for every guest and every
@@ -900,6 +905,7 @@ export async function SiteBody({
         key={widget.widget_id}
         widget={widget}
         canvasMediaUrls={canvasMediaUrls}
+        hubTheme={sceneTheme}
         event={event}
         words={clientWords}
         scheduleBlocks={scheduleBlocks}
@@ -2076,6 +2082,7 @@ export async function SiteBody({
                   key={widget.widget_id}
                   widget={widget}
                   canvasMediaUrls={canvasMediaUrls}
+                  hubTheme={sceneTheme}
                   event={event}
                   guest={guest}
                   sideLabel={sideLabel}

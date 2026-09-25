@@ -56,7 +56,7 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
 export const MAKER_COMING_NEXT: Record<'prints' | 'hero' | 'love-story' | 'logo' | 'add' | 'snap' | 'both', string> = {
   prints: 'Themed invitations, tickets and posters are coming in the next build.',
   hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
-  'love-story': 'The Love Story scrapbook is coming in the next build — for now this is your story in words.',
+  'love-story': 'Scene templates for each Love Story moment arrive with the next build — for now each moment shows as a words-and-photo scene.',
   logo: 'The Logo Maker moves inside the Event Hub Maker in the next build — for now it opens in its own page.',
   add: 'Add a scene from the 25 templates with “+ Add a scene” at the end of your scenes.',
   snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone. Placing things freely comes in the next build.',

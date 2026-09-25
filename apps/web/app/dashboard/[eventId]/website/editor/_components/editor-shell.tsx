@@ -836,6 +836,31 @@ function Inspector({
         ))}
       </>
     );
+  } else if (selection.kind === 'tool' && selection.key === 'love-story') {
+    /* 💌 THE BAR'S "LOVE STORY" OPENS THE SCRAPBOOK (Maker Phase 7). Each
+       moment there is one scene on the Invitation; the words form stays below
+       for the invitation's story paragraph. */
+    body = (
+      <section className="space-y-3 px-1">
+        <p className="text-[13.5px] text-ink/75">
+          Our Love Story — your moments, each one a scene on your Invitation. A year is enough; five stories in your
+          words are free.
+        </p>
+        <Link
+          href={`/dashboard/${eventId}/website/our-story`}
+          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream hover:bg-ink/90"
+        >
+          Open Our Love Story
+          <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+        {/* The scrapbook writes `events.love_story` live — the draft does not hold
+            it yet (moments carry photos that Apply would have to re-screen). */}
+        <HubSavesImmediately className="ml-2" />
+        {(TOOL_ROWS['love-story'] ?? []).filter((k) => rows[k]).map((k) => (
+          <RowBlock key={k} row={rows[k]!} />
+        ))}
+      </section>
+    );
   } else if (selection.kind === 'tool' && selection.key === 'logo') {
     body = (
       <section className="space-y-3 px-1">
@@ -859,7 +884,7 @@ function Inspector({
   } else {
     const keys = selection.kind === 'tool' ? (TOOL_ROWS[selection.key] ?? []) : [selection.key];
     const note =
-      selection.kind === 'tool' && (selection.key === 'hero' || selection.key === 'love-story')
+      selection.kind === 'tool' && selection.key === 'hero'
         ? MAKER_COMING_NEXT[selection.key]
         : null;
     body = (

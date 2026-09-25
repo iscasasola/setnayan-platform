@@ -8,6 +8,7 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { LivingHeroStudio } from './_components/living-hero-studio';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { WebsiteProLock } from '../_components/website-pro-lock';
+import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 
 /**
  * Living Hero editor (iteration 0046). The couple picks a ≤5-second moment from
@@ -32,7 +33,7 @@ export default async function LivingHeroPage({
   const { data: event, error } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_hero_image_url, landing_page_hero_video_r2_key',
+      'event_id, display_name, slug, landing_page_hero_image_url, landing_page_hero_video_r2_key, couple_media_bytes',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -75,6 +76,14 @@ export default async function LivingHeroPage({
       </Link>
 
       <PageMasthead title="Living hero" />
+
+      {/* The 100 MB/event allowance (DECISION_LOG 2026-09-25) — shown where a
+          couple is about to add to it. `couple_media_bytes` defaults to 0 for
+          every event created before this column existed, which is exactly
+          true: nothing was counted before this meter did. */}
+      <div className="mb-6">
+        <MakerMediaMeter usedBytes={(event.couple_media_bytes as number | null) ?? 0} />
+      </div>
 
       <LivingHeroStudio
         eventId={eventId}

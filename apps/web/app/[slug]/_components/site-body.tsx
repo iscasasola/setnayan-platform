@@ -124,6 +124,7 @@ import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
@@ -446,7 +447,11 @@ export async function SiteBody({
   const magicTraveller = sanitizeMagicTraveller(
     (event as { site_magic_traveller?: unknown }).site_magic_traveller,
   );
-  const canvasMediaRefs = hubCanvasMediaRefs(widgets);
+  // The Love Story's photos (Event Hub Pro) ride the SAME one signing pass as
+  // the section backgrounds — one Promise.all per page, one allow-list.
+  const canvasMediaRefs = [
+    ...new Set([...hubCanvasMediaRefs(widgets), ...loveStoryMediaRefs(event.love_story)]),
+  ];
   const canvasMediaUrls: Record<string, string> = {};
   if (canvasMediaRefs.length > 0) {
     await Promise.all(
@@ -543,7 +548,7 @@ export async function SiteBody({
   const openBrowseContent = {
     schedule: scheduleBlocks.length > 0,
     venue_map: hasVenueContent(event),
-    our_love_story: Boolean(event.love_story),
+    our_love_story: loveStoryScenes(event.love_story).length > 0,
     our_photos: ourPhotoUrls.length > 0,
     special_message: Boolean(event.special_message),
     what_to_bring: Boolean(event.what_to_bring),

@@ -6,6 +6,7 @@ import {
   resolveHubBackground,
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sceneLegibilityVars } from '@/lib/scene-legibility';
@@ -69,11 +70,25 @@ export function HubCanvasFrame({
      refused bucket resolves to nothing, and the section must then render as a
      section with no background — never as a styled plate waiting for an image
      that is not coming, which reads to a guest as a broken page. */
-  const mediaUrl = canvas.media ? (mediaUrls?.[canvas.media] ?? null) : null;
+  const rawMediaUrl = canvas.media ? (mediaUrls?.[canvas.media] ?? null) : null;
   /* WHICH OF THE THREE this section's ground is. `resolveHubBackground` is the
      one place that decides, including the rule that a row written before
      `kind` existed is a PHOTO. */
   const bg = resolveHubBackground(canvas);
+  /* 🔒 SEC-6 — CLOSE THE SNIPPET BYPASS (plan Phase 4). `setWidgetBackground`'s
+     ONLY snippet source is the couple's own `landing_page_hero_video_r2_key`
+     (see that action's docblock: "the couple's own hero video, and only
+     that") — the SAME unscreened clip `heroVideoRefForGuests` exists to keep
+     off every other guest surface. Without this, a couple could post the
+     identical clip to a guest page through this one section background,
+     bypassing `GUEST_HERO_VIDEO_PLAYBACK` entirely. Gate it exactly the same
+     way `app/[slug]/_lib/loaders.ts` gates the hero itself: a blocked snippet
+     is treated like a ref whose signing failed — no picture, not a styled
+     plate — never as an error. */
+  const mediaUrl =
+    bg && bg.kind === 'snippet'
+      ? (heroVideoRefForGuests(bg.media) ? rawMediaUrl : null)
+      : rawMediaUrl;
   /* A colour needs no signing, so it stands on its own; a photo and a snippet
      both need their ref to have survived the allow-list AND the signer. */
   const painted = bg?.kind === 'color' ? true : Boolean(mediaUrl);

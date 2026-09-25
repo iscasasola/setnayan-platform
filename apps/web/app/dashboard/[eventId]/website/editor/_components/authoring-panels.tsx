@@ -5,6 +5,7 @@ import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moment
 import type { DressCodeConfig } from '../../dress-code/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { unlockLabel } from './unlock-label';
+import { resolveMoments } from '@/lib/love-story-moments';
 import { HubSavesImmediately } from '../../_components/hub-draft-field';
 
 /**
@@ -86,8 +87,22 @@ export function StoryPanel({
   eventId: string;
   story: LoveStoryBlob;
 }) {
+  /* 💌 THE DOOR TO OUR LOVE STORY (Event Hub Maker Phase 7). The Maker bar's
+     "Love Story" tool opens THIS row (P1 `TOOL_ROWS['love-story']`), so the
+     scrapbook — moments, each one a scene on the Invitation — is its first
+     line; the words form below still feeds the invitation's story paragraph. */
+  const moments = resolveMoments(story).length;
   return (
     <form action={action} className={PANEL}>
+      <p className="mb-3 text-[13px] text-ink/70">
+        <Link
+          href={`/dashboard/${eventId}/website/our-story`}
+          className="font-semibold text-ink underline decoration-1 underline-offset-4"
+        >
+          Open Our Love Story ↗
+        </Link>{' '}
+        · {moments} {moments === 1 ? 'moment' : 'moments'}, each one a scene on your Invitation
+      </p>
       <HubSavesImmediately />
       <input
         type="hidden"

@@ -10,6 +10,8 @@ type Props = {
   // Server action invoked when the user finishes or skips the tour. The key
   // is passed back so the action can append to `users.tour_seen_keys`.
   completeAction: (tourKey: TourKey) => Promise<void>;
+  /** In the app-store shell a slide marked `sells` is dropped (App Review 3.1.1). */
+  storeShell?: boolean;
 };
 
 // Slides are looked up here (client side) rather than passed in as a prop.
@@ -19,13 +21,13 @@ type Props = {
 // would crash with "Functions cannot be passed directly to Client
 // Components". Reading TOURS in the client keeps the function refs
 // entirely client-side.
-export function GuidedTour({ tourKey, completeAction }: Props) {
+export function GuidedTour({ tourKey, completeAction, storeShell = false }: Props) {
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState(0);
   const [pending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const slides = TOURS[tourKey].slides;
+  const slides = TOURS[tourKey].slides.filter((s) => !(storeShell && s.sells));
 
   const dismiss = (): void => {
     setOpen(false);

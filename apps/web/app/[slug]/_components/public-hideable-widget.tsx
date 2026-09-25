@@ -144,7 +144,7 @@ function PublicHideableWidgetBody({
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} />;
+      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} />;
 
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are

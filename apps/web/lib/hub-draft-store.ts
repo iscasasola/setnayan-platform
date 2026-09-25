@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -204,8 +205,17 @@ export type HubDraftBarData = {
  * Resolve the bar for one event. A failed draft read renders the bar in an
  * explicit "could not read" state rather than as "no changes" — the Maker must
  * never tell a couple their draft is empty when it simply could not be read.
+ *
+ * 🔑 `cache()`d (Phase 3, "top-right actions"): the Maker toolbar mounts
+ * `HubDraftDock` twice — once for the phone top bar, once for the desktop
+ * row — because CSS, not a conditional render, decides which one is visible
+ * at a given width (`maker-shell.tsx`, the mobile and desktop groups). React
+ * `cache()` collapses the two calls with the same `eventId` into ONE read for
+ * the request, the same idiom `lib/dashboard-shell.ts` and `lib/events.ts`
+ * already use — without it this function's Supabase reads would double on
+ * every Maker page load.
  */
-export async function loadHubDraftBarData(
+export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   eventId: string,
 ): Promise<HubDraftBarData & { readError: boolean }> {
   const storeShell = await isStoreShellRequest();
@@ -241,7 +251,7 @@ export async function loadHubDraftBarData(
     proHref: storeShell ? null : `/dashboard/${eventId}/studio/website-pro`,
     readError,
   };
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════════════════
    THE GUEST LOADER'S HALF — host-only, inside the editor frame

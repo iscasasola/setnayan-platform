@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "apps/web", "dev", "--port", "3462"],
       "port": 3462
+    },
+    {
+      "name": "maker-top-right-actions-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/web", "dev", "--port", "3491"],
+      "port": 3491
     }
   ]
 }

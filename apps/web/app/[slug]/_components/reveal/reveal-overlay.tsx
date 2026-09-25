@@ -38,7 +38,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 // Imported, never re-typed: a hand-copied event name drifts silently and the
 // veil simply stops standing down, with nothing failing.
 import { STD_FILM_EXIT_EVENT } from '../save-the-date-film';
@@ -56,6 +56,7 @@ import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
 import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
 import { revealAllowedFor } from '@/lib/reveal-access';
+import { revealMaterialVars, type RevealMaterials } from '@/lib/reveal-materials';
 
 // NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
 // 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
@@ -126,6 +127,13 @@ type Props = {
    * `RevealOverlayServer` from the id it already holds.
    */
   seenEventId?: string | null;
+  /**
+   * The THEME's materials for this opening (Maker Phase 6 · `lib/reveal-materials.ts`):
+   * paper, liner and door colours as token overrides on the opening's own box,
+   * and the seal. Null/absent = Classic, exactly the shipped look. The sheer
+   * veil is never dressed here (owner 2026-09-24: "the veil is untouched").
+   */
+  materials?: RevealMaterials | null;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -145,6 +153,7 @@ export function RevealOverlay({
   premiumUnlocked = false,
   oncePerVisit,
   seenEventId = null,
+  materials = null,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -345,7 +354,11 @@ export function RevealOverlay({
   // butterflies on envelopes, petals on church doors (null → none).
   const rigidEffect = eventEffects ? rigidEffectFor(template, eventEffects) : null;
   return (
-    <div className="fixed inset-0 z-[60] overflow-hidden">
+    <div
+      className="fixed inset-0 z-[60] overflow-hidden"
+      data-reveal-dressed={materials ? '' : undefined}
+      style={revealMaterialVars(materials ?? null) as CSSProperties}
+    >
       {template === 'two-flap-vertical' ||
         template === 'two-flap-horizontal' ||
         template === 'church-doors' ? (
@@ -353,7 +366,7 @@ export function RevealOverlay({
           variant={template}
           markSvg={markSvg}
           monogram={monogram}
-          waxColor={waxColor}
+          waxColor={materials?.seal ?? waxColor}
           config={sealConfig}
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
@@ -364,7 +377,7 @@ export function RevealOverlay({
         <FourFlapEnvelope
           markSvg={markSvg}
           monogram={monogram}
-          waxColor={waxColor}
+          waxColor={materials?.seal ?? waxColor}
           config={sealConfig}
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}

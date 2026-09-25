@@ -21,6 +21,7 @@ import {
   type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
+import { REVEAL_NEEDS_PRO } from '@/lib/reveal-access';
 import { useSaveLoader } from '@/components/sd-loader';
 
 const ENVELOPES: RevealTemplate[] = ['four-flap', 'two-flap-vertical', 'two-flap-horizontal'];
@@ -108,6 +109,13 @@ export function ColorRow({
   );
 }
 
+/** The sentence a refused opening save shows — never silence. */
+export function revealSaveFailure(error: string | undefined): string {
+  return error === REVEAL_NEEDS_PRO
+    ? 'This opening comes with Event Hub Pro — it was not saved. “No reveal” is always free.'
+    : 'Your opening could not be saved. Please try again.';
+}
+
 type Props = {
   /** The event whose chosen opening this persists. */
   eventId: string;
@@ -157,15 +165,28 @@ export function RevealPreviewCard({
   const effectOn = effects[effectKey];
   const [chosen, setChosen] = useState<RevealChoice | null>(chosenTemplate);
   const [pending, startTransition] = useTransition();
+  /* 🔎 A REFUSED SAVE SAYS SO (Maker Phase 6). `chooseRevealTemplate` answers
+     `{ ok: false }` — for a free couple picking a paid opening, a lost session,
+     a refused write — and this card used to do nothing at all: the button came
+     back, the tick never moved, and "Make this mine" looked like it had simply
+     not been pressed. A failure must reach the render, not the console. */
+  const [failed, setFailed] = useState<string | null>(null);
   const save = useSaveLoader();
 
   const saveChoice = (t: RevealChoice) =>
     startTransition(async () => {
-      const r = await save.run(() => chooseRevealTemplate(eventId, t), {
-        steps: ['Saving your opening'],
-        hint: 'Saving',
-      });
-      if (r.ok) setChosen(t);
+      setFailed(null);
+      try {
+        const r = await save.run(() => chooseRevealTemplate(eventId, t), {
+          steps: ['Saving your opening'],
+          hint: 'Saving',
+        });
+        if (r.ok) setChosen(t);
+        else setFailed(revealSaveFailure(r.error));
+      } catch {
+        // `run()` re-throws a failed request — that is a refusal too.
+        setFailed(revealSaveFailure(undefined));
+      }
     });
 
   const isChosen = previewing === chosen;
@@ -339,6 +360,11 @@ export function RevealPreviewCard({
             {pending ? 'Saving…' : 'Make this mine'}
           </button>
         )}
+        {failed ? (
+          <p role="alert" data-reveal-save-failed="" className="mt-2 text-sm text-terracotta-700">
+            {failed}
+          </p>
+        ) : null}
       </div>
     </section>
   );

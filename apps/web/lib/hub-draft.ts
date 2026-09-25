@@ -26,15 +26,19 @@
  * answer one way renders exactly like a gate that works).
  *
  * ── WHAT A DRAFT MAY HOLD (and why the list is short) ──────────────────────
- * events  — `rsvp_backdrop` only, sanitised through the SAME parser its live
- *           writer and the guest render use. The rule for joining this list is
+ * events  — `rsvp_backdrop`, and (Phase 6) the made-once group: the hero photo,
+ *           the reveal and the Logo — each sanitised through the SAME parser its
+ *           live writer and the guest render use (see `HUB_DRAFT_EVENT_COLUMNS`). The rule for joining this list is
  *           "the host's preview can SHOW it": the page colours, face and art
  *           direction are painted by `app/[slug]/layout.tsx` (`loadGuestLook`),
  *           which cannot see `?editor=1`, so a drafted colour would be a save the
  *           preview never shows — they stay live-writing until the layout can
- *           overlay a draft. Media columns (hero photo/video, music, gallery) are
- *           not here either: their writers also verify the file is this event's
- *           and was screened, and draft media is the open owner decision D6.
+ *           overlay a draft. Media columns (hero video, music, gallery) are not
+ *           here either: their writers also verify the file is this event's and
+ *           was screened, and draft media is the open owner decision D6. The hero
+ *           PHOTO is the exception (Phase 6): its live writer checks nothing but
+ *           the `r2://` scheme, the draft holds it to the public bucket, and
+ *           Apply holds it to THIS event's own uploads (`not_your_photo`).
  * widgets — per section: `mode` (Auto · Shown · Hidden), `is_visible` (the
  *           navigator's eye — the legacy gate `mode: 'auto'` falls back to),
  *           `display_order`, and the section's whole `canvas` (background, crop,
@@ -61,6 +65,10 @@ import {
   type LookChange,
 } from '@/lib/hub-look-pro';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
+import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
+import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -72,8 +80,30 @@ export const HUB_DRAFT_HISTORY_LIMIT = 10;
    THE SHAPE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/** The `events` columns a draft may hold. See the file note for why only these. */
-export const HUB_DRAFT_EVENT_COLUMNS = ['rsvp_backdrop'] as const;
+/**
+ * The `events` columns a draft may hold. See the file note for why only these.
+ *
+ * 🧩 MAKER PHASE 6 — THE MADE-ONCE GROUP joins, each because the host's preview
+ * CAN show it (`app/[slug]/page.tsx` overlays the draft on the event row BEFORE
+ * `loadMedia` and the reveal mount read it):
+ *   · `landing_page_hero_image_url` — the ONE hero (`lib/event-hero.ts`). Pro to
+ *     add or change (it is in `HUB_LOOK_EVENT_COLUMNS`); removing is free.
+ *   · `std_reveal_template` — the reveal. "No reveal" is free; every opening is
+ *     Pro (`revealTemplateWriteAllowed`, owner 2026-09-24 "all reveal is paid").
+ *   · `monogram_custom_svg` + `monogram_studio_config` — the Logo, autosaved
+ *     from the studio so a design is never lost by leaving (owner 2026-09-25,
+ *     FINAL_PLAN_INPUTS 29). Letters, frame and ink are free.
+ */
+export const HUB_DRAFT_EVENT_COLUMNS = [
+  'rsvp_backdrop',
+  'landing_page_hero_image_url',
+  'std_reveal_template',
+  'monogram_custom_svg',
+  'monogram_studio_config',
+] as const;
+
+/** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
+export const HUB_DRAFT_LOGO_MAX_BYTES = 400_000;
 export type HubDraftEventColumn = (typeof HUB_DRAFT_EVENT_COLUMNS)[number];
 
 export function isHubDraftEventColumn(v: unknown): v is HubDraftEventColumn {
@@ -121,10 +151,25 @@ export function sanitizeHubDraftEventValue(
   column: HubDraftEventColumn,
   raw: unknown,
 ): unknown | undefined {
+  if (raw === null) return null;
   switch (column) {
     case 'rsvp_backdrop':
-      if (raw === null) return null;
       return parseRsvpBackdropConfig(raw) ?? undefined;
+    case 'landing_page_hero_image_url': {
+      // `uploadHeroPhoto`'s own rule (an `r2://` ref) AND the guest render's
+      // (`siteMediaServeRef`: the one public bucket) — a private ref never lands.
+      if (typeof raw !== 'string' || !raw.startsWith('r2://')) return undefined;
+      return siteMediaServeRef(raw) === raw ? raw : undefined;
+    }
+    case 'std_reveal_template':
+      return raw === REVEAL_NONE || (typeof raw === 'string' && (REVEAL_TEMPLATE_IDS as readonly string[]).includes(raw))
+        ? raw
+        : undefined;
+    case 'monogram_custom_svg':
+      if (typeof raw !== 'string' || raw.length > HUB_DRAFT_LOGO_MAX_BYTES) return undefined;
+      return sanitizeStudioSvg(raw) ?? undefined;
+    case 'monogram_studio_config':
+      return sanitizeStudioConfig(raw) ?? undefined;
   }
 }
 
@@ -327,7 +372,31 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       };
       return refChange(key(live), key(next));
     }
+    case 'landing_page_hero_image_url':
+      // Exactly as `uploadHeroPhoto` classifies it (`refChange` on the ref).
+      return refChange(siteMediaServeRef(live), siteMediaServeRef(next));
+    case 'std_reveal_template':
+      // 'none' is a real choice (No reveal), distinct from null (the house
+      // default for a Pro couple) — so both are compared as written.
+      return refChange(typeof live === 'string' ? live : null, typeof next === 'string' ? next : null);
+    case 'monogram_custom_svg':
+    case 'monogram_studio_config':
+      return refChange(asText(live), asText(next));
   }
+}
+
+/**
+ * Does THIS drafted value need Event Hub Pro to Apply? The one rule per column:
+ * a look column (`HUB_LOOK_EVENT_COLUMNS`) when it adds or changes; the reveal
+ * when the value is an opening (never "No reveal" or clearing it — both free);
+ * the Logo never (its animation is gated where it plays, not where it is saved).
+ */
+export function eventItemIsPro(column: HubDraftEventColumn, value: unknown, change: LookChange): boolean {
+  if (change !== 'add' && change !== 'change') return false;
+  if (column === 'std_reveal_template') {
+    return !revealTemplateWriteAllowed(typeof value === 'string' ? value : null, false);
+  }
+  return eventColumnIsPro(column);
 }
 
 /**
@@ -399,7 +468,7 @@ export function classifyHubDraft(
       column,
       value,
       change,
-      pro: eventColumnIsPro(column) && (change === 'add' || change === 'change'),
+      pro: eventItemIsPro(column, value, change),
     });
   }
   const orphans: WidgetType[] = [];
@@ -508,6 +577,9 @@ export function seededDisplayOrder(type: WidgetType): number | null {
   return i >= 0 ? i + 1 : null;
 }
 
+/** The `events` columns Reset 'all' clears. The made-once group is never here. */
+export const HUB_RESET_EVENT_COLUMNS: readonly HubDraftEventColumn[] = ['rsvp_backdrop'];
+
 /** Stage-specific `events` look columns. Site-wide ones reset only with 'all'. */
 const STAGE_EVENT_COLUMNS: Record<Exclude<HubResetScope, 'all'>, HubDraftEventColumn[]> = {
   save_the_date: [],
@@ -545,7 +617,10 @@ export function hubResetPatch(scope: HubResetScope): HubDraftPatch {
     const order = seededDisplayOrder(type);
     widgets[type] = { mode: 'auto', canvas: null, ...(order !== null ? { display_order: order } : {}) };
   }
-  const columns = scope === 'all' ? [...HUB_DRAFT_EVENT_COLUMNS] : STAGE_EVENT_COLUMNS[scope];
+  // 'all' resets the stage LOOK columns only — never the hero photo, the reveal
+  // or the Logo: those are the couple's own made-once choices ("your photos",
+  // HUB_RESET_NEVER_TOUCHES), and Reset is "the page we wrote", not an eraser.
+  const columns = scope === 'all' ? [...HUB_RESET_EVENT_COLUMNS] : STAGE_EVENT_COLUMNS[scope];
   const events: HubDraftEvents = {};
   for (const c of columns) events[c] = null;
   return { events, widgets };
@@ -603,9 +678,18 @@ export type HubDraftActionResult =
     }
   | { ok: false; intent: HubDraftIntent | null; error: string };
 
+/** A sentence-ready name for each draftable `events` column. */
+export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
+  rsvp_backdrop: 'The RSVP backdrop',
+  landing_page_hero_image_url: 'Your hero photo',
+  std_reveal_template: 'Your reveal',
+  monogram_custom_svg: 'Your logo',
+  monogram_studio_config: 'Your logo design',
+};
+
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
-  if (item.kind === 'event') return 'The RSVP backdrop';
+  if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

@@ -44,6 +44,11 @@ import {
 } from './_components/media-panels';
 import { updateSiteColors } from '../colors/actions';
 import { uploadHeroPhoto } from '../hero-photo/actions';
+import {
+  MakerHeroPanel,
+  MakerLogoPanel,
+  MakerRevealPanel,
+} from '../../launch/_components/maker-made-once';
 import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
@@ -997,6 +1002,12 @@ export default async function WebsiteEditorPage({
   return (
     <MakerWork
       eventId={eventId}
+      /* 🧩 Phase 6 — Logo · Hero · Reveal, made once, each drafted. */
+      madeOnce={{
+        hero: <MakerHeroPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
+        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
+        logo: <MakerLogoPanel eventId={eventId} />,
+      }}
       publicLandingUrl={slug ? `/${slug}` : null}
       scenes={scenes}
       navigator={navigator}

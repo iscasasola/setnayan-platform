@@ -127,6 +127,7 @@ export function OpenUpScene({
         ref={triggerRef}
         type="button"
         onClick={openLayer}
+        data-open-up-trigger=""
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={openLabel}

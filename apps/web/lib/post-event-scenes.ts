@@ -487,6 +487,20 @@ export function draftToScenes(draftJson: unknown, chapterKeys: readonly string[]
 
 export type PostEventListRow = PostEventScene & { hidden: boolean; position: number | null };
 
+/** What the Maker's lazy compile hands its navigator (`lib/post-event-compile.server.ts`). */
+export type PostEventMakerRead =
+  | {
+      ok: true;
+      rows: PostEventListRow[];
+      /** When the story was written — the stamp, never "now". */
+      generatedAt: string;
+      /** The cover's picture, signed — the hero until a post-event cover is chosen. */
+      coverPhotoUrl: string | null;
+      /** True when this open wrote (or rewrote) the story. */
+      wrote: boolean;
+    }
+  | { ok: false };
+
 /**
  * WHAT THE MAKER'S NAVIGATOR LISTS FOR POST EVENT: every compiled scene, in the
  * page's order, with the draft's eye. Skipped and optional scenes are listed

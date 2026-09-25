@@ -38,22 +38,11 @@ import {
   postEventSceneList,
   readStoredScenes,
   withCompiledScenes,
-  type PostEventListRow,
+  type PostEventMakerRead,
   type PostEventSources,
 } from '@/lib/post-event-scenes';
 
-export type PostEventMakerRead =
-  | {
-      ok: true;
-      rows: PostEventListRow[];
-      /** When the story was written — the stamp, never "now". */
-      generatedAt: string;
-      /** The cover's picture, signed — the hero until a post-event cover is chosen. */
-      coverPhotoUrl: string | null;
-      /** True when this open wrote (or rewrote) the story. */
-      wrote: boolean;
-    }
-  | { ok: false };
+export type { PostEventMakerRead };
 
 function str(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v.trim() : null;

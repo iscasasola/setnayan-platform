@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5761961f7e",
+  "generatedFromRef": "cfb6143109",
   "routeCount": 432,
-  "destinations": 929,
+  "destinations": 934,
   "actions": 664,
-  "blocks": 4664,
+  "blocks": 4688,
   "routes": {
     "/": {
       "files": [
@@ -5922,23 +5922,45 @@
       "files": [
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
+        "dashboard/[eventId]/launch/_components/maker-bar.ts",
+        "dashboard/[eventId]/launch/_components/maker-context.tsx",
+        "dashboard/[eventId]/launch/_components/maker-shell.tsx",
+        "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
       ],
       "destinations": [
         "/[seg]",
+        "/dashboard/[seg]",
         "/marketplace"
       ],
       "actions": [],
       "blocks": [
+        "ComingNext",
+        "DeviceButton",
         "GridPageSkeleton",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLSpanElement",
         "HubProOffer",
         "HubStage",
         "Icon",
+        "IconButton",
+        "LifecyclePhase",
         "Link",
+        "MakerBar",
+        "MakerContext.Provider",
+        "MakerDevice",
+        "MakerSelection",
+        "MakerShell",
+        "MakerState",
+        "MakerTour",
+        "MoreSheet",
         "PageMasthead",
         "SiteStage",
-        "SlugField"
+        "SlugField",
+        "WebsiteEditorPage"
       ]
     },
     "/dashboard/[eventId]/live": {
@@ -8181,10 +8203,14 @@
       ],
       "destinations": [
         "/api/website/qr[seg]",
+        "/dashboard/[seg]/launch",
+        "/dashboard/[seg]/launch?scene=[seg]",
+        "/dashboard/[seg]/monogram",
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/save-the-date",
-        "/dashboard/[seg]/studio/website-pro"
+        "/dashboard/[seg]/studio/website-pro",
+        "/dashboard/[seg]/website/our-story"
       ],
       "actions": [
         "action",
@@ -8206,29 +8232,35 @@
       ],
       "blocks": [
         "ColorsPanel",
-        "DeviceKey",
         "DressCodeFields",
         "DressCodePanel",
-        "EditorShell",
         "EditorialPanel",
         "FileUpload",
         "GalleryPanel",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLFormElement",
         "HTMLIFrameElement",
         "HeroPhotoPanel",
         "HexField",
-        "Icon",
+        "InfoTip",
+        "Inspector",
         "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
+        "MakerSelection",
+        "MakerWork",
+        "MoreExtras",
         "OpenBrowsePanel",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
-        "PreviewTabKey",
         "ProLockPanel",
         "QrActions",
         "ReturnTo",
+        "RowBlock",
         "RsvpBackdropPanel",
         "SaveButton",
+        "SceneMenu",
         "SchedulePeekPanel",
         "SectionColourChoices",
         "SectionsPanel",
@@ -8238,6 +8270,7 @@
         "StoryPanel",
         "SubmitButton",
         "TextPanel",
+        "ThemePanel",
         "VisibilityPanel"
       ]
     },

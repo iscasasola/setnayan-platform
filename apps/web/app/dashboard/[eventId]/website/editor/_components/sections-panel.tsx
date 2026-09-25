@@ -90,7 +90,25 @@ export function SectionsPanel({
   lookLock = null,
   videoChoice = null,
   colorChoices = [],
+  only = null,
+  returnTo = null,
+  hideLocked = false,
 }: {
+  /**
+   * THE EVENT HUB MAKER'S INSPECTOR (2026-09-25) shows ONE section at a time.
+   * `only` renders just that row — but the whole list is still walked, so its
+   * index, its neighbours and "is this the last section" stay true (a one-row
+   * slice would call every section the last one and hide its transition).
+   */
+  only?: string | null;
+  /** Where each write lands afterwards. Defaults to the editor's own row. */
+  returnTo?: string | null;
+  /**
+   * The app-store shell: a Pro-only control is HIDDEN, not shown locked (owner
+   * 2026-09-25 — web-bought Pro is not usable in the app yet, and a lock there
+   * is a paid pitch). Free controls are untouched.
+   */
+  hideLocked?: boolean;
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
    *  can never be hidden or moved, so a control would be a lie). */
@@ -160,20 +178,24 @@ export function SectionsPanel({
     );
   }
 
+  const back = returnTo ?? RETURN_TO(eventId);
   return (
     <div className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
-      <p className="mb-2 text-[0.7rem] text-ink/50">
-        Drag-free ordering — move a section up or down, hide it, or let{' '}
-        <span className="font-semibold text-ink/70">Auto</span> show it as soon as it has
-        content.
-      </p>
+      {only ? null : (
+        <p className="mb-2 text-[0.7rem] text-ink/50">
+          Drag-free ordering — move a section up or down, hide it, or let{' '}
+          <span className="font-semibold text-ink/70">Auto</span> show it as soon as it has
+          content.
+        </p>
+      )}
       {/* Free: order, show and hide are the page we write. How each section
           looks and moves is named and locked here ONCE — never hidden, never
           repeated on every row. What a couple already chose stays, and each row
           below still offers to take it off. */}
-      {!ownsPro && lookLock ? <div className="mb-2">{lookLock}</div> : null}
+      {!ownsPro && lookLock && !hideLocked ? <div className="mb-2">{lookLock}</div> : null}
       <ul className="flex flex-col gap-1.5">
         {rows.map((row, i) => {
+          if (only && row.widget_id !== only) return null;
           const catalog = WIDGET_CATALOG_BY_TYPE[row.widget_type];
           const mode = ((row as { mode?: string }).mode ?? 'auto') as
             | 'auto'
@@ -193,7 +215,7 @@ export function SectionsPanel({
                   <input type="hidden" name="widget_id" value={row.widget_id} />
                   <input type="hidden" name="widget_type" value={row.widget_type} />
                   <input type="hidden" name="next_visible" value={row.is_visible ? '0' : '1'} />
-                  <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                  <input type="hidden" name="return_to" value={back} />
                   <button
                     type="submit"
                     aria-label={row.is_visible ? `Hide ${catalog?.label}` : `Show ${catalog?.label}`}
@@ -216,7 +238,7 @@ export function SectionsPanel({
                 <form action={moveUpAction}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
-                  <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                  <input type="hidden" name="return_to" value={back} />
                   <button
                     type="submit"
                     disabled={i === 0}
@@ -229,7 +251,7 @@ export function SectionsPanel({
                 <form action={moveDownAction}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
-                  <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                  <input type="hidden" name="return_to" value={back} />
                   <button
                     type="submit"
                     disabled={i === rows.length - 1}
@@ -251,7 +273,7 @@ export function SectionsPanel({
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="widget_id" value={row.widget_id} />
                       <input type="hidden" name="next_mode" value={m} />
-                      <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                      <input type="hidden" name="return_to" value={back} />
                       <button
                         type="submit"
                         disabled={active || blocked}
@@ -308,7 +330,7 @@ export function SectionsPanel({
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="widget_id" value={row.widget_id} />
                     <input type="hidden" name="reset" value="1" />
-                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                    <input type="hidden" name="return_to" value={back} />
                     <button
                       type="submit"
                       className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
@@ -322,7 +344,7 @@ export function SectionsPanel({
                   const canvas = sanitizeHubCanvas(row.config_json);
                   const preset = canvas.preset ?? null;
                   return (
-                    <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                    <div data-maker-part="animate" className="mt-2 border-t border-dashed border-ink/10 pt-2">
                       <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
                         How it moves
                       </p>
@@ -332,7 +354,7 @@ export function SectionsPanel({
                             <input type="hidden" name="event_id" value={eventId} />
                             <input type="hidden" name="widget_id" value={row.widget_id} />
                             <input type="hidden" name="preset" value={p} />
-                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <input type="hidden" name="return_to" value={back} />
                             <button
                               type="submit"
                               aria-pressed={preset === p}
@@ -374,19 +396,20 @@ export function SectionsPanel({
                         }
                         return (
                           <>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                            <div data-maker-part="transition" className="mt-1.5 flex flex-wrap items-center gap-1">
                               <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
                                 Into the next section
                               </span>
                               {HUB_TRANSITIONS.map((t) => {
                                 const on = transition === t;
                                 const locked = transitionLocked && t !== 'scroll' && !on;
+                                if (locked && hideLocked) return null;
                                 return (
                                   <form key={t} action={setMotionAction}>
                                     <input type="hidden" name="event_id" value={eventId} />
                                     <input type="hidden" name="widget_id" value={row.widget_id} />
                                     <input type="hidden" name="transition" value={t} />
-                                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                    <input type="hidden" name="return_to" value={back} />
                                     <button
                                       type="submit"
                                       aria-pressed={on}
@@ -406,7 +429,7 @@ export function SectionsPanel({
                                   </form>
                                 );
                               })}
-                              {transitionLocked ? (
+                              {transitionLocked && !hideLocked ? (
                                 <a
                                   href={`/dashboard/${eventId}/studio/website-pro`}
                                   className="text-[0.58rem] font-semibold text-ink/60 underline underline-offset-2 hover:text-ink"
@@ -428,7 +451,7 @@ export function SectionsPanel({
                                       <input type="hidden" name="widget_id" value={row.widget_id} />
                                       <input type="hidden" name="transition" value="auto" />
                                       <input type="hidden" name="auto_speed" value={v} />
-                                      <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                      <input type="hidden" name="return_to" value={back} />
                                       <button
                                         type="submit"
                                         aria-pressed={on}
@@ -469,7 +492,7 @@ export function SectionsPanel({
                                 <input type="hidden" name="widget_id" value={row.widget_id} />
                                 <input type="hidden" name="preset" value={preset} />
                                 <input type="hidden" name="timeline" value={t} />
-                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                <input type="hidden" name="return_to" value={back} />
                                 <button
                                   type="submit"
                                   aria-pressed={on}
@@ -530,7 +553,7 @@ export function SectionsPanel({
                                     <input type="hidden" name="widget_id" value={row.widget_id} />
                                     <input type="hidden" name="preset" value={preset} />
                                     <input type="hidden" name={name} value={v} />
-                                    <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                    <input type="hidden" name="return_to" value={back} />
                                     <button
                                       type="submit"
                                       aria-pressed={on}
@@ -585,7 +608,7 @@ export function SectionsPanel({
                                 <input type="hidden" name="widget_id" value={row.widget_id} />
                                 <input type="hidden" name="preset" value={preset} />
                                 <input type="hidden" name="sequence" value={q} />
-                                <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                <input type="hidden" name="return_to" value={back} />
                                 <button
                                   type="submit"
                                   aria-pressed={on}
@@ -649,7 +672,7 @@ export function SectionsPanel({
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="widget_id" value={row.widget_id} />
                         <input type="hidden" name="intent" value="delete" />
-                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                        <input type="hidden" name="return_to" value={back} />
                         <span>Its words and layout go with it.</span>
                         <button
                           type="submit"
@@ -676,7 +699,7 @@ export function SectionsPanel({
                     >
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="widget_id" value={row.widget_id} />
-                      <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                      <input type="hidden" name="return_to" value={back} />
                       <label htmlFor={`custom-title-${row.widget_id}`} className="sr-only">
                         Heading for {customSectionEditorLabel(row.widget_type)}
                       </label>
@@ -725,7 +748,7 @@ export function SectionsPanel({
                             <input type="hidden" name="widget_id" value={row.widget_id} />
                             <input type="hidden" name="intent" value="arrange" />
                             <input type="hidden" name="arrangement" value={a} />
-                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <input type="hidden" name="return_to" value={back} />
                             <button
                               type="submit"
                               aria-pressed={arrangement === a}
@@ -764,7 +787,7 @@ export function SectionsPanel({
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="widget_id" value={row.widget_id} />
                           <input type="hidden" name="media" value="" />
-                          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                          <input type="hidden" name="return_to" value={back} />
                           <button
                             type="submit"
                             className="inline-flex h-6 items-center rounded-full border border-ink/15 bg-cream px-2 text-[0.62rem] font-semibold text-ink/60 hover:border-ink/30"
@@ -775,7 +798,7 @@ export function SectionsPanel({
                           </button>
                         </form>
                       ) : null}
-                      <SectionColourChoices
+                      <SectionColourChoices returnTo={back}
                         eventId={eventId}
                         widgetId={row.widget_id}
                         canvas={canvas}
@@ -802,7 +825,7 @@ export function SectionsPanel({
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="widget_id" value={row.widget_id} />
                           <input type="hidden" name="media" value="" />
-                          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                          <input type="hidden" name="return_to" value={back} />
                           <button
                             type="submit"
                             aria-pressed={!canvas.media}
@@ -827,7 +850,7 @@ export function SectionsPanel({
                             <input type="hidden" name="widget_id" value={row.widget_id} />
                             <input type="hidden" name="media" value={videoChoice.ref} />
                             <input type="hidden" name="kind" value="snippet" />
-                            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                            <input type="hidden" name="return_to" value={back} />
                             <button
                               type="submit"
                               aria-pressed={canvas.kind === 'snippet'}
@@ -848,7 +871,7 @@ export function SectionsPanel({
                               <input type="hidden" name="event_id" value={eventId} />
                               <input type="hidden" name="widget_id" value={row.widget_id} />
                               <input type="hidden" name="media" value={photo.ref} />
-                              <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                              <input type="hidden" name="return_to" value={back} />
                               <button
                                 type="submit"
                                 aria-pressed={on}
@@ -872,7 +895,7 @@ export function SectionsPanel({
 
                       {/* ── A FLAT COLOUR ── free for every couple; see
                           <SectionColourChoices> below. */}
-                      <SectionColourChoices
+                      <SectionColourChoices returnTo={back}
                         eventId={eventId}
                         widgetId={row.widget_id}
                         canvas={canvas}
@@ -925,7 +948,7 @@ export function SectionsPanel({
                                         <input type="hidden" name="event_id" value={eventId} />
                                         <input type="hidden" name="widget_id" value={row.widget_id} />
                                         <input type="hidden" name="focal" value={f} />
-                                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                        <input type="hidden" name="return_to" value={back} />
                                         <button
                                           type="submit"
                                           aria-pressed={focal === f}
@@ -948,7 +971,7 @@ export function SectionsPanel({
                                         <input type="hidden" name="event_id" value={eventId} />
                                         <input type="hidden" name="widget_id" value={row.widget_id} />
                                         <input type="hidden" name="zoom" value={z} />
-                                        <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+                                        <input type="hidden" name="return_to" value={back} />
                                         <button
                                           type="submit"
                                           aria-pressed={zoom === z}
@@ -984,7 +1007,7 @@ export function SectionsPanel({
           names the same six — so there is no seventh to create, by this button
           or by a hand-crafted POST. It says WHY it is gone rather than sitting
           there refusing. */}
-      {addCustomAction && !ownsPro ? (
+      {only ? null : addCustomAction && !ownsPro && hideLocked ? null : addCustomAction && !ownsPro ? (
         /* Named and locked — never hidden. A free couple learns the feature
            exists; the lock shows exactly what every other Pro row shows. */
         <div className="mt-2">
@@ -995,7 +1018,7 @@ export function SectionsPanel({
         nextFreeCustomSlot(rows.map((r) => r.widget_type)) ? (
           <form action={addCustomAction} className="mt-2">
             <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+            <input type="hidden" name="return_to" value={back} />
             <button
               type="submit"
               className="inline-flex h-7 items-center rounded-full border border-dashed border-ink/25 px-3 text-[0.68rem] font-medium text-ink/70 hover:border-ink/45"
@@ -1033,6 +1056,7 @@ function SectionColourChoices({
   colorChoices,
   action,
   withNone = false,
+  returnTo,
 }: {
   eventId: string;
   widgetId: string;
@@ -1041,8 +1065,11 @@ function SectionColourChoices({
   action: (formData: FormData) => void | Promise<void>;
   /** The free rail has no "None" chip of its own, so the colour row carries one. */
   withNone?: boolean;
+  /** Where the write lands — the panel's own `back`. */
+  returnTo?: string;
 }) {
   if (colorChoices.length === 0) return null;
+  const back = returnTo ?? RETURN_TO(eventId);
   const colourOn = canvas.kind === 'color';
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -1055,7 +1082,7 @@ function SectionColourChoices({
           <input type="hidden" name="widget_id" value={widgetId} />
           <input type="hidden" name="kind" value="color" />
           <input type="hidden" name="color" value="" />
-          <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+          <input type="hidden" name="return_to" value={back} />
           <button
             type="submit"
             className="inline-flex h-7 items-center rounded-md border border-ink/15 bg-cream px-2 text-[0.6rem] font-semibold text-ink/55 hover:border-ink/30"
@@ -1072,7 +1099,7 @@ function SectionColourChoices({
             <input type="hidden" name="widget_id" value={widgetId} />
             <input type="hidden" name="kind" value="color" />
             <input type="hidden" name="color" value={hex} />
-            <input type="hidden" name="return_to" value={RETURN_TO(eventId)} />
+            <input type="hidden" name="return_to" value={back} />
             <button
               type="submit"
               aria-pressed={on}

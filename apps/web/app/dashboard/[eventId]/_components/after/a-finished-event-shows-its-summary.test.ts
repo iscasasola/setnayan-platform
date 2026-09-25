@@ -42,9 +42,23 @@ const hrefs = (phase?: 'plan' | 'dayof' | 'after') =>
 */
 test('after the event, the rail carries the editorial maker and the galleries', () => {
   const after = hrefs('after');
+  /* ✏️ 2026-09-25 (owner: one sidebar row "Event Hub Maker" holding Logo
+     Maker · Editorial · Love Story; plan Phase 1 "Menu"): the editorial
+     maker's door is the Maker bar's "Post Event", so the row that must be on
+     the After rail is the MAKER — and it claims `/story`, so the workroom
+     lights it. */
   assert.ok(
-    after.includes('/dashboard/EVT123/story'),
-    'the After rail must carry a row for the editorial maker',
+    after.includes('/dashboard/EVT123/launch'),
+    'the After rail must carry the Event Hub Maker — the editorial maker has no other door',
+  );
+  const maker = buildCustomerNavGroups('EVT123', { websiteEnabled: true, phase: 'after' })
+    .flatMap((g) => g.items)
+    .find((i) => i.href === '/dashboard/EVT123/launch') as
+    | { alsoMatch?: string[]; matchPrefix?: string }
+    | undefined;
+  assert.ok(
+    JSON.stringify(maker ?? {}).includes('/dashboard/EVT123/story'),
+    'the Maker row must claim /story so the workroom is never unlit',
   );
   assert.ok(
     after.includes('/dashboard/EVT123/galleries'),
@@ -68,7 +82,9 @@ test('after the event, every planning row the person already had is still there'
   /* 🔄 2026-09-24 (event menu by moment): Galleries is a row in EVERY phase
      now — directly under Papic, where Papic's photos land — so After adds
      exactly ONE row, Editorial, to the spine. */
-  assert.equal(after.length, plan.length + 1, 'After adds exactly one row (Editorial) and removes none');
+  /* ✏️ 2026-09-25: Editorial's door moved into the Event Hub Maker (its own
+     row left the tree), so After now adds no row and removes none. */
+  assert.equal(after.length, plan.length, 'After removes no row (Editorial is a door in the Maker)');
   assert.ok(plan.includes('/dashboard/EVT123/galleries'), 'Galleries must be a row before the day too');
 });
 

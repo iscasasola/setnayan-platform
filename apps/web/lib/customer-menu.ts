@@ -385,6 +385,11 @@ export const STUDIO_ABSORBED: Readonly<
   Record<string, { into: string; routes: (base: string) => string[] }>
 > = {
   pa3d: { into: 'seat', routes: (base) => [`${base}/seating/lab`, `${base}/plan3d`] },
+  /* 🛠 THE LOGO MAKER LIVES IN THE EVENT HUB MAKER (owner 2026-09-24/25: "the
+     logo maker lives in the editor"; one sidebar row "Event Hub Maker"). Its
+     door is the Maker bar's "Logo"; `/monogram` lights the Maker row. Same rule
+     as pa3d: with no Maker row (no Event Hub for this kind) it keeps its own. */
+  palogo: { into: 'launch', routes: (base) => [`${base}/monogram`] },
 };
 
 /** Every path a row claims: its href, its `matchPrefix`, its `alsoMatch`. */
@@ -441,7 +446,10 @@ export function buildEventMenuSections(
   // Galleries in EVERY phase, directly under Papic: it is where Papic's photos
   // land, and the page already says "collecting" before the first one.
   put({ key: 'galleries', label: 'Galleries', href: `${base}/galleries`, icon: 'galleries' });
-  if (phase === 'after') {
+  // 🛠 Editorial's door is the Event Hub Maker's "Post Event" (owner
+  // 2026-09-25: one row, "Event Hub Maker", holding Logo Maker · Editorial ·
+  // Love Story). It keeps its own row only where there is no Maker to hold it.
+  if (phase === 'after' && !ctx.websiteEnabled) {
     put({ key: 'editorial', label: 'Editorial', href: `${base}/story`, icon: 'editorial' });
   }
   put({ key: 'explore', label: 'Your Team', href: `${base}/vendors`, icon: 'team' });
@@ -452,8 +460,19 @@ export function buildEventMenuSections(
   // website surface on the rail AND the phone alike (the two used to disagree
   // for the day-of and after bars). `matchPrefix` claims the /website family:
   // the editor and Editorial maker are this controller's own doors.
+  // ✏️ 2026-09-25: THE EVENT HUB MAKER — the controller's new name (owner:
+  // "label change only; menu key `launch` and routes unchanged"). It also
+  // claims `/story`, whose own row left the tree (its door is the bar's Post
+  // Event); the Logo Maker is absorbed below (`STUDIO_ABSORBED.palogo`).
   if (ctx.websiteEnabled) {
-    put({ key: 'launch', label: 'Event Hub Controller', href: `${base}/launch`, icon: 'hub', matchPrefix: `${base}/website` });
+    put({
+      key: 'launch',
+      label: 'Event Hub Maker',
+      href: `${base}/launch`,
+      icon: 'hub',
+      matchPrefix: `${base}/website`,
+      alsoMatch: [`${base}/story`],
+    });
   }
   put({ key: 'schedule', label: 'Schedule', href: `${base}/schedule`, icon: 'schedule' });
   // Check-in appears in The day WHEN the day comes — on the laptop too now.

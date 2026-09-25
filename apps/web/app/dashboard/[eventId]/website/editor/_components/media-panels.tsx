@@ -171,7 +171,7 @@ export function SiteChromePanel({
           defaultChecked={musicEnabled}
           className="h-3.5 w-3.5 rounded border-ink/30"
         />
-        Play music on my website
+        Play music on my Event Hub
       </label>
       <div className="mt-3 border-t border-ink/10 pt-3">
         <FileUpload

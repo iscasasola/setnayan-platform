@@ -32,13 +32,16 @@ const strip = (at: string, phase: 'plan' | 'after' = 'plan', storeShell = false)
 
 test('the spine strip on Galleries is Papic · Galleries — the drawing, with no Overview chip', () => {
   assert.deepEqual(strip(`${BASE}/galleries`), ['Papic', 'Galleries']);
-  assert.deepEqual(strip(`${BASE}/galleries`, 'after'), ['Papic', 'Galleries', 'Editorial']);
+  /* ✏️ 2026-09-25 (Event Hub Maker, Phase 1): Editorial's door moved into the
+     Maker bar's "Post Event" — its own row left the tree (owner: one sidebar
+     row "Event Hub Maker" holding Logo Maker · Editorial · Love Story). */
+  assert.deepEqual(strip(`${BASE}/galleries`, 'after'), ['Papic', 'Galleries']);
 });
 
 test('the other bar twins stay in their strips, as the drawing draws them', () => {
   assert.ok(strip(`${BASE}/budget`).includes('Your Team'), 'Book lost Your Team');
   const invite = strip(`${BASE}/hosts`);
-  assert.ok(invite.includes('Guests') && invite.includes('Event Hub Controller'), `Invite reads ${invite.join(' · ')}`);
+  assert.ok(invite.includes('Guests') && invite.includes('Event Hub Maker'), `Invite reads ${invite.join(' · ')}`);
 });
 
 test('a moment left with one chip once Overview is out is not a strip (store shell: Papic is gone too)', () => {

@@ -29,12 +29,30 @@ writes. The write carries `draft_json` only — `lib/the-post-event-compile-cann
 proves it cannot touch `status` / consent (sabotage-probed red), and Publish to Discover keeps
 `story:publish_needs_consent`.
 
+**The Maker's Post Event navigator lists the scenes — through `lib/maker-scene-list.ts`** (#5981's one
+list, not a parallel one). After the day, `makerStageList` puts the compiled scenes where the single
+"The story after the day" tile stood (`kind: 'post-event'`), in the page's order: filled ones numbered,
+skipped / hidden / optional ones listed with a badge and their reason and no number. The cover tile
+wears the hero. A tile scrolls the canvas to its scene through the same `[data-maker-section]` marker
+contract (`p:<scene>`, stamped by `EditorialContent` only when `isEditorCanvas && editorBridge`, so a
+guest's HTML is unchanged); a tap on the canvas selects the tile back. The inspector says the template,
+what filled it or why it is skipped, and points to the story workroom for show / hide / order. The
+navigator heads the stage with "Auto · written <date>", or says plainly when the scenes could not be read.
+`the-post-event-navigator-lists-its-scenes.test.ts` holds it. In the canvas, an open-up scene's trigger
+is let through by the editor bridge (it navigates nowhere), so the couple can open it where they edit it.
+
 **The open-up family — `app/[slug]/_components/editorial/open-up-layer.tsx`.** The gallery, the film
 (the livestream, if they had one), Were you there? and the wishes preview in the flow (collage · still
 with ▶ · three short blocks) and open FULL SCREEN over the same scroll position: portalled to `<body>`,
 focus trapped (`useModalA11y`), Esc or ✕ returns focus to the preview, and a URL hash (`#open-gallery`
-…) so Back closes it. Browser-checked: Back and Esc both return to the exact pixel. The bodies are the
-shipped parts. Nothing to sell, so unchanged in the store shell.
+…) so Back closes it. The bodies are the shipped parts. Nothing to sell, so unchanged in the store shell.
+Browser-checked on a local harness (the sample story — a local server has no service key, so a real
+event's admin-read story cannot render there): the real `MakerShell` + `MakerWork` listed 17 numbered
+scenes + 4 skipped + 1 optional with the cover from the hero; the Gallery tile scrolled the canvas to
+the collage; tapping it in the canvas opened it full screen ("Everything" for the couple); Back returned
+the canvas to the same pixel (scrollY 14515.5 → 14515.5). On the story page: Esc returned focus to the
+preview at the same scroll position, Tab stayed inside the layer, a guest read "Yours · Everyone’s"
+(Yours explaining the Papic link), a stranger "Shared with everyone"; no horizontal scroll at 375 px.
 - **The gallery's tabs follow the reader** (owner 2026-09-25): a guest reads **Yours / Everyone's**
   (Yours = their own signed Papic session's photos; without one they are told how, never shown an
   empty grid), a stranger reads **Shared with everyone**, the couple reads **Everything**. Every photo

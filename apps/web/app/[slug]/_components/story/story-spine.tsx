@@ -142,8 +142,6 @@ export function StorySpine({
   sheets = [],
   makerMarkers = false,
 }: {
-  /** 🧭 The Maker's canvas only — a hidden `p:you` marker for the navigator (Maker Phase 8). */
-  makerMarkers?: boolean;
   data: EditorialData;
   facts: StorySpineFacts;
   words: EventWords;
@@ -185,6 +183,8 @@ export function StorySpine({
    * and empty for a story in Automatic, so an unarranged story renders exactly as before.
    */
   sheets?: readonly DrawnSheet[];
+  /** 🧭 The Maker's canvas only — a hidden `p:you` marker for the navigator (Maker Phase 8). */
+  makerMarkers?: boolean;
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.

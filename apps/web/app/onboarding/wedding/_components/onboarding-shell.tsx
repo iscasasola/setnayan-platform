@@ -4090,11 +4090,15 @@ export function OnboardingShell({
                 redirect under a half-filled form loses the form — DECISION_LOG
                 2026-09-10), then the email form, one Terms line, Stay signed in. The
                 buttons are the shared <OAuthButtonRow>, env-gated exactly as /signup
-                gates them, so this screen can no longer offer a provider that 404s. */}
-            <div className="stack">
-              <OAuthButtonRow next={RESUME_NEXT} withAccountType defaultAccountType="customer" verb={SIGNUP_OAUTH_VERB} />
-            </div>
-            {ANY_OAUTH_ENABLED ? (
+                gates them, so this screen can no longer offer a provider that 404s —
+                and, like /signup, not inside the phone app (the store shell), where
+                Google refuses OAuth in an embedded WebView. */}
+            {!storeShell ? (
+              <div className="stack">
+                <OAuthButtonRow next={RESUME_NEXT} withAccountType defaultAccountType="customer" verb={SIGNUP_OAUTH_VERB} />
+              </div>
+            ) : null}
+            {ANY_OAUTH_ENABLED && !storeShell ? (
               <div className="ghost" style={{ margin: '12px 0 0', textAlign: 'center' }}>
                 or create a password with your email
               </div>

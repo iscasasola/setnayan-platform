@@ -212,6 +212,24 @@ test('the look’s vars are channel triplets on the tokens the guest page paints
   assert.equal(look.vars['--color-cream'], `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`);
 });
 
+test('the plate ink is PINNED to the theme’s own ink, never the adapted page ink — or a plate over a dark ombré goes blank', () => {
+  const ch = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+  };
+  // A Classic couple on a dark ombré: the page ink flips light; the plate keeps Classic's espresso.
+  const dark = ombreLook(INVITE_THEMES.house, { shape: 'dawn', stops: ['#1e0a1d', '#0b0304'] });
+  assert.equal(dark.legibility.ink, INVITE_THEMES.house.palette.lightInk, 'the page ink should have flipped light');
+  assert.equal(dark.vars['--color-ink'], ch(INVITE_THEMES.house.palette.lightInk));
+  assert.equal(dark.vars['--color-ink-on-plate'], ch(INVITE_THEMES.house.palette.ink));
+  assert.notEqual(dark.vars['--color-ink-on-plate'], dark.vars['--color-ink']);
+  // And on every theme, over every preset, the plate ink is the theme's own.
+  for (const preset of OMBRE_PRESETS) {
+    const theme = INVITE_THEMES[preset.theme];
+    assert.equal(ombreLook(theme, preset.spec).vars['--color-ink-on-plate'], ch(theme.palette.ink), preset.id);
+  }
+});
+
 /* ── the one switch ──────────────────────────────────────────────────────── */
 
 test('the ombré ships FREE: OMBRE_IS_PRO is false and no site_bg_color write is a look change', () => {

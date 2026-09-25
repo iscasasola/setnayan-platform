@@ -270,7 +270,18 @@ export type OmbreLook = {
    * Inline custom properties for the look scope: the paper token moved to the
    * ramp's middle colour (so `bg-cream` chips and the sticky bar sit in the
    * gradient's own family) and the legibility answer on the channel tokens the
-   * words are painted with — the same four `scene-legibility.ts` uses.
+   * words are painted with (`scene-legibility.ts`'s tokens).
+   *
+   * 🔴 EXCEPT `--color-ink-on-plate`, WHICH IS PINNED TO THE THEME'S OWN INK.
+   * A `.pahina-plate` (the When/Where box, the reply card) keeps its own light
+   * paper whatever the page does, and its CSS reads
+   * `var(--color-ink-on-plate, var(--color-ink))` — a fallback to the page
+   * ink. Over a DARK ombré the page ink flips light; left to the fallback,
+   * every plate's words would be light on the plate's still-light paper —
+   * blank. The ten theme blocks in `globals.css` pin it to the theme's `ink`
+   * for exactly this reason, and so does the free-background fix
+   * (`pro-site-vars.ts`); this pins the same value inline so Classic, which
+   * has no theme block, is covered too.
    */
   vars: Record<string, string>;
   legibility: HubLegibility;
@@ -286,7 +297,7 @@ export function ombreLook(theme: InviteTheme, spec: OmbreSpec): OmbreLook {
     vars: {
       '--color-cream': hexChannels(mid),
       '--color-ink': hexChannels(legibility.ink),
-      '--color-ink-on-plate': hexChannels(legibility.ink),
+      '--color-ink-on-plate': hexChannels(theme.palette.ink),
       '--color-terracotta': hexChannels(legibility.accent),
       '--color-gild': hexChannels(legibility.accent),
     },

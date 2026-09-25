@@ -8,8 +8,12 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
-import type { RailGroup } from './_components/editor-shell';
-import { MakerWork, type MakerRowPanel, type MakerScene } from './_components/maker-work';
+import {
+  MakerWork,
+  type MakerRowPanel,
+  type MakerScene,
+  type RailGroup,
+} from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { sanitizeHubCanvas } from '@/lib/hub-canvas';
@@ -802,7 +806,13 @@ export default async function WebsiteEditorPage({
     if (!row.panel) continue;
     // 🔒 Store shell: a locked Pro row is HIDDEN, not shown locked.
     if (storeShell && row.pro && row.locked) continue;
-    rows[row.key] = { label: row.label, blurb: row.blurb, anchor: row.anchor, node: row.panel };
+    rows[row.key] = {
+      label: row.label,
+      blurb: row.blurb,
+      anchor: row.anchor,
+      status: row.status,
+      node: row.panel,
+    };
   }
   // The go-live control the rail's top carried — now in the ⋯ sheet.
   rows['go-live'] = {
@@ -888,6 +898,10 @@ export default async function WebsiteEditorPage({
       setModeAction={setSectionMode}
       moveUpAction={moveWidgetUp}
       moveDownAction={moveWidgetDown}
+      proUnlockHref={proUnlockHref}
+      proPriceLabel={proPriceLabel}
+      /* 🔒 Never in the store shell — no pitch, no price (App Review 3.1.1). */
+      showProCta={!ownsPro && !storeShell}
     />
   );
 }

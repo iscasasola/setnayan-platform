@@ -208,7 +208,12 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       </section>
 
       <footer className="mt-12 border-t border-ink/10 pt-8 text-center">
-        <Link href={`/${slug}`} className="text-sm text-ink/60 underline underline-offset-4">
+        {/* min-h-[40px] + matching negative margin (mobile audit item 3:
+            measured 18px) — grows the hit area without shifting the text. */}
+        <Link
+          href={`/${slug}`}
+          className="inline-flex min-h-[40px] items-center py-2.5 -my-2.5 text-sm text-ink/60 underline underline-offset-4"
+        >
           Back to the invitation
         </Link>
       </footer>

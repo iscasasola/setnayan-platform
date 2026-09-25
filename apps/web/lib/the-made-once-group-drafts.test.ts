@@ -21,9 +21,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { stripComments } from '@/lib/strip-comments';
+import { stripComments } from './strip-comments';
 
-const WEB = join(__dirname, '..', '..', '..', '..', '..');
+const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const DIR = 'app/dashboard/[eventId]/launch/_components';
@@ -57,7 +57,7 @@ test('no made-once file calls a live writer — the one draft action instead', (
 test('the logo autosaves: after a pause, on the way out, and when the tab is hidden', () => {
   const src = read(`${DIR}/maker-logo.tsx`);
   for (const [what, re] of [
-    ['a pause after a change', /setTimeout\([^)]*flush/],
+    ['a pause after a change', /setTimeout\(\(\) => void flush\(\)/],
     ['the tab hidden', /visibilitychange/],
     ['the page left', /pagehide/],
     ['Back to scenes', /const close = useCallback\(\(\) => \{\s*void flush\(/],

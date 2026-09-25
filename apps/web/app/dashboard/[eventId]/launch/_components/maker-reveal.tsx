@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { useMaker } from './maker-context';
 
 /**
  * THE REVEAL — chosen once, in the Maker (Phase 6).
@@ -73,9 +74,17 @@ export function MakerRevealPicker({
       }
     });
 
+  const maker = useMaker();
   const replay = () => {
-    /* The canvas is the guest page in an iframe: reloading it plays the
-       opening again, exactly as a guest arriving would meet it. */
+    /* The opening plays where guests meet it: as the Save the Date opens, and
+       at the invitation door (`[slug]/invite`). The Event Hub body plays it only
+       on the Save the Date stage (`cinematicRevealPlays`), so "Play" turns the
+       canvas to that stage — the draft and the theme's dressing ride along —
+       and, if it is already there, reloads it so the opening plays again. */
+    if (maker && maker.stage !== 'save_the_date') {
+      maker.setStage('save_the_date');
+      return;
+    }
     const frame = document.querySelector<HTMLIFrameElement>('[data-maker-shell] iframe');
     try {
       frame?.contentWindow?.location.reload();
@@ -136,8 +145,8 @@ export function MakerRevealPicker({
       ) : null}
       {!ownsPro && !storeShell && openings.length > 0 ? (
         <p className="text-[12px] text-ink/60">
-          Every opening is part of Event Hub Pro. Try one here — it plays in your preview; guests see it only after
-          you Apply with Pro.
+          Every opening is part of Event Hub Pro. Try one here — it plays in your own preview; guests see it only
+          after you Apply with Pro.
         </p>
       ) : null}
       {effective !== 'none' ? (
@@ -149,6 +158,11 @@ export function MakerRevealPicker({
           <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Play the opening
         </button>
+      ) : null}
+      {effective !== 'none' ? (
+        <p className="text-[12px] text-ink/60">
+          Guests meet it as your Save the Date opens and at the door of every invitation link.
+        </p>
       ) : null}
       {error ? (
         <p role="alert" className="text-[13px] text-terracotta-700">

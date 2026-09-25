@@ -288,7 +288,9 @@ export async function MakerLogoPanel({ eventId }: { eventId: string }) {
   const { live, drafted } = m;
   const config = sanitizeStudioConfig(drafted.monogram_studio_config);
   const uploaded = safeMonogramSvg(drafted.monogram_uploaded_svg);
-  const custom = safeMonogramSvg(drafted.monogram_custom_svg);
+  // Whether a composition exists at all — only a yes/no; the mark itself is
+  // drawn through `resolveEventMonogramSvg` below, never read raw.
+  const hasComposition = typeof drafted.monogram_custom_svg === 'string' && drafted.monogram_custom_svg.length > 0;
   const mark = resolveEventMonogramSvg(drafted);
   return (
     <MakerLogoDoor
@@ -297,7 +299,7 @@ export async function MakerLogoPanel({ eventId }: { eventId: string }) {
       initialNames={resolveMonogram(drafted).text}
       /* Compose FROM the uploaded logo when that is the couple's mark and no
          design exists yet — the Monogram Maker page's own rule. */
-      initialUploadSvg={!config && uploaded && !custom ? uploaded : null}
+      initialUploadSvg={!config && uploaded && !hasComposition ? uploaded : null}
       markUri={mark ? bespokeSvgToDataUri(mark) : null}
       drafted={
         drafted.monogram_custom_svg !== live.monogram_custom_svg ||

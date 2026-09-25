@@ -65,7 +65,6 @@ export function EntourageSection({
     <section id={id} className="scroll-mt-6 space-y-6">
       <header className="space-y-2">
         <p className="pahina-eyebrow">
-          <span aria-hidden>№ 08</span>
           <span>The entourage</span>
         </p>
         <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">

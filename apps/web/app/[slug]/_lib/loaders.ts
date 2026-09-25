@@ -18,7 +18,6 @@
 // the results IN as arguments. The service-role admin client is cookie-free and
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
-import { hubFontVars } from '@/lib/hub-fonts';
 import { plusOneSeats } from '@/lib/guests';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
 import { cache } from 'react';
@@ -36,9 +35,10 @@ import {
 } from '@/lib/entourage';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { buildCustomSiteColorVars, buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars } from '@/lib/site-palette';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import type { InviteThemeId } from '@/lib/invite-themes';
+import { proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -165,43 +165,12 @@ export const loadEventShell = cache(async (slug: string) => {
  *  boundary, exactly as before. */
 export type EventShellRow = NonNullable<Awaited<ReturnType<typeof loadEventShell>>>;
 
-/**
- * The couple's Event Hub Pro colours and face, as inline custom properties —
- * or `null` when there is nothing to add.
- *
- * Website Pro net-new manual site colours (Launch settings §4.4 · PR-C). The
- * couple's chosen background + button colours (events.site_bg_color /
- * site_button_color) override the Mood-Board palette tokens on the guest site —
- * but ONLY when the event owns ACTIVE Website Pro (the watermark's gate).
- * buildCustomSiteColorVars returns null when both columns are NULL, so a
- * non-Pro OR unset event yields `null` → no override → the page renders
- * byte-identically to today (inert contract).
- */
-export function proSiteVarsFor(
-  event: { site_bg_color?: unknown; site_button_color?: unknown; site_font_key?: unknown },
-  proWatermarkHidden: boolean,
-): Record<string, string> | null {
-  // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG AND THE SAME GATE.
-  // `hubFontVars` contributes `--pahina-face` / `--font-display`, which
-  // `globals.css` and `tailwind.config.ts` already read; a theme's MATERIAL
-  // (its colour tokens) is untouched, because a theme carries colour and this
-  // carries type. One bag rather than two: it is delivered to the same
-  // element, under the same Pro check, and a second would be a second place
-  // for the two to disagree.
-  // ⛔ An unset face contributes `{}`, so a couple who never chose one gets
-  // markup byte-identical to before this existed — and `null` still means
-  // "add no style attribute at all".
-  const proSiteVars = proWatermarkHidden
-    ? {
-        ...(buildCustomSiteColorVars(
-          event.site_bg_color as string | null,
-          event.site_button_color as string | null,
-        ) ?? {}),
-        ...hubFontVars(event.site_font_key),
-      }
-    : null;
-  return proSiteVars && Object.keys(proSiteVars).length > 0 ? proSiteVars : null;
-}
+// `proSiteVarsFor` — moved to `./pro-site-vars` (owner 2026-09-25 bg-colour
+// fix) so its couple's-colours math is a small, pure module a test can import
+// directly, without this file's own request-scoped import graph. Re-exported
+// here (imported above) so it stays a named export of `loaders.ts` too, for
+// any existing caller.
+export { proSiteVarsFor };
 
 /** The couple's look, resolved for the guest-tree layout. */
 export type GuestLook = {
@@ -252,7 +221,7 @@ export const loadGuestLook = cache(async (slug: string): Promise<GuestLook | nul
   ]);
 
   const palette = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
-  const pro = proSiteVarsFor(event, proActive);
+  const pro = proSiteVarsFor(event, proActive, hub.theme);
   // Byte-safety, as the shell always had it: with no Pro colours the bag IS the
   // palette's; with some, they are spread over it (the couple's own pick wins).
   const vars = pro ? { ...(palette ?? {}), ...pro } : palette;

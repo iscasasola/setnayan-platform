@@ -120,7 +120,6 @@ export function DressCodeWidget({
         <section className="space-y-4">
           <header className="space-y-2">
             <p className="pahina-eyebrow">
-              <span aria-hidden>№ 05</span>
               <span>Dress code</span>
             </p>
             <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
@@ -143,7 +142,6 @@ export function DressCodeWidget({
         <section className="space-y-4">
           <header className="space-y-2">
             <p className="pahina-eyebrow">
-              <span aria-hidden>№ 05</span>
               <span>Dress code</span>
             </p>
             <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
@@ -165,7 +163,6 @@ export function DressCodeWidget({
       <section className="space-y-4">
         <header className="space-y-2">
           <p className="pahina-eyebrow">
-            <span aria-hidden>№ 05</span>
             <span>Dress code</span>
           </p>
           <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
@@ -180,11 +177,12 @@ export function DressCodeWidget({
     );
   }
 
-  // Pahina (design 2026-07-25 §5/§7): chapter № 05, the palette rendered as SILK
-  // SWATCHES (tall fabric chips with inner shading + a gild pin, not flat color
-  // dots), and the Do/Don't boxes recoloured off the app's success/danger greens
-  // and reds onto palette-derived tones — the functional-color exile (§4). The
+  // Pahina (design 2026-07-25 §5/§7): the palette rendered as SILK SWATCHES
+  // (tall fabric chips with inner shading + a gild pin, not flat color dots),
+  // and the Do/Don't boxes recoloured off the app's success/danger greens and
+  // reds onto palette-derived tones — the functional-color exile (§4). The
   // two lists stay distinguishable by their key and rule, not by hue.
+  // ⚠ owner 2026-09-25 "drop the numbers": no chapter numeral — title only.
   // ── WHAT *YOU* WEAR (owner 2026-09-20 · lib/role-dress-code.ts).
   // A reader with a role is answered for THEIR role only: the whole palette is
   // everyone else's instructions, and a ninang does not need the groomsmen's.
@@ -195,7 +193,6 @@ export function DressCodeWidget({
     <section className="space-y-5">
       <header className="space-y-2">
         <p className="pahina-eyebrow">
-          <span aria-hidden>№ 05</span>
           <span>Dress code</span>
         </p>
         <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">

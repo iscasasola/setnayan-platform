@@ -36,9 +36,11 @@ export function YourSeatBlock({
   arrived,
 }: Props) {
   // Pahina (design 2026-07-25 §11a): the guest-personal layer is STARRED, not
-  // numbered — a gild ✦ marks "this belongs to you" while editorial chapters
-  // keep their №. Rendered as a recessed plate with the printed inner hairline;
-  // the arrival bloom warms it with gild instead of champagne-gold.
+  // numbered — a gild ✦ marks "this belongs to you". (Editorial chapters used
+  // to keep their own №; owner 2026-09-25 "drop the numbers" removed those, so
+  // the star is the only numeral-shaped mark left.) Rendered as a recessed
+  // plate with the printed inner hairline; the arrival bloom warms it with
+  // gild instead of champagne-gold.
   return (
     <section
       className={`pahina-plate sm:p-6 ${

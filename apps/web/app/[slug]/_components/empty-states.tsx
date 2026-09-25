@@ -133,14 +133,14 @@ export function PublicEventDetails({
   venueAddress: string | null;
 }) {
   if (!dateLabel && !venueName && !venueAddress) return null;
-  // Pahina (design 2026-07-25 §7): chapter № 03 over a recessed paper-deep plate
-  // with the printed inner hairline frame; WHEN / WHERE read as gild mono keys
-  // and the venue name is set in the display face. Facts and gating unchanged —
-  // still event-level only, no guest-derived data on the anonymous tier.
+  // Pahina (design 2026-07-25 §7): over a recessed paper-deep plate with the
+  // printed inner hairline frame; WHEN / WHERE read as gild mono keys and the
+  // venue name is set in the display face. Facts and gating unchanged — still
+  // event-level only, no guest-derived data on the anonymous tier.
+  // ⚠ owner 2026-09-25 "drop the numbers": no chapter numeral — title only.
   return (
     <section className="space-y-4">
       <p className="pahina-eyebrow">
-        <span aria-hidden>№ 03</span>
         <span>The details</span>
       </p>
       <div className="pahina-plate space-y-5">

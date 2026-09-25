@@ -43,10 +43,12 @@ No new page, no migration, no new table.
 - **Tour** `customer_love_story_v1`; `TourSlide.sells` + `MiniTour`/`GuidedTour`
   `storeShell` drop the Pro slide in the app-store shell.
 
+- **The Maker bar** (P1, #5967, merged) — the "Love Story" tool now opens a door
+  to the scrapbook ("Open Our Love Story") above the words row, and no longer says
+  "coming in the next build"; the editor's Story row leads with the same door.
+
 ⏭ Waits on: **P5** (scene templates/renderer — each moment carries `canvas` and a
-template hint), **P1** (#5967 — the bar's "Love Story" tool already lands on this
-page through the editor's Story row; wire it to open the scrapbook directly),
-**P2** (#5966 — writes are live until the draft path lands), **P4** (#5969 —
+template hint), **P2** (#5966 — writes are live until the draft path lands), **P4** (#5969 —
 upload pipeline, clips and the 100 MB meter; photos use the shared `FileUpload`
 today). Papic booth photos are not offered in Pick yet (private bucket, needs a
 per-event sharing answer).

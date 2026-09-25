@@ -362,6 +362,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Sparkles,
         title: 'Five stories are free',
         body: 'Tell up to five stories in your words for free. More stories and your own photos come with Event Hub Pro.',
+        sells: true,
+      },
+    ],
+  },
+  /*
     THE EVENT HUB MAKER'S WELCOME (owner 2026-09-25: "for everything we have on
     the website. we always give them a proper tour/welcome so they understand
     how things work"). Slides per EVENT_HUB_MAKER_BUILD_PLAN Phase 1: what it

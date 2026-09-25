@@ -33,6 +33,7 @@ import { isSpatialThemeKey, parseRsvpBackdropConfig } from '@/lib/spatial-backdr
 import { refChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 
 /** Set the RSVP-phase spatial backdrop (theme + intensity). */
 export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
@@ -59,6 +60,8 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
     .eq('event_id', eventId)
     .maybeSingle();
   const stored = parseRsvpBackdropConfig((current as { rsvp_backdrop?: unknown } | null)?.rsvp_backdrop);
+  // 💾 THE MAKER'S DRAFT (Phase 2): try it free, pay at Apply — see `draftBackdrop`.
+  if (isHubDraftWrite(formData)) await draftBackdrop(formData, eventId, { theme: themeRaw, intensity });
   await requireLookPro(
     eventId,
     refChange(stored ? `${stored.theme}/${stored.intensity}` : null, `${themeRaw}/${intensity}`),
@@ -81,6 +84,7 @@ export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
   const eventId = eventIdRaw;
 
   await requireHostMembership(eventId);
+  if (isHubDraftWrite(formData)) await draftBackdrop(formData, eventId, null);
   const supabase = await createClient();
 
   await supabase.from('events').update({ rsvp_backdrop: null }).eq('event_id', eventId);
@@ -166,4 +170,21 @@ export async function setLaunchPhase(formData: FormData): Promise<void> {
   if (slug) revalidatePath(`/${slug}`);
   const fallback = `/dashboard/${eventId}/website/editor?open=launch-phase${saved ? '' : '&pin=refused'}`;
   redirect(saved ? resolveReturnTo(formData, fallback) : fallback);
+}
+
+/**
+ * 💾 THE DRAFT DOOR for the backdrop (Event Hub Maker Phase 2). A form carrying
+ * `draft=1` puts the backdrop into `event_site_drafts` instead of the live column;
+ * the Pro gate moves to `hubDraftAction` apply (owner 2026-09-25, "Try then pay").
+ * Open browsing and the launch pin above are deliberately NOT drafted — who sees
+ * the page stays live (the build plan's rule). Never returns.
+ */
+async function draftBackdrop(
+  formData: FormData,
+  eventId: string,
+  value: { theme: string; intensity: string } | null,
+): Promise<never> {
+  await saveHubDraftPatch(eventId, { events: { rsvp_backdrop: value } });
+  revalidatePath(`/dashboard/${eventId}/website/editor`);
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=backdrop&drafted=1`, '?drafted=1'));
 }

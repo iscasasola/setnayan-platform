@@ -36,6 +36,7 @@ import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
+import { HubDraftDock } from '../website/_components/hub-draft-dock';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
@@ -923,6 +924,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       renderStamp={String(Date.now())}
       hasWork={hasWork}
       more={hasWork ? controller : null}
+      /* 💾 Phase 2: the draft's Apply · Restore · Reset, in the toolbar. Only
+         where the work area is the editor — a coordinator has nothing to draft. */
+      applySlot={hasWork ? <HubDraftDock eventId={eventId} /> : null}
     >
       {hasWork ? (
         <WebsiteEditorPage

@@ -61,8 +61,10 @@ import {
   loadMedia,
   loadWidgets,
   loadEntourage,
+  loadHostPreviewDraft,
   type EventShellRow,
 } from './_lib/loaders';
+import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import {
   anonymousIdentity,
   guestIdentity,
@@ -434,7 +436,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
  * code, one function deeper.
  */
 async function InvitationBody({
-  event,
+  event: liveEvent,
   slug,
   search,
   admin,
@@ -448,6 +450,20 @@ async function InvitationBody({
   inviteError: string | null;
   eventTypeProfile: Awaited<ReturnType<typeof resolveProfile>>;
 }) {
+  /* 💾 THE HOST SEES THE DRAFT; GUESTS SEE LIVE (Event Hub Maker Phase 2).
+     Only `?editor=1` looks, and `loadHostPreviewDraft` answers null unless the
+     viewer passes the same host check the editor bridge uses. Without the param
+     (every guest, always) `hostDraft` is null, both overlays return their input,
+     and nothing below reads anything different. */
+  let hostDraft: HubDraft | null = null;
+  if (search.editor === '1') {
+    const {
+      data: { user: previewer },
+    } = await (await createClient()).auth.getUser();
+    if (previewer) hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id, previewer.id);
+  }
+  const event = overlayHubDraftEvent(liveEvent, hostDraft);
+
   // Hero / photos / monogram / Save-the-Date media resolution — moved verbatim
   // to `loadMedia` (_lib/loaders.ts · OPEN-BROWSE PR2). Runs BEFORE the private
   // gate exactly as the inline block did (PrivateLanding consumes the monogram
@@ -472,7 +488,7 @@ async function InvitationBody({
 
   // Per-event widget registry — moved verbatim to `loadWidgets`
   // (_lib/loaders.ts), which carries the registry's full doc block.
-  const widgets = await loadWidgets(admin, event.event_id);
+  const widgets = overlayHubDraftWidgets(await loadWidgets(admin, event.event_id), hostDraft);
 
   // Read the guest-session cookie up-front so the private-gate below can
   // accept a session-cookie-bearing guest without re-fetching guests

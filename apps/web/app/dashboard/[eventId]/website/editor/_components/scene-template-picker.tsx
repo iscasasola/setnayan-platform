@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   SCENE_BUILT_ON_LABEL,
   SCENE_FAMILIES,
@@ -37,7 +37,19 @@ export function SceneTemplatePicker({
   currentTemplate = null,
   initialView = 'desktop',
   hideMediaSlots = false,
+  overlay = false,
+  facts = null,
 }: {
+  /**
+   * The event's own words for the templates built on them — the prototype's
+   * note: "names, monogram and '85' are real". Absent → a neutral "Aa".
+   */
+  facts?: { names?: string | null; monogram?: string | null; days?: number | null } | null;
+  /**
+   * Draw the picker as a sheet over everything (the Event Hub Maker's
+   * navigator is too narrow to hold 25 tiles inline). Inline otherwise.
+   */
+  overlay?: boolean;
   action: (formData: FormData) => void | Promise<void>;
   /** Hidden fields every tile posts (event_id, widget_id, intent, return_to). */
   hidden: Readonly<Record<string, string>>;
@@ -57,6 +69,18 @@ export function SceneTemplatePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<SceneView>(initialView);
+  // The view follows the one being edited each time the picker opens.
+  useEffect(() => {
+    if (open) setView(initialView);
+  }, [open, initialView]);
+  useEffect(() => {
+    if (!open || !overlay) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, overlay]);
 
   return (
     <div className="mt-2">
@@ -68,11 +92,23 @@ export function SceneTemplatePicker({
       >
         {triggerLabel}
       </button>
+      {open && overlay ? (
+        <button
+          type="button"
+          aria-label="Close the templates"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-[90] cursor-default bg-ink/30"
+        />
+      ) : null}
       {open ? (
         <div
           role="dialog"
           aria-label={`${heading} ${stageLabel}`}
-          className="mt-2 rounded-md border border-ink/10 bg-cream p-3 shadow-sm"
+          className={
+            overlay
+              ? 'fixed inset-x-3 bottom-3 top-16 z-[91] mx-auto max-w-3xl overflow-y-auto rounded-md border border-ink/10 bg-cream p-3 shadow-lg sm:inset-x-6'
+              : 'mt-2 rounded-md border border-ink/10 bg-cream p-3 shadow-sm'
+          }
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-serif text-base text-ink">
@@ -93,6 +129,15 @@ export function SceneTemplatePicker({
                 </button>
               ))}
             </div>
+            {overlay ? (
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-8 items-center rounded-full px-3 text-[0.7rem] font-semibold text-ink/70 hover:bg-ink/5"
+              >
+                Close
+              </button>
+            ) : null}
           </div>
           <p className="mt-1 text-[0.62rem] text-ink/50">
             ★ the four approved arrangements · shown{' '}
@@ -125,10 +170,10 @@ export function SceneTemplatePicker({
                     >
                       <span className={`flex items-start gap-1 ${view === 'both' ? '' : 'justify-center'}`}>
                         {view !== 'phone' ? (
-                          <Thumb boxes={t.thumb.desk} shape="desk" hideMedia={hideMediaSlots} />
+                          <Thumb boxes={t.thumb.desk} shape="desk" hideMedia={hideMediaSlots} word={realWord(t, facts)} />
                         ) : null}
                         {view !== 'desktop' ? (
-                          <Thumb boxes={t.thumb.phone} shape="phone" hideMedia={hideMediaSlots} />
+                          <Thumb boxes={t.thumb.phone} shape="phone" hideMedia={hideMediaSlots} word={realWord(t, facts)} />
                         ) : null}
                       </span>
                       <span className="text-[0.62rem] leading-tight text-ink/75">
@@ -146,6 +191,17 @@ export function SceneTemplatePicker({
   );
 }
 
+/** The real word a built-on template prints, for its tile — or "Aa". */
+function realWord(
+  t: SceneTemplate,
+  facts: { names?: string | null; monogram?: string | null; days?: number | null } | null,
+): string {
+  if (t.builtOn === 'names' && facts?.names) return facts.names;
+  if (t.builtOn === 'monogram' && facts?.monogram) return facts.monogram;
+  if (t.builtOn === 'countdown' && typeof facts?.days === 'number') return String(facts.days);
+  return 'Aa';
+}
+
 function label(t: SceneTemplate): string {
   return `${t.approved ? '★ ' : ''}${t.id} · ${t.name}`;
 }
@@ -159,10 +215,12 @@ function Thumb({
   boxes,
   shape,
   hideMedia,
+  word,
 }: {
   boxes: readonly SceneThumbBox[];
   shape: 'desk' | 'phone';
   hideMedia: boolean;
+  word: string;
 }) {
   return (
     <span
@@ -182,8 +240,8 @@ function Thumb({
         }
         if (kind === 'txt') {
           return (
-            <i key={i} className="absolute text-center font-serif text-[0.55rem] not-italic leading-none text-ink/80" style={{ ...pos, width: `${w}%` }}>
-              Aa
+            <i key={i} className="absolute truncate px-0.5 text-center font-serif text-[0.85rem] not-italic leading-none text-ink/85" style={{ ...pos, width: `${w}%` }}>
+              {word}
             </i>
           );
         }

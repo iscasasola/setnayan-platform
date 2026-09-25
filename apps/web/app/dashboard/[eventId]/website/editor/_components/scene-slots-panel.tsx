@@ -73,6 +73,7 @@ export function SceneSlotsPanel({
       </div>
       {t.builtOn ? <p className="text-[0.62rem] text-ink/55">{SCENE_BUILT_ON_LABEL[t.builtOn]}.</p> : null}
       <SceneTemplatePicker
+        overlay
         action={saveAction}
         hidden={{ ...base, intent: 'template' }}
         stageLabel={stageLabel}

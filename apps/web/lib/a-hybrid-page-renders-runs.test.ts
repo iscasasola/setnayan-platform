@@ -228,3 +228,24 @@ test('⛔ setWidgetMotion refuses a free couple landing on Scrub / Auto-scroll �
   // …and the gate runs BEFORE the row is written.
   assert.ok(body.indexOf('step.needsPro') < body.indexOf('.update({ config_json: next })'));
 });
+
+/* ══ AUTO RUNS IN THE STYLESHEET ═════════════════════════════════════════ */
+
+test('🎬 the auto clock lives behind every gate AND the island’s own [data-armed] — no script, no hiding', () => {
+  const gate = scenesGate();
+  for (const attr of ['data-auto-in', 'data-auto-out', 'data-auto-skip']) {
+    const rules = [...gate.matchAll(/([^{}]*)\{/g)].map((m) => m[1] as string).filter((r) => r.includes(`[${attr}]`));
+    assert.ok(rules.length > 0, `${attr} is styled inside the gate`);
+    for (const r of rules) assert.match(r, /\.hub-arun\[data-armed\]/, `${attr} rule is armed-only: ${r.trim()}`);
+  }
+  const outside = CSS.replace(gate, '');
+  assert.doesNotMatch(outside, /data-auto-(in|out|skip)|\.hub-arun\[data-armed\]/, 'nothing outside the gate touches the clock');
+});
+
+test('🪤 "playing" out-ranks "paused" — measured: at a lower specificity nothing ever moved', () => {
+  const gate = scenesGate();
+  const paused = gate.indexOf('.hub-arun[data-armed] > .hub-auto[data-auto-in][data-auto-out] {');
+  const running = gate.indexOf('.hub-arun[data-armed][data-playing] > .hub-auto[data-auto-in][data-auto-out] {');
+  assert.ok(paused > 0 && running > paused, 'the running rule is as specific as the paused one and comes after it');
+  assert.match(gate.slice(running, gate.indexOf('}', running)), /animation-play-state:\s*running/);
+});

@@ -1043,6 +1043,7 @@ export function SectionsPanel({
              2026-09-24: "we do not have the blank anymore"). Each tile posts
              this same `addCustomAction` with its `template`. */
           <SceneTemplatePicker
+            overlay
             action={addCustomAction}
             hidden={{ event_id: eventId, return_to: back }}
             stageLabel={sceneStage}

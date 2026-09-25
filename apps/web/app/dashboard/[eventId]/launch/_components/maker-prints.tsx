@@ -13,6 +13,7 @@ import {
   type PrintFormatId,
 } from '@/lib/print-pieces';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
+import { PrintPreview } from './print-preview';
 
 /**
  * PRINTS & TICKETS — the third group of the Event Hub Maker's bar (Phase 9).
@@ -37,6 +38,14 @@ import { MAKER_DETAILS_LABEL } from './maker-bar';
  *
  * Server component; no client state and NO WRITES — what the set includes and
  * its wording are set in the Maker's Details panel (`maker-details.tsx`).
+ *
+ * Each preview image is `<PrintPreview>` (`./print-preview.tsx`), the one
+ * client component this file reaches for: the server render behind
+ * `/api/hub-print` takes real seconds, and a bare `<img>` sat as a blank
+ * `bg-ink/[0.04]` box the whole time — grey and silent reads as broken. That
+ * shared box owns loading (shimmer + "Drawing your…") and error (an honest
+ * line + Retry) so every piece on this screen, and any other surface that
+ * draws from the same route, tells the same truth the same way.
  */
 export function MakerPrints({
   eventId,
@@ -167,15 +176,11 @@ export function MakerPrints({
             const fam = formatFamilyOf(k);
             return (
               <li key={k} data-print-piece={k} className="flex flex-col items-center gap-2">
-                <div className="flex h-[340px] w-full items-center justify-center rounded-xl bg-ink/[0.04] p-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated SVG from our own route, sized by its own viewBox */}
-                  <img
-                    src={q(k, 'screen')}
-                    alt={`${spec.label} — ${t.name}`}
-                    loading="lazy"
-                    className="max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)]"
-                  />
-                </div>
+                <PrintPreview
+                  src={q(k, 'screen')}
+                  alt={`${spec.label} — ${t.name}`}
+                  label={spec.label.toLowerCase()}
+                />
                 <p className="text-sm font-semibold text-ink">{spec.label}</p>
                 <p className="text-xs text-ink/60">
                   {fam ? `${formats[fam].label} · ${formats[fam].wMm} × ${formats[fam].hMm} mm` : spec.size}

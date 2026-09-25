@@ -171,7 +171,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       const svg = renderPrintSvg(layoutPiece(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
       return new NextResponse(svg, {
         status: 200,
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60' },
+        // 🕐 `stale-while-revalidate` — the couple flips between the Maker's
+        // theme chips and its Prints tab a lot; without this every return trip
+        // re-earns the full server render (real SVG layout work, not a static
+        // asset). Within 60s the browser still fetches fresh, as before; from
+        // 60s–360s it paints the LAST render instantly while quietly asking for
+        // a new one underneath — never staler than the page already tolerated.
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60, stale-while-revalidate=300' },
       });
     }
     const keys = wantsSet ? [...PRINT_SET_KEYS] : [piece as PrintSetKey];
@@ -204,7 +210,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     headers: {
       'content-type': 'image/jpeg',
       'content-disposition': `${mode === 'screen' ? 'inline' : 'attachment'}; filename="${name}"`,
-      'cache-control': 'private, max-age=60',
+      // See the `screen` SVG branch above — same reasoning, same numbers.
+      'cache-control': 'private, max-age=60, stale-while-revalidate=300',
     },
   });
 }

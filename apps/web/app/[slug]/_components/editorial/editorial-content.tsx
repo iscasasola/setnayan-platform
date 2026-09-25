@@ -27,6 +27,7 @@ import {
   customColumnId,
   shippedSections,
   type ChallengeAnswer,
+  type CustomColumn,
   type EditorialData,
   type EditorialOrderKey,
 } from './data';
@@ -65,7 +66,9 @@ import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/stor
 import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { galleryTabsFor, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
+import { galleryTabsFor, openUpHash, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
+import { postEventPreset } from '@/lib/post-event-presets';
+import type { PostEventDraft } from '@/lib/post-event-draft';
 import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 
 const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
@@ -91,7 +94,17 @@ export async function EditorialContent({
   viewer = STRANGER,
   magicTraveller = null,
   makerMarkers = false,
+  draft = null,
 }: {
+  /**
+   * 💾 THE HOST'S DRAFT OF POST EVENT'S SCENES (owner 2026-09-25, "POST EVENT
+   * IS MANY SMALL SCENES") — which scenes show, their order and the couple's
+   * own scenes, as drafted in the Maker (`HubDraft.editorial`). Handed in ONLY
+   * for the Maker's canvas, whose host the page already verified
+   * (`loadHostPreviewDraft`); every guest and stranger gets null, and their
+   * story renders from the live row exactly as before.
+   */
+  draft?: PostEventDraft | null;
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
    *  real editorial and it falls back to the couple's own /[slug]; the sample
@@ -197,6 +210,19 @@ export async function EditorialContent({
     viewer who may read every layer gets the identical object back.
   */
   data = redactStoryLayers(data, viewer);
+
+  /* 💾 The host's drafted arrangement, laid over the story's own three keys —
+     the SAME keys, in the SAME shapes, the loader read (`lib/post-event-draft.ts`
+     sanitised them through the page's own readers). Only the order and the
+     switches and the couple's own words move; every layer above stays redacted. */
+  if (draft) {
+    data = {
+      ...data,
+      ...(draft.sections !== undefined ? { sections: draft.sections } : {}),
+      ...(draft.sectionOrder !== undefined ? { sectionOrder: draft.sectionOrder } : {}),
+      ...(draft.customColumns !== undefined ? { customColumns: draft.customColumns } : {}),
+    };
+  }
 
   let copy: ComposedCopy;
   try {
@@ -878,11 +904,17 @@ export async function EditorialContent({
                 node
               );
             }
+            // 🎬 A couple's own scene — a Post Event preset, or a workroom
+            // column (no preset: words only, exactly as before). Its marker is
+            // the `custom:<id>` key the navigator lists it by.
             return (
-              <div key={k}>
-                <SectionRule title={col.title} />
-                <CustomColumnBody body={col.body} />
-              </div>
+              <Fragment key={k}>
+                {marker(k)}
+                <div>
+                  <SectionRule title={col.title} />
+                  <PresetSceneBody col={col} data={data} inMaker={makerMarkers} />
+                </div>
+              </Fragment>
             );
           });
         })()}
@@ -1067,6 +1099,106 @@ function HeroPhoto({
  * their browser can write directly, and a stored value that becomes markup on a
  * public page is how the harmless case turns into the other one.
  */
+/**
+ * 🎬 A COUPLE'S OWN SCENE, BY ITS POST EVENT PRESET (owner 2026-09-25, "POST
+ * EVENT IS MANY SMALL SCENES"; `lib/post-event-presets.ts`). Always the
+ * couple's words; four presets also show a part of the day beside them, read
+ * from the SAME `data` this story already redacted for this reader — so a
+ * preset can never show a guest something the story itself would not.
+ *
+ * 🔒 NEVER AN EMPTY BOX. When that part of the day does not exist yet, a guest
+ * meets the words alone; only the Maker's canvas (`inMaker`) says, in words,
+ * what will fill it ("Your photos from the day appear here.").
+ */
+function PresetSceneBody({
+  col,
+  data,
+  inMaker,
+}: {
+  col: CustomColumn;
+  data: EditorialData;
+  inMaker: boolean;
+}): ReactElement {
+  const preset = postEventPreset(col.preset);
+  const waiting = (text: string | null) =>
+    inMaker && text ? (
+      <p
+        data-post-event-waiting=""
+        className="mt-4 rounded-sm border border-dashed border-ink/25 px-4 py-6 text-center font-mono text-xs uppercase tracking-[0.14em] text-ink/60"
+      >
+        {text}
+      </p>
+    ) : null;
+  if (preset?.id === 'quote') {
+    return (
+      <blockquote className="mx-auto mt-4 max-w-3xl text-center font-serif text-[clamp(1.5rem,4vw,2.4rem)] italic leading-snug text-ink/90">
+        {col.body}
+      </blockquote>
+    );
+  }
+  const words = <CustomColumnBody body={col.body} />;
+  if (!preset || preset.shows === 'words') return words;
+  if (preset.shows === 'gallery') {
+    return (
+      <>
+        {words}
+        {data.galleryPhotos.length > 0 ? (
+          <CollagePreview photos={data.galleryPhotos} names={data.firstNames} />
+        ) : (
+          waiting(preset.waiting)
+        )}
+      </>
+    );
+  }
+  if (preset.shows === 'film') {
+    const film = data.films?.[0] ?? null;
+    return (
+      <>
+        {words}
+        {data.watchFilmEmbedUrl ? (
+          <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+        ) : film ? (
+          <div className="relative mt-4 aspect-video overflow-hidden rounded-lg bg-black/5">
+            <iframe
+              src={film.embedUrl}
+              title={film.label ?? `${data.firstNames} — the film`}
+              loading="lazy"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full border-0"
+            />
+          </div>
+        ) : (
+          waiting(preset.waiting)
+        )}
+      </>
+    );
+  }
+  if (preset.shows === 'wishes') {
+    return (
+      <>
+        {words}
+        {data.kwentoQuotes.length > 0 ? <WishesPreview quotes={data.kwentoQuotes} /> : waiting(preset.waiting)}
+      </>
+    );
+  }
+  // 'you' — a door to each guest's own day: the SAME open-up the story's
+  // "Were you there?" already is (its hash), never a second copy of it.
+  return (
+    <>
+      {words}
+      <p className="mt-4 text-center">
+        <a
+          href={openUpHash('you')}
+          className="inline-flex min-h-11 items-center rounded-full border border-ink/30 px-5 font-mono text-xs uppercase tracking-[0.16em] text-ink/80 hover:border-ink/60"
+        >
+          Open your day
+        </a>
+      </p>
+    </>
+  );
+}
+
 function CustomColumnBody({ body }: { body: string }): ReactElement | null {
   // A blank line starts a new paragraph; single newlines stay inside one, which
   // is how people actually type. `readCustomColumns` has already refused an

@@ -1095,6 +1095,9 @@ async function InvitationBody({
     doorwayFacts,
     proWatermarkHidden,
     isEditorCanvas,
+    // 💾 Post Event's drafted scenes (owner 2026-09-25) — the host's draft only;
+    // `hostDraft` is null for every guest, so their story reads the live row.
+    editorialDraft: hostDraft?.editorial ?? null,
     // The click-to-edit bridge: the Maker's iframe only, never the preview tab.
     editorBridge: isEditorCanvas && asksForEditorBridge(search),
     canvasGuestBars: isEditorCanvas && search.bars === '1',

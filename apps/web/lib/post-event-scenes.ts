@@ -26,6 +26,17 @@
  * only what is new — which template, what filled it, whether it was skipped, and
  * when it was written (`scenesGeneratedAt`).
  *
+ * ── MANY SMALL SCENES, BEFORE AND AFTER THE DAY (owner 2026-09-25) ──────────
+ * *"the story on that scene 1 of post event is the whole story, what we want is
+ * to cut them into smaller scenes … giving them freedom to add new scenes."*
+ * So Post Event is ALWAYS these scenes: before the day each one is listed as
+ * `waiting` and says what will fill it; after the day the compile fills the
+ * same keys. The couple's own scenes (a Post Event preset, `lib/post-event-
+ * presets.ts`, or a column written in the story workroom) are scenes too —
+ * `custom:<id>`, placed by the same `sectionOrder` — and every edit the Maker
+ * makes to show / hide, order and their own scenes goes through the Event Hub
+ * draft as a drafted copy of those same keys (`lib/post-event-draft.ts`).
+ *
  * ── THE ORDER IS THE PAGE'S ORDER ────────────────────────────────────────────
  * The navigator lists the scenes in the order the canvas draws them (owner
  * 2026-09-25: *"why does the slides not follow the sequence alotted"*): the
@@ -45,7 +56,10 @@
  */
 
 import { resolveSectionOrder, type EditorialOrderKey } from '@/app/[slug]/_components/editorial/editorial-order';
+import { customColumnId, customColumnKey, readCustomColumns } from '@/app/[slug]/_components/editorial/custom-columns';
 import type { SceneTemplateId } from '@/lib/scene-templates';
+import { postEventPreset, type PostEventPresetId } from '@/lib/post-event-presets';
+import type { PostEventArrangement } from '@/lib/post-event-draft';
 import type { StoryViewer } from '@/lib/who-can-see-your-story';
 
 /* ── the open-up family ─────────────────────────────────────────────────── */
@@ -100,7 +114,24 @@ export function galleryTabsFor(reader: PostEventReader): GalleryTab[] {
 
 /* ── the scenes ─────────────────────────────────────────────────────────── */
 
-export type PostEventSceneStatus = 'auto' | 'skipped' | 'optional';
+/**
+ *   · auto     — filled from what happened.
+ *   · skipped  — after the day, its source had nothing; guests never meet it.
+ *   · optional — absent until the couple chooses it (What comes next).
+ *   · waiting  — 🕰 BEFORE THE DAY (owner 2026-09-25, "POST EVENT IS MANY SMALL
+ *                SCENES"): the scene is already its own tile, and it says in
+ *                words what will fill it — "Your photos from the day appear
+ *                here." Never an empty box, and never "skipped" for a day that
+ *                has not happened yet.
+ *   · own      — one of the couple's own scenes (a Post Event preset, or a
+ *                column they wrote in the story workroom): their words.
+ */
+export type PostEventSceneStatus = 'auto' | 'skipped' | 'optional' | 'waiting' | 'own';
+
+/** Does a guest meet this scene? Filled (by the day or by the couple) and not hidden. */
+export function postEventSceneDrawn(status: PostEventSceneStatus, hidden: boolean): boolean {
+  return (status === 'auto' || status === 'own') && !hidden;
+}
 
 /**
  * Which shipped `draft_json.sections` switch a scene answers to, when it has
@@ -144,6 +175,10 @@ export type PostEventScene = {
   switch: PostEventSectionSwitch | null;
   /** A chapter's lead capture — the key `chapterOverrides` targets. */
   leadId?: string | null;
+  /** 🎬 The couple's own scene: the Post Event preset it was added from (null = a plain column). */
+  preset?: PostEventPresetId | null;
+  /** The couple's own scene exists only in the draft (not yet applied) — a new scene is Pro at Apply. */
+  isNew?: boolean;
 };
 
 /** What the compiler reads. Every field is a fact the story's loader already has. */
@@ -176,6 +211,30 @@ export type CompiledPostEvent = {
   version: typeof POST_EVENT_SCENES_VERSION;
   generatedAt: string;
   scenes: PostEventScene[];
+};
+
+/**
+ * 🕰 WHAT EACH SCENE SAYS BEFORE THE DAY — in words, on its own tile. A scene
+ * whose source is the day itself cannot be "skipped" before the day happened;
+ * it is waiting, and it says what will fill it.
+ */
+export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
+  before: 'Your Love Story moments appear here — add them any time.',
+  numbers: 'Your guests and the photos of the day are counted here after the day.',
+  chapters: 'The chapters of your day write themselves here from the photos taken on the day.',
+  gallery: 'Your photos from the day appear here.',
+  film: 'Your livestream replay or your film appears here.',
+  you: 'Each guest opens their own day here, from their own Papic link.',
+  wishes: 'Your guests’ approved wishes appear here.',
+  asked: 'Your guests’ answers to your Papic challenges appear here.',
+  letters: 'The letters your guests write appear here.',
+  vendors: 'Photos from your suppliers appear here.',
+  wall: 'If you run a Live Photo Wall, its photos appear here.',
+  said: 'What your guests say about the day appears here.',
+  powered: 'The Setnayan services you use appear here.',
+  loved: 'The suppliers you recommend appear here.',
+  couple: 'Your closing words appear here — write them any time as your special message.',
+  song: 'Your song appears here.',
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-PH')} ${n === 1 ? one : many}`;
@@ -291,10 +350,16 @@ export function postEventSceneKeyForBlock(block: EditorialOrderKey): string | nu
   return SCENE_FOR_BLOCK[block] ?? null;
 }
 
-function build(def: Def, s: PostEventSources): PostEventScene {
+function build(def: Def, s: PostEventSources, dayHappened: boolean): PostEventScene {
   const { fill, ...rest } = def;
   const r = fill(s);
-  if ('skip' in r) return { ...rest, status: 'skipped', note: r.skip, count: null, source: '—' };
+  if ('skip' in r) {
+    // Before the day, "nothing yet" is waiting for the day — said, never skipped.
+    const waiting = dayHappened ? null : (POST_EVENT_WAITING[def.key] ?? null);
+    return waiting
+      ? { ...rest, status: 'waiting', note: waiting, count: null, source: '—' }
+      : { ...rest, status: 'skipped', note: r.skip, count: null, source: '—' };
+  }
   return { ...rest, status: 'auto', note: null, count: r.count, source: r.source };
 }
 
@@ -304,11 +369,13 @@ function build(def: Def, s: PostEventSources): PostEventScene {
  * 2 · Photo right, the prototype's rhythm. None → ONE skipped row, never ten
  * empty ones.
  */
-function chapterScenes(s: PostEventSources): PostEventScene[] {
+function chapterScenes(s: PostEventSources, dayHappened: boolean): PostEventScene[] {
   if (s.chapters.length === 0) {
     return [{
-      key: 'chapters', name: 'As the Day Unfolded', template: 1, source: '—', status: 'skipped',
-      note: 'No captures from the day yet', count: null, open: null, pin: null, block: 'chapters', switch: 'gallery',
+      key: 'chapters', name: 'As the Day Unfolded', template: 1, source: '—',
+      status: dayHappened ? 'skipped' : 'waiting',
+      note: dayHappened ? 'No captures from the day yet' : POST_EVENT_WAITING.chapters!,
+      count: null, open: null, pin: null, block: 'chapters', switch: 'gallery',
     }];
   }
   let photoTurn = 0;
@@ -336,26 +403,36 @@ function chapterScenes(s: PostEventSources): PostEventScene[] {
  * THE COMPILER. Every scene the prototype names, filled from its source or
  * marked skipped. The order returned is the prototype's; `postEventSceneList`
  * puts them in the PAGE's order.
+ *
+ * 🕰 `dayHappened: false` — BEFORE THE DAY (owner 2026-09-25): the SAME scenes,
+ * the SAME keys, each its own tile; a scene with nothing yet is `waiting` and
+ * says what will fill it (`POST_EVENT_WAITING`). After the day the compile
+ * fills these same keys — it never replaces them with others.
  */
-export function compilePostEventScenes(s: PostEventSources, generatedAt: string): CompiledPostEvent {
+export function compilePostEventScenes(
+  s: PostEventSources,
+  generatedAt: string,
+  opts: { dayHappened?: boolean } = {},
+): CompiledPostEvent {
+  const day = opts.dayHappened !== false;
   const scenes: PostEventScene[] = [
-    build(FIXED.cover!, s),
-    build(FIXED.before!, s),
-    build(FIXED.numbers!, s),
-    ...chapterScenes(s),
-    build(FIXED.gallery!, s),
-    build(FIXED.film!, s),
-    build(FIXED.you!, s),
-    build(FIXED.wishes!, s),
-    build(FIXED.asked!, s),
-    build(FIXED.letters!, s),
-    build(FIXED.vendors!, s),
-    build(FIXED.wall!, s),
-    build(FIXED.said!, s),
-    build(FIXED.powered!, s),
-    build(FIXED.loved!, s),
-    build(FIXED.couple!, s),
-    build(FIXED.song!, s),
+    build(FIXED.cover!, s, day),
+    build(FIXED.before!, s, day),
+    build(FIXED.numbers!, s, day),
+    ...chapterScenes(s, day),
+    build(FIXED.gallery!, s, day),
+    build(FIXED.film!, s, day),
+    build(FIXED.you!, s, day),
+    build(FIXED.wishes!, s, day),
+    build(FIXED.asked!, s, day),
+    build(FIXED.letters!, s, day),
+    build(FIXED.vendors!, s, day),
+    build(FIXED.wall!, s, day),
+    build(FIXED.said!, s, day),
+    build(FIXED.powered!, s, day),
+    build(FIXED.loved!, s, day),
+    build(FIXED.couple!, s, day),
+    build(FIXED.song!, s, day),
     s.whatsNext
       ? { key: 'next', name: 'What comes next', template: 10, source: s.whatsNext, status: 'auto', note: null, count: null, open: null, pin: 'after', block: null, switch: null }
       : { key: 'next', name: 'What comes next', template: 10, source: '—', status: 'optional', note: 'Absent until you choose what comes next', count: null, open: null, pin: 'after', block: null, switch: null },
@@ -470,13 +547,23 @@ export function draftToScenes(draftJson: unknown, chapterKeys: readonly string[]
     { key: 'you', hidden: false },
     { key: 'numbers', hidden: off('byTheNumbers') },
   ];
-  for (const block of resolveSectionOrder(savedOrder)) {
+  // The couple's own columns are ADMITTED by their ids — the resolver's
+  // whitelist — exactly as the page admits them (`editorial-content.tsx`).
+  const ownIds = readCustomColumns(d).map((c) => c.id);
+  for (const block of resolveSectionOrder(savedOrder, ownIds)) {
     if (block === 'chapters') {
       for (const k of chapterKeys) rows.push({ key: k, hidden: off('gallery') });
       continue;
     }
+    // 🎬 A couple's own scene (a Post Event preset, or a workroom column) is
+    // its own scene, in the place the run puts it — the same `custom:<id>` key
+    // the page renders it by. It has no switch: removing it is how it goes.
+    if (customColumnId(block)) {
+      rows.push({ key: block, hidden: false });
+      continue;
+    }
     const sceneKey = SCENE_FOR_BLOCK[block as Exclude<EditorialOrderKey, 'chapters'>];
-    if (!sceneKey) continue; // a couple's own column — not a scene of the auto story
+    if (!sceneKey) continue;
     rows.push({ key: sceneKey, hidden: off(FIXED[sceneKey]!.switch) });
   }
   rows.push({ key: 'couple', hidden: off('fromTheCouple') });
@@ -498,6 +585,14 @@ export type PostEventMakerRead =
       coverPhotoUrl: string | null;
       /** True when this open wrote (or rewrote) the story. */
       wrote: boolean;
+      /** 🕰 False before the day: the scenes are listed, waiting — nothing was written. */
+      dayHappened: boolean;
+      /**
+       * The story's arrangement AS THE MAKER SHOWS IT — live with the couple's
+       * draft laid over it (`lib/post-event-draft.ts`). The Maker's controls
+       * build their draft saves from this.
+       */
+      arrangement: PostEventArrangement;
     }
   | { ok: false };
 
@@ -506,18 +601,52 @@ export type PostEventMakerRead =
  * page's order, with the draft's eye. Skipped and optional scenes are listed
  * (said as such) but carry no number — guests never meet them.
  */
-export function postEventSceneList(compiled: CompiledPostEvent, draftJson: unknown): PostEventListRow[] {
+export function postEventSceneList(
+  compiled: CompiledPostEvent,
+  draftJson: unknown,
+  opts: { liveCustomIds?: readonly string[] | null } = {},
+): PostEventListRow[] {
   const byKey = new Map(compiled.scenes.map((sc) => [sc.key, sc] as const));
+  for (const sc of ownPostEventScenes(draftJson, opts.liveCustomIds ?? null)) byKey.set(sc.key, sc);
   const chapterKeys = compiled.scenes.filter((sc) => sc.block === 'chapters').map((sc) => sc.key);
   const out: PostEventListRow[] = [];
   let n = 0;
   for (const row of draftToScenes(draftJson, chapterKeys)) {
     const sc = byKey.get(row.key);
     if (!sc) continue;
-    const drawn = sc.status === 'auto' && !row.hidden;
+    const drawn = postEventSceneDrawn(sc.status, row.hidden);
     out.push({ ...sc, hidden: row.hidden, position: drawn ? n++ : null });
   }
   return out;
+}
+
+/**
+ * 🎬 THE COUPLE'S OWN SCENES — one per column in `draft_json.customColumns`,
+ * read through the SAME validating reader the page renders them with. Keyed
+ * `custom:<id>`, the key the run orders them by. `liveCustomIds` (the columns
+ * the live story already has) marks a scene that exists only in the draft as
+ * `isNew` — Apply's Pro line; null = not known, nothing is marked.
+ */
+export function ownPostEventScenes(draftJson: unknown, liveCustomIds: readonly string[] | null = null): PostEventScene[] {
+  const live = liveCustomIds ? new Set(liveCustomIds) : null;
+  return readCustomColumns(draftJson).map((c) => {
+    const preset = postEventPreset(c.preset);
+    return {
+      key: customColumnKey(c.id),
+      name: c.title,
+      template: preset?.template ?? 8,
+      source: preset ? `Your words · ${preset.name}` : 'Your words',
+      status: 'own',
+      note: null,
+      count: null,
+      open: null,
+      pin: null,
+      block: null,
+      switch: null,
+      preset: preset?.id ?? null,
+      isNew: live ? !live.has(c.id) : false,
+    } satisfies PostEventScene;
+  });
 }
 
 /* ── the words on the cover — read exactly as the guest page reads them ──── */

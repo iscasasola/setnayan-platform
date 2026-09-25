@@ -43,7 +43,15 @@ import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { isCustomSectionType, customSectionEditorLabel } from './custom-sections';
 import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
-import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
+import {
+  postEventSceneDrawn,
+  type OpenUpKind,
+  type PostEventListRow,
+  type PostEventSceneStatus,
+  type PostEventSectionSwitch,
+} from './post-event-scenes';
+import { postEventRunKey } from './post-event-draft';
+import type { PostEventPresetId } from './post-event-presets';
 import type { SceneTemplateId } from './scene-templates';
 
 /** The sections that are always in their place on a stage — never dragged. */
@@ -94,6 +102,14 @@ export type MakerTile =
       note: string | null;
       open: OpenUpKind | null;
       pinned: boolean;
+      /** The story switch that shows / hides it (null = it cannot be hidden from here). */
+      switchKey: PostEventSectionSwitch | null;
+      /** 🎬 The run block it moves with (`postEventRunKey`) — null when its place is fixed. */
+      runKey: string | null;
+      /** 🎬 The couple's own scene: its Post Event preset (null = a plain column, or not theirs). */
+      preset: PostEventPresetId | null;
+      /** 🎬 Their own scene, only in the draft so far — Pro at Apply. */
+      isNew: boolean;
     };
 
 export type MakerFolded = {
@@ -201,7 +217,7 @@ export type MakerStageInput = {
  */
 function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
   return rows.map((r) => {
-    const drawn = r.status === 'auto' && !r.hidden;
+    const drawn = postEventSceneDrawn(r.status, r.hidden);
     const anchorScene = r.block === 'chapters' ? 'ch-1' : r.key === 'before' ? 'cover' : r.key;
     return {
       kind: 'post-event',
@@ -218,6 +234,10 @@ function postEventTiles(rows: readonly PostEventListRow[]): MakerTile[] {
       note: r.note,
       open: r.open,
       pinned: r.pin !== null,
+      switchKey: r.switch,
+      runKey: postEventRunKey(r.key),
+      preset: r.preset ?? null,
+      isNew: r.isNew === true,
     };
   });
 }

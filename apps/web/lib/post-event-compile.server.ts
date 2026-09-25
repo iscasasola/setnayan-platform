@@ -41,6 +41,7 @@ import {
   type PostEventMakerRead,
   type PostEventSources,
 } from '@/lib/post-event-scenes';
+import { overlayPostEventDraftJson, postEventArrangementOf, type PostEventDraft } from '@/lib/post-event-draft';
 
 export type { PostEventMakerRead };
 
@@ -50,8 +51,19 @@ function str(v: unknown): string | null {
 
 export async function readPostEventForMaker(input: {
   eventId: string;
+  /**
+   * Has the day happened? 🕰 BEFORE IT (owner 2026-09-25, "POST EVENT IS MANY
+   * SMALL SCENES") the SAME scenes are listed, each saying what will fill it
+   * (`waiting`) — and nothing is written: the compile below runs only after.
+   */
   eventEnded: boolean;
   isCouple: boolean;
+  /**
+   * 💾 Post Event's drafted story keys from the Event Hub draft
+   * (`HubDraft.editorial`) — laid over the live story, so the navigator lists
+   * what the canvas shows. Never written from here.
+   */
+  draftEditorial?: PostEventDraft | null;
 }): Promise<PostEventMakerRead> {
   const { eventId } = input;
   try {
@@ -138,7 +150,7 @@ export async function readPostEventForMaker(input: {
     };
 
     const stored = readStoredScenes(draft);
-    const fresh = compilePostEventScenes(sources, new Date().toISOString());
+    const fresh = compilePostEventScenes(sources, new Date().toISOString(), { dayHappened: input.eventEnded });
     let current = stored ?? fresh;
     let wrote = false;
 
@@ -170,13 +182,21 @@ export async function readPostEventForMaker(input: {
 
     /* The list always shows what the sources say NOW — a stored record older
        than a new review must not keep it "skipped" on screen. The stamp shown
-       is the record's own. */
+       is the record's own.
+       💾 The couple's drafted arrangement (which scenes show, their order,
+       their own scenes) is laid over the live story first — the SAME overlay
+       the host's canvas renders — so the navigator and the canvas agree. */
+    const drafted = overlayPostEventDraftJson(draft, input.draftEditorial ?? null);
     return {
       ok: true,
-      rows: postEventSceneList({ ...fresh, generatedAt: current.generatedAt }, draft),
+      rows: postEventSceneList({ ...fresh, generatedAt: current.generatedAt }, drafted, {
+        liveCustomIds: postEventArrangementOf(draft).customColumns.map((c) => c.id),
+      }),
       generatedAt: current.generatedAt,
       coverPhotoUrl: data.heroPhotoUrl,
       wrote,
+      dayHappened: input.eventEnded,
+      arrangement: postEventArrangementOf(drafted),
     };
   } catch {
     return { ok: false };

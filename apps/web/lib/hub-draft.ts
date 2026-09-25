@@ -76,6 +76,13 @@ import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-s
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
+import {
+  classifyPostEventDraft,
+  postEventItemLabel,
+  sanitizePostEventDraft,
+  type PostEventApplyItem,
+  type PostEventDraft,
+} from '@/lib/post-event-draft';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -167,6 +174,15 @@ export type HubDraftWidget = {
 export type HubDraftState = {
   events: HubDraftEvents;
   widgets: Partial<Record<WidgetType, HubDraftWidget>>;
+  /**
+   * 📖 POST EVENT'S SCENES (owner 2026-09-25, "POST EVENT IS MANY SMALL
+   * SCENES") — a drafted copy of the story's OWN three keys (`sections`,
+   * `sectionOrder`, `customColumns` on `event_editorial.draft_json`), each
+   * present only when the couple changed it in the Maker. Not a second source:
+   * Apply writes them back into the story's row (`lib/post-event-draft.ts`).
+   * Absent = nothing drafted for Post Event.
+   */
+  editorial?: PostEventDraft;
 };
 
 export type HubDraft = HubDraftState & {
@@ -315,7 +331,9 @@ function sanitizeState(raw: unknown): HubDraftState {
     const w = sanitizeWidget(value);
     if (w) widgets[type] = w;
   }
-  return { events, widgets };
+  // 📖 Post Event's scenes — through the story's own readers (`post-event-draft.ts`).
+  const editorial = sanitizePostEventDraft(src.editorial);
+  return editorial ? { events, widgets, editorial } : { events, widgets };
 }
 
 /** Anything → a well-formed draft. Unknown keys and unusable values are dropped. */
@@ -330,7 +348,11 @@ export function sanitizeHubDraft(raw: unknown): HubDraft {
 
 /** Does the draft differ from nothing? (Whether it differs from LIVE is `planHubDraftApply`.) */
 export function hubDraftHasChanges(d: HubDraftState): boolean {
-  return Object.keys(d.events).length > 0 || Object.keys(d.widgets).length > 0;
+  return (
+    Object.keys(d.events).length > 0 ||
+    Object.keys(d.widgets).length > 0 ||
+    Object.keys(d.editorial ?? {}).length > 0
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -341,6 +363,8 @@ export function hubDraftHasChanges(d: HubDraftState): boolean {
 export type HubDraftPatch = {
   events?: HubDraftEvents;
   widgets?: Partial<Record<WidgetType, HubDraftWidget>>;
+  /** 📖 Post Event: the story keys this save changes, each replaced whole. */
+  editorial?: PostEventDraft;
 };
 
 const stateOf = (d: HubDraftState): HubDraftState => ({
@@ -348,6 +372,7 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
   widgets: Object.fromEntries(
     Object.entries(d.widgets).map(([k, v]) => [k, { ...v }]),
   ) as HubDraftState['widgets'],
+  ...(d.editorial ? { editorial: { ...d.editorial } } : {}),
 });
 
 /**
@@ -363,6 +388,9 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
   for (const [type, w] of Object.entries(clean.widgets)) {
     next.widgets[type as WidgetType] = { ...(next.widgets[type as WidgetType] ?? {}), ...w };
   }
+  // 📖 Post Event: each story key the save carries replaces the drafted one whole
+  // (the Maker computes it from live-with-the-draft, so it already holds the rest).
+  if (clean.editorial) next.editorial = { ...(next.editorial ?? {}), ...clean.editorial };
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
   return { v: 1, ...next, history };
 }
@@ -434,6 +462,12 @@ export type HubLiveState = {
       // absent reads as visible, the column's own default.
       Partial<Pick<InvitationWidgetRow, 'is_visible'>>
   >;
+  /**
+   * 📖 The live story's `event_editorial.draft_json` — what Post Event's drafted
+   * keys are compared against. Absent reads as a story with the default
+   * arrangement (every scene shown, the default order, no scenes of their own).
+   */
+  editorial?: unknown;
 };
 
 export type HubDraftItem =
@@ -452,6 +486,14 @@ export type HubDraftItem =
       field: 'mode' | 'is_visible' | 'display_order' | 'canvas';
       value: unknown;
       change: LookChange;
+      pro: boolean;
+    }
+  | {
+      /** 📖 One of Post Event's drafted story keys (`lib/post-event-draft.ts`). */
+      kind: 'editorial';
+      item: PostEventApplyItem;
+      change: LookChange;
+      /** Only a NEW scene of their own — show/hide, order and their words are free. */
       pro: boolean;
     };
 
@@ -636,6 +678,13 @@ export function classifyHubDraft(
       }
     }
   }
+  // 📖 Post Event's scenes, last — after every section, in the story's own
+  // order: which show, their order, their words, then any new scene (Pro).
+  if (draft.editorial) {
+    for (const item of classifyPostEventDraft(draft.editorial, live.editorial ?? null)) {
+      items.push({ kind: 'editorial', item, change: item.pro ? 'add' : 'change', pro: item.pro });
+    }
+  }
   return { items, orphans };
 }
 
@@ -669,7 +718,11 @@ export function planHubDraftApply(
   const remaining: HubDraftState = { events: {}, widgets: {} };
   for (const item of refused) {
     if (item.kind === 'event') remaining.events[item.column] = item.value;
-    else {
+    else if (item.kind === 'editorial') {
+      // A held-back new scene keeps the WHOLE drafted list of their scenes, so
+      // the next Apply (after Pro) finds it — and finds the rest already live.
+      if (draft.editorial?.customColumns) remaining.editorial = { customColumns: draft.editorial.customColumns };
+    } else {
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
     }
@@ -677,10 +730,16 @@ export function planHubDraftApply(
   return { apply, refused, remaining, orphans };
 }
 
-/** The tables an Apply of these items writes. Only ever these two. */
-export function hubDraftWriteTables(items: readonly HubDraftItem[]): Array<'events' | 'invitation_widgets'> {
-  const out = new Set<'events' | 'invitation_widgets'>();
-  for (const i of items) out.add(i.kind === 'event' ? 'events' : 'invitation_widgets');
+/**
+ * The tables an Apply of these items writes. `event_editorial` only for Post
+ * Event's own drafted keys — Reset never produces one (`hubResetPatch` names
+ * no story key, and `HUB_RESET_NEVER_TOUCHES` promises "your Post Event story").
+ */
+export function hubDraftWriteTables(
+  items: readonly HubDraftItem[],
+): Array<'events' | 'invitation_widgets' | 'event_editorial'> {
+  const out = new Set<'events' | 'invitation_widgets' | 'event_editorial'>();
+  for (const i of items) out.add(i.kind === 'event' ? 'events' : i.kind === 'editorial' ? 'event_editorial' : 'invitation_widgets');
   return [...out];
 }
 
@@ -831,6 +890,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
+  if (item.kind === 'editorial') return postEventItemLabel(item.item);
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

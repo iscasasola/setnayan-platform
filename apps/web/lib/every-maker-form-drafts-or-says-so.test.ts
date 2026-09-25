@@ -48,6 +48,9 @@ const MAKER_FILES = [
   `${C}text-panel.tsx`,
   `${C}scene-slots-panel.tsx`,
   `${C}scene-template-picker.tsx`,
+  // 🎞 Post Event's scenes (owner 2026-09-25) — its panel and its "+" presets.
+  // No form of its own: every control posts `hubDraftAction` intent=save.
+  `${C}post-event-scene-panel.tsx`,
   // Our Love Story's scrapbook (Maker Phase 7) — opened from the Maker's Love
   // Story tool; a separate page, but the host edits the same public hub there.
   `${S}page.tsx`,
@@ -395,11 +398,21 @@ test('the scene template picker: "Change template" drafts, "+ Add a scene" says 
   assert.match(picker, /\{!draft \? <HubSavesImmediately \/> : null\}/, 'the add sheet must say it saves immediately');
   let drafted = 0;
   let live = 0;
+  let presets = 0;
   for (const file of MAKER_FILES) {
     const src = read(file);
     for (const m of src.matchAll(/<SceneTemplatePicker\b[\s\S]*?\/>/g)) {
       const use = m[0];
       const action = /\baction=\{([\w.]+)\}/.exec(use)?.[1];
+      // 🎞 Post Event's presets post NO form: each tile hands its preset to the
+      // caller, which saves it with the draft door (`hubDraftAction` intent=save).
+      if (/\bpostEvent=\{\{/.test(use)) {
+        presets += 1;
+        assert.equal(action, undefined, `${file}: the Post Event preset picker must post no form of its own`);
+        assert.match(src, /hubDraftAction\(eventId, fd\)/, `${file}: the presets must save through the draft door`);
+        assert.match(src, /fd\.set\('intent', 'save'\)/, `${file}: …as a draft save, never an apply`);
+        continue;
+      }
       const isDraft = /^\s*draft\s*$/m.test(use) || /\sdraft(?:=\{true\})?[\s/]/.test(use);
       if (isDraft) {
         drafted += 1;
@@ -418,7 +431,8 @@ test('the scene template picker: "Change template" drafts, "+ Add a scene" says 
   // The slots panel's saveAction really is saveCustomSection.
   assert.match(read(`${C}sections-panel.tsx`), /<SceneSlotsPanel\b[\s\S]*?saveAction=\{saveCustomAction\}/);
   assert.match(read(PAGE), /addScene=[\s\S]*?action: addCustomSection/);
-  console.log(`[maker-forms] template pickers: drafted ${drafted} · add (live, marked) ${live}`);
+  console.log(`[maker-forms] template pickers: drafted ${drafted} · add (live, marked) ${live} · Post Event presets (drafted, no form) ${presets}`);
   assert.equal(drafted, 1);
   assert.ok(live >= 2);
+  assert.equal(presets, 1, 'exactly one picker offers Post Event’s presets');
 });

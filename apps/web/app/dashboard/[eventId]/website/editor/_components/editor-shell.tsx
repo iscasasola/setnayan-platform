@@ -19,9 +19,16 @@ import { MAKER_COMING_NEXT } from '../../../launch/_components/maker-bar';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
+import {
+  PostEventAddScene,
+  PostEventScenePanel,
+  postEventStatusWord,
+  postEventTileLabel,
+  postEventTileNote,
+  type PostEventTile,
+} from './post-event-scene-panel';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
-import { swapsForDrop, type MakerFixedKey, type MakerStageList } from '@/lib/maker-scene-list';
-import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { swapsForDrop, type MakerFixedKey } from '@/lib/maker-scene-list';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 
 /**
@@ -478,6 +485,13 @@ export function MakerWork({
                   Your story’s scenes could not be read just now. The story itself is unchanged — open the Maker
                   again in a moment.
                 </InfoTip>
+              ) : !navigator.postEvent.dayHappened ? (
+                /* 🕰 Before the day — the same scenes, waiting (owner 2026-09-25). */
+                <InfoTip label="Before the day · scenes wait" align="start">
+                  Post Event is its own scenes, and each one is here already. The ones marked Not yet fill themselves
+                  from your day once it has happened — until then your guests never meet an empty box. Add your own
+                  scenes, reorder them and hide any you do not want.
+                </InfoTip>
               ) : (
                 <InfoTip
                   label={`Auto · written ${new Date(navigator.postEvent.generatedAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
@@ -747,7 +761,22 @@ export function MakerWork({
               move(from, swapsForDrop(fullOrder, from, afterLastShown));
             }}
           >
-            {addScene && 'action' in addScene ? (
+            {stage === 'editorial' ? (
+              /* 🎞 POST EVENT'S OWN PRESETS (owner 2026-09-25) — its "+" offers
+                 scenes made for the story after the day, saved to the draft;
+                 the other stages keep the 25 layouts below. Hidden in the
+                 store shell (a scene of their own is Pro — a paid pitch there). */
+              navigator.postEvent && navigator.postEvent !== 'unreadable' && !maker.storeShell ? (
+                <div className="pl-4">
+                  <PostEventAddScene
+                    eventId={eventId}
+                    arrangement={navigator.postEvent.arrangement}
+                    ownsPro={ownsPro}
+                    device={maker.device === 'phone' ? 'phone' : 'desktop'}
+                  />
+                </div>
+              ) : null
+            ) : addScene && 'action' in addScene ? (
               /* 🎬 "+" opens the 25 templates, headed with the stage being
                  edited and drawn in the view being edited (owner 2026-09-24). */
               <div className="pl-4">
@@ -853,7 +882,8 @@ export function MakerWork({
               ? ((list.shown.find((t) => t.kind === 'post-event' && t.scene === selection.scene) as PostEventTile | undefined) ?? null)
               : null
           }
-          postEventWrittenAt={navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.generatedAt : null}
+          postEvent={navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent : null}
+          ownsPro={ownsPro}
           scene={selectedScene}
           scenePanel={selectedScene ? scenePanels[selectedScene.id] : null}
           rows={rows}
@@ -905,31 +935,8 @@ export function MakerWork({
   );
 }
 
-/* ── 📖 POST EVENT TILES (Maker Phase 8) ─────────────────────────────────── */
-type PostEventTile = Extract<MakerStageList['shown'][number], { kind: 'post-event' }>;
-
-/** The one word on the tile — what filled it, or why guests do not meet it. */
-function postEventStatusWord(tile: PostEventTile): string {
-  if (tile.status === 'skipped') return 'Skipped';
-  if (tile.status === 'optional') return 'Optional';
-  if (tile.hidden) return 'Hidden';
-  return 'Auto';
-}
-
-function postEventTileLabel(tile: PostEventTile): string {
-  if (tile.status === 'skipped') return `${tile.label} (skipped — ${tile.note ?? 'nothing to show yet'})`;
-  if (tile.status === 'optional') return `${tile.label} (optional — ${tile.note ?? 'not chosen'})`;
-  if (tile.hidden) return `${tile.label} (hidden from guests)`;
-  return `${tile.label} (written for you)`;
-}
-
-/** The ⓘ under the tile: the template, and what filled it or why it is skipped. */
-function postEventTileNote(tile: PostEventTile): string {
-  const tpl = tile.template ? `${tile.template} · ${SCENE_TEMPLATES[tile.template]?.name ?? ''}` : 'Its own part of the page';
-  const what = tile.status === 'auto' ? `Filled from: ${tile.source}` : (tile.note ?? '');
-  const open = tile.open ? ' A tap opens it full screen; Back returns to the same place.' : '';
-  return `${tpl}. ${what}.${open}`;
-}
+/* ── 📖 POST EVENT TILES (Maker Phase 8) — their words live beside the
+   scene panel (`post-event-scene-panel.tsx`), one place for both. ───────── */
 
 /** Which toolbar tool a fixed section opens (none for the entourage). */
 const FIXED_TOOL: Partial<Record<MakerFixedKey, 'hero' | 'reveal' | 'post-event' | 'love-story'>> = {
@@ -1147,7 +1154,8 @@ const TABS: Array<{ key: MakerSceneTab; label: string }> = [
 function Inspector({
   selection,
   postEventTile = null,
-  postEventWrittenAt = null,
+  postEvent = null,
+  ownsPro = false,
   scene,
   scenePanel,
   rows,
@@ -1163,8 +1171,9 @@ function Inspector({
   selection: NonNullable<MakerSelection>;
   /** 📖 The selected Post Event scene's tile (Maker Phase 8). */
   postEventTile?: PostEventTile | null;
-  /** When the story was written — shown as the scene's "Auto · written …". */
-  postEventWrittenAt?: string | null;
+  /** The story's state — when it was written, before/after the day, and its arrangement. */
+  postEvent?: Exclude<MakerNavigatorData['postEvent'], 'unreadable' | null> | null;
+  ownsPro?: boolean;
   scene: MakerScene | null;
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
@@ -1206,57 +1215,29 @@ function Inspector({
   let body: ReactNode = null;
   if (selection.kind === 'post-event') {
     /*
-      📖 A SCENE THE MAKER WROTE (Phase 8). It says what it is, what filled it
-      — or why it is skipped — and where it is changed. Showing, hiding and
-      the order of these scenes live in the story workroom until that desk
-      moves into the Maker (the story's `sections` / `sectionOrder` are the one
-      source for both, so the two can never disagree).
+      📖 ONE POST EVENT SCENE (Phase 8 → owner 2026-09-25, "POST EVENT IS MANY
+      SMALL SCENES"). Its own panel: what it is and what fills it, show / hide,
+      earlier / later, and — for a scene of their own — its words. Every
+      control saves to the DRAFT (`post-event-scene-panel.tsx`), built on the
+      story's own `sections` / `sectionOrder` / `customColumns`, so the
+      workroom and the Maker can never disagree about one fact.
     */
     const t = postEventTile;
     body = t ? (
-      <section className="space-y-3 px-1" data-maker-post-event-panel={t.scene}>
-        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/60">
-          {postEventStatusWord(t)}
-          {t.status === 'auto' && postEventWrittenAt
-            ? ` · written ${new Date(postEventWrittenAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`
-            : ''}
-        </p>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px]">
-          <dt className="text-ink/60">Template</dt>
-          <dd className="text-ink">
-            {t.template ? `${t.template} · ${SCENE_TEMPLATES[t.template]?.name ?? ''}` : 'Its own part of the page'}
-          </dd>
-          <dt className="text-ink/60">{t.status === 'auto' ? 'Filled from' : 'Why'}</dt>
-          <dd className="text-ink">{t.status === 'auto' ? t.source : t.note}</dd>
-          {t.open ? (
-            <>
-              <dt className="text-ink/60">On the page</dt>
-              <dd className="text-ink">A preview in the flow; a tap opens it full screen, and Back returns to it.</dd>
-            </>
-          ) : null}
-          {t.pinned ? (
-            <>
-              <dt className="text-ink/60">Place</dt>
-              <dd className="text-ink">Fixed — the story always {t.scene === 'cover' ? 'opens' : 'closes'} here.</dd>
-            </>
-          ) : null}
-        </dl>
-        {t.status === 'skipped' ? (
-          <p className="text-[13px] text-ink/70">
-            Nothing is shown to guests here — never an empty box. It appears on its own when something arrives.
-          </p>
-        ) : null}
-        <Link
-          href={`/dashboard/${eventId}/story`}
-          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream hover:bg-ink/90"
-        >
-          Show, hide or reorder in your story workroom
-          <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
+      <>
+        <PostEventScenePanel
+          key={t.scene}
+          eventId={eventId}
+          tile={t}
+          arrangement={postEvent?.arrangement ?? null}
+          writtenAt={postEvent?.generatedAt ?? null}
+          dayHappened={postEvent?.dayHappened ?? true}
+          ownsPro={ownsPro}
+        />
         {(TOOL_ROWS['post-event'] ?? []).filter((k) => rows[k]).map((k) => (
           <RowBlock key={k} row={rows[k]!} />
         ))}
-      </section>
+      </>
     ) : (
       <p className="px-1 text-[13px] text-ink/70">This scene is not on this stage.</p>
     );

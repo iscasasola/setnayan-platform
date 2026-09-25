@@ -23,6 +23,8 @@
 // path — same contract as editorial-order.ts, which is why it lives beside it.
 // ============================================================================
 
+import { isPostEventPresetId, type PostEventPresetId } from '@/lib/post-event-presets';
+
 /** How many columns one couple may write. */
 export const MAX_CUSTOM_COLUMNS = 6;
 /** Title and body ceilings. A column is a column, not a second website. */
@@ -37,6 +39,15 @@ export type CustomColumn = {
   id: string;
   title: string;
   body: string;
+  /**
+   * 🎬 A POST EVENT PRESET SCENE (owner 2026-09-25, "POST EVENT IS MANY SMALL
+   * SCENES"): which of Post Event's own presets this column was added from
+   * (`lib/post-event-presets.ts`) — it decides the layout and whether a part of
+   * the day (the gallery, the film, the wishes, each guest's own day) is shown
+   * beside the words. ABSENT for a column written in the story workroom, which
+   * renders exactly as it always has.
+   */
+  preset?: PostEventPresetId;
 };
 
 /** The order key for a column. */
@@ -90,7 +101,10 @@ export function readCustomColumns(draftJson: unknown): CustomColumn[] {
     if (!t || t.length > CUSTOM_COLUMN_TITLE_MAX) continue;
     if (!body.trim() || body.length > CUSTOM_COLUMN_BODY_MAX) continue;
     seen.add(id);
-    out.push({ id, title: t, body });
+    // A preset that is not one of Post Event's own is dropped, never guessed —
+    // the column is still the couple's words and renders as a plain column.
+    const preset = (item as Record<string, unknown>).preset;
+    out.push({ id, title: t, body, ...(isPostEventPresetId(preset) ? { preset } : {}) });
     if (out.length >= MAX_CUSTOM_COLUMNS) break;
   }
   return out;

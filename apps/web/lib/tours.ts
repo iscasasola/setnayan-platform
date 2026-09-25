@@ -419,20 +419,24 @@ export const TOURS: Record<TourKey, TourDefinition> = {
      the couple's first Maker visit after the day (after the Maker's own welcome,
      never on top of it). The last slide names Pro and is marked `sells`, so the
      app-store shell drops it. */
+  /* 2026-09-25 ("POST EVENT IS MANY SMALL SCENES"): Post Event is its scenes
+     before the day too, and the couple edits them in the Maker — so this tour
+     now also shows before the day, and it no longer sends anyone to the story
+     workroom to hide or reorder. The slide that names Pro is `sells`. */
   customer_post_event_v1: {
     key: 'customer_post_event_v1',
-    label: 'Post Event — your story, written for you',
-    blurb: 'How the story after the day is written from what happened, scene by scene.',
+    label: 'Post Event — your story after the day, scene by scene',
+    blurb: 'How the story after the day is made of scenes you can arrange — written for you from what happened.',
     slides: [
       {
         Icon: BookOpen,
-        title: 'Your story after the day, written for you',
-        body: 'After the day, the Event Hub Maker wrote Post Event from what happened &mdash; the chapters of your day, the gallery, the film, the wishes. There was nothing to type, and every scene says what filled it.',
+        title: 'Post Event is its own scenes',
+        body: 'The story after your day is not one block: the cover, the chapters of your day, the gallery, the film, the wishes, your closing words and your song are each their own scene in the Event Hub Maker. After the day they are written for you from what happened &mdash; there is nothing to type.',
       },
       {
         Icon: EyeOff,
-        title: 'Nothing to show? The scene is skipped',
-        body: 'A part of the day with nothing in it yet &mdash; no reviews, no Live Photo Wall &mdash; is marked <b>Skipped</b>, and your guests never meet an empty box. It appears on its own when something arrives.',
+        title: 'Nothing there yet? It says so',
+        body: 'Before your day, a scene that fills itself from the day is marked <b>Not yet</b> and says what will fill it &mdash; &ldquo;Your photos from the day appear here.&rdquo; After the day, one with nothing in it is <b>Skipped</b>. Your guests never meet an empty box.',
       },
       {
         Icon: Maximize2,
@@ -440,9 +444,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'The gallery, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s gallery shows <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
       },
       {
+        Icon: LayoutPanelLeft,
+        title: 'Arrange it here, free',
+        body: 'Tap a scene to hide it or move it earlier or later &mdash; free, right here in the Maker. It all goes into your draft, and your guests see it after you press <b>Apply</b>.',
+      },
+      {
         Icon: Sparkles,
-        title: 'Free — and yours to change',
-        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme, a different template for a scene and your own photos come with Event Hub Pro.',
+        title: 'Add scenes of your own',
+        body: 'Press <b>+ Add a scene</b> on Post Event for scenes made for the story after the day &mdash; a thank-you note, a letter, a gallery grid, a film, a wishes wall. Your own scenes come with Event Hub Pro: try one in your draft, and Apply asks for Pro before guests see it.',
         sells: true,
       },
     ],

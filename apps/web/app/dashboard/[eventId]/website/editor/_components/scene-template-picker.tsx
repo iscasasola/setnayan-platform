@@ -10,6 +10,13 @@ import {
   type SceneThumbBox,
 } from '@/lib/scene-templates';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
+import {
+  POST_EVENT_PRESET_FAMILY_LABEL,
+  postEventPresetsIn,
+  type PostEventPresetFamily,
+  type PostEventPresetId,
+} from '@/lib/post-event-presets';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 
 /**
  * "+" — ADD A SCENE: THE 25 TEMPLATES, IN THE VIEW YOU ARE EDITING.
@@ -31,7 +38,7 @@ export type SceneView = 'desktop' | 'phone' | 'both';
 
 export function SceneTemplatePicker({
   action,
-  hidden,
+  hidden = {},
   stageLabel,
   heading,
   triggerLabel,
@@ -41,7 +48,23 @@ export function SceneTemplatePicker({
   overlay = false,
   facts = null,
   draft = false,
+  postEvent = null,
 }: {
+  /**
+   * 🎞 POST EVENT'S OWN PRESETS (owner 2026-09-25: *"scene creation will have
+   * different preset scenes as well. different from save the date, invitation
+   * and on the day"*). When set, the sheet offers `lib/post-event-presets.ts`
+   * instead of the 25 layouts, and a tile is a button that hands its preset to
+   * `onPick` — the caller saves it to the Event Hub DRAFT (`hubDraftAction`
+   * intent=save). No form, so nothing here posts live. The other three stages
+   * never pass it and keep their set.
+   */
+  postEvent?: {
+    onPick: (preset: PostEventPresetId) => void;
+    pending?: boolean;
+    /** One line under the heading — Pro, or why a scene cannot be added. */
+    note?: string | null;
+  } | null;
   /**
    * 💾 The tiles save to the Event Hub DRAFT (`draft=1`). True for "Change
    * template" (`saveCustomSection` `intent=template` has a draft door); false
@@ -59,9 +82,10 @@ export function SceneTemplatePicker({
    * navigator is too narrow to hold 25 tiles inline). Inline otherwise.
    */
   overlay?: boolean;
-  action: (formData: FormData) => void | Promise<void>;
+  /** The form every tile posts — absent only for the Post Event presets (`postEvent`), which post no form. */
+  action?: (formData: FormData) => void | Promise<void>;
   /** Hidden fields every tile posts (event_id, widget_id, intent, return_to). */
-  hidden: Readonly<Record<string, string>>;
+  hidden?: Readonly<Record<string, string>>;
   /** "the Invitation" — the stage the scene is added to. */
   stageLabel: string;
   /** "Add a scene to" / "Change this scene's template in". */
@@ -149,6 +173,19 @@ export function SceneTemplatePicker({
               </button>
             ) : null}
           </div>
+          {postEvent ? (
+            <PostEventPresetTiles
+              view={view}
+              hideMedia={hideMediaSlots}
+              pending={Boolean(postEvent.pending)}
+              note={postEvent.note ?? null}
+              onPick={(id) => {
+                postEvent.onPick(id);
+                setOpen(false);
+              }}
+            />
+          ) : (
+          <>
           <p className="mt-1 text-[0.62rem] text-ink/50">
             ★ the four approved arrangements · shown{' '}
             {view === 'desktop' ? 'as on a desktop' : view === 'phone' ? 'as on a phone' : 'desktop · phone'} · each
@@ -196,9 +233,75 @@ export function SceneTemplatePicker({
               </div>
             </div>
           ))}
+          </>
+          )}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 🎞 POST EVENT'S PRESET TILES — drawn with the layout each one uses (one of the
+ * 25, so the thumbnail is the approved drawing), named for what it is on the
+ * story after the day. A tile is a plain button: `onPick` saves to the draft.
+ */
+function PostEventPresetTiles({
+  view,
+  hideMedia,
+  pending,
+  note,
+  onPick,
+}: {
+  view: SceneView;
+  hideMedia: boolean;
+  pending: boolean;
+  note: string | null;
+  onPick: (id: PostEventPresetId) => void;
+}) {
+  const families: PostEventPresetFamily[] = ['words', 'day'];
+  return (
+    <>
+      <p className="mt-1 text-[0.62rem] text-ink/60" data-post-event-presets="">
+        Scenes made for the story after the day · each starts with words you can change · it goes into your draft,
+        and guests see it after you press Apply
+      </p>
+      {note ? <p className="mt-1 text-[0.7rem] font-semibold text-ink/75">{note}</p> : null}
+      {families.map((family) => (
+        <div key={family} className="mt-3">
+          <p className="mb-1.5 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
+            {POST_EVENT_PRESET_FAMILY_LABEL[family]}
+          </p>
+          <div
+            className={`grid gap-2 ${
+              view === 'both' ? 'grid-cols-2 sm:grid-cols-3' : view === 'phone' ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'
+            }`}
+          >
+            {postEventPresetsIn(family).map((p) => {
+              const t = SCENE_TEMPLATES[p.template];
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={pending}
+                  data-post-event-preset={p.id}
+                  onClick={() => onPick(p.id)}
+                  title={p.blurb}
+                  className="flex min-h-11 w-full flex-col gap-1 rounded-md p-1.5 text-left transition-colors duration-sn-control ease-sn hover:bg-ink/5 disabled:opacity-50"
+                >
+                  <span className={`flex items-start gap-1 ${view === 'both' ? '' : 'justify-center'}`}>
+                    {view !== 'phone' ? <Thumb boxes={t.thumb.desk} shape="desk" hideMedia={hideMedia} word="Aa" /> : null}
+                    {view !== 'desktop' ? <Thumb boxes={t.thumb.phone} shape="phone" hideMedia={hideMedia} word="Aa" /> : null}
+                  </span>
+                  <span className="text-[0.7rem] font-semibold leading-tight text-ink/85">{p.name}</span>
+                  <span className="text-[0.6rem] leading-snug text-ink/60">{p.blurb}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 

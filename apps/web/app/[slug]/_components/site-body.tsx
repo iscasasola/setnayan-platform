@@ -63,6 +63,7 @@ import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
+import type { PostEventDraft } from '@/lib/post-event-draft';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
@@ -341,6 +342,12 @@ type SiteBodyProps = {
    *  FALSE for every guest/anonymous visitor (and absent → false), so their
    *  HTML is unchanged byte-for-byte. It never reveals anything. */
   isEditorCanvas?: boolean;
+  /**
+   * 💾 POST EVENT'S DRAFTED SCENES — the host's draft of the story's order,
+   * switches and own scenes (`HubDraft.editorial`), laid over the story ONLY in
+   * the host's preview. Null / absent for every guest, so their HTML is unchanged.
+   */
+  editorialDraft?: PostEventDraft | null;
   /** The click-to-edit bridge — the Maker's iframe (`?editor=1`) only, never
    *  the "Preview the whole stage" tab. Implies `isEditorCanvas`. */
   editorBridge?: boolean;
@@ -415,6 +422,7 @@ export async function SiteBody({
   doorwayFacts = null,
   proWatermarkHidden,
   isEditorCanvas = false,
+  editorialDraft = null,
   editorBridge = false,
   canvasGuestBars = false,
   ownerCapability = null,
@@ -814,6 +822,8 @@ export async function SiteBody({
           /* 📖 Post Event's scene markers — the Maker's canvas only, the same
              gate as `makerMark` above; every guest's HTML is unchanged. */
           makerMarkers={Boolean(isEditorCanvas && editorBridge)}
+          /* 💾 The host's drafted scenes — never a guest's (null for them). */
+          draft={editorialDraft}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />

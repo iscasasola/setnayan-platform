@@ -111,7 +111,11 @@ test('skipped, hidden and optional scenes are listed as such — no number, no a
   assert.equal(by.get('before')!.anchor, 'p:cover', 'Before the day sits on the cover’s page');
 });
 
-test('before the day — or when the list was not read — the one story tile stands in', () => {
+// ⚠ Since 2026-09-25 ("POST EVENT IS MANY SMALL SCENES") the Maker hands the
+// scenes in BEFORE the day too (`post-event-is-many-small-scenes.test.ts`), so
+// the stand-in tile is only what the navigator falls back to when the story's
+// scenes could not be read.
+test('when the list was not read, the one story tile stands in', () => {
   assert.equal(makerStageLists(PLAN).editorial.shown[0]!.key, 'f:editorial');
   assert.equal(makerStageLists({ ...PLAN, postEvent: [] }).editorial.shown[0]!.key, 'f:editorial');
   // The other three stages never list a Post Event scene.

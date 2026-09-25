@@ -173,15 +173,19 @@ const WIDGET_LIVE_SELECT = 'widget_id, widget_type, is_always_on, is_visible, di
  * Apply must never classify against a guessed "live".
  */
 export async function readHubLiveState(supabase: SessionClient, eventId: string): Promise<HubLiveState> {
-  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }] = await Promise.all([
+  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }, { data: story, error: storyErr }] = await Promise.all([
     supabase.from('events').select(HUB_DRAFT_EVENT_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
+    // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
+    supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
   ]);
   if (evErr) throw new Error(`Could not read the live Event Hub: ${evErr.message}`);
   if (rowsErr) throw new Error(`Could not read the live sections: ${rowsErr.message}`);
+  if (storyErr) throw new Error(`Could not read the live Post Event story: ${storyErr.message}`);
   return {
     events: (ev ?? {}) as HubLiveState['events'],
     widgets: (rows ?? []) as unknown as HubLiveState['widgets'],
+    editorial: (story as { draft_json?: unknown } | null)?.draft_json ?? null,
   };
 }
 

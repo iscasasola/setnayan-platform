@@ -1035,11 +1035,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} /> : null}
     >
-      {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
-          has happened. Never on the Maker's very first visit: the Maker's own
-          welcome goes first, and two tours must not stack. Rendered INSIDE the
-          shell so its dialog sits in the shell's layer, above the toolbar. */}
-      {hasWork && eventHasHappened && !firstVisit ? (
+      {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint. Since
+          2026-09-25 ("POST EVENT IS MANY SMALL SCENES") Post Event is its
+          scenes BEFORE the day too — waiting, and the couple can add their own —
+          so the hint no longer waits for the day. Never on the Maker's very
+          first visit: the Maker's own welcome goes first, and two tours must
+          not stack. Rendered INSIDE the shell so its dialog sits in the shell's
+          layer, above the toolbar. */}
+      {hasWork && !firstVisit ? (
         <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} />
       ) : null}
       {hasWork ? (

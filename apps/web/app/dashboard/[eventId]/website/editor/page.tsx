@@ -935,16 +935,25 @@ export default async function WebsiteEditorPage({
     happened. The repo has no scheduler, so the couple's open of the Maker IS
     the moment it is written (`lib/post-event-compile.server.ts`). This page is
     couple-only (the membership gate above), so this open may write.
+
+    🎞 AND BEFORE THE DAY TOO (owner 2026-09-25, "POST EVENT IS MANY SMALL
+    SCENES"): Post Event is always its separate scenes. Before the day the SAME
+    scenes are listed, each saying what will fill it — and nothing is written
+    (`eventEnded: false` never compiles). The couple's drafted arrangement rides
+    in, so the navigator lists what the canvas shows.
   */
-  const postEvent =
-    resolveHubPhase({
-      measured: true,
-      eventDate: (event.event_date as string | null) ?? null,
-      eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
-      timezone: (event as { timezone?: string | null }).timezone ?? null,
-    }) === 'after'
-      ? await readPostEventForMaker({ eventId, eventEnded: true, isCouple: true })
-      : null;
+  const postEvent = await readPostEventForMaker({
+    eventId,
+    eventEnded:
+      resolveHubPhase({
+        measured: true,
+        eventDate: (event.event_date as string | null) ?? null,
+        eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+        timezone: (event as { timezone?: string | null }).timezone ?? null,
+      }) === 'after',
+    isCouple: true,
+    draftEditorial: hubDraft?.editorial ?? null,
+  });
 
   const navigator = buildMakerNavigatorData({
     postEvent,

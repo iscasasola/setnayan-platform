@@ -70,6 +70,7 @@ import {
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
+import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
@@ -299,11 +300,43 @@ export async function hubDraftAction(
       }
     }
 
-    // 3 · The draft keeps only what was held back (and a record of this apply).
+    // 3 · 📖 Post Event's scenes — the story's OWN row, three keys of its
+    //     `draft_json` and nothing else (`applyPostEventItems`). Re-read right
+    //     before the write so a save the story workroom or the lazy compile made
+    //     a moment ago is built on, not reverted. Who may read the story is not
+    //     in `draft_json` and is never named here: Apply changes WHAT the story
+    //     shows, never WHO reads it.
+    const storyItems = toWrite.flatMap((i) => (i.kind === 'editorial' ? [i.item] : []));
+    if (storyItems.length > 0) {
+      const { data: storyRow, error: storyErr } = await supabase
+        .from('event_editorial')
+        .select('draft_json')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (storyErr || !storyRow) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const liveStory = (storyRow as { draft_json?: unknown }).draft_json ?? {};
+      const before = postEventArrangementOf(liveStory);
+      snapshot.editorial = before;
+      const { data: sRows, error: sErr } = await supabase
+        .from('event_editorial')
+        .update({ draft_json: applyPostEventItems(liveStory, storyItems) })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (sErr || !Array.isArray(sRows) || sRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+
+    // 4 · The draft keeps only what was held back (and a record of this apply).
     const remaining: HubDraftState = { events: {}, widgets: {} };
     for (const { item } of held) {
       if (item.kind === 'event') remaining.events[item.column] = item.value;
-      else if (item.field === 'canvas') {
+      else if (item.kind === 'editorial') {
+        // A held-back new scene keeps the whole drafted list of their scenes.
+        if (current.editorial?.customColumns) remaining.editorial = { customColumns: current.editorial.customColumns };
+      } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'mode') {
         (remaining.widgets[item.widgetType] ??= {}).mode = item.value as 'auto' | 'shown' | 'hidden';

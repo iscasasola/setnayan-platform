@@ -19,6 +19,8 @@ import { sanitizeCustomSection, isCustomSectionType } from '@/lib/custom-section
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { loveStoryScenes } from '@/lib/love-story-moments';
 import type { PostEventMakerRead } from '@/lib/post-event-scenes';
+import type { PostEventArrangement } from '@/lib/post-event-draft';
+import { postEventPreset } from '@/lib/post-event-presets';
 
 export type SceneMini = {
   eyebrow?: string;
@@ -41,7 +43,16 @@ export type MakerNavigatorData = {
    * scenes could not be read (then the one "story after the day" tile stands
    * in, and the navigator SAYS the list is unavailable). Null before the day.
    */
-  postEvent: { generatedAt: string } | 'unreadable' | null;
+  postEvent:
+    | {
+        generatedAt: string;
+        /** 🕰 False before the day — the scenes wait, and nothing was written. */
+        dayHappened: boolean;
+        /** Live with the draft laid over it — what the Post Event controls edit. */
+        arrangement: PostEventArrangement;
+      }
+    | 'unreadable'
+    | null;
 };
 
 const firstLine = (s: unknown, max = 70): string | undefined => {
@@ -142,7 +153,17 @@ export function buildMakerNavigatorData(input: {
     const tpl = r.template ? SCENE_TEMPLATES[r.template]?.name : null;
     minis[`p:${r.key}`] = {
       eyebrow:
-        r.status === 'skipped' ? 'Skipped' : r.status === 'optional' ? 'Optional' : r.open ? 'Opens full screen' : (tpl ?? 'Auto'),
+        r.status === 'skipped'
+          ? 'Skipped'
+          : r.status === 'optional'
+            ? 'Optional'
+            : r.status === 'waiting'
+              ? 'After the day'
+              : r.status === 'own'
+                ? (postEventPreset(r.preset)?.name ?? 'Your scene')
+                : r.open
+                  ? 'Opens full screen'
+                  : (tpl ?? 'Auto'),
       title: r.name,
       line: r.status === 'auto' ? r.source : (r.note ?? undefined),
       ...(r.key === 'cover' && pe?.coverPhotoUrl ? { photoUrl: pe.coverPhotoUrl } : {}),
@@ -150,7 +171,11 @@ export function buildMakerNavigatorData(input: {
   }
 
   return {
-    postEvent: pe ? { generatedAt: pe.generatedAt } : input.postEvent && !input.postEvent.ok ? 'unreadable' : null,
+    postEvent: pe
+      ? { generatedAt: pe.generatedAt, dayHappened: pe.dayHappened, arrangement: pe.arrangement }
+      : input.postEvent && !input.postEvent.ok
+        ? 'unreadable'
+        : null,
     stageLists: makerStageLists({ ...input.plan, postEvent: pe?.rows ?? null }),
     fullOrder: input.sectionRows.map((r) => r.widget_id),
     minis,

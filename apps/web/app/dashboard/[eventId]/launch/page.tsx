@@ -35,6 +35,12 @@ import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
+import { MakerShell } from './_components/maker-shell';
+/* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
+   file — a server page gets a client REFERENCE for those, not the value. */
+import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { completeTour } from '@/lib/tour-actions';
+import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
@@ -76,15 +82,33 @@ import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 // both screens is what the ruling closed. The masthead below carries the same
 // name in all three phases. Route, metadata KEY and every href are unchanged —
 // this is display copy only.
-export const metadata = { title: 'Event Hub Controller' };
+//
+// 🛠 AND AGAIN 2026-09-25: THE EVENT HUB MAKER. Owner, verbatim: the Event Hub
+// Controller becomes the **Event Hub Maker** — "label change only; menu key
+// `launch` and routes unchanged". This page is now the Maker's full-screen
+// shell (`MakerShell`); everything the controller measured and offered below
+// is kept, word for word, and lives in the Maker's ⋯ sheet.
+export const metadata = { title: 'Event Hub Maker' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
   /** `?viewas=<role>` — VIEW AS. A string from the address bar and nothing
    *  more: `resolveArmedHubRole` checks it against the list this viewer was
-   *  offered, so it can never arm a read they may not have. */
-  searchParams?: Promise<{ viewas?: string | string[]; stage?: string | string[] }>;
+   *  offered, so it can never arm a read they may not have.
+   *  `open` · `pin` · `scene` · `chain` are the Maker's: where a save lands
+   *  back (the row, the pin result, the scene) and the rest of a drag. */
+  searchParams?: Promise<{
+    viewas?: string | string[];
+    stage?: string | string[];
+    open?: string | string[];
+    pin?: string | string[];
+    scene?: string | string[];
+    chain?: string | string[];
+  }>;
 };
+
+const one = (v: string | string[] | undefined): string | undefined =>
+  typeof v === 'string' ? v : undefined;
 
 /**
  * THE EVENT HUB CONTROLLER — the couple's side of their one public address.
@@ -642,15 +666,47 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   const phaseTitle =
     standing.phase === 'dayof'
-      ? 'Your Event Hub Controller — today'
+      ? 'Your Event Hub Maker — today'
       : standing.phase === 'after'
-        ? 'Your Event Hub Controller'
-        : 'Your Event Hub Controller';
+        ? 'Your Event Hub Maker'
+        : 'Your Event Hub Maker';
 
-  return (
+  /*
+    ══ THE EVENT HUB MAKER (2026-09-25) ══════════════════════════════════════
+    The couple edits here: the work area is the editor page's own component,
+    rendered with every panel it always built (`maker=1` tells it it is inside).
+    A coordinator — or an event type with no Event Hub — gets the controller
+    below as the whole canvas, exactly as before; the editor was always
+    couple-only, and it still is (its own gate redirects anybody else).
+  */
+  const memberType = (membership as { member_type?: string | null } | null)?.member_type;
+  const hasWork = memberType === 'couple' && websiteOn;
+
+  /* First visit = the tour (owner 2026-09-25). The same read `MiniTour` makes.
+     ⚠ A refused read shows NO tour: an unread row must not replay a welcome on
+     every visit, and the ⓘ in the toolbar still opens it. */
+  const { data: seenRow, error: seenError } = await supabase
+    .from('users')
+    .select('tour_seen_keys')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (seenError) {
+    logQueryError('LaunchPage.tourSeen', seenError, { event_id: eventId }, 'graceful_degrade');
+  }
+  const firstVisit =
+    hasWork &&
+    !seenError &&
+    !(((seenRow as { tour_seen_keys?: string[] | null } | null)?.tour_seen_keys ?? []) as string[]).includes(
+      MAKER_TOUR_KEY,
+    );
+
+  const liveStage = activeChannel && isStagePhase(activeChannel.phaseParam) ? activeChannel.phaseParam : null;
+  const makerStage = initialStage ?? liveStage ?? 'rsvp';
+
+  const controller = (
     /* THE STAGE MEASURE (`app/[slug]/_lib/measures.ts` STAGE = max-w-5xl): the
        widest anything may ever be. Everything under the stage keeps the PLATE. */
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-5xl">
       <PageMasthead title={phaseTitle} />
 
       {/* ══ S1 · THE STAGE + S2 · THE FOUR FACTS ══
@@ -850,5 +906,38 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         )}
       </p>
     </div>
+  );
+
+  return (
+    <MakerShell
+      eventId={eventId}
+      slug={eventSlug}
+      liveStage={liveStage}
+      initialStage={isStagePhase(makerStage) ? makerStage : 'rsvp'}
+      storeShell={storeShell}
+      /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the
+         slide), and only the catalogue's figure anywhere else. */
+      priceLabel={storeShell ? null : proPriceLabel}
+      firstVisit={firstVisit}
+      completeTourAction={completeTour}
+      renderStamp={String(Date.now())}
+      hasWork={hasWork}
+      more={hasWork ? controller : null}
+    >
+      {hasWork ? (
+        <WebsiteEditorPage
+          params={Promise.resolve({ eventId })}
+          searchParams={Promise.resolve({
+            maker: '1',
+            open: one(search.open),
+            pin: one(search.pin),
+            scene: one(search.scene),
+            chain: one(search.chain),
+          })}
+        />
+      ) : (
+        <div className="h-full overflow-y-auto px-4 py-6 sm:px-6">{controller}</div>
+      )}
+    </MakerShell>
   );
 }

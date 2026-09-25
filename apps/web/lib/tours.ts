@@ -17,8 +17,11 @@ import {
   CheckCircle2,
   Images,
   ClipboardList,
+  LayoutPanelLeft,
   Mailbox,
   MessageSquare,
+  MousePointerClick,
+  Palette,
   PartyPopper,
   QrCode,
   Receipt,
@@ -32,6 +35,7 @@ import {
   UserSquare,
   Users,
   Wallet,
+  Wand2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -61,6 +65,13 @@ export type TourSlide = {
   title: string;
   /** HTML — rendered via dangerouslySetInnerHTML. Entities and tags both work. */
   body: string;
+  /**
+   * TRUE for a slide that sells something. The Event Hub Maker's tour drops it
+   * in the app-store shell (App Review 3.1.1 — no digital price, no paid pitch)
+   * and fills its `{price}` token from `platform_retail_catalog_v2`, never from
+   * this file. Optional, so every older tour is untouched.
+   */
+  sells?: boolean;
 };
 
 export type TourKey =
@@ -73,6 +84,7 @@ export type TourKey =
   | 'customer_vendors_v1'
   | 'customer_seat_plan_v1'
   | 'customer_papic_v1'
+  | 'customer_event_hub_maker_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -84,6 +96,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_vendors_v1',
   'customer_seat_plan_v1',
   'customer_papic_v1',
+  'customer_event_hub_maker_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -306,6 +319,50 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Images,
         title: 'Everything lands in your gallery',
         body: 'Filter by &ldquo;Photos of us&rdquo;, save any shot to your phone, or download the whole gallery as a zip. Connect Google Drive to auto-sync every photo to a folder you own.',
+      },
+    ],
+  },
+  /*
+    THE EVENT HUB MAKER'S WELCOME (owner 2026-09-25: "for everything we have on
+    the website. we always give them a proper tour/welcome so they understand
+    how things work"). Slides per EVENT_HUB_MAKER_BUILD_PLAN Phase 1: what it
+    does · the theme dresses the whole hub · tap anything · one place for the
+    four stages · what Pro adds. Rendered by `launch/_components/maker-tour.tsx`
+    in its own skin; the SYSTEM — this registry, `users.tour_seen_keys`,
+    `completeTour` — is the shared one. Its last button reads "Start".
+    ⛔ The Pro slide carries `sells` and a `{price}` token: dropped in the store
+    shell, and the figure is read from the catalogue at render.
+  */
+  customer_event_hub_maker_v1: {
+    key: 'customer_event_hub_maker_v1',
+    label: 'Event Hub Maker welcome',
+    blurb: 'How the Event Hub Maker builds your one link, stage by stage.',
+    slides: [
+      {
+        Icon: Wand2,
+        title: 'Your whole Event Hub, made in one place',
+        body: 'The Save the Date, the Invitation, the day itself and the story after it are one link. This is where you make all of it &mdash; and you watch the real page change as you go.',
+      },
+      {
+        Icon: Palette,
+        title: 'Pick a theme and the whole hub is dressed',
+        body: 'A theme sets the look of every stage at once &mdash; colours, lettering and how things move. Choose it once; everything follows.',
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'Tap anything to edit it',
+        body: 'Tap a scene on the left, or tap a section on the page itself, and its controls open beside it. The eye hides a scene from guests; drag a scene to move it.',
+      },
+      {
+        Icon: LayoutPanelLeft,
+        title: 'One place for the four stages',
+        body: 'Save the Date &middot; Invitation &middot; On the Day &middot; Post Event sit along the top. Pick one and the canvas shows that stage, the way your guests will meet it.',
+      },
+      {
+        Icon: Sparkles,
+        title: 'What Event Hub Pro adds',
+        body: 'Themes beyond Classic, the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.',
+        sells: true,
       },
     ],
   },

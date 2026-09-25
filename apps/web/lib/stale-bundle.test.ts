@@ -3,7 +3,19 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { isStaleBundleError, reloadForStaleBundle, STALE_RELOAD_KEY } from './stale-bundle';
+import {
+  DEPLOYMENT_SKEW_FAILURE_KEY,
+  isDeploymentSkewError,
+  isStaleBundleError,
+  reloadForDeploymentSkew,
+  reloadForStaleBundle,
+  STALE_RELOAD_KEY,
+} from './stale-bundle';
+// The real class Next throws for a rejected Server Action (see the
+// "THIRD SHAPE" docblock in stale-bundle.ts) — imported from Next's own
+// source, not reconstructed by hand, so this test proves the matcher against
+// what the browser actually throws, not against a guess at its shape.
+import { UnrecognizedActionError } from 'next/dist/client/components/unrecognized-action-error';
 
 /**
  * A tab left open across a deploy shows "Application error: a client-side
@@ -148,6 +160,124 @@ test('both boundaries use it — the root layout crash is the one error.tsx cann
       call.slice(0, 200).includes(') return;'),
       `${f} keeps running after starting a reload — the report below would file a ` +
         'crash that is really a deploy',
+    );
+  }
+});
+
+/**
+ * THE THIRD SHAPE: a rejected Server Action (2026-09-25 · POST /login 404
+ * incident). See the docblock above `isDeploymentSkewError` in stale-bundle.ts
+ * for why this needs its own matcher rather than a new STALE_PATTERNS regex.
+ */
+
+test('the real Next class is recognised — via next/navigation\'s own discriminator', () => {
+  assert.ok(
+    isDeploymentSkewError(
+      new UnrecognizedActionError(
+        'Server Action "40ba73abc123" was not found on the server. \nRead more: https://nextjs.org/docs/messages/failed-to-find-server-action',
+      ),
+    ),
+    'unstable_isUnrecognizedActionError must recognise its own class',
+  );
+});
+
+test('the shapes without the real class still match, defensively', () => {
+  assert.ok(
+    isDeploymentSkewError(Object.assign(new Error('x'), { name: 'UnrecognizedActionError' })),
+    'a hand-built object with the right name is still a skew error',
+  );
+  assert.ok(
+    isDeploymentSkewError(
+      new Error(
+        'Failed to find Server Action "40ba73abc123". This request might be from an older or newer deployment.',
+      ),
+    ),
+    'the SERVER-side message (Vercel runtime log / action-utils.ts getActionNotFoundError) is recognised too',
+  );
+});
+
+test('a real crash is not mistaken for deployment skew', () => {
+  for (const real of [
+    new TypeError('Cannot read properties of undefined'),
+    new Error('Something on our end failed'),
+    new Error('Failed to update guest: permission denied for table guests'),
+    new Error('An unexpected response was received from the server.'), // the OTHER shape — not this one
+    null,
+    undefined,
+    'Server Action was not found',
+    {},
+  ]) {
+    assert.equal(
+      isDeploymentSkewError(real),
+      false,
+      `"${String(real)}" must NOT be treated as deployment skew`,
+    );
+  }
+});
+
+test('isStaleBundleError and isDeploymentSkewError do not overlap — each shape has exactly one owner', () => {
+  const skew = new UnrecognizedActionError('Server Action "x" was not found on the server.');
+  assert.equal(isStaleBundleError(skew), false);
+  const stale = new Error('An unexpected response was received from the server.');
+  assert.equal(isDeploymentSkewError(stale), false);
+});
+
+test('reloadForDeploymentSkew reloads once and records why, sharing the one reload budget', () => {
+  const s = fakeStorage();
+  let reloads = 0;
+  const err = new Error('Failed to find Server Action "abc". This request might be from an older or newer deployment.');
+  assert.equal(reloadForDeploymentSkew(s, () => (reloads += 1), err), true);
+  assert.equal(reloads, 1);
+  const recorded = JSON.parse(s.getItem(DEPLOYMENT_SKEW_FAILURE_KEY) ?? '{}');
+  assert.match(recorded.message, /Failed to find Server Action/);
+
+  // Shares STALE_RELOAD_KEY with reloadForStaleBundle — a second reload of
+  // EITHER shape in the same tab must not fire.
+  assert.equal(reloadForDeploymentSkew(s, () => (reloads += 1), err), false);
+  assert.equal(reloadForStaleBundle(s, () => (reloads += 1)), false);
+  assert.equal(reloads, 1);
+});
+
+test('a healthy render clears the skew marker too, so a later deploy gets its own report', () => {
+  const obs = readFileSync(
+    join(process.cwd(), 'app/_components/deferred-observability.tsx'),
+    'utf8',
+  );
+  assert.match(
+    obs,
+    /DEPLOYMENT_SKEW_FAILURE_KEY/,
+    'DeferredObservability never reads the skew marker — the report is written but never sent',
+  );
+  assert.match(
+    obs,
+    /sessionStorage\.removeItem\(DEPLOYMENT_SKEW_FAILURE_KEY\)/,
+    'nothing clears the skew marker — a later occurrence would re-send a stale report, or never send at all',
+  );
+});
+
+test('both boundaries check deployment skew BEFORE the generic stale-bundle check', () => {
+  for (const f of ['app/error.tsx', 'app/global-error.tsx']) {
+    const src = readFileSync(join(process.cwd(), f), 'utf8');
+    assert.match(
+      src,
+      /isDeploymentSkewError\(error\)/,
+      `${f} does not check for a rejected Server Action — the /login 404 incident would still crash here`,
+    );
+    assert.match(
+      src,
+      /reloadForDeploymentSkew\(window\.sessionStorage/,
+      `${f} detects deployment skew and does nothing about it`,
+    );
+    const call = src.slice(src.indexOf('reloadForDeploymentSkew('));
+    assert.ok(
+      call.slice(0, 200).includes(') return;'),
+      `${f} keeps running after starting a skew reload`,
+    );
+    // The skew check must come first in the file — it is the more specific
+    // signal, and Next's own throw for it never satisfies the generic regexes.
+    assert.ok(
+      src.indexOf('isDeploymentSkewError(error)') < src.indexOf('isStaleBundleError(error)'),
+      `${f} checks the generic shape before the specific one`,
     );
   }
 });

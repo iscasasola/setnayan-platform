@@ -88,6 +88,7 @@ export type TourKey =
   | 'customer_papic_v1'
   | 'customer_love_story_v1'
   | 'customer_event_hub_maker_v1'
+  | 'customer_adaptive_theme_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -101,6 +102,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_papic_v1',
   'customer_love_story_v1',
   'customer_event_hub_maker_v1',
+  'customer_adaptive_theme_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -406,6 +408,36 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Sparkles,
         title: 'What Event Hub Pro adds',
         body: 'Themes beyond Classic, the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.',
+        sells: true,
+      },
+    ],
+  },
+  /*
+    THE ADAPTIVE THEME'S FIRST-VISIT HINT (Maker Phase 10; owner 2026-09-25
+    "every feature gets a first-visit tour"). Mounted inside the Maker's "Your
+    own background" panel, so it opens the first time the couple opens Main —
+    not on top of the Maker's own welcome. The panel is hidden in the store
+    shell, and its Pro slide carries `sells` besides.
+  */
+  customer_adaptive_theme_v1: {
+    key: 'customer_adaptive_theme_v1',
+    label: 'Your own background',
+    blurb: 'Swap the theme’s moving background for your own, and the theme follows its colours.',
+    slides: [
+      {
+        Icon: Palette,
+        title: 'Your own background — the theme follows it',
+        body: 'Put your own short clip or photo behind every scene. Your theme&rsquo;s buttons and accents take on its colours, while the lettering and ornaments stay your theme&rsquo;s.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Your words always read',
+        body: 'We check your clip and lay a soft veil so every word stays easy to read. If a clip is very busy we&rsquo;ll say so, and you can keep the theme&rsquo;s own colours any time.',
+      },
+      {
+        Icon: Sparkles,
+        title: 'Try it now, keep it with Event Hub Pro',
+        body: 'Try it in your draft &mdash; only you see it. It goes live for your guests when you Apply with Event Hub Pro.',
         sells: true,
       },
     ],

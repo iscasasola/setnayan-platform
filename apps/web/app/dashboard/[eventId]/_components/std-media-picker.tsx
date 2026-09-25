@@ -55,8 +55,12 @@ type Props = {
  * canvas. Uses the local object URL (same-origin → no canvas taint). Returns a
  * JPEG blob, or null on any failure (the caller then leaves the video without a
  * poster, so it is never screenable and never goes live).
+ *
+ * EXPORTED (Event Hub Maker Phase 10) — the Maker's Main background grabs the
+ * same frame to measure a couple's own clip for the adaptive theme and to keep
+ * as its still. One frame grab, two readers; do not copy it.
  */
-function extractPosterFrame(file: File): Promise<Blob | null> {
+export function extractPosterFrame(file: File): Promise<Blob | null> {
   return new Promise((resolve) => {
     let settled = false;
     const url = URL.createObjectURL(file);

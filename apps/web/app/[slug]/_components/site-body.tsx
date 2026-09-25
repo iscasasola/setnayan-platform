@@ -125,7 +125,10 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, hubMainGround } from '@/lib/hub-canvas';
+import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { MainGround } from './main-ground';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
@@ -516,6 +519,39 @@ export async function SiteBody({
    * missing slug, which would silently drop the body variant.)
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
+
+  // 🎞 THE MAIN BACKGROUND, when the couple swapped the theme's loop for their
+  // own clip or photo (Maker Phase 10) — stored on the hero row, draft-overlaid
+  // for the host's preview like every other canvas. Only over a THEME: Classic
+  // is plain paper by design (owner, "classic has no photo or video"), and its
+  // shell paints opaque paper over any layer beneath. The scrim is measured
+  // over their frame and is free; the tint follows it only when the couple
+  // left "Match my video's colours" on. Their own button colour, if they
+  // chose one, outranks the automatic tint.
+  // ⛔ An unscreened clip plays for the HOST only; a guest gets its still —
+  // the same closed switch every hero-video read goes through.
+  const heroRow = widgets.find((w) => w.widget_type === 'hero');
+  const mainGround = sceneTheme !== 'house' && heroRow ? hubMainGround(heroRow.config_json) : null;
+  let mainGroundLayer: React.ReactNode = null;
+  if (mainGround) {
+    const adaptive = resolveAdaptiveTheme(INVITE_THEMES[sceneTheme], mainGround.tint ?? null);
+    const stillRef = mainGround.kind === 'photo' ? mainGround.media : (mainGround.poster ?? null);
+    const clipRef =
+      mainGround.kind === 'snippet'
+        ? viewerIsHost
+          ? mainGround.media
+          : heroVideoRefForGuests(mainGround.media)
+        : null;
+    const clip = clipRef ? await displayUrlForStoredAsset(siteMediaServeRef(clipRef)) : null;
+    mainGroundLayer = (
+      <MainGround
+        still={stillRef ? (canvasMediaUrls[stillRef] ?? null) : null}
+        clip={clip}
+        adaptive={adaptive}
+        vars={adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) })}
+      />
+    );
+  }
 
   /*
     WHO IS ASKING — resolved ONCE, here, from the same facts this page already
@@ -2294,6 +2330,7 @@ export async function SiteBody({
           guard said so — "the shell return moved, this scan is now blind".
           It was right, so the mount moved rather than its anchor. */}
       <EventWordsProvider words={clientWords}>
+      {mainGroundLayer}
       <GuestPreload eventSlug={event.slug} />
       {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
           identity trees, for three reasons: (1) it is chrome, not a chapter,

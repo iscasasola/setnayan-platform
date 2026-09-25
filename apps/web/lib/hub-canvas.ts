@@ -41,6 +41,7 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
 import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/scene-templates';
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
+import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -826,6 +827,69 @@ export function hubCanvasMediaRefs(
     if (canvas.media) out.add(canvas.media);
     // A template scene's own pictures sign in the same one pass.
     for (const slot of canvas.slots ?? []) if (slot.media) out.add(slot.media);
+    // …and the Main background's photo or still (Maker Phase 10). Its CLIP is
+    // not signed here: whether a clip may play is the render's question
+    // (`heroVideoRefForGuests`), and a URL nobody may play is not minted.
+    const main = hubMainGround(row.config_json);
+    if (main?.kind === 'photo') out.add(main.media);
+    if (main?.poster) out.add(main.poster);
   }
   return [...out];
+}
+
+/* ══ THE MAIN BACKGROUND — the couple's own clip or photo behind every scene ══
+   Event Hub Maker Phase 10 (build plan §3; DECISION_LOG 2026-09-25 "ADAPTIVE
+   THEME"). The navigator pins "Main · behind every scene" on top, and until
+   now it held a colour (`site_bg_color`, free) and the theme's own loop. A
+   Pro couple may swap that loop for their OWN clip or photo, and the theme's
+   accent, button and ornament then follow it (`lib/adaptive-theme.ts`).
+
+   🔑 WHERE IT LIVES: `config_json.main` on the event's HERO row. The Main
+   background has no row of its own and must not get a migration for one
+   (build plan: "Migrations: 0"); the hero row is the one section every event
+   has exactly once (`is_always_on`, and `invitation_widgets` is UNIQUE on
+   event + type), and `config_json` is the canvas's existing home. It sits
+   BESIDE `canvas`, never inside it — the hero SCENE's own background and the
+   page's Main background are two different layers, and one key for both
+   would make "None — show main" mean itself.
+
+   It is a narrow canvas: what it is made of, the ref, the still, and
+   `tint` — the adaptive theme's stored frame and toggle. Every ref passes the
+   SAME `hubMediaRef` fence as a section background: one field shape, one
+   fence, the public bucket only. */
+export const HUB_MAIN_GROUND_KEY = 'main';
+
+export type HubMainGround = {
+  /** A photo, or a short muted clip (`snippet`) — never a colour; that is `site_bg_color`. */
+  kind: 'photo' | 'snippet';
+  /** The photo, or the clip. */
+  media: string;
+  /**
+   * The clip's still, grabbed in the browser (`extractPosterFrame`): the
+   * moment before it plays, reduced motion, print, and — while an unscreened
+   * clip may not reach a guest (`GUEST_HERO_VIDEO_PLAYBACK`) — what guests see.
+   */
+  poster?: string;
+  /** The adaptive theme: "Match my video's colours" and the frame it follows. */
+  tint?: HubTint;
+};
+
+/** Anything → a Main background, or null. Drops rather than repairs. */
+export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const src = raw as Record<string, unknown>;
+  const media = hubMediaRef(src.media);
+  if (!media || (src.kind !== 'photo' && src.kind !== 'snippet')) return null;
+  const out: HubMainGround = { kind: src.kind, media };
+  const poster = hubMediaRef(src.poster);
+  if (poster) out.poster = poster;
+  const tint = sanitizeHubTint(src.tint);
+  if (tint) out.tint = tint;
+  return out;
+}
+
+/** The Main background stored on a row's `config_json` (the hero row's), or null. */
+export function hubMainGround(config: unknown): HubMainGround | null {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return null;
+  return sanitizeHubMainGround((config as Record<string, unknown>)[HUB_MAIN_GROUND_KEY]);
 }

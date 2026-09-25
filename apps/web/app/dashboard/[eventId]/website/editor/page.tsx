@@ -20,8 +20,10 @@ import {
   type RailGroup,
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { INVITE_THEMES } from '@/lib/invite-themes';
-import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { hubMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { MiniTour } from '@/app/_components/mini-tour';
+import { MainBackgroundPanel } from './_components/main-background-panel';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -342,6 +344,19 @@ export default async function WebsiteEditorPage({
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
+
+  /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — the couple's own clip or photo in
+     place of the theme's loop, with the adaptive theme riding on it. It lives
+     on the hero row (`hubMainGround`), so the draft-over-live read above is the
+     one the panel shows, and "in your draft" is that read against live. Pro, so
+     it is HIDDEN in the store shell (never shown locked there). */
+  const mainLive = hubMainGround(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json);
+  const mainNow = hubMainGround(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
+  const mainStillRef = mainNow ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null;
+  const mainStillUrl = mainStillRef
+    ? await displayUrlForStoredAsset(siteMediaServeRef(mainStillRef)).catch(() => null)
+    : null;
+  const mainThemeId = normalizeThemeId((event as { invite_theme?: string | null }).invite_theme) ?? 'house';
   // Hideable rows only — always-on sections can't be hidden or moved, so
   // offering the controls would be a lie. Ordered by display_order.
   const sectionRows = [...allWidgets]
@@ -515,6 +530,33 @@ export default async function WebsiteEditorPage({
             />
           ),
         },
+        ...(storeShell
+          ? []
+          : [
+              {
+                key: 'main-background',
+                label: 'Your own background',
+                blurb: 'Your clip or photo behind every scene — the theme’s colours follow it.',
+                href: `${base}/launch?open=main-background`,
+                status: mainNow ? done(mainNow.kind === 'snippet' ? 'Your clip' : 'Your photo') : todo('Theme’s own'),
+                pro: true,
+                locked: false,
+                panel: (
+                  <>
+                    {/* First visit only — the hint opens the first time the couple opens Main. */}
+                    <MiniTour tourKey="customer_adaptive_theme_v1" storeShell={storeShell} />
+                    <MainBackgroundPanel
+                      eventId={eventId}
+                      themeId={mainThemeId}
+                      current={mainNow}
+                      stillUrl={mainStillUrl}
+                      drafted={JSON.stringify(mainNow) !== JSON.stringify(mainLive)}
+                      ownsPro={ownsPro}
+                    />
+                  </>
+                ),
+              },
+            ]),
         {
           key: 'colors',
           label: 'Colors',

@@ -48,7 +48,11 @@ No new page, no migration, no new table.
   "coming in the next build"; the editor's Story row leads with the same door.
 
 ⏭ Waits on: **P5** (scene templates/renderer — each moment carries `canvas` and a
-template hint), **P2** (#5966 — writes are live until the draft path lands), **P4** (#5969 —
+template hint), **P2** (#5966, merged while this was in review — its draft holds only
+`rsvp_backdrop` among `events` columns (`HUB_DRAFT_EVENT_COLUMNS`), so Love Story
+writes stay LIVE, like `updateOurStory`; joining the draft = add `love_story` to
+that list, overlay it in the host preview, and re-screen photo refs at Apply),
+**P4** (#5969 —
 upload pipeline, clips and the 100 MB meter; photos use the shared `FileUpload`
 today). Papic booth photos are not offered in Pick yet (private bucket, needs a
 per-event sharing answer).

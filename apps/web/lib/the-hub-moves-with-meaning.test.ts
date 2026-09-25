@@ -13,8 +13,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import React from 'react';
 import { MOTION, arrivalSeenKey, shouldPlayArrival } from './motion';
 import { stripComments } from './strip-comments';
+
+(globalThis as unknown as { React: unknown }).React = React;
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -81,6 +84,49 @@ test('the arrival plays once, and the script and lib agree on the key', () => {
   assert.match(fn, /classList\.remove\('sn-arrive'\)/, 'and never leaves the class behind');
   const shell = stripComments(read('app/[slug]/_components/invitation-shell.tsx'));
   assert.match(shell, /<ArrivalOnce \/>/, 'it is mounted on the invitation');
+});
+
+/**
+ * THE EMITTED SCRIPT MUST PARSE — the defect this test exists for reads
+ * identically to a working feature until a real browser tries to run it.
+ *
+ * `ArrivalOnce` builds its de-dupe key with `location.pathname.replace(/\/+$/,'')`
+ * written INSIDE a JS template literal. A template literal treats `\/` as an
+ * unrecognised escape and drops the backslash, so the text that reaches the
+ * browser was `replace(//+$/,'')` — and `//` opens a line comment that eats the
+ * rest of the statement, including the `var` on the next line. Every guest
+ * page threw `SyntaxError: Unexpected token 'var'` on load and the "arrive
+ * once" motion never ran anywhere. `assert.match` against a string pattern (the
+ * test above) cannot catch this: the substring `'sn-arrived:'+(location.pathname.replace(`
+ * is present either way. Only asking a JS engine to parse the emitted text can.
+ *
+ * This renders each script-emitting export of `pahina-motion.tsx` with
+ * react-dom/server — the same runtime step a real page takes — pulls the
+ * `<script>` body out of the markup, and asks `new Function` to parse it.
+ * `new Function` never runs the body (there is no browser `document` here),
+ * it only compiles it, which is exactly the step that threw for guests.
+ */
+test('the emitted scripts are valid JS, not just plausible-looking text', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const mod = await import('../app/[slug]/_components/pahina-motion');
+  const components: Array<[string, () => React.ReactElement]> = [
+    ['ArrivalOnce', mod.ArrivalOnce],
+    ['PahinaMotionRootFlag', mod.PahinaMotionRootFlag],
+    ['PahinaCoverParallax', mod.PahinaCoverParallax],
+    ['PahinaMotionObserver', mod.PahinaMotionObserver],
+  ];
+  for (const [name, Component] of components) {
+    const html = renderToStaticMarkup(React.createElement(Component));
+    const scriptMatch = html.match(/<script[^>]*>([\s\S]*)<\/script>/);
+    assert.ok(scriptMatch, `${name} did not render a <script> tag`);
+    const scriptText = scriptMatch![1]!;
+    assert.ok(scriptText.length > 0, `${name} rendered an empty script`);
+    try {
+      new Function(scriptText);
+    } catch (err) {
+      assert.fail(`${name} emitted a script that does not parse: ${(err as Error).message}\n${scriptText}`);
+    }
+  }
 });
 
 test('each movement is mounted where it belongs', () => {

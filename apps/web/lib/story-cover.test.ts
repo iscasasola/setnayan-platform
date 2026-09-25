@@ -125,9 +125,19 @@ test('5 · the living hero resolves to its column — and to nothing when empty'
     await resolveStoryCover(db, 'e1', {
       story_cover_kind: 'hero',
       story_cover_ref: null,
-      landing_page_hero_image_url: 'r2://living.jpg',
+      landing_page_hero_image_url: 'r2://setnayan-media/events/e1/living.jpg',
     }),
-    { kind: 'hero', key: 'r2://living.jpg' },
+    { kind: 'hero', key: 'r2://setnayan-media/events/e1/living.jpg' },
+  );
+  // THE ONE HERO (`lib/event-hero.ts`, Maker Phase 6): the cover reads the same
+  // resolver as the hub, so a ref naming a private bucket is no hero at all.
+  assert.equal(
+    await resolveStoryCover(db, 'e1', {
+      story_cover_kind: 'hero',
+      story_cover_ref: null,
+      landing_page_hero_image_url: 'r2://payment-proofs/events/e1/receipt.jpg',
+    }),
+    null,
   );
   assert.equal(
     await resolveStoryCover(db, 'e1', {

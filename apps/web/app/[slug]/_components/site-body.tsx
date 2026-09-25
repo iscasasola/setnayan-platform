@@ -65,6 +65,8 @@ import { EditorialContent } from './editorial/editorial-content';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { revealMaterialsFor } from '@/lib/reveal-materials';
 import {
   coerceRevealTemplate,
   revealMarkSvg,
@@ -2330,7 +2332,18 @@ export async function SiteBody({
         sealConfig={revealSealConfig(event)}
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
-        eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
+        /* 🎭 THE THEME'S OPENING (Maker Phase 6): the couple's own choice wins
+           (incl. "No reveal"); with none, the theme's default opening — the
+           invite door already reads it this way — dressed in the theme's
+           materials. Pro gating is unchanged: `revealAllowedFor` downstream. */
+        eventTemplate={
+          coerceRevealTemplate(event.std_reveal_template) ??
+          (hubLook.theme === 'house' ? null : coerceRevealTemplate(INVITE_THEMES[hubLook.theme].opening))
+        }
+        materials={revealMaterialsFor(hubLook.theme)}
+        /* The host's own Maker preview plays a drafted opening before Pro is
+           bought (try then pay); a guest render is never `editorMode`. */
+        hostTrial={editorMode}
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
         /* ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11). The SECOND half:

@@ -60,6 +60,10 @@ const MAKER_FILES = [
   'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-tour.tsx',
   'app/dashboard/[eventId]/launch/_components/hub-pro-offer.tsx',
+  // The made-once group (Maker Phase 6) — Hero · Reveal · Logo.
+  'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx',
+  'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
+  'app/dashboard/[eventId]/launch/_components/maker-logo.tsx',
 ];
 
 /**
@@ -77,6 +81,9 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   setWidgetCrop: null,
   saveRsvpBackdrop: null,
   clearRsvpBackdrop: null,
+  // Maker Phase 6 — the one hero (`draftHero`, proven in hub-draft-wiring).
+  uploadHeroPhoto: null,
+  removeHeroPhoto: null,
   // Its door covers the section's CANVAS: layout (`arrange`) and a template
   // scene's `slot` · `video` · `template`. Its words and removal stay live.
   saveCustomSection: /name="intent"\s+value="arrange"|intent:\s*'(?:slot|video|template)'/,
@@ -233,7 +240,9 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
       // Drafted: follow the action to the writer, and the writer must have a door.
       for (const prop of resolveLocalAction(f, src)) {
         const override = PROP_OVERRIDES[file]?.[prop];
-        const writer = override ?? PROP_TO_WRITER[prop];
+        // A form may also post the writer ITSELF (`action={uploadHeroPhoto}` in
+        // the made-once panels) — then the name must itself be a door.
+        const writer = override ?? PROP_TO_WRITER[prop] ?? (prop in DRAFT_WRITERS ? prop : undefined);
         assert.ok(writer, `${where}: "${prop}" is draft-marked but maps to no known writer`);
         const bound = override ? [] : [...page.matchAll(new RegExp(`\\b${prop}=\\{(\\w+)`, 'g'))].map((x) => x[1]);
         if (bound.length > 0) {
@@ -306,7 +315,10 @@ test('the Maker shows the draft it edits: the panels read the draft laid over th
 test("the canvas preview loads the host's draft (?editor=1)", () => {
   const shell = read(`${C}editor-shell.tsx`);
   assert.match(shell, /const previewSrc = publicLandingUrl \? `\$\{publicLandingUrl\}\?phase=\$\{stage\}&editor=1`/);
-  assert.match(shell, /src=\{previewSrc\}/);
+  // VIEW AS (toolbar) may re-point the canvas at a role's own door — the ONLY
+  // other thing it loads; with no role chosen it is the draft preview above.
+  assert.match(shell, /const canvasSrc = maker\?\.viewAsHref \?\? previewSrc;/);
+  assert.match(shell, /src=\{canvasSrc\}/);
 });
 
 test('the scene template picker: "Change template" drafts, "+ Add a scene" says it saves immediately', () => {

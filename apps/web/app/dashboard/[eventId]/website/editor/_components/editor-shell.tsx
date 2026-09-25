@@ -125,6 +125,12 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
   our_love_story: 'story',
 };
 
+/**
+ * The made-once group (Phase 6) — Logo · Hero · Reveal — each a workspace of its
+ * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce`.
+ */
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal';
+
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
   reveal: ['save-the-date'],
@@ -156,7 +162,11 @@ export function MakerWork({
   showProCta,
   addScene = null,
   sceneFacts = null,
+  madeOnce = null,
 }: {
+  /** Logo · Hero · Reveal — the made-once workspaces (Phase 6). Server-rendered
+   *  panels; an absent key falls back to the row the tool used to open. */
+  madeOnce?: Partial<Record<MadeOnceKey, ReactNode>> | null;
   /** The event's names, monogram and days to go, for the built-on template tiles. */
   sceneFacts?: { names?: string | null; monogram?: string | null; days?: number | null } | null;
   /**
@@ -219,7 +229,10 @@ export function MakerWork({
   }, []);
 
   /* ── the preview ─────────────────────────────────────────────────────── */
+  /* VIEW AS (toolbar) re-points the canvas at a role's own door; otherwise the
+     host's editing preview, which shows the draft. */
   const previewSrc = publicLandingUrl ? `${publicLandingUrl}?phase=${stage}&editor=1` : null;
+  const canvasSrc = maker?.viewAsHref ?? previewSrc;
   const scrollPreviewTo = useCallback((anchor?: string) => {
     if (!anchor) return;
     frameRef.current?.contentWindow?.postMessage(
@@ -536,11 +549,11 @@ export function MakerWork({
         data-maker-stage={stage}
         className="order-1 flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
       >
-        {previewSrc ? (
+        {canvasSrc ? (
           <iframe
             ref={frameRef}
-            key={`${stage}:${maker.renderStamp}`}
-            src={previewSrc}
+            key={`${stage}:${maker.renderStamp}:${maker.viewAsHref ?? ''}`}
+            src={canvasSrc}
             title={`Your Event Hub — ${PUBLIC_STAGE_LABELS[stage]}`}
             className={`h-full w-full rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
               device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
@@ -563,6 +576,7 @@ export function MakerWork({
           themes={themes}
           themeHref={themeHref}
           eventId={eventId}
+          madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
           onClose={() => select?.(null)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
@@ -771,10 +785,12 @@ function Inspector({
   themes,
   themeHref,
   eventId,
+  madeOnce,
   showMotionTabs,
   onClose,
   onTab,
 }: {
+  madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null;
   selection: NonNullable<MakerSelection>;
   scene: MakerScene | null;
   scenePanel: ReactNode;
@@ -816,7 +832,11 @@ function Inspector({
   if (selection.kind === 'scene') {
     body =
       tab === 'content' ? (
-        contentRow && rows[contentRow] ? (
+        /* The hero scene's words and photo ARE the one hero (Phase 6): made
+           once, in the Hero workspace — not a second, live-writing copy. */
+        scene?.type === 'hero' && madeOnce?.hero ? (
+          madeOnce.hero
+        ) : contentRow && rows[contentRow] ? (
           <RowBlock row={rows[contentRow]!} />
         ) : (
           <p className="px-1 text-[13px] text-ink/70">
@@ -836,6 +856,13 @@ function Inspector({
         ))}
       </>
     );
+  } else if (
+    selection.kind === 'tool' &&
+    (selection.key === 'logo' || selection.key === 'hero' || selection.key === 'reveal') &&
+    madeOnce?.[selection.key]
+  ) {
+    // 🧩 The made-once group: the tool's own workspace, drafted, never live.
+    body = madeOnce[selection.key];
   } else if (selection.kind === 'tool' && selection.key === 'love-story') {
     /* 💌 THE BAR'S "LOVE STORY" OPENS THE SCRAPBOOK (Maker Phase 7). Each
        moment there is one scene on the Invitation; the words form stays below

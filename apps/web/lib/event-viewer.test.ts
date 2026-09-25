@@ -184,6 +184,8 @@ const UNEXPLAINED_EMPTY_BILL: Readonly<Record<string, string>> = {
     'one guest, not the list — a refusal here is a missing person, not an empty roster; needs its own sentence',
   'app/dashboard/[eventId]/guests/claims/page.tsx':
     'couple-only by its own member_type gate — a delegate never reaches it',
+  'app/dashboard/[eventId]/website/editor/page.tsx':
+    'couple-only by its own member_type gate; it only COUNTS entourage roles to know whether the page draws the entourage, and an unread count keeps the tile',
   'app/dashboard/[eventId]/guests/invite/page.tsx':
     'couple-only by its own member_type gate',
   'app/dashboard/[eventId]/guests/new/page.tsx':

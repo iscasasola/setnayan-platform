@@ -9,6 +9,7 @@ import {
   PencilLine,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -45,6 +46,12 @@ import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
+import { MakerPrints } from './_components/maker-prints';
+import { MakerDetails } from './_components/maker-details';
+import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { updateSpecialMessage } from '../website/special-message/actions';
+import { fetchEgiftMethods } from '@/lib/egift';
+import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -106,8 +113,17 @@ type Props = {
     pin?: string | string[];
     scene?: string | string[];
     chain?: string | string[];
-    /** Phase 6: the made-once workspace to open (`hero` · `reveal` · `logo`). */
+    /** Phase 6: `?tool=hero|reveal|logo` opens that made-once workspace.
+     *  Phase 9: `?tool=prints` opens Prints & Tickets, `?tool=details` the
+     *  Details panel (its saves land back on it); `print_theme` previews the set
+     *  in another theme — never saved. */
     tool?: string | string[];
+    print_theme?: string | string[];
+    print_saved?: string | string[];
+    print_error?: string | string[];
+    pass_format?: string | string[];
+    invitation_format?: string | string[];
+    card_format?: string | string[];
   }>;
 };
 
@@ -912,20 +928,78 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     </div>
   );
 
+  /* ══ PRINTS & TICKETS (Phase 9) ══ The couple's workspace only. One event
+     read (the theme and the card words) and the Pro question — the pieces
+     themselves are drawn by /api/hub-print, which asks the Pro question again
+     and refuses on its own. */
+  let prints: ReactNode = null;
+  let details: ReactNode = null;
+  if (hasWork) {
+    const printAdmin = createAdminClient();
+    const [printEvent, printPro, rsvpHosts, printParents, egifts] = await Promise.all([
+      readPrintEvent(printAdmin, eventId),
+      printOwnsPro(eventId),
+      readRsvpHosts(eventId),
+      parentsFromEntourageForEvent(eventId),
+      fetchEgiftMethods(printAdmin, eventId, { enabledOnly: true }),
+    ]);
+    if (printEvent) {
+      const stored = parsePrintDetails(printEvent.print_details);
+      /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
+         line of wording — each read from its one home. */
+      details = (
+        <MakerDetails
+          eventId={eventId}
+          stored={stored}
+          hosts={rsvpHosts}
+          parents={printParents}
+          pabuyaMessage={printEvent.pabuya_message}
+          specialMessage={printEvent.special_message}
+          specialMessageAction={updateSpecialMessage.bind(null, eventId)}
+          hasPalette={hasPalette(printEvent.role_palette)}
+          hasGifts={egifts.length > 0}
+          flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
+          slug={printEvent.slug}
+          slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+        />
+      );
+      prints = (
+        <MakerPrints
+          eventId={eventId}
+          theme={printThemeFor(printEvent, one(search.print_theme))}
+          savedTheme={printThemeFor(printEvent)}
+          ownsPro={printPro}
+          storeShell={storeShell}
+          flash={null}
+          seatPlan={stored.include.seatPlan}
+          formats={{
+            pass: formatFor('pass', one(search.pass_format))!,
+            invitation: formatFor('invitation', one(search.invitation_format))!,
+            card: formatFor('card', one(search.card_format))!,
+          }}
+        />
+      );
+    }
+  }
+
   return (
     <MakerShell
       eventId={eventId}
       slug={eventSlug}
       liveStage={liveStage}
       initialStage={isStagePhase(makerStage) ? makerStage : 'rsvp'}
-      /* `?tool=hero|reveal|logo` opens that made-once workspace (Phase 6) — a
-         draft save lands back on the panel the couple was using. */
+      /* `?tool=hero|reveal|logo` opens that made-once workspace (Phase 6), and
+         `?tool=details|prints` the Phase 9 panels — a save lands back on the
+         panel the couple was using. */
       initialSelection={(() => {
         const tool = one(search.tool);
-        return hasWork && (tool === 'hero' || tool === 'reveal' || tool === 'logo')
+        return hasWork &&
+          (tool === 'hero' || tool === 'reveal' || tool === 'logo' || tool === 'details' || tool === 'prints')
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}
+      prints={prints}
+      details={details}
       storeShell={storeShell}
       /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the
          slide), and only the catalogue's figure anywhere else. */

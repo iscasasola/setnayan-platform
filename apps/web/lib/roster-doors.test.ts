@@ -20,7 +20,7 @@ const keys = (d: ReturnType<typeof doors>) => ({
 });
 
 test('before a wedding: Roster · Wedding March · Share the link, and Arrange the room', () => {
-  assert.deepEqual(keys(doors()), { tabs: ['roster', 'walk', 'share'], trailing: ['arrange'] });
+  assert.deepEqual(keys(doors()), { tabs: ['roster', 'walk', 'share'], trailing: ['arrange', 'qr-pdf'] });
 });
 
 test('no processional, no Wedding March — a birthday walks down no aisle', () => {
@@ -31,8 +31,8 @@ test('after the event: inviting and arranging stop; Check-in and the quick Share
   // Inviting people to a celebration that already happened is "the one door
   // that stops making sense" (the page's own note). The quick copy survives,
   // because the link still lets guests into the event page afterwards.
-  assert.deepEqual(keys(doors({ finished: true })), { tabs: ['roster'], trailing: ['checkin', 'share-menu'] });
-  assert.deepEqual(keys(doors({ finished: true, hasJoinLink: false })).trailing, ['checkin']);
+  assert.deepEqual(keys(doors({ finished: true })), { tabs: ['roster'], trailing: ['checkin', 'share-menu', 'qr-pdf'] });
+  assert.deepEqual(keys(doors({ finished: true, hasJoinLink: false })).trailing, ['checkin', 'qr-pdf']);
 });
 
 test('before the event there is ONE share door, not two', () => {
@@ -90,4 +90,19 @@ test('the page MOUNTS the row, and feeds it the real conditions', () => {
   // door twice.
   const masthead = page.slice(page.indexOf('<PageMasthead'), page.indexOf('/>', page.indexOf('<PageMasthead')));
   assert.ok(!/actions=\{/.test(masthead), 'the masthead still carries actions — the doors are now on screen twice');
+});
+
+test('the free QR PDF is on the Guest list before and after the day, and it is a file', () => {
+  // Owner 2026-09-25: "the free version is the PDF of QRs" → "found on Guestlist".
+  for (const d of [doors(), doors({ finished: true }), doors({ hasProcessional: false, hasJoinLink: false })]) {
+    const qr = d.trailing.find((x) => x.key === 'qr-pdf');
+    assert.ok(qr && qr.kind === 'download', 'the QR PDF door is missing');
+    assert.equal(qr.href, '/api/hub-print/qr-codes?event=E');
+    assert.equal(qr.label, 'Download QR codes (PDF)');
+  }
+  // …and the tab row renders it as a DOWNLOAD, not a navigation.
+  const tabs = stripComments(
+    readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'roster-tabs.tsx'), 'utf8'),
+  );
+  assert.match(tabs, /d\.kind === 'download'[\s\S]{0,400}<a\b[\s\S]{0,200}\bdownload\b/);
 });

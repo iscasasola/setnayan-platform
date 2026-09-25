@@ -28,16 +28,22 @@ import { TOURS, type TourKey } from '@/lib/tours';
 
 export type MakerBarGroup = 'made-once' | 'stages' | 'prints';
 
+/**
+ * The made-once home of every line of wording (owner 2026-09-25: *"the other
+ * lines like the opening message and the thank you message on the egifts must
+ * have a place along the Logo, Hero, Reveal, Love Story"*). PROVISIONAL name —
+ * the owner may rename it, so it lives in this one constant.
+ */
+export const MAKER_DETAILS_LABEL = 'Details';
+
 export type MakerBarItem =
-  | { key: 'logo' | 'hero' | 'reveal' | 'love-story'; label: string; group: 'made-once'; kind: 'tool' }
+  | { key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'details'; label: string; group: 'made-once'; kind: 'tool' }
   | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' }
-  | { key: 'details'; label: string; group: 'made-once'; kind: 'next' }
-  | { key: 'prints'; label: string; group: 'prints'; kind: 'next' };
+  | { key: 'prints'; label: string; group: 'prints'; kind: 'tool' };
 
 export const MAKER_BAR: readonly MakerBarItem[] = [
-  // Details (the event's facts and its address) is Phase 9's panel; until it
-  // lands it says so in one line — never a dead button.
-  { key: 'details', label: 'Details', group: 'made-once', kind: 'next' },
+  // Owner-final order: DETAILS first ("DETAILS LOGO HERO REVEAL LOVE STORY / …").
+  { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
   { key: 'logo', label: 'Logo', group: 'made-once', kind: 'tool' },
   { key: 'hero', label: 'Hero', group: 'made-once', kind: 'tool' },
   { key: 'reveal', label: 'Reveal', group: 'made-once', kind: 'tool' },
@@ -46,13 +52,12 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
     (phase) =>
       ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,
   ),
-  { key: 'prints', label: 'Prints & Tickets', group: 'prints', kind: 'next' },
+  // Phase 9: opens the Prints & Tickets workspace (it said "coming next" until then).
+  { key: 'prints', label: 'Prints & Tickets', group: 'prints', kind: 'tool' },
 ];
 
 /** What a 'next' item — or a tool whose full build is a later phase — says. */
-export const MAKER_COMING_NEXT: Record<'details' | 'prints' | 'hero' | 'love-story' | 'logo' | 'add' | 'snap' | 'both', string> = {
-  details: 'Your event’s details and your Event Hub address, in one place, are coming in the next build.',
-  prints: 'Themed invitations, tickets and posters are coming in the next build.',
+export const MAKER_COMING_NEXT: Record<'hero' | 'love-story' | 'logo' | 'add' | 'snap' | 'both', string> = {
   hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
   'love-story': 'Scene templates for each Love Story moment arrive with the next build — for now each moment shows as a words-and-photo scene.',
   logo: 'The Logo Maker moves inside the Event Hub Maker in the next build — for now it opens in its own page.',

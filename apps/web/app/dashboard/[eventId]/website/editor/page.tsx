@@ -96,7 +96,6 @@ import {
 } from '@/lib/website-section-content';
 import {
   isWidgetType,
-  WIDGET_CATALOG_BY_TYPE,
   visibleHideableWidgets,
   type InvitationWidgetRow,
 } from '@/lib/invitation-widgets';
@@ -105,6 +104,13 @@ import { readHubDraft } from '@/lib/hub-draft-store';
 import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
+import { buildMakerNavigatorData } from './_components/maker-navigator-data';
+import { makerSceneLabel } from '@/lib/maker-scene-list';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
+import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
+import { ENTOURAGE_ROLES } from '@/lib/entourage';
+import { formatEventDate } from '@/lib/events';
 
 /* No `metadata` of its own: opened directly this page only forwards, and inside
    the Maker the Maker's page names the tab. Only ONE surface may declare
@@ -342,6 +348,7 @@ export default async function WebsiteEditorPage({
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
+  const currentThemeId = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
   // Hideable rows only — always-on sections can't be hidden or moved, so
   // offering the controls would be a lie. Ordered by display_order.
   const sectionRows = [...allWidgets]
@@ -878,13 +885,79 @@ export default async function WebsiteEditorPage({
     // six "Your own section" rows are told apart in the navigator.
     label: (() => {
       const t = sanitizeHubCanvas(row.config_json).template;
-      return t ? SCENE_TEMPLATES[t].name : (WIDGET_CATALOG_BY_TYPE[row.widget_type]?.label ?? row.widget_type);
+      // 🗣 Guest-facing words (`makerSceneLabel`), never the catalogue's internal names.
+      return t ? SCENE_TEMPLATES[t].name : makerSceneLabel(row.widget_type);
     })(),
     mode: (row.mode ?? 'auto') as MakerScene['mode'],
     isVisible: row.is_visible,
     hasContent: sectionContent[row.widget_type] !== false,
     transitionLabel: HUB_TRANSITION_LABEL[resolveTransition(sanitizeHubCanvas(row.config_json))],
   }));
+  /* 🧭 THE NAVIGATOR FOLLOWS THE PAGE (owner 2026-09-25: *"why does the slides
+     not follow the sequence alotted"*). For each stage, what the canvas draws,
+     in its order — asked of the page's own plan (`lib/maker-scene-list.ts`) —
+     with the fold of what that stage leaves out and why. */
+  const { count: entourageCount, error: entourageError } = await supabase
+    .from('guests')
+    .select('guest_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);
+  // ⚠ Unread is NOT "nobody": the page reads the entourage with its own client,
+  // so an unreadable count keeps the tile rather than hiding a real section.
+  if (entourageError) {
+    logQueryError('WebsiteEditorPage.entourageCount', entourageError, { eventId }, 'graceful_degrade');
+  }
+  const eventTz = ((event as { timezone?: string | null }).timezone) ?? 'Asia/Manila';
+  const countdownMs = countdownTargetMs((event.event_date as string | null) ?? null, eventTz);
+  const firstBlock = scheduleBlocks[0] ?? null;
+  const navigator = buildMakerNavigatorData({
+    plan: {
+      widgets: allWidgets,
+      openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),
+      weddingOnlyParts: resolveWeddingOnlyParts(profile),
+      content: sectionContent,
+      solemn: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn,
+      hasHeroMedia: Boolean(heroRef || videoRef),
+      hasEntourage: entourageCount === null ? true : entourageCount > 0,
+      storyRenders: ourStoryRenders(event.love_story),
+      countdownPast: countdownMs !== null && countdownMs <= Date.now(),
+    },
+    sectionRows,
+    tint: (() => {
+      const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
+      return { canvas: pal.canvas, ink: pal.ink, accent: pal.accent };
+    })(),
+    facts: {
+      names: (event.display_name as string | null) ?? null,
+      dateLabel: event.event_date ? formatEventDate(event.event_date as string) : null,
+      daysToGo: countdownMs === null ? null : Math.max(0, Math.ceil((countdownMs - Date.now()) / 86_400_000)),
+      venueName: (event.venue_name as string | null) ?? null,
+      venueAddress: (event.venue_address as string | null) ?? null,
+      firstBlock: firstBlock
+        ? {
+            label: firstBlock.label,
+            time: (() => {
+              const d = new Date(firstBlock.start_at);
+              return Number.isNaN(d.getTime())
+                ? null
+                : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: eventTz });
+            })(),
+          }
+        : null,
+      dressTitle: dressCodeConfig.title || null,
+      dressLine: dressCodeConfig.description || null,
+      photoMomentsLine: photoMomentsConfig.intro_copy || photoMomentsConfig.moments[0]?.title || null,
+      specialMessage: (event.special_message as string | null) ?? null,
+      whatToBring: (event.what_to_bring as string | null) ?? null,
+      loveStory: event.love_story,
+      entourageCount: entourageCount ?? null,
+      heroPhotoUrl: heroRef ? (heroDisplay[heroRef] ?? null) : null,
+      firstGalleryUrl: galleryRefs[0] ? (galleryDisplay[galleryRefs[0]] ?? null) : null,
+    },
+    photoUrls: { ...heroDisplay, ...galleryDisplay },
+  });
+
   const scenePanels = Object.fromEntries(
     sectionRows.map((row) => [
       row.widget_id,
@@ -918,7 +991,7 @@ export default async function WebsiteEditorPage({
 
   /* The theme panel reads the registry as it stands at merge time (Phase 3
      owns it). Only id · name · ready cross — plain strings. */
-  const currentTheme = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
+  const currentTheme = currentThemeId;
   const themes = Object.values(INVITE_THEMES).map((t) => ({
     id: t.id,
     name: t.name,
@@ -937,6 +1010,7 @@ export default async function WebsiteEditorPage({
       }}
       publicLandingUrl={slug ? `/${slug}` : null}
       scenes={scenes}
+      navigator={navigator}
       scenePanels={scenePanels}
       rows={rows}
       themes={themes}

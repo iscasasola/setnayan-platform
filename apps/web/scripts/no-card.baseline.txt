@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 769 files · 2181 lines
+# 767 files · 2178 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -31,7 +31,6 @@
 2 apps/web/app/_components/facebook-dual-stream-card.tsx
 6 apps/web/app/_components/file-upload.tsx
 1 apps/web/app/_components/guest-to-host-cta.tsx
-1 apps/web/app/_components/guided-tour.tsx
 1 apps/web/app/_components/live-studio-recordings-card.tsx
 1 apps/web/app/_components/live-studio/broadcast-readiness.tsx
 2 apps/web/app/_components/marketing/_doorway-tone.ts
@@ -549,7 +548,6 @@
 2 apps/web/app/dashboard/[eventId]/website/dress-code/_components/group-attire-field.tsx
 2 apps/web/app/dashboard/[eventId]/website/dress-code/_components/role-attire-field.tsx
 4 apps/web/app/dashboard/[eventId]/website/dress-code/page.tsx
-2 apps/web/app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx
 2 apps/web/app/dashboard/[eventId]/website/editor/_components/media-panels.tsx
 1 apps/web/app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx
 1 apps/web/app/dashboard/[eventId]/website/editor/_components/text-panel.tsx

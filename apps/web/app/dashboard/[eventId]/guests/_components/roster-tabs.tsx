@@ -16,6 +16,7 @@
  *   Arrange the room  before the event
  *   Check-in          after the event
  *   Share ▾           after the event, with a join link
+ *   QR codes (PDF)    always — the free do-it-yourself sheet (a download)
  *
  * 🔑 THE ONE THING REMOVED IS A DUPLICATE. Before the event the masthead held
  * BOTH "Invite guests" and a Share dropdown, and both handed out the same join
@@ -33,7 +34,7 @@
  */
 
 import Link from 'next/link';
-import { ClipboardCheck, LayoutGrid, Send } from 'lucide-react';
+import { ClipboardCheck, LayoutGrid, QrCode, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
 
 export type RosterView = 'list' | 'map' | 'walk' | 'share';
@@ -124,6 +125,21 @@ export function RosterTabs({
             </Link>
           ) : d.kind === 'shareMenu' ? (
             <span key={d.key}>{shareMenu}</span>
+          ) : d.kind === 'download' ? (
+            // The free QR sheet — a FILE from /api/hub-print, so a plain
+            // download link (a Link would try to route to a PDF).
+            <a
+              key={d.key}
+              href={d.href}
+              download
+              data-guest-qr-pdf=""
+              title={d.label}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
+            >
+              <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <span className="hidden sm:inline">{d.label}</span>
+              <span className="sr-only sm:hidden">{d.label}</span>
+            </a>
           ) : null,
         )}
       </div>

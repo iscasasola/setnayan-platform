@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
-import { useMaker } from './maker-context';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { REVEAL_STAGE_CHOICES, type RevealStage } from '@/lib/reveal-stages';
 
 /**
  * THE REVEAL — chosen once, in the Maker (Phase 6).
@@ -20,6 +21,16 @@ import { useMaker } from './maker-context';
  * (the Save-the-Date studio's live writer) is not called from here.
  *
  * 🔎 A REFUSED SAVE SAYS SO — the result's `error` renders as a line.
+ *
+ * 🎭 WHERE IT PLAYS (owner 2026-09-25, verbatim: *"they can pick where the want
+ * to keep it. having it on the invitation and on the day will onlay be during
+ * the hero scene (First page) after that, it will disappear"*): Save the Date ·
+ * Invitation · On the Day, any of them, saved to the draft as
+ * `events.reveal_stages` (`lib/reveal-stages.ts`). Choosing where is free;
+ * the opening itself is still Pro.
+ *
+ * 🖼 This panel sits BESIDE the Reveal's page (the Maker's body shows the stage
+ * it plays on, playing it in place) — never over it.
  */
 export type MakerRevealOpening = { id: string; label: string; blurb: string };
 
@@ -27,6 +38,8 @@ export function MakerRevealPicker({
   eventId,
   current,
   drafted,
+  stages,
+  stagesDrafted,
   themeName,
   defaultOpening,
   defaultIsTheme,
@@ -36,9 +49,12 @@ export function MakerRevealPicker({
   storeShell,
   stdWindowDays,
 }: {
-  /** `STD_THRESHOLD_DAYS` — the opening plays only in the Save-the-Date window
-   *  (`cinematicRevealPlays`, owner ruling 2026-09-14). */
+  /** `STD_THRESHOLD_DAYS` — how long before the day the Save the Date is out. */
   stdWindowDays: number;
+  /** Where it plays (drafted over live, resolved — the Save the Date alone when never chosen). */
+  stages: readonly RevealStage[];
+  /** The draft holds a different choice of stages from what guests see. */
+  stagesDrafted: boolean;
   eventId: string;
   /** The drafted-over-live `std_reveal_template`: an id · 'none' · null (not chosen). */
   current: string | null;
@@ -78,18 +94,27 @@ export function MakerRevealPicker({
       }
     });
 
-  const maker = useMaker();
+  const setStages = (next: RevealStage[]) =>
+    start(async () => {
+      setError(null);
+      try {
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set('patch', JSON.stringify({ events: { reveal_stages: next } }));
+        const r = await hubDraftAction(eventId, fd);
+        if (!r.ok) setError(r.error);
+        else router.refresh();
+      } catch {
+        setError('Where your reveal plays could not be saved. Please try again.');
+      }
+    });
+  const toggleStage = (s: RevealStage) =>
+    setStages(REVEAL_STAGE_CHOICES.filter((x) => (x === s ? !stages.includes(s) : stages.includes(x))));
+
   const replay = () => {
-    /* The opening plays where guests meet it: as the Save the Date opens, and
-       at the invitation door (`[slug]/invite`). The Event Hub body plays it only
-       on the Save the Date stage (`cinematicRevealPlays`), so "Play" turns the
-       canvas to that stage — the draft and the theme's dressing ride along —
-       and, if it is already there, reloads it so the opening plays again. */
-    if (maker && maker.stage !== 'save_the_date') {
-      maker.setStage('save_the_date');
-      return;
-    }
-    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-shell] iframe');
+    /* The Reveal's page (the Maker's body) is the stage it plays on: playing it
+       again is loading that page again, in place. */
+    const frame = document.querySelector<HTMLIFrameElement>('[data-maker-page="reveal"] iframe');
     try {
       frame?.contentWindow?.location.reload();
     } catch {
@@ -163,12 +188,41 @@ export function MakerRevealPicker({
           Play the opening
         </button>
       ) : null}
-      {effective !== 'none' ? (
+      <fieldset className="flex flex-col gap-1.5" data-maker-reveal-stages="">
+        <legend className="mb-1 text-[13px] font-semibold text-ink">Where it plays</legend>
+        <div className="flex flex-wrap gap-1.5">
+          {REVEAL_STAGE_CHOICES.map((s) => {
+            const on = stages.includes(s);
+            return (
+              <button
+                key={s}
+                type="button"
+                role="switch"
+                aria-checked={on}
+                disabled={pending}
+                data-maker-reveal-stage={s}
+                onClick={() => toggleStage(s)}
+                className={`sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn disabled:opacity-60 ${
+                  on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
+                }`}
+              >
+                {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} /> : null}
+                {PUBLIC_STAGE_LABELS[s]}
+              </button>
+            );
+          })}
+        </div>
+        {stagesDrafted ? (
+          <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
+            In your draft — guests see it after you Apply.
+          </p>
+        ) : null}
         <p className="text-[12px] text-ink/60">
-          Guests meet it while your Save the Date is out — at your Event Hub and at the door of every invitation
-          link. It rests from {stdWindowDays} days before the day, when guests come to reply.
+          On the {PUBLIC_STAGE_LABELS.save_the_date} (more than {stdWindowDays} days before the day) it opens your
+          film. On the {PUBLIC_STAGE_LABELS.rsvp} and {PUBLIC_STAGE_LABELS.event} it plays on the first page only —
+          once opened, it is gone.
         </p>
-      ) : null}
+      </fieldset>
       {error ? (
         <p role="alert" className="text-[13px] text-terracotta-700">
           {error}

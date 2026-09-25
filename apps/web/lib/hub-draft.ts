@@ -69,6 +69,7 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
 import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
 import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
+import { resolveRevealStages, sanitizeRevealStages } from '@/lib/reveal-stages';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -93,6 +94,10 @@ export const HUB_DRAFT_HISTORY_LIMIT = 10;
  *   · `monogram_custom_svg` + `monogram_studio_config` — the Logo, autosaved
  *     from the studio so a design is never lost by leaving (owner 2026-09-25,
  *     FINAL_PLAN_INPUTS 29). Letters, frame and ink are free.
+ *   · `reveal_stages` — WHERE the reveal plays (owner 2026-09-25, "they can pick
+ *     where the want to keep it"): Save the Date · Invitation · On the Day,
+ *     sanitised by `sanitizeRevealStages`. Free to choose — the opening itself is
+ *     the Pro part. The host's preview reads it off the overlaid event row.
  */
 export const HUB_DRAFT_EVENT_COLUMNS = [
   'rsvp_backdrop',
@@ -100,6 +105,7 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   'std_reveal_template',
   'monogram_custom_svg',
   'monogram_studio_config',
+  'reveal_stages',
 ] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
@@ -170,6 +176,8 @@ export function sanitizeHubDraftEventValue(
       return sanitizeStudioSvg(raw) ?? undefined;
     case 'monogram_studio_config':
       return sanitizeStudioConfig(raw) ?? undefined;
+    case 'reveal_stages':
+      return sanitizeRevealStages(raw);
   }
 }
 
@@ -382,6 +390,14 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'monogram_custom_svg':
     case 'monogram_studio_config':
       return refChange(asText(live), asText(next));
+    case 'reveal_stages': {
+      // Compared as the page reads it: NULL (never chosen) and an explicit
+      // Save-the-Date-only are the same page, so choosing that is not a change.
+      const key = (v: unknown) => (v === null || v === undefined ? null : resolveRevealStages(v).join(','));
+      const l = key(live) ?? resolveRevealStages(null).join(',');
+      const n = key(next) ?? resolveRevealStages(null).join(',');
+      return l === n ? refChange('same', 'same') : refChange(l, n);
+    }
   }
 }
 
@@ -685,6 +701,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   std_reveal_template: 'Your reveal',
   monogram_custom_svg: 'Your logo',
   monogram_studio_config: 'Your logo design',
+  reveal_stages: 'Where your reveal plays',
 };
 
 /** A sentence-ready name for one draft key. */

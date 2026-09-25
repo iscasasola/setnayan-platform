@@ -154,6 +154,9 @@ export type EventRow = {
   // Couple's reveal effect toggles {butterflies,petals} (events.std_reveal_effects).
   // NULL → app defaults (butterflies off, petals on).
   std_reveal_effects?: unknown;
+  // Where the couple has the reveal play (events.reveal_stages, 2026-09-25) —
+  // resolved by `resolveRevealStages`; NULL = the Save the Date only.
+  reveal_stages?: unknown;
   // When the full invitation goes live (events.std_invitation_launch_date) —
   // drives the STD film's close beat + the second add-to-calendar VEVENT. (PR4 P3)
   std_invitation_launch_date?: string | null;

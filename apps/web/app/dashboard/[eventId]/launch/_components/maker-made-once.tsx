@@ -17,6 +17,7 @@ import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
+import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -27,6 +28,11 @@ import { MakerLogoDoor } from './maker-logo';
 
 /**
  * THE MADE-ONCE GROUP — Logo · Hero · Reveal (Event Hub Maker Phase 6).
+ *
+ * 🖼 Each opens as a PAGE in the Maker's body (owner 2026-09-25: *"we do not
+ * want a pop up for details, logo, hero, reveal and love story"*): the Hero and
+ * Reveal panels below are the CONTROLS beside their page (the guest page, drawn
+ * by `MakerWork`), and the Logo panel IS its page — the studio itself.
  *
  * The left group of the bar edits the three whole-event things ONCE; every stage
  * and the poster derive from them (owner 2026-09-24/25). Each panel reads the
@@ -46,7 +52,7 @@ import { MakerLogoDoor } from './maker-logo';
  */
 
 const EVENT_SELECT =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, reveal_stages, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
 
 type MadeOnceRow = {
   event_id: string;
@@ -60,6 +66,7 @@ type MadeOnceRow = {
   landing_page_hero_image_url: string | null;
   landing_page_hero_video_r2_key: string | null;
   std_reveal_template: string | null;
+  reveal_stages: unknown;
   monogram_custom_svg: string | null;
   monogram_studio_config: unknown;
   monogram_uploaded_svg: string | null;
@@ -276,8 +283,22 @@ export async function MakerRevealPanel({
       ownsPro={ownsPro}
       storeShell={storeShell}
       stdWindowDays={STD_THRESHOLD_DAYS}
+      stages={resolveRevealStages(m.drafted.reveal_stages)}
+      stagesDrafted={
+        resolveRevealStages(m.drafted.reveal_stages).join() !== resolveRevealStages(m.live.reveal_stages).join()
+      }
     />
   );
+}
+
+/**
+ * Where the reveal plays, drafted over live — the Reveal PAGE previews the first
+ * of them in the Maker's body. The same cached read as the panels; a failed read
+ * falls back to the Save the Date alone (the rule a never-chosen event keeps).
+ */
+export async function readMakerRevealStages(eventId: string): Promise<readonly RevealStage[]> {
+  const m = await loadMadeOnce(eventId);
+  return m.ok ? resolveRevealStages(m.drafted.reveal_stages) : resolveRevealStages(null);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -291,9 +312,8 @@ export async function MakerLogoPanel({ eventId }: { eventId: string }) {
   const config = sanitizeStudioConfig(drafted.monogram_studio_config);
   const uploaded = safeMonogramSvg(drafted.monogram_uploaded_svg);
   // Whether a composition exists at all — only a yes/no; the mark itself is
-  // drawn through `resolveEventMonogramSvg` below, never read raw.
+  // drawn by the studio from the re-editable design, never read raw.
   const hasComposition = typeof drafted.monogram_custom_svg === 'string' && drafted.monogram_custom_svg.length > 0;
-  const mark = resolveEventMonogramSvg(drafted);
   return (
     <MakerLogoDoor
       eventId={eventId}
@@ -302,7 +322,6 @@ export async function MakerLogoPanel({ eventId }: { eventId: string }) {
       /* Compose FROM the uploaded logo when that is the couple's mark and no
          design exists yet — the Monogram Maker page's own rule. */
       initialUploadSvg={!config && uploaded && !hasComposition ? uploaded : null}
-      markUri={mark ? bespokeSvgToDataUri(mark) : null}
       drafted={
         drafted.monogram_custom_svg !== live.monogram_custom_svg ||
         JSON.stringify(drafted.monogram_studio_config ?? null) !== JSON.stringify(live.monogram_studio_config ?? null)

@@ -7,6 +7,9 @@ import { PabuyaMessageEditor } from '../../pabuya/_components/pabuya-message-edi
 import { OpeningLineField } from './opening-line-field';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
 import { SlugField } from '../../invitation/_components/slug-field';
+import { siteOrigin } from '@/lib/site-origin';
+import { publicEventPath } from '@/lib/public-event-url';
+import { PRINT_PIECES } from '@/lib/print-pieces';
 
 /**
  * DETAILS — the made-once panel of the Event Hub Maker: WHAT the stages and the
@@ -29,6 +32,12 @@ import { SlugField } from '../../invitation/_components/slug-field';
  *
  * Every write here goes live (none is a look the draft holds) and says so
  * (`every-maker-form-drafts-or-says-so.test.ts`).
+ *
+ * 🖼 DETAILS IS A PAGE (owner 2026-09-25: *"we do not want a pop up for details,
+ * logo, hero, reveal and love story. we want their actual page to be on the body
+ * of the editor"*). `MakerDetails` is the CONTROLS — these fields, where a
+ * stage's controls sit — and `MakerDetailsPage` is the body: what the details
+ * FEED, drawn as guests and printers will meet it (see its note for why).
  */
 export function MakerDetails({
   eventId,
@@ -67,36 +76,21 @@ export function MakerDetails({
   const back = `/dashboard/${eventId}/launch?tool=details`;
   const base = `/dashboard/${eventId}`;
   return (
-    <div data-maker-details="" className="h-full overflow-y-auto bg-cream px-4 py-5 sm:px-6">
-      <div className="mx-auto flex max-w-3xl flex-col gap-5">
-        <header className="flex flex-col gap-1">
-          <p className="font-serif text-2xl text-ink">{MAKER_DETAILS_LABEL}</p>
-          <p className="text-sm text-ink/70">
-            Turn on what your printed set includes — each part is read from where it already lives, so nothing is typed
-            twice. Your wording lives here too.
-          </p>
-        </header>
+    <div data-maker-details="" className="px-1">
+      <div className="flex flex-col gap-5">
+        <p className="text-[13.5px] text-ink/75">
+          Turn on what your printed set includes — each part is read from where it already lives, so nothing is typed
+          twice. Your wording lives here too.
+        </p>
 
         {/* ── Your Event Hub address — the one place it is edited (owner:
             "Add the slug to details"). The shipped SlugField: 3–32 characters,
-            live availability, old links forward. Its QR is the one every
-            print carries. ── */}
-        <section data-details-address="" className="flex flex-col gap-3 border-b border-ink/10 pb-5 sm:flex-row sm:items-start">
-          <div className="min-w-0 flex-1">
-            <p className="mb-2 text-sm font-semibold text-ink">Your Event Hub address</p>
-            <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
-            <HubSavesImmediately className="mt-2" />
-          </div>
-          {slug ? (
-            // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
-            <img
-              src={`/api/website/qr/${encodeURIComponent(slug)}`}
-              alt={`QR code for your Event Hub address`}
-              width={112}
-              height={112}
-              className="h-28 w-28 shrink-0 bg-white p-1"
-            />
-          ) : null}
+            live availability, old links forward. Its QR — the one every print
+            carries — is drawn on the page beside these fields. ── */}
+        <section data-details-address="" className="flex flex-col gap-2 border-b border-ink/10 pb-5">
+          <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
+          <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+          <HubSavesImmediately className="mt-1" />
         </section>
 
         {flash === 'saved' ? (
@@ -247,6 +241,111 @@ export function MakerDetails({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * DETAILS' PAGE — the Maker's body while Details is picked.
+ *
+ * 🔑 WHY THIS IS THE "ACTUAL PAGE". Details has no page of its own on the guest
+ * site; it FEEDS two things, and both are drawn here as they will be met:
+ *
+ *   1 · the Event Hub ADDRESS and its QR — the one every printed piece carries
+ *       (`/api/website/qr/<slug>`, the same PNG the prints embed);
+ *   2 · the two cards the wording fills — The Invitation (opening line, parents,
+ *       "Kindly reply") and The Finer Details (E-Gifts, the thank-you message,
+ *       the Love Story, the program, your colours, the special message) — drawn
+ *       by the SAME route and layout Prints & Tickets uses (`/api/hub-print`,
+ *       screen mode: a marked sample for a free couple, the real piece for Pro).
+ *
+ * Fields laid out as a page would only repeat the controls beside it; this shows
+ * what they DO. Each save redirects back here and the cards redraw (`stamp`).
+ */
+export function MakerDetailsPage({
+  eventId,
+  slug,
+  stamp,
+}: {
+  eventId: string;
+  slug: string | null;
+  /** Changes on every server render, so a save redraws the cards. */
+  stamp: string;
+}) {
+  const card = (piece: 'invitation' | 'details') =>
+    `/api/hub-print/${piece}?event=${encodeURIComponent(eventId)}&mode=screen&v=${encodeURIComponent(stamp)}`;
+  const address = slug ? `${siteOrigin().replace(/^https?:\/\//, '')}${publicEventPath(slug)}` : null;
+  const CARDS = [
+    { piece: 'invitation', fed: 'Your opening line, your parents and “Kindly reply”.' },
+    { piece: 'details', fed: 'E-Gifts, the thank-you message, your Love Story, the program, your colours and your special message.' },
+  ] as const;
+  return (
+    <div
+      data-maker-details-page=""
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-4 py-5 sm:px-6"
+    >
+      <div className="mx-auto flex max-w-4xl flex-col gap-6">
+        <header className="flex flex-col gap-1">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">What your details make</p>
+          <p className="font-serif text-2xl text-ink">{MAKER_DETAILS_LABEL}</p>
+          <p className="max-w-xl text-sm text-ink/70">
+            Your address and its QR, and the cards your wording fills. Change a field and save — the cards redraw.
+          </p>
+        </header>
+
+        <section
+          data-details-page-address=""
+          className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
+        >
+          {slug ? (
+            // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
+            <img
+              src={`/api/website/qr/${encodeURIComponent(slug)}`}
+              alt="QR code for your Event Hub address"
+              width={176}
+              height={176}
+              className="h-40 w-40 shrink-0 bg-white p-1 sm:h-44 sm:w-44"
+            />
+          ) : null}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
+            {address ? (
+              <p className="mt-1 break-all font-serif text-xl text-ink" data-details-page-url="">
+                {address}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-ink/70">No address yet — choose one beside this page.</p>
+            )}
+            <p className="mt-2 text-[12.5px] text-ink/60">Every printed piece carries this QR. Guests scan it to open your Event Hub.</p>
+          </div>
+        </section>
+
+        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2" data-details-page-cards="">
+          {CARDS.map(({ piece, fed }) => (
+            <li key={piece} className="flex flex-col items-center gap-2" data-details-page-card={piece}>
+              <div className="flex h-[320px] w-full items-center justify-center rounded-md bg-ink/[0.04] p-4 sm:h-[380px]">
+                {/* eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated image from our own route */}
+                <img
+                  src={card(piece)}
+                  alt={PRINT_PIECES[piece].label}
+                  loading="lazy"
+                  className="max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)]"
+                />
+              </div>
+              <p className="text-sm font-semibold text-ink">{PRINT_PIECES[piece].label}</p>
+              <p className="max-w-xs text-center text-xs text-ink/60">{fed}</p>
+            </li>
+          ))}
+        </ul>
+
+        <p className="text-sm text-ink/70">
+          The whole set — passes, the poster, sizes and downloads — is in{' '}
+          <Link href={`/dashboard/${eventId}/launch?tool=prints`} className="font-medium text-mulberry underline underline-offset-2">
+            Prints &amp; Tickets
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

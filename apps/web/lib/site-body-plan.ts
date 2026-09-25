@@ -20,6 +20,7 @@
  * node:test unit suite can exercise it directly.
  */
 import type { WeddingOnlyParts } from './wedding-only-parts';
+import { revealStageChosen } from './reveal-stages';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { anonymousPublicCapability } from './public-capability';
 import {
@@ -186,7 +187,18 @@ export type SiteBodyPlan = {
  * door (`inviteRevealPlays`, lib/invite-reveal.ts). Named on 2026-09-10 so the
  * second caller could not restate it and drift.
  *
- * ⚖ THE RULE IS: THE SAVE-THE-DATE WINDOW, AND NOTHING ELSE. Owner
+ * ⚖ 2026-09-25 — THE COUPLE PICKS THE STAGES (`revealStages`, lib/reveal-stages.ts).
+ * Owner, verbatim: *"they can pick where the want to keep it. having it on the
+ * invitation and on the day will onlay be during the hero scene (First page)
+ * after that, it will disappear."* So the stage test below is now "is this
+ * stage one the couple chose" — Save the Date · Invitation · On the Day, never
+ * after the day. A couple who never chose (`reveal_stages` NULL) resolves to the
+ * Save the Date alone, which is EXACTLY the 2026-09-14 rule below — so every
+ * page that exists today renders as it did, and a caller that passes no stages
+ * gets that rule too. Off the Save the Date it plays on the hero scene only
+ * (`revealOnlyOnTheFirstPage`, read by the overlay).
+ *
+ * ⚖ THE 2026-09-14 RULE (now the DEFAULT): THE SAVE-THE-DATE WINDOW, AND NOTHING ELSE. Owner
  * 2026-09-14, looking at his own invitation: *"reveal should only be at the
  * save the date. remove it from this part of the event hub."* Asked whether
  * that meant the Hub alone or both doors, he chose BOTH — so this stayed one
@@ -203,6 +215,7 @@ export type SiteBodyPlan = {
  * distant. The owner was shown that consequence and chose this anyway; it is
  * a taste decision about where a veil belongs, not an oversight.
  * ⛔ Do not "restore" the rsvp arm because this docblock explains it well.
+ *    (2026-09-25: the COUPLE may now add it, per event — the default did not move.)
  *
  * ⛔ THE DAY ITSELF AND THE STORY AFTERWARDS WERE ALREADY EXCLUDED, and that
  * is an older owner ruling: on the day a guest is opening this to find their
@@ -223,10 +236,12 @@ export function cinematicRevealPlays(input: {
   phasesEnabled: boolean;
   lifecyclePhase: LifecyclePhase;
   weddingOnlyParts?: Partial<WeddingOnlyParts>;
+  /** `events.reveal_stages` as stored (resolved here). Absent / NULL = the Save the Date only. */
+  revealStages?: unknown;
 }): boolean {
   const { phasesEnabled, lifecyclePhase, weddingOnlyParts } = input;
   const mayShowStdFilm = weddingOnlyParts?.save_the_date_film ?? true;
-  return phasesEnabled && lifecyclePhase === 'save_the_date' && mayShowStdFilm;
+  return phasesEnabled && revealStageChosen(input.revealStages, lifecyclePhase) && mayShowStdFilm;
 }
 
 export function resolveSiteBodyPlan(input: {
@@ -289,6 +304,12 @@ export function resolveSiteBodyPlan(input: {
    * flag-off path.
    */
   content?: Partial<Record<WidgetType, boolean>>;
+  /**
+   * `events.reveal_stages` — where the couple has the reveal play (2026-09-25).
+   * Optional: absent resolves to the Save the Date only, the rule every golden
+   * test was written against.
+   */
+  revealStages?: unknown;
 }): SiteBodyPlan {
   const {
     identity,
@@ -414,7 +435,7 @@ export function resolveSiteBodyPlan(input: {
     body,
     fullBleed: showSaveTheDate && stdFilm,
     stdViewBeacon: showSaveTheDate && !isSample,
-    revealEnabled: cinematicRevealPlays({ phasesEnabled, lifecyclePhase, weddingOnlyParts }),
+    revealEnabled: cinematicRevealPlays({ phasesEnabled, lifecyclePhase, weddingOnlyParts, revealStages: input.revealStages }),
     // ⚠ DELIBERATELY STILL KEYED ON `showSaveTheDate` ALONE, not on the reveal.
     // The 2026-06-19 ruling is that the STD FILM owns audio in its own phase;
     // it is not a rule about the veil. Over the invitation the veil (z-60) sits

@@ -11,8 +11,8 @@
  *   2. no made-once file calls a LIVE writer of the same columns
  *      (`chooseRevealTemplate`, `saveStudioAction`, `clearStudioAction`,
  *      `commitMonogram`, `updateSiteChrome`) — they post `hubDraftAction` instead;
- *   3. the inspector hands Logo · Hero · Reveal (and the hero scene's content)
- *      to the made-once workspaces;
+ *   3. the Maker hands Logo · Hero · Reveal (and the hero scene's content) to
+ *      the made-once workspaces — as pages in its body since 2026-09-25;
  *   4. the Save-the-Date reveal card renders a refused save as a line
  *      (`{ok:false}` used to be silence).
  */
@@ -60,7 +60,7 @@ test('the logo autosaves: after a pause, on the way out, and when the tab is hid
     ['a pause after a change', /setTimeout\(\(\) => void flush\(\)/],
     ['the tab hidden', /visibilitychange/],
     ['the page left', /pagehide/],
-    ['Back to scenes', /const close = useCallback\(\(\) => \{\s*void flush\(/],
+    ['Back (to the stage)', /const close = useCallback\(\(\) => \{\s*void flush\(/],
   ] as const) {
     assert.match(src, re, `the logo does not save on ${what}`);
   }
@@ -68,9 +68,12 @@ test('the logo autosaves: after a pause, on the way out, and when the tab is hid
   assert.match(src, /monogram_studio_config:/, 'the autosave must carry the re-editable design');
 });
 
-test('the inspector opens the made-once workspaces for Logo · Hero · Reveal and the hero scene', () => {
+test('the Maker opens the made-once workspaces for Logo · Hero · Reveal (as pages) and the hero scene', () => {
   const shell = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
-  assert.match(shell, /selection\.key === 'logo' \|\| selection\.key === 'hero' \|\| selection\.key === 'reveal'\)\s*&&\s*madeOnce\?\.\[selection\.key\]/);
+  // 2026-09-25: each opens as a PAGE in the body (`the-made-once-items-are-pages.test.ts`),
+  // its workspace the page's controls (the Logo's studio, the page itself).
+  assert.match(shell, /return madeOnce\?\.\[selection\.key\] \? selection\.key : null;/);
+  assert.match(shell, /madeOnce\?\.\[pageKey\]/);
   assert.match(shell, /scene\?\.type === 'hero' && madeOnce\?\.hero/);
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
   for (const c of ['MakerHeroPanel', 'MakerRevealPanel', 'MakerLogoPanel']) {

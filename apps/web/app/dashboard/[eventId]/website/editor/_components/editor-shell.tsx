@@ -7,6 +7,8 @@ import { ArrowUpRight, Eye, EyeOff, Lock, PanelsTopLeft, PencilLine, QrCode, X }
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
@@ -15,13 +17,15 @@ import {
   type MakerSceneTab,
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
-import { MAKER_COMING_NEXT } from '../../../launch/_components/maker-bar';
+import { MAKER_COMING_NEXT, MAKER_DETAILS_LABEL } from '../../../launch/_components/maker-bar';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, type MakerFixedKey } from '@/lib/maker-scene-list';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
+import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
+import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -131,9 +135,11 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
 
 /**
  * The made-once group (Phase 6) — Logo · Hero · Reveal — each a workspace of its
- * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce`.
+ * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce`; and
+ * Love Story's own page, the scrapbook (Phase 7). Each opens as a PAGE in the
+ * Maker's body (`MakerPage`), never over it.
  */
-export type MadeOnceKey = 'logo' | 'hero' | 'reveal';
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal' | 'love-story';
 
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
@@ -171,9 +177,14 @@ export function MakerWork({
   addScene = null,
   sceneFacts = null,
   madeOnce = null,
+  revealStages = ['save_the_date'],
 }: {
-  /** Logo · Hero · Reveal — the made-once workspaces (Phase 6). Server-rendered
-   *  panels; an absent key falls back to the row the tool used to open. */
+  /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
+   *  — the Reveal page previews the first of them. */
+  revealStages?: readonly LifecyclePhase[];
+  /** Logo · Hero · Reveal — the made-once workspaces (Phase 6), and Love Story's
+   *  own page (the scrapbook). Server-rendered; each opens as a page in the body.
+   *  An absent key falls back to the inspector row the tool used to open. */
   madeOnce?: Partial<Record<MadeOnceKey, ReactNode>> | null;
   /** The event's names, monogram and days to go, for the built-on template tiles. */
   sceneFacts?: { names?: string | null; monogram?: string | null; days?: number | null } | null;
@@ -244,6 +255,10 @@ export function MakerWork({
      back (`&bars=1`) so the couple can check nothing sits under them — never
      the host's own chrome. Owner 2026-09-25: *"add a switch to show or hide"*. */
   const [guestBars, setGuestBars] = useState(false);
+  /* The made-once pages' own switches: Love Story's scrapbook ⇄ the story as
+     guests meet it, and which chosen stage the Reveal page plays on. */
+  const [storyGuestView, setStoryGuestView] = useState(false);
+  const [revealPreview, setRevealPreview] = useState<LifecyclePhase | null>(null);
   useEffect(() => {
     try {
       setGuestBars(window.sessionStorage.getItem(GUEST_BARS_KEY) === '1');
@@ -304,6 +319,15 @@ export function MakerWork({
      canvas: the bridge replays the selected section's entrance where it sits. */
   useEffect(() => {
     const onPlay = () => {
+      /* The Reveal's page IS the opening: playing it again is loading it again. */
+      if (selection?.kind === 'tool' && selection.key === 'reveal') {
+        try {
+          frameRef.current?.contentWindow?.location.reload();
+        } catch {
+          /* a frame we cannot reach is left as it is */
+        }
+        return;
+      }
       const key =
         selection?.kind === 'scene'
           ? (() => {
@@ -437,10 +461,98 @@ export function MakerWork({
 
   const moreRows = MORE_ROWS.filter((k) => rows[k]);
 
+  /* ══ A MADE-ONCE ITEM IS A PAGE ══════════════════════════════════════════
+     Owner 2026-09-25: *"we do not want a pop up for details, logo, hero, reveal
+     and love story. we want their actual page to be on the body of the editor
+     similar to the different stages."* Picking one swaps the navigator, canvas
+     and inspector for that item's own page (`MakerPage`); its controls sit
+     where the inspector sits. Details is the shell's (it is built by the
+     launch page), the other four are here. */
+  const pageKey = madeOncePageKey(selection, madeOnce);
+  const revealStage = revealPreview && revealStages.includes(revealPreview) ? revealPreview : (revealStages[0] ?? null);
+  const pageSrc = pageKey
+    ? makerPageCanvasSrc(publicLandingUrl, pageKey, stage, { guestView: storyGuestView, revealStage })
+    : null;
+  const pageFrameKey = `${pageKey}:${pageSrc}:${maker.renderStamp}`;
+  const pageFrame = (title: string) =>
+    pageSrc && publicLandingUrl ? (
+      <>
+        <MakerPageFrame src={pageSrc} title={title} device={device} frameKey={pageFrameKey} frameRef={frameRef} />
+        <CanvasStaysOnThePage
+          frameRef={frameRef}
+          pagePath={publicLandingUrl}
+          resetKey={pageFrameKey}
+          stageLabel={title}
+          onBack={() => {
+            const f = frameRef.current;
+            const src = f?.getAttribute('src');
+            if (f && src) f.src = src;
+          }}
+        />
+      </>
+    ) : (
+      <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
+        Set your Event Hub address in {MAKER_DETAILS_LABEL} to see your page here.
+      </p>
+    );
+  const pageView = pageKey ? (
+    <MakerPage
+      pageKey={pageKey}
+      onClose={() => select?.(null)}
+      closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
+      page={
+        pageKey === 'logo' ? (
+          madeOnce?.logo
+        ) : pageKey === 'love-story' ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <PageSwitch
+              label="Show your Love Story"
+              value={storyGuestView ? 'guests' : 'yours'}
+              onChange={(v) => setStoryGuestView(v === 'guests')}
+              options={[
+                ['yours', 'Your story'],
+                ['guests', 'As guests see it'],
+              ]}
+            />
+            {storyGuestView || !madeOnce?.['love-story'] ? (
+              pageFrame(`Your Love Story on ${PUBLIC_STAGE_LABELS.rsvp}`)
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6" data-maker-love-story-book="">
+                {madeOnce['love-story']}
+              </div>
+            )}
+          </div>
+        ) : pageKey === 'reveal' ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            {revealStages.length > 1 ? (
+              <PageSwitch
+                label="Play it on"
+                value={revealStage ?? 'save_the_date'}
+                onChange={(v) => setRevealPreview(v as LifecyclePhase)}
+                options={REVEAL_STAGE_CHOICES.filter((s) => revealStages.includes(s)).map((s) => [s, PUBLIC_STAGE_LABELS[s]] as const)}
+              />
+            ) : null}
+            {pageFrame(`Your reveal — ${PUBLIC_STAGE_LABELS[revealStage ?? 'save_the_date']}`)}
+          </div>
+        ) : (
+          pageFrame(`Your hero — ${PUBLIC_STAGE_LABELS[stage === 'rsvp' || stage === 'event' ? stage : 'rsvp']}`)
+        )
+      }
+      controls={
+        pageKey === 'logo' ? null : pageKey === 'love-story' ? (
+          <LoveStoryControls rows={rows} />
+        ) : (
+          madeOnce?.[pageKey]
+        )
+      }
+    />
+  ) : null;
+
   return (
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
       {/* 🪞 The Maker never draws inside a frame of itself. */}
       <MakerRefusesToBeFramed />
+      {pageView ?? (<>
       {/* ══ 2 · THE NAVIGATOR ══ */}
       <nav
         aria-label="Scenes"
@@ -803,6 +915,7 @@ export function MakerWork({
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
         />
       ) : null}
+      </>)}
 
       {/* The one form every navigator write goes through. 💾 It carries the
           draft field: the eye, Auto/Shown/Hidden and every drag step land in the
@@ -839,6 +952,71 @@ export function MakerWork({
           )
         : null}
     </div>
+  );
+}
+
+/**
+ * The made-once item whose PAGE the body shows, or null (a stage, a scene, a
+ * row). Logo · Hero · Reveal need their workspace; Love Story always has a page
+ * (the scrapbook, or the story as guests see it). Details is the shell's.
+ */
+function madeOncePageKey(
+  selection: MakerSelection,
+  madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null,
+): Exclude<MakerPageKey, 'details'> | null {
+  if (selection?.kind !== 'tool' || !isMakerPageKey(selection.key) || selection.key === 'details') return null;
+  if (selection.key === 'love-story') return 'love-story';
+  return madeOnce?.[selection.key] ? selection.key : null;
+}
+
+/** A two- or three-way switch at the top of a made-once page (not a tab bar:
+ *  both sides are the same page, shown two ways). */
+function PageSwitch({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: ReadonlyArray<readonly [string, string]>;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex shrink-0 justify-center px-2 pt-2" data-maker-page-switch="">
+      <div className="flex items-center rounded-full bg-ink/5 p-0.5">
+        {options.map(([v, text]) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={value === v}
+            onClick={() => onChange(v)}
+            className={`sn-press inline-flex min-h-9 items-center whitespace-nowrap rounded-full px-3 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn ${
+              value === v ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Love Story's controls, beside its page: the words the Invitation weaves into
+ *  its story paragraph (the editor's own Story row, with its own bound action). */
+function LoveStoryControls({ rows }: { rows: Record<string, MakerRowPanel> }) {
+  const keys = (TOOL_ROWS['love-story'] ?? []).filter((k) => rows[k]);
+  return (
+    <section className="flex flex-col gap-3" data-made-once="love-story">
+      <p className="px-1 text-[13.5px] text-ink/75">
+        Your moments, each one a scene on your {PUBLIC_STAGE_LABELS.rsvp}. Add and arrange them on the page; a year is
+        enough, and five stories in your words are free.
+      </p>
+      {keys.map((k) => (
+        <RowBlock key={k} row={rows[k]!} />
+      ))}
+    </section>
   );
 }
 
@@ -1134,59 +1312,10 @@ function Inspector({
         ))}
       </>
     );
-  } else if (
-    selection.kind === 'tool' &&
-    (selection.key === 'logo' || selection.key === 'hero' || selection.key === 'reveal') &&
-    madeOnce?.[selection.key]
-  ) {
-    // 🧩 The made-once group: the tool's own workspace, drafted, never live.
-    body = madeOnce[selection.key];
-  } else if (selection.kind === 'tool' && selection.key === 'love-story') {
-    /* 💌 THE BAR'S "LOVE STORY" OPENS THE SCRAPBOOK (Maker Phase 7). Each
-       moment there is one scene on the Invitation; the words form stays below
-       for the invitation's story paragraph. */
-    body = (
-      <section className="space-y-3 px-1">
-        <p className="text-[13.5px] text-ink/75">
-          Our Love Story — your moments, each one a scene on your Invitation. A year is enough; five stories in your
-          words are free.
-        </p>
-        <Link
-          href={`/dashboard/${eventId}/website/our-story`}
-          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream hover:bg-ink/90"
-        >
-          Open Our Love Story
-          <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
-        {/* The scrapbook writes `events.love_story` live — the draft does not hold
-            it yet (moments carry photos that Apply would have to re-screen). */}
-        <HubSavesImmediately className="ml-2" />
-        {(TOOL_ROWS['love-story'] ?? []).filter((k) => rows[k]).map((k) => (
-          <RowBlock key={k} row={rows[k]!} />
-        ))}
-      </section>
-    );
-  } else if (selection.kind === 'tool' && selection.key === 'logo') {
-    body = (
-      <section className="space-y-3 px-1">
-        <p className="text-[13.5px] text-ink/75">
-          Your logo — the monogram on your hero, your seal and every page — is designed once, in the Logo Maker.
-        </p>
-        <Link
-          href={`/dashboard/${eventId}/monogram`}
-          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream hover:bg-ink/90"
-        >
-          Open the Logo Maker
-          <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
-        <p className="text-[12px] text-ink/60">
-          <InfoTip label="Coming next" align="start">
-            {MAKER_COMING_NEXT.logo}
-          </InfoTip>
-        </p>
-      </section>
-    );
   } else {
+    /* Logo · Hero · Reveal · Love Story open as PAGES (`madeOncePageKey`); the
+       inspector keeps only Post Event's tool and a workspace that did not load
+       (the hero then falls back to its row). */
     const keys = selection.kind === 'tool' ? (TOOL_ROWS[selection.key] ?? []) : [selection.key];
     const note =
       selection.kind === 'tool' && selection.key === 'hero'

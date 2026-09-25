@@ -16,6 +16,7 @@ import {
 } from './maker-context';
 import { MakerTour } from './maker-tour';
 import { MakerPlayMenu } from './maker-play-menu';
+import { MakerPage } from './maker-page';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 
 /**
@@ -88,9 +89,10 @@ export function MakerShell({
   /** Phase 9: the Prints & Tickets workspace, shown over the work area while
    *  the bar's "Prints & Tickets" is selected. */
   prints?: ReactNode;
-  /** The Details panel (what the stages and prints include, and every line of wording), shown over the work area while
-   *  the bar's Details item is selected. */
-  details?: ReactNode;
+  /** Details as a PAGE (Maker bar's Details): `page` is what the details feed —
+   *  the address and its QR, and the printed cards they fill — and `controls`
+   *  the fields (what the prints include, and every line of wording). */
+  details?: { page: ReactNode; controls: ReactNode } | null;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the tool items then have nothing to open. */
   hasWork: boolean;
@@ -151,6 +153,32 @@ export function MakerShell({
     return () => root.classList.remove('sn-maker-open');
   }, []);
 
+  /* 📱 THE KEYBOARD NEVER COVERS A FIELD (owner 2026-09-25: *"99% of the viewers
+     will use the phone"*). A phone's on-screen keyboard shrinks the VISUAL
+     viewport only, so a `fixed inset-0` shell kept its full height and the
+     keyboard sat over the controls strip at its foot. While the keyboard is up
+     (visual viewport shorter than the layout one, at scale 1 — never a pinch)
+     the shell is sized to what is visible. */
+  const shellRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = shellRef.current;
+    if (!vv || !el) return;
+    const fit = () => {
+      const keyboard = Math.abs(vv.scale - 1) < 0.01 && vv.height < window.innerHeight - 80;
+      el.style.height = keyboard ? `${Math.round(vv.height)}px` : '';
+      el.style.top = keyboard ? `${Math.round(vv.offsetTop)}px` : '';
+      el.style.bottom = keyboard ? 'auto' : '';
+    };
+    fit();
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    return () => {
+      vv.removeEventListener('resize', fit);
+      vv.removeEventListener('scroll', fit);
+    };
+  }, []);
+
   const select = useCallback((next: MakerSelection) => setSelection(next), []);
 
   const value = useMemo<MakerState>(
@@ -203,6 +231,7 @@ export function MakerShell({
           'html.sn-maker-open .sn-vt-page,.sn-vt-page:has([data-maker-shell]){view-transition-name:none}'}
       </style>
       <div
+        ref={shellRef}
         className="fixed inset-0 z-[80] flex flex-col bg-cream text-ink"
         data-maker-shell=""
         aria-label="Event Hub Maker"
@@ -301,9 +330,20 @@ export function MakerShell({
               {prints}
             </div>
           ) : null}
+          {/* 🖼 DETAILS IS A PAGE (owner 2026-09-25: *"we do not want a pop up for
+              details, logo, hero, reveal and love story"*): what the details
+              feed is the body, the fields sit where a stage's controls sit. It
+              covers the work area — the editor keeps its state underneath — as
+              a page in the body, never a dialog. */}
           {details && selection?.kind === 'tool' && selection.key === 'details' ? (
-            <div className="absolute inset-0 z-30" data-maker-details-layer="">
-              {details}
+            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-details-layer="">
+              <MakerPage
+                pageKey="details"
+                page={details.page}
+                controls={details.controls}
+                onClose={() => select(null)}
+                closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
+              />
             </div>
           ) : null}
         </div>

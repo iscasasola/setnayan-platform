@@ -48,6 +48,7 @@ import {
   MakerHeroPanel,
   MakerLogoPanel,
   MakerRevealPanel,
+  readMakerRevealStages,
 } from '../../launch/_components/maker-made-once';
 import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
@@ -1008,6 +1009,8 @@ export default async function WebsiteEditorPage({
         reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
         logo: <MakerLogoPanel eventId={eventId} />,
       }}
+      /* 🎭 Where the reveal plays (drafted over live) — its page previews the first. */
+      revealStages={await readMakerRevealStages(eventId)}
       publicLandingUrl={slug ? `/${slug}` : null}
       scenes={scenes}
       navigator={navigator}

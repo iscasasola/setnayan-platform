@@ -36,6 +36,13 @@
  *    its openings. `wedding-only-parts.ts` already defines that part as "The
  *    Save-the-Date cinematic film AND ITS FIVE REVEAL OPENINGS" — one part.
  *
+ * ── 2026-09-25 · THE COUPLE MAY NOW WIDEN IT, PER EVENT ─────────────────────
+ * The owner let each couple pick the stages (Save the Date · Invitation · On
+ * the Day — "they can pick where the want to keep it"). This file still holds
+ * the DEFAULT — a couple who never chose, which is every call below (no
+ * `revealStages`) — and that default did not move. The couple's choice is held
+ * by `the-couple-picks-where-the-reveal-plays.test.ts`.
+ *
  * Run: pnpm --filter @setnayan/web test:unit
  */
 import { test } from 'node:test';

@@ -220,8 +220,9 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
         page: React.createElement('div', { 'data-stub': 'details-page' }),
         controls: React.createElement('div', { 'data-stub': 'details-fields' }),
       },
-      children: React.createElement('div', { 'data-stub': 'work' }),
-    }),
+    },
+    React.createElement('div', { 'data-stub': 'work' }),
+    ),
   );
   assert.match(html, /data-maker-page="details"/);
   assert.match(html, /data-maker-page-body=""[\s\S]*data-stub="details-page"/, 'what the details feed is the body');

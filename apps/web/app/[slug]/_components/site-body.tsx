@@ -814,6 +814,9 @@ export async function SiteBody({
           viewer={storyViewer}
           /* ✈ The other end of the same column the shell reads above. */
           magicTraveller={magicTraveller}
+          /* 📖 Post Event's scene markers — the Maker's canvas only, the same
+             gate as `makerMark` above; every guest's HTML is unchanged. */
+          makerMarkers={Boolean(isEditorCanvas && editorBridge)}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />

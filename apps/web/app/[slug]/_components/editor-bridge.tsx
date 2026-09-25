@@ -96,6 +96,22 @@ export function EditorBridge() {
       const prevCursor = el.style.cursor;
       el.style.cursor = 'pointer';
       const send = (e: Event) => {
+        /*
+          📖 AN OPEN-UP SCENE (Maker Phase 8) OPENS IN THE CANVAS TOO. Its
+          trigger goes nowhere — it lays the scene full screen over this same
+          page, and ✕ / Esc / Back return — so the couple can check it where
+          they edit it. The tile is still selected: by the NEAREST bound
+          section only (an enclosing one — the whole story — must not take the
+          selection back), and the event is left to bubble, because React
+          listens at the root and a stopped click would never open anything.
+        */
+        const trigger = (e.target as Element | null)?.closest?.('[data-open-up-trigger]');
+        if (trigger) {
+          if (trigger.closest('[data-setnayan-editor-bound="1"]') === el) {
+            window.parent?.postMessage({ source: 'setnayan-site', t: 'edit', key }, origin);
+          }
+          return;
+        }
         // A link or button inside the section keeps its own job; the canvas
         // never follows it anywhere (see maker-canvas-guard.tsx).
         e.preventDefault();

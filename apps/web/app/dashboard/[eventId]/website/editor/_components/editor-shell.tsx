@@ -22,7 +22,8 @@ import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-m
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
-import { swapsForDrop, type MakerFixedKey } from '@/lib/maker-scene-list';
+import { swapsForDrop, type MakerFixedKey, type MakerStageList } from '@/lib/maker-scene-list';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
@@ -301,6 +302,10 @@ export function MakerWork({
         const type = data.key.slice(2);
         const scene = scenes.find((s) => s.type === type);
         if (scene) select?.({ kind: 'scene', id: scene.id });
+        return;
+      }
+      if (data.key.startsWith('p:')) {
+        select?.({ kind: 'post-event', scene: data.key.slice(2) });
         return;
       }
       if (data.key.startsWith('f:')) {
@@ -588,6 +593,27 @@ export function MakerWork({
               Main
             </button>
           </li>
+          {/* 📖 POST EVENT (Phase 8): when the story was written — or, said
+              plainly, that its scenes could not be read (the story itself is
+              untouched; the one tile stands in for it). */}
+          {stage === 'editorial' && navigator.postEvent ? (
+            <li className="shrink-0 self-center px-1 text-[11px] font-semibold text-ink/60 lg:mb-2 lg:self-stretch" data-maker-post-event-state="">
+              {navigator.postEvent === 'unreadable' ? (
+                <InfoTip label="Scenes unavailable" align="start">
+                  Your story’s scenes could not be read just now. The story itself is unchanged — open the Maker
+                  again in a moment.
+                </InfoTip>
+              ) : (
+                <InfoTip
+                  label={`Auto · written ${new Date(navigator.postEvent.generatedAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
+                  align="start"
+                >
+                  After your day, the Event Hub Maker wrote every scene below from what happened — nothing was typed.
+                  A scene with nothing in it is skipped, never shown empty. The written story is free.
+                </InfoTip>
+              )}
+            </li>
+          ) : null}
           {/* 🧭 THE STAGE'S OWN LIST — what the canvas draws, in the order it
               draws it (`lib/maker-scene-list.ts`, asked of the page's own
               plan). Fixed sections are locked; the rest drag. */}
@@ -596,8 +622,10 @@ export function MakerWork({
             const on =
               tile.kind === 'scene'
                 ? selectedScene?.id === tile.widgetId
-                : selection?.kind === 'tool' && selection.key === FIXED_TOOL[tile.fixed];
-            const showing = scene ? sceneShowing(scene) : true;
+                : tile.kind === 'post-event'
+                  ? selection?.kind === 'post-event' && selection.scene === tile.scene
+                  : selection?.kind === 'tool' && selection.key === FIXED_TOOL[tile.fixed];
+            const showing = scene ? sceneShowing(scene) : tile.kind === 'post-event' ? tile.drawn : true;
             const next = list.shown[i + 1];
             const canDrag = tile.kind === 'scene' && !pending && !list.orderIsAutomatic;
             return (
@@ -641,7 +669,7 @@ export function MakerWork({
                   className="relative flex items-start gap-1.5 lg:py-1"
                 >
                   <span aria-hidden className="w-3 pt-1 text-right font-mono text-[10px] font-bold text-ink/50">
-                    {i + 1}
+                    {tile.kind === 'post-event' ? (tile.position ?? '—') : i + 1}
                   </span>
                   <div className="min-w-0 flex-1">
                     {/* The tile takes the DEVICE'S shape — a landscape page on
@@ -655,9 +683,20 @@ export function MakerWork({
                       type="button"
                       data-maker-scene={tile.kind === 'scene' ? tile.type : undefined}
                       data-maker-fixed={tile.kind === 'fixed' ? tile.fixed : undefined}
+                      data-maker-post-event={tile.kind === 'post-event' ? tile.scene : undefined}
+                      data-maker-status={tile.kind === 'post-event' ? (tile.hidden ? 'hidden' : tile.status) : undefined}
                       aria-pressed={on}
-                      aria-label={`${tile.label}${tile.kind === 'fixed' ? ' (always here on this stage)' : showing ? '' : ' (hidden from guests)'}`}
+                      aria-label={
+                        tile.kind === 'post-event'
+                          ? postEventTileLabel(tile)
+                          : `${tile.label}${tile.kind === 'fixed' ? ' (always here on this stage)' : showing ? '' : ' (hidden from guests)'}`
+                      }
                       onClick={() => {
+                        if (tile.kind === 'post-event') {
+                          select?.({ kind: 'post-event', scene: tile.scene });
+                          scrollPreviewTo(tile.anchor ?? undefined);
+                          return;
+                        }
                         if (tile.kind === 'scene') select?.({ kind: 'scene', id: tile.widgetId });
                         else if (FIXED_TOOL[tile.fixed]) select?.({ kind: 'tool', key: FIXED_TOOL[tile.fixed]! });
                         scrollPreviewTo(tile.key);
@@ -674,9 +713,19 @@ export function MakerWork({
                       }`}
                     >
                       <SceneMiniature mini={minis[tile.key]} fallback={tile.label} tint={tint} device={device} />
-                      {tile.kind === 'fixed' ? (
+                      {tile.kind === 'fixed' || (tile.kind === 'post-event' && tile.pinned) ? (
                         <span className="absolute left-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm">
                           <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        </span>
+                      ) : null}
+                      {tile.kind === 'post-event' ? (
+                        /* 📖 What filled it, said on the tile: Auto · Skipped · Hidden · Optional. */
+                        <span
+                          className={`absolute bottom-1 right-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-sm ${
+                            tile.drawn ? 'bg-white/90 text-ink/70' : 'bg-ink/80 text-cream'
+                          }`}
+                        >
+                          {postEventStatusWord(tile)}
                         </span>
                       ) : null}
                     </button>
@@ -708,6 +757,14 @@ export function MakerWork({
                     {tile.kind === 'fixed' ? (
                       <InfoTip label={tile.label} align="start" labelClassName="line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
                         {tile.why}
+                      </InfoTip>
+                    ) : tile.kind === 'post-event' ? (
+                      <InfoTip
+                        label={tile.label}
+                        align="start"
+                        labelClassName={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}
+                      >
+                        {postEventTileNote(tile)}
                       </InfoTip>
                     ) : (
                       <span className={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}>
@@ -916,6 +973,12 @@ export function MakerWork({
       {selection ? (
         <Inspector
           selection={selection}
+          postEventTile={
+            selection.kind === 'post-event'
+              ? ((list.shown.find((t) => t.kind === 'post-event' && t.scene === selection.scene) as PostEventTile | undefined) ?? null)
+              : null
+          }
+          postEventWrittenAt={navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.generatedAt : null}
           scene={selectedScene}
           scenePanel={selectedScene ? scenePanels[selectedScene.id] : null}
           rows={rows}
@@ -1031,6 +1094,32 @@ function LoveStoryControls({ rows }: { rows: Record<string, MakerRowPanel> }) {
       ))}
     </section>
   );
+}
+
+/* ── 📖 POST EVENT TILES (Maker Phase 8) ─────────────────────────────────── */
+type PostEventTile = Extract<MakerStageList['shown'][number], { kind: 'post-event' }>;
+
+/** The one word on the tile — what filled it, or why guests do not meet it. */
+function postEventStatusWord(tile: PostEventTile): string {
+  if (tile.status === 'skipped') return 'Skipped';
+  if (tile.status === 'optional') return 'Optional';
+  if (tile.hidden) return 'Hidden';
+  return 'Auto';
+}
+
+function postEventTileLabel(tile: PostEventTile): string {
+  if (tile.status === 'skipped') return `${tile.label} (skipped — ${tile.note ?? 'nothing to show yet'})`;
+  if (tile.status === 'optional') return `${tile.label} (optional — ${tile.note ?? 'not chosen'})`;
+  if (tile.hidden) return `${tile.label} (hidden from guests)`;
+  return `${tile.label} (written for you)`;
+}
+
+/** The ⓘ under the tile: the template, and what filled it or why it is skipped. */
+function postEventTileNote(tile: PostEventTile): string {
+  const tpl = tile.template ? `${tile.template} · ${SCENE_TEMPLATES[tile.template]?.name ?? ''}` : 'Its own part of the page';
+  const what = tile.status === 'auto' ? `Filled from: ${tile.source}` : (tile.note ?? '');
+  const open = tile.open ? ' A tap opens it full screen; Back returns to the same place.' : '';
+  return `${tpl}. ${what}.${open}`;
 }
 
 /** Which toolbar tool a fixed section opens (none for the entourage). */
@@ -1248,6 +1337,8 @@ const TABS: Array<{ key: MakerSceneTab; label: string }> = [
 
 function Inspector({
   selection,
+  postEventTile = null,
+  postEventWrittenAt = null,
   scene,
   scenePanel,
   rows,
@@ -1261,6 +1352,10 @@ function Inspector({
 }: {
   madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null;
   selection: NonNullable<MakerSelection>;
+  /** 📖 The selected Post Event scene's tile (Maker Phase 8). */
+  postEventTile?: PostEventTile | null;
+  /** When the story was written — shown as the scene's "Auto · written …". */
+  postEventWrittenAt?: string | null;
   scene: MakerScene | null;
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
@@ -1288,6 +1383,8 @@ function Inspector({
   const title =
     selection.kind === 'scene'
       ? (scene?.label ?? 'Scene')
+      : selection.kind === 'post-event'
+        ? (postEventTile?.label ?? 'Post Event')
       : selection.kind === 'main'
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
@@ -1298,7 +1395,63 @@ function Inspector({
   const contentRow = scene ? CONTENT_ROW_FOR_TYPE[scene.type] : undefined;
 
   let body: ReactNode = null;
-  if (selection.kind === 'scene') {
+  if (selection.kind === 'post-event') {
+    /*
+      📖 A SCENE THE MAKER WROTE (Phase 8). It says what it is, what filled it
+      — or why it is skipped — and where it is changed. Showing, hiding and
+      the order of these scenes live in the story workroom until that desk
+      moves into the Maker (the story's `sections` / `sectionOrder` are the one
+      source for both, so the two can never disagree).
+    */
+    const t = postEventTile;
+    body = t ? (
+      <section className="space-y-3 px-1" data-maker-post-event-panel={t.scene}>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/60">
+          {postEventStatusWord(t)}
+          {t.status === 'auto' && postEventWrittenAt
+            ? ` · written ${new Date(postEventWrittenAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`
+            : ''}
+        </p>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px]">
+          <dt className="text-ink/60">Template</dt>
+          <dd className="text-ink">
+            {t.template ? `${t.template} · ${SCENE_TEMPLATES[t.template]?.name ?? ''}` : 'Its own part of the page'}
+          </dd>
+          <dt className="text-ink/60">{t.status === 'auto' ? 'Filled from' : 'Why'}</dt>
+          <dd className="text-ink">{t.status === 'auto' ? t.source : t.note}</dd>
+          {t.open ? (
+            <>
+              <dt className="text-ink/60">On the page</dt>
+              <dd className="text-ink">A preview in the flow; a tap opens it full screen, and Back returns to it.</dd>
+            </>
+          ) : null}
+          {t.pinned ? (
+            <>
+              <dt className="text-ink/60">Place</dt>
+              <dd className="text-ink">Fixed — the story always {t.scene === 'cover' ? 'opens' : 'closes'} here.</dd>
+            </>
+          ) : null}
+        </dl>
+        {t.status === 'skipped' ? (
+          <p className="text-[13px] text-ink/70">
+            Nothing is shown to guests here — never an empty box. It appears on its own when something arrives.
+          </p>
+        ) : null}
+        <Link
+          href={`/dashboard/${eventId}/story`}
+          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream hover:bg-ink/90"
+        >
+          Show, hide or reorder in your story workroom
+          <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+        {(TOOL_ROWS['post-event'] ?? []).filter((k) => rows[k]).map((k) => (
+          <RowBlock key={k} row={rows[k]!} />
+        ))}
+      </section>
+    ) : (
+      <p className="px-1 text-[13px] text-ink/70">This scene is not on this stage.</p>
+    );
+  } else if (selection.kind === 'scene') {
     body =
       tab === 'content' ? (
         /* The hero scene's words and photo ARE the one hero (Phase 6): made

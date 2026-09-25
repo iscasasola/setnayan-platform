@@ -133,7 +133,8 @@ test('⛔ the writer MERGES config_json — a sibling setting is never deleted',
   assert.ok(at > 0, 'the action exists');
   const body = src.slice(at);
   assert.match(body, /const next = \{ \.\.\.existing, canvas \}/, 'it spreads what was already there');
-  assert.match(body, /\.select\('widget_id, config_json'\)/, 'read from the row, not from the form');
+  // (`widget_type` joined the select for the Maker's draft door — it keys the draft.)
+  assert.match(body, /\.select\('widget_id, (?:widget_type, )?config_json'\)/, 'read from the row, not from the form');
   assert.match(body, /if \(timelineRaw === 'auto'\) delete canvas\.timeline;/, 'Auto deletes the key');
   assert.match(body, /requireHostMembershipOrThrow/, 'and only a host may write it');
 });

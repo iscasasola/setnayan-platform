@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft } from 'lucide-react';
 import type { StudioConfig } from '@/lib/monogram-studio-shared';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -59,6 +60,14 @@ export function MakerLogoDoor({
   const inFlight = useRef(false);
   const timer = useRef<number | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  /* 🪤 MEASURED IN THE BROWSER: the inspector is glass (`backdrop-filter`), and a
+     filtered box is the containing block for its `position: fixed` children — so
+     the "full-screen" sheet opened 340px wide inside the inspector. It is
+     portalled to the Maker shell (itself `fixed inset-0`, no filter) instead. */
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setHost(document.querySelector<HTMLElement>('[data-maker-shell]') ?? document.body);
+  }, []);
   const hostRef = useRef<HTMLDivElement>(null);
 
   /** Put what is on the canvas into the draft — only when it changed. */
@@ -200,7 +209,8 @@ export function MakerLogoDoor({
         {' '}— the studio then builds from your file.
       </p>
 
-      {open ? (
+      {open && host
+        ? createPortal(
         <div
           ref={sheetRef}
           role="dialog"
@@ -235,8 +245,10 @@ export function MakerLogoDoor({
               />
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+            host,
+          )
+        : null}
     </section>
   );
 }

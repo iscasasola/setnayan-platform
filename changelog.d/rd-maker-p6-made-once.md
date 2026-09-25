@@ -39,6 +39,14 @@ guests see nothing until Apply, and Apply is where Event Hub Pro is checked (try
   leaving. The status ("Saved to your draft · 9:41") is always on screen. Letters, frame and ink are free.
 - Upload stays reachable ("Upload it instead" → the Monogram Maker's upload side).
 
+**The Maker bar reaches Logo again (owner on the live Maker: "cannot see logo anymore even if i scroll").**
+The scrolling bar was `justify-content: center`, which pushes overflow off the LEFT edge where no scroll
+reaches. It now centres with `margin-inline: auto` on its first and last groups (collapses on overflow),
+fades an edge only while there is more to scroll, scrolls the active item into view, and
+`the-maker-bar-is-the-final-bar.test.ts` fails on any `justify-center` on the bar (sabotage-checked).
+The Maker's own form guard (`every-maker-form-drafts-or-says-so`) now reads the three made-once files,
+and `uploadHeroPhoto` / `removeHeroPhoto` join its draft doors.
+
 **Reset never erases the made-once group** — `hubResetPatch('all')` clears `HUB_RESET_EVENT_COLUMNS`
 (`rsvp_backdrop`) only.
 

@@ -87,3 +87,19 @@ test('the tour: the store shell drops the paid slide, and a price is only ever t
   const unread = makerTourSlides({ storeShell: false, priceLabel: null });
   assert.ok(unread.every((s) => !/₱|\{price\}/.test(s.body)), 'no remembered number when unread');
 });
+
+test('every bar item is reachable by scrolling — the bar never centres by justify-content', async () => {
+  /* Owner on the live Maker, 2026-09-25: "cannot see logo anymore even if i
+     scroll". `justify-content: center` on a scroll container pushes the overflow
+     off the LEFT edge where no scroll reaches. Centring must come from
+     margin-inline:auto on the first and last groups (collapses on overflow). */
+  const html = await paint();
+  const nav = /<nav[^>]*data-maker-bar=""[^>]*>/.exec(html)?.[0] ?? '';
+  assert.ok(nav, 'the bar was not rendered');
+  assert.doesNotMatch(nav, /justify-(center|around|evenly|end)|justify-content:\s*center/, 'the scrolling bar must not justify-center');
+  assert.match(nav, /overflow-x-auto/, 'the bar must scroll when it overflows');
+  const groups = [...html.matchAll(/<span class="flex shrink-0 items-center gap-0\.5([^"]*)"/g)].map((m) => m[1]!);
+  assert.equal(groups.length, 3, 'three groups');
+  assert.match(groups[0]!, /\bms-auto\b/, 'the first group centres with margin-inline-start:auto');
+  assert.match(groups[2]!, /\bme-auto\b/, 'the last group centres with margin-inline-end:auto');
+});

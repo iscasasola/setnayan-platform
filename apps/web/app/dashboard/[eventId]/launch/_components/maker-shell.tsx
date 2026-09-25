@@ -311,14 +311,61 @@ export function MakerBar({
     if (last && last[0]!.group === item.group) last.push(item);
     else groups.push([item]);
   }
+
+  /*
+    🪤 OWNER, ON THE LIVE MAKER (2026-09-25): "cannot see logo anymore even if i
+    scroll". The bar was `justify-content: center` on a scroll container — when
+    the items are wider than the bar, centring pushes the overflow off BOTH
+    edges and the left half can never be scrolled to (Logo was clipped, "Prints
+    & Tick…" cut). Centring now comes from `margin-inline: auto` on the first and
+    last groups (`ms-auto` / `me-auto`): with room to spare they centre the bar;
+    without it they collapse to 0 and every item is reachable by scrolling.
+    `the-maker-bar-is-the-final-bar.test.ts` holds the rule.
+  */
+  const navRef = useRef<HTMLElement>(null);
+  const [fade, setFade] = useState<{ l: boolean; r: boolean }>({ l: false, r: false });
+  const measure = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setFade({ l: el.scrollLeft > 2, r: el.scrollLeft < max - 2 });
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure]);
+  /* The ACTIVE item is scrolled into view when the Maker opens and whenever it
+     changes — on a phone the stage the couple is on may sit past the edge. */
+  useEffect(() => {
+    const el = navRef.current;
+    const on = el?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!el || !on) return;
+    const left = on.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+    if (left < el.scrollLeft || left + on.offsetWidth > el.scrollLeft + el.clientWidth) {
+      el.scrollTo({ left: Math.max(0, left - el.clientWidth / 2 + on.offsetWidth / 2) });
+    }
+    measure();
+  }, [stage, selection, measure]);
+  const mask =
+    fade.l || fade.r
+      ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`
+      : undefined;
+
   return (
     <nav
+      ref={navRef}
       aria-label="Event Hub Maker"
       data-maker-bar=""
-      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto px-2 [scrollbar-width:none] md:mx-auto md:justify-center"
+      onScroll={measure}
+      style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
+      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto scroll-px-4 px-2 [scrollbar-width:none] md:mx-auto"
     >
       {groups.map((group, gi) => (
-        <span key={group[0]!.group} className="flex shrink-0 items-center gap-0.5">
+        <span
+          key={group[0]!.group}
+          className={`flex shrink-0 items-center gap-0.5 ${gi === 0 ? 'ms-auto' : ''} ${gi === groups.length - 1 ? 'me-auto' : ''}`}
+        >
           {gi > 0 ? <i aria-hidden data-maker-divider="" className="mx-1.5 block h-5 w-px bg-ink/15" /> : null}
           {group.map((item) => {
             if (item.kind === 'next' || (item.kind === 'tool' && !hasWork)) {

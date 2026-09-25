@@ -1,4 +1,7 @@
+import type { ReactElement } from 'react';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
+import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { renderScene, type SceneFacts } from './scene-template';
 
 /**
  * A SECTION THE COUPLE WROTE — a heading and their own words.
@@ -36,4 +39,32 @@ export function CustomSectionWidget({ config }: { config: unknown }) {
       </p>
     </section>
   );
+}
+
+/**
+ * WHAT A DISPATCHER CALLS FOR A `custom_N` ROW — a plain function, not a
+ * component, so its `null` reaches the dispatcher's own null check and the
+ * canvas frame stays off an empty scene (the frame refuses `children === null`).
+ *
+ * 🎬 A SCENE MADE FROM A TEMPLATE (Event Hub Maker Phase 5) draws through
+ * `renderScene`; a section written before templates existed draws exactly as it
+ * always did. The template is read here — the dispatchers never touch the
+ * canvas contract themselves (`every-dispatcher-frames-the-canvas.test.ts`).
+ */
+export function renderCustomSection(input: {
+  config: unknown;
+  mediaUrls?: Readonly<Record<string, string>>;
+  facts: SceneFacts;
+}): ReactElement | null {
+  const canvas = sanitizeHubCanvas(input.config);
+  if (canvas.template) {
+    return renderScene({
+      canvas,
+      words: sanitizeCustomSection(input.config),
+      mediaUrls: input.mediaUrls,
+      facts: input.facts,
+    });
+  }
+  if (!sanitizeCustomSection(input.config).body) return null;
+  return <CustomSectionWidget config={input.config} />;
 }

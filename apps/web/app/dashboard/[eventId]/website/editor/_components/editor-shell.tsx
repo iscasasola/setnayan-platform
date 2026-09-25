@@ -16,6 +16,7 @@ import {
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
 import { MAKER_COMING_NEXT } from '../../../launch/_components/maker-bar';
+import { SceneTemplatePicker } from './scene-template-picker';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -149,7 +150,18 @@ export function MakerWork({
   proUnlockHref,
   proPriceLabel,
   showProCta,
+  addScene = null,
+  sceneFacts = null,
 }: {
+  /** The event's names, monogram and days to go, for the built-on template tiles. */
+  sceneFacts?: { names?: string | null; monogram?: string | null; days?: number | null } | null;
+  /**
+   * "+ ADD A SCENE" — the 25 templates (Event Hub Maker Phase 5). The action
+   * (`addCustomSection`) and where it lands; null when a scene cannot be added
+   * here (not Pro, all six in use, or the store shell) — the `note` form then
+   * says why, in the same place, instead of a button that would be refused.
+   */
+  addScene?: { action: FormAction; returnTo: string } | { note: string } | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
   proPriceLabel: string | null;
@@ -478,11 +490,28 @@ export function MakerWork({
             );
           })}
           <li className="shrink-0 self-center lg:mt-2 lg:self-stretch">
-            <span className="flex items-center gap-1 pl-4 text-[11px] text-ink/60">
-              <InfoTip label="New scene" align="start">
-                {MAKER_COMING_NEXT.add}
-              </InfoTip>
-            </span>
+            {addScene && 'action' in addScene ? (
+              /* 🎬 "+" opens the 25 templates, headed with the stage being
+                 edited and drawn in the view being edited (owner 2026-09-24). */
+              <div className="pl-4">
+                <SceneTemplatePicker
+                  overlay
+                  action={addScene.action}
+                  hidden={{ event_id: eventId, return_to: addScene.returnTo }}
+                  stageLabel={stage === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[stage]}
+                  heading="Add a scene to"
+                  triggerLabel="+ Add a scene"
+                  initialView={maker?.device === 'phone' ? 'phone' : 'desktop'}
+                  facts={sceneFacts}
+                />
+              </div>
+            ) : addScene && 'note' in addScene ? (
+              <span className="flex items-center gap-1 pl-4 text-[11px] text-ink/60">
+                <InfoTip label="New scene" align="start">
+                  {addScene.note}
+                </InfoTip>
+              </span>
+            ) : null}
           </li>
         </ol>
         {/* the edge you drag to make the navigator wider or narrower */}

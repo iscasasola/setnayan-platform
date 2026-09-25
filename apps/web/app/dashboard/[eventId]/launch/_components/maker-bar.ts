@@ -48,8 +48,8 @@ export const MAKER_COMING_NEXT: Record<'prints' | 'hero' | 'love-story' | 'logo'
   hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
   'love-story': 'The Love Story scrapbook is coming in the next build — for now this is your story in words.',
   logo: 'The Logo Maker moves inside the Event Hub Maker in the next build — for now it opens in its own page.',
-  add: 'New scenes from the 25 templates are coming in the next build.',
-  snap: 'The snap grid arrives with scene templates in the next build.',
+  add: 'Add a scene from the 25 templates with “+ Add a scene” at the end of your scenes.',
+  snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone. Placing things freely comes in the next build.',
   both: 'Desktop and phone side by side is coming in the next build — switch between them for now.',
 };
 

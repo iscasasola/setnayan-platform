@@ -1,6 +1,7 @@
 import { Children } from 'react';
 import { sanitizeHubCanvas } from '@/lib/hub-canvas';
 import {
+  HUB_DEFAULT_AUTO_SPEED,
   groupSceneRuns,
   hasScrubRun,
   renderedTransition,
@@ -9,10 +10,13 @@ import {
   sceneTimelineName,
 } from '@/lib/hub-scenes';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { HubAutoRun } from './hub-auto-run';
 
 /**
- * THE PAGE'S SCENES — Scroll and Scrub, per section, drawn with CSS only
- * (owner 2026-09-24: "hybrid perfect"; contract in `lib/hub-scenes.ts`).
+ * THE PAGE'S SCENES — Scroll, Scrub and Auto, per section, drawn with CSS
+ * (owner 2026-09-24: "hybrid perfect"; contract in `lib/hub-scenes.ts`). Auto
+ * runs add one small client island, `HubAutoRun`, that only says WHEN the
+ * clock may run — see its docblock.
  *
  * `children` is the dispatcher's output, ONE NODE PER WIDGET, in the same order
  * as `widgets` — so the grouping below reads each scene's transition by
@@ -45,8 +49,9 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
  * only scrub sections that HAVE content, with sibling selectors — an empty one
  * simply drops out of its run.
  *
- * 🔒 NO SCRIPT, and no function crosses to the client: this is a server
- * component that writes classes and custom properties.
+ * 🔒 NO FUNCTION crosses to the client: this is a server component that
+ * writes classes and custom properties. The only script is `HubAutoRun`, and
+ * only on a page that has an Auto run.
  */
 export function HubScenes({
   widgets,
@@ -54,7 +59,8 @@ export function HubScenes({
   children,
 }: {
   widgets: readonly InvitationWidgetRow[];
-  /** Event Hub Pro, resolved once by the page. Without it every section scrolls. */
+  /** Event Hub Pro, resolved once by the page. Without it every section
+   *  scrolls — Scrub AND Auto (the name predates Auto). */
   scrubAllowed: boolean;
   children: React.ReactNode;
 }) {
@@ -64,8 +70,10 @@ export function HubScenes({
      section's choice on its neighbour — so the page is left exactly as given. */
   if (nodes.length !== widgets.length) return <>{children}</>;
 
-  const segments = groupSceneRuns(widgets, (w) =>
-    renderedTransition(resolveTransition(sanitizeHubCanvas(w.config_json)), scrubAllowed),
+  const segments = groupSceneRuns(
+    widgets,
+    (w) => renderedTransition(resolveTransition(sanitizeHubCanvas(w.config_json)), scrubAllowed),
+    (w) => sanitizeHubCanvas(w.config_json).autoSpeed ?? HUB_DEFAULT_AUTO_SPEED,
   );
   if (!hasScrubRun(segments)) return <>{children}</>;
 
@@ -77,7 +85,16 @@ export function HubScenes({
       <div className="hub-prog" aria-hidden="true">
         <span className="hub-prog-bar">
           {segments.flatMap((seg) =>
-            seg.kind === 'scroll'
+            /* An auto run is ONE screen, so it is one segment, filled as the
+               run passes — its scenes change on a clock, not under the thumb. */
+            seg.kind === 'auto'
+              ? [
+                  <i
+                    key={`a${seg.entries[0]?.index}`}
+                    style={{ ...tl(seg.entries[0]?.index ?? 0), '--hub-pr': sceneProgressRange('scroll', false, false) } as React.CSSProperties}
+                  />,
+                ]
+              : seg.kind === 'scroll'
               ? [
                   <i
                     key={seg.entry.index}
@@ -99,7 +116,24 @@ export function HubScenes({
         </span>
       </div>
       {segments.map((seg) =>
-        seg.kind === 'scroll' ? (
+        seg.kind === 'auto' ? (
+          /* 🎬 AUTO — the scenes share one cell and hand over on the clock.
+             `HubAutoRun` times the scenes that actually drew something (a
+             scene can render nothing, and a clock slot for it would be a
+             blank screen), and the stylesheet binds the fades only once the
+             run is armed — without script every scene simply stacks. */
+          <HubAutoRun
+            key={`auto-${seg.entries[0]?.index}`}
+            timeline={names[seg.entries[0]?.index ?? 0] ?? ''}
+            speed={seg.speed}
+          >
+            {seg.entries.map((e) => (
+              <div key={`s${e.index}`} className="hub-scene hub-auto">
+                {nodes[e.index]}
+              </div>
+            ))}
+          </HubAutoRun>
+        ) : seg.kind === 'scroll' ? (
           <div key={seg.entry.index} className="hub-scene hub-scroll" style={tl(seg.entry.index)}>
             {nodes[seg.entry.index]}
           </div>

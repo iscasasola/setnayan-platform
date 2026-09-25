@@ -66,6 +66,7 @@ import { FindInThisDay } from './find-in-this-day';
 import { Relive, type ReliveSlide } from './relive';
 import { StoryIndex } from './story-index';
 import { WereYouThere } from './were-you-there';
+import { OpenUpScene } from '../editorial/open-up-layer';
 import type { YourOwnDay } from '../../_lib/your-own-day.server';
 import type { RoadFact, StorySpineFacts } from './spine-data';
 import { ArrangedSheet } from './arranged-sheet';
@@ -894,15 +895,38 @@ export function StorySpine({
         `01` §3.7. One person's own account, resolved from their signed Papic
         session. 🔒 There is no name field, for anyone, ever.
       */}
-      <WereYouThere
-        own={own}
-        anchors={anchors}
-        windowMs={windowMs}
-        eventId={eventId}
-        occasion={words.occasion}
-        host={words.host}
-        storyCard={storyCard}
-      />
+      {/* 🔓 OPEN-UP (Event Hub Maker Phase 8): one line in the flow; their own
+          day opens full screen and closes back here. The body is the shipped
+          panel, unchanged — still no name field, for anyone. */}
+      <OpenUpScene
+        kind="you"
+        className="mx-auto mt-14 max-w-5xl px-4 min-[1100px]:max-w-6xl"
+        title="Were you there?"
+        eyebrow={own.signedIn ? 'Your own day' : 'For the people who were there'}
+        openLabel={own.signedIn ? 'Open your day' : 'What this is'}
+        preview={
+          <span className="block border-t-2 border-ink pt-4">
+            <span className="block font-condensed text-[clamp(1.9rem,6vw,3rem)] font-black uppercase leading-[0.9] tracking-tight">
+              Were you there?
+            </span>
+            <span className="mt-2 block max-w-[46ch] text-[15px] leading-relaxed text-ink/70">
+              {own.signedIn
+                ? 'Your own account of the day — the minutes you are in, what you shot and what you said.'
+                : 'This part is only for the people who were there, each on their own Papic link. There is nothing to type.'}
+            </span>
+          </span>
+        }
+      >
+        <WereYouThere
+          own={own}
+          anchors={anchors}
+          windowMs={windowMs}
+          eventId={eventId}
+          occasion={words.occasion}
+          host={words.host}
+          storyCard={storyCard}
+        />
+      </OpenUpScene>
 
       {/*
         THE LIGHT. It renders nothing — it writes three custom properties on the

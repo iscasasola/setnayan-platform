@@ -40,6 +40,7 @@ import { HubDraftDock } from '../website/_components/hub-draft-dock';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
@@ -949,6 +950,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} /> : null}
     >
+      {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
+          has happened. Never on the Maker's very first visit: the Maker's own
+          welcome goes first, and two tours must not stack. Rendered INSIDE the
+          shell so its dialog sits in the shell's layer, above the toolbar. */}
+      {hasWork && eventHasHappened && !firstVisit ? (
+        <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} />
+      ) : null}
       {hasWork ? (
         <WebsiteEditorPage
           params={Promise.resolve({ eventId })}

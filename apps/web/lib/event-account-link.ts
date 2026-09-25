@@ -2,7 +2,8 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
-import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { fillAccountNameFromSeat, linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { TERMS_VERSION } from '@/lib/terms-agreement';
 
 /**
  * Invite/Join v2 — email-link → real Setnayan account (0000 ADDENDUM 2026-06-25).
@@ -31,6 +32,14 @@ export async function sendEventAccountMagicLink(params: {
   eventId: string;
   guestId: string;
   email: string;
+  /**
+   * The guest TICKED "keep this invitation · I agree to the Terms" (the reply
+   * form or the one account card). Recorded on the account this call creates —
+   * the same two columns `/signup` writes (lib/terms-agreement.ts). Absent for
+   * the doors that do not ask (the host's "send them a link"), which record
+   * nothing rather than an agreement nobody made.
+   */
+  termsAgreed?: boolean;
 }): Promise<{ ok: boolean }> {
   const admin = createAdminClient();
   const email = params.email.trim();
@@ -55,11 +64,19 @@ export async function sendEventAccountMagicLink(params: {
   //    passwordless account so the connect route prompts them to set one on first
   //    sign-in — OAuth (Apple/Google) accounts are never created here, so they're
   //    never flagged and keep using their provider.
-  await admin.auth.admin.createUser({
+  const { data: created } = await admin.auth.admin.createUser({
     email,
     email_confirm: true,
     user_metadata: { account_type: 'customer', needs_password: true },
   });
+
+  // 2b. The agreement, on the account it was given for — ONLY a brand-new one
+  //     (an existing account agreed when it was made; its record is not ours to
+  //     rewrite). Best-effort: a missed stamp must never cost the guest the link.
+  const newUserId = created?.user?.id;
+  if (params.termsAgreed && newUserId) {
+    await recordTermsForNewAccount(admin, newUserId);
+  }
 
   // 3. Generate a magic login link (does NOT send email). redirectTo lands on
   //    /auth/callback (PKCE exchange) → the event-connect route.
@@ -91,6 +108,37 @@ export async function sendEventAccountMagicLink(params: {
   });
 
   return { ok: result.ok };
+}
+
+/**
+ * Stamp `terms_accepted_at` + `terms_version` on a brand-new account's
+ * `public.users` row. The row is made by the `on_auth_user_created` trigger on
+ * another connection, so an UPDATE fired immediately can match zero rows — the
+ * same race `signUp` polls through. Never throws.
+ */
+async function recordTermsForNewAccount(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<void> {
+  try {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data: row } = await admin
+        .from('users')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (row) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const { error } = await admin
+      .from('users')
+      .update({ terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION })
+      .eq('user_id', userId)
+      .is('terms_accepted_at', null);
+    if (error) console.error('[supabase-error] lib/event-account-link.ts · from:users.update', error);
+  } catch {
+    // Best-effort by contract — see the caller.
+  }
 }
 
 /**
@@ -200,6 +248,7 @@ export async function connectEventForUser(
       },
       { onConflict: 'event_id,user_id', ignoreDuplicates: true },
     );
+    if (!error) await fillAccountNameFromSeat(admin, userId, guest.guest_id as string);
     return { connected: !error };
   } catch {
     return { connected: false };

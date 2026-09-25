@@ -17,9 +17,8 @@ import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { recordScan } from '@/lib/scan-trail';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
-import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import type { GuestRole } from '@/lib/guests';
-import { inviteReplyPath } from '@/lib/invite-arrival';
+import { inviteReplyPath, selfJoinRefusalPath } from '@/lib/invite-arrival';
 
 // Sanity ceiling on accountless self-joins per event. The QR token is the real
 // gate; this just bounds runaway spam (the couple reviews/deletes the
@@ -493,15 +492,26 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   // 🔒 Always `guest` — see joinEventAction. The door no longer offers a role.
   const role: GuestRole = 'guest';
   const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
-  // Optional: if they give an email we also email a passwordless sign-in link
-  // that connects this event to a real Setnayan account (Invite/Join v2).
-  const email = String(formData.get('email') ?? '').trim();
-
-  if (!presentedName) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=missing_name`);
-  }
+  // ⛔ NO `email` READ ANY MORE. Door 01 has not rendered an email box since the
+  // three doors (2026-09-10) — the address is asked ONCE, on the Reply door,
+  // whose Save sends the sign-in link (lib/guest-one-path.server.ts).
 
   const admin = createAdminClient();
+  // The event's public address, read FIRST so every refusal below can send the
+  // guest back to the door they came through (`/{slug}/invite`), with its
+  // sentence — see `selfJoinRefusalPath`. From the DATABASE, never the form.
+  const { data: event } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const slug = ((event?.slug as string | null) ?? '').trim() || null;
+  const refuse = (error: string) =>
+    redirect(selfJoinRefusalPath({ eventId, token, slug, error }));
+
+  if (!presentedName) {
+    return refuse('missing_name');
+  }
 
   // 1. Re-validate the token — this is the ONLY gate (no RLS on the admin write),
   //    so it must be mandatory and identical to the page/joinEventAction check.
@@ -518,7 +528,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
 
   if (!tokenValid) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+    return refuse('invalid_token');
   }
 
   // 🚦 THE THROTTLE, ADOPTED (2026-08-06). PR #4160 built and tested this helper
@@ -535,9 +545,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   // A real guest at the reception would be told the event is full.
   const throttle = await allowGuestSelfJoinAttempt(eventId, await headers());
   if (!throttle.allowed) {
-    return redirect(
-      `/join/${eventId}?token=${encodeURIComponent(token)}&error=too_many_attempts`,
-    );
+    return refuse('too_many_attempts');
   }
 
   // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).
@@ -562,21 +570,15 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   // gets its own code and its own sentence rather than being told its token
   // died. See lib/join-door-refusal-copy.ts.
   if (!visRow) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+    return refuse('invalid_token');
   }
   if (resolveEffectiveVisibility(visRow) === 'private') {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=event_is_private`);
+    return refuse('event_is_private');
   }
 
   // 2. The accountless guest lands on the public `/[slug]` page to RSVP — so it
   //    only makes sense when a slug exists. (The page only offers this path when
   //    there is one; guard anyway and fall back to the sign-in route.)
-  const { data: event } = await admin
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const slug = (event?.slug as string | null) ?? null;
   if (!slug) {
     return redirect(`/login?next=${encodeURIComponent(`/join/${eventId}?token=${token}`)}`);
   }
@@ -585,10 +587,6 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   //    no duplicate row (the guest-session cookie is the dedup key).
   const existingSession = await readGuestSession();
   if (existingSession && existingSession.event_id === eventId) {
-    if (email) {
-      await sendEventAccountMagicLink({ eventId, guestId: existingSession.guest_id, email });
-      return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
-    }
     return redirect(inviteReplyPath(slug));
   }
 
@@ -600,7 +598,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     .eq('entry_source', 'self_added_unlisted')
     .is('deleted_at', null);
   if ((count ?? 0) >= SELF_JOIN_CEILING) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=join_closed`);
+    return refuse('join_closed');
   }
 
   // 4b. NAME-AS-ANSWER-KEY for accountless joiners — if the typed name confidently
@@ -652,10 +650,6 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
       // while the no-match branch below records one (step 8). Best-effort;
       // a failure here must never block a legitimate guest.
       await recordJoinScan(admin, eventId, match.candidate.guestId, 'self_join_bound_seed');
-      if (email) {
-        await sendEventAccountMagicLink({ eventId, guestId: match.candidate.guestId, email });
-        return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
-      }
       return redirect(inviteReplyPath(slug));
     }
   }
@@ -689,7 +683,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     .single();
 
   if (error || !inserted) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=join_failed`);
+    return refuse('join_failed');
   }
 
   // 6. Sign the guest-session cookie — now identical to a /[slug]/redeem guest.
@@ -704,13 +698,6 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
 
   // 8. Best-effort scan record for triage (mirrors redeem; failures don't block).
   await recordJoinScan(admin, eventId, inserted.guest_id as string, 'self_join');
-
-  // 9. Opted into an account → email a passwordless sign-in link that connects
-  //    this event to their Setnayan account, then tell them to check their inbox.
-  if (email) {
-    await sendEventAccountMagicLink({ eventId, guestId: inserted.guest_id as string, email });
-    return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
-  }
 
   return redirect(inviteReplyPath(slug));
 }

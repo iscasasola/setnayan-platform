@@ -29,6 +29,9 @@ import { readGuestSession } from '@/lib/guest-session';
 import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { guestAccountState, resolveGuestViewer } from '@/lib/guest-one-path';
+import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
+import { AdoptSeatSession } from './_components/adopt-seat-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
 import { closedEventAdmits } from '@/lib/closed-event-admission';
@@ -122,6 +125,9 @@ type Props = {
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
     rsvp?: string;
+    // The one account card's own outcome (`claimAccountAction`): `error` when
+    // the sign-in link could not be sent. A sent link is read from its cookie.
+    keep?: string;
     // Editor RSVP'd tab (2026-07-26) — `?as=replied` previews the `rsvp` phase
     // as a guest who already answered "attending". Honoured ONLY for a viewer
     // holding a server-verified OwnerCapability; inert for everyone else, so a
@@ -980,10 +986,22 @@ async function InvitationBody({
   // the invited cousin is very often a signed-in account with a seat and no
   // cookie. The seat lookup already exists; it just only ran inside the
   // private-event gate, which never runs on a public event at all.
-  const viewerHoldsASeat =
+  const viewerSeat =
     viewerAccount?.id && !ownerCapability
-      ? (await findGuestSeatForUser(event.event_id, viewerAccount.id)) !== null
-      : false;
+      ? await findGuestSeatForUser(event.event_id, viewerAccount.id)
+      : null;
+  const viewerHoldsASeat = viewerSeat !== null;
+
+  // ── WHO IS THIS GUEST, ON THIS EVENT (owner 2026-09-25) ──────────────────
+  // The cookie when it names this event; otherwise the seat this SIGNED-IN
+  // account is bound to. Until now a signed-in guest on a new phone — or anyone
+  // invited to two events — met the anonymous page: no reply form, no QR, while
+  // we held their membership row. See lib/guest-one-path.ts.
+  const guestViewer = resolveGuestViewer({
+    eventId: event.event_id,
+    cookie: session,
+    seat: viewerSeat,
+  });
 
   // ── THE TWO DOORS, BEFORE THE DAY. ───────────────────────────────────────
   //
@@ -1114,7 +1132,7 @@ async function InvitationBody({
     // check asks the band's own song-desk gate, so it is not run for anybody
     // the card could never render for.
     songRequestDoor:
-      dayOfPhase === 'live' && session?.event_id === event.event_id
+      dayOfPhase === 'live' && guestViewer.kind !== 'anonymous'
         ? await eventSongRequestDoor(admin, event.event_id)
         : null,
   };
@@ -1184,15 +1202,15 @@ async function InvitationBody({
     );
   }
 
-  if (!session) {
+  if (guestViewer.kind === 'anonymous') {
+    // Cookie session is for a different event AND this viewer holds no seat
+    // here → the public landing, with the wrong-event line. (A signed-in guest
+    // holding a seat on THIS event never reaches this — `resolveGuestViewer`
+    // answered with their seat.)
+    if (guestViewer.reason === 'wrong_event') return renderAnonymous('wrong_event');
     return renderAnonymous(inviteError === 'invalid_token' ? 'invalid_invite' : null);
   }
-
-  // Cookie session is for a different event → bail to public landing.
-  // (Sign-out from the footer is how a guest swaps between events.)
-  if (session.event_id !== event.event_id) {
-    return renderAnonymous('wrong_event');
-  }
+  const guestSession = guestViewer.session;
 
   // Guest-scoped context — moved verbatim to `loadGuestContext`
   // (_lib/loaders.ts), THE ONLY loader that selects guest columns. Reached only
@@ -1203,7 +1221,7 @@ async function InvitationBody({
   const guestContext = await loadGuestContext(
     admin,
     event,
-    session,
+    guestSession,
     dayOfPhase,
     slug,
     scheduleBlocks,
@@ -1303,9 +1321,33 @@ async function InvitationBody({
     }
   }
 
+  // ── THE ONE ACCOUNT PROMPT (owner 2026-09-25) — lib/guest-one-path.ts.
+  // Whose account holds THIS guest's seat: the viewer's own seat answers it
+  // without a read; otherwise one lookup.
+  const seatHolderUserId =
+    viewerSeat && viewerAccount && viewerSeat.guestId === guest.guest_id
+      ? viewerAccount.id
+      : await readSeatHolder(event.event_id, guest.guest_id);
+  const accountBase = guestAccountState({
+    viewerUserId: viewerAccount?.id ?? null,
+    viewerEmail: viewerAccount?.email ?? null,
+    seatHolderUserId,
+    linkSentForThisEvent: await keepLinkSentFor(event.event_id),
+  });
+  const account =
+    accountBase.kind === 'offer' && search.keep === 'error'
+      ? { kind: 'offer' as const, failed: true }
+      : accountBase;
+
   const rsvpFlash =
     search.rsvp === 'ok'
-      ? { tone: 'ok' as const, text: 'Your reply is in — thank you.' }
+      ? {
+          tone: 'ok' as const,
+          text:
+            account.kind === 'link_sent'
+              ? 'Your reply is in — thank you. Check your email for the link that keeps this invitation on your phone.'
+              : 'Your reply is in — thank you.',
+        }
       : search.rsvp === 'error'
         ? {
             tone: 'error' as const,
@@ -1367,6 +1409,7 @@ async function InvitationBody({
           seatMap,
           papicGuest,
           showClaimAccountCta: !viewerAccount,
+          account,
           accountlessPhotosClosed,
           eventVendorCredits,
           saveFlash,
@@ -1390,7 +1433,6 @@ async function InvitationBody({
         papicGuestActive={papicGuestActive}
         hasAccount={Boolean(viewerAccount)}
         galleryCount={guestLiveGallery?.total ?? 0}
-        showClaimAnchor={!viewerAccount && lifecyclePhase !== 'save_the_date'}
         hubHref={
           dayOfPhase === 'live' || dayOfPhase === 'post'
             ? `/${event.slug}/hub`
@@ -1408,6 +1450,15 @@ async function InvitationBody({
         })}
       />
       )}
+      {/* A signed-in guest recognised by their SEAT (no cookie for this event)
+          gets their guest pass written into this browser — on MOUNT, from a
+          Server Action, never from the render (which cannot) and never behind a
+          link (a prefetch would run it). The page above already rendered their
+          own tree without it; this only lets the sub-pages (seat, camera,
+          find-my-table) that still read the cookie recognise them too. */}
+      {guestViewer.kind === 'seat' && !isEditorCanvas ? (
+        <AdoptSeatSession eventId={event.event_id} />
+      ) : null}
       {pageFooter}
     </>
   );

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 
 /**
  * Persistent guest accounts (PR-E) — link a signed guest session to a new
@@ -41,6 +42,44 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * `{ linked, reason }` result; any unexpected error is swallowed to
  * `{ linked: false, reason: 'error' }`.
  */
+/**
+ * THE NAME COMES WITH THEM TOO (owner 2026-09-25, "1. yes"): an account made
+ * from an invitation skips the You card, so the one thing that card asked — what
+ * to call them — is taken from the seat the couple already named. FILLS A BLANK
+ * ONLY (`.is('display_name', null)`): a name the person set themselves, or one
+ * Google handed over, is never replaced by a guest-list spelling. Never throws.
+ */
+export async function fillAccountNameFromSeat(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  guestId: string,
+): Promise<void> {
+  try {
+    const { data: seat } = await admin
+      .from('guests')
+      // The shared name-bearing column list (lib/entourage.ts) — one spelling of
+      // "the guest's name columns", so this read cannot drift from it.
+      .select(ENTOURAGE_COLUMNS)
+      .eq('guest_id', guestId)
+      .maybeSingle();
+    if (!seat) return;
+    const own = typeof seat.display_name === 'string' ? seat.display_name.trim() : '';
+    const formal = [seat.first_name, seat.last_name]
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter((v) => v && v.toLowerCase() !== 'tba')
+      .join(' ');
+    const name = (own || formal).slice(0, 200);
+    if (!name) return;
+    await admin
+      .from('users')
+      .update({ display_name: name })
+      .eq('user_id', userId)
+      .is('display_name', null);
+  } catch {
+    // Best-effort — a missing name must never cost somebody their link.
+  }
+}
+
 export async function linkGuestSessionToUser(
   userId: string,
 ): Promise<{ linked: boolean; reason: string }> {
@@ -145,6 +184,8 @@ export async function linkGuestSessionToUser(
     } catch {
       // Deliberately swallowed — see the contract note above.
     }
+
+    await fillAccountNameFromSeat(admin, userId, guest_id);
 
     return { linked: true, reason: 'linked' };
   } catch {

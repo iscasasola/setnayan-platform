@@ -42,7 +42,9 @@ test('the hero runs BEFORE the guest’s own status card', () => {
 
 test('everything personal sits below the hero, not just the status card', () => {
   const hero = guestBranchIndex("plan.body === 'normal' && plan.heroShouldRender");
-  for (const personal of ['<GuestHubCard', '<KeepOnHomeScreen', 'showClaimAccountCta &&']) {
+  // `<GuestAccountCard` replaced the `showClaimAccountCta &&` claim box on
+  // 2026-09-25 (the ONE account prompt) — same slot, same property.
+  for (const personal of ['<GuestHubCard', '<KeepOnHomeScreen', '<GuestAccountCard']) {
     const at = SRC.indexOf(personal, hero);
     assert.ok(at > hero, `${personal} renders after the hero`);
   }

@@ -27,8 +27,11 @@ export function YourPhotosWidget({
   eventPublicId,
   eventNoun,
   words,
+  hostPitch = false,
 }: {
   words: EventWords;
+  /** Only once the invitation is linked to their account (owner 2026-09-25). */
+  hostPitch?: boolean;
   limited: boolean;
   eventId: string;
   eventPublicId: string;
@@ -75,13 +78,15 @@ export function YourPhotosWidget({
         </div>
       )}
 
-      <GuestToHostCta
-        surface="your_photos"
-        eventId={eventId}
-        eventPublicId={eventPublicId}
-        headline="Want this for your own day?"
-        sub="Capture every moment — start planning free."
-      />
+      {hostPitch ? (
+        <GuestToHostCta
+          surface="your_photos"
+          eventId={eventId}
+          eventPublicId={eventPublicId}
+          headline="Want this for your own day?"
+          sub="Capture every moment — start planning free."
+        />
+      ) : null}
     </section>
   );
 }

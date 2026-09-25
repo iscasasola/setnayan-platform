@@ -183,24 +183,93 @@ export async function JoinFlow({
     if (existing.member_type === 'couple') {
       redirect(`/dashboard/${eventId}`);
     }
+    // A signed-in guest who already holds a seat goes straight to their own
+    // invitation: the event page now recognises the account's seat on any
+    // device (lib/guest-one-path.ts), so the "your invitation is ready" stop
+    // in between was a page saying where to go instead of going there.
+    if (existing.member_type === 'guest' && event.slug) {
+      redirect(`/${event.slug}`);
+    }
     redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
   }
 
-  // Show the name field — no role, see the lock above. Pre-fill the name from
-  // their account so the couple's guest list can be matched against it (no
-  // public search field).
+  // A SIGNED-IN GUEST DOES NOT RETYPE THEIR NAME (owner 2026-09-25). No role —
+  // see the lock above. The account already carries the name the couple's list
+  // is matched against — the profile's own display name first, then whatever
+  // Google / Apple handed over — so the door offers it back as one press.
+  const { data: profile } = await admin
+    .from('users')
+    .select('display_name')
+    .eq('user_id', user.id)
+    .maybeSingle();
   const metaFirst = (user.user_metadata?.first_name as string | undefined) ?? '';
   const metaLast = (user.user_metadata?.last_name as string | undefined) ?? '';
-  const defaultName =
-    (user.user_metadata?.full_name as string | undefined) ??
-    (user.user_metadata?.name as string | undefined) ??
-    [metaFirst, metaLast].filter(Boolean).join(' ') ??
-    '';
+  const defaultName = (
+    ((profile?.display_name as string | null) ?? '').trim() ||
+    (user.user_metadata?.full_name as string | undefined) ||
+    (user.user_metadata?.name as string | undefined) ||
+    [metaFirst, metaLast].filter(Boolean).join(' ') ||
+    ''
+  ).trim();
 
   const action = joinEventAction.bind(null, eventId, token);
+  const Organizer = w.theOrganizer.charAt(0).toUpperCase() + w.theOrganizer.slice(1);
+
+  if (defaultName) {
+    return (
+      <JoinShell
+        event={shellEvent}
+        steps={event.slug ? arrivalSteps('name') : undefined}
+        skin={skin}
+      >
+        {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
+        <p className="text-base text-ink/70">
+          You&rsquo;re signed in
+          {isPlaceholderEmail(user.email) ? null : (
+            <>
+              {' '}as <span className="font-medium text-ink">{user.email}</span>
+            </>
+          )}
+          . {Organizer} will find you on their guest list by your name.
+        </p>
+        <form action={action} className="mt-6">
+          <input type="hidden" name="name" value={defaultName} />
+          <SubmitButton className="button-primary w-full" pendingLabel="Finding you…">
+            Continue as {defaultName}
+          </SubmitButton>
+        </form>
+        <details className="mt-4 text-sm text-ink/70">
+          <summary className="cursor-pointer font-medium text-link underline-offset-2 hover:underline">
+            {Organizer} would have a different name for me
+          </summary>
+          <form action={action} className="mt-3 space-y-3">
+            <label htmlFor="name" className="block text-sm font-medium text-ink">
+              The name on their list
+            </label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              required
+              placeholder="e.g. Maria Santos"
+              autoComplete="name"
+              className="input-field"
+            />
+            <SubmitButton className="button-secondary w-full" pendingLabel="Finding you…">
+              Continue
+            </SubmitButton>
+          </form>
+        </details>
+      </JoinShell>
+    );
+  }
 
   return (
-    <JoinShell event={shellEvent} skin={skin}>
+    <JoinShell
+      event={shellEvent}
+      steps={event.slug ? arrivalSteps('name') : undefined}
+      skin={skin}
+    >
       {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
 
       <p className="text-base text-ink/70">
@@ -223,7 +292,6 @@ export async function JoinFlow({
             name="name"
             type="text"
             required
-            defaultValue={defaultName}
             placeholder="e.g. Maria Santos"
             autoComplete="name"
             className="input-field"

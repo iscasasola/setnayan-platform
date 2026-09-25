@@ -73,13 +73,13 @@ import type { LlmsTxtInput, RetailRow } from './llms-txt';
 /** Mirrors the shape of live prod on 2026-07-31, retired rows included. */
 export const RETAIL: RetailRow[] = [
   // --- active ---
-  // Repriced ₱2,000 → ₱3,500 regular (owner 2026-09-25: "so our regular price is
-  // 3500 to unlock pro"), replacing the 2026-09-23 ₱2,000. Migration
-  // 20271245494068 moves the row in prod AND in the replay; until deploy-prod
-  // applies it, prod still reads 2000.00 — re-check with: select
+  // Repriced ₱3,500 → ₱5,000 regular (owner 2026-09-25: "make it 5000 with 40%
+  // off becoming 3000 on onboarding"), replacing the same-day ₱3,500. Migration
+  // 20271247699024 moves the row in prod AND in the replay; until deploy-prod
+  // applies it, prod still reads 3500.00 — re-check with: select
   // retail_price_php, is_active from public.platform_retail_catalog_v2 where
   // service_code = 'COUPLE_WEBSITE_PRO'.
-  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 3500, is_active: true },
+  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 5000, is_active: true },
   // ── THE PAPIC LADDER, owner 2026-08-26 ──────────────────────────────────
   // ⚠ SIXTEEN ROWS, and this fixture is the SECOND hand-typed copy of the
   // catalog that this file's own docblock warns about. When a rung's price or

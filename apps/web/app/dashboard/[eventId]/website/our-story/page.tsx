@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { updateOurStory, loveStoryMomentAction } from './actions';
 import { StoryFields, type LoveStoryBlob } from './_components/story-fields';
 import { LoveStoryBook } from './_components/love-story-book';
-import { HubSavesImmediately } from '../_components/hub-draft-field';
+import { HubDraftField } from '../_components/hub-draft-field';
 import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-events';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -22,6 +22,7 @@ import { INVITE_THEMES } from '@/lib/invite-themes';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { readMomentMedia, resolveMoments } from '@/lib/love-story-moments';
+import { readHubDraft } from '@/lib/hub-draft-store';
 
 export const metadata = { title: 'Our Love Story' };
 
@@ -42,8 +43,9 @@ export const metadata = { title: 'Our Love Story' };
  * Open to every event type (build plan D5 default — "a birthday's Before us is
  * still a story"); the legacy wedding form shows only for weddings.
  *
- * ⏭ P1 shell: the bar's "Love Story" tool opens this page. P2: writes are
- * live until the draft path lands. P4: the upload pipeline + meter. P5: each
+ * ⏭ P1 shell: the bar's "Love Story" tool opens this page. P2 (2026-09-25):
+ * every save here goes into the couple's DRAFT, and the page shows the draft
+ * laid over the live story — guests see it after Apply in the Event Hub Maker. P4: the upload pipeline + meter. P5: each
  * moment's scene renders through the template renderer (`loveStoryScenes` is
  * the seam).
  */
@@ -52,7 +54,7 @@ export default async function OurStoryEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ saved?: string; error?: string; pro?: string; slotted?: string }>;
+  searchParams: Promise<{ saved?: string; drafted?: string; error?: string; pro?: string; slotted?: string }>;
 }) {
   const { eventId } = await params;
   const search = await searchParams;
@@ -103,9 +105,24 @@ export default async function OurStoryEditorPage({
     redirect(`/dashboard/${eventId}/website`);
   }
 
+  /* 💾 THE SCRAPBOOK SHOWS THE DRAFT IT EDITS. Every form below posts
+     `draft=1`, so the moments shown are the draft's when it holds the story —
+     otherwise a drafted moment would vanish from the page that just saved it.
+     A draft that cannot be read shows the live story and says so; a save then
+     fails closed in the action (it re-reads the draft and refuses on error). */
+  let draftReadFailed = false;
+  let drafted: { value: unknown } | null = null;
+  try {
+    const d = await readHubDraft(supabase, eventId);
+    if (d && 'love_story' in d.events) drafted = { value: d.events.love_story };
+  } catch (e) {
+    draftReadFailed = true;
+    logQueryError('OurStoryPage.draft', { message: e instanceof Error ? e.message : String(e) }, { event_id: eventId }, 'graceful_degrade');
+  }
+  const storyRaw: unknown = drafted ? drafted.value : event.love_story;
   const story: LoveStoryBlob =
-    event.love_story && typeof event.love_story === 'object'
-      ? (event.love_story as LoveStoryBlob)
+    storyRaw && typeof storyRaw === 'object' && !Array.isArray(storyRaw)
+      ? (storyRaw as LoveStoryBlob)
       : {};
   const moments = resolveMoments(story);
 
@@ -164,9 +181,13 @@ export default async function OurStoryEditorPage({
               className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
             >
               <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {search.slotted
-                ? `Slotted into ${search.slotted.slice(0, 80)} — live on your Event Hub.`
-                : 'Saved — your story is live on your Event Hub.'}
+              {search.drafted === '1'
+                ? search.slotted
+                  ? `Slotted into ${search.slotted.slice(0, 80)} — in your draft. Guests see it after you press Apply in the Event Hub Maker.`
+                  : 'Saved to your draft. Guests see it after you press Apply in the Event Hub Maker.'
+                : search.slotted
+                  ? `Slotted into ${search.slotted.slice(0, 80)} — live on your Event Hub.`
+                  : 'Saved — your story is live on your Event Hub.'}
             </div>
           ) : null}
           {search.error ? (
@@ -177,6 +198,16 @@ export default async function OurStoryEditorPage({
         </div>
       ) : null}
 
+      {drafted || draftReadFailed ? (
+        <p role="status" data-love-story-draft="" className="text-sm text-ink/70">
+          {draftReadFailed
+            ? 'We could not read your draft, so this shows what guests see now.'
+            : 'You are editing your draft — guests still see your live story.'}{' '}
+          <a href={`${base}/launch`} className="font-semibold text-ink underline underline-offset-4">
+            {draftReadFailed ? 'Open the Event Hub Maker' : 'Apply it in the Event Hub Maker'}
+          </a>
+        </p>
+      ) : null}
       <LoveStoryBook
         eventId={eventId}
         names={event.display_name ?? ''}
@@ -216,7 +247,7 @@ export default async function OurStoryEditorPage({
             The words your invitation weaves into its story paragraph
           </summary>
           <form action={updateAction} className="mt-6 space-y-8">
-            <HubSavesImmediately />
+            <HubDraftField />
             <StoryFields story={story} />
             <SubmitButton pendingLabel="Saving…" className="button-primary">
               Save our story

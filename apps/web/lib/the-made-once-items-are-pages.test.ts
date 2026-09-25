@@ -232,6 +232,33 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
   assert.match(html, /<div hidden="" class="absolute inset-0 z-40">/, 'and the ⋯ sheet is shut');
 });
 
+test('Love Story: Our Love Story is the body, and a moment is added and edited IN PLACE', () => {
+  const S = 'app/dashboard/[eventId]/website/our-story';
+  const editor = read('app/dashboard/[eventId]/website/editor/page.tsx');
+  assert.match(editor, /'love-story':[\s\S]{0,300}<OurStoryEditorPage[\s\S]{0,200}maker: '1'/, 'the Maker body draws the scrapbook page');
+  const page = read(`${S}/page.tsx`);
+  assert.match(page, /inMaker \? null : <MiniTour/, 'no second tour pops up inside the Maker');
+  // Inside the Maker the moment opens in the page — the sheet, its portal and its trap are the standalone page's only.
+  const sheet = read(`${S}/_components/moment-sheet.tsx`);
+  const inPlace = sheet.indexOf('{open && inMaker ? (');
+  const portal = sheet.indexOf('createPortal(', inPlace);
+  assert.ok(inPlace > 0 && portal > inPlace, 'the in-place branch must come before the portal');
+  assert.match(sheet.slice(inPlace, portal), /data-moment-in-place=""/);
+  assert.doesNotMatch(sheet.slice(inPlace, portal), /aria-modal|role="dialog"/, 'in place is not a dialog');
+  assert.match(sheet, /useModalA11y\(\{ open: open && !inMaker,/, 'no focus trap in place');
+  // Every scrapbook save lands back on Love Story's page in the Maker.
+  let forms = 0;
+  for (const f of ['_components/love-story-book.tsx', '_components/moment-sheet.tsx', '_components/pick-from-our-events.tsx']) {
+    const src = read(`${S}/${f}`);
+    for (const body of src.split(/<form\b/).slice(1)) {
+      assert.match(body.slice(0, body.indexOf('</form>')), /<InMakerReturnTo \/>/, `${f}: a form does not return to the Maker`);
+      forms += 1;
+    }
+  }
+  assert.ok(forms >= 4, `only ${forms} scrapbook forms seen`);
+  assert.match(read(`${S}/_components/in-maker-return-to.tsx`), /launch\?tool=love-story/);
+});
+
 test('the Details page shows what the details feed — the address and its QR, and the cards', () => {
   const src = read(`${L}/maker-details.tsx`);
   assert.match(src, /export function MakerDetailsPage\(/);

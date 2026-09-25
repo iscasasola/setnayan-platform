@@ -17,6 +17,8 @@ import {
 } from '@/lib/love-story-moments';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
+import { useMaker } from '../../../launch/_components/maker-context';
+import { InMakerReturnTo } from './in-maker-return-to';
 
 /**
  * ADD A MOMENT — the sheet (phone) / side panel (laptop) from the prototype
@@ -86,7 +88,9 @@ export function MomentSheet({
     }
     setOpen(true);
   };
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: ref });
+  /* Inside the Maker the moment opens IN PLACE (no sheet, no trap). */
+  const inMaker = useMaker() !== null;
+  useModalA11y({ open: open && !inMaker, onClose: () => setOpen(false), containerRef: ref });
 
   const d = moment?.date;
   const [precision, setPrecision] = useState<Precision>(d?.d ? 'day' : d?.m ? 'month' : 'year');
@@ -119,26 +123,8 @@ export function MomentSheet({
     'mt-1.5 w-full rounded-md border border-[color:var(--ls-rule)] bg-[color:var(--ls-surface)] px-3 py-2 text-[15px] text-[color:var(--ls-ink)] focus:border-[color:var(--ls-accent)] focus:outline-none';
   const eye = 'font-mono text-[0.66rem] uppercase tracking-[0.24em] text-[color:var(--ls-muted)]';
 
-  return (
+  const body = (
     <>
-      <button ref={triggerRef} type="button" className={triggerClassName} onClick={openSheet}>
-        {trigger}
-      </button>
-      {open && typeof document !== 'undefined' ? createPortal(
-        /* Portalled to <body>: the dashboard's content column is its own
-           stacking context, and a fixed sheet inside it slid UNDER the top bar
-           (measured in the harness, 2026-09-25). */
-        <div
-          style={vars as React.CSSProperties}
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 lg:items-stretch lg:justify-end"
-        >
-          <div
-            ref={ref}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="moment-sheet-title"
-            className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[color:var(--ls-canvas)] px-5 pb-8 pt-5 text-[color:var(--ls-ink)] shadow-2xl lg:max-h-none lg:w-[440px] lg:rounded-none lg:px-7"
-          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className={eye}>A moment</p>
@@ -151,7 +137,7 @@ export function MomentSheet({
                 type="button"
                 aria-label="Close"
                 onClick={() => setOpen(false)}
-                className="rounded-full p-2 text-[color:var(--ls-muted)] hover:bg-black/5"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--ls-muted)] hover:bg-black/5"
               >
                 <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               </button>
@@ -159,6 +145,7 @@ export function MomentSheet({
 
             <form action={action} className="mt-5 space-y-6">
               <HubDraftField />
+              <InMakerReturnTo />
               <input type="hidden" name="intent" value={moment ? 'edit' : 'add'} />
               {moment ? <input type="hidden" name="id" value={moment.id} /> : null}
 
@@ -332,7 +319,7 @@ export function MomentSheet({
                   ).map(([k, label]) => (
                     <label
                       key={k || 'none'}
-                      className="cursor-pointer rounded-full px-3 py-1.5 text-[14px] ring-1 ring-inset ring-[color:var(--ls-rule)] has-[:checked]:bg-[color:var(--ls-accent)] has-[:checked]:text-[color:var(--ls-accent-ink)] has-[:checked]:ring-[color:var(--ls-accent)]"
+                      className="inline-flex min-h-10 cursor-pointer items-center rounded-full px-3 text-[14px] ring-1 ring-inset ring-[color:var(--ls-rule)] has-[:checked]:bg-[color:var(--ls-accent)] has-[:checked]:text-[color:var(--ls-accent-ink)] has-[:checked]:ring-[color:var(--ls-accent)]"
                     >
                       <input
                         type="radio"
@@ -364,7 +351,7 @@ export function MomentSheet({
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-full px-4 py-2 text-[14px] text-[color:var(--ls-muted)] hover:bg-black/5"
+                  className="inline-flex min-h-10 items-center rounded-full px-4 text-[14px] text-[color:var(--ls-muted)] hover:bg-black/5"
                 >
                   Not now
                 </button>
@@ -373,11 +360,53 @@ export function MomentSheet({
                 </SubmitButton>
               </div>
             </form>
+    </>
+  );
+
+  return (
+    <div className={inMaker && open ? 'w-full basis-full' : 'contents'}>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-expanded={inMaker ? open : undefined}
+        className={triggerClassName}
+        onClick={inMaker && open ? () => setOpen(false) : openSheet}
+      >
+        {trigger}
+      </button>
+      {open && inMaker ? (
+        /* 🖼 IN PLACE inside the Event Hub Maker (owner 2026-09-25: "Love story,
+           add and create your story" — the made-once pages never pop up): the
+           moment opens right here, in the page, and the page keeps its theme. */
+        <div
+          data-moment-in-place=""
+          aria-labelledby="moment-sheet-title"
+          role="group"
+          className="mt-3 w-full basis-full rounded-md bg-[color:var(--ls-canvas)] px-4 pb-6 pt-4 text-left text-[color:var(--ls-ink)] shadow-md ring-1 ring-inset ring-[color:var(--ls-rule)]"
+        >
+            {body}
+        </div>
+      ) : open && typeof document !== 'undefined' ? createPortal(
+        /* Portalled to <body>: the dashboard's content column is its own
+           stacking context, and a fixed sheet inside it slid UNDER the top bar
+           (measured in the harness, 2026-09-25). */
+        <div
+          style={vars as React.CSSProperties}
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 lg:items-stretch lg:justify-end"
+        >
+          <div
+            ref={ref}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="moment-sheet-title"
+            className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[color:var(--ls-canvas)] px-5 pb-8 pt-5 text-[color:var(--ls-ink)] shadow-2xl lg:max-h-none lg:w-[440px] lg:rounded-none lg:px-7"
+          >
+            {body}
           </div>
         </div>,
         document.body,
       ) : null}
-    </>
+    </div>
   );
 }
 

@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import OurStoryEditorPage from '../our-story/page';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
@@ -1023,6 +1025,17 @@ export default async function WebsiteEditorPage({
         hero: <MakerHeroPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
         reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
         logo: <MakerLogoPanel eventId={eventId} />,
+        /* 💌 Love Story's own PAGE — Our Love Story, the scrapbook — drawn in the
+           Maker's body (owner 2026-09-25: "Love story, add and create your
+           story"). Streamed, so the Maker never waits on it. */
+        'love-story': (
+          <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your Love Story…</p>}>
+            <OurStoryEditorPage
+              params={Promise.resolve({ eventId })}
+              searchParams={Promise.resolve({ maker: '1' })}
+            />
+          </Suspense>
+        ),
       }}
       /* 🎭 Where the reveal plays (drafted over live) — its page previews the first. */
       revealStages={await readMakerRevealStages(eventId)}

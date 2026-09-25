@@ -54,10 +54,19 @@ export default async function OurStoryEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ saved?: string; drafted?: string; error?: string; pro?: string; slotted?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    drafted?: string;
+    error?: string;
+    pro?: string;
+    slotted?: string;
+    /** `1` = drawn as Love Story's PAGE inside the Event Hub Maker (its body). */
+    maker?: string;
+  }>;
 }) {
   const { eventId } = await params;
   const search = await searchParams;
+  const inMaker = search.maker === '1';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -172,7 +181,8 @@ export default async function OurStoryEditorPage({
         } as React.CSSProperties
       }
     >
-      <MiniTour tourKey="customer_love_story_v1" storeShell={storeShell} />
+      {/* Inside the Maker the Maker's own tour is the one that runs. */}
+      {inMaker ? null : <MiniTour tourKey="customer_love_story_v1" storeShell={storeShell} />}
       {search.saved === '1' || search.error ? (
         <div className="space-y-3">
           {search.saved === '1' ? (
@@ -203,12 +213,17 @@ export default async function OurStoryEditorPage({
           {draftReadFailed
             ? 'We could not read your draft, so this shows what guests see now.'
             : 'You are editing your draft — guests still see your live story.'}{' '}
-          <a href={`${base}/launch`} className="font-semibold text-ink underline underline-offset-4">
-            {draftReadFailed ? 'Open the Event Hub Maker' : 'Apply it in the Event Hub Maker'}
-          </a>
+          {inMaker ? (
+            draftReadFailed ? null : 'Press Apply when it is ready.'
+          ) : (
+            <a href={`${base}/launch`} className="font-semibold text-ink underline underline-offset-4">
+              {draftReadFailed ? 'Open the Event Hub Maker' : 'Apply it in the Event Hub Maker'}
+            </a>
+          )}
         </p>
       ) : null}
       <LoveStoryBook
+        inMaker={inMaker}
         eventId={eventId}
         names={event.display_name ?? ''}
         partners={partners}
@@ -241,7 +256,8 @@ export default async function OurStoryEditorPage({
         }
       />
 
-      {event.event_type === 'wedding' ? (
+      {/* In the Maker these words sit BESIDE the page (the editor's Story row). */}
+      {event.event_type === 'wedding' && !inMaker ? (
         <details className="mx-auto max-w-2xl border-t border-ink/10 pt-6">
           <summary className="cursor-pointer text-sm font-medium text-ink/70">
             The words your invitation weaves into its story paragraph

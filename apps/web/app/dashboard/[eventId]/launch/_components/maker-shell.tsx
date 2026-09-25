@@ -157,7 +157,9 @@ export function MakerShell({
     if (item.kind === 'tool' && hasWork) select({ kind: 'tool', key: item.key });
   };
 
-  const playHref = slug ? `/${slug}?phase=${stage}` : null;
+  /* ▶ The stage as guests meet it — page-only, with the host's DRAFT
+     (`?preview=draft`, host-verified on the page; `app/[slug]/_lib/editor-canvas.ts`). */
+  const playHref = slug ? `/${slug}?phase=${stage}&preview=draft` : null;
 
   return (
     <MakerContext.Provider value={value}>

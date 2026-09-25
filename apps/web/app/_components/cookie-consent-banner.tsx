@@ -78,6 +78,7 @@ export function CookieConsentBanner() {
   return (
     <div
       role="region"
+      data-app-chrome=""
       aria-label="Cookie consent"
       className="fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-md rounded-2xl border border-ink/10 bg-cream/95 p-4 text-sm text-ink/80 shadow-lg backdrop-blur sm:inset-x-auto sm:right-4 sm:bottom-4"
     >

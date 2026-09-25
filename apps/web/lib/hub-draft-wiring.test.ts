@@ -102,13 +102,17 @@ test('a Pro gate in a draftable writer is skipped ONLY on the draft path', () =>
   assert.ok(gates >= 4, `only ${gates} gates seen — the scan is not looking at the writers`);
 });
 
-test('the guest page reads a draft only under ?editor=1', () => {
+test('the guest page reads a draft only for the host canvas (?editor=1 · ?preview=draft)', () => {
   const page = read('app/[slug]/page.tsx');
   const calls = [...page.matchAll(/loadHostPreviewDraft\(/g)].length;
   assert.equal(calls, 1, 'one call site, inside the editor branch');
   const at = page.indexOf('loadHostPreviewDraft(admin');
-  const guard = page.lastIndexOf("search.editor === '1'", at);
-  assert.ok(guard > 0 && at - guard < 400, 'the draft read must sit inside the ?editor=1 branch');
+  // The canvas (?editor=1) and the ▶ Play tab (?preview=draft) both ask through
+  // ONE predicate — `asksForHostCanvas`, app/[slug]/_lib/editor-canvas.ts.
+  const guard = page.lastIndexOf('if (asksForHostCanvas(search))', at);
+  assert.ok(guard > 0 && at - guard < 400, 'the draft read must sit inside the host-canvas branch');
+  const ask = read('app/[slug]/_lib/editor-canvas.ts');
+  assert.match(ask, /return search\?\.editor === '1' \|\| search\?\.preview === 'draft';/, 'only these two params may ask');
   const loaders = read('app/[slug]/_lib/loaders.ts');
   const loader = loaders.slice(loaders.indexOf('export const loadHostPreviewDraft'));
   assert.match(loader.slice(0, 400), /loadHostMembership\(/, 'the loader must answer null for a non-host');

@@ -145,6 +145,7 @@ import {
   PublicEventDetails,
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
+import { EDITOR_CANVAS_HIDES_APP_CHROME } from '../_lib/editor-canvas';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
@@ -329,11 +330,23 @@ type SiteBodyProps = {
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
-  /** Unified Website Editor (PR-1) — TRUE only when the page resolved
-   *  `?editor=1` AND server-verified host membership. Mounts the click-to-edit
-   *  bridge for the editor's preview iframe. FALSE for every guest/anonymous
-   *  visitor (and absent → false), so their HTML is unchanged byte-for-byte. */
-  editorMode?: boolean;
+  /** 🖼 THE MAKER'S CANVAS — TRUE only when the page resolved `?editor=1` AND
+   *  server-verified host membership (page.tsx). Two jobs, both one-way:
+   *  it mounts the click-to-edit bridge, and it HIDES every piece of app and
+   *  host chrome so the canvas is only the page (owner 2026-09-25: *"editing
+   *  should only be the page"*) — see `the-maker-canvas-is-only-the-page.test.ts`.
+   *  FALSE for every guest/anonymous visitor (and absent → false), so their
+   *  HTML is unchanged byte-for-byte. It never reveals anything. */
+  isEditorCanvas?: boolean;
+  /** The click-to-edit bridge — the Maker's iframe (`?editor=1`) only, never
+   *  the "Preview the whole stage" tab. Implies `isEditorCanvas`. */
+  editorBridge?: boolean;
+  /** 🖼 The Maker's "Guest bars" switch (owner 2026-09-25: *"add a switch to
+   *  show or hide"*). In the canvas, TRUE brings back the GUEST header and the
+   *  guest tab bar so the couple can check nothing sits under them. Host chrome
+   *  (the Host controls bar, "Manage", the Live hub pill) never returns. Inert
+   *  outside the canvas. */
+  canvasGuestBars?: boolean;
   /** OWNER LAYER · FOUNDATION (2026-07-26). Non-null ONLY when the page
    *  server-verified this viewer's host membership of THIS event via
    *  `loadHostMembership` (see the owner-layer block in page.tsx). It travels
@@ -398,7 +411,9 @@ export async function SiteBody({
   broadcastPlanned = false,
   doorwayFacts = null,
   proWatermarkHidden,
-  editorMode = false,
+  isEditorCanvas = false,
+  editorBridge = false,
+  canvasGuestBars = false,
   ownerCapability = null,
   vendorCapability = null,
   supplierDesk = null,
@@ -514,6 +529,12 @@ export async function SiteBody({
    * missing slug, which would silently drop the body variant.)
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
+
+  // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
+  // canvas, and in the canvas only when its "Guest bars" switch is on. In the
+  // canvas they are drawn as a GUEST sees them — the host's "Manage" slot is
+  // editor noise, not something a guest could ever sit under.
+  const showGuestBars = !isEditorCanvas || canvasGuestBars;
 
   /*
     WHO IS ASKING — resolved ONCE, here, from the same facts this page already
@@ -1056,6 +1077,7 @@ export async function SiteBody({
                 resolves for every viewer, so they go. Its day-of "Live hub"
                 chip is NOT — the resolver has no hub slot — and that chip is
                 top-left chrome that never touches the bar, so it stays. */}
+            {isEditorCanvas ? null : (
             <PublicEventDayBar
               candidCameraActive={publicCandidCameraActive}
               photosHref={publicAlbumHref}
@@ -1066,6 +1088,7 @@ export async function SiteBody({
               }
               menuOn={menuOn}
             />
+            )}
 
             {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
                 navigation on this always-rendered public landing: the /find-seat
@@ -1219,7 +1242,7 @@ export async function SiteBody({
             not allow use"); closed ⇒ DRAWN AND LOCKED, never absent, because the
             camera is part of what the invitation promises. */}
         </article>
-        {menuOn ? (
+        {menuOn && showGuestBars ? (
           <SiteMenuBar
             slots={resolveSiteNav({
               /*
@@ -1248,7 +1271,7 @@ export async function SiteBody({
                 the public bar here; that is a known, stated gap, not a silent
                 one, and it belongs to the supplier lane.
               */
-              viewer: ownerCapability ? { kind: 'couple' } : { kind: 'public' },
+              viewer: ownerCapability && !isEditorCanvas ? { kind: 'couple' } : { kind: 'public' },
               phase: navPhase,
               hostAllowsCamera: hostCameraOpen,
               anyChapterPublic: menuSections.gallery,
@@ -2225,7 +2248,7 @@ export async function SiteBody({
             precedence — a guest's OWN roll first, then the couple's shared camera,
             the same order GuestHubBar already uses; neither open ⇒ the resolver
             LOCKS the slot rather than hiding it. */}
-        {menuOn ? (
+        {menuOn && showGuestBars ? (
           <SiteMenuBar
             slots={resolveSiteNav({
               viewer: { kind: 'guest' },
@@ -2275,6 +2298,7 @@ export async function SiteBody({
       hubTheme={hubLook.theme}
       backdrop={backdrop}
       fullBleed={plan.fullBleed}
+      editorCanvas={!showGuestBars}
       hideWatermark={proWatermarkHidden}
       magicTraveller={magicTraveller}
     >
@@ -2292,6 +2316,10 @@ export async function SiteBody({
           guard said so — "the shell return moved, this scan is now blind".
           It was right, so the mount moved rather than its anchor. */}
       <EventWordsProvider words={clientWords}>
+      {/* 🖼 The root layout's own floating notices (cookie consent, a stale
+          tab) are client components this page cannot un-mount, so in the
+          Maker's canvas they are hidden by the one attribute they carry. */}
+      {isEditorCanvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
       <GuestPreload eventSlug={event.slug} />
       {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
           identity trees, for three reasons: (1) it is chrome, not a chapter,
@@ -2301,7 +2329,9 @@ export async function SiteBody({
           every lifecycle phase (including the full-bleed Save-the-Date film);
           (3) it renders `null` for a null model, so a guest's DOM is unchanged
           byte-for-byte. */}
-      <OwnerRibbon model={ownerRibbon} />
+      {/* 🖼 Never in the Maker's canvas: its "Edit this site" link, tapped
+          inside the canvas, loaded the Maker into itself. */}
+      <OwnerRibbon model={isEditorCanvas ? null : ownerRibbon} />
       {/* THE SUPPLIER'S RIBBON — mounted here for reason (2) above, and for one
           of its own: in the Save-the-Date phase the film covers the viewport at
           z-50 with the veil at z-60, and the supplier's strip renders in
@@ -2311,7 +2341,7 @@ export async function SiteBody({
           The design puts the door above the film for exactly this. It renders
           in no other phase: everywhere else the strip below IS the top of the
           page for a supplier. */}
-      {vendorCapability && plan.body === 'save_the_date' ? (
+      {vendorCapability && !isEditorCanvas && plan.body === 'save_the_date' ? (
         <SupplierRibbon
           businessName={vendorCapability.businessName}
           when={supplierDesk?.countdown ?? supplierDesk?.eventDateLabel ?? null}
@@ -2352,13 +2382,14 @@ export async function SiteBody({
           the veil lifts, and the music never autoplays — it starts only on a
           tap. Suppressing it here would silence a paid Event Hub PRO feature
           for the whole invitation phase to solve a clash that cannot happen. */}
-      {plan.backgroundMusic && bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* 🖼 Not in the Maker's canvas — the song is set in the inspector. */}
+      {plan.backgroundMusic && bgMusicUrl && !isEditorCanvas ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* THE SUPPLIER DOORWAY. Rendered here, above the tier fork, because a
           booked supplier can arrive as EITHER tier — as a guest if the couple
           also invited them, or anonymously with just the link. Gating it inside
           one tree would hide it from the other half of real suppliers.
           `vendorCapability` is null for everyone else, so nothing renders. */}
-      {vendorCapability ? (
+      {vendorCapability && !isEditorCanvas ? (
         <VendorDoorway
           capability={vendorCapability}
           desk={supplierDesk ?? null}
@@ -2391,7 +2422,7 @@ export async function SiteBody({
           screen. Cards under it would be debris, and the film runs months
           ahead — the seating plan is not published and nothing here is what a
           guest came for at that moment. */}
-      {plan.fullBleed ? null : (
+      {plan.fullBleed || isEditorCanvas ? null : (
         <GuestDoorwayStrip words={clientWords}
           venueWalk={doorways.venueWalk}
           pabuya={doorways.pabuya}
@@ -2405,7 +2436,7 @@ export async function SiteBody({
           every input below is a value this render already resolved for its
           own use, never a new question asked of the database. See
           `_lib/everything-else-rows.ts` for what each row is gated on. */}
-      {plan.fullBleed ? null : (
+      {plan.fullBleed || isEditorCanvas ? null : (
         <EverythingElseSheet
           rows={resolveEverythingElseRows({
             slug: event.slug,
@@ -2444,7 +2475,7 @@ export async function SiteBody({
           supplier both render through the ANONYMOUS tree (identity comes from a
           guest cookie they do not carry), so gating this inside the guest tree
           would hide it from most of the people it is for. */}
-      {chaptersOnThisDay.length > 0 ? (
+      {chaptersOnThisDay.length > 0 && !isEditorCanvas ? (
         <section className={`mx-auto mt-10 w-full ${PLATE} px-4`}>
           <h2 className="m-serif text-lg text-ink">Stories about this day</h2>
           <p className="mt-1 text-[13px] text-ink/60">
@@ -2479,7 +2510,7 @@ export async function SiteBody({
           editor's preview iframe. `editorMode` is TRUE only for a verified host
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
-      {editorMode ? <EditorBridge /> : null}
+      {isEditorCanvas && editorBridge ? <EditorBridge /> : null}
       </EventWordsProvider>
     </InvitationShell>
   );

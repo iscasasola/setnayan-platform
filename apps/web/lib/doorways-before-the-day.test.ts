@@ -287,7 +287,8 @@ test('the strip renders BELOW the invitation, not above the hero', () => {
 test('the strip stands down for the full-bleed Save-the-Date film', () => {
   assert.match(
     BODY,
-    /\{plan\.fullBleed \? null : \(\s*<GuestDoorwayStrip/,
+    // `|| isEditorCanvas` — the Maker's canvas is only the page (the-maker-canvas-is-only-the-page.test.ts).
+    /\{plan\.fullBleed(?: \|\| isEditorCanvas)? \? null : \(\s*<GuestDoorwayStrip/,
     'cards under a full-screen film are debris; the guard is gone',
   );
 });

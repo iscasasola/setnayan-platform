@@ -9,6 +9,8 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
 import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventSeatingPublished } from '@/lib/seat-pass';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
@@ -48,8 +50,15 @@ import { fetchEgiftMethods } from '@/lib/egift';
  * drawn — a printed invitation is the worst place for a placeholder.
  */
 
+// A PLAIN string literal on purpose: `select-column-scan.test.ts` can only check a
+// select whose columns it can read. It carries the hero's columns
+// (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
+
+for (const c of HERO_EVENT_COLUMNS) {
+  if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
+}
 
 export type PrintEventRow = {
   event_id: string;
@@ -68,6 +77,8 @@ export type PrintEventRow = {
   pabuya_message: string | null;
   special_message: string | null;
   love_story: unknown;
+  landing_page_hero_image_url: string | null;
+  landing_page_hero_video_r2_key: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
   monogram_style: string | null;
@@ -308,6 +319,32 @@ async function themeStill(theme: InviteThemeId, mode: PrintMode): Promise<Uint8A
   }
 }
 
+/**
+ * THE ONE HERO ON PAPER (Phase 6's resolver — never a hero read of our own).
+ * A couple with their own hero photo prints IT where the theme puts its still;
+ * `kind: 'card'` (no photo) keeps the theme's first frame. Classic stays paper
+ * whatever the hero is (owner: "classic has no photo or video").
+ */
+async function heroStill(event: PrintEventRow, mode: PrintMode): Promise<Uint8Array | null> {
+  const hero = resolveHero(event);
+  if (hero.kind !== 'photo' || !hero.photoRef) return null;
+  try {
+    const url = await displayUrlForStoredAsset(hero.photoRef);
+    if (!url) return null;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const sharp = (await import('sharp')).default;
+    const src = new Uint8Array(await res.arrayBuffer());
+    const out = mode === 'print'
+      ? await sharp(src).rotate().jpeg({ quality: 92 }).toBuffer()
+      : await sharp(src).rotate().resize({ width: 420, withoutEnlargement: true }).jpeg({ quality: 52 }).toBuffer();
+    return new Uint8Array(out);
+  } catch (err) {
+    console.error('[print-set] hero photo unavailable', String(err));
+    return null;
+  }
+}
+
 async function sepia(bytes: Uint8Array): Promise<Uint8Array> {
   const sharp = (await import('sharp')).default;
   return new Uint8Array(
@@ -352,7 +389,9 @@ export async function loadPrintSet(
     readEntourage(admin, eventId),
     resolveStdFinalizedVenues(admin, eventId),
     event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
-    look.still !== 'none' ? themeStill(theme, opts.mode) : Promise.resolve(null),
+    look.still !== 'none'
+      ? heroStill(event, opts.mode).then((h) => h ?? themeStill(theme, opts.mode))
+      : Promise.resolve(null),
     readGiftLines(admin, eventId),
     stored.rsvp?.kind === 'host' ? readRsvpHosts(eventId) : Promise.resolve([] as RsvpHostOption[]),
   ]);

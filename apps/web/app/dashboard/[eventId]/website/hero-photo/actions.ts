@@ -7,6 +7,7 @@ import { requireHostMembership } from '@/lib/host-gate';
 import { resolveReturnTo } from '@/lib/editor-return';
 import { refChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
+import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 
 /**
  * Server actions for the wedding landing page hero photo editor.
@@ -36,6 +37,14 @@ import { requireLookPro } from '@/lib/hub-look-gate';
  * Privacy + #382 Dress Code + #383 Photo Moments.
  */
 
+/** The hero photo, into the couple's draft — then back to the Maker. Never returns. */
+async function draftHero(eventId: string, ref: string | null, formData: FormData): Promise<never> {
+  await saveHubDraftPatch(eventId, { events: { landing_page_hero_image_url: ref } });
+  revalidatePath(`/dashboard/${eventId}/launch`);
+  revalidatePath('/[slug]', 'page');
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/launch`));
+}
+
 export async function uploadHeroPhoto(formData: FormData) {
   const eventIdRaw = formData.get('event_id');
   const heroImageUrlRaw = formData.get('hero_image_url');
@@ -61,6 +70,14 @@ export async function uploadHeroPhoto(formData: FormData) {
   }
 
   const userId = await requireHostMembership(eventId);
+
+  /* 💾 THE DRAFT DOOR (Event Hub Maker Phase 6 — the one hero). From the Maker
+     (`<HubDraftField />`) the photo goes into the couple's draft: guests keep
+     the live hero until Apply, and Apply is where Pro is checked — a free couple
+     may TRY their own photo and pays at Apply (owner 2026-09-25). The draft holds
+     it to the public bucket; Apply holds it to this event's own uploads. */
+  if (isHubDraftWrite(formData)) await draftHero(eventId, heroImageUrlRaw, formData);
+
   const supabase = await createClient();
 
   /* ⛔ THEIR OWN HERO PHOTO IS PRO (owner 2026-09-24, "A"). A free couple keeps
@@ -106,6 +123,11 @@ export async function removeHeroPhoto(formData: FormData) {
   const eventId = eventIdRaw;
 
   await requireHostMembership(eventId);
+
+  // 💾 The draft door: "Use the invitation card" in the Maker takes the photo
+  // off IN THE DRAFT — guests keep it until Apply. Removing is never Pro.
+  if (isHubDraftWrite(formData)) await draftHero(eventId, null, formData);
+
   const supabase = await createClient();
 
   await supabase

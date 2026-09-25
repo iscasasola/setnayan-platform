@@ -112,7 +112,8 @@ type Props = {
     pin?: string | string[];
     scene?: string | string[];
     chain?: string | string[];
-    /** Phase 9: `?tool=prints` opens Prints & Tickets, `?tool=details` the
+    /** Phase 6: `?tool=hero|reveal|logo` opens that made-once workspace.
+     *  Phase 9: `?tool=prints` opens Prints & Tickets, `?tool=details` the
      *  Details panel (its saves land back on it); `print_theme` previews the set
      *  in another theme — never saved. */
     tool?: string | string[];
@@ -986,11 +987,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       slug={eventSlug}
       liveStage={liveStage}
       initialStage={isStagePhase(makerStage) ? makerStage : 'rsvp'}
-      initialSelection={
-        hasWork && (one(search.tool) === 'prints' || one(search.tool) === 'details')
-          ? { kind: 'tool', key: one(search.tool) as 'prints' | 'details' }
-          : null
-      }
+      /* `?tool=hero|reveal|logo` opens that made-once workspace (Phase 6), and
+         `?tool=details|prints` the Phase 9 panels — a save lands back on the
+         panel the couple was using. */
+      initialSelection={(() => {
+        const tool = one(search.tool);
+        return hasWork &&
+          (tool === 'hero' || tool === 'reveal' || tool === 'logo' || tool === 'details' || tool === 'prints')
+          ? ({ kind: 'tool', key: tool } as const)
+          : null;
+      })()}
       prints={prints}
       details={details}
       storeShell={storeShell}
@@ -1001,7 +1007,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       completeTourAction={completeTour}
       renderStamp={String(Date.now())}
       hasWork={hasWork}
-      more={hasWork ? controller : null}
+      /* ⋯ holds SETTINGS only (owner 2026-09-25: "why is this here when we
+         already have the actual editor") — who can view, which version guests
+         see, open browsing and go live, portalled in by the work area. The old
+         controller's stage duplicated the canvas; its View as is now the
+         toolbar's switch, and the address moves to the Details panel (P9). */
+      more={null}
+      viewAs={Object.fromEntries(
+        Object.entries(roleViewsByPhase).map(([phase, roles]) => [
+          phase,
+          roles.map((r) => ({ role: r.role, name: r.name, href: r.previewHref })),
+        ]),
+      )}
       /* 💾 Phase 2: the draft's Apply · Restore · Reset, in the toolbar. Only
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} /> : null}

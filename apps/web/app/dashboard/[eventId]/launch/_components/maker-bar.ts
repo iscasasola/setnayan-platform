@@ -10,6 +10,9 @@ import { TOURS, type TourKey } from '@/lib/tours';
  *
  *     Details · Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
  *
+ * Owner, FINAL order (2026-09-25, verbatim): *"DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
+ * INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS"*. `MAKER_BAR` below is the one array.
+ *
  * Three groups, two dividers. The middle group is the four stages of the ONE
  * public link and its words are NOT typed here — they are `PUBLIC_STAGE_LABELS`
  * in `PUBLIC_STAGE_ORDER`, the one stage vocabulary (owner 2026-09-24). A second
@@ -54,8 +57,7 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
 ];
 
 /** What a 'next' item — or a tool whose full build is a later phase — says. */
-export const MAKER_COMING_NEXT: Record<'prints' | 'hero' | 'love-story' | 'logo' | 'add' | 'snap' | 'both', string> = {
-  prints: 'Themed invitations, tickets and posters are coming in the next build.',
+export const MAKER_COMING_NEXT: Record<'hero' | 'love-story' | 'logo' | 'add' | 'snap' | 'both', string> = {
   hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
   'love-story': 'Scene templates for each Love Story moment arrive with the next build — for now each moment shows as a words-and-photo scene.',
   logo: 'The Logo Maker moves inside the Event Hub Maker in the next build — for now it opens in its own page.',

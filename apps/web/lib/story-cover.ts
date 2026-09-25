@@ -53,6 +53,7 @@ import {
   publicKeyForCapture,
 } from '@/app/[slug]/_components/editorial/consent-veto';
 import { PUBLIC_SAFE_MODERATION_STATE } from './public-media-visibility';
+import { resolveHero } from '@/lib/event-hero';
 
 /**
  * The five candidates `02` §6 offers, and the exact vocabulary the database
@@ -165,7 +166,9 @@ export async function resolveStoryCover(
   if (cover.kind === 'monogram') return { kind: 'monogram', key: null };
 
   if (cover.kind === 'hero') {
-    const key = trimmed(event.landing_page_hero_image_url);
+    // THE ONE HERO (`lib/event-hero.ts`): Post Event starts from the same photo
+    // every stage and the poster show, until a post-event cover is chosen.
+    const key = resolveHero(event).photoRef;
     // The host asked for the living hero and the event has none. Falling through
     // is right: the ladder's later rungs are exactly what "the living hero"
     // resolves to when that column is empty.

@@ -45,6 +45,7 @@ import { lookProAllows } from '@/lib/hub-look-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
+import { PUBLIC_R2_BUCKET } from '@/lib/r2-client-ref';
 import { WIDGET_CATALOG_BY_TYPE, hasContent, type WidgetType } from '@/lib/invitation-widgets';
 import {
   SECTION_CONTENT_EVENT_COLUMNS,
@@ -160,8 +161,21 @@ export async function hubDraftAction(
       ? await computeSectionContentMap(supabase, eventId, ownRow as unknown as SectionContentEvent)
       : {};
 
+    /* 🖼 THE ONE HERO, drafted — held to THIS event's own photos: an upload into
+       its own hero folder, or a photo it already shows. The live writer checks
+       only the `r2://` scheme; a draft is a public POST, so it is checked here. */
+    const ownHeroPrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/`;
+    const heroIsOwn = (ref: unknown) =>
+      typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownHeroPrefix));
+
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
+      if (item.kind === 'event' && item.column === 'landing_page_hero_image_url' && item.value !== null) {
+        if (!heroIsOwn(item.value)) {
+          held.push({ item, reason: 'not_your_photo' });
+          continue;
+        }
+      }
       if (item.kind === 'widget' && item.field === 'canvas') {
         const drafted = item.value as HubSectionCanvas | null;
         // The background AND every picture in a template scene's slots (Phase 5).
@@ -190,6 +204,17 @@ export async function hubDraftAction(
       if (item.kind !== 'event') continue;
       eventsPatch[item.column] = item.value;
       (snapshot.events as Record<string, unknown>)[item.column] = live.events[item.column] ?? null;
+    }
+    // The companions each live writer stamps beside its column, so an applied
+    // draft leaves the row exactly as the writer would have.
+    if ('landing_page_hero_image_url' in eventsPatch) {
+      eventsPatch.landing_page_hero_image_uploaded_at = eventsPatch.landing_page_hero_image_url
+        ? new Date().toISOString()
+        : null;
+    }
+    if (typeof eventsPatch.monogram_custom_svg === 'string') {
+      // `saveStudioAction`: one source owns the mark.
+      eventsPatch.monogram_cipher_config = null;
     }
     if (Object.keys(eventsPatch).length > 0) {
       const { data: evRows, error: evErr } = await supabase

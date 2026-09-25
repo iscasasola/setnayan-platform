@@ -20,6 +20,8 @@ import { TOURS } from '@/lib/tours';
  * drops an item, merges a group, or forgets a divider.
  */
 
+/* Owner, FINAL (2026-09-25): "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
+   INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS". */
 const FINAL = [
   // Owner-final 2026-09-25: "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
   // INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS" (MAKER_DETAILS_LABEL).
@@ -35,14 +37,16 @@ const FINAL = [
   'Prints & Tickets',
 ];
 
-async function paint(opts: { hasWork?: boolean; liveStage?: 'rsvp' | null } = {}) {
+async function paint(
+  opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' } | null } = {},
+) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerBar } = await import('./maker-shell');
   return renderToStaticMarkup(
     React.createElement(MakerBar, {
       stage: 'rsvp',
       liveStage: opts.liveStage === undefined ? 'rsvp' : opts.liveStage,
-      selection: null,
+      selection: opts.selection ?? null,
       hasWork: opts.hasWork ?? true,
       onPress: () => {},
     }),
@@ -74,9 +78,10 @@ test('the live stage wears the red dot, and only it', async () => {
 
 test('no bar item is a dead button', async () => {
   const html = await paint();
-  // Phase 9: Prints & Tickets is a real tool now — it opens the workspace, not a coming-next line.
+  // Phase 9: Details and Prints & Tickets are real tools — each opens its workspace, not a coming-next line.
   assert.match(html, /<button[^>]*data-maker-bar-item="prints"[^>]*aria-pressed=/, 'Prints & Tickets opens its workspace');
-  assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, 10, 'every item is a button');
+  assert.match(html, /<button[^>]*data-maker-bar-item="details"[^>]*aria-pressed=/, 'Details opens its panel');
+  assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, FINAL.length, 'every item is a button');
 });
 
 test('the tour: the store shell drops the paid slide, and a price is only ever the catalogue’s', async () => {
@@ -90,4 +95,32 @@ test('the tour: the store shell drops the paid slide, and a price is only ever t
   assert.match(web[web.length - 1]!.body, /₱3,500, once/, 'the catalogue figure, when read');
   const unread = makerTourSlides({ storeShell: false, priceLabel: null });
   assert.ok(unread.every((s) => !/₱|\{price\}/.test(s.body)), 'no remembered number when unread');
+});
+
+test('every bar item is reachable by scrolling — the bar never centres by justify-content', async () => {
+  /* Owner on the live Maker, 2026-09-25: "cannot see logo anymore even if i
+     scroll". `justify-content: center` on a scroll container pushes the overflow
+     off the LEFT edge where no scroll reaches. Centring must come from
+     margin-inline:auto on the first and last groups (collapses on overflow). */
+  const html = await paint();
+  const nav = /<nav[^>]*data-maker-bar=""[^>]*>/.exec(html)?.[0] ?? '';
+  assert.ok(nav, 'the bar was not rendered');
+  assert.doesNotMatch(nav, /justify-(center|around|evenly|end)|justify-content:\s*center/, 'the scrolling bar must not justify-center');
+  assert.match(nav, /overflow-x-auto/, 'the bar must scroll when it overflows');
+  const groups = [...html.matchAll(/<span class="flex shrink-0 items-center gap-0\.5([^"]*)"/g)].map((m) => m[1]!);
+  assert.equal(groups.length, 3, 'three groups');
+  assert.match(groups[0]!, /\bms-auto\b/, 'the first group centres with margin-inline-start:auto');
+  assert.match(groups[2]!, /\bme-auto\b/, 'the last group centres with margin-inline-end:auto');
+});
+
+test('ONE highlight in every state — a tool takes it from the stage, and any item can hold it', async () => {
+  /* Owner 2026-09-25: "there should also be only one highlighted here. stage
+     must leave" · "allow other to be highlighted". */
+  const pressed = (html: string) => [...html.matchAll(/data-maker-bar-item="([^"]+)"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-maker-bar-item="([^"]+)"/g)].map((m) => m[1] ?? m[2]);
+  const none = pressed(await paint());
+  assert.deepEqual(none, ['rsvp'], 'with no tool open the stage is the one highlight');
+  for (const key of ['logo', 'hero', 'reveal', 'love-story'] as const) {
+    const on = pressed(await paint({ selection: { kind: 'tool', key } }));
+    assert.deepEqual(on, [key], `with ${key} open, ${key} alone is highlighted (got ${on.join(', ')})`);
+  }
 });

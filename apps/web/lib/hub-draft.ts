@@ -45,10 +45,11 @@
  *           motion, transition),
  *           sanitised by `sanitizeHubCanvas` — the same function the guest render
  *           reads through. `canvas: null` means "take the canvas off".
- *           The HERO row alone also carries `main` (Maker Phase 10): the Main
- *           background — the couple's own clip or photo behind every scene, and
- *           the adaptive theme's `tint` — stored at `config_json.main` and read
- *           through `sanitizeHubMainGround`. `main: null` = back to the theme's.
+ *           The HERO row alone also carries `main` (Maker Phase 10): what is
+ *           behind every scene — by default the hero itself, with the adaptive
+ *           theme's `tint` measured off its photo, or an opt-in override clip or
+ *           photo — stored at `config_json.main`, read through
+ *           `sanitizeHubMainGround`. `main: null` = the plain hero, unmeasured.
  */
 import {
   WIDGET_PHASES,
@@ -62,6 +63,7 @@ import { isCustomSectionType } from '@/lib/custom-sections';
 import {
   HUB_MAIN_GROUND_KEY,
   hubMainGround,
+  isHubMainFollow,
   sanitizeHubCanvas,
   sanitizeHubMainGround,
   type HubMainGround,
@@ -485,16 +487,23 @@ const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(co
  * The Main background, live → drafted (Maker Phase 10). All of it is LOOK — the
  * owner's "making media a background is pro", and "Adaptive theme is for PRO":
  * putting their own clip or photo up, swapping it, or changing how the theme
- * follows it (the `tint` toggle) adds or changes; going back to the theme's
- * own background removes, which is free.
+ * follows it (the `tint` toggle) adds or changes; going back to the hero (or
+ * the theme's own) removes, which is free.
+ *
+ * FOLLOWING THE HERO (the default, owner 2026-09-25 item 6) carries no media of
+ * its own — the hero photo is gated where the hero is written — so only its
+ * measured frame and toggle are compared: the adaptive tint, which is Pro.
  */
 export function mainGroundChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
-  const ref = (m: HubMainGround | null) => (m ? `${m.kind}:${m.media}` : null);
-  if (!next) return refChange(ref(live), null);
+  const ref = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? `${m.kind}:${m.media}` : null);
+  const poster = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? (m.poster ?? null) : null);
+  const tint = (m: HubMainGround | null) =>
+    m ? asText(isHubMainFollow(m) ? { of: m.of, ...m.tint } : (m.tint ?? null)) : null;
+  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null));
   return combineChanges(
     refChange(ref(live), ref(next)),
-    refChange(live?.poster ?? null, next.poster ?? null),
-    refChange(asText(live?.tint), asText(next.tint)),
+    refChange(poster(live), poster(next)),
+    refChange(tint(live), tint(next)),
   );
 }
 
@@ -763,7 +772,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
-  if (item.field === 'main') return 'Your own background';
+  if (item.field === 'main') return 'Behind every scene';
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

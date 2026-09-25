@@ -827,39 +827,59 @@ export function hubCanvasMediaRefs(
     if (canvas.media) out.add(canvas.media);
     // A template scene's own pictures sign in the same one pass.
     for (const slot of canvas.slots ?? []) if (slot.media) out.add(slot.media);
-    // …and the Main background's photo or still (Maker Phase 10). Its CLIP is
-    // not signed here: whether a clip may play is the render's question
-    // (`heroVideoRefForGuests`), and a URL nobody may play is not minted.
+    // …and a Main background OVERRIDE's photo or still (Maker Phase 10). Its
+    // CLIP is not signed here: whether a clip may play is the render's question
+    // (`heroVideoRefForGuests`), and a URL nobody may play is not minted. The
+    // hero it follows by default is signed by `loadMedia`, like every hero.
     const main = hubMainGround(row.config_json);
-    if (main?.kind === 'photo') out.add(main.media);
-    if (main?.poster) out.add(main.poster);
+    if (main && !isHubMainFollow(main)) {
+      if (main.kind === 'photo') out.add(main.media);
+      if (main.poster) out.add(main.poster);
+    }
   }
   return [...out];
 }
 
-/* ══ THE MAIN BACKGROUND — the couple's own clip or photo behind every scene ══
+/* ══ THE MAIN BACKGROUND — behind every scene ════════════════════════════════
    Event Hub Maker Phase 10 (build plan §3; DECISION_LOG 2026-09-25 "ADAPTIVE
-   THEME"). The navigator pins "Main · behind every scene" on top, and until
-   now it held a colour (`site_bg_color`, free) and the theme's own loop. A
-   Pro couple may swap that loop for their OWN clip or photo, and the theme's
-   accent, button and ornament then follow it (`lib/adaptive-theme.ts`).
+   THEME" and "OWNER ANSWERS — SIX CONTROLLER QUESTIONS" item 6). The
+   navigator pins "Main · behind every scene" on top.
+
+   🔑 THE HERO IS THE SOURCE OF TRUTH. Owner, verbatim: *"whatever they make on
+   the hero scene will be their cover and the main background."* So by DEFAULT
+   the Main background IS the hero (`resolveHero`, `lib/event-hero.ts`) — never
+   a second upload the couple has to repeat. What is stored here is only:
+     · FOLLOW — `{ follow: 'hero', of, tint }`: the adaptive theme's measured
+       frame of the hero photo `of`, and the "Match my photo's colours" toggle.
+       It applies only while `of` IS the hero's photo; a new hero is measured
+       again before its colours are used, so a stale frame can never tint the
+       page for a picture it was not read from.
+     · OWN — `{ kind, media, poster?, tint? }`: an explicit, opt-in override —
+       "a different clip or photo behind every scene".
+   Nothing measured yet, or a hero with no photo (the written card) = the
+   theme's own loop, exactly as before this phase.
 
    🔑 WHERE IT LIVES: `config_json.main` on the event's HERO row. The Main
    background has no row of its own and must not get a migration for one
    (build plan: "Migrations: 0"); the hero row is the one section every event
-   has exactly once (`is_always_on`, and `invitation_widgets` is UNIQUE on
-   event + type), and `config_json` is the canvas's existing home. It sits
-   BESIDE `canvas`, never inside it — the hero SCENE's own background and the
-   page's Main background are two different layers, and one key for both
-   would make "None — show main" mean itself.
+   has exactly once (`is_always_on`, UNIQUE on event + type), and it is the
+   hero this follows. It sits BESIDE `canvas`, never inside it — the hero
+   SCENE's own background and the page's Main background are two layers.
 
-   It is a narrow canvas: what it is made of, the ref, the still, and
-   `tint` — the adaptive theme's stored frame and toggle. Every ref passes the
-   SAME `hubMediaRef` fence as a section background: one field shape, one
-   fence, the public bucket only. */
+   Every ref passes the SAME `hubMediaRef` fence as a section background: one
+   field shape, one fence, the public bucket only. */
 export const HUB_MAIN_GROUND_KEY = 'main';
 
-export type HubMainGround = {
+/** The default: the Main background follows the hero; this is the tint read off the hero's photo. */
+export type HubMainFollow = {
+  follow: 'hero';
+  /** The hero photo the frame was measured from. The tint applies only while this IS the hero. */
+  of: string;
+  tint: HubTint;
+};
+
+/** An explicit override — the couple's own clip or photo instead of their hero. */
+export type HubMainOwn = {
   /** A photo, or a short muted clip (`snippet`) — never a colour; that is `site_bg_color`. */
   kind: 'photo' | 'snippet';
   /** The photo, or the clip. */
@@ -874,13 +894,24 @@ export type HubMainGround = {
   tint?: HubTint;
 };
 
+export type HubMainGround = HubMainFollow | HubMainOwn;
+
+export function isHubMainFollow(m: HubMainGround | null | undefined): m is HubMainFollow {
+  return Boolean(m && 'follow' in m);
+}
+
 /** Anything → a Main background, or null. Drops rather than repairs. */
 export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const src = raw as Record<string, unknown>;
+  if (src.follow === 'hero') {
+    const of = hubMediaRef(src.of);
+    const tint = sanitizeHubTint(src.tint);
+    return of && tint ? { follow: 'hero', of, tint } : null;
+  }
   const media = hubMediaRef(src.media);
   if (!media || (src.kind !== 'photo' && src.kind !== 'snippet')) return null;
-  const out: HubMainGround = { kind: src.kind, media };
+  const out: HubMainOwn = { kind: src.kind, media };
   const poster = hubMediaRef(src.poster);
   if (poster) out.poster = poster;
   const tint = sanitizeHubTint(src.tint);
@@ -892,4 +923,51 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
 export function hubMainGround(config: unknown): HubMainGround | null {
   if (!config || typeof config !== 'object' || Array.isArray(config)) return null;
   return sanitizeHubMainGround((config as Record<string, unknown>)[HUB_MAIN_GROUND_KEY]);
+}
+
+/** What the page draws behind every scene — refs only; the caller signs them. */
+export type ResolvedMainGround = {
+  /** 'hero' = it is the couple's hero (the default); 'own' = their explicit override. */
+  source: 'hero' | 'own';
+  /** The photo, or the clip's still. */
+  stillRef: string | null;
+  /** The clip for the COUPLE's own editors and preview. */
+  clipRef: string | null;
+  /** The same clip for a GUEST — null while unscreened clips may not reach one. */
+  guestClipRef: string | null;
+  tint: HubTint | null;
+};
+
+/**
+ * THE ONE ANSWER to "what is behind every scene?". An override wins; otherwise
+ * the hero — its photo, and its clip where one may play — but only once the
+ * hero's frame has been MEASURED (`follow.of` is this very photo): words are
+ * never laid over pixels nobody read. `null` = the theme's own loop.
+ *
+ * `hero` is `resolveHero(event)`'s answer and `guestClipGate` is
+ * `heroVideoRefForGuests` — both passed in, so this file keeps no second
+ * opinion about what the hero is or which clips a guest may see.
+ */
+export function resolveMainGround(
+  main: HubMainGround | null,
+  hero: { photoRef: string | null; videoRef: string | null; guestVideoRef: string | null },
+  guestClipGate: (ref: string) => string | null,
+): ResolvedMainGround | null {
+  if (main && !isHubMainFollow(main)) {
+    return {
+      source: 'own',
+      stillRef: main.kind === 'photo' ? main.media : (main.poster ?? null),
+      clipRef: main.kind === 'snippet' ? main.media : null,
+      guestClipRef: main.kind === 'snippet' ? guestClipGate(main.media) : null,
+      tint: main.tint ?? null,
+    };
+  }
+  if (!hero.photoRef || !main || main.of !== hero.photoRef) return null;
+  return {
+    source: 'hero',
+    stillRef: hero.photoRef,
+    clipRef: hero.videoRef,
+    guestClipRef: hero.guestVideoRef,
+    tint: main.tint,
+  };
 }

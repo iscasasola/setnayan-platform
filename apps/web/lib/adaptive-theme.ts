@@ -6,11 +6,13 @@
  * else to it. is that possible?"* → *"we can do this at no cost"*. And, on the
  * Event Hub Pro list: *"Adaptive theme is for PRO – i like this"*.
  *
- * So when a couple swaps their theme's moving background for their OWN clip or
- * photo (the Main background, `config_json.main` on the hero row —
- * `lib/hub-canvas.ts` `hubMainGround`), the theme's accent, its button and its
- * ornament tint move toward the colours of THEIR footage. Fonts, ornaments'
- * shapes, the reveal, the transitions and the motion do not move.
+ * So when the page behind every scene is the couple's OWN media instead of their
+ * theme's loop — by default their HERO (owner 2026-09-25: "whatever they make on
+ * the hero scene will be their cover and the main background"), or an opt-in
+ * override clip or photo (`lib/hub-canvas.ts` `resolveMainGround`) — the theme's
+ * accent, its button and its ornament tint move toward the colours of THEIR
+ * footage. Fonts, ornaments' shapes, the reveal, the transitions and the motion
+ * do not move.
  *
  * ── WHAT IS STORED, AND WHY IT IS THE FRAME AND NOT THE ANSWER ─────────────
  * `canvas.tint` holds the couple's toggle and the MEASURED FRAME (a handful of

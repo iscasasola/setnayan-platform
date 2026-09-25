@@ -68,7 +68,7 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
-import { HUB_MAIN_GROUND_KEY, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -182,8 +182,11 @@ export async function hubDraftAction(
           continue;
         }
       }
-      if (item.kind === 'widget' && item.field === 'main' && item.value !== null) {
-        const main = item.value as HubMainGround;
+      // Following the hero stores no media of its own (only a frame measured
+      // off the hero, which the render uses only while it IS the hero) — so
+      // only an override's clip, photo and still are held to this event.
+      if (item.kind === 'widget' && item.field === 'main' && item.value !== null && !isHubMainFollow(item.value as HubMainGround)) {
+        const main = item.value as HubMainOwn;
         if (![main.media, main.poster].every((r) => r === undefined || mainIsOwn(r))) {
           held.push({ item, reason: 'not_your_photo' });
           continue;

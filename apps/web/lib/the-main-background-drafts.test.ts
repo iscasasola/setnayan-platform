@@ -26,12 +26,20 @@ import {
   sanitizeHubDraft,
   type HubLiveState,
 } from './hub-draft';
-import { hubCanvasMediaRefs, hubMainGround, sanitizeHubCanvas, sanitizeHubMainGround, type HubMainGround } from './hub-canvas';
+import {
+  hubCanvasMediaRefs,
+  hubMainGround,
+  resolveMainGround,
+  sanitizeHubCanvas,
+  sanitizeHubMainGround,
+  type HubMainGround,
+  type HubMainOwn,
+} from './hub-canvas';
 import type { InvitationWidgetRow } from './invitation-widgets';
 
 const CLIP = 'r2://setnayan-media/events/e1/main-background/clip.mp4';
 const STILL = 'r2://setnayan-media/events/e1/main-background/still.jpg';
-const OWN: HubMainGround = { kind: 'snippet', media: CLIP, poster: STILL, tint: { match: true, frame: ['#e69853', '#fee5b4', '#ab4c2e'] } };
+const OWN: HubMainOwn = { kind: 'snippet', media: CLIP, poster: STILL, tint: { match: true, frame: ['#e69853', '#fee5b4', '#ab4c2e'] } };
 
 function row(p: Partial<InvitationWidgetRow> & Pick<InvitationWidgetRow, 'widget_type'>): InvitationWidgetRow {
   return {
@@ -97,7 +105,7 @@ test('a free couple TRIES their own clip: refused at Apply, kept in the draft �
   const owning = planHubDraftApply(draftOf(OWN), LIVE, true);
   assert.equal(owning.apply.length, 1);
   assert.equal(owning.refused.length, 0);
-  assert.equal(hubDraftItemLabel(owning.apply[0]!, () => 'Hero'), 'Your own background');
+  assert.equal(hubDraftItemLabel(owning.apply[0]!, () => 'Hero'), 'Behind every scene');
 });
 
 test('going back to the theme\'s own background is free', () => {
@@ -119,4 +127,57 @@ test('the colour toggle is a look change — "Keep the theme\'s colours" and bac
 
 test('re-saving what is live writes nothing', () => {
   assert.deepEqual(classifyHubDraft(draftOf(OWN), LIVE_WITH_OWN).items, []);
+});
+
+/* ── THE HERO IS THE MAIN BACKGROUND (owner 2026-09-25, item 6) ──────────── */
+
+const HERO = 'r2://setnayan-media/events/e1/landing-page-hero/hero.jpg';
+const HERO_CLIP = 'r2://setnayan-media/events/e1/landing-page-hero-video/hero.mp4';
+const FOLLOW: HubMainGround = { follow: 'hero', of: HERO, tint: { match: true, frame: ['#e69853', '#fee5b4'] } };
+const heroOf = (photoRef: string | null) => ({ photoRef, videoRef: photoRef ? HERO_CLIP : null, guestVideoRef: null });
+const closed = () => null;
+
+test('by default the Main background IS the hero — once its photo has been measured', () => {
+  // Measured for THIS hero → the hero photo, its clip for the couple, none for guests (unscreened).
+  assert.deepEqual(resolveMainGround(FOLLOW, heroOf(HERO), closed), {
+    source: 'hero',
+    stillRef: HERO,
+    clipRef: HERO_CLIP,
+    guestClipRef: null,
+    tint: FOLLOW.tint,
+  });
+  // Nothing measured yet → the theme's own loop, never words over pixels nobody read.
+  assert.equal(resolveMainGround(null, heroOf(HERO), closed), null);
+  // A NEW hero with the old frame → not used until the new photo is measured.
+  assert.equal(resolveMainGround(FOLLOW, heroOf('r2://setnayan-media/events/e1/landing-page-hero/new.jpg'), closed), null);
+  // No hero photo (the written card) → the theme's own loop.
+  assert.equal(resolveMainGround(FOLLOW, heroOf(null), closed), null);
+});
+
+test('an explicit override wins over the hero, and its clip still waits on the guest gate', () => {
+  const r = resolveMainGround(OWN, heroOf(HERO), closed);
+  assert.equal(r?.source, 'own');
+  assert.equal(r?.stillRef, STILL);
+  assert.equal(r?.clipRef, CLIP);
+  assert.equal(r?.guestClipRef, null);
+});
+
+test('following the hero is sanitised: a real ref and a real frame, or nothing', () => {
+  assert.deepEqual(sanitizeHubMainGround(FOLLOW), FOLLOW);
+  assert.equal(sanitizeHubMainGround({ follow: 'hero', of: HERO }), null, 'no frame, no follow');
+  assert.equal(sanitizeHubMainGround({ follow: 'hero', of: 'r2://setnayan-thread-files/x.jpg', tint: FOLLOW.tint }), null);
+  // The hero is signed by loadMedia like every hero — the Main pass signs nothing for a follow.
+  assert.deepEqual(hubCanvasMediaRefs([{ config_json: { main: FOLLOW } }]), []);
+});
+
+test('the tint on the hero is Pro to add or change; going back to the plain hero is free', () => {
+  assert.equal(mainGroundChange(null, FOLLOW), 'add');
+  assert.equal(mainGroundChange(FOLLOW, { ...FOLLOW, tint: { ...FOLLOW.tint, match: false } }), 'change');
+  assert.equal(mainGroundChange(FOLLOW, null), 'remove');
+  const free = planHubDraftApply(draftOf(FOLLOW), LIVE, false);
+  assert.equal(free.refused.length, 1, 'a free couple is refused the adaptive tint at Apply');
+  assert.equal(planHubDraftApply(draftOf(FOLLOW), LIVE, true).apply.length, 1);
+  // Swapping an override back to the hero takes media DOWN — free.
+  assert.equal(mainGroundChange(OWN, FOLLOW), 'change', 'the tint on the hero still differs, so this is a look change');
+  assert.equal(mainGroundChange(OWN, null), 'remove');
 });

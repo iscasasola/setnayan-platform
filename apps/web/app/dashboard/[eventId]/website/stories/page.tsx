@@ -117,7 +117,7 @@ export default async function EventStoriesPage({
         className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Back to your {noun} website
+        Back to your {noun} Event Hub
       </Link>
 
       <PageMasthead

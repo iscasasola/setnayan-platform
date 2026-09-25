@@ -106,23 +106,30 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S SENTENCE ══════════════════════════════════════════════ */
 
-test('Logo Maker is row 9 of 20 on a wedding planning rail, directly under Mood Board', () => {
+test('the Logo Maker lives inside the Event Hub Maker — one row, 19 on a wedding planning rail', () => {
   /*
     Counted the way the drawing counts: row 1 is the "Events" focus row above
     the event, row 2 is the event's name (Details), then every menu row.
+
+    ✏️ 2026-09-25 (owner: one sidebar row "Event Hub Maker"; "the logo maker
+    lives in the editor"): the Logo Maker's row — which the 2026-09-24 ruling
+    had lifted from row 26 to row 9 because it felt "so far" — now has no row
+    at all. Its door is the Maker bar's "Logo", and `/monogram` lights the Maker
+    row (`STUDIO_ABSORBED.palogo`), so it is never unreachable and never unlit.
   */
   const labels = ['Events', ...rail(WEDDING).flatMap((g) => g.items.map((i) => i.label))];
-  const at = labels.indexOf('Logo Maker') + 1;
   // 21 → 20 on 2026-09-24: the 3D Plan row folded into Seat plan (§6).
-  assert.equal(labels.length, 20, `the rail is ${labels.length} rows: ${labels.join(' · ')}`);
-  assert.equal(at, 9, `Logo Maker is row ${at} — the owner found row 26 "so far"`);
-  assert.equal(labels[at - 2], 'Mood Board', 'Logo Maker must sit directly under Mood Board');
+  // 20 → 19 on 2026-09-25: the Logo Maker folded into the Event Hub Maker.
+  assert.equal(labels.length, 19, `the rail is ${labels.length} rows: ${labels.join(' · ')}`);
+  assert.equal(labels.indexOf('Logo Maker'), -1, 'the Logo Maker is a door in the Maker, not a row');
+  const maker = rail(WEDDING).flatMap((g) => g.items).find((i) => i.key === 'launch');
+  assert.ok(maker, 'the Event Hub Maker row is on the rail');
   assert.deepEqual(labels, [
     'Events', 'Details',
     'Overview', 'Papic', 'Galleries',
     'Your Team', 'Budget',
-    'Mood Board', 'Logo Maker', 'Pakanta',
-    'Guests', 'Hosts', 'Event Hub Controller',
+    'Mood Board', 'Pakanta',
+    'Guests', 'Hosts', 'Event Hub Maker',
     'Schedule', 'Seat plan', 'Live Studio', 'Patiktok',
     // NEXT_PUBLIC_SUITE is on in production (read 2026-09-22); the word
     // follows the one flag branch in lib/studio-hub.ts either way.
@@ -130,11 +137,13 @@ test('Logo Maker is row 9 of 20 on a wedding planning rail, directly under Mood 
   ]);
 });
 
-test('Check-in joins The day on the day; Editorial joins the spine after it', () => {
+test('Check-in joins The day on the day; Editorial is reached through the Maker after it', () => {
   const day = rail(WEDDING, 'dayof').find((g) => g.key === 'day')!.items.map((i) => i.key);
   assert.deepEqual(day, ['schedule', 'checkin', 'seat', 'panood', 'patiktok']);
+  // ✏️ 2026-09-25: Editorial's door is the Maker bar's "Post Event"; the
+  // Maker row claims `/story` so the workroom still lights a row.
   const spine = rail(WEDDING, 'after').find((g) => g.key === 'spine')!.items.map((i) => i.key);
-  assert.deepEqual(spine, ['home', 'papic', 'galleries', 'editorial']);
+  assert.deepEqual(spine, ['home', 'papic', 'galleries']);
   assert.ok(
     !rail(WEDDING).flatMap((g) => g.items).some((i) => i.key === 'checkin' || i.key === 'editorial'),
     'Check-in or Editorial shows before its moment',
@@ -144,9 +153,9 @@ test('Check-in joins The day on the day; Editorial joins the spine after it', ()
 /* ══ 2 · ONE TREE — THE PHONE PICKS FROM IT ═══════════════════════════════ */
 
 const BARS = {
-  plan: [['home', 'Overview'], ['papic', 'Papic'], ['explore', 'Your Team'], ['guests', 'Guests'], ['launch', 'Event Hub Controller']],
-  dayof: [['now', 'Overview'], ['papic', 'Papic'], ['checkin', 'Check-in'], ['launch', 'Event Hub Controller'], ['schedule', 'Schedule']],
-  after: [['home', 'Overview'], ['papic', 'Papic'], ['galleries', 'Galleries'], ['review', 'Your Team'], ['launch', 'Event Hub Controller']],
+  plan: [['home', 'Overview'], ['papic', 'Papic'], ['explore', 'Your Team'], ['guests', 'Guests'], ['launch', 'Event Hub Maker']],
+  dayof: [['now', 'Overview'], ['papic', 'Papic'], ['checkin', 'Check-in'], ['launch', 'Event Hub Maker'], ['schedule', 'Schedule']],
+  after: [['home', 'Overview'], ['papic', 'Papic'], ['galleries', 'Galleries'], ['review', 'Your Team'], ['launch', 'Event Hub Maker']],
 } as const;
 
 for (const phase of ['plan', 'dayof', 'after'] as const) {
@@ -260,10 +269,12 @@ test('the phone strip docks the moment the page belongs to', () => {
     studioRows: studioRowsFor(WEDDING),
   });
   const at = (p: string) => eventMomentForPath(`${BASE}${p}`, sections)?.key ?? null;
-  // The acceptance test's phone half: open Mood Board, Logo Maker is one tap.
+  // ✏️ 2026-09-25: the Logo Maker is inside the Event Hub Maker, so the Look
+  // strip is Mood Board · Pakanta, and `/monogram` docks the Maker's moment.
   const look = eventMomentForPath(`${BASE}/studio/mood-board`, sections)!;
-  assert.deepEqual(look.rows.map((r) => r.key), ['mood-board', 'palogo', 'pakanta']);
-  assert.equal(at('/monogram'), 'look');
+  assert.deepEqual(look.rows.map((r) => r.key), ['mood-board', 'pakanta']);
+  assert.equal(at('/monogram'), 'invite');
+  assert.equal(at('/story'), 'invite');
   assert.equal(at('/seating/lab'), 'day');
   assert.equal(at('/plan3d'), 'day');
   assert.equal(at('/guests'), 'invite');

@@ -1,28 +1,40 @@
-/**
- * Our Love Story — read-only render of events.love_story collected by the
- * onboarding Love Stage (Increment A.2). Renders How-we-met · The proposal ·
- * a milestones timeline; hides entirely when the story is empty. Defensive
- * parse — love_story is JSONB (unknown) with a rich, evolving shape.
- */
-export function OurLoveStoryWidget({ config }: { config: unknown }) {
-  const c = config && typeof config === 'object' ? (config as Record<string, unknown>) : {};
-  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-  const howWeMet = str(c.how_we_met);
-  const proposal = str(c.proposal);
-  const proposalSetting = str(c.proposal_setting);
-  const milestones = (Array.isArray(c.milestones) ? (c.milestones as unknown[]) : [])
-    .map((m) => {
-      const mm = m && typeof m === 'object' ? (m as Record<string, unknown>) : {};
-      const year = typeof mm.year === 'number' ? String(mm.year) : str(mm.year);
-      return {
-        year,
-        title: str(mm.title) || str(mm.label) || str(mm.what),
-        note: str(mm.note) || str(mm.text) || str(mm.detail),
-      };
-    })
-    .filter((m) => m.year || m.title || m.note);
+import { loveStoryScenes } from '@/lib/love-story-moments';
 
-  if (!howWeMet && !proposal && milestones.length === 0) return null;
+/**
+ * Our Love Story — the guest render of `events.love_story`.
+ *
+ * 🔑 EACH STORY IS A SCENE (owner 2026-09-25, Event Hub Maker Phase 7). The
+ * widget draws ONE part per visible moment, in story order, from
+ * `loveStoryScenes` — the same list the scrapbook's "On our Event Hub" shows.
+ * A couple who never opened the scrapbook still has a story: `resolveMoments`
+ * seeds the moments from the onboarding words (how we met · the spark · the yes
+ * · milestones), so the legacy keys keep rendering exactly as moments.
+ *
+ * ── THE SHAPE IS THE SCENE SEAM ────────────────────────────────────────────
+ * One `<section>` root; its direct children are the parts — the opening card,
+ * then one `<article data-love-scene>` per moment. The canvas frame's "one part
+ * after another" addresses exactly those children
+ * (`every-widget-is-one-section.test.ts`), so each moment arrives in turn with
+ * the theme's motion today. ⏭ Phase 5's scene renderer takes the same list
+ * (each scene carries its `canvas` and a suggested `template`) and replaces the
+ * `<article>` below; nothing upstream changes.
+ *
+ * Photos (Event Hub Pro) arrive already signed in `mediaUrls` — resolved ONCE
+ * for the whole page by `SiteBody`, never here, so the widget stays pure and a
+ * ref whose signing failed simply draws no picture.
+ *
+ * Hides entirely when there is no visible moment. Defensive parse — love_story
+ * is JSONB (unknown).
+ */
+export function OurLoveStoryWidget({
+  config,
+  mediaUrls,
+}: {
+  config: unknown;
+  mediaUrls?: Readonly<Record<string, string>>;
+}) {
+  const scenes = loveStoryScenes(config);
+  if (scenes.length === 0) return null;
 
   // Pahina chapter grammar (design 2026-07-25 §7). NOTE: this widget carries an
   // UNNUMBERED eyebrow on purpose — `OurStory` also renders a story chapter (№ 02)
@@ -30,49 +42,38 @@ export function OurLoveStoryWidget({ config }: { config: unknown }) {
   // enables this widget could surface both on one page. Two "№ 02" headings would
   // break the magazine conceit; the label alone reads correctly either way.
   return (
-    <section className="space-y-6">
-      <p className="pahina-eyebrow">
-        <span>Our love story</span>
-      </p>
-      {howWeMet ? (
-        <div>
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
-            How we met
-          </p>
-          <p className="mt-2 max-w-prose whitespace-pre-line text-base leading-relaxed text-ink/80">
-            {howWeMet}
-          </p>
-        </div>
-      ) : null}
-      {proposal ? (
-        <div>
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
-            The proposal{proposalSetting ? ` · ${proposalSetting}` : ''}
-          </p>
-          <p className="mt-2 max-w-prose whitespace-pre-line text-base leading-relaxed text-ink/80">
-            {proposal}
-          </p>
-        </div>
-      ) : null}
-      {milestones.length > 0 ? (
-        <ol className="max-w-prose space-y-5 pt-1">
-          {milestones.map((m, i) => (
-            <li key={i} className="border-l border-ink/12 pl-5">
-              {m.year ? (
-                <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-                  {m.year}
-                </p>
-              ) : null}
-              {m.title ? (
-                <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
-                  {m.title}
-                </p>
-              ) : null}
-              {m.note ? <p className="mt-1 text-sm leading-relaxed text-ink/65">{m.note}</p> : null}
-            </li>
-          ))}
-        </ol>
-      ) : null}
+    <section className="space-y-10" data-love-story-scenes={scenes.length}>
+      <div>
+        <p className="pahina-eyebrow">
+          <span>Our love story</span>
+        </p>
+      </div>
+      {scenes.map((s) => {
+        const photos = s.media.map((ref) => mediaUrls?.[ref]).filter((u): u is string => Boolean(u));
+        return (
+          <article
+            key={s.id}
+            data-love-scene={s.id}
+            data-love-template={s.template}
+            className="max-w-prose border-l border-ink/12 pl-5"
+          >
+            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+              {s.when ? `${s.when} · ` : ''}
+              {s.chapterLabel}
+            </p>
+            {photos.length > 0 ? (
+              <div className={`mt-3 grid gap-2 ${photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {photos.map((url) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={url} src={url} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
+                ))}
+              </div>
+            ) : null}
+            <p className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
+            {s.place ? <p className="mt-1 text-sm leading-relaxed text-ink/65">{s.place}</p> : null}
+          </article>
+        );
+      })}
     </section>
   );
 }

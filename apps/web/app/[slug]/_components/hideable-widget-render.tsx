@@ -68,6 +68,7 @@ function HideableWidgetBody({
   isLimitedPlusOne,
   ourPhotoUrls,
   words,
+  canvasMediaUrls,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -166,7 +167,7 @@ function HideableWidgetBody({
       return <CustomSectionWidget config={widget.config_json} />;
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} />;
+      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} />;
 
     case 'tier_comparison':
       return (

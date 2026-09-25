@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e33386fa1",
+  "generatedFromRef": "5761961f7e",
   "routeCount": 432,
-  "destinations": 926,
-  "actions": 663,
-  "blocks": 4644,
+  "destinations": 929,
+  "actions": 664,
+  "blocks": 4664,
   "routes": {
     "/": {
       "files": [
@@ -747,10 +747,12 @@
         "[slug]/_components/guest-doorway-strip.tsx",
         "[slug]/_components/guest-hub-bar.tsx",
         "[slug]/_components/guest-hub-card.tsx",
+        "[slug]/_components/guest-look-scope.tsx",
         "[slug]/_components/guest-preload.tsx",
         "[slug]/_components/hero-background-media.tsx",
         "[slug]/_components/hideable-widget-render.tsx",
         "[slug]/_components/hub-canvas-frame.tsx",
+        "[slug]/_components/hub-scenes.tsx",
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/invitation-shell.tsx",
         "[slug]/_components/invitation-skeleton.tsx",
@@ -770,6 +772,7 @@
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
         "[slug]/_components/reveal/four-flap.tsx",
+        "[slug]/_components/reveal/reveal-mount.tsx",
         "[slug]/_components/reveal/reveal-overlay-server.tsx",
         "[slug]/_components/reveal/reveal-overlay.tsx",
         "[slug]/_components/reveal/reveal-particles.tsx",
@@ -850,6 +853,7 @@
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
         "[slug]/_lib/supplier-desk.server.ts",
+        "[slug]/_lib/theme-ground.ts",
         "[slug]/_lib/top-corner.ts",
         "[slug]/_lib/types.ts",
         "[slug]/_lib/your-own-day.server.ts",
@@ -971,9 +975,12 @@
         "GuestColumnsWall",
         "GuestContext",
         "GuestDoorwayStrip",
+        "GuestGround",
         "GuestGuidedTour",
         "GuestHubBar",
         "GuestHubCard",
+        "GuestLook",
+        "GuestLookScope",
         "GuestPreload",
         "GuestToHostCta",
         "HTMLAudioElement",
@@ -992,6 +999,7 @@
         "HubLook",
         "HubMenuButton",
         "HubPanelKey",
+        "HubScenes",
         "Icon",
         "InstallPlatform",
         "InvitationBody",
@@ -1054,6 +1062,7 @@
         "Relive",
         "Remaining",
         "RevealFeatures",
+        "RevealMount",
         "RevealOverlay",
         "RevealOverlayServer",
         "RevealParticles",
@@ -4865,6 +4874,7 @@
         "AutoPreloadOnEventDay",
         "BankBody",
         "Blob",
+        "BottomDock",
         "BottomNav",
         "BranchPinMap",
         "BudgetHealthCard",
@@ -8173,7 +8183,8 @@
         "/api/website/qr[seg]",
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
-        "/dashboard/[seg]/studio/save-the-date"
+        "/dashboard/[seg]/studio/save-the-date",
+        "/dashboard/[seg]/studio/website-pro"
       ],
       "actions": [
         "action",
@@ -8219,6 +8230,7 @@
         "RsvpBackdropPanel",
         "SaveButton",
         "SchedulePeekPanel",
+        "SectionColourChoices",
         "SectionsPanel",
         "SiteChromePanel",
         "StdPanel",
@@ -8256,7 +8268,8 @@
         "Image",
         "Link",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "WebsiteProLock"
       ]
     },
     "/dashboard/[eventId]/website/launch": {
@@ -8274,6 +8287,7 @@
         "dashboard/[eventId]/website/living-hero/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/website",
         "/dashboard/[seg]/website/hero-photo"
       ],
       "actions": [],
@@ -8285,7 +8299,8 @@
         "Link",
         "LivingHeroStudio",
         "PageMasthead",
-        "Phase"
+        "Phase",
+        "WebsiteProLock"
       ]
     },
     "/dashboard/[eventId]/website/our-photos": {
@@ -8308,19 +8323,37 @@
     },
     "/dashboard/[eventId]/website/our-story": {
       "files": [
+        "dashboard/[eventId]/website/our-story/_components/love-story-book.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-pro-line.tsx",
+        "dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx",
+        "dashboard/[eventId]/website/our-story/_components/pick-from-our-events.tsx",
         "dashboard/[eventId]/website/our-story/_components/story-fields.tsx",
         "dashboard/[eventId]/website/our-story/actions.ts",
         "dashboard/[eventId]/website/our-story/milestones-field.tsx",
         "dashboard/[eventId]/website/our-story/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/website/our-story"
+      ],
       "actions": [
+        "action",
         "updateAction"
       ],
       "blocks": [
+        "AddMomentLabel",
         "Field",
+        "FileUpload",
+        "HTMLDivElement",
+        "InfoTip",
+        "Link",
+        "LoveStoryBook",
+        "LoveStoryProLine",
         "MilestonesField",
-        "PageMasthead",
+        "MiniTour",
+        "MomentAnchor",
+        "MomentSheet",
+        "PickFromOurEvents",
+        "Precision",
         "StoryFields",
         "SubmitButton"
       ]

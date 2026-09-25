@@ -66,6 +66,7 @@ function PublicHideableWidgetBody({
   isLive,
   scheduleEstimated = false,
   ourPhotoUrls,
+  canvasMediaUrls,
 }: PublicHideableWidgetProps) {
   switch (widget.widget_type) {
     case 'countdown':
@@ -134,7 +135,7 @@ function PublicHideableWidgetBody({
       return <CustomSectionWidget config={widget.config_json} />;
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} />;
+      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} />;
 
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are

@@ -214,6 +214,9 @@ export async function hubDraftAction(
         if (item.field === 'mode') {
           patch.mode = item.value;
           before.mode = row.mode ?? 'auto';
+        } else if (item.field === 'is_visible') {
+          patch.is_visible = item.value;
+          before.is_visible = row.is_visible ?? true;
         } else if (item.field === 'display_order') {
           patch.display_order = item.value;
           before.display_order = row.display_order;

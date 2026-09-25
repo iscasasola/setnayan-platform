@@ -2,6 +2,7 @@
 
 import { LAUNCH_PHASE_CHOICES, launchPhaseLabel, type LaunchPhaseKey } from './launch-phase-choices';
 import { useFormStatus } from 'react-dom';
+import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { FileUpload } from '@/app/_components/file-upload';
 import {
   SPATIAL_THEMES,
@@ -68,6 +69,7 @@ export function HeroPhotoPanel({
 }) {
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="hero" />
       <FileUpload
@@ -104,6 +106,7 @@ export function GalleryPanel({
 }) {
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <ReturnTo eventId={eventId} rowKey="gallery" />
       <FileUpload
         bucket="media"
@@ -150,6 +153,7 @@ export function SiteChromePanel({
 }) {
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <ReturnTo eventId={eventId} rowKey="music" />
       <FileUpload
         bucket="media"
@@ -205,6 +209,7 @@ export function VisibilityPanel({
 }) {
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="visibility" />
       <fieldset>
@@ -253,6 +258,7 @@ export function OpenBrowsePanel({
 }) {
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="open_browse" value={on ? '0' : '1'} />
       <ReturnTo eventId={eventId} rowKey="open-browse" />
@@ -304,6 +310,7 @@ export function LaunchPhasePanel({
     }`;
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="launch-phase" />
       {refused ? (
@@ -401,6 +408,7 @@ export function RsvpBackdropPanel({
       </p>
 
       <form action={saveAction} className="mt-1">
+        <HubDraftField />
         <input type="hidden" name="event_id" value={eventId} />
         <ReturnTo eventId={eventId} rowKey="backdrop" />
 
@@ -464,6 +472,7 @@ export function RsvpBackdropPanel({
 
       {current ? (
         <form action={clearAction} className="mt-3 border-t border-ink/10 pt-3">
+          <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <ReturnTo eventId={eventId} rowKey="backdrop" />
           <button

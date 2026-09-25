@@ -5,6 +5,7 @@ import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moment
 import type { DressCodeConfig } from '../../dress-code/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { unlockLabel } from './unlock-label';
+import { HubSavesImmediately } from '../../_components/hub-draft-field';
 
 /**
  * Authoring panels for the unified editor (PR-8) — the last multi-field
@@ -34,6 +35,7 @@ export function DressCodePanel({
 }) {
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <input
         type="hidden"
         name="return_to"
@@ -64,6 +66,9 @@ export function PhotoMomentsPanel({
 }) {
   return (
     <div className={PANEL}>
+      {/* The editor owns its own form (it posts `updatePhotoMoments` from a
+          transition), so the mark sits on the container. */}
+      <HubSavesImmediately className="mb-2" />
       <PhotoMomentsEditor eventId={eventId} initial={initial} />
     </div>
   );
@@ -83,6 +88,7 @@ export function StoryPanel({
 }) {
   return (
     <form action={action} className={PANEL}>
+      <HubSavesImmediately />
       <input
         type="hidden"
         name="return_to"

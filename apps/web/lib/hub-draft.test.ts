@@ -247,3 +247,41 @@ test('Reset never touches the couple’s own sections, and puts shipped ones bac
   const std = hubResetPatch('save_the_date');
   assert.deepEqual(Object.keys(std.widgets ?? {}).sort(), ['hero']);
 });
+
+/* ── the eye (is_visible) — the navigator's visibility, drafted ─────────────── */
+
+test('the eye is drafted: sanitised, overlaid on the host preview only, and never Pro at Apply', () => {
+  // Sanitise: only a real boolean survives.
+  const clean = sanitizeHubDraft({ widgets: { countdown: { is_visible: false }, schedule: { is_visible: 'no' } } });
+  assert.equal(clean.widgets.countdown?.is_visible, false);
+  assert.equal(clean.widgets.schedule, undefined, 'a non-boolean eye is dropped, not coerced');
+
+  const d = mergeHubDraft(emptyHubDraft(), { widgets: { countdown: { is_visible: false }, hero: { is_visible: false } } });
+  // Guests (no draft) see the live row; the host's overlay hides it.
+  const guest = overlayHubDraftWidgets(LIVE.widgets as InvitationWidgetRow[], null);
+  assert.equal(guest.find((r) => r.widget_type === 'countdown')!.is_visible, true);
+  const rows = overlayHubDraftWidgets(LIVE.widgets as InvitationWidgetRow[], d);
+  assert.equal(rows.find((r) => r.widget_type === 'countdown')!.is_visible, false);
+  assert.equal(rows.find((r) => r.widget_type === 'hero')!.is_visible, true, 'an always-on section is never hidden, not even in a draft');
+
+  // Apply: one free item for a free couple, and nothing for the always-on row.
+  const plan = planHubDraftApply(d, LIVE, false);
+  const eyes = plan.apply.filter((i) => i.kind === 'widget' && i.field === 'is_visible');
+  assert.equal(eyes.length, 1);
+  const eye = eyes[0]!;
+  assert.ok(eye.kind === 'widget' && eye.widgetType === 'countdown' && eye.value === false);
+  assert.equal(eye.pro, false, 'show and hide are the page we write — free');
+  assert.equal(plan.refused.length, 0);
+  assert.deepEqual(hubDraftWriteTables(plan.apply), ['invitation_widgets']);
+});
+
+test('an eye equal to live is not an item, Undo takes a drafted eye back, and a later mode save keeps it', () => {
+  const same = mergeHubDraft(emptyHubDraft(), { widgets: { countdown: { is_visible: true } } });
+  assert.deepEqual(classifyHubDraft(same, LIVE).items, []);
+  const hidden = mergeHubDraft(emptyHubDraft(), { widgets: { countdown: { is_visible: false } } });
+  assert.equal(summarizeHubDraft(hidden, LIVE, false).changeCount, 1);
+  assert.equal(undoHubDraft(hidden).widgets.countdown, undefined);
+  const both = mergeHubDraft(hidden, { widgets: { countdown: { mode: 'hidden' } } });
+  assert.equal(both.widgets.countdown?.is_visible, false);
+  assert.equal(both.widgets.countdown?.mode, 'hidden');
+});

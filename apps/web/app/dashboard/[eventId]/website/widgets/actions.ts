@@ -182,6 +182,12 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
     );
   }
 
+  /* 💾 THE EYE IN THE MAKER EDITS THE DRAFT. Every check above still ran (the
+     row is this event's, an always-on section cannot be hidden); a `draft=1`
+     form then stops here and guests see nothing until Apply. */
+  if (isHubDraftWrite(formData)) {
+    await saveWidgetToDraft(formData, eventId, row.widget_type as WidgetType, { is_visible: nextVisible });
+  }
   const { error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ is_visible: nextVisible })
@@ -1042,6 +1048,14 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
   if (intent === 'arrange') {
     const arrangement = hubArrangement(formData.get('arrangement'));
     if (!arrangement) redirect(back('?error=bad_arrangement'));
+    /* 💾 A layout is the section's canvas, so in the Maker it goes to the draft —
+       merged onto what is already drafted, like every other canvas writer. The
+       words (`save`), and adding or removing a section, still write live; the
+       Maker marks those controls "Saves immediately". */
+    if (isHubDraftWrite(formData)) {
+      const base = await canvasBase(true, eventId, row);
+      await saveCanvasToDraft(formData, eventId, row.widget_type, { ...sanitizeHubCanvas(base), arrangement });
+    }
     next = { ...existing, canvas: { ...sanitizeHubCanvas(existing), arrangement } };
   } else {
     const input = readCustomSectionInput(formData.get('title'), formData.get('body'));

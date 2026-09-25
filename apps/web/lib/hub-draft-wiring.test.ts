@@ -60,6 +60,8 @@ const DRAFTABLE: Array<[file: string, name: string, divert: RegExp]> = [
   [WIDGETS, 'setWidgetCrop', /saveCanvasToDraft\(/],
   [WIDGETS, 'setSectionMode', /saveWidgetToDraft\(/],
   [WIDGETS, 'moveWidget', /saveHubDraftPatch\(/],
+  [WIDGETS, 'toggleWidgetVisibility', /saveWidgetToDraft\(/],
+  [WIDGETS, 'saveCustomSection', /saveCanvasToDraft\(/],
   [EDITOR, 'saveRsvpBackdrop', /draftBackdrop\(/],
   [EDITOR, 'clearRsvpBackdrop', /draftBackdrop\(/],
 ];
@@ -110,4 +112,28 @@ test('the guest page reads a draft only under ?editor=1', () => {
   const loaders = read('app/[slug]/_lib/loaders.ts');
   const loader = loaders.slice(loaders.indexOf('export const loadHostPreviewDraft'));
   assert.match(loader.slice(0, 400), /loadHostMembership\(/, 'the loader must answer null for a non-host');
+});
+
+test('the eye diverts on draft=1: toggleWidgetVisibility drafts is_visible AFTER its checks and BEFORE its live write', () => {
+  const body = fn(read(WIDGETS), 'toggleWidgetVisibility');
+  const alwaysOn = body.search(/row\.is_always_on\s*&&\s*!nextVisible/);
+  const gate = body.search(/if\s*\(\s*isHubDraftWrite\(formData\)\s*\)/);
+  const door = body.search(/saveWidgetToDraft\(formData,\s*eventId,\s*row\.widget_type[^)]*\{\s*is_visible:\s*nextVisible\s*\}\s*\)/);
+  const live = body.search(/\.update\(\{\s*is_visible:\s*nextVisible\s*\}\)/);
+  console.log(`[hub-draft-wiring] toggleWidgetVisibility: always-on@${alwaysOn} gate@${gate} door@${door} live@${live}`);
+  assert.ok(alwaysOn > 0, 'the always-on refusal is gone');
+  assert.ok(gate > alwaysOn, 'the draft door must come after the always-on refusal (a draft may not hide Home either)');
+  assert.ok(door > gate, 'on draft=1 the eye must save { is_visible: nextVisible } to the draft');
+  assert.ok(live > door, 'the live is_visible write must come after the door, so a drafted eye never reaches it');
+  // `saveWidgetToDraft` redirects (returns never), so the live write is unreachable on the draft path.
+  assert.match(fn(read(WIDGETS), 'saveWidgetToDraft'), /Promise<never>/);
+});
+
+test('a custom section drafts ONLY its layout; its words and removal stay live (and the Maker says so)', () => {
+  const body = fn(read(WIDGETS), 'saveCustomSection');
+  const arrange = body.indexOf("intent === 'arrange'");
+  const door = body.search(/isHubDraftWrite\(formData\)\)\s*\{\s*const base = await canvasBase\(true/);
+  assert.ok(arrange > 0 && door > arrange, 'the layout door must sit inside the arrange branch');
+  const elseAt = body.indexOf('} else {', arrange);
+  assert.ok(door < elseAt, 'the door must not reach the words branch');
 });

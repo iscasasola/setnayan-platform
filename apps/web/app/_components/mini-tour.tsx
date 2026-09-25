@@ -15,7 +15,7 @@ import { TOURS, type TourKey } from '@/lib/tours';
 //   - The user is not signed in
 //   - The user has already dismissed (or completed) this tour
 //   - We can't read the profile row (defensive — never blocks the page)
-export async function MiniTour({ tourKey }: { tourKey: TourKey }) {
+export async function MiniTour({ tourKey, storeShell = false }: { tourKey: TourKey; storeShell?: boolean }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -33,5 +33,5 @@ export async function MiniTour({ tourKey }: { tourKey: TourKey }) {
 
   if (!TOURS[tourKey]) return null;
 
-  return <GuidedTour tourKey={tourKey} completeAction={completeTour} />;
+  return <GuidedTour tourKey={tourKey} completeAction={completeTour} storeShell={storeShell} />;
 }

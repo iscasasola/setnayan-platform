@@ -176,7 +176,7 @@ function HideableWidgetBody({
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} />;
+      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} />;
 
     case 'tier_comparison':
       return (

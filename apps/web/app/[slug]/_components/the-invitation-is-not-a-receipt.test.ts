@@ -137,12 +137,19 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // eyebrows as a CONTROL label. Its replacement is a row, not a section head,
   // and the eyebrow's protected job is naming a section. So the treatment is
   // untouched; there is simply one fewer section to name.
+  //
+  // 17 SINCE 2026-09-25 (Event Hub Maker Phase 7 — each Love Story moment is a
+  // scene). `our-love-story-widget.tsx` wrote the eyebrow THREE times by hand —
+  // "How we met", "The proposal" and the milestone year. Every moment is now one
+  // scene drawn by ONE mapped eyebrow ("2021 · Falling"), in the same protected
+  // treatment, so the SOURCE holds two fewer while the page shows one per
+  // moment. The treatment is untouched; the count is of source lines.
   assert.equal(
     gild,
-    19,
+    17,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 19 from 2026-09-20 (20 between the role panel and the reply ` +
-      `sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
+      `carried 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,
   );

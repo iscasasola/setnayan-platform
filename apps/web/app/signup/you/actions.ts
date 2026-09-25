@@ -20,6 +20,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { safeNext } from '@/lib/auth';
+import { signInDestination } from '@/lib/sign-in-landing';
 import { findSlugConflict, SLUG_CONFLICT_MESSAGE, SLUG_FORMAT } from '@/lib/slug-availability';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -31,7 +32,8 @@ function backWithError(next: string, error: string): never {
 }
 
 export async function saveYou(formData: FormData): Promise<void> {
-  const next = safeNext(formData.get('next'));
+  // The same one sign-in rule the page applied (`/` → the dashboard).
+  const next = signInDestination(safeNext(formData.get('next')));
   const supabase = await createClient();
   const {
     data: { user },

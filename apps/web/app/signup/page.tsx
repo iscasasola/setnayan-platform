@@ -50,7 +50,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
@@ -161,13 +161,13 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               The way out is the browser and the Sign-in link below. */}
           <div className="hr-ov-eyebrow">User account</div>
           <h1 className="hr-ov-title">Create your user account.</h1>
-          {/* THE OWNER'S OWN SENTENCE (2026-09-23): "enter your email address and
-              create your password. or directly sign in with Google or Apple." The
-              card is ordered the way he said it: email + password first, then
-              Google / Apple as the direct sign-in. */}
+          {/* THE OWNER'S OWN WORDS (2026-09-23): "enter your email address and
+              create your password. or directly sign in with Google or Apple." —
+              said in the order the card now shows them (2026-09-25: Google /
+              Apple first, like the invitation). */}
           <p className="hr-ov-sub">
-            Enter your email address and create your password
-            {showOAuth ? ' — or sign in directly with Google or Apple.' : '.'}
+            {showOAuth ? 'Sign in directly with Google or Apple — or enter' : 'Enter'} your email
+            address and create your password.
           </p>
 
           {errorMessage ? (
@@ -193,6 +193,32 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               A couple invited you to Setnayan. Create your account and you&rsquo;ll both get a
               little something when you book your first service.
             </p>
+          ) : null}
+
+          {/* ONE DOOR, ONE ORDER (owner 2026-09-25, verbatim: "When a new account
+              is created via website must be similar to the event invitation").
+              Google / Apple FIRST, as on the invitation door (DECISION_LOG
+              2026-09-10: a provider redirect under a half-filled form loses the
+              form) and the approved one_door_FINAL_2026-09-22 card; then the email
+              form. ⚠ This reverses the 2026-09-23 ORDER only (email first); the
+              owner's WORDS from that day stay — "sign in directly with Google or
+              Apple", `SIGNUP_OAUTH_VERB` — shared with the wedding onboarding's
+              account screen so the two sign-up doors cannot drift apart again.
+              Same components and shell gate as /login; `withAccountType` carries
+              the URL's decision so a vendor arriving by Google is filed as one. */}
+          {showOAuth ? (
+            <div className="hr-si-oauth">
+              {desktopOAuth ? (
+                <DesktopOAuthButtons next={next} verb={SIGNUP_OAUTH_VERB} />
+              ) : (
+                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} verb={SIGNUP_OAUTH_VERB} />
+              )}
+            </div>
+          ) : null}
+          {showOAuth ? (
+            <div className="hr-si-or">
+              <span>or create a password with your email</span>
+            </div>
           ) : null}
 
           <form action={signUp} className="hr-si-form">
@@ -266,25 +292,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               Create user account · free
             </SubmitButton>
           </form>
-
-          {/* Google / Apple are a DIRECT SIGN-IN, not a second way to sign up —
-              so they sit BELOW the email form, under a divider that says so.
-              Same components and shell gate as /login; `withAccountType` carries
-              the URL's decision so a vendor arriving by Google is filed as one. */}
-          {showOAuth ? (
-            <div className="hr-si-or">
-              <span>or sign in directly with</span>
-            </div>
-          ) : null}
-          {showOAuth ? (
-            <div className="hr-si-oauth">
-              {desktopOAuth ? (
-                <DesktopOAuthButtons next={next} verb="Sign in with" />
-              ) : (
-                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} verb="Sign in with" />
-              )}
-            </div>
-          ) : null}
 
           <div className="hr-si-foot">
             Have an account?{' '}

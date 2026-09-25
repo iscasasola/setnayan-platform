@@ -94,6 +94,15 @@ type Props = {
   verb?: string;
 };
 
+/**
+ * The words before the provider on EVERY sign-up door — /signup and the wedding
+ * onboarding's account screen (owner 2026-09-25: the website's sign-up "must be
+ * similar to the event invitation" — one look, one order). One constant so the
+ * two doors cannot drift into two wordings of one button. The words themselves
+ * are the owner's 2026-09-23 ruling ("or directly sign in with Google or Apple").
+ */
+export const SIGNUP_OAUTH_VERB = 'Sign in with';
+
 // Button chrome — Clean Editorial alabaster/obsidian, used on the greige /login
 // card and /signup. (The obsidian-rail 'dark' treatment was removed with the
 // obsidian login; the greige card is the single login now.)

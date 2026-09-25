@@ -7,6 +7,10 @@
  *   · the whole-page `/login` route          (app/login/actions.ts)
  *   · the OAuth / magic-link return          (app/auth/callback/route.ts)
  *   · the in-place panel on the front door   (frontdoor/front-door-shell.tsx)
+ * …and, since 2026-09-25, the two doors that CREATE an account: `signUp`
+ * (via `signupLanding`, lib/signup-landing.ts) and the You card after it
+ * (app/signup/you). Before that, a new couple from `/signup` whose `next` was
+ * `/` landed on the front door while Google/Apple landed on the dashboard.
  *
  * The first two already carried a hand-copied line each. `DECISION_LOG.md`
  * 2026-08-13 names that duplication as the hazard in as many words — *"fix one

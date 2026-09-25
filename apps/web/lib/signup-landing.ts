@@ -24,6 +24,7 @@
  * one; the page never renders the field in that case, and the plan is the
  * second lock behind the screen.
  */
+import { signInDestination } from '@/lib/sign-in-landing';
 import { SLUG_FORMAT } from '@/lib/slug-availability';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import {
@@ -44,11 +45,27 @@ export function youHref(next: string): string {
 /**
  * After `signUp` signs the new account in: couples meet the You card; vendors go
  * straight on (their `next` is already `/open-shop`, whose step 3 asks the name).
+ *
+ * Where the new account ends up is the SIGN-IN rule (`signInDestination`,
+ * lib/sign-in-landing.ts) — applied here AND by the You card on its way out
+ * (`app/signup/you/page.tsx` · `actions.ts`), never a second copy of it.
+ *
+ * 🪤 WHY (audit GUEST_SIGNUP_FLOW_MAP_2026-09-25 §C): `/signup` → `signUp` →
+ * the You card → `redirect(next)` dropped a brand-new couple on the FRONT DOOR
+ * whenever `next` was `/`, while `/auth/callback` (Google / Apple) and `/login`
+ * mapped the same `/` to the dashboard. Two doors, two answers to one question.
+ * Now every door says the same thing:
+ *   · came from somewhere (an event's page, a shop, the onboarding resume) →
+ *     back there, whole;
+ *   · came from nowhere (`/`) → `/dashboard`, which itself opens the person's
+ *     own event when they organise exactly one (`landingJumpTarget`,
+ *     lib/event-board.ts) and is the dashboard home otherwise.
  */
 export function signupLanding(input: { accountType: SignupAccountType; next: string }): string {
-  if (input.accountType === 'vendor') return input.next;
-  if (input.next.startsWith(YOU_PATH)) return input.next;
-  return youHref(input.next);
+  const next = signInDestination(input.next);
+  if (input.accountType === 'vendor') return next;
+  if (next.startsWith(YOU_PATH)) return next;
+  return youHref(next);
 }
 
 /**

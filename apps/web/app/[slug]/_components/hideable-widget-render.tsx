@@ -124,6 +124,12 @@ function HideableWidgetBody({
       // (The tea-ceremony card is rendered once in the identified-guest
       // article body — NOT here too, or a Chinese event with visible
       // schedule blocks would show the card twice.)
+      //
+      // NOT `compact` (owner, 2026-09-26: "event schedule on the event hub
+      // should not be see other schedule it will extend as needed"). The
+      // Event Hub shows every moment; the truncate-to-3 + "All N moments"
+      // toggle stays available in `ScheduleWidget` for surfaces that still
+      // want it, this one just no longer asks for it.
       return !isLive && scheduleBlocks.length > 0 ? (
         <ScheduleWidget
           blocks={scheduleBlocks}
@@ -131,7 +137,6 @@ function HideableWidgetBody({
           nowTrigger={isGuestNowTriggerEnabled()}
           estimated={scheduleEstimated}
           eventType={event.event_type}
-          compact
         />
       ) : null;
 

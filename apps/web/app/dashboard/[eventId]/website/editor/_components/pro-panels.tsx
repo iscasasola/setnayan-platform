@@ -11,6 +11,21 @@ import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Lock } from 'lucide-react';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import {
+  OMBRE_MAX_STOPS,
+  OMBRE_SHAPES,
+  OMBRE_SHAPE_LABEL,
+  encodeOmbre,
+  ombreCss,
+  ombreLook,
+  ombrePresetMatching,
+  ombrePresetsFor,
+  parseSiteBackground,
+  type OmbreShape,
+  type OmbreSpec,
+} from '@/lib/ombre';
+import { InfoTip } from '@/app/_components/info-tip';
 import { unlockLabel } from './unlock-label';
 import { HubDraftField } from '../../_components/hub-draft-field';
 
@@ -86,11 +101,15 @@ export function ColorsPanel({
   magicTraveller = null,
   proLocked = false,
   proLock = null,
+  themeId = 'house',
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   rowKey: string;
+  /** `events.site_bg_color` as stored — a plain `#rrggbb` OR an encoded ombré (`lib/ombre.ts`). */
   bgColor: string | null;
+  /** The live theme, for the ombré presets curated to it and its inks. Legacy ids are read as their alias. */
+  themeId?: InviteThemeId | string;
   buttonColor: string | null;
   /** Pahina art direction (PR-5b) — 'candlelight' is the dark direction. */
   artDirection: 'daylight' | 'candlelight' | null;
@@ -116,22 +135,20 @@ export function ColorsPanel({
         name="return_to"
         value={`/dashboard/${eventId}/website/editor?open=${rowKey}`}
       />
-      <div className="grid grid-cols-2 gap-3">
-        <HexField
-          id={`${rowKey}-bg`}
-          name="bg_color"
-          label="Background"
-          defaultValue={bgColor}
-        />
-        {proLocked ? null : (
+      {/* 🌈 THE BACKGROUND — plain or ombré (owner 2026-09-25). One field, one
+          hidden `bg_color`, two ways to fill it. Full width: the ombré swatches
+          need the room, and the button colour sits under it. */}
+      <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} />
+      {proLocked ? null : (
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <HexField
             id={`${rowKey}-button`}
             name="button_color"
             label="Buttons"
             defaultValue={buttonColor}
           />
-        )}
-      </div>
+        </div>
+      )}
       <p className="mt-1.5 text-[0.7rem] text-ink/45">
         Leave blank to use your Mood Board palette.
       </p>
@@ -343,6 +360,220 @@ function HexField({
           </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/* ══ THE BACKGROUND: PLAIN | OMBRÉ ════════════════════════════════════════
+   Owner, 2026-09-25, verbatim: *"color setup can be like plain color or like
+   apples ombe style."* Two-way switch. PLAIN is the swatch-picker HexField has
+   always been. OMBRÉ shows the presets curated for the live theme as REAL mini
+   gradients (drawn by the same `ombreCss` the guest page paints with), plus
+   "Make my own": two or three colours and one of three shapes, previewed live
+   with the ink the legibility rule would give the page — so what the couple
+   sees in the panel is what a guest will read.
+
+   One hidden `bg_color` carries whichever is chosen, in the column's own text
+   form (`encodeOmbre` / a hex / '' to clear) — the action and the draft read
+   it through `parseSiteBackground`, so the panel cannot post a shape the
+   server does not understand. Free: no lock, no price (`OMBRE_IS_PRO`). */
+
+type BackgroundMode = 'plain' | 'ombre';
+
+/** Everything that a couple's ombré choice can be, on the client. */
+function firstPresetSpec(themeId: string): OmbreSpec {
+  return ombrePresetsFor(themeId)[0]!.spec;
+}
+
+function BackgroundField({ id, value, themeId }: { id: string; value: string | null; themeId: string }) {
+  const stored = parseSiteBackground(value);
+  const presets = ombrePresetsFor(themeId);
+  const theme = INVITE_THEMES[(presets[0]?.theme ?? 'house') as InviteThemeId];
+
+  const [mode, setMode] = useState<BackgroundMode>(stored?.kind === 'ombre' ? 'ombre' : 'plain');
+  const [hex, setHex] = useState<string>(stored?.kind === 'plain' ? stored.hex : '');
+  const [ombre, setOmbre] = useState<OmbreSpec>(stored?.kind === 'ombre' ? stored.ombre : firstPresetSpec(themeId));
+  // "Make my own" stays open once a couple has departed from the presets.
+  const [own, setOwn] = useState<boolean>(stored?.kind === 'ombre' && !ombrePresetMatching(stored.ombre));
+
+  const posted = mode === 'plain' ? hex : encodeOmbre(ombre);
+  const selectedPreset = ombrePresetMatching(ombre);
+  const look = ombreLook(theme, ombre);
+
+  const segment = (m: BackgroundMode, label: string) => (
+    <button
+      type="button"
+      aria-pressed={mode === m}
+      onClick={() => setMode(m)}
+      className={`inline-flex h-10 flex-1 items-center justify-center rounded-md border px-3 text-[0.72rem] font-semibold transition-colors duration-300 ease-in-out ${
+        mode === m ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  const setStop = (i: number, next: string) =>
+    setOmbre((o) => ({ ...o, stops: o.stops.map((s, j) => (j === i ? next.toLowerCase() : s)) }));
+
+  return (
+    <div data-background-field="">
+      <input type="hidden" name="bg_color" value={posted} />
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <InfoTip label="Background" labelClassName="text-[0.7rem] font-semibold text-ink/60" align="start">
+          Plain is one colour. Ombré blends two or three, softly, like a wallpaper. Your words are
+          re-measured over the whole blend so they stay easy to read.
+        </InfoTip>
+        {posted ? (
+          <button
+            type="button"
+            onClick={() => {
+              setHex('');
+              setMode('plain');
+            }}
+            className="shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-[0.62rem] font-medium text-ink/55 hover:border-ink/30"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <div role="group" aria-label="Background style" className="flex gap-1.5">
+        {segment('plain', 'Plain')}
+        {segment('ombre', 'Ombré')}
+      </div>
+
+      {mode === 'plain' ? (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="relative inline-flex h-9 w-9 shrink-0">
+            <input
+              id={id}
+              type="color"
+              aria-label="Pick background color"
+              value={hex || '#f4ecdd'}
+              onChange={(e) => setHex(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer rounded-full border border-ink/15 p-0 [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-none"
+            />
+          </span>
+          <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink/60">
+            {hex || 'Palette (default)'}
+          </span>
+        </div>
+      ) : (
+        <div className="mt-2">
+          {/* THE PRESETS — real gradients, the theme's own. */}
+          <div role="group" aria-label="Ombré presets" className="grid grid-cols-2 gap-2">
+            {presets.map((p) => {
+              const on = !own && selectedPreset?.id === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    setOmbre(p.spec);
+                    setOwn(false);
+                  }}
+                  className={`group text-left transition-transform duration-300 ease-in-out active:scale-[0.98]`}
+                >
+                  <span
+                    aria-hidden
+                    className={`block h-14 rounded-md border-2 transition-colors duration-300 ${
+                      on ? 'border-ink' : 'border-transparent group-hover:border-ink/30'
+                    }`}
+                    style={{ backgroundImage: ombreCss(p.spec) }}
+                  />
+                  <span className={`mt-1 block text-[0.66rem] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/60'}`}>
+                    {p.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* MAKE MY OWN — two or three colours, one shape. */}
+          <button
+            type="button"
+            aria-pressed={own}
+            onClick={() => setOwn((v) => !v)}
+            className={`mt-2 inline-flex h-10 items-center rounded-md border px-3 text-[0.72rem] font-semibold transition-colors duration-300 ease-in-out ${
+              own ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+            }`}
+          >
+            Make my own
+          </button>
+          {own ? (
+            <div className="mt-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {ombre.stops.map((stop, i) => (
+                  <span key={i} className="relative inline-flex h-10 w-10 shrink-0">
+                    <input
+                      type="color"
+                      aria-label={`Colour ${i + 1} of your ombré`}
+                      value={stop}
+                      onChange={(e) => setStop(i, e.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer rounded-full border border-ink/15 p-0 [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-none"
+                    />
+                  </span>
+                ))}
+                {ombre.stops.length < OMBRE_MAX_STOPS ? (
+                  <button
+                    type="button"
+                    onClick={() => setOmbre((o) => ({ ...o, stops: [...o.stops, o.stops[o.stops.length - 1]!] }))}
+                    className="inline-flex h-10 items-center rounded-full border border-ink/15 px-3 text-[0.66rem] font-medium text-ink/60 hover:border-ink/30"
+                  >
+                    + Third colour
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setOmbre((o) => ({ ...o, stops: o.stops.slice(0, 2) }))}
+                    className="inline-flex h-10 items-center rounded-full border border-ink/15 px-3 text-[0.66rem] font-medium text-ink/60 hover:border-ink/30"
+                  >
+                    Two colours
+                  </button>
+                )}
+              </div>
+              <div role="group" aria-label="Ombré shape" className="mt-2 grid grid-cols-3 gap-1.5">
+                {OMBRE_SHAPES.map((shape: OmbreShape) => {
+                  const on = ombre.shape === shape;
+                  return (
+                    <button
+                      key={shape}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setOmbre((o) => ({ ...o, shape }))}
+                      className="group text-left transition-transform duration-300 ease-in-out active:scale-[0.98]"
+                    >
+                      <span
+                        aria-hidden
+                        className={`block h-9 rounded-md border-2 transition-colors duration-300 ${
+                          on ? 'border-ink' : 'border-transparent group-hover:border-ink/30'
+                        }`}
+                        style={{ backgroundImage: ombreCss({ ...ombre, shape }) }}
+                      />
+                      <span className={`mt-0.5 block text-[0.62rem] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/60'}`}>
+                        {OMBRE_SHAPE_LABEL[shape]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {/* THE PREVIEW — the gradient with the ink the page will actually use. */}
+          <div
+            data-ombre-preview=""
+            aria-hidden
+            className="mt-2 flex h-16 items-end rounded-md px-3 pb-2"
+            style={{ backgroundImage: look.css }}
+          >
+            <span className="text-[0.72rem] font-semibold" style={{ color: look.legibility.ink }}>
+              Your words read like this
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

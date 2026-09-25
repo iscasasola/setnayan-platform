@@ -92,6 +92,7 @@ export type TourKey =
   | 'customer_love_story_v1'
   | 'customer_event_hub_maker_v1'
   | 'customer_post_event_v1'
+  | 'customer_ombre_background_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -106,6 +107,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_love_story_v1',
   'customer_event_hub_maker_v1',
   'customer_post_event_v1',
+  'customer_ombre_background_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -444,6 +446,30 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         title: 'Free — and yours to change',
         body: 'The written story is free. Hide or reorder its scenes in your story workroom. A theme, a different template for a scene and your own photos come with Event Hub Pro.',
         sells: true,
+      },
+    ],
+  },
+  /*
+    THE OMBRÉ'S FIRST-VISIT HINT (owner 2026-09-25: "color setup can be like
+    plain color or like apples ombe style" · "every feature gets a first-visit
+    tour"). Mounted beside the Maker's Colors panel. It sells nothing — the
+    ombré ships free (`OMBRE_IS_PRO`, lib/ombre.ts) — so the store shell keeps
+    every slide.
+  */
+  customer_ombre_background_v1: {
+    key: 'customer_ombre_background_v1',
+    label: 'Plain or ombré background',
+    blurb: 'The page’s colour can be one colour, or a soft blend made for the theme.',
+    slides: [
+      {
+        Icon: Palette,
+        title: 'Plain, or a soft ombré',
+        body: 'One colour, or a gentle blend of two or three &mdash; the way a wallpaper fades. Pick a blend made for your theme, or make your own with your colours and a shape.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Your words always read',
+        body: 'We measure the whole blend and choose the ink that reads on it. If your own colours sit too close to the words, a soft veil is added for you.',
       },
     ],
   },

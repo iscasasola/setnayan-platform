@@ -56,7 +56,7 @@
 import { hexOfOklch, oklchOfHex, type Oklch } from '@/lib/color-space';
 import { hubLegibility, type HubLegibility } from '@/lib/hub-legibility';
 import { refChange, type LookChange } from '@/lib/hub-look-pro';
-import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEME_IDS, LEGACY_THEME_ALIASES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    THE ONE SWITCH
@@ -390,9 +390,16 @@ export const OMBRE_PRESETS: readonly OmbrePreset[] = [
   p('cyber', 'aurora', 'Aurora', 'diagonal', '#0b1a2a', '#0b2a24', '#1a0b2e'),
 ];
 
-/** The curated ombrés for one theme, in the order they are shown. */
-export function ombrePresetsFor(theme: InviteThemeId): OmbrePreset[] {
-  return OMBRE_PRESETS.filter((x) => x.theme === theme);
+/**
+ * The curated ombrés for one theme, in the order they are shown. A stored
+ * legacy id (`capiz`, `minimalist`, …) is read as its alias, exactly as the
+ * theme registry reads it; anything else is Classic's list — never an empty one.
+ */
+export function ombrePresetsFor(theme: InviteThemeId | string): OmbrePreset[] {
+  const id: InviteThemeId = (INVITE_THEME_IDS as readonly string[]).includes(theme)
+    ? (theme as InviteThemeId)
+    : (LEGACY_THEME_ALIASES[theme] ?? 'house');
+  return OMBRE_PRESETS.filter((x) => x.theme === id);
 }
 
 /** The preset a stored spec IS, if it is one — for the picker's selected state. */

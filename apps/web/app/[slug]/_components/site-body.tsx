@@ -130,6 +130,7 @@ import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
+import { isOmbreValue } from '@/lib/ombre';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
@@ -2321,6 +2322,10 @@ export async function SiteBody({
     <InvitationShell
       monogramText={event.monogram_text}
       hubTheme={hubLook.theme}
+      /* 🌈 An ombré is painted by the layout's paper (draft-overlaid for the
+         host's canvas, since `event` is the overlaid row) — the shell leaves
+         its opaque paper off for it, Classic included. */
+      ownGround={isOmbreValue(event.site_bg_color)}
       backdrop={backdrop}
       fullBleed={plan.fullBleed}
       editorCanvas={!showGuestBars}

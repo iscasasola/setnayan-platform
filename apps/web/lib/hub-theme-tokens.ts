@@ -34,7 +34,7 @@ export const HOUSE_INK = '#1e2229';
 export const HOUSE_PAPER = '#ffffff';
 
 /** The opacity steps the guest pages use on `text-ink/…`. */
-export const MUTED_STEPS = [0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8] as const;
+export const MUTED_STEPS = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8] as const;
 
 /** What a muted step must reach on a theme: House's own ratio, capped at AA. */
 export function mutedTarget(alpha: number): number {

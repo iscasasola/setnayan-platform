@@ -125,7 +125,18 @@ export function MakerPrints({
             <h2 id="prints-free-title" className="font-serif text-xl text-ink">
               For the day
             </h2>
-            <p className="text-sm text-ink/65">Free for every event — your guest list and seating, ready to print.</p>
+            <p className="text-sm text-ink/65">
+              Free for every event — your guest list and seating, ready to print.{' '}
+              {/* Names, parents and tables on these prints come from the Guest list —
+                  the one place to fix them (DECISION_LOG 2026-09-25 "PRINT CONTENT
+                  COMES FROM WHERE IT ALREADY LIVES"). */}
+              <Link
+                href={`/dashboard/${eventId}/guests`}
+                className="inline-flex min-h-10 items-center font-medium text-link underline-offset-2 hover:underline"
+              >
+                Edit names on your Guest list →
+              </Link>
+            </p>
           </div>
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {freePrints(eventId, slug).map((fp) => (

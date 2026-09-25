@@ -9,7 +9,9 @@ Phase 1 of `EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md`, built against
   Maker covers the viewport instead (`fixed inset-0`, document scroll locked) —
   **zero new pages, zero new server actions, no migration.**
 - **Four regions** (`launch/_components/maker-shell.tsx`,
-  `website/editor/_components/maker-work.tsx`): toolbar (✕ Exit · ▤ · ▶ Play ·
+  `website/editor/_components/editor-shell.tsx`, which now holds `MakerWork` in
+  place of the old two-pane `EditorShell` — its row chips, scan-to-view QR and
+  Pro CTA ported into the ⋯ sheet, its preview into the canvas): toolbar (✕ Exit · ▤ · ▶ Play ·
   ＋ · the bar · Desktop/Phone/Both · ⊞ · ⓘ · ⋯), a resizable/collapsible
   navigator (numbered scenes, "Main" pinned, eye lower-right, transition marker
   between scenes, drag to reorder, right-click / long-press Move up · Move down

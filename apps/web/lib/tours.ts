@@ -15,6 +15,7 @@ import {
   Calendar,
   Camera,
   CheckCircle2,
+  Heart,
   Images,
   ClipboardList,
   LayoutPanelLeft,
@@ -69,7 +70,8 @@ export type TourSlide = {
    * TRUE for a slide that sells something. The Event Hub Maker's tour drops it
    * in the app-store shell (App Review 3.1.1 — no digital price, no paid pitch)
    * and fills its `{price}` token from `platform_retail_catalog_v2`, never from
-   * this file. Optional, so every older tour is untouched.
+   * this file. `GuidedTour` drops it too when `MiniTour` is told the request is
+   * the shell. Optional, so every older tour is untouched.
    */
   sells?: boolean;
 };
@@ -84,6 +86,7 @@ export type TourKey =
   | 'customer_vendors_v1'
   | 'customer_seat_plan_v1'
   | 'customer_papic_v1'
+  | 'customer_love_story_v1'
   | 'customer_event_hub_maker_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
@@ -96,6 +99,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_vendors_v1',
   'customer_seat_plan_v1',
   'customer_papic_v1',
+  'customer_love_story_v1',
   'customer_event_hub_maker_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
@@ -319,6 +323,46 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Images,
         title: 'Everything lands in your gallery',
         body: 'Filter by &ldquo;Photos of us&rdquo;, save any shot to your phone, or download the whole gallery as a zip. Connect Google Drive to auto-sync every photo to a folder you own.',
+      },
+    ],
+  },
+  /*
+    OUR LOVE STORY (Event Hub Maker Phase 7; owner 2026-09-25: every feature
+    gets a proper first-visit welcome). Slides per the build plan: a moment is
+    anything · a year is enough · both of you can add · it becomes scenes on
+    your Event Hub · five are free, more and your photos are Pro — that last
+    one `sells`, so the app-store shell never shows it. No price is typed here.
+  */
+  customer_love_story_v1: {
+    key: 'customer_love_story_v1',
+    label: 'Our Love Story welcome',
+    blurb: 'How moments become the story scenes on your Event Hub.',
+    slides: [
+      {
+        Icon: Heart,
+        title: 'A moment is anything',
+        body: 'The jeepney ride where you met, the Sunday calls, the trip where it rained the whole time. Write it the way you would tell it to a friend.',
+      },
+      {
+        Icon: Calendar,
+        title: 'A year is enough',
+        body: 'Only as exact as you remember &mdash; an exact day, a month, or just the year. Each moment finds its own chapter: before us, how we met, falling, the yes, toward the day.',
+      },
+      {
+        Icon: Users,
+        title: 'Both of you can add',
+        body: 'Add moments in any order, whenever one comes back to you. Each one remembers who added it.',
+      },
+      {
+        Icon: Images,
+        title: 'It becomes scenes on your Event Hub',
+        body: 'Every moment is one scene on your Invitation, in the order it happened and dressed in your Event Hub&rsquo;s theme. Keep any one off the hub with a tap.',
+      },
+      {
+        Icon: Sparkles,
+        title: 'Five stories are free',
+        body: 'Tell up to five stories in your words for free. More stories and your own photos come with Event Hub Pro.',
+        sells: true,
       },
     ],
   },

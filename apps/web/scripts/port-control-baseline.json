@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3ddc23f3e9",
+  "generatedFromRef": "cfb6143109",
   "routeCount": 432,
-  "destinations": 932,
-  "actions": 663,
-  "blocks": 4677,
+  "destinations": 934,
+  "actions": 664,
+  "blocks": 4688,
   "routes": {
     "/": {
       "files": [
@@ -853,6 +853,7 @@
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
         "[slug]/_lib/supplier-desk.server.ts",
+        "[slug]/_lib/theme-ground.ts",
         "[slug]/_lib/top-corner.ts",
         "[slug]/_lib/types.ts",
         "[slug]/_lib/your-own-day.server.ts",
@@ -8208,7 +8209,8 @@
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/save-the-date",
-        "/dashboard/[seg]/studio/website-pro"
+        "/dashboard/[seg]/studio/website-pro",
+        "/dashboard/[seg]/website/our-story"
       ],
       "actions": [
         "action",
@@ -8354,19 +8356,37 @@
     },
     "/dashboard/[eventId]/website/our-story": {
       "files": [
+        "dashboard/[eventId]/website/our-story/_components/love-story-book.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-pro-line.tsx",
+        "dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx",
+        "dashboard/[eventId]/website/our-story/_components/pick-from-our-events.tsx",
         "dashboard/[eventId]/website/our-story/_components/story-fields.tsx",
         "dashboard/[eventId]/website/our-story/actions.ts",
         "dashboard/[eventId]/website/our-story/milestones-field.tsx",
         "dashboard/[eventId]/website/our-story/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/website/our-story"
+      ],
       "actions": [
+        "action",
         "updateAction"
       ],
       "blocks": [
+        "AddMomentLabel",
         "Field",
+        "FileUpload",
+        "HTMLDivElement",
+        "InfoTip",
+        "Link",
+        "LoveStoryBook",
+        "LoveStoryProLine",
         "MilestonesField",
-        "PageMasthead",
+        "MiniTour",
+        "MomentAnchor",
+        "MomentSheet",
+        "PickFromOurEvents",
+        "Precision",
         "StoryFields",
         "SubmitButton"
       ]

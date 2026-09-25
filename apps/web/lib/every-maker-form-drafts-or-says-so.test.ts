@@ -36,6 +36,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 const C = 'app/dashboard/[eventId]/website/editor/_components/';
 const PAGE = 'app/dashboard/[eventId]/website/editor/page.tsx';
+const S = 'app/dashboard/[eventId]/website/our-story/';
 
 /** Every file whose forms render inside the Maker. */
 const MAKER_FILES = [
@@ -47,6 +48,12 @@ const MAKER_FILES = [
   `${C}text-panel.tsx`,
   `${C}scene-slots-panel.tsx`,
   `${C}scene-template-picker.tsx`,
+  // Our Love Story's scrapbook (Maker Phase 7) — opened from the Maker's Love
+  // Story tool; a separate page, but the host edits the same public hub there.
+  `${S}page.tsx`,
+  `${S}_components/love-story-book.tsx`,
+  `${S}_components/moment-sheet.tsx`,
+  `${S}_components/pick-from-our-events.tsx`,
   PAGE,
   'app/dashboard/[eventId]/launch/page.tsx',
   'app/dashboard/[eventId]/launch/_components/hub-stage.tsx',
@@ -82,6 +89,7 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
  */
 const WORDS = 'words and content, not look — the draft holds no words column (lib/hub-draft.ts file note)';
 const MEDIA = 'media — its writer verifies and screens the file; draft media is open owner decision D6';
+const LOVE = 'a Love Story moment (love_story) — not drafted yet: its photos would need re-screening at Apply';
 const NEVER = 'never drafted by the build plan — address, who can view, what guests get and open browsing stay live';
 const LIVE: Record<string, string> = {
   [`${C}sections-panel.tsx#SectionsPanel#saveCustomAction`]:
@@ -99,6 +107,13 @@ const LIVE: Record<string, string> = {
   [`${C}text-panel.tsx#TextPanel#action`]: WORDS,
   [`${C}authoring-panels.tsx#DressCodePanel#action`]: WORDS,
   [`${C}authoring-panels.tsx#StoryPanel#action`]: WORDS,
+  // 💌 THE SCRAPBOOK (P7). `events.love_story` is not in HUB_DRAFT_EVENT_COLUMNS:
+  // drafting it needs the host preview to read a drafted blob AND Apply to
+  // re-screen every moment photo — the follow-up, not tonight.
+  [`${S}page.tsx#OurStoryEditorPage#updateAction`]: `the invitation's story words — ${WORDS}`,
+  [`${S}_components/love-story-book.tsx#LoveStoryBook#p.action`]: LOVE,
+  [`${S}_components/moment-sheet.tsx#MomentSheet#action`]: LOVE,
+  [`${S}_components/pick-from-our-events.tsx#PickFromOurEvents#action`]: LOVE,
 };
 
 /** Writers the Maker's page may bind that go live — each behind a LIVE form above. */
@@ -257,6 +272,7 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   [`${C}authoring-panels.tsx`, /<HubSavesImmediately\b[^>]*\/>[\s{}]*<PhotoMomentsEditor\b/, 'camera cues post from a transition'],
   [PAGE, /<HubSavesImmediately\b[^>]*\/>[\s{}]*<LaunchStdButton\b/, 'go-live publishes the page'],
   ['app/dashboard/[eventId]/launch/_components/hub-stage.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
+  [`${C}editor-shell.tsx`, /Open Our Love Story[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the scrapbook writes love_story live'],
   [`${C}editor-shell.tsx`, /Choose your theme[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the theme picker writes events.invite_theme live'],
 ];
 

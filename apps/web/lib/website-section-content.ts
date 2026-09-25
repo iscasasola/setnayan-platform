@@ -27,6 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
+import { loveStoryScenes } from '@/lib/love-story-moments';
 
 /**
  * The event columns the content signals read. Callers that already loaded the
@@ -139,7 +140,7 @@ export async function computeSectionContentMap(
   return {
     schedule: count === null ? undefined : count > 0,
     venue_map: hasVenueContent(event),
-    our_love_story: Boolean(event.love_story),
+    our_love_story: loveStoryScenes(event.love_story).length > 0,
     our_photos: ourPhotosCount > 0,
     special_message: Boolean(event.special_message),
     what_to_bring: Boolean(event.what_to_bring),

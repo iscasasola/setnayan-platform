@@ -1,3 +1,5 @@
+import { asksForHostCanvas, asksForEditorBridge } from './_lib/editor-canvas';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
@@ -107,6 +109,14 @@ type Props = {
     // bridge INSIDE the editor's preview iframe. Host-gated exactly like
     // `?phase=` below; ignored for guests/anonymous so their bytes never change.
     editor?: string;
+    // 🖼 "Preview the whole stage" (the Maker's ▶ menu) — `?preview=draft`
+    // plays the stage page-only, with the host's draft. Host-verified exactly
+    // like `?editor=1`; see `_lib/editor-canvas.ts`.
+    preview?: string;
+    // 🖼 The Maker's "Guest bars" switch — `?bars=1` puts the GUEST header and
+    // tab bar back into the canvas (never the host's). Canvas-only; inert
+    // everywhere else.
+    bars?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
@@ -138,8 +148,9 @@ type Props = {
 // on the slug alone, so generateMetadata and the page body keep sharing one DB
 // roundtrip exactly as before.
 
-export async function generateMetadata({ params }: Pick<Props, 'params'>) {
+export async function generateMetadata({ params, searchParams }: Props) {
   const { slug } = await params;
+  const search = await searchParams;
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const event = await loadEventShell(slug);
@@ -217,8 +228,17 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;
+  // 🖼 The Maker's "Preview the whole stage" tab names itself, so a couple with
+  // three stages open can tell them apart. The display name is already the
+  // page title; the stage label adds nothing private. Asking only — the body
+  // still verifies the host before it honours the preview.
+  const previewPhase = asksForHostCanvas(search) && search.preview === 'draft' ? search.phase : undefined;
+  const previewTitle =
+    previewPhase && previewPhase in PUBLIC_STAGE_LABELS
+      ? `Preview · ${PUBLIC_STAGE_LABELS[previewPhase as keyof typeof PUBLIC_STAGE_LABELS]} · ${event.display_name}`
+      : null;
   return {
-    title: event.display_name,
+    title: previewTitle ?? event.display_name,
     // ── THEIR WEDDING AS AN ICON (owner 2026-09-20 · lib/event-app-icon.ts).
     // The per-event manifest is what makes an installed tile open THIS
     // invitation with THEIR mark, instead of our app. iOS ignores manifest
@@ -456,7 +476,7 @@ async function InvitationBody({
      (every guest, always) `hostDraft` is null, both overlays return their input,
      and nothing below reads anything different. */
   let hostDraft: HubDraft | null = null;
-  if (search.editor === '1') {
+  if (asksForHostCanvas(search)) {
     const {
       data: { user: previewer },
     } = await (await createClient()).auth.getUser();
@@ -755,15 +775,27 @@ async function InvitationBody({
   // is present, so the normal guest path pays zero extra queries — and with the
   // param absent (every guest, always) `editorMode` is false and the bridge is
   // never rendered, so guest HTML is unchanged byte-for-byte.
-  let editorMode = false;
-  if (search.editor === '1') {
+  //
+  // 🖼 `isEditorCanvas` — THE ONE FLAG FOR "THIS RENDER IS THE MAKER'S CANVAS"
+  // (owner 2026-09-25: *"editing should only be the page"*). SiteBody hides
+  // every piece of app and host chrome with it — the Host controls bar, the
+  // bottom tab bar, the Live hub pill, the floating music button, the site
+  // header, Share/Report — so the canvas shows the sections and nothing else.
+  // It is the param AND a verified host, never the param alone; it only ever
+  // HIDES chrome, so a crafted `?editor=1` from a stranger changes nothing.
+  // 🔴 WHY IT MATTERS BEYOND LOOKS: that chrome is made of LINKS into the
+  // dashboard ("Edit this site", "Manage"). Inside the Maker's canvas a tap on
+  // one navigated the iframe into the Maker itself — the owner saw his editor
+  // embedded inside his editor (2026-09-25).
+  let isEditorCanvas = false;
+  if (asksForHostCanvas(search)) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
       // React.cache'd — shares the lookup with the private gate / phase preview.
-      editorMode = await loadHostMembership(admin, event.event_id, user.id);
+      isEditorCanvas = await loadHostMembership(admin, event.event_id, user.id);
     }
   }
 
@@ -1042,7 +1074,10 @@ async function InvitationBody({
     broadcastPlanned,
     doorwayFacts,
     proWatermarkHidden,
-    editorMode,
+    isEditorCanvas,
+    // The click-to-edit bridge: the Maker's iframe only, never the preview tab.
+    editorBridge: isEditorCanvas && asksForEditorBridge(search),
+    canvasGuestBars: isEditorCanvas && search.bars === '1',
     // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
     // both had consumers. `ownerCapability` drives the read-only owner ribbon
     // and the host's own body copy (lib/owner-ribbon.ts, site-body.tsx);
@@ -1088,8 +1123,9 @@ async function InvitationBody({
   // on a guest's page SiteBody is not the end — the guest's own section
   // (GuestHubBar) renders after it. Same gate as before: never on a private
   // page; Share only once the page is public.
+  // 🖼 Not in the Maker's canvas — Share and Report are chrome, not a section.
   const pageFooter =
-    visibility !== 'private' ? (
+    visibility !== 'private' && !isEditorCanvas ? (
       <PublicPageActions
         canShare={visibility === 'public'}
         reportTargetId={event.event_id}
@@ -1344,6 +1380,8 @@ async function InvitationBody({
           two lone floating Papic CTAs that used to sit here; everything it needs
           is already computed above (no new DB reads). The #claim-account anchor
           only exists when the claim section renders (no account + not STD). */}
+      {/* 🖼 Not in the Maker's canvas — it is chrome, not a section. */}
+      {isEditorCanvas ? null : (
       <GuestHubBar
         qrToken={guest.qr_token}
         invitationUrl={invitationUrl}
@@ -1369,6 +1407,7 @@ async function InvitationBody({
           isSample: Boolean(event.is_sample),
         })}
       />
+      )}
       {pageFooter}
     </>
   );

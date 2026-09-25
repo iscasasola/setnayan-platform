@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { TOURS, type TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { InfoTip } from './info-tip';
 
 type Props = {
   tourKey: TourKey;
@@ -46,6 +47,7 @@ export function GuidedTour({ tourKey, completeAction, storeShell = false }: Prop
   const current = slides[step];
   if (!current) return null;
   const isLast = step === slides.length - 1;
+  const tour = TOURS[tourKey];
 
   return (
     <div
@@ -59,59 +61,85 @@ export function GuidedTour({ tourKey, completeAction, storeShell = false }: Prop
          sized to the DOCUMENT, so "the bottom" was 1300px below the fold and
          the card surfaced behind the bottom nav. #5582 fixes the sizing; the
          owner asked for centre regardless, so centre it is. */
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 focus:outline-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm focus:outline-none"
     >
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-[0_30px_80px_-40px_rgba(26,26,26,0.5)]">
+      {/* House style (2026-09-25 · Maker Phase 11): no bordered card — this is
+          `.sn-glass-bare` (borderless glass, seated by `--sn-sh-float`
+          instead of a hairline) + shadow, the same skin `maker-tour.tsx`
+          wears. Slide contracts (`lib/tours.ts`) are untouched — only the
+          chrome around them moved. */}
+      {/* No `overflow-hidden` here (unlike `maker-tour.tsx`'s otherwise-identical
+          shell): the InfoTip popover below is `position: absolute` off its
+          trigger, not a portal, and this card has no edge-bleeding content
+          that needs clipping. */}
+      <div className="sn-glass-bare relative w-full max-w-md rounded-3xl">
         <button
           type="button"
           onClick={dismiss}
           aria-label="Skip tour"
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/55 hover:bg-ink/10 hover:text-ink"
+          className="sn-press absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/5 text-ink/60 transition-colors duration-sn-control ease-sn hover:bg-ink/10 hover:text-ink"
         >
-          <X className="h-4 w-4" strokeWidth={2} />
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
 
-        <div className="space-y-4 p-6 sm:p-8">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-terracotta/10 text-terracotta">
+        <div
+          key={step}
+          className="space-y-4 p-6 motion-safe:animate-[sn-peek-in_var(--sn-dur-elem)_var(--sn-ease)_backwards] sm:p-8"
+        >
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
             <current.Icon aria-hidden className="h-6 w-6" strokeWidth={1.75} />
-          </div>
+          </span>
 
           <div className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-terracotta">
-              Step {step + 1} of {slides.length}
-            </p>
-            <h2 id="guided-tour-title" className="text-2xl font-semibold tracking-tight">
+            {/* InfoTip for detail (design brief §2): the step count is the
+                visible micro-label; what this tour is FOR (`tour.blurb`,
+                already authored in lib/tours.ts and never rendered before
+                now) sits behind the `(i)` instead of a second always-on
+                line. */}
+            <InfoTip
+              label={`Step ${step + 1} of ${slides.length}`}
+              labelClassName="font-mono text-[10px] uppercase tracking-[0.25em] text-terracotta"
+              ariaLabel={`About ${tour.label}`}
+              align="start"
+            >
+              {tour.blurb}
+            </InfoTip>
+            <h2 id="guided-tour-title" className="font-serif text-2xl leading-tight tracking-tight text-ink">
               {current.title}
             </h2>
             <p
-              className="text-sm text-ink/70"
+              className="text-[15px] leading-relaxed text-ink/75"
               dangerouslySetInnerHTML={{ __html: current.body }}
             />
           </div>
 
-          <div className="flex h-1 w-full overflow-hidden rounded-full bg-ink/10">
-            <span
-              className="block h-full rounded-full bg-terracotta transition-all"
-              style={{ width: `${((step + 1) / slides.length) * 100}%` }}
-            />
+          <div className="flex gap-1.5" aria-hidden>
+            {slides.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-sn-elem ease-sn ${
+                  i === step ? 'w-6 bg-terracotta' : 'w-1.5 bg-ink/20'
+                }`}
+              />
+            ))}
           </div>
 
-          <div className="flex items-center justify-between gap-3 pt-2">
+          <div className="flex items-center justify-between gap-3 pt-1">
             <button
               type="button"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
-              className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-ink/65 hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full px-4 text-sm font-medium text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+              <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Back
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {!isLast ? (
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="text-xs text-ink/55 hover:text-ink"
+                  className="sn-press text-xs text-ink/55 transition-colors duration-sn-control ease-sn hover:text-ink"
                 >
                   Skip
                 </button>
@@ -121,7 +149,7 @@ export function GuidedTour({ tourKey, completeAction, storeShell = false }: Prop
                   type="button"
                   onClick={dismiss}
                   disabled={pending}
-                  className="inline-flex items-center gap-1 rounded-md bg-mulberry px-4 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-mulberry px-5 text-sm font-semibold text-cream transition-colors duration-sn-control ease-sn hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Got it
                 </button>
@@ -129,10 +157,10 @@ export function GuidedTour({ tourKey, completeAction, storeShell = false }: Prop
                 <button
                   type="button"
                   onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}
-                  className="inline-flex items-center gap-1 rounded-md bg-mulberry px-4 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-600"
+                  className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-mulberry px-5 text-sm font-semibold text-cream transition-colors duration-sn-control ease-sn hover:bg-mulberry-600"
                 >
                   Next
-                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                  <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                 </button>
               )}
             </div>

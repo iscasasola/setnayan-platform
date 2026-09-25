@@ -103,6 +103,7 @@ export function StaleTabNotice() {
   return (
     <div
       ref={bar}
+      data-app-chrome=""
       role="status"
       className="fixed inset-x-0 bottom-0 z-[60] flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-ink/10 bg-cream/95 px-4 py-2.5 text-center text-sm text-ink/80 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur"
     >

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Info, Monitor, MoreHorizontal, PanelLeft, Play, Plus, Smartphone, X } from 'lucide-react';
+import { Info, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -15,6 +15,8 @@ import {
   type MakerState,
 } from './maker-context';
 import { MakerTour } from './maker-tour';
+import { MakerPlayMenu } from './maker-play-menu';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -58,6 +60,8 @@ export function MakerShell({
   renderStamp,
   more,
   applySlot = null,
+  prints = null,
+  details = null,
   hasWork,
   viewAs = {},
   children,
@@ -81,6 +85,12 @@ export function MakerShell({
   more: ReactNode;
   /** Phase 2's Apply · Restore · Reset bar. */
   applySlot?: ReactNode;
+  /** Phase 9: the Prints & Tickets workspace, shown over the work area while
+   *  the bar's "Prints & Tickets" is selected. */
+  prints?: ReactNode;
+  /** The Details panel (what the stages and prints include, and every line of wording), shown over the work area while
+   *  the bar's Details item is selected. */
+  details?: ReactNode;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the tool items then have nothing to open. */
   hasWork: boolean;
@@ -173,7 +183,9 @@ export function MakerShell({
     if (item.kind === 'tool' && hasWork) select({ kind: 'tool', key: item.key });
   };
 
-  const playHref = slug ? `/${slug}?phase=${stage}` : null;
+  /* ▶ The stage as guests meet it — page-only, with the host's DRAFT
+     (`?preview=draft`, host-verified on the page; `app/[slug]/_lib/editor-canvas.ts`). */
+  const playHref = slug ? `/${slug}?phase=${stage}&preview=draft` : null;
 
   return (
     <MakerContext.Provider value={value}>
@@ -218,16 +230,16 @@ export function MakerShell({
               </IconButton>
             ) : null}
             {playHref ? (
-              <a
-                href={playHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Play this stage full screen, as guests meet it"
-                title="Play"
-                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
-              >
-                <Play aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </a>
+              /* ▶ Play this scene (in place, in the canvas) · Preview the whole
+                 stage (a new tab, page-only, the draft). */
+              <MakerPlayMenu
+                stageHref={playHref}
+                stageLabel={PUBLIC_STAGE_LABELS[stage]}
+                sceneSelected={
+                  selection?.kind === 'scene' ||
+                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event', 'love-story'].includes(selection.key))
+                }
+              />
             ) : null}
             <ComingNext label="Add a scene" note={MAKER_COMING_NEXT.add} align="start">
               <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -280,7 +292,21 @@ export function MakerShell({
         </header>
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
-        <div className="relative min-h-0 flex-1">{children}</div>
+        <div className="relative min-h-0 flex-1">
+          {children}
+          {/* Prints & Tickets covers the work area rather than replacing it, so
+              the editor keeps its state (and its draft) underneath. */}
+          {prints && selection?.kind === 'tool' && selection.key === 'prints' ? (
+            <div className="absolute inset-0 z-30" data-maker-prints-layer="">
+              {prints}
+            </div>
+          ) : null}
+          {details && selection?.kind === 'tool' && selection.key === 'details' ? (
+            <div className="absolute inset-0 z-30" data-maker-details-layer="">
+              {details}
+            </div>
+          ) : null}
+        </div>
 
         {/* ══ ⋯ · THE SHEET ══ Kept mounted (hidden when shut) so the work area
             can portal the address rows into it. */}
@@ -349,23 +375,28 @@ export function MakerBar({
     const max = el.scrollWidth - el.clientWidth;
     setFade({ l: el.scrollLeft > 2, r: el.scrollLeft < max - 2 });
   }, []);
-  useEffect(() => {
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [measure]);
-  /* The ACTIVE item is scrolled into view when the Maker opens and whenever it
-     changes — on a phone the stage the couple is on may sit past the edge. */
-  useEffect(() => {
+  /* The ACTIVE item is scrolled into view when the Maker opens, whenever it
+     changes, and when the window resizes (measured: at 768 and 1024 a resize
+     left the active pill past the edge) — on a phone the stage the couple is
+     on may sit past the edge. */
+  const showActive = useCallback(() => {
     const el = navRef.current;
     const on = el?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (!el || !on) return;
-    const left = on.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
-    if (left < el.scrollLeft || left + on.offsetWidth > el.scrollLeft + el.clientWidth) {
-      el.scrollTo({ left: Math.max(0, left - el.clientWidth / 2 + on.offsetWidth / 2) });
+    if (el && on) {
+      const left = on.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+      if (left < el.scrollLeft || left + on.offsetWidth > el.scrollLeft + el.clientWidth) {
+        el.scrollTo({ left: Math.max(0, left - el.clientWidth / 2 + on.offsetWidth / 2) });
+      }
     }
     measure();
-  }, [stage, selection, measure]);
+  }, [measure]);
+  useEffect(() => {
+    window.addEventListener('resize', showActive);
+    return () => window.removeEventListener('resize', showActive);
+  }, [showActive]);
+  useEffect(() => {
+    showActive();
+  }, [stage, selection, showActive]);
   const mask =
     fade.l || fade.r
       ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`
@@ -387,13 +418,13 @@ export function MakerBar({
         >
           {gi > 0 ? <i aria-hidden data-maker-divider="" className="mx-1.5 block h-5 w-px bg-ink/15" /> : null}
           {group.map((item) => {
-            if (item.kind === 'next' || (item.kind === 'tool' && !hasWork)) {
+            if (item.kind === 'tool' && !hasWork) {
               return (
                 <ComingNext
                   key={item.key}
                   label={item.label}
                   itemKey={item.key}
-                  note={item.kind === 'next' ? MAKER_COMING_NEXT[item.key] : 'Only the couple can open this part of the Event Hub Maker.'}
+                  note="Only the couple can open this part of the Event Hub Maker."
                   align={gi === 0 ? 'start' : 'end'}
                   chip
                 >

@@ -28,6 +28,7 @@ const SURFACES = [
   'lib/celebration-card-identity.ts', // the celebration card
   'lib/story-cover.ts', // Post Event starts from the hero
   'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx', // the Maker's Hero + poster preview
+  'lib/print-set.server.ts', // Prints & Tickets — the hero on paper (Phase 9)
 ];
 
 /** A raw hero column handed straight to a picture: signed, trimmed, or rendered. */

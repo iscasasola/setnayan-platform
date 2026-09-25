@@ -75,6 +75,7 @@ import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
 import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
+import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
@@ -211,7 +212,13 @@ export function sanitizeHubDraftEventValue(
     case 'monogram_studio_config':
       return sanitizeStudioConfig(raw) ?? undefined;
     // 🎨 `updateSiteColors`' own parses — a malformed value is dropped, never repaired.
-    case 'site_bg_color':
+    case 'site_bg_color': {
+      // 🌈 Plain hex OR an encoded ombré (`lib/ombre.ts`) — the ONE reader of
+      // the column's two shapes, so the draft holds exactly what the live
+      // writer would have written.
+      const bg = parseSiteBackground(raw);
+      return bg ? encodeSiteBackground(bg) : undefined;
+    }
     case 'site_button_color':
       return typeof raw === 'string' && HEX6.test(raw.trim()) ? raw.trim().toLowerCase() : undefined;
     case 'site_art_direction':
@@ -525,6 +532,12 @@ export function eventItemIsPro(
     return (
       momentCapRefusal({ before: resolveMoments(live), after: resolveMoments(value), ownsPro: false }) !== null
     );
+  }
+  if (column === 'site_bg_color') {
+    // 🌈 A plain colour is free (owner 2026-09-24). An OMBRÉ is free too unless
+    // the one switch in `lib/ombre.ts` says otherwise — then it is tried here
+    // and paid at Apply, like every other look.
+    return OMBRE_IS_PRO && isOmbreValue(value);
   }
   return eventColumnIsPro(column);
 }

@@ -29,7 +29,15 @@ export function InvitationShell({
   editorCanvas = false,
   hideWatermark = false,
   magicTraveller = null,
+  ownGround = false,
 }: {
+  /**
+   * 🌈 The couple chose an OMBRÉ background (`lib/ombre.ts`): the layout's
+   * paper paints it, and this shell must leave its own opaque paper off exactly
+   * as it does for a themed ground — Classic included, which otherwise keeps
+   * `bg-cream`. Decided upstream from the same overlaid row the page renders.
+   */
+  ownGround?: boolean;
   /**
    * The Event Hub theme, ALREADY RESOLVED by `resolveInviteTheme` upstream —
    * Pro ownership and the wedding fence are decided there, not here.
@@ -86,7 +94,7 @@ export function InvitationShell({
     House — and anything upstream turned into House — keeps today's opaque
     paper, so an event that never chose a theme renders the DOM it always did.
   */
-  const themed = Boolean(hubTheme && hubTheme !== 'house');
+  const themed = Boolean(hubTheme && hubTheme !== 'house') || ownGround;
   if (fullBleed) {
     return (
       <main

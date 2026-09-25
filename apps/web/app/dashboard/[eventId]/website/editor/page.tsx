@@ -352,6 +352,11 @@ export default async function WebsiteEditorPage({
   }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
   const currentThemeId = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
+  // This event's own "Open browsing" choice (the `open-browse` row below) —
+  // which of `SectionsPanel`'s two visibility controls actually governs the
+  // guest-facing render for it. Computed once, passed everywhere the panel is
+  // built, so the list view and every per-scene sheet agree.
+  const openBrowse = (event as { website_open_browse?: boolean | null }).website_open_browse === true;
   // Hideable rows only — always-on sections can't be hidden or moved, so
   // offering the controls would be a lie. Ordered by display_order.
   const sectionRows = [...allWidgets]
@@ -811,6 +816,7 @@ export default async function WebsiteEditorPage({
                    "…to Save the Date", "…to On the Day", "…to Post Event". */
                 initialPhase === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[initialPhase]
               }
+              openBrowse={openBrowse}
             />
           ),
         },
@@ -958,7 +964,7 @@ export default async function WebsiteEditorPage({
     postEvent,
     plan: {
       widgets: allWidgets,
-      openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),
+      openBrowse,
       weddingOnlyParts: resolveWeddingOnlyParts(profile),
       content: sectionContent,
       solemn: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn,
@@ -1029,6 +1035,7 @@ export default async function WebsiteEditorPage({
         lookLock={lockPanel('How each section looks and moves')}
         videoChoice={videoChoice}
         colorChoices={colorChoices}
+        openBrowse={openBrowse}
       />,
     ]),
   );

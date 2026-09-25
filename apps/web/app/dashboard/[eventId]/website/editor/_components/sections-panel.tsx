@@ -68,6 +68,16 @@ import { SceneTemplatePicker } from './scene-template-picker';
  * disabled while a section has no content — forcing on an empty section would
  * publish a blank block to guests (the rule `setSectionMode` enforces
  * server-side too).
+ *
+ * 🔒 EXACTLY ONE VISIBILITY CONTROL PER ROW (Maker phone-polish, 2026-09-26).
+ * The eye (`is_visible`) and the mode chips used to render TOGETHER on every
+ * row, in both this list and the Maker's per-scene sheet (same component,
+ * `only={widgetId}`) — two controls a couple could read as both governing the
+ * same thing, when in fact only one of them does for any given event:
+ * `openBrowseSectionVisible` (`lib/invitation-widgets.ts`) reads `mode` when
+ * `events.website_open_browse` is on and falls back to the eye's `is_visible`
+ * when it is off — never both. The `openBrowse` prop below now picks which
+ * ONE renders. See `visibility-control-is-singular.test.ts`.
  */
 
 const RETURN_TO = (eventId: string) =>
@@ -97,6 +107,7 @@ export function SectionsPanel({
   returnTo = null,
   hideLocked = false,
   sceneStage = 'your Event Hub',
+  openBrowse = true,
 }: {
   /**
    * THE EVENT HUB MAKER'S INSPECTOR (2026-09-25) shows ONE section at a time.
@@ -118,6 +129,19 @@ export function SectionsPanel({
    * Invitation") — the template picker is headed with it (owner 2026-09-24).
    */
   sceneStage?: string;
+  /**
+   * This EVENT's own `events.website_open_browse` — which of the two
+   * visibility mechanisms actually governs the guest-facing render for it
+   * (`lib/invitation-widgets.ts`'s `openBrowseSectionVisible`: `mode` decides
+   * when true, the legacy `is_visible` eye decides when false — never both).
+   * TWO controls that both claim to show or hide the same section read as one
+   * broken control, so exactly one renders per row, picked by this flag —
+   * never both, never neither (`visibility-control-is-singular.test.ts`).
+   * Defaults `true` (new events default `website_open_browse` on since
+   * migration `20271102765509`) so a caller that forgets to wire it gets the
+   * forward-looking control rather than a silently dead one.
+   */
+  openBrowse?: boolean;
   eventId: string;
   /** Hideable widgets in display order (always-on rows are not listed — they
    *  can never be hidden or moved, so a control would be a lie). */
@@ -218,31 +242,38 @@ export function SectionsPanel({
                   {catalog?.label ?? row.widget_type}
                 </span>
 
-                {/* show / hide */}
-                <form action={toggleAction}>
-                  <HubDraftField />
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="widget_id" value={row.widget_id} />
-                  <input type="hidden" name="widget_type" value={row.widget_type} />
-                  <input type="hidden" name="next_visible" value={row.is_visible ? '0' : '1'} />
-                  <input type="hidden" name="return_to" value={back} />
-                  <button
-                    type="submit"
-                    aria-label={row.is_visible ? `Hide ${catalog?.label}` : `Show ${catalog?.label}`}
-                    className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[0.65rem] font-medium ${
-                      row.is_visible
-                        ? 'border-success-300/70 bg-success-50 text-success-800'
-                        : 'border-ink/15 bg-cream text-ink/55'
-                    }`}
-                  >
-                    {row.is_visible ? (
-                      <Eye aria-hidden className="h-3 w-3" strokeWidth={2} />
-                    ) : (
-                      <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} />
-                    )}
-                    {row.is_visible ? 'Visible' : 'Hidden'}
-                  </button>
-                </form>
+                {/* show / hide — THE EYE. Rendered only while `mode` is not
+                    the thing the guest-facing render actually reads for this
+                    event (`openBrowse` false: `openBrowseSectionVisible` never
+                    runs, so `is_visible` — this button — is the ONLY control
+                    with any effect). See `openBrowse` above and
+                    `visibility-control-is-singular.test.ts`. */}
+                {!openBrowse ? (
+                  <form action={toggleAction} data-visibility-control="eye">
+                    <HubDraftField />
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="widget_id" value={row.widget_id} />
+                    <input type="hidden" name="widget_type" value={row.widget_type} />
+                    <input type="hidden" name="next_visible" value={row.is_visible ? '0' : '1'} />
+                    <input type="hidden" name="return_to" value={back} />
+                    <button
+                      type="submit"
+                      aria-label={row.is_visible ? `Hide ${catalog?.label}` : `Show ${catalog?.label}`}
+                      className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[0.65rem] font-medium ${
+                        row.is_visible
+                          ? 'border-success-300/70 bg-success-50 text-success-800'
+                          : 'border-ink/15 bg-cream text-ink/55'
+                      }`}
+                    >
+                      {row.is_visible ? (
+                        <Eye aria-hidden className="h-3 w-3" strokeWidth={2} />
+                      ) : (
+                        <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} />
+                      )}
+                      {row.is_visible ? 'Visible' : 'Hidden'}
+                    </button>
+                  </form>
+                ) : null}
 
                 {/* reorder */}
                 <form action={moveUpAction}>
@@ -275,8 +306,16 @@ export function SectionsPanel({
                 </form>
               </div>
 
-              {/* Auto · Shown · Hidden */}
-              <div className="mt-1.5 flex items-center gap-1">
+              {/* Auto · Shown · Hidden — THE MODE CHIPS. This event's own
+                  visibility control while `openBrowse` is on for it: `auto`
+                  reproduces the eye's old fallback behaviour, and `shown` /
+                  `hidden` are the couple's explicit, guest-render-honoured
+                  override (`openBrowseSectionVisible`). Never rendered beside
+                  the eye above — two controls that both claim to govern the
+                  same section is the defect this split fixes. See
+                  `visibility-control-is-singular.test.ts`. */}
+              {openBrowse ? (
+              <div className="mt-1.5 flex items-center gap-1" data-visibility-control="mode">
                 {(['auto', 'shown', 'hidden'] as const).map((m) => {
                   const active = mode === m;
                   const blocked = m === 'shown' && !hasContent;
@@ -316,6 +355,7 @@ export function SectionsPanel({
                   );
                 })}
               </div>
+              ) : null}
 
               {/* ══ HOW IT MOVES ══════════════════════════════════════════
                   Owner 2026-09-23: "we only animate the details, the functions

@@ -24,7 +24,7 @@ export type MakerDevice = 'desktop' | 'phone';
 /** What the inspector is showing. `null` = nothing selected, inspector closed. */
 export type MakerSelection =
   | { kind: 'scene'; id: string; tab?: MakerSceneTab }
-  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' }
+  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'prints' | 'details' }
   | { kind: 'main' }
   | { kind: 'row'; key: string }
   | null;

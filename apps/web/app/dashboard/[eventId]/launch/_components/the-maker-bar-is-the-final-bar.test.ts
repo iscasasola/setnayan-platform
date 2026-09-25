@@ -13,7 +13,7 @@ import { TOURS } from '@/lib/tours';
 /**
  * THE BAR IS THE OWNER'S FINAL BAR — in order, with its two dividers.
  *
- *   Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
+ *   Logo · Hero · Reveal · Love Story · Details │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
  *
  * (DECISION_LOG 2026-09-24/25; EVENT_HUB_MAKER_BUILD_PLAN Phase 1.) Asserted on
  * the RENDERED bar, not only the list: a list can be right while the component
@@ -25,6 +25,8 @@ const FINAL = [
   'Hero',
   'Reveal',
   'Love Story',
+  // Owner 2026-09-25: every line of wording gets a made-once home (MAKER_DETAILS_LABEL — the owner renamed Words → Details).
+  'Details',
   'Save the Date',
   'Invitation',
   'On the Day',
@@ -50,7 +52,7 @@ test('the list is the final bar', () => {
   assert.deepEqual(MAKER_BAR.map((i) => i.label), FINAL);
 });
 
-test('the rendered bar has the nine items in order and exactly two dividers', async () => {
+test('the rendered bar has the ten items in order and exactly two dividers', async () => {
   const html = await paint();
   const order = FINAL.map((label) => html.indexOf(label.replace('&', '&amp;')));
   for (const [i, at] of order.entries()) assert.ok(at > -1, `"${FINAL[i]}" is missing from the bar`);
@@ -60,8 +62,8 @@ test('the rendered bar has the nine items in order and exactly two dividers', as
   assert.equal((html.match(/data-maker-divider/g) ?? []).length, 2, 'two dividers, three groups');
   const firstDivider = html.indexOf('data-maker-divider');
   const secondDivider = html.indexOf('data-maker-divider', firstDivider + 1);
-  assert.ok(order[3]! < firstDivider && firstDivider < order[4]!, 'the first divider sits after Love Story');
-  assert.ok(order[7]! < secondDivider && secondDivider < order[8]!, 'the second sits before Prints & Tickets');
+  assert.ok(order[4]! < firstDivider && firstDivider < order[5]!, 'the first divider sits after Details');
+  assert.ok(order[8]! < secondDivider && secondDivider < order[9]!, 'the second sits before Prints & Tickets');
 });
 
 test('the live stage wears the red dot, and only it', async () => {
@@ -71,8 +73,9 @@ test('the live stage wears the red dot, and only it', async () => {
 
 test('no bar item is a dead button', async () => {
   const html = await paint();
-  assert.match(html, /data-maker-bar-item="prints"/, 'Prints & Tickets opens its coming-next line');
-  assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, 9, 'every item is a button');
+  // Phase 9: Prints & Tickets is a real tool now — it opens the workspace, not a coming-next line.
+  assert.match(html, /<button[^>]*data-maker-bar-item="prints"[^>]*aria-pressed=/, 'Prints & Tickets opens its workspace');
+  assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, 10, 'every item is a button');
 });
 
 test('the tour: the store shell drops the paid slide, and a price is only ever the catalogue’s', async () => {

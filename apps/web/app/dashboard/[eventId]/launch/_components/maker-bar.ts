@@ -8,7 +8,7 @@ import { TOURS, type TourKey } from '@/lib/tours';
  * Owner-final (DECISION_LOG 2026-09-24/25, `EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md`
  * Phase 1):
  *
- *     Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
+ *     Logo · Hero · Reveal · Love Story · Details │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
  *
  * Three groups, two dividers. The middle group is the four stages of the ONE
  * public link and its words are NOT typed here — they are `PUBLIC_STAGE_LABELS`
@@ -25,21 +25,31 @@ import { TOURS, type TourKey } from '@/lib/tours';
 
 export type MakerBarGroup = 'made-once' | 'stages' | 'prints';
 
+/**
+ * The made-once home of every line of wording (owner 2026-09-25: *"the other
+ * lines like the opening message and the thank you message on the egifts must
+ * have a place along the Logo, Hero, Reveal, Love Story"*). PROVISIONAL name —
+ * the owner may rename it, so it lives in this one constant.
+ */
+export const MAKER_DETAILS_LABEL = 'Details';
+
 export type MakerBarItem =
-  | { key: 'logo' | 'hero' | 'reveal' | 'love-story'; label: string; group: 'made-once'; kind: 'tool' }
+  | { key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'details'; label: string; group: 'made-once'; kind: 'tool' }
   | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' }
-  | { key: 'prints'; label: string; group: 'prints'; kind: 'next' };
+  | { key: 'prints'; label: string; group: 'prints'; kind: 'tool' };
 
 export const MAKER_BAR: readonly MakerBarItem[] = [
   { key: 'logo', label: 'Logo', group: 'made-once', kind: 'tool' },
   { key: 'hero', label: 'Hero', group: 'made-once', kind: 'tool' },
   { key: 'reveal', label: 'Reveal', group: 'made-once', kind: 'tool' },
   { key: 'love-story', label: 'Love Story', group: 'made-once', kind: 'tool' },
+  { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
   ...PUBLIC_STAGE_ORDER.map(
     (phase) =>
       ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,
   ),
-  { key: 'prints', label: 'Prints & Tickets', group: 'prints', kind: 'next' },
+  // Phase 9: opens the Prints & Tickets workspace (it said "coming next" until then).
+  { key: 'prints', label: 'Prints & Tickets', group: 'prints', kind: 'tool' },
 ];
 
 /** What a 'next' item — or a tool whose full build is a later phase — says. */

@@ -26,6 +26,7 @@ export function InvitationShell({
   backdrop,
   monogramText,
   fullBleed = false,
+  editorCanvas = false,
   hideWatermark = false,
   magicTraveller = null,
 }: {
@@ -58,6 +59,9 @@ export function InvitationShell({
   // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
   // + threaded through each render branch. Defaults false → free site keeps it.
   hideWatermark?: boolean;
+  /** 🖼 The Maker's canvas (`isEditorCanvas`, verified upstream) — the site
+   *  header is chrome, not a section, so it is not drawn there. */
+  editorCanvas?: boolean;
   // Full-screen mode (owner 2026-06-19): the Save-the-Date film IS the whole
   // experience — drop the Setnayan/Invitation top bar + footer + the centred
   // max-width column so it plays edge-to-edge with no chrome.
@@ -124,6 +128,7 @@ export function InvitationShell({
           page top and the corner controls (fixed at top-3, 44px tall) always
           land on its solid ground — 4rem clears 0.75rem + 2.75rem. z-20: above
           the page, under the corner controls (z-40 and up) and every sheet. */}
+      {editorCanvas ? null : (
       <header data-sticky-top className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex min-h-[4rem] w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
           <span className="flex items-center gap-2 text-ink">
@@ -162,6 +167,7 @@ export function InvitationShell({
           )}
         </div>
       </header>
+      )}
       {/* THE PAGE'S COLUMN.
           🔴 THIS ONE CLASS WAS THE "NARROW COLUMN IN A WIDE WINDOW". It capped
           the ENTIRE guest page at the 48rem plate at EVERY width, so on a

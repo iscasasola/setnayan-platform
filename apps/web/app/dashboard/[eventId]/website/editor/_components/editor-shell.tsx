@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUpRight, Eye, EyeOff, QrCode, X } from 'lucide-react';
+import { ArrowUpRight, Eye, EyeOff, PanelsTopLeft, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -18,6 +18,7 @@ import {
 import { MAKER_COMING_NEXT } from '../../../launch/_components/maker-bar';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
+import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -139,6 +140,9 @@ const TOOL_ROWS: Record<string, string[]> = {
 };
 
 const MAIN_ROWS = ['colors', 'music', 'backdrop'];
+
+/** The canvas's "Guest bars" switch, remembered for this browser session. */
+const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';
 const MORE_ROWS = ['go-live', 'visibility', 'launch-phase', 'open-browse'];
 
 export function MakerWork({
@@ -229,9 +233,33 @@ export function MakerWork({
   }, []);
 
   /* ── the preview ─────────────────────────────────────────────────────── */
+  /* 🖼 The canvas is ONLY the page (`isEditorCanvas` on the guest page). The
+     "Guest bars" switch at its lower right puts the GUEST header and tab bar
+     back (`&bars=1`) so the couple can check nothing sits under them — never
+     the host's own chrome. Owner 2026-09-25: *"add a switch to show or hide"*. */
+  const [guestBars, setGuestBars] = useState(false);
+  useEffect(() => {
+    try {
+      setGuestBars(window.sessionStorage.getItem(GUEST_BARS_KEY) === '1');
+    } catch {
+      /* storage refused — the switch simply starts off */
+    }
+  }, []);
+  const toggleGuestBars = () =>
+    setGuestBars((on) => {
+      const next = !on;
+      try {
+        window.sessionStorage.setItem(GUEST_BARS_KEY, next ? '1' : '0');
+      } catch {
+        /* not remembered, still applied */
+      }
+      return next;
+    });
+  const previewSrc = publicLandingUrl
+    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}`
+    : null;
   /* VIEW AS (toolbar) re-points the canvas at a role's own door; otherwise the
      host's editing preview, which shows the draft. */
-  const previewSrc = publicLandingUrl ? `${publicLandingUrl}?phase=${stage}&editor=1` : null;
   const canvasSrc = maker?.viewAsHref ?? previewSrc;
   const scrollPreviewTo = useCallback((anchor?: string) => {
     if (!anchor) return;
@@ -359,6 +387,8 @@ export function MakerWork({
 
   return (
     <div className="flex h-full min-h-0 flex-col lg:flex-row">
+      {/* 🪞 The Maker never draws inside a frame of itself. */}
+      <MakerRefusesToBeFramed />
       {/* ══ 2 · THE NAVIGATOR ══ */}
       <nav
         aria-label="Scenes"
@@ -547,7 +577,7 @@ export function MakerWork({
       <section
         aria-label="Preview"
         data-maker-stage={stage}
-        className="order-1 flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
+        className="relative order-1 flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
       >
         {canvasSrc ? (
           <iframe
@@ -555,7 +585,7 @@ export function MakerWork({
             key={`${stage}:${maker.renderStamp}:${maker.viewAsHref ?? ''}`}
             src={canvasSrc}
             title={`Your Event Hub — ${PUBLIC_STAGE_LABELS[stage]}`}
-            className={`h-full w-full rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
+            className={`min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
               device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
             }`}
           />
@@ -564,6 +594,44 @@ export function MakerWork({
             Set your Event Hub address (⋯ in the toolbar) to see your page here.
           </p>
         )}
+        {/* 🖼 "Guest bars" — the lower right of the canvas, BELOW the page and
+            never over it. */}
+        {publicLandingUrl ? (
+          <div className="flex w-full shrink-0 items-center justify-end gap-1 pt-1.5">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={guestBars}
+              aria-label="Guest bars"
+              data-maker-guest-bars={guestBars ? 'on' : 'off'}
+              onClick={toggleGuestBars}
+              className={`sn-press inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
+                guestBars ? 'bg-ink text-cream' : 'bg-white/80 text-ink/70 hover:bg-white hover:text-ink'
+              }`}
+            >
+              <PanelsTopLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+            <InfoTip label="Guest bars" align="end" labelClassName="text-[12px] font-semibold text-ink/70">
+              See where the top and bottom bars sit for guests.
+            </InfoTip>
+          </div>
+        ) : null}
+        {/* 🪞 The canvas only ever shows the couple's page. A link that leads
+            anywhere else (a dashboard route, the Maker itself) is covered, not
+            drawn — see `maker-canvas-guard.tsx`. */}
+        {publicLandingUrl ? (
+          <CanvasStaysOnThePage
+            frameRef={frameRef}
+            pagePath={publicLandingUrl}
+            resetKey={`${stage}:${maker.renderStamp}:${maker.viewAsHref ?? ''}`}
+            stageLabel={PUBLIC_STAGE_LABELS[stage]}
+            onBack={() => {
+              const f = frameRef.current;
+              const src = f?.getAttribute('src');
+              if (f && src) f.src = src;
+            }}
+          />
+        ) : null}
       </section>
 
       {/* ══ 4 · THE INSPECTOR — only when something is selected ══ */}

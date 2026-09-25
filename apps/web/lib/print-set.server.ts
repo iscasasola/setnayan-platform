@@ -4,11 +4,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { INVITE_THEMES, normalizeThemeId, themeMediaKey, type InviteThemeId } from '@/lib/invite-themes';
-import { r2PublicUrl } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
 import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { eventSeatingPublished } from '@/lib/seat-pass';
+import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { ROLE_GROUP_LABELS } from '@/lib/role-groups';
@@ -47,7 +49,7 @@ import { fetchEgiftMethods } from '@/lib/egift';
  */
 
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, entourage_section_order, seating_published_at, pabuya_message, special_message, our_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
 
 export type PrintEventRow = {
   event_id: string;
@@ -63,11 +65,9 @@ export type PrintEventRow = {
   dress_code_config: unknown;
   role_palette: unknown;
   print_details: unknown;
-  entourage_section_order: string[] | null;
   pabuya_message: string | null;
   special_message: string | null;
-  our_story: string | null;
-  seating_published_at: string | null;
+  love_story: unknown;
   monogram_text: string | null;
   monogram_color: string | null;
   monogram_style: string | null;
@@ -126,7 +126,7 @@ async function readBlocks(admin: SupabaseClient, eventId: string): Promise<Block
   return (data as BlockRow[] | null) ?? [];
 }
 
-async function readEntourage(admin: SupabaseClient, eventId: string, sectionOrder: string[] | null) {
+async function readEntourage(admin: SupabaseClient, eventId: string) {
   const { data, error } = await admin
     .from('guests')
     .select(ENTOURAGE_COLUMNS)
@@ -137,7 +137,9 @@ async function readEntourage(admin: SupabaseClient, eventId: string, sectionOrde
     logQueryError('print-set.readEntourage', error, { event_id: eventId }, 'graceful_degrade');
     return [];
   }
-  return buildEntourage((data ?? []) as EntourageGuestRow[], sectionOrder);
+  // The couple's own section order, read on ITS OWN (the loader's rule: an
+  // unreadable preference prints the built-in order, never breaks the card).
+  return buildEntourage((data ?? []) as EntourageGuestRow[], await loadEntourageSectionOrder(admin, eventId));
 }
 
 function attireLines(raw: unknown): Array<{ label: string; line: string }> {
@@ -220,6 +222,18 @@ async function readGiftLines(admin: SupabaseClient, eventId: string): Promise<st
     .filter(Boolean);
 }
 
+/** The couple's story in words — `events.love_story` (the Our Story editor's blob). */
+function storyText(raw: unknown): string | null {
+  if (typeof raw === 'string') return raw;
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  for (const k of ['how_we_met', 'spark', 'proposal']) {
+    const v = r[k];
+    if (typeof v === 'string' && v.trim()) return v;
+  }
+  return null;
+}
+
 /** The first sentence or two of the couple's story — a card has room for a line, not a chapter. */
 function excerpt(story: string | null): string | null {
   const t = story?.replace(/\s+/g, ' ').trim();
@@ -233,8 +247,7 @@ function excerpt(story: string | null): string | null {
 /** The parents on this event's guest list — for the Details panel's read-only list. */
 export async function parentsFromEntourageForEvent(eventId: string): Promise<PrintParent[]> {
   const admin = createAdminClient();
-  const event = await readPrintEvent(admin, eventId);
-  return parentsFromEntourage(await readEntourage(admin, eventId, event?.entourage_section_order ?? null));
+  return parentsFromEntourage(await readEntourage(admin, eventId));
 }
 
 /** Does this event have a Mood Board palette to print? */
@@ -275,7 +288,9 @@ async function themeStill(theme: InviteThemeId, mode: PrintMode): Promise<Uint8A
   const hit = stillCache.get(cacheKey);
   if (hit && Date.now() - hit.at < 3_600_000) return hit.bytes;
   try {
-    const res = await fetch(r2PublicUrl('setnayan-media', key), { signal: AbortSignal.timeout(8000) });
+    const url = publicUrlForStoredAsset(media.poster);
+    if (!url) return null;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     let bytes: Uint8Array = new Uint8Array(await res.arrayBuffer());
     const sharp = (await import('sharp')).default;
@@ -334,7 +349,7 @@ export async function loadPrintSet(
   const inc = stored.include;
   const [blocks, entourage, venues, ownerSlug, stillRaw, giftLines, hosts] = await Promise.all([
     readBlocks(admin, eventId),
-    readEntourage(admin, eventId, event.entourage_section_order),
+    readEntourage(admin, eventId),
     resolveStdFinalizedVenues(admin, eventId),
     event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
     look.still !== 'none' ? themeStill(theme, opts.mode) : Promise.resolve(null),
@@ -395,7 +410,7 @@ export async function loadPrintSet(
             .map((b) => `${blockTime(b) ?? ''} · ${b.label}`)
         : [],
       nfc: inc.nfc,
-      storyExcerpt: inc.loveStory === 'excerpt' ? excerpt(event.our_story) : null,
+      storyExcerpt: inc.loveStory === 'excerpt' ? excerpt(storyText(event.love_story)) : null,
       guestNames: inc.guestNames,
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
@@ -435,7 +450,8 @@ export async function loadGuestPasses(
 
   const seatOf = new Map<string, string>();
   const seatNumberOf = new Map<string, string>();
-  if (set.event.seating_published_at) {
+  // Tables print only once the couple has published seating (the same gate the guest pages use).
+  if (await eventSeatingPublished(admin, eventId)) {
     const [{ data: seats }, { data: tables }] = await Promise.all([
       admin.from('event_seat_assignments').select('guest_id, table_id, seat_number').eq('event_id', eventId),
       admin.from('event_tables').select('table_id, table_label').eq('event_id', eventId),

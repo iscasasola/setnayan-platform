@@ -169,6 +169,11 @@ export function isPrintPieceKey(v: unknown): v is PrintPieceKey {
 // ─── Die-cut shapes, per theme ──────────────────────────────────────────────
 
 /**
+ * ⚖ EVERY PER-THEME TABLE IN THIS FILE IS A `Record<InviteThemeId, …>` — keyed
+ * by the ONE registry's type, never a second list of ids (`invite-themes.test.ts`
+ * "no file outside the registry declares the theme list"). A theme added to the
+ * registry fails to COMPILE here until it is given its print look.
+ *
  * The sheet's outline, as the print shop cuts it (THEMES-2026-09-24.md "Print"
  * per theme): Whimsical is scalloped, Cinderella arch-cut, Great Gatsby a
  * chevron-cut top, Rustic a deckled edge, Cyber a softly rounded card. The rest
@@ -210,11 +215,21 @@ export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey): DieCut {
  *
  * A sample never carries either — "no foil/white-ink layers" (owner 09-25).
  */
+const SPOT_LAYERS: Record<InviteThemeId, { foil: boolean; whiteInk: boolean }> = {
+  house: { foil: false, whiteInk: false },
+  abaca: { foil: false, whiteInk: true },
+  galeriya: { foil: false, whiteInk: false },
+  cinderella: { foil: true, whiteInk: false },
+  velvet: { foil: true, whiteInk: true },
+  vintage: { foil: false, whiteInk: false },
+  whimsical: { foil: false, whiteInk: false },
+  regency: { foil: true, whiteInk: false },
+  gatsby: { foil: true, whiteInk: true },
+  cyber: { foil: false, whiteInk: true },
+};
+
 export function spotLayersFor(theme: InviteThemeId): { foil: boolean; whiteInk: boolean } {
-  return {
-    foil: theme === 'velvet' || theme === 'gatsby' || theme === 'regency' || theme === 'cinderella',
-    whiteInk: theme === 'velvet' || theme === 'gatsby' || theme === 'cyber' || theme === 'abaca',
-  };
+  return SPOT_LAYERS[theme];
 }
 
 // ─── The theme on paper ─────────────────────────────────────────────────────

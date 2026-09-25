@@ -292,7 +292,7 @@ test('entourage groups print in lib/entourage.ts order', () => {
   const doc = layoutPiece('entourage', { look: printLookFor('vintage'), data: data({ entourage: groups }), mode: 'screen', foil: false });
   assert.ok(doc.ops.length > 10);
   const loader = read('lib/print-set.server.ts');
-  assert.match(loader, /buildEntourage\([\s\S]{0,80}sectionOrder\)/, 'the print set must honour the couple’s own section order');
+  assert.match(loader, /buildEntourage\([\s\S]{0,80}loadEntourageSectionOrder\(/, 'the print set must honour the couple’s own section order');
 });
 
 test('the Maker workspace prints no price and hides the Pro path in the store shell', () => {

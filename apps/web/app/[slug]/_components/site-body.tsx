@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
 import { guestPassFacts } from '@/lib/guest-pass';
@@ -536,6 +537,15 @@ export async function SiteBody({
   // editor noise, not something a guest could ever sit under.
   const showGuestBars = !isEditorCanvas || canvasGuestBars;
 
+  // 🧭 THE NAVIGATOR'S HANDLES — in the Maker's canvas only. A hidden, empty
+  // marker sits immediately BEFORE each section the navigator lists
+  // (`lib/maker-scene-list.ts` keys: `f:hero`, `w:<widget_type>`, …), so the
+  // bridge can scroll to a section and tell the Maker which one was tapped
+  // without any section growing editor attributes. `hidden` keeps it out of
+  // the `space-y` rhythm and out of layout; for every guest it is not rendered.
+  const makerMark = (key: string) =>
+    isEditorCanvas && editorBridge ? <span hidden data-maker-section={key} /> : null;
+
   /*
     WHO IS ASKING — resolved ONCE, here, from the same facts this page already
     established for its lock screen and its ribbon.
@@ -784,6 +794,7 @@ export async function SiteBody({
       // answering both "may this visitor browse the new open site?" and "does
       // this visitor get a site at all?". Only the first is what it decides.
       <>
+        {makerMark('f:editorial')}
         <EditorialContent
           eventId={event.event_id}
           galleryAnchorId={recapGalleryAnchorId}
@@ -827,7 +838,10 @@ export async function SiteBody({
       // no-backfill verdict: `normalBody()` is that event's OWN body, the same
       // one it renders inside 90 days. The only change is that it now exists to
       // step into.
-      <StdFilmHandoff film={stdFilmView()}>{normalBody()}</StdFilmHandoff>
+      <>
+        {makerMark('f:film')}
+        <StdFilmHandoff film={stdFilmView()}>{normalBody()}</StdFilmHandoff>
+      </>
     ) : (
       normalBody()
     );
@@ -922,8 +936,11 @@ export async function SiteBody({
     const publicWidgetNodes = (
       <HubScenes widgets={plan.publicSafeWidgets} scrubAllowed={proWatermarkHidden}>
       {plan.publicSafeWidgets.map((widget) => (
+      /* One node per widget still (HubScenes pairs by position): the marker
+         and the section travel together in one fragment. */
+      <Fragment key={widget.widget_id}>
+      {makerMark(`w:${widget.widget_type}`)}
       <PublicHideableWidget
-        key={widget.widget_id}
         widget={widget}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
@@ -937,6 +954,7 @@ export async function SiteBody({
         }
         ourPhotoUrls={ourPhotoUrls}
       />
+      </Fragment>
       ))}
       </HubScenes>
     );
@@ -990,6 +1008,7 @@ export async function SiteBody({
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
+        {plan.anonymousHeroBanner ? makerMark('f:hero') : null}
         {plan.anonymousHeroBanner ? (
           /* Pahina masthead (wave A PR-2) — typographic hero; the photo/video is
              demoted to the cover plate below the type (STRUCTURAL: was a
@@ -1017,6 +1036,7 @@ export async function SiteBody({
         {phasedBody(() => (
           <>
             <div className="space-y-6 text-center">
+              {!hasHeroMedia ? makerMark('f:hero') : null}
               {!hasHeroMedia ? (
                 /* Pahina masthead, text-only variant (wave A PR-2). */
                 <PahinaMasthead

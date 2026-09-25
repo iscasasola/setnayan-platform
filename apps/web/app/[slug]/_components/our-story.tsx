@@ -71,6 +71,17 @@ function composeOurStory(story: NonNullable<LoveStoryInput>): string[] {
   return out;
 }
 
+/**
+ * Does `<OurStory variant="full">` draw anything for this blob? The SAME two
+ * helpers the component uses, so the Maker's navigator lists the "Our story"
+ * section exactly when the page draws it (`lib/maker-scene-list.ts`).
+ */
+export function ourStoryRenders(loveStory: unknown): boolean {
+  const story = (loveStory ?? null) as LoveStoryInput;
+  if (!story || typeof story !== 'object') return false;
+  return composeOurStory(story).length > 0 || cleanMilestones(story.milestones).length > 0;
+}
+
 function cleanMilestones(raw: Milestone[] | null | undefined): Milestone[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter((m) => m && (clean(m.year) || clean(m.title) || clean(m.note)));

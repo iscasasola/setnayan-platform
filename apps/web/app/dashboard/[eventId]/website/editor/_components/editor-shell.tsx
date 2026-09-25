@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUpRight, Eye, EyeOff, PanelsTopLeft, QrCode, X } from 'lucide-react';
+import { ArrowUpRight, Eye, EyeOff, Lock, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -16,9 +16,12 @@ import {
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
 import { MAKER_COMING_NEXT } from '../../../launch/_components/maker-bar';
+import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
+import { swapsForDrop, type MakerFixedKey } from '@/lib/maker-scene-list';
+import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -143,6 +146,7 @@ export function MakerWork({
   eventId,
   publicLandingUrl,
   scenes,
+  navigator,
   scenePanels,
   rows,
   themes,
@@ -178,6 +182,8 @@ export function MakerWork({
   eventId: string;
   publicLandingUrl: string | null;
   scenes: MakerScene[];
+  /** 🧭 Per stage, what the canvas draws and in what order — see `maker-navigator-data.ts`. */
+  navigator: MakerNavigatorData;
   scenePanels: Record<string, ReactNode>;
   rows: Record<string, MakerRowPanel>;
   themes: Array<{ id: string; name: string; ready: boolean; current: boolean }>;
@@ -195,7 +201,7 @@ export function MakerWork({
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [navWidth, setNavWidth] = useState(168);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [dropAt, setDropAt] = useState<number | null>(null);
+  const [dropAt, setDropAt] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [moreHost, setMoreHost] = useState<HTMLElement | null>(null);
 
@@ -262,12 +268,48 @@ export function MakerWork({
       if (event.origin !== window.location.origin) return;
       const data = event.data as { source?: string; t?: string; key?: string } | null;
       if (!data || data.source !== 'setnayan-site' || data.t !== 'edit' || typeof data.key !== 'string') return;
+      /* 🧭 A section tapped on the canvas selects its navigator tile. */
+      if (data.key.startsWith('w:')) {
+        const type = data.key.slice(2);
+        const scene = scenes.find((s) => s.type === type);
+        if (scene) select?.({ kind: 'scene', id: scene.id });
+        return;
+      }
+      if (data.key.startsWith('f:')) {
+        const tool = FIXED_TOOL[data.key.slice(2) as MakerFixedKey];
+        if (tool) select?.({ kind: 'tool', key: tool });
+        return;
+      }
       const match = Object.entries(rows).find(([, r]) => r.anchor === data.key);
       if (match) select?.({ kind: 'row', key: match[0] });
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [rows, select]);
+  }, [rows, scenes, select]);
+
+  /* ▶ "Play this scene" (the toolbar's ▶ menu) — played IN PLACE in the
+     canvas: the bridge replays the selected section's entrance where it sits. */
+  useEffect(() => {
+    const onPlay = () => {
+      const key =
+        selection?.kind === 'scene'
+          ? (() => {
+              const s = scenes.find((x) => x.id === selection.id);
+              return s ? `w:${s.type}` : null;
+            })()
+          : selection?.kind === 'tool'
+            ? (Object.entries(FIXED_TOOL).find(([, t]) => t === selection.key)?.[0] ?? null)
+            : null;
+      if (!key) return;
+      const k = key.startsWith('w:') ? key : `f:${key}`;
+      frameRef.current?.contentWindow?.postMessage(
+        { source: 'setnayan-editor', t: 'play', key: k },
+        window.location.origin,
+      );
+    };
+    window.addEventListener(MAKER_PLAY_SCENE_EVENT, onPlay);
+    return () => window.removeEventListener(MAKER_PLAY_SCENE_EVENT, onPlay);
+  }, [selection, scenes]);
 
   /* ── the one hidden form every navigator write goes through ────────────── */
   const formRef = useRef<HTMLFormElement>(null);
@@ -358,6 +400,16 @@ export function MakerWork({
   const device = maker?.device ?? 'desktop';
   const selectedScene = selection?.kind === 'scene' ? scenes.find((s) => s.id === selection.id) ?? null : null;
 
+  /* 🧭 THE STAGE'S LIST — the canvas's own order (`lib/maker-scene-list.ts`). */
+  const { stageLists, fullOrder, minis, tint } = navigator;
+  const list = stageLists[stage];
+  const sceneById = new Map(scenes.map((s) => [s.id, s]));
+  const shownSceneIds = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
+  /* "After the last scene on this stage" in the FULL order — the row that
+     follows it (a hidden or off-stage one), or the end. */
+  const lastShown = shownSceneIds[shownSceneIds.length - 1];
+  const afterLastShown = lastShown ? (fullOrder[fullOrder.indexOf(lastShown) + 1] ?? null) : null;
+
   if (!maker) {
     return (
       <p className="p-6 text-sm text-ink/70">
@@ -398,46 +450,45 @@ export function MakerWork({
               Main
             </button>
           </li>
-          {stage === 'editorial' && rows['editorial'] ? (
-            <li className="shrink-0 lg:mb-3">
-              <button
-                type="button"
-                onClick={() => select?.({ kind: 'tool', key: 'post-event' })}
-                aria-pressed={selection?.kind === 'tool' && selection.key === 'post-event'}
-                className="sn-press flex min-h-11 w-28 items-center rounded-md bg-white/70 px-2 text-left text-[12px] font-semibold text-ink/75 hover:bg-white lg:w-full"
-              >
-                The story after the day
-              </button>
-            </li>
-          ) : null}
-          {scenes.map((scene, i) => {
-            const on = selectedScene?.id === scene.id;
-            const showing = sceneShowing(scene);
+          {/* 🧭 THE STAGE'S OWN LIST — what the canvas draws, in the order it
+              draws it (`lib/maker-scene-list.ts`, asked of the page's own
+              plan). Fixed sections are locked; the rest drag. */}
+          {list.shown.map((tile, i) => {
+            const scene = tile.kind === 'scene' ? (sceneById.get(tile.widgetId) ?? null) : null;
+            const on =
+              tile.kind === 'scene'
+                ? selectedScene?.id === tile.widgetId
+                : selection?.kind === 'tool' && selection.key === FIXED_TOOL[tile.fixed];
+            const showing = scene ? sceneShowing(scene) : true;
+            const next = list.shown[i + 1];
+            const canDrag = tile.kind === 'scene' && !pending && !list.orderIsAutomatic;
             return (
               <li
-                key={scene.id}
+                key={tile.key}
+                data-maker-tile={tile.key}
                 className="relative shrink-0"
                 onDragOver={(e) => {
-                  if (!dragId) return;
+                  if (!dragId || tile.kind !== 'scene') return;
                   e.preventDefault();
-                  setDropAt(i);
+                  setDropAt(tile.widgetId);
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
-                  if (!dragId) return;
-                  const from = scenes.findIndex((s) => s.id === dragId);
+                  if (!dragId || tile.kind !== 'scene') return;
+                  const from = dragId;
                   setDragId(null);
                   setDropAt(null);
-                  if (from >= 0) move(dragId, i - from);
+                  move(from, swapsForDrop(fullOrder, from, tile.widgetId));
                 }}
               >
-                {dropAt === i && dragId && dragId !== scene.id ? (
+                {tile.kind === 'scene' && dropAt === tile.widgetId && dragId && dragId !== tile.widgetId ? (
                   <span aria-hidden className="absolute -top-1 left-0 right-0 h-0.5 rounded-full bg-terracotta lg:left-4" />
                 ) : null}
                 <div
-                  draggable={!pending}
+                  draggable={canDrag}
                   onDragStart={(e) => {
-                    setDragId(scene.id);
+                    if (tile.kind !== 'scene') return;
+                    setDragId(tile.widgetId);
                     e.dataTransfer.effectAllowed = 'move';
                   }}
                   onDragEnd={() => {
@@ -445,72 +496,106 @@ export function MakerWork({
                     setDropAt(null);
                   }}
                   onContextMenu={(e) => {
+                    if (tile.kind !== 'scene') return;
                     e.preventDefault();
-                    setMenuFor(scene.id);
+                    setMenuFor(tile.widgetId);
                   }}
                   className="relative flex items-start gap-1.5 lg:py-1"
                 >
                   <span aria-hidden className="w-3 pt-1 text-right font-mono text-[10px] font-bold text-ink/50">
                     {i + 1}
                   </span>
-                  <button
-                    type="button"
-                    data-maker-scene={scene.type}
-                    aria-pressed={on}
-                    aria-label={`${scene.label}${showing ? '' : ' (hidden from guests)'}`}
-                    onClick={() => {
-                      select?.({ kind: 'scene', id: scene.id });
-                      const row = CONTENT_ROW_FOR_TYPE[scene.type];
-                      scrollPreviewTo(row ? rows[row]?.anchor : undefined);
-                    }}
-                    onPointerDown={(e) => {
-                      if (e.pointerType !== 'touch') return;
-                      const t = window.setTimeout(() => setMenuFor(scene.id), 550);
-                      const clear = () => window.clearTimeout(t);
-                      e.currentTarget.addEventListener('pointerup', clear, { once: true });
-                      e.currentTarget.addEventListener('pointerleave', clear, { once: true });
-                    }}
-                    className={`sn-press flex aspect-[16/10] w-24 cursor-grab items-start justify-center overflow-hidden break-words rounded-md bg-white px-2 pb-6 pt-2 text-center font-serif text-[12px] leading-tight shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] outline outline-2 outline-offset-2 transition-[outline-color,opacity] duration-sn-control ease-sn lg:w-full ${
-                      on ? 'outline-terracotta' : 'outline-transparent'
-                    } ${showing ? 'text-ink' : 'text-ink/40 opacity-60'}`}
-                  >
-                    {scene.label}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => eyeWrite(scene)}
-                    aria-label={showing ? `Hide ${scene.label} from guests` : `Show ${scene.label} to guests`}
-                    title={
-                      scene.mode === 'auto' && showing
-                        ? 'Showing (Auto) · tap to hide from guests'
-                        : showing
-                          ? 'Showing · tap to hide from guests'
-                          : 'Hidden · tap to show to guests'
-                    }
-                    className={`sn-press absolute bottom-0 right-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors duration-sn-control ease-sn hover:text-ink disabled:opacity-40 ${
-                      showing ? (scene.mode === 'auto' ? 'text-ink/55' : 'text-ink') : 'text-terracotta'
-                    }`}
-                  >
-                    {showing ? (
-                      <Eye aria-hidden className="h-4 w-4" strokeWidth={scene.mode === 'auto' ? 1.5 : 2.25} />
+                  <div className="min-w-0 flex-1">
+                    {/* The tile takes the DEVICE'S shape — a landscape page on
+                        Desktop, a tall phone on Phone — and the eye sits on it. */}
+                    <div
+                      className={`relative ${
+                        device === 'phone' ? 'aspect-[9/19.5] w-14 lg:w-[46%]' : 'aspect-[16/10] w-24 lg:w-full'
+                      }`}
+                    >
+                    <button
+                      type="button"
+                      data-maker-scene={tile.kind === 'scene' ? tile.type : undefined}
+                      data-maker-fixed={tile.kind === 'fixed' ? tile.fixed : undefined}
+                      aria-pressed={on}
+                      aria-label={`${tile.label}${tile.kind === 'fixed' ? ' (always here on this stage)' : showing ? '' : ' (hidden from guests)'}`}
+                      onClick={() => {
+                        if (tile.kind === 'scene') select?.({ kind: 'scene', id: tile.widgetId });
+                        else if (FIXED_TOOL[tile.fixed]) select?.({ kind: 'tool', key: FIXED_TOOL[tile.fixed]! });
+                        scrollPreviewTo(tile.key);
+                      }}
+                      onPointerDown={(e) => {
+                        if (e.pointerType !== 'touch' || tile.kind !== 'scene') return;
+                        const t = window.setTimeout(() => setMenuFor(tile.widgetId), 550);
+                        const clear = () => window.clearTimeout(t);
+                        e.currentTarget.addEventListener('pointerup', clear, { once: true });
+                        e.currentTarget.addEventListener('pointerleave', clear, { once: true });
+                      }}
+                      className={`sn-press absolute inset-0 block h-full w-full overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] outline outline-2 outline-offset-2 transition-[outline-color,opacity] duration-sn-control ease-sn ${canDrag ? 'cursor-grab' : 'cursor-pointer'} ${on ? 'outline-terracotta' : 'outline-transparent'} ${
+                        showing ? '' : 'opacity-50'
+                      }`}
+                    >
+                      <SceneMiniature mini={minis[tile.key]} fallback={tile.label} tint={tint} device={device} />
+                      {tile.kind === 'fixed' ? (
+                        <span className="absolute left-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm">
+                          <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        </span>
+                      ) : null}
+                    </button>
+                      {scene ? (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => eyeWrite(scene)}
+                          aria-label={showing ? `Hide ${tile.label} from guests` : `Show ${tile.label} to guests`}
+                          title={
+                            scene.mode === 'auto' && showing
+                              ? 'Showing (Auto) · tap to hide from guests'
+                              : showing
+                                ? 'Showing · tap to hide from guests'
+                                : 'Hidden · tap to show to guests'
+                          }
+                          className={`sn-press absolute bottom-1 right-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors duration-sn-control ease-sn hover:text-ink disabled:opacity-40 ${
+                            showing ? (scene.mode === 'auto' ? 'text-ink/55' : 'text-ink') : 'text-terracotta'
+                          }`}
+                        >
+                          {showing ? (
+                            <Eye aria-hidden className="h-4 w-4" strokeWidth={scene.mode === 'auto' ? 1.5 : 2.25} />
+                          ) : (
+                            <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
+                    {tile.kind === 'fixed' ? (
+                      <InfoTip label={tile.label} align="start" labelClassName="line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
+                        {tile.why}
+                      </InfoTip>
                     ) : (
-                      <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />
+                      <span className={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}>
+                        {tile.label}
+                      </span>
                     )}
-                  </button>
-                  {menuFor === scene.id ? (
+                  </div>
+                  {scene && menuFor === scene.id ? (
                     <SceneMenu
                       onClose={() => setMenuFor(null)}
-                      canUp={i > 0}
-                      canDown={i < scenes.length - 1}
+                      canUp={shownSceneIds.indexOf(scene.id) > 0 && !list.orderIsAutomatic}
+                      canDown={shownSceneIds.indexOf(scene.id) < shownSceneIds.length - 1 && !list.orderIsAutomatic}
                       showing={showing}
-                      onUp={() => move(scene.id, -1)}
-                      onDown={() => move(scene.id, 1)}
+                      onUp={() => {
+                        const k = shownSceneIds.indexOf(scene.id);
+                        move(scene.id, swapsForDrop(fullOrder, scene.id, shownSceneIds[k - 1] ?? null));
+                      }}
+                      onDown={() => {
+                        const k = shownSceneIds.indexOf(scene.id);
+                        move(scene.id, swapsForDrop(fullOrder, scene.id, shownSceneIds[k + 2] ?? afterLastShown));
+                      }}
                       onEye={() => eyeWrite(scene)}
                     />
                   ) : null}
                 </div>
-                {i < scenes.length - 1 ? (
+                {scene && next?.kind === 'scene' ? (
                   <button
                     type="button"
                     onClick={() => select?.({ kind: 'scene', id: scene.id, tab: 'transition' })}
@@ -523,7 +608,75 @@ export function MakerWork({
               </li>
             );
           })}
-          <li className="shrink-0 self-center lg:mt-2 lg:self-stretch">
+          {list.orderIsAutomatic ? (
+            <li className="shrink-0 self-center px-4 text-[11px] text-ink/60 lg:mt-2 lg:self-stretch">
+              <InfoTip label="Order set for you" align="start">
+                Open browsing arranges the sections by kind, so dragging cannot change what guests see.
+              </InfoTip>
+            </li>
+          ) : null}
+          {/* 🗂 THE FOLD — every section this stage does not draw, with why. */}
+          {list.folded.length > 0 ? (
+            <li className="shrink-0 self-start lg:mt-3 lg:self-stretch" data-maker-fold="">
+              <details className="group rounded-md bg-white/50 px-2 py-1.5">
+                <summary className="cursor-pointer list-none text-[11px] font-semibold text-ink/60 hover:text-ink">
+                  Not shown on {PUBLIC_STAGE_LABELS[stage]} ({list.folded.length})
+                </summary>
+                <ul className="mt-1.5 space-y-1">
+                  {list.folded.map((f) => {
+                    const scene = f.widgetId ? (sceneById.get(f.widgetId) ?? null) : null;
+                    return (
+                      <li key={f.key} data-maker-folded={f.key} className="flex items-center gap-1 text-[11.5px] text-ink/70">
+                        <span className="min-w-0 flex-1">
+                          <InfoTip label={f.label} align="start" labelClassName="truncate">
+                            {f.reason}
+                          </InfoTip>
+                        </span>
+                        {scene ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => select?.({ kind: 'scene', id: scene.id })}
+                              aria-label={`Edit ${f.label}`}
+                              className="sn-press inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+                            >
+                              <PencilLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                            </button>
+                            {f.hiddenByCouple ? (
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => eyeWrite(scene)}
+                                aria-label={`Show ${f.label} to guests`}
+                                className="sn-press inline-flex h-7 w-7 items-center justify-center rounded-full text-terracotta hover:bg-ink/5 disabled:opacity-40"
+                              >
+                                <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                              </button>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            </li>
+          ) : null}
+          <li
+            className="shrink-0 self-center lg:mt-2 lg:self-stretch"
+            onDragOver={(e) => {
+              if (!dragId) return;
+              e.preventDefault();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (!dragId) return;
+              const from = dragId;
+              setDragId(null);
+              setDropAt(null);
+              move(from, swapsForDrop(fullOrder, from, afterLastShown));
+            }}
+          >
             {addScene && 'action' in addScene ? (
               /* 🎬 "+" opens the 25 templates, headed with the stage being
                  edited and drawn in the view being edited (owner 2026-09-24). */
@@ -672,6 +825,63 @@ export function MakerWork({
           )
         : null}
     </div>
+  );
+}
+
+/** Which toolbar tool a fixed section opens (none for the entourage). */
+const FIXED_TOOL: Partial<Record<MakerFixedKey, 'hero' | 'reveal' | 'post-event' | 'love-story'>> = {
+  hero: 'hero',
+  film: 'reveal',
+  editorial: 'post-event',
+  story: 'love-story',
+};
+
+
+/**
+ * A MINIATURE OF THE SECTION, in the device's proportions (owner 2026-09-25:
+ * *"shouldnt mobile mode also have mobile preview on navigation"*). Drawn from
+ * the section's own words and ground — no iframe per tile.
+ */
+function SceneMiniature({
+  mini,
+  fallback,
+  tint,
+  device,
+}: {
+  mini: SceneMini | undefined;
+  fallback: string;
+  tint: MakerNavigatorData['tint'];
+  device: 'desktop' | 'phone';
+}) {
+  const ground = mini?.ground ?? tint.canvas;
+  const photo = mini?.photoUrl ?? null;
+  return (
+    <span
+      aria-hidden
+      className={`absolute inset-0 flex flex-col justify-center overflow-hidden text-left ${device === 'phone' ? 'px-1.5' : 'px-2'}`}
+      style={{ background: ground, color: tint.ink }}
+    >
+      {photo ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- a signed thumbnail already made for this page */
+        <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
+      ) : null}
+      <span className="relative">
+        {mini?.eyebrow ? (
+          <span
+            className="block truncate font-mono text-[6px] uppercase tracking-[0.18em]"
+            style={{ color: tint.accent }}
+          >
+            {mini.eyebrow}
+          </span>
+        ) : null}
+        <span className={`block font-serif leading-tight ${device === 'phone' ? 'line-clamp-3 text-[9px]' : 'line-clamp-2 text-[11px]'}`}>
+          {mini?.title ?? fallback}
+        </span>
+        {mini?.line ? (
+          <span className="mt-0.5 block truncate text-[7px] opacity-70">{mini.line}</span>
+        ) : null}
+      </span>
+    </span>
   );
 }
 

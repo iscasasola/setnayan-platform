@@ -108,6 +108,8 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/l
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
 import { buildMakerNavigatorData } from './_components/maker-navigator-data';
+import { resolveHubPhase } from '@/lib/event-hub-control';
+import { readPostEventForMaker } from '@/lib/post-event-compile.server';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
@@ -971,7 +973,26 @@ export default async function WebsiteEditorPage({
   const eventTz = ((event as { timezone?: string | null }).timezone) ?? 'Asia/Manila';
   const countdownMs = countdownTargetMs((event.event_date as string | null) ?? null, eventTz);
   const firstBlock = scheduleBlocks[0] ?? null;
+  /*
+    📖 POST EVENT, WRITTEN FOR THEM (Maker Phase 8). After the day — the
+    has-it-happened resolver, never the website phase, which reaches
+    'editorial' by a second path — the story's scenes are compiled from what
+    happened. The repo has no scheduler, so the couple's open of the Maker IS
+    the moment it is written (`lib/post-event-compile.server.ts`). This page is
+    couple-only (the membership gate above), so this open may write.
+  */
+  const postEvent =
+    resolveHubPhase({
+      measured: true,
+      eventDate: (event.event_date as string | null) ?? null,
+      eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+      timezone: (event as { timezone?: string | null }).timezone ?? null,
+    }) === 'after'
+      ? await readPostEventForMaker({ eventId, eventEnded: true, isCouple: true })
+      : null;
+
   const navigator = buildMakerNavigatorData({
+    postEvent,
     plan: {
       widgets: allWidgets,
       openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),

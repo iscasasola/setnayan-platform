@@ -19,7 +19,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
 import {
   loadEditorialData,
@@ -65,6 +65,8 @@ import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/stor
 import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { galleryTabsFor, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
+import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 
 const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
   /\/$/,
@@ -88,6 +90,7 @@ export async function EditorialContent({
   galleryAnchorId = null,
   viewer = STRANGER,
   magicTraveller = null,
+  makerMarkers = false,
 }: {
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
@@ -127,6 +130,14 @@ export async function EditorialContent({
    * wrapper element at all, not an unstamped one.
    */
   magicTraveller?: 'mark' | null;
+  /**
+   * 🧭 THE MAKER'S CANVAS ONLY (Event Hub Maker Phase 8). Stamps a hidden
+   * `[data-maker-section="p:<scene>"]` marker in front of each Post Event scene
+   * so the navigator can scroll to it (the same marker contract `site-body.tsx`
+   * uses for every other stage). False — every guest, every stranger — renders
+   * no marker at all, so their HTML is unchanged.
+   */
+  makerMarkers?: boolean;
 }): Promise<ReactElement> {
   // The event's own words. This page is the STORY AFTER the event and was the
   // densest pocket of wedding language left — eleven sentences, including two
@@ -446,6 +457,47 @@ export async function EditorialContent({
   let own = await loadYourOwnDay(eventId).catch(() => null);
   own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
 
+  /*
+    ═══ THE GALLERY'S TABS FOLLOW THE READER (Maker Phase 8 · owner 2026-09-25) ═══
+    "All that is tagged to me" (a guest: Yours / Everyone's) or "all that is
+    shared in public" (a stranger); the couple sees everything. The reader is
+    the viewer this page ALREADY resolved for its lock screen, and every photo
+    here already passed `redactStoryLayers` for that viewer — the tabs only
+    choose among what was allowed, they never widen it.
+    🔒 "Yours" is the signed Papic session's own photos (`loadYourOwnDay`) —
+    never a name lookup. A reader without one is told so, not shown an empty grid.
+  */
+  const marker = (scene: string): ReactNode =>
+    makerMarkers ? <span hidden data-maker-section={`p:${scene}`} /> : null;
+  const ownPhotos = Array.from(
+    new Set(
+      [...own.appearsIn, ...own.shot]
+        .map((i) => i.url)
+        .filter((u): u is string => typeof u === 'string' && u.length > 0),
+    ),
+  );
+  const galleryPhotos = data.galleryPhotos;
+  const galleryNames = data.firstNames;
+  const galleryTabs = galleryTabsFor(postEventReader(viewer)).map((t) => ({
+    key: t.key,
+    label: t.label,
+    count: t.key === 'yours' ? (own.signedIn ? ownPhotos.length : null) : galleryPhotos.length,
+    node:
+      t.key === 'yours' ? (
+        ownPhotos.length > 0 ? (
+          <PhotoGallery photos={ownPhotos} names={galleryNames} max={60} />
+        ) : (
+          <p className="max-w-prose text-base text-ink/70">
+            {own.signedIn
+              ? 'Nothing of yours from the day is in the gallery yet — the photos you are in and the ones you took will show here.'
+              : 'Open the story from your own Papic link and the photos you are in, and the ones you took, show here.'}
+          </p>
+        )
+      ) : (
+        <PhotoGallery photos={galleryPhotos} names={galleryNames} max={60} />
+      ),
+  }));
+
   return (
     <div
       data-story-light
@@ -484,7 +536,9 @@ export async function EditorialContent({
         </p>
       ) : null}
 
+      {marker('cover')}
       <StorySpine
+        makerMarkers={makerMarkers}
         data={data}
         facts={spineFacts}
         words={w}
@@ -600,6 +654,7 @@ export async function EditorialContent({
             ) : null}
           </div>
 
+          {isOn('byTheNumbers') ? marker('numbers') : null}
           {isOn('byTheNumbers') ? (
             <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
               <ByTheNumbers data={data} words={w} />
@@ -645,7 +700,17 @@ export async function EditorialContent({
                   <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     best wishes, captured on the day
                   </p>
-                  <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} />
+                  {/* 🔓 OPEN-UP (Maker Phase 8): three short blocks in the flow
+                      (template 23); the whole wall opens full screen. */}
+                  <OpenUpScene
+                    kind="wishes"
+                    title="What They Whispered"
+                    eyebrow={`Approved wishes · ${fmt(data.kwentoQuotes.length)}`}
+                    openLabel={`Read all ${fmt(data.kwentoQuotes.length)} ${data.kwentoQuotes.length === 1 ? 'wish' : 'wishes'}`}
+                    preview={<WishesPreview quotes={data.kwentoQuotes} />}
+                  >
+                    <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} max={60} />
+                  </OpenUpScene>
                 </div>
               ) : null,
             // "What We Asked" — Papic Challenge answers (owner 2026-08-21:
@@ -678,7 +743,20 @@ export async function EditorialContent({
             gallery: photo.gallery ? (
               <div key="gallery" {...anchorProps('gallery')}>
                 <SectionRule title="From the Day" />
-                <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
+                {/* 🔓 OPEN-UP (Maker Phase 8): a collage of five or six in the
+                    flow (template 21); the gallery opens full screen, and its
+                    tabs follow the reader — Yours / Everyone's for a guest,
+                    what is shared with everyone for a stranger, everything
+                    for the couple (owner 2026-09-25). */}
+                <OpenUpScene
+                  kind="gallery"
+                  title="From the Day"
+                  eyebrow={`${data.firstNames} · the gallery`}
+                  openLabel={`Open the gallery · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
+                  preview={<CollagePreview photos={data.galleryPhotos} names={data.firstNames} />}
+                >
+                  <OpenUpTabs tabs={galleryTabs} />
+                </OpenUpScene>
               </div>
             ) : null,
             // From your vendors — day-of media from the recommended vendor.
@@ -703,8 +781,20 @@ export async function EditorialContent({
             // simply had nothing to anchor to.
             watchFilm:
               watchFilmShown || (data.films?.length ?? 0) > 0 ? (
-                <div key="watchFilm" id={WATCH_FILM_ANCHOR_ID}>
+                <div key="watchFilm">
                   <SectionRule title="Watch the Film" />
+                  {/* 🔓 OPEN-UP (Maker Phase 8): a still with ▶ in the flow
+                      (template 14); the broadcast — the livestream, if they had
+                      one — and their own films open full screen. The anchor the
+                      colophon aims at stays on the preview. */}
+                  <OpenUpScene
+                    kind="film"
+                    id={WATCH_FILM_ANCHOR_ID}
+                    title="Watch the Film"
+                    eyebrow={watchFilmShown ? 'The broadcast, replayed' : 'Your films'}
+                    openLabel="Watch the film"
+                    preview={<FilmPreview still={data.heroPhotoUrl} names={data.firstNames} broadcast={watchFilmShown} />}
+                  >
                   {watchFilmShown && data.watchFilmEmbedUrl ? (
                     <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
                   ) : null}
@@ -736,6 +826,7 @@ export async function EditorialContent({
                       ))}
                     </div>
                   ) : null}
+                  </OpenUpScene>
                 </div>
               ) : null,
             // What they said (reviews). Renders even when empty (empty state).
@@ -775,7 +866,18 @@ export async function EditorialContent({
           return sectionOrder.map((k) => {
             const id = customColumnId(k);
             const col = id ? byId.get(id) : undefined;
-            if (!col) return nodes[k as EditorialOrderKey];
+            if (!col) {
+              const node = nodes[k as EditorialOrderKey];
+              const scene = postEventSceneKeyForBlock(k as EditorialOrderKey);
+              return node && makerMarkers && scene ? (
+                <Fragment key={k}>
+                  {marker(scene)}
+                  {node}
+                </Fragment>
+              ) : (
+                node
+              );
+            }
             return (
               <div key={k}>
                 <SectionRule title={col.title} />
@@ -791,12 +893,14 @@ export async function EditorialContent({
             excluded from sectionOrder so no reorder can move them. ------------- */}
         {isOn('fromTheCouple') && data.specialMessage ? (
           <>
+            {marker('couple')}
             <SectionRule title={`From ${capitaliseWords(w.theOrganizer)}`} />
             <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
           </>
         ) : null}
         {data.song.url || data.song.label ? (
           <>
+            {marker('song')}
             <SectionRule title="Their Song" />
             <TheirSong song={data.song} names={data.firstNames} words={w} />
           </>
@@ -819,6 +923,7 @@ export async function EditorialContent({
           their song, and nothing below moves either. Absent, not empty, when the
           host announced nothing.
         */}
+        {backCover ? marker('next') : null}
         <BackCoverBlock cover={backCover} />
       </article>
     </div>
@@ -1363,7 +1468,16 @@ function ReviewsEmptyState(): ReactElement {
  * spread: a larger lead frame + a tight grid. Raw <img> (presigned/relative
  * URLs). Lazy-loaded.
  */
-function PhotoGallery({ photos, names }: { photos: string[]; names: string }): ReactElement {
+function PhotoGallery({
+  photos,
+  names,
+  max = 9,
+}: {
+  photos: string[];
+  names: string;
+  /** How many to draw — the flow drew nine; the open-up layer draws more. */
+  max?: number;
+}): ReactElement {
   const [lead, ...rest] = photos;
   return (
     <div className="mt-4 space-y-2">
@@ -1381,7 +1495,7 @@ function PhotoGallery({ photos, names }: { photos: string[]; names: string }): R
       ) : null}
       {rest.length ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {rest.slice(0, 8).map((url, i) => (
+          {rest.slice(0, Math.max(0, max - 1)).map((url, i) => (
             <figure
               key={`${i}-${url.slice(0, 24)}`}
               className="relative aspect-square overflow-hidden rounded-sm bg-ink/10"
@@ -1744,13 +1858,15 @@ function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
 function KwentoWall({
   quotes,
   names,
+  max = 8,
 }: {
   quotes: EditorialData['kwentoQuotes'];
   names: string;
+  max?: number;
 }): ReactElement {
   return (
     <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
-      {quotes.slice(0, 8).map((q, i) => (
+      {quotes.slice(0, max).map((q, i) => (
         <figure key={i} className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4">
           {q.media?.type === 'clip' ? (
             <KwentoClip url={q.media.url} posterUrl={q.media.posterUrl} names={names} />
@@ -1778,6 +1894,83 @@ function KwentoWall({
               {q.author}
               {q.role ? ` · ${q.role}` : ''}
             </figcaption>
+          ) : null}
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/* ── OPEN-UP PREVIEWS (Maker Phase 8) ──────────────────────────────────────
+   What an open-up scene shows IN THE FLOW — the template the prototype names —
+   before a tap opens the shipped part full screen. They sit inside the preview's
+   button, so nothing in them may be interactive (no links, no players). */
+
+/** Template 21 · Collage of 5–6. */
+function CollagePreview({ photos, names }: { photos: string[]; names: string }): ReactElement {
+  const six = photos.slice(0, 6);
+  return (
+    <div className="mt-4 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+      {six.map((url, i) => (
+        <figure
+          key={`${i}-${url.slice(0, 24)}`}
+          className={`relative m-0 overflow-hidden rounded-sm bg-ink/10 ${
+            i === 0 ? 'col-span-2 row-span-2' : 'aspect-square'
+          }`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={i === 0 ? `${names} — a moment from the day` : ''}
+            aria-hidden={i === 0 ? undefined : true}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/** Template 14 · Full clip — a still with ▶; the player lives in the layer. */
+function FilmPreview({
+  still,
+  names,
+  broadcast,
+}: {
+  still: string | null;
+  names: string;
+  broadcast: boolean;
+}): ReactElement {
+  return (
+    <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-sm bg-ink">
+      {still ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={still} alt="" aria-hidden className="h-full w-full object-cover opacity-70" loading="lazy" decoding="async" />
+      ) : null}
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-cream">
+        <span aria-hidden className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cream/90 text-2xl text-ink shadow-lg">
+          ▶
+        </span>
+        <span className="font-serif text-xl [text-shadow:0_2px_10px_rgba(0,0,0,.6)]">
+          {broadcast ? 'The broadcast, replayed' : `${names} — the film`}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/** Template 23 · Three short blocks — the first three wishes, cut short. */
+function WishesPreview({ quotes }: { quotes: EditorialData['kwentoQuotes'] }): ReactElement {
+  const cut = (s: string) => (s.length > 140 ? `${s.slice(0, 139).trimEnd()}…` : s);
+  return (
+    <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      {quotes.slice(0, 3).map((q, i) => (
+        <figure key={i} className="m-0 border-l-2 border-terracotta/40 pl-4">
+          <blockquote className="m-0 font-serif text-base italic leading-snug text-ink/85">{cut(q.body)}</blockquote>
+          {q.author ? (
+            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">{q.author}</figcaption>
           ) : null}
         </figure>
       ))}

@@ -9,6 +9,7 @@ import {
   type SceneTemplate,
   type SceneThumbBox,
 } from '@/lib/scene-templates';
+import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 
 /**
  * "+" — ADD A SCENE: THE 25 TEMPLATES, IN THE VIEW YOU ARE EDITING.
@@ -39,7 +40,15 @@ export function SceneTemplatePicker({
   hideMediaSlots = false,
   overlay = false,
   facts = null,
+  draft = false,
 }: {
+  /**
+   * 💾 The tiles save to the Event Hub DRAFT (`draft=1`). True for "Change
+   * template" (`saveCustomSection` `intent=template` has a draft door); false
+   * for "+ Add a scene", which inserts a new row at once — and then the sheet
+   * says "Saves immediately" (`every-maker-form-drafts-or-says-so.test.ts`).
+   */
+  draft?: boolean;
   /**
    * The event's own words for the templates built on them — the prototype's
    * note: "names, monogram and '85' are real". Absent → a neutral "Aa".
@@ -114,6 +123,7 @@ export function SceneTemplatePicker({
             <p className="font-serif text-base text-ink">
               {heading} <span className="italic">{stageLabel}</span>
             </p>
+            {!draft ? <HubSavesImmediately /> : null}
             <div role="group" aria-label="Show the templates as on" className="flex items-center rounded-full bg-ink/5 p-0.5">
               {(['desktop', 'phone', 'both'] as const).map((v) => (
                 <button
@@ -156,6 +166,7 @@ export function SceneTemplatePicker({
               >
                 {sceneTemplatesIn(family).map((t) => (
                   <form key={t.id} action={action}>
+                    {draft ? <HubDraftField /> : null}
                     {Object.entries(hidden).map(([k, v]) => (
                       <input key={k} type="hidden" name={k} value={v} />
                     ))}

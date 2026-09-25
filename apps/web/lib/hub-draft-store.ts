@@ -120,7 +120,7 @@ export async function draftedDisplayOrders(eventId: string): Promise<Record<stri
   return out;
 }
 
-const WIDGET_LIVE_SELECT = 'widget_id, widget_type, is_always_on, display_order, config_json, mode';
+const WIDGET_LIVE_SELECT = 'widget_id, widget_type, is_always_on, is_visible, display_order, config_json, mode';
 
 /**
  * What the live page holds for everything a draft can touch — read through the

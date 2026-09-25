@@ -1,6 +1,7 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
+import { HubSavesImmediately } from '../../_components/hub-draft-field';
 
 /**
  * TextPanel — the inline edit panel for the editor's text settings
@@ -41,6 +42,7 @@ export function TextPanel({
 }) {
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
+      <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <input
         type="hidden"

@@ -2,7 +2,12 @@
 
 import { useEffect } from 'react';
 
-import { isStaleBundleError, reloadForStaleBundle } from '@/lib/stale-bundle';
+import {
+  isDeploymentSkewError,
+  isStaleBundleError,
+  reloadForDeploymentSkew,
+  reloadForStaleBundle,
+} from '@/lib/stale-bundle';
 import Link from 'next/link';
 
 // Root error boundary — brand-voice per feedback_setnayan_no_dev_text_post_launch
@@ -32,8 +37,18 @@ export default function RootError({ error, reset }: Props) {
     // if the new build throws too, reloading every time is an infinite refresh
     // on a page nobody can read or escape, which is worse than the message it
     // replaces.
-    if (typeof window !== 'undefined' && isStaleBundleError(error)) {
-      if (reloadForStaleBundle(window.sessionStorage, () => window.location.reload())) return;
+    //
+    // A REJECTED Server Action (the tab posted to a build old enough that the
+    // action no longer exists — see lib/stale-bundle.ts's third shape,
+    // 2026-09-25) is checked first: it is a distinct, more specific signal
+    // than the transport-error shapes below it, and Next's own throw for it
+    // never matches those regexes.
+    if (typeof window !== 'undefined') {
+      if (isDeploymentSkewError(error)) {
+        if (reloadForDeploymentSkew(window.sessionStorage, () => window.location.reload(), error)) return;
+      } else if (isStaleBundleError(error)) {
+        if (reloadForStaleBundle(window.sessionStorage, () => window.location.reload())) return;
+      }
     }
     // Sentry SDK auto-captures via the global handler. The `digest` is the
     // server-side error ID Next.js emits — surfaces in Sentry breadcrumb if

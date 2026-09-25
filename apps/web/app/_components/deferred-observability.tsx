@@ -1,6 +1,6 @@
 'use client';
 
-import { STALE_RELOAD_KEY } from '@/lib/stale-bundle';
+import { DEPLOYMENT_SKEW_FAILURE_KEY, STALE_RELOAD_KEY } from '@/lib/stale-bundle';
 import { STYLESHEET_FAILURE_KEY } from '@/lib/stylesheet-recovery';
 
 // Lazy-loads Sentry's browser SDK after the page has become interactive.
@@ -191,6 +191,25 @@ export function DeferredObservability() {
                 level: 'warning',
                 extra: { failure },
               });
+            }
+          } catch {
+            // Storage disabled: there is nothing recorded to send.
+          }
+          // A Server Action came back rejected by a server that no longer
+          // recognised it (lib/stale-bundle.ts's third shape, 2026-09-25 —
+          // the /login 404 incident) and the boundary reloaded once. The
+          // reload already fixed it, so this is 'info', not an error — it
+          // exists only to measure how often deploy skew still reaches a
+          // person once Vercel Skew Protection (the owner-enabled primary
+          // fix) is on.
+          try {
+            const skew = window.sessionStorage.getItem(DEPLOYMENT_SKEW_FAILURE_KEY);
+            if (skew) {
+              window.sessionStorage.removeItem(DEPLOYMENT_SKEW_FAILURE_KEY);
+              Sentry.captureMessage(
+                'A Server Action was rejected by an older/newer deployment; the page reloaded once',
+                { level: 'info', extra: { skew } },
+              );
             }
           } catch {
             // Storage disabled: there is nothing recorded to send.

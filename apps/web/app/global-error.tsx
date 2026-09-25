@@ -2,7 +2,12 @@
 
 import { useEffect } from 'react';
 
-import { isStaleBundleError, reloadForStaleBundle } from '@/lib/stale-bundle';
+import {
+  isDeploymentSkewError,
+  isStaleBundleError,
+  reloadForDeploymentSkew,
+  reloadForStaleBundle,
+} from '@/lib/stale-bundle';
 
 // Global error boundary — Next.js mounts this when the root layout itself
 // throws (the only error class root error.tsx can't catch, because it lives
@@ -32,8 +37,16 @@ export default function GlobalError({ error, reset }: Props) {
     // if the new build throws too, reloading every time is an infinite refresh
     // on a page nobody can read or escape, which is worse than the message it
     // replaces.
-    if (typeof window !== 'undefined' && isStaleBundleError(error)) {
-      if (reloadForStaleBundle(window.sessionStorage, () => window.location.reload())) return;
+    //
+    // A REJECTED Server Action (see lib/stale-bundle.ts's third shape,
+    // 2026-09-25) is checked first — a distinct, more specific signal than
+    // the transport-error shapes below it.
+    if (typeof window !== 'undefined') {
+      if (isDeploymentSkewError(error)) {
+        if (reloadForDeploymentSkew(window.sessionStorage, () => window.location.reload(), error)) return;
+      } else if (isStaleBundleError(error)) {
+        if (reloadForStaleBundle(window.sessionStorage, () => window.location.reload())) return;
+      }
     }
     if (process.env.NODE_ENV === 'development') {
       console.error('[global error boundary]', error);

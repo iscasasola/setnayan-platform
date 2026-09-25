@@ -38,6 +38,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
+import { readHubDraft } from '@/lib/hub-draft-store';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
@@ -945,6 +946,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     ]);
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
+      /* 💾 The special message saves into the DRAFT from here (the same door
+         the editor's Text panel uses), so the box shows the drafted words when
+         the draft holds them. A draft that cannot be read shows the live words. */
+      let specialMessage: string | null = printEvent.special_message;
+      try {
+        const d = await readHubDraft(supabase, eventId);
+        if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
+      } catch (e) {
+        console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
+      }
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
          line of wording — each read from its one home. */
       details = (
@@ -954,7 +965,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           hosts={rsvpHosts}
           parents={printParents}
           pabuyaMessage={printEvent.pabuya_message}
-          specialMessage={printEvent.special_message}
+          specialMessage={specialMessage}
           specialMessageAction={updateSpecialMessage.bind(null, eventId)}
           hasPalette={hasPalette(printEvent.role_palette)}
           hasGifts={egifts.length > 0}

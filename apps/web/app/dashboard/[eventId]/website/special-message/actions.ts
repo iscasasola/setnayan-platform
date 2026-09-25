@@ -14,6 +14,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { requireHostMembership } from '@/lib/host-gate';
+import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
 const MESSAGE_MAX = 600;
 
@@ -26,6 +28,13 @@ export async function updateSpecialMessage(
 
   const raw = formData.get('message');
   const message = (typeof raw === 'string' ? raw.trim() : '').slice(0, MESSAGE_MAX);
+
+  /* 💾 THE DRAFT DOOR — from the Event Hub Maker (`<HubDraftField />`) the
+     words go into the couple's draft; guests keep the live page until Apply. */
+  if (isHubDraftWrite(formData)) {
+    await requireHostMembership(eventId);
+    await draftEventsAndReturn(eventId, { special_message: message || null }, formData, `/dashboard/${eventId}/website/editor?open=special-message`);
+  }
 
   const supabase = await createClient();
   const { data: event, error } = await supabase

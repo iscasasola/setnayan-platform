@@ -29,16 +29,20 @@
  * events  — `rsvp_backdrop`, and (Phase 6) the made-once group: the hero photo,
  *           the reveal and the Logo — each sanitised through the SAME parser its
  *           live writer and the guest render use (see `HUB_DRAFT_EVENT_COLUMNS`). The rule for joining this list is
- *           "the host's preview can SHOW it": the page colours, face and art
- *           direction are painted by `app/[slug]/layout.tsx` (`loadGuestLook`),
- *           which cannot see `?editor=1`, so a drafted colour would be a save the
- *           preview never shows — they stay live-writing until the layout can
- *           overlay a draft. Media columns (hero video, music, gallery) are not
+ *           "the host's preview can SHOW it". (The page colours, face and art
+ *           direction are painted by `app/[slug]/layout.tsx`, which cannot see
+ *           `?editor=1` — so the host canvas re-wears them from the overlaid row
+ *           inside the page; see `HostDraftLook`.) Media columns (hero video, music, gallery) are not
  *           here either: their writers also verify the file is this event's and
  *           was screened, and draft media is the open owner decision D6. The hero
  *           PHOTO is the exception (Phase 6): its live writer checks nothing but
  *           the `r2://` scheme, the draft holds it to the public bucket, and
  *           Apply holds it to THIS event's own uploads (`not_your_photo`).
+ *         — and (2026-09-25, "the Maker's live savers go into the draft") the
+ *           page's COLOURS AND FACE and the couple's WORDS: the owner edits his
+ *           own public page in the Maker, and every "Saves immediately" there
+ *           was a half-finished edit a guest could read. See
+ *           `HUB_DRAFT_EVENT_COLUMNS` for how the host's preview shows each.
  * widgets — per section: `mode` (Auto · Shown · Hidden), `is_visible` (the
  *           navigator's eye — the legacy gate `mode: 'auto'` falls back to),
  *           `display_order`, and the section's whole `canvas` (background, crop,
@@ -82,6 +86,9 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
 import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
 import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
+import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { sanitizeMagicTraveller } from '@/lib/magic-move';
+import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -107,12 +114,45 @@ export const HUB_DRAFT_HISTORY_LIMIT = 10;
  *     from the studio so a design is never lost by leaving (owner 2026-09-25,
  *     FINAL_PLAN_INPUTS 29). Letters, frame and ink are free.
  */
+/** The Colors panel's five columns — `updateSiteColors`, all of it. */
+export const HUB_DRAFT_LOOK_COLUMNS = [
+  'site_bg_color',
+  'site_button_color',
+  'site_art_direction',
+  'site_font_key',
+  'site_magic_traveller',
+] as const;
+
+/**
+ * The words the Maker edits: Text (special message · what to bring), Our story
+ * + Our Love Story's moments (`love_story`, and `together_since`, which
+ * `updateOurStory` dual-stores beside it), Dress code and Camera cues.
+ */
+export const HUB_DRAFT_WORDS_COLUMNS = [
+  'special_message',
+  'what_to_bring',
+  'love_story',
+  'together_since',
+  'dress_code_config',
+  'photo_moments_config',
+] as const;
+
 export const HUB_DRAFT_EVENT_COLUMNS = [
   'rsvp_backdrop',
   'landing_page_hero_image_url',
   'std_reveal_template',
   'monogram_custom_svg',
   'monogram_studio_config',
+  // 🎨 THE COLOURS AND FACE (the Maker's Colors panel · `updateSiteColors`).
+  // Painted by `app/[slug]/layout.tsx`, which cannot see `?editor=1` — so the
+  // host canvas re-wears the look from the OVERLAID row inside the page
+  // (`HostDraftLook`, `app/[slug]/page.tsx`). The background colour is free;
+  // the other four are Pro (`HUB_LOOK_EVENT_COLUMNS`), tried here, paid at Apply.
+  ...HUB_DRAFT_LOOK_COLUMNS,
+  // ✍ THE COUPLE'S WORDS (`HUB_WORDS_EVENT_COLUMNS` — never gated, except the
+  // Love Story's moment cap, which Apply re-asks). The guest page reads every
+  // one of them from the event row the host canvas already overlays.
+  ...HUB_DRAFT_WORDS_COLUMNS,
 ] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
@@ -190,7 +230,64 @@ export function sanitizeHubDraftEventValue(
       return sanitizeStudioSvg(raw) ?? undefined;
     case 'monogram_studio_config':
       return sanitizeStudioConfig(raw) ?? undefined;
+    // 🎨 `updateSiteColors`' own parses — a malformed value is dropped, never repaired.
+    case 'site_bg_color':
+    case 'site_button_color':
+      return typeof raw === 'string' && HEX6.test(raw.trim()) ? raw.trim().toLowerCase() : undefined;
+    case 'site_art_direction':
+      return raw === 'candlelight' || raw === 'daylight' ? raw : undefined;
+    case 'site_font_key':
+      return sanitizeHubFontKey(raw) ?? undefined;
+    case 'site_magic_traveller':
+      return sanitizeMagicTraveller(raw) ?? undefined;
+    // ✍ Words: the writers' own caps (trimmed; '' is "clear" → null).
+    case 'special_message':
+    case 'what_to_bring':
+      return draftText(raw, HUB_DRAFT_TEXT_MAX);
+    case 'together_since':
+      return draftText(raw, 120);
+    case 'love_story':
+      return sanitizeDraftLoveStory(raw);
+    case 'dress_code_config':
+    case 'photo_moments_config':
+      // The guest render parses both through its own readers; the draft only
+      // holds them to a plain object of a sane size (the live writer is the
+      // one the host could already call with the same shape).
+      return isPlainObject(raw) && JSON.stringify(raw).length <= HUB_DRAFT_CONFIG_MAX_CHARS ? raw : undefined;
   }
+}
+
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+
+/** `updateSpecialMessage` / `updateWhatToBring` cap each at 600 characters. */
+export const HUB_DRAFT_TEXT_MAX = 600;
+
+/** The largest words blob (dress code, camera cues, the Love Story) a draft holds. */
+export const HUB_DRAFT_CONFIG_MAX_CHARS = 200_000;
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+
+function draftText(raw: unknown, max: number): string | null | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const t = raw.trim().slice(0, max);
+  return t.length > 0 ? t : null;
+}
+
+/**
+ * `events.love_story` for the draft: a plain object, its moments (when it has
+ * them) each through `readMoment` — the fence every guest read already passes
+ * (public-bucket photo refs, capped lines) — and no more than `MOMENT_MAX`.
+ */
+function sanitizeDraftLoveStory(raw: unknown): Record<string, unknown> | undefined {
+  if (!isPlainObject(raw) || JSON.stringify(raw).length > HUB_DRAFT_CONFIG_MAX_CHARS) return undefined;
+  if (!('moments' in raw)) return raw;
+  const list = Array.isArray(raw.moments) ? raw.moments : [];
+  const moments = list
+    .map((m) => readMoment(m))
+    .filter((m): m is LoveStoryMoment => m !== null)
+    .slice(0, MOMENT_MAX);
+  return { ...raw, moments };
 }
 
 function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
@@ -423,6 +520,26 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'monogram_custom_svg':
     case 'monogram_studio_config':
       return refChange(asText(live), asText(next));
+    case 'site_art_direction': {
+      // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
+      // Daylight and "never chosen" are the same page.
+      const candle = (v: unknown) => (v === 'candlelight' ? 'candlelight' : null);
+      return refChange(candle(live), candle(next));
+    }
+    case 'site_bg_color':
+    case 'site_button_color': {
+      const hex = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v.toLowerCase() : null);
+      return refChange(hex(live), hex(next));
+    }
+    default: {
+      // The face, the magic move and every words column: compared as written,
+      // with '' read as unset (an empty text column renders nothing).
+      const norm = (v: unknown) => {
+        const t = asText(v);
+        return t === '' ? null : t;
+      };
+      return refChange(norm(live), norm(next));
+    }
   }
 }
 
@@ -432,10 +549,23 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
  * when the value is an opening (never "No reveal" or clearing it — both free);
  * the Logo never (its animation is gated where it plays, not where it is saved).
  */
-export function eventItemIsPro(column: HubDraftEventColumn, value: unknown, change: LookChange): boolean {
+export function eventItemIsPro(
+  column: HubDraftEventColumn,
+  value: unknown,
+  change: LookChange,
+  live: unknown = null,
+): boolean {
   if (change !== 'add' && change !== 'change') return false;
   if (column === 'std_reveal_template') {
     return !revealTemplateWriteAllowed(typeof value === 'string' ? value : null, false);
+  }
+  if (column === 'love_story') {
+    // 💌 THE ONE MOMENT RULE (`momentCapRefusal`), asked of live → drafted as
+    // if the couple did not own Pro: more than five stories, or any photo the
+    // live story did not already hold, is Pro. Words alone never are.
+    return (
+      momentCapRefusal({ before: resolveMoments(live), after: resolveMoments(value), ownsPro: false }) !== null
+    );
   }
   return eventColumnIsPro(column);
 }
@@ -533,7 +663,7 @@ export function classifyHubDraft(
       column,
       value,
       change,
-      pro: eventItemIsPro(column, value, change),
+      pro: eventItemIsPro(column, value, change, live.events[column] ?? null),
     });
   }
   const orphans: WidgetType[] = [];
@@ -767,6 +897,17 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   std_reveal_template: 'Your reveal',
   monogram_custom_svg: 'Your logo',
   monogram_studio_config: 'Your logo design',
+  site_bg_color: 'Your background colour',
+  site_button_color: 'Your button colour',
+  site_art_direction: 'Candlelight',
+  site_font_key: 'Your typeface',
+  site_magic_traveller: 'Magic move',
+  special_message: 'Your special message',
+  what_to_bring: 'What to bring',
+  love_story: 'Your Love Story',
+  together_since: 'Together since',
+  dress_code_config: 'Your dress code',
+  photo_moments_config: 'Your camera cues',
 };
 
 /** A sentence-ready name for one draft key. */

@@ -29,6 +29,8 @@ import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { requireHostMembership } from '@/lib/host-gate';
+import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
 // Hard caps — keep in sync with the migration comment AND the editor UI hints.
 const TITLE_MAX = 80;
@@ -188,6 +190,19 @@ export async function updateDressCode(
     roles,
     groups,
   };
+
+  // ----- The draft door (the Event Hub Maker · `<HubDraftField />`) --------
+  // The same validated config, into the couple's draft; guests keep the live
+  // dress code until Apply.
+  if (isHubDraftWrite(formData)) {
+    await requireHostMembership(eventId);
+    await draftEventsAndReturn(
+      eventId,
+      { dress_code_config: config },
+      formData,
+      `/dashboard/${eventId}/website/editor?open=dress-code`,
+    );
+  }
 
   // ----- Persist ----------------------------------------------------------
   const supabase = await createClient();

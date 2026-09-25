@@ -349,23 +349,28 @@ export function MakerBar({
     const max = el.scrollWidth - el.clientWidth;
     setFade({ l: el.scrollLeft > 2, r: el.scrollLeft < max - 2 });
   }, []);
-  useEffect(() => {
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [measure]);
-  /* The ACTIVE item is scrolled into view when the Maker opens and whenever it
-     changes — on a phone the stage the couple is on may sit past the edge. */
-  useEffect(() => {
+  /* The ACTIVE item is scrolled into view when the Maker opens, whenever it
+     changes, and when the window resizes (measured: at 768 and 1024 a resize
+     left the active pill past the edge) — on a phone the stage the couple is
+     on may sit past the edge. */
+  const showActive = useCallback(() => {
     const el = navRef.current;
     const on = el?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (!el || !on) return;
-    const left = on.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
-    if (left < el.scrollLeft || left + on.offsetWidth > el.scrollLeft + el.clientWidth) {
-      el.scrollTo({ left: Math.max(0, left - el.clientWidth / 2 + on.offsetWidth / 2) });
+    if (el && on) {
+      const left = on.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+      if (left < el.scrollLeft || left + on.offsetWidth > el.scrollLeft + el.clientWidth) {
+        el.scrollTo({ left: Math.max(0, left - el.clientWidth / 2 + on.offsetWidth / 2) });
+      }
     }
     measure();
-  }, [stage, selection, measure]);
+  }, [measure]);
+  useEffect(() => {
+    window.addEventListener('resize', showActive);
+    return () => window.removeEventListener('resize', showActive);
+  }, [showActive]);
+  useEffect(() => {
+    showActive();
+  }, [stage, selection, showActive]);
   const mask =
     fade.l || fade.r
       ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`

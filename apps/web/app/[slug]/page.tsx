@@ -64,7 +64,7 @@ import {
   loadWidgets,
   loadEntourage,
   loadHostPreviewDraft,
-  guestLookFor,
+  guestLookFrom,
   type EventShellRow,
 } from './_lib/loaders';
 import {
@@ -74,6 +74,7 @@ import {
   type HubDraft,
 } from '@/lib/hub-draft';
 import { HostDraftLook } from './_components/host-draft-look';
+import { resolveHubTheme } from './_lib/hub-look';
 import {
   anonymousIdentity,
   guestIdentity,
@@ -496,7 +497,9 @@ async function InvitationBody({
      guest `hostDraft` is null and `wearDraft` returns its input untouched. */
   const draftLook =
     hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events)
-      ? await guestLookFor(event, true).catch(() => null)
+      ? await resolveHubTheme(event)
+          .then((hub) => guestLookFrom(event, hub, true))
+          .catch(() => null)
       : null;
   const wearDraft = (node: React.ReactNode) =>
     draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;

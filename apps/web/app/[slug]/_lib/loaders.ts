@@ -245,20 +245,27 @@ export const loadGuestLook = cache(async (slug: string): Promise<GuestLook | nul
   const event = await loadEventShell(slug);
   if (!event?.event_id) return null;
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) return null;
-  return guestLookFor(event, websiteProActiveFor(event.event_id).catch(() => false));
+
+  const [hub, proActive] = await Promise.all([
+    resolveHubTheme(event),
+    websiteProActiveFor(event.event_id).catch(() => false),
+  ]);
+  return guestLookFrom(event, hub, proActive);
 });
 
 /**
- * The look for ONE event row — `loadGuestLook`'s body, after its gates. Also
- * asked by `app/[slug]/page.tsx` for the host's canvas with the DRAFT laid over
- * the row (`HostDraftLook`), with `proActive` true: a couple TRIES a Pro colour
- * in the draft and pays at Apply, so the canvas shows what they tried.
+ * The look for ONE event row, from a theme ALREADY resolved through the one
+ * theme gate (`resolveHubTheme`) — pure, no reads. `loadGuestLook` above calls
+ * it for every guest; `app/[slug]/page.tsx` calls it for the host's canvas with
+ * the DRAFT laid over the row (`HostDraftLook`), resolving the theme through the
+ * same gate first, with `proActive` true: a couple TRIES a Pro colour in the
+ * draft and pays at Apply, so the canvas shows what they tried.
  */
-export async function guestLookFor(
+export function guestLookFrom(
   event: EventShellRow,
-  proActiveAnswer: Promise<boolean> | boolean,
-): Promise<GuestLook> {
-  const [hub, proActive] = await Promise.all([resolveHubTheme(event), proActiveAnswer]);
+  hub: Awaited<ReturnType<typeof resolveHubTheme>>,
+  proActive: boolean,
+): GuestLook {
 
   const palette = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const pro = proSiteVarsFor(event, proActive);

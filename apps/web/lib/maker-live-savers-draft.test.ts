@@ -138,6 +138,13 @@ test("the host's canvas wears the drafted colours; a guest's render never builds
   const draftRead = page.indexOf('loadHostPreviewDraft(admin');
   assert.ok(draftRead > 0 && draftRead < at, 'the look is built after the host-only draft read');
   assert.match(page.slice(at, at + 300), /hostDraft && HUB_DRAFT_LOOK_COLUMNS\.some/, 'only a host draft builds it');
+  // Through the ONE theme gate, like `loadGuestLook` (every-guest-page-wears-the-theme #5):
+  // a drafted look never paints a Pro theme the gate would not.
+  assert.match(
+    page.slice(at, at + 400),
+    /await resolveHubTheme\(event\)\s*\.then\(\(hub\) => guestLookFrom\(event, hub, true\)\)/,
+    'the host draft look must resolve its theme through resolveHubTheme',
+  );
   const wraps = [...page.matchAll(/return wearDraft\(|renderAnonymous = \(reason: AnonymousReason\) => wearDraft\(/g)].length;
   console.log(`[live-savers] InvitationBody renders wrapped in wearDraft: ${wraps}`);
   assert.equal(wraps, 3, 'the anonymous view, the ?as= preview and the guest view are all wrapped');

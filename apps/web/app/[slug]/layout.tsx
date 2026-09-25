@@ -4,9 +4,8 @@ import { getDayOfPhase } from '@/lib/day-of-mode';
 import { readGuestSession } from '@/lib/guest-session';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
 import { GuestLookScope } from './_components/guest-look-scope';
-import { siteSkin } from './_components/skins/site-skin';
+import { lookScopeProps } from './_components/host-draft-look';
 import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
-import { resolveThemeGround } from './_lib/theme-ground';
 
 /**
  * /[slug] guest-tree layout — the editorial-typography scope, the ONE place the
@@ -143,30 +142,12 @@ export default async function GuestTreeLayout({
     look = null;
   }
   /*
-    The theme's font classes and the `--accent` its material mixes with come
-    from the site skin, the one place they are declared. Its `ground` is NOT
-    drawn here: the textured grounds carry the couple's reveal photo, and this
-    layout wraps the private landing (see `resolveHubTheme`). `GuestLookScope`
-    lays the plain paper instead.
+    The skin's faces and `--accent`, the palette + Pro vars and the theme's
+    loop: ONE translation (`lookScopeProps`), shared with the host's drafted
+    look on the Maker's canvas (`HostDraftLook`), so the two cannot drift.
   */
-  const skin = look?.theme ? siteSkin(look.theme, { accent: look.accent }) : undefined;
-  const style =
-    look && (look.vars || skin) ? { ...(look.vars ?? {}), ...((skin?.style as Record<string, string>) ?? {}) } : null;
-  /*
-    The theme's LOOP and scrim. Unlike the couple's reveal photo this is
-    Setnayan's own public theme art, so the layout may draw it on every page —
-    the private landing included — and it is resolved here, once, not per page.
-  */
-  const ground = look?.theme ? resolveThemeGround(look.theme, { ownColours: Boolean(look.vars) }) : null;
-
   return (
-    <GuestLookScope
-      theme={look?.theme ?? null}
-      art={look?.art ?? null}
-      fontClassName={skin?.className ?? ''}
-      style={style}
-      ground={ground}
-    >
+    <GuestLookScope {...lookScopeProps(look)}>
       {/* THE COORDINATOR'S WORDS, ON EVERY PAGE OF THE TREE. Sticky so it
           follows the reader down a long page — the guest who needs "phones
           down" is the one already scrolled into their seat card. */}

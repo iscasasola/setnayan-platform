@@ -13,7 +13,7 @@ import {
 } from '@/lib/love-story-moments';
 import { AddMomentLabel, MomentSheet } from './moment-sheet';
 import { LoveStoryProLine } from './love-story-pro-line';
-import { HubSavesImmediately } from '../../_components/hub-draft-field';
+import { HubDraftField } from '../../_components/hub-draft-field';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).
@@ -265,7 +265,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               triggerClassName="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-black/5"
                             />
                             <form action={p.action}>
-                              <HubSavesImmediately />
+                              <HubDraftField />
                               <input type="hidden" name="intent" value="arrange" />
                               <input type="hidden" name="id" value={m.id} />
                               {m.hidden ? null : <input type="hidden" name="hidden" value="on" />}
@@ -279,7 +279,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               </button>
                             </form>
                             <form action={p.action}>
-                              <HubSavesImmediately />
+                              <HubDraftField />
                               <input type="hidden" name="intent" value="delete" />
                               <input type="hidden" name="id" value={m.id} />
                               <button type="submit" className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-black/5">

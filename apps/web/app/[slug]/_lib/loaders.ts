@@ -245,11 +245,20 @@ export const loadGuestLook = cache(async (slug: string): Promise<GuestLook | nul
   const event = await loadEventShell(slug);
   if (!event?.event_id) return null;
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) return null;
+  return guestLookFor(event, websiteProActiveFor(event.event_id).catch(() => false));
+});
 
-  const [hub, proActive] = await Promise.all([
-    resolveHubTheme(event),
-    websiteProActiveFor(event.event_id).catch(() => false),
-  ]);
+/**
+ * The look for ONE event row — `loadGuestLook`'s body, after its gates. Also
+ * asked by `app/[slug]/page.tsx` for the host's canvas with the DRAFT laid over
+ * the row (`HostDraftLook`), with `proActive` true: a couple TRIES a Pro colour
+ * in the draft and pays at Apply, so the canvas shows what they tried.
+ */
+export async function guestLookFor(
+  event: EventShellRow,
+  proActiveAnswer: Promise<boolean> | boolean,
+): Promise<GuestLook> {
+  const [hub, proActive] = await Promise.all([resolveHubTheme(event), proActiveAnswer]);
 
   const palette = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const pro = proSiteVarsFor(event, proActive);
@@ -263,7 +272,7 @@ export const loadGuestLook = cache(async (slug: string): Promise<GuestLook | nul
     accent: hub.accent,
     vars: vars && Object.keys(vars).length > 0 ? vars : null,
   };
-});
+}
 
 /**
  * Host-membership check for THIS event — event_members (V1 couple membership)

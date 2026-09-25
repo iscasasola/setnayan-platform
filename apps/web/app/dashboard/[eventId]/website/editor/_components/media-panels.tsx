@@ -69,7 +69,8 @@ export function HeroPhotoPanel({
 }) {
   return (
     <form action={action} className={PANEL}>
-      <HubSavesImmediately />
+      {/* Into the draft — `uploadHeroPhoto`'s own door (Maker Phase 6). */}
+      <HubDraftField />
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="hero" />
       <FileUpload

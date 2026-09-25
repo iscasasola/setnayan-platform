@@ -34,7 +34,11 @@ export function MakerRevealPicker({
   openings,
   ownsPro,
   storeShell,
+  stdWindowDays,
 }: {
+  /** `STD_THRESHOLD_DAYS` — the opening plays only in the Save-the-Date window
+   *  (`cinematicRevealPlays`, owner ruling 2026-09-14). */
+  stdWindowDays: number;
   eventId: string;
   /** The drafted-over-live `std_reveal_template`: an id · 'none' · null (not chosen). */
   current: string | null;
@@ -161,7 +165,8 @@ export function MakerRevealPicker({
       ) : null}
       {effective !== 'none' ? (
         <p className="text-[12px] text-ink/60">
-          Guests meet it as your Save the Date opens and at the door of every invitation link.
+          Guests meet it while your Save the Date is out — at your Event Hub and at the door of every invitation
+          link. It rests from {stdWindowDays} days before the day, when guests come to reply.
         </p>
       ) : null}
       {error ? (

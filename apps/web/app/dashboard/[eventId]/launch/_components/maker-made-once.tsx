@@ -16,6 +16,7 @@ import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -274,6 +275,7 @@ export async function MakerRevealPanel({
       }
       ownsPro={ownsPro}
       storeShell={storeShell}
+      stdWindowDays={STD_THRESHOLD_DAYS}
     />
   );
 }

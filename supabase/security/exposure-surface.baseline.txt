@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6460
+# facts: 6461
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     563
-#   col       4762
+#   col       4763
 #   policy    877
 #   view      8
 #   func      246
@@ -2155,6 +2155,7 @@ col	public.events.photos_released_at	anon=S authenticated=S
 col	public.events.planning_mode	anon=SIU authenticated=SIU
 col	public.events.pool_gallery_open	anon=S authenticated=S
 col	public.events.previous_event_id	anon=- authenticated=S
+col	public.events.print_details	anon=- authenticated=S
 col	public.events.public_id	anon=S authenticated=S
 col	public.events.recap_social_optout_at	anon=SIU authenticated=SIU
 col	public.events.reception_design	anon=SIU authenticated=SIU

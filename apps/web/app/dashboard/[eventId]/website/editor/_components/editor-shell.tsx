@@ -822,7 +822,7 @@ function Inspector({
       : selection.kind === 'main'
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
-          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event' }[selection.key]
+          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', prints: 'Prints & Tickets', details: 'Details' }[selection.key]
           : (rows[selection.key]?.label ?? 'Edit');
 
   const tabs = TABS.filter((t) => showMotionTabs || (t.key !== 'animate' && t.key !== 'transition'));

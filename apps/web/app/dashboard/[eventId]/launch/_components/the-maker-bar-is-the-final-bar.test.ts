@@ -13,7 +13,7 @@ import { TOURS } from '@/lib/tours';
 /**
  * THE BAR IS THE OWNER'S FINAL BAR — in order, with its two dividers.
  *
- *   Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
+ *   Details · Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
  *
  * (DECISION_LOG 2026-09-24/25; EVENT_HUB_MAKER_BUILD_PLAN Phase 1.) Asserted on
  * the RENDERED bar, not only the list: a list can be right while the component
@@ -23,6 +23,8 @@ import { TOURS } from '@/lib/tours';
 /* Owner, FINAL (2026-09-25): "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
    INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS". */
 const FINAL = [
+  // Owner-final 2026-09-25: "DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
+  // INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS" (MAKER_DETAILS_LABEL).
   'Details',
   'Logo',
   'Hero',
@@ -76,8 +78,9 @@ test('the live stage wears the red dot, and only it', async () => {
 
 test('no bar item is a dead button', async () => {
   const html = await paint();
-  assert.match(html, /data-maker-bar-item="prints"/, 'Prints & Tickets opens its coming-next line');
-  assert.match(html, /data-maker-bar-item="details"/, 'Details opens its coming-next line until Phase 9 fills it');
+  // Phase 9: Details and Prints & Tickets are real tools — each opens its workspace, not a coming-next line.
+  assert.match(html, /<button[^>]*data-maker-bar-item="prints"[^>]*aria-pressed=/, 'Prints & Tickets opens its workspace');
+  assert.match(html, /<button[^>]*data-maker-bar-item="details"[^>]*aria-pressed=/, 'Details opens its panel');
   assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, FINAL.length, 'every item is a button');
 });
 

@@ -64,6 +64,8 @@ const MAKER_FILES = [
   'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-logo.tsx',
+  'app/dashboard/[eventId]/launch/_components/maker-prints.tsx',
+  'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
 ];
 
 /**
@@ -114,6 +116,14 @@ const LIVE: Record<string, string> = {
   [`${C}text-panel.tsx#TextPanel#action`]: WORDS,
   [`${C}authoring-panels.tsx#DressCodePanel#action`]: WORDS,
   [`${C}authoring-panels.tsx#StoryPanel#action`]: WORDS,
+  // Phase 9 · the Details panel (made-once): what the prints include and the
+  // print-only lines (`events.print_details` — the include toggles, the opening
+  // line, the "Kindly reply" choice). The draft holds no words and no print
+  // settings (lib/hub-draft.ts), so these write live and say so.
+  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#PRINT_WORDS_ENDPOINT']:
+    `the print include toggles and print-only lines (events.print_details) — ${WORDS}`,
+  // The special message — the SAME writer the editor's Text panel posts to.
+  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#specialMessageAction']: WORDS,
   // 💌 THE SCRAPBOOK (P7). `events.love_story` is not in HUB_DRAFT_EVENT_COLUMNS:
   // drafting it needs the host preview to read a drafted blob AND Apply to
   // re-screen every moment photo — the follow-up, not tonight.
@@ -283,6 +293,10 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   ['app/dashboard/[eventId]/launch/_components/hub-stage.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
   [`${C}editor-shell.tsx`, /Open Our Love Story[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the scrapbook writes love_story live'],
   [`${C}editor-shell.tsx`, /Choose your theme[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the theme picker writes events.invite_theme live'],
+  // Phase 9 · Details: the address (the shipped SlugField — never drafted) and
+  // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).
+  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
+  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
 ];
 
 test('controls that write without a form of their own say "Saves immediately" beside them', () => {

@@ -58,6 +58,8 @@ export function MakerShell({
   renderStamp,
   more,
   applySlot = null,
+  prints = null,
+  details = null,
   hasWork,
   viewAs = {},
   children,
@@ -81,6 +83,12 @@ export function MakerShell({
   more: ReactNode;
   /** Phase 2's Apply · Restore · Reset bar. */
   applySlot?: ReactNode;
+  /** Phase 9: the Prints & Tickets workspace, shown over the work area while
+   *  the bar's "Prints & Tickets" is selected. */
+  prints?: ReactNode;
+  /** The Details panel (what the stages and prints include, and every line of wording), shown over the work area while
+   *  the bar's Details item is selected. */
+  details?: ReactNode;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the tool items then have nothing to open. */
   hasWork: boolean;
@@ -280,7 +288,21 @@ export function MakerShell({
         </header>
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
-        <div className="relative min-h-0 flex-1">{children}</div>
+        <div className="relative min-h-0 flex-1">
+          {children}
+          {/* Prints & Tickets covers the work area rather than replacing it, so
+              the editor keeps its state (and its draft) underneath. */}
+          {prints && selection?.kind === 'tool' && selection.key === 'prints' ? (
+            <div className="absolute inset-0 z-30" data-maker-prints-layer="">
+              {prints}
+            </div>
+          ) : null}
+          {details && selection?.kind === 'tool' && selection.key === 'details' ? (
+            <div className="absolute inset-0 z-30" data-maker-details-layer="">
+              {details}
+            </div>
+          ) : null}
+        </div>
 
         {/* ══ ⋯ · THE SHEET ══ Kept mounted (hidden when shut) so the work area
             can portal the address rows into it. */}
@@ -392,13 +414,13 @@ export function MakerBar({
         >
           {gi > 0 ? <i aria-hidden data-maker-divider="" className="mx-1.5 block h-5 w-px bg-ink/15" /> : null}
           {group.map((item) => {
-            if (item.kind === 'next' || (item.kind === 'tool' && !hasWork)) {
+            if (item.kind === 'tool' && !hasWork) {
               return (
                 <ComingNext
                   key={item.key}
                   label={item.label}
                   itemKey={item.key}
-                  note={item.kind === 'next' ? MAKER_COMING_NEXT[item.key] : 'Only the couple can open this part of the Event Hub Maker.'}
+                  note="Only the couple can open this part of the Event Hub Maker."
                   align={gi === 0 ? 'start' : 'end'}
                   chip
                 >

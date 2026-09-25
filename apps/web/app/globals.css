@@ -3508,7 +3508,7 @@ html.dark {
 }
 
 /* MODERN (`galeriya`) — ink #1c1c11 (spec #2b2b1a, pushed so every muted step matches House) on canvas 15.2:1 · on plates 11.1:1 ·
-   eyebrow 8.5:1 · CTA label 8.5:1. Faces: Playfair stands in for Instrument Serif; Jost is the spec face. */
+   eyebrow 8.5:1 · CTA label 8.5:1. Faces: Instrument Serif (the spec face) · Jost (the spec face). */
 [data-hub-theme='galeriya'] {
   --hub-canvas: #f5f0eb;
   --hub-surface: #d6cec9;
@@ -3532,8 +3532,8 @@ html.dark {
   --color-mulberry-600: 58 74 28;
   --color-mulberry-700: 58 74 28;
   --m-ink: rgb(var(--color-ink));
-  --font-display: var(--font-playfair);
-  --pahina-face: var(--font-playfair);
+  --font-display: var(--font-galeriya-display);
+  --pahina-face: var(--font-galeriya-display);
   --font-mono: var(--font-velvet-utility);
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
@@ -3541,7 +3541,7 @@ html.dark {
 }
 
 /* CINDERELLA (`cinderella`) — ink #171d23 (spec #253039, pushed so every muted step matches House) on canvas 15.2:1 · on plates 12.5:1 ·
-   eyebrow 12.1:1 · CTA label 12.1:1. Faces: Cinzel stands in for Italiana. */
+   eyebrow 12.1:1 · CTA label 12.1:1. Face: Italiana (the spec face). */
 [data-hub-theme='cinderella'] {
   --hub-canvas: #eef3f8;
   --hub-surface: #d4dfe7;
@@ -3565,15 +3565,15 @@ html.dark {
   --color-mulberry-600: 37 48 57;
   --color-mulberry-700: 37 48 57;
   --m-ink: rgb(var(--color-ink));
-  --font-display: var(--font-cinzel);
-  --pahina-face: var(--font-cinzel);
+  --font-display: var(--font-cinderella-display);
+  --pahina-face: var(--font-cinderella-display);
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
 }
 
 /* LUXE (`velvet`) — ink #f3e7dc on canvas 16.6:1 · on plates 13.9:1 ·
-   eyebrow 9.7:1 · CTA label 9.7:1. Faces: Bodoni Moda (the spec face); Cinzel stands in for Cormorant SC. */
+   eyebrow 9.7:1 · CTA label 9.7:1. Faces: Bodoni Moda (the spec face) · Cormorant SC (the spec face). */
 [data-hub-theme='velvet'] {
   --hub-canvas: #0e0504;
   --hub-surface: #34130c;
@@ -3600,7 +3600,7 @@ html.dark {
   --color-ink-on-light: 14 5 4;
   --font-display: var(--font-velvet-display);
   --pahina-face: var(--font-velvet-display);
-  --font-mono: var(--font-cinzel);
+  --font-mono: var(--font-velvet-labels);
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3639,7 +3639,7 @@ html.dark {
 }
 
 /* WHIMSICAL (`whimsical`) — ink #221d15 (spec #3f3626, pushed so every muted step matches House) on canvas 15.7:1 · on plates 15.5:1 ·
-   eyebrow 7.6:1 · CTA label 7.6:1. Faces: Vidaloka stands in for Yeseva One; Jost for Quicksand. */
+   eyebrow 7.6:1 · CTA label 7.6:1. Faces: Yeseva One (the spec face) · Quicksand (the spec face). */
 [data-hub-theme='whimsical'] {
   --hub-canvas: #fbf7f0;
   --hub-surface: #faf6ee;
@@ -3663,16 +3663,16 @@ html.dark {
   --color-mulberry-600: 90 74 94;
   --color-mulberry-700: 90 74 94;
   --m-ink: rgb(var(--color-ink));
-  --font-display: var(--font-vidaloka);
-  --pahina-face: var(--font-vidaloka);
-  --font-mono: var(--font-velvet-utility);
+  --font-display: var(--font-whimsical-display);
+  --pahina-face: var(--font-whimsical-display);
+  --font-mono: var(--font-whimsical-labels);
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
 }
 
 /* REGENCY (`regency`) — ink #221915 (spec #33261f, pushed so every muted step matches House) on canvas 15.1:1 · on plates 9.5:1 ·
-   eyebrow 12.8:1 · CTA label 12.8:1. Faces: Bodoni Moda stands in for Prata. */
+   eyebrow 12.8:1 · CTA label 12.8:1. Face: Prata (the spec face). */
 [data-hub-theme='regency'] {
   --hub-canvas: #f6efe6;
   --hub-surface: #e2b997;
@@ -3696,15 +3696,15 @@ html.dark {
   --color-mulberry-600: 51 38 31;
   --color-mulberry-700: 51 38 31;
   --m-ink: rgb(var(--color-ink));
-  --font-display: var(--font-velvet-display);
-  --pahina-face: var(--font-velvet-display);
+  --font-display: var(--font-regency-display);
+  --pahina-face: var(--font-regency-display);
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
 }
 
 /* GREAT GATSBY (`gatsby`) — ink #f7e6cf on canvas 16.4:1 · on plates 13.6:1 ·
-   eyebrow 11.9:1 · CTA label 11.9:1. Faces: Cinzel stands in for Limelight; Jost for Poiret One. */
+   eyebrow 11.9:1 · CTA label 11.9:1. Faces: Limelight (the spec face) · Poiret One (the spec face). */
 [data-hub-theme='gatsby'] {
   --hub-canvas: #110504;
   --hub-surface: #331610;
@@ -3729,16 +3729,16 @@ html.dark {
   --color-mulberry-700: 236 191 143;
   --m-ink: rgb(var(--color-ink));
   --color-ink-on-light: 17 5 4;
-  --font-display: var(--font-cinzel);
-  --pahina-face: var(--font-cinzel);
-  --font-mono: var(--font-velvet-utility);
+  --font-display: var(--font-gatsby-display);
+  --pahina-face: var(--font-gatsby-display);
+  --font-mono: var(--font-gatsby-labels);
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
 }
 
 /* CYBER NEON (`cyber`) — ink #f1ecf7 on canvas 17.0:1 · on plates 13.4:1 ·
-   eyebrow 19.7:1 · CTA label 8.7:1. Faces: Hanken Grotesk stands in for Syne; Space Mono for the HUD labels. */
+   eyebrow 19.7:1 · CTA label 8.7:1. Faces: Syne (the spec face) · Outfit (the spec face). */
 [data-hub-theme='cyber'] {
   --hub-canvas: #0b0a12;
   --hub-surface: #26222d;
@@ -3763,9 +3763,9 @@ html.dark {
   --color-mulberry-700: 236 140 214;
   --m-ink: rgb(var(--color-ink));
   --color-ink-on-light: 11 10 18;
-  --font-display: var(--font-hanken);
-  --pahina-face: var(--font-hanken);
-  --font-mono: var(--font-space-mono);
+  --font-display: var(--font-cyber-display);
+  --pahina-face: var(--font-cyber-display);
+  --font-mono: var(--font-cyber-labels);
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;

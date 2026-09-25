@@ -147,6 +147,10 @@ export type NavInput = {
    *  means the caller could not build one — the slot then LOCKS rather than
    *  pointing nowhere. */
   destinations?: { camera?: string | null; watch?: string | null; join?: string | null };
+  /** 🧭 The STAGE's allow-list (`STAGE_BAR[stage].slots`, `stage-bar.ts`) — the
+   *  one per-stage config. A slot the stage does not list is never drawn; the
+   *  rules below still decide the rest. Absent → every slot the rules allow. */
+  stageSlots?: readonly NavSlotKey[];
 };
 
 /** In-page anchors, mirroring SITE_MENU_ANCHORS. */
@@ -285,7 +289,8 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     });
   }
 
-  return slots;
+  const allow = input.stageSlots;
+  return allow ? slots.filter((s) => allow.includes(s.key)) : slots;
 }
 
 /**

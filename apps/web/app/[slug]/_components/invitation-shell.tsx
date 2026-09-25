@@ -27,6 +27,7 @@ export function InvitationShell({
   monogramText,
   fullBleed = false,
   editorCanvas = false,
+  stageLabel = 'Invitation',
   hideWatermark = false,
   magicTraveller = null,
 }: {
@@ -62,6 +63,13 @@ export function InvitationShell({
   /** 🖼 The Maker's canvas (`isEditorCanvas`, verified upstream) — the site
    *  header is chrome, not a section, so it is not drawn there. */
   editorCanvas?: boolean;
+  /** 🧭 The header's word for the STAGE this page is showing — "Save the Date",
+   *  "Invitation", "On the Day", "Post Event" (`STAGE_BAR` in `_lib/stage-bar.ts`).
+   *  It read "Invitation" on every stage, so the Maker's Event Bar on On the
+   *  Day showed an invitation's header (owner 2026-09-26: *"show the actual
+   *  guest bar for that stage"*). Defaults to "Invitation" for the pages that
+   *  have no stage of their own (the private landing). */
+  stageLabel?: string;
   // Full-screen mode (owner 2026-06-19): the Save-the-Date film IS the whole
   // experience — drop the Setnayan/Invitation top bar + footer + the centred
   // max-width column so it plays edge-to-edge with no chrome.
@@ -161,8 +169,8 @@ export function InvitationShell({
           ) : monogramText ? (
             <span className="sn-top-label font-pahina text-lg italic text-gild">{monogramText}</span>
           ) : (
-            <span className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
-              Invitation
+            <span data-stage-label="" className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+              {stageLabel}
             </span>
           )}
         </div>

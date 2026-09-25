@@ -16,7 +16,12 @@ import { useEffect } from 'react';
  *   parent → frame  { source:'setnayan-editor', t:'scrollTo', key }
  *   parent → frame  { source:'setnayan-editor', t:'play',     key }
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key }
- *   frame  → parent { source:'setnayan-site',   t:'ready',    order }
+ *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *
+ * 🧭 `bar` is the stage's Event Bar exactly as the page resolved it for this
+ * canvas (`data-maker-bar`, stamped by `site-body.tsx` from the SAME value the
+ * guest tab bar is drawn from). The Maker's navigator shows it as its tabs —
+ * it never builds a menu of its own.
  *
  * 🧭 KEYS. The navigator's keys (`lib/maker-scene-list.ts`): `f:hero`,
  * `f:film`, `f:editorial`, `f:entourage`, `f:story` and `w:<widget_type>`.
@@ -57,6 +62,18 @@ export function findMakerSection(doc: Document, key: string): HTMLElement | null
   // A zero-height anchor marks a region; the region is its nearest section-ish ancestor.
   if (anchor.offsetHeight > 0) return anchor;
   return (anchor.closest('section, article, div[id]') as HTMLElement | null) ?? anchor;
+}
+
+/** The stage's Event Bar as this canvas drew it, or null when the page carries none. */
+export function readMakerBar(doc: Document): unknown[] | null {
+  const raw = doc.querySelector('[data-maker-bar]')?.getAttribute('data-maker-bar');
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as unknown;
+    return Array.isArray(v) ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Every section the canvas actually DREW, in page order — the navigator must equal this. */
@@ -171,7 +188,10 @@ export function EditorBridge() {
     cleanups.push(() => window.removeEventListener('message', onMessage));
 
     // Tell the parent the frame is ready, with the order it actually drew.
-    window.parent?.postMessage({ source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document) }, origin);
+    window.parent?.postMessage(
+      { source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document), bar: readMakerBar(document) },
+      origin,
+    );
 
     return () => cleanups.forEach((fn) => fn());
   }, []);

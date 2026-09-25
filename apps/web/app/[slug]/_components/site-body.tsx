@@ -48,6 +48,7 @@ import {
   type DoorwayFacts,
 } from '../_lib/site-nav';
 import { GuestDoorwayStrip } from './guest-doorway-strip';
+import { STAGE_BAR, pageStageFor, makerBarItems } from '../_lib/stage-bar';
 import { EverythingElseSheet } from './everything-else-sheet';
 import { resolveEverythingElseRows } from '../_lib/everything-else-rows';
 import { loadEditorialData } from './editorial/data';
@@ -710,6 +711,9 @@ export async function SiteBody({
       : null;
   /** Which moment the bar is in. Both trees resolve it from the same pair. */
   const navPhase = navPhaseFor({ dayOfPhase, isRecapBody: recapBody });
+  // 🧭 The stage this page is showing (a host's `?phase=` preview included) —
+  // its Event Bar (`STAGE_BAR`) names the header and filters the tab bar.
+  const pageStage = pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase });
 
   // ── THE DOORWAY STRIP — resolved ONCE, above the identity fork. ────────────
   //
@@ -1292,9 +1296,12 @@ export async function SiteBody({
             not allow use"); closed ⇒ DRAWN AND LOCKED, never absent, because the
             camera is part of what the invitation promises. */}
         </article>
-        {menuOn && showGuestBars ? (
-          <SiteMenuBar
-            slots={resolveSiteNav({
+        {(() => {
+          /* 🧭 ONE VALUE, TWO READERS: the tab bar a guest sees, and — in the
+             Maker's canvas only — the navigator's tabs (`data-maker-bar`), so
+             the two can never disagree (owner 2026-09-26: *"this depends on
+             what menu they are looking at"*). */
+          const anonBar = resolveSiteNav({
               /*
                 🔴 WHO IS ACTUALLY LOOKING — this was the literal `{ kind: 'public' }`.
 
@@ -1336,9 +1343,21 @@ export async function SiteBody({
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
               },
-            })}
+              stageSlots: STAGE_BAR[pageStage].slots,
+          });
+          return (
+            <>
+              {isMakerCanvas && menuOn ? (
+                <span hidden data-maker-bar={JSON.stringify(makerBarItems(anonBar))} />
+              ) : null}
+        {menuOn && showGuestBars ? (
+          <SiteMenuBar
+            slots={anonBar}
           />
         ) : null}
+            </>
+          );
+        })()}
       </>
     );
   };
@@ -2303,6 +2322,7 @@ export async function SiteBody({
             slots={resolveSiteNav({
               viewer: { kind: 'guest' },
               phase: navPhase,
+              stageSlots: STAGE_BAR[pageStage].slots,
               // `papicGuest` is the guest's own roll (an object), not a flag —
               // coerce it, or the resolver receives a truthy non-boolean.
               hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
@@ -2349,6 +2369,7 @@ export async function SiteBody({
       backdrop={backdrop}
       fullBleed={plan.fullBleed}
       editorCanvas={!showGuestBars}
+      stageLabel={STAGE_BAR[pageStage].label}
       hideWatermark={proWatermarkHidden}
       magicTraveller={magicTraveller}
     >

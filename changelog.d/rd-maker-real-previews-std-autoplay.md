@@ -60,6 +60,27 @@ wheel or key hands the page back; reduced motion runs no clock. Runs for guests 
   guest's bars, plus the opening, the film and Auto. The Reveal panel's "Play the opening" opens that tab
   instead of reloading the canvas.
 
+### 4 · Each stage's own Event Bar (was "Guest bars")
+
+Owner: *"you showed invitation guest bar? for an on the day guest bar"* · *"show the actual guest bar
+for that stage"* · on the navigator's "Main" tile: *"this depends on what menu they are looking at."* ·
+*"rename it to Event Bar"*.
+
+- **One per-stage config**, `app/[slug]/_lib/stage-bar.ts` (`STAGE_BAR`): each stage's header label and
+  the slots its tab bar may carry. The guest header read "Invitation" on every stage (a hard-coded
+  fallback in `invitation-shell.tsx`); it now names the stage the page shows — Save the Date,
+  Invitation, On the Day, Post Event — including a host's `?phase=` preview. Both tab bars (the
+  stranger's and the invited guest's) are filtered by the stage's list. **Post Event's items are set in
+  `STAGE_BAR.editorial.slots` and nowhere else** (today: Recap · Camera · Gallery · Join/Me — the owner is
+  still deciding).
+- **The navigator's tabs ARE that bar.** The generic "Main" tile is gone. The canvas stamps the bar it
+  drew (`data-maker-bar`, the same value the tab bar is drawn from) and posts it with `ready`; the
+  navigator shows those items as tabs (On the Day: Now · Camera · Join; Invitation: Home · Details ·
+  Camera · Join …), and a tab lists its scenes in page order (`lib/maker-navigator-tabs.ts`). A tab that
+  opens its own page (Camera, Join, Watch) says so. Theme, colours and music moved to the palette button
+  beside the tabs.
+- The canvas switch is labelled **"Event Bar"** (its ⓘ too); internal names are unchanged.
+
 ### Tests
 
 - `lib/the-tiles-are-real-previews.test.ts` — the tile document carries the section, stylesheets and
@@ -72,6 +93,10 @@ wheel or key hands the page back; reduced motion runs no clock. Runs for guests 
 - `lib/guest-bars-frame-the-slide.test.ts` — the two host doors told apart; bars/opening/film per door;
   RENDERED handoff + film in each mode; the reload returns to the selected scene; "Play the opening"
   opens the preview tab.
+- `lib/the-event-bar-is-the-stages-own.test.ts` — every stage's header says its own label (rendered);
+  On the Day's bar is Now · Camera · Join; the allow-list removes; both trees read the config; for every
+  stage the navigator's tabs equal that stage's Event Bar with every scene under exactly one tab in page
+  order; one value draws the bar and feeds the navigator; the switch is "Event Bar".
 - Sabotage: dropping the canvas reveal gate, the slide branch, or the close event each turns its test red.
 
 SPEC IMPACT: None beyond the DECISION_LOG row the controller already recorded (2026-09-25, "Maker

@@ -437,7 +437,8 @@ export async function loadGuestPasses(
   const eventId = set.event.event_id;
   const { data, error } = await admin
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, name_prefix, name_suffix, qr_token, deleted_at')
+    // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
+    .select(`${ENTOURAGE_COLUMNS}, qr_token`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .order('last_name', { ascending: true });

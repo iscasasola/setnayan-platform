@@ -127,7 +127,8 @@ test('the ribbon and the strip agree on one anchor, from one constant', () => {
 test('nobody but a booked supplier gets a ribbon, and only under the film', () => {
   assert.match(
     BODY,
-    /\{vendorCapability && plan\.body === 'save_the_date' \? \(\s*\n?\s*<SupplierRibbon/,
+    // `&& !isEditorCanvas` — the Maker's canvas is only the page (the-maker-canvas-is-only-the-page.test.ts).
+    /\{vendorCapability && (?:!isEditorCanvas && )?plan\.body === 'save_the_date' \? \(\s*\n?\s*<SupplierRibbon/,
     'both conditions — the proved booking, and the one phase where the desk is covered',
   );
   assert.equal(

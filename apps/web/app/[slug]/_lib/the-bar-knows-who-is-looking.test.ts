@@ -42,7 +42,9 @@ test('🔴 the anonymous tree no longer claims every reader is a stranger', () =
     "site-body passes a bare `viewer: { kind: 'public' }` again — a signed-in couple is told to Join their own wedding",
   );
   assert.ok(
-    /viewer:\s*ownerCapability\s*\?/.test(src),
+    // `&& !isEditorCanvas`: in the Maker's canvas the bar is drawn as a GUEST
+    // sees it — the host's "Manage" is editor noise there (the Guest bars switch).
+    /viewer:\s*ownerCapability(?:\s*&&\s*!isEditorCanvas)?\s*\?/.test(src),
     'the bar is no longer resolved from ownerCapability',
   );
 });

@@ -47,6 +47,19 @@ fades an edge only while there is more to scroll, scrolls the active item into v
 The Maker's own form guard (`every-maker-form-drafts-or-says-so`) now reads the three made-once files,
 and `uploadHeroPhoto` / `removeHeroPhoto` join its draft doors.
 
+**One highlight in the bar** (owner: "there should also be only one highlighted here. stage must leave" ·
+"allow other to be highlighted"). An open tool (Logo · Hero · Reveal · Love Story) is THE highlighted
+item and the stage pill clears; picking a stage closes the tool. The live stage keeps only its dot. A
+render test asserts exactly one pressed item in every state.
+
+**⋯ holds settings only** (owner: "why is this here when we already have the actual editor"). The old
+controller block (the stage + "Right now" + the address form + the parts) no longer renders in the
+Maker's ⋯ sheet: who can view, which version guests see, open browsing and go live remain (portalled in
+by the work area). Where each moved: the stage preview → the canvas itself; **View as → a compact switch
+in the toolbar** that re-points the canvas at each role's own server-gated door (a role with no door is
+listed, disabled); the address → the Details panel (P9's build). The controller still renders for
+viewers without the editor (coordinators).
+
 **Reset never erases the made-once group** — `hubResetPatch('all')` clears `HUB_RESET_EVENT_COLUMNS`
 (`rsvp_backdrop`) only.
 

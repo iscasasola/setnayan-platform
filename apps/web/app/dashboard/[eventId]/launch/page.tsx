@@ -933,7 +933,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       completeTourAction={completeTour}
       renderStamp={String(Date.now())}
       hasWork={hasWork}
-      more={hasWork ? controller : null}
+      /* ⋯ holds SETTINGS only (owner 2026-09-25: "why is this here when we
+         already have the actual editor") — who can view, which version guests
+         see, open browsing and go live, portalled in by the work area. The old
+         controller's stage duplicated the canvas; its View as is now the
+         toolbar's switch, and the address moves to the Details panel (P9). */
+      more={null}
+      viewAs={Object.fromEntries(
+        Object.entries(roleViewsByPhase).map(([phase, roles]) => [
+          phase,
+          roles.map((r) => ({ role: r.role, name: r.name, href: r.previewHref })),
+        ]),
+      )}
       /* 💾 Phase 2: the draft's Apply · Restore · Reset, in the toolbar. Only
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} /> : null}

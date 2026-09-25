@@ -315,7 +315,10 @@ test('the Maker shows the draft it edits: the panels read the draft laid over th
 test("the canvas preview loads the host's draft (?editor=1)", () => {
   const shell = read(`${C}editor-shell.tsx`);
   assert.match(shell, /const previewSrc = publicLandingUrl \? `\$\{publicLandingUrl\}\?phase=\$\{stage\}&editor=1`/);
-  assert.match(shell, /src=\{previewSrc\}/);
+  // VIEW AS (toolbar) may re-point the canvas at a role's own door — the ONLY
+  // other thing it loads; with no role chosen it is the draft preview above.
+  assert.match(shell, /const canvasSrc = maker\?\.viewAsHref \?\? previewSrc;/);
+  assert.match(shell, /src=\{canvasSrc\}/);
 });
 
 test('the scene template picker: "Change template" drafts, "+ Add a scene" says it saves immediately', () => {

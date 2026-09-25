@@ -59,8 +59,12 @@ export function MakerShell({
   more,
   applySlot = null,
   hasWork,
+  viewAs = {},
   children,
 }: {
+  /** VIEW AS, per stage — each role's chip word and its server-gated preview
+   *  door (`resolveHubRoleView`), or null when there is honestly none. */
+  viewAs?: Partial<Record<LifecyclePhase, ReadonlyArray<{ role: string; name: string; href: string | null }>>>;
   eventId: string;
   slug: string | null;
   /** The stage guests meet today — the bar's red dot. Null when unmeasured. */
@@ -88,6 +92,9 @@ export function MakerShell({
   const [selection, setSelection] = useState<MakerSelection>(initialSelection);
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
+  const [viewAsRole, setViewAsRole] = useState<string | null>(null);
+  const stageRoles = viewAs[stage] ?? [];
+  const viewAsHref = viewAsRole ? (stageRoles.find((r) => r.role === viewAsRole)?.href ?? null) : null;
 
   /*
     🪤 MEASURED IN THE BROWSER: EVERY SAVE REMOUNTS THIS SHELL. Each panel
@@ -124,6 +131,9 @@ export function MakerShell({
     }
   }, [memoryKey, stage, device, navOpen, selection]);
 
+  /* A role is read per stage: a new stage starts back on the host's preview. */
+  useEffect(() => setViewAsRole(null), [stage]);
+
   /* The document under the Maker must not scroll behind it. */
   useEffect(() => {
     const root = document.documentElement;
@@ -145,13 +155,19 @@ export function MakerShell({
       moreOpen,
       renderStamp,
       storeShell,
+      viewAsHref,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell],
+    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref],
   );
 
+  /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
+     here. stage must leave" · "allow other to be highlighted"). Picking a stage
+     closes an open made-once tool; opening a tool takes the highlight from the
+     stage (see `MakerBar`). The canvas keeps showing the stage either way. */
   const pressBar = (item: MakerBarItem) => {
     if (item.kind === 'stage') {
       setStage(item.key);
+      if (selection?.kind === 'tool') select(null);
       return;
     }
     if (item.kind === 'tool' && hasWork) select({ kind: 'tool', key: item.key });
@@ -237,6 +253,9 @@ export function MakerShell({
 
           <div className="hidden items-center gap-1 md:flex">
             {applySlot ? <div data-maker-apply-slot="">{applySlot}</div> : null}
+            {hasWork && stageRoles.length > 0 ? (
+              <ViewAsSwitch roles={stageRoles} value={viewAsRole} onChange={setViewAsRole} />
+            ) : null}
             <div role="group" aria-label="Preview on" className="flex items-center rounded-full bg-ink/5 p-0.5">
               <DeviceButton on={device === 'desktop'} label="Desktop" onClick={() => setDevice('desktop')}>
                 <Monitor aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -381,9 +400,10 @@ export function MakerBar({
                 </ComingNext>
               );
             }
+            // ONE highlight: an open tool takes it; otherwise the stage has it.
             const on =
               item.kind === 'stage'
-                ? stage === item.key
+                ? stage === item.key && selection?.kind !== 'tool'
                 : selection?.kind === 'tool' && selection.key === item.key;
             return (
               <button
@@ -406,6 +426,42 @@ export function MakerBar({
         </span>
       ))}
     </nav>
+  );
+}
+
+/**
+ * VIEW AS — compact, in the toolbar (moved from the ⋯ sheet's old stage). It
+ * re-points the canvas at the page as that role meets it, through the SAME
+ * server-gated door the controller's stage used; a role with no door is listed
+ * but cannot be chosen, and says why.
+ */
+function ViewAsSwitch({
+  roles,
+  value,
+  onChange,
+}: {
+  roles: ReadonlyArray<{ role: string; name: string; href: string | null }>;
+  value: string | null;
+  onChange: (role: string | null) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1 rounded-full bg-ink/5 px-2 text-[12px] font-semibold text-ink/70">
+      <span className="whitespace-nowrap">View as</span>
+      <select
+        data-maker-view-as=""
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="h-9 max-w-[9.5rem] cursor-pointer rounded-full bg-transparent pr-1 text-[12.5px] font-semibold text-ink focus:outline-none"
+      >
+        <option value="">You · editing</option>
+        {roles.map((r) => (
+          <option key={r.role} value={r.role} disabled={!r.href}>
+            {r.name}
+            {r.href ? '' : ' — no preview'}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

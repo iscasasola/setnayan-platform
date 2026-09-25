@@ -36,8 +36,9 @@ import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
-import { MAKER_TOUR_KEY } from './_components/maker-tour';
-import { isStagePhase } from './_components/maker-bar';
+/* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
+   file — a server page gets a client REFERENCE for those, not the value. */
+import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
 import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';

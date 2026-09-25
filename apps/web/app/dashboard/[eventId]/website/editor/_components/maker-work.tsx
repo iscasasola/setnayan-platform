@@ -375,7 +375,7 @@ export function MakerWork({
                       e.currentTarget.addEventListener('pointerup', clear, { once: true });
                       e.currentTarget.addEventListener('pointerleave', clear, { once: true });
                     }}
-                    className={`sn-press flex aspect-[16/10] w-24 cursor-grab items-center justify-center overflow-hidden rounded-md bg-white p-2 text-center font-serif text-[12px] leading-tight shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] outline outline-2 outline-offset-2 transition-[outline-color,opacity] duration-sn-control ease-sn lg:w-full ${
+                    className={`sn-press flex aspect-[16/10] w-24 cursor-grab items-start justify-center overflow-hidden break-words rounded-md bg-white px-2 pb-6 pt-2 text-center font-serif text-[12px] leading-tight shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] outline outline-2 outline-offset-2 transition-[outline-color,opacity] duration-sn-control ease-sn lg:w-full ${
                       on ? 'outline-terracotta' : 'outline-transparent'
                     } ${showing ? 'text-ink' : 'text-ink/40 opacity-60'}`}
                   >

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e33386fa1",
+  "generatedFromRef": "1e921a6c7",
   "routeCount": 432,
-  "destinations": 926,
+  "destinations": 932,
   "actions": 663,
-  "blocks": 4644,
+  "blocks": 4677,
   "routes": {
     "/": {
       "files": [
@@ -747,10 +747,12 @@
         "[slug]/_components/guest-doorway-strip.tsx",
         "[slug]/_components/guest-hub-bar.tsx",
         "[slug]/_components/guest-hub-card.tsx",
+        "[slug]/_components/guest-look-scope.tsx",
         "[slug]/_components/guest-preload.tsx",
         "[slug]/_components/hero-background-media.tsx",
         "[slug]/_components/hideable-widget-render.tsx",
         "[slug]/_components/hub-canvas-frame.tsx",
+        "[slug]/_components/hub-scenes.tsx",
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/invitation-shell.tsx",
         "[slug]/_components/invitation-skeleton.tsx",
@@ -770,6 +772,7 @@
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
         "[slug]/_components/reveal/four-flap.tsx",
+        "[slug]/_components/reveal/reveal-mount.tsx",
         "[slug]/_components/reveal/reveal-overlay-server.tsx",
         "[slug]/_components/reveal/reveal-overlay.tsx",
         "[slug]/_components/reveal/reveal-particles.tsx",
@@ -971,9 +974,12 @@
         "GuestColumnsWall",
         "GuestContext",
         "GuestDoorwayStrip",
+        "GuestGround",
         "GuestGuidedTour",
         "GuestHubBar",
         "GuestHubCard",
+        "GuestLook",
+        "GuestLookScope",
         "GuestPreload",
         "GuestToHostCta",
         "HTMLAudioElement",
@@ -992,6 +998,7 @@
         "HubLook",
         "HubMenuButton",
         "HubPanelKey",
+        "HubScenes",
         "Icon",
         "InstallPlatform",
         "InvitationBody",
@@ -1054,6 +1061,7 @@
         "Relive",
         "Remaining",
         "RevealFeatures",
+        "RevealMount",
         "RevealOverlay",
         "RevealOverlayServer",
         "RevealParticles",
@@ -5912,23 +5920,44 @@
       "files": [
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
+        "dashboard/[eventId]/launch/_components/maker-bar.ts",
+        "dashboard/[eventId]/launch/_components/maker-context.tsx",
+        "dashboard/[eventId]/launch/_components/maker-shell.tsx",
+        "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
       ],
       "destinations": [
         "/[seg]",
+        "/dashboard/[seg]",
         "/marketplace"
       ],
       "actions": [],
       "blocks": [
+        "ComingNext",
+        "DeviceButton",
         "GridPageSkeleton",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLSpanElement",
         "HubProOffer",
         "HubStage",
         "Icon",
+        "IconButton",
+        "LifecyclePhase",
         "Link",
+        "MakerBar",
+        "MakerContext.Provider",
+        "MakerDevice",
+        "MakerSelection",
+        "MakerShell",
+        "MakerState",
+        "MakerTour",
+        "MoreSheet",
         "PageMasthead",
         "SiteStage",
-        "SlugField"
+        "SlugField",
+        "WebsiteEditorPage"
       ]
     },
     "/dashboard/[eventId]/live": {
@@ -8160,6 +8189,7 @@
         "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
+        "dashboard/[eventId]/website/editor/_components/maker-work.tsx",
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/pro-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/rail-rows.ts",
@@ -8171,9 +8201,13 @@
       ],
       "destinations": [
         "/api/website/qr[seg]",
+        "/dashboard/[seg]/launch",
+        "/dashboard/[seg]/launch?scene=[seg]",
+        "/dashboard/[seg]/monogram",
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
-        "/dashboard/[seg]/studio/save-the-date"
+        "/dashboard/[seg]/studio/save-the-date",
+        "/dashboard/[seg]/studio/website-pro"
       ],
       "actions": [
         "action",
@@ -8198,17 +8232,23 @@
         "DeviceKey",
         "DressCodeFields",
         "DressCodePanel",
-        "EditorShell",
         "EditorialPanel",
         "FileUpload",
         "GalleryPanel",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLFormElement",
         "HTMLIFrameElement",
         "HeroPhotoPanel",
         "HexField",
         "Icon",
+        "InfoTip",
+        "Inspector",
         "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
+        "MakerSelection",
+        "MakerWork",
         "OpenBrowsePanel",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
@@ -8216,9 +8256,12 @@
         "ProLockPanel",
         "QrActions",
         "ReturnTo",
+        "RowBlock",
         "RsvpBackdropPanel",
         "SaveButton",
+        "SceneMenu",
         "SchedulePeekPanel",
+        "SectionColourChoices",
         "SectionsPanel",
         "SiteChromePanel",
         "StdPanel",
@@ -8226,6 +8269,7 @@
         "StoryPanel",
         "SubmitButton",
         "TextPanel",
+        "ThemePanel",
         "VisibilityPanel"
       ]
     },
@@ -8256,7 +8300,8 @@
         "Image",
         "Link",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "WebsiteProLock"
       ]
     },
     "/dashboard/[eventId]/website/launch": {
@@ -8274,6 +8319,7 @@
         "dashboard/[eventId]/website/living-hero/page.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/website",
         "/dashboard/[seg]/website/hero-photo"
       ],
       "actions": [],
@@ -8285,7 +8331,8 @@
         "Link",
         "LivingHeroStudio",
         "PageMasthead",
-        "Phase"
+        "Phase",
+        "WebsiteProLock"
       ]
     },
     "/dashboard/[eventId]/website/our-photos": {

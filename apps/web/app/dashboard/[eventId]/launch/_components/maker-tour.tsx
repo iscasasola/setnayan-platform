@@ -2,28 +2,13 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
-import { TOURS, type TourKey } from '@/lib/tours';
+import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-
-export const MAKER_TOUR_KEY: TourKey = 'customer_event_hub_maker_v1';
-
-/**
- * The slides this viewer is shown — pure, so a test can hold both rules.
- *
- *   · In the app-store shell a slide that SELLS is dropped outright (App Review
- *     3.1.1: no digital price and no paid pitch inside the app).
- *   · Elsewhere its `{price}` token becomes " — ₱X, once" from the live
- *     catalogue, or nothing at all when the catalogue did not answer. A
- *     remembered number is never printed.
- */
-export function makerTourSlides(input: { storeShell: boolean; priceLabel: string | null }) {
-  return TOURS[MAKER_TOUR_KEY].slides
-    .filter((s) => !(input.storeShell && s.sells))
-    .map((s) => ({
-      ...s,
-      body: s.body.replace('{price}', input.priceLabel ? ` &mdash; ${input.priceLabel}, once` : ''),
-    }));
-}
+/* 🔴 The key and the slide filter live in `maker-bar.ts`, NOT here. This file is
+   `'use client'`, and a server page that imports a CONSTANT from it gets a
+   client reference, not the string — measured: `tour_seen_keys.includes(KEY)`
+   was false for a couple who had finished the tour, so it replayed forever. */
+import { MAKER_TOUR_KEY, makerTourSlides } from './maker-bar';
 
 /**
  * THE EVENT HUB MAKER'S WELCOME — its own skin on the shared tour system.

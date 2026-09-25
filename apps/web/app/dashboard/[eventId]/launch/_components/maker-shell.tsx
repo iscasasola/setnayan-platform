@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Info, Monitor, MoreHorizontal, PanelLeft, Play, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { MAKER_BAR, MAKER_COMING_NEXT, type MakerBarItem } from './maker-bar';
+import { MAKER_BAR, MAKER_COMING_NEXT, isStagePhase, type MakerBarItem } from './maker-bar';
 import {
   MakerContext,
   MAKER_MORE_ROWS_ID,
@@ -88,10 +88,40 @@ export function MakerShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const [tour, setTour] = useState<'first' | 'again' | null>(firstVisit ? 'first' : null);
 
-  /* Phones open on the phone preview — most guests read the hub on one. */
+  /*
+    🪤 MEASURED IN THE BROWSER: EVERY SAVE REMOUNTS THIS SHELL. Each panel
+    posts to an action that redirects back here with a new query (`?scene=`,
+    `?saved=1`), and the App Router keys a page by its search params — so the
+    whole Maker mounts fresh after each write, and the stage, the device and
+    the open navigator all snapped back to their defaults. What the couple was
+    looking at is kept for the tab in sessionStorage and put back on mount (a
+    convenience only: every fact the Maker shows is re-read from the server).
+  */
+  const memoryKey = `sn-maker:${eventId}`;
+  const restored = useRef(false);
   useEffect(() => {
-    if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
-  }, []);
+    let saved: { stage?: string; device?: string; navOpen?: boolean; selection?: MakerSelection } | null = null;
+    try {
+      saved = JSON.parse(window.sessionStorage.getItem(memoryKey) ?? 'null');
+    } catch {
+      saved = null;
+    }
+    if (saved && isStagePhase(saved.stage)) setStage(saved.stage);
+    if (saved?.device === 'desktop' || saved?.device === 'phone') setDevice(saved.device);
+    else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
+    if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
+    // An address that names what to open (a save's `?scene=`) wins over memory.
+    if (saved?.selection) setSelection((cur) => cur ?? saved!.selection ?? null);
+    restored.current = true;
+  }, [memoryKey]);
+  useEffect(() => {
+    if (!restored.current) return;
+    try {
+      window.sessionStorage.setItem(memoryKey, JSON.stringify({ stage, device, navOpen, selection }));
+    } catch {
+      /* private mode / blocked storage: the Maker simply opens on its defaults */
+    }
+  }, [memoryKey, stage, device, navOpen, selection]);
 
   /* The document under the Maker must not scroll behind it. */
   useEffect(() => {
@@ -130,9 +160,19 @@ export function MakerShell({
 
   return (
     <MakerContext.Provider value={value}>
-      {/* The scroll lock, scoped to the one class this shell sets. An inline
-          <style>, not a CSS import: unit tests load these modules. */}
-      <style>{'html.sn-maker-open,html.sn-maker-open body{overflow:hidden}'}</style>
+      {/* An inline <style>, not a CSS import: unit tests load these modules.
+          ① The scroll lock. ② 🪤 MEASURED IN THE BROWSER: the layout's
+          `.sn-vt-page` carries `view-transition-name`, which makes it a
+          STACKING CONTEXT — so this shell's z-index was trapped inside it and
+          the app's sticky top bar (z-20, outside it) painted over the Maker's
+          toolbar. While the Maker is on the page that name is dropped, so
+          `fixed inset-0 z-[80]` really is above the rail, the top bar and the
+          bottom nav. `:has()` applies it from the first server paint; the
+          class is the fallback once hydrated. */}
+      <style>
+        {'html.sn-maker-open,html.sn-maker-open body,html:has([data-maker-shell]),html:has([data-maker-shell]) body{overflow:hidden}' +
+          'html.sn-maker-open .sn-vt-page,.sn-vt-page:has([data-maker-shell]){view-transition-name:none}'}
+      </style>
       <div
         className="fixed inset-0 z-[80] flex flex-col bg-cream text-ink"
         data-maker-shell=""

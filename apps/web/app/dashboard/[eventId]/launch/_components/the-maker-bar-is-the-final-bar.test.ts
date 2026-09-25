@@ -76,7 +76,7 @@ test('no bar item is a dead button', async () => {
 });
 
 test('the tour: the store shell drops the paid slide, and a price is only ever the catalogue’s', async () => {
-  const { makerTourSlides } = await import('./maker-tour');
+  const { makerTourSlides } = await import('./maker-bar');
   const all = TOURS.customer_event_hub_maker_v1.slides;
   assert.ok(all.some((s) => s.sells), 'the Pro slide is marked as selling');
   const shell = makerTourSlides({ storeShell: true, priceLabel: '₱3,500' });

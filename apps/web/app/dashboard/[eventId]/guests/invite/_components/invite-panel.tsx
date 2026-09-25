@@ -9,6 +9,7 @@ import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { suggestedInviteTheme } from '@/lib/invite-themes';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import type { InviteReturn } from '@/lib/invite-return';
@@ -275,6 +276,7 @@ export async function InvitePanel({
            been reloaded. */
         notice={themeNotice}
         returnTo={returnTo}
+        storeShell={await isStoreShellRequest()}
       />
 
       {/* Event QR (crew pairing) — a DIFFERENT QR from the guest invite above.

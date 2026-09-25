@@ -3291,8 +3291,7 @@ html.dark {
    a neutral while the door showed the couple's colour — one fact, two renders.
    ─────────────────────────────────────────────────────────────────────────── */
 
-[data-invite-theme='capiz'],
-[data-hub-theme='capiz'] {
+[data-invite-theme='capiz'] {
   /* Channel companions — the SAME colours above, in the space-separated form
      `rgb(var(x) / a)` needs. CSS cannot convert a hex to channels, so this is
      the one place the second representation is allowed to exist; the guard
@@ -3310,8 +3309,7 @@ html.dark {
   --cz-light: rgba(120, 110, 100, 0.18);
 }
 @supports (color: color-mix(in srgb, red, blue)) {
-  [data-invite-theme='capiz'],
-  [data-hub-theme='capiz'] {
+  [data-invite-theme='capiz'] {
     --cz-pane-a: color-mix(in srgb, var(--accent) 6%, transparent);
     --cz-pane-b: color-mix(in srgb, var(--accent) 11%, transparent);
     --cz-pane-c: color-mix(in srgb, var(--accent) 4%, transparent);
@@ -3377,134 +3375,13 @@ html.dark {
   --ab-kraft-lo: #ad8d61;
 }
 
-/* ── …and what each material becomes ON THE PAGE ─────────────────────────────
-   The block above is the MATERIAL, shared with the door. This one is the SITE's
-   reading of it: the same palette mapped onto the tokens the guest pages already
-   render through (`--color-*`, the display face, the twelve `pahina-*` ornament
-   switches). The door draws a card; the page draws chapters — same stock,
-   different composition.
+/* ── …and what each THEME becomes ON THE PAGE ──────────────────────────────
+   The blocks above are the invite DOOR's materials — four compositions (capiz ·
+   velvet · galeriya · abaca) that the ten themes open through (`door` in
+   `lib/invite-themes.ts`). The Event Hub pages wear the THEME, not the door:
+   its page mapping is generated from the registry palette and lives below the
+   fixed-page repairs, under "THE TEN THEMES ON THE PAGE". */
 
-   🔑 `[data-hub-theme]` ONLY. The door must not be re-skinned by these: it has
-   its own, owner-approved composition, and the shared block above is the whole
-   of what the two surfaces agree on.
-
-   ⚠ AND THESE ARE STYLESHEET RULES, NEVER INLINE VARS. The couple's mood-board
-   palette and their Pro hex colours arrive as inline `style` on this very
-   `<main>` (`invitation-shell.tsx`), and inline beats any stylesheet — so the
-   precedence falls out right for free:
-
-       theme (here)  <  mood-board palette (inline)  <  the couple's own hex
-
-   A theme is the BASE, and anything the couple set themselves still wins on top.
-
-   ✅ THREE OF THE FOUR BRING THEIR OWN FACE, and the page takes the SAME one the
-   door uses — Velvet is Bodoni Moda over Jost, Galeriya is Schibsted Grotesk,
-   Abaca is Alfa Slab One over Oswald. Capiz brings none on purpose: its door
-   sets the seal in the house Cormorant, so the page keeps it. None of these is
-   invented here; each is the face its own design board specified.
-
-   The `--font-*-…` values are build-time hashes from `next/font`, so they cannot
-   be written in a stylesheet — `site-skin.tsx` puts the generated classes on the
-   same `<main>` and these rules only POINT at them.
-
-   🔑 AND THE IDENTITY SURVIVES A PALETTE. The couple's colours win on
-   `--color-cream`/`--color-mulberry`, but the face, the grain, the printed
-   frame, the rule length and the metal's ROLE are things a palette never touches
-   — so a Galeriya page with a blush palette is still a gallery.
-   ─────────────────────────────────────────────────────────────────────────── */
-
-/* CAPIZ · Elegant — pearl stock under shell light, gold hairlines, the lattice
-   carried as a finer grain than the house paper. */
-[data-hub-theme='capiz'] {
-  --color-cream: var(--cz-pearl-ch);
-  --color-paper: var(--cz-pearl-ch);
-  --color-paper-deep: var(--cz-milk);
-  --color-veil: var(--cz-pearl-ch);
-  --color-gild: var(--cz-gold-ch);
-  --pahina-grain-opacity: 0.035;
-  --pahina-frame-opacity: 1;
-  --pahina-rule-len: 3rem;
-}
-
-/* VELVET · Classy — the one DARK theme. The ground is velvet mixed from the
-   couple's own accent and the plates are bright cotton card on top of it, which
-   is exactly the door's arrangement at page scale.
-   🔑 THIS IS THE ONE THEME THAT MOVES `--color-ink`, and it is allowed to
-   BECAUSE it moves the paper with it: ink `#15121a` on `--vl-paper` is 17.6:1,
-   measured in the skin's own docblock. The rule the guard enforces is not "never
-   touch ink" — it is "never move ink WITHOUT the paper it is read on". */
-[data-hub-theme='velvet'] {
-  --font-display: var(--font-velvet-display);
-  --font-mono: var(--font-velvet-utility);
-  --pahina-face: var(--font-velvet-display);
-  /* 🔴 CORRECTED — THE FIRST MAPPING HAD THIS EXACTLY BACKWARDS, and only
-     looking at it on a screen showed that. Velvet is the one DARK theme: the
-     door holds a BRIGHT card ON velvet, and the page does the same at length.
-     The first version gave the page velvet's PAPER as its ground and velvet's
-     near-black INK as its text — so every chapter heading and eyebrow, i.e.
-     all the text that sits on the ground rather than on a plate, was
-     near-black on near-black. The plates looked perfect the whole time, which
-     is why it read as "working" in a thumbnail.
-     🔑 The rule it broke is the one written into `site-palette.ts`: ink and the
-     paper it is read on move TOGETHER or not at all. */
-  --color-cream: 28 22 26;
-  --color-paper: 28 22 26;
-  --color-ink: 240 234 224; /* warm cream, on the velvet — 12.2:1 at the default
-                               accent, and 5.1:1 in the worst case the ground
-                               scrim exists for (see velvet.module.css) */
-  /* The plates stay bright cotton card and carry their OWN ink. `--color-ink`
-     is the ground's, and on this theme the two are opposites — which is what
-     `--color-ink-on-plate` exists for. Every other theme leaves it unset and
-     falls back to `--color-ink`, so this is inert for them. */
-  --color-paper-deep: var(--vl-paper-ch);
-  --color-ink-on-plate: var(--vl-ink-ch); /* #15121a on #fbf9f6 — 17.6:1, the
-                                             door skin's own measurement */
-  --color-veil: var(--vl-hair-ch);
-  --color-gild: var(--vl-foil-ch);
-  --pahina-grain-opacity: 0;
-  --pahina-frame-opacity: 1;
-  --pahina-rule-len: 2.75rem;
-}
-
-/* GALERIYA · Sophisticated — a flat light wall, no metal at all, and the rule
-   doing the work. The long rule is the theme's signature, so the eyebrow's
-   hairline runs longer here than anywhere else and the printed frame comes off
-   the plates: a gallery label is not a framed card. */
-[data-hub-theme='galeriya'] {
-  --font-display: var(--font-galeriya-sans);
-  --font-mono: var(--font-galeriya-sans);
-  --pahina-face: var(--font-galeriya-sans);
-  --color-cream: var(--ga-wall-ch);
-  --color-paper: var(--ga-wall-ch);
-  --color-paper-deep: 255 255 255;
-  --color-veil: var(--ga-wall-ch);
-  --color-gild: var(--ga-rule-ch);
-  --pahina-grain-opacity: 0;
-  --pahina-frame-opacity: 0;
-  --pahina-rule-len: 6rem;
-}
-
-/* ABACA · Rugged — kraft stock, heavy grain, no metal, the plates printed on a
-   lighter pull of the same paper.
-   ⚠ `--color-ink` moves here too, and for the same reason as Velvet: the skin
-   measured `#2b2118` at 15.8:1 on the card it sits on. Kraft is NOT the plate —
-   the ground is kraft and the chapters are the lighter `--ab-kraft-hi` pull, the
-   door's own arrangement. Ink on bare kraft is 6.5:1 and never carries body
-   text here. */
-[data-hub-theme='abaca'] {
-  --font-display: var(--font-abaca-display);
-  --font-mono: var(--font-abaca-utility);
-  --pahina-face: var(--font-abaca-display);
-  --color-cream: var(--ab-kraft-ch);
-  --color-paper: var(--ab-kraft-ch);
-  --color-paper-deep: 240 227 206;
-  --color-ink: var(--ab-ink-ch);
-  --color-veil: var(--ab-kraft-ch);
-  --color-gild: var(--ab-ink-ch);
-  --pahina-grain-opacity: 0.12;
-  --pahina-frame-opacity: 1;
-  --pahina-rule-len: 2.25rem;
-}
 @supports (color: color-mix(in srgb, red, blue)) {
   [data-invite-theme='abaca'],
   [data-hub-theme='abaca'] {
@@ -3571,69 +3448,365 @@ html.dark {
   --color-ink-on-light: 44 42 41;
 }
 
-/* CAPIZ — the pearl is darker than House white, so the ink deepens with it: a
-   darker pull of the theme's own espresso (the mullion and frame are
-   `rgb(44 42 41)`, House's ink). Every muted step is back at or above House
-   (`ink/60` 4.22, `ink/65` 4.93). The accent and the CTA take the design
-   system's OWN deepest steps rather than a new colour: gold 4.45 on pearl,
-   the button's pearl label 5.89. */
-[data-hub-theme='capiz'] {
-  --color-ink: 32 30 29;
-  --color-terracotta: 140 105 50; /* = House's `--color-terracotta-700`, #8C6932 */
-  --color-terracotta-700: 92 71 38; /* = `--sn-gold-800`, #5C4726 — the next step down */
-  /* = House's `--color-mulberry-700`, #9D3F1E — written out, not `var()`d, so
-     candlelight (which lifts the 700 step to its gild) cannot drag it light. */
-  --color-mulberry: 157 63 30;
-  --color-mulberry-600: 157 63 30;
-}
+/* ── THE TEN THEMES ON THE PAGE (Event Hub Maker Phase 3, 2026-09-25) ───────
+   Owner: *"Classic · Rustic · Modern · Cinderella · Luxe · Vintage · Whimsical ·
+   Bridgerton · Great Gatsby · Cyber (Neon)"*. ONE registry (`lib/invite-themes.ts`)
+   holds every theme's palette, copied from the spec's measured values; each
+   block below paints exactly that palette onto the tokens the guest pages render
+   through, and `lib/invite-themes.test.ts` re-reads this file and fails if a
+   single channel drifts from the registry. Classic (`house`) has NO block: it is
+   the page as it renders today.
 
-/* GALERIYA — the wall is the coolest, darkest light ground, so the label ink is
-   a cool near-black to match (`ink/60` 4.29, `ink/65` 5.01, full ink 14.5).
-   Same deepest accent and CTA steps as Capiz: gold 4.17, the wall label 5.51. */
-[data-hub-theme='galeriya'] {
-  --color-ink: 24 26 30;
-  --color-terracotta: 140 105 50; /* = House's `--color-terracotta-700`, #8C6932 */
-  --color-terracotta-700: 92 71 38; /* = `--sn-gold-800`, #5C4726 — the next step down */
-  /* = House's `--color-mulberry-700`, #9D3F1E — written out, not `var()`d, so
-     candlelight (which lifts the 700 step to its gild) cannot drag it light. */
-  --color-mulberry: 157 63 30;
-  --color-mulberry-600: 157 63 30;
-}
+   Each block also folds in what the fixed pages need (the rule above: a theme
+   may never make a word harder to read than House does): the eyebrow
+   (`--color-terracotta*`) is the theme's heading or accent only where it clears
+   4.5:1 on the canvas, and the CTA fill (`--color-mulberry*`) is chosen so its
+   `text-cream` label — the canvas — clears 4.5:1 too. The ratios are in each
+   block's comment and re-measured by the guard.
 
-/* ABACA — kraft is a MID-TONE, and nothing lighter than near-black holds a
-   muted label on it: the stamp's ink, 8.5:1 in full and every muted step at or
-   above House or AA (`ink/60` 4.00, `ink/65` 4.54). Abaca carries no metal
-   (its gild is already its ink), so the accent prints in the theme's own
-   `--ab-ink` (6.5:1), and the CTA is an ink stamp with a kraft label (6.5:1)
-   — the door's arrangement, and the only fill kraft reads on.
-   ⚠ This moves `--color-ink` again, and the plate moves with it: on the
-   `240 227 206` pull it measures 16:1 — the guard below re-measures both. */
+   `--hub-*` are the palette as hex, for the Maker's panels and the scene
+   legibility rule (`lib/hub-legibility.ts`). The theme's LOOP is not here: it
+   is drawn by `GuestLookScope`'s ground under the theme's scrim.
+
+   ⚠ STYLESHEET RULES, SO THE COUPLE STILL WINS — their palette and hex colours
+   arrive inline on the same element. Placed AFTER candlelight so a theme worn
+   with candlelight keeps its own metal. */
+
+/* RUSTIC (`abaca`) — ink on canvas 14.5:1 · on plates 11.6:1 ·
+   eyebrow 5.5:1 · CTA label 5.5:1. Faces: Fraunces (the spec face). */
 [data-hub-theme='abaca'] {
-  --color-ink: 4 3 2;
-  --color-terracotta: var(--ab-ink-ch);
-  --color-terracotta-600: var(--ab-ink-ch);
-  --color-terracotta-700: var(--ab-ink-ch);
-  --color-mulberry: var(--ab-ink-ch);
-  --color-mulberry-600: var(--ab-ink-ch);
-  --color-mulberry-700: var(--ab-ink-ch);
+  --hub-canvas: #fbf0e4;
+  --hub-surface: #f0d5b4;
+  --hub-ink: #2b1d10;
+  --hub-muted: #6a4a2e;
+  --hub-accent: #8b5333;
+  --hub-accent-ink: #fbf0e4;
+  --hub-heading: #8b5333;
+  --hub-radius: 6px;
+  --color-cream: 251 240 228;
+  --color-paper: 251 240 228;
+  --color-veil: 251 240 228;
+  --color-paper-deep: 240 213 180;
+  --color-ink: 43 29 16;
+  --color-ink-on-plate: 43 29 16;
+  --color-gild: 139 83 51;
+  --color-terracotta: 139 83 51;
+  --color-terracotta-600: 139 83 51;
+  --color-terracotta-700: 139 83 51;
+  --color-mulberry: 139 83 51;
+  --color-mulberry-600: 139 83 51;
+  --color-mulberry-700: 139 83 51;
+  --m-ink: rgb(var(--color-ink));
+  --font-display: var(--font-pahina-display);
+  --pahina-face: var(--font-pahina-display);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
 }
 
-/* VELVET — the dark theme. Its metal is foil, and foil is what reads on velvet:
-   the CTA becomes a foil button carrying the velvet as its label (7.25:1), and
-   the accent's deeper steps — drawn for a LIGHT page, 3.55 here — lift to foil
-   as well. The base accent already reads (5.12) and is left alone. */
-[data-hub-theme='velvet'] {
-  --color-terracotta-600: var(--vl-foil-ch);
-  --color-terracotta-700: var(--vl-foil-ch);
-  --color-mulberry: var(--vl-foil-ch);
-  --color-mulberry-600: var(--vl-foil-ch);
-  --color-mulberry-700: var(--vl-foil-ch);
-  /* `<Wordmark>` inks itself with an INLINE `var(--m-ink)` — House espresso,
-     1.25:1 on the velvet (the plus-one door's mark, measured). The velvet DOOR
-     rebinds the same token for the same reason (`invite/…/themes/velvet.tsx`). */
+/* MODERN (`galeriya`) — ink on canvas 12.7:1 · on plates 9.2:1 ·
+   eyebrow 8.5:1 · CTA label 8.5:1. Faces: Playfair stands in for Instrument Serif; Jost is the spec face. */
+[data-hub-theme='galeriya'] {
+  --hub-canvas: #f5f0eb;
+  --hub-surface: #d6cec9;
+  --hub-ink: #2b2b1a;
+  --hub-muted: #5c574f;
+  --hub-accent: #3a4a1c;
+  --hub-accent-ink: #ffffff;
+  --hub-heading: #3a4a1c;
+  --hub-radius: 999px;
+  --color-cream: 245 240 235;
+  --color-paper: 245 240 235;
+  --color-veil: 245 240 235;
+  --color-paper-deep: 214 206 201;
+  --color-ink: 43 43 26;
+  --color-ink-on-plate: 43 43 26;
+  --color-gild: 58 74 28;
+  --color-terracotta: 58 74 28;
+  --color-terracotta-600: 58 74 28;
+  --color-terracotta-700: 58 74 28;
+  --color-mulberry: 58 74 28;
+  --color-mulberry-600: 58 74 28;
+  --color-mulberry-700: 58 74 28;
   --m-ink: rgb(var(--color-ink));
-  /* Text on a surface that stays light (`text-ink-on-light`): the plates' ink. */
-  --color-ink-on-light: var(--vl-ink-ch);
+  --font-display: var(--font-playfair);
+  --pahina-face: var(--font-playfair);
+  --font-mono: var(--font-velvet-utility);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* CINDERELLA (`cinderella`) — ink on canvas 12.1:1 · on plates 9.9:1 ·
+   eyebrow 12.1:1 · CTA label 12.1:1. Faces: Cinzel stands in for Italiana. */
+[data-hub-theme='cinderella'] {
+  --hub-canvas: #eef3f8;
+  --hub-surface: #d4dfe7;
+  --hub-ink: #253039;
+  --hub-muted: #49586a;
+  --hub-accent: #8a9eae;
+  --hub-accent-ink: #253039;
+  --hub-heading: #253039;
+  --hub-radius: 999px;
+  --color-cream: 238 243 248;
+  --color-paper: 238 243 248;
+  --color-veil: 238 243 248;
+  --color-paper-deep: 212 223 231;
+  --color-ink: 37 48 57;
+  --color-ink-on-plate: 37 48 57;
+  --color-gild: 138 158 174;
+  --color-terracotta: 37 48 57;
+  --color-terracotta-600: 37 48 57;
+  --color-terracotta-700: 37 48 57;
+  --color-mulberry: 37 48 57;
+  --color-mulberry-600: 37 48 57;
+  --color-mulberry-700: 37 48 57;
+  --m-ink: rgb(var(--color-ink));
+  --font-display: var(--font-cinzel);
+  --pahina-face: var(--font-cinzel);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* LUXE (`velvet`) — ink on canvas 16.6:1 · on plates 13.9:1 ·
+   eyebrow 9.7:1 · CTA label 9.7:1. Faces: Bodoni Moda (the spec face); Cinzel stands in for Cormorant SC. */
+[data-hub-theme='velvet'] {
+  --hub-canvas: #0e0504;
+  --hub-surface: #34130c;
+  --hub-ink: #f3e7dc;
+  --hub-muted: #e6cdb9;
+  --hub-accent: #e3a86f;
+  --hub-accent-ink: #0e0504;
+  --hub-heading: #e3a86f;
+  --hub-radius: 999px;
+  --color-cream: 14 5 4;
+  --color-paper: 14 5 4;
+  --color-veil: 14 5 4;
+  --color-paper-deep: 52 19 12;
+  --color-ink: 243 231 220;
+  --color-ink-on-plate: 243 231 220;
+  --color-gild: 227 168 111;
+  --color-terracotta: 227 168 111;
+  --color-terracotta-600: 227 168 111;
+  --color-terracotta-700: 227 168 111;
+  --color-mulberry: 227 168 111;
+  --color-mulberry-600: 227 168 111;
+  --color-mulberry-700: 227 168 111;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 14 5 4;
+  --font-display: var(--font-velvet-display);
+  --pahina-face: var(--font-velvet-display);
+  --font-mono: var(--font-cinzel);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* VINTAGE (`vintage`) — ink on canvas 10.8:1 · on plates 9.5:1 ·
+   eyebrow 6.0:1 · CTA label 6.0:1. Faces: Playfair Display (the spec face). */
+[data-hub-theme='vintage'] {
+  --hub-canvas: #eadbc6;
+  --hub-surface: #e1cdb9;
+  --hub-ink: #33261a;
+  --hub-muted: #5a4128;
+  --hub-accent: #634b2f;
+  --hub-accent-ink: #f8efe0;
+  --hub-heading: #634b2f;
+  --hub-radius: 2px;
+  --color-cream: 234 219 198;
+  --color-paper: 234 219 198;
+  --color-veil: 234 219 198;
+  --color-paper-deep: 225 205 185;
+  --color-ink: 51 38 26;
+  --color-ink-on-plate: 51 38 26;
+  --color-gild: 99 75 47;
+  --color-terracotta: 99 75 47;
+  --color-terracotta-600: 99 75 47;
+  --color-terracotta-700: 99 75 47;
+  --color-mulberry: 99 75 47;
+  --color-mulberry-600: 99 75 47;
+  --color-mulberry-700: 99 75 47;
+  --m-ink: rgb(var(--color-ink));
+  --font-display: var(--font-playfair);
+  --pahina-face: var(--font-playfair);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* WHIMSICAL (`whimsical`) — ink on canvas 11.1:1 · on plates 11.0:1 ·
+   eyebrow 7.6:1 · CTA label 7.6:1. Faces: Vidaloka stands in for Yeseva One; Jost for Quicksand. */
+[data-hub-theme='whimsical'] {
+  --hub-canvas: #fbf7f0;
+  --hub-surface: #faf6ee;
+  --hub-ink: #3f3626;
+  --hub-muted: #6e6146;
+  --hub-accent: #c9aab3;
+  --hub-accent-ink: #3f3626;
+  --hub-heading: #5a4a5e;
+  --hub-radius: 999px;
+  --color-cream: 251 247 240;
+  --color-paper: 251 247 240;
+  --color-veil: 251 247 240;
+  --color-paper-deep: 250 246 238;
+  --color-ink: 63 54 38;
+  --color-ink-on-plate: 63 54 38;
+  --color-gild: 201 170 179;
+  --color-terracotta: 90 74 94;
+  --color-terracotta-600: 90 74 94;
+  --color-terracotta-700: 90 74 94;
+  --color-mulberry: 90 74 94;
+  --color-mulberry-600: 90 74 94;
+  --color-mulberry-700: 90 74 94;
+  --m-ink: rgb(var(--color-ink));
+  --font-display: var(--font-vidaloka);
+  --pahina-face: var(--font-vidaloka);
+  --font-mono: var(--font-velvet-utility);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* REGENCY (`regency`) — ink on canvas 12.8:1 · on plates 8.1:1 ·
+   eyebrow 12.8:1 · CTA label 12.8:1. Faces: Bodoni Moda stands in for Prata. */
+[data-hub-theme='regency'] {
+  --hub-canvas: #f6efe6;
+  --hub-surface: #e2b997;
+  --hub-ink: #33261f;
+  --hub-muted: #6d5043;
+  --hub-accent: #dcac7d;
+  --hub-accent-ink: #33261f;
+  --hub-heading: #33261f;
+  --hub-radius: 999px;
+  --color-cream: 246 239 230;
+  --color-paper: 246 239 230;
+  --color-veil: 246 239 230;
+  --color-paper-deep: 226 185 151;
+  --color-ink: 51 38 31;
+  --color-ink-on-plate: 51 38 31;
+  --color-gild: 220 172 125;
+  --color-terracotta: 51 38 31;
+  --color-terracotta-600: 51 38 31;
+  --color-terracotta-700: 51 38 31;
+  --color-mulberry: 51 38 31;
+  --color-mulberry-600: 51 38 31;
+  --color-mulberry-700: 51 38 31;
+  --m-ink: rgb(var(--color-ink));
+  --font-display: var(--font-velvet-display);
+  --pahina-face: var(--font-velvet-display);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* GREAT GATSBY (`gatsby`) — ink on canvas 16.4:1 · on plates 13.6:1 ·
+   eyebrow 11.9:1 · CTA label 11.9:1. Faces: Cinzel stands in for Limelight; Jost for Poiret One. */
+[data-hub-theme='gatsby'] {
+  --hub-canvas: #110504;
+  --hub-surface: #331610;
+  --hub-ink: #f7e6cf;
+  --hub-muted: #dcbf9d;
+  --hub-accent: #ecbf8f;
+  --hub-accent-ink: #110504;
+  --hub-heading: #ecbf8f;
+  --hub-radius: 4px;
+  --color-cream: 17 5 4;
+  --color-paper: 17 5 4;
+  --color-veil: 17 5 4;
+  --color-paper-deep: 51 22 16;
+  --color-ink: 247 230 207;
+  --color-ink-on-plate: 247 230 207;
+  --color-gild: 236 191 143;
+  --color-terracotta: 236 191 143;
+  --color-terracotta-600: 236 191 143;
+  --color-terracotta-700: 236 191 143;
+  --color-mulberry: 236 191 143;
+  --color-mulberry-600: 236 191 143;
+  --color-mulberry-700: 236 191 143;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 17 5 4;
+  --font-display: var(--font-cinzel);
+  --pahina-face: var(--font-cinzel);
+  --font-mono: var(--font-velvet-utility);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* CYBER NEON (`cyber`) — ink on canvas 17.0:1 · on plates 13.4:1 ·
+   eyebrow 19.7:1 · CTA label 8.7:1. Faces: Hanken Grotesk stands in for Syne; Space Mono for the HUD labels. */
+[data-hub-theme='cyber'] {
+  --hub-canvas: #0b0a12;
+  --hub-surface: #26222d;
+  --hub-ink: #f1ecf7;
+  --hub-muted: #c9bcd4;
+  --hub-accent: #ec8cd6;
+  --hub-accent-ink: #0b0a12;
+  --hub-heading: #ffffff;
+  --hub-radius: 8px;
+  --color-cream: 11 10 18;
+  --color-paper: 11 10 18;
+  --color-veil: 11 10 18;
+  --color-paper-deep: 38 34 45;
+  --color-ink: 241 236 247;
+  --color-ink-on-plate: 241 236 247;
+  --color-gild: 236 140 214;
+  --color-terracotta: 255 255 255;
+  --color-terracotta-600: 255 255 255;
+  --color-terracotta-700: 255 255 255;
+  --color-mulberry: 236 140 214;
+  --color-mulberry-600: 236 140 214;
+  --color-mulberry-700: 236 140 214;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 11 10 18;
+  --font-display: var(--font-hanken);
+  --pahina-face: var(--font-hanken);
+  --font-mono: var(--font-space-mono);
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* ── FOIL NAMES (owner 2026-09-25: "i like that shimmer effect") ─────────────
+   The `.foil` glint from the Luxe prototype (post_event_auto_story_2026-09-25):
+   a gold gradient clipped to the couple's names, a 6 s glint, STATIC under
+   reduced motion. On by default in Luxe and Great Gatsby only
+   (`INVITE_THEMES[id].foilNames`); `GuestLookScope` stamps `data-hub-foil` only
+   over the theme's OWN dark ground — the darkest stop (#b8893f) clears 6:1 on
+   Luxe's #0e0504 and Gatsby's #110504, far over the 3:1 large-text floor — and
+   never over a ground the couple recoloured, where it could fall under it. */
+@keyframes hub-foil-glint {
+  from {
+    background-position: 160% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+[data-hub-foil] h1[data-motion='arrive-names'] {
+  background-image: linear-gradient(
+    100deg,
+    #b8893f 0%,
+    #e9c98a 20%,
+    #c9974e 38%,
+    #fff1cf 50%,
+    #c9974e 62%,
+    #e9c98a 80%,
+    #b8893f 100%
+  );
+  background-size: 250% 100%;
+  background-position: 50% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hub-foil-glint 6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-hub-foil] h1[data-motion='arrive-names'] {
+    animation: none;
+    background-position: 50% 0;
+  }
 }
 
 /* ---------- ambient backdrop (dashboard shell page background) ----------

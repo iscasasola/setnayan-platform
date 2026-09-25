@@ -105,7 +105,7 @@ test('the sentence still reads as a sentence — the links are IN the copy, not 
    2 · THE EIGHTH PRO ITEM (Q3 = A)
    ══════════════════════════════════════════════════════════════════════════ */
 
-const INVITE_ITEM = 'Invite link theme';
+const INVITE_ITEM = '9 Event Hub themes, invite link included';
 
 test('the invite theme is one of the Pro items, and the list is the only copy of it', () => {
   assert.ok(WEBSITE_PRO_ITEMS.length >= 8, 'the Pro item list scanned short — the import may be resolving empty');

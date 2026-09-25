@@ -65,7 +65,9 @@ test('a theme stylesheet is imported only from its OWN surface’s theme folder'
       sheets.push({ path: join(dir, f), dir });
     }
   }
-  assert.ok(sheets.length >= 8, `found ${sheets.length} theme stylesheets across both surfaces, expected 8+`);
+  // The four door compositions. The site draws no ground stylesheet of its own
+  // since 2026-09-25 (the scope's ground is the theme loop + the page's paper).
+  assert.ok(sheets.length >= 4, `found ${sheets.length} theme stylesheets across both surfaces, expected 4+`);
 
   const offenders: string[] = [];
   for (const file of [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))]) {
@@ -153,7 +155,13 @@ test('every ready theme resolves to a skin — and every skin belongs to a ready
   const cases = [...src.slice(start).matchAll(/case\s+'([a-z]+)'\s*:/g)].map((m) => m[1] ?? '');
 
   // House is the bare door on purpose — it has no skin and must have no case.
-  const shipped: string[] = INVITE_THEME_IDS.filter((id) => id !== 'house' && INVITE_THEMES[id].ready);
+  // Since 2026-09-25 ten THEMES open through four door COMPOSITIONS
+  // (`INVITE_THEMES[id].door`), so the switch is keyed on the doors the ready
+  // themes actually use — a door no theme opens through is dead, and a theme
+  // whose door has no case would get the bare door.
+  const shipped: string[] = [
+    ...new Set(INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].ready).map((id) => INVITE_THEMES[id].door)),
+  ].filter((door) => door !== 'house');
 
   // POSITIVE CONTROL: with no ready Pro theme the two assertions below are
   // satisfied by an empty switch, which reads exactly like a passing guard.

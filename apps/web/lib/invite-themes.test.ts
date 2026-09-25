@@ -26,6 +26,7 @@ import {
 import { HUB_MOTION_PRESETS } from '@/lib/hub-canvas';
 import { HUB_TRANSITIONS } from '@/lib/hub-scenes';
 import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
+import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = join(HERE, '..', '..', '..', 'supabase', 'migrations');
@@ -372,9 +373,15 @@ test("every Pro theme's page block in globals.css paints exactly its registry pa
     const decl = (name: string) => new RegExp(`${name}:\\s*([^;]+);`).exec(body!)?.[1]?.trim();
     assert.equal(decl('--hub-canvas'), t.palette.canvas, `${t.id} --hub-canvas`);
     assert.equal(decl('--color-cream'), ch(t.palette.canvas), `${t.id} paper is not its canvas`);
-    assert.equal(decl('--color-ink'), ch(t.palette.ink), `${t.id} ink`);
+    // The page tokens are DERIVED from the palette by one rule (a theme never
+    // makes a word harder to read than House does) — re-derive, never re-type.
+    const k = hubThemePageTokens(t);
+    assert.equal(decl('--color-ink'), ch(k.ink), `${t.id} ink`);
+    assert.equal(decl('--color-ink-on-plate'), ch(k.ink), `${t.id} plate ink`);
     assert.equal(decl('--color-paper-deep'), ch(t.palette.surface), `${t.id} plates`);
-    assert.equal(decl('--color-gild'), ch(t.palette.accent), `${t.id} metal`);
+    assert.equal(decl('--color-gild'), ch(k.gild), `${t.id} metal`);
+    assert.equal(decl('--color-terracotta'), ch(k.eyebrow), `${t.id} eyebrow`);
+    assert.equal(decl('--color-mulberry'), ch(k.cta), `${t.id} button`);
     assert.equal(decl('--hub-radius'), `${t.radius}px`, `${t.id} radius`);
     checked += 1;
   }

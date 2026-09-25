@@ -7,22 +7,26 @@
 -- "the printed invitation is a 3-card set … new fields needed: parents' names,
 -- opening line").
 --
--- The printed invitation carries four things the database never held:
---   · parents   — [{ name, deceased, side }] — `deceased` prints the † beside
---                 the name, the Filipino convention for a parent who has passed.
---                 A departed parent is not a GUEST, so `guests.role =
---                 bride_parents / groom_parents` (which the entourage list reads)
---                 cannot express one. This is paper, not the guest list.
+-- The printed set needs a few things that have NO other home — and nothing that
+-- does (owner 2026-09-25: parents live on the GUEST LIST, gift details on
+-- E-GIFTS, the thank-you message is the E-Gifts message, the special message is
+-- `events.special_message`; none of them is ever copied in here):
 --   · opening_line — "With thanksgiving to God and with the blessing of our
---                 parents," — the couple's own words; never invented for them.
---   · rsvp_contact — who to reply to, as the couple types it.
---   · gift_lines — their gift lines; the account digits are MASKED on print by
---                 the app (`maskAccountLine` in apps/web/lib/print-pieces.ts).
+--                 parents," — the couple's own words (templates FILL the box;
+--                 the saved value is always their text).
+--   · rsvp        — the "Kindly reply" CHOICE: { kind: 'host', moderator_id }
+--                 (a host or the coordinator, whose name and number are read from
+--                 their own account at print time) or { kind: 'manual', text }.
+--   · include     — the Maker's Details toggles: what the prints include (guest
+--                 names, parents, seat plan 3D/2D/List, E-Gifts details, the
+--                 thank-you message, Love Story, the schedule, Mood Board colours,
+--                 an NFC sticker spot, the opening line, the reply line, the
+--                 special message). The Event Hub QR is not a toggle — it always
+--                 prints (owner: "QR is automatic. NFC is optional").
 --
--- 🔑 ONE JSONB, NOT FOUR COLUMNS. All four are read by exactly one surface (the
--- print set) and written by exactly one form (Prints & Tickets). Four columns
--- would be four grants, four `events_host` projections and four lines in the
--- exposure baseline for one card's worth of words.
+-- 🔑 ONE JSONB, NOT A COLUMN PER CHOICE. All of it is read by the print set and
+-- written by one form (the Maker's Details panel); a column each would be a
+-- grant, an `events_host` projection and an exposure-baseline line apiece.
 --
 -- 🔑 NO CEREMONY-TIME COLUMN. Print uses the CEREMONY block's time from
 -- `event_schedule_blocks` (block_type = 'ceremony'), not the first schedule item
@@ -42,10 +46,10 @@ ALTER TABLE public.events
   );
 
 COMMENT ON COLUMN public.events.print_details IS
-  'Prints & Tickets (Event Hub Maker Phase 9): { parents: [{name, deceased, side}], opening_line, '
-  'rsvp_contact, gift_lines }. Paper only — never rendered on the Event Hub. Read and sanitised by '
-  'parsePrintDetails() in apps/web/lib/print-pieces.ts; written by POST /api/hub-print/details through '
-  'the admin client after the host''s membership is proven. NULL = never filled in.';
+  'Prints & Tickets (Event Hub Maker Phase 9): { opening_line, rsvp: {kind: host|manual, moderator_id|text}, '
+  'include: {…toggles} }. Only what has no other home — parents are read from the guest list, gifts from '
+  'E-Gifts. Read and sanitised by parsePrintDetails() in apps/web/lib/print-pieces.ts; written by POST '
+  '/api/hub-print/words through the admin client after the host''s membership is proven. NULL = never set.';
 
 -- ── THE COLUMN MUST BE GRANTED, OR EVERY SIGNED-IN EVENTS QUERY NAMING IT DIES ──
 -- `public.events` revokes table-level SELECT and re-grants a per-column

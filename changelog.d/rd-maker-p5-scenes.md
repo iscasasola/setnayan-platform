@@ -28,8 +28,9 @@ page. No migration, no new page, **zero new server-action exports**.
 - **Readable for everyone** — a scene on a flat colour takes the Phase 3 legibility answer
   (`lib/scene-legibility.ts` → `hubLegibility`) on the channel tokens its words are painted with.
   No entitlement read.
-- **The editor** — "+ Add a scene" opens the 25 (no blank — owner), drawn as Desktop · Phone · Both,
-  headed with the stage; a template scene gets `SceneSlotsPanel` (change template, pick photos /
+- **The editor** — "+ Add a scene" (the Maker navigator's end, and the sections panel) opens the 25
+  (no blank — owner), drawn as Desktop · Phone · Both, headed with the stage being edited, with the
+  event's real names / days / monogram on the built-on tiles; the navigator names scenes by template; a template scene gets `SceneSlotsPanel` (change template, pick photos /
   your video per slot, word blocks, clip playback). Writes: `addCustomSection` takes `template`;
   `saveCustomSection` gains intents `template` · `slot` · `video` (rules pure in
   `lib/scene-writes.ts`). Words + template free under the grandfather rule; media into a slot and
@@ -38,9 +39,11 @@ page. No migration, no new page, **zero new server-action exports**.
 **Deferred, honestly:** the snap-grid toggle and drag-to-place editor (the `free` contract and its
 sanitizer ship; no UI control ships until the drag editor does — no dead ⊞); per-stage order UI
 (`stages` contract only; D1 open); photo/clip-ground legibility sampling (colour grounds done;
-photo grounds keep the frame's scrim); the Maker shell's ＋ / ⊞ (P1 #5967) still read "coming next"
-until wired to `SceneTemplatePicker`; the Playwright blank-frame harness (the pure sampler + a live
-browser measurement stand in).
+photo grounds keep the frame's scrim); the Maker toolbar's ＋ and ⊞ stay P1's explainers, reworded
+(＋ points at "+ Add a scene"; ⊞ says the grid is on and free placement comes next); the Playwright
+blank-frame harness as a CI test (the pure sampler + a live browser measurement stand in: 0 blank at
+375 · 690×840 · 1440 for Scrub and Auto). The scene intents are live writes until P2's draft path
+(#5966) lands.
 
 SPEC IMPACT: None — implements the locked Phase 5 spec and the 2026-09-24 DECISION_LOG rows
 (25 templates, hybrid hold, three transitions, snap grid, playback) without changing them.

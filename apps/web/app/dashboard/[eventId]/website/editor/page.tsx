@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -742,6 +743,11 @@ export default async function WebsiteEditorPage({
               lookLock={lockPanel('How each section looks and moves')}
               videoChoice={videoChoice}
               colorChoices={colorChoices}
+              sceneStage={
+                /* The prototype's heading words: "Add a scene to the Invitation",
+                   "…to Save the Date", "…to On the Day", "…to Post Event". */
+                initialPhase === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[initialPhase]
+              }
             />
           ),
         },

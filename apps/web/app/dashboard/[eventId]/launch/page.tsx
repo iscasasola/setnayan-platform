@@ -105,6 +105,8 @@ type Props = {
     pin?: string | string[];
     scene?: string | string[];
     chain?: string | string[];
+    /** Phase 6: the made-once workspace to open (`hero` · `reveal` · `logo`). */
+    tool?: string | string[];
   }>;
 };
 
@@ -915,6 +917,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       slug={eventSlug}
       liveStage={liveStage}
       initialStage={isStagePhase(makerStage) ? makerStage : 'rsvp'}
+      /* `?tool=hero|reveal|logo` opens that made-once workspace (Phase 6) — a
+         draft save lands back on the panel the couple was using. */
+      initialSelection={(() => {
+        const tool = one(search.tool);
+        return hasWork && (tool === 'hero' || tool === 'reveal' || tool === 'logo')
+          ? ({ kind: 'tool', key: tool } as const)
+          : null;
+      })()}
       storeShell={storeShell}
       /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the
          slide), and only the catalogue's figure anywhere else. */

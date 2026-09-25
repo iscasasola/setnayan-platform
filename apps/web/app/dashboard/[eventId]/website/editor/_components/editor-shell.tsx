@@ -121,6 +121,12 @@ const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
   our_love_story: 'story',
 };
 
+/**
+ * The made-once group (Phase 6) — Logo · Hero · Reveal — each a workspace of its
+ * own (`launch/_components/maker-made-once.tsx`), handed in as `madeOnce`.
+ */
+export type MadeOnceKey = 'logo' | 'hero' | 'reveal';
+
 const TOOL_ROWS: Record<string, string[]> = {
   hero: ['hero'],
   reveal: ['save-the-date'],
@@ -152,7 +158,11 @@ export function MakerWork({
   showProCta,
   addScene = null,
   sceneFacts = null,
+  madeOnce = null,
 }: {
+  /** Logo · Hero · Reveal — the made-once workspaces (Phase 6). Server-rendered
+   *  panels; an absent key falls back to the row the tool used to open. */
+  madeOnce?: Partial<Record<MadeOnceKey, ReactNode>> | null;
   /** The event's names, monogram and days to go, for the built-on template tiles. */
   sceneFacts?: { names?: string | null; monogram?: string | null; days?: number | null } | null;
   /**
@@ -559,6 +569,7 @@ export function MakerWork({
           themes={themes}
           themeHref={themeHref}
           eventId={eventId}
+          madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
           onClose={() => select?.(null)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
@@ -764,10 +775,12 @@ function Inspector({
   themes,
   themeHref,
   eventId,
+  madeOnce,
   showMotionTabs,
   onClose,
   onTab,
 }: {
+  madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null;
   selection: NonNullable<MakerSelection>;
   scene: MakerScene | null;
   scenePanel: ReactNode;
@@ -809,7 +822,11 @@ function Inspector({
   if (selection.kind === 'scene') {
     body =
       tab === 'content' ? (
-        contentRow && rows[contentRow] ? (
+        /* The hero scene's words and photo ARE the one hero (Phase 6): made
+           once, in the Hero workspace — not a second, live-writing copy. */
+        scene?.type === 'hero' && madeOnce?.hero ? (
+          madeOnce.hero
+        ) : contentRow && rows[contentRow] ? (
           <RowBlock row={rows[contentRow]!} />
         ) : (
           <p className="px-1 text-[13px] text-ink/70">
@@ -829,6 +846,13 @@ function Inspector({
         ))}
       </>
     );
+  } else if (
+    selection.kind === 'tool' &&
+    (selection.key === 'logo' || selection.key === 'hero' || selection.key === 'reveal') &&
+    madeOnce?.[selection.key]
+  ) {
+    // 🧩 The made-once group: the tool's own workspace, drafted, never live.
+    body = madeOnce[selection.key];
   } else if (selection.kind === 'tool' && selection.key === 'logo') {
     body = (
       <section className="space-y-3 px-1">

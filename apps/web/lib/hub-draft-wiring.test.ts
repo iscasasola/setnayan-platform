@@ -35,6 +35,7 @@ function fn(src: string, name: string): string {
 const ACTIONS = 'app/dashboard/[eventId]/website/hub-draft-actions.ts';
 const WIDGETS = 'app/dashboard/[eventId]/website/widgets/actions.ts';
 const EDITOR = 'app/dashboard/[eventId]/website/editor/actions.ts';
+const HERO = 'app/dashboard/[eventId]/website/hero-photo/actions.ts';
 
 test('the draft action file exports exactly ONE server action', () => {
   const src = read(ACTIONS);
@@ -62,6 +63,9 @@ const DRAFTABLE: Array<[file: string, name: string, divert: RegExp]> = [
   [WIDGETS, 'moveWidget', /saveHubDraftPatch\(/],
   [EDITOR, 'saveRsvpBackdrop', /draftBackdrop\(/],
   [EDITOR, 'clearRsvpBackdrop', /draftBackdrop\(/],
+  // Maker Phase 6 — the one hero.
+  [HERO, 'uploadHeroPhoto', /draftHero\(/],
+  [HERO, 'removeHeroPhoto', /draftHero\(/],
 ];
 
 test('every draftable writer diverts to the draft before its first live write', () => {

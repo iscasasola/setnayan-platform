@@ -62,7 +62,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
-import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
@@ -573,9 +573,12 @@ export const loadMedia = cache(
     // so a value naming a private bucket (payment proofs, chat files, IDs) must
     // resolve to nothing — never to a signed link. The database refuses such a
     // value too (events_site_media_names_only_the_public_bucket).
-    const heroPhotoUrl = await displayUrlForStoredAsset(
-      siteMediaServeRef(event.landing_page_hero_image_url),
-    );
+    //
+    // 🖼 THE ONE HERO (Maker Phase 6): the photo and the clip come from
+    // `resolveHero` — the same answer the home board's poster, the Post Event
+    // cover and Prints & Tickets read, so the hero and the poster cannot disagree.
+    const hero = resolveHero(event);
+    const heroPhotoUrl = await displayUrlForStoredAsset(hero.photoRef);
 
     // Hero video + background music chrome (Increment B · §6.2). The video, when
     // present, plays full-bleed behind the monogram instead of the still photo
@@ -587,9 +590,7 @@ export const loadMedia = cache(
     // — no poster, no verdict, no gate — so it does not reach a guest until it
     // goes through the same screen-and-seal spine as std_media. The still photo
     // (already its poster) shows instead. See lib/guest-hero-video.ts.
-    const heroVideoUrl = await displayUrlForStoredAsset(
-      siteMediaServeRef(heroVideoRefForGuests(event.landing_page_hero_video_r2_key)),
-    );
+    const heroVideoUrl = await displayUrlForStoredAsset(hero.guestVideoRef);
     // The couple's song plays whenever they've ENABLED it + set a track
     // (events.site_bg_music_*). The Save-the-Date Music step sets both on upload.
     // (owner 2026-06-19: an uploaded song must just play — the old extra gate on

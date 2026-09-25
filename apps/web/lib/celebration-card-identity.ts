@@ -43,6 +43,7 @@
  */
 
 import { resolveStdTheme, STD_THEMES, type StdThemeId } from './std-themes';
+import { resolveHero } from './event-hero';
 
 /** The subset of an event this card needs. All fields are anon-readable. */
 export type CelebrationIdentityInput = {
@@ -83,7 +84,8 @@ function fontClassFor(themeId: StdThemeId): string {
 export function resolveCelebrationIdentity(
   event: CelebrationIdentityInput,
 ): CelebrationIdentity {
-  const heroUrl = event.landing_page_hero_image_url?.trim() || null;
+  // THE ONE HERO (`lib/event-hero.ts`).
+  const heroUrl = resolveHero(event).photoRef;
   const themeId = resolveStdTheme(event.std_theme);
 
   // A theme is "chosen" only when the row actually said so — `resolveStdTheme`

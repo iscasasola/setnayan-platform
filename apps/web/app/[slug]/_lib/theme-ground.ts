@@ -1,8 +1,8 @@
 import 'server-only';
 
-import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { hubLegibility } from '@/lib/hub-legibility';
-import { INVITE_THEMES, themeMediaKey, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 
 /**
  * theme-ground.ts — WHAT A THEME LAYS BEHIND EVERY GUEST PAGE: its loop, its
@@ -39,11 +39,10 @@ export type ThemeGround = {
   foil: boolean;
 };
 
+/** An `r2://setnayan-media/…` ref → its public URL, through the storage layer's one resolver. */
 function publicUrl(ref: string): string | null {
-  const key = themeMediaKey(ref);
-  if (!key) return null;
   try {
-    return r2PublicUrl(R2_BUCKETS.media, key);
+    return publicUrlForStoredAsset(ref);
   } catch {
     return null;
   }

@@ -45,6 +45,8 @@ const MAKER_FILES = [
   `${C}pro-panels.tsx`,
   `${C}authoring-panels.tsx`,
   `${C}text-panel.tsx`,
+  `${C}scene-slots-panel.tsx`,
+  `${C}scene-template-picker.tsx`,
   PAGE,
   'app/dashboard/[eventId]/launch/page.tsx',
   'app/dashboard/[eventId]/launch/_components/hub-stage.tsx',
@@ -68,7 +70,9 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   setWidgetCrop: null,
   saveRsvpBackdrop: null,
   clearRsvpBackdrop: null,
-  saveCustomSection: /name="intent"\s+value="arrange"/,
+  // Its door covers the section's CANVAS: layout (`arrange`) and a template
+  // scene's `slot` · `video` · `template`. Its words and removal stay live.
+  saveCustomSection: /name="intent"\s+value="arrange"|intent:\s*'(?:slot|video|template)'/,
 };
 
 /**
@@ -82,7 +86,8 @@ const NEVER = 'never drafted by the build plan — address, who can view, what g
 const LIVE: Record<string, string> = {
   [`${C}sections-panel.tsx#SectionsPanel#saveCustomAction`]:
     `a section's own words (config_json.custom) and removing a section (deletes its row) — ${WORDS}`,
-  [`${C}sections-panel.tsx#SectionsPanel#addCustomAction`]: 'inserts a new row; an empty section never reaches a guest',
+  // "+ Add a scene" (addCustomSection, inserts a row) is the template picker's
+  // live half — held by the picker test at the bottom, not by a row here.
   [`${C}media-panels.tsx#HeroPhotoPanel#action`]: MEDIA,
   [`${C}media-panels.tsx#GalleryPanel#action`]: MEDIA,
   [`${C}media-panels.tsx#SiteChromePanel#action`]: MEDIA,
@@ -125,6 +130,15 @@ const PROP_TO_WRITER: Record<string, string> = {
   saveCustomAction: 'saveCustomSection',
   saveAction: 'saveRsvpBackdrop',
   clearAction: 'clearRsvpBackdrop',
+};
+
+/**
+ * A prop name that means a DIFFERENT writer in one file. `scene-slots-panel.tsx`
+ * is handed `saveAction={saveCustomAction}` by `SectionsPanel` (checked below);
+ * everywhere else `saveAction` is the backdrop's.
+ */
+const PROP_OVERRIDES: Record<string, Record<string, string>> = {
+  [`${C}scene-slots-panel.tsx`]: { saveAction: 'saveCustomSection' },
 };
 
 type Form = { file: string; component: string; action: string; body: string; line: number };
@@ -193,11 +207,20 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
         continue;
       }
 
+      // The template picker's mark is decided by its caller (`draft`) — held by
+      // its own test below, caller by caller.
+      if (f.component === 'SceneTemplatePicker') {
+        assert.match(f.body, /\{draft \? <HubDraftField \/> : null\}/, `${where}: the picker's tiles must post draft=1 when drafted`);
+        drafted += 1;
+        continue;
+      }
+
       // Drafted: follow the action to the writer, and the writer must have a door.
       for (const prop of resolveLocalAction(f, src)) {
-        const writer = PROP_TO_WRITER[prop];
+        const override = PROP_OVERRIDES[file]?.[prop];
+        const writer = override ?? PROP_TO_WRITER[prop];
         assert.ok(writer, `${where}: "${prop}" is draft-marked but maps to no known writer`);
-        const bound = [...page.matchAll(new RegExp(`\\b${prop}=\\{(\\w+)`, 'g'))].map((x) => x[1]);
+        const bound = override ? [] : [...page.matchAll(new RegExp(`\\b${prop}=\\{(\\w+)`, 'g'))].map((x) => x[1]);
         if (bound.length > 0) {
           for (const b of bound) assert.equal(b, writer, `${PAGE} binds ${prop} to ${b}, not the door ${writer}`);
         }
@@ -209,7 +232,7 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
     }
   }
   console.log(`[maker-forms] drafted forms: ${drafted} · live forms (marked): ${live} · allowlist rows used: ${seenLive.size}`);
-  assert.ok(drafted >= 20, `only ${drafted} drafted forms seen — the scan is not reading the panels`);
+  assert.ok(drafted >= 26, `only ${drafted} drafted forms seen — the scan is not reading the panels`);
   for (const key of Object.keys(LIVE)) {
     assert.ok(seenLive.has(key), `LIVE allowlist row is stale — nothing renders it any more: ${key}`);
   }
@@ -268,4 +291,37 @@ test("the canvas preview loads the host's draft (?editor=1)", () => {
   const shell = read(`${C}editor-shell.tsx`);
   assert.match(shell, /const previewSrc = publicLandingUrl \? `\$\{publicLandingUrl\}\?phase=\$\{stage\}&editor=1`/);
   assert.match(shell, /src=\{previewSrc\}/);
+});
+
+test('the scene template picker: "Change template" drafts, "+ Add a scene" says it saves immediately', () => {
+  const picker = read(`${C}scene-template-picker.tsx`);
+  assert.match(picker, /\{!draft \? <HubSavesImmediately \/> : null\}/, 'the add sheet must say it saves immediately');
+  let drafted = 0;
+  let live = 0;
+  for (const file of MAKER_FILES) {
+    const src = read(file);
+    for (const m of src.matchAll(/<SceneTemplatePicker\b[\s\S]*?\/>/g)) {
+      const use = m[0];
+      const action = /\baction=\{([\w.]+)\}/.exec(use)?.[1];
+      const isDraft = /^\s*draft\s*$/m.test(use) || /\sdraft(?:=\{true\})?[\s/]/.test(use);
+      if (isDraft) {
+        drafted += 1;
+        assert.equal(file, `${C}scene-slots-panel.tsx`, `${file}: only the slots panel's "Change template" may draft`);
+        assert.equal(action, 'saveAction');
+        assert.match(use, /intent:\s*'template'/, 'a drafted picker must post intent=template (the door)');
+      } else {
+        live += 1;
+        assert.ok(
+          action === 'addCustomAction' || action === 'addScene.action',
+          `${file}: a picker without draft posts ${action} — only "+ Add a scene" (addCustomSection) may write live`,
+        );
+      }
+    }
+  }
+  // The slots panel's saveAction really is saveCustomSection.
+  assert.match(read(`${C}sections-panel.tsx`), /<SceneSlotsPanel\b[\s\S]*?saveAction=\{saveCustomAction\}/);
+  assert.match(read(PAGE), /addScene=[\s\S]*?action: addCustomSection/);
+  console.log(`[maker-forms] template pickers: drafted ${drafted} · add (live, marked) ${live}`);
+  assert.equal(drafted, 1);
+  assert.ok(live >= 2);
 });

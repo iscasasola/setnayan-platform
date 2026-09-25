@@ -5287,7 +5287,8 @@ html:active-view-transition .sn-page-enter { animation: none; }
    countdown) simply become a card too. */
 .sn-hub-cards > section,
 .sn-hub-cards > div > section,
-.hub-scenes > .hub-scene > section {
+.hub-scenes > .hub-scene > section,
+.hub-arun > .hub-scene > section {
   border-radius: var(--m-r-md);
   border: 1px solid rgb(var(--color-ink) / 0.08);
   background: rgb(var(--color-cream) / 1);
@@ -5589,6 +5590,265 @@ html:has([data-sticky-top]) {
 }
 @keyframes hub-prog-fill { to { transform: scaleX(1); } }
 
+/* ── SCENE TEMPLATES — the 25 (Event Hub Maker Phase 5; `lib/scene-templates.ts`,
+   renderer `app/[slug]/_components/scene-template.tsx`) ─────────────────────
+   Drawn from `prototypes/event_hub_editor_FINAL_2026-09-24.html` ("Add a
+   scene"): every template has a DESKTOP and a PHONE arrangement. The phone one
+   is the base below; the desktop one applies only inside
+   `@container (min-width: 36rem)`, measured on the scene's own body
+   (`.hub-has-tpl`), so a phone, a narrow column and the editor's phone preview
+   all get the phone arrangement — and so does a browser without container
+   queries: stacked, complete, readable.
+
+   🔒 LAYOUT ONLY. Nothing here fades, moves or hides: a template's motion is
+   the canvas preset's, bound inside the gates further down like every other
+   section's. One rule per LAYOUT, not per id — 25 near-identical rules would
+   drift apart one edit at a time. */
+.hub-has-tpl > .hub-canvas-body { container-type: inline-size; }
+.hub-tpl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+.hub-tpl > .hub-tpl-h,
+.hub-tpl > .hub-tpl-p { grid-column: 1 / -1; }
+.hub-tpl-m {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-ink) / 0.06);
+  aspect-ratio: 4 / 5;
+}
+.hub-tpl-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hub-tpl-w {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.hub-tpl-h,
+.hub-tpl-bh,
+.hub-tpl-x {
+  margin: 0;
+  font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;
+  font-weight: 400;
+  color: rgb(var(--color-ink));
+}
+.hub-tpl-h { font-size: 1.6rem; line-height: 1.15; }
+.hub-tpl-bh { font-size: 1.15rem; line-height: 1.25; }
+.hub-tpl-p {
+  margin: 0;
+  max-width: 62ch;
+  white-space: pre-line;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: rgb(var(--color-ink) / 0.82);
+}
+.hub-tpl-sign {
+  margin: 0;
+  font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;
+  font-style: italic;
+  color: rgb(var(--color-terracotta));
+}
+.hub-tpl-x { text-align: center; line-height: 1; }
+.hub-tpl-b { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.hub-tpl-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(var(--color-ink) / 0.72);
+  color: rgb(var(--color-cream));
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+/* Media + text · text only */
+.hub-tpl-stack .hub-tpl-m { aspect-ratio: 3 / 2; }
+.hub-tpl-clip .hub-tpl-m { aspect-ratio: 16 / 9; }
+.hub-tpl-stack .hub-tpl-w,
+.hub-tpl-quote .hub-tpl-w,
+.hub-tpl-title,
+.hub-tpl-number,
+.hub-tpl-mono { text-align: center; align-items: center; justify-items: center; }
+.hub-tpl-n6 .hub-tpl-h { font-style: italic; color: rgb(var(--color-terracotta)); }
+.hub-tpl-half .hub-tpl-m { aspect-ratio: 4 / 3; }
+.hub-tpl-half .hub-tpl-w {
+  padding: 1.5rem;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-paper-deep));
+}
+.hub-tpl-quote .hub-tpl-p {
+  font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;
+  font-style: italic;
+  font-size: 1.6rem;
+  line-height: 1.3;
+  color: rgb(var(--color-ink));
+}
+.hub-tpl-title .hub-tpl-x { font-size: clamp(2.5rem, 15cqi, 6rem); }
+.hub-tpl-number .hub-tpl-x { font-size: clamp(4.5rem, 30cqi, 10rem); }
+.hub-tpl-number .hub-tpl-p,
+.hub-tpl-title .hub-tpl-p { text-align: center; margin-inline: auto; }
+.hub-tpl-letter .hub-tpl-w { max-width: 36rem; margin-inline: auto; }
+.hub-tpl-letter .hub-tpl-sign { text-align: end; }
+.hub-tpl-quote .hub-tpl-sign { text-align: center; }
+
+/* Media only */
+.hub-tpl-bleed .hub-tpl-m { aspect-ratio: 4 / 5; }
+.hub-tpl-framed {
+  padding: 2rem 1.25rem;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-paper-deep));
+}
+.hub-tpl-framed .hub-tpl-m {
+  width: 78%;
+  margin-inline: auto;
+  border: 6px solid rgb(var(--color-cream));
+  box-shadow: 0 10px 28px rgb(30 34 41 / 0.14);
+}
+.hub-tpl-mono {
+  padding: 3rem 1.25rem;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-mulberry));
+}
+.hub-tpl-mono .hub-tpl-x,
+.hub-tpl-mono .hub-tpl-p { color: rgb(var(--color-cream)); }
+.hub-tpl-mono .hub-tpl-x { font-style: italic; font-size: clamp(3rem, 18cqi, 7rem); }
+
+/* Group of photos */
+.hub-tpl-grid,
+.hub-tpl-collage,
+.hub-tpl-mosaic { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hub-tpl-grid .hub-tpl-m,
+.hub-tpl-collage .hub-tpl-m,
+.hub-tpl-mosaic .hub-tpl-m { aspect-ratio: 1; }
+.hub-tpl-mosaic > .hub-tpl-m:first-child { grid-column: 1 / -1; aspect-ratio: 4 / 3; }
+.hub-tpl-grid > .hub-tpl-w,
+.hub-tpl-collage > .hub-tpl-w,
+.hub-tpl-mosaic > .hub-tpl-w,
+.hub-tpl-pair > .hub-tpl-w { grid-column: 1 / -1; }
+.hub-tpl-strip {
+  grid-auto-flow: column;
+  grid-template-columns: none;
+  grid-auto-columns: 78%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.hub-tpl-strip > * { scroll-snap-align: start; }
+
+/* Group of texts */
+.hub-tpl-timeline > .hub-tpl-b {
+  position: relative;
+  padding-left: 1.5rem;
+  border-left: 2px solid rgb(var(--color-terracotta) / 0.45);
+}
+.hub-tpl-timeline > .hub-tpl-b::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 0.35rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgb(var(--color-terracotta));
+}
+.hub-tpl-qa .hub-tpl-bh,
+.hub-tpl-timeline .hub-tpl-bh { color: rgb(var(--color-terracotta)); }
+
+/* ── THE DESKTOP ARRANGEMENTS — only where the scene is given the width. ── */
+@container (min-width: 36rem) {
+  .hub-tpl { gap: 1.5rem 2rem; }
+  .hub-tpl-h { font-size: 2.1rem; }
+  .hub-tpl-side,
+  .hub-tpl-half,
+  .hub-tpl-pair,
+  .hub-tpl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hub-tpl-n2 > .hub-tpl-m { order: 2; }
+  .hub-tpl-n6 { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .hub-tpl-n6 .hub-tpl-m { aspect-ratio: 3 / 4; }
+  .hub-tpl-half { gap: 0; align-items: stretch; }
+  .hub-tpl-half .hub-tpl-m { aspect-ratio: auto; min-height: 22rem; border-radius: var(--m-r-md) 0 0 var(--m-r-md); }
+  .hub-tpl-half .hub-tpl-w { justify-content: center; padding: 2.5rem; border-radius: 0 var(--m-r-md) var(--m-r-md) 0; }
+  .hub-tpl-stack .hub-tpl-m { width: 86%; margin-inline: auto; }
+  .hub-tpl-bleed .hub-tpl-m { aspect-ratio: 16 / 9; }
+  .hub-tpl-framed { padding: 3rem; }
+  .hub-tpl-framed .hub-tpl-m { width: 52%; }
+  .hub-tpl-quote .hub-tpl-p { font-size: 2.4rem; }
+  .hub-tpl-mosaic {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    grid-auto-rows: auto;
+  }
+  .hub-tpl-mosaic > .hub-tpl-m:first-child { grid-column: 1; grid-row: span 2; aspect-ratio: auto; height: 100%; }
+  .hub-tpl-mosaic > .hub-tpl-m { aspect-ratio: 4 / 3; }
+  .hub-tpl-collage { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .hub-tpl-collage > .hub-tpl-m { grid-column: span 2; }
+  .hub-tpl-collage > figure:nth-of-type(4):nth-last-of-type(2),
+  .hub-tpl-collage > figure:nth-of-type(5):nth-last-of-type(1) { grid-column: span 3; aspect-ratio: 3 / 2; }
+  .hub-tpl-strip {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow-x: visible;
+  }
+  .hub-tpl-strip > .hub-tpl-w { grid-column: 1 / -1; }
+  .hub-tpl-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .hub-tpl-n23 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hub-tpl-qa { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .hub-tpl-qa > .hub-tpl-b:nth-of-type(even) { margin-top: 2.5rem; }
+  .hub-tpl-timeline { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: start; }
+  .hub-tpl-timeline > .hub-tpl-h,
+  .hub-tpl-timeline > .hub-tpl-p { grid-row: 1; }
+  .hub-tpl-timeline > .hub-tpl-b {
+    grid-row: 2;
+    padding: 1.5rem 0 0;
+    border-left: 0;
+    border-top: 2px solid rgb(var(--color-terracotta) / 0.45);
+  }
+  .hub-tpl-timeline > .hub-tpl-b::before { left: 0; top: -7px; }
+}
+
+/* 4 · Full photo, words on top — the words sit ON the picture only when there
+   IS a picture (`:has`); without one, or without `:has`, it is the stack above
+   and the words keep the page's own ink. Over a photo the words are fixed
+   near-white on a dark scrim they carry themselves, so they read whatever the
+   photo is. */
+.hub-tpl-over:has(> .hub-tpl-m) { grid-template-areas: 'scene'; }
+.hub-tpl-over:has(> .hub-tpl-m) > * { grid-area: scene; }
+.hub-tpl-over:has(> .hub-tpl-m) > .hub-tpl-w {
+  align-self: end;
+  z-index: 1;
+  padding: 3rem 1.25rem 1.25rem;
+  border-radius: 0 0 var(--m-r-md) var(--m-r-md);
+  background: linear-gradient(to top, rgb(18 14 10 / 0.82), rgb(18 14 10 / 0.5) 65%, rgb(18 14 10 / 0));
+}
+.hub-tpl-over:has(> .hub-tpl-m) .hub-tpl-h,
+.hub-tpl-over:has(> .hub-tpl-m) .hub-tpl-p { color: rgb(250 247 242); }
+@container (min-width: 36rem) {
+  .hub-tpl-over .hub-tpl-m { aspect-ratio: 16 / 9; }
+  .hub-tpl-over:has(> .hub-tpl-m) > .hub-tpl-w { padding: 4rem 2.5rem 2rem; }
+}
+
+/* ── AUTO RUNS — the resting page (hub-auto-run.tsx). Unarmed, an auto run is
+   the plain page: its scenes stacked on the hub's 1rem rhythm, no button. The
+   clock and everything it hides live inside the gates below. ── */
+.hub-arun { position: relative; }
+.hub-arun > .hub-auto ~ .hub-auto { margin-top: 1rem; }
+.hub-auto-pp { display: none; }
+
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     /* ══ ONE RULE PER TIMELINE, KEYFRAMES BY CUSTOM PROPERTY ═══════════════
@@ -5875,6 +6135,85 @@ html:has([data-sticky-top]) {
         animation-timeline: var(--hub-tl);
         animation-range: var(--hub-pr);
       }
+
+      /* ══ AUTO RUNS — scenes that hand over on a clock ═════════════════════
+         (owner 2026-09-24: "3. Auto-scroll (can set the speed)"; prototype
+         `scenes_three_modes_std_2026-09-24.html`; timings `autoRunTimings` in
+         lib/hub-scenes.ts, written onto each live scene by `HubAutoRun`.)
+         🔒 A FOURTH GATE: `[data-armed]`, set by the island only after mount and
+         only without reduced motion. No script → none of this applies → the
+         plain stacked page. The scenes share one grid cell, one screen tall;
+         the first is there from the start, every later one fades in over its
+         predecessor, which fades out a beat later (in 15–75 %, out 25–85 % of
+         the hand-off, as in Scrub) — so two are part-visible at every hand-off
+         and none is ever blank. The clock only runs while `[data-playing]`:
+         half the run on screen and not stopped by the guest. Opacity (and
+         visibility, pointer-events) only — no transform on a scene. */
+      .hub-arun { view-timeline: var(--hub-tl) block; }
+      .hub-arun[data-armed] {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: center;
+        min-height: 100vh;
+        min-height: 100svh;
+        padding-block: max(3.5rem, 7vh);
+      }
+      .hub-arun[data-armed] > .hub-auto {
+        grid-area: 1 / 1;
+        margin-top: 0;
+        max-height: calc(100svh - max(7rem, 14vh));
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      .hub-arun[data-armed] > .hub-auto[data-auto-skip] { display: none; }
+      .hub-arun[data-armed] > .hub-auto[data-auto-in] {
+        animation: hub-scene-in var(--hub-fade) linear both;
+        animation-delay: var(--hub-in-at);
+        animation-play-state: paused;
+      }
+      .hub-arun[data-armed] > .hub-auto[data-auto-out] {
+        animation: hub-scene-out var(--hub-fade) linear forwards;
+        animation-delay: var(--hub-out-at);
+        animation-play-state: paused;
+      }
+      .hub-arun[data-armed] > .hub-auto[data-auto-in][data-auto-out] {
+        animation: hub-scene-in var(--hub-fade) linear both, hub-scene-out var(--hub-fade) linear forwards;
+        animation-delay: var(--hub-in-at), var(--hub-out-at);
+        animation-play-state: paused;
+      }
+      /* 🪤 AS SPECIFIC AS THE PAUSED RULES, AND AFTER THEM. The first version
+         was `.hub-arun[data-playing] > .hub-auto` (0,3,0) and lost to the
+         paused `[data-auto-in][data-auto-out]` rule (0,5,0): the island said
+         "playing" and nothing ever moved — measured, 0 hand-offs in 14 s. */
+      .hub-arun[data-armed][data-playing] > .hub-auto[data-auto-in],
+      .hub-arun[data-armed][data-playing] > .hub-auto[data-auto-out],
+      .hub-arun[data-armed][data-playing] > .hub-auto[data-auto-in][data-auto-out] {
+        animation-play-state: running;
+      }
+      /* The scene's own entrance is the hand-off, so the block's arrival is
+         off inside a run (two opacities would multiply), as in Scrub. */
+      .hub-auto > .hub-canvas > .hub-canvas-body { animation: none; }
+      /* Below the progress mark, which itself sits below the invitation's
+         pinned top bar when there is one — measured: at `top: 0.75rem` the
+         button hid under the bar the moment the run reached the top. */
+      .hub-arun[data-armed] > .hub-auto-pp {
+        position: absolute;
+        top: 2.75rem;
+        right: 0.75rem;
+        z-index: 4;
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.25rem;
+        padding: 0 0.9rem;
+        border: 1px solid rgb(var(--color-ink) / 0.16);
+        border-radius: 100px;
+        background: rgb(var(--color-cream) / 0.9);
+        color: rgb(var(--color-ink));
+        font-size: 0.75rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+      }
+      html:has([data-sticky-top]) .hub-arun[data-armed] > .hub-auto-pp { top: 6.75rem; }
     }
   }
 }

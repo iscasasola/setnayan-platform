@@ -21,9 +21,16 @@
  *            transitions is a RUN: its first scene scrolls in like a page and
  *            pins, its last un-pins and scrolls away like a page, and while a
  *            scene holds its parts arrive in turn under the reader's thumb.
- *   auto   — STORED AND VALIDATED ONLY. It renders as `scroll` on the guest page
- *            until the owner approves the auto-scroll prototype (being drawn
- *            2026-09-24). See `renderedTransition`.
+ *   auto   — N and N+1 share ONE screen and cross-fade on a CLOCK
+ *            (`prototypes/scenes_three_modes_std_2026-09-24.html`): a chain of
+ *            auto transitions is an AUTO RUN, its scenes stacked in one cell and
+ *            handed over every `HUB_AUTO_SCENE_SECONDS` × speed, the hand-off
+ *            itself `HUB_AUTO_HANDOFF_SECONDS` long. It starts when the run is
+ *            first seen, pauses when it leaves the screen, and STOPS for good
+ *            the moment the guest touches, scrolls inside or presses a key in it
+ *            (owner 2026-09-24: "guest can pause, stops auto-advancing on guest
+ *            scroll/touch, reduced motion never auto-advances"). See
+ *            `renderedTransition` and `autoRunTimings`.
  *
  * ── WHERE IT LIVES ─────────────────────────────────────────────────────────
  * `invitation_widgets.config_json.canvas.transition` (+ `autoSpeed`), beside
@@ -89,26 +96,25 @@ export function resolveTransition(canvas: { transition?: HubTransition }): HubTr
 /**
  * WHAT THE GUEST PAGE ACTUALLY DRAWS for a section.
  *
- * ⛔ `auto` RENDERS AS `scroll` — deliberately, for now. The owner added
- * Auto-scroll on 2026-09-24 and its prototype is still being drawn; the data
- * model and the editor choice ship now so nothing has to be migrated later,
- * and the auto renderer lands after he approves that prototype. Until then an
- * Auto section is an ordinary section, which is the honest resting state.
- * `hub-scenes.test.ts` pins this, so the day the renderer lands this line must
- * change on purpose.
+ * ✅ `auto` NOW RENDERS AS `auto` (Event Hub Maker Phase 5, 2026-09-25). It
+ * rendered as Scroll while its prototype was being drawn; the prototype is the
+ * one the owner approved with the three modes, and its renderer is
+ * `hub-auto-run.tsx`. `hub-scenes.test.ts` pinned the old line so that this
+ * change had to be made on purpose — it was.
  *
- * ⛔ AND SCRUB RENDERS AS SCROLL WITHOUT PRO. Scrub is an Event Hub Pro
- * feature (one unlock covers every advanced feature — owner ruling). The
- * writer refuses a free couple; this is the renderer's half of the same rule,
- * so a lapsed unlock falls back to the plain page instead of keeping the look.
+ * ⛔ SCRUB AND AUTO RENDER AS SCROLL WITHOUT PRO. Both are Event Hub Pro (one
+ * unlock covers every advanced feature — owner ruling). The writer refuses a
+ * free couple; this is the renderer's half of the same rule, so a lapsed unlock
+ * falls back to the plain page instead of keeping the look.
  */
 export function renderedTransition(
   transition: HubTransition,
-  scrubAllowed: boolean,
-): 'scroll' | 'scrub' {
-  if (transition === 'scrub' && scrubAllowed) return 'scrub';
-  return 'scroll';
+  proAllowed: boolean,
+): RenderedTransition {
+  if (!proAllowed) return 'scroll';
+  return transition;
 }
+export type RenderedTransition = 'scroll' | 'scrub' | 'auto';
 
 /**
  * THE WRITE — what the stored pair becomes after one editor tap, and whether
@@ -149,7 +155,10 @@ export type SceneItem<T> = {
 
 export type SceneSegment<T> =
   | { kind: 'scroll'; entry: SceneItem<T> }
-  | { kind: 'run'; entries: SceneItem<T>[] };
+  /** Scrub run (pinned, scroll-driven). The name predates Auto and stays. */
+  | { kind: 'run'; entries: SceneItem<T>[] }
+  /** Auto run (one screen, a clock). */
+  | { kind: 'auto'; entries: SceneItem<T>[]; speed: HubAutoSpeed };
 
 /**
  * GROUP SCENES JOINED BY A SCRUB TRANSITION INTO RUNS.
@@ -169,33 +178,93 @@ export type SceneSegment<T> =
  *
  * Order is preserved exactly; nothing is dropped.
  */
+/*
+ * 🔑 AUTO JOINS THE SAME WAY, AND A SCENE BELONGS TO ONE RUN. A scene whose
+ * INCOMING edge put it in a run stays in that run; if its own outgoing edge is
+ * of the OTHER kind (the last scene of a scrub run set to Auto, say), that edge
+ * cannot also pin it into a second run — it hands over like a page instead.
+ * First come wins, so a hybrid page never has one scene in two places.
+ *
+ * `speedOf` is read from a run's FIRST scene: one screen has one clock.
+ */
 export function groupSceneRuns<T>(
   items: readonly T[],
-  transitionOf: (item: T) => 'scroll' | 'scrub',
+  transitionOf: (item: T) => RenderedTransition,
+  speedOf: (item: T) => HubAutoSpeed = () => HUB_DEFAULT_AUTO_SPEED,
 ): SceneSegment<T>[] {
   const out: SceneSegment<T>[] = [];
-  /** Does the edge INTO scene `index` scrub? */
-  let joinedFromPrevious = false;
+  /** The kind of the edge INTO scene `index`, when it joins a run. */
+  let joinedFrom: 'scrub' | 'auto' | null = null;
   items.forEach((item, index) => {
     const entry = { item, index };
     const isLast = index === items.length - 1;
-    const joinsNext = !isLast && transitionOf(item) === 'scrub';
-    if (joinedFromPrevious) {
+    const t = isLast ? 'scroll' : transitionOf(item);
+    const joinsNext: 'scrub' | 'auto' | null =
+      t === 'scroll' ? null : joinedFrom === null || joinedFrom === t ? t : null;
+    if (joinedFrom) {
       const run = out[out.length - 1];
-      if (run && run.kind === 'run') run.entries.push(entry);
-    } else if (joinsNext) {
+      if (run && run.kind !== 'scroll') run.entries.push(entry);
+    } else if (joinsNext === 'scrub') {
       out.push({ kind: 'run', entries: [entry] });
+    } else if (joinsNext === 'auto') {
+      out.push({ kind: 'auto', entries: [entry], speed: speedOf(item) });
     } else {
       out.push({ kind: 'scroll', entry });
     }
-    joinedFromPrevious = joinsNext;
+    joinedFrom = joinsNext;
   });
   return out;
 }
 
-/** Does any section on this page actually pin? If not, the page is untouched. */
+/** Does any section on this page actually pin or play? If not, the page is untouched. */
 export function hasScrubRun<T>(segments: readonly SceneSegment<T>[]): boolean {
-  return segments.some((s) => s.kind === 'run');
+  return segments.some((s) => s.kind !== 'scroll');
+}
+
+/* ── THE CLOCK ─────────────────────────────────────────────────────────────
+   Read off the approved prototype (`scenes_three_modes_std_2026-09-24.html`):
+   its Invitation copy hands over every 4.5 s (`--a:0.00;--b:4.50`,
+   `--a:4.50;--b:9.00` …), the hand-off `--F` is 1.2 s, and speed multiplies
+   every duration — Slow 1.4× · Normal 1× · Fast 0.6×. Inside a hand-off the
+   incoming scene fades in over 15–75 % and the outgoing one out over 25–85 %:
+   the same shape as Scrub, with time in place of scroll. */
+export const HUB_AUTO_SCENE_SECONDS = 4.5;
+export const HUB_AUTO_HANDOFF_SECONDS = 1.2;
+export const HUB_AUTO_SPEED_FACTOR: Record<HubAutoSpeed, number> = { slow: 1.4, normal: 1, fast: 0.6 };
+
+export type AutoSceneTiming = {
+  /** When this scene starts fading IN, seconds after the run starts (none for the first). */
+  inAt: number | null;
+  /** When it starts fading OUT (none for the last — it stays). */
+  outAt: number | null;
+  /** How long each fade takes. */
+  fade: number;
+};
+
+/**
+ * WHEN EACH SCENE OF AN AUTO RUN ARRIVES AND LEAVES. Pure, so the blank-frame
+ * check can sample it: at every instant at least one scene is fully or partly
+ * visible, and during a hand-off both are (see `autoRunVisibleAt`).
+ */
+export function autoRunTimings(count: number, speed: HubAutoSpeed): AutoSceneTiming[] {
+  const f = HUB_AUTO_SPEED_FACTOR[speed];
+  const F = HUB_AUTO_HANDOFF_SECONDS * f;
+  const step = HUB_AUTO_SCENE_SECONDS * f;
+  return Array.from({ length: count }, (_, k) => ({
+    inAt: k === 0 ? null : k * step + 0.15 * F,
+    outAt: k === count - 1 ? null : (k + 1) * step + 0.25 * F,
+    fade: 0.6 * F,
+  }));
+}
+
+/** Opacity of each scene at time `t` — what the stylesheet will paint. */
+export function autoRunVisibleAt(timings: readonly AutoSceneTiming[], t: number): number[] {
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  return timings.map(({ inAt, outAt, fade }) => {
+    const inOp = inAt === null ? 1 : clamp((t - inAt) / fade);
+    const outOp = outAt === null ? 1 : 1 - clamp((t - outAt) / fade);
+    return Math.min(inOp, outOp);
+  });
 }
 
 /**
@@ -242,4 +311,8 @@ export const HUB_SCENE_CLASSES = [
   'hub-sp',
   'hub-prog',
   'hub-prog-bar',
+  // Auto runs (hub-auto-run.tsx).
+  'hub-arun',
+  'hub-auto',
+  'hub-auto-pp',
 ] as const;

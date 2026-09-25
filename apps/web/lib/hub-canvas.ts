@@ -39,6 +39,8 @@
 
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
+import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/scene-templates';
+import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -249,7 +251,70 @@ export type HubSectionCanvas = {
   transition?: HubTransition;
   /** Only stored beside `transition: 'auto'`; absent means Normal. */
   autoSpeed?: HubAutoSpeed;
+  /* ── SCENES (Event Hub Maker Phase 5, owner 2026-09-24) ───────────────────
+     Every scene a couple adds starts from one of 25 templates
+     (`lib/scene-templates.ts`); these five keys are the whole of what a
+     template scene stores beyond the fields above. All optional; an absent
+     one means "the template's own shape". */
+  /** Which of the 25 templates (1–25). Absent = not a template scene. */
+  template?: SceneTemplateId;
+  /**
+   * What fills the template's slots, by position. A picture slot holds a
+   * `media` ref (held to the public bucket by the SAME `hubMediaRef` fence as
+   * the background — one fence) and its `kind`; a word block holds `head` and
+   * `text`. A slot the couple never filled is `{}` so positions never shift.
+   */
+  slots?: HubSceneSlot[];
+  /**
+   * SNAP GRID OFF — each slot's box as fractions of the scene box, so it
+   * scales with the screen instead of storing pixels (owner 2026-09-24: "we
+   * also create that snap grids (they can turn on or off)"). Absent = the grid
+   * (the template's own arrangement), which is the default. All-or-nothing: one
+   * bad box drops the lot, because `free[i]` is slot i and dropping one would
+   * shift every box after it onto the wrong picture.
+   */
+  free?: HubFreeBox[];
+  /**
+   * PER-STAGE ORDER AND VISIBILITY, keyed by the four public stages
+   * (`PUBLIC_STAGE_ORDER`). Absent = the row's own `display_order` and `mode`,
+   * which is what every stage shows today. Whether the owner wants six scenes
+   * PER stage (a new column) is decision D1 and is NOT pre-built here.
+   */
+  stages?: Partial<Record<HubStage, HubStageSetting>>;
+  /**
+   * HOW A CLIP IN THIS SCENE PLAYS (owner 2026-09-24: "short clips loop and
+   * longer videos tap to play"). Absent = loop, silent, inline. `open` is kept
+   * only beside `tap`, the direction rule again.
+   */
+  video?: HubSceneVideo;
 };
+
+/** One slot of a template scene. See `slots` above. */
+export type HubSceneSlot = {
+  media?: string;
+  kind?: 'photo' | 'snippet';
+  head?: string;
+  text?: string;
+};
+export type HubFreeBox = { x: number; y: number; w: number; h: number };
+export const HUB_STAGES = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
+export type HubStage = (typeof HUB_STAGES)[number];
+export type HubStageSetting = { order?: number; mode?: 'auto' | 'shown' | 'hidden' };
+export const HUB_VIDEO_PLAYS = ['loop', 'tap'] as const;
+export const HUB_VIDEO_OPENS = ['fullscreen', 'inplace'] as const;
+export type HubSceneVideo = {
+  play: (typeof HUB_VIDEO_PLAYS)[number];
+  open?: (typeof HUB_VIDEO_OPENS)[number];
+};
+
+/** A word block's heading — the recap's custom-column title limit, one home. */
+export const HUB_SLOT_HEAD_MAX = CUSTOM_COLUMN_TITLE_MAX;
+/**
+ * A word block's text. A block is a short piece (a timeline entry, one answer),
+ * not the scene's whole body, which keeps the recap's 4,000. 600 is the
+ * scene-editor's own ceiling, sized so six blocks still fit one screen.
+ */
+export const HUB_SLOT_TEXT_MAX = 600;
 
 /** What the preset means, once nothing is left to interpret. */
 export type HubResolvedMotion = {
@@ -407,7 +472,96 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (autoSpeed && autoSpeed !== 'normal' && transition === 'auto') out.autoSpeed = autoSpeed;
   if (inSet(HUB_STAGGER, canvas.stagger)) out.stagger = canvas.stagger as number;
   if (inSet(HUB_DURATION, canvas.duration)) out.duration = canvas.duration as number;
+  /* ── SCENES. Same posture: a value this version did not write is dropped. */
+  const template = sceneTemplateId(canvas.template);
+  if (template) out.template = template;
+  const slots = hubSceneSlots(canvas.slots);
+  if (slots) out.slots = slots;
+  const free = hubFreeBoxes(canvas.free);
+  if (free) out.free = free;
+  const stages = hubStageSettings(canvas.stages);
+  if (stages) out.stages = stages;
+  const video = hubSceneVideo(canvas.video);
+  if (video) out.video = video;
   return out;
+}
+
+/**
+ * The slots, or null. Positions are kept (an unfillable slot becomes `{}`), the
+ * list is capped at `SCENE_MAX_SLOTS`, and a list with nothing in any slot is
+ * no list at all — `{}` × 6 is not an arrangement anybody made.
+ */
+export function hubSceneSlots(value: unknown): HubSceneSlot[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > SCENE_MAX_SLOTS) return null;
+  const out: HubSceneSlot[] = value.map((raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const s = raw as Record<string, unknown>;
+    const slot: HubSceneSlot = {};
+    const media = hubMediaRef(s.media);
+    if (media) {
+      slot.media = media;
+      if (s.kind === 'snippet') slot.kind = 'snippet';
+    }
+    /* ⛔ OVER THE LIMIT IS DROPPED, NOT CUT — the custom-section rule. */
+    if (typeof s.head === 'string') {
+      const head = s.head.replace(/\r\n?/g, '\n').trim();
+      if (head && head.length <= HUB_SLOT_HEAD_MAX) slot.head = head;
+    }
+    if (typeof s.text === 'string') {
+      const text = s.text.replace(/\r\n?/g, '\n').trim();
+      if (text && text.length <= HUB_SLOT_TEXT_MAX) slot.text = text;
+    }
+    return slot;
+  });
+  return out.some((s) => Object.keys(s).length > 0) ? out : null;
+}
+
+/** Free-placement boxes, or null. Each box inside the unit square, non-empty. */
+export function hubFreeBoxes(value: unknown): HubFreeBox[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > SCENE_MAX_SLOTS) return null;
+  const out: HubFreeBox[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const b = raw as Record<string, unknown>;
+    const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
+    const box = { x: n(b.x), y: n(b.y), w: n(b.w), h: n(b.h) };
+    const ok =
+      box.x >= 0 && box.y >= 0 && box.w > 0 && box.h > 0 && box.x + box.w <= 1 + 1e-9 && box.y + box.h <= 1 + 1e-9;
+    if (!ok) return null;
+    // Stored at four decimals: 0.1 % of a 1440px scene is ~1.4px, finer is noise.
+    const r = (v: number) => Math.round(v * 10000) / 10000;
+    out.push({ x: r(box.x), y: r(box.y), w: r(box.w), h: r(box.h) });
+  }
+  return out;
+}
+
+/** Per-stage order / visibility, or null. Unknown stages and values dropped. */
+export function hubStageSettings(value: unknown): Partial<Record<HubStage, HubStageSetting>> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const src = value as Record<string, unknown>;
+  const out: Partial<Record<HubStage, HubStageSetting>> = {};
+  for (const stage of HUB_STAGES) {
+    const raw = src[stage];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const r = raw as Record<string, unknown>;
+    const setting: HubStageSetting = {};
+    if (typeof r.order === 'number' && Number.isInteger(r.order) && r.order >= 0 && r.order <= 999) setting.order = r.order;
+    if (r.mode === 'auto' || r.mode === 'shown' || r.mode === 'hidden') setting.mode = r.mode;
+    if (Object.keys(setting).length > 0) out[stage] = setting;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** How a scene's clip plays, or null (= the default: loop). */
+export function hubSceneVideo(value: unknown): HubSceneVideo | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (!inSet(HUB_VIDEO_PLAYS, v.play)) return null;
+  // Loop is the default and an absence; only a tap stores anything.
+  if (v.play === 'loop') return null;
+  return inSet(HUB_VIDEO_OPENS, v.open) && v.open !== 'fullscreen'
+    ? { play: 'tap', open: v.open }
+    : { play: 'tap' };
 }
 
 /**
@@ -574,6 +728,11 @@ export function hubPhotoPlacement(canvas: HubSectionCanvas, hasMedia: boolean): 
      it is painted behind in every arrangement — hiding it would turn the
      couple's colour into a control that moves no pixels. */
   if (kind === 'color') return 'behind';
+  /* 🔑 A TEMPLATE SCENE PLACES ITS OWN PICTURES. Its photos live in `slots`
+     and the template's layout puts them; `media` is then the SCENE
+     BACKGROUND only ("Scene background · None — show main", owner 2026-09-24),
+     so it goes behind, whatever an old `arrangement` left on the row says. */
+  if (canvas.template) return 'behind';
   const arrangement = canvas.arrangement ?? HUB_DEFAULT_ARRANGEMENT;
   if (arrangement === 'text') return 'none';
   /* ⚠ A SNIPPET STAYS BEHIND under left / right. The beside column is a
@@ -614,6 +773,10 @@ export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): stri
        the FRAME itself, so the kind class without its video would lay a
        white wash over the words with nothing behind it. */
     ...(bg && placement !== 'none' ? [`hub-bg-${bg.kind}`] : []),
+    /* A template scene: its body is a size container, so the template can
+       choose its desktop or phone arrangement by the width it is actually
+       given — the editor's phone preview included. */
+    ...(canvas.template ? ['hub-has-tpl'] : []),
     `hub-seq-${m.sequence === 'one_after_another' ? 'parts' : 'whole'}`,
     `hub-arr-${canvas.arrangement ?? HUB_DEFAULT_ARRANGEMENT}`,
     `hub-in-${m.in}`,
@@ -659,8 +822,10 @@ export function hubCanvasMediaRefs(
 ): string[] {
   const out = new Set<string>();
   for (const row of rows) {
-    const media = sanitizeHubCanvas(row.config_json).media;
-    if (media) out.add(media);
+    const canvas = sanitizeHubCanvas(row.config_json);
+    if (canvas.media) out.add(canvas.media);
+    // A template scene's own pictures sign in the same one pass.
+    for (const slot of canvas.slots ?? []) if (slot.media) out.add(slot.media);
   }
   return [...out];
 }

@@ -7,6 +7,8 @@ import {
   sanitizeHubCanvas,
 } from '@/lib/hub-canvas';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { sceneLegibilityVars } from '@/lib/scene-legibility';
 
 /**
  * THE CANVAS FRAME — a couple's arrangement, put around one section.
@@ -40,6 +42,7 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 export function HubCanvasFrame({
   widget,
   mediaUrls,
+  hubTheme,
   children,
 }: {
   widget: InvitationWidgetRow;
@@ -52,6 +55,11 @@ export function HubCanvasFrame({
    * do. One `Promise.all` upstream, a lookup here.
    */
   mediaUrls?: Readonly<Record<string, string>>;
+  /**
+   * The live theme (`resolveHubTheme`), so a scene's words take the theme's
+   * own readable ink over the scene's own ground. Absent → Classic's inks.
+   */
+  hubTheme?: InviteThemeId;
   children: React.ReactNode;
 }) {
   if (children === null) return null;
@@ -73,10 +81,19 @@ export function HubCanvasFrame({
      behind the words, in its own column beside them, or — for "Words only" —
      nowhere. The frame draws exactly the one layer that answer names. */
   const placement = hubPhotoPlacement(canvas, painted);
+  /* 🔤 THE WORDS FOLLOW THE SCENE'S OWN GROUND — for every couple, never Pro
+     (owner 2026-09-25: "did you already make the font color adapt also based
+     on the background?"). A flat colour re-derives the ink, heading and
+     eyebrow through the Phase 3 rule (`hubLegibility`); nothing here reads an
+     entitlement. A photo or clip keeps the frame's measured scrim. */
+  const legible =
+    bg?.kind === 'color' && placement === 'behind'
+      ? sceneLegibilityVars(INVITE_THEMES[hubTheme ?? 'house'], bg.color)
+      : null;
   return (
     <div
       className={hubCanvasClass(canvas, painted)}
-      style={hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl) as React.CSSProperties}
+      style={{ ...hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl), ...legible } as React.CSSProperties}
     >
       {/* Beside the words: a clipping box around a CHILDLESS picture layer, so
           the couple's zoom stays inside its own column and — like the

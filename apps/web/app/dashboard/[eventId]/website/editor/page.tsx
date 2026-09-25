@@ -1,4 +1,9 @@
 import { redirect } from 'next/navigation';
+import { resolveMonogram } from '@/lib/monogram';
+import { countdownTargetMs } from '@/lib/countdown-target';
+import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { nextFreeCustomSlot } from '@/lib/custom-sections';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -764,6 +769,11 @@ export default async function WebsiteEditorPage({
               lookLock={lockPanel('How each section looks and moves')}
               videoChoice={videoChoice}
               colorChoices={colorChoices}
+              sceneStage={
+                /* The prototype's heading words: "Add a scene to the Invitation",
+                   "…to Save the Date", "…to On the Day", "…to Post Event". */
+                initialPhase === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[initialPhase]
+              }
             />
           ),
         },
@@ -859,7 +869,12 @@ export default async function WebsiteEditorPage({
   const scenes: MakerScene[] = sectionRows.map((row) => ({
     id: row.widget_id,
     type: row.widget_type,
-    label: WIDGET_CATALOG_BY_TYPE[row.widget_type]?.label ?? row.widget_type,
+    // A scene from a template is named by its template ("Three mosaic"), so
+    // six "Your own section" rows are told apart in the navigator.
+    label: (() => {
+      const t = sanitizeHubCanvas(row.config_json).template;
+      return t ? SCENE_TEMPLATES[t].name : (WIDGET_CATALOG_BY_TYPE[row.widget_type]?.label ?? row.widget_type);
+    })(),
     mode: (row.mode ?? 'auto') as MakerScene['mode'],
     isVisible: row.is_visible,
     hasContent: sectionContent[row.widget_type] !== false,
@@ -927,6 +942,36 @@ export default async function WebsiteEditorPage({
       proPriceLabel={proPriceLabel}
       /* 🔒 Never in the store shell — no pitch, no price (App Review 3.1.1). */
       showProCta={!ownsPro && !storeShell}
+      /* 🎬 "+ Add a scene" — the 25 templates (Phase 5). A scene of their own
+         is Pro (`addCustomSection` refuses without it), and six is the shape
+         (`nextFreeCustomSlot`), so the control appears only where it can
+         succeed and otherwise says why. Hidden in the store shell (a Pro
+         feature there would be a paid pitch). */
+      sceneFacts={{
+        names: (event.display_name as string | null) ?? null,
+        monogram: resolveMonogram({
+          display_name: (event.display_name as string | null) ?? null,
+          monogram_text: (event as { monogram_text?: string | null }).monogram_text ?? null,
+          monogram_color: null,
+        }).text,
+        days: (() => {
+          const target = countdownTargetMs(
+            (event.event_date as string | null) ?? null,
+            ((event as { timezone?: string | null }).timezone) ?? undefined,
+          );
+          const d = target === null ? null : Math.ceil((target - Date.now()) / 86_400_000);
+          return d !== null && d >= 0 ? d : null;
+        })(),
+      }}
+      addScene={
+        storeShell
+          ? null
+          : !ownsPro
+            ? { note: 'Scenes of your own, from 25 templates, come with Event Hub Pro.' }
+            : !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
+              ? { note: 'You have all six of your own scenes. Remove one you are not using to add another.' }
+              : { action: addCustomSection, returnTo: `/dashboard/${eventId}/launch` }
+      }
     />
   );
 }

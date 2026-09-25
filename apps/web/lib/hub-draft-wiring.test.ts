@@ -129,11 +129,33 @@ test('the eye diverts on draft=1: toggleWidgetVisibility drafts is_visible AFTER
   assert.match(fn(read(WIDGETS), 'saveWidgetToDraft'), /Promise<never>/);
 });
 
-test('a custom section drafts ONLY its layout; its words and removal stay live (and the Maker says so)', () => {
+test('a custom section drafts ONLY its canvas (layout, template, slots, clip); its words and removal stay live', () => {
   const body = fn(read(WIDGETS), 'saveCustomSection');
   const arrange = body.indexOf("intent === 'arrange'");
-  const door = body.search(/isHubDraftWrite\(formData\)\)\s*\{\s*const base = await canvasBase\(true/);
+  const door = body.search(/if \(drafting\) \{\s*const base = await canvasBase\(true/);
   assert.ok(arrange > 0 && door > arrange, 'the layout door must sit inside the arrange branch');
   const elseAt = body.indexOf('} else {', arrange);
   assert.ok(door < elseAt, 'the door must not reach the words branch');
+});
+
+test('a template scene (Phase 5) drafts its template, slot and clip writes, building on the drafted canvas', () => {
+  const body = fn(read(WIDGETS), 'saveCustomSection');
+  const scene = body.indexOf("intent === 'template' || intent === 'slot' || intent === 'video'");
+  assert.ok(scene > 0, 'the scene intents are gone');
+  const drafting = body.search(/const drafting = isHubDraftWrite\(formData\)/);
+  assert.ok(drafting > 0 && drafting < scene, 'the draft decision must be made before the scene branch');
+  const base = body.search(/sanitizeHubCanvas\(drafting \? await canvasBase\(true, eventId, row\) : existing\)/);
+  assert.ok(base > scene, 'a drafted scene edit must build on the drafted canvas, not the live one');
+  const door = body.indexOf('if (drafting) await saveCanvasToDraft(formData, eventId, row.widget_type, nextCanvas)');
+  const arrange = body.indexOf("intent === 'arrange'");
+  assert.ok(door > base && door < arrange, 'the scene door must sit at the end of the scene branch');
+  const gates = body.split('\n').filter((l) => /\brequireLookPro\s*\(/.test(l));
+  assert.ok(gates.length >= 2, `only ${gates.length} scene Pro gates seen`);
+  for (const g of gates) assert.match(g, /if\s*\(\s*!drafting\s*\)/, `a scene Pro gate the draft path can reach: ${g.trim()}`);
+});
+
+test('Apply re-checks every slot picture is the couple\'s own, not only the background', () => {
+  const body = fn(read(ACTIONS), 'hubDraftAction');
+  assert.match(body, /drafted\?\.media,\s*\.\.\.\(drafted\?\.slots \?\? \[\]\)\.map\(\(s\) => s\.media\)/);
+  assert.match(body, /refs\.some\(\(r\) => !ownRefs\.has\(r\)\)/);
 });

@@ -285,3 +285,30 @@ test('an eye equal to live is not an item, Undo takes a drafted eye back, and a 
   assert.equal(both.widgets.countdown?.is_visible, false);
   assert.equal(both.widgets.countdown?.mode, 'hidden');
 });
+
+/* ── a template scene's slots and clip (Phase 5) — classified at Apply ─────── */
+
+test('a drafted slot picture or tap-to-play is Pro at Apply; taking it off, the words and the template are free', () => {
+  const liveRows = (canvas: Record<string, unknown>): HubLiveState => ({
+    events: {},
+    widgets: [row({ widget_type: 'custom_1', display_order: 20, config_json: { canvas } })],
+  });
+  const items = (live: HubLiveState, canvas: Record<string, unknown>, ownsPro: boolean) =>
+    planHubDraftApply(mergeHubDraft(emptyHubDraft(), { widgets: { custom_1: { canvas } } }), live, ownsPro);
+
+  const base = { template: 3 };
+  // Putting a photo into a slot — refused for a free couple, applied for Pro.
+  const up = items(liveRows(base), { template: 3, slots: [{ media: PHOTO }] }, false);
+  assert.equal(up.refused.length, 1, 'a slot photo must not reach guests without Pro');
+  assert.equal(items(liveRows(base), { template: 3, slots: [{ media: PHOTO }] }, true).refused.length, 0);
+  // Swapping it is Pro too; taking it off is free.
+  assert.equal(items(liveRows({ template: 3, slots: [{ media: PHOTO }] }), { template: 3, slots: [{ media: OTHER }] }, false).refused.length, 1);
+  assert.equal(items(liveRows({ template: 3, slots: [{ media: PHOTO }] }), { template: 3 }, false).refused.length, 0);
+  // Tap to play is Pro; back to Loop is free.
+  assert.equal(items(liveRows(base), { template: 3, video: { play: 'tap' } }, false).refused.length, 1);
+  assert.equal(items(liveRows({ template: 3, video: { play: 'tap' } }), base, false).refused.length, 0);
+  // Words in a slot and the template pick are free.
+  const words = items(liveRows(base), { template: 7, slots: [{ head: 'How we met', text: 'A rainy Tuesday' }] }, false);
+  assert.equal(words.refused.length, 0);
+  assert.equal(words.apply.length, 1);
+});

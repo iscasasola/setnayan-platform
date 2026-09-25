@@ -341,7 +341,8 @@ export function eventColumnIsPro(column: HubDraftEventColumn): boolean {
 
 /**
  * A section's canvas, live → drafted. Media behind the section (photo or
- * snippet) is classified like any other ref; a COLOUR is never an input, so a
+ * snippet), and media in a template scene's slots, is classified like any
+ * other ref; a COLOUR is never an input, so a
  * colour background stays free in every direction; every other look key
  * (crop, arrangement, motion, transition) adds, changes or removes.
  */
@@ -353,6 +354,20 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
     if (k === 'media') continue;
     changes.push(refChange(asText(live[k]), asText(next[k])));
   }
+  /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
+     line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a
+     picture or a clip into a slot, or swapping it, is Pro; taking one off is
+     not; any non-default playback (tap to play) is Pro, back to Loop is not.
+     The template pick and a slot's WORDS are free, so they are not inputs.
+     Without these lines a free couple could draft a slot photo and Apply it —
+     the gate would see no look key change at all. */
+  const slotRef = (c: HubSectionCanvas, i: number) => {
+    const s = c.slots?.[i];
+    return s?.media ? `${s.kind ?? 'photo'}:${s.media}` : null;
+  };
+  const slotCount = Math.max(live.slots?.length ?? 0, next.slots?.length ?? 0);
+  for (let i = 0; i < slotCount; i += 1) changes.push(refChange(slotRef(live, i), slotRef(next, i)));
+  changes.push(refChange(asText(live.video), asText(next.video)));
   return combineChanges(...changes);
 }
 

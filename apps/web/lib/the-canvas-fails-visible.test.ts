@@ -40,6 +40,7 @@ import {
   hubCanvasClass,
 } from './hub-canvas';
 import { HUB_SCENE_CLASSES } from './hub-scenes';
+import { SCENE_TEMPLATE_IDS } from './scene-templates';
 
 const RAW = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
 
@@ -224,7 +225,7 @@ test('⛔ every custom property the contract EMITS is read by a rule', () => {
   assert.deepEqual(unread, [], `emitted and read by no rule: ${unread.join(', ')}`);
 });
 
-test('⛔ no rule branches on a class the contract can never emit', () => {
+test('⛔ no rule branches on a class the contract can never emit', async () => {
   // The other direction: a selector for a class nothing produces is a rule
   // that can never match — dead CSS that reads as a feature.
   const emitted = new Set<string>();
@@ -264,6 +265,39 @@ test('⛔ no rule branches on a class the contract can never emit', () => {
   // The Scroll · Scrub scenes (hub-scenes.tsx) emit their own small vocabulary,
   // exported beside the contract so it is held to the same rule, not exempted.
   for (const c of HUB_SCENE_CLASSES) emitted.add(c);
+  /* 🎬 THE 25 TEMPLATES (Event Hub Maker Phase 5) — RENDERED, not declared.
+     Every template is drawn through the real `renderScene` with every slot
+     filled, a clip both ways, and its words, and whatever `hub-*` class the
+     markup carries is what counts. A rule for a layout no template uses, or a
+     part the renderer never draws, is then an orphan here. */
+  for (const c of hubCanvasClass({ template: 1 }, false).split(' ')) emitted.add(c);
+  const React = (await import('react')).default;
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { renderScene } = await import('../app/[slug]/_components/scene-template');
+  const tplUrl = (i: number) => `r2://${PUBLIC_R2_BUCKET}/events/E1/t${i}.jpg`;
+  const tplUrls = Object.fromEntries([0, 1, 2, 3, 4, 5].map((i) => [tplUrl(i), `https://cdn.test/t${i}.jpg`]));
+  const facts = { names: 'A & B', monogram: 'A & B', daysToGo: 9, specialMessage: 'Hi', milestones: [] };
+  for (const id of SCENE_TEMPLATE_IDS) {
+    for (const play of ['loop', 'tap'] as const) {
+      const slots = [0, 1, 2, 3, 4, 5].map((i) => ({
+        media: tplUrl(i),
+        ...(id === 5 || id === 14 ? { kind: 'snippet' as const } : {}),
+        head: 'h',
+        text: 't',
+      }));
+      const el = renderScene({
+        canvas: { template: id, slots, ...(play === 'tap' ? { video: { play } } : {}) },
+        words: { title: 'T', body: 'B' },
+        mediaUrls: tplUrls,
+        facts,
+      });
+      const html = el ? renderToStaticMarkup(el) : '';
+      for (const m of html.matchAll(/class="([^"]*)"/g)) {
+        for (const c of (m[1] as string).split(/\s+/)) if (c.startsWith('hub-')) emitted.add(c);
+      }
+    }
+  }
 
   const used = new Set([...canvasBlock().matchAll(/\.(hub-[a-z0-9-]+)/g)].map((m) => m[1] as string));
   const orphanRules = [...used].filter((c) => !emitted.has(c));

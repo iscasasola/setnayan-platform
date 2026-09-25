@@ -541,6 +541,15 @@ export function MakerWork({
       controls={
         pageKey === 'logo' ? null : pageKey === 'love-story' ? (
           <LoveStoryControls rows={rows} />
+        ) : pageKey === 'hero' ? (
+          /* ONE SCENE — the hero (owner 2026-09-25: "hero is a 1 scene page that
+             create a scene for your hero"): its photo or card, and — once the
+             Main background ships (Maker P10, `main-background`, stored on the
+             hero row) — the clip or photo behind every scene, made here. */
+          <>
+            {madeOnce?.hero}
+            {rows['main-background'] ? <RowBlock row={rows['main-background']} /> : null}
+          </>
         ) : (
           madeOnce?.[pageKey]
         )

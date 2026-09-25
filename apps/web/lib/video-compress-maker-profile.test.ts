@@ -13,10 +13,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const SRC_PATH = join(import.meta.dirname, 'video-compress.ts');
 const raw = readFileSync(SRC_PATH, 'utf8');
-const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = stripComments(raw);
 
 test('the maker profile is 1080p (1920 long edge), not the quality path\'s 4K', () => {
   assert.match(code, /MAKER_LONG_EDGE\s*=\s*1920/);

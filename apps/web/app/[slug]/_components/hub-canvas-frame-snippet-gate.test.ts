@@ -23,6 +23,7 @@ import { join } from 'node:path';
 
 import { resolveHubBackground, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { GUEST_HERO_VIDEO_PLAYBACK, heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { stripComments } from '@/lib/strip-comments';
 
 /** Reproduces exactly the gate `HubCanvasFrame` applies, for a direct test. */
 function gatedMediaUrl(canvasRaw: unknown, mediaUrls: Record<string, string>): string | null {
@@ -79,7 +80,7 @@ test('the day GUEST_HERO_VIDEO_PLAYBACK opens for a screened ref, the gate passe
 // ── Source scan: pin that the COMPONENT actually calls the composition ─────
 const SRC_PATH = join(import.meta.dirname, 'hub-canvas-frame.tsx');
 const raw = readFileSync(SRC_PATH, 'utf8');
-const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = stripComments(raw);
 
 test('HubCanvasFrame imports and calls heroVideoRefForGuests before using the snippet media URL', () => {
   assert.match(code, /import \{ heroVideoRefForGuests \} from '@\/lib\/guest-hero-video';/);

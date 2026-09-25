@@ -16,10 +16,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const SRC_PATH = join(import.meta.dirname, 'file-upload.tsx');
 const raw = readFileSync(SRC_PATH, 'utf8');
-const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = stripComments(raw);
 
 test('the raw-size gate in handleFiles is skipped for a file this instance will compress', () => {
   assert.match(

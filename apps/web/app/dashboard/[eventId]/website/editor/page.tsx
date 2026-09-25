@@ -105,6 +105,8 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/l
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
 import { buildMakerNavigatorData } from './_components/maker-navigator-data';
+import { resolveHubPhase } from '@/lib/event-hub-control';
+import { readPostEventForMaker } from '@/lib/post-event-compile.server';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
@@ -384,13 +386,21 @@ export default async function WebsiteEditorPage({
     location: string | null;
   }>;
 
+  /* 💾 THE PANELS SHOW THE DRAFT THEY SAVE INTO (2026-09-25). The Colors,
+     Text, Our story, Dress code and Camera cues panels now post `draft=1`, so
+     each reads its column from the draft laid over the live row — the same
+     overlay the host's canvas renders — or a drafted edit would vanish from the
+     panel that just saved it. (Locks and grandfathering still read `event`:
+     what the couple already HAS live, never what they are trying.) */
+  const drafted = overlayHubDraftEvent(event as Record<string, unknown>, hubDraft) as typeof event;
+
   const story: LoveStoryBlob =
-    event.love_story && typeof event.love_story === 'object'
-      ? (event.love_story as LoveStoryBlob)
+    drafted.love_story && typeof drafted.love_story === 'object'
+      ? (drafted.love_story as LoveStoryBlob)
       : {};
 
   const dressCodeConfig = normalizeDressCodeConfig(
-    (event as { dress_code_config?: unknown }).dress_code_config,
+    (drafted as { dress_code_config?: unknown }).dress_code_config,
   );
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
@@ -404,8 +414,15 @@ export default async function WebsiteEditorPage({
       .map((hex) => ({ name: '', hex }));
   }
 
+  /* The hero panel posts into the draft too (`uploadHeroPhoto`'s Phase 6
+     door), so it shows the drafted photo — signed here only when it is not the
+     live one already signed above. */
+  const heroPanelRef = (drafted.landing_page_hero_image_url as string | null) ?? null;
+  const heroPanelDisplay =
+    heroPanelRef && !heroDisplay[heroPanelRef] ? await displayFor([heroPanelRef]) : heroDisplay;
+
   const photoMomentsConfig = parsePhotoMomentsConfig(
-    (event as { photo_moments_config?: unknown }).photo_moments_config,
+    (drafted as { photo_moments_config?: unknown }).photo_moments_config,
   );
 
   // The backdrop the public invitation already renders. Parsed through the same
@@ -536,14 +553,14 @@ export default async function WebsiteEditorPage({
               rowKey="colors"
               proLocked={colorsProLocked}
               proLock={lockPanel('Button colour, typeface and motion')}
-              bgColor={(event.site_bg_color as string | null) ?? null}
-              buttonColor={(event.site_button_color as string | null) ?? null}
+              bgColor={(drafted.site_bg_color as string | null) ?? null}
+              buttonColor={(drafted.site_button_color as string | null) ?? null}
               artDirection={
-                (event.site_art_direction as 'daylight' | 'candlelight' | null) ?? null
+                (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null
               }
-              fontKey={(event as { site_font_key?: string | null }).site_font_key ?? null}
+              fontKey={(drafted as { site_font_key?: string | null }).site_font_key ?? null}
               magicTraveller={
-                (event as { site_magic_traveller?: string | null }).site_magic_traveller ?? null
+                (drafted as { site_magic_traveller?: string | null }).site_magic_traveller ?? null
               }
             />
           ),
@@ -591,8 +608,8 @@ export default async function WebsiteEditorPage({
             <HeroPhotoPanel
               action={uploadHeroPhoto}
               eventId={eventId}
-              currentRef={heroRef}
-              displayUrls={heroDisplay}
+              currentRef={heroPanelRef}
+              displayUrls={heroPanelDisplay}
             />
           ),
         },
@@ -602,7 +619,7 @@ export default async function WebsiteEditorPage({
           blurb: 'How you met, the proposal, the milestones.',
           href: `${w}/our-story`,
           anchor: 'story',
-          status: event.love_story ? done('Written') : todo('Not set'),
+          status: drafted.love_story ? done('Written') : todo('Not set'),
           panel: (
             <StoryPanel
               action={updateOurStory.bind(null, eventId)}
@@ -685,7 +702,7 @@ export default async function WebsiteEditorPage({
           blurb: 'A note to your guests.',
           href: `${w}/special-message`,
           anchor: 'details',
-          status: event.special_message ? done('Written') : todo('Not set'),
+          status: drafted.special_message ? done('Written') : todo('Not set'),
           // Inline panel (PR-3) — posts to the SAME action the sub-page uses.
           panel: (
             <TextPanel
@@ -707,7 +724,7 @@ export default async function WebsiteEditorPage({
                  the event already knows; with nothing known it returns null and
                  the box is exactly as blank as before. */
               defaultValue={
-                (event.special_message as string | null) ||
+                (drafted.special_message as string | null) ||
                 invitationWordsDraft({
                   displayName: (event.display_name as string | null) ?? null,
                   eventDate: (event.event_date as string | null) ?? null,
@@ -717,12 +734,12 @@ export default async function WebsiteEditorPage({
                   // a cheerful auto-draft on a funeral page is precisely the
                   // defect the whole solemn register exists to prevent.
                   register: profile.terminology.register,
-                  existing: (event.special_message as string | null) ?? null,
+                  existing: (drafted.special_message as string | null) ?? null,
                 }) ||
                 ''
               }
               hint={
-                event.special_message ? undefined : INVITATION_WORDS_HINT
+                drafted.special_message ? undefined : INVITATION_WORDS_HINT
               }
             />
           ),
@@ -733,7 +750,7 @@ export default async function WebsiteEditorPage({
           blurb: 'Gifts, registry, or a kind no-gift note.',
           href: `${w}/what-to-bring`,
           anchor: 'details',
-          status: event.what_to_bring ? done('Written') : todo('Not set'),
+          status: drafted.what_to_bring ? done('Written') : todo('Not set'),
           panel: (
             <TextPanel
               action={updateWhatToBring.bind(null, eventId)}
@@ -743,7 +760,7 @@ export default async function WebsiteEditorPage({
               label="What to bring"
               maxLength={600}
               placeholder="Gifts, registry, or a kind no-gift note…"
-              defaultValue={(event.what_to_bring as string | null) ?? ''}
+              defaultValue={(drafted.what_to_bring as string | null) ?? ''}
             />
           ),
         },
@@ -911,7 +928,26 @@ export default async function WebsiteEditorPage({
   const eventTz = ((event as { timezone?: string | null }).timezone) ?? 'Asia/Manila';
   const countdownMs = countdownTargetMs((event.event_date as string | null) ?? null, eventTz);
   const firstBlock = scheduleBlocks[0] ?? null;
+  /*
+    📖 POST EVENT, WRITTEN FOR THEM (Maker Phase 8). After the day — the
+    has-it-happened resolver, never the website phase, which reaches
+    'editorial' by a second path — the story's scenes are compiled from what
+    happened. The repo has no scheduler, so the couple's open of the Maker IS
+    the moment it is written (`lib/post-event-compile.server.ts`). This page is
+    couple-only (the membership gate above), so this open may write.
+  */
+  const postEvent =
+    resolveHubPhase({
+      measured: true,
+      eventDate: (event.event_date as string | null) ?? null,
+      eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+      timezone: (event as { timezone?: string | null }).timezone ?? null,
+    }) === 'after'
+      ? await readPostEventForMaker({ eventId, eventEnded: true, isCouple: true })
+      : null;
+
   const navigator = buildMakerNavigatorData({
+    postEvent,
     plan: {
       widgets: allWidgets,
       openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),

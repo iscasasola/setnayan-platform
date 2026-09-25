@@ -335,6 +335,13 @@ const NOT_REDACTED_BY_DESIGN = new Map<string, string>([
       'so it never draws a story that is not open to everyone.',
   ],
   [
+    'lib/post-event-compile.server.ts',
+    "the Event Hub Maker's Post Event compile (Phase 8) — it reads the story only " +
+      'to COUNT what each scene has, for the couple who owns it, and hands nobody ' +
+      "the payload: its only output is the navigator's list of names, counts and " +
+      'statuses, and its only caller is the Maker, which is couple-only.',
+  ],
+  [
     'lib/auto-recap.ts',
     "/[slug]/recap is gated by its OWN publish flag (event_recaps.status = " +
       "'published') — a separate, deliberate act by the host, not this story's " +

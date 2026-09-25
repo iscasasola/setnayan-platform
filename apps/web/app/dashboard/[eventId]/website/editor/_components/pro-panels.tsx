@@ -12,7 +12,7 @@ import { useFormStatus } from 'react-dom';
 import { Lock } from 'lucide-react';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 import { unlockLabel } from './unlock-label';
-import { HubSavesImmediately } from '../../_components/hub-draft-field';
+import { HubDraftField } from '../../_components/hub-draft-field';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -108,7 +108,9 @@ export function ColorsPanel({
 }) {
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
-      <HubSavesImmediately />
+      {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
+          Pro half here and pays at Apply. */}
+      <HubDraftField />
       <input
         type="hidden"
         name="return_to"

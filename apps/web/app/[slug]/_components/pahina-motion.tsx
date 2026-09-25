@@ -58,7 +58,7 @@ export function ArrivalOnce() {
         __html: `(function(){try{
 var r=document.documentElement;
 if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-var k='sn-arrived:'+(location.pathname.replace(/\/+$/,'')||'/');
+var k='sn-arrived:'+(location.pathname.replace(/\\/+$/,'')||'/');
 var seen=null;try{seen=localStorage.getItem(k)}catch(e){}
 if(seen)return;
 r.classList.add('sn-arrive');

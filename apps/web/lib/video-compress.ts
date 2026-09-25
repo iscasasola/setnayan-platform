@@ -118,6 +118,26 @@ export const WEB_LONG_EDGE = 1280; // 9:16 → 720 short edge (720p-class — ow
 const WEB_CRF = '30';
 const WEB_AUDIO_BITRATE = '64k';
 
+// ── MAKER profile (Event Hub Maker · Phase 4, DECISION_LOG 2026-09-25) ──────
+// "yes. 1080p. for the background video no sound." Every couple clip picked
+// inside the Maker (background OR content) encodes at the SAME setting the
+// theme loops themselves measure at (`assets/theme-backgrounds-2026-09-24/`:
+// 1080×1920, ~1.1–1.9 Mbps, no audio) — H.264 CRF 23, maxrate ~1.9M, faststart.
+// A 15s clip lands ≈3–4 MB against the couple's 100 MB/event allowance.
+//
+// Deliberately its OWN profile, not a tweak to `quality` (the couple's
+// Save-the-Date path, which stays 4K/CRF21 unchanged) or `web720` (the Papic
+// storage copy, 720p/baseline/CRF30) — three different intents, three presets,
+// per the file's own `profile` union.
+const MAKER_LONG_EDGE = 1920; // 1080p — long edge of a 1080×1920 portrait loop
+const MAKER_CRF = '23';
+const MAKER_MAXRATE = '1.9M';
+const MAKER_BUFSIZE = '3.8M'; // 2× maxrate, same ratio the quality profile uses
+// A SMALL audio track for a clip placed as CONTENT (D2: "guests may tap for
+// sound") — never the quality path's 192k. A BACKGROUND clip strips audio
+// entirely via `-an` (see `silent` below), so this bitrate never applies to one.
+const MAKER_AUDIO_BITRATE = '96k';
+
 // Byte floor for an accepted web copy — anything at/below this is a truncated /
 // empty transcode, not a real clip, and must be ignored (raw stays the copy).
 export const WEB_COPY_MIN_BYTES = 1024;
@@ -235,18 +255,35 @@ export async function compressVideoForWeb(
      *     playable derivative (1280 long edge → 720 short edge, H.264 baseline,
      *     CRF 30, 64k audio). NEVER skips small inputs (even a small raw clip
      *     should become a tiny web copy) and needs no duration probe.
+     *   • 'maker' — the Event Hub Maker's couple clips: 1080p (1920 long
+     *     edge), H.264 CRF 23, maxrate ~1.9M, faststart — the theme-loop
+     *     setting (DECISION_LOG 2026-09-25). NEVER skips (a background clip
+     *     must always lose its audio, so it must always re-encode) and needs
+     *     no duration probe — the 15s cap is refused before this ever runs
+     *     (`lib/maker-media-limits.ts`); `maxDurationS` stays the backstop for
+     *     an unreadable codec.
      */
-    profile?: 'quality' | 'web720';
+    profile?: 'quality' | 'web720' | 'maker';
+    /**
+     * 'maker' profile only. `true` strips audio entirely (`-an`) — a clip used
+     * as a BACKGROUND (main or scene). `false`/omitted keeps a small audio
+     * track — a clip placed as CONTENT in a scene (DECISION_LOG 2026-09-25:
+     * "for the background video no sound"). Ignored by every other profile.
+     */
+    silent?: boolean;
   } = {},
 ): Promise<File> {
   const { onProgress, signal, maxDurationS } = opts;
   const isWebCopy = opts.profile === 'web720';
+  const isMaker = opts.profile === 'maker';
   if (!canCompressVideo()) return file;
 
   // ── Skip clips that are already light enough to stream smoothly (quality
-  // profile only — the web copy ALWAYS re-encodes, and needs no probe).
+  // profile only — the web copy and the maker profile ALWAYS re-encode: the
+  // web copy needs no probe, and a maker BACKGROUND clip must always lose its
+  // audio, which a skip would silently keep).
   let needsTrim = false;
-  if (!isWebCopy) {
+  if (!isWebCopy && !isMaker) {
     onProgress?.({ phase: 'probing', ratio: 0 });
     const duration = await probeDurationSeconds(file);
     const bitrate = duration && duration > 0 ? (file.size * 8) / duration : null;
@@ -259,6 +296,11 @@ export async function compressVideoForWeb(
       return file;
     }
   }
+  // A maker BACKGROUND clip stripping audio is a content rule exactly like the
+  // duration trim — the encode must be KEPT even if it doesn't shrink, or a
+  // couple's silent-background choice would silently revert to their original
+  // (with sound) the moment the re-encode didn't win on size.
+  const mustKeepOutput = needsTrim || (isMaker && opts.silent === true);
 
   try {
     const { fetchFile } = await import('@ffmpeg/util');
@@ -280,14 +322,15 @@ export async function compressVideoForWeb(
         const outName = 'out.mp4';
         await ffmpeg.writeFile(inName, await fetchFile(file));
 
-        // web720: cap the LONG edge to 1280 (9:16 → 720 short edge) using the same
-        // single-quoted `min(...)` filter idiom (quotes protect the inner comma) —
-        // H.264 BASELINE, CRF 30, 64k audio, faststart → a storage-minimal web copy.
+        // web720: cap the LONG edge to 1280 (9:16 → 720 short edge). maker: cap
+        // it to 1920 (1080p, the theme-loop setting). Both use the same
+        // single-quoted `min(...)` filter idiom (quotes protect the inner comma).
         // quality: keep the ORIGINAL resolution up to a 4K long edge (only downscale
         // a >4K source; preserves ≤4K in BOTH orientations — min(cap,iw)+min(cap,ih)+
         // decrease caps the longer side), force even dimensions (H.264). Re-encode
         // H.264/AAC at a visually-transparent CRF with a maxrate cap, faststart.
-        const cap = isWebCopy ? WEB_LONG_EDGE : LONG_EDGE_CAP;
+        const cap = isWebCopy ? WEB_LONG_EDGE : isMaker ? MAKER_LONG_EDGE : LONG_EDGE_CAP;
+        const stripAudio = isMaker && opts.silent === true;
         const code = await ffmpeg.exec([
           '-i', inName,
           // PRIVACY (RA 10173 · CLAUDE.md "geo stripped on outbound shares"): DROP
@@ -308,11 +351,19 @@ export async function compressVideoForWeb(
           '-profile:v', isWebCopy ? 'baseline' : 'high',
           '-pix_fmt', 'yuv420p',
           '-preset', PRESET,
-          '-crf', isWebCopy ? WEB_CRF : CRF,
-          // Quality path caps peak bitrate; the web copy lets CRF govern (no maxrate).
-          ...(isWebCopy ? [] : ['-maxrate', MAXRATE, '-bufsize', BUFSIZE]),
-          '-c:a', 'aac',
-          '-b:a', isWebCopy ? WEB_AUDIO_BITRATE : AUDIO_BITRATE,
+          '-crf', isWebCopy ? WEB_CRF : isMaker ? MAKER_CRF : CRF,
+          // Quality + maker cap peak bitrate; the web copy lets CRF govern (no maxrate).
+          ...(isWebCopy
+            ? []
+            : isMaker
+              ? ['-maxrate', MAKER_MAXRATE, '-bufsize', MAKER_BUFSIZE]
+              : ['-maxrate', MAXRATE, '-bufsize', BUFSIZE]),
+          // A maker BACKGROUND clip drops its audio stream entirely (`-an`) —
+          // DECISION_LOG 2026-09-25: "for the background video no sound." Every
+          // other case keeps an AAC track (content clips keep a SMALL one).
+          ...(stripAudio
+            ? ['-an']
+            : ['-c:a', 'aac', '-b:a', isWebCopy ? WEB_AUDIO_BITRATE : isMaker ? MAKER_AUDIO_BITRATE : AUDIO_BITRATE]),
           '-movflags', '+faststart',
           // Output-duration cap (content rule, e.g. the 30s showcase clip) — +1s
           // tolerance matches the picker validator's container-rounding allowance.
@@ -326,12 +377,14 @@ export async function compressVideoForWeb(
 
         const out = await ffmpeg.readFile(outName);
         // out is a Uint8Array (binary read). Guard the type + that it actually
-        // shrank — EXCEPT when the pass was forced to trim: the duration cap is a
-        // content rule, so the trimmed output is kept even if it didn't get smaller
-        // (returning the original there would silently ship an over-length clip).
+        // shrank — EXCEPT when the pass was forced by a content rule (the
+        // duration trim, or a maker background clip losing its audio): then the
+        // output is kept even if it didn't get smaller, because returning the
+        // original there would silently ship an over-length clip, or one with
+        // sound a couple deliberately asked to have none of.
         if (typeof out === 'string') return file;
         const bytes = out as Uint8Array;
-        if (bytes.byteLength === 0 || (!needsTrim && bytes.byteLength >= file.size)) return file;
+        if (bytes.byteLength === 0 || (!mustKeepOutput && bytes.byteLength >= file.size)) return file;
 
         // Copy into a fresh ArrayBuffer for the File part — the ffmpeg buffer view
         // is typed over ArrayBufferLike (TS won't accept it as a BlobPart directly).

@@ -198,6 +198,34 @@ function sanitizeFilename(raw: string): string {
   return composed.slice(0, MAX_FILENAME_LEN);
 }
 
+/**
+ * Which `events/<eventId>/…` sub-paths count toward the couple's 100 MB Maker
+ * allowance (DECISION_LOG 2026-09-25) — the couple's OWN Event Hub media:
+ * the hero photo, the gallery, background music, the Living Hero clip, and
+ * the Save-the-Date video/background. Deliberately an ALLOWLIST, not "every
+ * upload naming this event": `events/<id>/pakanta-song` (admin-delivered, not
+ * couple-uploaded), `payment-proof/events/<id>`, `paperwork/<id>/…`,
+ * `disputes/<id>/…` and `zone-walkthroughs/<id>/…` all also carry this
+ * event's id but are NOT the media the owner's ₱21/decade math was about —
+ * counting them would over-fill a meter that exists to show a real ceiling.
+ * Extend this set only for a genuine Maker media surface, never to "catch"
+ * an unrelated upload the meter was never meant to see.
+ */
+const COUPLE_MEDIA_METER_SUBPATHS: ReadonlySet<string> = new Set([
+  'landing-page-hero',
+  'landing-page-hero-video',
+  'hero-video',
+  'our-photos',
+  'site-music',
+  'std-video',
+  'std-background',
+]);
+
+function isCoupleMediaMeterPath(pathPrefix: string, eventId: string): boolean {
+  const segs = pathPrefix.split('/');
+  return segs[0] === 'events' && segs[1] === eventId && COUPLE_MEDIA_METER_SUBPATHS.has(segs[2] ?? '');
+}
+
 function sanitizePathPrefix(raw: string): string {
   // Trim leading/trailing slashes, collapse repeats, drop `..` segments —
   // standard defenses against an absolute or escape-y pathPrefix.
@@ -741,6 +769,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // event / thread. Same pattern lib/r2-client-ref.ts documents. Seat mode is
   // exempt — its prefix is derived server-side from the seat, so there is no
   // client-named id to verify.
+  // Set below, only for the couple's OWN media-bucket upload against an event
+  // they hold — the 100 MB/event meter (DECISION_LOG 2026-09-25) counts
+  // exactly this population and nothing else (never Papic/guest captures,
+  // never a vendor's own uploads, never a chat/order attachment).
+  let coupleMediaEventId: string | null = null;
   if (!seatMode) {
     const tenancy = tenancyForPathPrefix(pathPrefix);
     // ── `profile-photo/<authUserId>` is answered WITHOUT a query ─────────────
@@ -804,6 +837,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // Non-specific on purpose (r2-client-ref house style): a caller must not
         // be able to use this endpoint to learn whether an id exists.
         return NextResponse.json({ error: UPLOAD_TENANCY_REFUSAL }, { status: 403 });
+      }
+      if (tenancy.kind === 'event' && bucketKey === 'media' && isCoupleMediaMeterPath(pathPrefix, tenancy.id)) {
+        coupleMediaEventId = tenancy.id;
       }
     }
   }
@@ -907,6 +943,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }),
       presignDisplayUrl(bucketName, objectKey),
     ]);
+
+    // ── THE 100 MB METER (DECISION_LOG 2026-09-25) ──────────────────────────
+    // `sizeBytes` is the COMPRESSED length — the client already ran
+    // `compressImageForWeb`/`compressVideoForWeb` before ever calling this
+    // route, so this is exactly the "compressed bytes" the allowance counts,
+    // with no separate accounting pass needed. `after()` so a slow write never
+    // delays the presign the couple is waiting on; best-effort by design (see
+    // the column's migration docblock) — an update that never lands undercounts
+    // the meter, it never blocks or corrupts an upload.
+    if (coupleMediaEventId) {
+      const eventIdForMeter = coupleMediaEventId;
+      after(async () => {
+        try {
+          // Supabase RESOLVES with { error } — it does not throw on an RPC-level
+          // failure (a bad grant, a check violation) — so the error must be READ,
+          // not just awaited, or a real failure here would be silent forever.
+          const { error } = await createAdminClient().rpc('increment_couple_media_bytes', {
+            p_event_id: eventIdForMeter,
+            p_bytes: sizeBytes,
+          });
+          if (error) {
+            Sentry.captureException(error, {
+              tags: { route: 'api/upload', step: 'couple_media_bytes_meter' },
+              extra: { eventId: eventIdForMeter, sizeBytes },
+            });
+          }
+        } catch (err) {
+          Sentry.captureException(err, {
+            tags: { route: 'api/upload', step: 'couple_media_bytes_meter' },
+            extra: { eventId: eventIdForMeter, sizeBytes },
+          });
+        }
+      });
+    }
 
     return NextResponse.json(
       {

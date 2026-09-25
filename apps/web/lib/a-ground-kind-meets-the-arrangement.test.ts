@@ -35,12 +35,28 @@ test('a colour paints behind in every arrangement', () => {
   }
 });
 
-test('a snippet stays behind under left / right, and draws its video', async () => {
+test('a snippet stays behind under left / right — at the PLACEMENT level, unaffected by screening', () => {
   for (const arrangement of ['left', 'right'] as const) {
     assert.equal(hubPhotoPlacement({ kind: 'snippet', media: REF, arrangement }, true), 'behind');
   }
+});
+
+/**
+ * SEC-6 (Event Hub Maker Phase 4) — `HubCanvasFrame` closes the snippet
+ * bypass this test used to assume open. A snippet's ONLY source is the
+ * couple's `landing_page_hero_video_r2_key` (`setWidgetBackground`'s own
+ * docblock), the same unscreened clip `GUEST_HERO_VIDEO_PLAYBACK`/
+ * `heroVideoRefForGuests` keeps off every other guest surface — so
+ * `HubCanvasFrame` now gates it identically. While the flag is CLOSED (it is,
+ * today: `lib/guest-hero-video.ts`), no snippet reaches a guest `<video>` at
+ * all, however valid its signed URL — it renders exactly like a ref whose
+ * signing failed: no video, no empty still-picture column either.
+ */
+test('a snippet does NOT draw its video while hero-video playback is closed (SEC-6)', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubCanvasFrame } = await import('../app/[slug]/_components/hub-canvas-frame');
+  const { GUEST_HERO_VIDEO_PLAYBACK } = await import('./guest-hero-video');
+  assert.equal(GUEST_HERO_VIDEO_PLAYBACK, false, 'this test documents behaviour while the flag is closed');
   const Frame = HubCanvasFrame as unknown as React.FunctionComponent<Record<string, unknown>>;
   const html = renderToStaticMarkup(
     React.createElement(
@@ -52,8 +68,9 @@ test('a snippet stays behind under left / right, and draws its video', async () 
       React.createElement('p', null, 'words'),
     ),
   );
-  assert.match(html, /<video[^>]*class="hub-canvas-media"/, 'the footage plays behind');
-  assert.doesNotMatch(html, /hub-canvas-photo/, 'no empty still-picture column');
+  assert.doesNotMatch(html, /<video/, 'the unscreened snippet must not reach a guest <video>');
+  assert.doesNotMatch(html, /hub-canvas-photo/, 'no empty still-picture column either');
+  assert.match(html, /hub-no-media/, 'falls back exactly like a ref whose signing failed');
 });
 
 test('nothing drawn means no ground class — the snippet scrim needs its video', () => {

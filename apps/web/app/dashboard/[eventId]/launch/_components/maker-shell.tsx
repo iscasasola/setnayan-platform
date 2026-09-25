@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Info, Monitor, MoreHorizontal, PanelLeft, Play, Plus, Smartphone, X } from 'lucide-react';
+import { Info, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -15,6 +15,8 @@ import {
   type MakerState,
 } from './maker-context';
 import { MakerTour } from './maker-tour';
+import { MakerPlayMenu } from './maker-play-menu';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -228,16 +230,16 @@ export function MakerShell({
               </IconButton>
             ) : null}
             {playHref ? (
-              <a
-                href={playHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Play this stage full screen, as guests meet it"
-                title="Play"
-                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
-              >
-                <Play aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </a>
+              /* ▶ Play this scene (in place, in the canvas) · Preview the whole
+                 stage (a new tab, page-only, the draft). */
+              <MakerPlayMenu
+                stageHref={playHref}
+                stageLabel={PUBLIC_STAGE_LABELS[stage]}
+                sceneSelected={
+                  selection?.kind === 'scene' ||
+                  (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event', 'love-story'].includes(selection.key))
+                }
+              />
             ) : null}
             <ComingNext label="Add a scene" note={MAKER_COMING_NEXT.add} align="start">
               <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />

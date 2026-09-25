@@ -40,7 +40,9 @@ test('both pages wrap the hub sections in the card wrapper', () => {
 
 test('the card look is one CSS block', () => {
   const css = read(join(__dirname, '..', '..', 'globals.css'));
-  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section,\s*\.hub-scenes > \.hub-scene > section \{[^}]*border-radius: var\(--m-r-md\);/);
+  // A scene inside an Auto run (Phase 5, `hub-auto-run.tsx`) sits one level
+  // deeper than `.hub-scenes > .hub-scene`, so it is its own arm of the SAME rule.
+  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section,\s*\.hub-scenes > \.hub-scene > section,\s*\.hub-arun > \.hub-scene > section \{[^}]*border-radius: var\(--m-r-md\);/);
   assert.match(css, /\.sn-hub-cards \.pahina-eyebrow > span\[aria-hidden\]:first-child \{\s*display: none;/);
 });
 

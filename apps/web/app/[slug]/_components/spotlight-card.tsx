@@ -32,7 +32,7 @@ export function SpotlightCard({
   return (
     <Link
       href={content.href}
-      className="group mt-6 flex items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-white/70 px-5 py-4 text-left shadow-sm transition hover:border-terracotta/40 hover:bg-white"
+      className="group mt-6 flex items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-cream/70 px-5 py-4 text-left shadow-sm transition hover:border-terracotta/40 hover:bg-cream"
     >
       <span className="space-y-1">
         <span className="block font-mono text-[0.65rem] uppercase tracking-[0.2em] text-terracotta">

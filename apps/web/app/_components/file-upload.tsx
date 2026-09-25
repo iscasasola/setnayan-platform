@@ -195,6 +195,20 @@ type FileUploadBaseProps = {
    */
   maxVideoDurationS?: number;
   /**
+   * Video encode preset for the `compressVideo` pass (`lib/video-compress.ts`).
+   * Omitted/`'quality'` is the original Save-the-Date behaviour (preserve
+   * resolution up to 4K, CRF 21) — existing callers unaffected. `'maker'` is
+   * the Event Hub Maker's 1080p/CRF 23/faststart theme-loop setting
+   * (DECISION_LOG 2026-09-25). Ignored when `compressVideo` is false.
+   */
+  videoCompressProfile?: 'quality' | 'maker';
+  /**
+   * `'maker'` profile only: strips the clip's audio entirely (`-an`) — for a
+   * clip used as a BACKGROUND. Omitted/`false` keeps a small audio track — a
+   * clip placed as CONTENT. Ignored by every other profile.
+   */
+  videoSilent?: boolean;
+  /**
    * QR-in-media integrity guard (owner-locked 2026-07-03): reject a picked
    * image/video that contains a QR code targeting a vendor-funnel URL
    * (/vendor-invite/, /vendor/lock/ — directly or via a shortener resolved
@@ -385,6 +399,8 @@ export function FileUpload({
   compressVideo = false,
   compressImage = false,
   maxVideoDurationS,
+  videoCompressProfile,
+  videoSilent = false,
   qrGuard = false,
   unsavedHint,
 }: FileUploadProps) {
@@ -555,7 +571,20 @@ export function FileUpload({
         for (const file of toUpload) {
           // Client-side validation. The server runs this same set in the
           // presign route — this is for fast feedback.
-          if (file.size > maxBytes) {
+          //
+          // 🔑 COMPRESS FIRST, THEN CHECK (DECISION_LOG 2026-09-25). A raw
+          // phone photo/video is routinely LARGER than `maxSizeMB` and shrinks
+          // well under it once `compressImage`/`compressVideo` runs — so a
+          // file this component is about to compress is never rejected on its
+          // RAW size here. `uploadOne` re-checks `maxBytes` AFTER compression,
+          // against the bytes that actually reach R2. A file this instance
+          // does NOT compress (the flag is off, or the type doesn't match) is
+          // still checked here, exactly as before — there is no "after" size
+          // to defer to.
+          const willCompress =
+            (compressImage && isImage(file.type)) ||
+            (compressVideo && isVideo(file.type));
+          if (!willCompress && file.size > maxBytes) {
             setError(
               `${file.name} is ${bytesToHuman(file.size)} — max ${maxSizeMB} MB.`,
             );
@@ -621,6 +650,8 @@ export function FileUpload({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       acceptedTypes,
+      compressImage,
+      compressVideo,
       disabled,
       effectiveMaxFiles,
       inFlight.length,
@@ -700,6 +731,8 @@ export function FileUpload({
         setOptimizing({ label: 'Preparing video…', pct: 0 });
         file = await compressVideoForWeb(file, {
           maxDurationS: maxVideoDurationS,
+          profile: videoCompressProfile,
+          silent: videoSilent,
           onProgress: (p) => {
             if (!isMountedRef.current) return;
             const label =
@@ -720,6 +753,24 @@ export function FileUpload({
     }
 
     const contentType = file.type || initialContentType;
+
+    // ── COMPRESS FIRST, THEN CHECK — the other half of the reorder above ────
+    // `handleFiles` skipped the size gate for anything it knew this instance
+    // would compress; THIS is where that deferred check lands, against the
+    // bytes that are actually about to be signed and PUT. A file that could
+    // not be shrunk enough (a genuinely long/heavy clip, or best-effort
+    // compression failing outright) is still refused — just against reality
+    // instead of against a raw size the couple never uploads.
+    if (file.size > maxBytes) {
+      if (isMountedRef.current) {
+        setError(
+          file === rawFile
+            ? `${rawFile.name} is ${bytesToHuman(file.size)} — max ${maxSizeMB} MB.`
+            : `${rawFile.name} is ${bytesToHuman(file.size)} even after compression — max ${maxSizeMB} MB.`,
+        );
+      }
+      return;
+    }
 
     setInFlight((prev) => [
       ...prev,

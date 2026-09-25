@@ -11,6 +11,7 @@ import { SelfieCapture } from './selfie-capture';
 // print the SAME Nº for a given guest.
 import { stubNo } from './pahina-keepsake';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
+import Link from 'next/link';
 
 export function RsvpWidget({
   guest,
@@ -433,13 +434,13 @@ export function RsvpWidget({
             <span className="mt-0.5 block">
               We&rsquo;ll email a sign-in link to the address above — no password needed. I agree
               to the{' '}
-              <a href="/terms" className="font-medium text-link underline-offset-2 hover:underline">
+              <Link href="/terms" className="font-medium text-link underline-offset-2 hover:underline">
                 Terms
-              </a>{' '}
+              </Link>{' '}
               and{' '}
-              <a href="/privacy" className="font-medium text-link underline-offset-2 hover:underline">
+              <Link href="/privacy" className="font-medium text-link underline-offset-2 hover:underline">
                 Privacy Policy
-              </a>
+              </Link>
               .
             </span>
           </span>

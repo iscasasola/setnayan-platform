@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { requireHostMembership } from '@/lib/host-gate';
+import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import {
   isPhotoMomentMode,
   PHOTO_MOMENT_LIMITS,
@@ -125,6 +127,22 @@ export async function updatePhotoMoments(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  /* 💾 THE DRAFT DOOR — the Event Hub Maker's Camera cues panel posts
+     `draft=1` (`PhotoMomentsEditor draft`): the list goes into the couple's
+     draft and guests keep the live one until Apply. This action RETURNS (the
+     editor posts from a transition), so the door returns too. */
+  if (isHubDraftWrite(formData)) {
+    await requireHostMembership(eventIdRaw);
+    try {
+      await saveHubDraftPatch(eventIdRaw, { events: { photo_moments_config: config } });
+    } catch {
+      return { ok: false, error: 'Couldn’t save to your draft. Nothing changed — please try again.' };
+    }
+    revalidatePath(`/dashboard/${eventIdRaw}/website`, 'layout');
+    revalidatePath(`/dashboard/${eventIdRaw}/launch`);
+    return { ok: true };
+  }
 
   const { error } = await supabase
     .from('events')

@@ -234,7 +234,13 @@ test('5 · the layout never resolves the couple\'s reveal photo', () => {
   assert.doesNotMatch(layout, /resolveHubLook|resolveInviteGround/, 'the layout resolves the reveal photo');
   assert.doesNotMatch(layout, /siteSkin\([^)]*photo/, 'the layout hands the site skin a photo');
   // The ground it DOES draw is the theme's own public loop — never the couple's.
-  assert.match(layout, /resolveThemeGround\(/, 'the layout no longer draws the theme ground');
+  // Resolved in `lookScopeProps` (2026-09-25), the ONE translation the layout
+  // and the host canvas's drafted look share.
+  assert.match(layout, /lookScopeProps\(look\)/, 'the layout no longer wears the shared look translation');
+  const scope = stripComments(read('_components', 'host-draft-look.tsx'));
+  const props = scope.slice(scope.indexOf('export function lookScopeProps'), scope.indexOf('export function HostDraftLook'));
+  assert.match(props, /resolveThemeGround\(/, 'the layout no longer draws the theme ground');
+  assert.doesNotMatch(props, /resolveHubLook|resolveInviteGround|photo/, 'the shared translation resolves the reveal photo');
   const ground = stripComments(read('_lib', 'theme-ground.ts'));
   assert.doesNotMatch(
     ground,

@@ -36,6 +36,7 @@ import { siteLookChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -102,6 +103,24 @@ export async function updateSiteColors(
       : undefined;
   const art =
     artRaw === 'candlelight' || artRaw === 'daylight' ? (artRaw as string) : null;
+
+  /* 💾 THE DRAFT DOOR (2026-09-25 — the Maker's live savers go into the draft).
+     From the Maker (`<HubDraftField />`) the colours go into the couple's draft:
+     guests keep the live page until Apply, and Apply is where Pro is asked —
+     a free couple may TRY a button colour or a face and pays at Apply. Same
+     absent-means-unchanged rule as the live write below. */
+  if (isHubDraftWrite(formData)) await draftEventsAndReturn(
+      eventId,
+      {
+        ...(bg !== undefined ? { site_bg_color: bg } : {}),
+        ...(button !== undefined ? { site_button_color: button } : {}),
+        ...(art ? { site_art_direction: art } : {}),
+        ...(font !== undefined ? { site_font_key: font } : {}),
+        ...(magic !== undefined ? { site_magic_traveller: magic } : {}),
+      },
+      formData,
+      `/dashboard/${eventId}/website/editor?open=colors`,
+    );
 
   const supabase = await createClient();
 

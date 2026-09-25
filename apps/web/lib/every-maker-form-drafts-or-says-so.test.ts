@@ -89,6 +89,74 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   // Its door covers the section's CANVAS: layout (`arrange`) and a template
   // scene's `slot` · `video` · `template`. Its words and removal stay live.
   saveCustomSection: /name="intent"\s+value="arrange"|intent:\s*'(?:slot|video|template)'/,
+  // 2026-09-25 — the Maker's live savers into the draft (`draftEventsAndReturn`,
+  // proven per function in maker-live-savers-draft.test.ts).
+  updateSiteColors: null,
+  updateSpecialMessage: null,
+  updateWhatToBring: null,
+  updateOurStory: null,
+  updateDressCode: null,
+  loveStoryMomentAction: null,
+};
+
+/**
+ * A panel handed its writer as a plain `action` prop (`<ColorsPanel
+ * action={updateSiteColors.bind(null, eventId)}>`): `file#Component#prop` →
+ * the writer, and the caller that must bind it so. Followed like
+ * `PROP_TO_WRITER`: a draft-marked form whose caller binds some OTHER writer
+ * would be a draft field on a live save.
+ */
+const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; binds: RegExp }> = {
+  [`${C}pro-panels.tsx#ColorsPanel#action`]: {
+    writers: ['updateSiteColors'],
+    caller: PAGE,
+    binds: /<ColorsPanel\s+action=\{(\w+)\.bind/g,
+  },
+  [`${C}text-panel.tsx#TextPanel#action`]: {
+    writers: ['updateSpecialMessage', 'updateWhatToBring'],
+    caller: PAGE,
+    binds: /<TextPanel\s+action=\{(\w+)\.bind/g,
+  },
+  [`${C}authoring-panels.tsx#StoryPanel#action`]: {
+    writers: ['updateOurStory'],
+    caller: PAGE,
+    binds: /<StoryPanel\s+action=\{(\w+)\.bind/g,
+  },
+  [`${C}authoring-panels.tsx#DressCodePanel#action`]: {
+    writers: ['updateDressCode'],
+    caller: PAGE,
+    binds: /<DressCodePanel\s+action=\{(\w+)\.bind/g,
+  },
+  [`${C}media-panels.tsx#HeroPhotoPanel#action`]: {
+    writers: ['uploadHeroPhoto'],
+    caller: PAGE,
+    binds: /<HeroPhotoPanel\s+action=\{(\w+)\}/g,
+  },
+  [`${S}page.tsx#OurStoryEditorPage#updateAction`]: {
+    writers: ['updateOurStory'],
+    caller: `${S}page.tsx`,
+    binds: /const updateAction = (\w+)\.bind/g,
+  },
+  [`${S}_components/love-story-book.tsx#LoveStoryBook#p.action`]: {
+    writers: ['loveStoryMomentAction'],
+    caller: `${S}page.tsx`,
+    binds: /const action = (\w+)\.bind/g,
+  },
+  [`${S}_components/moment-sheet.tsx#MomentSheet#action`]: {
+    writers: ['loveStoryMomentAction'],
+    caller: `${S}page.tsx`,
+    binds: /const action = (\w+)\.bind/g,
+  },
+  [`${S}_components/pick-from-our-events.tsx#PickFromOurEvents#action`]: {
+    writers: ['loveStoryMomentAction'],
+    caller: `${S}page.tsx`,
+    binds: /const action = (\w+)\.bind/g,
+  },
+  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#specialMessageAction']: {
+    writers: ['updateSpecialMessage'],
+    caller: 'app/dashboard/[eventId]/launch/page.tsx',
+    binds: /specialMessageAction=\{(\w+)\.bind/g,
+  },
 };
 
 /**
@@ -96,41 +164,23 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
  * Each one renders "Saves immediately ⓘ". Shrink this list; never grow it
  * without a reason a couple would accept.
  */
-const WORDS = 'words and content, not look — the draft holds no words column (lib/hub-draft.ts file note)';
 const MEDIA = 'media — its writer verifies and screens the file; draft media is open owner decision D6';
-const LOVE = 'a Love Story moment (love_story) — not drafted yet: its photos would need re-screening at Apply';
 const NEVER = 'never drafted by the build plan — address, who can view, what guests get and open browsing stay live';
 const LIVE: Record<string, string> = {
   [`${C}sections-panel.tsx#SectionsPanel#saveCustomAction`]:
-    `a section's own words (config_json.custom) and removing a section (deletes its row) — ${WORDS}`,
+    "a scene's own words (config_json.custom, on its section row) and removing a scene (deletes the row) — the draft holds a section's canvas, mode and place, not its words or its absence",
   // "+ Add a scene" (addCustomSection, inserts a row) is the template picker's
   // live half — held by the picker test at the bottom, not by a row here.
-  [`${C}media-panels.tsx#HeroPhotoPanel#action`]: MEDIA,
   [`${C}media-panels.tsx#GalleryPanel#action`]: MEDIA,
   [`${C}media-panels.tsx#SiteChromePanel#action`]: MEDIA,
   [`${C}media-panels.tsx#VisibilityPanel#action`]: NEVER,
   [`${C}media-panels.tsx#OpenBrowsePanel#action`]: NEVER,
   [`${C}media-panels.tsx#LaunchPhasePanel#action`]: NEVER,
-  [`${C}pro-panels.tsx#ColorsPanel#action`]:
-    'colours, face and art direction are painted by app/[slug]/layout.tsx, which cannot see ?editor=1 — a drafted colour would be a save the preview never shows',
-  [`${C}text-panel.tsx#TextPanel#action`]: WORDS,
-  [`${C}authoring-panels.tsx#DressCodePanel#action`]: WORDS,
-  [`${C}authoring-panels.tsx#StoryPanel#action`]: WORDS,
   // Phase 9 · the Details panel (made-once): what the prints include and the
   // print-only lines (`events.print_details` — the include toggles, the opening
-  // line, the "Kindly reply" choice). The draft holds no words and no print
-  // settings (lib/hub-draft.ts), so these write live and say so.
+  // line, the "Kindly reply" choice).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#PRINT_WORDS_ENDPOINT']:
-    `the print include toggles and print-only lines (events.print_details) — ${WORDS}`,
-  // The special message — the SAME writer the editor's Text panel posts to.
-  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#specialMessageAction']: WORDS,
-  // 💌 THE SCRAPBOOK (P7). `events.love_story` is not in HUB_DRAFT_EVENT_COLUMNS:
-  // drafting it needs the host preview to read a drafted blob AND Apply to
-  // re-screen every moment photo — the follow-up, not tonight.
-  [`${S}page.tsx#OurStoryEditorPage#updateAction`]: `the invitation's story words — ${WORDS}`,
-  [`${S}_components/love-story-book.tsx#LoveStoryBook#p.action`]: LOVE,
-  [`${S}_components/moment-sheet.tsx#MomentSheet#action`]: LOVE,
-  [`${S}_components/pick-from-our-events.tsx#PickFromOurEvents#action`]: LOVE,
+    'the printed set\'s settings (events.print_details) — read only by the prints the couple downloads (lib/print-set.server.ts), never by a guest page, so there is nothing for a guest to see before Apply',
 };
 
 /** Writers the Maker's page may bind that go live — each behind a LIVE form above. */
@@ -138,14 +188,8 @@ const LIVE_WRITERS = new Set([
   'updateLandingPageVisibility',
   'setLaunchPhase',
   'setOpenBrowse',
-  'updateSiteColors',
   'updateSiteChrome',
-  'uploadHeroPhoto',
-  'updateOurStory',
   'updateOurPhotos',
-  'updateDressCode',
-  'updateSpecialMessage',
-  'updateWhatToBring',
   'addCustomSection',
   // saveCustomSection is BOTH: its `arrange` intent is drafted, its words are live.
 ]);
@@ -247,6 +291,19 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
         continue;
       }
 
+      // A panel handed its writer as a plain prop: the caller must bind it to a door.
+      const viaComponent = COMPONENT_WRITERS[`${file}#${f.component}#${f.action}`];
+      if (viaComponent) {
+        const bound = [...read(viaComponent.caller).matchAll(viaComponent.binds)].map((x) => x[1]!);
+        assert.ok(bound.length > 0, `${where}: ${viaComponent.caller} no longer binds this panel's writer`);
+        for (const b of bound) {
+          assert.ok(viaComponent.writers.includes(b), `${where}: ${viaComponent.caller} binds ${b}, not ${viaComponent.writers.join('/')}`);
+          assert.ok(b in DRAFT_WRITERS, `${where}: ${b} has no draft door, so the draft field would be a lie`);
+        }
+        drafted += 1;
+        continue;
+      }
+
       // Drafted: follow the action to the writer, and the writer must have a door.
       for (const prop of resolveLocalAction(f, src)) {
         const override = PROP_OVERRIDES[file]?.[prop];
@@ -266,7 +323,7 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
     }
   }
   console.log(`[maker-forms] drafted forms: ${drafted} · live forms (marked): ${live} · allowlist rows used: ${seenLive.size}`);
-  assert.ok(drafted >= 26, `only ${drafted} drafted forms seen — the scan is not reading the panels`);
+  assert.ok(drafted >= 40, `only ${drafted} drafted forms seen — the scan is not reading the panels`);
   for (const key of Object.keys(LIVE)) {
     assert.ok(seenLive.has(key), `LIVE allowlist row is stale — nothing renders it any more: ${key}`);
   }
@@ -288,7 +345,6 @@ test('every writer the Maker page binds is either a draft door or a reasoned liv
  * `[\s{}]*` because a JSX comment between the two strips to `{}`.
  */
 const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
-  [`${C}authoring-panels.tsx`, /<HubSavesImmediately\b[^>]*\/>[\s{}]*<PhotoMomentsEditor\b/, 'camera cues post from a transition'],
   [PAGE, /<HubSavesImmediately\b[^>]*\/>[\s{}]*<LaunchStdButton\b/, 'go-live publishes the page'],
   ['app/dashboard/[eventId]/launch/_components/hub-stage.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
   [`${C}editor-shell.tsx`, /Choose your theme[\s\S]{0,200}<\/Link>[\s{}]*<HubSavesImmediately\b/, 'the theme picker writes events.invite_theme live'],

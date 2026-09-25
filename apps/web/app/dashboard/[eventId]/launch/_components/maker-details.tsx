@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import type { PrintParent, StoredPrintDetails } from '@/lib/print-pieces';
-import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { HubDraftField, HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PabuyaMessageEditor } from '../../pabuya/_components/pabuya-message-editor';
 import { OpeningLineField } from './opening-line-field';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
@@ -30,8 +30,12 @@ import { PRINT_PIECES } from '@/lib/print-pieces';
  * the top, the Event Hub ADDRESS (owner: "Add the slug to details"), edited with
  * the shipped `SlugField` and shown with the QR every print carries.
  *
- * Every write here goes live (none is a look the draft holds) and says so
- * (`every-maker-form-drafts-or-says-so.test.ts`).
+ * The special message saves into the DRAFT (guests read it on the Event Hub).
+ * The rest writes live and says so (`every-maker-form-drafts-or-says-so.test.ts`):
+ * the address is never drafted; the include toggles, opening line and "Kindly
+ * reply" (`events.print_details`) shape only the printed set the couple
+ * downloads — no guest page reads them; and the thank-you message is the
+ * E-Gifts page's own column, edited there too.
  *
  * 🖼 DETAILS IS A PAGE (owner 2026-09-25: *"we do not want a pop up for details,
  * logo, hero, reveal and love story. we want their actual page to be on the body
@@ -222,7 +226,7 @@ export function MakerDetails({
 
         {/* ── Special message → events.special_message ── */}
         <form action={specialMessageAction} data-details-special="" className="flex flex-col gap-3 border-t border-ink/10 pt-4">
-          <HubSavesImmediately />
+          <HubDraftField />
           <input type="hidden" name="return_to" value={back} />
           <label className="flex flex-col gap-1 text-sm text-ink/80">
             Special message — your closing words to guests

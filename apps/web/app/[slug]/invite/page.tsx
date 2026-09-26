@@ -43,7 +43,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, event_end_date, venue_latitude, venue_longitude`,
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
@@ -128,7 +128,8 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   // composition the Event Hub uses (../_lib/reveal-props), and the couple's own
   // chosen opening wins over the theme's default — including "No Reveal".
   // WHEN it may play is the Event Hub's own rule too (lib/invite-reveal.ts): the
-  // save-the-date and invitation stages only, never the day itself, never a wake.
+  // stages the couple chose (`reveal_stages` — the Save the Date alone when never
+  // chosen), never after the day, never a wake.
   // The overlay still resolves its own Event Hub Pro ownership
   // (RevealOverlayServer), so a lapsed unlock shows no reveal.
   const revealPlays =
@@ -141,6 +142,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
         event.venue_latitude as number | null,
         event.venue_longitude as number | null,
       ),
+      revealStages: (event as { reveal_stages?: unknown }).reveal_stages,
     });
   const reveal =
     look.theme === 'house' ? null : (

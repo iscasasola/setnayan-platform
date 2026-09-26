@@ -86,6 +86,8 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
 import { REVEAL_NONE, revealTemplateWriteAllowed } from '@/lib/reveal-access';
 import { sanitizeStudioConfig, sanitizeStudioSvg } from '@/lib/monogram-studio-shared';
+import { resolveRevealStages, sanitizeRevealStages } from '@/lib/reveal-stages';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
@@ -115,6 +117,17 @@ export const HUB_DRAFT_HISTORY_LIMIT = 10;
  *   · `monogram_custom_svg` + `monogram_studio_config` — the Logo, autosaved
  *     from the studio so a design is never lost by leaving (owner 2026-09-25,
  *     FINAL_PLAN_INPUTS 29). Letters, frame and ink are free.
+ *   · `reveal_stages` — WHERE the reveal plays (owner 2026-09-25, "they can pick
+ *     where the want to keep it"): Save the Date · Invitation · On the Day,
+ *     sanitised by `sanitizeRevealStages`. Free to choose — the opening itself is
+ *     the Pro part. The host's preview reads it off the overlaid event row.
+ *   · `std_reveal_effects` — the reveal's FINE-TUNING from the Maker's Reveal
+ *     page (owner 2026-09-25: *"pick a reveal and see the effects, fine tune it
+ *     to your liking"*): butterflies, falling petals, the veil's and the petals'
+ *     colours — `resolveRevealEffects`, the guest render's own parser. Changing
+ *     any of them is Pro at Apply (`revealEffectsWriteAllowed`, the Save-the-Date
+ *     studio's own rule); the film's `music` switch is not the Maker's and Apply
+ *     keeps the live one (`hub-draft-actions.ts`).
  */
 /** The Colors panel's five columns — `updateSiteColors`, all of it. */
 export const HUB_DRAFT_LOOK_COLUMNS = [
@@ -149,6 +162,8 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   // RSVP form's own questions this couple still asks. A fact about the day,
   // never Pro (HUB_WORDS_EVENT_COLUMNS) — see lib/rsvp-ask.ts for the shape.
   'rsvp_ask_config',
+  'reveal_stages',
+  'std_reveal_effects',
   // 🎨 THE COLOURS AND FACE (the Maker's Colors panel · `updateSiteColors`).
   // Painted by `app/[slug]/layout.tsx`, which cannot see `?editor=1` — so the
   // host canvas re-wears the look from the OVERLAID row inside the page
@@ -236,6 +251,10 @@ export function sanitizeHubDraftEventValue(
       return sanitizeStudioSvg(raw) ?? undefined;
     case 'monogram_studio_config':
       return sanitizeStudioConfig(raw) ?? undefined;
+    case 'reveal_stages':
+      return sanitizeRevealStages(raw);
+    case 'std_reveal_effects':
+      return raw && typeof raw === 'object' && !Array.isArray(raw) ? resolveRevealEffects(raw) : undefined;
     // 🎨 `updateSiteColors`' own parses — a malformed value is dropped, never repaired.
     case 'site_bg_color': {
       // 🌈 Plain hex OR an encoded ombré (`lib/ombre.ts`) — the ONE reader of
@@ -537,6 +556,22 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'monogram_custom_svg':
     case 'monogram_studio_config':
       return refChange(asText(live), asText(next));
+    case 'reveal_stages': {
+      // Compared as the page reads it: NULL (never chosen) and an explicit
+      // Save-the-Date-only are the same page, so choosing that is not a change.
+      const key = (v: unknown) => (v === null || v === undefined ? null : resolveRevealStages(v).join(','));
+      const l = key(live) ?? resolveRevealStages(null).join(',');
+      const n = key(next) ?? resolveRevealStages(null).join(',');
+      return l === n ? refChange('same', 'same') : refChange(l, n);
+    }
+    case 'std_reveal_effects': {
+      // Only what the reveal shows — the film's `music` is not the Maker's.
+      const key = (v: unknown) => {
+        const { music: _music, ...reveal } = resolveRevealEffects(v);
+        return JSON.stringify(reveal);
+      };
+      return key(live) === key(next) ? refChange('same', 'same') : refChange('live', 'drafted');
+    }
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
       // Daylight and "never chosen" are the same page.
@@ -576,6 +611,9 @@ export function eventItemIsPro(
   if (column === 'std_reveal_template') {
     return !revealTemplateWriteAllowed(typeof value === 'string' ? value : null, false);
   }
+  // A changed reveal effect is Pro — `revealEffectsWriteAllowed`'s rule; the
+  // classification above already ignores the film's music switch.
+  if (column === 'std_reveal_effects') return true;
   if (column === 'love_story') {
     // 💌 THE ONE MOMENT RULE (`momentCapRefusal`), asked of live → drafted as
     // if the couple did not own Pro: more than five stories, or any photo the
@@ -920,6 +958,8 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   std_reveal_template: 'Your reveal',
   monogram_custom_svg: 'Your logo',
   monogram_studio_config: 'Your logo design',
+  reveal_stages: 'Where your reveal plays',
+  std_reveal_effects: 'Your reveal’s effects',
   site_bg_color: 'Your background colour',
   site_button_color: 'Your button colour',
   site_art_direction: 'Candlelight',

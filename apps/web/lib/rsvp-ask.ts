@@ -181,7 +181,7 @@ export function resolveReplyBy(input: {
   if (/^\d{4}-\d{2}-\d{2}/.test(set)) return { date: set.slice(0, 10), isDefault: false };
   const day = (input.eventDate ?? '').trim();
   if (!/^\d{4}-\d{2}-\d{2}/.test(day)) return null;
-  const [y, m, d] = day.slice(0, 10).split('-').map(Number);
+  const [y = NaN, m = NaN, d = NaN] = day.slice(0, 10).split('-').map(Number);
   const t = Date.UTC(y, m - 1, d) - DEFAULT_REPLY_BY_DAYS * 86_400_000;
   if (!Number.isFinite(t)) return null;
   return { date: new Date(t).toISOString().slice(0, 10), isDefault: true };

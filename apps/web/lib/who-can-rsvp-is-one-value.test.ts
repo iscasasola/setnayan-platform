@@ -24,6 +24,9 @@ import {
   sanitizeRsvpAskConfig,
 } from '@/lib/rsvp-ask';
 import { sanitizeHubDraftEventValue } from '@/lib/hub-draft';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 test('default: absent / null / junk reads as Only my Guest List, and nobody may ask', () => {
   for (const raw of [null, undefined, {}, { whoCanRsvp: 'everyone' }, { whoCanRsvp: true }, 'x', []]) {
@@ -55,6 +58,25 @@ test('a six-switch save through the draft path does not reset Who can RSVP', () 
   // …and the question switches still resolve exactly as before.
   assert.equal(resolveRsvpAsk(stored).dietary, false);
   assert.equal(resolveRsvpAsk(stored).meal, true);
+});
+
+test('Who can RSVP is READ through the one reader in both places that show it, and written in only one', () => {
+  const read = (rel: string) => stripComments(readFileSync(join(__dirname, '..', rel), 'utf8'));
+  const maker = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
+  const invite = read('app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx');
+  for (const [where, src] of [
+    ['the Maker’s RSVP page', maker],
+    ['Guest List → Invite', invite],
+  ] as const) {
+    assert.match(src, /readWhoCanRsvp\(/, `${where} does not read Who can RSVP through readWhoCanRsvp`);
+    assert.doesNotMatch(src, /\.whoCanRsvp\b/, `${where} parses the stored key itself — a second reader can drift`);
+  }
+  // The Maker's page writes it (the whole config, through the draft door); the
+  // Invite panel only links there.
+  assert.match(maker, /save\(\{ whoCanRsvp: value \}\)/, 'the Maker page no longer writes Who can RSVP');
+  assert.match(maker, /hubDraftAction\(eventId, fd\)/, 'the write left the draft door');
+  assert.doesNotMatch(invite, /hubDraftAction|whoCanRsvp:/, 'Guest List → Invite grew a second writer');
+  assert.match(invite, /launch\?tool=rsvp-page/, 'Guest List → Invite no longer leads to where it is changed');
 });
 
 test('one question at a time defaults OFF', () => {

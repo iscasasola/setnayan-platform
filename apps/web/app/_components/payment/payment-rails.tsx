@@ -37,6 +37,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
+import { saveImageToDevice } from '@/lib/save-to-device';
 import { OpenWalletButton } from '@/app/_components/open-wallet-button';
 import { mintOrderQr } from '@/lib/emv-qr';
 import { qrWords } from '@/lib/qr-amount-truth';
@@ -358,13 +359,11 @@ export function PaymentDetailsBlock({
                   point that phone's camera at its own screen. Both GCash and
                   the BDO app can scan an image from the gallery, so saving is
                   the only route that works without a second device. */}
-              <a
-                href={mintedQr}
-                download={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
-                className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink"
-              >
-                Save image · scan from gallery
-              </a>
+              <SaveQrToGallery
+                dataUrl={mintedQr}
+                filename={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
+                appLabel={label}
+              />
             </>
           ) : (
             /* 🚨 THIS BRANCH IS THE STATIC UPLOADED CODE, WHICH CARRIES NO
@@ -435,6 +434,90 @@ export function PaymentDetailsBlock({
         provider={label}
         className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-[13px] font-semibold text-ink/80 transition hover:border-mulberry/50 hover:text-mulberry"
       />
+    </div>
+  );
+}
+
+/**
+ * "Save this code" — get the amount-carrying QR into the payer's gallery.
+ *
+ * 🛑 THIS REPLACED A BARE `<a download>` ON A data: URL, WHICH SAVED NOTHING
+ * ON AN IPHONE. Measured 2026-09-23 on the owner's iPhone, Safari, from a
+ * plain http page whose control probe confirmed the page COULD hand off to
+ * other apps (a "Call 0917…?" sheet appeared): four taps, four times the file
+ * landed in neither Photos nor Files. Nowhere.
+ *
+ * 🔑 AND THE LABEL PROMISED THE PLACE IT NEVER REACHED. It read
+ * "Save image · scan from gallery" — so a couple on their own phone, which is
+ * the ONLY situation this control exists for (you cannot point a phone's
+ * camera at its own screen), was told to scan from a gallery that never
+ * received the picture. The amount-carrying QR is the one path that spares
+ * them typing the figure, and on iOS it was a dead end.
+ *
+ * The mechanism was already in this repo, built for Papic and documented:
+ * `lib/save-to-device.ts` hands the file to `navigator.share`, where the OS
+ * offers "Save to Photos" (iOS) / "Save image" (Android). A browser cannot
+ * write to the camera roll silently — that is a security boundary, not a
+ * missing API — so the share sheet is as close to a one-tap save as the web
+ * allows. Desktop falls through to a download, which is right there.
+ *
+ * ⚠ 'shared' DOES NOT MEAN SAVED. `saveImageToDevice` deliberately returns
+ * 'shared' when the payer DISMISSES the sheet, because seeing the option is
+ * not a failure worth re-prompting over. So nothing here may say "Saved!" —
+ * it would be a claim about an action we cannot observe. Every message below
+ * is an instruction that stays true whether they tapped Save or cancelled.
+ */
+function SaveQrToGallery({
+  dataUrl,
+  filename,
+  appLabel,
+}: {
+  dataUrl: string;
+  filename: string;
+  /** "GCash" / "BDO" — the app the payer is about to scan this in. */
+  appLabel: string;
+}) {
+  const [phase, setPhase] = useState<'idle' | 'working' | 'shared' | 'downloaded' | 'failed'>(
+    'idle',
+  );
+
+  async function onSave() {
+    setPhase('working');
+    const result = await saveImageToDevice(dataUrl, filename);
+    setPhase(result === 'shared' ? 'shared' : result === 'downloaded' ? 'downloaded' : 'failed');
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={phase === 'working'}
+        className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink disabled:opacity-60"
+      >
+        {phase === 'working' ? 'Opening…' : 'Save this code'}
+      </button>
+
+      {phase === 'shared' ? (
+        <p className="max-w-[34ch] text-center text-[11px] leading-relaxed text-ink/60">
+          Choose <b className="text-ink">Save Image</b>, then in {appLabel} tap{' '}
+          <b className="text-ink">Scan</b> and pick it from your photos.
+        </p>
+      ) : null}
+
+      {phase === 'downloaded' ? (
+        <p className="max-w-[34ch] text-center text-[11px] leading-relaxed text-ink/60">
+          It went to your downloads. In {appLabel}, tap <b className="text-ink">Scan</b> and
+          choose it from your files.
+        </p>
+      ) : null}
+
+      {phase === 'failed' ? (
+        <p className="max-w-[34ch] text-center text-[11px] leading-relaxed text-ink/60">
+          That didn&rsquo;t work on this phone — <b className="text-ink">press and hold the code
+          above</b> and choose Add to Photos.
+        </p>
+      ) : null}
     </div>
   );
 }

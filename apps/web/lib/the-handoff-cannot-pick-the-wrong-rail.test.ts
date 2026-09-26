@@ -34,8 +34,10 @@ import { stripComments } from '@/lib/strip-comments';
 import { PAYMENT_PROVIDERS } from '@/lib/vendor-payment-methods';
 import {
   WALLET_SCHEMES,
+  detectWalletPlatform,
   hasWalletHandoff,
   walletFallbackFor,
+  walletHandoffIsMeasured,
   walletSchemeFor,
 } from '@/lib/wallet-handoff';
 
@@ -131,5 +133,47 @@ test('the handoff is not sold as carrying an amount', () => {
       `"${scheme}" carries parameters — nothing measured supports that, and a ` +
         `scheme that looks like it takes an amount invites someone to add one`,
     );
+  }
+});
+
+/**
+ * ── ANDROID, MEASURED 2026-09-23 ─────────────────────────────────────────────
+ * Same page, same tap, same phone that had GCash installed: `gcash://` did not
+ * open the app. Android Chrome refuses a bare custom scheme from a web page.
+ * The button was already live at that point and had been rendering on Android
+ * doing nothing — the exact "dead button" its own docblock forbids.
+ *
+ * 🔑 AND THE FALLBACK WOULD HAVE LIED. "GCash didn't open — it may not be
+ * installed" is a reasonable thing to say on a phone without the app, and a
+ * false accusation on a phone that has it. A wrong explanation is worse than
+ * no button, because the payer acts on it.
+ */
+test('the handoff renders only where it has been measured to work', () => {
+  assert.equal(walletHandoffIsMeasured('ios'), true);
+  assert.equal(
+    walletHandoffIsMeasured('android'),
+    false,
+    'Android was MEASURED to fail. Turning this on requires measuring the ' +
+      'intent:// URL on a real Android phone — its package name is an ' +
+      'unverified guess. Do not infer it from the iOS result.',
+  );
+  assert.equal(walletHandoffIsMeasured('other'), false);
+});
+
+test('platform detection catches the phones we made claims about', () => {
+  const IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120';
+  const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36';
+
+  assert.equal(detectWalletPlatform(IOS, 5), 'ios');
+  assert.equal(detectWalletPlatform(ANDROID, 5), 'android');
+  assert.equal(detectWalletPlatform(MAC, 0), 'other');
+
+  // iPadOS defaults to claiming it is a Mac. Touch points are what separate a
+  // real desktop from an iPad lying about itself.
+  assert.equal(detectWalletPlatform(MAC, 5), 'ios', 'iPadOS desktop-mode must read as iOS');
+
+  for (const junk of [null, undefined, '']) {
+    assert.equal(detectWalletPlatform(junk as string | null | undefined, 0), 'other');
   }
 });

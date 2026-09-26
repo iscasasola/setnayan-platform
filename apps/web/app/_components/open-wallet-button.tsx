@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
-import { walletFallbackFor, walletSchemeFor } from '@/lib/wallet-handoff';
+import {
+  detectWalletPlatform,
+  walletFallbackFor,
+  walletHandoffIsMeasured,
+  walletSchemeFor,
+} from '@/lib/wallet-handoff';
 
 /**
  * "Open GCash" — hands the phone off to the wallet app so the payer pastes a
@@ -21,8 +26,12 @@ import { walletFallbackFor, walletSchemeFor } from '@/lib/wallet-handoff';
  *     still visible a beat after the tap, the app did not take over and we say
  *     so, with somewhere to go.
  *
- * Touch only: `gcash://` does nothing on a desktop, and a dead button is worse
- * than no button. The check runs after mount, so the server renders nothing.
+ * Touch only, AND only on a platform where the handoff was measured to work.
+ * `gcash://` does nothing on a desktop, and — measured 2026-09-23 — nothing on
+ * Android Chrome either, which refuses a bare custom scheme from a web page.
+ * A dead button is worse than no button, and on Android the "it may not be
+ * installed" fallback would be a lie told to someone who has the app. Both
+ * checks run after mount, so the server renders nothing.
  */
 
 /** How long to wait before deciding the app never came to the front. */
@@ -38,15 +47,19 @@ export function OpenWalletButton({
   const scheme = walletSchemeFor(provider);
   const fallback = walletFallbackFor(provider);
 
-  const [onTouch, setOnTouch] = useState(false);
+  const [canHandOff, setCanHandOff] = useState(false);
   const [stranded, setStranded] = useState(false);
   const timer = useRef<number | null>(null);
 
   useEffect(() => {
-    // A coarse pointer is the capability we actually depend on, so test that
-    // rather than sniffing the user agent.
+    // Two independent gates. The pointer is a capability query — is this a
+    // touchscreen at all. The platform is NOT a capability query and cannot
+    // be: whether Chrome honours `gcash://` is an OS behaviour that was
+    // measured per-OS, and Android failed it.
     try {
-      setOnTouch(window.matchMedia('(pointer: coarse)').matches);
+      const coarse = window.matchMedia('(pointer: coarse)').matches;
+      const platform = detectWalletPlatform(navigator.userAgent, navigator.maxTouchPoints);
+      setCanHandOff(coarse && walletHandoffIsMeasured(platform));
     } catch {
       /* no matchMedia — leave the button off rather than render a dead one */
     }
@@ -70,7 +83,7 @@ export function OpenWalletButton({
     };
   }, []);
 
-  if (!scheme || !onTouch) return null;
+  if (!scheme || !canHandOff) return null;
 
   function armWatchdog() {
     setStranded(false);

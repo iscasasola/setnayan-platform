@@ -12,10 +12,20 @@
  *   https://www.gcash.com/   → does NOT open the app (no Universal Link)
  *   https://m.gcash.com/     → does NOT open the app
  *
- * ⚠ ONE PHONE · ONE APP VERSION · ONE OS. `gcash://` is not a contract GCash
- * publishes, so they can drop it in any release without telling anyone, and
- * ANDROID IS UNVERIFIED (the `intent://` probe is invisible on iOS and was
- * never tapped). The handoff is therefore never the only way through: every
+ * 🛑 ANDROID: MEASURED 2026-09-23, `gcash://` DOES NOT OPEN THE APP. Same
+ * phone, same page, same tap — Android Chrome refuses a bare custom scheme
+ * from a web page; it wants an `intent://` URL naming the package. So the
+ * handoff is gated to iOS by `walletHandoffIsMeasured` below, because a
+ * button that renders and does nothing is worse than no button, and the
+ * "it may not be installed" fallback would be a LIE on a phone that has it.
+ *
+ * ⚠ To turn Android on, MEASURE the intent URL first — its package name
+ * (`com.globe.gcash.android`) is an unverified guess and always was. Do not
+ * infer it from the iOS result.
+ *
+ * ⚠ ONE PHONE · ONE APP VERSION · ONE OS, even on iOS. `gcash://` is not a
+ * contract GCash publishes, so they can drop it in any release without
+ * telling anyone. The handoff is therefore never the only way through: every
  * surface that renders it must ALSO render the number itself with a copy
  * control, and the button reveals a fallback link when the app does not take
  * over. Losing the scheme must cost a tap, never a payment.
@@ -77,4 +87,40 @@ export function walletFallbackFor(provider: string | null | undefined): string |
 /** Does this provider have a measured handoff? */
 export function hasWalletHandoff(provider: string | null | undefined): boolean {
   return walletSchemeFor(provider) !== null;
+}
+
+/**
+ * Which phone is this, for handoff purposes only.
+ *
+ * Yes, this reads the user agent — deliberately, and only here. The thing
+ * being decided IS the operating system's app-launch behaviour, which was
+ * measured per-OS and differs per-OS; no capability query reports it. A
+ * coarse pointer tells you there is a touchscreen, not whether Chrome will
+ * honour a custom scheme.
+ *
+ * iPadOS reports itself as a Mac, so the touch-point check catches it.
+ */
+export type WalletPlatform = 'ios' | 'android' | 'other';
+
+export function detectWalletPlatform(
+  userAgent: string | null | undefined,
+  maxTouchPoints: number = 0,
+): WalletPlatform {
+  const ua = typeof userAgent === 'string' ? userAgent : '';
+  if (/Android/i.test(ua)) return 'android';
+  if (/iPhone|iPod|iPad/i.test(ua)) return 'ios';
+  // iPadOS 13+ in its default "desktop" mode claims to be a Macintosh.
+  if (/Macintosh/i.test(ua) && maxTouchPoints > 1) return 'ios';
+  return 'other';
+}
+
+/**
+ * Has the handoff been MEASURED to work on this platform?
+ *
+ * Only iOS, as of 2026-09-23. Android was measured and FAILED; everything
+ * else was never tried. A platform is added here by taking a phone, tapping
+ * the link and watching — never by reasoning from another platform's result.
+ */
+export function walletHandoffIsMeasured(platform: WalletPlatform): boolean {
+  return platform === 'ios';
 }

@@ -108,8 +108,10 @@ test('every <SaveTheDateFilm> mount receives the animation inputs', () => {
    * produce a confident, meaningless green. Count them and say the number. */
   assert.equal(
     mounts,
-    2,
-    `expected exactly 2 <SaveTheDateFilm> mounts (the guest page and the couple's builder), found ${mounts}. ` +
+    // 3 since 2026-09-26: the guest page, the couple's builder, and the Maker
+    // canvas's in-flow slide (`SaveTheDateView` with `slide`), which passes both.
+    3,
+    `expected exactly 3 <SaveTheDateFilm> mounts (the guest page, the couple's builder, the Maker canvas slide), found ${mounts}. ` +
       'If a third surface legitimately mounts the film, raise this number in the same commit — and pass it the animation inputs.',
   );
   assert.deepEqual(failures, [], `${failures.length} of ${mounts} mounts render a STATIC mark:\n  ` + failures.join('\n  '));

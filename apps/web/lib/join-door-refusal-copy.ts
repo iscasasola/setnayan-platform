@@ -37,6 +37,12 @@ export const JOIN_DOOR_ERROR_KEYS = [
   'already_member',
   'join_closed',
   'join_failed',
+  // The ask-to-join request (lib/guest-requests.ts readRequestAnswers).
+  'missing_answer',
+  'missing_contact',
+  'bad_email',
+  'missing_terms',
+  'too_many_attempts',
 ] as const;
 
 export type JoinDoorErrorKey = (typeof JOIN_DOOR_ERROR_KEYS)[number];
@@ -58,6 +64,11 @@ export function joinDoorRefusalMessages(w: JoinDoorOrganizerWords): Record<JoinD
     already_member: "You're already on this event's guest list.",
     join_closed: `This event has reached its sign-up limit. Please ask ${w.theOrganizer} to add you.`,
     join_failed: `Something went wrong adding you. Please try again, or ask ${w.theOrganizer}.`,
+    missing_answer: 'Please tell us whether you will be there.',
+    missing_contact: `Please leave an email or a mobile number so ${w.theOrganizer} can reach you.`,
+    bad_email: 'That email address does not look right — please check it.',
+    missing_terms: 'Please tick that you agree to the Terms and the Privacy Notice.',
+    too_many_attempts: 'Too many tries from this connection — please wait a minute and try again.',
   };
 }
 

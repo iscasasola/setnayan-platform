@@ -5,7 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from '../actions';
-import { JoinShell } from './join-shell';
+import { JoinShell, type JoinShellEvent } from './join-shell';
+import { RequestForm } from './request-form';
+import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -95,60 +97,48 @@ export async function JoinFlow({
   const loginHref = `/login?next=${encodeURIComponent(returnPath)}`;
   const signupHref = `/signup?next=${encodeURIComponent(returnPath)}`;
 
+  // "Who can RSVP?" and the switched-on questions — one read, service-role
+  // (a signed-out visitor holds no `events` SELECT), through lib/rsvp-ask.ts.
+  const admin = createAdminClient();
+  const { data: askRow } = await admin
+    .from('events')
+    .select('rsvp_ask_config')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const ask = sanitizeRsvpAskConfig(askRow?.rsvp_ask_config);
+  const Organizer = w.theOrganizer.charAt(0).toUpperCase() + w.theOrganizer.slice(1);
+
   // Auth check.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Not signed in → ACCOUNTLESS join (owner 2026-06-20 "yes we allow this").
-  // An older guest who scans the event QR can add themselves with just a name —
-  // no account — reusing the same guest-cookie flow as /[slug]/redeem
-  // (selfJoinAction). It only lands somewhere if the event has a public page, so
-  // when there's no slug yet we fall back to the sign-in/create wall.
+  // 🛂 NOBODY WITHOUT A KEY GETS INSIDE UNTIL THE COUPLE KEEPS OR LINKS THEM
+  // (owner, 2026-09-26). Everyone who reaches this door without a key ASKS: a
+  // name (the list is never shown), the RSVP and a contact → "Request sent".
+  // No guest session, no membership — the join actions write neither.
   if (!user) {
     const slug = event.slug ?? null;
     if (slug) {
-      // Already self-joined on this device → skip Name, straight to Reply: the
-      // invite link is "where they will register and update their guest
-      // profile" (owner 2026-09-10), so re-opening it means their details.
+      // This device already HOLDS a key for this event → straight on to Reply
+      // (the invite arrival's door 02, lib/invite-arrival.ts).
       const session = await readGuestSession();
       if (session && session.event_id === eventId) {
         redirect(inviteReplyPath(slug));
       }
       const selfAction = selfJoinAction.bind(null, eventId, token);
       return (
-        <JoinShell event={shellEvent} steps={arrivalSteps('name')} skin={skin}>
+        <JoinShell event={shellEvent} skin={skin}>
           {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
-          {/* DOOR 01 · NAME — one field, one action (the invite arrival,
-              lib/invite-arrival.ts). The email and "Sign in" moved to Reply,
-              where an account is the subject; the role picker is gone. */}
-          <p className="text-base text-ink/70">
-            Tell us your name so {w.theOrganizer} can find you on their guest list — no
-            account needed.
+          <AskToJoinIntro organizer={w.theOrganizer} />
+          <RequestForm action={selfAction} ask={ask} organizer={w.theOrganizer} />
+          <p className="mt-6 text-sm text-ink/70">
+            Already have a Setnayan account?{' '}
+            <Link className="font-medium text-link underline-offset-2 hover:underline" href={loginHref}>
+              Sign in
+            </Link>
           </p>
-          <form action={selfAction} className="mt-6 space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="name" className="block text-sm font-medium text-ink">
-                Your full name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                placeholder="e.g. Maria Santos"
-                autoComplete="name"
-                className="input-field"
-              />
-              <p className="text-sm text-ink/70">
-                Use the name {w.theOrganizer} would have on their list.
-              </p>
-            </div>
-            <SubmitButton className="button-primary w-full" pendingLabel="Finding you…">
-              Continue
-            </SubmitButton>
-          </form>
         </JoinShell>
       );
     }
@@ -156,7 +146,7 @@ export async function JoinFlow({
     return (
       <JoinShell event={shellEvent} skin={skin}>
         <p className="text-base text-ink/70">
-          Sign in or create an account to add yourself to this event.
+          Sign in or create an account to ask {w.theOrganizer} to add you to this event.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link className="button-primary" href={loginHref}>
@@ -171,7 +161,6 @@ export async function JoinFlow({
   }
 
   // Already a member?
-  const admin = createAdminClient();
   const { data: existing } = await admin
     .from('event_members')
     .select('member_type')
@@ -184,19 +173,45 @@ export async function JoinFlow({
       redirect(`/dashboard/${eventId}`);
     }
     // A signed-in guest who already holds a seat goes straight to their own
-    // invitation: the event page now recognises the account's seat on any
-    // device (lib/guest-one-path.ts), so the "your invitation is ready" stop
-    // in between was a page saying where to go instead of going there.
+    // invitation (lib/guest-one-path.ts recognises the account's seat).
     if (existing.member_type === 'guest' && event.slug) {
       redirect(`/${event.slug}`);
     }
     redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
   }
 
-  // A SIGNED-IN GUEST DOES NOT RETYPE THEIR NAME (owner 2026-09-25). No role —
-  // see the lock above. The account already carries the name the couple's list
-  // is matched against — the profile's own display name first, then whatever
-  // Google / Apple handed over — so the door offers it back as one press.
+  // Already asked, and the couple has not decided yet → the same "Request
+  // sent" the asking ended on, not a second form.
+  const { data: claim } = await admin
+    .from('guest_claims')
+    .select('status, target_guest_id')
+    .eq('event_id', eventId)
+    .eq('claimer_user_id', user.id)
+    .maybeSingle();
+  if (claim?.status === 'pending_review' && claim.target_guest_id) {
+    return <RequestSentScreen event={shellEvent} organizer={Organizer} slug={event.slug} skin={skin} />;
+  }
+
+  const action = joinEventAction.bind(null, eventId, token);
+  const accountEmail = user.email && !isPlaceholderEmail(user.email) ? user.email : null;
+
+  // The couple recorded THIS account's email on a guest they put on the list →
+  // one press opens their invitation (the inbox is the proof; a name never is).
+  const { data: seeded } = accountEmail
+    ? await admin
+        .from('guests')
+        .select('guest_id')
+        .eq('event_id', eventId)
+        .eq('entry_source', 'host_seeded')
+        .ilike('email', accountEmail)
+        .is('deleted_at', null)
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
+  // A SIGNED-IN GUEST DOES NOT RETYPE THEIR NAME (owner 2026-09-25). The account
+  // already carries it — the profile's display name first, then whatever
+  // Google / Apple handed over.
   const { data: profile } = await admin
     .from('users')
     .select('display_name')
@@ -212,98 +227,81 @@ export async function JoinFlow({
     ''
   ).trim();
 
-  const action = joinEventAction.bind(null, eventId, token);
-  const Organizer = w.theOrganizer.charAt(0).toUpperCase() + w.theOrganizer.slice(1);
-
-  if (defaultName) {
+  if (seeded) {
     return (
-      <JoinShell
-        event={shellEvent}
-        steps={event.slug ? arrivalSteps('name') : undefined}
-        skin={skin}
-      >
+      <JoinShell event={shellEvent} steps={event.slug ? arrivalSteps('name') : undefined} skin={skin}>
         {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
         <p className="text-base text-ink/70">
-          You&rsquo;re signed in
-          {isPlaceholderEmail(user.email) ? null : (
-            <>
-              {' '}as <span className="font-medium text-ink">{user.email}</span>
-            </>
-          )}
-          . {Organizer} will find you on their guest list by your name.
+          You&rsquo;re signed in as <span className="font-medium text-ink">{accountEmail}</span>, and {w.theOrganizer}{' '}
+          has you on their guest list.
         </p>
         <form action={action} className="mt-6">
-          <input type="hidden" name="name" value={defaultName} />
-          <SubmitButton className="button-primary w-full" pendingLabel="Finding you…">
-            Continue as {defaultName}
+          <input type="hidden" name="name" value={defaultName || accountEmail || ''} />
+          <SubmitButton className="button-primary w-full" pendingLabel="Opening…">
+            Open my invitation
           </SubmitButton>
         </form>
-        <details className="mt-4 text-sm text-ink/70">
-          <summary className="cursor-pointer font-medium text-link underline-offset-2 hover:underline">
-            {Organizer} would have a different name for me
-          </summary>
-          <form action={action} className="mt-3 space-y-3">
-            <label htmlFor="name" className="block text-sm font-medium text-ink">
-              The name on their list
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              placeholder="e.g. Maria Santos"
-              autoComplete="name"
-              className="input-field"
-            />
-            <SubmitButton className="button-secondary w-full" pendingLabel="Finding you…">
-              Continue
-            </SubmitButton>
-          </form>
-        </details>
       </JoinShell>
     );
   }
 
   return (
-    <JoinShell
-      event={shellEvent}
-      steps={event.slug ? arrivalSteps('name') : undefined}
-      skin={skin}
-    >
+    <JoinShell event={shellEvent} skin={skin}>
       {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
+      <AskToJoinIntro organizer={w.theOrganizer} />
+      <RequestForm
+        action={action}
+        ask={ask}
+        organizer={w.theOrganizer}
+        defaultName={defaultName}
+        accountEmail={accountEmail}
+      />
+    </JoinShell>
+  );
+}
 
-      <p className="text-base text-ink/70">
-        Welcome
-        {isPlaceholderEmail(user.email) ? null : (
-          <>
-            , <span className="font-medium text-ink">{user.email}</span>
-          </>
-        )}
-        . Tell us your name so {w.theOrganizer} can find you on their guest list.
+/** Frame 7a's words, above the request form. */
+function AskToJoinIntro({ organizer }: { organizer: string }) {
+  return (
+    <div className="mb-6 space-y-2">
+      <p className="font-serif text-2xl text-ink">You&rsquo;re not on the guest list for this event yet</p>
+      <p className="text-sm text-ink/70">
+        Ask to join. If {organizer} has you down under another name or on a family member&rsquo;s invite, they
+        will link you. You&rsquo;ll hear by email the moment you&rsquo;re in.
       </p>
+    </div>
+  );
+}
 
-      <form action={action} className="mt-6 space-y-4">
-        <div className="space-y-1.5">
-          <label htmlFor="name" className="block text-sm font-medium text-ink">
-            Your full name
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            placeholder="e.g. Maria Santos"
-            autoComplete="name"
-            className="input-field"
-          />
-          <p className="text-sm text-ink/70">
-            Use the name {w.theOrganizer} would have on their list.
-          </p>
-        </div>
-        <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Checking…">
-          Continue
-        </SubmitButton>
-      </form>
+/**
+ * "REQUEST SENT" (prototype frame 7c). Not inside, and the event does not appear
+ * in their account until the couple keeps or links them.
+ */
+export function RequestSentScreen({
+  event,
+  organizer,
+  slug,
+  skin,
+}: {
+  event: JoinShellEvent;
+  /** Capitalised: "The couple" / "The family". */
+  organizer: string;
+  slug: string | null;
+  skin?: DoorSkin;
+}) {
+  return (
+    <JoinShell event={event} skin={skin}>
+      <div className="space-y-3" data-request-sent="">
+        <p className="font-serif text-3xl text-ink">Request sent</p>
+        <p className="text-base text-ink/75">
+          {organizer} will check their list. You&rsquo;ll get an email the moment you&rsquo;re in.
+        </p>
+      </div>
+      {slug ? (
+        <Link className="button-secondary mt-6 w-full sm:w-auto" href={`/${slug}`}>
+          Back to the details
+        </Link>
+      ) : null}
     </JoinShell>
   );
 }

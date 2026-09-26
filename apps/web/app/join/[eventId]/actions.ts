@@ -7,29 +7,42 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import {
-  classifyClaimMatch,
-  seedBindAllowed,
-  MAX_NAME_LENGTH,
-  type SeedCandidate,
-} from '@/lib/guest-claim';
 import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { recordScan } from '@/lib/scan-trail';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import type { GuestRole } from '@/lib/guests';
+import { seedBindAllowed } from '@/lib/guest-claim';
 import { inviteReplyPath, selfJoinRefusalPath } from '@/lib/invite-arrival';
+import { isPlaceholderEmail } from '@/lib/anon-onboarding';
+import { anyoneMayAskToJoin, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import {
+  emailMayBindRow,
+  readRequestAnswers,
+  requestedSeatsNote,
+  type RequestAnswers,
+} from '@/lib/guest-requests';
 
-// Sanity ceiling on accountless self-joins per event. The QR token is the real
-// gate; this just bounds runaway spam (the couple reviews/deletes the
-// `self_added_unlisted` rows). Generous — weddings rarely exceed it.
+// Sanity ceiling on requests per event. Nobody is admitted by a request any
+// more, but every request is still a row the couple has to read — this bounds
+// runaway spam. Generous — weddings rarely exceed it.
 const SELF_JOIN_CEILING = 1000;
 
-// Invite/Join v2 (0000 ADDENDUM 2026-06-25): a CONFIDENT match INHERITS the
-// host-assigned role; every other joiner is `guest` and the couple refines it.
-// Until 2026-09-10 a no-match joiner self-declared a role from the event type's
-// "safe subset" (iteration 0053 P2) — the picker the addendum removed. No role
-// is read from any form now.
+// 🛂 NOBODY WITHOUT A KEY GETS INSIDE UNTIL THE COUPLE KEEPS OR LINKS THEM
+// (owner, DECISION_LOG 2026-09-26 — reverses the 2026-06-25 optimistic admit).
+// Both actions below turn a person without a key into a REQUEST: a guest row
+// holding their answers, with NO `event_members` row and NO guest session. The
+// couple decides in Guest List → Requests (Keep · Remove · Link), and only Keep
+// or Link issues the key (`lib/guest-request-key.ts`). See `lib/guest-requests.ts`.
+//
+// A NAME IS NOT A SECRET: a typed name never binds anyone to anything here any
+// more — it is only the couple's suggested match. The one bind that remains is
+// the signed-in EMAIL fast path, and only onto a row the couple themselves put
+// on the list (`emailMayBindRow`): the couple wrote that address down, and the
+// sign-in proved the inbox.
+//
+// 🔒 ROLE IS THE HOST'S FIELD (owner-locked 2026-06-25). No role is read from
+// any form; a request is always `guest` and the couple refines it on Keep.
 
 /** Best-effort: attach a Gmail-login avatar to a guest row (display only). */
 async function applyAvatar(
@@ -52,8 +65,7 @@ async function applyAvatar(
 
 /**
  * Link a signed-in user to an existing host-seeded guest row, INHERITING that
- * row's host-assigned role (role-by-answer-key). Returns the insert error (null
- * on success) so the caller can fall through to optimistic-add on a race.
+ * row's host-assigned role. Returns the insert error (null on success).
  */
 async function bindMemberToSeed(
   admin: ReturnType<typeof createAdminClient>,
@@ -88,15 +100,11 @@ async function seedClaimedByOther(
 }
 
 /**
- * Best-effort `scan_events` row for a self-join (mirrors `/[slug]/redeem`).
- * Extracted so BOTH accountless outcomes record one — the seed-bind branch used
- * to return without any trail at all. Never throws into the caller: a triage
- * record must not be able to block a guest from getting in.
- *
- * Now a header-reading wrapper over `recordScan`, the ONE door that writes
- * `scan_events` — so a guest who set `scan_tracking_opt_out` gets no row from
- * either join outcome. `lib/every-scan-goes-through-one-door.test.ts` fails if
- * this file ever inserts directly again.
+ * Best-effort `scan_events` row when somebody actually gets inside through this
+ * door. A header-reading wrapper over `recordScan`, the ONE door that writes
+ * `scan_events` — so a guest who set `scan_tracking_opt_out` gets no row.
+ * `lib/every-scan-goes-through-one-door.test.ts` fails if this file ever
+ * inserts directly again. A REQUEST records nothing: nobody entered.
  */
 async function recordJoinScan(
   admin: ReturnType<typeof createAdminClient>,
@@ -118,49 +126,29 @@ async function recordJoinScan(
   }
 }
 
-/** Tell the couple an unlisted guest joined so they can reconcile. */
 /**
- * A SIGNED-IN PERSON WHO JOINS IS NOW ON THIS GUEST LIST — HAND THEM THE SAME
- * IDENTITY THE ACCOUNTLESS JOINER ALREADY GETS.
+ * A SIGNED-IN PERSON WHO HOLDS A SEAT IS HANDED THE SAME IDENTITY THE KEY GIVES.
  *
- * 🔴 THE DEFECT THIS CLOSES. `/{slug}` decides "guest or stranger" from the
- * `setnayan_guest_session` cookie and from NOTHING ELSE. This action wrote an
- * `event_members` row and never minted that cookie, so the signed-in joiner was
- * sent to a success page whose only way on was "Go to your dashboard" — while
- * the person with NO account was redirected onto the celebration itself,
- * recognised by name. The one who signed in got the worse ending.
+ * `/{slug}` decides "guest or stranger" from the `setnayan_guest_session`
+ * cookie. This Server Action runs only on a real press, so minting here is
+ * legal (a render or a prefetched GET may not — see
+ * `lib/guest-membership-session.ts`, which a test holds to zero mints).
+ * ⚠ The cookie holds exactly one event and has a hard 60-day life.
  *
- * 🔑 WHY MINTING HERE IS LEGAL, WHEN `lib/guest-membership-session.ts` REFUSES
- * TO. That module's refusal — and `app/[slug]/page.tsx`'s "a render cannot
- * write cookies" — are about RENDER TIME, and about a GET route that a Next
- * `<Link>` PREFETCHED, so a card scrolling into view silently rewrote which
- * event somebody's single cookie named. This is a Server Action: it runs only
- * on a real press of "Add me to the guest list". Its accountless twin in this
- * same file already mints and redirects exactly this way.
- * ⚠ Do NOT move this into that module — a test there asserts it contains no
- * mint, and the reason it gives will sound wrong for this case and still be
- * right.
+ * Only called for an account that ALREADY holds a seat (a returning member, or
+ * the couple-recorded email bind). A request never reaches it.
  *
- * ⚠ THE COOKIE HOLDS EXACTLY ONE EVENT AND HAS A HARD 60-DAY LIFE. Minting for
- * this event ends cookie-recognition on any other. That is already true of the
- * accountless path, and a join is a deliberate press rather than a prefetch —
- * but it is a real consequence, not an invisible one.
- *
- * Returns the destination, or NULL when we cannot honour it (no readable seat,
- * no public address) — the caller then keeps today's destination. Failing back
- * is not defensiveness: `admitAsUnlisted` can fail to bind, so "membership
- * missing" is reachable.
+ * Returns the destination, or NULL when there is no readable seat / no public
+ * address — the caller then falls back to the success page.
  */
 async function enterAsGuest(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   userId: string,
 ): Promise<string | null> {
-  // ONE read for all three values the mint and the redirect need. The slug
-  // comes back THROUGH THE DATABASE embed, never from anything the caller sent
-  // — the open-redirect lesson `[slug]/redeem` paid for on 2026-08-06 — and the
-  // qr_token is re-read LIVE rather than hand-carried from the bind, because a
-  // token read before the bind is a value you would then have to prove current.
+  // The slug comes back THROUGH THE DATABASE, never from anything the caller
+  // sent (the open-redirect lesson `[slug]/redeem` paid for on 2026-08-06), and
+  // the qr_token is re-read LIVE.
   const seat = await findGuestSeatForUser(eventId, userId);
   if (!seat) return null;
   await setGuestSession({
@@ -168,12 +156,11 @@ async function enterAsGuest(
     event_id: eventId,
     qr_token: seat.qrToken,
   });
-  // Every other mint site in this product leaves a scan row. Do not be the one
-  // that mints invisibly.
   await recordJoinScan(admin, eventId, seat.guestId, 'account_join');
   return `/${seat.slug}`;
 }
 
+/** Tell the couple somebody asked to join (in-app; the Requests list is where they act). */
 async function notifyCoupleUnlisted(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
@@ -190,8 +177,8 @@ async function notifyCoupleUnlisted(
         userId: c.user_id as string,
         // Reuse the existing guest-confirm notification type (no new type needed).
         type: 'guest_claim_pending',
-        title: 'Someone joined who wasn’t on your list',
-        body: `${name} added themselves to your guest list. Review to link them to an existing guest, keep them, or remove them.`,
+        title: 'Someone asked to join your guest list',
+        body: `${name} asked to join. They are not inside yet — Keep, Link or Remove them in Requests.`,
         relatedUrl: `/dashboard/${eventId}/guests/claims`,
       }),
     ),
@@ -199,160 +186,214 @@ async function notifyCoupleUnlisted(
 }
 
 /**
- * Optimistically admit a joiner whose name did NOT confidently match the list:
- * create a `guests` row tagged `self_added_unlisted`, link the membership, and
- * notify the couple. NOBODY is ever blocked — the couple reconciles afterward.
+ * THE REQUEST. One guest row carrying the person's own answers, tagged
+ * `self_added_unlisted`, with nothing that lets them in: no `event_members`
+ * row, no guest session. A signed-in asker is remembered in `guest_claims` so
+ * Keep/Link can bind that account afterwards.
+ *
+ * Asking twice updates the one request instead of piling up duplicates — keyed
+ * on the account (signed in) or the email (signed out).
+ *
+ * Returns the request's guest_id, or null when it could not be written.
  */
-async function admitAsUnlisted(
+async function createJoinRequest(
   admin: ReturnType<typeof createAdminClient>,
   args: {
     eventId: string;
-    userId: string;
-    presentedName: string;
+    answers: RequestAnswers;
     role: GuestRole;
+    userId: string | null;
     avatarUrl: string | null;
   },
-) {
-  // One shared parser (lib/person-name-parse.ts) so a guest who signs in as
-  // "Atty. Bob Casasola Jr." is not stored with the title as their given name.
-  // The '—' fallback stays: last_name is NOT NULL and a mononym must still join.
-  const parsed = parsePersonName(args.presentedName);
-  const firstName = parsed.firstName || args.presentedName;
-  const lastName = parsed.lastName || '—'; // last_name is NOT NULL
+): Promise<string | null> {
+  const { eventId, answers, userId } = args;
+  const now = new Date().toISOString();
+  const answerColumns = {
+    rsvp_status: answers.rsvp_status,
+    rsvp_responded_at: now,
+    meal_preference: answers.meal_preference,
+    dietary_restrictions: answers.dietary_restrictions,
+    guest_note: answers.guest_note,
+    mobile: answers.mobile,
+    notes: requestedSeatsNote(answers.seats),
+    updated_at: now,
+  };
 
+  // 1. The same person asking again → their one open request.
+  let existingId: string | null = null;
+  if (userId) {
+    const { data: claim } = await admin
+      .from('guest_claims')
+      .select('target_guest_id, status')
+      .eq('event_id', eventId)
+      .eq('claimer_user_id', userId)
+      .maybeSingle();
+    if (claim?.status === 'pending_review' && claim.target_guest_id) existingId = claim.target_guest_id as string;
+  } else if (answers.email) {
+    // Same address AND the same name — an address alone would let anybody who
+    // types someone else's email overwrite that person's request.
+    const { data: priors } = await admin
+      .from('guests')
+      .select('guest_id, first_name, last_name')
+      .eq('event_id', eventId)
+      .eq('entry_source', 'self_added_unlisted')
+      .ilike('email', answers.email)
+      .is('deleted_at', null)
+      .limit(5);
+    const same = (priors ?? []).find((p) =>
+      seedBindAllowed(answers.name, `${p.first_name ?? ''} ${p.last_name ?? ''}`.replace(/\s+—$/, '')),
+    );
+    existingId = (same?.guest_id as string | undefined) ?? null;
+  }
+  if (existingId) {
+    const { data: still } = await admin
+      .from('guests')
+      .select('guest_id')
+      .eq('guest_id', existingId)
+      .eq('event_id', eventId)
+      .eq('entry_source', 'self_added_unlisted')
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (still) {
+      const { error } = await admin.from('guests').update(answerColumns).eq('guest_id', existingId).eq('event_id', eventId);
+      if (error) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guests.update', error);
+      return error ? null : existingId;
+    }
+  }
+
+  // 2. A new request row. One shared name parser (lib/person-name-parse.ts);
+  //    last_name is NOT NULL, so a mononym keeps the '—' placeholder.
+  const parsed = parsePersonName(answers.name);
   const { data: inserted, error } = await admin
     .from('guests')
     .insert({
-      event_id: args.eventId,
-      first_name: firstName,
-      last_name: lastName,
+      event_id: eventId,
+      first_name: parsed.firstName || answers.name,
+      last_name: parsed.lastName || '—',
       ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
       ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
       ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
       side: 'both',
       group_category: 'other',
       role: args.role,
-      rsvp_status: 'pending',
-      meal_preference: 'no_preference',
       invited_to_blocks: ['ceremony', 'reception'],
       entry_source: 'self_added_unlisted',
-      photo_consent: true,
-      ...(args.avatarUrl
+      // The address they gave so Keep/Link can send their key — the ONE email
+      // writer on this door. It never binds anything: `emailMayBindRow` refuses
+      // every row that is not `host_seeded`.
+      email: answers.email,
+      ...answerColumns,
+      ...(userId && args.avatarUrl
         ? {
             photo_url: args.avatarUrl,
             photo_source: 'oauth_google',
-            photo_updated_at: new Date().toISOString(),
-            photo_set_by_user_id: args.userId,
+            photo_updated_at: now,
+            photo_set_by_user_id: userId,
           }
         : {}),
     })
     .select('guest_id')
     .single();
   if (error) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guests.insert', error);
+  if (error || !inserted) return null;
+  const requestId = inserted.guest_id as string;
 
-  if (error || !inserted) return false;
+  // 3. A signed-in asker is remembered, so Keep/Link can bind THEIR account.
+  if (userId) {
+    const { error: claimErr } = await admin.from('guest_claims').upsert(
+      {
+        event_id: eventId,
+        claimer_user_id: userId,
+        claimer_name: answers.name,
+        claimer_email: answers.email,
+        requested_role: 'guest',
+        target_guest_id: requestId,
+        status: 'pending_review',
+        resolved_guest_id: null,
+        reviewed_at: null,
+        reviewed_by_user_id: null,
+        last_claim_at: now,
+        updated_at: now,
+      },
+      { onConflict: 'event_id,claimer_user_id' },
+    );
+    if (claimErr) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guest_claims.upsert', claimErr);
+  }
 
-  // ⚠ THE BIND RESULT USED TO BE DISCARDED. That was harmless while the only
-  // consequence was which page rendered — but the caller now mints a guest
-  // session off the membership row this writes, so a swallowed bind error is
-  // the difference between "recognised on the celebration page" and "a stranger
-  // on it". Report it.
-  const bindErr = await bindMemberToSeed(admin, {
-    eventId: args.eventId,
-    userId: args.userId,
-    guestId: inserted.guest_id as string,
-    seedRole: args.role,
-  });
-  // The couple is told either way — they have a row to reconcile regardless of
-  // whether this account got bound to it.
-  await notifyCoupleUnlisted(admin, args.eventId, args.presentedName);
-  return !bindErr;
+  await notifyCoupleUnlisted(admin, eventId, answers.name);
+  return requestId;
+}
+
+/** Where a request that could not be read goes back to — this door, with the reason. */
+function backToDoor(eventId: string, token: string, error: string): never {
+  const t = token ? `token=${encodeURIComponent(token)}&` : '';
+  redirect(`/join/${eventId}?${t}error=${encodeURIComponent(error)}`);
+}
+
+/** "Request sent" — the one screen a request ends on. */
+function requestSent(eventId: string, token: string): never {
+  const t = token ? `&token=${encodeURIComponent(token)}` : '';
+  redirect(`/join/${eventId}?sent=1${t}`);
 }
 
 /**
- * Invite/Join v2 (0000 ADDENDUM 2026-06-25) — name-as-answer-key, optimistic
- * admit. A signed-in joiner types their name; it's matched against the couple's
- * list. A confident match links + inherits the host-assigned role; anything else
- * is STILL admitted, flagged `self_added_unlisted` for the couple to reconcile.
- * This replaces the old privacy-first OTP/pending-review claim (owner-signed-off
- * reversal: a name isn't a secret, but for a low-stakes guest list UX wins;
- * provenance badge + host-controlled role + couple Delete are the safety net).
+ * A SIGNED-IN person on the join door. A seat the couple recorded under their
+ * account's email → inside. Anyone else → a REQUEST (never an admission).
+ *
+ * The door is open when the event's join token is valid (the couple's own
+ * poster QR) OR the couple chose "Who can RSVP? → Anyone, I approve".
  */
 export async function joinEventAction(eventId: string, token: string, formData: FormData) {
-  // 🔒 ROLE IS THE HOST'S FIELD (owner-locked 2026-06-25, built 2026-09-10). A
-  // confident match inherits the couple's role; an unlisted joiner is `guest`
-  // and the couple refines it. Any `role` a stale or crafted form still posts is
-  // IGNORED — the lock is that a guest cannot self-assign "Principal Sponsor",
-  // and a cached page must not be the way around it. `guest` is in every role
-  // set (lib/role-sets.ts), weddings and wakes alike.
+  // 🔒 ROLE IS THE HOST'S FIELD — see the header. Any `role` a stale form posts is ignored.
   const role: GuestRole = 'guest';
-  // Cap at the input boundary — bounds the O(n·m) fuzzy match against an
-  // attacker-supplied name (the client maxLength is non-authoritative).
-  const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
 
-  if (!presentedName) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=missing_name`);
-  }
-
-  // 1. Re-validate the token (admin bypasses RLS).
   const admin = createAdminClient();
-  const { data: tokenRow } = await admin
-    .from('event_join_tokens')
-    .select('event_id, revoked_at, expires_at')
-    .eq('event_id', eventId)
-    .eq('token', token)
-    .maybeSingle();
+  const { data: tokenRow } = token
+    ? await admin
+        .from('event_join_tokens')
+        .select('event_id, revoked_at, expires_at')
+        .eq('event_id', eventId)
+        .eq('token', token)
+        .maybeSingle()
+    : { data: null };
 
   const tokenValid =
     !!tokenRow &&
     !tokenRow.revoked_at &&
     (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
 
-  if (!tokenValid) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
-  }
-
-  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).
-  //
-  // A page gate is not an API gate. `/[slug]/invite` now refuses a private
-  // event, but a server action can be invoked directly with a valid join token,
-  // so the same rule has to hold HERE — where the write actually happens and
-  // where the comment below already noted the session "opens the personal page
-  // of a `private` event".
-  //
-  // Deliberately reuses the SAME resolver the guest site uses, so a scheduled
-  // launch that has come due counts as public in both places. Two hand-written
-  // copies of one rule is how they drift apart.
+  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06). A page gate is not
+  // an API gate — a server action can be invoked directly — so the same rule
+  // holds HERE, through the SAME resolver the guest site uses.
   const { data: visRow } = await admin
     .from('events')
-    .select('landing_page_visibility, scheduled_launch_at, std_launched_at')
+    .select('landing_page_visibility, scheduled_launch_at, std_launched_at, rsvp_ask_config')
     .eq('event_id', eventId)
     .maybeSingle();
 
-  // 🛑 B1(b) — a private event is a DIFFERENT refusal from a dead token, and
-  // must not share its error code. `error=invalid_token` here told a guest
-  // holding a perfectly valid token that their link had died; the real
-  // problem is the event's own visibility, which only the host can change.
-  // See lib/join-door-refusal-copy.ts for the sentence this code renders.
-  // `!visRow` (event gone / unreadable) is a genuinely different case — the
-  // token really doesn't resolve to anything — so THAT keeps `invalid_token`.
+  // 🛑 B1(b) — a private event is a DIFFERENT refusal from a dead token.
+  // `!visRow` (event gone / unreadable) keeps `invalid_token`; it fails closed.
   if (!visRow) {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+  if (!tokenValid && !anyoneMayAskToJoin(visRow.rsvp_ask_config)) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
   }
   if (resolveEffectiveVisibility(visRow) === 'private') {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=event_is_private`);
   }
 
-  // 2. Auth check.
+  // Auth check.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return redirect(`/login?next=${encodeURIComponent(`/join/${eventId}?token=${token}`)}`);
+    const back = token ? `/join/${eventId}?token=${token}` : `/join/${eventId}`;
+    return redirect(`/login?next=${encodeURIComponent(back)}`);
   }
 
-  // 3. Already a member? Bail with appropriate redirect.
+  // Already a member? The couple goes to their dashboard; a guest walks in.
   const { data: existing } = await admin
     .from('event_members')
     .select('member_type')
@@ -364,33 +405,34 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     if (existing.member_type === 'couple') {
       return redirect(`/dashboard/${eventId}`);
     }
-    // A RETURNING GUEST RE-SCANS ON A NEW PHONE. Without this they met "Your
-    // personal invitation site is on its way." every single time — a sentence
-    // about a page they have been a member of for months.
     const dest = await enterAsGuest(admin, eventId, user.id);
     return redirect(dest ?? `/join/${eventId}/success?token=${encodeURIComponent(token)}`);
   }
 
-  // Gmail-login avatar (owner directive 2026-06-05). DISPLAY-only — never a face
-  // enrollment. Priority selfie > couple_upload > oauth_google is enforced by the
-  // .or() WHERE guard inside applyAvatar.
   const avatarUrl =
     (user.user_metadata?.avatar_url as string | undefined) ??
     (user.user_metadata?.picture as string | undefined) ??
     null;
+  const accountEmail = user.email && !isPlaceholderEmail(user.email) ? user.email : null;
 
-  // 4. EXACT-EMAIL fast path — highest confidence. The signed-in user's email
-  //    matches a seed row → link directly, inheriting the host's role.
-  if (user.email) {
+  // EXACT-EMAIL fast path — the couple recorded this address on a guest they
+  // put on the list, and the sign-in proved the inbox. Only `host_seeded` rows:
+  // a request carries an address its asker typed themselves.
+  if (accountEmail) {
     const { data: emailSeed } = await admin
       .from('guests')
-      .select('guest_id, role')
+      .select('guest_id, role, entry_source')
       .eq('event_id', eventId)
-      .ilike('email', user.email)
+      .eq('entry_source', 'host_seeded')
+      .ilike('email', accountEmail)
       .is('deleted_at', null)
       .maybeSingle();
 
-    if (emailSeed && !(await seedClaimedByOther(admin, eventId, emailSeed.guest_id, user.id))) {
+    if (
+      emailSeed &&
+      emailMayBindRow(emailSeed.entry_source as string) &&
+      !(await seedClaimedByOther(admin, eventId, emailSeed.guest_id, user.id))
+    ) {
       if (avatarUrl) await applyAvatar(admin, emailSeed.guest_id as string, avatarUrl, user.id);
       const err = await bindMemberToSeed(admin, {
         eventId,
@@ -402,173 +444,99 @@ export async function joinEventAction(eventId: string, token: string, formData: 
         const dest = await enterAsGuest(admin, eventId, user.id);
         return redirect(dest ?? `/join/${eventId}/success?token=${encodeURIComponent(token)}`);
       }
-      // Race → fall through to name-match / optimistic-add.
+      // A race lost the seat → fall through to a request.
     }
   }
 
-  // 5. NAME-AS-ANSWER-KEY — fuzzy-match the typed name against the couple's
-  //    unclaimed seed rows. Confident single match → link + inherit the host's
-  //    role. Ambiguous (same-name collision) or none → admit as unlisted.
-  const [{ data: seeds }, { data: members }] = await Promise.all([
-    admin
-      .from('guests')
-      .select('guest_id, first_name, last_name, display_name, email, role')
-      .eq('event_id', eventId)
-      .is('deleted_at', null),
-    admin
-      .from('event_members')
-      .select('guest_id')
-      .eq('event_id', eventId)
-      .not('guest_id', 'is', null),
-  ]);
+  // Everyone else → a REQUEST. Nothing is bound; the couple decides.
+  const read = readRequestAnswers(formData, sanitizeRsvpAskConfig(visRow.rsvp_ask_config), accountEmail);
+  if (!read.ok) return backToDoor(eventId, token, read.error);
 
-  const claimed = new Set((members ?? []).map((m) => m.guest_id as string));
-  const roleByGuestId = new Map<string, GuestRole>();
-  const candidates: SeedCandidate[] = (seeds ?? [])
-    .filter((s) => !claimed.has(s.guest_id as string))
-    .map((s) => {
-      roleByGuestId.set(s.guest_id as string, (s.role as GuestRole) ?? 'guest');
-      const name = (s.display_name as string | null)?.trim() || `${s.first_name} ${s.last_name}`.trim();
-      return { guestId: s.guest_id as string, name, email: s.email as string | null };
-    });
+  const throttle = await allowGuestSelfJoinAttempt(eventId, await headers());
+  if (!throttle.allowed) return backToDoor(eventId, token, 'too_many_attempts');
 
-  const match = classifyClaimMatch(presentedName, candidates);
-
-  // SELF-JOIN HARDENING (2026-08-01) — a `confident` fuzzy match may say "same
-  // person, don't mint a duplicate", but only an EXACT normalized name may
-  // transfer an existing seed row's identity + host-assigned role to this
-  // account. `seedBindAllowed` documents why. A near-miss is NOT rejected: it
-  // falls through to the optimistic admit below, which admits the joiner and
-  // notifies the couple to reconcile.
-  if (match.kind === 'confident' && seedBindAllowed(presentedName, match.candidate.name)) {
-    if (avatarUrl) await applyAvatar(admin, match.candidate.guestId, avatarUrl, user.id);
-    const err = await bindMemberToSeed(admin, {
-      eventId,
-      userId: user.id,
-      guestId: match.candidate.guestId,
-      seedRole: roleByGuestId.get(match.candidate.guestId) ?? 'guest',
-    });
-    if (!err) {
-      const dest = await enterAsGuest(admin, eventId, user.id);
-      return redirect(dest ?? `/join/${eventId}/success?token=${encodeURIComponent(token)}`);
-    }
-    // Race lost the seat → fall through to optimistic-add as unlisted.
-  }
-
-  // 6. No confident match → OPTIMISTIC ADMIT as unlisted. Never blocked; the
-  //    couple is notified and reconciles (Link / Keep / Delete). The self-declared
-  //    role (validated against selfClaimableRoles above) is used here.
-  const admitted = await admitAsUnlisted(admin, {
+  const requestId = await createJoinRequest(admin, {
     eventId,
-    userId: user.id,
-    presentedName,
+    answers: (read as { ok: true; value: RequestAnswers }).value,
     role,
+    userId: user.id,
     avatarUrl,
   });
-
-  // ⚠ THIS ONE DELIBERATELY KEEPS THE SUCCESS PAGE. It is the ONLY place anyone
-  // is told "you weren't on the original list, so we've added you and let the
-  // hosts know" — dropping that to match the other endings would trade a real
-  // sentence for consistency. The mint still runs first, so the page's way on
-  // lands them recognised rather than as a stranger.
-  if (admitted) await enterAsGuest(admin, eventId, user.id);
-  return redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}&unlisted=1`);
+  if (!requestId) return backToDoor(eventId, token, 'join_failed');
+  return requestSent(eventId, token);
 }
 
 /**
- * ACCOUNTLESS self-join (owner 2026-06-20 "yes we allow this" — let an older
- * guest who scans the event QR add themselves WITHOUT making an account).
+ * A person WITHOUT an account on the join door (owner 2026-06-20: no account
+ * needed). They type their name — the guest list is never shown — answer the
+ * RSVP and leave a contact, and that is a REQUEST: no guest session is minted,
+ * so nothing opens until the couple Keeps or Links them, and their key is then
+ * emailed to them.
  *
- * Reuses the SAME guest-cookie mechanism as `/[slug]/redeem` (System 1): create
- * a `guests` row via the admin client and sign the `setnayan_guest_session`
- * cookie — the joiner is then exactly like a personal-link redeemer, and walks on
- * to door 02 of the invite arrival (`/[slug]/invite/reply`, lib/invite-arrival.ts)
- * to complete their own record — the same RSVP card `/[slug]` shows. It does NOT touch `event_members`
- * (account-only) or any RLS — the QR token + cookie are the auth. The row is
- * tagged `self_added_unlisted` (Invite/Join v2 provenance) so the couple can
- * reconcile it. (Name-matching for accountless joiners is a fast-follow.)
+ * The one arrival that still walks straight on is a device that already HOLDS
+ * a key for this event (its guest session) — that person goes to Reply.
  */
 export async function selfJoinAction(eventId: string, token: string, formData: FormData) {
   // 🔒 Always `guest` — see joinEventAction. The door no longer offers a role.
   const role: GuestRole = 'guest';
-  const presentedName = String(formData.get('name') ?? '').trim().slice(0, MAX_NAME_LENGTH);
-  // ⛔ NO `email` READ ANY MORE. Door 01 has not rendered an email box since the
-  // three doors (2026-09-10) — the address is asked ONCE, on the Reply door,
-  // whose Save sends the sign-in link (lib/guest-one-path.server.ts).
 
   const admin = createAdminClient();
   // The event's public address, read FIRST so every refusal below can send the
-  // guest back to the door they came through (`/{slug}/invite`), with its
-  // sentence — see `selfJoinRefusalPath`. From the DATABASE, never the form.
+  // guest back to the door they came through, with its sentence — see
+  // `selfJoinRefusalPath`. From the DATABASE, never the form.
   const { data: event } = await admin
     .from('events')
-    .select('slug')
+    .select('slug, rsvp_ask_config')
     .eq('event_id', eventId)
     .maybeSingle();
   const slug = ((event?.slug as string | null) ?? '').trim() || null;
   const refuse = (error: string) =>
     redirect(selfJoinRefusalPath({ eventId, token, slug, error }));
 
-  if (!presentedName) {
-    return refuse('missing_name');
+  if (!String(formData.get('name') ?? '').trim()) {
+    return backToDoor(eventId, token, 'missing_name');
   }
 
-  // 1. Re-validate the token — this is the ONLY gate (no RLS on the admin write),
-  //    so it must be mandatory and identical to the page/joinEventAction check.
-  const { data: tokenRow } = await admin
-    .from('event_join_tokens')
-    .select('event_id, revoked_at, expires_at')
-    .eq('event_id', eventId)
-    .eq('token', token)
-    .maybeSingle();
+  // 1. The door: a valid join token (the couple's poster QR), OR the couple
+  //    chose "Who can RSVP? → Anyone, I approve". Either way this can only
+  //    ever produce a REQUEST.
+  const { data: tokenRow } = token
+    ? await admin
+        .from('event_join_tokens')
+        .select('event_id, revoked_at, expires_at')
+        .eq('event_id', eventId)
+        .eq('token', token)
+        .maybeSingle()
+    : { data: null };
 
   const tokenValid =
     !!tokenRow &&
     !tokenRow.revoked_at &&
     (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
 
-  if (!tokenValid) {
+  if (!tokenValid && !anyoneMayAskToJoin(event?.rsvp_ask_config)) {
     return refuse('invalid_token');
   }
 
-  // 🚦 THE THROTTLE, ADOPTED (2026-08-06). PR #4160 built and tested this helper
-  // but could not wire it: THIS file was owned by an open PR at the time, so the
-  // guard shipped DARK — present, green, and protecting nothing. A reviewer
-  // caught the gap between "built" and "in force". This is the three lines that
-  // close it.
-  //
-  // Placed AFTER token validation so a junk token cannot spend a real guest's
-  // budget, and BEFORE the mint so a script cannot create rows. What it protects
-  // is not the token — that is 128 random bits — but SELF_JOIN_CEILING: 1,000
-  // self-added rows per event, shared by everyone. Fill it and the door closes
-  // for every later visitor, with no in-product way for the couple to reopen it.
-  // A real guest at the reception would be told the event is full.
+  // 🚦 THE THROTTLE (2026-08-06). AFTER the door check so a junk token cannot
+  // spend a real guest's budget, and BEFORE any write so a script cannot fill
+  // SELF_JOIN_CEILING and close the door for every later visitor.
   const throttle = await allowGuestSelfJoinAttempt(eventId, await headers());
   if (!throttle.allowed) {
     return refuse('too_many_attempts');
   }
 
-  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06).
-  //
-  // A page gate is not an API gate. `/[slug]/invite` now refuses a private
-  // event, but a server action can be invoked directly with a valid join token,
-  // so the same rule has to hold HERE — where the write actually happens and
-  // where the comment below already noted the session "opens the personal page
-  // of a `private` event".
-  //
-  // Deliberately reuses the SAME resolver the guest site uses, so a scheduled
-  // launch that has come due counts as public in both places. Two hand-written
-  // copies of one rule is how they drift apart.
+  // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06) — same resolver as
+  // the guest site, so a scheduled launch that has come due counts as public in
+  // both places.
   const { data: visRow } = await admin
     .from('events')
     .select('landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
     .maybeSingle();
 
-  // 🛑 B1(b) — same split as joinEventAction above: an unreadable event keeps
-  // `invalid_token` (the token really doesn't resolve), but a private event
-  // gets its own code and its own sentence rather than being told its token
-  // died. See lib/join-door-refusal-copy.ts.
+  // 🛑 B1(b) — an unreadable event keeps `invalid_token` (fails closed); a
+  // private event gets its own code and its own sentence.
   if (!visRow) {
     return refuse('invalid_token');
   }
@@ -576,21 +544,22 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     return refuse('event_is_private');
   }
 
-  // 2. The accountless guest lands on the public `/[slug]` page to RSVP — so it
-  //    only makes sense when a slug exists. (The page only offers this path when
-  //    there is one; guard anyway and fall back to the sign-in route.)
+  // 2. The accountless guest's pages live under the public `/[slug]`, so this
+  //    only makes sense when a slug exists. Fall back to the sign-in route.
   if (!slug) {
-    return redirect(`/login?next=${encodeURIComponent(`/join/${eventId}?token=${token}`)}`);
+    const back = token ? `/join/${eventId}?token=${token}` : `/join/${eventId}`;
+    return redirect(`/login?next=${encodeURIComponent(back)}`);
   }
 
-  // 3. Idempotent: already self-joined on this device → straight to the page,
-  //    no duplicate row (the guest-session cookie is the dedup key).
+  // 3. This device already HOLDS a key for this event → straight on to Reply.
+  //    (The key was issued by the couple — a personal link, a kept request, or
+  //    a guest added before 2026-09-27 — never by this form.)
   const existingSession = await readGuestSession();
   if (existingSession && existingSession.event_id === eventId) {
     return redirect(inviteReplyPath(slug));
   }
 
-  // 4. Sanity ceiling on self-joins for this event.
+  // 4. Sanity ceiling on requests for this event.
   const { count } = await admin
     .from('guests')
     .select('guest_id', { count: 'exact', head: true })
@@ -601,103 +570,20 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     return refuse('join_closed');
   }
 
-  // 4b. NAME-AS-ANSWER-KEY for accountless joiners — if the typed name confidently
-  //     matches an unclaimed seed row, bind the cookie to THAT existing row rather
-  //     than minting a duplicate (keeps the couple's list clean; no reconcile
-  //     needed). Mirrors joinEventAction's matcher. Unclaimed = not bound in
-  //     event_members (so we never co-opt an account-held seat).
-  const [{ data: seeds }, { data: members }] = await Promise.all([
-    admin
-      .from('guests')
-      .select('guest_id, first_name, last_name, display_name, email, qr_token')
-      .eq('event_id', eventId)
-      .is('deleted_at', null),
-    admin
-      .from('event_members')
-      .select('guest_id')
-      .eq('event_id', eventId)
-      .not('guest_id', 'is', null),
-  ]);
-  const claimed = new Set((members ?? []).map((m) => m.guest_id as string));
-  const qrByGuestId = new Map<string, string>();
-  const candidates: SeedCandidate[] = (seeds ?? [])
-    .filter((s) => !claimed.has(s.guest_id as string) && !!(s.qr_token as string | null))
-    .map((s) => {
-      qrByGuestId.set(s.guest_id as string, s.qr_token as string);
-      const name = (s.display_name as string | null)?.trim() || `${s.first_name} ${s.last_name}`.trim();
-      return { guestId: s.guest_id as string, name, email: s.email as string | null };
-    });
-  const match = classifyClaimMatch(presentedName, candidates);
-  // SELF-JOIN HARDENING (2026-08-01) — this is the sharpest of the two bind
-  // sites: it hands the caller the matched guest's OWN `qr_token` guest session,
-  // which is the same credential their private personal invitation link mints
-  // (`/[slug]/redeem`). That session opens the personal page of a `private`
-  // event (`lib/slug-access.ts` canViewSlugEvent), their Seat Pass, their Papic
-  // pool and "photos of you", and it uploads into the shared gallery AS THEM.
-  // The only thing gating it was a 0.86 Levenshtein ratio against a roster the
-  // caller never sees but can guess, from a token printed on a poster.
-  //
-  // Require exact normalized equality (see `seedBindAllowed`). A near-miss is
-  // NOT rejected — it falls through to step 5, which admits the joiner under
-  // their OWN new row and notifies the couple.
-  if (match.kind === 'confident' && seedBindAllowed(presentedName, match.candidate.name)) {
-    const qr = qrByGuestId.get(match.candidate.guestId);
-    if (qr) {
-      await setGuestSession({ guest_id: match.candidate.guestId, event_id: eventId, qr_token: qr });
-      // Leave a trail. Until now this branch returned WITHOUT recording anything
-      // — no scan_events row, no couple notification — so an accountless
-      // takeover of a seeded guest was completely invisible after the fact,
-      // while the no-match branch below records one (step 8). Best-effort;
-      // a failure here must never block a legitimate guest.
-      await recordJoinScan(admin, eventId, match.candidate.guestId, 'self_join_bound_seed');
-      return redirect(inviteReplyPath(slug));
-    }
-  }
+  // 5. The request. The name only ever SUGGESTS a match to the couple — it
+  //    never hands this browser another guest's seat (a name is not a secret).
+  const read = readRequestAnswers(formData, sanitizeRsvpAskConfig(event?.rsvp_ask_config));
+  if (!read.ok) return backToDoor(eventId, token, read.error);
 
-  // 5. No confident match → create the guest row (admin) — same minimal shape the
-  //    couple's quick-add uses, tagged `self_added_unlisted`. Split the name
-  //    best-effort; couple can refine.
-  const parsed = parsePersonName(presentedName);
-  const firstName = parsed.firstName || presentedName;
-  const lastName = parsed.lastName;
-
-  const { data: inserted, error } = await admin
-    .from('guests')
-    .insert({
-      event_id: eventId,
-      first_name: firstName,
-      last_name: lastName,
-      ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
-      ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
-      ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
-      side: 'both',
-      group_category: 'other',
-      role,
-      rsvp_status: 'pending',
-      meal_preference: 'no_preference',
-      invited_to_blocks: ['ceremony', 'reception'],
-      entry_source: 'self_added_unlisted',
-      custom_tags: ['self_joined'],
-    })
-    .select('guest_id, qr_token')
-    .single();
-
-  if (error || !inserted) {
+  const requestId = await createJoinRequest(admin, {
+    eventId,
+    answers: (read as { ok: true; value: RequestAnswers }).value,
+    role,
+    userId: null,
+    avatarUrl: null,
+  });
+  if (!requestId) {
     return refuse('join_failed');
   }
-
-  // 6. Sign the guest-session cookie — now identical to a /[slug]/redeem guest.
-  await setGuestSession({
-    guest_id: inserted.guest_id as string,
-    event_id: eventId,
-    qr_token: inserted.qr_token as string,
-  });
-
-  // 7. Tell the couple an unlisted guest joined (reconcile queue).
-  await notifyCoupleUnlisted(admin, eventId, presentedName);
-
-  // 8. Best-effort scan record for triage (mirrors redeem; failures don't block).
-  await recordJoinScan(admin, eventId, inserted.guest_id as string, 'self_join');
-
-  return redirect(inviteReplyPath(slug));
+  return requestSent(eventId, token);
 }

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { connectEventForUser } from '@/lib/event-account-link';
 import { CONNECT_THEN_REPLY, inviteReplyPath } from '@/lib/invite-arrival';
+import { readGuestSession } from '@/lib/guest-session';
+import { emailMayBindRow } from '@/lib/guest-requests';
 
 /**
  * Post-magic-link destination (Invite/Join v2). The email sign-in link lands on
@@ -58,6 +60,17 @@ export async function GET(
         origin,
       ),
     );
+  }
+
+  // 🛂 A REQUEST'S OWN EMAIL NEVER OPENS THE DOOR (guest pathway, owner
+  // 2026-09-26). `connectEventForUser` falls back to an email match on ANY guest
+  // row, and a request row carries the address its asker typed — so without
+  // this, "ask to join, then sign in with that email" would be a way inside
+  // before the couple decided. Held back ONLY when the email matches nothing
+  // but requests and the person holds no key here (no membership, no guest
+  // session for this event); a key always goes through.
+  if (await onlyARequestHoldsThisEmail(eventId, user.id, user.email ?? null)) {
+    return NextResponse.redirect(new URL(`/join/${eventId}?sent=1`, origin));
   }
 
   const { connected } = await connectEventForUser(eventId, user.id, user.email ?? null);
@@ -133,4 +146,38 @@ async function seatAwaitsReply(eventId: string, userId: string): Promise<boolean
     .is('deleted_at', null)
     .maybeSingle();
   return ((guest?.rsvp_status as string | null) ?? null) === 'pending';
+}
+
+/**
+ * Is this sign-in's email known to the event ONLY through requests nobody has
+ * decided yet? True → the connect must not run (see the call site). False on a
+ * member, on a device holding this event's key, on an email the couple put on a
+ * row themselves, and on an email the event does not know at all (the connect
+ * then simply finds nothing, as before).
+ */
+async function onlyARequestHoldsThisEmail(
+  eventId: string,
+  userId: string,
+  email: string | null,
+): Promise<boolean> {
+  const address = (email ?? '').trim();
+  if (!address) return false;
+  const admin = createAdminClient();
+  const { data: member } = await admin
+    .from('event_members')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (member) return false;
+  const session = await readGuestSession();
+  if (session && session.event_id === eventId) return false;
+  const { data: rows } = await admin
+    .from('guests')
+    .select('entry_source')
+    .eq('event_id', eventId)
+    .ilike('email', address)
+    .is('deleted_at', null);
+  const list = rows ?? [];
+  return list.length > 0 && !list.some((r) => emailMayBindRow(r.entry_source as string | null));
 }

@@ -13,7 +13,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
-import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 
 export const metadata = { title: 'You\'re in' };
@@ -25,7 +25,9 @@ type Props = {
 
 export default async function JoinSuccessPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const unlisted = (await searchParams).unlisted === '1';
+  // `?unlisted=1` is no longer sent: nobody off the list reaches "You're in"
+  // any more — they end on "Request sent" (/join/[eventId]?sent=1).
+  await searchParams;
 
   const supabase = await createClient();
   const {
@@ -77,13 +79,6 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
         </p>
       </div>
 
-      {unlisted ? (
-        <DoorNotice>
-          You weren&rsquo;t on the original list, so we&rsquo;ve added you and let the hosts
-          know — they&rsquo;ll confirm you shortly. You can fill in your details now and
-          they&rsquo;ll carry over.
-        </DoorNotice>
-      ) : null}
 
       {/* 🔴 THIS USED TO SAY "Your personal invitation site is on its way. For
           now, you'll find this event in your dashboard." — and then offered one

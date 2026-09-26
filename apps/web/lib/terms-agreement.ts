@@ -46,3 +46,33 @@ export function hasAgreedToTerms(value: FormDataEntryValue | null | undefined): 
 /** What a refused sign-up is told. Names the act, not the field. */
 export const TERMS_REQUIRED_MESSAGE =
   'Please agree to the Terms and Privacy Policy to create your account.';
+
+/**
+ * 🔁 THE ONE-TIME RE-ASK (owner 2026-09-25: re-prompt the accounts with no
+ * agreement on record — *"yes"*).
+ *
+ * The clickwrap shipped 2026-09-22, but only the email doors ever recorded it:
+ * a Google or Apple sign-up (`app/auth/callback`) never wrote
+ * `terms_accepted_at`, and an email sign-up between 09-22 and #5990 lost it too.
+ * Measured in production 2026-09-26: all 3 accounts created since 09-22 had
+ * none — one Google, one email, one Apple.
+ *
+ * So a signed-in account made on or after the clickwrap date with no agreement
+ * on record is asked ONCE, and the ask covers every door that forgets, today
+ * and later. Older accounts pre-date the clickwrap and are not swept in.
+ *
+ * ⚠ FAILS OPEN on a missing read (`null` profile, no `created_at`): an account
+ * we could not load is not asked — this screen stands in front of the whole
+ * dashboard, and a failed read must never lock a couple out of their event.
+ */
+export const CLICKWRAP_SINCE = '2026-09-22';
+
+export function needsTermsAgreement(
+  profile: { terms_accepted_at?: string | null; created_at?: string | null } | null,
+  opts: { isAnonymous?: boolean } = {},
+): boolean {
+  if (!profile || opts.isAnonymous) return false;
+  if (profile.terms_accepted_at) return false;
+  if (!profile.created_at) return false;
+  return profile.created_at.slice(0, 10) >= CLICKWRAP_SINCE;
+}

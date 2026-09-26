@@ -145,6 +145,14 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-no-card.mjs
 
+      # Every exported "use server" function is one Vercel route; production is
+      # refused above 2,048 (stopped twice: 2026-09-23 and 2026-09-26). This
+      # counts them on every PR, before Vercel does.
+      - name: Lint server-action budget
+        id: guard_server_action_budget
+        continue-on-error: true
+        run: node apps/web/scripts/lint-server-action-budget.mjs
+
       # Fails when a Tailwind COLOUR UTILITY names a palette entry that does not
       # exist. Tailwind DROPS such a class silently — no error, no warning, the
       # rule is simply absent and the element falls back to preflight styling.
@@ -533,6 +541,7 @@ jobs:
           ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
           RADIUS: ${{ steps.guard_radius.outcome }}
           NO_CARD: ${{ steps.guard_no_card.outcome }}
+          SERVER_ACTION_BUDGET: ${{ steps.guard_server_action_budget.outcome }}
           COLOUR_EXISTS: ${{ steps.guard_colour_exists.outcome }}
           EVENTS_GRANTS: ${{ steps.guard_events_grants.outcome }}
           VENDOR_PROFILES_GRANTS: ${{ steps.guard_vendor_profiles_grants.outcome }}
@@ -572,6 +581,7 @@ jobs:
           check 'lint admin chat-guard'       "$ADMIN_CHAT"
           check 'lint radius tokens'          "$RADIUS"
           check 'lint no new cards'           "$NO_CARD"
+          check 'lint server-action budget'   "$SERVER_ACTION_BUDGET"
           check 'lint colour names resolve'   "$COLOUR_EXISTS"
           check 'lint events column grants'  "$EVENTS_GRANTS"
           check 'lint vendor_profiles column grants'  "$VENDOR_PROFILES_GRANTS"

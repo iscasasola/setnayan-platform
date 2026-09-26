@@ -30,6 +30,7 @@
  * as `OwnerCapability` — see its doc block for why it is a SEPARATE, additive
  * field and not a third arm of `SiteIdentity`.
  */
+import type { GuestAccountState } from '@/lib/guest-one-path';
 import type {
   GuestRow,
   GuestPapicCamera,
@@ -88,6 +89,13 @@ export type GuestSiteIdentity = {
    *  email" prompt (never Save the Date). True only when there's no signed-in
    *  account for this viewer. */
   showClaimAccountCta: boolean;
+  /**
+   * THE ONE ACCOUNT PROMPT on this guest's page (owner 2026-09-25) — which of
+   * its states to show, decided once by `guestAccountState`
+   * (lib/guest-one-path.ts). NULL renders no prompt at all (the host's
+   * simulated preview). Per-person, about THIS guest's own seat.
+   */
+  account: GuestAccountState | null;
   /** Invite/Join v2: the no-login photo grace has ended (>~24h after the
    *  wedding) for this accountless viewer. */
   accountlessPhotosClosed: boolean;
@@ -432,8 +440,8 @@ export function anonymousIdentity(input: {
  * one. Absent ⇒ null ⇒ the card behaves exactly as it did before this existed.
  */
 export function guestIdentity(
-  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails'> &
-    Partial<Pick<GuestSiteIdentity, 'profileDetails'>>,
+  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account'> &
+    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account'>>,
 ): GuestSiteIdentity {
   return {
     kind: 'guest',
@@ -447,6 +455,7 @@ export function guestIdentity(
     seatMap: input.seatMap,
     papicGuest: input.papicGuest,
     showClaimAccountCta: input.showClaimAccountCta,
+    account: input.account ?? null,
     accountlessPhotosClosed: input.accountlessPhotosClosed,
     eventVendorCredits: input.eventVendorCredits,
     saveFlash: input.saveFlash,

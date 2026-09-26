@@ -190,6 +190,10 @@ test('anonymousIdentity() strips smuggled owner capability from a poisoned input
 test('guestIdentity() output carries exactly the guest keys, and no more', () => {
   const identity = guestIdentity(guestInput());
   assert.deepEqual(Object.keys(identity).sort(), [
+    // account (2026-09-25) — the ONE account prompt's state for THIS guest's
+    // own seat (lib/guest-one-path.ts). Per-person, like profileDetails; never
+    // anything about the host or the event. Reasoned about, not absorbed.
+    'account',
     'accountlessPhotosClosed',
     'eventVendorCredits',
     'faceMode',

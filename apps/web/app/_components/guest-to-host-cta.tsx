@@ -57,12 +57,22 @@ export function GuestToHostCta({
     });
   }, [surface, eventId, eventPublicId]);
 
-  const href = `/signup?ref=guest&src_event=${encodeURIComponent(eventPublicId)}`;
+  /*
+    SHOWN ONLY ONCE THE GUEST IS LINKED (owner 2026-09-25) — both mounts gate on
+    `hostPitchShows` (lib/guest-one-path.ts), so the person reading this is
+    SIGNED IN. It used to send them to `/signup?ref=guest`, a sign-up form for
+    somebody who already has an account, which bounced them onward and never
+    back to the invitation. Their account board is where their own celebration
+    starts, beside the invitation they just kept. `src_event` still rides along
+    for the growth-loop measurement (no PII — a public id).
+  */
+  const href = `/dashboard?ref=guest&src_event=${encodeURIComponent(eventPublicId)}`;
 
+  // SUBTLE, ON PURPOSE (owner 2026-09-25): one quiet line, never a second
+  // coloured box competing with the guest's own invitation.
   return (
-    <div className="rounded-2xl border border-terracotta/20 bg-terracotta/5 p-5">
-      <p className="text-base font-semibold tracking-tight text-ink">{headline}</p>
-      <p className="mt-1 text-sm text-ink/65">{sub}</p>
+    <p className="text-sm text-ink/60">
+      <span className="font-medium text-ink/75">{headline}</span> {sub}{' '}
       <a
         href={href}
         onClick={() => {
@@ -71,13 +81,13 @@ export function GuestToHostCta({
             surface,
             event_id: eventId,
             event_public_id: eventPublicId,
-            destination: '/signup',
+            destination: '/dashboard',
           });
         }}
-        className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+        className="inline-flex min-h-[40px] items-center font-medium text-link underline-offset-2 hover:underline"
       >
         Start planning →
       </a>
-    </div>
+    </p>
   );
 }

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Lock } from 'lucide-react';
 import { resolveHubTheme } from '../_lib/hub-look';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
@@ -99,6 +100,21 @@ export async function PrivateLanding({
           Already invited? Open the personal link {words.theOrganizer} sent you, or scan your
           invitation QR.
         </p>
+        {/* A GUEST WHO ALREADY HAS AN ACCOUNT, ON A NEW PHONE (owner 2026-09-25).
+            Their account's seat opens this page once they are signed in (the gate
+            above admits a seat-holder), but nothing on this screen said so — it
+            only asked for a link or a QR they may not have with them. */}
+        {event.slug ? (
+          <p className="text-sm text-ink/70">
+            Kept this invitation in your Setnayan account?{' '}
+            <Link
+              href={`/login?next=${encodeURIComponent(`/${event.slug}`)}`}
+              className="font-medium text-link underline-offset-2 hover:underline"
+            >
+              Sign in
+            </Link>
+          </p>
+        ) : null}
       </div>
     </InvitationShell>
   );

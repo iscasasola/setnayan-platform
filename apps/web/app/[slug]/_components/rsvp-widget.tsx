@@ -10,6 +10,8 @@ import { SelfieCapture } from './selfie-capture';
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
 import { stubNo } from './pahina-keepsake';
+import { TERMS_FIELD } from '@/lib/terms-agreement';
+import Link from 'next/link';
 
 export function RsvpWidget({
   guest,
@@ -22,6 +24,8 @@ export function RsvpWidget({
   words,
   doorAction,
   offerSelfie = true,
+  keepOffer = false,
+  hostPitch = false,
 }: {
   words: EventWords;
   guest: GuestRow;
@@ -102,6 +106,23 @@ export function RsvpWidget({
    * which is the owner's stated intent, not an oversight.
    */
   offerSelfie?: boolean;
+  /**
+   * FORM FIRST, THEN SIGN UP (owner 2026-09-25). True when this guest has no
+   * account on this invitation yet (`replyOffersKeep`, lib/guest-one-path.ts):
+   * the card then offers ONE unticked box beside the email — "keep this
+   * invitation on my phone · I agree to the Terms" — and the same Save that
+   * stores the reply emails the sign-in link to that address (`submitRsvp` →
+   * `sendKeepLinkOnce`). The email is asked once; there is no second box.
+   * 🔒 Unticked and never pre-set: sending the link CREATES an account, so it is
+   * the same clickwrap `/signup` uses (lib/terms-agreement.ts).
+   */
+  keepOffer?: boolean;
+  /**
+   * The invitation is already linked to their account — only then may the
+   * "planning your own celebration?" line show (`hostPitchShows`). Before the
+   * link it was one more account prompt in front of the one that matters.
+   */
+  hostPitch?: boolean;
 }) {
   const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
   const onDoor = Boolean(doorAction);
@@ -220,7 +241,7 @@ export function RsvpWidget({
           </p>
           {/* No pitch on a solemn page: "Planning your own celebration? Start
               free" under a wake RSVP is the defect class itself. */}
-          {onDoor ? null : words.solemn ? null : (
+          {onDoor || !hostPitch ? null : words.solemn ? null : (
             <GuestToHostCta
               surface="rsvp_confirmation"
               eventId={eventId}
@@ -392,6 +413,40 @@ export function RsvpWidget({
         </div>
       )}
 
+      {/* ── KEEP THIS INVITATION (owner 2026-09-25) ─────────────────────────
+          The reply's email box IS the sign-up. One unticked box, directly under
+          the address it will use, turns this Save into "save + email me the
+          sign-in link". Outside the folded details on purpose: a guest whose
+          details are already filled in must still see it. */}
+      {keepOffer ? (
+        <label
+          htmlFor="keep_invitation"
+          className="flex min-h-[44px] items-start gap-3 border-l-2 border-gild bg-veil/60 px-4 py-3 text-sm text-ink/75"
+        >
+          <input
+            id="keep_invitation"
+            name={TERMS_FIELD}
+            type="checkbox"
+            className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
+          />
+          <span>
+            <span className="block font-medium text-ink">Keep this invitation on my phone</span>
+            <span className="mt-0.5 block">
+              We&rsquo;ll email a sign-in link to the address above — no password needed. I agree
+              to the{' '}
+              <Link href="/terms" className="font-medium text-link underline-offset-2 hover:underline">
+                Terms
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="font-medium text-link underline-offset-2 hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </span>
+        </label>
+      ) : null}
+
       {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────
           The card could not ask this before, and the reason was not a missing
           box: it had no way to know the guest was ALLOWED one. `plus_one_allowed`
@@ -470,11 +525,25 @@ export function RsvpWidget({
         />
       </div>
 
+      {/* ONE PRESS. With the keep box ticked the same button says what it now
+          does — CSS `:has()`, like the reveals above, so no client state. */}
+      {keepOffer ? (
+        <style>{`.rsvp-form .keep-on{display:none}.rsvp-form:has(#keep_invitation:checked) .keep-on{display:inline}.rsvp-form:has(#keep_invitation:checked) .keep-off{display:none}`}</style>
+      ) : null}
       <SubmitButton
-        className="button-primary w-full sm:w-auto"
+        className="button-primary min-h-[44px] w-full sm:w-auto"
         pendingLabel={replyLocked ? 'Saving details…' : 'Saving RSVP…'}
       >
-        {replyLocked ? 'Save details' : 'Save RSVP'}
+        {keepOffer ? (
+          <>
+            <span className="keep-off">{replyLocked ? 'Save details' : 'Save RSVP'}</span>
+            <span className="keep-on">Save &amp; keep this on my phone</span>
+          </>
+        ) : replyLocked ? (
+          'Save details'
+        ) : (
+          'Save RSVP'
+        )}
       </SubmitButton>
     </form>
   );

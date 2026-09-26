@@ -205,5 +205,7 @@ test('the shared per-event self-join ceiling still exists (this throttle protect
     'utf8',
   );
   assert.match(src, /const SELF_JOIN_CEILING = \d+/);
-  assert.match(src, /error=join_closed/);
+  // Since 2026-09-25 a refusal goes back to the door the guest came through
+  // (`selfJoinRefusalPath`, lib/invite-arrival.ts), so the code is a keyword.
+  assert.match(src, /refuse\('join_closed'\)/);
 });

@@ -1026,6 +1026,7 @@ export async function SiteBody({
         widget={widget}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
+        guestView={!isMakerCanvas}
         event={event}
         words={clientWords}
         scheduleBlocks={scheduleBlocks}
@@ -2196,6 +2197,7 @@ export async function SiteBody({
                   widget={widget}
                   canvasMediaUrls={canvasMediaUrls}
                   hubTheme={sceneTheme}
+                  guestView={!isMakerCanvas}
                   event={event}
                   guest={guest}
                   sideLabel={sideLabel}

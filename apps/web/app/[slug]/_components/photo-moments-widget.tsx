@@ -65,9 +65,13 @@ function parsePhotoMomentsConfig(
 export function PhotoMomentsWidget({
   config,
   words,
+  hideWhenEmpty = false,
 }: {
   config: unknown;
   words: EventWords;
+  /** A GUEST's view (owner 2026-09-26): an empty section is left out, not
+   *  printed as "will share closer to the day". The Maker canvas keeps it. */
+  hideWhenEmpty?: boolean;
 }) {
   const { intro_copy, moments } = parsePhotoMomentsConfig(config);
 
@@ -75,6 +79,7 @@ export function PhotoMomentsWidget({
   // instead of the prior hardcoded sample list. Per the no-dev-text rule,
   // this reads as a calm "coming soon" not a developer placeholder.
   if (moments.length === 0) {
+    if (hideWhenEmpty) return null;
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
         <header>

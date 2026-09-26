@@ -33,6 +33,9 @@ import { WhatToBringWidget } from './what-to-bring-widget';
  */
 type PublicHideableWidgetProps = {
   widget: InvitationWidgetRow;
+  /** A GUEST's / stranger's view (not the Maker canvas): empty sections are left
+   *  out rather than printed as "coming soon" (owner 2026-09-26). Default false. */
+  guestView?: boolean;
   event: EventRow;
   /** The event type's own words, resolved ONCE by the body and threaded here
    *  rather than re-resolved per widget. */
@@ -71,6 +74,7 @@ function PublicHideableWidgetBody({
   scheduleEstimated = false,
   ourPhotoUrls,
   canvasMediaUrls,
+  guestView = false,
 }: PublicHideableWidgetProps) {
   switch (widget.widget_type) {
     case 'countdown':
@@ -116,10 +120,10 @@ function PublicHideableWidgetBody({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} />;
 
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "07b5e11ff",
+  "generatedFromRef": "533d9aab7",
   "routeCount": 432,
   "destinations": 940,
   "actions": 667,
-  "blocks": 4743,
+  "blocks": 4750,
   "routes": {
     "/": {
       "files": [
@@ -5490,7 +5490,6 @@
         "dashboard/[eventId]/guests/quick-add-actions.ts"
       ],
       "destinations": [
-        "/api/website/qr/guest/[seg]",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/[seg]",
         "/dashboard/[seg]/guests/checkin",
@@ -5527,7 +5526,6 @@
         "ChipTrigger",
         "ConfirmForm",
         "CustomizePanel",
-        "DecorativeQr",
         "DesktopCanvas",
         "DesktopRow",
         "Disclosure",
@@ -5622,6 +5620,7 @@
         "RowAvatar",
         "RsvpChipEditor",
         "RsvpText",
+        "SaveFileLink",
         "Scrim",
         "SeatChip",
         "Section",
@@ -5950,6 +5949,8 @@
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
+        "dashboard/[eventId]/launch/_components/print-preview.tsx",
+        "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
       ],
@@ -5960,6 +5961,7 @@
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/monogram?mode=upload",
+        "/dashboard/[seg]/plan3d",
         "/marketplace"
       ],
       "actions": [
@@ -5976,6 +5978,7 @@
         "EventPoster",
         "FileUpload",
         "GridPageSkeleton",
+        "HTMLAnchorElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -6009,11 +6012,14 @@
         "OpeningLineField",
         "PabuyaMessageEditor",
         "PageMasthead",
+        "PrintPreview",
+        "PrintSaveButton",
         "Row",
         "SaveState",
         "Segmented",
         "SiteStage",
         "SlugField",
+        "State",
         "Toggle",
         "VectorStudio",
         "ViewAsSwitch",
@@ -8301,6 +8307,8 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "BackgroundEffect",
+        "BackgroundField",
         "CanvasStaysOnThePage",
         "ColorsPanel",
         "DressCodeFields",
@@ -8327,6 +8335,7 @@
         "MakerRevealPanel",
         "MakerSelection",
         "MakerWork",
+        "MiniTour",
         "MoreExtras",
         "OpenBrowsePanel",
         "PhotoMomentsEditor",

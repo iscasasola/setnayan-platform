@@ -197,3 +197,31 @@ test('a draft must be an object', async () => {
   const r = await as(F.couple, `UPDATE public.event_site_drafts SET draft_json = '[1,2]'::jsonb WHERE event_id = $1`, [F.eventId]);
   assert.ok(r.err, 'an array was stored as a draft');
 });
+
+// ── The SECOND save (prod, 2026-09-25, digest 456793547) ───────────────────
+// `writeHubDraft` used PostgREST's upsert. That compiles to ON CONFLICT DO
+// UPDATE SET event_id = excluded.event_id, … — and `authenticated` holds
+// UPDATE only on (draft_json, applied_snapshot). The first save was a plain
+// INSERT and passed; every save after it died with 42501. These two tests pin
+// both halves: the upsert shape IS refused on an existing row (so nobody puts
+// it back), and the UPDATE `writeHubDraft` now issues IS allowed.
+test('the upsert shape is REFUSED once the draft exists (why writeHubDraft updates first)', async () => {
+  const r = await as(
+    F.couple,
+    `INSERT INTO public.event_site_drafts (event_id, draft_json) VALUES ($1, '{"v":1}'::jsonb)
+     ON CONFLICT (event_id) DO UPDATE SET event_id = excluded.event_id, draft_json = excluded.draft_json`,
+    [F.eventId],
+  );
+  assert.match(String(r.err), /permission denied/i, `expected 42501, got ${r.err}`);
+});
+
+test('a second save as UPDATE of draft_json succeeds for the couple', async () => {
+  const r = await as(
+    F.couple,
+    `UPDATE public.event_site_drafts SET draft_json = '{"v":1,"events":{},"widgets":{},"history":[]}'::jsonb
+      WHERE event_id = $1 RETURNING event_id`,
+    [F.eventId],
+  );
+  assert.equal(r.err, null);
+  assert.equal(r.n, 1);
+});

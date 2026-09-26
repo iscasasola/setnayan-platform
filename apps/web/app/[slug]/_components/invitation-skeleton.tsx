@@ -24,11 +24,20 @@
 export function InvitationSkeleton({
   displayName,
   monogramText,
+  phaseLabel = null,
 }: {
   /** The couple's names, straight off the already-loaded event row. */
   displayName: string | null;
   /** Their monogram letters, if they set any. */
   monogramText: string | null;
+  /**
+   * The stage's own word (`PUBLIC_STAGE_LABELS`, e.g. "Post Event"), when the
+   * caller already knows which one is loading — the Maker's `?editor=1`
+   * canvas always does. Null for the ordinary guest link, where the phase
+   * isn't decided until after this fallback paints and the generic noun below
+   * stays correct for whichever stage the guest is about to land on.
+   */
+  phaseLabel?: string | null;
 }) {
   const initials = (monogramText ?? '').trim();
 
@@ -56,7 +65,7 @@ export function InvitationSkeleton({
             guest on a slow connection should be told this is loading, not left
             to infer it from grey boxes. */}
         <p role="status" className="mt-4 text-sm text-ink/55">
-          Loading your invitation…
+          Loading your {phaseLabel ?? 'invitation'}…
         </p>
 
         <div className="mt-10 w-full space-y-4 motion-safe:animate-pulse">

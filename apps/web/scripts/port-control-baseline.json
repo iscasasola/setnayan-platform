@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3a871ad61",
+  "generatedFromRef": "5b0fe5eb2",
   "routeCount": 432,
-  "destinations": 937,
+  "destinations": 938,
   "actions": 668,
-  "blocks": 4742,
+  "blocks": 4748,
   "routes": {
     "/": {
       "files": [
@@ -5949,6 +5949,7 @@
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
+        "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
       ],
@@ -5959,6 +5960,7 @@
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/monogram?mode=upload",
+        "/dashboard/[seg]/plan3d",
         "/marketplace"
       ],
       "actions": [
@@ -5975,6 +5977,7 @@
         "EventPoster",
         "FileUpload",
         "GridPageSkeleton",
+        "HTMLAnchorElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -6008,11 +6011,13 @@
         "OpeningLineField",
         "PabuyaMessageEditor",
         "PageMasthead",
+        "PrintSaveButton",
         "Row",
         "SaveState",
         "Segmented",
         "SiteStage",
         "SlugField",
+        "State",
         "Toggle",
         "VectorStudio",
         "ViewAsSwitch",
@@ -8195,6 +8200,7 @@
     "/dashboard/[eventId]/website": {
       "files": [
         "dashboard/[eventId]/website/_components/hub-draft-bar.tsx",
+        "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-field.tsx",
         "dashboard/[eventId]/website/_components/website-pro-lock.tsx",
@@ -8205,8 +8211,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "DraftButton",
         "HubDraftActionResult",
-        "HubDraftBadge",
         "HubDraftToolbar",
         "InfoTip",
         "Link",
@@ -8300,6 +8306,8 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "BackgroundEffect",
+        "BackgroundField",
         "CanvasStaysOnThePage",
         "ColorsPanel",
         "DressCodeFields",
@@ -8326,6 +8334,7 @@
         "MakerRevealPanel",
         "MakerSelection",
         "MakerWork",
+        "MiniTour",
         "MoreExtras",
         "OpenBrowsePanel",
         "PhotoMomentsEditor",

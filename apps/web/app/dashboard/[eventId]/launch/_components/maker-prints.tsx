@@ -17,6 +17,7 @@ import {
 import { freePrints } from '@/lib/free-prints';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
 import { PrintSaveButton } from './print-save-button';
+import { PrintPreview } from './print-preview';
 
 /**
  * PRINTS & TICKETS — the third group of the Event Hub Maker's bar (Phase 9).
@@ -254,15 +255,14 @@ export function MakerPrints({
               const fam = formatFamilyOf(k);
               return (
                 <li key={k} data-print-piece={k} className="flex flex-col items-center gap-2">
-                  <div className="flex h-[300px] w-full items-center justify-center rounded-xl bg-ink/[0.04] p-4 sm:h-[340px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- the piece IS a generated image from our own route, sized by its own viewBox */}
-                    <img
-                      src={q(k, 'screen')}
-                      alt={`${spec.label} — ${t.name}`}
-                      loading="lazy"
-                      className="max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)]"
-                    />
-                  </div>
+                  {/* The server render takes real seconds — PrintPreview shows
+                      "Drawing your…" while it loads and an honest Retry on error,
+                      never a silent grey box (rd/maker-phone-polish). */}
+                  <PrintPreview
+                    src={q(k, 'screen')}
+                    alt={`${spec.label} — ${t.name}`}
+                    label={spec.label.toLowerCase()}
+                  />
                   <p className="text-sm font-semibold text-ink">{spec.label}</p>
                   <p className="text-xs text-ink/60">
                     {fam ? `${formats[fam].label} · ${formats[fam].wMm} × ${formats[fam].hMm} mm` : spec.size}

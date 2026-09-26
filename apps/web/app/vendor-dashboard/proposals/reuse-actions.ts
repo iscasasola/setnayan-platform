@@ -77,7 +77,7 @@ async function ownedRequestVendorProfileId(requestId: string): Promise<string | 
 }
 
 /** VENDOR RE-PRICES — set the new point-in-time price. */
-export async function vendorQuoteReuse(formData: FormData): Promise<ReuseActionResult> {
+async function vendorQuoteReuse(formData: FormData): Promise<ReuseActionResult> {
   if (!isReusableBookingsEnabled()) return DISABLED;
   const requestId = String(formData.get('request_id') ?? '');
   const newTotalPhp = Number(formData.get('new_total_php'));
@@ -91,7 +91,7 @@ export async function vendorQuoteReuse(formData: FormData): Promise<ReuseActionR
 }
 
 /** VENDOR DECLINES — never forced to re-offer (retired package, no slot, …). */
-export async function vendorDeclineReuse(formData: FormData): Promise<ReuseActionResult> {
+async function vendorDeclineReuse(formData: FormData): Promise<ReuseActionResult> {
   if (!isReusableBookingsEnabled()) return DISABLED;
   const requestId = String(formData.get('request_id') ?? '');
   const reason = String(formData.get('reason') ?? '') || null;

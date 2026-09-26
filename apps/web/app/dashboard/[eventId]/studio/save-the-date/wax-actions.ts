@@ -71,7 +71,7 @@ export async function saveWaxSeal(formData: FormData): Promise<void> {
   backToMaker(eventId, { wax: 'saved' });
 }
 
-export async function clearWaxSeal(formData: FormData): Promise<void> {
+async function clearWaxSeal(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);

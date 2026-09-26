@@ -217,7 +217,7 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
  * UPDATE is narrowed to (satisfied ∩ candidates), so it never issues a no-op
  * write and the caller skips this whole pass once nothing is left to flip.
  */
-export async function reconcileChecklistCompletion(
+async function reconcileChecklistCompletion(
   eventId: string,
   admin: SupabaseClient,
   candidateKeys: ReadonlySet<string>,

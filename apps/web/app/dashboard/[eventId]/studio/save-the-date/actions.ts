@@ -464,7 +464,7 @@ export async function saveAllStdContent(
   return { ok: true };
 }
 
-export async function saveInvitationLaunchDate(formData: FormData): Promise<void> {
+async function saveInvitationLaunchDate(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);

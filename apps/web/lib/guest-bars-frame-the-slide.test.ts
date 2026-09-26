@@ -72,14 +72,14 @@ test('RENDERED: the handoff draws the film as the first slide in the canvas, and
 
   type HandoffProps = React.ComponentProps<typeof StdFilmHandoff>;
   const canvas = renderToStaticMarkup(
-    React.createElement(StdFilmHandoff, { film, marker, asSlide: true } as HandoffProps, page),
+    React.createElement(StdFilmHandoff, { film, marker, asSlide: true } as unknown as HandoffProps, page),
   );
   assert.ok(canvas.indexOf('data-maker-section="f:film"') < canvas.indexOf('data-the-film'), 'the handle sits before the film');
   assert.ok(canvas.indexOf('data-the-film') < canvas.indexOf('THE-PAGE'), 'in the canvas the film is the first slide, above the page');
   assert.match(canvas, /<span hidden="" data-maker-section="f:film"><\/span><div data-the-film="">/, 'the handle’s next element IS the film');
 
   const guest = renderToStaticMarkup(
-    React.createElement(StdFilmHandoff, { film, marker, autoplay: true } as HandoffProps, page),
+    React.createElement(StdFilmHandoff, { film, marker, autoplay: true } as unknown as HandoffProps, page),
   );
   assert.ok(guest.indexOf('THE-PAGE') < guest.indexOf('data-the-film'), 'for a guest the film is the takeover over the page');
   assert.match(guest, /<span hidden="" data-maker-section="f:film"><\/span><div data-the-film="">/, 'the handle points at the film there too');

@@ -133,7 +133,7 @@ test('3 · for EVERY stage the navigator’s tabs are exactly that stage’s Eve
     const flat = tabs.flatMap((t) => t.tiles);
     assert.deepEqual([...flat].sort(), [...tiles].sort(), `${stage}: a scene was lost or doubled`);
     for (const t of tabs) {
-      const idx = t.tiles.map((k) => tiles.indexOf(k));
+      const idx = t.tiles.map((k) => (tiles as readonly string[]).indexOf(k));
       assert.deepEqual(idx, [...idx].sort((a, b) => a - b), `${stage}/${t.label}: scenes out of page order`);
       if (t.leaves) assert.equal(t.tiles.length, 0, `${stage}/${t.label} opens its own page — it lists no scenes`);
     }

@@ -148,6 +148,28 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
   story: { label: 'Our story', why: 'Always here on this stage, after the entourage — written from your love story.' },
 };
 
+/**
+ * 🔒 WHERE A FIXED SECTION IS EDITED (owner 2026-09-25: *"if not editable then
+ * nothing to edit but the scene must be there"*). Each fixed section either
+ * opens a Maker tool, or has nothing to edit in the Maker and says where it
+ * comes from — never a tile that silently does nothing when tapped.
+ */
+export const MAKER_FIXED_TOOL: Partial<Record<MakerFixedKey, 'hero' | 'reveal' | 'post-event' | 'love-story'>> = {
+  hero: 'hero',
+  film: 'reveal',
+  editorial: 'post-event',
+  story: 'love-story',
+};
+
+/** For a fixed section with no Maker tool: what fills it, and the page that changes it. */
+export const MAKER_FIXED_SOURCE: Partial<Record<MakerFixedKey, { text: string; page: 'guests'; link: string }>> = {
+  entourage: {
+    text: 'Nothing to edit here. It comes from your guest list — the roles you give people there.',
+    page: 'guests',
+    link: 'Open your guest list',
+  },
+};
+
 /** The label a navigator row wears. A template scene is named by its template upstream. */
 export function makerSceneLabel(type: WidgetType): string {
   if (isCustomSectionType(type)) return customSectionEditorLabel(type);

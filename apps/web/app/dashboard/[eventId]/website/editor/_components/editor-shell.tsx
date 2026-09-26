@@ -20,7 +20,7 @@ import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-m
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
-import { swapsForDrop, type MakerFixedKey, type MakerStageList } from '@/lib/maker-scene-list';
+import { swapsForDrop, MAKER_FIXED_TOOL, MAKER_FIXED_SOURCE, type MakerFixedKey, type MakerStageList } from '@/lib/maker-scene-list';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
@@ -766,7 +766,7 @@ export function MakerWork({
                       aria-label={
                         tile.kind === 'post-event'
                           ? postEventTileLabel(tile)
-                          : `${tile.label}${tile.kind === 'fixed' ? ' (always here on this stage)' : showing ? '' : ' (hidden from guests)'}`
+                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ' (always here on this stage · comes from your guest list)' : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
                         if (tile.kind === 'post-event') {
@@ -831,6 +831,17 @@ export function MakerWork({
                     {tile.kind === 'fixed' ? (
                       <InfoTip label={tile.label} align="start" labelClassName="line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
                         {tile.why}
+                        {MAKER_FIXED_SOURCE[tile.fixed] ? (
+                          <span className="mt-1.5 block">
+                            {MAKER_FIXED_SOURCE[tile.fixed]!.text}{' '}
+                            <Link
+                              href={`/dashboard/${eventId}/${MAKER_FIXED_SOURCE[tile.fixed]!.page}`}
+                              className="font-semibold underline underline-offset-2"
+                            >
+                              {MAKER_FIXED_SOURCE[tile.fixed]!.link} →
+                            </Link>
+                          </span>
+                        ) : null}
                       </InfoTip>
                     ) : tile.kind === 'post-event' ? (
                       <InfoTip
@@ -1133,12 +1144,7 @@ function postEventTileNote(tile: PostEventTile): string {
 }
 
 /** Which toolbar tool a fixed section opens (none for the entourage). */
-const FIXED_TOOL: Partial<Record<MakerFixedKey, 'hero' | 'reveal' | 'post-event' | 'love-story'>> = {
-  hero: 'hero',
-  film: 'reveal',
-  editorial: 'post-event',
-  story: 'love-story',
-};
+const FIXED_TOOL = MAKER_FIXED_TOOL;
 
 
 /**

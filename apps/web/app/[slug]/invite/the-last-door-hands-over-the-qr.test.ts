@@ -115,10 +115,18 @@ test('the panel takes an image and a url — never an id, a token or a parameter
 test('the page that mounts it has already matched the cookie to THIS event', () => {
   // The gate is not new and is not being re-implemented — it is the one door 03
   // already had. This asserts the QR did not arrive on a page that lost it.
-  assert.match(ENTER, /const session = await readGuestSession\(\);/, 'the Enter door no longer reads the guest session');
+  // 🔄 2026-09-27: the key is the browser's pass for THIS event OR the seat a
+  // signed-in account holds on it (`readGuestSessionForEvent`, which never
+  // answers for another event) — the same key the event page and the RSVP page
+  // recognise. No key → the event page, where a stranger gets "Get inside".
   assert.match(
     ENTER,
-    /if \(!session \|\| session\.event_id !== event\.event_id\) redirect\(`\/\$\{home\}\/invite`\);/,
+    /const session = await readGuestSessionForEvent\(event\.event_id as string\);/,
+    'the Enter door no longer reads the guest key for THIS event',
+  );
+  assert.match(
+    ENTER,
+    /if \(!session \|\| session\.event_id !== event\.event_id\) redirect\(`\/\$\{home\}`\);/,
     'the session/event match is gone — a cookie for another event would be shown this event’s QR',
   );
   assert.match(ENTER, /\.eq\('guest_id', session\.guest_id\)/, 'the guest row is no longer keyed on the session');

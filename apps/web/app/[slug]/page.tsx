@@ -30,7 +30,10 @@ import { readGuestSession } from '@/lib/guest-session';
 import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
-import { guestAccountState, resolveGuestViewer } from '@/lib/guest-one-path';
+import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
+import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
@@ -1223,6 +1226,11 @@ async function InvitationBody({
           reason,
           publicCandidCameraActive,
           publicAlbumHref,
+          // Signed in, holding no seat here, and neither host nor booked
+          // supplier → "You're not on the guest list for this event yet" +
+          // "Ask to join" (owner 2026-09-26). Never an automatic entry.
+          signedInNotListed:
+            Boolean(viewerAccount?.id) && !viewerHoldsASeat && !ownerCapability && !vendorCapability,
         })}
       />
       {pageFooter}
@@ -1298,6 +1306,31 @@ async function InvitationBody({
   // since a thrown redirect must never be cached.)
   if (guestContext.kind === 'unconfirmed_tba') {
     redirect(`/${slug}/welcome`);
+  }
+
+  // ── THE KEY GATE (owner 2026-09-26, "NOBODY WITHOUT A KEY"): *"if they enter.
+  // using QR and they do not have the proper information, that should be filled
+  // first until they are all answered."* A guest holding their key (link = QR =
+  // NFC, or a signed-in seat) with a REQUIRED answer missing meets the RSVP page
+  // first — only what is missing, so a question the couple switches on later is
+  // asked alone. Decided by `rsvpGate` (lib/guest-one-path.ts), the one rule the
+  // reply door also asks. 🔒 A SERVER redirect, so nothing inside renders first.
+  // Never in the Maker's canvas and never for the event's own host (a host
+  // holding a guest cookie for their own event is previewing, not arriving).
+  const keyGate = rsvpGate({
+    rsvpStatus: guestContext.guest.rsvp_status,
+    mealPreference: guestContext.guest.meal_preference,
+    mobile: guestContext.guest.mobile,
+    askMeal: resolveRsvpAsk(event.rsvp_ask_config).meal,
+    askMobile: resolveRsvpAsk(event.rsvp_ask_config).mobile,
+    locked: guestListIsClosed({
+      lockedAt: event.guest_count_locked_at ?? null,
+      editDeadline: event.guest_list_edit_deadline ?? null,
+      eventDate: event.event_date ?? null,
+    }),
+  });
+  if (keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability) {
+    redirect(inviteReplyPath(event.slug ?? slug));
   }
 
   const {
@@ -1474,6 +1507,7 @@ async function InvitationBody({
           rsvpFlash,
           faceMode: rsvpFaceMode,
           profileDetails,
+          didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
         })}
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar

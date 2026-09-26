@@ -163,3 +163,108 @@ export function shouldSendKeepLink(input: {
   if (input.alreadySent) return false;
   return true;
 }
+
+// ═══ THE GUEST PATHWAY (owner 2026-09-26/27) ═══════════════════════════════
+// "We handle the chaos … everything is smooth for the users" — ONE button per
+// screen, and WE choose the method for the guest. Spec corpus
+// `DECISION_LOG.md` rows "NOBODY WITHOUT A KEY", "SWAP A NON-REPLIER'S SPOT",
+// "OWNER: YES TO ALL" (b), and build-sessions/GUEST-PATHWAY-BUILD-BRIEF.
+
+/**
+ * The answers the key gate can ask for. `attending` is always asked (the
+ * couple cannot switch the answer itself off); `meal` and `mobile` only when
+ * the couple's "What do you ask your guests?" has them on.
+ *
+ * ⚖ WHY NOT dietary · note · song · plus-one names. Each of those has a real
+ * EMPTY answer ("no allergies", "nothing to add", a seat still TBA — which the
+ * owner ruled may be filled later from Me), and the row cannot tell an empty
+ * answer from a question never seen. Gating on them would re-ask a guest who
+ * already answered "nothing" on every visit, forever. `meal` is different: the
+ * reply form ALWAYS writes one (its default is "No preference"), so a NULL meal
+ * means the form was never sent — the one blank that is unambiguous.
+ */
+export type RsvpAnswer = 'attending' | 'meal' | 'mobile';
+
+export type RsvpGate =
+  /** Inside. `didntReply` = the final count locked with no answer from them —
+   *  owner 2026-09-26 "yes to all" (b): inside, marked, no headcount questions. */
+  | { kind: 'inside'; didntReply: boolean }
+  /** The RSVP page FIRST, unskippable, asking only `missing`. `coupleMarked` =
+   *  the couple already has them down as attending (confirmed by text or call),
+   *  so the answer is not asked again — only the remaining details. */
+  | { kind: 'ask'; missing: RsvpAnswer[]; coupleMarked: boolean };
+
+/**
+ * THE KEY GATE — does this identified guest see the RSVP page before anything
+ * else? Pure; the page, the reply door and the tests ask this ONE function.
+ *
+ * 🔒 AFTER THE LOCK THE GATE NEVER CLOSES. The venue scanner never blocks over
+ * a missing form, and neither does this page: a locked list admits everyone
+ * with a key — an unreplied one marked "Didn't reply · you're in".
+ *
+ * ⚖ `maybe` is an answer. "Undecided, for now" is a choice the guest made on
+ * the form; they are let in and can change it from the RSVP tab.
+ */
+export function rsvpGate(input: {
+  rsvpStatus: string | null | undefined;
+  mealPreference: string | null | undefined;
+  mobile: string | null | undefined;
+  askMeal: boolean;
+  askMobile: boolean;
+  /** `guestListIsClosed(...)` — the final count is locked. */
+  locked: boolean;
+}): RsvpGate {
+  const status = input.rsvpStatus ?? 'pending';
+  const unanswered = status !== 'attending' && status !== 'declined' && status !== 'maybe';
+  if (input.locked) return { kind: 'inside', didntReply: unanswered };
+  // A decliner is not asked for a meal or a number — "a decline must not go on
+  // to ask for the rest" (owner 2026-09-11, the reply card's own rule).
+  if (status === 'declined') return { kind: 'inside', didntReply: false };
+  const missing: RsvpAnswer[] = [];
+  if (unanswered) missing.push('attending');
+  if (input.askMeal && !(input.mealPreference ?? '').trim() && status !== 'maybe') missing.push('meal');
+  if (input.askMobile && !(input.mobile ?? '').trim()) missing.push('mobile');
+  if (missing.length === 0) return { kind: 'inside', didntReply: false };
+  return { kind: 'ask', missing, coupleMarked: status === 'attending' };
+}
+
+/**
+ * HOW "Save to my account" SIGNS THEM IN — chosen by the device, NEVER shown as
+ * a choice (owner 2026-09-26, "THE GUEST PATHWAY — ONE BUTTON AT A TIME").
+ *
+ *   · an in-app webview (Messenger · Instagram · Facebook · LINE · WeChat) →
+ *     the emailed link. Google REFUSES OAuth inside these webviews
+ *     (`disallowed_useragent`), and most invitations are opened in one;
+ *   · an Apple device — iOS Safari, or the Setnayan iOS app → Apple;
+ *   · everything else (Android Chrome, a desktop browser) → Google.
+ *
+ * A provider the deployment has not switched on falls back to the other, then
+ * to the email link, which always works — a button must never lead to a
+ * provider that answers "not enabled".
+ */
+export type SaveMethod = 'email' | 'apple' | 'google';
+
+const IN_APP_WEBVIEW =
+  /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|\bLine\/|MicroMessenger|Snapchat|musical_ly|BytedanceWebview/i;
+const APPLE_DEVICE = /iPhone|iPad|iPod/i;
+
+export function isInAppWebview(userAgent: string | null | undefined): boolean {
+  return IN_APP_WEBVIEW.test(userAgent ?? '');
+}
+
+export function saveMethodFor(
+  userAgent: string | null | undefined,
+  providers: { apple: boolean; google: boolean },
+): SaveMethod {
+  const ua = userAgent ?? '';
+  if (isInAppWebview(ua)) return 'email';
+  if (APPLE_DEVICE.test(ua)) return providers.apple ? 'apple' : providers.google ? 'google' : 'email';
+  return providers.google ? 'google' : providers.apple ? 'apple' : 'email';
+}
+
+/** The one line under the Save button — what the device chose, said as a fact, never a choice. */
+export function saveMethodLine(method: SaveMethod): string {
+  if (method === 'apple') return 'with Apple · nothing to type';
+  if (method === 'google') return 'with Google · nothing to type';
+  return 'we email you a sign-in link · no password needed';
+}

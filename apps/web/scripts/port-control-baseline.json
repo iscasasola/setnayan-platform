@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c34b51f7d9",
-  "routeCount": 432,
-  "destinations": 942,
-  "actions": 667,
-  "blocks": 4786,
+  "generatedFromRef": "d6b84fc48",
+  "routeCount": 435,
+  "destinations": 945,
+  "actions": 669,
+  "blocks": 4806,
   "routes": {
     "/": {
       "files": [
@@ -662,6 +662,41 @@
         "SpotlightSection"
       ]
     },
+    "/(shell)/suppliers/(index)": {
+      "files": [
+        "(shell)/suppliers/(index)/loading.tsx",
+        "(shell)/suppliers/(index)/page.tsx"
+      ],
+      "destinations": [
+        "/explore",
+        "/vendors"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Metadata"
+      ]
+    },
+    "/(shell)/suppliers/[event]/[category]": {
+      "files": [
+        "(shell)/suppliers/[event]/[category]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SupplierLanding"
+      ]
+    },
+    "/(shell)/suppliers/[event]/[category]/[city]": {
+      "files": [
+        "(shell)/suppliers/[event]/[category]/[city]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SupplierLanding"
+      ]
+    },
     "/(shell)/terms": {
       "files": [
         "(shell)/terms/loading.tsx",
@@ -742,6 +777,7 @@
         "[slug]/_components/everything-else-sheet.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/face-receipt-card.tsx",
+        "[slug]/_components/get-inside.tsx",
         "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-code-keepers.tsx",
@@ -765,6 +801,7 @@
         "[slug]/_components/live-wall-block.tsx",
         "[slug]/_components/magic-move.tsx",
         "[slug]/_components/main-ground.tsx",
+        "[slug]/_components/not-you-switch.tsx",
         "[slug]/_components/our-love-story-widget.tsx",
         "[slug]/_components/our-photos-widget.tsx",
         "[slug]/_components/our-story.tsx",
@@ -794,22 +831,26 @@
         "[slug]/_components/reveal/wax-seal.tsx",
         "[slug]/_components/roam-watch-picker.tsx",
         "[slug]/_components/room-footer.tsx",
+        "[slug]/_components/rsvp-one-at-a-time.tsx",
         "[slug]/_components/rsvp-sheet-state.ts",
         "[slug]/_components/rsvp-sheet.tsx",
         "[slug]/_components/rsvp-widget.tsx",
         "[slug]/_components/save-the-date-film.tsx",
         "[slug]/_components/save-the-date.tsx",
+        "[slug]/_components/save-to-account.tsx",
         "[slug]/_components/scan-trail-notice.tsx",
         "[slug]/_components/scene-clip.tsx",
         "[slug]/_components/scene-template.tsx",
         "[slug]/_components/schedule-widget.tsx",
         "[slug]/_components/selfie-capture.tsx",
+        "[slug]/_components/send-their-invite.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
         "[slug]/_components/skins/site-skin.tsx",
         "[slug]/_components/song-request-card.tsx",
         "[slug]/_components/special-message-widget.tsx",
         "[slug]/_components/spotlight-card.tsx",
+        "[slug]/_components/stage-autoplay.tsx",
         "[slug]/_components/std-background-layer.tsx",
         "[slug]/_components/std-film-handoff.tsx",
         "[slug]/_components/std-view-beacon.tsx",
@@ -838,6 +879,7 @@
         "[slug]/_components/watch-live-block.tsx",
         "[slug]/_components/watch-live-embed.tsx",
         "[slug]/_components/what-to-bring-widget.tsx",
+        "[slug]/_components/your-guests.tsx",
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_lib/album-door.server.ts",
@@ -854,6 +896,7 @@
         "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
+        "[slug]/_lib/plus-one-seats.server.ts",
         "[slug]/_lib/previous-edition.server.ts",
         "[slug]/_lib/pro-site-vars.ts",
         "[slug]/_lib/reveal-props.ts",
@@ -863,7 +906,9 @@
         "[slug]/_lib/site-identity.ts",
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
+        "[slug]/_lib/stage-bar.ts",
         "[slug]/_lib/supplier-desk.server.ts",
+        "[slug]/_lib/thank-you-words.ts",
         "[slug]/_lib/theme-ground.ts",
         "[slug]/_lib/top-corner.ts",
         "[slug]/_lib/types.ts",
@@ -890,6 +935,7 @@
         "/[seg]/welcome",
         "/api/guest/qr",
         "/dashboard/profile",
+        "/join/[seg]",
         "/login",
         "/papic/guest",
         "/papic/guest?from=[seg]",
@@ -905,6 +951,8 @@
       "actions": [
         "action",
         "arrivalAction",
+        "signInWithApple",
+        "signInWithGoogle",
         "submit",
         "toggle",
         "toggleBlur",
@@ -982,6 +1030,7 @@
         "GalleryCredit",
         "GalleryLightbox",
         "Gap",
+        "GetInside",
         "GlowBlob",
         "GracefulFallback",
         "GuestAccountCard",
@@ -1006,8 +1055,10 @@
         "HTMLCanvasElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "HTMLImageElement",
         "HTMLInputElement",
+        "HTMLSpanElement",
         "HTMLVideoElement",
         "HeroBackgroundMedia",
         "HeroMonogram",
@@ -1104,6 +1155,8 @@
         "RoomPlan",
         "Row",
         "RowGroup",
+        "RsvpFocusForm",
+        "RsvpOneAtATime",
         "RsvpPill",
         "RsvpSheet",
         "RsvpWidget",
@@ -1124,6 +1177,7 @@
         "Selection",
         "SelfRotateResult",
         "SelfieCapture",
+        "SendTheirInvite",
         "SetnayanExperience",
         "ShareButtons",
         "Sheet",
@@ -1135,6 +1189,7 @@
         "SpatialBackdrop",
         "SpecialMessageWidget",
         "SpotlightCard",
+        "StageAutoplay",
         "Stat",
         "Status",
         "StdBackgroundLayer",
@@ -1166,6 +1221,7 @@
         "TakedownResult",
         "TeaCeremonyCard",
         "TeamBehindTheDay",
+        "TermsTick",
         "TheirSong",
         "TierComparisonWidget",
         "ToolTile",
@@ -1331,22 +1387,22 @@
         "DoorNotice",
         "DoorShell",
         "InviteQrPanel",
-        "Link"
+        "Link",
+        "SaveToAccount",
+        "YourGuests"
       ]
     },
     "/[slug]/invite/reply": {
       "files": [
         "[slug]/invite/reply/page.tsx"
       ],
-      "destinations": [
-        "/login?next=[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "DoorNotice",
         "DoorShell",
         "Link",
-        "OAuthButtonRow",
+        "NotYouSwitch",
         "RsvpWidget"
       ]
     },
@@ -5958,6 +6014,7 @@
         "dashboard/[eventId]/launch/_components/maker-play-menu.tsx",
         "dashboard/[eventId]/launch/_components/maker-prints.tsx",
         "dashboard/[eventId]/launch/_components/maker-reveal.tsx",
+        "dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
@@ -6020,6 +6077,7 @@
         "MakerPlayMenu",
         "MakerPrints",
         "MakerRevealPicker",
+        "MakerRsvpAsk",
         "MakerSelection",
         "MakerShell",
         "MakerState",
@@ -6033,6 +6091,7 @@
         "PrintPreview",
         "PrintSaveButton",
         "Row",
+        "RsvpAskConfig",
         "SaveState",
         "Segmented",
         "SiteStage",
@@ -8297,7 +8356,9 @@
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/pro-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/rail-rows.ts",
+        "dashboard/[eventId]/website/editor/_components/scene-preview.tsx",
         "dashboard/[eventId]/website/editor/_components/scene-slots-panel.tsx",
+        "dashboard/[eventId]/website/editor/_components/scene-snapshot.ts",
         "dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx",
         "dashboard/[eventId]/website/editor/_components/sections-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/text-panel.tsx",
@@ -8307,6 +8368,7 @@
       ],
       "destinations": [
         "/api/website/qr[seg]",
+        "/dashboard/[seg]/[seg]",
         "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?scene=[seg]",
         "/dashboard/[seg]/schedule?view=event-day",
@@ -8348,6 +8410,8 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLIFrameElement",
+        "HTMLOListElement",
+        "HTMLSpanElement",
         "HeroFrameSync",
         "HeroPhotoPanel",
         "HexField",
@@ -8386,6 +8450,7 @@
         "SaveButton",
         "SceneMenu",
         "SceneMiniature",
+        "ScenePreview",
         "SceneSlotsPanel",
         "SceneTemplatePicker",
         "SceneView",
@@ -8402,6 +8467,7 @@
         "TextPanel",
         "ThemePanel",
         "Thumb",
+        "TileHead",
         "VisibilityPanel"
       ]
     },

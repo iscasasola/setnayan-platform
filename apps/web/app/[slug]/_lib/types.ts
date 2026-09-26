@@ -110,9 +110,11 @@ export type EventRow = {
   // Website Pro net-new manual site colours (events.site_bg_color /
   // site_button_color · #rrggbb hex · migration 20270930244819). Override the
   // Mood-Board-derived --color-cream / --color-mulberry tokens on the guest
-  // site, applied ONLY when set AND the event owns active Website Pro
-  // (`proSiteVarsFor` gates them; `[slug]/layout.tsx` paints them on every
-  // page of the guest tree). NULL = inert.
+  // site (`[slug]/layout.tsx` paints them on every page of the guest tree via
+  // `proSiteVarsFor`). NULL = inert. ⚠ owner 2026-09-25 "drop the numbers" /
+  // bg-colour fix: `site_bg_color` is FREE and applies for every event now;
+  // `site_button_color` still applies only when the event owns active Website
+  // Pro (`proSiteVarsFor` gates that one alone).
   /** Pahina art direction (migration 20271003190000). 'candlelight' flips the
    *  guest site to the dark direction; absent/'daylight' = today's look. */
   site_art_direction?: 'daylight' | 'candlelight' | null;

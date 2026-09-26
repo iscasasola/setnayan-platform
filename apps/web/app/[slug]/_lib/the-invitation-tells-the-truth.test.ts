@@ -63,8 +63,10 @@ test('and it says the thing that IS true, in the words the product already uses'
   assert.match(src, /winds down about a day after/, 'the honest replacement is gone');
   // The sibling card in the body says the same thing; if that wording ever
   // changes, these two must not drift into disagreeing about the same rule.
+  // The sibling moved 2026-09-25: the "Keep this event for good" note folded
+  // into the ONE account card (guest-account-card.tsx, `photosClosing`).
   assert.match(
-    read('_components', 'site-body.tsx').replace(/\s+/g, ' '),
+    read('_components', 'guest-account-card.tsx').replace(/\s+/g, ' '),
     /winds down about a day after/,
     'the sibling copy moved — the two cards now describe the same rule differently',
   );

@@ -66,6 +66,27 @@ export function inviteReplyPath(slug: string): string {
   return `/${slug}/invite/reply`;
 }
 
+/**
+ * Where a refused self-join goes back to (owner 2026-09-25: "the link process
+ * must be easy to understand"). The guest came in through `/{slug}/invite`, so
+ * that is where the sentence explaining the refusal is shown — not the opaque
+ * `/join/{uuid}?token=…` address, which is a different-looking page they never
+ * saw. A private event's door is the event page itself (`/{slug}/invite`
+ * 404s for it, on purpose), and an event with no public address keeps the
+ * opaque one, which is the only door it has. `slug` from the DATABASE only.
+ */
+export function selfJoinRefusalPath(input: {
+  eventId: string;
+  token: string;
+  slug: string | null;
+  error: string;
+}): string {
+  const { eventId, token, slug, error } = input;
+  if (!slug) return `/join/${eventId}?token=${encodeURIComponent(token)}&error=${encodeURIComponent(error)}`;
+  if (error === 'event_is_private') return `/${slug}`;
+  return `/${slug}/invite?error=${encodeURIComponent(error)}`;
+}
+
 /** Door 03. `slug` must come from the database, never from input. */
 export function inviteEnterPath(slug: string): string {
   return `/${slug}/invite/enter`;

@@ -11,7 +11,6 @@ import {
   QrCode,
   RefreshCw,
   User,
-  UserPlus,
   X,
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -32,9 +31,9 @@ import { PASS_ANCHOR } from '@/lib/arrival-action';
 //                   guest's paid roll camera is live, else /papic/guest when the
 //                   couple's candid camera is open, else hidden.
 //   bottom-right  = Gallery → /papic/me/{qrToken} ("Photos of you").
-//   top-right     = signed-in viewer → /dashboard/profile; otherwise a "Link to
-//                   account" button that scrolls to the existing claim-account
-//                   section (#claim-account) on the page.
+//   top-right     = signed-in viewer → /dashboard/profile; otherwise nothing —
+//                   the page's one account card (#claim-account) is the only
+//                   account prompt (owner 2026-09-25).
 //
 // Replaces the two lone floating Papic CTAs that used to sit on this page.
 
@@ -46,7 +45,6 @@ export function GuestHubBar({
   papicGuestActive,
   hasAccount,
   galleryCount,
-  showClaimAnchor,
   hubHref,
   selfRotateEnabled,
   dayOfLive,
@@ -67,8 +65,6 @@ export function GuestHubBar({
   hasAccount: boolean;
   /** Count of photos this guest is tagged in (0 when none / not in window). */
   galleryCount: number;
-  /** The #claim-account section is rendered on this page (so anchor works). */
-  showClaimAnchor: boolean;
   /** When set (event-day live/post), a top-left chip opens the fullscreen
    *  no-scroll guest hub at this href. Undefined outside the event day. */
   hubHref?: string | null;
@@ -175,16 +171,10 @@ export function GuestHubBar({
             <User aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             <span>Account</span>
           </Link>
-        ) : showClaimAnchor ? (
-          <Link
-            href="#claim-account"
-            aria-label="Link to a Setnayan account"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-mulberry px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-mulberry-600"
-          >
-            <UserPlus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            <span>Link to account</span>
-          </Link>
         ) : null}
+        {/* (The "Link to account" chip that stood here was a SECOND account
+            prompt beside the page's own card — owner 2026-09-25: one prompt.
+            The card, `#claim-account`, is the only one now.) */}
       </div>
 
       {/* The Me section — where the personal QR and the guest's own roll live

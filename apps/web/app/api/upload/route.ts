@@ -219,6 +219,9 @@ const COUPLE_MEDIA_METER_SUBPATHS: ReadonlySet<string> = new Set([
   'site-music',
   'std-video',
   'std-background',
+  // The Main background's own clip or photo and its still (Maker Phase 10) —
+  // a genuine Maker media surface: the couple's own footage behind every scene.
+  'main-background',
 ]);
 
 function isCoupleMediaMeterPath(pathPrefix: string, eventId: string): boolean {

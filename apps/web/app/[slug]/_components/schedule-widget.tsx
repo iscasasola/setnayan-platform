@@ -200,7 +200,6 @@ export function ScheduleWidget({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="pahina-eyebrow">
-            <span aria-hidden>№ 04</span>
             <span>The programme</span>
           </p>
           <h2 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">

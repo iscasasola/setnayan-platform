@@ -27,6 +27,17 @@ EVENT level the owner added:
   word), the generated `ROUTE_RESERVED_SLUGS`, `KNOWN_PUBLIC_ROUTES`, the sitemap
   index, and `sw.js` for `sitemap-suppliers.xml`.
 
+Two guards shaped it:
+- `the-press-commits-now.test.ts` wants a `loading.tsx` on every shell route.
+  The index gets one inside an `(index)` group, so it covers the index alone. The
+  landing routes call `notFound()` in their own `page.tsx` (`landingExists`),
+  so they are exempt and stay real 404s rather than streamed soft-404s. A
+  boundary at `suppliers/` would have covered the whole subtree, and the guard
+  caught that attempt.
+- Shops stay at `setnayan.com/{name}` (owner, 2026-09-27, after a same-day
+  detour to `/suppliers/{name}` was reverted before merge). Bridestory, the
+  largest Philippine directory, uses the same bare shape.
+
 Measured at build: production has 2 service cards, both on a sample shop, so
 every page starts dark and switches itself on as suppliers publish.
 

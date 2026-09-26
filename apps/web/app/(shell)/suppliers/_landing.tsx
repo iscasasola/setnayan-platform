@@ -75,6 +75,16 @@ async function resolve(params: LandingParams): Promise<Resolved | null> {
   };
 }
 
+/**
+ * True when the slugs name a real page. The ROUTE files call this and then
+ * `notFound()` themselves, so `the-press-commits-now.test.ts` — which reads each
+ * page.tsx for a literal `notFound()` — can see that these routes 404 and must
+ * NOT stream (a loading boundary here would be the soft-404 the header warns of).
+ */
+export async function landingExists(params: LandingParams): Promise<boolean> {
+  return (await resolve(params)) !== null;
+}
+
 function heading(r: Resolved): string {
   return `${r.eventLabel} ${r.tileLabel} in ${r.place}`;
 }

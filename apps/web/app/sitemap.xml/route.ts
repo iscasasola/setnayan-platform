@@ -51,6 +51,9 @@ export async function GET(): Promise<Response> {
     { slug: 'sitemap-help.xml', lastmod: now },
     { slug: 'sitemap-blog.xml', lastmod: now },
     { slug: 'sitemap-vendors.xml', lastmod: now },
+    // The supplier landing pages (event × category × city) — only the ones
+    // that pass the gate in lib/supplier-landing.ts. Added 2026-09-27.
+    { slug: 'sitemap-suppliers.xml', lastmod: now },
     { slug: 'sitemap-weddings.xml', lastmod: now },
   ];
 

@@ -17,9 +17,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 // The components compile with the classic JSX runtime under tsx: React must be global.
 (globalThis as { React?: unknown }).React = React;
 const { createElement } = React;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PhotoMomentsWidget } = require('../_components/photo-moments-widget') as typeof import('../_components/photo-moments-widget');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { DressCodeWidget } = require('../_components/dress-code-widget') as typeof import('../_components/dress-code-widget');
 
 const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;

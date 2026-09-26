@@ -299,7 +299,9 @@ test('every guest page wears the theme from ONE stamp, and House wears nothing',
   const loaders = stripComments(read('app', '[slug]', '_lib', 'loaders.ts'));
   assert.match(loaders, /theme: hub\.theme === 'house' \? null : hub\.theme/, 'House reaches the scope as a theme');
   const shell = stripComments(read('app', '[slug]', '_components', 'invitation-shell.tsx'));
-  assert.match(shell, /hubTheme !== 'house'/, 'the shell does not exclude House from painting');
+  // The shell asks the ONE page-ground rule (`lib/page-ground.ts`), whose
+  // `shellPaper` is true for House — `lib/page-ground.test.ts` holds that.
+  assert.match(shell, /pageGround\(\{ theme: hubTheme\b/, 'the shell does not exclude House from painting');
 });
 
 test('the shared block gives House nothing to wear', () => {

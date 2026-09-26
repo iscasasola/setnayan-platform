@@ -32,6 +32,7 @@ import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { TERMS_FIELD, hasAgreedToTerms } from '@/lib/terms-agreement';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
+import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -245,7 +246,7 @@ export async function submitRsvp(
   // on. Until that is reconciled at the database, this IS the enforcement.
   const { data: evRsvp } = await admin
     .from('events')
-    .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at')
+    .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config')
     .eq('event_id', eventId)
     .maybeSingle();
   const replyLocked = guestListIsClosed({
@@ -253,6 +254,11 @@ export async function submitRsvp(
     editDeadline: evRsvp?.guest_list_edit_deadline,
     eventDate: evRsvp?.event_date,
   });
+  // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — re-read here,
+  // never trusted from the form: the widget only decides what RENDERS, this
+  // decides what is ENFORCED. A field that is off is ignored below even when a
+  // crafted POST carries a value for it — never required, never applied.
+  const ask = resolveRsvpAsk(evRsvp?.rsvp_ask_config);
 
   // A locked reply renders NO rsvp_status control, so an ordinary save posts
   // nothing here — and the old `!RSVP_VALUES.includes(status) → return` would
@@ -318,6 +324,28 @@ export async function submitRsvp(
   /** What the row will actually hold afterwards — the change report must agree. */
   const storedEmail = contactEmail ?? ((before?.email as string | null) ?? null);
 
+  /**
+   * ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — an OFF field is
+   * ignored: the write below keeps whatever is already stored, as if the guest
+   * had reposted their own unchanged answer, never the value a crafted POST
+   * (or a stale client) happens to carry for a question the couple stopped asking.
+   *
+   * 🪤 RESOLVED HERE, NOT INLINE IN THE PAYLOAD. `only-the-answer-freezes.test.ts`
+   * finds each of these fields by the LINE that names it inside `.update({`
+   * and requires that line to carry neither `replyLocked` nor `?` — a ternary
+   * on the payload line itself would read, to that guard, exactly like the
+   * answer-freeze it exists to catch. Resolving the value up here keeps every
+   * payload line below a plain assignment; the ask gate lives in these four.
+   */
+  // ⚠ A switched-off question with a FAILED `before` read resolves to
+  // `undefined`, which the update drops from the payload — the stored answer is
+  // left alone. Falling back to `null` there would erase what the guest gave
+  // earlier because a read failed (the same rule `emailWrite` keeps).
+  const mealToWrite = ask.meal ? meal : before ? ((before.meal_preference as MealPreference | null) ?? meal) : undefined;
+  const dietaryToWrite = ask.dietary ? dietary : before ? ((before.dietary_restrictions as string | null) ?? null) : undefined;
+  const guestNoteToWrite = ask.note ? guestNote : before ? ((before.guest_note as string | null) ?? null) : undefined;
+  const mobileToWrite = ask.mobile ? contactMobile : before ? ((before.mobile as string | null) ?? null) : undefined;
+
   const { error } = await admin
     .from('guests')
     .update({
@@ -342,9 +370,9 @@ export async function submitRsvp(
                   : new Date().toISOString()
                 : null,
           }),
-      meal_preference: meal,
-      dietary_restrictions: dietary,
-      guest_note: guestNote,
+      meal_preference: mealToWrite,
+      dietary_restrictions: dietaryToWrite,
+      guest_note: guestNoteToWrite,
       // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
       // phone number corrected the week of the event is worth more then than
       // at any other time.
@@ -356,7 +384,7 @@ export async function submitRsvp(
       // it inline means no existing guard has to be re-pointed to fit this
       // change, which is the safer of the two legal options.
       ...(contactEmail ? { email: contactEmail } : {}),
-      mobile: contactMobile,
+      mobile: mobileToWrite,
       display_name: contactName,
       updated_at: new Date().toISOString(),
     })
@@ -574,14 +602,20 @@ export async function submitRsvp(
   // ⚠ DELIBERATE REMOVAL: reposting an unchanged `attending` used to notify the
   // couple again. It is now silent. That is the point.
   const changed = guestDetailsChanged(before, {
-    meal,
-    dietary,
-    guestNote,
+    // ⚙ `*ToWrite`, not the raw form value — an OFF field's write is a no-op
+    // (see the ask-gate comment above `mealToWrite`), so the change report
+    // must compare what was actually STORED, or a couple who turned meal off
+    // would still be told every guest's meal "changed" to the empty default.
+    // `undefined` only when the question is off AND the before-read failed —
+    // then nothing was written, and there is no `before` to compare against.
+    meal: mealToWrite ?? meal,
+    dietary: dietaryToWrite ?? null,
+    guestNote: guestNoteToWrite ?? null,
     // What was STORED, not what was posted. A blank box no longer changes the
     // email, so reporting it from `contactEmail` would tell the host a detail
     // moved when the row is untouched.
     email: storedEmail,
-    mobile: contactMobile,
+    mobile: mobileToWrite ?? null,
     displayName: contactName,
   });
   // Only a change that was actually STORED counts. When the list is locked the
@@ -708,7 +742,11 @@ export async function submitRsvp(
       .eq('event_id', eventId)
       .maybeSingle();
 
-    if (primary?.plus_one_allowed) {
+    // ⚙ ASK TOGGLE (owner 2026-09-25): `ask.plus_ones` off refuses the write
+    // regardless of what a crafted POST carries — a MASTER switch beside the
+    // per-guest `plus_one_allowed` re-read above, which still decides WHO may
+    // have one.
+    if (primary?.plus_one_allowed && ask.plus_ones) {
       /*
         ⚖ Owner 2026-09-21 ("2. yes"): one name box per seat — up to +4, each
         seat a row beside this guest. `planSeatNames` decides which seat each

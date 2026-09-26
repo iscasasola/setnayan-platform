@@ -6,6 +6,7 @@ import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
 import { plusOneSeats } from '@/lib/guests';
 import { plusOneNameSlots } from '@/lib/extra-seats';
+import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { SelfieCapture } from './selfie-capture';
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
@@ -26,6 +27,7 @@ export function RsvpWidget({
   offerSelfie = true,
   keepOffer = false,
   hostPitch = false,
+  ask = {},
 }: {
   words: EventWords;
   guest: GuestRow;
@@ -123,15 +125,32 @@ export function RsvpWidget({
    * link it was one more account prompt in front of the one that matters.
    */
   hostPitch?: boolean;
+  /**
+   * WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25, Event Hub Maker
+   * Details panel). The couple's on/off for this form's OWN questions —
+   * `attending` is not a key here, since it is always on. Sparse: an absent
+   * key is ON, so an event that never opens the panel renders byte-identically
+   * to before this prop existed. `submitRsvp` re-reads the same config and
+   * ignores an off field server-side — this prop only decides what RENDERS.
+   */
+  ask?: RsvpAskConfig;
 }) {
   const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
   const onDoor = Boolean(doorAction);
+  const askPlusOnes = rsvpAsks(ask, 'plus_ones');
+  const askMeal = rsvpAsks(ask, 'meal');
+  const askDietary = rsvpAsks(ask, 'dietary');
+  const askNote = rsvpAsks(ask, 'note');
+  const askMobile = rsvpAsks(ask, 'mobile');
+  // Meal + dietary share one reveal wrapper below — hide it outright when
+  // BOTH are off, rather than rendering an empty grid with nothing inside it.
+  const askMealOrDietary = askMeal || askDietary;
 
   // The three boxes, declared ONCE so the folded and unfolded arms can never
   // drift apart. Both arms render them, so both POST them.
   const contactFields = (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className={askMobile ? 'grid grid-cols-1 gap-4 sm:grid-cols-2' : undefined}>
         <Field
           id="contact_email"
           label="Email"
@@ -140,13 +159,19 @@ export function RsvpWidget({
           defaultValue={guest.email ?? profileDetails?.email ?? ''}
           placeholder="you@email.com"
         />
-        <Field
-          id="contact_mobile"
-          label="Mobile"
-          autoComplete="tel"
-          defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
-          placeholder="+63 …"
-        />
+        {/* Mobile only — email always shows, since a blank one cannot clobber
+            the stored sign-in address (see the comment on `storedEmail`
+            server-side) and it is also the "keep this invitation" address.
+            Turned off by the couple's "What do you ask your guests?" toggle. */}
+        {askMobile ? (
+          <Field
+            id="contact_mobile"
+            label="Mobile"
+            autoComplete="tel"
+            defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
+            placeholder="+63 …"
+          />
+        ) : null}
       </div>
       <Field
         id="contact_display_name"
@@ -169,7 +194,10 @@ export function RsvpWidget({
    */
   const knownEmail = (guest.email ?? profileDetails?.email ?? '').trim();
   const knownMobile = (guest.mobile ?? profileDetails?.phone ?? '').trim();
-  const detailsAlreadyKnown = knownEmail !== '' && knownMobile !== '';
+  // The mobile box is not asked at all when the couple turned it off — then a
+  // known email is enough to fold, the same way a mobile-less guest never
+  // falls back to the full form once mobile is off.
+  const detailsAlreadyKnown = knownEmail !== '' && (!askMobile || knownMobile !== '');
   const knownName = (guest.display_name ?? profileDetails?.displayName ?? '').trim();
   const knownSummary = [knownName || `${guest.first_name} ${guest.last_name}`.trim(), knownEmail, knownMobile]
     .filter(Boolean)
@@ -335,30 +363,38 @@ export function RsvpWidget({
           WHAT SURVIVES A DECLINE (orchestrator's call on the owner's behalf,
           2026-09-11, reversible): the contact boxes and the note to the host.
           The host still needs a way to reach them, the email is also their
-          sign-in, and a declining guest most often wants to leave a message. */}
-      {replyLocked && guest.rsvp_status === 'declined' ? null : (
+          sign-in, and a declining guest most often wants to leave a message.
+
+          ⚙ ASK TOGGLE (owner 2026-09-25): the couple may turn either box off
+          on its own — the block itself disappears only when BOTH are off,
+          rather than rendering an empty grid with nothing inside it. */}
+      {!askMealOrDietary || (replyLocked && guest.rsvp_status === 'declined') ? null : (
         <div className={replyLocked ? undefined : 'attending-reveal'}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Select
-              id="meal_preference"
-              label="Meal preference"
-              defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
-              options={[
-                ['no_preference', 'No preference'],
-                ['beef', 'Beef'],
-                ['chicken', 'Chicken'],
-                ['fish', 'Fish'],
-                ['vegetarian', 'Vegetarian'],
-                ['vegan', 'Vegan'],
-                ['kids', 'Kids'],
-              ]}
-            />
-            <Field
-              id="dietary_restrictions"
-              label="Dietary notes"
-              defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
-              placeholder="halal · nut allergy · …"
-            />
+            {askMeal ? (
+              <Select
+                id="meal_preference"
+                label="Meal preference"
+                defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
+                options={[
+                  ['no_preference', 'No preference'],
+                  ['beef', 'Beef'],
+                  ['chicken', 'Chicken'],
+                  ['fish', 'Fish'],
+                  ['vegetarian', 'Vegetarian'],
+                  ['vegan', 'Vegan'],
+                  ['kids', 'Kids'],
+                ]}
+              />
+            ) : null}
+            {askDietary ? (
+              <Field
+                id="dietary_restrictions"
+                label="Dietary notes"
+                defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
+                placeholder="halal · nut allergy · …"
+              />
+            ) : null}
           </div>
         </div>
       )}
@@ -461,7 +497,11 @@ export function RsvpWidget({
           state they were already in. Removing a +1 is the HOST's action — it
           deletes a real guest row with its own QR, and a guest should not do
           that by clearing a field. */}
-      {guest.plus_one_allowed && !replyLocked ? (
+      {/* ⚙ ASK TOGGLE (owner 2026-09-25): a MASTER switch on top of the
+          per-guest `plus_one_allowed` above — turning it off hides the name
+          box for every guest the couple already allowed one, without
+          touching who is allowed (a host action, done on the Guest list). */}
+      {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
         <div className="attending-reveal space-y-1.5">
           <span className="block text-sm font-medium text-ink">
             Who are you bringing?
@@ -500,29 +540,32 @@ export function RsvpWidget({
         </div>
       ) : null}
 
-      <div className="space-y-1.5">
-        <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
-          A note to {words.theOrganizer} (optional)
-        </label>
-        {/* ⚠ `guest_note`, NOT `notes`. Until 2026-08-06 this box was bound to
-            `guests.notes` — the COUPLE'S PRIVATE note about this guest — so it
-            displayed to them whatever the couple had written ("seat away from
-            Tita"), and submitting the RSVP overwrote it. Never bind a
-            guest-facing field to `notes`. */}
-        {/* The label one line above already uses the event's own words; this
-            placeholder was hardcoded to a sample couple, so EVERY event — a
-            birthday, a graduation, a debut — asked its guests to write to
-            "Maria & Juan". Even the seeded sample is Maria & JOSE, so the demo
-            was wrong by a name. */}
-        <textarea
-          id="guest_note"
-          name="guest_note"
-          rows={3}
-          defaultValue={guest.guest_note ?? ''}
-          className="input-field min-h-[88px] resize-y py-2"
-          placeholder={`Anything you'd like ${words.theOrganizer} to know.`}
-        />
-      </div>
+      {/* ⚙ ASK TOGGLE (owner 2026-09-25): "Note to you" off. */}
+      {askNote ? (
+        <div className="space-y-1.5">
+          <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
+            A note to {words.theOrganizer} (optional)
+          </label>
+          {/* ⚠ `guest_note`, NOT `notes`. Until 2026-08-06 this box was bound to
+              `guests.notes` — the COUPLE'S PRIVATE note about this guest — so it
+              displayed to them whatever the couple had written ("seat away from
+              Tita"), and submitting the RSVP overwrote it. Never bind a
+              guest-facing field to `notes`. */}
+          {/* The label one line above already uses the event's own words; this
+              placeholder was hardcoded to a sample couple, so EVERY event — a
+              birthday, a graduation, a debut — asked its guests to write to
+              "Maria & Juan". Even the seeded sample is Maria & JOSE, so the demo
+              was wrong by a name. */}
+          <textarea
+            id="guest_note"
+            name="guest_note"
+            rows={3}
+            defaultValue={guest.guest_note ?? ''}
+            className="input-field min-h-[88px] resize-y py-2"
+            placeholder={`Anything you'd like ${words.theOrganizer} to know.`}
+          />
+        </div>
+      ) : null}
 
       {/* ONE PRESS. With the keep box ticked the same button says what it now
           does — CSS `:has()`, like the reveals above, so no client state. */}

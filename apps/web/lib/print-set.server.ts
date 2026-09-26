@@ -54,7 +54,7 @@ import { fetchEgiftMethods } from '@/lib/egift';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -86,6 +86,8 @@ export type PrintEventRow = {
   monogram_frame_key: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
+  /** Which RSVP-form questions this couple still asks — Details panel toggle (lib/rsvp-ask.ts). */
+  rsvp_ask_config: unknown;
 };
 
 export async function readPrintEvent(admin: SupabaseClient, eventId: string): Promise<PrintEventRow | null> {

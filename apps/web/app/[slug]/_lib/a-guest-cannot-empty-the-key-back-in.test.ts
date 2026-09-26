@@ -82,10 +82,20 @@ test('mobile and preferred name stay freely clearable', () => {
   // contactMobile })` still CONTAINS that substring, so the over-application
   // this test exists to catch sailed straight through it. Measured: the
   // mutation landed 1 -> 0 and the suite stayed GREEN.
+  // Since 2026-09-26 the couple can switch the mobile question off ("What do you
+  // ask your guests?"). The payload line is then a plain write of the RESOLVED
+  // value, and the rule this guards moves to where it is resolved: when the
+  // question is ON, the guest's box is written as-is — blank clears it — never
+  // gated on what the guest typed.
   assert.match(
     SRC,
-    /^\s*mobile: contactMobile,$/m,
-    'mobile must be a plain unconditional write, not wrapped in a condition',
+    /^\s*mobile: mobileToWrite,$/m,
+    'mobile must be a plain write of its resolved value, not wrapped in a condition',
+  );
+  assert.match(
+    SRC,
+    /const mobileToWrite = ask\.mobile \? contactMobile :/,
+    'when the question is asked, the guest\'s box is written as-is — blank clears it',
   );
   assert.match(
     SRC,

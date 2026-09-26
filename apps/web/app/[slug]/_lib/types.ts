@@ -229,6 +229,11 @@ export type EventRow = {
   // 20260912000000; edited at /dashboard/[eventId]/website/special-message.
   // Blank → SpecialMessageWidget renders nothing (section hides).
   special_message?: string | null;
+  // Which RSVP-form questions this couple still asks (events.rsvp_ask_config,
+  // Event Hub Maker "what do you want to ask your guests?" — owner 2026-09-25).
+  // Unknown + sanitised at use via lib/rsvp-ask.ts; an absent key means "still
+  // asked", so an event that never opens the panel is unchanged.
+  rsvp_ask_config?: unknown;
   // Host-curated gift / registry note (Increment A.3). TEXT column shipped
   // 20260918000000; edited at /dashboard/[eventId]/website/what-to-bring.
   // Blank → WhatToBringWidget renders nothing (section hides).

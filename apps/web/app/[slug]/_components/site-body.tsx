@@ -30,6 +30,7 @@ import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
+import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
@@ -471,6 +472,11 @@ export async function SiteBody({
   const magicTraveller = sanitizeMagicTraveller(
     (event as { site_magic_traveller?: unknown }).site_magic_traveller,
   );
+  // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25, Event Hub Maker
+  // Details panel) — read once here for both mounts below (the reply card and
+  // the song-request card). An absent key is ON, so an event that never opens
+  // the panel renders byte-identically to before this existed.
+  const rsvpAsk = resolveRsvpAsk(event.rsvp_ask_config);
   // The Love Story's photos (Event Hub Pro) ride the SAME one signing pass as
   // the section backgrounds — one Promise.all per page, one allow-list.
   const canvasMediaRefs = [
@@ -1886,8 +1892,10 @@ export async function SiteBody({
               {/* Ask the band for a song (SUP-52) — the guest's end of the song
                   desk. Live window only, and only when a booked act can READ
                   the requests (the inbox is paid): a card on a band-less night
-                  would say "sent" to nobody. */}
-              {songRequestCardShows({ isLive, door: songRequestDoor }) ? (
+                  would say "sent" to nobody. Also folded into the couple's
+                  "What do you ask your guests?" toggle (owner 2026-09-25) — its
+                  own open/paused window stays a separate, second gate. */}
+              {rsvpAsk.song_request && songRequestCardShows({ isLive, door: songRequestDoor }) ? (
                 <SongRequestCard paused={songRequestDoor === 'paused'} />
               ) : null}
 
@@ -2321,6 +2329,7 @@ export async function SiteBody({
                 profileDetails={profileDetails}
                 keepOffer={account ? replyOffersKeep(account) : false}
                 hostPitch={account ? hostPitchShows(account) : false}
+                ask={rsvpAsk}
               />
             </div>
           </RsvpSheet>

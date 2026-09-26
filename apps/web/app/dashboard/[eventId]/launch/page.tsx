@@ -39,6 +39,7 @@ import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
@@ -946,13 +947,22 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     ]);
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
-      /* 💾 The special message saves into the DRAFT from here (the same door
-         the editor's Text panel uses), so the box shows the drafted words when
-         the draft holds them. A draft that cannot be read shows the live words. */
+      /* 💾 The special message AND "what do you ask your guests?" both save
+         into the DRAFT from here (the same door the editor's Text panel and
+         the reveal picker use), so each shows the drafted value when the
+         draft holds one. A draft that cannot be read shows the live value for
+         both — ONE read serves them, so a couple with an unreadable draft
+         does not also lose their special message to a second failed call. */
       let specialMessage: string | null = printEvent.special_message;
+      let rsvpAsk: RsvpAskConfig = sanitizeRsvpAskConfig(printEvent.rsvp_ask_config);
+      let rsvpAskDrafted = false;
       try {
         const d = await readHubDraft(supabase, eventId);
         if (d && 'special_message' in d.events) specialMessage = (d.events.special_message as string | null) ?? null;
+        if (d && 'rsvp_ask_config' in d.events) {
+          rsvpAsk = sanitizeRsvpAskConfig(d.events.rsvp_ask_config);
+          rsvpAskDrafted = true;
+        }
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
@@ -976,6 +986,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
           slug={printEvent.slug}
           slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+          rsvpAsk={rsvpAsk}
+          rsvpAskDrafted={rsvpAskDrafted}
         />
         ),
       };

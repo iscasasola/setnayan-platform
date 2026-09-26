@@ -94,11 +94,22 @@ type Props = {
   verb?: string;
 };
 
+/**
+ * The words before the provider on EVERY sign-up door — /signup and the wedding
+ * onboarding's account screen (owner 2026-09-25: the website's sign-up "must be
+ * similar to the event invitation" — one look, one order). One constant so the
+ * two doors cannot drift into two wordings of one button. The words themselves
+ * are the owner's 2026-09-23 ruling ("or directly sign in with Google or Apple").
+ */
+export const SIGNUP_OAUTH_VERB = 'Sign in with';
+
 // Button chrome — Clean Editorial alabaster/obsidian, used on the greige /login
 // card and /signup. (The obsidian-rail 'dark' treatment was removed with the
 // obsidian login; the greige card is the single login now.)
+// `min-h-[44px]`: the phone tap-target floor (owner 2026-09-25: "99% of the
+// viewers will use the phone") — `py-2.5` + a 20px line alone measured ~42px.
 const BTN_LIGHT =
-  'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
+  'flex min-h-[44px] w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
 
 // Env-flag gates. Without these flags, clicking the Continue with
 // Google / Apple buttons hits Supabase's /auth/v1/authorize endpoint

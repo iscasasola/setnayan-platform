@@ -163,15 +163,19 @@ test('🔴 exactly ONE place writes a guest email from the join door', () => {
   );
 });
 
-test('…and the one that does it is reached from every ending that asks for an email', () => {
-  // Three endings ask: the returning device, the matched seat, and the new row.
-  // If one stopped calling it, that guest's address would be the one the host
-  // never gets — and nothing else would notice.
+test('…and the one that does it is the only writer the email reaches', () => {
+  // ⚠ CHANGED 2026-09-25 (rd/guest-one-path). The join door asks for NO email
+  // any more — Door 01 stopped rendering the box on 2026-09-10, and the dead
+  // `email` read that fed three `sendEventAccountMagicLink` calls here was
+  // removed. The address is asked ONCE, on the Reply door, and reaches the one
+  // writer through `submitRsvp` → `sendKeepLinkOnce`. So: zero calls here, and
+  // no `formData.get('email')` left to resurrect them.
   assert.equal(
     (ACTIONS.match(/sendEventAccountMagicLink\(/g) ?? []).length,
-    3,
-    'an ending stopped sending the address to the one writer',
+    0,
+    'the join door sends a sign-in link again — the email is asked on the Reply door',
   );
+  assert.doesNotMatch(ACTIONS, /formData\.get\('email'\)/, 'the dead email read is back');
   const lib = readFileSync(
     join(__dirname, '..', '..', '..', 'lib', 'event-account-link.ts'),
     'utf8',

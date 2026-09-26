@@ -21,12 +21,15 @@ import {
   resolvePapicFaceMode,
   faceVectorForMode,
 } from '@/lib/papic-face-mode';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-arrival';
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
-import { sendEventAccountMagicLink } from '@/lib/event-account-link';
+import { readGuestSessionForEvent, sendKeepLinkOnce } from '@/lib/guest-one-path.server';
+import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { TERMS_FIELD, hasAgreedToTerms } from '@/lib/terms-agreement';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 
@@ -82,21 +85,96 @@ export async function saveAttendedVendorAction(
   return redirect(`/${slug}?save=${error ? 'error' : 'ok'}`);
 }
 
+/** The event's own address, from the DATABASE — never a bound or posted value. */
+async function eventHome(eventId: string): Promise<string> {
+  const { data } = await createAdminClient()
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const slug = ((data?.slug as string | null) ?? '').trim();
+  return slug ? `/${slug}` : '/';
+}
+
 /**
- * Invite/Join v2 — an accountless guest on the lifecycle site claims a real
- * Setnayan account. Reads the SIGNED guest-session cookie (never a form field)
- * to identify the guest, then emails a passwordless sign-in link that connects
- * this event to the account (sendEventAccountMagicLink). Bound with the slug so
- * we can return to the event page if the cookie's gone stale.
+ * THE ONE ACCOUNT CARD's press — "This is me — keep this invitation in my
+ * account" (owner 2026-09-25).
+ *
+ * 🔑 IT ASKS FOR NO ADDRESS. The address is the one this guest's reply holds —
+ * the same `guests.email` the reply form's email box writes — so the email is
+ * asked ONCE on the whole page. A guest whose reply has no address yet is sent to
+ * the reply, where the box is (the card links there instead of posting here).
+ *
+ * 🔒 The Terms box is the affirmative act (lib/terms-agreement.ts): this link
+ * creates an account, so an unticked POST sends nothing. The guest is read from
+ * the SIGNED cookie or the signed-in account's own seat, never from the form.
  */
-export async function claimAccountAction(eventId: string, slug: string, formData: FormData) {
-  const email = clean(formData.get('email'));
+export async function claimAccountAction(eventId: string, _slug: string, formData: FormData) {
+  const home = await eventHome(eventId);
+  const session = await readGuestSessionForEvent(eventId);
+  if (!session) return redirect(home);
+  const { data: seat } = await createAdminClient()
+    .from('guests')
+    .select('email')
+    .eq('guest_id', session.guest_id)
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const email = ((seat?.email as string | null) ?? '').trim();
+  if (!email) return redirect(`${home}#your-details`);
+  const sent = await sendKeepLinkOnce({
+    eventId,
+    guestId: session.guest_id,
+    email,
+    termsAgreed: hasAgreedToTerms(formData.get(TERMS_FIELD)),
+  });
+  return redirect(sent ? home : `${home}?keep=error`);
+}
+
+/**
+ * "This is me" for a guest who is ALREADY SIGNED IN and holds this invitation's
+ * pass in this browser, but whose seat is not yet bound to the account — one
+ * press, no email. Uses the canonical binder (`linkGuestSessionToUser`), which
+ * refuses a seat another account already holds.
+ */
+export async function linkThisSeatAction(eventId: string) {
+  const home = await eventHome(eventId);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const session = await readGuestSession();
-  if (!email || !session || session.event_id !== eventId) {
-    return redirect(`/${slug}`);
-  }
-  await sendEventAccountMagicLink({ eventId, guestId: session.guest_id, email });
-  return redirect(`/join/${eventId}/check-email?email=${encodeURIComponent(email)}`);
+  if (!user || !session || session.event_id !== eventId) return redirect(home);
+  await linkGuestSessionToUser(user.id);
+  revalidatePath(home);
+  return redirect(home);
+}
+
+/**
+ * A signed-in guest recognised by their SEAT (no cookie for this event) gets the
+ * guest pass written into this browser, so the sub-pages that still read the
+ * cookie (seat, camera, find-my-table) know them too.
+ *
+ * 🔒 WHY THIS IS SAFE WHERE `/{slug}/enter` WAS NOT. That route was a GET behind a
+ * `<Link>`, and a prefetch ran it when a board card scrolled past. This is a
+ * Server Action, invoked only by `AdoptSeatSession` on MOUNT — a prefetch never
+ * mounts a component — and the render it follows already shows the guest their
+ * own page without it, so nothing about what they SEE depends on the write.
+ * It writes only the seat THIS account holds (`findGuestSeatForUser`, the same
+ * scoped lookup the page's gate uses), and leaves a cookie that already names
+ * this event alone. Same mint as the join door's `enterAsGuest`.
+ */
+export async function adoptSeatSessionAction(eventId: string): Promise<void> {
+  const current = await readGuestSession();
+  if (current && current.event_id === eventId) return;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const seat = await findGuestSeatForUser(eventId, user.id);
+  if (!seat) return;
+  await setGuestSession({ guest_id: seat.guestId, event_id: eventId, qr_token: seat.qrToken });
 }
 
 export async function submitRsvp(
@@ -108,7 +186,10 @@ export async function submitRsvp(
   // never a path: every destination below is built from the slug the DATABASE
   // returns, so no form can steer where this action sends anyone.
   const toInvite = isInviteReturn(formData.get('return_to'));
-  const session = await readGuestSession();
+  // The browser's pass for this event, or — for a signed-in guest on a new phone
+  // — the seat their account holds (lib/guest-one-path.server.ts). Either way it
+  // must be THIS guest on THIS event, exactly as before.
+  const session = await readGuestSessionForEvent(eventId);
   if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
     // Session got out of sync — kick them back to the slug landing (or, from
     // the arrival, back to its first door, where they can find themselves again).
@@ -711,6 +792,22 @@ export async function submitRsvp(
     before this.
   */
   await everyCopyIsNowStale(eventId);
+  /*
+    FORM FIRST, THEN SIGN UP — ONE ADDRESS, ONE PRESS (owner 2026-09-25).
+    The reply's own email box IS the sign-up: when the guest ticked "keep this
+    invitation on my phone · I agree to the Terms", the same Save emails the
+    passwordless sign-in link to the address the row now holds. This used to
+    happen only on the invite arrival's Reply door; the `/{slug}` sheet saved
+    the address and sent nothing, and a second box then asked for it again.
+    AFTER the write (a failed save sends no link) and BEFORE the redirect, which
+    throws. Sends at most once per browser per event (lib/guest-one-path.ts).
+  */
+  await sendKeepLinkOnce({
+    eventId,
+    guestId,
+    email: storedEmail,
+    termsAgreed: hasAgreedToTerms(formData.get(TERMS_FIELD)),
+  });
   // `details` = their information was saved and their answer was left alone
   // (the list is final). `refused` additionally says an attempted CHANGE of
   // answer did not take — the one outcome a guest would otherwise never learn.

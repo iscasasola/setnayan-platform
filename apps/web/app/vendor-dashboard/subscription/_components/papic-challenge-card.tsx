@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Clock, Lock, Trophy } from 'lucide-react';
+import { Check, Clock, Trophy } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
@@ -11,6 +11,8 @@ import {
   sponsorPhotoChallenge,
   type PhotoChallengeActionState,
 } from '../photo-challenge-actions';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * Papic Challenges card — the sellable surface on the subscription hub.
@@ -171,7 +173,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
           className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
           style={{ borderColor: 'var(--m-line)' }}
         >
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+          <PaidMark state="locked" label={paidMarkLabel('locked', 'a paid plan')} className="mt-0.5" />
           {paidButUnverified ? (
             <span>
               Get your shop verified to unlock Papic Challenges — it&rsquo;s a

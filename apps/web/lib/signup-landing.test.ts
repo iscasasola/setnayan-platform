@@ -14,6 +14,11 @@ import {
   YOU_PATH,
 } from './signup-landing';
 import { PRESENCE_MARKERS } from './profile-personal-info-patch';
+import { signInDestination, SIGNED_IN_LANDING } from './sign-in-landing';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 
 const form = (entries: Record<string, string>) => {
   const m = new Map(Object.entries(entries));
@@ -21,7 +26,9 @@ const form = (entries: Record<string, string>) => {
 };
 
 test('a couple meets the You card, carrying where they were going', () => {
-  assert.equal(signupLanding({ accountType: 'customer', next: '/' }), YOU_PATH);
+  // `/` is "came from nowhere" → the dashboard, never the front door (the same
+  // answer /login and the Google/Apple callback give — audit 2026-09-25 §C).
+  assert.equal(signupLanding({ accountType: 'customer', next: '/' }), '/signup/you?next=%2Fdashboard');
   assert.equal(
     signupLanding({ accountType: 'customer', next: '/v/saysay' }),
     '/signup/you?next=%2Fv%2Fsaysay',
@@ -110,4 +117,38 @@ test('the showcase consent is recorded only when ticked, and never for a vendor'
   const vendor = planYouCard(form({ display_name: 'Ana', public_summary_consent: 'yes' }), { slug: null, accountType: 'vendor' }, now);
   assert.ok(vendor.ok);
   assert.equal('public_summary_consent_at' in vendor.patch, false, 'a forged POST cannot consent a vendor to a showcase');
+});
+
+// ── ONE LANDING RULE FOR EVERY DOOR (owner 2026-09-25; audit §C) ───────────
+// The rule is `signInDestination`. Where a person ends up after creating an
+// account must be the same whether they used email, Google/Apple, or signed in:
+//   · came from an event (its page, its invite) → back to that event, whole;
+//   · came from the onboarding flow → back into it (`?resume=1`);
+//   · came from nowhere (`/`) → the dashboard, which opens their own event when
+//     they organise exactly one (`landingJumpTarget`) and is the home otherwise.
+
+// SABOTAGE: return input.next unmapped in signupLanding → RED.
+test('the landing rule: an event, the onboarding resume and a shop come back whole; nowhere is the dashboard', () => {
+  assert.equal(signInDestination('/'), SIGNED_IN_LANDING);
+  assert.equal(SIGNED_IN_LANDING, '/dashboard');
+  for (const back of ['/maria-and-jose', '/maria-and-jose/invite', '/onboarding/wedding?resume=1', '/v/saysay']) {
+    assert.equal(signInDestination(back), back, `${back} must come back whole`);
+    assert.equal(signupLanding({ accountType: 'customer', next: back }), `/signup/you?next=${encodeURIComponent(back)}`);
+  }
+  // a vendor is never re-routed by the couple's rule
+  assert.equal(signupLanding({ accountType: 'vendor', next: '/open-shop' }), '/open-shop');
+  // the email door and the Google/Apple door now agree about `/`
+  const viaEmail = signupLanding({ accountType: 'customer', next: '/' });
+  const viaOAuth = youHref(signInDestination('/'));
+  assert.equal(viaEmail, viaOAuth, 'two doors, one answer');
+});
+
+// SABOTAGE: drop signInDestination( from app/signup/you/page.tsx → RED.
+test('the You card hands on through the same rule, on Done AND on Later', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const read = (rel: string) => stripComments(readFileSync(join(here, '..', rel), 'utf8'));
+  const page = read('app/signup/you/page.tsx');
+  const actions = read('app/signup/you/actions.ts');
+  assert.match(page, /const next = signInDestination\(safeNext\(params\.next\)\)/, 'Later (the page) resolves `next` through the rule');
+  assert.match(actions, /const next = signInDestination\(safeNext\(formData\.get\('next'\)\)\)/, 'Done (saveYou) resolves `next` through the rule');
 });

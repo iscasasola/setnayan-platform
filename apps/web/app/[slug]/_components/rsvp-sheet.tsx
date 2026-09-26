@@ -81,8 +81,8 @@ const SHEET_CSS = `
   background:rgba(30,34,41,0.45);
 }
 .sn-sheet-js .sn-rsvp-sheet[data-open="1"]{
-  display:block;position:fixed;left:0;right:0;bottom:0;z-index:50;
-  max-height:78vh;overflow-y:auto;overscroll-behavior:contain;
+  display:block;position:fixed;left:0;right:0;bottom:var(--sn-kb,0px);z-index:50;
+  max-height:78vh;max-height:calc(78dvh - var(--sn-kb,0px));overflow-y:auto;overscroll-behavior:contain;
   border-top-left-radius:1rem;border-top-right-radius:1rem;
   box-shadow:0 -16px 44px rgba(30,34,41,0.28);
 }
@@ -213,6 +213,47 @@ export function RsvpSheet({
    * scroll position.
    */
   useModalA11y({ open, onClose: closeSheet, containerRef: panelRef });
+
+  /**
+   * 📱 THE ON-SCREEN KEYBOARD MUST NOT COVER THE FIELD (owner 2026-09-25: "99% of
+   * the viewers will use the phone"). This panel is `position: fixed` to the
+   * bottom of the LAYOUT viewport; when a phone keyboard opens it shrinks only
+   * the VISUAL viewport, so the email box and the Save button sat underneath it.
+   * While open, the panel's bottom follows the keyboard's top (`--sn-kb`, from
+   * `visualViewport`), and a focused field is scrolled into the part that is
+   * still visible once the keyboard has finished rising.
+   */
+  useEffect(() => {
+    const panel = panelRef.current;
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!open || !panel) return;
+    const fit = () => {
+      if (!vv) return;
+      const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      panel.style.setProperty('--sn-kb', `${Math.round(covered)}px`);
+    };
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onFocus = (event: FocusEvent) => {
+      const field = event.target as HTMLElement | null;
+      if (!field || !/^(INPUT|TEXTAREA|SELECT)$/.test(field.tagName)) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        fit();
+        field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 320);
+    };
+    fit();
+    vv?.addEventListener('resize', fit);
+    vv?.addEventListener('scroll', fit);
+    panel.addEventListener('focusin', onFocus);
+    return () => {
+      if (timer) clearTimeout(timer);
+      vv?.removeEventListener('resize', fit);
+      vv?.removeEventListener('scroll', fit);
+      panel.removeEventListener('focusin', onFocus);
+      panel.style.removeProperty('--sn-kb');
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

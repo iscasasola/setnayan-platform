@@ -27,6 +27,8 @@ import { ScenePreview } from './scene-preview';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -147,7 +149,9 @@ const TOOL_ROWS: Record<string, string[]> = {
   'post-event': ['editorial'],
 };
 
-const MAIN_ROWS = ['colors', 'music', 'backdrop'];
+// 'main-background' first: it replaces the theme's own loop, the layer every
+// other Main control sits on (Maker Phase 10). Absent in the store shell.
+const MAIN_ROWS = ['main-background', 'colors', 'music', 'backdrop'];
 
 /** The canvas's "Event Bar" switch (was "Guest bars"), remembered for this browser session. */
 const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';
@@ -1317,7 +1321,9 @@ function MoreExtras({
       ) : null}
       {showProCta ? (
         <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
-          <p className="text-[13px] font-semibold text-cream">Event Hub Pro</p>
+          <p className="text-[13px] font-semibold text-cream">
+            <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
+          </p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
             One unlock for every stage — the look, the reveal, your own photos and film, music and the
             animated logo.

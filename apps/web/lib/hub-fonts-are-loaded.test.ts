@@ -89,15 +89,33 @@ test('⭐ every key has a distinct face, a label and a preview stack', () => {
 test('⛔ the face is Pro-gated, in the SAME place the colours are', () => {
   // A second gate would be a second opinion about who owns the look, and the
   // two would drift the moment an unlock lapsed.
+  //
+  // 🪤 owner 2026-09-25 bg-colour fix moved `proSiteVarsFor` out of
+  // `loaders.ts` into its own pure `_lib/pro-site-vars.ts` (so its math is
+  // directly unit-testable without `loaders.ts`'s request-scoped import
+  // graph) and made the BACKGROUND colour free — only the button colour and
+  // the face still ride the Pro gate. The anchor moves with the code it
+  // anchors; the PROPERTY it checks does not change.
+  const proSiteVars = readFileSync(
+    join(__dirname, '..', 'app', '[slug]', '_lib', 'pro-site-vars.ts'),
+    'utf8',
+  );
+  const at = proSiteVars.indexOf('if (proWatermarkHidden) {');
+  assert.ok(at > 0, 'the face rides the Pro-gated bag');
+  const block = proSiteVars.slice(at, at + 400);
+  assert.match(block, /hubFontVars\(/, 'and the face is in it');
+  assert.match(block, /buildCustomSiteColorVars\(/, 'beside the colours, under one check');
+
+  // ONE gate, not two: exactly one `if (proWatermarkHidden)` in the module,
+  // so a future edit that guards the face separately from the button colour
+  // — two opinions about who owns the look — cannot pass unnoticed.
+  const gates = [...proSiteVars.matchAll(/if \(proWatermarkHidden\)/g)].length;
+  assert.equal(gates, 1, `there is ${gates} Pro gates in pro-site-vars.ts, expected exactly one`);
+
   const loaders = readFileSync(
     join(__dirname, '..', 'app', '[slug]', '_lib', 'loaders.ts'),
     'utf8',
   );
-  const at = loaders.indexOf('const proSiteVars = proWatermarkHidden');
-  assert.ok(at > 0, 'the face rides the Pro-gated bag');
-  const block = loaders.slice(at, at + 700);
-  assert.match(block, /hubFontVars\(/, 'and the face is in it');
-  assert.match(block, /buildCustomSiteColorVars\(/, 'beside the colours, under one check');
   assert.match(loaders, /site_font_key/, 'the column is actually selected');
 });
 

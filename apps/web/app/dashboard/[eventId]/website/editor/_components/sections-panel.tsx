@@ -50,6 +50,8 @@ import {
 } from '@/lib/hub-scenes';
 import { SceneSlotsPanel } from './scene-slots-panel';
 import { SceneTemplatePicker } from './scene-template-picker';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -479,7 +481,9 @@ export function SectionsPanel({
                                             : 'border-ink/12 bg-cream text-ink/50 hover:border-ink/30'
                                       }`}
                                     >
-                                      {locked ? <Lock aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} /> : null}
+                                      {locked ? (
+                                        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" tone="current" />
+                                      ) : null}
                                       {HUB_TRANSITION_LABEL[t]}
                                     </button>
                                   </form>

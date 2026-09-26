@@ -182,8 +182,10 @@ function blend(a: RGB, b: RGB, t: number): RGB {
 /**
  * Gild — the palette's warmest mid-luminance swatch nudged 35% toward metallic
  * gold (#B08D57); Atelier-gold fallback when the palette has no warm mid-tone.
- * Decor-only (numerals, chapter №s, rules, seal) — never body text, so no
- * contrast enforcement (spec §4: "never body text below AA-large").
+ * Decor-only (rules, seal, the guest-hub ✦ star) — never body text, so no
+ * contrast enforcement (spec §4: "never body text below AA-large"). The
+ * editorial chapter numeral this comment used to also list was removed
+ * (owner 2026-09-25 "drop the numbers") — no section renders one anymore.
  */
 function gildFromPool(pool: RGB[]): RGB {
   const mid = pool.filter((c) => {

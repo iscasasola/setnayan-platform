@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowUpRight, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight } from 'lucide-react';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * WebsiteProLock — the couple-facing "locked" state for a website editor that
@@ -34,7 +36,7 @@ export function WebsiteProLock({
   const card = (
     <div className="rounded-2xl border border-mulberry/20 bg-mulberry/5 p-6 sm:p-8">
       <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
-        <Lock aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="lg" tone="current" />
       </span>
       <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
         Part of Event Hub PRO

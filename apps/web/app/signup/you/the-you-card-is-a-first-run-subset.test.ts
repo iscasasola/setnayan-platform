@@ -72,9 +72,17 @@ test('the availability check fails CLOSED — an errored probe never reads as av
 });
 
 test('both doors into the card go through lib/signup-landing — one rule, one place', () => {
-  assert.match(SIGNUP_ACTIONS, /redirect\(signupLanding\(\{ accountType, next \}\)\)/, '/signup’s action');
+  // `fromEvent` joined 2026-09-25: a guest signing up FROM AN INVITATION skips
+  // the card and goes back to it (owner "1. yes"; lib/signup-landing.ts). The
+  // rule still lives in one place — the helper decides, the action only asks.
+  assert.match(SIGNUP_ACTIONS, /redirect\(signupLanding\(\{ accountType, next, fromEvent \}\)\)/, '/signup’s action');
   assert.match(CALLBACK, /landing = youHref\(fallbackNext\)/, 'the OAuth callback');
-  assert.match(CALLBACK, /accountType === 'customer' &&\s*isBrandNewAccount\(/, 'only a brand-new CUSTOMER meets the card');
+  // …and not one arriving from an invitation (the event-connect return).
+  assert.match(
+    CALLBACK,
+    /accountType === 'customer' &&\s*!isEventConnectNext\(fallbackNext\) &&\s*isBrandNewAccount\(/,
+    'only a brand-new CUSTOMER from outside an invitation meets the card',
+  );
   assert.match(CALLBACK, /NextResponse\.redirect\(new URL\(landing, url\.origin\)\)/, 'and the final redirect uses it');
   assert.doesNotMatch(SIGNUP_ACTIONS, /'\/signup\/you'/, 'no second copy of the path in the action');
 });

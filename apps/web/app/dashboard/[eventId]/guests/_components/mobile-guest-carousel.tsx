@@ -307,7 +307,7 @@ export function MobileGuestCarousel({
                 // outstanding work; the invite page one tap away says why in
                 // full sentences.
                 { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/invite`, badge: inviteLinkReady ? null : 'link not working', word: '' },
-                { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
+                { key: 'confirm', label: 'Requests', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'waiting' },
                 { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
                 { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },
               ] as const

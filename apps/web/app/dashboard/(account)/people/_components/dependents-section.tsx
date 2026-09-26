@@ -91,7 +91,7 @@ export async function DependentsSection() {
   if (dataError) {
     logQueryError('DependentsSection.data', dataError, {}, 'graceful_degrade');
   }
-  const dependents = (data ?? []) as DependentRow[];
+  const rows = (data ?? []) as DependentRow[];
   const today = manilaToday();
 
   // Absolute base for hand-over links (same pattern as the Papic crew page).
@@ -108,6 +108,24 @@ export async function DependentsSection() {
     logQueryError('DependentsSection.spouseIds', spouseIdsError, {}, 'graceful_degrade');
   }
   const hasSpouse = Array.isArray(spouseIds) && spouseIds.length > 0;
+
+  // 🔒 WHOSE ROWS BELONG ON THIS PAGE — decided here, not by RLS. RLS also admits
+  // an ADMIN to every dependent on the platform, and this list used to render
+  // whatever came back, labelling every row that was not the viewer's own
+  // "Shared by your spouse". On 2026-09-25 the owner (an admin, no registered
+  // spouse) saw another user's business, "Indigo Caterers", on his own People
+  // page tagged "Shared by your spouse". A personal page shows: my own rows,
+  // rows I handed over (read-only history), and rows my ACTUAL spouse shared.
+  // `current_spouse_user_ids()` RETURNS SETOF uuid — PostgREST hands back uuid strings.
+  const spouseSet = new Set(
+    (Array.isArray(spouseIds) ? (spouseIds as unknown[]) : []).filter((v): v is string => typeof v === 'string'),
+  );
+  const dependents = rows.filter(
+    (d) =>
+      d.owner_user_id === myUserId ||
+      d.handed_over_by_user_id === myUserId ||
+      (d.shared_with_spouse && spouseSet.has(d.owner_user_id)),
+  );
 
   // Godparents (ninong/ninang) per dependent — RLS scopes to the owner's rows.
   const { data: gpData, error: gpDataError } = await supabase

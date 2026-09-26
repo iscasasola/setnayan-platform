@@ -112,6 +112,21 @@ function num(v: number | string | null): number | null {
  * Retail SKUs the prose names directly. Every one must exist or we refuse to
  * render a half-true file — see the route's fail-safe.
  */
+/**
+ * SKUs that are ON SALE but deliberately NOT advertised to answer engines yet.
+ *
+ * 🔑 A different thing from retiring one. A retired SKU leaves the catalogue; an
+ * unlisted one is still sellable in the app, it just is not described to every
+ * AI assistant that reads this file — because nobody has run it end to end, and
+ * a model quoting an untried product to a couple is a promise we cannot yet
+ * stand behind. The "every active price is quoted" test skips these codes;
+ * the "unlisted stays unlisted" test fails if one is named again.
+ *
+ * Remove a code from here (and restore its prose line) once it has been used
+ * for real. Owner 2026-09-27, on Patiktok: "we have never tried patiktok".
+ */
+export const UNLISTED_UNTIL_PROVEN: ReadonlySet<string> = new Set(['PATIKTOK_COMPILER']);
+
 const REQUIRED_RETAIL = [
   'SETNAYAN_AI',
   'LIVE_STUDIO',
@@ -164,7 +179,9 @@ const REQUIRED_RETAIL = [
   // dark, silently. The unit tests did NOT catch it: they run against a
   // hand-written fixture where every code is is_active:true, so nothing in CI
   // ever compares this list against the real catalog.
-  'PATIKTOK_COMPILER',
+  // PATIKTOK_COMPILER removed 2026-09-27 — NOT retired: still on sale, but
+  // UNLISTED here until it has run once for real (owner: "we have never tried
+  // patiktok for now" → pull it from llms.txt). See UNLISTED_UNTIL_PROVEN.
   // PABATI removed 2026-08-21 — owner first set it FREE alongside Kwento, then
   // RETIRED it hours later ("we do not need pabati. retire it because it is
   // part of papic"). Unlike Kwento it has NO prose line at all any more: Kwento
@@ -348,7 +365,6 @@ export const LINKED_ROUTES = [
   '/pa3d',
   '/palogo',
   '/pawebsite',
-  '/patiktok',
   '/pakanta',
   '/monogram',
   '/alaala',
@@ -478,7 +494,7 @@ What is LIVE today: every event type listed above; an event automatically becomi
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Pakanta](${url('/pakanta')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Pakanta](${url('/pakanta')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
 - [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
@@ -515,7 +531,6 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks the Save-the-Date Cinematic Reveal across the whole site, and removes the Setnayan watermark.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
-- **Patiktok** — ${R('PATIKTOK_COMPILER')}. Mimic-station booth; unlimited 9:16 vertical recordings compiled into post-ready reels.
 - **Kwento** — free. Guest-contributed stories and messages.
 - **Papic** — one shared pot of credits every guest's phone can spend from, and the host can set some aside for one camera's QR that nobody else can touch. 50 credits free on your first celebration, then ${papicLadderPhrase(R)}, added on top and repeatable — the regular rate is one peso a shot and every rung is a bundle discount off it, 50% at the bottom to 80% at the top. Cameras are free and unlimited. The host can also cap how many credits any one guest may spend — naming the few who should have more, with the rest splitting what is left evenly; nothing is carved out of the pot, so whatever a guest does not use is still there for everyone else. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Custom QR per Guest** — free. Individual QR codes for guests (RSVP, seating, photo tagging).

@@ -1469,12 +1469,17 @@ function ShelfInfo({ children }: { children: string }) {
   return (
     <details className="group relative shrink-0">
       <summary
-        className="flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-ink/20 text-[10px] font-bold italic leading-none text-[color:var(--sn-ink-500)] transition hover:border-ink/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
+        className="relative flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-ink/20 text-[10px] font-bold italic leading-none text-[color:var(--sn-ink-500)] transition before:absolute before:-inset-2.5 before:content-[''] hover:border-ink/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
         aria-label="What is this row?"
       >
         i
       </summary>
-      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
+      {/* 📱 On a phone the ⓘ sits at the row's right end, so a bubble anchored
+          left-0 opened mostly off-screen. Below `sm` it is `fixed` with auto top
+          (its static position, just under the ⓘ) and spans the screen with a
+          16 px gutter; `sm` and up keep the anchored bubble. The summary's
+          `before:` layer widens the tap area to 40 px without changing the look. */}
+      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:inset-x-4 max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
         {children}
       </p>
     </details>

@@ -363,6 +363,21 @@
   font-size: max(13px, 4.6cqw);
 }
 
+/* 📱 A NARROW CARD (two across on a phone, ~140–180 px): the card's own chips
+   (the kind + "You organise this") sit over the paper's top, so the eyebrow
+   was printed under them — "THER WITH THE" — and the words crowded the mark.
+   Under 220 px the paper drops the two minor lines (eyebrow · "invite you to…")
+   and starts below the chips; the mark, names and date stay. */
+@container (max-width: 220px) {
+  .paper {
+    padding-top: 34%;
+  }
+  .eb,
+  .ln {
+    display: none;
+  }
+}
+
 /* ── quiet — the wake keeps its quiet masthead, never a celebration ─────── */
 .quietGround {
   background:

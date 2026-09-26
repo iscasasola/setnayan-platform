@@ -249,7 +249,15 @@ export function withoutElement(elements: HubElementStyles | null | undefined, ke
  * reduced-motion freeze in `globals.css`, whose `!important` lives in a layer
  * and so outranks anything written here.
  */
-export function hubElementDeclarations(style: HubElementStyle | null | undefined): Array<[string, string]> {
+export function hubElementDeclarations(
+  style: HubElementStyle | null | undefined,
+  /**
+   * Play once on arrival instead of following the scroll. The hero's parts ARE
+   * the first screen (`data-pahina-first-screen`): already in view when the page
+   * opens, so a scroll-driven entrance would sit finished and never be seen.
+   */
+  opts: { timed?: boolean } = {},
+): Array<[string, string]> {
   if (!style) return [];
   const out: Array<[string, string]> = [];
   if (style.font) {
@@ -264,16 +272,18 @@ export function hubElementDeclarations(style: HubElementStyle | null | undefined
       out.push(['animation', 'none']);
     } else {
       out.push(['animation', `${body.keyframe} ${body.duration}s cubic-bezier(0.22, 0.61, 0.36, 1) backwards`]);
-      out.push(['animation-timeline', 'view()']);
-      out.push(['animation-range', 'entry 0% cover 30%']);
+      if (!opts.timed) {
+        out.push(['animation-timeline', 'view()']);
+        out.push(['animation-range', 'entry 0% cover 30%']);
+      }
     }
   }
   return out;
 }
 
-/** The same declarations as a React inline style (the hero's parts). */
+/** The same declarations as a React inline style (the hero's parts — timed, see above). */
 export function hubElementInlineStyle(style: HubElementStyle | null | undefined): Record<string, string> | undefined {
-  const decls = hubElementDeclarations(style);
+  const decls = hubElementDeclarations(style, { timed: true });
   if (decls.length === 0) return undefined;
   const out: Record<string, string> = {};
   for (const [prop, value] of decls) {

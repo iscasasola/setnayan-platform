@@ -101,17 +101,16 @@ async function renderFrame(type: string, config: unknown): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubCanvasFrame } = await import('../app/[slug]/_components/hub-canvas-frame');
   return renderToStaticMarkup(
-    React.createElement(
-      HubCanvasFrame,
-      { widget: widget(type, config) },
-      React.createElement(
+    React.createElement(HubCanvasFrame, {
+      widget: widget(type, config),
+      children: React.createElement(
         'section',
         null,
         React.createElement('p', { className: 'pahina-eyebrow' }, 'The day'),
         React.createElement('h2', null, 'Schedule'),
         React.createElement('p', null, 'Ceremony at three.'),
       ),
-    ),
+    }),
   );
 }
 
@@ -159,6 +158,10 @@ test("the hero's stored override renders for guests, inline on the part it names
   const html = await renderMasthead({ elements: { names: { color: '#8a1c2b', size: 'xl' }, time: { font: 'script' } } });
   assert.match(html, /<h1 style="color:#8a1c2b;zoom:1\.45" data-motion="arrive-names"/);
   assert.match(html, /<p style="font-family:var\(--font-script\), cursive" class="mt-2 text-xs/);
+  // The hero IS the first screen: its entrance plays on arrival, never waits for a scroll.
+  const moving = await renderMasthead({ elements: { names: { anim: 'editorial' } } });
+  assert.match(moving, /<h1 style="animation:hub-in-movefade-below 1\.1s[^"]*backwards"/);
+  assert.doesNotMatch(moving, /animation-timeline/);
 });
 
 /* ── 3 · a reset clears it; an untouched page is byte-identical ───────── */

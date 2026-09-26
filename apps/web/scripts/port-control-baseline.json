@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c34b51f7d9",
-  "routeCount": 432,
-  "destinations": 942,
+  "generatedFromRef": "fe65a3741f",
+  "routeCount": 435,
+  "destinations": 945,
   "actions": 667,
-  "blocks": 4786,
+  "blocks": 4805,
   "routes": {
     "/": {
       "files": [
@@ -662,6 +662,41 @@
         "SpotlightSection"
       ]
     },
+    "/(shell)/suppliers/(index)": {
+      "files": [
+        "(shell)/suppliers/(index)/loading.tsx",
+        "(shell)/suppliers/(index)/page.tsx"
+      ],
+      "destinations": [
+        "/explore",
+        "/vendors"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "Metadata"
+      ]
+    },
+    "/(shell)/suppliers/[event]/[category]": {
+      "files": [
+        "(shell)/suppliers/[event]/[category]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SupplierLanding"
+      ]
+    },
+    "/(shell)/suppliers/[event]/[category]/[city]": {
+      "files": [
+        "(shell)/suppliers/[event]/[category]/[city]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SupplierLanding"
+      ]
+    },
     "/(shell)/terms": {
       "files": [
         "(shell)/terms/loading.tsx",
@@ -810,6 +845,7 @@
         "[slug]/_components/song-request-card.tsx",
         "[slug]/_components/special-message-widget.tsx",
         "[slug]/_components/spotlight-card.tsx",
+        "[slug]/_components/stage-autoplay.tsx",
         "[slug]/_components/std-background-layer.tsx",
         "[slug]/_components/std-film-handoff.tsx",
         "[slug]/_components/std-view-beacon.tsx",
@@ -863,6 +899,7 @@
         "[slug]/_lib/site-identity.ts",
         "[slug]/_lib/site-menu.ts",
         "[slug]/_lib/site-nav.ts",
+        "[slug]/_lib/stage-bar.ts",
         "[slug]/_lib/supplier-desk.server.ts",
         "[slug]/_lib/theme-ground.ts",
         "[slug]/_lib/top-corner.ts",
@@ -1135,6 +1172,7 @@
         "SpatialBackdrop",
         "SpecialMessageWidget",
         "SpotlightCard",
+        "StageAutoplay",
         "Stat",
         "Status",
         "StdBackgroundLayer",
@@ -5958,6 +5996,7 @@
         "dashboard/[eventId]/launch/_components/maker-play-menu.tsx",
         "dashboard/[eventId]/launch/_components/maker-prints.tsx",
         "dashboard/[eventId]/launch/_components/maker-reveal.tsx",
+        "dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
@@ -6020,6 +6059,7 @@
         "MakerPlayMenu",
         "MakerPrints",
         "MakerRevealPicker",
+        "MakerRsvpAsk",
         "MakerSelection",
         "MakerShell",
         "MakerState",
@@ -6033,6 +6073,7 @@
         "PrintPreview",
         "PrintSaveButton",
         "Row",
+        "RsvpAskConfig",
         "SaveState",
         "Segmented",
         "SiteStage",
@@ -8290,6 +8331,7 @@
       "files": [
         "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
+        "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
         "dashboard/[eventId]/website/editor/_components/main-background-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/maker-canvas-guard.tsx",
@@ -8297,7 +8339,9 @@
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/pro-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/rail-rows.ts",
+        "dashboard/[eventId]/website/editor/_components/scene-preview.tsx",
         "dashboard/[eventId]/website/editor/_components/scene-slots-panel.tsx",
+        "dashboard/[eventId]/website/editor/_components/scene-snapshot.ts",
         "dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx",
         "dashboard/[eventId]/website/editor/_components/sections-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/text-panel.tsx",
@@ -8307,6 +8351,7 @@
       ],
       "destinations": [
         "/api/website/qr[seg]",
+        "/dashboard/[seg]/[seg]",
         "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?scene=[seg]",
         "/dashboard/[seg]/schedule?view=event-day",
@@ -8337,22 +8382,29 @@
         "BackgroundEffect",
         "BackgroundField",
         "CanvasStaysOnThePage",
+        "Chip",
         "Choice",
         "ColorsPanel",
         "DressCodeFields",
         "DressCodePanel",
         "EditorialPanel",
+        "ElementSheet",
+        "ElementTarget",
         "FileUpload",
         "GalleryPanel",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
         "HTMLIFrameElement",
+        "HTMLOListElement",
+        "HTMLSpanElement",
         "HeroFrameSync",
         "HeroPhotoPanel",
         "HexField",
+        "HubDraftActionResult",
         "HubDraftField",
         "HubSavesImmediately",
+        "HubSectionCanvas",
         "InfoTip",
         "Inspector",
         "LaunchPhasePanel",
@@ -8380,18 +8432,22 @@
         "PhotoMomentsPanel",
         "ProLockPanel",
         "QrActions",
+        "Reset",
         "ReturnTo",
         "RowBlock",
         "RsvpBackdropPanel",
         "SaveButton",
         "SceneMenu",
         "SceneMiniature",
+        "ScenePreview",
         "SceneSlotsPanel",
         "SceneTemplatePicker",
         "SceneView",
         "SchedulePeekPanel",
         "SectionColourChoices",
         "SectionsPanel",
+        "Seg",
+        "Segmented",
         "SiteChromePanel",
         "StdPanel",
         "StoryFields",
@@ -8402,6 +8458,7 @@
         "TextPanel",
         "ThemePanel",
         "Thumb",
+        "TileHead",
         "VisibilityPanel"
       ]
     },

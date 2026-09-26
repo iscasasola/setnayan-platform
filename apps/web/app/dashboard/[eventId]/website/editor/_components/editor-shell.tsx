@@ -1019,7 +1019,7 @@ export function MakerWork({
               <PanelsTopLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </button>
             <InfoTip label="Event Bar" align="end" labelClassName="text-[12px] font-semibold text-ink/70">
-              See this stage's own top and bottom bars, as guests see them, over the slide you are editing.
+              See this stage&rsquo;s own top and bottom bars, as guests see them, over the slide you are editing.
             </InfoTip>
           </div>
         ) : null}

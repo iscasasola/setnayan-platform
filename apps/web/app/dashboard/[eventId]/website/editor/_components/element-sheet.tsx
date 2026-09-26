@@ -6,8 +6,8 @@ import { RotateCcw, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
-import { hubDraftAction } from '../../hub-draft-actions';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { hubFontPreviewStack } from '@/lib/hub-fonts';
 import {
   HUB_ELEMENT_ANIMS,
@@ -67,15 +67,27 @@ export type ElementTarget = {
   el: HubElementKey;
 };
 
-async function saveCanvas(eventId: string, widgetType: string, canvas: HubSectionCanvas) {
+/**
+ * `hubDraftAction`, handed down by the Maker page. Passed rather than imported
+ * so this module (and the shell that mounts it) has no path back to the
+ * `server-only` gate — the same reason `hub-draft-button.tsx` is split out.
+ */
+export type ElementDraftAction = (eventId: string, formData: FormData) => Promise<HubDraftActionResult>;
+
+async function saveCanvas(
+  draftAction: ElementDraftAction,
+  eventId: string,
+  widgetType: string,
+  canvas: HubSectionCanvas,
+) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas } } }));
-  return hubDraftAction(eventId, fd);
+  return draftAction(eventId, fd);
 }
 
 const ROW = 'flex items-center gap-3 py-3';
-const LABEL = 'w-[5.5rem] shrink-0 text-[13px] font-semibold text-ink';
+const LABEL = 'w-[4.5rem] shrink-0 text-[13px] font-semibold text-ink';
 
 export function ElementSheet({
   eventId,
@@ -83,8 +95,11 @@ export function ElementSheet({
   canvas,
   palette,
   ownsPro,
+  draftAction,
   onClose,
 }: {
+  /** `hubDraftAction` — see `ElementDraftAction`. */
+  draftAction: ElementDraftAction;
   eventId: string;
   target: ElementTarget;
   /** The scene's canvas as the canvas draws it — the draft laid over live. */
@@ -118,7 +133,7 @@ export function ElementSheet({
     setStyle(next.elements?.[target.el] ?? {});
     setError(null);
     start(async () => {
-      const res = await saveCanvas(eventId, target.widgetType, next);
+      const res = await saveCanvas(draftAction, eventId, target.widgetType, next);
       if (!res.ok) {
         setError(res.error);
         return;
@@ -139,13 +154,12 @@ export function ElementSheet({
   return (
     <aside
       role="dialog"
-      aria-modal="false"
       aria-labelledby={titleId}
       data-maker-element-sheet={target.el}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
       }}
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[62dvh] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:static lg:z-auto lg:order-3 lg:max-h-none lg:w-[340px] lg:shrink-0 lg:rounded-none"
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[55dvh] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:static lg:z-auto lg:order-3 lg:max-h-none lg:w-[340px] lg:shrink-0 lg:rounded-none"
     >
       <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
       <div className="flex items-center gap-2 px-4 pt-2">
@@ -159,7 +173,8 @@ export function ElementSheet({
           />
         </p>
         <InfoTip label="" ariaLabel="About this element" align="end">
-          Changes this element only — the rest keeps the Event Hub&rsquo;s look.
+          Changes this element only — the rest keeps the Event Hub&rsquo;s look. Until you choose, it wears the
+          Event Hub font and colour and moves with its scene.
           {ownsPro ? '' : ' Try it here; it goes live when you Apply with Event Hub Pro.'}
         </InfoTip>
         <button
@@ -172,11 +187,11 @@ export function ElementSheet({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 divide-y divide-ink/10 overflow-y-auto px-4" aria-busy={pending}>
+      <div className="min-h-0 flex-1 divide-y divide-ink/10 overflow-y-auto overflow-x-hidden px-4" aria-busy={pending}>
         {has('font') ? (
           <div className={ROW} data-element-row="font">
             <p className={LABEL}>Font</p>
-            <div className="-my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1">
+            <div className="-my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
               <Chip on={!style.font} onClick={() => choose('font', null)}>
                 Event Hub font
               </Chip>
@@ -221,7 +236,7 @@ export function ElementSheet({
             {contrast && !contrast.ok ? (
               <p className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-terracotta-700" role="status" data-element-contrast="low">
                 Hard to read here · {contrast.ratio.toFixed(1)}:1
-                <InfoTip label="" ariaLabel="Why it is hard to read" align="start">
+                <InfoTip label="" ariaLabel="Why it is hard to read" align="center">
                   Words need about 4.5:1 against their background for every guest to read them easily. You can still keep this colour.
                 </InfoTip>
               </p>
@@ -244,14 +259,7 @@ export function ElementSheet({
 
         {has('anim') ? (
           <div className={ROW} data-element-row="anim">
-            <p className={LABEL}>
-              Animation
-              {!style.anim ? (
-                <InfoTip label="" ariaLabel="How it moves now" align="start">
-                  Moves with its scene until you choose.
-                </InfoTip>
-              ) : null}
-            </p>
+            <p className={LABEL}>Animation</p>
             <Segmented>
               {HUB_ELEMENT_ANIMS.map((a) => (
                 <Seg key={a} on={style.anim === a} onClick={() => choose('anim', a)}>
@@ -322,7 +330,7 @@ function Swatch({ color, on, onClick }: { color: string; on: boolean; onClick: (
 }
 
 function Segmented({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto rounded-full bg-ink/5 p-0.5">{children}</div>;
+  return <div className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto rounded-full bg-ink/5 p-0.5 [scrollbar-width:none]">{children}</div>;
 }
 
 function Seg({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -331,7 +339,7 @@ function Seg({ on, onClick, children }: { on: boolean; onClick: () => void; chil
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={`sn-press min-h-10 flex-1 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold transition-all duration-300 ease-in-out ${
+      className={`sn-press min-h-10 flex-1 whitespace-nowrap rounded-full px-1.5 text-[12.5px] font-semibold transition-all duration-300 ease-in-out ${
         on ? 'bg-white text-ink shadow-sm' : 'text-ink/65 hover:text-ink'
       }`}
     >

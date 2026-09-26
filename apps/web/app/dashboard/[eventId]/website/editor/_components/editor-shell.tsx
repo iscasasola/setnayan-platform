@@ -26,7 +26,7 @@ import { swapsForDrop, MAKER_FIXED_TOOL, MAKER_FIXED_SOURCE, type MakerFixedKey,
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
-import { ElementSheet, type ElementPalette, type ElementTarget } from './element-sheet';
+import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
 import { isHubElementKey } from '@/lib/element-style';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
@@ -198,7 +198,12 @@ export function MakerWork({
    * live), by widget type, and the theme's colours for the swatches. A tap ON an
    * element opens its sheet (`element-sheet.tsx`); null = not offered here.
    */
-  elementEditing?: { canvases: Record<string, HubSectionCanvas>; palette: ElementPalette } | null;
+  elementEditing?: {
+    canvases: Record<string, HubSectionCanvas>;
+    palette: ElementPalette;
+    /** `hubDraftAction` — the one draft door; every choice is a draft save. */
+    draftAction: ElementDraftAction;
+  } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
   revealStages?: readonly LifecyclePhase[];
@@ -1225,6 +1230,7 @@ export function MakerWork({
           canvas={elementEditing.canvases[elementTarget.widgetType] ?? {}}
           palette={elementEditing.palette}
           ownsPro={ownsPro}
+          draftAction={elementEditing.draftAction}
           onClose={() => {
             frameRef.current?.contentWindow?.postMessage(
               { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null },

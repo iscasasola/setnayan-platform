@@ -189,6 +189,13 @@ export function EditorBridge() {
         // 🔤 A tap ON a part edits that part; anywhere else, the scene.
         const part = tappedElement(e.target, el);
         mark(part);
+        // 📱 On a phone the element's sheet rises over the lower canvas, so the
+        // part is brought up to where it stays in view while it is edited.
+        try {
+          if (part && (window.top?.innerWidth ?? 1024) < 1024) part.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch {
+          /* a parent we cannot measure — the part stays where it was tapped */
+        }
         window.parent?.postMessage(
           part
             ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el') }

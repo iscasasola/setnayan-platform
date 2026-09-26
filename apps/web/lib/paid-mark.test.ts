@@ -85,6 +85,7 @@ async function paintPrints(ownsPro: boolean, storeShell: boolean): Promise<strin
   return renderToStaticMarkup(
     React.createElement(MakerPrints, {
       eventId: 'E1',
+      slug: 'ana-ben',
       theme,
       savedTheme: theme,
       ownsPro,

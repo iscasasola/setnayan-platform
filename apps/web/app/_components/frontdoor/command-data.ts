@@ -252,7 +252,7 @@ export const resolveCommandItems = cache(
         },
         {
           id: 'action-saved-vendors',
-          label: 'Saved vendors',
+          label: 'Saved suppliers',
           sublabel: 'Your shortlist',
           href: '/dashboard/library?tab=vendors',
           kind: 'action',

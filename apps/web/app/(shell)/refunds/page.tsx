@@ -105,7 +105,7 @@ export default function RefundsPage() {
         </ul>
       </LegalSection>
 
-      <LegalSection title="Vendor bookings are different">
+      <LegalSection title="Supplier bookings are different">
         <p>
           When you book an outside vendor through Setnayan, you pay the vendor
           directly — Setnayan does not hold that money and charges no

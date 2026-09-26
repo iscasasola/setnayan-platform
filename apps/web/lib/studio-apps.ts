@@ -201,9 +201,9 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Setnayan AI',
     href: '/setnayan-ai',
     description:
-      'Every other wedding AI waits for you to ask. Setnayan AI watches the vendors you’re eyeing and the ones you’ve booked — finding your best-fit Filipino vendors, then flagging a deposit due, a price that moved, or a date about to clash before it costs you. It doesn’t chat. It watches.',
+      'Every other wedding AI waits for you to ask. Setnayan AI watches the suppliers you’re eyeing and the ones you’ve booked — finding your best-fit Filipino suppliers, then flagging a deposit due, a price that moved, or a date about to clash before it costs you. It doesn’t chat. It watches.',
     railLine:
-      'Watches your vendors and flags a deposit, a price change or a clash before it costs you.',
+      'Watches your suppliers and flags a deposit, a price change or a clash before it costs you.',
     addOnKey: 'setnayan-ai',
   },
   {
@@ -403,8 +403,8 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Marketplace',
     href: '/marketplace',
     description:
-      'Browse verified Filipino wedding vendors — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
-    railLine: 'Browse verified Filipino vendors free, and compare two side by side.',
+      'Browse verified Filipino wedding suppliers — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
+    railLine: 'Browse verified Filipino suppliers free, and compare two side by side.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -457,8 +457,8 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Schedule',
     href: '/schedule',
     description:
-      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s invitation site with a live “happening now” as the day unfolds; booked vendors see the blocks they carry.',
-    railLine: 'Your wedding day, block by block, live for guests and vendors.',
+      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s invitation site with a live “happening now” as the day unfolds; booked suppliers see the blocks they carry.',
+    railLine: 'Your wedding day, block by block, live for guests and suppliers.',
     eventHref: (eventId) => `/dashboard/${eventId}/schedule`,
     doorwayOnly: true,
     railGroup: 'planner',

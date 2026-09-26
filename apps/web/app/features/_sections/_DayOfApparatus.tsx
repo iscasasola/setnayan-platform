@@ -95,7 +95,7 @@ const COPY: Record<
       },
       {
         tagline: 'Mood-board engine',
-        body: 'Per-role + per-venue palettes with the Setnayan Guide rule engine catching contrast / temperature / cultural-default mistakes before they hit the printer. Vendors get a live link, not a screenshot. They always reference the latest palette.',
+        body: 'Per-role + per-venue palettes with the Setnayan Guide rule engine catching contrast / temperature / cultural-default mistakes before they hit the printer. Suppliers get a live link, not a screenshot. They always reference the latest palette.',
         pricingLabel: 'Free baseline · Pro renders V1.1+',
       },
       {
@@ -112,7 +112,7 @@ const COPY: Record<
       },
       {
         tagline: 'Wedding-day supplies, one bill',
-        body: 'Vetted Filipino vendors for prints, equipment rentals, NFC keepsakes, and reception decor, direct-to-venue, on one Setnayan invoice. Everything the software needs to land in the physical world, sourced from one place.',
+        body: 'Vetted Filipino suppliers for prints, equipment rentals, NFC keepsakes, and reception decor, direct-to-venue, on one Setnayan invoice. Everything the software needs to land in the physical world, sourced from one place.',
       },
     ],
   },
@@ -138,7 +138,7 @@ const COPY: Record<
       },
       {
         tagline: 'Mood-board engine',
-        body: 'Per-role + per-venue palettes kasama ang Setnayan Guide rule engine na nakakahuli ng contrast / temperature / cultural-default na mga mali bago pa mapunta sa printer. May live link ang vendors, hindi screenshot. Laging ang pinakabagong palette ang reference nila.',
+        body: 'Per-role + per-venue palettes kasama ang Setnayan Guide rule engine na nakakahuli ng contrast / temperature / cultural-default na mga mali bago pa mapunta sa printer. May live link ang suppliers, hindi screenshot. Laging ang pinakabagong palette ang reference nila.',
         pricingLabel: 'Free baseline · Pro renders V1.1+',
       },
       {
@@ -162,7 +162,7 @@ const COPY: Record<
       },
       {
         tagline: 'Wedding-day supplies, isang bill',
-        body: 'Vetted na Filipino vendors para sa prints, equipment rentals, NFC keepsakes, at reception decor, direct-to-venue, sa isang Setnayan invoice. Lahat ng kailangan ng software para mapunta sa physical world, galing sa isang lugar.',
+        body: 'Vetted na Filipino suppliers para sa prints, equipment rentals, NFC keepsakes, at reception decor, direct-to-venue, sa isang Setnayan invoice. Lahat ng kailangan ng software para mapunta sa physical world, galing sa isang lugar.',
       },
     ],
   },

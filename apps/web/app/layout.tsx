@@ -293,11 +293,11 @@ const vidaloka = localFont({
 const baseMetadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
-    default: "Setnayan · Filipino wedding planning + verified vendors",
+    default: "Setnayan · Filipino wedding planning + verified suppliers",
     template: '%s · Setnayan',
   },
   description:
-    "Set na 'yan. Setnayan is the Philippines-first wedding platform — plan your whole wedding free, book verified Filipino vendors at 0% commission across Metro Manila, Cebu, Davao, Tagaytay, and nationwide, and keep every photo, video, and memory in one place. The wedding is where it starts; every celebration after it lives here too.",
+    "Set na 'yan. Setnayan is the Philippines-first wedding platform — plan your whole wedding free, book verified Filipino suppliers at 0% commission across Metro Manila, Cebu, Davao, Tagaytay, and nationwide, and keep every photo, video, and memory in one place. The wedding is where it starts; every celebration after it lives here too.",
   applicationName: 'Setnayan',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -319,24 +319,24 @@ const baseMetadata: Metadata = {
     siteName: 'Setnayan',
     locale: 'en_PH',
     url: 'https://www.setnayan.com',
-    title: "Setnayan · Filipino wedding planning + verified vendors",
+    title: "Setnayan · Filipino wedding planning + verified suppliers",
     description:
-      "Set na 'yan. Plan your whole Filipino wedding free, book verified vendors at 0% commission, and keep every photo and memory in one place — the wedding is just where it starts.",
+      "Set na 'yan. Plan your whole Filipino wedding free, book verified suppliers at 0% commission, and keep every photo and memory in one place — the wedding is just where it starts.",
     images: [
       {
         url: '/brand/og-card.webp',
         width: 1200,
         height: 630,
-        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified vendors · 0% commission",
+        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified suppliers · 0% commission",
         type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Setnayan · Filipino wedding planning + verified vendors",
+    title: "Setnayan · Filipino wedding planning + verified suppliers",
     description:
-      "Set na 'yan. Plan your whole Filipino wedding free, book verified vendors at 0% commission, and keep every photo and memory in one place — the wedding is just where it starts.",
+      "Set na 'yan. Plan your whole Filipino wedding free, book verified suppliers at 0% commission, and keep every photo and memory in one place — the wedding is just where it starts.",
     images: ['/brand/og-card.webp'],
   },
   // Robots-meta default to index,follow (we're shipping public marketing).
@@ -450,7 +450,7 @@ const organizationJsonLd = {
   // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
   // live type) — the same two rules page.tsx records.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram — each priced individually in PHP. Everything a host creates gathers into one living memory (Alaala) they keep, and each event becomes its own recurring anniversary. 0% commission on vendor bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram — each priced individually in PHP. Everything a host creates gathers into one living memory (Alaala) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {

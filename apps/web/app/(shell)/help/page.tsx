@@ -22,14 +22,14 @@ import { HelpSearch } from '@/app/help/_components/help-search';
 export const metadata = {
   title: 'Help & support',
   description:
-    'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
   alternates: { canonical: '/help' },
   openGraph: {
     type: 'website',
     url: '/help',
     title: 'Help & support · Setnayan',
     description:
-      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+      'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
     siteName: 'Setnayan',
     locale: 'en_PH',
     images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
@@ -38,7 +38,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Help & support · Setnayan',
     description:
-      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+      'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
     images: ['/brand/og-card.webp'],
   },
 };
@@ -120,7 +120,7 @@ export default async function HelpPage({ searchParams }: Props) {
             <p className="text-base text-ink/65">
               {activeRoleMeta
                 ? activeRoleMeta.blurb
-                : "Step-by-step guides for couples, vendors, guests, and admins. Pick your role below or scroll for everything."}
+                : "Step-by-step guides for couples, suppliers, guests, and admins. Pick your role below or scroll for everything."}
             </p>
           </div>
 
@@ -276,7 +276,7 @@ export default async function HelpPage({ searchParams }: Props) {
                     >
                       <option value="">Choose one (optional)</option>
                       <option value="couple">I&rsquo;m a couple planning an event</option>
-                      <option value="vendor">I&rsquo;m a vendor</option>
+                      <option value="vendor">I&rsquo;m a supplier</option>
                       <option value="guest">I&rsquo;m a guest invited to an event</option>
                       <option value="admin">Admin / operations</option>
                       <option value="billing">Billing or payments</option>

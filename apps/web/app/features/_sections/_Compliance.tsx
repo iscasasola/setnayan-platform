@@ -33,7 +33,7 @@ const COPY: Record<
     eyebrow: 'Section 6 · Privacy & receipts',
     heading: 'Your data. Your money. Your records.',
     intro:
-      'Every software purchase comes with a receipt you can pull up anytime. Your guest data stays yours. And when you pay a vendor, the money goes straight to them. Setnayan never sits in the middle. The boring parts of running an event, handled, not handed back to you.',
+      'Every software purchase comes with a receipt you can pull up anytime. Your guest data stays yours. And when you pay a supplier, the money goes straight to them. Setnayan never sits in the middle. The boring parts of running an event, handled, not handed back to you.',
     items: [
       {
         title: 'A receipt for every software purchase',
@@ -41,15 +41,15 @@ const COPY: Record<
       },
       {
         title: 'RA 10173 (Data Privacy Act) compliant',
-        body: 'Your guest list, your vendor contracts, your photos, the data you put into Setnayan stays yours. We process it under a Data Processing Agreement, you can export everything in one click, and you can delete your account permanently. We never sell guest lists, ever.',
+        body: 'Your guest list, your supplier contracts, your photos, the data you put into Setnayan stays yours. We process it under a Data Processing Agreement, you can export everything in one click, and you can delete your account permanently. We never sell guest lists, ever.',
       },
       {
-        title: 'Zero commission on vendor bookings',
-        body: 'When you pay your photographer, caterer, or florist, that money goes straight from your account to theirs. Setnayan never sits between you at checkout, so there’s no platform deduction and no markup. Your vendor handles their own receipts and tax treatment.',
+        title: 'Zero commission on supplier bookings',
+        body: 'When you pay your photographer, caterer, or florist, that money goes straight from your account to theirs. Setnayan never sits between you at checkout, so there’s no platform deduction and no markup. Your supplier handles their own receipts and tax treatment.',
       },
       {
         title: 'Receipts in one place',
-        body: 'Every Setnayan software receipt has its own printable page, reached from the order it belongs to, so you always have a record. Vendor-side: monthly subscription receipts work the same way. The boring parts, handled, not handed back to you.',
+        body: 'Every Setnayan software receipt has its own printable page, reached from the order it belongs to, so you always have a record. Supplier-side: monthly subscription receipts work the same way. The boring parts, handled, not handed back to you.',
       },
     ],
   },
@@ -57,7 +57,7 @@ const COPY: Record<
     eyebrow: 'Section 6 · Privacy & receipts',
     heading: 'Data mo. Pera mo. Records mo.',
     intro:
-      'May resibo ang bawat software purchase na pwede mong tingnan anytime. Sa’yo nananatili ang guest data mo. At pag nagbayad ka sa vendor, diretso sa kanila ang pera. Hindi nakikialam ang Setnayan sa gitna. Ang mga nakakaantok na parte ng pag-aasikaso ng event, kami na ang bahala, hindi isinasauli sa’yo.',
+      'May resibo ang bawat software purchase na pwede mong tingnan anytime. Sa’yo nananatili ang guest data mo. At pag nagbayad ka sa supplier, diretso sa kanila ang pera. Hindi nakikialam ang Setnayan sa gitna. Ang mga nakakaantok na parte ng pag-aasikaso ng event, kami na ang bahala, hindi isinasauli sa’yo.',
     items: [
       {
         title: 'Resibo para sa bawat software purchase',
@@ -65,11 +65,11 @@ const COPY: Record<
       },
       {
         title: 'RA 10173 (Data Privacy Act) compliant',
-        body: 'Ang guest list mo, ang vendor contracts mo, ang photos mo, ang data na inilalagay mo sa Setnayan ay nananatiling sa’yo. Pinoproseso namin ito sa ilalim ng Data Processing Agreement, pwede mong i-export lahat in one click, at pwede mong i-delete nang permanente ang account mo. Hindi namin kailanman ibinebenta ang guest lists.',
+        body: 'Ang guest list mo, ang supplier contracts mo, ang photos mo, ang data na inilalagay mo sa Setnayan ay nananatiling sa’yo. Pinoproseso namin ito sa ilalim ng Data Processing Agreement, pwede mong i-export lahat in one click, at pwede mong i-delete nang permanente ang account mo. Hindi namin kailanman ibinebenta ang guest lists.',
       },
       {
-        title: 'Zero commission sa vendor bookings',
-        body: 'Pag binayaran mo ang photographer, caterer, o florist mo, diretso sa kanila galing sa account mo ang pera. Hindi kailanman pumapagitna ang Setnayan sa checkout, kaya walang platform deduction at walang markup. Ang vendor mo ang humahawak ng sarili nilang resibo at tax treatment.',
+        title: 'Zero commission sa supplier bookings',
+        body: 'Pag binayaran mo ang photographer, caterer, o florist mo, diretso sa kanila galing sa account mo ang pera. Hindi kailanman pumapagitna ang Setnayan sa checkout, kaya walang platform deduction at walang markup. Ang supplier mo ang humahawak ng sarili nilang resibo at tax treatment.',
       },
       {
         title: 'Lahat ng resibo, nasa isang lugar',

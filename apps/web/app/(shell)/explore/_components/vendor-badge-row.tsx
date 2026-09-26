@@ -44,7 +44,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
   new: {
     label: 'New',
     tooltip:
-      'Newly verified vendor — joined Setnayan in the last 3 months.',
+      'Newly verified supplier — joined Setnayan in the last 3 months.',
     icon: Sparkles,
     classes:
       'border-terracotta/30 bg-terracotta/10 text-terracotta-700',
@@ -52,7 +52,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
   verified: {
     label: 'Verified',
     tooltip:
-      'Setnayan checked this vendor — DTI, BIR, and contact details on file.',
+      'Setnayan checked this supplier — DTI, BIR, and contact details on file.',
     icon: CheckCircle,
     classes:
       'border-success-300/50 bg-success-50 text-success-900',
@@ -71,7 +71,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
   most_booking: {
     label: 'Most Booked',
     tooltip:
-      'Among the top 10% of verified vendors by completed weddings this year.',
+      'Among the top 10% of verified suppliers by completed weddings this year.',
     icon: TrendingUp,
     // Soft amber/gold so it stays distinct from the Sponsored ad
     // accent (which uses a saturated amber-400 fill in the card
@@ -102,7 +102,7 @@ export function VendorBadgeRow({
   if (badges.length === 0) return null;
   return (
     <ul
-      aria-label="Vendor trust badges"
+      aria-label="Supplier trust badges"
       className="flex flex-wrap gap-1.5"
     >
       {badges.map((key) => {
@@ -137,7 +137,7 @@ export function VendorBadgeRow({
 export function OffSeasonBadge() {
   return (
     <span
-      title="This vendor is running a live off-peak discount on one of their services right now."
+      title="This supplier is running a live off-peak discount on one of their services right now."
       className="inline-flex items-center gap-1 rounded-full border border-sky-300/60 bg-sky-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-sky-800"
     >
       <Snowflake className="h-3 w-3" strokeWidth={2} aria-hidden />

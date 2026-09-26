@@ -90,7 +90,7 @@ const APP_LD = {
     'Show a block to guests or keep it hidden — public blocks appear on every guest’s invitation site',
     'A live “happening now” on the invitation site as the day unfolds',
     'Running late? Shift a block and everything after it in one move, durations kept',
-    'Booked vendors see the blocks they carry, and can suggest changes you accept or decline',
+    'Booked suppliers see the blocks they carry, and can suggest changes you accept or decline',
     'Turn the timeline into a ready-to-read emcee or host script',
   ],
   areaServed: 'Philippines',
@@ -115,8 +115,8 @@ const FAQ = [
     a: 'Shift a block and everything after it by the same amount — later or earlier — and every duration is kept. As you run the day, start the next block from the timeline and the header shows whether you are ahead, behind or on time, on every screen that has it open.',
   },
   {
-    q: 'Do our vendors work from it too?',
-    a: 'Tag a booked vendor on a block and that row shows up in their own run-of-show. Vendors never edit your timeline directly — they can suggest a change or a new entry, you accept or decline, and they hear back either way.',
+    q: 'Do our suppliers work from it too?',
+    a: 'Tag a booked supplier on a block and that row shows up in their own run-of-show. Suppliers never edit your timeline directly — they can suggest a change or a new entry, you accept or decline, and they hear back either way.',
   },
   {
     q: 'Who reads the program on the night?',
@@ -141,7 +141,7 @@ const STEPS = [
   },
   {
     t: 'Say who does what, and who sees what',
-    d: 'Name the responsible party on each block and tag the booked vendors who carry it. Flip Show to guests on the blocks that belong on the invitation site; keep the crew logistics hidden.',
+    d: 'Name the responsible party on each block and tag the booked suppliers who carry it. Flip Show to guests on the blocks that belong on the invitation site; keep the crew logistics hidden.',
   },
   {
     t: 'Run the day from it',
@@ -153,7 +153,7 @@ const VS = [
   ['A program pasted into a group chat', 'A master timeline every view reads from'],
   ['Guests asking what time the ceremony starts', 'Public blocks on the invitation site, with “happening now”'],
   ['Re-typing every time after the ceremony runs late', 'Shift a block and everything after it, durations kept'],
-  ['Vendors keeping their own copy of your day', 'Vendors see their blocks, suggest changes, and you decide'],
+  ['Suppliers keeping their own copy of your day', 'Suppliers see their blocks, suggest changes, and you decide'],
 ] as const;
 
 /*
@@ -177,7 +177,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Who is responsible',
     t: 'Every block has a name on it',
-    d: 'Name the responsible party — the HMUA team, a ninong, your coordinator — and tag the booked vendors who carry the block. Tagged vendors get that row in their own run-of-show.',
+    d: 'Name the responsible party — the HMUA team, a ninong, your coordinator — and tag the booked suppliers who carry the block. Tagged suppliers get that row in their own run-of-show.',
     media: { kind: 'photo', src: '/demo/maria-jose/details.webp', alt: 'Table details and place settings at a reception' },
   },
   {
@@ -189,7 +189,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Vendors',
     t: 'They suggest, you decide',
-    d: 'Booked vendors can ask for a timeline change or propose a new entry. Accepting applies it; vendors never edit your timeline directly, and they hear back either way.',
+    d: 'Booked suppliers can ask for a timeline change or propose a new entry. Accepting applies it; suppliers never edit your timeline directly, and they hear back either way.',
     media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A laid reception table set for a Filipino wedding' },
   },
   {
@@ -210,14 +210,14 @@ export default function ScheduleLandingPage() {
       studioKey="schedule"
       steps={STEPS}
       differentiator={{
-        heading: 'One timeline that guests, vendors and your emcee all read from',
-        lede: 'Every view is a live filter over the same master — what guests see on the invitation site, what each vendor is responsible for, what the emcee reads — so you edit the master and each slice updates itself.',
+        heading: 'One timeline that guests, suppliers and your emcee all read from',
+        lede: 'Every view is a live filter over the same master — what guests see on the invitation site, what each supplier is responsible for, what the emcee reads — so you edit the master and each slice updates itself.',
         rows: VS,
       }}
       faq={FAQ}
       closing={{
         heading: 'Start with the day itself',
-        body: 'The Schedule is free with every Setnayan wedding — beside your guest list, seat plan, budget and mood board. Nothing to buy, and it is the timeline the invitation site, your vendors and your emcee all read from.',
+        body: 'The Schedule is free with every Setnayan wedding — beside your guest list, seat plan, budget and mood board. Nothing to buy, and it is the timeline the invitation site, your suppliers and your emcee all read from.',
         href: '/onboarding/wedding?from=schedule',
         label: 'Start planning · free',
       }}

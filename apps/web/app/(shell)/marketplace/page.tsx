@@ -53,7 +53,7 @@ import { studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Marketplace — Find Your Vendors, Side by Side · Setnayan';
+const PAGE_TITLE = 'Marketplace — Find Your Suppliers, Side by Side · Setnayan';
 /** The document title ONLY — the root layout appends the brand via its
  *  `template: '%s · Setnayan'`; the share cards and structured data are
  *  correct WITH the brand. */
@@ -66,12 +66,12 @@ export const metadata = {
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/marketplace' },
   keywords: [
-    'Filipino wedding vendors',
+    'Filipino wedding suppliers',
     'wedding marketplace Philippines',
-    'verified wedding vendors Philippines',
-    'compare wedding vendors',
+    'verified wedding suppliers Philippines',
+    'compare wedding suppliers',
     'find wedding suppliers Philippines',
-    'wedding vendor shortlist',
+    'wedding supplier shortlist',
     'Setnayan marketplace',
     'Setnayan',
   ],
@@ -80,7 +80,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/marketplace',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Marketplace — find your vendors, side by side' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Marketplace — find your suppliers, side by side' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -96,19 +96,19 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Marketplace — Find Your Vendors, Side by Side',
+  name: 'Marketplace — Find Your Suppliers, Side by Side',
   url: `${SITE_URL}/marketplace`,
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'PHP' },
   featureList: [
-    'Search verified Filipino wedding vendors and Setnayan’s own services from one box',
+    'Search verified Filipino wedding suppliers and Setnayan’s own services from one box',
     'Browse by category and by city',
-    'Every vendor listed passed a business check and a video call with a Setnayan admin',
-    'Save the vendors you like to your shortlist',
-    'Compare two saved vendors side by side — location, rating, services, faith fit',
-    'A free preview of how well each vendor fits your wedding',
+    'Every supplier listed passed a business check and a video call with a Setnayan admin',
+    'Save the suppliers you like to your shortlist',
+    'Compare two saved suppliers side by side — location, rating, services, faith fit',
+    'A free preview of how well each supplier fits your wedding',
     'Free to browse, 0% commission on bookings',
   ],
   areaServed: 'Philippines',
@@ -118,27 +118,27 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is the Marketplace?',
-    a: 'It is where you find the vendors for your day. Search verified Filipino vendors — photographers, videographers, caterers, coordinators, hair and makeup, cake and more — or browse by category and city. Save the ones you like, put two side by side, and decide.',
+    a: 'It is where you find the suppliers for your day. Search verified Filipino suppliers — photographers, videographers, caterers, coordinators, hair and makeup, cake and more — or browse by category and city. Save the ones you like, put two side by side, and decide.',
   },
   {
     q: 'Is it free? Do we need an account?',
-    a: 'Browsing is free and open to anyone. Saving a vendor and comparing two are tied to your wedding, so you start an event when you want to keep one — that is free too. Setnayan takes 0% commission on bookings: nothing you pay a vendor comes back to us.',
+    a: 'Browsing is free and open to anyone. Saving a supplier and comparing two are tied to your wedding, so you start an event when you want to keep one — that is free too. Setnayan takes 0% commission on bookings: nothing you pay a supplier comes back to us.',
   },
   {
     q: 'What does “verified” mean?',
-    a: 'Every vendor you see completed a business-legitimacy check and a short video call with a Setnayan admin. Their real business name is shown from the first day, and you can always see who they are and message them for free.',
+    a: 'Every supplier you see completed a business-legitimacy check and a short video call with a Setnayan admin. Their real business name is shown from the first day, and you can always see who they are and message them for free.',
   },
   {
     q: 'How does compare work?',
-    a: 'Save two vendors, then open the comparison. It lays them side by side — location, rating, services, faith fit, and distance from your reception venue if you have set one. It is two at a time on purpose: an A-or-B view leads to a decision, a wide table leads to more browsing.',
+    a: 'Save two suppliers, then open the comparison. It lays them side by side — location, rating, services, faith fit, and distance from your reception venue if you have set one. It is two at a time on purpose: an A-or-B view leads to a decision, a wide table leads to more browsing.',
   },
   {
     q: 'Is the match preview the same as Setnayan AI?',
-    a: 'No. The preview of how well a vendor fits your wedding is free, once you have an event to match against — it reads your ceremony, venue, budget and date, and never hides anyone. Setnayan AI is the separate, paid planner that picks a suggested team for you and keeps watching them. You never need it to use the Marketplace.',
+    a: 'No. The preview of how well a supplier fits your wedding is free, once you have an event to match against — it reads your ceremony, venue, budget and date, and never hides anyone. Setnayan AI is the separate, paid planner that picks a suggested team for you and keeps watching them. You never need it to use the Marketplace.',
   },
   {
     q: 'What happens after we pick someone?',
-    a: 'Message them from Setnayan — a vendor sees your event’s display name and date, never your email. Inside your event, every vendor you choose sits in one ledger with their contact, contract, packages, payment schedule and notes. The payment itself happens directly between you and the vendor; Setnayan never touches the money.',
+    a: 'Message them from Setnayan — a supplier sees your event’s display name and date, never your email. Inside your event, every supplier you choose sits in one ledger with their contact, contract, packages, payment schedule and notes. The payment itself happens directly between you and the supplier; Setnayan never touches the money.',
   },
 ];
 
@@ -155,22 +155,22 @@ const FAQ_LD = {
 const STEPS = [
   {
     t: 'Search, or browse by category',
-    d: 'Type what you need — a photographer, a caterer, a coordinator — or open a category and browse by city. Verified Filipino vendors and Setnayan’s own services, all from one search box.',
+    d: 'Type what you need — a photographer, a caterer, a coordinator — or open a category and browse by city. Verified Filipino suppliers and Setnayan’s own services, all from one search box.',
   },
   {
     t: 'Save the ones you like',
-    d: 'Every vendor shows their services, location and rating. Keep the ones you are considering in your shortlist, and once you have added your wedding, see a preview of how well each one fits it.',
+    d: 'Every supplier shows their services, location and rating. Keep the ones you are considering in your shortlist, and once you have added your wedding, see a preview of how well each one fits it.',
   },
   {
     t: 'Put two side by side, then decide',
-    d: 'Open any two saved vendors in one view — location, rating, services, faith fit, and distance from your venue if you have set one. Choose, message them, and they move into your event’s vendor ledger.',
+    d: 'Open any two saved suppliers in one view — location, rating, services, faith fit, and distance from your venue if you have set one. Choose, message them, and they move into your event’s supplier ledger.',
   },
 ];
 
 const VS = [
-  ['Vendors found in group chats and comment threads', 'Verified vendors, one search'],
+  ['Suppliers found in group chats and comment threads', 'Verified suppliers, one search'],
   ['Guessing who is legitimate', 'Every listing passed a business check and a video call'],
-  ['Weighing quotes in your head', 'Two vendors side by side, spec for spec'],
+  ['Weighing quotes in your head', 'Two suppliers side by side, spec for spec'],
   ['A referral fee hiding in your price', '0% commission — Setnayan never takes a cut'],
 ] as const;
 
@@ -184,31 +184,31 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'One search',
     t: 'Everything for your day, in one search',
-    d: 'Search verified Filipino vendors and Setnayan’s own services — photo, video, livestream, save-the-dates and more — all from one place, or browse by category and city.',
+    d: 'Search verified Filipino suppliers and Setnayan’s own services — photo, video, livestream, save-the-dates and more — all from one place, or browse by category and city.',
     media: { kind: 'photo', src: '/demo/maria-jose/vendor-photo.webp', alt: 'A bride in a lace gown and veil, eyes closed, standing beside a tall window' },
   },
   {
     chip: 'Verified',
-    t: 'Every vendor here was checked first',
+    t: 'Every supplier here was checked first',
     d: 'Each one completed a business-legitimacy check and a short video call with a Setnayan admin, and their real business name is shown from the first day — so you always know who you are talking to.',
     media: { kind: 'photo', src: '/demo/maria-jose/vendor-catering.webp', alt: 'A catering buffet laid out on a white tablecloth at a reception' },
   },
   {
     chip: 'Your shortlist',
     t: 'Keep the ones you like',
-    d: 'Save a vendor to your event picks the moment you find them. Once your wedding is on Setnayan, you also see a free preview of how well each one fits it — your ceremony, venue, budget and date — and no one is ever hidden from you.',
+    d: 'Save a supplier to your event picks the moment you find them. Once your wedding is on Setnayan, you also see a free preview of how well each one fits it — your ceremony, venue, budget and date — and no one is ever hidden from you.',
     media: { kind: 'photo', src: '/demo/maria-jose/vendor-florist.webp', alt: 'A cascade of white roses, peonies and greenery along a candlelit reception table' },
   },
   {
     chip: 'Compare',
-    t: 'Two vendors, side by side',
-    d: 'Put two saved vendors next to each other — location, rating, services, faith fit, and distance from your reception venue if you have set one. Two at a time on purpose: an A-or-B view leads to a decision.',
+    t: 'Two suppliers, side by side',
+    d: 'Put two saved suppliers next to each other — location, rating, services, faith fit, and distance from your reception venue if you have set one. Two at a time on purpose: an A-or-B view leads to a decision.',
     media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A long candlelit reception table under strings of lights in a garden at night' },
   },
   {
     chip: 'Inside your event',
     t: 'Chosen here, kept in one ledger',
-    d: 'Message a vendor from Setnayan — they see your event’s name and date, never your email. Once you choose them, their contact, contract, packages, payment schedule and notes sit against a single row in your event, and you pay them directly: 0% commission, so what fits you is never what pays us.',
+    d: 'Message a supplier from Setnayan — they see your event’s name and date, never your email. Once you choose them, their contact, contract, packages, payment schedule and notes sit against a single row in your event, and you pay them directly: 0% commission, so what fits you is never what pays us.',
     media: { kind: 'photo', src: '/demo/maria-jose/details.webp', alt: 'A wedding invitation with two gold rings, beside a bouquet of white roses' },
   },
 ];
@@ -216,7 +216,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
 export default function MarketplaceLandingPage() {
   return (
     <DoorwayPage
-      title={'Every vendor for your day, in one search.'}
+      title={'Every supplier for your day, in one search.'}
       /*
         THE PRIMARY GOES TO THE MARKETPLACE ITSELF. Every other doorway sends a
         stranger to onboarding because its product needs an event to exist;
@@ -236,7 +236,7 @@ export default function MarketplaceLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Start with who you need',
-        body: 'The Marketplace is free to browse, with 0% commission on bookings. Find your vendors here, save the ones you like, compare two — and when you start your wedding on Setnayan, they carry into your event’s vendor ledger, beside your guest list, budget and schedule.',
+        body: 'The Marketplace is free to browse, with 0% commission on bookings. Find your suppliers here, save the ones you like, compare two — and when you start your wedding on Setnayan, they carry into your event’s supplier ledger, beside your guest list, budget and schedule.',
         href: '/explore',
         label: 'Browse the marketplace',
       }}

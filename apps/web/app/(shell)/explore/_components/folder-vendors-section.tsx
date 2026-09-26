@@ -150,7 +150,7 @@ export async function FolderVendorsSection({
       <header className="mb-4 flex items-baseline justify-between gap-3">
         <div className="space-y-1">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-            {featured ? 'Featured Vendors' : `${folderLabel} Vendors`}
+            {featured ? 'Featured Suppliers' : `${folderLabel} Suppliers`}
           </p>
           <h2
             id={`${folderSlug}-vendors-preview-heading`}

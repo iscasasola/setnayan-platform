@@ -235,7 +235,7 @@ export function VendorGrowHub() {
 
 export function VendorGrowAI() {
   const steps = [
-    { n: '1', t: 'Strategic computation', p: 'We compute where you’re the strongest match — by date, budget, faith, location and the other vendors they’re choosing.' },
+    { n: '1', t: 'Strategic computation', p: 'We compute where you’re the strongest match — by date, budget, faith, location and the other suppliers they’re choosing.' },
     // ⚠ THIS STEP USED TO PROMISE VENDORS A DARK PATTERN, and one we don't build.
     // It read: "When a new couple EYES a date you're already shortlisted for, we
     // tell your client that schedule is in demand — SO THEY MOVE." Two lies in one
@@ -256,7 +256,7 @@ export function VendorGrowAI() {
       <section style={{ ...SECTION, paddingTop: 'clamp(56px, 8vw, 100px)', paddingBottom: 'clamp(56px, 8vw, 100px)' }}>
         <div className="m-ai-grid" style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 'clamp(28px, 5vw, 56px)', alignItems: 'center' }}>
           <div>
-            <Eyebrow onDark>Setnayan AI · free for vendors</Eyebrow>
+            <Eyebrow onDark>Setnayan AI · free for suppliers</Eyebrow>
             <H2 onDark>It doesn&rsquo;t just list you. It sells for you — free.</H2>
             <Lede onDark>
               Setnayan AI is free for every vendor. It helps couples plan, and it steers the right ones toward locking their booking with <em>you</em>. Here&rsquo;s the lever most vendors miss:{' '}
@@ -464,7 +464,7 @@ export function VendorGrowTrust() {
         </Lede>
       </div>
       <CardGrid>
-        <GridCard icon="⚖" title="Fair rating for new vendors" body="A Bayesian score means stars are earned, never bought — you're not buried for being new." />
+        <GridCard icon="⚖" title="Fair rating for new suppliers" body="A Bayesian score means stars are earned, never bought — you're not buried for being new." />
         <GridCard icon="✓" title="Receipt-backed reviews" body="Every rating carries a real &ldquo;booked through Setnayan&rdquo; mark. No fakes, no doubt." />
         <GridCard icon="🏅" title="Earned badges & experience tier" body="New / Verified / Top Pick / Most Booked, plus your years-in-business badge." />
         <GridCard icon="💬" title="Right-of-reply on reviews" body="Post one public, professional reply under any review — your side always shows." />

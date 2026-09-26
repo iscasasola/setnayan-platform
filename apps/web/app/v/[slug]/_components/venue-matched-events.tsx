@@ -31,8 +31,8 @@ export function VenueMatchedEvents({
       <h2 className="sn-sec">{hasMatch ? 'Weddings at your venue' : 'Recent weddings'}</h2>
       <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
         {hasMatch
-          ? 'This vendor has worked at your venue — see their track record there first.'
-          : 'A look at the events this vendor has recently delivered.'}
+          ? 'This supplier has worked at your venue — see their track record there first.'
+          : 'A look at the events this supplier has recently delivered.'}
       </p>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">
         {events.map((e) => {

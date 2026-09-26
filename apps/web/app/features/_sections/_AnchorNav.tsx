@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'how-it-works', label: 'How it works' },
   { id: 'planning-toolkit', label: 'Planning toolkit' },
   { id: 'communications', label: 'Communications' },
-  { id: 'vendors-ledger', label: 'Vendors & ledger' },
+  { id: 'vendors-ledger', label: 'Suppliers & ledger' },
   { id: 'day-of-apparatus', label: 'Day-of apparatus' },
   { id: 'outsourcing-pacing', label: 'Outsourcing & pacing' },
   { id: 'compliance', label: 'Compliance & receipts' },

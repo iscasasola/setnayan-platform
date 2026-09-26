@@ -40,10 +40,10 @@ const COPY: Record<
       {
         title: 'Outsourcing',
         sub: 'Bring in your planner, coordinator, or stylist, without handing over the whole account.',
-        body: 'Setnayan supports role-scoped access for the people you bring in to help. A planner sees the full plan: budget, vendors, timeline. A day-of coordinator sees just the day-of run-of-show plus the vendors on the day. A stylist sees the mood board and the venue, nothing else. Each role has its own login, its own view, its own audit trail. Add or remove access in seconds, no shared passwords, no over-exposure.',
+        body: 'Setnayan supports role-scoped access for the people you bring in to help. A planner sees the full plan: budget, suppliers, timeline. A day-of coordinator sees just the day-of run-of-show plus the suppliers on the day. A stylist sees the mood board and the venue, nothing else. Each role has its own login, its own view, its own audit trail. Add or remove access in seconds, no shared passwords, no over-exposure.',
         items: [
-          'Planner · full ledger, budget, vendor contracts, timeline.',
-          'Day-of coordinator · run-of-show + day-of vendors only.',
+          'Planner · full ledger, budget, supplier contracts, timeline.',
+          'Day-of coordinator · run-of-show + day-of suppliers only.',
           'Stylist · mood board, palette, venue diagrams.',
           'Family helper · guest list + RSVP tracking only.',
         ],
@@ -62,11 +62,11 @@ const COPY: Record<
       {
         title: 'Scheduling',
         sub: 'The day itself, and the dates that lead up to it.',
-        body: 'Your run-of-show lives on the schedule page: Setnayan proposes a shape for your event type and you adjust it until it matches your day. The dates that lead up to it export to the calendar you already use — vendor payment due dates as one .ics from the budget, each confirmed vendor meeting as its own.',
+        body: 'Your run-of-show lives on the schedule page: Setnayan proposes a shape for your event type and you adjust it until it matches your day. The dates that lead up to it export to the calendar you already use — supplier payment due dates as one .ics from the budget, each confirmed supplier meeting as its own.',
         items: [
           'Day-of run-of-show · the day, minute by minute.',
           'Payment deadlines · one .ics from your budget.',
-          'Vendor meetings · an .ics on every confirmed booking.',
+          'Supplier meetings · an .ics on every confirmed booking.',
         ],
       },
     ],
@@ -80,10 +80,10 @@ const COPY: Record<
       {
         title: 'Outsourcing',
         sub: 'Isama ang planner, coordinator, o stylist mo, nang hindi ibinibigay ang buong account.',
-        body: 'May role-scoped access ang Setnayan para sa mga taong isasama mo para tumulong. Nakikita ng planner ang buong plano: budget, vendors, timeline. Ang day-of coordinator, nakikita lang ang day-of run-of-show plus ang vendors sa araw na ‘yun. Ang stylist, nakikita ang mood board at ang venue, wala nang iba. May sariling login, sariling view, at sariling audit trail ang bawat role. Magdagdag o mag-alis ng access sa ilang segundo, walang shared passwords, walang sobrang exposure.',
+        body: 'May role-scoped access ang Setnayan para sa mga taong isasama mo para tumulong. Nakikita ng planner ang buong plano: budget, suppliers, timeline. Ang day-of coordinator, nakikita lang ang day-of run-of-show plus ang suppliers sa araw na ‘yun. Ang stylist, nakikita ang mood board at ang venue, wala nang iba. May sariling login, sariling view, at sariling audit trail ang bawat role. Magdagdag o mag-alis ng access sa ilang segundo, walang shared passwords, walang sobrang exposure.',
         items: [
-          'Planner · buong ledger, budget, vendor contracts, timeline.',
-          'Day-of coordinator · run-of-show + day-of vendors lang.',
+          'Planner · buong ledger, budget, supplier contracts, timeline.',
+          'Day-of coordinator · run-of-show + day-of suppliers lang.',
           'Stylist · mood board, palette, venue diagrams.',
           'Family helper · guest list + RSVP tracking lang.',
         ],
@@ -102,11 +102,11 @@ const COPY: Record<
       {
         title: 'Scheduling',
         sub: 'Ang mismong araw, at ang mga petsang patungo rito.',
-        body: 'Ang run-of-show mo ay nasa schedule page: nagmumungkahi ang Setnayan ng hugis para sa uri ng event mo at ina-adjust mo ito hanggang tumugma sa araw mo. Ang mga petsang patungo rito ay nae-export sa calendar na ginagamit mo na — ang mga due date ng bayad sa vendor bilang isang .ics mula sa budget, at ang bawat kumpirmadong vendor meeting bilang sarili nitong export.',
+        body: 'Ang run-of-show mo ay nasa schedule page: nagmumungkahi ang Setnayan ng hugis para sa uri ng event mo at ina-adjust mo ito hanggang tumugma sa araw mo. Ang mga petsang patungo rito ay nae-export sa calendar na ginagamit mo na — ang mga due date ng bayad sa supplier bilang isang .ics mula sa budget, at ang bawat kumpirmadong supplier meeting bilang sarili nitong export.',
         items: [
           'Day-of run-of-show · ang araw, minuto por minuto.',
           'Payment deadlines · isang .ics mula sa budget mo.',
-          'Vendor meetings · may .ics ang bawat kumpirmadong booking.',
+          'Supplier meetings · may .ics ang bawat kumpirmadong booking.',
         ],
       },
     ],

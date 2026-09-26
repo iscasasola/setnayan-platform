@@ -187,7 +187,7 @@ export function FilterDrawer({
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="Filter vendors"
+        aria-label="Filter suppliers"
         className="relative ml-auto mt-auto flex w-full max-w-full flex-col rounded-t-2xl bg-cream shadow-xl outline-none sm:max-w-[480px] sm:mt-auto sm:mb-0 sm:rounded-t-2xl lg:my-0 lg:h-full lg:max-w-[420px] lg:rounded-l-2xl lg:rounded-tr-none"
         style={{ maxHeight: 'min(90vh, 100dvh)' }}
       >

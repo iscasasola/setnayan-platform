@@ -91,7 +91,7 @@ const COPY: Record<
         label: 'Host',
         who: 'You’re planning a celebration — a wedding, a debut, a christening, a reunion, and thirteen more. An event can have several hosts.',
         where: [
-          'Guest list, invitation site, vendors, budget, seating, mood board',
+          'Guest list, invitation site, suppliers, budget, seating, mood board',
           'Day-of mode from T-1h to T+8h with table + schedule + photo wall',
           'Add-ons (photo delivery, Live Studio, Papic, supplies marketplace, more)',
         ],
@@ -118,7 +118,7 @@ const COPY: Record<
         label: 'Admin',
         who: 'Setnayan operations team. Gated behind is_internal.',
         where: [
-          'Users, vendors, orders, reviews — the day-to-day moderation',
+          'Users, suppliers, orders, reviews — the day-to-day moderation',
           'Funnels, force-majeure escalations, verification queue',
           'Website editor for marketing-site widgets',
         ],
@@ -147,12 +147,12 @@ const COPY: Record<
       {
         from: 'Host',
         to: 'Vendors',
-        what: 'Host browses the marketplace at /explore and opens a chat thread with one (vendors cannot DM cold).',
+        what: 'Host browses the marketplace at /explore and opens a chat thread with one (suppliers cannot DM cold).',
       },
       {
         from: 'Vendor',
         to: 'Host',
-        what: 'Vendor replies with a quote + files. Both sides see the same thread.',
+        what: 'Supplier replies with a quote + files. Both sides see the same thread.',
       },
       {
         from: 'Host',
@@ -171,7 +171,7 @@ const COPY: Record<
       },
       {
         from: 'Post-event',
-        to: 'Host ↔ Vendor',
+        to: 'Host ↔ Supplier',
         what: 'Reviews land 24h after the event; force-majeure flags route to admin if filed.',
       },
     ],
@@ -186,7 +186,7 @@ const COPY: Record<
         label: 'Host',
         who: 'Nagpaplano ka ng pagdiriwang — kasal, debut, binyag, reunion, at labintatlo pa. Pwedeng maraming host ang isang event.',
         where: [
-          'Guest list, invitation site, vendors, budget, seating, mood board',
+          'Guest list, invitation site, suppliers, budget, seating, mood board',
           'Day-of mode from T-1h to T+8h — table + schedule + photo wall',
           'Add-ons (photo delivery, Live Studio, Papic, supplies marketplace, at iba pa)',
         ],
@@ -213,7 +213,7 @@ const COPY: Record<
         label: 'Admin',
         who: 'Setnayan operations team. Naka-gate sa likod ng is_internal.',
         where: [
-          'Users, vendors, orders, reviews — ang araw-araw na moderation',
+          'Users, suppliers, orders, reviews — ang araw-araw na moderation',
           'Funnels, force-majeure escalations, verification queue',
           'Website editor para sa marketing-site widgets',
         ],
@@ -242,12 +242,12 @@ const COPY: Record<
       {
         from: 'Host',
         to: 'Vendors',
-        what: 'Nagba-browse ang host sa marketplace sa /explore at nagbubukas ng chat thread sa isa (hindi pwedeng mag-cold-DM ang vendors).',
+        what: 'Nagba-browse ang host sa marketplace sa /explore at nagbubukas ng chat thread sa isa (hindi pwedeng mag-cold-DM ang suppliers).',
       },
       {
         from: 'Vendor',
         to: 'Host',
-        what: 'Sumasagot ang vendor with a quote + files. Iisang thread ang nakikita ng dalawa.',
+        what: 'Sumasagot ang supplier with a quote + files. Iisang thread ang nakikita ng dalawa.',
       },
       {
         from: 'Host',
@@ -266,7 +266,7 @@ const COPY: Record<
       },
       {
         from: 'Post-event',
-        to: 'Host ↔ Vendor',
+        to: 'Host ↔ Supplier',
         what: 'Lalabas ang reviews 24h after the event; ang force-majeure flags ay pupunta sa admin kung may na-file.',
       },
     ],

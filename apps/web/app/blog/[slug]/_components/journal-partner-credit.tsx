@@ -113,7 +113,7 @@ export async function JournalPartnerCredit({
 
       <ul className="mt-6 space-y-4">
         {spotlights.map((s, i) => {
-          const name = s.business_name ?? 'A Setnayan vendor';
+          const name = s.business_name ?? 'A Setnayan supplier';
           // The BARE ROOT is the shop's canonical address; `/v/{slug}` is the
           // legacy form. The shop page self-canonicalises to the clean
           // bare-root URL, so the `?src=` tag costs the credited vendor no

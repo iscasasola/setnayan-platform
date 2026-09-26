@@ -79,12 +79,12 @@ import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 export const metadata = {
   title: 'Pricing',
   description:
-    'Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. 0% commission on vendor bookings. Vendors keep 100%.',
+    'Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. 0% commission on supplier bookings. Suppliers keep 100%.',
   alternates: { canonical: '/pricing' },
   openGraph: {
     title: 'Pricing · Setnayan',
     description:
-      'Plan free, add the magic as you go. Transparent PHP prices. Vendors transact directly. Setnayan takes 0%.',
+      'Plan free, add the magic as you go. Transparent PHP prices. Suppliers transact directly. Setnayan takes 0%.',
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -92,7 +92,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
-    description: 'Plan free · add software à la carte · vendors keep 100% · 0% commission.',
+    description: 'Plan free · add software à la carte · suppliers keep 100% · 0% commission.',
   },
 };
 
@@ -511,11 +511,11 @@ export default async function PricingPage() {
     {
       title: 'Capture & share',
       items: [
-        { n: 'Browse vendors + match preview' },
+        { n: 'Browse suppliers + match preview' },
         { n: 'Single-camera livestream', note: 'to YouTube, auto-archived' },
         { n: 'Custom QR for every guest', note: 'free per-guest QR' },
         { n: 'Ala Ala memory hub' },
-        { n: '0% commission on vendor bookings' },
+        { n: '0% commission on supplier bookings' },
       ],
     },
   ];
@@ -571,9 +571,9 @@ export default async function PricingPage() {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
           name: s.title,
-          description: `${s.title} · Setnayan vendor subscription ${cadence.shortLabel}. 0% commission on bookings.`,
+          description: `${s.title} · Setnayan supplier subscription ${cadence.shortLabel}. 0% commission on bookings.`,
           provider: ORGANIZATION_REF,
-          category: 'Wedding vendor subscription',
+          category: 'Wedding supplier subscription',
           offers: {
             '@type': 'Offer',
             url: `${SITE_URL}/vendors`,
@@ -677,7 +677,7 @@ export default async function PricingPage() {
                   'All five planning tools',
                   'Your free 4-in-1 Event Hub',
                   'Unlimited RSVP collection',
-                  'Browse vendors + a match preview',
+                  'Browse suppliers + a match preview',
                   'Single-camera livestream & free Custom QR',
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-2">
@@ -944,7 +944,7 @@ export default async function PricingPage() {
                   {[
                     'Publish free — every Chapter, every event, no fees ever',
                     'Keep your own monetization — your edit stays embedded from your channel',
-                    'Vendors court you with exclusive rates in exchange for a Chapter that credits them',
+                    'Suppliers court you with exclusive rates in exchange for a Chapter that credits them',
                   ].map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />

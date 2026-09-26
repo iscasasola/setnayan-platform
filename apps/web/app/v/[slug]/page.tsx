@@ -441,7 +441,7 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 export async function vendorMetadataBySlug(slug: string) {
   const vendor = await fetchVendor(slug);
   if (!vendor || !isPubliclyVisible(vendor.public_visibility)) {
-    return { title: 'Setnayan vendor' };
+    return { title: 'Setnayan supplier' };
   }
   // Demo vendors are admin-only. Don't leak their business name in
   // metadata to crawlers / link previews — generic title only. Admins
@@ -449,7 +449,7 @@ export async function vendorMetadataBySlug(slug: string) {
   // because the page itself sets `metadata` per render via the
   // surrounding header text.
   if (vendor.is_demo === true) {
-    return { title: 'Setnayan vendor' };
+    return { title: 'Setnayan supplier' };
   }
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
   const siteUrl = (
@@ -484,7 +484,7 @@ export async function vendorMetadataBySlug(slug: string) {
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
     is_verified: vendor.verification_state === 'verified',
   });
-  const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
+  const titleText = `${displayLabel} · Setnayan supplier${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
   // E1 (2026-09-11) — "a shop's link preview never breaks". This USED to
   // resolve `vendor.logo_url` straight into a presigned R2 URL
@@ -2306,7 +2306,7 @@ export async function renderVendorBySlug({
                 title={
                   finalizedBookingCount && finalizedBookingCount > 0
                     ? `${finalizedBookingCount} finalized event${finalizedBookingCount === 1 ? '' : 's'} through Setnayan.`
-                    : 'New to Setnayan — many excellent vendors are.'
+                    : 'New to Setnayan — many excellent suppliers are.'
                 }
               >
                 {expTier.longLabel}
@@ -2358,7 +2358,7 @@ export async function renderVendorBySlug({
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
                 title={
                   declaredExp.verified
-                    ? 'Years in business verified against the vendor’s DTI registration.'
+                    ? 'Years in business verified against the supplier’s DTI registration.'
                     : 'Self-reported by the vendor.'
                 }
               >
@@ -3386,7 +3386,7 @@ function ComingSoonBanner({ vendorName }: { vendorName: string }) {
 function DemoVendorBanner() {
   return (
     <section
-      aria-label="Demo vendor"
+      aria-label="Demo supplier"
       className="mb-8 rounded-2xl border border-warn-300/70 bg-warn-50 p-5"
     >
       <div className="flex items-start gap-3">
@@ -3798,7 +3798,7 @@ function ReviewsSection({
           refactor away from being reachable again. */}
       {reviews.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6">
-          <p className="text-sm text-ink/65">This vendor still has no review.</p>
+          <p className="text-sm text-ink/65">This supplier still has no review.</p>
           {/* 🔴 Was "a review request 24 hours after the event" — a promise
               nothing kept, on every shop page. See CTRL-B3 build 11 and the
               sibling fix in vendor-marketplace-info.tsx. No duration is named:
@@ -3983,7 +3983,7 @@ function VerifiedWeddingPill() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
-      title="This couple booked this vendor through Setnayan — verified by the platform."
+      title="This couple booked this supplier through Setnayan — verified by the platform."
     >
       <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
       Verified wedding
@@ -4001,7 +4001,7 @@ function VerifiedBookingPill() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-terracotta-700"
-      title="The vendor invited this couple to Setnayan — a verified booking relationship."
+      title="The supplier invited this couple to Setnayan — a verified booking relationship."
     >
       <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
       Verified booking

@@ -238,7 +238,7 @@ export async function startServiceInquiry(input: {
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   const initialServiceId = String(input.initialServiceId ?? '').trim();
   if (!vendorProfileId || !initialServiceId) {
-    return { status: 'error', message: 'Missing vendor or service' };
+    return { status: 'error', message: 'Missing supplier or service' };
   }
 
   const supabase = await createClient();

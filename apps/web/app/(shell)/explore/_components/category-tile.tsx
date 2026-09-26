@@ -220,7 +220,7 @@ function ariaLabelFor(data: CategoryTileData, state: TileState): string {
     case 'populated':
       return `${name}, ${state.verified} verified`;
     case 'recruiting':
-      return `${name}, recruiting vendors now`;
+      return `${name}, recruiting suppliers now`;
     case 'future':
       return `${name}, planned for ${data.meta.phase}`;
     case 'setnayan':
@@ -264,7 +264,7 @@ function CtaLine({ state }: { state: TileState }) {
     // since `coming_soon` was retired, so the old "Preview N coming-soon
     // vendors" fallback is unreachable and would have read "Preview 0".
     case 'populated':
-      copy = `Browse ${state.verified} vendor${state.verified === 1 ? '' : 's'} →`;
+      copy = `Browse ${state.verified} supplier${state.verified === 1 ? '' : 's'} →`;
       break;
     case 'recruiting':
       copy = 'Be the first to list →';

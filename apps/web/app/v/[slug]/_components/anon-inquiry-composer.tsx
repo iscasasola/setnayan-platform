@@ -124,7 +124,7 @@ export function AnonInquiryComposer({
       return;
     }
     if (message.trim().length < 2) {
-      setError('Add a short message so the vendor knows what you need.');
+      setError('Add a short message so the supplier knows what you need.');
       return;
     }
 

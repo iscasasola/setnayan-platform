@@ -64,7 +64,7 @@ async function fetchBoothVendor(
     .ilike('business_slug', slug)
     .maybeSingle();
   if (error) {
-    console.error('[booth] vendor read refused', error);
+    console.error('[booth] supplier read refused', error);
     return 'unreadable';
   }
   return (data as BoothVendorRow | null) ?? null;
@@ -126,8 +126,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     vendor !== 'unreadable' &&
     isPubliclyVisible(vendor.public_visibility) &&
     vendor.verification_state === 'verified';
-  const name = eligible ? boothDisplayName(vendor) : 'a vendor';
-  const title = eligible ? `Walk into ${name}'s booth · Setnayan` : 'Vendor booth · Setnayan';
+  const name = eligible ? boothDisplayName(vendor) : 'a supplier';
+  const title = eligible ? `Walk into ${name}'s booth · Setnayan` : 'Supplier booth · Setnayan';
   const description = eligible
     ? `Step inside ${name}'s 3D booth — a walk-around preview on Setnayan.`
     : 'A 3D booth showcase on Setnayan.';
@@ -193,12 +193,12 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
   // so they get to preview what they'd be buying). A gated vendor gets a soft
   // card, not a broken canvas.
   if (!boothTierCanBrand(vendor.tier_state)) {
-    return <SoftGate slug={slug} name={name} message="A 3D booth showcase is a Pro feature — this vendor hasn't set theirs up yet." />;
+    return <SoftGate slug={slug} name={name} message="A 3D booth showcase is a Pro feature — this supplier hasn't set theirs up yet." />;
   }
 
   const category = boothCategoryFor(vendor.services);
   if (!category) {
-    return <SoftGate slug={slug} name={name} message="This vendor's service doesn't have a 3D booth yet." />;
+    return <SoftGate slug={slug} name={name} message="This supplier's service doesn't have a 3D booth yet." />;
   }
 
   // Resolve the logo ONCE, before the booth object is built. `logo_url` holds an
@@ -231,7 +231,7 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
     },
   };
   if (!boothTemplateFor(booth)) {
-    return <SoftGate slug={slug} name={name} message="This vendor's service doesn't have a 3D booth yet." />;
+    return <SoftGate slug={slug} name={name} message="This supplier's service doesn't have a 3D booth yet." />;
   }
 
   return <BoothShowcaseLoader booth={booth} vendorName={name} />;

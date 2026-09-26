@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Lock } from 'lucide-react';
+import { Globe } from 'lucide-react';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 
@@ -33,14 +35,24 @@ export async function VendorTierGate({
   icon?: ReactNode;
 }) {
   const storeShell = await isStoreShellRequest();
+  // 🔒 The padlock is a purchase hint — absent in the store shell (paidMarkState
+  // answers null there), where the gate only says the feature is web-only.
+  const mark = paidMarkState({ owns: false, storeShell });
+  const label = paidMarkLabel('locked', TIER_LABEL[requiredTier]);
   return (
     <section className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-ink/10 bg-ink/[0.02] px-6 py-14 text-center">
         <span className="relative inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
-          {icon ?? <Lock aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
-          <span className="absolute -bottom-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink text-cream">
-            <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
-          </span>
+          {icon ?? (mark ? (
+            <PaidMark state={mark} label={label} size="lg" tone="current" />
+          ) : (
+            <Globe aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+          ))}
+          {icon && mark ? (
+            <span className="absolute -bottom-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink text-cream">
+              <PaidMark state={mark} label={label} size="xs" tone="current" />
+            </span>
+          ) : null}
         </span>
         {storeShell ? (
           <>
@@ -95,7 +107,9 @@ export async function VendorTierTeaser({
     <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] px-5 py-6 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
         <span className="relative mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-          {icon ?? <Lock aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          {icon ?? (
+            <PaidMark state="locked" label={paidMarkLabel('locked', TIER_LABEL[requiredTier])} size="md" tone="current" />
+          )}
         </span>
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">

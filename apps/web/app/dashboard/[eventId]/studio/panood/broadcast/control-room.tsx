@@ -50,6 +50,8 @@ import {
   SPLIT_RATIO_MIN,
   SPLIT_RATIO_MAX,
 } from '@/lib/panood-program-bridge';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 // Client-safe row shapes. The server page (broadcast/page.tsx) STRIPS server-only
 // secrets — the camera claim_qr_token (a per-camera seat-hijack credential) and
@@ -519,7 +521,8 @@ export function PanoodControlRoom({
         <span className="min-w-0 truncate text-xs font-medium text-ink/70">{eventName}</span>
 
         {!owned && (
-          <span className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta">
+            <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Studio')} size="xs" tone="current" />
             Preview
           </span>
         )}

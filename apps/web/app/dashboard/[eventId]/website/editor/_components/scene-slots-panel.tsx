@@ -3,6 +3,8 @@ import { HUB_SLOT_HEAD_MAX, HUB_SLOT_TEXT_MAX, sanitizeHubCanvas } from '@/lib/h
 import { SCENE_BUILT_ON_LABEL, SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { SceneTemplatePicker, type SceneView } from './scene-template-picker';
 import { HubDraftField } from '../../_components/hub-draft-field';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * ONE TEMPLATE SCENE'S OWN CONTROLS — which template, what fills its slots, how
@@ -94,8 +96,11 @@ export function SceneSlotsPanel({
             const current = urlOf(slot.media);
             return (
               <div key={i} className="flex flex-wrap items-center gap-1.5">
-                <span className="w-16 text-[0.62rem] text-ink/55">
+                <span className="inline-flex w-16 items-center gap-1 text-[0.62rem] text-ink/55">
                   {t.clip ? 'Clip' : t.media > 1 ? `Photo ${i + 1}` : 'Photo'}
+                  {ownsPro ? (
+                    <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="xs" />
+                  ) : null}
                 </span>
                 {slot.media ? (
                   <form action={saveAction}>
@@ -169,6 +174,7 @@ export function SceneSlotsPanel({
           })}
           {!ownsPro ? (
             <p className="text-[0.62rem] text-ink/55">
+              <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" className="mr-1 align-middle" />
               Putting your own photos and clips into a scene comes with{' '}
               <a href={`/dashboard/${eventId}/studio/website-pro`} className="font-semibold underline underline-offset-2">
                 Event Hub Pro

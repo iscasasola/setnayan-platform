@@ -1,4 +1,4 @@
-import { AlertCircle, Lock, MonitorPlay, Plus, PowerOff, RefreshCw, Sparkles, Trash2, Tv } from 'lucide-react';
+import { AlertCircle, MonitorPlay, Plus, PowerOff, RefreshCw, Sparkles, Trash2, Tv } from 'lucide-react';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { PanoodScreenRow } from '@/lib/panood-screens';
@@ -24,6 +24,8 @@ import {
   setAllLiveScreensMode,
   setLiveScreenMode,
 } from '../screens-actions';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * VENUE SCREENS (DAY-12) — the controller's screens manager.
@@ -109,7 +111,7 @@ export function VenueScreensSection({
           data-testid="venue-screens-locked"
           className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/[0.07] px-3.5 py-2.5 text-xs leading-snug text-ink/75 transition-colors hover:bg-terracotta/[0.12]"
         >
-          <Lock aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+          <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Studio')} size="md" />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold text-ink">{VENUE_SCREENS_LOCKED_MESSAGE}</span>
             Add, pair and drive a TV once Live Studio is unlocked. Already-added screens stay

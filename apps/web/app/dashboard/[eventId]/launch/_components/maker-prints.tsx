@@ -17,6 +17,8 @@ import {
 import { freePrints } from '@/lib/free-prints';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
 import { PrintSaveButton } from './print-save-button';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import { PrintPreview } from './print-preview';
 
 /**
@@ -188,6 +190,7 @@ export function MakerPrints({
               marks, no watermark.{' '}
               {!themed ? null : access.printReady ? (
                 <>
+                  <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
                   With Event Hub Pro they print in <span className="font-semibold text-ink">{t.name}</span> too
                   {spot.foil || spot.whiteInk
                     ? `, with ${[spot.foil ? 'foil' : null, spot.whiteInk ? 'white ink' : null].filter(Boolean).join(' and ')} on their own layers`
@@ -203,6 +206,7 @@ export function MakerPrints({
             </p>
             {themed && access.offerPro ? (
               <p data-prints-go-pro="" className="text-sm font-medium text-mulberry">
+                <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} className="mr-1 align-middle" />
                 Go Pro to print in {t.name}.
               </p>
             ) : null}

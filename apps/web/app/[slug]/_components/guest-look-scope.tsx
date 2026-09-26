@@ -23,10 +23,10 @@ export const SEGMENTS_THAT_DRESS_THEMSELVES: readonly string[] = ['invite'];
  */
 export function lookIsWorn(
   segment: string | null,
-  look: { theme: string | null; art: string | null; style: Record<string, string> | null },
+  look: { theme: string | null; art: string | null; style: Record<string, string> | null; ombre?: string | null },
 ): boolean {
   if (segment !== null && SEGMENTS_THAT_DRESS_THEMSELVES.includes(segment)) return false;
-  return Boolean(look.theme || look.art || look.style);
+  return Boolean(look.theme || look.art || look.style || look.ombre);
 }
 
 /**
@@ -70,6 +70,7 @@ export function GuestLookScope({
   fontClassName,
   style,
   ground = null,
+  ombre = null,
   children,
 }: {
   theme: Exclude<InviteThemeId, 'house'> | null;
@@ -81,9 +82,16 @@ export function GuestLookScope({
    * public theme art, never the couple's photo. Null for Classic and House.
    */
   ground?: GuestThemeGround | null;
+  /**
+   * 🌈 The couple's ombré as a `background-image` value (`lib/ombre.ts` —
+   * hex digits, keywords and numbers only; never a couple-typed string). When
+   * set, the paper paints IT and the theme's loop is not drawn: an ombré is a
+   * background, and a guest's phone should not decode a video to hide it.
+   */
+  ombre?: string | null;
   children: React.ReactNode;
 }) {
-  const worn = lookIsWorn(useSelectedLayoutSegment(), { theme, art, style });
+  const worn = lookIsWorn(useSelectedLayoutSegment(), { theme, art, style, ombre });
 
   return (
     <div
@@ -100,10 +108,10 @@ export function GuestLookScope({
       data-hub-theme={worn && theme ? theme : undefined}
       data-art={worn && art ? art : undefined}
       data-guest-look={worn ? '' : undefined}
-      data-hub-foil={worn && ground?.foil ? '' : undefined}
+      data-hub-foil={worn && ground?.foil && !ombre ? '' : undefined}
       style={worn && style ? (style as React.CSSProperties) : undefined}
     >
-      {worn ? <GuestGround media={theme ? ground : null} /> : null}
+      {worn ? <GuestGround media={theme && !ombre ? ground : null} ombre={ombre} /> : null}
       {children}
     </div>
   );
@@ -132,12 +140,18 @@ export function GuestLookScope({
  * private landing, and a stranger there must see nothing the private landing
  * did not already show.
  */
-function GuestGround({ media }: { media: GuestThemeGround | null }) {
+function GuestGround({ media, ombre }: { media: GuestThemeGround | null; ombre: string | null }) {
   return (
     <div
       aria-hidden
       data-guest-ground
+      data-guest-ombre={ombre ? '' : undefined}
       className="pointer-events-none fixed inset-0 -z-10 bg-cream"
+      /* 🌈 THE OMBRÉ IS THE PAPER. `lib/ombre.ts` built this value from parsed
+         hexes only, with the legibility veil already its top layer; `bg-cream`
+         stays underneath as the ramp's middle colour for the frame before the
+         gradient paints. The caller hands no `media` beside it. */
+      style={ombre ? { backgroundImage: ombre } : undefined}
     >
       {media && (media.loop || media.poster) ? (
         <>

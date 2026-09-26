@@ -80,7 +80,8 @@ async function paintPrints(ownsPro: boolean, storeShell: boolean): Promise<strin
   const { PRINT_FORMATS } = await import('./print-pieces');
   const { INVITE_THEME_IDS } = await import('./invite-themes');
   const first = (f: string) => Object.values(PRINT_FORMATS).find((x) => x.for === f)!;
-  const theme = INVITE_THEME_IDS[0];
+  // A THEMED set (not Classic): since the free-prints rework, Classic prints carry no Pro line at all.
+  const theme = INVITE_THEME_IDS.find((id) => id !== 'house')!;
   return renderToStaticMarkup(
     React.createElement(MakerPrints, {
       eventId: 'E1',

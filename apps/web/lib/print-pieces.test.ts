@@ -9,7 +9,9 @@
  *   · the per-guest pass batch gangs onto A4 with cut lines;
  *   · the FREE sample is one flattened, watermarked JPEG ≤ 800 px — never a PDF or vector —
  *     with placeholder QRs; the Pro file has bleed, crop marks, layers and NO watermark;
- *   · GUARD: the free path never reaches the print-ready renderer (Pro checked server-side first);
+ *   · GUARD: no free path reaches the THEMED print-ready renderer (mayServe checked server-side
+ *     first); CLASSIC print-ready is free for every event (owner 2026-09-25, "EVERY PRINT IS FREE
+ *     IN THE CLASSIC LOOK; THE THEMED VERSION IS PRO");
  *   · entourage groups keep `lib/entourage.ts` order;
  *   · no price and no Pro path in the app-store shell.
  */
@@ -238,34 +240,62 @@ test('the FREE sample is one flattened JPEG, ≤ the low-res cap, watermarked ac
   assert.ok(isQrRef('qr-123') && isQrRef('eventqr') && !isQrRef('still'));
 });
 
-test('free events get samples; print-ready and the pass batch need Pro; the QR sheet is free', () => {
+test('CLASSIC is free and print-ready for every event; a THEMED print-ready file needs Pro; the free group is free', () => {
+  // Owner 2026-09-25: "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED VERSION IS PRO".
   const free = printAccess({ ownsPro: false, storeShell: false });
   const pro = printAccess({ ownsPro: true, storeShell: false });
   const shell = printAccess({ ownsPro: true, storeShell: true });
-  assert.equal(mayServe('invitation', 'sample', free), true);
-  assert.equal(mayServe('invitation', 'screen', free), true);
-  assert.equal(mayServe('invitation', 'print', free), false, 'the PDF route must refuse a free event');
-  assert.equal(mayServe('passes', 'print', free), false);
-  assert.equal(mayServe('qr-codes', 'print', free), true, 'the do-it-yourself QR sheet is free');
-  assert.equal(mayServe('invitation', 'print', pro), true);
-  assert.equal(shell.printReady, false, 'in the store shell the Pro path is absent, whatever the unlock says');
+  const freeShell = printAccess({ ownsPro: false, storeShell: true });
+  // A theme without Pro: samples yes, print-ready no — UNCHANGED from P9.
+  assert.equal(mayServe('invitation', 'sample', free, 'abaca'), true);
+  assert.equal(mayServe('invitation', 'screen', free, 'abaca'), true);
+  assert.equal(mayServe('invitation', 'print', free, 'abaca'), false, 'the PDF route must refuse a themed file to a free event');
+  assert.equal(mayServe('passes', 'print', free, 'abaca'), false);
+  assert.equal(mayServe('passes', 'sample', free, 'velvet'), false, 'the themed pass batch is Pro in every mode');
+  assert.equal(mayServe('invitation', 'print', pro, 'abaca'), true);
+  assert.equal(mayServe('invitation', 'print', shell, 'abaca'), false, 'the store shell never serves a themed print-ready file');
+  // Classic: print-ready for everyone, store shell included — it is not a purchase.
+  for (const a of [free, pro, shell, freeShell]) {
+    for (const k of [...PRINT_SET_KEYS, 'passes'] as const) {
+      assert.equal(mayServe(k, 'print', a, 'house'), true, `Classic ${k} must be free (${JSON.stringify(a)})`);
+    }
+    for (const k of ['qr-codes', 'guest-registry', 'seating-pack', 'caterer-report'] as const) {
+      assert.equal(PRINT_PIECES[k].kind, 'free');
+      assert.equal(mayServe(k, 'print', a, 'abaca'), true, `${k} has no themed version — always free`);
+    }
+  }
+  assert.equal(shell.printReady, false, 'in the store shell the THEMED Pro path is absent, whatever the unlock says');
   assert.equal(shell.offerPro, false, 'and no pitch');
   assert.equal(free.offerPro, true);
 });
 
-test('GUARD: the free path never reaches the print-ready renderer — Pro is checked on the server first', () => {
+test('GUARD: no free path reaches the THEMED print-ready renderer — Classic print-ready is free', () => {
   const route = read('app/api/hub-print/[piece]/route.ts');
-  const proBlock = route.indexOf("if (mode === 'print' || piece === 'passes' || (mode === 'screen' && access.printReady))");
-  const refuse = route.indexOf('if (!access.printReady || !mayServe(', proBlock);
-  assert.ok(proBlock > 0 && refuse > proBlock, 'the print-ready block must open with the Pro refusal');
-  const samplePath = route.indexOf("await loadPrintSet(eventId, { mode: 'sample'");
-  assert.ok(samplePath > refuse, 'the sample path follows the Pro block');
-  // Every print-ready render call lives inside the Pro block, after the refusal.
+  // The theme is decided once, before the gate, and the gate is asked with it.
+  const themeAt = route.indexOf("const theme = printThemeFor(printEvent, url.searchParams.get('theme'))");
+  const proBlock = route.indexOf("if (mode === 'print' || piece === 'passes' || (mode === 'screen' && (access.printReady || classic)))");
+  const refuse = route.indexOf('if (!mayServe(piece, \'print\', access, theme))', proBlock);
+  assert.ok(themeAt > 0 && proBlock > themeAt, 'the theme is resolved before the print-ready block');
+  assert.ok(refuse > proBlock && refuse - proBlock < 200, 'the print-ready block must OPEN with the mayServe refusal');
+  // …and draws exactly the theme it checked (no second read of ?theme=).
+  const load = route.indexOf('await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme })', refuse);
+  assert.ok(load > refuse, 'the print-ready loader draws the CHECKED theme');
+  assert.equal((route.match(/url\.searchParams\.get\('theme'\)/g) ?? []).length, 1, '?theme= is read in exactly one place');
+  const samplePath = route.indexOf("await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme })");
+  assert.ok(samplePath > refuse, 'the sample path follows the print-ready block');
+  const freeGroupEnd = route.indexOf("if (PRINT_PIECES[piece].kind === 'free') return");
+  assert.ok(freeGroupEnd > 0 && freeGroupEnd < themeAt, 'the free group returns before the theme gate');
+  // Every print-ready render call lives inside the gated block — except the FREE group's plain sheets.
   for (const call of ['renderPrintPdf(', 'renderImposedPdf(', 'renderPrintSvg(']) {
     for (const m of route.matchAll(new RegExp(call.replace('(', '\\('), 'g'))) {
       const at = m.index!;
-      if (call === 'renderPrintPdf(' && route.slice(Math.max(0, at - 1200), at).includes("piece === 'qr-codes'") && route.slice(at, at + 120).includes("mode: 'plain'")) continue;
-      assert.ok(at > refuse && at < samplePath, `${call} at ${at} is outside the Pro-checked block`);
+      if (at < freeGroupEnd) {
+        // Only plain sheets or a page-1 thumbnail of the free group are drawn up here.
+        if (call === 'renderPrintPdf(') assert.ok(route.slice(at, at + 120).includes("mode: 'plain'"), 'a free sheet is a plain PDF');
+        assert.notEqual(call, 'renderImposedPdf(', 'the pass batch is never in the free group');
+        continue;
+      }
+      assert.ok(at > refuse && at < samplePath, `${call} at ${at} is outside the mayServe-checked block`);
     }
   }
   // …and the sample path renders ONLY rasters.
@@ -298,8 +328,17 @@ test('entourage groups print in lib/entourage.ts order', () => {
 test('the Maker workspace prints no price and hides the Pro path in the store shell', () => {
   const ws = read('app/dashboard/[eventId]/launch/_components/maker-prints.tsx');
   assert.doesNotMatch(ws, /₱|PHP\s?\d/, 'no price on the prints workspace');
-  assert.match(ws, /access\.printReady \? \(/, 'the print-ready controls render only when printReady');
-  assert.match(ws, /Download them from your Guest list/, 'the one-line pointer to the free QR PDF');
+  // Every THEMED print-ready control (`q(…, 'print')`) sits behind `themed && access.printReady`.
+  const themedPrint = [...ws.matchAll(/q\((?:'set'|'passes'|k), 'print'\)/g)];
+  assert.ok(themedPrint.length >= 3, 'the themed print-ready controls exist for Pro');
+  for (const m of themedPrint) {
+    const before = ws.slice(Math.max(0, m.index! - 420), m.index!);
+    assert.match(before, /themed && access\.printReady \? \(/, 'a themed print-ready control renders only with Pro, never in the store shell');
+  }
+  // The Classic controls render for EVERYONE — no condition, and they ask for theme=house.
+  assert.match(ws, /const classic = \(piece: string\) => `\/api\/hub-print\/\$\{piece\}\?event=\$\{eventId\}&mode=print&theme=\$\{CLASSIC_PRINT_THEME\}/);
+  assert.match(ws, /Go Pro to print in \{t\.name\}/, 'a free couple on the web is told how to print in their theme');
+  assert.match(ws, /themed && access\.offerPro \? \(/, '…and only where a pitch is allowed (never the store shell)');
 });
 
 test('THE QR IS ALWAYS PRINTED — every piece, every format, every include combination', () => {

@@ -32,7 +32,8 @@ import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
-import { siteLookChange } from '@/lib/hub-look-pro';
+import { combineChanges, siteLookChange } from '@/lib/hub-look-pro';
+import { encodeSiteBackground, ombreLookChange, parseSiteBackground } from '@/lib/ombre';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
@@ -49,6 +50,19 @@ function parseHexField(raw: FormDataEntryValue | null): string | null | false {
   return HEX.test(v) ? v.toLowerCase() : false;
 }
 
+/**
+ * 🌈 The BACKGROUND field takes a plain `#rrggbb` OR an encoded ombré
+ * (`lib/ombre.ts` — owner 2026-09-25: *"plain color or like apples ombe
+ * style"*), through the one reader of the column's two shapes. Same tri-state
+ * as `parseHexField`: `null` clears, `false` is malformed and bounces.
+ */
+function parseBackgroundField(raw: FormDataEntryValue | null): string | null | false {
+  if (typeof raw !== 'string') return null;
+  if (raw.trim() === '') return null;
+  const bg = parseSiteBackground(raw);
+  return bg ? encodeSiteBackground(bg) : false;
+}
+
 export async function updateSiteColors(
   eventId: string,
   formData: FormData,
@@ -58,7 +72,7 @@ export async function updateSiteColors(
   // ABSENT = UNCHANGED, like every other field on this row. A free couple's
   // panel posts the background colour ONLY, and without this rule that save
   // would silently clear a button colour they already have.
-  const bg = formData.has('bg_color') ? parseHexField(formData.get('bg_color')) : undefined;
+  const bg = formData.has('bg_color') ? parseBackgroundField(formData.get('bg_color')) : undefined;
   const button = formData.has('button_color')
     ? parseHexField(formData.get('button_color'))
     : undefined;
@@ -130,20 +144,27 @@ export async function updateSiteColors(
   // background colour is free and is not an input to the decision at all.
   const { data: stored } = await supabase
     .from('events')
-    .select('site_button_color, site_font_key, site_magic_traveller, site_art_direction')
+    .select('site_bg_color, site_button_color, site_font_key, site_magic_traveller, site_art_direction')
     .eq('event_id', eventId)
     .maybeSingle();
   const s = (stored ?? {}) as Record<string, string | null | undefined>;
+  // 🌈 The ombré's OWN classification — `'none'` while `OMBRE_IS_PRO` is false
+  // (it ships free), a look change like any other the day the switch flips.
+  // Kept OUTSIDE `siteLookChange`, whose inputs are the Pro half only.
+  const ombreChange = ombreLookChange(s.site_bg_color ?? null, bg);
   await requireLookPro(
     eventId,
-    siteLookChange(
-      {
-        button: s.site_button_color ?? null,
-        font: s.site_font_key ?? null,
-        magic: s.site_magic_traveller ?? null,
-        art: s.site_art_direction ?? null,
-      },
-      { button, font, magic, art },
+    combineChanges(
+      siteLookChange(
+        {
+          button: s.site_button_color ?? null,
+          font: s.site_font_key ?? null,
+          magic: s.site_magic_traveller ?? null,
+          art: s.site_art_direction ?? null,
+        },
+        { button, font, magic, art },
+      ),
+      ombreChange,
     ),
   );
 

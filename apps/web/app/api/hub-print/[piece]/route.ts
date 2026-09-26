@@ -3,8 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { loadGuestPasses, loadPrintSet, printOwnsPro, readPrintEvent } from '@/lib/print-set.server';
-import { layoutPasses, layoutPiece, layoutQrCodes, type PrintDoc } from '@/lib/print-layout';
+import { loadGuestPasses, loadPrintSet, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
+import { layoutPasses, layoutPiece, layoutQrCodes, type PrintDoc, type PrintImages } from '@/lib/print-layout';
+import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
+import { fetchGuestsByEventMeasured } from '@/lib/guests';
+import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { renderImposedPdf, renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
@@ -15,9 +19,11 @@ import {
   formatFor,
   isPrintPieceKey,
   isPrintSetKey,
+  isThemedPrint,
   mayServe,
   parsePrintDetails,
   printAccess,
+  printFileName,
   serializePrintDetails,
   spotLayersFor,
   type PrintMode,
@@ -32,28 +38,35 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
  * plan's one +1 route handler).
  *
  * GET  ?event=<uuid>&mode=screen|sample|print[&theme=<preview>]
+ * ⚖ Owner 2026-09-25, "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED
+ * VERSION IS PRO": `theme=house` (Classic) is print-ready for EVERY event; any
+ * other theme is print-ready only with Event Hub Pro.
+ *
  *   · a set piece (`invitation` · `entourage` · `details` · `pass` · `poster` ·
  *     `card`):
- *       `sample` — for everyone: ONE flattened JPEG, ≤ 800 px, quality 60, the
- *                  tiled "SAMPLE · SETNAYAN" watermark burned into the pixels,
+ *       `sample` — ONE flattened JPEG, ≤ 800 px, quality 60, the tiled
+ *                  "SAMPLE · SETNAYAN" watermark burned into the pixels,
  *                  placeholder QRs. Never a PDF, never a vector.
- *       `screen` — what the Maker shows: the unmarked SVG for Pro, the same
- *                  watermarked JPEG as `sample` for everyone else;
- *       `print`  — Event Hub Pro: the print-ready PDF (bleed, crop marks, Foil /
- *                  White ink / Die cut layers), no watermark.
- *   · `set` — the six pieces: one print-ready PDF (Pro) or one sample sheet JPEG.
- *   · `passes` — every guest's pass, one page each, each QR the guest's own
- *     invitation code. Pro.
- *   · `qr-codes` — the FREE do-it-yourself sheet: every guest's QR with their
- *     name (owner 2026-09-25: "the free version is the PDF of QRs … found on
- *     Guestlist"). Free for every event, store shell included.
+ *       `screen` — what the Maker shows: the unmarked SVG in Classic or with
+ *                  Pro, the same watermarked JPEG as `sample` for a theme
+ *                  without Pro;
+ *       `print`  — the print-ready PDF (bleed, crop marks, Foil / White ink /
+ *                  Die cut layers), no watermark. Classic: everyone. A theme: Pro.
+ *   · `set` — the six pieces: one print-ready PDF, or one sample sheet JPEG.
+ *   · `passes` — every guest's pass, ganged on A4, each QR the guest's own
+ *     invitation code. Classic: everyone. A theme: Pro.
+ *   · the FREE GROUP (`kind: 'free'`, no themed version, store shell included):
+ *       `qr-codes` — every guest's QR with their name (owner 2026-09-25: "the
+ *                    free version is the PDF of QRs … found on Guestlist");
+ *       `guest-registry` — the reception-desk list (lib/print-guest-registry.ts).
+ *     `mode=screen` is page 1 as an SVG (the Maker's thumbnail); otherwise the PDF.
  * POST /api/hub-print/words — saves `events.print_details`: the opening line and
  *   the "Kindly reply" CHOICE (a host / the coordinator, or manual words). The
  *   Maker's Words panel posts it and says "Saves immediately". Parents come from
  *   the Guest list and gifts from E-Gifts — never typed here.
  *
- * 🔒 THE GATE IS HERE, NOT A HIDDEN BUTTON. A free event asking for `print` or
- * `passes` gets 403, whatever the page did or did not render.
+ * 🔒 THE GATE IS HERE, NOT A HIDDEN BUTTON. A free event asking for a THEMED
+ * `print` or `passes` gets 403, whatever the page did or did not render.
  */
 
 export const dynamic = 'force-dynamic';
@@ -77,9 +90,14 @@ async function gate(eventId: string | null): Promise<Gate> {
   return { ok: true, eventId };
 }
 
-function fileName(slug: string | null, piece: string, mode: PrintMode): string {
-  const base = (slug || 'event').replace(/[^a-z0-9-]/gi, '').slice(0, 40) || 'event';
-  return `${base}-${piece}${mode === 'print' ? '-print-ready' : mode === 'sample' ? '-sample' : ''}.pdf`;
+/**
+ * `<event slug>-<print>[-<theme>].pdf` — the owner's naming rule (event first,
+ * then the print). A Classic file carries no theme word; a themed one names
+ * its theme, so both can sit in one Downloads folder.
+ */
+function fileName(slug: string | null, piece: string, theme: InviteThemeId): string {
+  const t = isThemedPrint(theme) ? `-${INVITE_THEMES[theme].name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : '';
+  return printFileName(slug, `${piece}${t}`);
 }
 
 function pdfResponse(bytes: Uint8Array, name: string, inline: boolean): NextResponse {
@@ -113,42 +131,95 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     return (family && url.searchParams.get(`${family}_format`)) || url.searchParams.get('format');
   };
 
-  // ── THE FREE SHEET — no Pro question at all.
-  if (piece === 'qr-codes') {
-    const event = await readPrintEvent(createAdminClient(), eventId);
+  // ── THE FREE GROUP — no Pro question at all (`kind: 'free'`). `mode=screen`
+  // is page 1 as an SVG, the thumbnail Prints & Tickets shows; anything else is
+  // the whole PDF, saved as `<event slug>-<print>.pdf`.
+  if (piece === 'qr-codes' || piece === 'guest-registry') {
+    const admin = createAdminClient();
+    const event = await readPrintEvent(admin, eventId);
     if (!event) return new NextResponse('Event not found.', { status: 404 });
-    const set = {
-      event,
-      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
-      ownerSlug: await resolveEventOwnerSlug(createAdminClient(), eventId).catch(() => null),
-    };
-    const { passes, images, measured } = await loadGuestPasses(set, { width: 420 });
-    if (!measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
-    const docs = layoutQrCodes(
-      event.display_name ?? 'Guest QR codes',
-      passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })),
-    );
-    const bytes = await renderPrintPdf(docs, images, { mode: 'plain', title: `${event.display_name ?? 'Guest'} — QR codes`, subject: `${passes.length} guests` });
-    return pdfResponse(bytes, fileName(event.slug, 'qr-codes', 'screen'), false);
+    const thumb = mode === 'screen';
+    let docs: PrintDoc[];
+    let images: PrintImages = {};
+    let subject: string;
+    if (piece === 'qr-codes') {
+      const set = {
+        event,
+        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        ownerSlug: await resolveEventOwnerSlug(admin, eventId).catch(() => null),
+      };
+      const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, limit: thumb ? 12 : undefined });
+      if (!loaded.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+      images = loaded.images;
+      docs = layoutQrCodes(
+        event.display_name ?? 'Guest QR codes',
+        loaded.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })),
+      );
+      subject = `${loaded.passes.length} guests`;
+    } else {
+      // THE GUEST LIST REGISTRY — the reception-desk list (lib/print-guest-registry.ts).
+      // The measured read: a refused guest list is "we could not read it", never
+      // a registry that says the wedding has no guests.
+      const [guests, tables, seats] = await Promise.all([
+        fetchGuestsByEventMeasured(admin, eventId),
+        fetchTables(admin, eventId),
+        fetchAssignments(admin, eventId),
+      ]);
+      if (!guests.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+      const label = new Map(tables.map((t) => {
+        const l = t.link_group_label ?? t.table_label;
+        return [t.table_id, /^\d+$/.test(l) ? `Table ${l}` : l] as const;
+      }));
+      const tableOf = new Map<string, string>();
+      for (const s of seats) {
+        const l = label.get(s.table_id);
+        if (l) tableOf.set(s.guest_id, l);
+      }
+      const rows = registryRows(guests.rows, tableOf);
+      docs = layoutGuestRegistry({ title: event.display_name ?? 'Guest list', dateLabel: registryDate(event.event_date), rows });
+      subject = `${rows.length} guests`;
+    }
+    if (thumb) {
+      return new NextResponse(renderPrintSvg(docs[0]!, images), {
+        status: 200,
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60' },
+      });
+    }
+    const bytes = await renderPrintPdf(docs, images, { mode: 'plain', title: `${event.display_name ?? 'Guest'} — ${PRINT_PIECES[piece].label}`, subject });
+    return pdfResponse(bytes, printFileName(event.slug, piece === 'guest-registry' ? 'guest-registry' : 'qr-codes'), false);
   }
+  // The other free documents are served by their own routes (seating pack,
+  // caterer report — under /dashboard/<id>/seating); never drawn here.
+  if (PRINT_PIECES[piece].kind === 'free') return new NextResponse('No such piece.', { status: 404 });
 
-  const [ownsPro, storeShell] = await Promise.all([printOwnsPro(eventId), isStoreShellRequest()]);
+  const [ownsPro, storeShell, printEvent] = await Promise.all([
+    printOwnsPro(eventId),
+    isStoreShellRequest(),
+    readPrintEvent(createAdminClient(), eventId),
+  ]);
+  if (!printEvent) return new NextResponse('Event not found.', { status: 404 });
   const access = printAccess({ ownsPro, storeShell });
+  // The theme this request would draw — decided ONCE, here, and handed to the
+  // loader below, so the gate and the drawing cannot disagree about it.
+  const theme = printThemeFor(printEvent, url.searchParams.get('theme'));
+  const classic = !isThemedPrint(theme);
 
-  // ══ THE PRINT-READY PATH — Event Hub Pro only, and checked HERE, on the
-  // server, before anything is read or drawn. Nothing below this block can
-  // produce a PDF or a vector for a couple without Pro.
-  if (mode === 'print' || piece === 'passes' || (mode === 'screen' && access.printReady)) {
-    if (!access.printReady || !mayServe(piece, 'print', access)) {
+  // ══ THE PRINT-READY PATH — checked HERE, on the server, before anything is
+  // drawn (owner 2026-09-25: "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE
+  // THEMED VERSION IS PRO"). Classic is print-ready for everyone; a theme is
+  // print-ready only with Event Hub Pro. Nothing below this block can produce
+  // a PDF or a vector of a THEMED piece for a couple without Pro.
+  if (mode === 'print' || piece === 'passes' || (mode === 'screen' && (access.printReady || classic))) {
+    if (!mayServe(piece, 'print', access, theme)) {
       return new NextResponse(
-        storeShell ? 'Not available here.' : 'The print-ready file comes with Event Hub Pro. You can download a sample.',
+        storeShell ? 'Not available here.' : 'The print-ready file in your theme comes with Event Hub Pro. Classic prints are free.',
         { status: 403 },
       );
     }
     // The pass batch and the print file lay out (and fetch their still) at
-    // print resolution; Pro's on-screen view is the same design, unmarked.
+    // print resolution; the on-screen view is the same design, unmarked.
     const drawMode: PrintMode = mode === 'screen' ? 'screen' : 'print';
-    const set = await loadPrintSet(eventId, { mode: drawMode, previewTheme: url.searchParams.get('theme') });
+    const set = await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme });
     if (!set) return new NextResponse('Event not found.', { status: 404 });
     const spot = spotLayersFor(set.theme);
     const input = { look: set.look, data: set.data, mode: drawMode, foil: spot.foil, whiteInk: spot.whiteInk };
@@ -165,13 +236,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         title: `${set.event.display_name ?? 'Event'} — guest passes`,
         subject: `${docs.length} passes · ${fmt.label} ${fmt.wMm} × ${fmt.hMm} mm · ${fmt.sheet!.cols * fmt.sheet!.rows} per A4`,
       });
-      return pdfResponse(bytes, fileName(set.event.slug, 'passes', 'print'), false);
+      return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false);
     }
     if (mode === 'screen') {
       const svg = renderPrintSvg(layoutPiece(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
       return new NextResponse(svg, {
         status: 200,
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60' },
+        // 🕐 `stale-while-revalidate` — the couple flips between the Maker's
+        // theme chips and its Prints tab a lot; without this every return trip
+        // re-earns the full server render (real SVG layout work, not a static
+        // asset). Within 60s the browser still fetches fresh, as before; from
+        // 60s–360s it paints the LAST render instantly while quietly asking for
+        // a new one underneath — never staler than the page already tolerated.
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60, stale-while-revalidate=300' },
       });
     }
     const keys = wantsSet ? [...PRINT_SET_KEYS] : [piece as PrintSetKey];
@@ -182,7 +259,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       title: `${set.event.display_name ?? 'Event'} — ${label}`,
       subject: 'Print-ready · 3 mm bleed · crop marks · layers: Foil, White ink, Die cut',
     });
-    return pdfResponse(bytes, fileName(set.event.slug, wantsSet ? 'set' : piece, 'print'), false);
+    return pdfResponse(bytes, fileName(set.event.slug, wantsSet ? 'set' : piece, set.theme), false);
   }
 
   // ══ THE SAMPLE PATH — everyone (owner 2026-09-25: "we can show them a sample.
@@ -191,7 +268,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   // JPEG with placeholder QRs — never a PDF, never a vector. This is also what
   // a free couple's Maker shows on screen.
   if (!isPrintSetKey(piece) && !wantsSet) return new NextResponse('No such piece.', { status: 404 });
-  const set = await loadPrintSet(eventId, { mode: 'sample', previewTheme: url.searchParams.get('theme') });
+  const set = await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme });
   if (!set) return new NextResponse('Event not found.', { status: 404 });
   const spot = spotLayersFor(set.theme);
   const input = { look: set.look, data: set.data, mode: 'sample' as const, foil: spot.foil };
@@ -204,7 +281,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     headers: {
       'content-type': 'image/jpeg',
       'content-disposition': `${mode === 'screen' ? 'inline' : 'attachment'}; filename="${name}"`,
-      'cache-control': 'private, max-age=60',
+      // See the `screen` SVG branch above — same reasoning, same numbers.
+      'cache-control': 'private, max-age=60, stale-while-revalidate=300',
     },
   });
 }

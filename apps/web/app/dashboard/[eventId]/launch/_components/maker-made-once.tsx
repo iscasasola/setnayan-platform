@@ -203,7 +203,11 @@ export async function MakerHeroPanel({
             currentValue={hero.photoRef}
             initialDisplayUrls={hero.photoRef && heroSrc ? { [hero.photoRef]: heroSrc } : undefined}
             label="Hero photo"
-            help="JPG, PNG or WebP up to 10 MB."
+            /* No `help` line here — FileUpload already prints its own
+               "JPEG · JPG · PNG · WEBP · UP TO 10 MB" line from
+               `acceptedTypes` + `maxSizeMB` above. A second, differently
+               worded copy of the same limit ("JPG, PNG or WebP up to 10 MB.")
+               used to render right under it — phone-polish sweep, 2026-09-26. */
           />
           <button
             type="submit"

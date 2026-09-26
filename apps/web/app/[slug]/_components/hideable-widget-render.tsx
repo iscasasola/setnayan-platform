@@ -37,6 +37,9 @@ import { YourPhotosWidget } from './your-photos-widget';
  */
 type HideableWidgetProps = {
   widget: InvitationWidgetRow;
+  /** A GUEST's view (not the Maker canvas): empty sections are left out rather
+   *  than printed as "coming soon" (owner 2026-09-26). Default false = today. */
+  guestView?: boolean;
   event: EventRow;
   /** The event type's own words, resolved ONCE by the body and threaded here
    *  rather than re-resolved per widget. */
@@ -77,6 +80,7 @@ function HideableWidgetBody({
   words,
   canvasMediaUrls,
   hostPitch = false,
+  guestView = false,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -144,10 +148,10 @@ function HideableWidgetBody({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guest?.role ?? null} rolePalette={(event as { role_palette?: unknown }).role_palette as never} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guest?.role ?? null} rolePalette={(event as { role_palette?: unknown }).role_palette as never} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} />;
 
     case 'your_photos':
       return (

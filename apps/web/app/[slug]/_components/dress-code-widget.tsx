@@ -26,8 +26,13 @@ export function DressCodeWidget({
   words,
   guestRole = null,
   rolePalette = null,
+  hideWhenEmpty = false,
 }: {
   words: EventWords;
+  /** A GUEST's view (owner 2026-09-26): with nothing authored, the section is
+   *  left out instead of the "not shared yet" note. The INC / Muslim
+   *  modest-dress defaults are real guidance and still show. The Maker keeps it. */
+  hideWhenEmpty?: boolean;
   config: EventRow['dress_code_config'];
   /** The reader's own role, when the reader is an identified guest. */
   guestRole?: GuestRole | null;
@@ -159,6 +164,7 @@ export function DressCodeWidget({
         </section>
       );
     }
+    if (hideWhenEmpty) return null;
     return (
       <section className="space-y-4">
         <header className="space-y-2">
@@ -308,3 +314,4 @@ export function DressCodeWidget({
     </section>
   );
 }
+

@@ -50,8 +50,12 @@ export type LandingCard = {
   tile: string | null;
   /** Event-type keys this card serves (its coverage, else its shop's). */
   eventTypes: readonly string[];
-  /** Canonical city key (`quezon-city`), or null when the shop's city is unknown. */
-  cityKey: string | null;
+  /**
+   * Every canonical city key this card is offered in — the shop's own city and
+   * its branches' (see `supplier-landing-data.ts` for which apply). Empty when
+   * none is a known city; the card still counts toward the NATIONWIDE page.
+   */
+  cityKeys: readonly string[];
   pricingBasis: PricingBasis;
   /**
    * The figure for its basis — package price (fixed), price per guest (per_pax)
@@ -126,7 +130,7 @@ export function cardsForPage(cards: readonly LandingCard[], page: PageKey): Land
     (c) =>
       c.tile === page.tile &&
       c.eventTypes.includes(page.event) &&
-      (page.city === null || c.cityKey === page.city),
+      (page.city === null || c.cityKeys.includes(page.city)),
   );
 }
 
@@ -188,7 +192,7 @@ export function qualifyingPages(
     for (const event of new Set(c.eventTypes)) {
       if (!tileServesEvent(c.tile, event)) continue;
       add({ event, tile: c.tile, city: null }, c);
-      if (c.cityKey) add({ event, tile: c.tile, city: c.cityKey }, c);
+      for (const city of new Set(c.cityKeys)) add({ event, tile: c.tile, city }, c);
     }
   }
   const out: QualifyingPage[] = [];

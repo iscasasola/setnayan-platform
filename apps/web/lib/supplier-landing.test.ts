@@ -23,7 +23,7 @@ function card(p: Partial<LandingCard>): LandingCard {
     shopId: 'shop-a',
     tile: 'coordinator',
     eventTypes: ['debut'],
-    cityKey: 'quezon-city',
+    cityKeys: ['quezon-city'],
     pricingBasis: 'fixed',
     pricePhp: 50_000,
     ...p,
@@ -54,8 +54,8 @@ test('a page takes only its own event, tile and city — nationwide ignores city
     card({}),
     card({ eventTypes: ['wedding'] }),
     card({ tile: 'cake' }),
-    card({ cityKey: 'manila' }),
-    card({ cityKey: null }),
+    card({ cityKeys: ['manila'] }),
+    card({ cityKeys: [] }),
   ];
   assert.equal(cardsForPage(cards, { event: 'debut', tile: 'coordinator', city: 'quezon-city' }).length, 1);
   assert.equal(cardsForPage(cards, { event: 'debut', tile: 'coordinator', city: null }).length, 3);
@@ -65,7 +65,7 @@ test('qualifying pages: city AND nationwide pages, only where the tile serves th
   const cards = [
     card({ shopId: 'a' }),
     card({ shopId: 'b' }),
-    card({ shopId: 'c', cityKey: 'manila' }),
+    card({ shopId: 'c', cityKeys: ['manila'] }),
     // A funeral-home card a shop tagged "debut" must not mint a debut page.
     card({ shopId: 'a', tile: 'funeral_home' }),
     card({ shopId: 'b', tile: 'funeral_home' }),
@@ -130,3 +130,21 @@ test('slugs round-trip, and anything unknown is null (→ 404), never a fallback
   );
   assert.equal(pagePath({ event: 'debut', tile: 'cake', city: null }, { cake: 'cake' }), '/suppliers/debut/cake');
 });
+
+// ── branches ─────────────────────────────────────────────────────────────
+
+test('a supplier with a branch is found in BOTH cities (owner 2026-09-27)', () => {
+  // SABOTAGE: read only the first city key → the Cebu page loses shop b → RED.
+  const cards = [
+    card({ shopId: 'a', cityKeys: ['cebu'] }),
+    card({ shopId: 'b', cityKeys: ['quezon-city', 'cebu'] }), // main shop in QC, branch in Cebu
+    card({ shopId: 'c', cityKeys: ['cebu'] }),
+  ];
+  const cebu = cardsForPage(cards, { event: 'debut', tile: 'coordinator', city: 'cebu' });
+  assert.equal(cebu.length, 3);
+  const pages = qualifyingPages(cards, () => true).map((p) => p.city);
+  assert.ok(pages.includes('cebu'));
+  // A card listed in two cities is still ONE card on the nationwide page.
+  assert.equal(cardsForPage(cards, { event: 'debut', tile: 'coordinator', city: null }).length, 3);
+});
+

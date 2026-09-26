@@ -12,6 +12,7 @@ import 'server-only';
  *     `hiddenCategories`, `ADMIN_ONLY_TILES` all exclude);
  *   · its EVENT TYPES are its own coverage's, else its shop's, else wedding —
  *     the same precedence `vendor_coverages.event_types` documents;
+ *   · its CITIES are its branch's, else the shop's plus every active branch's;
  *   · its PRICE is withheld when the shop hides prices publicly
  *     (`fetchVendorsHidingPricesPublicly`, fail-open to showing, as everywhere).
  *
@@ -113,12 +114,30 @@ export const loadLandingCards = cache(async (): Promise<LandingSource> => {
   ];
   const shopIds = [...new Set(live.map((r) => String(r.vendor_profile_id)))];
 
-  const [coverageRes, hiding] = await Promise.all([
+  const [coverageRes, hiding, branchRes] = await Promise.all([
     coverageIds.length
       ? admin.from('vendor_coverages').select('id,event_types').in('id', coverageIds)
       : Promise.resolve({ data: [], error: null }),
     fetchVendorsHidingPricesPublicly(admin, shopIds),
+    // Branches are a PAID add-on: only an active, uncancelled branch is a place
+    // the supplier actually is.
+    shopIds.length
+      ? admin
+          .from('vendor_branches')
+          .select('branch_id,parent_vendor_profile_id,branch_city')
+          .in('parent_vendor_profile_id', shopIds)
+          .eq('branch_subscription_active', true)
+          .is('cancelled_at', null)
+      : Promise.resolve({ data: [], error: null }),
   ]);
+  if (branchRes.error) throw new Error(`supplier landing: branches read failed: ${branchRes.error.message}`);
+  const branchCity = new Map<string, string | null>();
+  const branchCitiesByShop = new Map<string, string[]>();
+  for (const b of (branchRes.data ?? []) as Array<{ branch_id: string; parent_vendor_profile_id: string; branch_city: string | null }>) {
+    const key = cityKeyFor(b.branch_city);
+    branchCity.set(b.branch_id, key);
+    if (key) branchCitiesByShop.set(b.parent_vendor_profile_id, [...(branchCitiesByShop.get(b.parent_vendor_profile_id) ?? []), key]);
+  }
   if (coverageRes.error) throw new Error(`supplier landing: coverages read failed: ${coverageRes.error.message}`);
   const coverageEvents = new Map<number, string[]>();
   for (const c of (coverageRes.data ?? []) as Array<{ id: number; event_types: string[] | null }>) {
@@ -147,7 +166,18 @@ export const loadLandingCards = cache(async (): Promise<LandingSource> => {
       shopId,
       tile,
       eventTypes,
-      cityKey: cityKeyFor(shop.location_city as string | null),
+      // 🔑 BRANCHES (owner 2026-09-27: "a supplier can also have a branch. so
+      // they have 2 locations or more"). A card filed under a branch is offered
+      // in THAT branch's city; a main-shop card is offered in the main city AND
+      // every active branch city, because the supplier is present in each. A
+      // card on a lapsed or cancelled branch falls back to the main shop's city.
+      cityKeys: (() => {
+        const branchId = typeof r.branch_id === 'string' ? r.branch_id : null;
+        const own = branchId && branchCity.has(branchId) ? branchCity.get(branchId) ?? null : null;
+        if (own) return [own];
+        const main = cityKeyFor(shop.location_city as string | null);
+        return [...new Set([...(main ? [main] : []), ...(branchCitiesByShop.get(shopId) ?? [])])];
+      })(),
       pricingBasis: basis,
       pricePhp: hiding.has(shopId) ? null : priceFor(r, basis),
     });

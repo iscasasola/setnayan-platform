@@ -19,6 +19,11 @@ EVENT level the owner added:
   renders for people, but is `noindex` and left out of the new
   `/sitemap-suppliers.xml`. The sitemap and the pages use one function, so they
   cannot disagree.
+- **Branches count.** Owner: *"a supplier can also have a branch. so they have
+  2 locations or more"*. A card filed under a branch is offered in that branch's
+  city. A main-shop card is offered in the main city and in every active,
+  uncancelled branch city (`vendor_branches`). One supplier is therefore found
+  on each city's page, and is still one card on the nationwide page.
 - JSON-LD: BreadcrumbList · ItemList of Services with their Offers ·
   AggregateOffer (package prices) · FAQPage. The FAQ's commission answer is
   `COUPLE_COMMISSION_PROMISE`.

@@ -23,7 +23,6 @@ import {
   Film,
   Lock,
   Plus,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import {
@@ -78,6 +77,8 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { ThemeStep } from './theme-step';
 import { sanitizeStoryTheme, type StoryTheme } from '@/lib/story-theme';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 // FREE couple-uploaded editorial imagery (no Papic required).
 const GALLERY_UPLOADS_MAX = 30;
@@ -221,14 +222,12 @@ function Field({ label, help, children }: FieldProps) {
 const inputCls =
   'w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-burgundy/50';
 
-// A small gold "PRO" chip — marks an authorship perk gated on Editorial PRO.
-function ProChip() {
-  return (
-    <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[#A9834B]/50 bg-[#A9834B]/10 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-[#8A6A2F]">
-      <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
-      Pro
-    </span>
-  );
+// The padlock mark on an authorship perk gated on Editorial PRO — the one
+// shared paid-to-unlock mark (owner 2026-09-25: padlock locked, diamond owned).
+// Padlock until owned, diamond once owned — the state IS the entitlement.
+function ProChip({ owned }: { owned: boolean }) {
+  const state = owned ? 'unlocked' : 'locked';
+  return <PaidMark state={state} label={paidMarkLabel(state, 'Editorial Pro')} text="Pro" size="xs" />;
 }
 
 // The one-line benefits + upgrade prompt shown on every PRO-gated card when the
@@ -1057,7 +1056,7 @@ export function EditorialEditor({
         <section className={card}>
           <div className="flex items-start justify-between gap-3">
             <h2 className="font-display text-lg italic text-ink">As the day unfolded</h2>
-            {!isPro ? <ProChip /> : null}
+            <ProChip owned={isPro} />
           </div>
           <p className="mt-0.5 text-sm text-ink/60">
             We built these moments from your day&rsquo;s photos and clips, in the order they
@@ -1207,7 +1206,7 @@ export function EditorialEditor({
       <section className={card}>
         <div className="flex items-start justify-between gap-3">
           <h2 className="font-display text-lg italic text-ink">Section order</h2>
-          {!isPro ? <ProChip /> : null}
+          <ProChip owned={isPro} />
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
           The order your editorial&rsquo;s sections appear in.{' '}
@@ -1385,7 +1384,7 @@ export function EditorialEditor({
       <section className={card}>
         <div className="flex items-start justify-between gap-3">
           <h2 className="font-display text-lg italic text-ink">What they said</h2>
-          {!isPro ? <ProChip /> : null}
+          <ProChip owned={isPro} />
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
           Add your favourite wishes from guests, vendors, or the two of you.{' '}

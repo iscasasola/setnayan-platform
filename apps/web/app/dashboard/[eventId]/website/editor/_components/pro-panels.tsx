@@ -9,7 +9,6 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Lock } from 'lucide-react';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 import { INVITE_THEMES, LEGACY_THEME_ALIASES, type InviteThemeId } from '@/lib/invite-themes';
 import {
@@ -24,6 +23,8 @@ import {
 import { InfoTip } from '@/app/_components/info-tip';
 import { unlockLabel } from './unlock-label';
 import { HubDraftField } from '../../_components/hub-draft-field';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -69,7 +70,7 @@ export function ProLockPanel({
   return (
     <div className="border-t border-dashed border-amber-300/60 bg-amber-50/60 p-3">
       <p className="flex items-center gap-1.5 text-[0.72rem] font-semibold text-amber-900">
-        <Lock aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" tone="current" />
         {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">

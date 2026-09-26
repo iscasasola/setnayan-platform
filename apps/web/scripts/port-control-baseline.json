@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "700adeb097",
+  "generatedFromRef": "c34b51f7d9",
   "routeCount": 432,
-  "destinations": 940,
-  "actions": 668,
-  "blocks": 4771,
+  "destinations": 942,
+  "actions": 667,
+  "blocks": 4786,
   "routes": {
     "/": {
       "files": [
@@ -5769,6 +5769,7 @@
         "InvitePanel",
         "InviteThemePicker",
         "Link",
+        "PaidMark",
         "QrActions",
         "RegenerateInviteQrResult",
         "RegenerateQrButton",
@@ -6028,6 +6029,7 @@
         "OpeningLineField",
         "PabuyaMessageEditor",
         "PageMasthead",
+        "PaidMark",
         "PrintPreview",
         "PrintSaveButton",
         "Row",
@@ -6759,6 +6761,7 @@
         "Naming",
         "NextActionResult",
         "PageMasthead",
+        "PaidMark",
         "ProChip",
         "ProUpsellLine",
         "ResolvedArrangement",
@@ -6812,6 +6815,7 @@
         "InspectorTrigger",
         "Link",
         "PageMasthead",
+        "PaidMark",
         "PillEl",
         "RevealList",
         "RowPill",
@@ -7143,6 +7147,7 @@
         "Link",
         "MobileTab",
         "MomentDirector",
+        "PaidMark",
         "PanoodControlRoom",
         "ProgramMonitor",
         "ScreensManager",
@@ -7752,6 +7757,7 @@
         "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
+        "PaidMark",
         "SetnayanAiValue",
         "Spotlights",
         "StudioBuyHero",
@@ -7810,6 +7816,7 @@
         "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
+        "PaidMark",
         "StudioBuyHero"
       ]
     },
@@ -7836,6 +7843,7 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
+        "PaidMark",
         "RevealList",
         "RowPill",
         "Scene",
@@ -8235,6 +8243,7 @@
         "HubDraftToolbar",
         "InfoTip",
         "Link",
+        "PaidMark",
         "ResultLine"
       ]
     },
@@ -8366,6 +8375,7 @@
         "OpenBrowsePanel",
         "OurStoryEditorPage",
         "PageSwitch",
+        "PaidMark",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "ProLockPanel",
@@ -8630,6 +8640,7 @@
       "blocks": [
         "Link",
         "PageMasthead",
+        "PaidMark",
         "SubmitButton",
         "WidgetRow"
       ]
@@ -9047,10 +9058,11 @@
       "destinations": [
         "/dashboard/[seg]",
         "/dashboard?hub=1",
-        "/login?next=[seg]"
+        "/login?next=[seg]",
+        "/privacy",
+        "/terms"
       ],
       "actions": [
-        "signInWithGoogle",
         "signUp"
       ],
       "blocks": [
@@ -9069,6 +9081,7 @@
         "LocationStep",
         "Mode",
         "MonoLockup",
+        "OAuthButtonRow",
         "OnboardingCommitResult",
         "OnboardingMusic",
         "OnboardingShell",
@@ -9258,6 +9271,7 @@
         "LiveStudioRecordingsCard",
         "MonitorOverlays",
         "OverlayToggle",
+        "PaidMark",
         "PresencePill",
         "ProgramBridgeHost",
         "ProgramCanvas",
@@ -10150,6 +10164,7 @@
         "NothingToAnswerFeed",
         "OngoingTasks",
         "PageMasthead",
+        "PaidMark",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "Pips",
@@ -11915,6 +11930,7 @@
         "GridPageSkeleton",
         "Link",
         "PageMasthead",
+        "PaidMark",
         "PapicChallengeCard",
         "PaymentsPausedNote",
         "PhotoChallengeActionState",

@@ -3,6 +3,8 @@ import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 import { ServiceTags } from './service-tags';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * StudioAppRow — an iOS App Store-style list row for the Studio hub.
@@ -59,8 +61,12 @@ function PillEl({ pill }: { pill: NonNullable<RowPill> }) {
   };
   return (
     <span
-      className={`shrink-0 rounded-full px-3.5 py-1 text-xs font-bold tracking-tight ${cls[pill.tone]}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3.5 py-1 text-xs font-bold tracking-tight ${cls[pill.tone]}`}
     >
+      {/* 💎 An owned product's "Active" wears the diamond (owner 2026-09-25). */}
+      {pill.tone === 'active' ? (
+        <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'this product')} size="xs" tone="current" />
+      ) : null}
       {pill.text}
     </span>
   );

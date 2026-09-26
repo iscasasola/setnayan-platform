@@ -14,6 +14,8 @@ import {
   type HubDraftSummary,
   type HubResetScope,
 } from '@/lib/hub-draft';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * THE DRAFT CONTROLS — Restore · Undo · Apply, ALWAYS VISIBLE at the upper
@@ -225,6 +227,7 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
               </p>
             ) : (
               <p className="text-sm text-ink/70">
+                <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} className="mr-1 align-middle" />
                 Apply needs Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>

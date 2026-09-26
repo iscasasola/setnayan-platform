@@ -3,6 +3,8 @@ import type { InviteReturn } from '@/lib/invite-return';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { pickableInviteThemes, type InviteThemeId } from '@/lib/invite-themes';
 import { setInviteTheme } from '../actions';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * How your Event Hub looks — the couple's theme picker, the TEN themes of
@@ -154,9 +156,22 @@ export function InviteThemePicker({
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-ink">{t.name}</span>
-                  <span className="rounded-full border border-ink/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-ink/70">
-                    {t.tier === 'pro' ? 'Event Hub Pro' : 'Free'}
-                  </span>
+                  {t.tier === 'pro' ? (
+                    /* 🔒💎 A Pro theme wears the one paid mark — padlock until the
+                       event owns Event Hub Pro, diamond after (owner 2026-09-25).
+                       In the store shell a locked Pro theme is filtered out above,
+                       so only an owned (diamond) one can reach this line there. */
+                    <PaidMark
+                      state={locked ? 'locked' : 'unlocked'}
+                      label={paidMarkLabel(locked ? 'locked' : 'unlocked', 'Event Hub Pro')}
+                      text="Event Hub Pro"
+                      size="xs"
+                    />
+                  ) : (
+                    <span className="rounded-full border border-ink/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-ink/70">
+                      Free
+                    </span>
+                  )}
                 </span>
                 <span className="mt-0.5 block text-sm text-ink/70">{t.blurb}</span>
               </span>

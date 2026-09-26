@@ -9,6 +9,8 @@ import { hubDraftAction } from '../../hub-draft-actions';
 import { CALMER_CLIP_SCRIM, measureFrame, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import { isHubMainFollow, type HubMainGround, type HubMainOwn } from '@/lib/hub-canvas';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 
@@ -348,7 +350,12 @@ export function MainBackgroundPanel({
       <div>
         <p className="text-[14px] font-semibold text-ink">
           Behind every scene
-          {!ownsPro ? <span className="ml-2 text-[11px] font-semibold text-ink/55">Pro</span> : null}
+          <PaidMark
+            state={ownsPro ? 'unlocked' : 'locked'}
+            text="Pro"
+            label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')}
+            className="ml-2 align-middle"
+          />
         </p>
         <p className="mt-0.5 text-[12.5px] text-ink/65">
           Your hero goes behind every scene, in place of {theme.name}&rsquo;s moving background, and your{' '}

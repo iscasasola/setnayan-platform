@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
@@ -20,6 +20,8 @@ import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 export const metadata = { title: 'Setnayan AI' };
 
@@ -181,7 +183,7 @@ export default async function SetnayanAiPage({ params }: Props) {
 
           <div className="flex flex-col gap-4 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">
-              <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+              <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Setnayan AI')} size="md" tone="current" />
               Active — your matches are ready
             </p>
             <Link

@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { startThreadCall } from '@/app/_actions/thread-call-actions';
 import { ThreadCallRoom } from './thread-call-room';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * In-thread CALL entry (Relationship_Workspace_and_Appointments · "Call"; PR 10).
@@ -192,7 +193,7 @@ export function ThreadCallLauncher({
     if (viewerRole !== 'vendor') return null;
     const nudge = (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-3 py-1.5 text-xs font-medium text-ink/55">
-        <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <PaidMark state="locked" label={paidMarkLabel('locked', 'a paid plan')} tone="current" />
         Upgrade your plan to call clients
       </span>
     );

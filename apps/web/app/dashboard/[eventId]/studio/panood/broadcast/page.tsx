@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Tv, Lock, Sparkles, Camera } from 'lucide-react';
+import { ArrowLeft, Tv, Sparkles, Camera } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -21,6 +21,8 @@ import { decideWatermark } from '@/lib/panood-watermark';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { PanoodControlRoom } from './control-room';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 export const metadata = { title: 'Live Studio control room' };
 
@@ -208,7 +210,7 @@ function UpgradeBanner({ eventId }: { eventId: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-terracotta/25 bg-terracotta/5 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-2.5">
-        <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+        <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Studio')} size="md" className="mt-0.5" />
         <p className="text-sm text-ink/75">
           <span className="font-semibold text-ink">Preview mode.</span> Connect every camera and
           test your whole setup free — the Setnayan mark stays on screen until you unlock Live

@@ -22,6 +22,8 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
 import { HubDraftField } from '../../website/_components/hub-draft-bar';
 import { removeHeroPhoto, uploadHeroPhoto } from '../../website/hero-photo/actions';
 import { MakerRevealPicker } from './maker-reveal';
@@ -156,6 +158,7 @@ export async function MakerHeroPanel({
   const markSvg = resolveEventMonogramSvg(drafted);
   const returnTo = `/dashboard/${eventId}/launch?tool=hero`;
   const canUpload = ownsPro || !storeShell;
+  const photoMark = paidMarkState({ owns: ownsPro, storeShell });
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="hero">
@@ -192,6 +195,9 @@ export async function MakerHeroPanel({
 
       {canUpload ? (
         <form action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
+          {photoMark ? (
+            <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" />
+          ) : null}
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="return_to" value={returnTo} />

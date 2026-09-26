@@ -27,6 +27,8 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -1313,7 +1315,9 @@ function MoreExtras({
       ) : null}
       {showProCta ? (
         <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
-          <p className="text-[13px] font-semibold text-cream">Event Hub Pro</p>
+          <p className="text-[13px] font-semibold text-cream">
+            <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
+          </p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
             One unlock for every stage — the look, the reveal, your own photos and film, music and the
             animated logo.

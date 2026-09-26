@@ -177,6 +177,9 @@ export async function signUp(formData: FormData) {
           ...(publicSummaryConsent
             ? { public_summary_consent_at: new Date().toISOString() }
             : {}),
+          // The Terms gate above passed on this door too — record it, both halves.
+          terms_accepted_at: new Date().toISOString(),
+          terms_version: TERMS_VERSION,
         })
         .eq('user_id', userId);
       if (profileError) {
@@ -313,48 +316,51 @@ export async function signUp(formData: FormData) {
       // is named (owner 2026-07-03).
       const landingPath = accountType === 'vendor' ? '/open-shop' : '/dashboard';
 
-      const profilePromise =
-        displayName || publicSummaryConsent
-          ? (async () => {
-              // The DB trigger that creates public.users runs on a
-              // separate connection from this admin write. If we race
-              // the trigger the UPDATE hits zero rows and the write is
-              // silently dropped (losing the name and, for opted-in
-              // couples, the RA 10173 consent timestamp). Poll briefly
-              // for the row to exist, then write name + consent together.
-              for (let attempt = 0; attempt < 5; attempt++) {
-                const { data: row } = await admin
-                  .from('users')
-                  .select('user_id')
-                  .eq('user_id', userId)
-                  .maybeSingle();
-                if (row) break;
-                await new Promise((resolve) => setTimeout(resolve, 100));
-              }
-              const { error: profileErr } = await admin
-                .from('users')
-                .update({
-                  ...(displayName ? { display_name: displayName } : {}),
-                  ...(publicSummaryConsent
-                    ? { public_summary_consent_at: new Date().toISOString() }
-                    : {}),
-                  // Unconditional: this point is only reached because the gate
-                  // above passed, so the agreement is a fact about every account
-                  // created here. Both columns together — a timestamp alone says
-                  // somebody clicked, not what they agreed to — and the CHECK on
-                  // `users` refuses one without the other.
-                  terms_accepted_at: new Date().toISOString(),
-                  terms_version: TERMS_VERSION,
-                })
-                .eq('user_id', userId);
-              if (profileErr) {
-                console.warn(
-                  '[signup] profile (name/consent) update failed:',
-                  profileErr.message,
-                );
-              }
-            })()
-          : Promise.resolve();
+      // 🪤 UNCONDITIONAL since 2026-09-25. This used to run only when a name or
+      // the Stories consent was posted — and on 2026-09-22 both left /signup for
+      // the You card, so every email sign-up since then skipped the one write
+      // that records the Terms agreement below. The agreement is a fact about
+      // EVERY account created here (the gate above passed), so it is written
+      // every time; name and consent stay conditional inside the patch.
+      const profilePromise = (async () => {
+        // The DB trigger that creates public.users runs on a
+        // separate connection from this admin write. If we race
+        // the trigger the UPDATE hits zero rows and the write is
+        // silently dropped (losing the name and, for opted-in
+        // couples, the RA 10173 consent timestamp). Poll briefly
+        // for the row to exist, then write name + consent together.
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: row } = await admin
+            .from('users')
+            .select('user_id')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (row) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        const { error: profileErr } = await admin
+          .from('users')
+          .update({
+            ...(displayName ? { display_name: displayName } : {}),
+            ...(publicSummaryConsent
+              ? { public_summary_consent_at: new Date().toISOString() }
+              : {}),
+            // Unconditional: this point is only reached because the gate
+            // above passed, so the agreement is a fact about every account
+            // created here. Both columns together — a timestamp alone says
+            // somebody clicked, not what they agreed to — and the CHECK on
+            // `users` refuses one without the other.
+            terms_accepted_at: new Date().toISOString(),
+            terms_version: TERMS_VERSION,
+          })
+          .eq('user_id', userId);
+        if (profileErr) {
+          console.warn(
+            '[signup] profile (name/consent) update failed:',
+            profileErr.message,
+          );
+        }
+      })();
 
       const [updateResult, profileResult, emailResult] = await Promise.allSettled([
         // 🔒 L3 — same gate as the conversion path above. BOTH doors, or the

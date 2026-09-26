@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5b0fe5eb2",
+  "generatedFromRef": "c3a9b90fdf",
   "routeCount": 432,
-  "destinations": 938,
-  "actions": 668,
-  "blocks": 4748,
+  "destinations": 942,
+  "actions": 667,
+  "blocks": 4759,
   "routes": {
     "/": {
       "files": [
@@ -714,6 +714,7 @@
     },
     "/[slug]": {
       "files": [
+        "[slug]/_components/adopt-seat-session.tsx",
         "[slug]/_components/arrival-action.tsx",
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
@@ -741,6 +742,7 @@
         "[slug]/_components/everything-else-sheet.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/face-receipt-card.tsx",
+        "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-code-keepers.tsx",
         "[slug]/_components/guest-column-card.tsx",
@@ -762,6 +764,7 @@
         "[slug]/_components/keep-on-home-screen.tsx",
         "[slug]/_components/live-wall-block.tsx",
         "[slug]/_components/magic-move.tsx",
+        "[slug]/_components/main-ground.tsx",
         "[slug]/_components/our-love-story-widget.tsx",
         "[slug]/_components/our-photos-widget.tsx",
         "[slug]/_components/our-story.tsx",
@@ -852,6 +855,7 @@
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
+        "[slug]/_lib/pro-site-vars.ts",
         "[slug]/_lib/reveal-props.ts",
         "[slug]/_lib/room-links.server.ts",
         "[slug]/_lib/room-links.ts",
@@ -889,7 +893,9 @@
         "/login",
         "/papic/guest",
         "/papic/guest?from=[seg]",
+        "/privacy",
         "/signup",
+        "/terms",
         "/v/[seg]",
         "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/messages/[seg]",
@@ -905,6 +911,7 @@
         "withdraw"
       ],
       "blocks": [
+        "AdoptSeatSession",
         "AnnouncementCard",
         "ArrangedSheet",
         "ArrivalActionRow",
@@ -977,6 +984,7 @@
         "Gap",
         "GlowBlob",
         "GracefulFallback",
+        "GuestAccountCard",
         "GuestCameraPlayer",
         "GuestCameraWatcher",
         "GuestCodeKeepers",
@@ -1036,6 +1044,7 @@
         "Logo",
         "LoveStoryInput",
         "MagicMove",
+        "MainGround",
         "Marked",
         "MediaStream",
         "MinuteEntry",
@@ -1043,6 +1052,7 @@
         "MomentsEssay",
         "Monogram",
         "NavLinksRow",
+        "OAuthButtonRow",
         "OpenUpScene",
         "OpenUpTabs",
         "OurLoveStoryWidget",
@@ -5949,6 +5959,7 @@
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
+        "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx"
@@ -6011,6 +6022,7 @@
         "OpeningLineField",
         "PabuyaMessageEditor",
         "PageMasthead",
+        "PrintPreview",
         "PrintSaveButton",
         "Row",
         "SaveState",
@@ -8263,6 +8275,7 @@
         "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
+        "dashboard/[eventId]/website/editor/_components/main-background-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/maker-canvas-guard.tsx",
         "dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts",
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
@@ -8309,6 +8322,7 @@
         "BackgroundEffect",
         "BackgroundField",
         "CanvasStaysOnThePage",
+        "Choice",
         "ColorsPanel",
         "DressCodeFields",
         "DressCodePanel",
@@ -8319,6 +8333,7 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLIFrameElement",
+        "HeroFrameSync",
         "HeroPhotoPanel",
         "HexField",
         "HubDraftField",
@@ -8328,12 +8343,14 @@
         "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
+        "MainBackgroundPanel",
         "MakerHeroPanel",
         "MakerLogoPanel",
         "MakerRefusesToBeFramed",
         "MakerRevealPanel",
         "MakerSelection",
         "MakerWork",
+        "Measured",
         "MiniTour",
         "MoreExtras",
         "OpenBrowsePanel",
@@ -8358,6 +8375,7 @@
         "StoryFields",
         "StoryPanel",
         "SubmitButton",
+        "Swatch",
         "TextPanel",
         "ThemePanel",
         "Thumb",
@@ -9014,10 +9032,11 @@
       "destinations": [
         "/dashboard/[seg]",
         "/dashboard?hub=1",
-        "/login?next=[seg]"
+        "/login?next=[seg]",
+        "/privacy",
+        "/terms"
       ],
       "actions": [
-        "signInWithGoogle",
         "signUp"
       ],
       "blocks": [
@@ -9036,6 +9055,7 @@
         "LocationStep",
         "Mode",
         "MonoLockup",
+        "OAuthButtonRow",
         "OnboardingCommitResult",
         "OnboardingMusic",
         "OnboardingShell",

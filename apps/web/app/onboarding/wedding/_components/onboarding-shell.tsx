@@ -53,7 +53,8 @@ import {
   type OnboardingCommitPayload,
   type OnboardingVenueResult,
 } from '../actions';
-import { signInWithGoogle } from '@/app/auth/oauth-actions';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
+import { TERMS_FIELD } from '@/lib/terms-agreement';
 import { signUp } from '@/app/signup/actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { mintTurnstileToken } from '@/lib/turnstile-client';
@@ -1421,8 +1422,6 @@ export function OnboardingShell({
   const [byoName, setByoName] = useState('');
   const [byoPerson, setByoPerson] = useState('');
   const [byoEmail, setByoEmail] = useState('');
-  /* Phase-5 cutover: account-gate email-mode toggle + the single lazy DB commit. */
-  const [emailMode, setEmailMode] = useState(false);
   /* ── love-stage ephemeral UI state (the love-story DATA lives in OnboardingState) ──
      openAnchor = which of the 4 anchor tiles is inline-editing; the moment mini-form +
      its edit index. None of this persists — only state.loveStory does. */
@@ -4085,22 +4084,28 @@ export function OnboardingShell({
               <h1 style={{ fontSize: 34 }}>Your plan is ready.</h1>
               <p style={{ marginBottom: 24 }}>Create your free account to keep it {'—'} and start finding your vendors.</p>
             </div>
-            <div className="stack">
-              <form action={signInWithGoogle}>
-                <input type="hidden" name="next" value={RESUME_NEXT} />
-                <SubmitButton
-                  pendingLabel="Redirecting…"
-                  className="opt"
-                  style={{ width: '100%', font: 'inherit', cursor: 'pointer', textAlign: 'center', justifyContent: 'center' }}
-                >
-                  <div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Google</div>
-                </SubmitButton>
-              </form>
-            </div>
-            {emailMode ? (
-              <form action={signUp} style={{ margin: '14px 0 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input type="hidden" name="next" value={RESUME_NEXT} />
-                <input type="hidden" name="account_type" value="customer" />
+            {/* ONE DOOR, ONE ORDER (owner 2026-09-25: "When a new account is created via
+                website must be similar to the event invitation"). The same order the
+                invitation door and /signup use: Google / Apple FIRST (a provider
+                redirect under a half-filled form loses the form — DECISION_LOG
+                2026-09-10), then the email form, one Terms line, Stay signed in. The
+                buttons are the shared <OAuthButtonRow>, env-gated exactly as /signup
+                gates them, so this screen can no longer offer a provider that 404s —
+                and, like /signup, not inside the phone app (the store shell), where
+                Google refuses OAuth in an embedded WebView. */}
+            {!storeShell ? (
+              <div className="stack">
+                <OAuthButtonRow next={RESUME_NEXT} withAccountType defaultAccountType="customer" verb={SIGNUP_OAUTH_VERB} />
+              </div>
+            ) : null}
+            {ANY_OAUTH_ENABLED && !storeShell ? (
+              <div className="ghost" style={{ margin: '12px 0 0', textAlign: 'center' }}>
+                or create a password with your email
+              </div>
+            ) : null}
+            <form action={signUp} style={{ margin: '10px 0 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input type="hidden" name="next" value={RESUME_NEXT} />
+              <input type="hidden" name="account_type" value="customer" />
                 {/* 🔒 NO HIDDEN CONSENT HERE — this posted `public_summary_consent="yes"`
                     as a hidden field, with no checkbox and nothing on screen saying so.
                     It opts the couple into having their wedding published on
@@ -4117,31 +4122,49 @@ export function OnboardingShell({
                     (Website → Privacy, Website → Editorial). Consent taken without a
                     sentence is not consent, and this screen has no room for the
                     sentence. */}
-                <TurnstileField action="signup" />
-                <input
-                  className="field"
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="your@email.com"
-                  style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
-                />
-                <input
-                  className="field"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={8}
-                  placeholder="Create a password (8+ characters)"
-                  style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
-                />
-                <SubmitButton className="byo-send" pendingLabel="Creating account…">Create account</SubmitButton>
-              </form>
-            ) : (
-              <button type="button" className="ghost" onClick={() => setEmailMode(true)} style={{ cursor: 'pointer' }}>
-                <u>Use email instead</u>
-              </button>
-            )}
+              <TurnstileField action="signup" />
+              <input
+                className="field"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                inputMode="email"
+                placeholder="your@email.com"
+                style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
+              />
+              <input
+                className="field"
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="Create a password (8+ characters)"
+                style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
+              />
+              {/* 🔒 THE AGREEMENT — the same clickwrap /signup carries (CTRL-B3):
+                  a checkbox the person ticks, UNTICKED, `required`, ABOVE the
+                  button. This form posted no Terms field at all, so `signUp`
+                  refused every submission and bounced the couple to
+                  /signup?error=terms_required to retype everything. Never a
+                  hidden field: consent posted for someone is not consent. */}
+              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, textAlign: 'left' }}>
+                <input name={TERMS_FIELD} type="checkbox" required style={{ marginTop: 3 }} />
+                <span>
+                  I agree to the <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}><u>Terms</u></a>{' '}
+                  and <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}><u>Privacy Policy</u></a>.
+                </span>
+              </label>
+              {/* "Stay signed in" — defaults CHECKED, exactly as on /signup; `signUp`
+                  downgrades the session to browser-only when it is unticked. Without
+                  this field the login only lasted until the browser closed. */}
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, textAlign: 'left' }}>
+                <input name="remember" type="checkbox" defaultChecked />
+                <span>Stay signed in</span>
+              </label>
+              <SubmitButton className="byo-send" pendingLabel="Creating account…">Create account</SubmitButton>
+            </form>
             <div className="ghost" style={{ marginTop: 4 }}>
               <a href={`/login?next=${encodeURIComponent(RESUME_NEXT)}`} style={{ color: 'inherit' }}>
                 Already have an account? <u>Sign in</u>

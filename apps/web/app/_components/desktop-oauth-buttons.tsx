@@ -47,7 +47,7 @@ const FACEBOOK_ENABLED =
   envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED);
 
 const BTN_LIGHT =
-  'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
+  'flex min-h-[44px] w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
 
 export function DesktopOAuthButtons({ next, verb = 'Continue with' }: { next: string; verb?: string }) {
   const [pending, setPending] = useState<DesktopOAuthProvider | null>(null);

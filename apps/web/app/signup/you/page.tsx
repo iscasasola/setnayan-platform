@@ -23,6 +23,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
+import { signInDestination } from '@/lib/sign-in-landing';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
 import {
@@ -55,7 +56,10 @@ function suggestHandle(displayName: string | null, email: string | null): string
 
 export default async function YouPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const next = safeNext(params.next);
+  // Where Done and Later hand on to: the ONE sign-in rule — a real destination
+  // (the event they came from, the onboarding resume) comes back whole; a bare
+  // `/` becomes the dashboard, never the front door (audit 2026-09-25 §C).
+  const next = signInDestination(safeNext(params.next));
   const errorMessage = params.error ? decodeURIComponent(params.error) : null;
 
   const supabase = await createClient();

@@ -143,7 +143,9 @@ const TOOL_ROWS: Record<string, string[]> = {
   'post-event': ['editorial'],
 };
 
-const MAIN_ROWS = ['colors', 'music', 'backdrop'];
+// 'main-background' first: it replaces the theme's own loop, the layer every
+// other Main control sits on (Maker Phase 10). Absent in the store shell.
+const MAIN_ROWS = ['main-background', 'colors', 'music', 'backdrop'];
 
 /** The canvas's "Guest bars" switch, remembered for this browser session. */
 const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';

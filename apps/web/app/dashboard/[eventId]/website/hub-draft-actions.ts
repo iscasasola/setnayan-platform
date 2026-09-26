@@ -68,7 +68,7 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
-import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 
@@ -169,11 +169,27 @@ export async function hubDraftAction(
     const ownHeroPrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/`;
     const heroIsOwn = (ref: unknown) =>
       typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownHeroPrefix));
+    /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — the clip or photo and its still
+       must be uploads into THIS event's own Main-background folder, or a photo
+       the page already shows. Same reason as the hero: a draft is a public POST. */
+    const ownMainPrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/main-background/`;
+    const mainIsOwn = (ref: unknown) =>
+      typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownMainPrefix));
 
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
       if (item.kind === 'event' && item.column === 'landing_page_hero_image_url' && item.value !== null) {
         if (!heroIsOwn(item.value)) {
+          held.push({ item, reason: 'not_your_photo' });
+          continue;
+        }
+      }
+      // Following the hero stores no media of its own (only a frame measured
+      // off the hero, which the render uses only while it IS the hero) — so
+      // only an override's clip, photo and still are held to this event.
+      if (item.kind === 'widget' && item.field === 'main' && item.value !== null && !isHubMainFollow(item.value as HubMainGround)) {
+        const main = item.value as HubMainOwn;
+        if (![main.media, main.poster].every((r) => r === undefined || mainIsOwn(r))) {
           held.push({ item, reason: 'not_your_photo' });
           continue;
         }
@@ -276,13 +292,19 @@ export async function hubDraftAction(
           patch.display_order = item.value;
           before.display_order = row.display_order;
         } else {
+          /* The canvas AND the Main background both live in `config_json`; a
+             section may carry both (the hero row), so each merges into the
+             patch built so far, never into a fresh copy of live — or the second
+             would silently drop the first. */
+          const from = patch.config_json ?? row.config_json;
           const base =
-            row.config_json && typeof row.config_json === 'object' && !Array.isArray(row.config_json)
-              ? { ...(row.config_json as Record<string, unknown>) }
+            from && typeof from === 'object' && !Array.isArray(from)
+              ? { ...(from as Record<string, unknown>) }
               : {};
-          before.canvas = base.canvas ?? null;
-          if (item.value === null) delete base.canvas;
-          else base.canvas = item.value;
+          const key = item.field === 'main' ? HUB_MAIN_GROUND_KEY : 'canvas';
+          before[key] = base[key] ?? null;
+          if (item.value === null) delete base[key];
+          else base[key] = item.value;
           patch.config_json = base;
         }
       }
@@ -305,6 +327,8 @@ export async function hubDraftAction(
       if (item.kind === 'event') remaining.events[item.column] = item.value;
       else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
+      } else if (item.field === 'main') {
+        (remaining.widgets[item.widgetType] ??= {}).main = item.value as HubMainGround | null;
       } else if (item.field === 'mode') {
         (remaining.widgets[item.widgetType] ??= {}).mode = item.value as 'auto' | 'shown' | 'hidden';
       }

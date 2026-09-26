@@ -126,7 +126,11 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, hubMainGround, resolveMainGround } from '@/lib/hub-canvas';
+import { resolveHero } from '@/lib/event-hero';
+import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { MainGround } from './main-ground';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
@@ -534,6 +538,41 @@ export async function SiteBody({
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
+  // 🎞 THE MAIN BACKGROUND (Maker Phase 10). By default it IS THE HERO (owner,
+  // 2026-09-25: "whatever they make on the hero scene will be their cover and
+  // the main background") — `resolveMainGround` over `resolveHero`, the one
+  // hero answer; an explicit "different clip or photo" override wins. Stored
+  // on the hero row, draft-overlaid for the host's preview like every other
+  // canvas. Only over a THEME: Classic is plain paper by design (owner,
+  // "classic has no photo or video"), and its shell paints opaque paper over
+  // any layer beneath. The scrim is measured over the frame and is free; the
+  // tint follows it only when "Match my photo's colours" is on. Their own
+  // button colour, if they chose one, outranks the automatic tint.
+  // ⛔ An unscreened clip plays for the HOST only; a guest gets the still —
+  // the same closed switch every hero-video read goes through.
+  const heroRow = widgets.find((w) => w.widget_type === 'hero');
+  const mainGround =
+    sceneTheme !== 'house'
+      ? resolveMainGround(hubMainGround(heroRow?.config_json), resolveHero(event), heroVideoRefForGuests)
+      : null;
+  let mainGroundLayer: React.ReactNode = null;
+  if (mainGround) {
+    const adaptive = resolveAdaptiveTheme(INVITE_THEMES[sceneTheme], mainGround.tint);
+    const sign = async (ref: string | null) =>
+      ref ? (canvasMediaUrls[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
+    const [still, clip] = await Promise.all([
+      sign(mainGround.stillRef),
+      sign(viewerIsHost ? mainGround.clipRef : mainGround.guestClipRef),
+    ]);
+    mainGroundLayer = (
+      <MainGround
+        still={still}
+        clip={clip}
+        adaptive={adaptive}
+        vars={adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) })}
+      />
+    );
+  }
   // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
   // canvas they are drawn as a GUEST sees them — the host's "Manage" slot is
@@ -2353,6 +2392,7 @@ export async function SiteBody({
           guard said so — "the shell return moved, this scan is now blind".
           It was right, so the mount moved rather than its anchor. */}
       <EventWordsProvider words={clientWords}>
+      {mainGroundLayer}
       {/* 🖼 The root layout's own floating notices (cookie consent, a stale
           tab) are client components this page cannot un-mount, so in the
           Maker's canvas they are hidden by the one attribute they carry. */}

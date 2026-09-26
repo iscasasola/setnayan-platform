@@ -249,11 +249,21 @@ test('an off field is resolved to what is already STORED, never to the posted va
   const src = stripComments(read('actions.ts'));
   const submit = src.slice(src.indexOf('export async function submitRsvp'));
   // Each *ToWrite falls back to `before` (the row as it stood before this
-  // save) when its ask flag is off — the write is a no-op for that column.
-  assert.match(submit, /const mealToWrite = ask\.meal \? meal : \(\(before\?\.meal_preference[\s\S]{0,40}\?\? meal\);/);
-  assert.match(submit, /const dietaryToWrite = ask\.dietary \? dietary : \(\(before\?\.dietary_restrictions[\s\S]{0,40}\?\? null\);/);
-  assert.match(submit, /const guestNoteToWrite = ask\.note \? guestNote : \(\(before\?\.guest_note[\s\S]{0,40}\?\? null\);/);
-  assert.match(submit, /const mobileToWrite = ask\.mobile \? contactMobile : \(\(before\?\.mobile[\s\S]{0,40}\?\? null\);/);
+  // save) when its ask flag is off — the write is a no-op for that column —
+  // and to `undefined` (dropped from the payload) when that read FAILED, so a
+  // failed read can never erase a stored answer.
+  for (const [v, flag, posted, col] of [
+    ['mealToWrite', 'meal', 'meal', 'meal_preference'],
+    ['dietaryToWrite', 'dietary', 'dietary', 'dietary_restrictions'],
+    ['guestNoteToWrite', 'note', 'guestNote', 'guest_note'],
+    ['mobileToWrite', 'mobile', 'contactMobile', 'mobile'],
+  ] as const) {
+    assert.match(
+      submit,
+      new RegExp(`const ${v} = ask\\.${flag} \\? ${posted} : before \\? \\(\\(before\\.${col}[\\s\\S]{0,40}\\) : undefined;`),
+      `${v}: off → stored value, or left out when the read failed`,
+    );
+  }
   // And the ACTUAL write uses those resolved values, not the raw form ones.
   const update = submit.slice(submit.indexOf('.update({'), submit.indexOf('.eq(', submit.indexOf('.update({')));
   assert.match(update, /meal_preference: mealToWrite,/);

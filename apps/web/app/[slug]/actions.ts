@@ -337,10 +337,14 @@ export async function submitRsvp(
    * answer-freeze it exists to catch. Resolving the value up here keeps every
    * payload line below a plain assignment; the ask gate lives in these four.
    */
-  const mealToWrite = ask.meal ? meal : ((before?.meal_preference as MealPreference | null) ?? meal);
-  const dietaryToWrite = ask.dietary ? dietary : ((before?.dietary_restrictions as string | null) ?? null);
-  const guestNoteToWrite = ask.note ? guestNote : ((before?.guest_note as string | null) ?? null);
-  const mobileToWrite = ask.mobile ? contactMobile : ((before?.mobile as string | null) ?? null);
+  // ⚠ A switched-off question with a FAILED `before` read resolves to
+  // `undefined`, which the update drops from the payload — the stored answer is
+  // left alone. Falling back to `null` there would erase what the guest gave
+  // earlier because a read failed (the same rule `emailWrite` keeps).
+  const mealToWrite = ask.meal ? meal : before ? ((before.meal_preference as MealPreference | null) ?? meal) : undefined;
+  const dietaryToWrite = ask.dietary ? dietary : before ? ((before.dietary_restrictions as string | null) ?? null) : undefined;
+  const guestNoteToWrite = ask.note ? guestNote : before ? ((before.guest_note as string | null) ?? null) : undefined;
+  const mobileToWrite = ask.mobile ? contactMobile : before ? ((before.mobile as string | null) ?? null) : undefined;
 
   const { error } = await admin
     .from('guests')

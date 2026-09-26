@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { formatEventDate } from '@/lib/events';
+import { hubElementInlineStyle, type HubElementStyles, type HubHeroElementKey } from '@/lib/element-style';
 
 /**
  * PahinaMasthead — the typographic hero of the Pahina guest site
@@ -71,7 +72,21 @@ export function PahinaMasthead({
   mediaCaption,
   twoPeople = true,
   card,
+  elements = null,
+  stampElements = false,
 }: {
+  /**
+   * 🔤 THE HERO'S PARTS IN THE COUPLE'S OWN LOOK — font · colour · size ·
+   * animation per part (`lib/element-style.ts`), read off the hero row's
+   * canvas. Absent → every part wears the theme, byte-identical to before.
+   */
+  elements?: HubElementStyles | null;
+  /**
+   * Stamp `data-el` on each part so the Maker canvas can tell WHICH part was
+   * tapped (`editor-bridge.tsx`). ONLY in the Maker canvas — a guest's markup
+   * never carries it.
+   */
+  stampElements?: boolean;
   displayName: string;
   eventDate: string | null;
   /** `EventWords.twoPeople` — false collapses the names to one line. Defaults
@@ -112,6 +127,11 @@ export function PahinaMasthead({
 }) {
   const names = splitCoupleNames(displayName, twoPeople);
   const dateLabel = formatEventDate(eventDate);
+  /** The part's own style and, in the Maker canvas only, its key. */
+  const el = (key: HubHeroElementKey) => ({
+    ...(stampElements ? { 'data-el': key } : {}),
+    style: hubElementInlineStyle(elements?.[key]),
+  });
 
   if (card) {
     return (
@@ -119,9 +139,9 @@ export function PahinaMasthead({
         {badgeSlot}
         <div className="mx-auto max-w-md rounded-sm bg-cream p-3 shadow-[0_20px_48px_rgba(30,34,41,0.16)]">
           <div className="border border-gild/45 px-5 pb-7 pt-8">
-            <p className="text-xs uppercase tracking-[0.36em] text-ink/60">{card.eyebrow}</p>
+            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">{card.eyebrow}</p>
             {monogramSlot ? (
-              <div data-motion="arrive-mark" className="mt-5 flex h-[9.5rem] items-center justify-center">
+              <div {...el('mark')} data-motion="arrive-mark" className="mt-5 flex h-[9.5rem] items-center justify-center">
                 {/* The mark renders at its own 80px; the card shows it at
                     ~150px. A scale, not a second size in every monogram branch:
                     the marks are SVG, so they stay crisp. */}
@@ -129,6 +149,7 @@ export function PahinaMasthead({
               </div>
             ) : null}
             <h1
+              {...el('names')}
               data-motion="arrive-names"
               className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
             >
@@ -142,16 +163,16 @@ export function PahinaMasthead({
                 </>
               ) : null}
             </h1>
-            {card.line ? <p className="mt-4 text-sm leading-relaxed text-ink/80">{card.line}</p> : null}
+            {card.line ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{card.line}</p> : null}
             {dateLabel ? (
-              <p data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3">
+              <p {...el('date')} data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3">
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
                 <span className="font-pahina text-xl text-ink">{dateLabel}</span>
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
               </p>
             ) : null}
             {card.timeLabel ? (
-              <p className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{card.timeLabel}</p>
+              <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{card.timeLabel}</p>
             ) : null}
           </div>
         </div>
@@ -174,14 +195,14 @@ export function PahinaMasthead({
           When there is no eyebrow (the solemn register), render no row at
           all rather than an empty one with a stray decorative rule. */}
       {eyebrow ? (
-        <p className="pahina-eyebrow justify-center">
+        <p {...el('eyebrow')} className="pahina-eyebrow justify-center">
           <span>{eyebrow}</span>
         </p>
       ) : null}
-      {monogramSlot ? <div data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
+      {monogramSlot ? <div {...el('mark')} data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
 
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
-      <h1 data-motion="arrive-names" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
+      <h1 {...el('names')} data-motion="arrive-names" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
         <span className="block">{names.first}</span>
         {names.second ? (
           <>
@@ -197,7 +218,7 @@ export function PahinaMasthead({
 
       {/* The gild date — oversized lining numerals; venue meta beneath. */}
       {dateLabel ? (
-        <p data-motion="arrive-date" className="mt-6 font-pahina text-[clamp(1.6rem,6vw,2.4rem)] font-light tracking-tight text-gild">
+        <p {...el('date')} data-motion="arrive-date" className="mt-6 font-pahina text-[clamp(1.6rem,6vw,2.4rem)] font-light tracking-tight text-gild">
           {dateLabel}
         </p>
       ) : null}

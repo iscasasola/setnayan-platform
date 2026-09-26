@@ -10,6 +10,7 @@ import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sceneLegibilityVars } from '@/lib/scene-legibility';
+import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubElementSceneCss } from '@/lib/element-style';
 
 /**
  * THE CANVAS FRAME — a couple's arrangement, put around one section.
@@ -65,7 +66,30 @@ export function HubCanvasFrame({
 }) {
   if (children === null) return null;
   const canvas = sanitizeHubCanvas(widget.config_json);
-  if (!hasHubCanvas(canvas)) return <>{children}</>;
+  /* 🔤 THE SCENE'S ELEMENTS — its label, heading and words in the couple's own
+     font · colour · size · animation (`lib/element-style.ts`). One hidden
+     `<style>` placed straight AFTER the scene and addressing it with
+     `:has(+ style…)`, so no widget is edited or wrapped and the scene stays its
+     parent's direct child. Absent when nothing was chosen — the markup of an
+     untouched scene is byte-identical. ⛔ Never on the RSVP form. */
+  const elementCss = HUB_ELEMENT_EXCLUDED_WIDGETS.includes(widget.widget_type)
+    ? null
+    : hubElementSceneCss(widget.widget_type, canvas.elements);
+  const elementStyle = elementCss ? (
+    <style hidden data-hub-els={widget.widget_type}>
+      {elementCss}
+    </style>
+  ) : null;
+  if (!hasHubCanvas(canvas)) {
+    return elementStyle ? (
+      <>
+        {children}
+        {elementStyle}
+      </>
+    ) : (
+      <>{children}</>
+    );
+  }
   /* ⛔ A ref whose signing FAILED is not a picture. A deleted object or a
      refused bucket resolves to nothing, and the section must then render as a
      section with no background — never as a styled plate waiting for an image
@@ -106,6 +130,7 @@ export function HubCanvasFrame({
       ? sceneLegibilityVars(INVITE_THEMES[hubTheme ?? 'house'], bg.color)
       : null;
   return (
+    <>
     <div
       className={hubCanvasClass(canvas, painted)}
       style={{ ...hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl), ...legible } as React.CSSProperties}
@@ -146,5 +171,7 @@ export function HubCanvasFrame({
           own spacing is untouched by the background existing. */}
       <div className="hub-canvas-body">{children}</div>
     </div>
+    {elementStyle}
+    </>
   );
 }

@@ -1,6 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import {
+  HUB_ELEMENT_EXCLUDED_WIDGETS,
+  HUB_SCENE_ELEMENT_KEYS,
+  HUB_SCENE_ELEMENT_SELECTOR,
+} from '@/lib/element-style';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -15,7 +20,8 @@ import { useEffect } from 'react';
  * the editor iframe is same-origin by construction):
  *   parent → frame  { source:'setnayan-editor', t:'scrollTo', key }
  *   parent → frame  { source:'setnayan-editor', t:'play',     key }
- *   frame  → parent { source:'setnayan-site',   t:'edit',     key }
+ *   parent → frame  { source:'setnayan-editor', t:'markEl',   key, el }
+ *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el? }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
  *
  * 🧭 `bar` is the stage's Event Bar exactly as the page resolved it for this
@@ -30,6 +36,16 @@ import { useEffect } from 'react';
  * sibling. The entourage and the story already carry their own ids. The
  * legacy row keys (`home`, `details`, `story`, …) still resolve through
  * `SECTION_IDS` for the rows that name them.
+ *
+ * 🔤 ELEMENTS (owner 2026-09-26/27: *"tapping element, changes fonts, color,
+ * size, animation"*). A tap ON a part — the hero's names, a scene's heading —
+ * sends `el` beside `key`, and the Maker opens that element's sheet; a tap on
+ * the scene's empty space sends `key` alone, exactly as before. The hero's
+ * parts carry `data-el` from the server (`PahinaMasthead stampElements`, canvas
+ * only); a scene's label / heading / words are stamped HERE, at mount, by the
+ * one selector list the guest page's style uses (`lib/element-style.ts`) — so
+ * what the couple taps is exactly what guests see restyled, and no widget and
+ * no guest's markup carries a key. ⛔ Never inside the RSVP form.
  */
 
 /** Legacy row keys → the DOM ids the site already renders. */
@@ -93,6 +109,43 @@ export function drawnMakerOrder(doc: Document): string[] {
   return keys;
 }
 
+/**
+ * Stamp `data-el` on a scene's parts — its label, heading and words — by the
+ * one selector list the guest style uses. A part already stamped keeps its key.
+ */
+export function stampSceneElements(section: HTMLElement, key: string): number {
+  if (!key.startsWith('w:')) return 0;
+  if (HUB_ELEMENT_EXCLUDED_WIDGETS.includes(key.slice(2))) return 0;
+  let n = 0;
+  for (const el of HUB_SCENE_ELEMENT_KEYS) {
+    section.querySelectorAll<HTMLElement>(HUB_SCENE_ELEMENT_SELECTOR[el]).forEach((node) => {
+      if (node.hasAttribute('data-el')) return;
+      node.setAttribute('data-el', el);
+      n += 1;
+    });
+  }
+  return n;
+}
+
+/** The part a tap landed on, when it belongs to THIS section (not a nested one). */
+export function tappedElement(target: EventTarget | null, section: HTMLElement): HTMLElement | null {
+  const part = (target as Element | null)?.closest?.('[data-el]') as HTMLElement | null;
+  if (!part || !section.contains(part)) return null;
+  const owner = part.closest('[data-setnayan-editor-bound="1"]');
+  return owner === section ? part : null;
+}
+
+let marked: HTMLElement | null = null;
+/** Outline the element being edited, until another is chosen. */
+function mark(el: HTMLElement | null) {
+  if (marked && marked !== el) marked.style.outline = '';
+  marked = el;
+  if (el) {
+    el.style.outline = '2px solid rgba(168,128,47,.85)';
+    el.style.outlineOffset = '3px';
+  }
+}
+
 function flash(el: HTMLElement) {
   const prior = el.style.boxShadow;
   el.style.boxShadow = '0 0 0 3px rgba(168,128,47,.55)';
@@ -133,7 +186,15 @@ export function EditorBridge() {
         // never follows it anywhere (see maker-canvas-guard.tsx).
         e.preventDefault();
         e.stopPropagation();
-        window.parent?.postMessage({ source: 'setnayan-site', t: 'edit', key }, origin);
+        // 🔤 A tap ON a part edits that part; anywhere else, the scene.
+        const part = tappedElement(e.target, el);
+        mark(part);
+        window.parent?.postMessage(
+          part
+            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el') }
+            : { source: 'setnayan-site', t: 'edit', key },
+          origin,
+        );
       };
       el.addEventListener('click', send);
       cleanups.push(() => {
@@ -144,7 +205,10 @@ export function EditorBridge() {
     };
     document.querySelectorAll('[data-maker-section]').forEach((m) => {
       const el = sectionAfter(m);
-      if (el) bind(el, m.getAttribute('data-maker-section')!);
+      if (!el) return;
+      const key = m.getAttribute('data-maker-section')!;
+      stampSceneElements(el, key);
+      bind(el, key);
     });
     for (const key of ['f:entourage', 'f:story']) {
       const el = findMakerSection(document, key);
@@ -159,10 +223,19 @@ export function EditorBridge() {
     // ── Maker → canvas: scroll to a tile, or play its entrance in place ──────
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== origin) return;
-      const data = event.data as { source?: string; t?: string; key?: string } | null;
+      const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
       const el = findMakerSection(document, data.key);
       if (!el) return;
+      if (data.t === 'markEl') {
+        // The Maker's element sheet is open on this part (after a reload too).
+        const part =
+          typeof data.el === 'string'
+            ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`)
+            : null;
+        mark(part);
+        return;
+      }
       if (data.t === 'scrollTo') {
         el.scrollIntoView({ behavior: 'smooth', block: el.offsetHeight > window.innerHeight * 0.8 ? 'start' : 'center' });
         flash(el);

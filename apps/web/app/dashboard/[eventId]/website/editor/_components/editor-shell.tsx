@@ -26,6 +26,9 @@ import { swapsForDrop, MAKER_FIXED_TOOL, MAKER_FIXED_SOURCE, type MakerFixedKey,
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
+import { ElementSheet, type ElementPalette, type ElementTarget } from './element-sheet';
+import { isHubElementKey } from '@/lib/element-style';
+import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
@@ -187,7 +190,15 @@ export function MakerWork({
   sceneFacts = null,
   madeOnce = null,
   revealStages = ['save_the_date'],
+  elementEditing = null,
 }: {
+  /**
+   * 🔤 PER-ELEMENT EDITING (owner 2026-09-27: *"we want the font color size and
+   * animation"*) — every scene's canvas as the canvas draws it (the draft over
+   * live), by widget type, and the theme's colours for the swatches. A tap ON an
+   * element opens its sheet (`element-sheet.tsx`); null = not offered here.
+   */
+  elementEditing?: { canvases: Record<string, HubSectionCanvas>; palette: ElementPalette } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
   revealStages?: readonly LifecyclePhase[];
@@ -238,6 +249,13 @@ export function MakerWork({
   const stage = maker?.stage ?? 'rsvp';
   const selection = maker?.selection ?? null;
   const select = maker?.select;
+  /* 🔤 The element being edited — a tap ON a part in the canvas. Its own sheet
+     takes the inspector's place; choosing anything in the navigator closes it. */
+  const [elementTarget, setElementTarget] = useState<ElementTarget | null>(null);
+  const elementRef = useRef<ElementTarget | null>(null);
+  elementRef.current = elementTarget;
+  const elementEditingOn = Boolean(elementEditing);
+  useEffect(() => setElementTarget(null), [selection, stage]);
 
   /* The first selection comes from the address (a save lands back here with
      `?scene=` or `?open=`). After that the shell's state owns it. */
@@ -303,8 +321,18 @@ export function MakerWork({
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      const data = event.data as { source?: string; t?: string; key?: string } | null;
+      const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
       if (!data || data.source !== 'setnayan-site' || data.t !== 'edit' || typeof data.key !== 'string') return;
+      /* 🔤 A tap ON an element (the hero's names, a scene's heading) opens that
+         element's sheet; its scene's panel stays as it was. */
+      if (isHubElementKey(data.el) && elementEditingOn) {
+        const widgetType = data.key === 'f:hero' ? 'hero' : data.key.startsWith('w:') ? data.key.slice(2) : null;
+        if (widgetType) {
+          setElementTarget({ key: data.key, widgetType, el: data.el });
+          return;
+        }
+      }
+      setElementTarget(null);
       /* 🧭 A section tapped on the canvas selects its navigator tile. */
       if (data.key.startsWith('w:')) {
         const type = data.key.slice(2);
@@ -326,7 +354,7 @@ export function MakerWork({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [rows, scenes, select]);
+  }, [rows, scenes, select, elementEditingOn]);
 
   /* 🖼 THE TILES' PREVIEWS (owner 2026-09-26: *"the navigator preview must
      really show the preview"*). Each tile shows a static copy of its section
@@ -414,6 +442,14 @@ export function MakerWork({
       if (key) {
         frameRef.current?.contentWindow?.postMessage(
           { source: 'setnayan-editor', t: 'scrollTo', key },
+          window.location.origin,
+        );
+      }
+      // 🔤 The element being edited is outlined again in the fresh canvas.
+      const target = elementRef.current;
+      if (target) {
+        frameRef.current?.contentWindow?.postMessage(
+          { source: 'setnayan-editor', t: 'markEl', key: target.key, el: target.el },
           window.location.origin,
         );
       }
@@ -1182,7 +1218,22 @@ export function MakerWork({
       </section>
 
       {/* ══ 4 · THE INSPECTOR — only when something is selected ══ */}
-      {selection ? (
+      {elementTarget && elementEditing ? (
+        <ElementSheet
+          eventId={eventId}
+          target={elementTarget}
+          canvas={elementEditing.canvases[elementTarget.widgetType] ?? {}}
+          palette={elementEditing.palette}
+          ownsPro={ownsPro}
+          onClose={() => {
+            frameRef.current?.contentWindow?.postMessage(
+              { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null },
+              window.location.origin,
+            );
+            setElementTarget(null);
+          }}
+        />
+      ) : selection ? (
         <Inspector
           selection={selection}
           postEventTile={

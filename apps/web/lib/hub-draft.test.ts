@@ -93,7 +93,14 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     const look = (HUB_LOOK_EVENT_COLUMNS as readonly string[]).includes(c);
     const free = (HUB_FREE_LOOK_EVENT_COLUMNS as readonly string[]).includes(c);
     const word = words.includes(c);
-    const made = ['std_reveal_template', 'monogram_custom_svg', 'monogram_studio_config'].includes(c);
+    // The made-once group — incl. where the reveal plays and its fine-tuning (2026-09-25).
+    const made = [
+      'std_reveal_template',
+      'monogram_custom_svg',
+      'monogram_studio_config',
+      'reveal_stages',
+      'std_reveal_effects',
+    ].includes(c);
     assert.equal([look, free, word, made].filter(Boolean).length, 1, `${c} must be exactly one kind`);
     if (free || word) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
   }

@@ -101,6 +101,7 @@ import {
   type LifecyclePhase,
 } from '@/lib/invitation-widgets';
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
+import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
@@ -659,6 +660,8 @@ export async function SiteBody({
 
   const plan = resolveSiteBodyPlan({
     weddingOnlyParts: weddingOnly,
+    // 🎭 Where the couple has the reveal play (2026-09-25 · lib/reveal-stages.ts).
+    revealStages: event.reveal_stages,
     identity: identity.kind,
     phasesEnabled,
     lifecyclePhase,
@@ -2418,6 +2421,9 @@ export async function SiteBody({
            bought (try then pay) — the canvas and the ▶ preview tab; a guest render
            is never `isEditorCanvas`. */
         hostTrial={isEditorCanvas}
+        /* 🎭 Off the Save the Date the opening belongs to the hero scene — the
+           first page — and is gone after it (owner 2026-09-25). */
+        firstPageOnly={revealOnlyOnTheFirstPage(lifecyclePhase)}
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
         /* ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11). The SECOND half:

@@ -141,7 +141,10 @@ export function MakerRevealPicker({
 
   const replay = () => {
     /* The Reveal's page (the Maker's body) is the stage it plays on: playing it
-       again is loading that page again, in place. */
+       again is loading that page again, in place. That page loads the stage
+       PREVIEW (`?preview=draft`, `makerPageCanvasSrc`), never the editing
+       canvas — the canvas skips the opening by design (owner 2026-09-26:
+       *"that role is for the preview stage"*). */
     const frame = document.querySelector<HTMLIFrameElement>('[data-maker-page="reveal"] iframe');
     try {
       frame?.contentWindow?.location.reload();

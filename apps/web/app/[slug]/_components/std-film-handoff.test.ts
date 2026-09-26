@@ -109,7 +109,10 @@ test('handoff · EVERY save-the-date event mounts the wrapper — no flag gates 
   const SITE = readFileSync(join(HERE, 'site-body.tsx'), 'utf8');
   assert.match(
     SITE,
-    /<StdFilmHandoff film=\{stdFilmView\(\)\}>\{normalBody\(\)\}<\/StdFilmHandoff>/,
+    // Props may follow `film` (the Maker canvas adds its marker and slide mode,
+    // 2026-09-26) — what must hold is that the wrapper takes the film and wraps
+    // the event's own body, with nothing deciding whether it mounts.
+    /<StdFilmHandoff\s+film=\{stdFilmView\(\)\}[^>]*>\s*\{normalBody\(\)\}\s*<\/StdFilmHandoff>/,
     'the save-the-date body no longer mounts the handoff — a guest is walled in again',
   );
   assert.ok(
@@ -122,7 +125,7 @@ test('handoff · EVERY save-the-date event mounts the wrapper — no flag gates 
   );
   // And the body must be the event's OWN body, so no site reshapes: this is why
   // the change does not touch the 2026-07-22 no-backfill verdict.
-  assert.match(SITE, /\{normalBody\(\)\}<\/StdFilmHandoff>/);
+  assert.match(SITE, /\{normalBody\(\)\}\s*<\/StdFilmHandoff>/);
 });
 
 // ── The way out must exist THROUGHOUT the film, not only at its end ──────────

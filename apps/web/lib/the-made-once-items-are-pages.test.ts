@@ -65,6 +65,8 @@ test('the five are the bar’s made-once group, and the pure rule draws each whe
   assert.equal(makerPageCanvasSrc(null, 'hero', 'rsvp'), null);
   // The canvas door is the host-only `?editor=1` one a stage uses.
   assert.equal(makerPageCanvasSrc('/ana-ben', 'hero', 'rsvp'), '/ana-ben?phase=rsvp&editor=1');
+  // …except the Reveal, whose page must play the opening: only the stage preview does.
+  assert.equal(makerPageCanvasSrc('/ana-ben', 'reveal', 'rsvp'), '/ana-ben?phase=save_the_date&preview=draft');
 });
 
 test('no made-once file mounts a dialog, a sheet or a portal', () => {
@@ -161,7 +163,7 @@ test('Hero · Reveal · Logo · Love Story each render as a page in the body, wi
 
   const reveal = await paintWork({ kind: 'tool', key: 'reveal' }, { revealStages: ['rsvp', 'event'] });
   assertIsAPage(reveal, 'reveal');
-  assert.match(reveal, /src="\/ana-ben\?phase=rsvp&amp;editor=1"/, 'the reveal plays on the first chosen stage');
+  assert.match(reveal, /src="\/ana-ben\?phase=rsvp&amp;preview=draft"/, 'the reveal plays on the first chosen stage — in the stage preview, which plays the opening');
   assert.match(reveal, /data-maker-page-switch=""/, 'with two chosen stages the page offers both');
   assert.match(reveal, /data-maker-page-controls=""[\s\S]*data-stub="reveal-controls"/);
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Play } from 'lucide-react';
 import { STD_FILM_EXIT_EVENT } from './save-the-date-film';
+import { StageAutoplay } from './stage-autoplay';
 
 /**
  * The return trip. Dispatched when the visitor asks for the film back, so the
@@ -48,11 +49,25 @@ export const STD_FILM_RETURN_EVENT = 'std:film-return';
 export function StdFilmHandoff({
   film,
   children,
+  marker = null,
+  asSlide = false,
+  autoplay = false,
 }: {
   /** The full-screen film. Rendered until the visitor asks to leave it. */
   film: React.ReactNode;
   /** The browsable site, which was always beneath it. */
   children: React.ReactNode;
+  /** 🧭 The Maker canvas's hidden handle for the film — stamped IMMEDIATELY
+   *  before the film so the navigator's film tile finds the film, not the page
+   *  column. Null everywhere but the canvas. */
+  marker?: React.ReactNode;
+  /** 🖼 The Maker's canvas: the film is the stage's FIRST SLIDE, in the page's
+   *  flow above the rest — no takeover, no way out to offer, nothing to hand
+   *  over. The whole-stage experience is "Preview the whole stage". */
+  asSlide?: boolean;
+  /** 🎬 AUTO — when the film reaches its close, the stage carries on to the next
+   *  scenes in their order (`lib/stage-autoplay.ts`). Guests and the preview tab. */
+  autoplay?: boolean;
 }) {
   const [showFilm, setShowFilm] = useState(true);
 
@@ -62,8 +77,19 @@ export function StdFilmHandoff({
     return () => window.removeEventListener(STD_FILM_EXIT_EVENT, onExit);
   }, []);
 
+  if (asSlide) {
+    return (
+      <>
+        {marker}
+        {film}
+        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
+      </>
+    );
+  }
+
   return (
     <>
+      {autoplay ? <StageAutoplay /> : null}
       {/* The site is always in the tree. Only its visibility changes, so
           leaving the film costs no fetch and returning costs no re-render of
           the page beneath.
@@ -88,7 +114,10 @@ export function StdFilmHandoff({
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
 
       {showFilm ? (
-        film
+        <>
+          {marker}
+          {film}
+        </>
       ) : (
         // The way back. Quiet on purpose — the film has already played, and a
         // loud control here would compete with the couple's own page.

@@ -88,5 +88,9 @@ export function makerPageCanvasSrc(
   const phase = makerPageStage(key, stage, opts);
   if (!publicLandingUrl || !phase) return null;
   const anchor = key === 'love-story' ? '#site-story' : '';
+  // 🎬 The Reveal's page must PLAY the opening, and only the stage preview
+  // (`?preview=draft`) does — the editing canvas (`?editor=1`) skips it by
+  // design (owner 2026-09-26: *"that role is for the preview stage"*).
+  if (key === 'reveal') return `${publicLandingUrl}?phase=${phase}&preview=draft`;
   return `${publicLandingUrl}?phase=${phase}&editor=1${anchor}`;
 }

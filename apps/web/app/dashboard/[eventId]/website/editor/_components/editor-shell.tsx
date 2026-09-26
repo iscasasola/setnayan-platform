@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUpRight, Eye, EyeOff, Lock, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
+import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -25,6 +25,10 @@ import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-gua
 import { swapsForDrop, type MakerFixedKey, type MakerStageList } from '@/lib/maker-scene-list';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
+import { ScenePreview } from './scene-preview';
+import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
+import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
+import { navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
 import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -155,7 +159,7 @@ const TOOL_ROWS: Record<string, string[]> = {
 // other Main control sits on (Maker Phase 10). Absent in the store shell.
 const MAIN_ROWS = ['main-background', 'colors', 'music', 'backdrop'];
 
-/** The canvas's "Guest bars" switch, remembered for this browser session. */
+/** The canvas's "Event Bar" switch (was "Guest bars"), remembered for this browser session. */
 const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';
 const MORE_ROWS = ['go-live', 'visibility', 'launch-phase', 'open-browse'];
 
@@ -256,7 +260,7 @@ export function MakerWork({
 
   /* ── the preview ─────────────────────────────────────────────────────── */
   /* 🖼 The canvas is ONLY the page (`isEditorCanvas` on the guest page). The
-     "Guest bars" switch at its lower right puts the GUEST header and tab bar
+     "Event Bar" switch at its lower right puts the GUEST header and tab bar
      back (`&bars=1`) so the couple can check nothing sits under them — never
      the host's own chrome. Owner 2026-09-25: *"add a switch to show or hide"*. */
   const [guestBars, setGuestBars] = useState(false);
@@ -323,6 +327,122 @@ export function MakerWork({
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [rows, scenes, select]);
+
+  /* 🖼 THE TILES' PREVIEWS (owner 2026-09-26: *"the navigator preview must
+     really show the preview"*). Each tile shows a static copy of its section
+     out of this canvas (`lib/maker-tile-preview.ts`). They are re-taken
+     whenever the canvas is new — it announces itself with `ready` after an
+     edit, an Apply, a stage change or View as — and whenever it changes width
+     (Desktop ⇄ Phone, a resized window). One pass reads every shown section
+     once; `performance.measure('maker-tile-snapshots')` records its cost. */
+  const [tileHead, setTileHead] = useState<TileHead | null>(null);
+  const [tileSnaps, setTileSnaps] = useState<Record<string, TileSnapshot>>({});
+  const [navList, setNavList] = useState<HTMLOListElement | null>(null);
+  /** [tile key, the canvas marker its section sits behind], per shown tile. */
+  const tileKeysRef = useRef<ReadonlyArray<readonly [string, string]>>([]);
+  const snapTimer = useRef<number | null>(null);
+  const takeSnapshots = useCallback(() => {
+    const doc = canvasDocument(frameRef.current);
+    if (!doc) return;
+    const t0 = performance.now();
+    const head = readTileHead(doc);
+    const next: Record<string, TileSnapshot> = {};
+    for (const [key, marker] of tileKeysRef.current) {
+      const snap = snapshotSection(doc, marker);
+      if (snap) next[key] = snap;
+    }
+    try {
+      performance.measure('maker-tile-snapshots', { start: t0, end: performance.now() });
+    } catch {
+      /* an older browser without measure options — the pass still ran */
+    }
+    setTileHead((prev) =>
+      prev && prev.styles.join('') === head.styles.join('') &&
+      JSON.stringify([prev.htmlAttrs, prev.bodyAttrs]) === JSON.stringify([head.htmlAttrs, head.bodyAttrs])
+        ? prev
+        : head,
+    );
+    // Keep the SAME object for a section that did not change, so its tile keeps
+    // its document instead of reloading it.
+    setTileSnaps((prev) => {
+      const merged: Record<string, TileSnapshot> = {};
+      let changed = Object.keys(prev).length !== Object.keys(next).length;
+      for (const [k, v] of Object.entries(next)) {
+        const old = prev[k];
+        const same =
+          old && old.section === v.section && old.frameWidth === v.frameWidth &&
+          JSON.stringify(old.chain) === JSON.stringify(v.chain);
+        merged[k] = same ? old : v;
+        if (!same) changed = true;
+      }
+      return changed ? merged : prev;
+    });
+  }, []);
+  const scheduleSnapshots = useCallback(
+    (ms: number) => {
+      if (snapTimer.current) window.clearTimeout(snapTimer.current);
+      snapTimer.current = window.setTimeout(() => {
+        snapTimer.current = null;
+        takeSnapshots();
+      }, ms);
+    },
+    [takeSnapshots],
+  );
+  useEffect(() => () => {
+    if (snapTimer.current) window.clearTimeout(snapTimer.current);
+  }, []);
+
+  /* A canvas that is READY: re-take the previews, and bring the scene being
+     edited back into view — a reload (the Event Bar switch among them) must
+     not drop the couple back at the top of the page. */
+  const selectedKeyRef = useRef<string | null>(null);
+  /* 🧭 THE NAVIGATOR'S TABS ARE THE STAGE'S EVENT BAR (owner 2026-09-26, on the
+     old "Main" tile: *"this depends on what menu they are looking at."*). The
+     canvas hands over the bar it drew (`data-maker-bar`), and choosing a tab
+     lists that tab's scenes in page order (`lib/maker-navigator-tabs.ts`). */
+  const [canvasBar, setCanvasBar] = useState<NavigatorBarItem[] | null>(null);
+  const [tabKey, setTabKey] = useState<string | null>(null);
+  useEffect(() => {
+    const onReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { source?: string; t?: string; bar?: unknown } | null;
+      if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
+      scheduleSnapshots(700);
+      // 🧭 The stage's Event Bar, as this canvas drew it — the navigator's tabs.
+      setCanvasBar(parseNavigatorBar(data.bar));
+      const key = selectedKeyRef.current;
+      if (key) {
+        frameRef.current?.contentWindow?.postMessage(
+          { source: 'setnayan-editor', t: 'scrollTo', key },
+          window.location.origin,
+        );
+      }
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [scheduleSnapshots]);
+
+  /* A new stage has its own bar: forget the tab until its canvas says. */
+  useEffect(() => {
+    setCanvasBar(null);
+    setTabKey(null);
+  }, [stage]);
+
+  /* Desktop ⇄ Phone and window resizes change the canvas's width. */
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let first = true;
+    const ro = new ResizeObserver(() => {
+      if (first) {
+        first = false;
+        return;
+      }
+      scheduleSnapshots(450);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scheduleSnapshots, stage, maker?.renderStamp, maker?.viewAsHref]);
 
   /* ▶ "Play this scene" (the toolbar's ▶ menu) — played IN PLACE in the
      canvas: the bridge replays the selected section's entrance where it sits. */
@@ -455,6 +575,27 @@ export function MakerWork({
      follows it (a hidden or off-stage one), or the end. */
   const lastShown = shownSceneIds[shownSceneIds.length - 1];
   const afterLastShown = lastShown ? (fullOrder[fullOrder.indexOf(lastShown) + 1] ?? null) : null;
+  /* Each tile's canvas marker: its own key, or a Post Event scene's anchor. */
+  const markerOf = (t: (typeof list.shown)[number]): string | null => (t.kind === 'post-event' ? t.anchor : t.key);
+  tileKeysRef.current = list.shown.flatMap((t) => {
+    const marker = markerOf(t);
+    return marker ? [[t.key, marker] as const] : [];
+  });
+  const selectedTile = list.shown.find((t) =>
+    t.kind === 'scene'
+      ? selectedScene?.id === t.widgetId
+      : t.kind === 'post-event'
+        ? selection?.kind === 'post-event' && selection.scene === t.scene
+        : selection?.kind === 'tool' && selection.key === FIXED_TOOL[t.fixed],
+  );
+  selectedKeyRef.current = selectedTile ? markerOf(selectedTile) : null;
+  const tabs = canvasBar ? navigatorTabs(canvasBar, list.shown.map((t) => t.key)) : null;
+  const activeTab = tabs ? (tabs.find((t) => t.key === tabKey) ?? tabs.find((t) => !t.leaves) ?? null) : null;
+  const selectedTabKey = tabs && selectedTile ? (tabOfTile(tabs, selectedTile.key)?.key ?? null) : null;
+  /* A scene picked on the canvas may sit under another tab — follow it there. */
+  useEffect(() => {
+    if (selectedTabKey) setTabKey(selectedTabKey);
+  }, [selectedTabKey]);
 
   if (!maker) {
     return (
@@ -583,20 +724,58 @@ export function MakerWork({
           navOpen ? '' : 'lg:hidden'
         }`}
       >
-        <ol className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4">
-          <li className="shrink-0 lg:mb-3">
-            <button
-              type="button"
-              onClick={() => select?.({ kind: 'main' })}
-              aria-pressed={selection?.kind === 'main'}
-              className={`sn-press flex h-full min-h-11 w-24 items-center gap-2 rounded-md px-2 text-left text-[12px] font-semibold transition-colors duration-sn-control ease-sn lg:w-full ${
-                selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-              }`}
-            >
-              <span aria-hidden className="h-6 w-6 shrink-0 rounded-md bg-gradient-to-br from-cream-200 to-terracotta/30" />
-              Main
-            </button>
+        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4">
+          {/* 🧭 THE STAGE'S MENU — the tabs a guest sees on this stage, never a
+              generic "Main". Each lists its own scenes; a tab that opens a page of
+              its own (Camera, Join, Watch) says so. The look behind every scene
+              (theme, colours, music, backdrop) is the palette button. */}
+          <li className="shrink-0 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
+            <div role="tablist" aria-label="This stage's menu" className="flex items-center gap-1 lg:flex-wrap">
+              {tabs
+                ? tabs.map((t) => {
+                    const on = activeTab?.key === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={on}
+                        data-maker-tab={t.key}
+                        onClick={() => {
+                          setTabKey(t.key);
+                          if (!t.leaves) scrollPreviewTo(t.key);
+                        }}
+                        className={`sn-press inline-flex min-h-11 items-center rounded-full px-3 text-[12px] font-semibold transition-colors duration-sn-control ease-sn ${
+                          on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })
+                : null}
+              <button
+                type="button"
+                onClick={() => select?.({ kind: 'main' })}
+                aria-pressed={selection?.kind === 'main'}
+                aria-label="Theme, colours and music — behind every scene"
+                title="Theme, colours and music — behind every scene"
+                className={`sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
+                  selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
+                }`}
+              >
+                <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </div>
           </li>
+          {activeTab?.leaves ? (
+            <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
+              <InfoTip label={`${activeTab.label} opens its own page`} align="start">
+                On this stage, “{activeTab.label}” takes a guest to a page of its own, so there are no scenes to arrange
+                here. Pick another tab to see its scenes.
+              </InfoTip>
+            </li>
+          ) : null}
           {/* 📖 POST EVENT (Phase 8): when the story was written — or, said
               plainly, that its scenes could not be read (the story itself is
               untouched; the one tile stands in for it). */}
@@ -622,6 +801,7 @@ export function MakerWork({
               draws it (`lib/maker-scene-list.ts`, asked of the page's own
               plan). Fixed sections are locked; the rest drag. */}
           {list.shown.map((tile, i) => {
+            if (activeTab && !activeTab.tiles.includes(tile.key)) return null;
             const scene = tile.kind === 'scene' ? (sceneById.get(tile.widgetId) ?? null) : null;
             const on =
               tile.kind === 'scene'
@@ -680,9 +860,27 @@ export function MakerWork({
                         Desktop, a tall phone on Phone — and the eye sits on it. */}
                     <div
                       className={`relative ${
-                        device === 'phone' ? 'aspect-[9/19.5] w-14 lg:w-[46%]' : 'aspect-[16/10] w-24 lg:w-full'
+                        device === 'phone' ? 'aspect-[9/19.5] w-16 lg:w-[46%]' : 'aspect-[16/10] w-28 lg:w-full'
                       }`}
                     >
+                    {/* 🖼 WHAT THE TILE SHOWS — the section as the canvas drew it
+                        (`ScenePreview`), over its words-only card, which stays
+                        underneath as the stand-in until the copy has drawn (or
+                        for a section the canvas does not draw). */}
+                    <span
+                      aria-hidden
+                      className={`absolute inset-0 block overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] transition-opacity duration-sn-control ease-sn ${
+                        showing ? '' : 'opacity-50'
+                      }`}
+                    >
+                      <SceneMiniature mini={minis[tile.key]} fallback={tile.label} tint={tint} device={device} />
+                      <ScenePreview
+                        head={tileHead}
+                        snapshot={tileSnaps[tile.key] ?? null}
+                        device={device}
+                        observeRoot={navList}
+                      />
+                    </span>
                     <button
                       type="button"
                       data-maker-scene={tile.kind === 'scene' ? tile.type : undefined}
@@ -712,11 +910,8 @@ export function MakerWork({
                         e.currentTarget.addEventListener('pointerup', clear, { once: true });
                         e.currentTarget.addEventListener('pointerleave', clear, { once: true });
                       }}
-                      className={`sn-press absolute inset-0 block h-full w-full overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_12px_28px_-18px_rgba(30,26,18,.45)] outline outline-2 outline-offset-2 transition-[outline-color,opacity] duration-sn-control ease-sn ${canDrag ? 'cursor-grab' : 'cursor-pointer'} ${on ? 'outline-terracotta' : 'outline-transparent'} ${
-                        showing ? '' : 'opacity-50'
-                      }`}
+                      className={`sn-press absolute inset-0 block h-full w-full rounded-md bg-transparent outline outline-2 outline-offset-2 transition-[outline-color] duration-sn-control ease-sn ${canDrag ? 'cursor-grab' : 'cursor-pointer'} ${on ? 'outline-terracotta' : 'outline-transparent'}`}
                     >
-                      <SceneMiniature mini={minis[tile.key]} fallback={tile.label} tint={tint} device={device} />
                       {tile.kind === 'fixed' || (tile.kind === 'post-event' && tile.pinned) ? (
                         <span className="absolute left-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm">
                           <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -933,7 +1128,9 @@ export function MakerWork({
             Set your Event Hub address (⋯ in the toolbar) to see your page here.
           </p>
         )}
-        {/* 🖼 "Guest bars" — the lower right of the canvas, BELOW the page and
+        {/* 🖼 "Event Bar" (owner 2026-09-26: *"rename it to Event Bar"*) — the
+            stage's OWN guest header and tab bar over the slide in view. The lower
+            right of the canvas, BELOW the page and
             never over it. */}
         {publicLandingUrl ? (
           <div className="flex w-full shrink-0 items-center justify-end gap-1 pt-1.5">
@@ -941,7 +1138,7 @@ export function MakerWork({
               type="button"
               role="switch"
               aria-checked={guestBars}
-              aria-label="Guest bars"
+              aria-label="Event Bar"
               data-maker-guest-bars={guestBars ? 'on' : 'off'}
               onClick={toggleGuestBars}
               className={`sn-press inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
@@ -950,8 +1147,8 @@ export function MakerWork({
             >
               <PanelsTopLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </button>
-            <InfoTip label="Guest bars" align="end" labelClassName="text-[12px] font-semibold text-ink/70">
-              See where the top and bottom bars sit for guests.
+            <InfoTip label="Event Bar" align="end" labelClassName="text-[12px] font-semibold text-ink/70">
+              See this stage&rsquo;s own top and bottom bars, as guests see them, over the slide you are editing.
             </InfoTip>
           </div>
         ) : null}

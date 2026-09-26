@@ -213,39 +213,45 @@ const softwareAppJsonLd = {
   description:
     "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Alaala) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified vendor bookings.",
   featureList: [
-    // 2026-06-13 reprice scrub (Pricing.md § 00.D): RSVP is a paid SKU —
-    // the "Free" prefix stays only on tools the ₱0 tier actually includes.
-    'Guest list & RSVP management (guest list free with every account)',
-    'Seating chart editor (free)',
-    'Budget tracker with payment-deadline calendar export (free)',
+    // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
+    // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
+    // (lib/entitlements.ts) + the /pricing free list. The 2026-06-13 note that
+    // "RSVP is a paid SKU" is retired: RSVP collection is unlimited and free on
+    // the Event Hub, and a QR per guest is `CUSTOM_QR_GUEST` — free. 3D Plan is
+    // free since 2026-09-05. "No guest limit" is measured: nothing in the guest
+    // code caps a list — and it is the one claim the Philippine rivals cannot
+    // make (their free tiers stop at 30–50 guests).
+    // ⚠ NO ROLE COUNT BEYOND "MORE THAN 30" — `GuestRole` has 35 values today.
+    // ⚠ PATIKTOK IS DELIBERATELY ABSENT until the owner settles booth vs reel.
+    'Guest list with no guest limit and more than 30 Filipino ceremony roles — principal sponsors (ninong and ninang), candle, veil, cord and coin sponsors, bearers, the wedding party, and Nikah roles (free)',
+    'RSVP with a personal QR code for every guest and a real-time headcount (free)',
+    'Seat plan editor, and 3D Plan — walk your reception in 3D before the day, built from your seat plan (both free)',
+    'Budget tracker in Philippine pesos with payment-deadline calendar export (free)',
+    'Day-of schedule built block by block (free)',
     'Pakulay mood board (free)',
-    'Personal Event Hub with branded QR invitations',
-    // ⚠ "credits", NOT the retired currency word — owner ruling 2026-08-29
-    // (commit 32df56e81). ONLY the currency meaning moved; a photograph is still
-    // "a shot" and the vendor's shot list is untouched. A top-up is something you
-    // BUY, so it is the currency meaning, and the production catalogue's own
-    // titles read "add 100 credits". Guarded by
-    // lib/public-copy-is-not-wedding-only.test.ts.
+    'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
     'Live Studio — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified vendors (paid add-on)',
     'Pakanta — a custom Filipino-style song produced for the couple (paid add-on)',
-    'Animated Monogram — a bespoke monogram + animation across invites, website, and signage (paid add-on)',
+    'Animated Monogram — a bespoke monogram + animation across invites, the Event Hub, and signage (paid add-on)',
+    'Samahan — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',
     'Alaala living memory — every photo, video, and milestone from the day gathered into one place the host keeps',
     // ⚠ NO COUNT, DELIBERATELY. "as those event types unlock" was false when
     // this line was fixed — every row in `event_type_vocab` is already enabled —
     // and a literal "seventeen" would go false the day the eighteenth ships,
     // silently, in a machine-readable field. Named examples plus "and more"
     // stays true in both directions.
-    'The same planning, capture, and memory tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more — and your event becomes its own recurring anniversary with a yearly reminder',
-    'Verified Filipino event vendor marketplace with 0% commission on every booking',
+    'The same planning, capture, and memory tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes, and more — and your event becomes its own recurring anniversary with a yearly reminder',
+    // Couple-facing: the zero is unqualified here (owner 2026-09-22).
+    'Verified Filipino event supplier marketplace — every supplier passes a business-legitimacy check and a video call with a Setnayan admin; couples pay 0% commission and pay suppliers directly',
   ],
   offers: {
     '@type': 'Offer',
     price: '0',
     priceCurrency: 'PHP',
     description:
-      'Free baseline planning tools for couples; premium services priced individually in PHP.',
+      'Free planning workspace with no guest limit and no card required; optional upgrades priced individually in PHP.',
   },
 };
 

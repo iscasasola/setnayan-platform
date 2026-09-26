@@ -120,13 +120,13 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     cannot fall out of step at all. This file's own header says it: "A BASELINE
     IS A BILL, NOT A DECISION", and four entries were already retired for
     exactly this reason.
+
+    ─── AND THE FOURTH, 2026-09-26 ───────────────────────────────────────────
+    `app/vendors/page.tsx` declared it too, for metadata that still promised
+    "0% commission while we launch — then 5% + 1% beyond ₱100,000". That copy
+    now renders `supplierCommissionShort()` / `supplierCommissionPromise()`, so
+    the figure is derived there as well and the declaration is retired.
   */
-  {
-    file: 'app/vendors/page.tsx',
-    literal: '₱100,000',
-    sku: null,
-    reason: 'Same commission-tapering threshold.',
-  },
   {
     file: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
     literal: '₱30,000',

@@ -41,7 +41,10 @@ export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
   },
   rsvp: {
     label: PUBLIC_STAGE_LABELS.rsvp,
-    slots: ['home', 'details', 'story', 'camera', 'me'],
+    // Owner 2026-09-26/27: the Invitation bar is Home · Details · RSVP · Story
+    // · Me — the camera returns on The Day. A stranger's bar is cut further by
+    // the resolver's own rules (Home · Details · Story).
+    slots: ['home', 'details', 'rsvp', 'story', 'me'],
   },
   event: {
     label: PUBLIC_STAGE_LABELS.event,

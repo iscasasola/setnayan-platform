@@ -29,7 +29,14 @@ import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSessionForEvent, sendKeepLinkOnce } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
-import { TERMS_FIELD, hasAgreedToTerms } from '@/lib/terms-agreement';
+import {
+  RSVP_TERMS_COOKIE,
+  TERMS_FIELD,
+  hasAgreedToTerms,
+  rsvpTermsCarried,
+} from '@/lib/terms-agreement';
+import { KEEP_EMAIL_SHAPE } from '@/lib/guest-one-path';
+import { cookies } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
@@ -112,6 +119,11 @@ async function eventHome(eventId: string): Promise<string> {
  */
 export async function claimAccountAction(eventId: string, _slug: string, formData: FormData) {
   const home = await eventHome(eventId);
+  // "Save to my account" on the RSVP thank-you and the Me tab (owner 2026-09-27)
+  // comes back to the screen it was pressed on — a KEYWORD, the address built
+  // from the slug the database returned, never from the form.
+  const fromThankYou = isInviteReturn(formData.get('return_to')) && home !== '/';
+  const back = fromThankYou ? inviteEnterPath(home.slice(1)) : home;
   const session = await readGuestSessionForEvent(eventId);
   if (!session) return redirect(home);
   const { data: seat } = await createAdminClient()
@@ -121,14 +133,27 @@ export async function claimAccountAction(eventId: string, _slug: string, formDat
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .maybeSingle();
-  const email = ((seat?.email as string | null) ?? '').trim();
-  if (!email) return redirect(`${home}#your-details`);
+  let email = ((seat?.email as string | null) ?? '').trim();
+  // The thank-you's ONE box, shown only when the reply held no address — the
+  // email is still asked once. `sendEventAccountMagicLink` stamps it onto the
+  // seat only where the seat had none.
+  if (!email) {
+    const typed = clean(formData.get('keep_email'));
+    if (KEEP_EMAIL_SHAPE.test(typed)) email = typed;
+  }
+  if (!email) return redirect(fromThankYou ? `${back}?keep=email` : `${home}#your-details`);
+  // 🔒 The agreement is the tick on THIS form, or the one this guest gave on
+  // the RSVP page a screen earlier (the server-set cookie, never a hidden field).
+  const jar = await cookies();
   const sent = await sendKeepLinkOnce({
     eventId,
     guestId: session.guest_id,
     email,
-    termsAgreed: hasAgreedToTerms(formData.get(TERMS_FIELD)),
+    termsAgreed:
+      hasAgreedToTerms(formData.get(TERMS_FIELD)) ||
+      rsvpTermsCarried(jar.get(RSVP_TERMS_COOKIE)?.value),
   });
+  if (fromThankYou) return redirect(`${back}?keep=${sent ? 'sent' : 'error'}`);
   return redirect(sent ? home : `${home}?keep=error`);
 }
 

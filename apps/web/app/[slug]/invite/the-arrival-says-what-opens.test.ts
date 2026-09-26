@@ -78,60 +78,45 @@ const REPLY = read('[slug]/invite/reply/page.tsx');
 const ENTER = read('[slug]/invite/enter/page.tsx');
 const WIDGET = read('[slug]/_components/rsvp-widget.tsx');
 
-// ═══ 1 · the sign-in line is true for somebody with NO account ═════════════
+// ═══ 1 · the sign-in is ONE button, on the thank-you, chosen by the device ═══
+//
+// 🔄 MOVED 2026-09-27 (owner, "THE GUEST PATHWAY — ONE BUTTON AT A TIME"). The
+// Google / Apple row used to sit at the top of this Reply door with two
+// sentences under it. The owner's ruling: the RSVP page has ONE button (Send);
+// "Save to my account" is the NEXT screen's one button, and the method is
+// chosen by the device, never shown as a choice. So the guards that held those
+// sentences now hold the rule that replaced them — and the promises they kept
+// honest (the account is MADE in a tap; it keeps the photos; it reaches the
+// event from any phone) move with the button.
 
-test('the provider block no longer tells an accountless guest it "fills this in for you"', () => {
-  const block = between(
-    REPLY,
-    'ANY_OAUTH_ENABLED ? (',
-    '<OAuthButtonRow',
-    'the provider block on the Reply door',
-  );
-  assert.doesNotMatch(
-    flat(block),
-    /Fills this in for you, and becomes how you sign in later\./,
-    'the old line is back: it reads as though the guest already has an account, which is exactly what the owner caught',
-  );
-  assert.match(
-    flat(block),
-    /No Setnayan account yet\?/,
-    'the block no longer opens by telling a guest with no account that they are catered for',
-  );
-  assert.match(
-    flat(block),
-    /makes one in a tap/,
-    'the block no longer says that continuing MAKES the account — the whole correction',
-  );
+const SAVE = read('[slug]/_components/save-to-account.tsx');
+
+test('the Reply door no longer offers a sign-in choice — its one button is Send', () => {
+  assert.doesNotMatch(REPLY, /<OAuthButtonRow\b/, 'the provider row is back on the RSVP page — a second decision on a one-button screen');
+  assert.doesNotMatch(REPLY, /signInWith(Google|Apple)/, 'a provider button is back on the RSVP page');
+  assert.match(REPLY, /termsOnSend\b/, 'the RSVP page no longer carries the Terms tick on its Send step');
 });
 
 test('the promise it does make is one the provider flow keeps', () => {
-  // A provider sign-in returns through the connect route, and the page reads the
-  // account's own saved details as defaults. Both halves must still be wired, or
-  // "fills your name and email in below" becomes the next false sentence.
-  assert.match(REPLY, /OAuthButtonRow next=\{connectPath\}/, 'the provider buttons no longer return through connect');
+  // Both providers return through the connect route, which binds the seat; the
+  // RSVP page still reads the account's own details as defaults.
+  assert.match(SAVE, /name="next" value=\{connect\}/, 'the Save button no longer returns through connect');
+  assert.match(SAVE, /const connect = `\/join\/\$\{eventId\}\/connect`;/, 'the Save button no longer returns to THIS event');
   assert.match(
     REPLY,
     /\.select\('meal_preference, dietary_restrictions, email, phone, display_name'\)/,
     'the door no longer reads the account details it promises to fill in',
   );
   assert.match(REPLY, /profileDetails=\{profileDetails\}/, 'the read no longer reaches the card');
+  // The thank-you mounts the button, and the device — not the guest — picks.
+  assert.match(ENTER, /<SaveToAccount\b/, 'the thank-you no longer offers Save to my account');
+  assert.match(SAVE, /saveMethodFor\(userAgent, providers\)/, 'the method is no longer chosen by the device');
 });
 
-// ═══ 3 · signing in keeps the photos — said, and true ══════════════════════
+// ═══ 3 · saving keeps the photos — said, and true ══════════════════════════
 
-test('the photos reason is given, at the provider block and not merely somewhere in the file', () => {
-  const block = between(
-    REPLY,
-    'ANY_OAUTH_ENABLED ? (',
-    '<OAuthButtonRow',
-    'the provider block on the Reply door',
-  );
-  assert.match(flat(block), /It also keeps the photos of you/, 'the reason the owner asked for is not on the door');
-  assert.match(
-    flat(block),
-    /this page shows each guest the photos they are in/,
-    'the photos sentence no longer names the surface that actually ships',
-  );
+test('the photos reason is given at the Save button, and not merely somewhere in the file', () => {
+  assert.match(flat(SAVE), /Keeps the photos of you/, 'the reason the owner asked for is not beside the Save button');
 });
 
 test('the photos sentence does not outrun the feature', () => {
@@ -143,15 +128,12 @@ test('the photos sentence does not outrun the feature', () => {
   assert.match(
     readWeb('app/[slug]/page.tsx'),
     /findGuestSeatForUser\(/,
-    'the account-to-seat path is gone — "reach this wedding again from any phone" would stop being true',
+    'the account-to-seat path is gone — "open this invitation on any phone" would stop being true',
   );
-  // And nothing wider is promised. A cross-event photo "collection" was NOT
-  // found in the tree, so the door must not describe one.
-  const block = between(REPLY, 'ANY_OAUTH_ENABLED ? (', '<OAuthButtonRow', 'the provider block');
   assert.doesNotMatch(
-    flat(block),
+    flat(SAVE),
     /collection|all your events|every event/i,
-    'the door is promising a cross-event photo collection, which was never verified to exist',
+    'the Save button is promising a cross-event photo collection, which was never verified to exist',
   );
 });
 

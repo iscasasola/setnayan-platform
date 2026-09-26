@@ -139,7 +139,10 @@ test('the owner ruling it nearly broke still holds', async () => {
   // Belt and braces: the ruling lives in site-nav.test.ts, but this file is
   // where the temptation to break it appears, so it is asserted here too.
   const { resolveSiteNav } = await import('./site-nav');
-  for (const kind of ['public', 'guest'] as const) {
+  // ⚖ A GUEST'S camera follows the host's switch. Since 2026-09-27 a STRANGER
+  // has no camera tab at all — the camera is inside content, behind a key
+  // (owner: "TWO LEVELS OF ACCESS"); that half is pinned in site-nav.test.ts.
+  for (const kind of ['guest'] as const) {
     const nav = resolveSiteNav({
       viewer: { kind },
       phase: 'day',

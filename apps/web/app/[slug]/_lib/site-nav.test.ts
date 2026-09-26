@@ -69,9 +69,13 @@ test('nav · the bar never exceeds five slots, for anyone, in any phase', () => 
               s.length <= 5,
               `${viewer.kind}/${phase} produced ${s.length} slots — the bar holds five`,
             );
-            // Home and Me bracket every bar, always.
+            // Home opens every bar; Me closes every bar that has a Me — which
+            // since 2026-09-27 is everyone WITH a key. A stranger's bar is
+            // Home · Details · Story (owner: "a stranger on the general link
+            // sees only Home · Details · Story — no locked RSVP/Me tabs").
             assert.equal(s[0]?.key, 'home');
-            assert.equal(s[s.length - 1]?.key, 'me');
+            if (viewer.kind === 'public') assert.ok(!keys(s).includes('me'), 'a stranger was given a Me/Join tab');
+            else assert.equal(s[s.length - 1]?.key, 'me');
             // A locked slot must always say why.
             for (const slot of s) {
               if (slot.state === 'locked') assert.ok(slot.lockedReason, `${slot.key} locked with no reason`);
@@ -88,8 +92,11 @@ test('nav · RULING: the couple always have their Papic — no switch, no phase 
     }
 });
 
-test('nav · RULING: for everyone else the HOST’S SWITCH is the gate — and a closed camera is LOCKED, never absent', () => {
-  for (const kind of ['public', 'guest'] as const) {
+test('nav · RULING: for a GUEST the HOST’S SWITCH is the gate — and a closed camera is LOCKED, never absent', () => {
+  // ⚖ 2026-09-27 the owner moved the STRANGER out of this ruling ("TWO LEVELS
+  // OF ACCESS": the camera is inside content, a stranger gets no camera tab at
+  // all — see the stranger test below). For a guest holding their key, unchanged.
+  for (const kind of ['guest'] as const) {
     const open = cam(at({ viewer: { kind }, hostAllowsCamera: true }));
     assert.equal(open?.state, 'live');
 
@@ -201,21 +208,41 @@ test('no Details tab when the page has no details section', () => {
   assert.ok(withIt.some((s) => s.key === 'details'), 'Details vanished when it should render');
 });
 
-test("a stranger's Join LEAVES for the invite page, and locks if it cannot", () => {
-  // `ANCHOR.me` is an in-page anchor. For a visitor with no invite that section
-  // is an empty aria-hidden div, so Join did nothing — while /[slug]/invite,
-  // which actually adds them, was linked from nowhere.
-  const withDest = at({
-    viewer: { kind: 'public' },
-    destinations: { join: '/maria-and-jose/invite' },
-  } as Partial<NavInput>);
-  const join = withDest.find((s) => s.key === 'me');
-  assert.equal(join?.label, 'Join');
-  assert.equal(join?.href, '/maria-and-jose/invite', 'Join still points at a dead in-page anchor');
+test('a stranger has NO camera and NO Me/Join tab — "Get inside" is the one way in (owner 2026-09-26/27)', () => {
+  // Owner, verbatim 2026-09-26: *"so if just the event link will be generic and
+  // no access to the announcements, and other info"* — and 2026-09-27: *"a
+  // stranger on the general link sees only Home · Details · Story — no locked
+  // RSVP/Me tabs; 'Get inside' is the one way in"*. The Join tab this test used
+  // to pin became the page's own one button (`get-inside.tsx`).
+  for (const phase of ['before', 'day', 'after'] as const)
+    for (const hostAllowsCamera of [true, false]) {
+      const s = at({
+        viewer: { kind: 'public' },
+        phase,
+        hostAllowsCamera,
+        destinations: { join: '/maria-and-jose/invite', camera: '/papic/guest', rsvp: '/x/invite/reply' },
+      } as Partial<NavInput>);
+      assert.ok(!keys(s).includes('camera'), `a stranger got a camera tab (${phase})`);
+      assert.ok(!keys(s).includes('me'), `a stranger got a Me/Join tab (${phase})`);
+      assert.ok(!keys(s).includes('rsvp'), `a stranger got an RSVP tab (${phase})`);
+    }
+  const before = at({ viewer: { kind: 'public' }, phase: 'before', hasStory: true } as Partial<NavInput>);
+  assert.deepEqual(keys(before), ['home', 'details', 'story'], 'the stranger bar is Home · Details · Story');
+});
 
-  const noDest = at({ viewer: { kind: 'public' }, destinations: {} } as Partial<NavInput>);
-  const locked = noDest.find((s) => s.key === 'me');
-  assert.equal(locked?.state, 'locked', 'Join with no destination must LOCK, not point at nothing');
+test('the Invitation bar for a guest is Home · Details · RSVP · Story · Me (owner 2026-09-26/27)', () => {
+  const s = at({
+    viewer: { kind: 'guest' },
+    phase: 'before',
+    hasStory: true,
+    destinations: { rsvp: '/maria-and-jose/invite/reply', camera: '/papic/guest' },
+    stageSlots: ['home', 'details', 'rsvp', 'story', 'me'],
+  } as Partial<NavInput>);
+  assert.deepEqual(keys(s), ['home', 'details', 'rsvp', 'story', 'me']);
+  assert.equal(s.find((x) => x.key === 'rsvp')?.href, '/maria-and-jose/invite/reply');
+  // No destination → no RSVP tab (never a tab that goes nowhere).
+  const none = at({ viewer: { kind: 'guest' }, phase: 'before', destinations: {} } as Partial<NavInput>);
+  assert.ok(!keys(none).includes('rsvp'));
 });
 
 test('a guest, couple and vendor keep their own in-page Me slot', () => {

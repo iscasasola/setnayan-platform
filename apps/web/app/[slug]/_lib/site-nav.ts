@@ -107,7 +107,7 @@ export function navPhaseFor(input: {
   return 'before';
 }
 
-export type NavSlotKey = 'home' | 'details' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
+export type NavSlotKey = 'home' | 'details' | 'rsvp' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
 
 export type NavSlot = {
   key: NavSlotKey;
@@ -146,7 +146,13 @@ export type NavInput = {
    *  the guest's token and whether a paid roll exists). A missing destination
    *  means the caller could not build one — the slot then LOCKS rather than
    *  pointing nowhere. */
-  destinations?: { camera?: string | null; watch?: string | null; join?: string | null };
+  destinations?: {
+    camera?: string | null;
+    watch?: string | null;
+    join?: string | null;
+    /** The guest's own RSVP page (`/{slug}/invite/reply`). Guests only. */
+    rsvp?: string | null;
+  };
   /** 🧭 The STAGE's allow-list (`STAGE_BAR[stage].slots`, `stage-bar.ts`) — the
    *  one per-stage config. A slot the stage does not list is never drawn; the
    *  rules below still decide the rest. Absent → every slot the rules allow. */
@@ -205,6 +211,14 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     slots.push({ key: 'details', label: 'Cues', state: 'live', href: ANCHOR.details });
   }
 
+  // 2½ — RSVP. The Invitation bar is Home · Details · RSVP · Story · Me (owner
+  //     2026-09-26/27): an IDENTIFIED guest's own reply page, before the day.
+  //     Never a stranger's — without a key there is nobody to reply as, and the
+  //     stranger's one way in is "Get inside" on the page itself.
+  if (phase === 'before' && viewer.kind === 'guest' && dest.rsvp) {
+    slots.push({ key: 'rsvp', label: 'RSVP', state: 'live', href: dest.rsvp });
+  }
+
   // 3 — STORY. The couple's own words, before the day only: once the wedding is
   //     happening, Now/Watch/Camera/Gallery are what a guest needs, and the bar
   //     holds five.
@@ -212,8 +226,17 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     slots.push({ key: 'story', label: 'Story', state: 'live', href: ANCHOR.story });
   }
 
+  // 🔒 THE STRANGER — the general link, no key (owner 2026-09-26, "TWO LEVELS OF
+  //    ACCESS"; 2026-09-27: *"a stranger on the general link sees only Home ·
+  //    Details · Story — no locked RSVP/Me tabs; 'Get inside' is the one way
+  //    in"*). No camera, no Me/Join: the camera is inside content, and a tab a
+  //    stranger cannot use is not drawn locked either — it is simply not there.
+  const isStranger = !isVendor && !isCouple && viewer.kind !== 'guest';
+
   // 4 — CAMERA (Papic). The centre slot on the day.
-  if (isCouple) {
+  if (isStranger) {
+    // Inside content — never drawn for somebody without a key.
+  } else if (isCouple) {
     // Unconditional. It is their wedding.
     slots.push(
       dest.camera
@@ -253,7 +276,11 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // 4 — GALLERY. The couple always has it — they see everything, including what
   //     they have not shared. Everyone else only when a chapter is public, and
   //     when none is, the slot is NOT DRAWN. Hiding content, not announcing it.
-  if (!isVendor && (phase === 'day' || phase === 'after')) {
+  //     🔒 ON THE DAY the gallery is the live wall — inside content, so not a
+  //     stranger's tab (the wall itself is not rendered for them either). After
+  //     the day it is the recap the couple chose to make public, which is theirs
+  //     to show anyone.
+  if (!isVendor && (phase === 'after' || (phase === 'day' && !isStranger))) {
     if (isCouple || anyChapterPublic) {
       slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
     }
@@ -267,19 +294,13 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // tapped, while the page that actually works (`/[slug]/invite`) was linked
   // from nowhere. A stranger's Join now LEAVES for that page; if the caller
   // could not build the link, the slot LOCKS rather than pretending.
-  const isStranger = !isVendor && !isCouple && viewer.kind !== 'guest';
+  //
+  // 🔄 AND SINCE 2026-09-27 A STRANGER HAS NO FIFTH TAB AT ALL. "Join" became
+  // the page's own one button ("Get inside", and "Ask to join" for a signed-in
+  // account not on the list) — see `get-inside.tsx`. `dest.join` is kept on the
+  // input for callers that still pass it; it is no longer drawn.
   if (isStranger) {
-    slots.push(
-      dest.join
-        ? { key: 'me', label: 'Join', state: 'live', href: dest.join }
-        : {
-            key: 'me',
-            label: 'Join',
-            state: 'locked',
-            href: '#',
-            lockedReason: 'Open your invitation link to join this guest list',
-          },
-    );
+    // No Me, no Join.
   } else {
     slots.push({
       key: 'me',

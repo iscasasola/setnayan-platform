@@ -12,6 +12,8 @@ import { SelfieCapture } from './selfie-capture';
 // print the SAME Nº for a given guest.
 import { stubNo } from './pahina-keepsake';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
+import type { RsvpAnswer } from '@/lib/guest-one-path';
+import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import Link from 'next/link';
 
 export function RsvpWidget({
@@ -28,7 +30,33 @@ export function RsvpWidget({
   keepOffer = false,
   hostPitch = false,
   ask = {},
+  gate = null,
+  termsOnSend = false,
+  oneAtATime = false,
 }: {
+  /**
+   * THE KEY GATE's verdict (lib/guest-one-path.ts `rsvpGate`), on the RSVP page
+   * only. When the ANSWER is already on record — the couple marked them
+   * attending, or a question was switched on after they replied — the card
+   * asks ONLY what is missing (owner 2026-09-26: "a question added later is
+   * asked alone") and carries everything else through as it is stored.
+   */
+  gate?: { missing: RsvpAnswer[]; coupleMarked: boolean } | null;
+  /**
+   * The RSVP page's Terms tick (owner 2026-09-27: "Terms tick on the RSVP Send
+   * step"): unticked, REQUIRED, the `/signup` clickwrap (lib/terms-agreement.ts).
+   * Replaces the "keep this invitation" box on that page — saving to an account
+   * is the NEXT screen's one button, not a second decision on this one.
+   */
+  termsOnSend?: boolean;
+  /**
+   * "Ask one question at a time" (owner 2026-09-27, the ONE switch on the RSVP
+   * scene): one question per screen with progress and Back, for elders. Read
+   * from `rsvp_ask_config.oneAtATime`. Progressive: without script the page is
+   * the one scrolling form it always was.
+   */
+  oneAtATime?: boolean;
+
   words: EventWords;
   guest: GuestRow;
   eventId: string;
@@ -137,6 +165,22 @@ export function RsvpWidget({
 }) {
   const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
   const onDoor = Boolean(doorAction);
+
+  // The answer is on record and only details are missing → ask ONLY those.
+  if (gate && gate.missing.length > 0 && !gate.missing.includes('attending') && !replyLocked) {
+    return (
+      <RsvpFocusForm
+        action={action}
+        guest={guest}
+        missing={gate.missing}
+        coupleMarked={gate.coupleMarked}
+        flash={flash}
+        oneAtATime={oneAtATime}
+        profileDetails={profileDetails}
+        theOrganizer={words.theOrganizer}
+      />
+    );
+  }
   const askPlusOnes = rsvpAsks(ask, 'plus_ones');
   const askMeal = rsvpAsks(ask, 'meal');
   const askDietary = rsvpAsks(ask, 'dietary');
@@ -145,6 +189,10 @@ export function RsvpWidget({
   // Meal + dietary share one reveal wrapper below — hide it outright when
   // BOTH are off, rather than rendering an empty grid with nothing inside it.
   const askMealOrDietary = askMeal || askDietary;
+  // The key gate found no number on record and the couple asks for one — the
+  // page cannot be left without it (owner 2026-09-26: "filled first until they
+  // are all answered").
+  const requireMobile = askMobile && Boolean(gate?.missing.includes('mobile'));
 
   // The three boxes, declared ONCE so the folded and unfolded arms can never
   // drift apart. Both arms render them, so both POST them.
@@ -168,6 +216,7 @@ export function RsvpWidget({
             id="contact_mobile"
             label="Mobile"
             autoComplete="tel"
+            required={requireMobile}
             defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
             placeholder="+63 …"
           />
@@ -217,6 +266,7 @@ export function RsvpWidget({
           {flash.text}
         </p>
       ) : null}
+      {oneAtATime ? <RsvpOneAtATime /> : null}
       {/* The selfie step reveals once the guest picks "attending" — pure
           CSS :has(), the same pattern as the has-[:checked] ring on the radios
           below, so this stays a server component with no client state.
@@ -286,7 +336,7 @@ export function RsvpWidget({
       {replyLocked ? (
         <LockedAnswer status={guest.rsvp_status} />
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div data-rsvp-step className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {(
             // The celebratory labels are the spec's reply-card wording and stay
             // byte-identical. A wake cannot ask anyone to "joyfully accept" —
@@ -316,6 +366,7 @@ export function RsvpWidget({
                 name="rsvp_status"
                 value={option.key}
                 defaultChecked={guest.rsvp_status === option.key}
+                required={termsOnSend || undefined}
                 className="sr-only"
               />
               {option.label}
@@ -369,7 +420,7 @@ export function RsvpWidget({
           on its own — the block itself disappears only when BOTH are off,
           rather than rendering an empty grid with nothing inside it. */}
       {!askMealOrDietary || (replyLocked && guest.rsvp_status === 'declined') ? null : (
-        <div className={replyLocked ? undefined : 'attending-reveal'}>
+        <div data-rsvp-step className={replyLocked ? undefined : 'attending-reveal'}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {askMeal ? (
               <Select
@@ -429,7 +480,7 @@ export function RsvpWidget({
           the line, and the inputs still POST: <details> hides, it does not
           disable. */}
       {detailsAlreadyKnown ? (
-        <details className="rounded-lg border border-ink/10 bg-ink/[0.02]">
+        <details data-rsvp-step className="rounded-lg border border-ink/10 bg-ink/[0.02]">
           <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm text-ink/80 hover:text-ink">
             <span className="min-w-0">
               <span className="block font-medium text-ink">Your details are filled in</span>
@@ -440,7 +491,7 @@ export function RsvpWidget({
           <div className="space-y-4 px-4 pb-4">{contactFields}</div>
         </details>
       ) : (
-        <div className="space-y-1.5">
+        <div data-rsvp-step className="space-y-1.5">
           <span className="block text-sm font-medium text-ink">
             How {words.theOrganizer} can reach you
           </span>
@@ -502,7 +553,7 @@ export function RsvpWidget({
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
       {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
-        <div className="attending-reveal space-y-1.5">
+        <div id="plus-ones" data-rsvp-step className="attending-reveal scroll-mt-6 space-y-1.5">
           <span className="block text-sm font-medium text-ink">
             Who are you bringing?
           </span>
@@ -542,7 +593,7 @@ export function RsvpWidget({
 
       {/* ⚙ ASK TOGGLE (owner 2026-09-25): "Note to you" off. */}
       {askNote ? (
-        <div className="space-y-1.5">
+        <div data-rsvp-step className="space-y-1.5">
           <label htmlFor="guest_note" className="block text-sm font-medium text-ink">
             A note to {words.theOrganizer} (optional)
           </label>
@@ -572,6 +623,17 @@ export function RsvpWidget({
       {keepOffer ? (
         <style>{`.rsvp-form .keep-on{display:none}.rsvp-form:has(#keep_invitation:checked) .keep-on{display:inline}.rsvp-form:has(#keep_invitation:checked) .keep-off{display:none}`}</style>
       ) : null}
+      {termsOnSend ? (
+        /* THE RSVP PAGE's last step (owner 2026-09-27): the Terms tick, then ONE
+           button. Unticked and required — the browser will not send without it,
+           and `submitInviteReply` refuses a POST that lacks it. */
+        <div data-rsvp-step className="space-y-5">
+          <TermsTick />
+          <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
+            Send
+          </SubmitButton>
+        </div>
+      ) : (
       <SubmitButton
         className="button-primary min-h-[44px] w-full sm:w-auto"
         pendingLabel={replyLocked ? 'Saving details…' : 'Saving RSVP…'}
@@ -587,7 +649,187 @@ export function RsvpWidget({
           'Save RSVP'
         )}
       </SubmitButton>
+      )}
     </form>
+  );
+}
+
+/**
+ * THE TERMS TICK on the RSVP page (owner 2026-09-27) — the `/signup` clickwrap
+ * (lib/terms-agreement.ts): one name (`TERMS_FIELD`), never pre-ticked, and
+ * required. A guest who later taps "Not now" on Save has still agreed.
+ */
+function TermsTick() {
+  return (
+    <label htmlFor="rsvp_terms" className="flex min-h-[44px] items-start gap-3 text-sm text-ink/80">
+      <input
+        id="rsvp_terms"
+        name={TERMS_FIELD}
+        type="checkbox"
+        required
+        className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
+      />
+      <span>
+        I agree to the{' '}
+        <Link href="/terms" className="font-medium text-link underline underline-offset-2">
+          Terms
+        </Link>{' '}
+        and the{' '}
+        <Link href="/privacy" className="font-medium text-link underline underline-offset-2">
+          Privacy Notice
+        </Link>
+        <span className="mt-0.5 block text-xs font-medium uppercase tracking-[0.14em] text-ink/60">
+          Required
+        </span>
+      </span>
+    </label>
+  );
+}
+
+/**
+ * ONLY WHAT IS MISSING (owner 2026-09-26, "SWAP A NON-REPLIER'S SPOT" (2)):
+ * *"If they also confirmed via message and not via app, we can set confirmation
+ * automatically. when they enter the website, they just need to fill up their
+ * details."* — and a question the couple switches on later is asked alone.
+ *
+ * 🔒 EVERYTHING NOT ASKED IS CARRIED THROUGH AS IT IS STORED. `submitRsvp`
+ * writes every field of the card on every save (a blank box writes a blank:
+ * `display_name`, `mobile`, the note), so a card that simply OMITTED the boxes
+ * it did not ask would erase what the guest or the couple already gave. Each
+ * unasked answer rides along as a hidden input holding its stored value.
+ *
+ * "Not coming after all?" is its own small form — the same save, the answer
+ * `declined`, everything else carried through the same way.
+ */
+function RsvpFocusForm({
+  action,
+  guest,
+  missing,
+  coupleMarked,
+  flash,
+  oneAtATime,
+  profileDetails,
+  theOrganizer,
+}: {
+  /** "the couple" / "the family" — the event type's own words. */
+  theOrganizer: string;
+  action: (formData: FormData) => Promise<void>;
+  guest: GuestRow;
+  missing: RsvpAnswer[];
+  coupleMarked: boolean;
+  flash: { tone: 'ok' | 'error'; text: string } | null;
+  oneAtATime: boolean;
+  profileDetails: {
+    mealPreference: string | null;
+    dietaryRestrictions: string | null;
+    email: string | null;
+    phone: string | null;
+    displayName: string | null;
+  } | null;
+}) {
+  const askMeal = missing.includes('meal');
+  const askMobile = missing.includes('mobile');
+  const count = missing.length;
+  const carried = (declining: boolean) => (
+    <>
+      <input type="hidden" name="rsvp_status" value={declining ? 'declined' : guest.rsvp_status} />
+      {askMeal && !declining ? null : (
+        <input type="hidden" name="meal_preference" value={guest.meal_preference ?? 'no_preference'} />
+      )}
+      <input type="hidden" name="dietary_restrictions" value={guest.dietary_restrictions ?? ''} />
+      <input type="hidden" name="guest_note" value={guest.guest_note ?? ''} />
+      <input type="hidden" name="contact_email" value={guest.email ?? ''} />
+      {askMobile && !declining ? null : (
+        <input type="hidden" name="contact_mobile" value={guest.mobile ?? ''} />
+      )}
+      <input type="hidden" name="contact_display_name" value={guest.display_name ?? ''} />
+    </>
+  );
+  return (
+    <>
+      <form action={action} className="rsvp-form space-y-6" data-rsvp-focus>
+        {flash ? (
+          <p
+            role={flash.tone === 'error' ? 'alert' : 'status'}
+            className={`border-l-2 px-3 py-2 text-sm ${
+              flash.tone === 'error' ? 'border-terracotta text-terracotta-700' : 'border-gild text-ink/80'
+            }`}
+          >
+            {flash.text}
+          </p>
+        ) : null}
+        {oneAtATime ? <RsvpOneAtATime /> : null}
+        {guest.rsvp_status === 'attending' ? (
+          <div className="flex items-center gap-4 border-y border-gild/60 py-4">
+            <span
+              aria-hidden
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gild text-lg text-cream"
+            >
+              ✓
+            </span>
+            <p className="font-serif text-lg leading-snug text-ink">
+              {coupleMarked
+                ? `${theOrganizer.charAt(0).toUpperCase()}${theOrganizer.slice(1)} has you down as `
+                : 'You are down as '}
+              <span className="font-semibold text-gild">attending</span>
+            </p>
+          </div>
+        ) : null}
+        <p className="font-serif text-xl text-ink">
+          {count === 1 ? 'One more thing' : count === 2 ? 'Two more things' : `${count} more things`}
+        </p>
+        {carried(false)}
+        {askMeal ? (
+          <div data-rsvp-step>
+            <Select
+              id="meal_preference"
+              label="Meal preference"
+              defaultValue={profileDetails?.mealPreference ?? 'no_preference'}
+              options={[
+                ['no_preference', 'No preference'],
+                ['beef', 'Beef'],
+                ['chicken', 'Chicken'],
+                ['fish', 'Fish'],
+                ['vegetarian', 'Vegetarian'],
+                ['vegan', 'Vegan'],
+                ['kids', 'Kids'],
+              ]}
+            />
+          </div>
+        ) : null}
+        {askMobile ? (
+          <div data-rsvp-step>
+            <Field
+              id="contact_mobile"
+              label="Mobile"
+              type="tel"
+              autoComplete="tel"
+              required
+              defaultValue={profileDetails?.phone ?? ''}
+              placeholder="+63 …"
+            />
+          </div>
+        ) : null}
+        <div data-rsvp-step className="space-y-5">
+          <TermsTick />
+          <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
+            Send
+          </SubmitButton>
+        </div>
+      </form>
+      {guest.rsvp_status === 'attending' ? (
+        <form action={action} className="mt-3 text-center" data-rsvp-decline>
+          {carried(true)}
+          <SubmitButton
+            overlay={false}
+            className="min-h-[44px] text-sm text-ink/70 underline-offset-4 hover:underline"
+            pendingLabel="Saving…"
+          >
+            Not coming after all?
+          </SubmitButton>
+        </form>
+      ) : null}
+    </>
   );
 }
 
@@ -661,11 +903,14 @@ function Field({
   placeholder,
   type = 'text',
   autoComplete,
+  required = false,
 }: {
   id: string;
   label: string;
   defaultValue?: string;
   placeholder?: string;
+  /** The key gate's missing answer — the browser will not send the form without it. */
+  required?: boolean;
   /** `email` puts the @ keyboard on a phone; the contact boxes are the only
    *  fields on this card that are not free text. */
   type?: 'text' | 'email' | 'tel';
@@ -685,6 +930,7 @@ function Field({
         name={id}
         defaultValue={defaultValue}
         placeholder={placeholder}
+        required={required || undefined}
         className="input-field"
       />
     </div>

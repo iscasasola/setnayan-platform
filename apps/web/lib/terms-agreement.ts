@@ -43,6 +43,36 @@ export function hasAgreedToTerms(value: FormDataEntryValue | null | undefined): 
   return v === 'on' || v === 'yes' || v === 'true' || v === '1';
 }
 
+/**
+ * 🎟 THE AGREEMENT A GUEST GAVE ON THE RSVP PAGE, carried to the account they
+ * make one tap later (owner 2026-09-27: *"Ok"* to the Terms tick on the RSVP
+ * Send step; Save-to-account stays ONE tap).
+ *
+ * The RSVP page's tick is the affirmative act. The account is made on the NEXT
+ * screen — by Google or Apple, which return through `app/auth/callback`, or by
+ * the emailed link. Neither of those screens asks again, so the agreement has
+ * to travel from one to the other: an httpOnly cookie, set by the RSVP save
+ * ONLY when the tick was posted, holding the version agreed to. The callback
+ * records it on a new account with none on record.
+ *
+ * 🔒 NEVER A HIDDEN FORM FIELD. A pre-set `terms_agreed=on` in a form is the
+ * "hidden consent" this repo has already removed once (`consent-is-affirmative
+ * .test.ts`). A cookie the browser cannot read and no page can pre-fill is set
+ * by the server, from the tick, and nothing else.
+ */
+export const RSVP_TERMS_COOKIE = 'sn_rsvp_terms';
+
+/** 30 days — long enough to cover "Not now" today and "Save to my account" from Me next week. */
+export const RSVP_TERMS_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+
+/**
+ * Does the carried cookie say they agreed to the version in force now? A
+ * cookie from an older version is not an agreement to this one.
+ */
+export function rsvpTermsCarried(value: string | null | undefined): boolean {
+  return value === TERMS_VERSION;
+}
+
 /** What a refused sign-up is told. Names the act, not the field. */
 export const TERMS_REQUIRED_MESSAGE =
   'Please agree to the Terms and Privacy Policy to create your account.';

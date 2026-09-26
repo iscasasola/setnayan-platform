@@ -6,7 +6,7 @@
  * the ANONYMOUS tier must be structurally unable to carry guest-derived data
  * — not by discipline, by construction. Three layers enforce it:
  *
- *   1. Type level — `AnonymousSiteIdentity` declares exactly four fields,
+ *   1. Type level — `AnonymousSiteIdentity` declares exactly five fields,
  *      none guest-derived; the compile-time assertion at the bottom of this
  *      file fails `tsc` if a guest-only key ever appears on it.
  *   2. Runtime level — `anonymousIdentity()` builds the object by picking
@@ -63,6 +63,14 @@ export type AnonymousSiteIdentity = {
   /** Public album destination (Live Wall / recap), or null — drives the
    *  public event-day bar's Photos action. */
   publicAlbumHref: string | null;
+  /**
+   * A SIGNED-IN account with no seat on this event (owner 2026-09-26, "AN
+   * UNLISTED PERSON'S ACCOUNT DOES NOT SHOW THE EVENT"): the page says "You're
+   * not on the guest list for this event yet" and offers ONE button, "Ask to
+   * join". About the VIEWER's account, never about any guest — so it may ride
+   * on the anonymous tier without carrying a single guest-derived fact.
+   */
+  signedInNotListed: boolean;
 };
 
 export type GuestSiteIdentity = {
@@ -124,6 +132,12 @@ export type GuestSiteIdentity = {
     phone: string | null;
     displayName: string | null;
   } | null;
+  /**
+   * The final count is locked and THIS guest never replied — inside anyway,
+   * marked "Didn't reply · you're in" (owner 2026-09-26 "yes to all" (b), and
+   * 2026-09-27: the chip is shown to the guest). Decided by `rsvpGate`.
+   */
+  didntReply: boolean;
 };
 
 export type SiteIdentity = AnonymousSiteIdentity | GuestSiteIdentity;
@@ -418,12 +432,14 @@ export function anonymousIdentity(input: {
   reason: AnonymousReason;
   publicCandidCameraActive: boolean;
   publicAlbumHref: string | null;
+  signedInNotListed?: boolean;
 }): AnonymousSiteIdentity {
   return {
     kind: 'anonymous',
     reason: input.reason,
     publicCandidCameraActive: input.publicCandidCameraActive,
     publicAlbumHref: input.publicAlbumHref,
+    signedInNotListed: input.signedInNotListed === true,
   };
 }
 
@@ -440,8 +456,8 @@ export function anonymousIdentity(input: {
  * one. Absent ⇒ null ⇒ the card behaves exactly as it did before this existed.
  */
 export function guestIdentity(
-  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account'> &
-    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account'>>,
+  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account' | 'didntReply'> &
+    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account' | 'didntReply'>>,
 ): GuestSiteIdentity {
   return {
     kind: 'guest',
@@ -462,6 +478,7 @@ export function guestIdentity(
     rsvpFlash: input.rsvpFlash,
     faceMode: input.faceMode,
     profileDetails: input.profileDetails ?? null,
+    didntReply: input.didntReply === true,
   };
 }
 

@@ -80,7 +80,7 @@ const GUEST_ONLY_FIELDS = [
   'faceMode',
 ] as const satisfies readonly GuestOnlyKeys[];
 
-test('anonymousIdentity() output carries exactly the four anonymous keys', () => {
+test('anonymousIdentity() output carries exactly the five anonymous keys (none guest-derived)', () => {
   const identity = anonymousIdentity({
     reason: null,
     publicCandidCameraActive: false,
@@ -91,6 +91,7 @@ test('anonymousIdentity() output carries exactly the four anonymous keys', () =>
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    'signedInNotListed',
   ]);
   assert.equal(identity.kind, 'anonymous');
 });
@@ -184,6 +185,7 @@ test('anonymousIdentity() strips smuggled owner capability from a poisoned input
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    'signedInNotListed',
   ]);
 });
 
@@ -195,6 +197,9 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // anything about the host or the event. Reasoned about, not absorbed.
     'account',
     'accountlessPhotosClosed',
+    // didntReply (2026-09-27) — THIS guest's own "Didn't reply · you're in"
+    // mark after the final count locked. About the guest's own reply only.
+    'didntReply',
     'eventVendorCredits',
     'faceMode',
     'guest',

@@ -211,6 +211,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'setnayan-ai',
   'signup',
   'site-editor',
+  'suppliers',
   'terms',
   'tl',
   'tour',

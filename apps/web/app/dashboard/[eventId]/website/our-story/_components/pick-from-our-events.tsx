@@ -3,6 +3,7 @@ import { formatMomentDate, type LoveStoryMoment } from '@/lib/love-story-moments
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
+import { InMakerReturnTo } from './in-maker-return-to';
 
 /**
  * PICK FROM OUR EVENTS — "From what Setnayan already holds" (prototype § pick).
@@ -89,6 +90,7 @@ export function PickFromOurEvents({
       ) : withPhotos.length > 0 && moments.length > 0 ? (
         <form action={action} className="mt-5 space-y-4">
           <HubDraftField />
+          <InMakerReturnTo />
           <input type="hidden" name="intent" value="pick" />
           {withPhotos.map((e) => (
             <fieldset key={e.eventId}>

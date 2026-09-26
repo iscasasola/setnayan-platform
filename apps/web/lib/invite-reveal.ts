@@ -13,9 +13,9 @@
  *   · the event type's wedding-only parts — the fence that keeps a wake, and
  *     every type without the Save-the-Date film, from ever seeing a veil.
  *
- * So the invite door inherits both owner exclusions: nothing on the day itself
- * (a veil between a guest and their table is a toll gate) or during the story
- * afterwards, and nothing for a wake. Whether a THEME asks for a reveal at all
+ * So the invite door inherits the same stage rule — the stages the couple chose
+ * (`reveal_stages`, 2026-09-25; the Save the Date alone when never chosen),
+ * never during the story afterwards, and nothing for a wake. Whether a THEME asks for a reveal at all
  * (House never does) is the caller's half; this is only "may one play now".
  *
  * Pure — the profile and the zone are resolved by the page (the zone lookup is
@@ -34,6 +34,8 @@ export function inviteRevealPlays(input: {
   /** `eventTimezoneFromCoords(venue_latitude, venue_longitude)` — as the Event Hub page. */
   venueTz: string;
   nowMs?: number;
+  /** `events.reveal_stages` — where the couple has it play (2026-09-25). Absent = the Save the Date only. */
+  revealStages?: unknown;
 }): boolean {
   const { profile } = input;
   return cinematicRevealPlays({
@@ -43,5 +45,6 @@ export function inviteRevealPlays(input: {
       profile.terminology.register === 'solemn',
     ),
     weddingOnlyParts: resolveWeddingOnlyParts(profile),
+    revealStages: input.revealStages,
   });
 }

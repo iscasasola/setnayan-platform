@@ -48,7 +48,7 @@ import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerPrints } from './_components/maker-prints';
-import { MakerDetails } from './_components/maker-details';
+import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
 import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
@@ -934,7 +934,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      themselves are drawn by /api/hub-print, which asks the Pro question again
      and refuses on its own. */
   let prints: ReactNode = null;
-  let details: ReactNode = null;
+  let details: { page: ReactNode; controls: ReactNode } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
     const [printEvent, printPro, rsvpHosts, printParents, egifts] = await Promise.all([
@@ -957,8 +957,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
       /* ══ DETAILS (made-once) ══ what the stages and prints include, and every
-         line of wording — each read from its one home. */
-      details = (
+         line of wording — each read from its one home. A PAGE in the Maker's
+         body (owner 2026-09-25): what the details feed is the page, these
+         fields its controls. */
+      details = {
+        page: <MakerDetailsPage eventId={eventId} slug={printEvent.slug} stamp={String(Date.now())} />,
+        controls: (
         <MakerDetails
           eventId={eventId}
           stored={stored}
@@ -973,7 +977,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           slug={printEvent.slug}
           slugAction={updateEventSlug.bind(null, eventId, 'launch')}
         />
-      );
+        ),
+      };
       prints = (
         <MakerPrints
           eventId={eventId}
@@ -1006,7 +1011,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       initialSelection={(() => {
         const tool = one(search.tool);
         return hasWork &&
-          (tool === 'hero' || tool === 'reveal' || tool === 'logo' || tool === 'details' || tool === 'prints')
+          (tool === 'hero' ||
+            tool === 'reveal' ||
+            tool === 'logo' ||
+            tool === 'love-story' ||
+            tool === 'details' ||
+            tool === 'prints')
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}

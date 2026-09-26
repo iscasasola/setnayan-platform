@@ -55,6 +55,7 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
 import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
+import { landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { revealAllowedFor } from '@/lib/reveal-access';
 import { revealMaterialVars, type RevealMaterials } from '@/lib/reveal-materials';
 
@@ -134,6 +135,22 @@ type Props = {
    * veil is never dressed here (owner 2026-09-24: "the veil is untouched").
    */
   materials?: RevealMaterials | null;
+  /**
+   * 🎭 THE HERO SCENE ONLY (owner 2026-09-25, verbatim: *"having it on the
+   * invitation and on the day will onlay be during the hero scene (First page)
+   * after that, it will disappear"*). Set by the Event Hub on the Invitation and
+   * On the Day (`revealOnlyOnTheFirstPage`, lib/reveal-stages.ts):
+   *
+   *   · a guest who lands part-way down the page (a `#section` link, a restored
+   *     scroll) is not met by it at all — it belongs to the first page;
+   *   · once opened it is GONE — the veil does not stay drooped at the top as it
+   *     does over the Save-the-Date film, and scrolling past the first page
+   *     retires anything still standing.
+   *
+   * Absent on the Save the Date, where the opening leads the film and keeps its
+   * persistent valance (2026-06-18/19 rulings, unchanged).
+   */
+  firstPageOnly?: boolean;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -154,6 +171,7 @@ export function RevealOverlay({
   oncePerVisit,
   seenEventId = null,
   materials = null,
+  firstPageOnly = false,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -164,6 +182,7 @@ export function RevealOverlay({
   // component has ever rendered anything: the overlay renders null until
   // mounted, so a deferred one goes from nothing to nothing.
   const [alreadySeen, setAlreadySeen] = useState(false);
+  const [offTheFirstPage, setOffTheFirstPage] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -172,6 +191,12 @@ export function RevealOverlay({
       setReducedMotion(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
       if (oncePerVisit === 'defer') {
         setAlreadySeen(revealAlreadySeen(window.sessionStorage, seenEventId));
+      }
+      if (
+        firstPageOnly &&
+        !landedOnTheFirstPage({ hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight })
+      ) {
+        setOffTheFirstPage(true);
       }
     } catch {
       /* noop */
@@ -206,7 +231,29 @@ export function RevealOverlay({
     enabled &&
     !reducedMotion &&
     !alreadySeen &&
+    !offTheFirstPage &&
     decision !== NO_REVEAL;
+
+  /* 🎭 Off the Save the Date it is the first page's, and gone after it: the
+     first lift retires it (after the lift has played), and so does scrolling
+     past the first screen. */
+  useEffect(() => {
+    if (!firstPageOnly || !active) return;
+    let t: number | null = null;
+    const onDone = () => {
+      if (t === null) t = window.setTimeout(() => setGone(true), 1800);
+    };
+    const onScroll = () => {
+      if (window.scrollY > window.innerHeight) setGone(true);
+    };
+    window.addEventListener('std-reveal-done', onDone);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      if (t !== null) window.clearTimeout(t);
+      window.removeEventListener('std-reveal-done', onDone);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [firstPageOnly, active]);
 
   // Tell the film (z-50) whether a reveal will actually show, so it knows to WAIT
   // for the lift instead of auto-starting under the veil (owner 2026-06-19

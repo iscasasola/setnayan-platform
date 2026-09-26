@@ -61,7 +61,7 @@ export function MakerRsvpSettings({
   /** Where the reply-by date is set (the guest-list deadline). */
   replyByHref: string;
   /** Who is waiting in Guest List → Requests. `count: null` = could not be read. */
-  requests: { count: number | null; names: string[]; href: string };
+  requests: { count: number | null; href: string };
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -192,7 +192,7 @@ export function MakerRsvpSettings({
               {requests.count}
             </span>
             <span className="min-w-0 flex-1 truncate text-sm text-ink/70">
-              {requests.count === 0 ? 'Nobody is waiting' : requests.names.join(' · ')}
+              {requests.count === 0 ? 'Nobody is waiting' : requests.count === 1 ? 'person asked to join' : 'people asked to join'}
             </span>
             <Link
               href={requests.href}

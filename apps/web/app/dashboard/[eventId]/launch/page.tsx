@@ -999,19 +999,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          beside it: one question at a time, what you ask, who can RSVP, reply
          by, and who is waiting in Requests. Every setting is ONE key of
          `events.rsvp_ask_config`, drafted like the rest of the Maker. */
+      /* A COUNT, never names: this page reads no guest by name
+         (`the-controller-wires-what-it-measured.test.ts`), and only a viewer
+         who may read the guest list asks at all (`mayReadGuestList`). */
+      const requestsCountRead = mayReadGuestList
+        ? printAdmin
+            .from('guests')
+            .select('guest_id', { count: 'exact', head: true })
+            .eq('event_id', eventId)
+            .eq('entry_source', 'self_added_unlisted')
+            .is('deleted_at', null)
+        : null;
       const [deadlineRes, requestsRes] = await Promise.all([
         printAdmin.from('events').select('guest_list_edit_deadline').eq('event_id', eventId).maybeSingle(),
-        printAdmin
-          .from('guests')
-          .select('first_name, last_name', { count: 'exact' })
-          .eq('event_id', eventId)
-          .eq('entry_source', 'self_added_unlisted')
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false })
-          .limit(3),
+        requestsCountRead,
       ]);
       if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
-      if (requestsRes.error) logQueryError('LaunchPage.rsvpRequests', requestsRes.error, { event_id: eventId }, 'graceful_degrade');
+      if (requestsRes?.error) logQueryError('LaunchPage.rsvpRequests', requestsRes.error, { event_id: eventId }, 'graceful_degrade');
       const rsvpSrc = makerPageCanvasSrc(printEvent.slug ? `/${printEvent.slug}` : null, 'rsvp-page', 'rsvp');
       const rsvpStamp = String(Date.now());
       rsvp = {
@@ -1039,13 +1043,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             }
             replyByHref={`/dashboard/${eventId}/details`}
             requests={{
-              /* A refused read is SAID (null), never a "0" that reads as nobody. */
-              count: requestsRes.error ? null : (requestsRes.count ?? 0),
-              names: (requestsRes.data ?? []).map((g) => {
-                const first = String(g.first_name ?? '').trim();
-                const last = String(g.last_name ?? '').replace(/^—$/, '').trim();
-                return last ? `${first} ${last.charAt(0)}.` : first;
-              }),
+              /* A refused (or unasked) read is SAID (null), never a "0" that reads as nobody. */
+              count: !requestsRes || requestsRes.error ? null : (requestsRes.count ?? 0),
               href: `/dashboard/${eventId}/guests/claims`,
             }}
           />

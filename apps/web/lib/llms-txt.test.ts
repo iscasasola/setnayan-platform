@@ -311,6 +311,6 @@ test('an unlisted-until-proven product is never named to answer engines', () => 
   assert.ok(UNLISTED_UNTIL_PROVEN.has('PATIKTOK_COMPILER'));
   const body = renderLlmsTxt(INPUT);
   assert.equal(/patiktok/i.test(body), false, 'llms.txt names Patiktok, which the owner has not tried yet (2026-09-27)');
-  assert.equal(LINKED_ROUTES.includes('/patiktok'), false);
+  assert.equal((LINKED_ROUTES as readonly string[]).includes('/patiktok'), false);
 });
 

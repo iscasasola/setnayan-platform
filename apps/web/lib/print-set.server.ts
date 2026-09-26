@@ -105,7 +105,8 @@ export async function printOwnsPro(eventId: string): Promise<boolean> {
  *
  * ⚖ Not gated by Pro here, on purpose: everybody sees SAMPLES of their chosen
  * look — that IS the owner's "show them a sample" — and the print-ready file is
- * gated separately (`printAccess`). A preview never writes the choice.
+ * gated separately (`mayServe`: Classic free, a theme Pro). A preview never
+ * writes the choice.
  */
 export function printThemeFor(event: Pick<PrintEventRow, 'invite_theme'>, preview?: string | null): InviteThemeId {
   return normalizeThemeId(preview) ?? normalizeThemeId(event.invite_theme) ?? 'house';
@@ -470,7 +471,8 @@ export async function loadPrintSet(
  */
 export async function loadGuestPasses(
   set: Pick<LoadedPrintSet, 'event' | 'appUrl' | 'ownerSlug'>,
-  opts: { width: number },
+  /** `limit` — the first N guests only (the Maker's thumbnail draws page 1, not 200 QRs). */
+  opts: { width: number; limit?: number },
 ): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean }> {
   const admin = createAdminClient();
   const eventId = set.event.event_id;
@@ -486,7 +488,8 @@ export async function loadGuestPasses(
     return { passes: [], images: {}, measured: false };
   }
   type G = { guest_id: string; first_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null };
-  const guests = ((data ?? []) as G[]).filter((g) => g.qr_token);
+  const all = ((data ?? []) as G[]).filter((g) => g.qr_token);
+  const guests = opts.limit ? all.slice(0, opts.limit) : all;
 
   const seatOf = new Map<string, string>();
   const seatNumberOf = new Map<string, string>();

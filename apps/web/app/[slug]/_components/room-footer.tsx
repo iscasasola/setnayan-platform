@@ -71,7 +71,9 @@ export function RoomFooter({
           <li key={l.key}>
             <Link
               href={l.href}
-              className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-sm transition-colors ${
+              /* min-h-[40px] (mobile audit item 3: these pills measured
+                 32-34px on /cale-ice/pabuya, /find-seat, /venue). */
+              className={`inline-flex min-h-[40px] items-center rounded-full px-3.5 py-1.5 text-sm transition-colors ${
                 dark
                   ? 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
                   : 'border border-ink/12 bg-cream text-ink/70 hover:border-ink/25 hover:text-ink'

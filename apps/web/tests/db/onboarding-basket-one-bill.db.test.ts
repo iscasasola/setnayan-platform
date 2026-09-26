@@ -378,10 +378,9 @@ test('an Event Hub Pro line on the bill is what ownership finds', async () => {
   }
 });
 
-test('the Pro row the card and the mint price from: ₱3,500 regular, ₱2,100 at sign-up', async () => {
-  // Owner 2026-09-25: "Regular Price is 3500 40% off when purchased on
-  // onboarding at 2100" · "so our regular price is 3500 to unlock pro".
-  // Migration 20271245494068. The sign-up price is the row's OWN
+test('the Pro row the card and the mint price from: ₱5,000 regular, ₱3,000 at sign-up', async () => {
+  // Owner 2026-09-25: "make it 5000 with 40% off becoming 3000 on onboarding."
+  // Migration 20271247699024. The sign-up price is the row's OWN
   // onboarding_price_php — the per-SKU override every sign-up reader already
   // honours — so neither Papic's nor Setnayan AI's family discount moves.
   const r = await db.query<{
@@ -393,7 +392,7 @@ test('the Pro row the card and the mint price from: ₱3,500 regular, ₱2,100 a
        FROM public.platform_retail_catalog_v2 WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
   assert.equal(r.rows.length, 1);
-  assert.equal(Number(r.rows[0]!.retail_price_php), 3500);
-  assert.equal(Number(r.rows[0]!.onboarding_price_php), 2100);
+  assert.equal(Number(r.rows[0]!.retail_price_php), 5000);
+  assert.equal(Number(r.rows[0]!.onboarding_price_php), 3000);
   assert.equal(r.rows[0]!.is_active, true);
 });

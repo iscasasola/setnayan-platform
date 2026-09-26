@@ -374,6 +374,11 @@ export default async function WebsiteEditorPage({
   ]);
   const mainThemeId = normalizeThemeId((event as { invite_theme?: string | null }).invite_theme) ?? 'house';
   const currentThemeId = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
+  // This event's own "Open browsing" choice (the `open-browse` row below) —
+  // which of `SectionsPanel`'s two visibility controls actually governs the
+  // guest-facing render for it. Computed once, passed everywhere the panel is
+  // built, so the list view and every per-scene sheet agree.
+  const openBrowse = (event as { website_open_browse?: boolean | null }).website_open_browse === true;
   // Hideable rows only — always-on sections can't be hidden or moved, so
   // offering the controls would be a lie. Ordered by display_order.
   const sectionRows = [...allWidgets]
@@ -607,12 +612,18 @@ export default async function WebsiteEditorPage({
           pro: true,
           locked: false,
           panel: (
+            <>
+              {/* 🌈 First visit = the hint (owner 2026-09-25: every feature gets
+                  a first-visit tour). Mounted beside the panel it explains, as
+                  the adaptive theme's is; sells nothing, so the shell keeps it. */}
+              <MiniTour tourKey="customer_ombre_background_v1" storeShell={storeShell} />
             <ColorsPanel
               action={updateSiteColors.bind(null, eventId)}
               eventId={eventId}
               rowKey="colors"
               proLocked={colorsProLocked}
               proLock={lockPanel('Button colour, typeface and motion')}
+              themeId={currentThemeId}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
               artDirection={
@@ -623,6 +634,7 @@ export default async function WebsiteEditorPage({
                 (drafted as { site_magic_traveller?: string | null }).site_magic_traveller ?? null
               }
             />
+            </>
           ),
         },
         {
@@ -863,6 +875,7 @@ export default async function WebsiteEditorPage({
                    "…to Save the Date", "…to On the Day", "…to Post Event". */
                 initialPhase === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[initialPhase]
               }
+              openBrowse={openBrowse}
             />
           ),
         },
@@ -1010,7 +1023,7 @@ export default async function WebsiteEditorPage({
     postEvent,
     plan: {
       widgets: allWidgets,
-      openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),
+      openBrowse,
       weddingOnlyParts: resolveWeddingOnlyParts(profile),
       content: sectionContent,
       solemn: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn,
@@ -1081,6 +1094,7 @@ export default async function WebsiteEditorPage({
         lookLock={lockPanel('How each section looks and moves')}
         videoChoice={videoChoice}
         colorChoices={colorChoices}
+        openBrowse={openBrowse}
       />,
     ]),
   );

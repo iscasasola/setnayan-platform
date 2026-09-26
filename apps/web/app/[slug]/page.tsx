@@ -5,7 +5,8 @@ import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { ServerTimer } from '@/lib/server-timing';
 import { Suspense } from 'react';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, solemnAdjustedPhase } from './_lib/event-words';
@@ -436,12 +437,28 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // became an indexable soft-404. A Suspense boundary placed AFTER the
   // notFound/redirect decisions keeps the real 404, because the status is
   // settled before the first flush.
+  //
+  // 🏷 THE FALLBACK KNOWS WHICH STAGE, WHEN THE MAKER ASKS. The Maker's canvas
+  // iframe hits this route as `?phase=editorial&editor=1` and a couple in
+  // there watching "Loading your invitation…" for their Post Event stage is
+  // being told the wrong noun for as long as the render takes (Post Event
+  // measured ~30s below). `search.phase` is already in hand here — no extra
+  // await — so the fallback can say the stage's own word (`PUBLIC_STAGE_LABELS`,
+  // the one place the owner's four names for the four stages live) instead of
+  // the generic guest-link default. Scoped to `asksForHostCanvas` so the
+  // ordinary guest fallback — the one this skeleton was built for — is
+  // unchanged byte-for-byte.
+  const skeletonPhaseLabel =
+    asksForHostCanvas(search) && typeof search.phase === 'string' && search.phase in PUBLIC_STAGE_LABELS
+      ? PUBLIC_STAGE_LABELS[search.phase as keyof typeof PUBLIC_STAGE_LABELS]
+      : null;
   return (
     <Suspense
       fallback={
         <InvitationSkeleton
           displayName={event.display_name}
           monogramText={event.monogram_text}
+          phaseLabel={skeletonPhaseLabel}
         />
       }
     >
@@ -478,16 +495,35 @@ async function InvitationBody({
   inviteError: string | null;
   eventTypeProfile: Awaited<ReturnType<typeof resolveProfile>>;
 }) {
+  // Server-render timing (Maker phone-polish, 2026-09-26) — one structured
+  // stdout line per render → log drain, the same instrument already proven
+  // on `vendor-dashboard/layout.tsx`. This route's own docblock has said
+  // "a dozen-plus sequential awaits" for months with no number attached; the
+  // Post Event canvas (`?phase=editorial&editor=1`) is the slowest of the
+  // four stages to open, so its route label carries the phase for filtering
+  // in the log drain. See lib/server-timing.ts.
+  const timer = new ServerTimer(
+    `slug/invitation-body${typeof search.phase === 'string' ? `:${search.phase}` : ''}`,
+  );
+
   /* 💾 THE HOST SEES THE DRAFT; GUESTS SEE LIVE (Event Hub Maker Phase 2).
      Only `?editor=1` looks, and `loadHostPreviewDraft` answers null unless the
      viewer passes the same host check the editor bridge uses. Without the param
      (every guest, always) `hostDraft` is null, both overlays return their input,
      and nothing below reads anything different. */
   let hostDraft: HubDraft | null = null;
+  // 🐢 → 🐇 (Maker phone-polish, 2026-09-26): this used a bare
+  // `supabase.auth.getUser()` — its own network round-trip to the Auth
+  // server — where FOUR other places lower in this same render made that
+  // identical call again. `getCurrentUser()` (`lib/auth.ts`) is the
+  // `cache()`-wrapped version already used to fix this exact shape on the
+  // dashboard ("four sequential auth-server round-trips… now resolve to
+  // the same Promise"); this route just never adopted it. All five now
+  // share ONE auth round-trip per request instead of five in a row.
+  // Timed here because this is the FIRST call — every later `getCurrentUser()`
+  // in this render resolves to the same memoized Promise for free.
   if (asksForHostCanvas(search)) {
-    const {
-      data: { user: previewer },
-    } = await (await createClient()).auth.getUser();
+    const previewer = await timer.track('auth', () => getCurrentUser());
     if (previewer) hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id, previewer.id);
   }
   const event = overlayHubDraftEvent(liveEvent, hostDraft);
@@ -524,11 +560,14 @@ async function InvitationBody({
     stdVenues,
     ourPhotoUrls,
     ownsStdReveal,
-  } = await loadMedia(admin, event);
+  } = await timer.track('media', () => loadMedia(admin, event));
 
   // Per-event widget registry — moved verbatim to `loadWidgets`
   // (_lib/loaders.ts), which carries the registry's full doc block.
-  const widgets = overlayHubDraftWidgets(await loadWidgets(admin, event.event_id), hostDraft);
+  const widgets = overlayHubDraftWidgets(
+    await timer.track('widgets', () => loadWidgets(admin, event.event_id)),
+    hostDraft,
+  );
 
   // Read the guest-session cookie up-front so the private-gate below can
   // accept a session-cookie-bearing guest without re-fetching guests
@@ -677,10 +716,8 @@ async function InvitationBody({
     // edit hands the weaker one a surface built for the stronger.
     let isInvitedAccountViewer = false;
     if (!guestSessionMatches) {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Shares the one cached auth round-trip — see the comment above.
+      const user = await getCurrentUser();
       if (user) {
         isAuthedHost = await loadHostMembership(admin, event.event_id, user.id);
         if (!isAuthedHost) {
@@ -715,6 +752,7 @@ async function InvitationBody({
         isBookedSupplier,
       })
     ) {
+      timer.flush();
       return (
         <PrivateLanding
           event={event}
@@ -760,10 +798,8 @@ async function InvitationBody({
     phaseParam === 'editorial';
   let phasePreviewAllowed = isDemoEvent;
   if (phasesEnabled && isValidPhaseParam && !phasePreviewAllowed) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Shares the one cached auth round-trip — see the comment above.
+    const user = await getCurrentUser();
     if (user) {
       // Same host-membership pair as the private gate above — served from the
       // React.cache'd `loadHostMembership`, so a host previewing a private
@@ -809,10 +845,8 @@ async function InvitationBody({
   // embedded inside his editor (2026-09-25).
   let isEditorCanvas = false;
   if (asksForHostCanvas(search)) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Shares the one cached auth round-trip — see the comment above.
+    const user = await getCurrentUser();
     if (user) {
       // React.cache'd — shares the lookup with the private gate / phase preview.
       isEditorCanvas = await loadHostMembership(admin, event.event_id, user.id);
@@ -891,15 +925,17 @@ async function InvitationBody({
     <SpatialBackdrop config={backdropConfig} />
   ) : null;
 
-  // ONE viewer-account read for the whole request. Previously the only auth
-  // read on the render path lived down in the guest branch (the claim-account
-  // CTA); the owner gate below needs the same answer, so it is hoisted here
-  // and the guest branch reuses `viewerAccount` instead of re-reading. Auth /
-  // cookie reads stay OUT of the React.cache'd loaders (loaders.ts hard rule).
-  const cookieScopedClient = await createClient();
-  const {
-    data: { user: viewerAccount },
-  } = await cookieScopedClient.auth.getUser();
+  // ONE viewer-account read for the whole request — now genuinely one: this
+  // used its own `createClient().auth.getUser()`, a fifth Auth-server round
+  // trip on top of the four earlier in this same render (host-draft overlay,
+  // private-event gate, `?phase=` preview, `?editor=1` canvas). `getCurrentUser()`
+  // is `cache()`-wrapped, so every one of those five calls now resolves to the
+  // SAME Promise — one round trip, not five, on the exact render (the Maker's
+  // `editor=1&phase=editorial` canvas) that hits every branch that asks. Auth /
+  // cookie reads stay OUT of the React.cache'd loaders (loaders.ts hard rule);
+  // `getCurrentUser()` isn't a loader, it's `lib/auth.ts`'s own cached auth
+  // helper — the same one that already fixed this shape on the dashboard.
+  const viewerAccount = await getCurrentUser();
 
   // ── OWNER LAYER · FOUNDATION ONLY (owner-locked 2026-07-26) ──────────────
   // The event owner opens `/[slug]` like a guest and gets owner controls
@@ -1042,7 +1078,7 @@ async function InvitationBody({
       ? true
       : await canViewSlugEvent(event.event_id, rawVisibility);
   const doorwayFacts: DoorwayFacts = {
-    ...(await loadDoorwayFacts(admin, event.event_id, event.event_type ?? null)),
+    ...(await timer.track('doorway-facts', () => loadDoorwayFacts(admin, event.event_id, event.event_type ?? null))),
     pabuyaViewerAllowed,
   };
 
@@ -1156,19 +1192,25 @@ async function InvitationBody({
         })}
       />
     ) : null;
-  const renderAnonymous = (reason: AnonymousReason) => wearDraft(
-    <>
-    <SiteBody
-      {...siteProps}
-      identity={anonymousIdentity({
-        reason,
-        publicCandidCameraActive,
-        publicAlbumHref,
-      })}
-    />
-    {pageFooter}
-    </>
-  );
+  const renderAnonymous = (reason: AnonymousReason) => {
+    // The most common exit — every anonymous visitor and the Maker's own
+    // host-canvas preview (a host has no guest session for their own event)
+    // land here. See lib/server-timing.ts.
+    timer.flush();
+    return wearDraft(
+      <>
+      <SiteBody
+        {...siteProps}
+        identity={anonymousIdentity({
+          reason,
+          publicCandidCameraActive,
+          publicAlbumHref,
+        })}
+      />
+      {pageFooter}
+      </>
+    );
+  };
 
   // ── EDITOR "RSVP'd" PREVIEW TAB (2026-07-26) ─────────────────────────────
   // The RSVPed fork (keepsake ticket instead of the ask) is keyed on a GUEST's
@@ -1193,6 +1235,7 @@ async function InvitationBody({
       eventId: event.event_id,
     })
   ) {
+    timer.flush();
     return wearDraft(
       <>
         <SiteBody
@@ -1220,14 +1263,8 @@ async function InvitationBody({
   // is always verified for THIS event (the loader never reads cookies itself).
   // Control flow — the invalid-invite landing and the /welcome redirect — stays
   // here, keyed off the loader's discriminated result.
-  const guestContext = await loadGuestContext(
-    admin,
-    event,
-    session,
-    dayOfPhase,
-    slug,
-    scheduleBlocks,
-    monogram,
+  const guestContext = await timer.track('guest-context', () =>
+    loadGuestContext(admin, event, session, dayOfPhase, slug, scheduleBlocks, monogram),
   );
 
   // A cookie-holder whose guest row no longer exists (replaced invite) gets
@@ -1371,6 +1408,7 @@ async function InvitationBody({
     timeZone: venueTz,
   });
 
+  timer.flush();
   return wearDraft(
     <>
       <SiteBody

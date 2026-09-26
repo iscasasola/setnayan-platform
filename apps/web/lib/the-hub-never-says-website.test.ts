@@ -102,3 +102,47 @@ test('no copy in the Event Hub Maker says "website"', () => {
     `a couple would read "website" here — it is an Event Hub:\n  ${offenders.join('\n  ')}`,
   );
 });
+
+/*
+ * THE EVENT HUB'S OWN LANDING PAGE (added 2026-09-26, GEO audit).
+ *
+ * `/pawebsite` is not in the Maker's tree, so the test above never read it — and
+ * it was the page telling answer engines what the product IS: its title, its
+ * SoftwareApplication `name` and its FAQ all called the Event Hub a "website".
+ *
+ * Two uses of the word are NOT a description of the product and stay allowed,
+ * each deliberately (see the docblock above PAGE_TITLE in that file):
+ *   · `keywords` — the search terms couples actually type;
+ *   · "alternative to a wedding website" — the CATEGORY the Event Hub replaces,
+ *     named as such, so the page still ranks for the phrase without claiming it.
+ * Every other rendered "website" on the page is a couple being told the wrong
+ * name for the thing they are buying.
+ */
+const HUB_LANDING = 'app/(shell)/pawebsite/page.tsx';
+
+export function landingPageWebsiteWords(source: string): string[] {
+  const code = stripComments(source)
+    .replace(/\bkeywords:\s*\[[^\]]*\]/, '')
+    .replace(/alternative to a wedding website/gi, '');
+  return renderedWebsiteWords(code);
+}
+
+test('the landing-page carve-outs are exactly two, and nothing wider', () => {
+  // SABOTAGE: widen either carve-out → one of these goes RED.
+  assert.equal(landingPageWebsiteWords(`keywords: ['wedding website builder'],`).length, 0);
+  assert.equal(landingPageWebsiteWords(`const t = 'Event Hub — the free alternative to a wedding website';`).length, 0);
+  assert.equal(landingPageWebsiteWords(`const t = 'Event Hub — Your Editorial Wedding Website';`).length, 1);
+  assert.equal(landingPageWebsiteWords(`name: 'Event Hub — Editorial Wedding Website',`).length, 1);
+  assert.equal(landingPageWebsiteWords(`q: 'What’s on the website?',`).length, 1);
+});
+
+test('the Event Hub landing page never calls the product a website', () => {
+  const abs = path.join(WEB, HUB_LANDING);
+  assert.ok(existsSync(abs), `${HUB_LANDING} is gone — this guard would pass on nothing`);
+  const offenders = landingPageWebsiteWords(readFileSync(abs, 'utf8'));
+  assert.deepEqual(
+    offenders,
+    [],
+    `${HUB_LANDING} tells a couple the Event Hub is a "website":\n  ${offenders.join('\n  ')}`,
+  );
+});

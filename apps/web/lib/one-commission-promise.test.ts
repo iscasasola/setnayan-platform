@@ -56,6 +56,13 @@ const SUPPLIER_SURFACES = [
   'app/admin/custom-plans/_components/custom-composer.tsx',
   'app/(shell)/pricing/page.tsx',
   'lib/help.ts',
+  // Added 2026-09-26 (GEO audit). Both told every answer engine "0% commission"
+  // to SUPPLIERS with no fee — /vendors' metadata still said "while we launch"
+  // four days after the fee went live, because the page itself (as opposed to
+  // its `_components/`) was never on this list; llms.txt said "no per-lead fee,
+  // no listing fee, 0% commission" in five places and never once named the fee.
+  'app/vendors/page.tsx',
+  'lib/llms-txt.ts',
 ];
 
 /** Does this source name the booking fee at all — derived or in prose? */

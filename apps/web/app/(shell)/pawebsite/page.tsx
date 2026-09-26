@@ -36,8 +36,17 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
  * actually type into Google; "Event Hub" is the phrase they will only know
  * after they meet us. The brand leads, the search term follows it — the same
  * split every product page makes between what a thing is CALLED and what it IS.
+ *
+ * ⚠ BUT THE PRODUCT IS NEVER CALLED A WEBSITE (owner 2026-09-24: *"Not a
+ * website. Event Hub"*). Until 2026-09-26 this title read "Event Hub — Your
+ * Editorial Wedding Website", which names the Event Hub AS a website — and an
+ * answer engine quotes a title as the product's definition. The search phrase
+ * now appears only as the category the Event Hub REPLACES ("the alternative
+ * to…"), so both rules hold at once. The rendered copy never says it; that is
+ * held by `lib/the-hub-never-says-website.test.ts`, which reads this page with
+ * only this title and the `keywords` search terms allowed.
  */
-const PAGE_TITLE = 'Event Hub — Your Editorial Wedding Website · Setnayan';
+const PAGE_TITLE = 'Event Hub — the free alternative to a wedding website · Setnayan';
 /** The document title ONLY. `metadata.title` is rendered through the root
  *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
  *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
@@ -87,7 +96,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/pawebsite',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Event Hub — your editorial wedding website' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Event Hub — your save-the-date, RSVP and story on one link' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -102,7 +111,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Event Hub — Editorial Wedding Website',
+  name: 'Event Hub',
   url: `${SITE_URL}/pawebsite`,
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Any (web browser)',
@@ -121,16 +130,16 @@ const APP_LD = {
 
 const FAQ = [
   {
-    q: 'What’s on the website?',
+    q: 'What’s on your Event Hub?',
     a: 'Everything your guests need in one place: your save-the-date, your RSVP, the event details — when, where, dress code, directions — and your love story, told like an editorial feature. One address you share once.',
   },
   {
     q: 'Do I need to design or code anything?',
-    a: 'No. You fill in your details and the website composes itself into something that looks designed, not templated. It reads beautifully on any phone or laptop without you touching a single setting.',
+    a: 'No. You fill in your details and your Event Hub composes itself into something that looks designed, not templated. It reads beautifully on any phone or laptop without you touching a single setting.',
   },
   {
     q: 'How does the RSVP work?',
-    a: 'Your guests tap a button on the site and they’re counted — no forms to print, no replies to chase. You see who’s coming in real time, right alongside your guest list and seating.',
+    a: 'Your guests tap a button on your Event Hub and they’re counted — no forms to print, no replies to chase. You see who’s coming in real time, right alongside your guest list and seating.',
   },
   {
     q: 'What makes it “editorial”?',
@@ -138,7 +147,7 @@ const FAQ = [
   },
   {
     q: 'Can it grow with everything else?',
-    a: 'Yes. The same website is where your guest gallery, your live stream, and your day-of details live too — so one address carries your whole wedding, before, during, and after.',
+    a: 'Yes. The same Event Hub is where your guest gallery, your live stream, and your day-of details live too — so one address carries your whole wedding, before, during, and after.',
   },
 ];
 
@@ -155,7 +164,7 @@ const FAQ_LD = {
 const STEPS = [
   {
     t: 'Tell your story once',
-    d: 'Add your details and your story — how you met, your date, your venue, what to wear. No design work, no code; the website composes itself around you.',
+    d: 'Add your details and your story — how you met, your date, your venue, what to wear. No design work, no code; your Event Hub composes itself around you.',
   },
   {
     t: 'Share one address',
@@ -195,13 +204,13 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'No design work',
     t: 'Tell your story once, it composes itself',
-    d: 'Add how you met, your date, your venue, what to wear. The website composes itself around you — no design work, no code.',
+    d: 'Add how you met, your date, your venue, what to wear. Your Event Hub composes itself around you — no design work, no code.',
     media: { kind: 'still', src: '/add-ons/demo/stills/landing-page-1.jpg', alt: 'Event Hub — your colors and story, automatically' },
   },
   {
     chip: 'RSVP',
     t: 'Guests answer in a tap',
-    d: 'Your guests tap a button on the site and they’re counted — no forms to print, no replies to chase. You see who’s coming in real time, right beside your guest list and seating.',
+    d: 'Your guests tap a button on your Event Hub and they’re counted — no forms to print, no replies to chase. You see who’s coming in real time, right beside your guest list and seating.',
     media: { kind: 'still', src: '/add-ons/demo/stills/landing-page-2.jpg', alt: 'Event Hub — guests RSVP and reserve their place' },
   },
   {

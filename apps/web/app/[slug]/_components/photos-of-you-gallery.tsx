@@ -92,8 +92,7 @@ export function PhotosOfYouGallery({
           the page for accountless viewers. */}
       {isPost && showClaimAccountCta ? (
         <p className="sn-gal-text mt-3 rounded-lg border-l-2 border-[var(--sn-ob-gold)] bg-[rgb(203_167_102/0.12)] px-3 py-2 text-sm">
-          These close about a day after the {eventWord}. Save the ones you want now — or make a
-          free account (the box near the top) to keep them.
+          These close about a day after the {eventWord}. Save the ones you want now.
         </p>
       ) : null}
 

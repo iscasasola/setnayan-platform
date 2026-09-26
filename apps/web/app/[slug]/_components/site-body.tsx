@@ -20,10 +20,7 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import {
-  claimAccountAction,
-  saveAttendedVendorAction,
-} from '../actions';
+import { saveAttendedVendorAction } from '../actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
@@ -127,7 +124,11 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, hubMainGround, resolveMainGround } from '@/lib/hub-canvas';
+import { resolveHero } from '@/lib/event-hero';
+import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { MainGround } from './main-ground';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
@@ -154,6 +155,8 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME } from '../_lib/editor-canvas';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
+import { GuestAccountCard } from './guest-account-card';
+import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
@@ -535,6 +538,41 @@ export async function SiteBody({
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
+  // 🎞 THE MAIN BACKGROUND (Maker Phase 10). By default it IS THE HERO (owner,
+  // 2026-09-25: "whatever they make on the hero scene will be their cover and
+  // the main background") — `resolveMainGround` over `resolveHero`, the one
+  // hero answer; an explicit "different clip or photo" override wins. Stored
+  // on the hero row, draft-overlaid for the host's preview like every other
+  // canvas. Only over a THEME: Classic is plain paper by design (owner,
+  // "classic has no photo or video"), and its shell paints opaque paper over
+  // any layer beneath. The scrim is measured over the frame and is free; the
+  // tint follows it only when "Match my photo's colours" is on. Their own
+  // button colour, if they chose one, outranks the automatic tint.
+  // ⛔ An unscreened clip plays for the HOST only; a guest gets the still —
+  // the same closed switch every hero-video read goes through.
+  const heroRow = widgets.find((w) => w.widget_type === 'hero');
+  const mainGround =
+    sceneTheme !== 'house'
+      ? resolveMainGround(hubMainGround(heroRow?.config_json), resolveHero(event), heroVideoRefForGuests)
+      : null;
+  let mainGroundLayer: React.ReactNode = null;
+  if (mainGround) {
+    const adaptive = resolveAdaptiveTheme(INVITE_THEMES[sceneTheme], mainGround.tint);
+    const sign = async (ref: string | null) =>
+      ref ? (canvasMediaUrls[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
+    const [still, clip] = await Promise.all([
+      sign(mainGround.stillRef),
+      sign(viewerIsHost ? mainGround.clipRef : mainGround.guestClipRef),
+    ]);
+    mainGroundLayer = (
+      <MainGround
+        still={still}
+        clip={clip}
+        adaptive={adaptive}
+        vars={adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) })}
+      />
+    );
+  }
   // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
   // canvas they are drawn as a GUEST sees them — the host's "Manage" slot is
@@ -1340,6 +1378,7 @@ export async function SiteBody({
       seatMap,
       papicGuest,
       showClaimAccountCta,
+      account,
       accountlessPhotosClosed,
       profileDetails,
       eventVendorCredits,
@@ -1691,45 +1730,28 @@ export async function SiteBody({
             detailsCardOnPage={plan.rsvpShouldRender}
           />
 
-          {/* Invite/Join v2 — accountless guest's "claim your account" prompt.
-              Per the lifecycle table: RSVP / Event / Editorial only (never Save the
-              Date), and only when there's no signed-in account (showClaimAccountCta).
-              Posts the email to claimAccountAction → emails a passwordless sign-in
-              link that connects this event to a real account. */}
           {/* ── KEEP IT ON YOUR HOME SCREEN (owner 2026-09-20). Sits directly
-              above the email sign-in box because they answer the same question
-              — "how do I find this again?" — and this is the answer that needs
+              above the account card because they answer the same question —
+              "how do I find this again?" — and this is the answer that needs
               no account. It renders nothing on a desktop, and nothing at all
               for a guest already reading inside the installed app. */}
           <KeepOnHomeScreen coupleName={event.display_name ?? 'this celebration'} />
-          {showClaimAccountCta && lifecyclePhase !== 'save_the_date' ? (
-            <section
-              id="claim-account"
-              className="scroll-mt-24 rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5"
-            >
-              <h2 className="text-base font-semibold text-ink">Keep this on your phone</h2>
-              <p className="mt-1 text-sm text-ink/70">
-                Get a sign-in link by email and your own Setnayan account — reopen this event
-                (your RSVP, your table, your photos) on any device, no password needed.
-              </p>
-              <form
-                action={claimAccountAction.bind(null, event.event_id, event.slug ?? '')}
-                className="mt-3 flex flex-col gap-2 sm:flex-row"
-              >
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  placeholder="you@email.com"
-                  autoComplete="email"
-                  aria-label="Your email"
-                  className="input-field flex-1"
-                />
-                <SubmitButton className="button-primary whitespace-nowrap" pendingLabel="Sending…">
-                  Email me a link
-                </SubmitButton>
-              </form>
-            </section>
+          {/* ── THE ONE ACCOUNT PROMPT (owner 2026-09-25). One card, one place,
+              until the invitation is linked — then one quiet "Linked to …" line.
+              It replaced the email box that asked for the address a second time,
+              the top-corner "Link to account" chip and the "Keep this event for
+              good" note. Never on the Save the Date (the reply it borrows the
+              address from is not there yet). See guest-account-card.tsx and
+              lib/guest-one-path.ts; pinned by guest-one-path.test.ts. */}
+          {account && lifecyclePhase !== 'save_the_date' ? (
+            <GuestAccountCard
+              state={account}
+              eventId={event.event_id}
+              slug={event.slug ?? ''}
+              knownEmail={guest.email ?? null}
+              photosClosing={accountlessPhotosClosed}
+              eventWord={clientWords.eventWord}
+            />
           ) : null}
 
           {seatMap ? (
@@ -1894,22 +1916,9 @@ export async function SiteBody({
                 />
               ) : null}
 
-              {/* Invite/Join v2 — the no-login photo grace has ended for this accountless
-                  guest (>~24h after the wedding). Accurate regardless of how many photos
-                  they had: the guest view is winding down; an account keeps everything. */}
-              {accountlessPhotosClosed ? (
-                <section
-                  aria-label="Keep this event"
-                  className="rounded-2xl border border-ink/10 bg-cream p-5 text-sm text-ink/70 shadow-sm sm:p-6"
-                >
-                  <p className="font-medium text-ink">Keep this event for good</p>
-                  <p className="mt-1">
-                    The guest view winds down about a day after the {clientWords.eventWord}. Make a free
-                    Setnayan account to keep your invite and your photos — on any device. Use the
-                    &ldquo;Keep this on your phone&rdquo; box above to get a sign-in link.
-                  </p>
-                </section>
-              ) : null}
+              {/* (The "Keep this event for good" note that stood here folded into the
+                  one account card near the top, which says the same thing while
+                  the photo window is closing — `photosClosing`.) */}
 
               {/* Invite/Join v2 — "vendors who made this day": the couple's booked
                   marketplace vendors, savable to a guest's OWN account so they carry to
@@ -1993,11 +2002,6 @@ export async function SiteBody({
                       </li>
                     ))}
                   </ul>
-                  {showClaimAccountCta ? (
-                    <p className="mt-3 text-sm text-ink/60">
-                      Make a free account (the box near the top) to save these for your own plans.
-                    </p>
-                  ) : null}
                 </section>
               ) : null}
 
@@ -2152,6 +2156,7 @@ export async function SiteBody({
                   isLimitedPlusOne={isLimitedPlusOne}
                   ourPhotoUrls={ourPhotoUrls}
                   words={clientWords}
+                  hostPitch={account ? hostPitchShows(account) : false}
                 />
               ))}
               </HubScenes>
@@ -2270,6 +2275,8 @@ export async function SiteBody({
                 flash={rsvpFlash}
                 replyLocked={plan.guestListClosed}
                 profileDetails={profileDetails}
+                keepOffer={account ? replyOffersKeep(account) : false}
+                hostPitch={account ? hostPitchShows(account) : false}
               />
             </div>
           </RsvpSheet>
@@ -2356,6 +2363,7 @@ export async function SiteBody({
           guard said so — "the shell return moved, this scan is now blind".
           It was right, so the mount moved rather than its anchor. */}
       <EventWordsProvider words={clientWords}>
+      {mainGroundLayer}
       {/* 🖼 The root layout's own floating notices (cookie consent, a stale
           tab) are client components this page cannot un-mount, so in the
           Maker's canvas they are hidden by the one attribute they carry. */}

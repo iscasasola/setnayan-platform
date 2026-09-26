@@ -3040,6 +3040,22 @@ html.dark {
     background: rgb(var(--color-gild) / 0.55);
   }
   .sn-editorial .pahina-plate {
+    /* 🔴 owner 2026-09-25 bg-colour fix, found by screenshot: a plate keeps
+       its OWN light paper (--color-paper-deep never darkens with the page),
+       but most plate content paints with the Tailwind `text-ink` UTILITY —
+       `color: rgb(var(--color-ink))` on the CHILD — not by inheriting the
+       `color:` below, which only reaches a child with no ink class of its
+       own. That utility reads the page-level `--color-ink` directly, so once
+       a couple's dark background flips it light (`_lib/pro-site-vars.ts`),
+       every "WHEN"/"WHERE" value, border and hairline here went light-on-
+       the-plate's-own-light-paper — invisible, a step further than the
+       inherited-only fallback this rule already guarded (kept below,
+       unchanged string, for `a plate reads its own ink…` below). SHADOWING
+       `--color-ink` for this subtree (self-referencing fallback = the
+       ordinary page value when nothing pins it, exactly today's behaviour)
+       fixes every such utility class inside a plate, current and future,
+       without editing each widget. */
+    --color-ink: var(--color-ink-on-plate, var(--color-ink));
     color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
@@ -3128,8 +3144,12 @@ html.dark {
   }
   .sn-editorial .pahina-deckle {
     /* the one thing on the page that IS a card in real life — heavier stock:
-       paper-deep, a lifted drop shadow, and the printed inner hairline */
+       paper-deep, a lifted drop shadow, and the printed inner hairline.
+       `--color-ink` shadowed for the same reason as `.pahina-plate` above —
+       the reply card's own content paints with the `text-ink` utility, which
+       reads the page ink directly and skips this rule's inherited `color:`. */
     position: relative;
+    --color-ink: var(--color-ink-on-plate, var(--color-ink));
     color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);

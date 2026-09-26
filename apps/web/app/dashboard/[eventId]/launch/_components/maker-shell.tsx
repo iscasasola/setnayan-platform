@@ -44,9 +44,14 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
  * canvas, a tool opens a panel that already ships, and an item with no build
  * yet opens ONE line saying it is coming in the next build.
  *
- * 🧩 THE APPLY BAR MOUNTS HERE. Phase 2 (draft · Apply · Restore · Reset) is
- * built in parallel as a mountable component; it goes in `applySlot`, which
- * the toolbar renders between the bar and the device switch.
+ * 🧩 THE APPLY BAR MOUNTS HERE, TWICE. Restore · Undo · Apply (`applySlot`,
+ * `website/_components/hub-draft-bar.tsx`) must stay visible at the upper
+ * right of the top nav on every width (owner 2026-09-25), and this toolbar
+ * is one `flex-col`-below-`md`/`flex-row`-at-`md` element, not a single row —
+ * so `applySlot` is rendered once for the phone's own line, right-aligned
+ * under the icon row, and once in the desktop row after the device switch.
+ * Both are the SAME prop; `loadHubDraftBarData` is `cache()`d so the two
+ * mounts read the draft once, not twice.
  */
 export function MakerShell({
   eventId,
@@ -284,6 +289,21 @@ export function MakerShell({
             </span>
           </div>
 
+          {/* 💾 RESTORE · UNDO · APPLY — upper right of the top nav, on every
+              screen (owner 2026-09-25: *"i thought there will be an action
+              buttons RESTORE/UNDO/APPLY on the upper right nav?"* →
+              *"upper right of the top nav"*). Below `md` the bar's icon row has
+              no room left for a third cluster of controls, so this is its own
+              right-aligned line rather than crowding into the row above — still
+              the top of the Maker, still the right edge. The desktop copy below
+              is the SAME `applySlot`, mounted a second time; `loadHubDraftBarData`
+              is `cache()`d so the two mounts cost one read, not two. */}
+          {applySlot ? (
+            <div className="flex items-center justify-end gap-1.5 md:hidden" data-maker-apply-slot="mobile">
+              {applySlot}
+            </div>
+          ) : null}
+
           <MakerBar
             stage={stage}
             liveStage={liveStage}
@@ -293,7 +313,7 @@ export function MakerShell({
           />
 
           <div className="hidden items-center gap-1 md:flex">
-            {applySlot ? <div data-maker-apply-slot="">{applySlot}</div> : null}
+            {applySlot ? <div data-maker-apply-slot="desktop">{applySlot}</div> : null}
             {hasWork && stageRoles.length > 0 ? (
               <ViewAsSwitch roles={stageRoles} value={viewAsRole} onChange={setViewAsRole} />
             ) : null}

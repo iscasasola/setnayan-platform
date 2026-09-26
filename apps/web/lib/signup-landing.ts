@@ -42,11 +42,67 @@ export function youHref(next: string): string {
 }
 
 /**
- * After `signUp` signs the new account in: couples meet the You card; vendors go
- * straight on (their `next` is already `/open-shop`, whose step 3 asks the name).
+ * ── AN ACCOUNT MADE FROM AN INVITATION (owner 2026-09-25, "1. yes") ─────────
+ * A guest who signs up from somebody's invitation goes STRAIGHT BACK to that
+ * invitation. No You card, no "plan your event" onboarding, no couple welcome
+ * email — they came to answer an invitation, and the name the You card exists
+ * to ask is already on the seat (`linkGuestSessionToUser` fills it).
+ *
+ * Every door from an event returns through ONE address, `/join/{eventId}/connect`,
+ * which binds the seat and lands them on `/{slug}` (at the reply form when they
+ * have not answered). So "is this an event sign-up?" is a question about that
+ * address, not about a clock: the old test was `isBrandNewAccount`, a 120-second
+ * window, so whether a guest met the You card depended on how fast they opened
+ * their email.
  */
-export function signupLanding(input: { accountType: SignupAccountType; next: string }): string {
+const EVENT_CONNECT_PATH = /^\/join\/[^/?#]+\/connect(?:[?#]|$)/;
+
+/** Is this `next` the event-connect return (magic link, Google/Apple, /signup)? */
+export function isEventConnectNext(next: string | null | undefined): boolean {
+  return typeof next === 'string' && EVENT_CONNECT_PATH.test(next);
+}
+
+/** Where every sign-up from an invitation returns: the connect route for that event. */
+export function eventConnectPath(eventId: string): string {
+  return `/join/${eventId}/connect`;
+}
+
+/**
+ * Was this sign-up made FROM AN EVENT? Either it returns through the connect
+ * route, or it carries the guest-page marker `ref=guest` (the host pitch and the
+ * join door's "Create account" both set it).
+ */
+export function isEventSignup(input: { ref: string | null | undefined; next: string }): boolean {
+  return input.ref === 'guest' || isEventConnectNext(input.next);
+}
+
+/**
+ * The welcome email a new account is sent, or NULL for none. A guest from an
+ * invitation gets NOTHING from here: "Your couple account is ready… create your
+ * event" is a sentence about somebody else's plans, and the invitation's own
+ * sign-in link is the only email that guest was expecting.
+ */
+export function welcomeEmailKind(input: {
+  accountType: SignupAccountType;
+  fromEvent: boolean;
+}): 'couple' | 'vendor' | null {
+  if (input.accountType === 'vendor') return 'vendor';
+  if (input.fromEvent) return null;
+  return 'couple';
+}
+
+/**
+ * After `signUp` signs the new account in: couples meet the You card; vendors go
+ * straight on (their `next` is already `/open-shop`, whose step 3 asks the name);
+ * a guest from an invitation goes straight back to it.
+ */
+export function signupLanding(input: {
+  accountType: SignupAccountType;
+  next: string;
+  fromEvent?: boolean;
+}): string {
   if (input.accountType === 'vendor') return input.next;
+  if (input.fromEvent) return input.next;
   if (input.next.startsWith(YOU_PATH)) return input.next;
   return youHref(input.next);
 }

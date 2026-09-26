@@ -49,6 +49,11 @@
  *           motion, transition),
  *           sanitised by `sanitizeHubCanvas` — the same function the guest render
  *           reads through. `canvas: null` means "take the canvas off".
+ *           The HERO row alone also carries `main` (Maker Phase 10): what is
+ *           behind every scene — by default the hero itself, with the adaptive
+ *           theme's `tint` measured off its photo, or an opt-in override clip or
+ *           photo — stored at `config_json.main`, read through
+ *           `sanitizeHubMainGround`. `main: null` = the plain hero, unmeasured.
  */
 import {
   WIDGET_PHASES,
@@ -59,7 +64,15 @@ import {
   type WidgetType,
 } from '@/lib/invitation-widgets';
 import { isCustomSectionType } from '@/lib/custom-sections';
-import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
+import {
+  HUB_MAIN_GROUND_KEY,
+  hubMainGround,
+  isHubMainFollow,
+  sanitizeHubCanvas,
+  sanitizeHubMainGround,
+  type HubMainGround,
+  type HubSectionCanvas,
+} from '@/lib/hub-canvas';
 import {
   HUB_CANVAS_LOOK_KEYS,
   HUB_LOOK_EVENT_COLUMNS,
@@ -178,6 +191,13 @@ export type HubDraftWidget = {
   display_order?: number;
   /** The section's whole canvas, or `null` to take it off. */
   canvas?: HubSectionCanvas | null;
+  /**
+   * HERO ROW ONLY — the Main background (Maker Phase 10), or `null` to go back
+   * to the theme's own. Replaced whole, like the canvas. Dropped on any other
+   * section: the page has one Main background, and a second home for it would
+   * be a second source of truth.
+   */
+  main?: HubMainGround | null;
 };
 
 export type HubDraftState = {
@@ -296,7 +316,7 @@ function sanitizeDraftLoveStory(raw: unknown): Record<string, unknown> | undefin
   return { ...raw, moments };
 }
 
-function sanitizeWidget(raw: unknown): HubDraftWidget | null {
+function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const src = raw as Record<string, unknown>;
   const out: HubDraftWidget = {};
@@ -318,6 +338,13 @@ function sanitizeWidget(raw: unknown): HubDraftWidget | null {
     // stored draft canvas is always the bare canvas, so hand it the bare one.
     out.canvas = sanitizeHubCanvas({ canvas: src.canvas });
   }
+  if (type === 'hero' && 'main' in src) {
+    if (src.main === null) out.main = null;
+    else {
+      const main = sanitizeHubMainGround(src.main);
+      if (main) out.main = main;
+    }
+  }
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -338,7 +365,7 @@ function sanitizeState(raw: unknown): HubDraftState {
     : {};
   for (const [type, value] of Object.entries(rawWidgets)) {
     if (!isWidgetType(type)) continue;
-    const w = sanitizeWidget(value);
+    const w = sanitizeWidget(value, type);
     if (w) widgets[type] = w;
   }
   return { events, widgets };
@@ -428,6 +455,17 @@ function configWithCanvas(config: unknown, canvas: HubSectionCanvas | null): Rec
   return base;
 }
 
+/** `config_json` with the Main background set or taken off; every sibling key kept. */
+export function configWithMainGround(config: unknown, main: HubMainGround | null): Record<string, unknown> {
+  const base =
+    config && typeof config === 'object' && !Array.isArray(config)
+      ? { ...(config as Record<string, unknown>) }
+      : {};
+  if (main === null) delete base[HUB_MAIN_GROUND_KEY];
+  else base[HUB_MAIN_GROUND_KEY] = main;
+  return base;
+}
+
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
 export function overlayHubDraftWidgets(
   rows: readonly InvitationWidgetRow[],
@@ -437,12 +475,15 @@ export function overlayHubDraftWidgets(
   return rows.map((row) => {
     const w = draft.widgets[row.widget_type];
     if (!w) return row;
+    let config: unknown = row.config_json;
+    if (w.canvas !== undefined) config = configWithCanvas(config, w.canvas);
+    if (w.main !== undefined && row.widget_type === 'hero') config = configWithMainGround(config, w.main);
     return {
       ...row,
       ...(w.mode !== undefined && !row.is_always_on ? { mode: w.mode } : {}),
       ...(w.is_visible !== undefined && !row.is_always_on ? { is_visible: w.is_visible } : {}),
       ...(w.display_order !== undefined && !row.is_always_on ? { display_order: w.display_order } : {}),
-      ...(w.canvas !== undefined ? { config_json: configWithCanvas(row.config_json, w.canvas) } : {}),
+      ...(config !== row.config_json ? { config_json: config as InvitationWidgetRow['config_json'] } : {}),
     };
   });
 }
@@ -475,7 +516,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -624,6 +665,30 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
 
 /**
+ * The Main background, live → drafted (Maker Phase 10). All of it is LOOK — the
+ * owner's "making media a background is pro", and "Adaptive theme is for PRO":
+ * putting their own clip or photo up, swapping it, or changing how the theme
+ * follows it (the `tint` toggle) adds or changes; going back to the hero (or
+ * the theme's own) removes, which is free.
+ *
+ * FOLLOWING THE HERO (the default, owner 2026-09-25 item 6) carries no media of
+ * its own — the hero photo is gated where the hero is written — so only its
+ * measured frame and toggle are compared: the adaptive tint, which is Pro.
+ */
+export function mainGroundChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
+  const ref = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? `${m.kind}:${m.media}` : null);
+  const poster = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? (m.poster ?? null) : null);
+  const tint = (m: HubMainGround | null) =>
+    m ? asText(isHubMainFollow(m) ? { of: m.of, ...m.tint } : (m.tint ?? null)) : null;
+  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null));
+  return combineChanges(
+    refChange(ref(live), ref(next)),
+    refChange(poster(live), poster(next)),
+    refChange(tint(live), tint(next)),
+  );
+}
+
+/**
  * Every key in the draft that differs from live, in THE fixed order Apply writes
  * them: the `events` columns in `HUB_DRAFT_EVENT_COLUMNS` order, then each
  * section in `WIDGET_TYPES` order — mode, then visibility, then order, then canvas. A key equal to
@@ -669,6 +734,22 @@ export function classifyHubDraft(
     }
     if (w.display_order !== undefined && !row.is_always_on && w.display_order !== row.display_order) {
       items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'display_order', value: w.display_order, change: 'change', pro: false });
+    }
+    if (w.main !== undefined && type === 'hero') {
+      const liveMain = hubMainGround(row.config_json);
+      const nextMain = w.main;
+      if (JSON.stringify(liveMain) !== JSON.stringify(nextMain)) {
+        const change = mainGroundChange(liveMain, nextMain);
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'main',
+          value: nextMain,
+          change,
+          pro: change === 'add' || change === 'change',
+        });
+      }
     }
     if (w.canvas !== undefined) {
       const liveCanvas = liveCanvasOf(row.config_json);
@@ -723,6 +804,7 @@ export function planHubDraftApply(
     else {
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
+      else if (item.field === 'main') w.main = item.value as HubMainGround | null;
     }
   }
   return { apply, refused, remaining, orphans };
@@ -884,6 +966,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
+  if (item.field === 'main') return 'Behind every scene';
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

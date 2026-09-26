@@ -22,9 +22,11 @@ import {
   type RailGroup,
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { INVITE_THEMES } from '@/lib/invite-themes';
+import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { hubMainGround, isHubMainFollow, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { HeroFrameSync, MainBackgroundPanel } from './_components/main-background-panel';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -354,7 +356,32 @@ export default async function WebsiteEditorPage({
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
   const allWidgets = overlayHubDraftWidgets(liveWidgets, hubDraft);
+
+  /* 🎞 THE MAIN BACKGROUND (Maker Phase 10) — BY DEFAULT THE HERO (owner,
+     2026-09-25 item 6: "whatever they make on the hero scene will be their
+     cover and the main background"), with the adaptive theme riding on it; an
+     explicit "different clip or photo" is the opt-in override. Stored on the
+     hero row (`hubMainGround`), so the draft-over-live read above is the one
+     the panel shows, and "in your draft" is that read against live. The hero is
+     read through the one resolver (`resolveHero`) over the DRAFTED event row, so
+     a hero just changed in the Hero workspace is the one measured. Pro, so it
+     is HIDDEN in the store shell (never shown locked there). */
+  const mainLive = hubMainGround(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json);
+  const mainNow = hubMainGround(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
+  const draftedHero = resolveHero(overlayHubDraftEvent(event as Record<string, unknown>, hubDraft));
+  const signOrNull = async (ref: string | null) =>
+    ref ? await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null) : null;
+  const [heroPhotoUrl, mainOverrideStillUrl] = await Promise.all([
+    signOrNull(draftedHero.photoRef),
+    signOrNull(mainNow && !isHubMainFollow(mainNow) ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null),
+  ]);
+  const mainThemeId = normalizeThemeId((event as { invite_theme?: string | null }).invite_theme) ?? 'house';
   const currentThemeId = (event as { invite_theme?: string | null }).invite_theme ?? 'house';
+  // This event's own "Open browsing" choice (the `open-browse` row below) —
+  // which of `SectionsPanel`'s two visibility controls actually governs the
+  // guest-facing render for it. Computed once, passed everywhere the panel is
+  // built, so the list view and every per-scene sheet agree.
+  const openBrowse = (event as { website_open_browse?: boolean | null }).website_open_browse === true;
   // Hideable rows only — always-on sections can't be hidden or moved, so
   // offering the controls would be a lie. Ordered by display_order.
   const sectionRows = [...allWidgets]
@@ -543,6 +570,43 @@ export default async function WebsiteEditorPage({
             />
           ),
         },
+        ...(storeShell
+          ? []
+          : [
+              {
+                key: 'main-background',
+                label: 'Behind every scene',
+                blurb: 'Your hero behind every scene — the theme’s colours follow it.',
+                href: `${base}/launch?open=main-background`,
+                status:
+                  mainNow && !isHubMainFollow(mainNow)
+                    ? done(mainNow.kind === 'snippet' ? 'Your clip' : 'Your photo')
+                    : draftedHero.photoRef
+                      ? done('Your hero')
+                      : todo('Theme’s own'),
+                pro: true,
+                locked: false,
+                panel: (
+                  <>
+                    {/* First visit only — the hint opens the first time the couple opens Main. */}
+                    <MiniTour tourKey="customer_adaptive_theme_v1" storeShell={storeShell} />
+                    <MainBackgroundPanel
+                      eventId={eventId}
+                      themeId={mainThemeId}
+                      current={mainNow}
+                      hero={{
+                        photoRef: draftedHero.photoRef,
+                        photoUrl: heroPhotoUrl,
+                        hasClip: Boolean(draftedHero.videoRef),
+                      }}
+                      overrideStillUrl={mainOverrideStillUrl}
+                      drafted={JSON.stringify(mainNow) !== JSON.stringify(mainLive)}
+                      ownsPro={ownsPro}
+                    />
+                  </>
+                ),
+              },
+            ]),
         {
           key: 'colors',
           label: 'Colors',
@@ -814,6 +878,7 @@ export default async function WebsiteEditorPage({
                    "…to Save the Date", "…to On the Day", "…to Post Event". */
                 initialPhase === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[initialPhase]
               }
+              openBrowse={openBrowse}
             />
           ),
         },
@@ -961,7 +1026,7 @@ export default async function WebsiteEditorPage({
     postEvent,
     plan: {
       widgets: allWidgets,
-      openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),
+      openBrowse,
       weddingOnlyParts: resolveWeddingOnlyParts(profile),
       content: sectionContent,
       solemn: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn,
@@ -1032,6 +1097,7 @@ export default async function WebsiteEditorPage({
         lookLock={lockPanel('How each section looks and moves')}
         videoChoice={videoChoice}
         colorChoices={colorChoices}
+        openBrowse={openBrowse}
       />,
     ]),
   );
@@ -1051,7 +1117,24 @@ export default async function WebsiteEditorPage({
       eventId={eventId}
       /* 🧩 Phase 6 — Logo · Hero · Reveal, made once, each drafted. */
       madeOnce={{
-        hero: <MakerHeroPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
+        hero: (
+          <>
+            <MakerHeroPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />
+            {/* 🎞 The hero is also the Main background (owner 2026-09-25 item 6):
+                a new hero photo is measured HERE, where it was made, so the page
+                behind every scene follows it without a second step. Themed, and
+                never in the store shell (the adaptive theme is Pro). */}
+            {!storeShell && mainThemeId !== 'house' ? (
+              <HeroFrameSync
+                eventId={eventId}
+                heroRef={draftedHero.photoRef}
+                heroUrl={heroPhotoUrl}
+                current={mainNow}
+                quiet
+              />
+            ) : null}
+          </>
+        ),
         reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
         logo: <MakerLogoPanel eventId={eventId} />,
         /* 💌 Love Story's own PAGE — Our Love Story, the scrapbook — drawn in the

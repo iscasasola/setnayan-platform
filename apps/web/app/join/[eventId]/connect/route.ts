@@ -85,6 +85,13 @@ export async function GET(
     // site. A separate line on purpose — the one above is pinned by
     // an-invited-person-is-recognised.test.ts and stays byte-identical.
     if (slug && thenReply) dest = inviteReplyPath(slug);
+    // SIGN UP FIRST, THEN THE FORM (owner 2026-09-25): a guest who has not
+    // answered yet lands AT the reply — the sheet opens on `#your-details` —
+    // with their details already filled from the seat and the account. The form
+    // is still theirs to complete; signing in never counts as a reply.
+    if (slug && !thenReply && (await seatAwaitsReply(eventId, user.id))) {
+      dest = `/${slug}${REPLY_SHEET_HASH}`;
+    }
   }
 
   // Set-password gate (owner directive): a passwordless email-link account is
@@ -101,4 +108,29 @@ export async function GET(
   }
 
   return NextResponse.redirect(new URL(dest, origin));
+}
+
+/** The reply sheet's own anchor (rsvp-sheet.tsx `id="your-details"`). */
+const REPLY_SHEET_HASH = '#your-details';
+
+/** Has this account's seat on this event still not answered? False on any doubt. */
+async function seatAwaitsReply(eventId: string, userId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data: member } = await admin
+    .from('event_members')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .eq('member_type', 'guest')
+    .not('guest_id', 'is', null)
+    .maybeSingle();
+  if (!member?.guest_id) return false;
+  const { data: guest } = await admin
+    .from('guests')
+    .select('rsvp_status')
+    .eq('guest_id', member.guest_id as string)
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  return ((guest?.rsvp_status as string | null) ?? null) === 'pending';
 }

@@ -37,10 +37,11 @@ export function OurLoveStoryWidget({
   if (scenes.length === 0) return null;
 
   // Pahina chapter grammar (design 2026-07-25 §7). NOTE: this widget carries an
-  // UNNUMBERED eyebrow on purpose — `OurStory` also renders a story chapter (№ 02)
-  // from the same `love_story` column on a different path, and a couple who
-  // enables this widget could surface both on one page. Two "№ 02" headings would
-  // break the magazine conceit; the label alone reads correctly either way.
+  // unnumbered eyebrow — `OurStory` also renders a story chapter from the same
+  // `love_story` column on a different path, and a couple who enables this
+  // widget could surface both on one page. Since owner 2026-09-25 "drop the
+  // numbers" neither carries a chapter numeral anymore, so two "Our story"
+  // headings never collide on a number; the label alone still reads correctly.
   return (
     <section className="space-y-10" data-love-story-scenes={scenes.length}>
       <div>

@@ -265,8 +265,10 @@ export function GuestHubCard({
         id="guest-hub-card"
         open
         /* Pahina hub plate (design §11a): the guest-personal layer is STARRED,
-           not numbered — the gild ✦ marks "this belongs to you" while editorial
-           chapters carry a №. Palette-derived gild replaces the fixed Atelier
+           not numbered — the gild ✦ marks "this belongs to you". (Editorial
+           sections used to carry a № too; owner 2026-09-25 "drop the numbers"
+           removed those, so the star is now the only decorative mark left on
+           the page.) Palette-derived gild replaces the fixed Atelier
            champagne-gold so the plate re-skins with the couple's colours. The
            <details> disclosure, the localStorage script, and every id/gate are
            untouched. */

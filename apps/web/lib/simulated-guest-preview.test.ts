@@ -150,6 +150,9 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
   // gets "fixed" by editing the title instead of thinking about the key.
   const identity = buildSimulatedGuestIdentity({ slug: SLUG });
   assert.deepEqual(Object.keys(identity).sort(), [
+    // `account` (2026-09-25) — the one account prompt's state. NULL here: the
+    // host's simulated guest has no seat and no account, so no prompt renders.
+    'account',
     'accountlessPhotosClosed',
     'eventVendorCredits',
     'faceMode',

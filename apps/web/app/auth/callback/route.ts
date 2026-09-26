@@ -5,7 +5,7 @@ import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
-import { isBrandNewAccount, youHref } from '@/lib/signup-landing';
+import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -84,8 +84,12 @@ export async function GET(request: NextRequest) {
           // failed promotion must NEVER 500 the login.
         }
       }
+      // A guest signing in from an invitation (magic link, Google / Apple) goes
+      // straight back to it: every such door returns through the event-connect
+      // route, and that address — not a 120-second clock — decides it.
       if (
         accountType === 'customer' &&
+        !isEventConnectNext(fallbackNext) &&
         isBrandNewAccount({ createdAt: data.user?.created_at, now: Date.now() })
       ) {
         landing = youHref(fallbackNext);

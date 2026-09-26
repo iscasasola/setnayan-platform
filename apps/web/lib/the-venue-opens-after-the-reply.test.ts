@@ -101,7 +101,9 @@ test('the invitation page withholds by DEFAULT and opens in exactly one place', 
 
 test('the widget drops the directions row when withheld — it searches BY NAME otherwise', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'venue-widget.tsx'), 'utf8');
-  const branch = src.slice(src.indexOf('event.venue_withheld'));
+  // Anchor on the withheld TERNARY itself (`venue_withheld ? (`) — since 2026-09-26 the
+  // heading also mentions `event.venue_withheld` earlier, so the first mention is not it.
+  const branch = src.slice(src.indexOf('event.venue_withheld ? ('));
   assert.ok(branch.length > 0, 'precondition: the widget asks whether the venue is withheld');
   const withheldArm = branch.slice(0, branch.indexOf(') : ('));
   assert.doesNotMatch(withheldArm, /NavLinksRow/, 'no directions row on the withheld arm');
@@ -123,4 +125,16 @@ test('the day-of hub asks the same rule, and its address branch cannot bypass it
   assert.match(src, /import \{ venueIsOpen \}/, 'one rule, imported — never a second copy');
   const line = src.match(/const hasDirections =.*/)?.[0] ?? '';
   assert.match(line, /venueOpen && \(/, `the gate wraps BOTH branches, not just the pin: ${line}`);
+});
+
+// ── A withheld venue never says "to be confirmed" (owner 2026-09-26, cale-ice) ──
+import { readFileSync as __readVenueWidget } from 'node:fs';
+import { join as __joinVenue } from 'node:path';
+test('a withheld venue never renders "Venue to be confirmed" — the withheld line speaks instead', () => {
+  const src = __readVenueWidget(__joinVenue(__dirname, '..', 'app', '[slug]', '_components', 'venue-widget.tsx'), 'utf8');
+  assert.match(
+    src,
+    /hasCoords \|\| event\.venue_withheld \? null : \(/,
+    'the "to be confirmed" heading must step aside when the venue is withheld (withheldVenue clears the pin)',
+  );
 });

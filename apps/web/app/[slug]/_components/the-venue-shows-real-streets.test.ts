@@ -169,7 +169,8 @@ test('"Venue to be confirmed" never appears above a map that confirms it', () =>
   // it tells the guest the opposite of what the map shows.
   assert.match(
     src,
-    /hasCoords \? null : \(/,
+    // `|| event.venue_withheld` (2026-09-26): a withheld venue also stands the heading down.
+    /hasCoords(?: \|\| event\.venue_withheld)? \? null : \(/,
     'the "to be confirmed" heading must stand down when there is a map',
   );
 });

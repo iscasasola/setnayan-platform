@@ -68,12 +68,17 @@ export function VenueWidget({ event }: { event: EventRow }) {
           </p>
           {/* "Venue to be confirmed" is only honest when nothing locates the
               venue. With a pin on the map it contradicts the map directly above
-              it, so the heading steps aside and the map answers the question. */}
+              it, so the heading steps aside and the map answers the question.
+              🔒 And a WITHHELD venue is not an unconfirmed one (owner 2026-09-26,
+              cale-ice: pin set, guest not yet replied → the page said "Venue to be
+              confirmed"). `withheldVenue` clears the pin, so without this the
+              heading would claim the couple has no venue; the withheld line below
+              says the true thing — it opens when they reply. */}
           {event.venue_name ? (
             <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
               {event.venue_name}
             </h3>
-          ) : hasCoords ? null : (
+          ) : hasCoords || event.venue_withheld ? null : (
             <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
               Venue to be confirmed
             </h3>

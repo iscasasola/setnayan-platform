@@ -41,6 +41,7 @@ import {
   type PrintLook,
   type PrintMode,
   type PrintPieceKey,
+  type PrintSetKey,
 } from '@/lib/print-pieces';
 
 // ─── The drawing vocabulary ─────────────────────────────────────────────────
@@ -207,6 +208,10 @@ function text(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts): n
   if (parts.length) ops.push({ t: 'path', d: parts.join(' '), fill: o.color, layer: o.layer, opacity: o.opacity });
   return width;
 }
+
+/** The same type setter, for the free group's A4 documents (lib/print-report.ts). */
+export const drawText = text;
+export type PrintTextOpts = TextOpts;
 
 /** Greedy word wrap by measured width. */
 export function wrap(raw: string, key: PrintFontKey, size: number, maxWidth: number): string[] {
@@ -943,7 +948,7 @@ type LayoutInput = {
 };
 
 export function layoutPiece(
-  piece: Exclude<PrintPieceKey, 'passes' | 'qr-codes'>,
+  piece: PrintSetKey,
   input: LayoutInput & { pass?: PrintPass },
 ): PrintDoc {
   const ctx: Ctx = { look: input.look, data: input.data, mode: input.mode, foil: input.foil };

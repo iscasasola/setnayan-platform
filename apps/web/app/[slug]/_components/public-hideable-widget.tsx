@@ -93,6 +93,12 @@ function PublicHideableWidgetBody({
       // on the authed path; the anonymous path doesn't have that pin,
       // but we still skip the standalone widget when isLive to match
       // the editor's "always-on pin replaces hideable" contract).
+      //
+      // NOT `compact` (owner, 2026-09-26: "event schedule on the event hub
+      // should not be see other schedule it will extend as needed"). Same
+      // change as the identified-guest tree in hideable-widget-render.tsx —
+      // both trees must agree or an anonymous visitor sees a truncated
+      // programme while a signed-in guest sees the full one.
       return !isLive && scheduleBlocks.length > 0 ? (
         <>
           <ScheduleWidget
@@ -101,7 +107,6 @@ function PublicHideableWidgetBody({
             nowTrigger={isGuestNowTriggerEnabled()}
             estimated={scheduleEstimated}
             eventType={event.event_type}
-            compact
           />
           {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
         </>

@@ -14,6 +14,8 @@ import {
   type SeatingPdfGuest,
   type SeatingPdfMode,
 } from '@/lib/seating-pdf';
+import { seatPlanPreviewSvg } from '@/lib/seat-plan-preview-svg';
+import { printFileName } from '@/lib/print-pieces';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +81,18 @@ export async function GET(
     ]),
   );
 
+  // `?format=preview` — the plan as a small SVG, the thumbnail Prints & Tickets
+  // shows (owner 2026-09-25, "PRINTS & TICKETS HOLDS EVERY PRINT": every free
+  // print shows a real preview). Same tables, same fit, same shapes as the PDF.
+  if (new URL(req.url).searchParams.get('format') === 'preview') {
+    const seated = new Map<string, number>();
+    for (const a of assignments) seated.set(a.table_id, (seated.get(a.table_id) ?? 0) + 1);
+    return new NextResponse(seatPlanPreviewSvg({ tables, floorPlan, seatedByTable: seated, mode, palette: flatHexPalette }), {
+      status: 200,
+      headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+    });
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
   const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
@@ -105,12 +119,13 @@ export async function GET(
     logoPng,
   });
 
-  const safeName = (event.display_name || 'Wedding').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+  // `<event slug>-seat-plan.pdf` (owner's naming rule — event first, then the
+  // print; the per-guest QR is `eventname-guestname.jpg`).
   return new NextResponse(new Uint8Array(pdf), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="Seating-Plan-${safeName}-${mode}.pdf"`,
+      'Content-Disposition': `attachment; filename="${printFileName(event.slug, mode === 'blueprint' ? 'seat-plan-blueprint' : 'seat-plan')}"`,
       'Cache-Control': 'no-store',
     },
   });

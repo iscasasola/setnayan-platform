@@ -37,7 +37,8 @@ import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { buildSitePaletteVars } from '@/lib/site-palette';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
-import type { InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { ombreLook, parseSiteBackground } from '@/lib/ombre';
 import { proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
@@ -182,6 +183,12 @@ export type GuestLook = {
   accent: string;
   /** Mood-board palette with the Pro colours and face layered on top, or null. */
   vars: Record<string, string> | null;
+  /**
+   * 🌈 The couple's OMBRÉ (`lib/ombre.ts`), as the `background-image` the
+   * page's paper paints in place of the theme's loop — or null for a plain
+   * colour, a palette or nothing. Free (owner 2026-09-25: plain or ombré).
+   */
+  ombre: string | null;
 };
 
 /**
@@ -240,13 +247,31 @@ export function guestLookFrom(
   const pro = proSiteVarsFor(event, proActive, hub.theme);
   // Byte-safety, as the shell always had it: with no Pro colours the bag IS the
   // palette's; with some, they are spread over it (the couple's own pick wins).
-  const vars = pro ? { ...(palette ?? {}), ...pro } : palette;
+  let vars = pro ? { ...(palette ?? {}), ...pro } : palette;
+
+  /* 🌈 THE OMBRÉ (owner 2026-09-25: "plain color or like apples ombe style").
+     `site_bg_color` holds either a plain hex — `buildCustomSiteColorVars`
+     above reads that shape and nothing else — or an encoded ombré spec, read
+     here through the ONE reader (`parseSiteBackground`). FREE, like the plain
+     colour: no entitlement is consulted. Its vars are the paper moved into the
+     ramp and the legibility answer measured over the WHOLE ramp with the
+     theme's own inks (`ombreLook`), spread LAST so the words follow the
+     ground the couple chose. The CSS itself travels as `ombre` for the scope's
+     paper to paint in place of the theme's loop. */
+  const background = parseSiteBackground(event.site_bg_color);
+  let ombre: string | null = null;
+  if (background?.kind === 'ombre') {
+    const look = ombreLook(INVITE_THEMES[hub.theme], background.ombre);
+    ombre = look.css;
+    vars = { ...(vars ?? {}), ...look.vars };
+  }
 
   return {
     theme: hub.theme === 'house' ? null : hub.theme,
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
     vars: vars && Object.keys(vars).length > 0 ? vars : null,
+    ombre,
   };
 }
 

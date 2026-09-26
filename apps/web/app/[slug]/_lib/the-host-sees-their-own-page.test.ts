@@ -183,8 +183,10 @@ test('ownerCapability reaches the anonymous render path — the wiring the whole
   assert.match(
     PAGE,
     // `wearDraft(` — the host canvas's drafted look wrapper (2026-09-25); it
-    // returns its input untouched for everyone else.
-    /const renderAnonymous = \(reason: AnonymousReason\) => (?:wearDraft)?\(\s*(?:<>\s*)?<SiteBody\s*\{\.\.\.siteProps\}/,
+    // returns its input untouched for everyone else. A block body (statements
+    // before `return wearDraft(`, e.g. the Server-Timing flush) is the same
+    // path — the property is the spread in the returned SiteBody, not the shape.
+    /const renderAnonymous = \(reason: AnonymousReason\) => (?:\{(?:(?!\breturn\b)[\s\S]){0,600}return )?(?:wearDraft)?\(\s*(?:<>\s*)?<SiteBody\s*\{\.\.\.siteProps\}/,
     'renderAnonymous no longer spreads siteProps into SiteBody. A signed-in host with no guest ' +
       'cookie takes this exact path, so dropping the spread hands them the stranger body again.',
   );

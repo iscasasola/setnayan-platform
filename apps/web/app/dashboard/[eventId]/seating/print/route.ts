@@ -5,6 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { layoutSeatingPack, type SeatingPackUnit } from '@/lib/print-seating-pack';
+import { printFileName } from '@/lib/print-report';
+import { renderPrintPdf } from '@/lib/print-render-pdf';
+import { renderPrintSvg } from '@/lib/print-render-svg';
+import type { PrintImages } from '@/lib/print-layout';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,6 +104,51 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const units = [...unitsByKey.values()];
   const unitGuests = (u: Unit) =>
     u.members.flatMap((m) => seatedByTable.get(m.table_id) ?? []).sort((x, y) => x.name.localeCompare(y.name));
+
+  const coupleNameEarly = event.monogram_text || event.display_name || 'Our Wedding';
+  const dateLabelEarly = (() => {
+    if (!event.event_date) return null;
+    const d = new Date(event.event_date as string);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  })();
+
+  // ── THE FILE (owner 2026-09-25, "PRINTS & TICKETS HOLDS EVERY PRINT": every
+  // free print SAVES a file). `?format=pdf` is the same pack as a PDF — a phone
+  // saves it in one tap, and the App Store app, whose web view has no print
+  // dialog, can have it at all. `?format=preview` is page 1 as an SVG, the
+  // thumbnail Prints & Tickets shows. The HTML below stays for the dialog.
+  const format = new URL(req.url).searchParams.get('format');
+  if (format === 'pdf' || format === 'preview') {
+    const packUnits: SeatingPackUnit[] = units.map((u) => ({
+      label: u.label,
+      joined: u.members.length,
+      qrRef: `t-${u.key}`,
+      guests: unitGuests(u).map((g) => ({ name: g.name, qrRef: `g-${g.qr_token}` })),
+    }));
+    const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits });
+    if (format === 'preview') {
+      return new NextResponse(renderPrintSvg(docs[0]!, {}), {
+        status: 200,
+        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+      });
+    }
+    const images: PrintImages = {};
+    const png = async (text: string) =>
+      new Uint8Array(await QRCode.toBuffer(text, { ...QR_OPTS, width: 600, errorCorrectionLevel: 'M' }));
+    for (const u of units) images[`t-${u.key}`] = { bytes: await png(`${site}?t=${u.lead.public_id}`), mime: 'image/png' };
+    for (const pu of packUnits) {
+      for (const g of pu.guests) images[g.qrRef] = { bytes: await png(`${site}?g=${g.qrRef.slice(2)}`), mime: 'image/png' };
+    }
+    const bytes = await renderPrintPdf(docs, images, { mode: 'plain', title: `${coupleNameEarly} — seating pack`, subject: `${units.length} tables` });
+    return new NextResponse(Buffer.from(bytes), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${printFileName(event.slug, 'seating-pack')}"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
 
   // Pre-render every QR to a data URL (server-side, no network).
   const tableQr = new Map<string, string>(

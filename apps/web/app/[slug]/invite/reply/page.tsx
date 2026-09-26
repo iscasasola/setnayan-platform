@@ -13,6 +13,8 @@ import { eventWordsFor } from '../../_lib/event-words';
 import type { GuestRow } from '../../_lib/types';
 import { RsvpWidget } from '../../_components/rsvp-widget';
 import { submitInviteReply } from '../actions';
+import { guestAccountState, replyOffersKeep } from '@/lib/guest-one-path';
+import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
@@ -144,6 +146,18 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   // Where a provider sign-in (or a password sign-in) comes back through: the
   // connect route binds this seat to the account, then returns to this door.
   const connectPath = `/join/${event.event_id}/connect?then=${CONNECT_THEN_REPLY}`;
+
+  // The keep box beside the email (form first, then sign up — owner
+  // 2026-09-25). The same decision the Event Hub's own card makes, from the
+  // same facts, so the door and the site cannot disagree about who is offered it.
+  const keepOffer = replyOffersKeep(
+    guestAccountState({
+      viewerUserId: user?.id ?? null,
+      viewerEmail: user?.email ?? null,
+      seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
+      linkSentForThisEvent: await keepLinkSentFor(event.event_id as string),
+    }),
+  );
 
   const flash =
     search.rsvp === 'error'
@@ -278,6 +292,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
            a feature taken away: a prop, because this card is shared with the
            Event Hub's own RSVP card, which keeps its selfie. */
         offerSelfie={false}
+        keepOffer={keepOffer}
       />
 
       {user ? null : (

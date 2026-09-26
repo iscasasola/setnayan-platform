@@ -54,6 +54,9 @@ type HideableWidgetProps = {
   canvasMediaUrls?: Readonly<Record<string, string>>;
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
+  /** The guest's invitation is linked to their account — only then may the
+   *  "plan your own" pitch show (lib/guest-one-path.ts `hostPitchShows`). */
+  hostPitch?: boolean;
 };
 
 /**
@@ -73,6 +76,7 @@ function HideableWidgetBody({
   ourPhotoUrls,
   words,
   canvasMediaUrls,
+  hostPitch = false,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -152,6 +156,7 @@ function HideableWidgetBody({
           eventId={event.event_id}
           eventPublicId={event.public_id}
           eventNoun={eventNounOf(event)}
+          hostPitch={hostPitch}
         />
       );
 

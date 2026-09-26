@@ -18,7 +18,6 @@ export function OurPhotosWidget({ urls }: { urls: string[] }) {
   return (
     <section className="space-y-5">
       <p className="pahina-eyebrow">
-        <span aria-hidden>№ 06</span>
         <span>Our photos</span>
       </p>
       {lead ? (

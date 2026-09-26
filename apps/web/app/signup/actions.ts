@@ -16,7 +16,7 @@ import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { TERMS_FIELD, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
 import { isEmailVerificationRequired } from '@/lib/email-verification';
-import { signupLanding } from '@/lib/signup-landing';
+import { isEventSignup, signupLanding, welcomeEmailKind } from '@/lib/signup-landing';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -66,6 +66,9 @@ export async function signUp(formData: FormData) {
   const guestHostRef = String(formData.get('ref') ?? '') === 'guest' ? 'guest' : '';
   const guestHostSrcEvent = String(formData.get('src_event') ?? '').trim();
   const isGuestHostAttributed = guestHostRef === 'guest' && guestHostSrcEvent !== '';
+  // An account made FROM AN INVITATION (owner 2026-09-25): no You card, no
+  // couple welcome email, straight back to the event. lib/signup-landing.ts.
+  const fromEvent = accountType === 'customer' && isEventSignup({ ref: guestHostRef, next });
   // Couple referral rewards — a new account arriving via a shared ?refc=<code>
   // link. Carried through the form as a hidden input. Only couples can be
   // referred (referrals reward event planning); ignored for vendor signups.
@@ -367,7 +370,11 @@ export async function signUp(formData: FormData) {
           ? Promise.resolve(null)
           : admin.auth.admin.updateUserById(userId, { email_confirm: true }),
         profilePromise,
-        sendEmail({
+        // A guest from an invitation is sent no "your couple account is ready"
+        // email — see welcomeEmailKind.
+        welcomeEmailKind({ accountType, fromEvent }) === null
+          ? Promise.resolve(null)
+          : sendEmail({
           to: email,
           subject: 'Welcome to Setnayan',
           text: [
@@ -509,7 +516,7 @@ export async function signUp(formData: FormData) {
       // Couples meet the You card first (display name · @account name · formal
       // name · phone · photo), carrying `next`; vendors go straight to
       // /open-shop, whose step 3 asks the name. lib/signup-landing.ts decides.
-      return redirect(signupLanding({ accountType, next }));
+      return redirect(signupLanding({ accountType, next, fromEvent }));
     }
     return redirect(
       `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,

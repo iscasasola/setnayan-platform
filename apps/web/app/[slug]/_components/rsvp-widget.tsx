@@ -763,7 +763,7 @@ function RsvpFocusForm({
           <div className="flex items-center gap-4 border-y border-gild/60 py-4">
             <span
               aria-hidden
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gild text-lg text-cream"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-lg text-cream"
             >
               ✓
             </span>

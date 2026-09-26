@@ -154,6 +154,8 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     // host's simulated guest has no seat and no account, so no prompt renders.
     'account',
     'accountlessPhotosClosed',
+    // `didntReply` (2026-09-27) — false here: the sample guest has replied.
+    'didntReply',
     'eventVendorCredits',
     'faceMode',
     'guest',

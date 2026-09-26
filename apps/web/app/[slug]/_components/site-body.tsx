@@ -1418,7 +1418,12 @@ export async function SiteBody({
                 the public bar here; that is a known, stated gap, not a silent
                 one, and it belongs to the supplier lane.
               */
-              viewer: ownerCapability && !isEditorCanvas ? { kind: 'couple' } : { kind: 'public' },
+              /* 🧭 In the Maker's canvas the bar is the one a GUEST holding their
+                 key sees (owner 2026-09-26: "show the actual guest bar for that
+                 stage") — Home · Details · RSVP · Story · Me on the Invitation.
+                 Since 2026-09-27 a stranger's bar is only Home · Details · Story,
+                 which is not the bar the couple is designing for. */
+              viewer: ownerCapability && !isEditorCanvas ? { kind: 'couple' } : isEditorCanvas ? { kind: 'guest' } : { kind: 'public' },
               phase: navPhase,
               hostAllowsCamera: hostCameraOpen,
               anyChapterPublic: menuSections.gallery,
@@ -1432,6 +1437,8 @@ export async function SiteBody({
                 camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
+                // Drawn only for the canvas's guest bar — a stranger has no RSVP tab.
+                rsvp: event.slug ? inviteReplyPath(event.slug) : null,
               },
               stageSlots: STAGE_BAR[pageStage].slots,
           });

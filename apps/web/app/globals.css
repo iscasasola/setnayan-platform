@@ -3215,8 +3215,18 @@ html.dark {
 
    UNLAYERED on purpose, unlike the component classes above: this must beat the
    `opacity-*`/`translate-*` utilities a future chapter might carry, or a single
-   `opacity-100` on a section would pin it visible and break its reveal. */
-.pahina-js .sn-editorial [data-pahina-chapters] > * {
+   `opacity-100` on a section would pin it visible and break its reveal.
+
+   🔑 THE FIRST SCREEN IS NEVER HIDDEN (2026-09-27). The masthead — "Together
+   with their families", the mark, the names, the date — and the one action
+   under it carry `data-pahina-first-screen` and are exempt. Before this they
+   were chapters like any other, so on the streamed public page they sat at
+   opacity 0 until the observer attached (DOMContentLoaded or its 1.5s timer)
+   and then took a 0.7s fade: measured on /cale-ice at 390x844, a guest in
+   Messenger saw only the background loop for the first ~2.5s. The reveal is
+   for what you SCROLL to; what is already in view on arrival is simply there.
+   `the-first-screen-is-never-hidden.test.ts` holds it. */
+.pahina-js .sn-editorial [data-pahina-chapters] > *:not([data-pahina-first-screen]) {
   opacity: 0;
   transform: translateY(22px);
   transition:
@@ -5253,18 +5263,31 @@ html:active-view-transition .sn-page-enter { animation: none; }
 }
 /* 1 · Arrival — the mark, then the names, then the date, then the one action.
    ONCE: only while ArrivalOnce has put .sn-arrive on the root, which it does
-   on a browser's first visit to this invitation. No class, nothing hidden. */
+   on a browser's first visit to this invitation. No class, nothing hidden.
+
+   🔑 THE ARRIVAL MOVES THE WORDS, IT NEVER HIDES THEM (2026-09-27, the
+   read-moves rule: content may animate in, but is never invisible while it
+   waits). These four used to start from `opacity: 0` with staggered delays
+   under `backwards` fill — so the date sat invisible for its 0.34s delay and
+   the names for 0.18s, then faded. They now SETTLE: a small rise with no
+   opacity at all, so the names and date are readable on the very first frame
+   and the stagger is felt, not waited for. */
+@keyframes sn-arrive-settle {
+  from {
+    transform: translateY(8px);
+  }
+}
 .sn-arrive [data-motion='arrive-mark'] {
-  animation: sn-rise-soft var(--sn-dur-enter) var(--sn-ease-out) backwards;
+  animation: sn-arrive-settle var(--sn-dur-enter) var(--sn-ease-out) backwards;
 }
 .sn-arrive [data-motion='arrive-names'] {
-  animation: sn-rise-soft var(--sn-dur-enter) var(--sn-ease-out) 0.18s backwards;
+  animation: sn-arrive-settle var(--sn-dur-enter) var(--sn-ease-out) 0.18s backwards;
 }
 .sn-arrive [data-motion='arrive-date'] {
-  animation: sn-hub-fade var(--sn-dur-enter) var(--sn-ease-out) 0.34s backwards;
+  animation: sn-arrive-settle var(--sn-dur-enter) var(--sn-ease-out) 0.34s backwards;
 }
 .sn-arrive [data-motion='arrive-action'] {
-  animation: sn-rise-soft var(--sn-dur-enter) var(--sn-ease-out) 0.5s backwards;
+  animation: sn-arrive-settle var(--sn-dur-enter) var(--sn-ease-out) 0.5s backwards;
 }
 /* 3 · The reply lands — right after a guest answers, the action's words fade
    in place so they see their answer take. */

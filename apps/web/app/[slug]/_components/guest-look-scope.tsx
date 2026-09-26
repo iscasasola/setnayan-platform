@@ -2,6 +2,7 @@
 
 import { useSelectedLayoutSegment } from 'next/navigation';
 import type { InviteThemeId } from '@/lib/invite-themes';
+import { pageGround } from '@/lib/page-ground';
 
 /**
  * The route segments under `/[slug]` that dress THEMSELVES and must not wear
@@ -111,7 +112,17 @@ export function GuestLookScope({
       data-hub-foil={worn && ground?.foil && !ombre ? '' : undefined}
       style={worn && style ? (style as React.CSSProperties) : undefined}
     >
-      {worn ? <GuestGround media={theme && !ombre ? ground : null} ombre={ombre} /> : null}
+      {/* 🧱 The ONE page-ground rule (`lib/page-ground.ts`): the base is always
+          painted; the theme's loop only over a plain base. The layout cannot see
+          the page's hero, so it asks with `heroGround: false` — when the hero IS
+          on top (a Pro theme only), `MainGround`'s own stylesheet switches this
+          loop off, so the phone never decodes two videos. */}
+      {worn ? (
+        <GuestGround
+          media={pageGround({ theme, ombre: Boolean(ombre), heroGround: false }).themeLoop ? ground : null}
+          ombre={ombre}
+        />
+      ) : null}
       {children}
     </div>
   );

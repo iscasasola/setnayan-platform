@@ -24,6 +24,7 @@ import {
   MissingSkuError,
   RetiredSkuError,
   LINKED_ROUTES,
+  UNLISTED_UNTIL_PROVEN,
 } from './llms-txt';
 import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
 import { bookingFeeScheduleSummary } from './booking-fee';
@@ -58,7 +59,7 @@ function figures(body: string): Set<string> {
 test('every ACTIVE retail price is quoted somewhere in the file', () => {
   const body = renderLlmsTxt(INPUT);
   const found = figures(body);
-  for (const row of RETAIL.filter((r) => r.is_active)) {
+  for (const row of RETAIL.filter((r) => r.is_active && !UNLISTED_UNTIL_PROVEN.has(r.service_code))) {
     const want = peso(Number(row.retail_price_php));
     assert.ok(found.has(want), `${row.service_code} (${want}) is active but never appears in llms.txt`);
   }
@@ -145,20 +146,23 @@ test('a missing SKU refuses to render, and names EVERY missing code at once', ()
     It was KWENTO + PAKANTA; Kwento went free, so stripping it proved nothing —
     the assertion would have quietly tested ONE code while claiming two. Swapped
     to PABATI, which went free hours later for the same reason and was retired
-    out of the product the same day. It is PAKANTA + PATIKTOK_COMPILER now.
+    out of the product the same day. It was PAKANTA + PATIKTOK_COMPILER until
+    2026-09-27, when Patiktok became UNLISTED_UNTIL_PROVEN (still on sale, no
+    longer required here) — the fourth move, for the same reason. It is
+    PAKANTA + LIVE_STUDIO now.
 
     🔑 PICK CODES THAT ARE STILL REQUIRED, and check that when you touch this.
     A vacuous assertion here does not fail; it just stops testing half of what
     it says it tests.
   */
   const stripped = RETAIL.filter(
-    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'PATIKTOK_COMPILER',
+    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'LIVE_STUDIO',
   );
   assert.throws(
     () => renderLlmsTxt({ ...INPUT, retail: stripped }),
     (err: unknown) => {
       assert.ok(err instanceof MissingSkuError);
-      assert.deepEqual([...err.codes].sort(), ['PAKANTA', 'PATIKTOK_COMPILER']);
+      assert.deepEqual([...err.codes].sort(), ['LIVE_STUDIO', 'PAKANTA']);
       return true;
     },
     'a catalog missing a named SKU must throw rather than emit a half-true file',
@@ -301,3 +305,12 @@ test('with the fee off, the file says no fee is charged rather than inventing on
   assert.ok(!supplierSection(body).includes(bookingFeeScheduleSummary()));
   assert.match(supplierSection(body), /No booking fee is charged while it is switched off/);
 });
+
+// SABOTAGE: restore the "- **Patiktok** — …" prose line or its landing link → RED.
+test('an unlisted-until-proven product is never named to answer engines', () => {
+  assert.ok(UNLISTED_UNTIL_PROVEN.has('PATIKTOK_COMPILER'));
+  const body = renderLlmsTxt(INPUT);
+  assert.equal(/patiktok/i.test(body), false, 'llms.txt names Patiktok, which the owner has not tried yet (2026-09-27)');
+  assert.equal((LINKED_ROUTES as readonly string[]).includes('/patiktok'), false);
+});
+

@@ -24,6 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { stripComments } from './strip-comments';
+import { makerPageCanvasSrc } from './maker-made-once-pages';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -114,6 +115,12 @@ test('the Maker: a canvas reload returns to the scene being edited, and "Play th
   assert.match(ready, /const key = selectedKeyRef\.current;/);
   assert.match(ready, /t: 'scrollTo', key/, 'after a reload (a Guest bars tap among them) the canvas goes back to the selected scene');
   const REVEAL = read('../app/dashboard/[eventId]/launch/_components/maker-reveal.tsx');
-  assert.match(REVEAL, /window\.open\(`\$\{path\}\?phase=save_the_date&preview=draft`, '_blank', 'noopener'\)/);
-  assert.doesNotMatch(REVEAL, /location\.reload\(\)/, 'the opening no longer replays by reloading the canvas');
+  // Since the made-once items became pages (#5996), the Reveal has its OWN page,
+  // and that page loads the stage PREVIEW — so "Play the opening" replays that
+  // page in place. What must still hold: the opening never plays in the editing
+  // canvas (`?editor=1`, the `[data-maker-shell]` frame).
+  assert.match(REVEAL, /\[data-maker-page="reveal"\] iframe/, 'the replay reloads the Reveal page');
+  assert.doesNotMatch(REVEAL, /\[data-maker-shell\] iframe/, 'the opening never replays in the editing canvas');
+  const revealSrc = makerPageCanvasSrc('/ana-ben', 'reveal', 'rsvp');
+  assert.ok(revealSrc?.includes('preview=draft') && !revealSrc.includes('editor=1'), `the Reveal page loads the preview, got ${revealSrc}`);
 });

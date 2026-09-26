@@ -149,7 +149,7 @@ export async function listReusableBookings(): Promise<{
 }
 
 /** COUPLE INITIATES — request to re-book a past vendor into a new event. */
-export async function requestVendorReuse(formData: FormData): Promise<ReuseActionResult> {
+async function requestVendorReuse(formData: FormData): Promise<ReuseActionResult> {
   if (!isReusableBookingsEnabled()) return DISABLED;
   const sourceEventVendorId = String(formData.get('source_event_vendor_id') ?? '');
   const targetEventId = String(formData.get('target_event_id') ?? '');
@@ -182,7 +182,7 @@ export async function requestVendorReuse(formData: FormData): Promise<ReuseActio
 }
 
 /** COUPLE ACCEPTS — mint the shortlisted priced pick in the target event. */
-export async function acceptVendorReuse(formData: FormData): Promise<ReuseActionResult> {
+async function acceptVendorReuse(formData: FormData): Promise<ReuseActionResult> {
   if (!isReusableBookingsEnabled()) return DISABLED;
   const requestId = String(formData.get('request_id') ?? '');
   if (!requestId) return { status: 'error', reason: 'missing_ids' };
@@ -194,7 +194,7 @@ export async function acceptVendorReuse(formData: FormData): Promise<ReuseAction
 }
 
 /** COUPLE CANCELS — withdraw a live request. */
-export async function cancelVendorReuse(formData: FormData): Promise<ReuseActionResult> {
+async function cancelVendorReuse(formData: FormData): Promise<ReuseActionResult> {
   if (!isReusableBookingsEnabled()) return DISABLED;
   const requestId = String(formData.get('request_id') ?? '');
   if (!requestId) return { status: 'error', reason: 'missing_ids' };

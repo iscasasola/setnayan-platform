@@ -17,8 +17,6 @@ import {
   posterDate,
   posterFor,
   safeAccent,
-  whiteContrastOn,
-  WHITE_TYPE_MIN_CONTRAST,
 } from './event-poster';
 
 const WEDDING = { solemn: false, twoPeople: true, eventWord: 'wedding' } as const;
@@ -57,24 +55,17 @@ test('the couple’s own hero photo wins over their colour and their theme', () 
   assert.equal(p.dark, true);
 });
 
-test('a colour that carries white type → deep; Capiz panes only when the invite wears Capiz', () => {
-  // Wine #9a244f carries white at ~7.7 (FABLE3's own figure).
-  assert.ok(whiteContrastOn('#9a244f') > 7);
-  const plain = posterFor({ ...base, accent: '#9A244F' });
-  assert.equal(plain.kind, 'deep');
-  assert.equal(plain.capiz, false);
-  assert.equal(plain.accent, '#9a244f', 'the accent is normalised');
-  const capiz = posterFor({ ...base, accent: '#9a244f', theme: 'vintage' });
-  assert.equal(capiz.kind, 'deep');
-  assert.equal(capiz.capiz, true);
-});
-
-test('a colour that cannot carry white type → the moon holds the words', () => {
-  // Gold #cba766 is far under AA against white.
-  assert.ok(whiteContrastOn('#cba766') < WHITE_TYPE_MIN_CONTRAST);
-  const p = posterFor({ ...base, accent: '#cba766' });
-  assert.equal(p.kind, 'moon');
-  assert.equal(p.dark, false);
+test('a colour never swaps the layout — every event without a hero photo gets The Card (owner 2026-09-26)', () => {
+  // Wine carries white type, gold does not; before 2026-09-26 those became the
+  // `deep` and `moon` sheets. The cover now follows the Event Hub hero instead.
+  for (const accent of ['#9A244F', '#cba766', '#c0623f']) {
+    const p = posterFor({ ...base, accent });
+    assert.equal(p.kind, 'invitation', `accent ${accent} must not change the layout`);
+    assert.equal(p.eyebrow, 'Together with their families');
+    assert.ok(p.accent, 'the colour still travels, to tint the mark');
+  }
+  const vintage = posterFor({ ...base, accent: '#9a244f', theme: 'vintage' });
+  assert.equal(vintage.kind, 'invitation');
 });
 
 test('nothing chosen → the hub’s own invitation card, in the event’s words', () => {

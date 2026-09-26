@@ -186,7 +186,7 @@ export async function activateConcierge(input: {
  * cancel). The handler stays mounted for cutover-period continuity but
  * is no longer reachable from the UI.
  */
-export async function cancelConcierge(formData: FormData): Promise<void> {
+async function cancelConcierge(formData: FormData): Promise<void> {
   const { eventId } = await requireCoupleMembership(formData.get('event_id'));
   // V1 SIMPLIFICATION: no structural state change — the couple keeps their
   // paid access until the natural `concierge_expires_at`. Pro-rated refund
@@ -342,7 +342,7 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
  * schema migration renames + simplifies. Idempotent; safe to call on
  * every wedding-date update.
  */
-export async function recomputeConciergeExpiry(input: {
+async function recomputeConciergeExpiry(input: {
   eventId: string;
 }): Promise<{ status: 'extended' | 'unchanged' | 'inactive' }> {
   const { userId, eventId } = await requireCoupleMembership(input.eventId);
@@ -420,7 +420,7 @@ export async function recomputeConciergeExpiry(input: {
  * has no trial surface in the UI. Handler retained for cutover-period
  * continuity; engineering retirement happens alongside Phase A schema.
  */
-export async function startConciergeTrialFromForm(formData: FormData): Promise<void> {
+async function startConciergeTrialFromForm(formData: FormData): Promise<void> {
   const rawEventId = formData.get('event_id');
   if (typeof rawEventId !== 'string') {
     redirect('/dashboard/profile/concierge?error=missing_event');

@@ -97,7 +97,7 @@ export async function registerPushToken(
  * row so delivery history is preserved for debugging (matching the pattern
  * used by the permanent-failure deactivation in /api/notify).
  */
-export async function deactivatePushToken(token: string): Promise<void> {
+async function deactivatePushToken(token: string): Promise<void> {
   if (!token || token.trim().length === 0) return;
 
   const vendorProfileId = await resolveVendorProfileId();

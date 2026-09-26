@@ -206,7 +206,7 @@ function namePartsOf(first: string, last: string) {
   };
 }
 
-export async function completeSetWeddingDateTask(
+async function completeSetWeddingDateTask(
   formData: FormData,
 ): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -455,7 +455,7 @@ function isVendorPickTaskId(value: unknown): value is WizardTaskId {
  * defense-in-depth BEFORE INSERT trigger is tracked as a follow-up
  * per CLAUDE.md 2026-05-28 row.
  */
-export async function completeVendorPickFromMarketplace(
+async function completeVendorPickFromMarketplace(
   formData: FormData,
 ): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -575,7 +575,7 @@ export async function completeVendorPickFromMarketplace(
  * Same UI-layer uniqueness protection + atomic-update shape as the
  * marketplace variant (no DB trigger — see that action's docstring).
  */
-export async function completeVendorPickFromCustom(
+async function completeVendorPickFromCustom(
   formData: FormData,
 ): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -737,7 +737,7 @@ export async function markTaskInFlight(formData: FormData): Promise<void> {
  * relevant per-card metadata at done time (e.g., paperwork reference
  * numbers · render output URLs).
  */
-export async function markTaskDone(formData: FormData): Promise<void> {
+async function markTaskDone(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   const taskIdRaw = formData.get('task_id');
 
@@ -816,7 +816,7 @@ export type SearchVendorsArgs = {
   limit?: number;
 };
 
-export async function searchVendorRecommendations(
+async function searchVendorRecommendations(
   args: SearchVendorsArgs,
 ): Promise<WizardVendorRec[]> {
   const supabase = await createClient();
@@ -1304,7 +1304,7 @@ export async function listMoodboardSlots(eventId: string): Promise<
  * .set_estimated_pax.completed_at so the resolver advances to Card 03
  * on the next render.
  */
-export async function setEstimatedPax(formData: FormData): Promise<void> {
+async function setEstimatedPax(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   const paxRaw = formData.get('pax');
 
@@ -1429,7 +1429,7 @@ export async function setEstimatedBudget(formData: FormData): Promise<void> {
  *
  * Idempotent · already-in-list = no-op.
  */
-export async function addToAddACategory(formData: FormData): Promise<void> {
+async function addToAddACategory(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   const canonicalRaw = formData.get('canonical');
 
@@ -1498,7 +1498,7 @@ export async function addToAddACategory(formData: FormData): Promise<void> {
  *
  * Idempotent · removing a non-present canonical is a no-op.
  */
-export async function removeFromAddACategory(
+async function removeFromAddACategory(
   formData: FormData,
 ): Promise<void> {
   const eventIdRaw = formData.get('event_id');

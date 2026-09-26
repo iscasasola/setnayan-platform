@@ -14,6 +14,7 @@ import {
 import { AddMomentLabel, MomentSheet } from './moment-sheet';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
+import { InMakerReturnTo } from './in-maker-return-to';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).
@@ -58,6 +59,13 @@ export type LoveStoryBookProps = {
   action: (formData: FormData) => void | Promise<void>;
   /** The "Pick from our events" block, drawn by the page (it reads other events). */
   pickSlot: React.ReactNode;
+  /**
+   * Drawn as Love Story's PAGE inside the Event Hub Maker (owner 2026-09-25:
+   * the made-once items are pages in the Maker's body). The links that lead to
+   * the Maker, or away to the guest page, are not drawn there — the Maker is
+   * where it is, and "As guests see it" is the page's own switch.
+   */
+  inMaker?: boolean;
 };
 
 const eye = 'font-mono text-[0.66rem] uppercase tracking-[0.24em] text-[color:var(--ls-muted)]';
@@ -111,15 +119,17 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           <p className="font-pahina text-lg">Our Love Story</p>
         </div>
         <nav aria-label="Love Story actions" className="flex flex-wrap items-center gap-2 text-[13px]">
-          <a href="#pick" className="rounded-full px-3 py-1.5 ring-1 ring-inset ring-[color:var(--ls-rule)] hover:bg-black/5">
+          <a href="#pick" className="inline-flex min-h-10 items-center rounded-full px-3 ring-1 ring-inset ring-[color:var(--ls-rule)] hover:bg-black/5">
             Pick from our events
           </a>
-          <a href="#on-our-event-hub" className="rounded-full px-3 py-1.5 ring-1 ring-inset ring-[color:var(--ls-rule)] hover:bg-black/5">
+          <a href="#on-our-event-hub" className="inline-flex min-h-10 items-center rounded-full px-3 ring-1 ring-inset ring-[color:var(--ls-rule)] hover:bg-black/5">
             Show it on our Event Hub
           </a>
-          <Link href={p.makerHref} className="rounded-full px-3 py-1.5 text-[color:var(--ls-heading)] hover:bg-black/5">
-            Open in Event Hub Maker ↗
-          </Link>
+          {p.inMaker ? null : (
+            <Link href={p.makerHref} className="inline-flex min-h-10 items-center rounded-full px-3 text-[color:var(--ls-heading)] hover:bg-black/5">
+              Open in Event Hub Maker ↗
+            </Link>
+          )}
         </nav>
       </header>
 
@@ -152,9 +162,13 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           <span className={eye}>Theme</span>
           <b className="font-medium">{p.themeName}</b>
           <span aria-hidden>·</span>
-          <Link href={p.makerHref} className="text-[color:var(--ls-heading)] underline decoration-1 underline-offset-4">
-            Change in Event Hub Maker ↗
-          </Link>
+          {p.inMaker ? (
+            <span className="text-[color:var(--ls-muted)]">Change it in Main</span>
+          ) : (
+            <Link href={p.makerHref} className="text-[color:var(--ls-heading)] underline decoration-1 underline-offset-4">
+              Change in Event Hub Maker ↗
+            </Link>
+          )}
           <InfoTip label="About the theme" align="center">
             Our Love Story wears the theme your Event Hub already has — its colours and motion. Themes are chosen in
             the Event Hub Maker, not here.
@@ -262,14 +276,15 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                                   <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Edit
                                 </>
                               }
-                              triggerClassName="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-black/5"
+                              triggerClassName="inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 hover:bg-black/5"
                             />
                             <form action={p.action}>
                               <HubDraftField />
+                              <InMakerReturnTo />
                               <input type="hidden" name="intent" value="arrange" />
                               <input type="hidden" name="id" value={m.id} />
                               {m.hidden ? null : <input type="hidden" name="hidden" value="on" />}
-                              <button type="submit" className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-black/5">
+                              <button type="submit" className="inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 hover:bg-black/5">
                                 {m.hidden ? (
                                   <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                                 ) : (
@@ -280,9 +295,10 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                             </form>
                             <form action={p.action}>
                               <HubDraftField />
+                              <InMakerReturnTo />
                               <input type="hidden" name="intent" value="delete" />
                               <input type="hidden" name="id" value={m.id} />
-                              <button type="submit" className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-black/5">
+                              <button type="submit" className="inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 hover:bg-black/5">
                                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Remove
                               </button>
                             </form>
@@ -321,9 +337,13 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
             {p.sectionHidden ? (
               <p role="status" className="mt-3 text-[14px]">
                 Your Love Story section is switched off on the Event Hub —{' '}
-                <Link href={p.makerHref} className="text-[color:var(--ls-heading)] underline underline-offset-4">
-                  turn it on in the Event Hub Maker
-                </Link>
+                {p.inMaker ? (
+                  'turn it on from its scene on the Invitation'
+                ) : (
+                  <Link href={p.makerHref} className="text-[color:var(--ls-heading)] underline underline-offset-4">
+                    turn it on in the Event Hub Maker
+                  </Link>
+                )}
                 .
               </p>
             ) : null}
@@ -346,7 +366,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                 <li className="text-[14px] text-[color:var(--ls-muted)]">A scene appears here the moment you add one.</li>
               ) : null}
             </ol>
-            {p.guestHref ? (
+            {p.guestHref && !p.inMaker ? (
               <p className="mt-4">
                 <Link href={p.guestHref} className="text-[14px] text-[color:var(--ls-heading)] underline underline-offset-4">
                   See it on your Invitation ↗

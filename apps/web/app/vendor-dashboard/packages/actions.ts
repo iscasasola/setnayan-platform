@@ -444,7 +444,7 @@ export async function setPackageActive(
  * couple would lose the record of what they bought. A booked package is
  * unlisted, never deleted.
  */
-export async function deletePackage(packageId: string): Promise<SavePackageResult> {
+async function deletePackage(packageId: string): Promise<SavePackageResult> {
   if (!packageAuthoringEnabled()) return { status: 'disabled' };
   const { supabase, profile } = await ensureProfile();
 

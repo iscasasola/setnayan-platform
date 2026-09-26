@@ -230,7 +230,7 @@ const MANUAL_KEYS = new Set<StepKey>(
   STEPS.filter((s) => s.source === 'manual').map((s) => s.key),
 );
 
-export async function toggleJourneyStep(formData: FormData) {
+async function toggleJourneyStep(formData: FormData) {
   const eventId = formData.get('event_id');
   const stepKey = formData.get('step_key');
   const action = formData.get('action');

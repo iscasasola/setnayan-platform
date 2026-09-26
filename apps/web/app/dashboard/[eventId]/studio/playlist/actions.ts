@@ -210,7 +210,7 @@ export async function deletePlaylistPick(formData: FormData) {
  * pick_ids in the target order; server reassigns sort_order at gap-100
  * spacing. Mirrors reorderScheduleBlocks (Card 15) pattern.
  */
-export async function reorderPlaylistPicks(formData: FormData) {
+async function reorderPlaylistPicks(formData: FormData) {
   const eventId = formData.get('event_id');
   const orderedRaw = formData.get('ordered_pick_ids');
 

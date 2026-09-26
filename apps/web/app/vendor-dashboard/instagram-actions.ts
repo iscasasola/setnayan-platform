@@ -87,7 +87,7 @@ async function rehostImage(
  * as link-outs (permalink + optional thumbnail, no re-host). Never throws;
  * returns a structured result the UI shows as a flash.
  */
-export async function syncInstagramMedia(): Promise<SyncResult> {
+async function syncInstagramMedia(): Promise<SyncResult> {
   if (!isInstagramConnectConfigured()) {
     return { ok: false, message: 'Instagram connect is not available yet.' };
   }

@@ -454,7 +454,7 @@ export async function createChangeRequestFromChat(formData: FormData): Promise<v
 }
 
 /** respondChangeRequestFromChat — the counterparty accepts / declines. */
-export async function respondChangeRequestFromChat(formData: FormData): Promise<void> {
+async function respondChangeRequestFromChat(formData: FormData): Promise<void> {
   const threadId = str(formData.get('thread_id'), 64);
   const changeOrderId = str(formData.get('change_order_id'), 64);
   const back = safeReturn(formData.get('return_to'));

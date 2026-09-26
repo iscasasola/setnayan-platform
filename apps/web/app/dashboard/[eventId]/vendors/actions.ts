@@ -3634,7 +3634,7 @@ export async function updateManualVendor(
  * per category — deleting the manual vendor should leave the per-
  * category status / cost tracking intact for re-attachment.
  */
-export async function deleteManualVendor(
+async function deleteManualVendor(
   formData: FormData,
 ): Promise<DeleteManualVendorResult> {
   const manualVendorIdRaw = formData.get('manual_vendor_id');

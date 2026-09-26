@@ -84,7 +84,7 @@ function computeExpiresAt(): string {
 // tell you if they rot. Anyone re-mounting them should exercise them first.
 // ---------------------------------------------------------------------------
 
-export async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {
+async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {
   const vendorId = String(formData.get('vendor_id') ?? '').trim();
   const eventId = String(formData.get('event_id') ?? '').trim();
   const email = normalizeEmail(formData.get('email'));
@@ -209,7 +209,7 @@ export async function sendVendorInvite(formData: FormData): Promise<SendInviteRe
 // satisfies React's form-action signature. Errors fall through to console
 // (the row just keeps its 'pending' state on failure, which is also what
 // the couple sees in the UI).
-export async function revokeVendorInvite(formData: FormData): Promise<void> {
+async function revokeVendorInvite(formData: FormData): Promise<void> {
   const inviteId = String(formData.get('invite_id') ?? '').trim();
   const eventId = String(formData.get('event_id') ?? '').trim();
   const supabase = await createClient();
@@ -236,7 +236,7 @@ export async function revokeVendorInvite(formData: FormData): Promise<void> {
 //  • mark no invite (Connect path skips vendor_invites entirely)
 // ---------------------------------------------------------------------------
 
-export async function connectExistingVendorProfile(
+async function connectExistingVendorProfile(
   formData: FormData,
 ): Promise<SimpleResult> {
   const vendorId = String(formData.get('vendor_id') ?? '').trim();

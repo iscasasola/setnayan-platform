@@ -620,7 +620,7 @@ export async function dismissGhostBooth(formData: FormData) {
 }
 
 /** Restore every dismissed ghost booth (the master toggle's "show all again"). */
-export async function restoreGhostBooths(formData: FormData) {
+async function restoreGhostBooths(formData: FormData) {
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
 

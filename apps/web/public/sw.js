@@ -132,6 +132,7 @@ function isDayOfGuestNavigation(url) {
     'sitemap-blog.xml',
     'sitemap-help.xml',
     'sitemap-static.xml',
+    'sitemap-suppliers.xml',
     'sitemap-vendors.xml',
     'sitemap-weddings.xml',
     'sitemap.xml',

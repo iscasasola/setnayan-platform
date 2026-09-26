@@ -127,6 +127,8 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   // Added 2026-09-06 with their doorways.
   '/budget',
   '/schedule',
+  // Added 2026-09-27 — the supplier landing pages' index (SEO Playbook §5.1).
+  '/suppliers',
   '/monogram',
   '/alaala',
   '/weddings',

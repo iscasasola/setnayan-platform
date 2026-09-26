@@ -90,6 +90,7 @@ import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
+import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -144,6 +145,10 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   'std_reveal_template',
   'monogram_custom_svg',
   'monogram_studio_config',
+  // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — which of the
+  // RSVP form's own questions this couple still asks. A fact about the day,
+  // never Pro (HUB_WORDS_EVENT_COLUMNS) — see lib/rsvp-ask.ts for the shape.
+  'rsvp_ask_config',
   // 🎨 THE COLOURS AND FACE (the Maker's Colors panel · `updateSiteColors`).
   // Painted by `app/[slug]/layout.tsx`, which cannot see `?editor=1` — so the
   // host canvas re-wears the look from the OVERLAID row inside the page
@@ -261,6 +266,11 @@ export function sanitizeHubDraftEventValue(
       // holds them to a plain object of a sane size (the live writer is the
       // one the host could already call with the same shape).
       return isPlainObject(raw) && JSON.stringify(raw).length <= HUB_DRAFT_CONFIG_MAX_CHARS ? raw : undefined;
+    // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? — through the SAME sanitizer the
+    // guest render and `submitRsvp` read: unknown keys and non-boolean values
+    // are dropped rather than repaired, exactly like every config above.
+    case 'rsvp_ask_config':
+      return isPlainObject(raw) ? sanitizeRsvpAskConfig(raw) : undefined;
   }
 }
 
@@ -921,6 +931,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   together_since: 'Together since',
   dress_code_config: 'Your dress code',
   photo_moments_config: 'Your camera cues',
+  rsvp_ask_config: 'What you ask your guests',
 };
 
 /** A sentence-ready name for one draft key. */

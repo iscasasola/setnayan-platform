@@ -16,6 +16,7 @@ import { submitInviteReply } from '../actions';
 import { guestAccountState, replyOffersKeep } from '@/lib/guest-one-path';
 import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
+import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -50,7 +51,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)
@@ -293,6 +294,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
            Event Hub's own RSVP card, which keeps its selfie. */
         offerSelfie={false}
         keepOffer={keepOffer}
+        ask={resolveRsvpAsk(event.rsvp_ask_config)}
       />
 
       {user ? null : (

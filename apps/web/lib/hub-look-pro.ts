@@ -238,6 +238,7 @@ export const HUB_WORDS_EVENT_COLUMNS = [
   'what_to_bring',
   'dress_code_config',
   'photo_moments_config',
+  'rsvp_ask_config',
   'venue_name',
   'venue_address',
   'event_date',

@@ -5,6 +5,7 @@ import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
+import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import {
   SONG_ARTIST_MAX,
   SONG_REQUESTER_NAME_MAX,
@@ -63,14 +64,19 @@ export async function POST(req: Request) {
 
   const { data: event, error: eventError } = await admin
     .from('events')
-    .select('event_date, venue_latitude, venue_longitude')
+    .select('event_date, venue_latitude, venue_longitude, rsvp_ask_config')
     .eq('event_id', session.event_id)
     .maybeSingle();
   if (eventError) return NextResponse.json({ error: 'save_failed' }, { status: 500 });
   const e = event as
-    | { event_date: string | null; venue_latitude: number | null; venue_longitude: number | null }
+    | { event_date: string | null; venue_latitude: number | null; venue_longitude: number | null; rsvp_ask_config: unknown }
     | null;
   if (!e?.event_date) return NextResponse.json({ error: 'not_live' }, { status: 409 });
+  // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — re-read here,
+  // never trusted from the client: the card's own render is only a courtesy.
+  if (!resolveRsvpAsk(e.rsvp_ask_config).song_request) {
+    return NextResponse.json({ error: 'song_requests_off' }, { status: 409 });
+  }
   const phase = getDayOfPhase(
     e.event_date,
     eventTimezoneFromCoords(e.venue_latitude, e.venue_longitude),

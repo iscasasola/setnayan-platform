@@ -1,5 +1,6 @@
 import { Logo } from '@/app/_components/logo';
 import type { InviteThemeId } from '@/lib/invite-themes';
+import { pageGround } from '@/lib/page-ground';
 import {
   PahinaCoverParallax,
   PahinaMotionObserver,
@@ -102,7 +103,10 @@ export function InvitationShell({
     House — and anything upstream turned into House — keeps today's opaque
     paper, so an event that never chose a theme renders the DOM it always did.
   */
-  const themed = Boolean(hubTheme && hubTheme !== 'house') || ownGround;
+  // 🧱 Through the ONE page-ground rule (`lib/page-ground.ts`). The hero-on-top
+  // layer only exists under a Pro theme, which is already `themed`, so the
+  // shell does not need to know about it.
+  const themed = !pageGround({ theme: hubTheme, ombre: ownGround, heroGround: false }).shellPaper;
   if (fullBleed) {
     return (
       <main

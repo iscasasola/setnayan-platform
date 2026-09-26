@@ -26,6 +26,7 @@ export function ArrivalActionRow({
     <div
       data-arrival-action={action.kind}
       data-motion="arrive-action"
+      data-pahina-first-screen=""
       className="flex flex-col items-center gap-3 pt-2 text-center"
     >
       <div className="flex flex-wrap items-center justify-center gap-3">

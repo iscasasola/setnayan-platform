@@ -84,7 +84,12 @@ test('2 · lookScopeProps carries `ombre`, and the layout and the host canvas bo
 test('3 · the scope’s paper paints the ombré and hands it no loop beside it; an ombré alone is a look worn', () => {
   const src = read(`${SLUG}_components/guest-look-scope.tsx`);
   // The ground is given the ombré, and the theme media ONLY when there is none.
-  assert.match(src, /<GuestGround media=\{theme && !ombre \? ground : null\} ombre=\{ombre\} \/>/);
+  // (Through the one page-ground rule since 2026-09-27 — `lib/page-ground.ts`
+  // answers `themeLoop: false` for an ombré; `lib/page-ground.test.ts` holds it.)
+  assert.match(
+    src,
+    /<GuestGround\s+media=\{pageGround\(\{ theme, ombre: Boolean\(ombre\), heroGround: false \}\)\.themeLoop \? ground : null\}\s+ombre=\{ombre\}\s+\/>/,
+  );
   const ground = fn(src, 'GuestGround');
   assert.match(ground, /style=\{ombre \? \{ backgroundImage: ombre \} : undefined\}/, 'the paper does not paint the ombré');
   assert.match(ground, /data-guest-ombre=\{ombre \? '' : undefined\}/, 'the painted paper is not marked');
@@ -99,7 +104,7 @@ test('3 · the scope’s paper paints the ombré and hands it no loop beside it;
 
 test('4 · the invitation shell leaves its opaque paper off for an ombré, Classic included, and the page tells it so', () => {
   const shell = read(`${SLUG}_components/invitation-shell.tsx`);
-  assert.match(shell, /const themed = Boolean\(hubTheme && hubTheme !== 'house'\) \|\| ownGround;/);
+  assert.match(shell, /const themed = !pageGround\(\{ theme: hubTheme, ombre: ownGround, heroGround: false \}\)\.shellPaper;/);
   const body = read(`${SLUG}_components/site-body.tsx`);
   assert.match(body, /<InvitationShell[\s\S]*?ownGround=\{isOmbreValue\(event\.site_bg_color\)\}[\s\S]*?>/);
   assert.match(body, /import \{ isOmbreValue \} from '@\/lib\/ombre'/);

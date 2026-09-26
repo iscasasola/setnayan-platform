@@ -127,6 +127,7 @@ import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubMainGround, resolveMainGround } from '@/lib/hub-canvas';
+import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
@@ -559,11 +560,14 @@ export async function SiteBody({
   // button colour, if they chose one, outranks the automatic tint.
   // ⛔ An unscreened clip plays for the HOST only; a guest gets the still —
   // the same closed switch every hero-video read goes through.
+  // 🧱 THE ONE PAGE-GROUND RULE (`lib/page-ground.ts`, owner 2026-09-26 "YES
+  // TO ALL" (a)): the colour + effect is always the base; the hero sits on top
+  // ONLY on a Pro theme. `heroMayBePageGround` keys on the theme's tier, so
+  // Classic — and any future free theme — never gets the hero as its ground.
   const heroRow = widgets.find((w) => w.widget_type === 'hero');
-  const mainGround =
-    sceneTheme !== 'house'
-      ? resolveMainGround(hubMainGround(heroRow?.config_json), resolveHero(event), heroVideoRefForGuests)
-      : null;
+  const mainGround = heroMayBePageGround(sceneTheme)
+    ? resolveMainGround(hubMainGround(heroRow?.config_json), resolveHero(event), heroVideoRefForGuests)
+    : null;
   let mainGroundLayer: React.ReactNode = null;
   if (mainGround) {
     const adaptive = resolveAdaptiveTheme(INVITE_THEMES[sceneTheme], mainGround.tint);
@@ -1137,7 +1141,9 @@ export async function SiteBody({
         ) : null}
         {phasedBody(() => (
           <>
-            <div className="space-y-6 text-center">
+            {/* `data-pahina-first-screen`: this chapter IS the first screen (the
+                masthead), so the scroll reveal never hides it — see globals.css. */}
+            <div data-pahina-first-screen="" className="space-y-6 text-center">
               {!hasHeroMedia ? makerMark('f:hero') : null}
               {!hasHeroMedia ? (
                 /* Pahina masthead, text-only variant (wave A PR-2). */

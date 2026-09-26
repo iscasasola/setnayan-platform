@@ -606,14 +606,16 @@ export async function submitRsvp(
     // (see the ask-gate comment above `mealToWrite`), so the change report
     // must compare what was actually STORED, or a couple who turned meal off
     // would still be told every guest's meal "changed" to the empty default.
-    meal: mealToWrite,
-    dietary: dietaryToWrite,
-    guestNote: guestNoteToWrite,
+    // `undefined` only when the question is off AND the before-read failed —
+    // then nothing was written, and there is no `before` to compare against.
+    meal: mealToWrite ?? meal,
+    dietary: dietaryToWrite ?? null,
+    guestNote: guestNoteToWrite ?? null,
     // What was STORED, not what was posted. A blank box no longer changes the
     // email, so reporting it from `contactEmail` would tell the host a detail
     // moved when the row is untouched.
     email: storedEmail,
-    mobile: mobileToWrite,
+    mobile: mobileToWrite ?? null,
     displayName: contactName,
   });
   // Only a change that was actually STORED counts. When the list is locked the

@@ -363,6 +363,17 @@
   font-size: max(13px, 4.6cqw);
 }
 
+/* 🏷 THE CARD'S CHIPS ARE A FIXED SIZE, NOT A SHARE OF THE CARD (owner 2026-09-26,
+   desktop screenshot: "You organise this" printed over "Together with their
+   families"). The kind + role chips end ~105 px down at EVERY card width, so on
+   a wide card the paper's content starts below them in px, not in %. The
+   narrow case below keeps its own 34 % + dropped minor lines. */
+@container (min-width: 221px) {
+  .paper {
+    padding-top: max(10%, 7rem);
+  }
+}
+
 /* 📱 A NARROW CARD (two across on a phone, ~140–180 px): the card's own chips
    (the kind + "You organise this") sit over the paper's top, so the eyebrow
    was printed under them — "THER WITH THE" — and the words crowded the mark.

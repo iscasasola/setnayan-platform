@@ -379,7 +379,7 @@ export async function VendorCard({
             {isDemoCard ? (
               <span
                 className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-warn-800"
-                title="Synthetic vendor — visible only to admins in demo mode."
+                title="Synthetic supplier — visible only to admins in demo mode."
               >
                 <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden />
                 Demo
@@ -447,7 +447,7 @@ export async function VendorCard({
             }`}
           >
             {vendor.relationship_depth === 3
-              ? 'Your vendor'
+              ? 'Your supplier'
               : vendor.relationship_depth === 2
                 ? "You're in conversation"
                 : 'In your shortlist'}
@@ -651,7 +651,7 @@ function PartnershipBadge({
   return (
     <div
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] ${chipClasses}`}
-      title={`This vendor has a verified partnership with ${source}.`}
+      title={`This supplier has a verified partnership with ${source}.`}
     >
       <Zap className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
       <span className="truncate">{chipCopy}</span>
@@ -724,7 +724,7 @@ function ActivityBadges({
       {responsiveLabel !== null ? (
         <li
           className="inline-flex items-center gap-1 rounded-full border border-success-300/50 bg-success-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-success-900"
-          title="This vendor has a fast median response time across several replies, and was active recently."
+          title="This supplier has a fast median response time across several replies, and was active recently."
         >
           <Clock className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
           {responsiveLabel}
@@ -732,7 +732,7 @@ function ActivityBadges({
       ) : isInactive ? (
         <li
           className="inline-flex items-center gap-1 rounded-full border border-warn-300/50 bg-warn-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-warn-900"
-          title="This vendor hasn't logged in recently. Messages may take longer than usual."
+          title="This supplier hasn't logged in recently. Messages may take longer than usual."
         >
           <AlertCircle className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
           Low recent activity

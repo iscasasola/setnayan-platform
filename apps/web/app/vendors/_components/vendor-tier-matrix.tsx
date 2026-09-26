@@ -368,7 +368,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
             mobile so the page body never scrolls sideways. */}
         <div
           role="region"
-          aria-label="Vendor tier comparison"
+          aria-label="Supplier tier comparison"
           tabIndex={0}
           style={{
             overflowX: 'auto',

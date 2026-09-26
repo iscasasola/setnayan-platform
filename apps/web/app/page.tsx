@@ -71,7 +71,7 @@ import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 // query the brand ranks for — weddings remain the deepest surface.
 const HOME_TITLE = 'Setnayan · Plan any Filipino event free — and never lose a photo';
 const HOME_DESCRIPTION =
-  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — then keep every photo, video, and memory in one place. Verified vendor marketplace at 0% commission.';
+  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — then keep every photo, video, and memory in one place. Verified supplier marketplace at 0% commission.';
 
 export const metadata = {
   title: HOME_TITLE,
@@ -90,11 +90,11 @@ export const metadata = {
   // production), so none of these sends a searcher to something we cannot run.
   keywords: [
     'Filipino wedding planning',
-    'Philippines wedding vendors',
+    'Philippines wedding suppliers',
     'wedding marketplace Manila',
     'Filipino wedding app',
     'Setnayan',
-    'verified Filipino vendors',
+    'verified Filipino suppliers',
     "Set na 'yan",
     'Filipino wedding software',
     'wedding photo gallery app',
@@ -133,7 +133,7 @@ export const metadata = {
         url: '/brand/og-card.webp',
         width: 1200,
         height: 630,
-        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified vendors · 0% commission",
+        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified suppliers · 0% commission",
         type: 'image/webp',
       },
     ],
@@ -211,7 +211,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Alaala) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified vendor bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Alaala) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -232,7 +232,7 @@ const softwareAppJsonLd = {
     'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
     'Live Studio — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
-    'Setnayan AI — assisted planner that drafts timelines and matches verified vendors (paid add-on)',
+    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (paid add-on)',
     'Pakanta — a custom Filipino-style song produced for the couple (paid add-on)',
     'Animated Monogram — a bespoke monogram + animation across invites, the Event Hub, and signage (paid add-on)',
     'Samahan — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',

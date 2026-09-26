@@ -84,7 +84,7 @@ export function SaveVendorButton({
         return;
       }
       if (result.status === 'vendor_not_found') {
-        setState({ kind: 'error', message: 'Vendor unavailable.' });
+        setState({ kind: 'error', message: 'Supplier unavailable.' });
         return;
       }
       // `/explore` never sends an event_id, so this branch is unreachable from
@@ -160,7 +160,7 @@ export function SaveVendorButton({
             ? 'Already saved to your event picks'
             : isError && state.kind === 'error'
               ? state.message
-              : 'Save this vendor to your event picks'
+              : 'Save this supplier to your event picks'
         }
         className={`${baseClasses} ${stateClasses} disabled:cursor-default disabled:opacity-90`}
       >

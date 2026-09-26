@@ -153,7 +153,7 @@ export function CreatorStoryThesis() {
   const items = [
     { b: '₱0', s: 'to publish, forever — storytellers never pay Setnayan a peso' },
     { b: 'Yours', s: 'your edit stays on your channel, embedded here — you keep its monetization' },
-    { b: 'Courted', s: 'vendors who like your audience send you exclusive discount offers' },
+    { b: 'Courted', s: 'suppliers who like your audience send you exclusive discount offers' },
   ];
   return (
     <div style={{ background: 'var(--m-ink)', color: 'var(--m-mulberry-3)' }}>
@@ -204,7 +204,7 @@ export function CreatorStoryWedge() {
         </div>
         <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <FeatureLI icon="▶" title="Your edit, embedded" body="From YouTube, TikTok or Instagram — Setnayan never hosts or re-uploads your video." />
-          <FeatureLI icon="🛍" title="The event, shoppable" body="The real vendors behind your event, credited as cards viewers can actually book from." />
+          <FeatureLI icon="🛍" title="The event, shoppable" body="The real suppliers behind your event, credited as cards viewers can actually book from." />
           <FeatureLI icon="📖" title="A timeline, not a feed" body="No random posts — substantial events only. Your page reads as a body of work." />
         </ul>
       </div>
@@ -230,7 +230,7 @@ export function CreatorStoryChapter() {
             <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { n: '1', t: 'The embed', p: 'Your YouTube / TikTok / Instagram edit, playing inside the Chapter. Views and monetization stay on your channel — we just give it a home that converts.' },
-                { n: '2', t: 'Shop this event', p: 'The vendors who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with. 0% commission, as always.' },
+                { n: '2', t: 'Shop this event', p: 'The suppliers who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with. 0% commission, as always.' },
                 { n: '3', t: 'Your audience layer', p: 'Followers and view counts on your page, plus the Storyteller badge once you’ve published. Standout Chapters get featured on Setnayan’s Stories page.' },
               ].map((s) => (
                 <li
@@ -362,11 +362,11 @@ export function CreatorStoryWhy() {
         </Lede>
       </div>
       <CardGrid>
-        <GridCard icon="🎁" title="Vendors court you" body="Vendors who like your audience send you exclusive discount offers — real rates off your next event, in exchange for a Chapter that credits them. Live today." />
-        <GridCard icon="⚡" title="Zero setup" body="No new channel to grow, no re-uploads, no format to learn. Paste your published edit, credit the vendors, done." />
+        <GridCard icon="🎁" title="Suppliers court you" body="Suppliers who like your audience send you exclusive discount offers — real rates off your next event, in exchange for a Chapter that credits them. Live today." />
+        <GridCard icon="⚡" title="Zero setup" body="No new channel to grow, no re-uploads, no format to learn. Paste your published edit, credit the suppliers, done." />
         <GridCard icon="📺" title="Your monetization, untouched" body="The video is embedded from your channel — its views, ads and deals stay 100% yours. Setnayan never hosts your edit." />
         <GridCard icon="🏛" title="Permanence, not a feed" body="A Chapter doesn't scroll away. Your page is a timeline of substantial events — a portfolio that compounds." />
-        <GridCard icon="⭐" title="The Storyteller badge" body="Publish a public Chapter and your page carries the storyteller mark — a signal to vendors and viewers alike." />
+        <GridCard icon="⭐" title="The Storyteller badge" body="Publish a public Chapter and your page carries the storyteller mark — a signal to suppliers and viewers alike." />
         <GridCard icon="📰" title="Featured on Stories" body="Standout Chapters get pulled onto Setnayan's Stories showcase — distribution to people actively planning." />
       </CardGrid>
     </section>
@@ -387,7 +387,7 @@ export function CreatorStoryWho() {
         </Lede>
       </div>
       <CardGrid>
-        <GridCard icon="💍" title="Wedding creators" body="Films, vlogs, BTS — your couples' days become bookable Chapters, and every vendor you credit knows exactly who sent the inquiry." />
+        <GridCard icon="💍" title="Wedding creators" body="Films, vlogs, BTS — your couples' days become bookable Chapters, and every supplier you credit knows exactly who sent the inquiry." />
         <GridCard icon="✈" title="Travel creators" body="A trip Chapter is shoppable: the stays, the kitchens, the guides behind your itinerary — leads for them, offers for you." />
         <GridCard icon="🎉" title="Event & lifestyle creators" body="Debuts, birthdays, food crawls, fiestas — any real event you cover can carry its real, credited suppliers." />
       </CardGrid>

@@ -62,7 +62,7 @@ const COPY: Record<
       },
       {
         title: 'Email notifications that don’t feel like spam',
-        body: 'Just the things you actually need to know about: an RSVP came in, a vendor sent a message, a payment is due in 7 days. No marketing blasts, no daily digests, no cross-promotion. Each kind of notice has a fixed channel — some reach your inbox, some only ring the in-app tray — and every email we send your guests carries one-click unsubscribe.',
+        body: 'Just the things you actually need to know about: an RSVP came in, a supplier sent a message, a payment is due in 7 days. No marketing blasts, no daily digests, no cross-promotion. Each kind of notice has a fixed channel — some reach your inbox, some only ring the in-app tray — and every email we send your guests carries one-click unsubscribe.',
       },
     ],
   },
@@ -90,7 +90,7 @@ const COPY: Record<
       },
       {
         title: 'Email notifications na hindi parang spam',
-        body: '‘Yung mga bagay lang talaga na kailangan mong malaman: may dumating na RSVP, may nagpadala ng message na vendor, may bayarin na due sa loob ng 7 araw. Walang marketing blasts, walang daily digests, walang cross-promotion. Bawat uri ng abiso ay may nakatakdang channel — may umaabot sa inbox mo, may tumutunog lang sa in-app tray — at bawat email na ipinapadala namin sa mga guest mo ay may one-click unsubscribe.',
+        body: '‘Yung mga bagay lang talaga na kailangan mong malaman: may dumating na RSVP, may nagpadala ng message na supplier, may bayarin na due sa loob ng 7 araw. Walang marketing blasts, walang daily digests, walang cross-promotion. Bawat uri ng abiso ay may nakatakdang channel — may umaabot sa inbox mo, may tumutunog lang sa in-app tray — at bawat email na ipinapadala namin sa mga guest mo ay may one-click unsubscribe.',
       },
     ],
   },

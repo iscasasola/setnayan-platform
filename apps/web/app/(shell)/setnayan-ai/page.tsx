@@ -77,8 +77,8 @@ export const metadata = {
   alternates: { canonical: '/setnayan-ai' },
   keywords: [
     'AI wedding planner Philippines',
-    'wedding vendor matchmaking',
-    'find wedding vendors Philippines',
+    'wedding supplier matchmaking',
+    'find wedding suppliers Philippines',
     'wedding planning assistant',
     'Filipino wedding planner app',
     'Setnayan AI',
@@ -89,7 +89,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/setnayan-ai',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Setnayan AI — the planner that finds your perfect vendors' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Setnayan AI — the planner that finds your perfect suppliers' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -110,11 +110,11 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Watches the vendors you shortlist and book — for price changes, availability and risk',
-    'Finds and ranks verified vendors that fit your style, budget, date and guest count',
+    'Watches the suppliers you shortlist and book — for price changes, availability and risk',
+    'Finds and ranks verified suppliers that fit your style, budget, date and guest count',
     'Guards your deadlines — deposits, contracts, and PH paperwork (marriage license, Pre-Cana, PSA)',
-    'Flags a price hike, a double-booking, or an unverified vendor before it costs you',
-    'Chases quiet vendors and lines up their quotes for you',
+    'Flags a price hike, a double-booking, or an unverified supplier before it costs you',
+    'Chases quiet suppliers and lines up their quotes for you',
     'One calm weekly digest — it earns the interruption, never spams',
     'The planning tools stay free — Setnayan AI is the paid brain on top',
   ],
@@ -125,7 +125,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'Is Setnayan AI a chatbot?',
-    a: 'No — that’s the whole point. A chatbot waits for you to ask. Setnayan AI watches your vendors and your dates in the background and taps you only when something needs you: a deposit due, a price that moved, a date about to clash.',
+    a: 'No — that’s the whole point. A chatbot waits for you to ask. Setnayan AI watches your suppliers and your dates in the background and taps you only when something needs you: a deposit due, a price that moved, a date about to clash.',
   },
   {
     q: 'Do I have to use it?',
@@ -133,7 +133,7 @@ const FAQ = [
   },
   {
     q: 'What exactly does it watch?',
-    a: 'The vendors you’re eyeing and the ones you’ve booked — for price changes, availability and reliability — plus your budget and your deadlines (including your marriage license, Pre-Cana and PSA windows). It also finds and ranks your best-fit verified vendors, chases the quiet ones, and lines up their quotes.',
+    a: 'The suppliers you’re eyeing and the ones you’ve booked — for price changes, availability and reliability — plus your budget and your deadlines (including your marriage license, Pre-Cana and PSA windows). It also finds and ranks your best-fit verified suppliers, chases the quiet ones, and lines up their quotes.',
   },
   {
     q: 'Will it spam me?',
@@ -166,7 +166,7 @@ const STEPS = [
   },
   {
     t: 'It finds your fit — then keeps watching',
-    d: 'It ranks a shortlist of verified vendors that actually match — by style, budget, availability, and place — then keeps an eye on them and the market: prices, availability, and your date.',
+    d: 'It ranks a shortlist of verified suppliers that actually match — by style, budget, availability, and place — then keeps an eye on them and the market: prices, availability, and your date.',
   },
   {
     t: 'It taps you before anything slips',
@@ -176,7 +176,7 @@ const STEPS = [
 
 const VS: readonly DoorwayVersus[] = [
   ['A chatbot you have to remember to go ask', 'An assistant that watches and taps you'],
-  ['Finds vendors once, then forgets them', 'Keeps an eye on them — price, availability, dates'],
+  ['Finds suppliers once, then forgets them', 'Keeps an eye on them — price, availability, dates'],
   ['You track every deposit and deadline yourself', 'It flags a deposit or clash before it bites'],
   ['Generic, one-size-fits-all', 'Tuned to Filipino weddings, your fit'],
 ];
@@ -213,14 +213,14 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   },
   {
     chip: 'Ranked shortlist',
-    t: 'Your best vendors, sorted to the top',
-    d: 'It turns the whole vendor directory into a shortlist of verified vendors ranked by how well they fit your day — style, budget, availability and place. Your suggested team is picked by best fit, never cheapest first.',
-    media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-1.jpg', alt: 'Setnayan AI — your best vendors, sorted to the top' },
+    t: 'Your best suppliers, sorted to the top',
+    d: 'It turns the whole supplier directory into a shortlist of verified suppliers ranked by how well they fit your day — style, budget, availability and place. Your suggested team is picked by best fit, never cheapest first.',
+    media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-1.jpg', alt: 'Setnayan AI — your best suppliers, sorted to the top' },
   },
   {
     chip: 'Your date',
     t: 'Lock in the right team before it’s gone',
-    d: 'Your vendor list marks anyone another couple starts looking at for your date, so you can choose first. And when a vendor you’re considering gets booked — or frees up — you hear it from us, not from a reply three days later.',
+    d: 'Your supplier list marks anyone another couple starts looking at for your date, so you can choose first. And when a supplier you’re considering gets booked — or frees up — you hear it from us, not from a reply three days later.',
     media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-2.jpg', alt: 'Setnayan AI — book the right team before it’s gone' },
   },
   {
@@ -232,7 +232,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Your money',
     t: 'It catches the slips that cost money',
-    d: 'A deposit coming due. A total creeping past your budget while there’s still room to trim. A vendor you’re watching who quietly changes their price — it keeps the figure you were quoted and checks it against what they charge now. Each one flagged before it costs you.',
+    d: 'A deposit coming due. A total creeping past your budget while there’s still room to trim. A supplier you’re watching who quietly changes their price — it keeps the figure you were quoted and checks it against what they charge now. Each one flagged before it costs you.',
     media: { kind: 'photo', src: '/demo/maria-jose/vendor-catering.webp', alt: 'A catering buffet laid out on a white tablecloth at a reception' },
   },
   {
@@ -254,13 +254,13 @@ export default function SetnayanAiLandingPage() {
       steps={STEPS}
       differentiator={{
         heading: 'A chatbot waits. Setnayan AI watches.',
-        lede: 'Like a price watcher for flights or a home-search alert — but for your actual vendors, not the whole internet. It comes to you.',
+        lede: 'Like a price watcher for flights or a home-search alert — but for your actual suppliers, not the whole internet. It comes to you.',
         rows: VS,
       }}
       faq={FAQ}
       closing={{
         heading: 'Let it watch your back',
-        body: 'Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your Event Hub. Setnayan AI is the paid brain that watches your vendors so you don’t have to — a job you’d otherwise need a small team for. Add it when you want it; 0% vendor commission, so it recommends what fits you, never what pays us.',
+        body: 'Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your Event Hub. Setnayan AI is the paid brain that watches your suppliers so you don’t have to — a job you’d otherwise need a small team for. Add it when you want it; 0% supplier commission, so it recommends what fits you, never what pays us.',
         href: '/onboarding/wedding?from=setnayan-ai',
         label: 'Start planning · free',
       }}

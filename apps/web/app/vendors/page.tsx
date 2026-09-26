@@ -68,7 +68,7 @@ export const dynamic = 'force-dynamic';
 // DB-driven metadata — the tier prices come from getVendorPrices().
 export async function generateMetadata() {
   const p = await getVendorPrices();
-  const title = `Setnayan for Vendors · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
+  const title = `Setnayan for Suppliers · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
   return {
     title,
     description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort()} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d.`,
@@ -111,19 +111,19 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
         '@type': 'WebPage',
         '@id': `${SITE_URL}/vendors#webpage`,
         url: `${SITE_URL}/vendors`,
-        name: `Setnayan for vendors · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
+        name: `Setnayan for suppliers · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         about: { '@id': `${SITE_URL}/#organization` },
         audience: {
           '@type': 'BusinessAudience',
-          audienceType: 'Wedding & event service vendors in the Philippines',
+          audienceType: 'Wedding & event service suppliers in the Philippines',
           geographicArea: { '@type': 'Country', name: 'Philippines' },
         },
       },
       {
         '@type': 'Offer',
         '@id': `${SITE_URL}/vendors#solo-vendor-subscription`,
-        name: 'Solo Vendor (28-day prepaid block)',
+        name: 'Solo Supplier (28-day prepaid block)',
         description:
           `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise()}`,
         price: String(p.num.soloMonthly),
@@ -142,7 +142,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       {
         '@type': 'Offer',
         '@id': `${SITE_URL}/vendors#pro-vendor-subscription`,
-        name: 'Pro Vendor (28-day prepaid block)',
+        name: 'Pro Supplier (28-day prepaid block)',
         description:
           '3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
         price: String(p.num.proMonthly),
@@ -161,7 +161,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
       {
         '@type': 'Offer',
         '@id': `${SITE_URL}/vendors#enterprise-subscription`,
-        name: 'Enterprise Vendor (28-day prepaid block)',
+        name: 'Enterprise Supplier (28-day prepaid block)',
         description:
           'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
         price: String(p.num.enterpriseMonthly),
@@ -182,7 +182,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
         '@id': `${SITE_URL}/vendors#breadcrumb`,
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-          { '@type': 'ListItem', position: 2, name: 'For Vendors', item: `${SITE_URL}/vendors` },
+          { '@type': 'ListItem', position: 2, name: 'For Suppliers', item: `${SITE_URL}/vendors` },
         ],
       },
     ],

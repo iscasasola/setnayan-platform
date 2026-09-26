@@ -47,7 +47,7 @@ import { RevealOnView } from './_components/creators-motion';
 
 const TITLE = 'Setnayan for Storytellers · Publish your events as bookable Chapters — free';
 const DESCRIPTION =
-  'Everywhere else, they watch. Here, they book. Publish your real events as public Chapters on your own page — your edit embedded from your channel, the real vendors behind it shoppable. Free forever; you keep your own monetization, and vendors who like your audience send you exclusive discount offers.';
+  'Everywhere else, they watch. Here, they book. Publish your real events as public Chapters on your own page — your edit embedded from your channel, the real suppliers behind it shoppable. Free forever; you keep your own monetization, and suppliers who like your audience send you exclusive discount offers.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITLE,
     description:
-      'Publish your real events as Chapters — your edit embedded, the vendors shoppable. Free forever · your channel keeps its monetization · vendors court you with exclusive rates.',
+      'Publish your real events as Chapters — your edit embedded, the suppliers shoppable. Free forever · your channel keeps its monetization · suppliers court you with exclusive rates.',
     url: '/creators',
     type: 'website',
     siteName: 'Setnayan',

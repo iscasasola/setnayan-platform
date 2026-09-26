@@ -55,14 +55,14 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 */
 
 export const metadata = {
-  title: 'Compare vendors',
+  title: 'Compare suppliers',
   description:
-    'Side-by-side comparison of up to 2 saved Filipino wedding vendors.',
+    'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',
   alternates: { canonical: '/explore/compare' },
   openGraph: {
-    title: 'Compare Filipino wedding vendors — Setnayan',
+    title: 'Compare Filipino wedding suppliers — Setnayan',
     description:
-      'Side-by-side comparison of up to 2 saved Filipino wedding vendors.',
+      'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',
     url: '/explore/compare',
     type: 'website',
   },
@@ -422,7 +422,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
             <div>
               <p className="font-medium">
                 Demo mode · {demoRows.length}{' '}
-                {demoRows.length === 1 ? 'demo vendor' : 'demo vendors'} in this
+                {demoRows.length === 1 ? 'demo supplier' : 'demo suppliers'} in this
                 comparison
               </p>
               <p className="mt-0.5 text-xs text-warn-900/80">

@@ -127,7 +127,7 @@ export function ExploreSearchHero({
 
         <form method="get" action="/explore" className="mt-7 w-full max-w-2xl">
           <label className="block text-left">
-            <span className="sr-only">Search vendors and services</span>
+            <span className="sr-only">Search suppliers and services</span>
             <TaxonomySearch
               variant="hero"
               initialQuery=""

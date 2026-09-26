@@ -147,7 +147,7 @@ const FAQ_LD = {
 const STEPS = [
   {
     t: 'Lay out the room',
-    d: 'Pick a room size — or take the one your booked venue gave — then add your tables, the stage, the entrance and the dance floor. Vendor booths are there too, for the suppliers you have booked.',
+    d: 'Pick a room size — or take the one your booked venue gave — then add your tables, the stage, the entrance and the dance floor. Supplier booths are there too, for the suppliers you have booked.',
   },
   {
     t: 'Seat every guest',

@@ -39,50 +39,50 @@ const COPY: Record<
   }
 > = {
   en: {
-    eyebrow: 'Section 3 · Vendors & ledger',
-    heading: 'Every vendor, every payment, one ledger.',
+    eyebrow: 'Section 3 · Suppliers & ledger',
+    heading: 'Every supplier, every payment, one ledger.',
     intro:
-      'Track contracts, milestones, deadlines, and crew-meal counts. Calendar-export every payment + every vendor meeting. Vendors stay in sync. You stay in control.',
+      'Track contracts, milestones, deadlines, and crew-meal counts. Calendar-export every payment + every supplier meeting. Suppliers stay in sync. You stay in control.',
     items: [
       {
-        title: 'Vendor management · every vendor in one ledger',
-        body: 'Add a vendor (or pick from the verified Setnayan directory). Save their contact, contract, packages, payment schedule, deliverables, and notes against a single row. Their reply-to-your-DM lives in the same row as their contract PDF and your last payment OR. No more hunting through three apps to remember what you agreed to.',
+        title: 'Supplier management · every supplier in one ledger',
+        body: 'Add a supplier (or pick from the verified Setnayan directory). Save their contact, contract, packages, payment schedule, deliverables, and notes against a single row. Their reply-to-your-DM lives in the same row as their contract PDF and your last payment OR. No more hunting through three apps to remember what you agreed to.',
       },
       {
         title: 'Payment milestones, tracked',
-        body: '50% reservation, 30% midway, 20% balance. Set the schedule once, Setnayan reminds you (and the vendor) when each milestone is due. Mark paid; we attach the OR. Watch the budget bar move. No more “wait, did we already pay them for this?”',
+        body: '50% reservation, 30% midway, 20% balance. Set the schedule once, Setnayan reminds you (and the supplier) when each milestone is due. Mark paid; we attach the OR. Watch the budget bar move. No more “wait, did we already pay them for this?”',
       },
       {
         title: 'Calendar export · your dates, your calendar',
-        body: 'Every vendor payment with a due date exports from the budget page as one .ics file, and each confirmed vendor meeting exports as its own. Download, import, done — into whichever calendar you already use. Overdue milestones sort above what is merely next, so you see what is late first.',
+        body: 'Every supplier payment with a due date exports from the budget page as one .ics file, and each confirmed supplier meeting exports as its own. Download, import, done — into whichever calendar you already use. Overdue milestones sort above what is merely next, so you see what is late first.',
       },
       {
         title: 'Contract & document uploads',
-        body: 'Your vendor uploads the contract PDF against your event, and the two of you sign it in the browser — signatures captured on the page, with a timestamped record of who signed and when. It stays on the vendor row, reachable from anywhere in the app, so nobody has to dig through email for that one PDF.',
+        body: 'Your supplier uploads the contract PDF against your event, and the two of you sign it in the browser — signatures captured on the page, with a timestamped record of who signed and when. It stays on the supplier row, reachable from anywhere in the app, so nobody has to dig through email for that one PDF.',
       },
     ],
   },
   tl: {
-    eyebrow: 'Section 3 · Vendors & ledger',
-    heading: 'Bawat vendor, bawat bayad, isang ledger.',
+    eyebrow: 'Section 3 · Suppliers & ledger',
+    heading: 'Bawat supplier, bawat bayad, isang ledger.',
     intro:
-      'I-track ang contracts, milestones, deadlines, at crew-meal counts. Calendar-export ang bawat bayad + bawat vendor meeting. Naka-sync ang vendors. Ikaw ang may kontrol.',
+      'I-track ang contracts, milestones, deadlines, at crew-meal counts. Calendar-export ang bawat bayad + bawat supplier meeting. Naka-sync ang suppliers. Ikaw ang may kontrol.',
     items: [
       {
-        title: 'Vendor management · lahat ng vendor sa isang ledger',
-        body: 'Magdagdag ng vendor (o pumili mula sa verified Setnayan directory). I-save ang contact, contract, packages, payment schedule, deliverables, at notes nila sa isang row. Ang reply nila sa DM mo ay nasa parehong row ng contract PDF nila at ng huling payment OR mo. Hindi mo na kailangang maghanap sa tatlong app para maalala kung ano ang napagkasunduan niyo.',
+        title: 'Supplier management · lahat ng supplier sa isang ledger',
+        body: 'Magdagdag ng supplier (o pumili mula sa verified Setnayan directory). I-save ang contact, contract, packages, payment schedule, deliverables, at notes nila sa isang row. Ang reply nila sa DM mo ay nasa parehong row ng contract PDF nila at ng huling payment OR mo. Hindi mo na kailangang maghanap sa tatlong app para maalala kung ano ang napagkasunduan niyo.',
       },
       {
         title: 'Payment milestones, na-track',
-        body: '50% reservation, 30% midway, 20% balance. Set ang schedule once, ire-remind ka ng Setnayan (at ang vendor) kung kailan due ang bawat milestone. I-mark na paid; ikakabit namin ang OR. Panoorin mong gumalaw ang budget bar. Wala nang “teka, nabayaran na ba natin sila dito?”',
+        body: '50% reservation, 30% midway, 20% balance. Set ang schedule once, ire-remind ka ng Setnayan (at ang supplier) kung kailan due ang bawat milestone. I-mark na paid; ikakabit namin ang OR. Panoorin mong gumalaw ang budget bar. Wala nang “teka, nabayaran na ba natin sila dito?”',
       },
       {
         title: 'Calendar export · ang mga petsa mo, sa calendar mo',
-        body: 'Bawat vendor payment na may due date ay nae-export mula sa budget page bilang isang .ics file, at ang bawat kumpirmadong vendor meeting ay may sarili ring export. I-download, i-import, tapos — sa kahit anong calendar na ginagamit mo na. Nauuna ang overdue na milestones kaysa sa mga paparating pa lang, para makita mo agad kung ano ang huli na.',
+        body: 'Bawat supplier payment na may due date ay nae-export mula sa budget page bilang isang .ics file, at ang bawat kumpirmadong supplier meeting ay may sarili ring export. I-download, i-import, tapos — sa kahit anong calendar na ginagamit mo na. Nauuna ang overdue na milestones kaysa sa mga paparating pa lang, para makita mo agad kung ano ang huli na.',
       },
       {
         title: 'Contract & document uploads',
-        body: 'Ang vendor mo ang mag-a-upload ng contract PDF sa event mo, at pareho kayong pipirma sa browser — nakukuha ang pirma sa mismong page, may timestamp kung sino ang pumirma at kailan. Nananatili ito sa vendor row, maa-access kahit saan sa app, para walang maghahalungkat ng email para sa isang PDF.',
+        body: 'Ang supplier mo ang mag-a-upload ng contract PDF sa event mo, at pareho kayong pipirma sa browser — nakukuha ang pirma sa mismong page, may timestamp kung sino ang pumirma at kailan. Nananatili ito sa supplier row, maa-access kahit saan sa app, para walang maghahalungkat ng email para sa isang PDF.',
       },
     ],
   },

@@ -88,7 +88,7 @@ export function ReskinFooter() {
           <Link href="/blog">Articles</Link>
           <Link href="/realstories">Their stories</Link>
           <Link href="/help">Help center</Link>
-          <Link href="/vendors">For vendors</Link>
+          <Link href="/vendors">For suppliers</Link>
           <Link href="/creators">For storytellers</Link>
           <Link href="/onboarding/wedding">Plan your wedding</Link>
         </nav>

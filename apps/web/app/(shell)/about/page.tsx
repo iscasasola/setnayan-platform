@@ -32,7 +32,7 @@ const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding & life-even
 // (Description carries no free-claims — clean under the 2026-06-13 reprice
 // scrub of Pricing.md § 00.D, which retired "free RSVP / free website" copy.)
 const PAGE_DESCRIPTION =
-  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local vendors, and capture the day so every guest goes home with a personal highlight reel.";
+  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local suppliers, and capture the day so every guest goes home with a personal highlight reel.";
 
 /*
   ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
@@ -86,19 +86,19 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: MapPin,
     label: 'Built in the Philippines',
     value:
-      'Designed and operated for Filipino weddings — from Metro Manila and Cavite to Cebu, Davao, Tagaytay, and anywhere Filipino vendors serve.',
+      'Designed and operated for Filipino weddings — from Metro Manila and Cavite to Cebu, Davao, Tagaytay, and anywhere Filipino suppliers serve.',
   },
   {
     icon: Heart,
     label: 'Free to start',
     value:
-      'Guest list, seating, budget, schedule, the mood board, vendor browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
+      'Guest list, seating, budget, schedule, the mood board, supplier browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
   },
   {
     icon: ShieldCheck,
     label: '0% commission, ever',
     value:
-      'Setnayan never takes a cut of what couples pay vendors. Couples and vendors transact directly; revenue comes from software services and vendor subscriptions.',
+      'Setnayan never takes a cut of what couples pay suppliers. Couples and suppliers transact directly; revenue comes from software services and supplier subscriptions.',
   },
   {
     icon: Languages,

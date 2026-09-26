@@ -59,7 +59,7 @@ export const GOOGLE_ACCESS_METADATA = {
         url: OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified vendors · 0% commission",
+        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified suppliers · 0% commission",
         type: 'image/webp',
       },
     ],

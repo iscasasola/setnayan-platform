@@ -35,7 +35,7 @@ export const HELP_ROLES: ReadonlyArray<{
   {
     key: 'couple',
     label: 'Couple',
-    blurb: "You're planning a wedding. Guest list, vendors, budget, day-of.",
+    blurb: "You're planning a wedding. Guest list, suppliers, budget, day-of.",
   },
   {
     key: 'vendor',
@@ -87,7 +87,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — couples pay their vendors directly and Setnayan never sits between them at checkout. Vendors pay a booking fee to Setnayan only on couples we introduce; it is charged to the vendor, never added to what a couple pays, and their own and repeat clients stay free. See setnayan.com/pricing for current rates.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on supplier bookings — couples pay their suppliers directly and Setnayan never sits between them at checkout. Suppliers pay a booking fee to Setnayan only on couples we introduce; it is charged to the supplier, never added to what a couple pays, and their own and repeat clients stay free. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -96,18 +96,18 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'does-setnayan-take-commission',
-        title: 'Does Setnayan take commission on vendor bookings?',
+        title: 'Does Setnayan take commission on supplier bookings?',
         body: `No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Suppliers pay 0% commission on every tier too. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/pricing. Setnayan's revenue is software couples choose to buy (Setnayan AI, Papic, Live Studio, Event Hub PRO and more), supplier plans, and that booking fee.`,
       },
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
         title: 'Does Setnayan support Filipino wedding customs?',
-        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). More than 30 Filipino ceremony roles in the guest list, including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, bearers, and Nikah roles. Multi-faith vendor compatibility tagging across a deep tree of vendor sub-categories.',
+        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). More than 30 Filipino ceremony roles in the guest list, including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, bearers, and Nikah roles. Multi-faith supplier compatibility tagging across a deep tree of supplier sub-categories.',
       },
       {
         slug: 'what-languages-does-setnayan-support',
@@ -117,7 +117,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'where-does-setnayan-operate',
         title: 'Where does Setnayan operate?',
-        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding vendors serve.',
+        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding suppliers serve.',
       },
       {
         slug: 'does-setnayan-have-mobile-app',
@@ -126,8 +126,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'how-are-vendors-verified',
-        title: 'How are vendors verified on Setnayan?',
-        body: 'Vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee.',
+        title: 'How are suppliers verified on Setnayan?',
+        body: 'Suppliers complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee.',
       },
       {
         slug: 'what-is-pakanta',
@@ -157,7 +157,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-to-contact-support',
         title: 'How do I contact Setnayan support?',
-        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
+        body: 'Send a message via the contact form below on this page — pick your role (couple, supplier, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
       },
       {
         slug: 'when-does-setnayan-launch',
@@ -191,7 +191,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'verified-filipino-wedding-vendors-no-commission',
-        title: 'Where can I find verified Filipino wedding vendors with no commission?',
+        title: 'Where can I find verified Filipino wedding suppliers with no commission?',
         body: 'Setnayan’s marketplace lists Filipino suppliers who each passed a business-legitimacy check and a video call with a Setnayan admin, and it shows their real business name. Browsing is free and open to anyone. Couples pay 0% commission: you pay suppliers directly, and nothing you pay them comes back to Setnayan. Save two suppliers to compare them side by side — location, rating, services and distance from your venue — then message them from Setnayan, where a supplier sees your event’s name and date, never your email.',
       },
       {
@@ -223,13 +223,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'sign-up-as-vendor',
-        title: 'Sign up as a vendor',
+        title: 'Sign up as a supplier',
         body: 'Same form, pick "Vendor" instead. You\'ll land on /vendor-dashboard with a profile editor. Fill in your business name, services, and contact email. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
       },
       {
         slug: 'create-an-event',
         title: 'Create your event',
-        body: 'From /dashboard, click "Create event". Pick the event type (Weddings only in V1), enter a display name (this is what guests + vendors see), and the date. You can edit everything later from the Invitation tab.',
+        body: 'From /dashboard, click "Create event". Pick the event type (Weddings only in V1), enter a display name (this is what guests + suppliers see), and the date. You can edit everything later from the Invitation tab.',
       },
       {
         slug: 'event-id-vs-slug',
@@ -262,7 +262,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body:
           'BIR Form 2303 is your Certificate of Registration with the Bureau of Internal Revenue. It confirms you are registered to issue receipts and pay taxes. You get it AFTER your DTI or SEC registration.\n\n' +
           '1. Register your business with the BIR. You can start online through ORUS (Online Registration and Update System): https://orus.bir.gov.ph — or go in person to the Revenue District Office (RDO) that covers your business address.\n' +
-          '2. Bring/submit your DTI or SEC certificate, a valid government ID, and proof of address. The BIR will tell you your tax type (most small vendors are Non-VAT / Percentage Tax).\n' +
+          '2. Bring/submit your DTI or SEC certificate, a valid government ID, and proof of address. The BIR will tell you your tax type (most small suppliers are Non-VAT / Percentage Tax).\n' +
           '3. Once processed, the BIR issues Form 2303. Keep the original — you also need to register your official receipts.\n\n' +
           'Upload a clear copy of Form 2303 (PDF, JPG, or PNG, up to 15 MB). Make sure the registered name and TIN are readable.',
       },
@@ -294,12 +294,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'build-your-online-presence',
         title: 'Build your online presence: Instagram, YouTube & Vimeo',
         body:
-          'Couples check who you are before they message you. A few good public links do more than any sales pitch — here is a simple setup that works for most Filipino vendors.\n\n' +
+          'Couples check who you are before they message you. A few good public links do more than any sales pitch — here is a simple setup that works for most Filipino suppliers.\n\n' +
           '1. Get a Business (or Creator) Instagram. Couples browse Instagram first, so this is the one to start with. If you already have a personal account, you do not need a new one — open the app, go to Settings and privacy > Account type and tools > Switch to professional account, and pick Business or Creator. That unlocks insights and a contact button, and keeps your work and personal life separate.\n' +
           '2. Post your best work, not all of it. 9 to 12 strong photos or a short reel say more than 100 random shots. Add your city and what you do to your bio.\n' +
           '3. Start a YouTube channel for the long pieces. Full films, highlight reels, and behind-the-scenes clips live well here with no time limit. Create one free at https://youtube.com and upload a couple of your best videos.\n' +
           '4. Use Vimeo for a clean, ad-free reel. If you want your portfolio to look premium — no ads, no "up next" clutter — Vimeo is worth it. Make a free account at https://vimeo.com and upload one polished showcase video.\n' +
-          '5. Bring it all back to Setnayan. On your vendor profile, paste your YouTube and Vimeo links into Featured Videos (they play right on your page), and add every public link — Instagram, Facebook, TikTok, YouTube, Vimeo — under your social links. That way a couple sees your whole story in one place, without leaving Setnayan to go hunting.\n\n' +
+          '5. Bring it all back to Setnayan. On your supplier profile, paste your YouTube and Vimeo links into Featured Videos (they play right on your page), and add every public link — Instagram, Facebook, TikTok, YouTube, Vimeo — under your social links. That way a couple sees your whole story in one place, without leaving Setnayan to go hunting.\n\n' +
           'You do not need all of these on day one. Even one good link helps. Start with Instagram, add the rest as you go.',
       },
     ],
@@ -360,18 +360,18 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   },
   {
     key: 'vendors-budget',
-    label: 'Vendors & budget',
+    label: 'Suppliers & budget',
     roles: ['couple'],
     articles: [
       {
         slug: 'track-vendor',
-        title: 'Track a vendor',
+        title: 'Track a supplier',
         body: 'On the Vendors page, click Add a vendor. Pick a category from the 28 standard options (or pick "Miscellaneous" for anything off-list). Set a total cost + deposit if you have them. Vendors move through a 6-stage flow: considering → shortlisted → contracted → deposit paid → delivered → complete.',
       },
       {
         slug: 'budget-line-items',
         title: 'Budget line items',
-        body: 'On the Budget page, each vendor card has two columns. Left: itemized line items (Deposit, Balance, Tip, etc.) with optional due dates. Right: actual payments you\'ve logged. Stats at the top roll up total budget, paid, remaining, and what\'s due in the next 30 days.',
+        body: 'On the Budget page, each supplier card has two columns. Left: itemized line items (Deposit, Balance, Tip, etc.) with optional due dates. Right: actual payments you\'ve logged. Stats at the top roll up total budget, paid, remaining, and what\'s due in the next 30 days.',
       },
       {
         slug: 'export-calendar',
@@ -404,17 +404,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     articles: [
       {
         slug: 'start-thread-with-vendor',
-        title: 'Start a thread with a vendor',
-        body: "Tap Message on a supplier in your Vendors list, or Inquire on any shop's page — Setnayan opens the conversation for you, and the shop replies in your Messages. Everything you agree stays with your event. (If you already know the email on a shop's Setnayan profile, you can also type it on the Messages tab.) Re-opening a thread between the same event + vendor resumes the existing conversation — no duplicates. Only couples can open new threads — vendors reply to threads couples started.",
+        title: 'Start a thread with a supplier',
+        body: "Tap Message on a supplier in your Suppliers list, or Inquire on any shop's page — Setnayan opens the conversation for you, and the shop replies in your Messages. Everything you agree stays with your event. (If you already know the email on a shop's Setnayan profile, you can also type it on the Messages tab.) Re-opening a thread between the same event + supplier resumes the existing conversation — no duplicates. Only couples can open new threads — suppliers reply to threads couples started.",
       },
       {
         slug: 'identity-masking',
-        title: "Vendors don't see your email",
-        body: "When a vendor opens a thread, they see only your event's display name and date — never your email or personal name. You control how you're identified by the display_name you set on your event. This is locked behavior in V1.",
+        title: "Suppliers don't see your email",
+        body: "When a supplier opens a thread, they see only your event's display name and date — never your email or personal name. You control how you're identified by the display_name you set on your event. This is locked behavior in V1.",
       },
       {
         slug: 'vendor-reply-only',
-        title: 'Vendors: how the reply-only inbox works',
+        title: 'Suppliers: how the reply-only inbox works',
         body: 'Your /vendor-dashboard/messages inbox lists every thread a couple has opened with you. You can reply to any thread, attach files, and share quotes. You cannot start a thread cold — couples have to reach out first. This protects them from unsolicited DMs.',
       },
     ],
@@ -454,7 +454,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'data-export',
         title: 'Export your data',
-        body: 'On Profile → Privacy & data → "Download .json". You get a JSON file with your profile, event memberships, vendor profile (if any), and every chat message you authored. Audit log, R2 media, and payment records aren\'t in V1 (flagged in the export).',
+        body: 'On Profile → Privacy & data → "Download .json". You get a JSON file with your profile, event memberships, supplier profile (if any), and every chat message you authored. Audit log, R2 media, and payment records aren\'t in V1 (flagged in the export).',
       },
       {
         slug: 'delete-account',
@@ -643,17 +643,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'eight-surfaces',
         title: 'The 8 admin surfaces',
-        body: '/admin has 8 sections: Users, Vendors, Orders, Reviews, Funnels, Force-majeure, Website editor, Verify queue. Each is gated to internal admins (`is_internal=TRUE` on your user row). The left sidebar persists across all 8.',
+        body: '/admin has 8 sections: Users, Suppliers, Orders, Reviews, Funnels, Force-majeure, Website editor, Verify queue. Each is gated to internal admins (`is_internal=TRUE` on your user row). The left sidebar persists across all 8.',
       },
       {
         slug: 'find-a-user-or-vendor',
-        title: 'Look up a user or vendor',
+        title: 'Look up a user or supplier',
         body: 'Use the search bar on /admin/users or /admin/vendors. Search by name, email, public ID (S89U- / S89V- / S89E-), or partial slug. Click through to the full record — every action you take from there writes an audit row.',
       },
       {
         slug: 'audit-log',
         title: 'Read the audit log',
-        body: 'Every meaningful admin action writes a row to `admin_audit_log` (actor user_id, target, action, before/after JSON, timestamp). View it from any user or vendor detail page → Audit tab. Use it when investigating "who did this and when".',
+        body: 'Every meaningful admin action writes a row to `admin_audit_log` (actor user_id, target, action, before/after JSON, timestamp). View it from any user or supplier detail page → Audit tab. Use it when investigating "who did this and when".',
       },
       {
         slug: 'delete-vs-blacklist',
@@ -692,17 +692,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'escalation-queue',
         title: 'Work the escalation queue',
-        body: "/admin/force-majeure lists every flagged event. Each row shows: couple display name, event date, flag type (typhoon, illness, venue closure, etc.), evidence files the couple uploaded, the affected vendors, and the 7-day auto-resolution clock.",
+        body: "/admin/force-majeure lists every flagged event. Each row shows: couple display name, event date, flag type (typhoon, illness, venue closure, etc.), evidence files the couple uploaded, the affected suppliers, and the 7-day auto-resolution clock.",
       },
       {
         slug: 'seven-day-window',
         title: 'The 7-day auto-resolution window',
-        body: 'When a force-majeure flag is filed, vendors have 7 days to propose terms directly with the couple in chat. If a resolution lands within 7 days, the flag closes without admin involvement. If day 7 passes with no resolution, the flag escalates to admin and shows up in your queue with an "ESCALATED" tag.',
+        body: 'When a force-majeure flag is filed, suppliers have 7 days to propose terms directly with the couple in chat. If a resolution lands within 7 days, the flag closes without admin involvement. If day 7 passes with no resolution, the flag escalates to admin and shows up in your queue with an "ESCALATED" tag.',
       },
       {
         slug: 'four-resolution-paths',
         title: 'Four canonical resolution paths',
-        body: 'Refund (vendor returns deposit minus documented expenses), reschedule (services move to a mutually agreed new date), substitute (vendor provides equivalent service later), partial (some services delivered, some refunded). Pick one in the Resolve dialog; both parties get an email with the outcome.',
+        body: 'Refund (supplier returns deposit minus documented expenses), reschedule (services move to a mutually agreed new date), substitute (supplier provides equivalent service later), partial (some services delivered, some refunded). Pick one in the Resolve dialog; both parties get an email with the outcome.',
       },
     ],
   },

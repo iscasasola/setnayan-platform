@@ -173,7 +173,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'download',
-        text: 'We made a printable wedding planner you can fill in by hand — a full countdown from eighteen months out to the day itself, with space for your budget, vendors, guest list, and the Philippine legal requirements. It is free, no sign-up needed.',
+        text: 'We made a printable wedding planner you can fill in by hand — a full countdown from eighteen months out to the day itself, with space for your budget, suppliers, guest list, and the Philippine legal requirements. It is free, no sign-up needed.',
         href: '/blog/setnayan-wedding-checklist.pdf',
         label: 'Download the free planner (PDF)',
       },
@@ -205,7 +205,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
         type: 'cta',
         text: 'Ready to start booking? Browse verified Filipino wedding suppliers by city, category, and the styles they specialise in.',
         href: '/explore',
-        label: 'Explore the vendor marketplace',
+        label: 'Explore the supplier marketplace',
       },
       {
         type: 'h2',
@@ -217,7 +217,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'p',
-        text: 'Every Setnayan account comes with the same checklist built in, free — but it does the bookkeeping for you. It works out every due date from your wedding date, so the whole countdown shifts the moment your date changes. It ticks tasks off on its own as you book vendors and settle details in the app. And when a task says “book your caterer”, it takes you straight to caterers. It is the paper planner, kept current for you.',
+        text: 'Every Setnayan account comes with the same checklist built in, free — but it does the bookkeeping for you. It works out every due date from your wedding date, so the whole countdown shifts the moment your date changes. It ticks tasks off on its own as you book suppliers and settle details in the app. And when a task says “book your caterer”, it takes you straight to caterers. It is the paper planner, kept current for you.',
       },
       {
         type: 'cta',
@@ -269,9 +269,9 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'cta',
-        text: 'Compare verified Filipino wedding vendors by city, category, and the styles they specialize in.',
+        text: 'Compare verified Filipino wedding suppliers by city, category, and the styles they specialize in.',
         href: '/explore',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
       {
         type: 'h2',
@@ -279,7 +279,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'p',
-        text: 'With the big rocks in place, move to the suppliers that shape how the day looks and feels. This is also the moment to settle your motif and palette, because almost every other vendor — florist, stylist, stationery, cake, attire — will ask for it.',
+        text: 'With the big rocks in place, move to the suppliers that shape how the day looks and feels. This is also the moment to settle your motif and palette, because almost every other supplier — florist, stylist, stationery, cake, attire — will ask for it.',
       },
       {
         type: 'image',
@@ -410,9 +410,9 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'cta',
-        text: 'See verified Filipino wedding vendors filtered by your city and category.',
+        text: 'See verified Filipino wedding suppliers filtered by your city and category.',
         href: '/explore',
-        label: 'Browse vendors',
+        label: 'Browse suppliers',
       },
     ],
   },

@@ -367,23 +367,23 @@ const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
 */
 
 export const metadata = {
-  title: 'Filipino wedding vendors marketplace',
+  title: 'Filipino wedding suppliers marketplace',
   description:
-    'Browse verified Filipino wedding vendors on Setnayan. Photographers, caterers, planners, florists, hair and makeup, music, decor, and more. Free to discover. 0% commission on bookings.',
+    'Browse verified Filipino wedding suppliers on Setnayan. Photographers, caterers, planners, florists, hair and makeup, music, decor, and more. Free to discover. 0% commission on bookings.',
   alternates: { canonical: '/explore' },
   keywords: [
-    'Filipino wedding vendors',
+    'Filipino wedding suppliers',
     'Philippines wedding photographers',
     'Manila wedding caterers',
     'Cebu wedding planners',
-    'verified wedding vendors Philippines',
+    'verified wedding suppliers Philippines',
     'wedding marketplace Philippines',
-    'Setnayan vendors',
+    'Setnayan suppliers',
   ],
   openGraph: {
-    title: 'Filipino wedding vendors · Setnayan marketplace',
+    title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:
-      'Browse verified Filipino wedding vendors. Free to discover. 0% commission on bookings.',
+      'Browse verified Filipino wedding suppliers. Free to discover. 0% commission on bookings.',
     url: '/explore',
     siteName: 'Setnayan',
     locale: 'en_PH',
@@ -394,9 +394,9 @@ export const metadata = {
   // /brand/og-card.webp (Bucket 2 PR #607) instead of a 144×144 thumbnail.
   twitter: {
     card: 'summary_large_image',
-    title: 'Filipino wedding vendors · Setnayan marketplace',
+    title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:
-      'Browse verified Filipino wedding vendors. Free to discover. 0% commission on bookings.',
+      'Browse verified Filipino wedding suppliers. Free to discover. 0% commission on bookings.',
   },
 };
 
@@ -414,9 +414,9 @@ function buildVendorsItemListJsonLd(siteUrl: string): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Filipino wedding vendor categories on Setnayan',
+    name: 'Filipino wedding supplier categories on Setnayan',
     description:
-      'The 12 wedding-vendor categories Setnayan organizes its Filipino marketplace under.',
+      'The 12 wedding-supplier categories Setnayan organizes its Filipino marketplace under.',
     numberOfItems: WEDDING_FOLDER_ORDER.length,
     itemListOrder: 'https://schema.org/ItemListOrderAscending',
     itemListElement: WEDDING_FOLDER_ORDER.map((folder, idx) => ({
@@ -604,9 +604,9 @@ type Props = {
 // `feedback_setnayan_no_dev_text_post_launch`.
 const VENDORS_NOTICE_COPY: Record<string, { title: string; body: string }> = {
   compare_v1_2: {
-    title: 'Compare vendors side by side.',
+    title: 'Compare suppliers side by side.',
     body:
-      'Save two or more vendors to your shortlist, then open the comparison to see location, rating, services and faith fit next to each other.',
+      'Save two or more suppliers to your shortlist, then open the comparison to see location, rating, services and faith fit next to each other.',
   },
 };
 
@@ -2298,7 +2298,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         .eq('event_id', coupleEventId)
         .in('marketplace_vendor_id', visibleIds);
       if (savedError || saved === null) {
-        console.error('[explore] saved-vendor read refused', savedError);
+        console.error('[explore] saved-supplier read refused', savedError);
         viewerStateFailed = true;
       }
       return new Set(
@@ -2504,7 +2504,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           // revealed", and the marketplace would sprout an anonymity explainer
           // on vendors with nothing hidden. Rows are marked `anonymity_resolved`
           // ONLY when this read genuinely returned, so a failure shows LESS.
-          console.error('[vendors] verification_state fetch failed', error);
+          console.error('[suppliers] verification_state fetch failed', error);
           return new Map();
         }
         const out = new Map<
@@ -2581,7 +2581,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             .gt('expires_at', new Date().toISOString())
             .eq('vendor_services.is_active', true);
           if (dRowsError) {
-            console.error('[vendors] off-peak discount fetch failed', dRowsError);
+            console.error('[suppliers] off-peak discount fetch failed', dRowsError);
           }
           for (const row of dRows ?? []) {
             const d = row as { vendor_profile_id: string; rate: number; expires_at: string };
@@ -2827,12 +2827,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           .select('vendor_profile_id, business_name')
           .in('vendor_profile_id', recommenderIds);
         if (nameDataError) {
-          console.error('[vendors] partnership recommender names failed', nameDataError);
+          console.error('[suppliers] partnership recommender names failed', nameDataError);
         }
         const nameMap = new Map<string, string>();
         for (const row of nameData ?? []) {
           const r = row as { vendor_profile_id: string; business_name: string | null };
-          nameMap.set(r.vendor_profile_id, r.business_name ?? 'Your vendor');
+          nameMap.set(r.vendor_profile_id, r.business_name ?? 'Your supplier');
         }
 
         // Ranked by what the COUPLE gets — free beats cheaper beats certified
@@ -2864,7 +2864,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               | 'general';
             out.set(r.recommended_vendor_id, {
               relationship_type: rt,
-              recommending_vendor_name: nameMap.get(r.recommending_vendor_id) ?? 'Your vendor',
+              recommending_vendor_name: nameMap.get(r.recommending_vendor_id) ?? 'Your supplier',
               discount_pct: r.discount_pct ?? null,
             });
           }
@@ -3972,7 +3972,7 @@ function FocusedModeSearchForm({
   return (
     <form method="get" action="/explore" className="space-y-2">
       <label className="block">
-        <span className="sr-only">Search vendors</span>
+        <span className="sr-only">Search suppliers</span>
         {/* Reuses the same TaxonomySearch client component as FilterBar.
             Picking a suggestion router-pushes to /vendors?category=…, so
             we pass focusedMode through the `preserve` prop so the
@@ -4217,15 +4217,15 @@ function EmptyState({
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
       <p className="text-base font-medium text-ink/75">
         {hasFilter
-          ? 'No vendors match exactly.'
-          : 'No vendors have published their Setnayan profile yet.'}
+          ? 'No suppliers match exactly.'
+          : 'No suppliers have published their Setnayan profile yet.'}
       </p>
       <p className="mt-1 text-sm text-ink/55">
         {hasFilter
           ? showAllAvailable
-            ? `We have ${broadenedCount} vendor${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
+            ? `We have ${broadenedCount} supplier${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
             : 'Try widening your search or clearing one filter at a time.'
-          : 'Check back soon — vendors are landing every week.'}
+          : 'Check back soon — suppliers are landing every week.'}
       </p>
       {hasFilter ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">

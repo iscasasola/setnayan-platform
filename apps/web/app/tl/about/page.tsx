@@ -26,7 +26,7 @@ const SITE_URL = (
 
 const PAGE_TITLE = 'Tungkol sa Setnayan — ang Philippines-first wedding platform';
 const PAGE_DESCRIPTION =
-  'Ang Setnayan ang all-in-one wedding at life-events platform ng Pilipinas — ang una ditong gawa para i-plan ang kasal, mag-run ng 0%-commission marketplace ng verified local vendors, at i-capture ang araw para may sariling highlight reel ang bawat guest.';
+  'Ang Setnayan ang all-in-one wedding at life-events platform ng Pilipinas — ang una ditong gawa para i-plan ang kasal, mag-run ng 0%-commission marketplace ng verified local suppliers, at i-capture ang araw para may sariling highlight reel ang bawat guest.';
 
 // Reciprocal hreflang — both /about and /tl/about list the same alternates.
 const LANGUAGES = {
@@ -68,7 +68,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: Heart,
     label: 'Free ang simula',
     value:
-      'Free sa bawat account ang guest list, seating, budget, schedule, mood board, vendor browse, at in-app chat. Babayaran mo lang ang premium tools na gusto mong i-add.',
+      'Free sa bawat account ang guest list, seating, budget, schedule, mood board, supplier browse, at in-app chat. Babayaran mo lang ang premium tools na gusto mong i-add.',
   },
   {
     icon: ShieldCheck,
@@ -87,15 +87,15 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
 const FAQ: Array<{ q: string; a: string }> = [
   {
     q: 'Ano ang Setnayan?',
-    a: 'Ang Setnayan (SET-na-yan, galing sa “Set na ’yan.”) ang Philippines-first na wedding at life-events software platform. Gawa at pinapatakbo sa Pilipinas para sa Pinoy weddings. Free ang simula ng couples sa planning workspace; nagla-list ang verified Pinoy vendors nang walang booking commission.',
+    a: 'Ang Setnayan (SET-na-yan, galing sa “Set na ’yan.”) ang Philippines-first na wedding at life-events software platform. Gawa at pinapatakbo sa Pilipinas para sa Pinoy weddings. Free ang simula ng couples sa planning workspace; nagla-list ang verified Pinoy suppliers nang walang booking commission.',
   },
   {
     q: 'Free ba ang Setnayan para sa couples?',
-    a: 'Free ang simula — schedule, budget, guest list, seat plan, at mood board, kasama na ang marketplace browse at preview ng vendor matches mo. Bayad ang premium tools tulad ng Setnayan AI, Event Hub, at premium RSVP. Babayaran mo lang ang gusto mong i-add.',
+    a: 'Free ang simula — schedule, budget, guest list, seat plan, at mood board, kasama na ang marketplace browse at preview ng supplier matches mo. Bayad ang premium tools tulad ng Setnayan AI, Event Hub, at premium RSVP. Babayaran mo lang ang gusto mong i-add.',
   },
   {
-    q: 'May commission ba ang Setnayan sa vendor bookings?',
-    a: 'Wala. 0% commission sa bawat booking, sa bawat tier. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng couple at vendor — galing ang kita sa software services at vendor subscriptions.',
+    q: 'May commission ba ang Setnayan sa supplier bookings?',
+    a: 'Wala. 0% commission sa bawat booking, sa bawat tier. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng couple at supplier — galing ang kita sa software services at supplier subscriptions.',
   },
   {
     q: 'Supported ba ang mga Pinoy wedding traditions?',
@@ -103,7 +103,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Saan gumagana ang Setnayan?',
-    a: 'Sa Pilipinas — Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, at kahit saan may Pinoy wedding vendor na nagse-serve.',
+    a: 'Sa Pilipinas — Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, at kahit saan may Pinoy wedding supplier na nagse-serve.',
   },
 ];
 

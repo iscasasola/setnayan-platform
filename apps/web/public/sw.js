@@ -148,6 +148,7 @@ function isDayOfGuestNavigation(url) {
     'setnayan-ai',
     'signup',
     'site-editor',
+    'suppliers',
     'sitemap-blog.xml',
     'sitemap-help.xml',
     'sitemap-static.xml',

@@ -442,8 +442,15 @@ const organizationJsonLd = {
     height: 512,
   },
   image: 'https://www.setnayan.com/brand/og-card.webp',
+  // 🔑 WIDENED 2026-09-26 to the homepage's wording (app/page.tsx HOME_DESCRIPTION
+  // + softwareAppJsonLd). This said "the Philippines-first WEDDING platform …
+  // built to grow into a life-events collection" while every event type in
+  // `event_type_vocab` was already live — so the Organization node and the
+  // SoftwareApplication node on the same homepage described two different
+  // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
+  // live type) — the same two rules page.tsx records.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it together. Couples plan their wedding free — guest list, RSVP, seating, budget, and a personal Event Hub — then add optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels — free to start on every event, with paid top-ups for more shots), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram — each priced individually in PHP. Everything a couple creates gathers into one living memory (Alaala) they keep, and the wedding becomes its own recurring anniversary — so a one-time wedding grows into the home for every celebration that follows. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Studio livestream on the event page, the Setnayan AI planner, a custom Pakanta song, and an Animated Monogram — each priced individually in PHP. Everything a host creates gathers into one living memory (Alaala) they keep, and each event becomes its own recurring anniversary. 0% commission on vendor bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {

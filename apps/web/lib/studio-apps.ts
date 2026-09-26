@@ -268,7 +268,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: '3D Plan',
     href: '/pa3d',
     description:
-      '3D Plan lets you stand in your reception before it’s built. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it. The free seating plan gets you there; 3D Plan lets you walk it.',
+      '3D Plan lets you stand in your reception before it’s built. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it. The free seating plan gets you there, and 3D Plan — free as well — lets you walk it.',
     railLine: 'Stand in your reception before it’s built.',
     demo: {
       id: 'plan3d-demo',

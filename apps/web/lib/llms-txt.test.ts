@@ -26,6 +26,7 @@ import {
   LINKED_ROUTES,
 } from './llms-txt';
 import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
+import { bookingFeeScheduleSummary } from './booking-fee';
 
 import { RETAIL, VENDOR, INPUT_FOR_GUARDS as INPUT } from './llms-txt-guard-input';
 
@@ -244,4 +245,59 @@ test('the deliberately-inactive AI ladder rows do NOT trip the refusal', () => {
   // DESIGN as price sources and are resolved through AI_TIER_SKU, never named in
   // the prose — so the baseline INPUT (which contains all three) must render.
   assert.doesNotThrow(() => renderLlmsTxt(INPUT));
+});
+
+/*
+ * 🔑 THE SUPPLIER SIDE OF llms.txt NAMES THE BOOKING FEE — IN THE OUTPUT.
+ *
+ * Until 2026-09-26 this file told every answer engine "no per-lead fee, no
+ * listing fee, 0% commission" on the supplier side while production was already
+ * billing booking fees. `one-commission-promise.test.ts` now lists this module,
+ * but it reads SOURCE, and a source-level match is satisfied by the
+ * `bookingFeeScheduleSummary()` call in the sentence's definition even if every
+ * USE of that sentence is deleted (measured: that sabotage stayed green). So
+ * this asserts on what a crawler actually receives.
+ */
+function withFeeFlag<T>(value: string | undefined, fn: () => T): T {
+  const prev = process.env.NEXT_PUBLIC_BOOKING_FEE_ENABLED;
+  if (value === undefined) delete process.env.NEXT_PUBLIC_BOOKING_FEE_ENABLED;
+  else process.env.NEXT_PUBLIC_BOOKING_FEE_ENABLED = value;
+  try {
+    return fn();
+  } finally {
+    if (prev === undefined) delete process.env.NEXT_PUBLIC_BOOKING_FEE_ENABLED;
+    else process.env.NEXT_PUBLIC_BOOKING_FEE_ENABLED = prev;
+  }
+}
+
+/** The supplier-facing stretch: the tier table through "Answering couples". */
+function supplierSection(body: string): string {
+  const start = body.indexOf('## Vendor tier structure');
+  const end = body.indexOf('## Capabilities behind sign-in');
+  assert.ok(start >= 0 && end > start, 'the supplier section moved — re-point this guard');
+  return body.slice(start, end);
+}
+
+// SABOTAGE: drop `${supplierFee}` from the tier-table paragraph or the
+// List-Your-Business line → RED.
+test('with the fee on, every supplier-facing "0% commission" is followed by the fee', () => {
+  const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
+  const schedule = bookingFeeScheduleSummary();
+  assert.ok(
+    supplierSection(body).includes(schedule),
+    'the vendor tier section says 0% commission and never states the booking fee',
+  );
+  const listLine = body.split('\n').find((l) => l.includes('[List Your Business]'));
+  assert.ok(listLine, 'the List Your Business line is gone — re-point this guard');
+  assert.ok(
+    listLine.includes(schedule),
+    `the supplier acquisition line promises no commission without the fee: ${listLine}`,
+  );
+});
+
+// SABOTAGE: make the fallback claim a fee while the flag is off → RED.
+test('with the fee off, the file says no fee is charged rather than inventing one', () => {
+  const body = withFeeFlag(undefined, () => renderLlmsTxt(INPUT));
+  assert.ok(!supplierSection(body).includes(bookingFeeScheduleSummary()));
+  assert.match(supplierSection(body), /No booking fee is charged while it is switched off/);
 });

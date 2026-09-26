@@ -560,7 +560,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'cta',
-        text: 'Setnayan\'s guest list includes 20 Filipino role tiers — sponsors, bearers, ninong, ninang, and more — so everyone is placed and counted.',
+        text: 'Setnayan\'s guest list includes more than 30 Filipino ceremony roles — sponsors, bearers, ninong, ninang, and more — so everyone is placed and counted.',
         href: '/signup',
         label: 'Build your guest list free',
       },

@@ -1,5 +1,6 @@
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
@@ -81,7 +82,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it for life. It leads with weddings; as event types unlock (debut, birthday, christening, anniversary, and more), the same tools carry across them. Couples start free on the planning workspace; verified Filipino wedding vendors list with 0% commission on bookings; and everything a couple creates gathers into one living memory (Alaala) they keep.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first life-events platform — one free account to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit; couples book verified Filipino suppliers at 0% commission and pay them directly; and everything a couple creates gathers into one living memory (Alaala) they keep.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
@@ -91,12 +92,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (a one-time purchase with access through your wedding day), the Event Hub, and premium RSVP are optional paid software. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid software — Setnayan AI (a one-time purchase with access through your event date), the Live Studio multi-camera control room, Papic top-ups, Event Hub PRO and more — is priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on vendor bookings?',
-        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software purchases by couples (planning tiers plus services like Papic, Live Studio, and the Editorial Website) and vendor subscriptions (Pro and Enterprise, 28-day or annual).',
+        body: `No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Suppliers pay 0% commission on every tier too. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/pricing. Setnayan's revenue is software couples choose to buy (Setnayan AI, Papic, Live Studio, Event Hub PRO and more), supplier plans, and that booking fee.`,
       },
       {
         slug: 'what-is-todays-focus',
@@ -106,7 +107,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'does-setnayan-support-filipino-customs',
         title: 'Does Setnayan support Filipino wedding customs?',
-        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, and bearers. Multi-faith vendor compatibility tagging across a deep tree of vendor sub-categories.',
+        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). More than 30 Filipino ceremony roles in the guest list, including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, bearers, and Nikah roles. Multi-faith vendor compatibility tagging across a deep tree of vendor sub-categories.',
       },
       {
         slug: 'what-languages-does-setnayan-support',
@@ -162,6 +163,51 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'when-does-setnayan-launch',
         title: 'When does Setnayan launch?',
         body: 'Setnayan is rolling out in phases — a pilot with a small family + friends cohort exercising the full payment cycle on real weddings, followed by public launch alongside the founder\'s own wedding, the first event shipped through the platform end-to-end. See setnayan.com for the latest launch status.',
+      },
+      // ─── GEO INTENT ANSWERS (2026-09-26) ─────────────────────────────────
+      // One article per high-intent query an answer engine is asked. Each opens
+      // with the fact an engine can lift as one sentence, then the proof. Every
+      // figure is from shipped code: no guest cap in the guest code; `GuestRole`
+      // has 35 values ("more than 30" stays true); SEATING_3D + EDITORIAL_PRO in
+      // FREE_FOR_ALL_SKUS; free CREDITS are once per account, never per event
+      // (the-free-pool-is-not-on-every-event.test.ts); face data deleted 3 months
+      // after (the /papic FAQ). ⚠ "photos FIND them" — never "a guest WILL be
+      // found automatically": face matching depends on production config.
+      // Couple-facing, so the 0% commission is unqualified (owner 2026-09-22).
+      {
+        slug: 'best-free-filipino-wedding-planner-app',
+        title: 'What is the best free Filipino wedding planner app?',
+        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional upgrades — guest photo capture, livestream, an AI planner — are priced individually at setnayan.com/pricing.',
+      },
+      {
+        slug: 'guest-list-with-ninongs-and-ninangs',
+        title: 'How do I organize a wedding guest list with ninongs and ninangs?',
+        body: 'Give each guest a role and let the list sort itself. Setnayan’s free guest list has more than 30 Filipino ceremony roles built in — principal sponsors (ninong and ninang), candle, veil, cord and coin sponsors, ring, bible and coin bearers, flower girl, maid or matron of honor, best man, bridesmaids, groomsmen, officiant, readers, and Nikah roles. The list orders itself bride first, then groom, then by role, and you can filter to just the sponsors, the wedding party or the bearers. Type a name with its side and group in one line, or import your spreadsheet as CSV. Each guest gets a personal QR for RSVP, seating and photos.',
+      },
+      {
+        slug: 'free-seating-plan-and-budget-in-pesos',
+        title: 'Is there a free digital seating plan and budget tracker in pesos?',
+        body: 'Yes — on Setnayan both are free, with no guest limit. The seat plan lays out tables, the head table and the dance floor, and 3D Plan stands the same layout up into a room you can walk in your browser — also free — so you can check sightlines and aisle space before the day. The budget tracker works in Philippine pesos. Both read from the same guest list and the same supplier ledger, so the numbers stay in step.',
+      },
+      {
+        slug: 'verified-filipino-wedding-vendors-no-commission',
+        title: 'Where can I find verified Filipino wedding vendors with no commission?',
+        body: 'Setnayan’s marketplace lists Filipino suppliers who each passed a business-legitimacy check and a video call with a Setnayan admin, and it shows their real business name. Browsing is free and open to anyone. Couples pay 0% commission: you pay suppliers directly, and nothing you pay them comes back to Setnayan. Save two suppliers to compare them side by side — location, rating, services and distance from your venue — then message them from Setnayan, where a supplier sees your event’s name and date, never your email.',
+      },
+      {
+        slug: 'share-wedding-photos-with-guests-automatically',
+        title: 'How do I share wedding photos with guests automatically?',
+        body: 'With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your galleries as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the celebration. If the venue has no signal, photos wait on the phone and send when it returns. One camera is free on every event. Free credits come on your first celebration, and you always receive every photo, kept for life.',
+      },
+      {
+        slug: 'free-alternative-to-wedding-website-builders',
+        title: 'What is a free alternative to paid wedding website builders in the Philippines?',
+        body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your guest gallery and your livestream. An optional PRO upgrade removes the Setnayan watermark and adds a cinematic save-the-date reveal.',
+      },
+      {
+        slug: 'plan-a-debut-christening-or-other-event',
+        title: 'Can I use Setnayan for a debut, christening or other event?',
+        body: 'Yes. The same free planning tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, gala nights, wakes and more. And for the people you celebrate with again and again, a samahan gives your barkada, clan or parish its own space: short stories that disappear after 24 hours, one group chat, and the events you plan together.',
       },
     ],
   },

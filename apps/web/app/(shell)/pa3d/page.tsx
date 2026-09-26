@@ -38,8 +38,12 @@
  * unchanged — 3D Plan is added from the Studio inside the celebration). See
  * the second entry in `add-to-event-is-the-only-difference.test.ts`.
  *
- * The seating plan stays FREE (locked); 3D Plan is the paid walk. Copy sells
+ * The seating plan stays FREE (locked) — and since 2026-09-05 so does 3D Plan
+ * (owner; `SEATING_3D` in `FREE_FOR_ALL_SKUS`, lib/entitlements.ts). Until
+ * 2026-09-26 this page's featureList still told every answer engine "the 3D
+ * walk is the upgrade" three weeks after it stopped being one. Copy sells
  * benefits only — no mechanism, no prices (admin-managed; /pricing owns them).
+ * Saying "free" is not a price: it is the absence of one, and it is true.
  */
 
 import Link from 'next/link';
@@ -126,7 +130,7 @@ const APP_LD = {
     'Built on your seating plan — no extra setup',
     'Catch a tight aisle or a blocked view in time to fix it',
     'Share the walkthrough with your coordinator and family',
-    'The 2D seating plan stays free; the 3D walk is the upgrade',
+    'Free — the 2D seating plan and the 3D walk both come with every account',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -139,7 +143,7 @@ const FAQ = [
   },
   {
     q: 'Isn’t the seating plan enough on its own?',
-    a: 'The seating plan is free and complete — you can run your whole wedding on it. 3D Plan is for when you want to feel the room before it’s real: how close the tables sit, what the lola at table 3 actually sees, whether the aisle has space to breathe.',
+    a: 'The seating plan is complete — you can run your whole wedding on it — and 3D Plan is free too. It is for when you want to feel the room before it’s real: how close the tables sit, what the lola at table 3 actually sees, whether the aisle has space to breathe.',
   },
   {
     q: 'What can I catch with it?',

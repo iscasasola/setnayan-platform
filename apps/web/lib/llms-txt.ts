@@ -33,6 +33,9 @@
  */
 
 import { AI_TIER_SKU, AI_TIER_FALLBACK_PHP, type AiPriceTier } from './setnayan-ai-type-pricing';
+import { bookingFeeScheduleSummary } from './booking-fee';
+import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
+import { isBookingFeeEnabled } from './booking-fee-gate';
 
 export type RetailRow = {
   service_code: string;
@@ -424,6 +427,17 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
 
   const ladder = aiLadder(book);
   const aiA = peso(ladder[0]!.php);
+
+  // 🔑 A SUPPLIER-FACING "0% commission" OWES THE SECOND SENTENCE (owner
+  // 2026-08-06, re-confirmed 2026-09-22 — lib/commission-promise.ts). This file
+  // told every answer engine "no per-lead fee, no listing fee, 0% commission"
+  // on the supplier side while production was already billing booking fees, so
+  // a model asked "what does Setnayan charge vendors?" answered "nothing".
+  // Derived from the same sources the bill uses — never hand-typed — and gated
+  // on the same flag that decides whether anyone is billed.
+  const supplierFee = isBookingFeeEnabled()
+    ? `Separately, suppliers pay Setnayan a booking fee of ${bookingFeeScheduleSummary()}, only on couples Setnayan introduces — the first ${FREE_BOOKING_LIMIT} are free, and a supplier's own clients are always free. It is billed to the supplier, never added to what a couple pays.`
+    : 'No booking fee is charged while it is switched off.';
   const aiLadderLine = ladder
     .map(({ tier, php }) => {
       const label =
@@ -460,7 +474,7 @@ What is LIVE today: every event type listed above; an event automatically becomi
 - [Vendor Marketplace](${url('/explore')}) — Browse verified Filipino event vendors. Filterable by category and city; compare shortlisted vendors at [/explore/compare](${url('/explore/compare')}).
 - [Vendor Public Profiles](${url('/v/')}) — Each vendor has a profile at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and tier badge.
 - [Pricing](${url('/pricing')}) — Planning tiers, customer software SKUs, and vendor subscriptions.
-- [List Your Business](${url('/vendors')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission.
+- [List Your Business](${url('/vendors')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
@@ -519,30 +533,32 @@ The visual mood board — palette, location feel, dress codes — is included fr
 | Pro | ${V('pro_vendor_annual')} / year OR ${V('pro_vendor_monthly')} / 28-day prepaid block | 3 categories + 3 agent seats · premium tools · Market Intel + featured placement + wider reach | Yes | 0% |
 | Enterprise | ${V('enterprise_vendor_annual')} / year OR ${V('enterprise_vendor_monthly')} / 28-day prepaid block | All categories + unlimited team + extended radius (100 km) · priority placement + read API | Yes | 0% |
 
+Commission is 0% on every tier: couples pay suppliers directly and Setnayan never sits between them at checkout. ${supplierFee}
+
 Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee, no badge fee. Every verified vendor's real business name is shown to couples from day 1 on every tier, including the free Verified tier. A vendor's name and inbox are never gated: couples can always see who's there and message them for free. Paid tiers buy prominence and reach among already-qualified results — never the name or the listing itself.
 
 All three paid tiers are available as 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry. Pro and Enterprise vendors can add branches at ${V('vendor_additional_branch')} per 28-day block per branch.
 
 ## Answering couples (included free)
 
-Reaching a matched couple is included with every vendor tier at no per-lead cost. A vendor accepts an inquiry and replies at no charge — one unlock covers every service that vendor offers for the event, anywhere in the Philippines. Verified vendors can answer up to 10 new couples per rolling week; Solo, Pro, and Enterprise are unlimited. No per-lead fee, no listing fee, 0% commission.
+Reaching a matched couple is included with every vendor tier at no per-lead cost. A vendor accepts an inquiry and replies at no charge — one unlock covers every service that vendor offers for the event, anywhere in the Philippines. Verified vendors can answer up to 10 new couples per rolling week; Solo, Pro, and Enterprise are unlimited. No per-lead fee, no listing fee, 0% commission. The booking fee applies only when a couple Setnayan introduced books.
 
 ## Capabilities behind sign-in
 
-Couple-side: guest list with 20 Filipino role tiers (ninong, ninang, principal and secondary sponsors, candle/veil/cord/coin, bearers, entourage) and CSV import · QR-coded personal invitations · RSVP with live count · Setnayan AI assisted planning with religion-adaptive guidance · mood board · budget tracker with .ics export · seating chart with a 13-table catalog · in-app vendor messaging with couple identity masked until first reply.
+Couple-side: guest list with more than 30 Filipino ceremony roles (ninong, ninang, principal and secondary sponsors, candle/veil/cord/coin, bearers, entourage) and CSV import · QR-coded personal invitations · RSVP with live count · Setnayan AI assisted planning with religion-adaptive guidance · mood board · budget tracker with .ics export · seating chart with a 13-table catalog · in-app vendor messaging with couple identity masked until first reply.
 
 Vendor-side: public profile editor · inquiry inbox · calendar with intra-day blocks and multi-service shared calendars on Pro and Enterprise · team management · earnings rollup · AI Proposal Builder (Pro+) · reverse-image portfolio theft monitoring (Pro+) · mood board sharing with booked couples.
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), Enterprise ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission.
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), Enterprise ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the vendor tier section).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free on your first celebration, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has credits nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
 - **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos, refunds, or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
-- **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. 20 Filipino role tiers. Multi-faith vendor compatibility tagging.
+- **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith vendor compatibility tagging.
 - **Where does Setnayan operate?** Philippines. Pilot 2026-06-01, public launch 2026-12-01.
 - **Does Setnayan have a mobile app?** Web-first responsive site, installable as a PWA on iOS Safari and Chrome Android, plus a desktop app for macOS and Windows at /download. Native apps are in preparation ahead of the December 2026 launch.
 - **How are vendors verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free during launch.

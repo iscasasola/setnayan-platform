@@ -210,7 +210,6 @@ export function RsvpWidget({
           <header className="space-y-3">
             <div className="flex items-start justify-between gap-4">
               <p className="pahina-eyebrow">
-                <span aria-hidden>№ 07</span>
                 <span>Reply</span>
               </p>
               <RsvpPill status={guest.rsvp_status} />

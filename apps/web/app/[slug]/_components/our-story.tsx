@@ -111,7 +111,6 @@ export function OurStory({
     return (
       <section className="space-y-3">
         <p className="pahina-eyebrow">
-          <span aria-hidden>№ 02</span>
           <span>Our story</span>
         </p>
         <p className="max-w-prose font-pahina text-lg italic leading-snug text-ink/80">{opener}</p>
@@ -130,7 +129,6 @@ export function OurStory({
   return (
     <section className="space-y-6">
       <p className="pahina-eyebrow">
-        <span aria-hidden>№ 02</span>
         <span>Our story</span>
       </p>
       {opener ? (

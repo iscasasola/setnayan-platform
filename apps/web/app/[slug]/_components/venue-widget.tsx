@@ -16,8 +16,9 @@ export function VenueWidget({ event }: { event: EventRow }) {
   // PLATE with a printed inner hairline frame, not another cream card. The old
   // decorative band mixed warn-/success- app tones into a wedding page — it is
   // now a palette-derived veil→gild wash (functional-color exile, §4).
-  // Eyebrow is intentionally unnumbered: `PublicEventDetails` owns № 03 and both
-  // can appear on one page.
+  // Eyebrow carries no chapter numeral (owner 2026-09-25 "drop the numbers" —
+  // no section renders one anymore) and `PublicEventDetails` can also appear
+  // on the same page, so this label stays distinct on its title alone.
   //
   // 🗺 2026-08-24 (H-4 / AP-10) — A SECTION CALLED `venue_map` HAD NEVER SHOWN A
   // MAP. Where the streets belong, guests got a decorative gradient band and a

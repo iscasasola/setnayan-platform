@@ -65,7 +65,6 @@ export function PahinaMasthead({
   eventDate,
   venueName,
   eyebrow = 'You are invited',
-  chapterNo = '01',
   badgeSlot,
   monogramSlot,
   mediaSlot,
@@ -79,11 +78,11 @@ export function PahinaMasthead({
    *  to today's split so an un-wired caller cannot flatten a couple. */
   twoPeople?: boolean;
   venueName?: string | null;
-  /** Eyebrow text after the chapter №. `null` renders the № alone — the
-   *  solemn register's answer (`mastheadEyebrow` in _lib/invitation-card.ts):
-   *  a wake is never told "You are invited". */
+  /** Eyebrow text. `null` renders no eyebrow row at all — the solemn
+   *  register's answer (`mastheadEyebrow` in _lib/invitation-card.ts): a wake
+   *  is never told "You are invited", and (owner 2026-09-25 "drop the
+   *  numbers") there is no chapter numeral to fall back to either. */
   eyebrow?: string | null;
-  chapterNo?: string;
   /** Day-of badge etc. — rendered above the eyebrow when present. */
   badgeSlot?: ReactNode;
   /** The couple's mark (HeroMonogram) — mounted between eyebrow and names. */
@@ -170,10 +169,15 @@ export function PahinaMasthead({
   return (
     <header className="text-center">
       {badgeSlot}
-      <p className="pahina-eyebrow justify-center">
-        <span aria-hidden>№ {chapterNo}</span>
-        {eyebrow ? <span>{eyebrow}</span> : null}
-      </p>
+      {/* owner 2026-09-25 "drop the numbers": the chapter numeral is gone —
+          hiding a section no longer leaves a gap in a numbered sequence.
+          When there is no eyebrow (the solemn register), render no row at
+          all rather than an empty one with a stray decorative rule. */}
+      {eyebrow ? (
+        <p className="pahina-eyebrow justify-center">
+          <span>{eyebrow}</span>
+        </p>
+      ) : null}
       {monogramSlot ? <div data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
 
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}

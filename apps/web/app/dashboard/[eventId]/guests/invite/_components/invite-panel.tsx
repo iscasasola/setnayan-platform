@@ -18,6 +18,7 @@ import { svgDataUri } from '@/lib/qr-download';
 import { InviteLink } from './invite-link';
 import { InviteThemePicker } from './invite-theme-picker';
 import { RegenerateQrButton } from './regenerate-qr-button';
+import { readWhoCanRsvp, WHO_CAN_RSVP_LABEL } from '@/lib/rsvp-ask';
 
 /**
  * invite-panel.tsx — the invite link, its QR, and the look it opens in. ONE
@@ -108,7 +109,7 @@ export async function InvitePanel({
     mayShowStdFilm,
   });
 
-  const [tokenRes, pendingRes, eventRes] = await Promise.all([
+  const [tokenRes, pendingRes, eventRes, askRes] = await Promise.all([
     supabase
       .from('event_join_tokens')
       .select('token, revoked_at, expires_at')
@@ -125,6 +126,13 @@ export async function InvitePanel({
     supabase
       .from('events')
       .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    // "Who can RSVP?" — its own read, so a refusal here can never take the
+    // invite link down with it.
+    supabase
+      .from('events')
+      .select('rsvp_ask_config')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -171,6 +179,10 @@ export async function InvitePanel({
         ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
         : null;
   const pendingClaims = pendingRes.count ?? 0;
+  if (askRes.error) {
+    logQueryError('GuestInvitePage (events.rsvp_ask_config)', askRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const whoCanRsvp = askRes.error ? null : readWhoCanRsvp(askRes.data?.rsvp_ask_config);
 
 
   // SVG QR of the join link — crisp at any size, ~3KB inline, no client JS.
@@ -246,6 +258,24 @@ export async function InvitePanel({
           ) : null}
         </div>
       )}
+
+      {/* 🗳 WHO CAN RSVP? — the SAME stored value the Maker's RSVP page sets
+          (`events.rsvp_ask_config.whoCanRsvp`, read through `readWhoCanRsvp`).
+          Shown here, changed there, so the two can never disagree: this panel
+          has no writer of its own. A read that failed says so. */}
+      <Link
+        href={`/dashboard/${eventId}/launch?tool=rsvp-page`}
+        data-invite-who-can-rsvp={whoCanRsvp ?? 'unknown'}
+        className="mt-4 flex min-h-11 items-center justify-between gap-3 border-b border-ink/10 py-2 text-sm text-ink hover:text-ink/80"
+      >
+        <span>
+          <span className="font-semibold">Who can RSVP?</span>{' '}
+          <span className="text-ink/70">
+            {whoCanRsvp ? WHO_CAN_RSVP_LABEL[whoCanRsvp] : 'We couldn’t read this just now'}
+          </span>
+        </span>
+        <span className="shrink-0 text-xs font-medium text-ink/55">Change in the Maker&rsquo;s RSVP page</span>
+      </Link>
 
       {pendingClaims > 0 ? (
         <Link

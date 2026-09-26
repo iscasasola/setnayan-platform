@@ -68,6 +68,7 @@ export function MakerShell({
   applySlot = null,
   prints = null,
   details = null,
+  rsvp = null,
   hasWork,
   viewAs = {},
   children,
@@ -98,6 +99,9 @@ export function MakerShell({
    *  the address and its QR, and the printed cards they fill — and `controls`
    *  the fields (what the prints include, and every line of wording). */
   details?: { page: ReactNode; controls: ReactNode } | null;
+  /** RSVP as a PAGE (guest pathway, owner 2026-09-27): `page` is the guest's
+   *  RSVP as they meet it, `controls` the RSVP settings beside it. */
+  rsvp?: { page: ReactNode; controls: ReactNode } | null;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the tool items then have nothing to open. */
   hasWork: boolean;
@@ -368,6 +372,27 @@ export function MakerShell({
                   )
                 }
                 controls={details?.controls ?? null}
+                onClose={() => select(null)}
+                closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
+              />
+            </div>
+          ) : null}
+          {/* 🗳 RSVP IS A PAGE TOO (owner 2026-09-27) — the guest's RSVP is the
+              body, its settings sit where a stage's controls sit. Same layer
+              and the same `MakerPage` as Details, never a dialog. */}
+          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-page' ? (
+            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
+              <MakerPage
+                pageKey="rsvp-page"
+                page={
+                  rsvp?.page ?? (
+                    <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
+                      Your RSVP settings could not be loaded just now. Nothing was changed — please reopen this in a
+                      moment.
+                    </p>
+                  )
+                }
+                controls={rsvp?.controls ?? null}
                 onClose={() => select(null)}
                 closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
               />

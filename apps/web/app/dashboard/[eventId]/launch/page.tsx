@@ -39,7 +39,10 @@ import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
-import { sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
+import { MakerPageFrame } from './_components/maker-page';
+import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
@@ -936,6 +939,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      and refuses on its own. */
   let prints: ReactNode = null;
   let details: { page: ReactNode; controls: ReactNode } | null = null;
+  let rsvp: { page: ReactNode; controls: ReactNode } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
     const [printEvent, printPro, rsvpHosts, printParents, egifts] = await Promise.all([
@@ -986,9 +990,64 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
           slug={printEvent.slug}
           slugAction={updateEventSlug.bind(null, eventId, 'launch')}
-          rsvpAsk={rsvpAsk}
-          rsvpAskDrafted={rsvpAskDrafted}
         />
+        ),
+      };
+      /* ══ RSVP (made-once, guest pathway — owner 2026-09-27) ══ The guest's
+         RSVP as they meet it is the page (the Invitation on the SAMPLE
+         seat-holder, reply open — `makerPageCanvasSrc`), and its settings sit
+         beside it: one question at a time, what you ask, who can RSVP, reply
+         by, and who is waiting in Requests. Every setting is ONE key of
+         `events.rsvp_ask_config`, drafted like the rest of the Maker. */
+      /* A COUNT, never names: this page reads no guest by name
+         (`the-controller-wires-what-it-measured.test.ts`), and only a viewer
+         who may read the guest list asks at all (`mayReadGuestList`). */
+      const requestsCountRead = mayReadGuestList
+        ? printAdmin
+            .from('guests')
+            .select('guest_id', { count: 'exact', head: true })
+            .eq('event_id', eventId)
+            .eq('entry_source', 'self_added_unlisted')
+            .is('deleted_at', null)
+        : null;
+      const [deadlineRes, requestsRes] = await Promise.all([
+        printAdmin.from('events').select('guest_list_edit_deadline').eq('event_id', eventId).maybeSingle(),
+        requestsCountRead,
+      ]);
+      if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
+      if (requestsRes?.error) logQueryError('LaunchPage.rsvpRequests', requestsRes.error, { event_id: eventId }, 'graceful_degrade');
+      const rsvpSrc = makerPageCanvasSrc(printEvent.slug ? `/${printEvent.slug}` : null, 'rsvp-page', 'rsvp');
+      const rsvpStamp = String(Date.now());
+      rsvp = {
+        page: rsvpSrc ? (
+          <MakerPageFrame src={rsvpSrc} title="Your RSVP — as a guest sees it" device="phone" frameKey={`rsvp:${rsvpStamp}`} />
+        ) : (
+          <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
+            Set your Event Hub address in Details to see your RSVP here.
+          </p>
+        ),
+        controls: (
+          <MakerRsvpSettings
+            eventId={eventId}
+            current={rsvpAsk}
+            drafted={rsvpAskDrafted}
+            /* The couple's own deadline wins and is never overwritten; unset,
+               the default of 30 days before the day is SHOWN (resolveReplyBy). */
+            replyBy={
+              deadlineRes.error
+                ? null
+                : resolveReplyBy({
+                    deadline: (deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null,
+                    eventDate: printEvent.event_date,
+                  })
+            }
+            replyByHref={`/dashboard/${eventId}/details`}
+            requests={{
+              /* A refused (or unasked) read is SAID (null), never a "0" that reads as nobody. */
+              count: !requestsRes || requestsRes.error ? null : (requestsRes.count ?? 0),
+              href: `/dashboard/${eventId}/guests/claims`,
+            }}
+          />
         ),
       };
       prints = (
@@ -1028,12 +1087,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             tool === 'logo' ||
             tool === 'love-story' ||
             tool === 'details' ||
+            tool === 'rsvp-page' ||
             tool === 'prints')
           ? ({ kind: 'tool', key: tool } as const)
           : null;
       })()}
       prints={prints}
       details={details}
+      rsvp={rsvp}
       storeShell={storeShell}
       /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the
          slide), and only the catalogue's figure anywhere else. */

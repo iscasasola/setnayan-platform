@@ -22,7 +22,16 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
  *   · Logo       — the logo studio itself (its canvas the body, its panel the side);
  *   · Details    — what the details feed: the address + QR and the printed cards.
  */
-export const MAKER_PAGE_KEYS = ['details', 'logo', 'hero', 'reveal', 'love-story'] as const;
+/*
+ *   · RSVP       — the guest's RSVP, as a guest meets it (owner 2026-09-27:
+ *                  *"RSVP is its own made-once page in the Maker bar"*): the
+ *                  Invitation's reply opened on the sample seat-holder (the
+ *                  FABRICATED guest of `lib/simulated-guest-preview.ts` — no
+ *                  real guest ever flows into it), with the RSVP settings
+ *                  beside it. Keyed `rsvp-page`, never `rsvp`: `rsvp` is the
+ *                  Invitation STAGE's own key, and one bar holds both.
+ */
+export const MAKER_PAGE_KEYS = ['details', 'logo', 'hero', 'reveal', 'love-story', 'rsvp-page'] as const;
 export type MakerPageKey = (typeof MAKER_PAGE_KEYS)[number];
 
 export function isMakerPageKey(value: unknown): value is MakerPageKey {
@@ -36,6 +45,7 @@ export const MAKER_PAGE_TITLE: Record<MakerPageKey, string> = {
   hero: 'Hero',
   reveal: 'Reveal',
   'love-story': 'Love Story',
+  'rsvp-page': 'RSVP',
 };
 
 export type MakerPageOpts = {
@@ -68,6 +78,9 @@ export function makerPageStage(
     case 'love-story':
       // Each moment is a scene on the Invitation (Maker Phase 7).
       return opts.guestView ? 'rsvp' : null;
+    case 'rsvp-page':
+      // The reply lives on the Invitation, whichever stage is being edited.
+      return 'rsvp';
     case 'logo':
     case 'details':
       return null;
@@ -87,6 +100,11 @@ export function makerPageCanvasSrc(
 ): string | null {
   const phase = makerPageStage(key, stage, opts);
   if (!publicLandingUrl || !phase) return null;
+  // 🗳 The RSVP page: the Invitation as the SAMPLE seat-holder (`as=replied`,
+  // host-verified on the guest page — a stranger's `?as=` is ignored), with the
+  // reply sheet open (`#your-details`, rsvp-sheet.tsx). The canvas door
+  // (`editor=1`) wears the couple's DRAFT, so a switch shows before Apply.
+  if (key === 'rsvp-page') return `${publicLandingUrl}?phase=${phase}&editor=1&as=replied#your-details`;
   const anchor = key === 'love-story' ? '#site-story' : '';
   // 🎬 The Reveal's page must PLAY the opening, and only the stage preview
   // (`?preview=draft`) does — the editing canvas (`?editor=1`) skips it by

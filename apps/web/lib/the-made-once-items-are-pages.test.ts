@@ -67,6 +67,16 @@ test('the five are the bar’s made-once group, and the pure rule draws each whe
   assert.equal(makerPageCanvasSrc('/ana-ben', 'hero', 'rsvp'), '/ana-ben?phase=rsvp&editor=1');
   // …except the Reveal, whose page must play the opening: only the stage preview does.
   assert.equal(makerPageCanvasSrc('/ana-ben', 'reveal', 'rsvp'), '/ana-ben?phase=save_the_date&preview=draft');
+  // RSVP (owner 2026-09-27): the Invitation, on the SAMPLE seat-holder, reply
+  // open — whichever stage is being edited, and never on a real guest.
+  for (const stage of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) {
+    assert.equal(makerPageStage('rsvp-page', stage), 'rsvp');
+  }
+  assert.equal(
+    makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'event'),
+    '/ana-ben?phase=rsvp&editor=1&as=replied#your-details',
+  );
+  assert.equal(makerPageCanvasSrc(null, 'rsvp-page', 'rsvp'), null);
 });
 
 test('no made-once file mounts a dialog, a sheet or a portal', () => {
@@ -76,6 +86,7 @@ test('no made-once file mounts a dialog, a sheet or a portal', () => {
     `${L}/maker-reveal.tsx`,
     `${L}/maker-made-once.tsx`,
     `${L}/maker-details.tsx`,
+    `${L}/maker-rsvp-ask.tsx`,
   ];
   for (const rel of FILES) {
     const src = read(rel);
@@ -271,4 +282,50 @@ test('the Details page shows what the details feed — the address and its QR, a
   assert.match(src, /piece: 'details'/);
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /page: <MakerDetailsPage /, 'the launch page hands Details its page');
+});
+
+test('RSVP renders as a page in the Maker’s body — the guest’s RSVP, its settings beside it', async () => {
+  // Guest pathway, owner 2026-09-27: "RSVP is its own made-once page in the
+  // Maker bar". Drawn by the SHELL like Details, from the launch page.
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { MakerShell } = await import(`../${L}/maker-shell`);
+  const html = renderToStaticMarkup(
+    React.createElement(MakerShell, {
+      eventId: 'ev-1',
+      slug: 'ana-ben',
+      liveStage: 'rsvp',
+      initialStage: 'rsvp',
+      initialSelection: { kind: 'tool', key: 'rsvp-page' },
+      storeShell: false,
+      priceLabel: null,
+      firstVisit: false,
+      completeTourAction: async () => {},
+      renderStamp: '1',
+      more: null,
+      hasWork: true,
+      rsvp: {
+        page: React.createElement('div', { 'data-stub': 'rsvp-preview' }),
+        controls: React.createElement('div', { 'data-stub': 'rsvp-settings' }),
+      },
+    },
+    React.createElement('div', { 'data-stub': 'work' }),
+    ),
+  );
+  assert.match(html, /data-maker-page="rsvp-page"/);
+  assert.match(html, /data-maker-page-body=""[\s\S]*data-stub="rsvp-preview"/, 'the guest’s RSVP is the body');
+  assert.match(html, /data-maker-page-controls=""[\s\S]*data-stub="rsvp-settings"/, 'the settings sit beside it');
+  assert.equal((html.match(/role="dialog"/g) ?? []).length, 1, 'only the ⋯ sheet is a dialog');
+
+  // The launch page hands RSVP its page (the guest's RSVP, framed) and its
+  // settings — and "What do you ask your guests?" MOVED here from Details.
+  const launch = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(launch, /makerPageCanvasSrc\([^)]*'rsvp-page'/, 'the RSVP page is the guest’s RSVP');
+  assert.match(launch, /<MakerRsvpSettings\b/, 'the RSVP settings sit beside it');
+  assert.match(launch, /rsvp=\{rsvp\}/, 'the shell is handed the RSVP page');
+  assert.doesNotMatch(read(`${L}/maker-details.tsx`), /MakerRsvp/, '"What do you ask your guests?" is still on Details');
+  const settings = read(`${L}/maker-rsvp-ask.tsx`);
+  for (const section of ['one-at-a-time', 'who-can-rsvp', 'reply-by', 'requests']) {
+    assert.match(settings, new RegExp(`data-rsvp-setting="${section}"`), `the RSVP page lost "${section}"`);
+  }
+  assert.match(settings, /data-made-once="rsvp-ask"/, 'the six questions are on the RSVP page');
 });

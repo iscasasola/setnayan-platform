@@ -43,7 +43,7 @@ import { invitationCard } from '@/app/[slug]/_lib/invitation-card';
 import type { EventWords } from '@/app/[slug]/_lib/event-words';
 import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { relativeLuminance } from '@/lib/booth-studio';
-import { inviteDoorFor, type InviteThemeId } from '@/lib/invite-themes';
+import type { InviteThemeId } from '@/lib/invite-themes';
 
 export type PosterKind = 'quiet' | 'photo' | 'deep' | 'moon' | 'invitation';
 
@@ -133,11 +133,11 @@ export function posterFor(input: {
   if (input.heroSrc) {
     return { ...base, kind: 'photo', dark: true, photoSrc: input.heroSrc };
   }
-  if (accent && whiteContrastOn(accent) >= WHITE_TYPE_MIN_CONTRAST) {
-    return { ...base, kind: 'deep', dark: true, capiz: inviteDoorFor(input.theme) === 'capiz' };
-  }
-  if (accent) {
-    return { ...base, kind: 'moon', dark: false };
-  }
+  // 🃏 THE COVER IS THE EVENT HUB HERO — The Card, on Classic, by default (owner
+  // 2026-09-26: *"is it using the template provided on the event hub? our
+  // default is the classic remember?"*; the cover follows the couple's hero).
+  // The couple's colour tints the mark only; it no longer swaps the layout for
+  // the 09-24 `deep` / `moon` sheets, which made every coloured event's card the
+  // same stamp and matched no hero the Event Hub draws.
   return { ...base, kind: 'invitation', dark: false, eyebrow: card.eyebrow, line: card.line };
 }

@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { CalendarRange, Users } from 'lucide-react';
 import { updateEventDate } from '@/app/dashboard/[eventId]/actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   eventId: string;
@@ -109,7 +110,7 @@ export function VendorsAvailabilityBanner({
             />
             <strong className="font-medium">{availableDays.length}</strong>
             {availableDays.length === 1 ? ' day' : ' days'} available across your{' '}
-            {lockedCount} booked {vendorNoun} in{' '}
+            {formatCount(lockedCount)} booked {vendorNoun} in{' '}
             <strong className="font-medium">{windowLabel}</strong>:{' '}
             <span className="text-ink/75">
               {availableDays.map(prettyDay).join(', ')}

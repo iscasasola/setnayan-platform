@@ -11,6 +11,7 @@ import {
   POSTER_MAX_MB,
   validatePosterFile,
 } from '@/lib/booth-poster';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Your booth poster" — a booked vendor's own design for THIS couple's event,
@@ -70,7 +71,7 @@ export function BoothPosterCard({
         automatically, so the poster is free for the artwork.
       </p>
       <p className="mt-1 text-xs text-ink/50">
-        Portrait {POSTER_DIMENSION_LABEL} (2:3), up to {POSTER_MAX_MB * 1000} KB. JPG, PNG or WebP.
+        Portrait {POSTER_DIMENSION_LABEL} (2:3), up to {formatCount(POSTER_MAX_MB * 1000)} KB. JPG, PNG or WebP.
       </p>
 
       {displayUrl ? (

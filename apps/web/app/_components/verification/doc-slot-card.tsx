@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, ArrowUpRight } from 'lucide-react';
 import { DOC_SLOTS, type DocSlot, type DocSlotKind } from '@/lib/vendor-verification';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Completeness / kind badge for a doc slot. `complete` wins; otherwise the
@@ -91,7 +92,7 @@ export function DocSlotCard({
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Item {slot.number} of {DOC_SLOTS.length}
+            Item {formatCount(slot.number)} of {formatCount(DOC_SLOTS.length)}
           </p>
           <h3 className="mt-0.5 text-base font-semibold text-ink">
             {slot.label}

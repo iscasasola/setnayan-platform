@@ -64,6 +64,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable, type ConsoleColumn } from '@/app/admin/_components/console-table';
+import { formatCount } from '@/lib/format-number';
 
 type DiscountCodeRow = {
   discount_code_id: string;
@@ -125,7 +126,7 @@ function describeValue(row: DiscountCodeRow): string {
 
 function describeUses(row: DiscountCodeRow): string {
   if (row.max_uses === null) return `${row.uses_count} of ∞`;
-  return `${row.uses_count} of ${row.max_uses}`;
+  return `${formatCount(row.uses_count)} of ${formatCount(row.max_uses)}`;
 }
 
 // ⚠ LOGGING NEVER CHANGED THE RENDER — the sentence from this file's own

@@ -28,6 +28,7 @@ import {
   GUEST_COLUMN_TITLE_MAX,
   type OwnGuestColumn,
 } from '@/lib/guest-columns';
+import { formatCount } from '@/lib/format-number';
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   keep_it_sweet: 'Let’s keep it sweet — please rephrase and try again.',
@@ -180,7 +181,7 @@ export function GuestColumnForm({
             <label htmlFor="gcol-title" className="block text-xs font-medium text-ink/70">
               Title
               <span className="ml-1.5 font-mono text-xs text-ink/40">
-                {title.length}/{GUEST_COLUMN_TITLE_MAX}
+                {title.length}/{formatCount(GUEST_COLUMN_TITLE_MAX)}
               </span>
             </label>
             <input
@@ -197,7 +198,7 @@ export function GuestColumnForm({
             <label htmlFor="gcol-body" className="block text-xs font-medium text-ink/70">
               Your column
               <span className="ml-1.5 font-mono text-xs text-ink/40">
-                {body.length}/{GUEST_COLUMN_BODY_MAX}
+                {formatCount(body.length)}/{formatCount(GUEST_COLUMN_BODY_MAX)}
               </span>
             </label>
             <textarea

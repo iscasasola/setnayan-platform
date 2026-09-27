@@ -9,6 +9,7 @@ import {
   type VendorQuestion,
 } from '@/lib/emcee-questions';
 import { saveHostAnswers } from '../question-answers-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * HOST QUESTIONS — the couple answers what only they can tell their emcee.
@@ -81,7 +82,7 @@ export async function HostQuestions({
         <span className="font-mono text-[0.66rem] uppercase tracking-[0.16em] text-ink/55">
           {remaining === 0
             ? 'All answered'
-            : `${questionnaire.answered} of ${questionnaire.total} answered`}
+            : `${formatCount(questionnaire.answered)} of ${formatCount(questionnaire.total)} answered`}
         </span>
       </div>
 

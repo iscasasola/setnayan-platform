@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 // 0009 Photo Delivery — release progress poller.
 //
@@ -137,7 +138,7 @@ export function ReleaseProgressPoller({
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-  if (bytes >= 1_000_000) return `${Math.round(bytes / 1_000_000)} MB`;
-  return `${Math.round(bytes / 1_000)} KB`;
+  if (bytes >= 1_000_000_000) return `${formatCount(bytes / 1_000_000_000, 1)} GB`;
+  if (bytes >= 1_000_000) return `${formatCount(Math.round(bytes / 1_000_000))} MB`;
+  return `${formatCount(Math.round(bytes / 1_000))} KB`;
 }

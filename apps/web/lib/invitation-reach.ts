@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * invitation-reach.ts — WHO can actually receive an invitation, and who cannot.
  *
@@ -86,7 +87,7 @@ export function invitationReach(guests: readonly GuestReachRow[]): InvitationRea
 export function unreachableSentence(r: InvitationReach): string | null {
   if (r.unreachable <= 0) return null;
   if (r.unreachable === r.total) {
-    return `None of your ${r.total} guests has an email or mobile on file, so none can be sent one — add addresses, or hand these out yourself.`;
+    return `None of your ${formatCount(r.total)} guests has an email or mobile on file, so none can be sent one — add addresses, or hand these out yourself.`;
   }
-  return `${r.unreachable} of ${r.total} have no email or mobile on file, so they cannot be sent one — add an address, or hand theirs out yourself.`;
+  return `${formatCount(r.unreachable)} of ${formatCount(r.total)} have no email or mobile on file, so they cannot be sent one — add an address, or hand theirs out yourself.`;
 }

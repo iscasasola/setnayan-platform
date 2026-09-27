@@ -38,6 +38,7 @@ import { resolveVendorDestinations } from './vendor-nav-destinations';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The word the 72px icon strip shows at 1024–1279, keyed by the STABLE key and
@@ -179,7 +180,7 @@ export function VendorRailContext({
             </span>
             {item.badge && item.badge.count > 0 ? (
               <span className="fd-ct fd-mono">
-                {item.badge.count}
+                {formatCount(item.badge.count)}
                 {item.badge.label ? (
                   <span className="sr-only"> — {item.badge.label}</span>
                 ) : null}

@@ -26,6 +26,7 @@ import {
   ServiceDetailsSheet,
   type ServiceInquireMode,
 } from './service-details-sheet';
+import { formatCount } from '@/lib/format-number';
 
 export type ServiceGroup = {
   key: string;
@@ -195,7 +196,7 @@ function FilterChip({
       }`}
     >
       <span>{label}</span>
-      <span className={on ? 'text-cream/70' : 'text-ink/40'}>{count}</span>
+      <span className={on ? 'text-cream/70' : 'text-ink/40'}>{formatCount(count)}</span>
     </button>
   );
 }

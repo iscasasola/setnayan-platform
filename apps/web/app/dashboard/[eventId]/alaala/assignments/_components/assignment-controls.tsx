@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { createAssignment, removeAssignment, nudgeAssignee } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { KwentoMomentKey } from '@/lib/kwento-moments';
+import { formatCount } from '@/lib/format-number';
 
 type Guest = { guestId: string; name: string };
 type Assignment = { assignmentId: string; guestId: string; guestName: string; nudgeCount: number };
@@ -127,7 +128,7 @@ export function AssignmentRow({
             className="rounded-full px-1.5 py-0.5 font-mono text-[10px]"
             style={{ background: 'var(--m-paper)', color: 'var(--m-slate-2)', border: '1px solid var(--m-line)' }}
           >
-            {assignment.nudgeCount} nudge{assignment.nudgeCount !== 1 ? 's' : ''} sent
+            {formatCount(assignment.nudgeCount)} nudge{assignment.nudgeCount !== 1 ? 's' : ''} sent
           </span>
         ) : null}
       </div>

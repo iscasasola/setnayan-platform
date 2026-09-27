@@ -1,6 +1,7 @@
 import { Radar, MessageSquare, KeyRound, CheckCircle2 } from 'lucide-react';
 import type { DemandRadar } from '@/lib/demand-radar';
 import { ShopCard } from '../../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * DemandRadarCard — presentational radar (server component, no client JS).
@@ -121,7 +122,7 @@ export function DemandRadarCard({
                 />
               </span>
               <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-ink/80">
-                {m.total}
+                {formatCount(m.total)}
               </span>
             </li>
           ))}
@@ -145,7 +146,7 @@ export function DemandRadarCard({
               <span className="text-sm font-medium text-ink">{l.label}</span>
               <span className="text-xs text-ink/55">
                 <span className="font-semibold tabular-nums text-ink/80">
-                  {l.total}
+                  {formatCount(l.total)}
                 </span>{' '}
                 signals
               </span>
@@ -170,9 +171,9 @@ export function DemandRadarCard({
                 >
                   <span className="text-sm font-medium text-ink">{r.label}</span>
                   <span className="text-xs text-ink/55">
-                    <span className="tabular-nums">{r.inquiries}</span> inq ·{' '}
-                    <span className="tabular-nums">{r.unlocks}</span> unlocks ·{' '}
-                    <span className="tabular-nums">{r.bookings}</span> bookings
+                    <span className="tabular-nums">{formatCount(r.inquiries)}</span> inq ·{' '}
+                    <span className="tabular-nums">{formatCount(r.unlocks)}</span> unlocks ·{' '}
+                    <span className="tabular-nums">{formatCount(r.bookings)}</span> bookings
                   </span>
                 </li>
               ))}
@@ -193,7 +194,7 @@ export function DemandRadarCard({
                   <span className="text-sm font-medium text-ink">{et.label}</span>
                   <span className="text-xs text-ink/55">
                     <span className="font-semibold tabular-nums text-ink/80">
-                      {et.total}
+                      {formatCount(et.total)}
                     </span>{' '}
                     signals
                   </span>

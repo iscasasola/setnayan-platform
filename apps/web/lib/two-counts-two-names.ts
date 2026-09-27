@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * TWO COUNTS, TWO NAMES — and neither of them is "open".
  *
@@ -40,7 +41,7 @@
 export function notBookedLabel(notBooked: number, lockable: number): string {
   const n = Math.max(0, Math.trunc(notBooked));
   const total = Math.max(0, Math.trunc(lockable));
-  if (n === 0) return total === 0 ? 'Nothing to book' : `All ${total} categories booked`;
+  if (n === 0) return total === 0 ? 'Nothing to book' : `All ${formatCount(total)} categories booked`;
   /*
     No denominator is better than a wrong one, and there are TWO ways to have a
     wrong one. A zero total means the event-type scope could not be resolved.
@@ -60,7 +61,7 @@ export function notBookedLabel(notBooked: number, lockable: number): string {
     show. Adding the denominator moved the agreement, and nothing in the old
     wording could have warned about it.
   */
-  return `${n} of ${total} ${total === 1 ? 'category' : 'categories'} not booked`;
+  return `${formatCount(n)} of ${formatCount(total)} ${total === 1 ? 'category' : 'categories'} not booked`;
 }
 
 /**

@@ -28,6 +28,7 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
+import { formatCount } from '@/lib/format-number';
 
 export type CompGrantSource =
   | 'owner_internal'
@@ -217,7 +218,7 @@ export function describeScope(
     const count = scopedSkus?.length ?? 0;
     if (count === 0) return 'Specific services (none picked yet)';
     if (count === 1) return `1 specific service`;
-    return `${count} specific services`;
+    return `${formatCount(count)} specific services`;
   }
   return scope;
 }

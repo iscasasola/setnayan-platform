@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { deleteEvent, setEventFaceMode } from '@/app/admin/events/actions';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The read's own ceiling, named once and handed to the table as `cap`. It was a
@@ -523,7 +524,7 @@ export async function EventsSurface({
               const message = !paidVendorsMeasured
                 ? `Hard-delete "${e.display_name}"? We could NOT read this event's paid vendors, so it may have orders attached that will lose their event link.${moneyNote} ${cascade} Not reversible.`
                 : paidVendorCount > 0
-                  ? `Hard-delete "${e.display_name}"? This event has ${paidVendorCount} paid vendor${paidVendorCount === 1 ? '' : 's'} — their order rows survive but lose the event link.${moneyNote} ${cascade} Not reversible.`
+                  ? `Hard-delete "${e.display_name}"? This event has ${formatCount(paidVendorCount)} paid vendor${paidVendorCount === 1 ? '' : 's'} — their order rows survive but lose the event link.${moneyNote} ${cascade} Not reversible.`
                   : `Hard-delete "${e.display_name}"?${moneyNote} ${cascade} Not reversible — the host can put it away instead from its Personalization page if they might want it back.`;
               return (
                 <ConfirmForm action={deleteEvent} message={message}>

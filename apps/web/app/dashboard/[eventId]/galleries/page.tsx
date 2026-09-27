@@ -11,6 +11,7 @@ import { countEventGuestCaptures } from '@/lib/papic-guest';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { RevealList } from '@/app/_components/reveal-list';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Galleries' };
 
@@ -237,7 +238,7 @@ export default async function GalleriesHubPage({ params }: Props) {
                     <h2 className="text-sm font-semibold text-ink">{s.name}</h2>
                     {ready ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-700">
-                        Ready{s.count != null ? ` · ${s.count}` : ''}
+                        Ready{s.count != null ? ` · ${formatCount(s.count)}` : ''}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2 py-0.5 text-[11px] font-medium text-warn-700">

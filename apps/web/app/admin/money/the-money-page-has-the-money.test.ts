@@ -48,7 +48,7 @@ test('an unmeasured queue count renders an em-dash, never a confident zero', () 
   const src = stripComments(ledger);
   // On a money screen a 0 claims "nothing is waiting". `null` means the read
   // did not happen — a different and much weaker claim.
-  assert.match(src, /q\.count == null \? '—' : q\.count/);
+  assert.match(src, /q\.count == null \? '—' : formatCount\(q\.count\)/);
   assert.match(src, /received == null \? null : formatPhp\(received\)/);
   assert.match(src, /outstanding == null \? null : formatPhp\(outstanding\)/);
 });

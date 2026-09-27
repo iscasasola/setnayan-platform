@@ -10,6 +10,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable, type ConsoleColumn } from '@/app/admin/_components/console-table';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * RealStoriesSurface — the Real Stories featuring body of the tabbed
@@ -268,7 +269,7 @@ export async function RealStoriesSurface({
         <>
           {rows ? (
             <p className="mb-4 text-sm text-ink/70">
-              {rows.length} eligible {rows.length === 1 ? 'wedding' : 'weddings'} · {featuredCount}{' '}
+              {rows.length} eligible {rows.length === 1 ? 'wedding' : 'weddings'} · {formatCount(featuredCount)}{' '}
               featured
             </p>
           ) : null}

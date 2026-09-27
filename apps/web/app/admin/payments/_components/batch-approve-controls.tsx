@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Batch-approve controls for the admin payments queue (fast-approval sprint).
@@ -73,7 +74,7 @@ export function BatchApproveBar({
     <div className="sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-success-300/70 bg-success-50/95 px-4 py-3 backdrop-blur">
       <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-success-900">
         <CheckCircle2 aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
-        {totalCleanMatches} clean match{totalCleanMatches > 1 ? 'es' : ''} ready
+        {formatCount(totalCleanMatches)} clean match{totalCleanMatches > 1 ? 'es' : ''} ready
       </span>
       <label className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/70">
         <input
@@ -90,7 +91,7 @@ export function BatchApproveBar({
           pendingLabel="Approving…"
           className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-success-700 px-4 py-1.5 text-sm font-medium text-cream hover:bg-success-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Approve {count > 0 ? `${count} ` : ''}selected clean match{count === 1 ? '' : 'es'}
+          Approve {count > 0 ? `${formatCount(count)} ` : ''}selected clean match{count === 1 ? '' : 'es'}
         </SubmitButton>
       </form>
     </div>

@@ -23,6 +23,7 @@ import {
   inclusionsAreSet,
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ServiceWizard — the guided "create a service" flow (vendor Services builder
@@ -402,7 +403,7 @@ export function ServiceWizard({
               form directly, so it can honestly show whichever basis is active. */}
           <Recap k="Price" v={hasPrice ? 'Set' : '— not set (required to publish)'} />
           <Recap k="Setnayan gift" v={giftOn ? 'Included' : '— not included'} />
-          {linkCount > 0 ? <Recap k="Comes with" v={`${linkCount} service${linkCount === 1 ? '' : 's'}`} /> : null}
+          {linkCount > 0 ? <Recap k="Comes with" v={`${formatCount(linkCount)} service${linkCount === 1 ? '' : 's'}`} /> : null}
         </dl>
         <p className="text-xs text-ink/55">
           Availability is set on your <span className="font-medium text-ink">Calendar</span>, and payment terms are agreed in each couple&rsquo;s inquiry — so this listing stays simple.

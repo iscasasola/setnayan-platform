@@ -62,6 +62,7 @@
  */
 
 import Link from 'next/link';
+import { Settings } from 'lucide-react';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -69,6 +70,7 @@ import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
+import { formatCount } from '@/lib/format-number';
 
 export function EventRailContext({
   eventId,
@@ -241,7 +243,15 @@ export function EventRailContext({
           aria-current={activeKey === detailsRow.key ? 'page' : undefined}
         >
           <span className="fd-rctx-name">{eventName}</span>
-          <span className="fd-rctx-sub">{detailsRow.label} ›</span>
+          {/* ⚙ A GEAR, NOT THE WORD "DETAILS" (owner 2026-09-27: "make a
+              settings icon"). "Details" also names the Event Hub Maker's
+              include-checklist page, so one word meant two places; this row
+              opens Event Settings (names, date, venues, guest count), so it
+              wears the settings gear and says so. */}
+          <span className="fd-rctx-sub fd-rctx-settings">
+            <Settings aria-hidden className="fd-rctx-gear" strokeWidth={1.75} />
+            Event settings
+          </span>
         </Link>
       ) : (
         <div className="fd-rctx">{eventName}</div>
@@ -293,7 +303,7 @@ export function EventRailContext({
                     <span className="fd-icon-caption">{item.label}</span>
                     {item.badge ? (
                       <>
-                        <span className="fd-ct fd-mono">{item.badge.count}</span>
+                        <span className="fd-ct fd-mono">{formatCount(item.badge.count)}</span>
                         {item.badge.label ? (
                           <span className="fd-sr-only">{item.badge.label}</span>
                         ) : null}

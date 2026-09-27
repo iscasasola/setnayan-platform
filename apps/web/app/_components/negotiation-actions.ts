@@ -36,6 +36,7 @@ import {
 } from '@/lib/proposal-amendments';
 import { dealLockReadiness, dealLockRefusal } from '@/lib/deal-lock-readiness';
 import { revalidationTarget } from '@/lib/return-path';
+import { formatCount } from '@/lib/format-number';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -700,7 +701,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
     base?.proposalId ?? null,
     items!,
     note,
-    `🧾 Deal — ${n} item${n === 1 ? "" : "s"}`,
+    `🧾 Deal — ${formatCount(n)} item${n === 1 ? "" : "s"}`,
   );
 
   if (back) {
@@ -790,7 +791,7 @@ export async function counterAmendmentFromChat(formData: FormData): Promise<void
     base?.proposalId ?? null,
     items!,
     note,
-    `🧾 Counter deal — ${n} item${n === 1 ? "" : "s"}`,
+    `🧾 Counter deal — ${formatCount(n)} item${n === 1 ? "" : "s"}`,
   );
 
   if (back) {

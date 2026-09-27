@@ -3,6 +3,7 @@ import { formatPhp } from '@/lib/orders';
 import type { BookingMonthPoint, BookingDayPoint } from '@/lib/vendor-booking-series';
 import { BookingsBars, EarningsSparkline, type ChartPoint } from './momentum-chart';
 import { CountUp } from './count-up';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Momentum" — a windowed view over the vendor's booked business, tiered:
@@ -145,7 +146,7 @@ export function MomentumCard({
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
               {active.pricedCount > 0
-                ? `Confirmed on ${active.pricedCount} of ${active.bookings} booking${active.bookings === 1 ? '' : 's'}`
+                ? `Confirmed on ${formatCount(active.pricedCount)} of ${formatCount(active.bookings)} booking${active.bookings === 1 ? '' : 's'}`
                 : 'No confirmed prices in this window yet'}
             </p>
             <EarningsSparkline series={chartSeries} unit={chartUnit} />

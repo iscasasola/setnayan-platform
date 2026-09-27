@@ -33,6 +33,7 @@ import { useMemo, useState } from 'react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { orderAllotmentPickerRows } from '@/lib/papic-guest-allotments';
+import { formatCount } from '@/lib/format-number';
 
 export type AllotmentPickerGuest = {
   guestId: string;
@@ -73,16 +74,16 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder={`Search ${guests.length} guests…`}
+        placeholder={`Search ${formatCount(guests.length)} guests…`}
         className="w-full rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
       />
 
       <p aria-live="polite" className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink/45">
         {searching
-          ? `${ordered.length} of ${guests.length}`
+          ? `${formatCount(ordered.length)} of ${formatCount(guests.length)}`
           : namedCount > 0
-            ? `${namedCount} named · ${guests.length} guests`
-            : `${guests.length} guests`}
+            ? `${formatCount(namedCount)} named · ${formatCount(guests.length)} guests`
+            : `${formatCount(guests.length)} guests`}
       </p>
 
       {ordered.length === 0 ? (

@@ -10,6 +10,7 @@ import { printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import type { PrintImages } from '@/lib/print-layout';
+import { formatCount } from '@/lib/format-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -280,7 +281,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     <section class="sheet cover">
       <h1>${esc(coupleName)}</h1>
       <p class="sub">${dateStr ? esc(dateStr) + ' · ' : ''}Seating pack</p>
-      <p class="stat">${units.length} ${units.length === 1 ? 'table' : 'tables'} · ${totalSeated} seated ${
+      <p class="stat">${formatCount(units.length)} ${units.length === 1 ? 'table' : 'tables'} · ${formatCount(totalSeated)} seated ${
         totalSeated === 1 ? 'guest' : 'guests'
       }</p>
       <table><tbody>${directoryRows || '<tr><td class="muted">No tables yet.</td></tr>'}</tbody></table>

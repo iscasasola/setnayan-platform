@@ -12,6 +12,7 @@ import {
   type BroadcastCardData,
   type BroadcastSenderRole,
 } from '@/lib/coordinator-broadcasts';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Coordinator P3 (Coordinator_Role_Feature_Spec_2026-07-18 §P3) — the day-of
@@ -87,7 +88,7 @@ function LiveBroadcastCard({
       if (result.ok) {
         setEmailStatus(
           result.failed > 0
-            ? `Sent ${result.sent} of ${result.total} call-time emails (${result.failed} failed).`
+            ? `Sent ${formatCount(result.sent)} of ${formatCount(result.total)} call-time emails (${result.failed} failed).`
             : `Sent ${result.sent} call-time email${result.sent === 1 ? '' : 's'}.`,
         );
       } else if (result.reason === 'not_configured') {

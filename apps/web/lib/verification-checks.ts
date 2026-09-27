@@ -45,6 +45,7 @@ import {
   type DocSlot,
   DOC_SLOTS,
 } from '@/lib/vendor-verification';
+import { formatCount } from '@/lib/format-number';
 
 // ---------------------------------------------------------------------------
 // Result shapes
@@ -317,7 +318,7 @@ function checkRequiredDocuments(f: CheckFacts): CheckResult {
   return mismatch(
     key,
     label,
-    `${filed} of ${REQUIRED_KEYS_IN_ORDER.length} required documents are filed — missing ${list(
+    `${formatCount(filed)} of ${formatCount(REQUIRED_KEYS_IN_ORDER.length)} required documents are filed — missing ${list(
       missing.map(slotLabel),
     )}.`,
     {
@@ -384,7 +385,7 @@ function checkDocumentsInStorage(f: CheckFacts): CheckResult {
     return manual(
       key,
       label,
-      `${f.filedDocuments.length - unknown.length} of ${f.filedDocuments.length} confirmed present.`,
+      `${formatCount(f.filedDocuments.length - unknown.length)} of ${formatCount(f.filedDocuments.length)} confirmed present.`,
       `Storage did not answer for ${list(unknown.map((d) => slotLabel(d.slotKey)))}. Open ${
         unknown.length === 1 ? 'it' : 'those'
       } by hand.`,
@@ -435,7 +436,7 @@ function checkDocumentTenancy(f: CheckFacts): CheckResult {
     return manual(
       key,
       label,
-      `${f.filedDocuments.length - unparsed.length} of ${f.filedDocuments.length} placed.`,
+      `${formatCount(f.filedDocuments.length - unparsed.length)} of ${formatCount(f.filedDocuments.length)} placed.`,
       `${list(unparsed.map((d) => slotLabel(d.slotKey)))} ${
         unparsed.length === 1 ? 'is' : 'are'
       } stored under a path this check does not recognise, so it cannot say whose ${
@@ -569,12 +570,12 @@ function checkPortfolio(f: CheckFacts): CheckResult {
     );
   }
   if (f.portfolioCount >= PORTFOLIO_MIN && f.portfolioCount <= PORTFOLIO_MAX) {
-    return pass(key, label, `${f.portfolioCount} samples uploaded.`, 'portfolio_samples');
+    return pass(key, label, `${formatCount(f.portfolioCount)} samples uploaded.`, 'portfolio_samples');
   }
   return mismatch(
     key,
     label,
-    `${f.portfolioCount} sample${f.portfolioCount === 1 ? '' : 's'} uploaded — the range is ${PORTFOLIO_MIN}–${PORTFOLIO_MAX}.`,
+    `${formatCount(f.portfolioCount)} sample${f.portfolioCount === 1 ? '' : 's'} uploaded — the range is ${PORTFOLIO_MIN}–${PORTFOLIO_MAX}.`,
     {
       label: 'What verification asks for',
       value: `${PORTFOLIO_MIN}–${PORTFOLIO_MAX} samples`,
@@ -613,14 +614,14 @@ function checkClientReferences(f: CheckFacts): CheckResult {
     return pass(
       key,
       label,
-      `${f.clientReferenceCount} references given — ring 1–2 of them before you decide.`,
+      `${formatCount(f.clientReferenceCount)} references given — ring 1–2 of them before you decide.`,
       'client_references',
     );
   }
   return mismatch(
     key,
     label,
-    `${f.clientReferenceCount} reference${f.clientReferenceCount === 1 ? '' : 's'} given — the range is ${CLIENT_REFERENCES_MIN}–${CLIENT_REFERENCES_MAX}.`,
+    `${formatCount(f.clientReferenceCount)} reference${f.clientReferenceCount === 1 ? '' : 's'} given — the range is ${CLIENT_REFERENCES_MIN}–${CLIENT_REFERENCES_MAX}.`,
     {
       label: 'What verification asks for',
       value: `${CLIENT_REFERENCES_MIN}–${CLIENT_REFERENCES_MAX} references`,
@@ -965,7 +966,7 @@ export function summariseChecks(results: readonly CheckResult[]): CheckSummary {
  */
 export function summaryLine(s: CheckSummary): string {
   if (s.total === 0) return 'No checks ran.';
-  if (s.allClear) return `All ${s.total} checks clear.`;
+  if (s.allClear) return `All ${formatCount(s.total)} checks clear.`;
   const parts: string[] = [];
   if (s.passed > 0) parts.push(`${s.passed} clear`);
   if (s.mismatched > 0)

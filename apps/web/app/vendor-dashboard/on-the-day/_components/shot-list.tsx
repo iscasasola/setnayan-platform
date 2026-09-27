@@ -41,6 +41,7 @@ import {
   replaceShotList,
   setShotCaptured,
 } from '../shot-list-actions';
+import { formatCount } from '@/lib/format-number';
 
 function storageKey(eventId: string): string {
   return `setnayan.onday.shotlist.${eventId}`;
@@ -184,7 +185,7 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
           <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} /> Shot list
         </h2>
         <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {doneCount}/{shots.length} captured
+          {formatCount(doneCount)}/{formatCount(shots.length)} captured
         </span>
       </div>
       <p className="mt-2 text-sm text-ink/65">

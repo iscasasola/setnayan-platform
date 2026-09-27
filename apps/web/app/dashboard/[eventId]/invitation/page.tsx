@@ -34,6 +34,7 @@ import { QrActions } from '@/app/_components/qr-actions';
 import { qrFileName, svgDataUri } from '@/lib/qr-download';
 import { TagListDownload } from '@/app/_components/tag-list-download';
 import { invitationReach, unreachableSentence } from '@/lib/invitation-reach';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Invitations' };
 
@@ -237,7 +238,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
       <PageMasthead
         titleNode={
           <>
-            {guests.length} guest{guests.length === 1 ? '' : 's'} · QRs &amp; print sheet
+            {formatCount(guests.length)} guest{guests.length === 1 ? '' : 's'} · QRs &amp; print sheet
           </>
         }
         actions={
@@ -435,11 +436,11 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             <>None marked as handed out yet — open <span className="font-medium">Send</span> on a
             row to copy that guest&rsquo;s own message.</>
           ) : invitationsMarked === guests.length ? (
-            <>All {guests.length} marked as handed out.</>
+            <>All {formatCount(guests.length)} marked as handed out.</>
           ) : (
             <>
-              <span className="font-medium text-ink/80">{invitationsMarked}</span> of {guests.length}{' '}
-              marked as handed out &mdash; {guests.length - invitationsMarked} still to go.
+              <span className="font-medium text-ink/80">{formatCount(invitationsMarked)}</span> of {formatCount(guests.length)}{' '}
+              marked as handed out &mdash; {formatCount(guests.length - invitationsMarked)} still to go.
             </>
           )}
         </p>

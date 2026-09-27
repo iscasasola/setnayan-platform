@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * lib/prove-the-flow-watch-format.ts
  *
@@ -116,7 +117,7 @@ export function describeThread(thread: ThreadRow, messages: MessageCounts): stri
     messages.fromVendor > 0
       ? `the shop has replied ${messages.fromVendor} time(s)`
       : 'the shop has never replied in this thread';
-  return `Inquiry is "${status}"${accepted}. ${messages.total} message(s) total — ${reply}.`;
+  return `Inquiry is "${status}"${accepted}. ${formatCount(messages.total)} message(s) total — ${reply}.`;
 }
 
 /** Step 5 (A2): a Deal struck before a quote must NOT read as locked. */

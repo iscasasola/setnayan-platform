@@ -22,6 +22,7 @@ import {
 } from '@/lib/creator-analytics';
 import { sendCreatorOffer } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Creators · Vendor' };
 export const dynamic = 'force-dynamic';
@@ -287,7 +288,7 @@ function CreatorCard({
           <p className="mt-0.5 text-[12px] text-ink/60">
             {formatAudienceCount(c.followersCount)}{' '}
             {c.followersCount === 1 ? 'follower' : 'followers'} ·{' '}
-            {formatAudienceCount(c.viewCount)} views · {c.chapterCount}{' '}
+            {formatAudienceCount(c.viewCount)} views · {formatCount(c.chapterCount)}{' '}
             {c.chapterCount === 1 ? 'chapter' : 'chapters'}
             {/* PR-C — the one influence metric; renders nothing at 0. */}
             {c.inquiriesDriven > 0 ? (

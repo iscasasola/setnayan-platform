@@ -107,6 +107,7 @@ import {
 import { saveArrangement } from '../arrangement-actions';
 import type { MakeItYoursInput } from '../_lib/load-make-it-yours';
 import s from './make-it-yours.module.css';
+import { formatCount } from '@/lib/format-number';
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
 
@@ -1671,7 +1672,7 @@ export function MakeItYours({
                       <b>{name}</b>
                       <small>{time || ' '}</small>
                     </span>
-                    <span className={s.pill} aria-label={`${n} photo${n === 1 ? '' : 's'}`}>
+                    <span className={s.pill} aria-label={`${formatCount(n)} photo${n === 1 ? '' : 's'}`}>
                       {n}
                     </span>
                   </button>
@@ -2010,7 +2011,7 @@ export function MakeItYours({
                   const { free, total } = setFree(state, g);
                   // What is still FREE to place, not how many the name holds (10a critic-15).
                   const say =
-                    free.length === total ? String(total) : free.length ? `${free.length} of ${total}` : 'all placed';
+                    free.length === total ? String(total) : free.length ? `${formatCount(free.length)} of ${formatCount(total)}` : 'all placed';
                   return (
                     <span key={g.name} className={s.grp} data-chip={g.name}>
                       <button

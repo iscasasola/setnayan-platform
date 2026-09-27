@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { activatePapicLimited } from './actions';
 import { papicCapacityPhrase } from '@/lib/papic-tier-copy';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Guest-camera tier picker (owner 2026-06-26 — "add the option to upgrade to
@@ -134,7 +135,7 @@ export default function GuestCameraTierPicker({
 
   let label: string;
   if (!live) {
-    label = `Ready for Papic — activate ${guestCount} guest camera${
+    label = `Ready for Papic — activate ${formatCount(guestCount)} guest camera${
       guestCount === 1 ? '' : 's'
     } · ${php(sel.billPhp)}`;
   } else if (sameAsCurrent) {
@@ -174,7 +175,7 @@ export default function GuestCameraTierPicker({
 
       {overflow > 0 ? (
         <p className="text-xs text-amber-700">
-          {overflow} guest{overflow === 1 ? '' : 's'} beyond the {sel.cameraCap}-camera
+          {formatCount(overflow)} guest{overflow === 1 ? '' : 's'} beyond the {sel.cameraCap}-camera
           cap at this tier — add Unlimited extras for them, or they shoot on the free tier.
         </p>
       ) : null}

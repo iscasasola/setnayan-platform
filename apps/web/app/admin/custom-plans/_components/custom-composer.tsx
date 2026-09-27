@@ -32,6 +32,7 @@ import {
   activateCustomPlan,
   type CustomPlanActionState,
 } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 export type VendorOption = { id: string; name: string; tier: string | null };
 
@@ -267,7 +268,7 @@ export function CustomComposer({
 
               <Knob
                 icon={<Images className="h-4 w-4" strokeWidth={2} />}
-                label={`Portfolio photos · ${comp.photos}`}
+                label={`Portfolio photos · ${formatCount(comp.photos)}`}
                 hint="300 photos included. Billed per +100-photo pack."
               >
                 <input

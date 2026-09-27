@@ -130,6 +130,7 @@ import {
   type InclusionDraft,
   type BracketDraft,
 } from './service-list-editors';
+import { formatCount } from '@/lib/format-number';
 
 export type ServicesManagerSearch = {
   saved?: string;
@@ -793,7 +794,7 @@ export async function VendorServicesManager({
                         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
                         {opt.label}
                         {count > 0 ? (
-                          <span className="font-mono text-[10px] uppercase tracking-[0.1em]">{count} added</span>
+                          <span className="font-mono text-[10px] uppercase tracking-[0.1em]">{formatCount(count)} added</span>
                         ) : (
                           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} style={{ color: 'var(--m-slate-4)' }} />
                         )}
@@ -855,7 +856,7 @@ export async function VendorServicesManager({
               }}
             >
               <span className="font-semibold">
-                {tally.full} of {tally.total} {tally.total === 1 ? 'card is' : 'cards are'} reaching
+                {formatCount(tally.full)} of {formatCount(tally.total)} {tally.total === 1 ? 'card is' : 'cards are'} reaching
                 everyone {tally.total === 1 ? 'it' : 'they'} could.
               </span>{' '}
               {short === 1 ? 'One card has' : `${short} cards have`} no price, so we can’t tell
@@ -2024,7 +2025,7 @@ function DiscountBadge({
   const expired = expiresAt ? new Date(expiresAt) < new Date() : false;
   if (expired) return null;
   const valueLabel =
-    value != null ? (unit === 'php' ? ` · ₱${value}` : ` · ${value}%`) : '';
+    value != null ? (unit === 'php' ? ` · ${formatPhp(value)}` : ` · ${value}%`) : '';
   return (
     <span
       className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] sm:inline-flex"
@@ -2033,7 +2034,7 @@ function DiscountBadge({
       <Tag className="h-3 w-3" strokeWidth={2} />
       {label}
       {valueLabel}
-      {extraCount > 0 ? ` +${extraCount}` : ''}
+      {extraCount > 0 ? ` +${formatCount(extraCount)}` : ''}
     </span>
   );
 }

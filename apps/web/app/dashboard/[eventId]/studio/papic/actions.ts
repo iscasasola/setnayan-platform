@@ -51,6 +51,7 @@ import {
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { resolvePapicWindow, formatWindowSummary } from '@/lib/papic-window';
 import { PAPIC_FIDELITY_VALUES } from '@/lib/papic-fidelity';
+import { formatCount } from '@/lib/format-number';
 
 // Iteration 0012 Papic — couple-side server actions.
 //
@@ -1349,7 +1350,7 @@ export async function activatePapicLimited(formData: FormData) {
   const tierLabel = tier === 'unlimited' ? 'Unlimited' : 'Limited';
   const referenceCode = mintPapicReferenceCode();
   const windowLabel = formatWindowSummary(win.startDate, win.endDate);
-  const description = `Papic ${tierLabel} — ${guestCount} guest camera${
+  const description = `Papic ${tierLabel} — ${formatCount(guestCount)} guest camera${
     guestCount === 1 ? '' : 's'
   }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
   const { data: order, error: orderErr } = await createMoneyWriterClient()
@@ -1760,7 +1761,7 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
       event_id: eventId,
       user_id: user.id,
       service_key: rawSku,
-      description: `Papic — adds ${points} credits to this event`,
+      description: `Papic — adds ${formatCount(points)} credits to this event`,
       requested_total_php: pricePhp,
       reference_code: referenceCode,
       status: 'submitted',

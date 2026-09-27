@@ -60,6 +60,7 @@ import {
   type MoodboardThemeTemplate,
   type ThemeTemplatePage,
 } from '@/lib/moodboard-templates';
+import { formatCount } from '@/lib/format-number';
 
 type ApplyResult = {
   mode: ApplyMode;
@@ -484,9 +485,9 @@ export function TemplateGallery({
                   : loadError
                     ? 'We couldn’t load themes just now.'
                     : total > 0
-                      ? `${total} ${total === 1 ? 'theme' : 'themes'} match.`
+                      ? `${formatCount(total)} ${total === 1 ? 'theme' : 'themes'} match.`
                       : moodTotal > 0
-                        ? `No themes in this setting with that feeling — but ${moodTotal} carry it in other settings.`
+                        ? `No themes in this setting with that feeling — but ${formatCount(moodTotal)} carry it in other settings.`
                         : `We haven’t designed any themes with that feeling yet. Nothing is wrong — it’s a new feeling on the board, and it’s coming.`}
               </p>
             </div>
@@ -588,7 +589,7 @@ export function TemplateGallery({
               }}
               className="rounded-full border border-ink/15 px-4 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5 disabled:opacity-50"
             >
-              {loading ? 'Loading…' : `Show more (${total - templates.length} left)`}
+              {loading ? 'Loading…' : `Show more (${formatCount(total - templates.length)} left)`}
             </button>
           ) : null}
         </div>

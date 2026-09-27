@@ -48,6 +48,7 @@ import {
   type RowActionState,
 } from '@/app/admin/pricing/actions';
 import { INITIAL_ROW_STATE, INITIAL_REMOVE_ALL_STATE } from '@/app/admin/pricing/_components/action-state';
+import { formatCount } from '@/lib/format-number';
 
 // ─── Shared row shape ──────────────────────────────────────────────────────
 
@@ -284,7 +285,7 @@ export function PriceCatalogBrowser({
                 : 'border-transparent text-ink/55 hover:bg-ink/5 hover:text-ink'
             }`}
           >
-            {label} <span className="ml-1 font-mono text-[11px] text-ink/45">{counts[key]}</span>
+            {label} <span className="ml-1 font-mono text-[11px] text-ink/45">{formatCount(counts[key])}</span>
           </button>
         ))}
       </div>
@@ -351,7 +352,7 @@ function Shelf({ title, count, tone, note }: { title: string; count: number; ton
   return (
     <div className="flex items-baseline gap-2 border-b border-ink/5 px-1 pb-1.5 pt-4 first:pt-0">
       <h3 className={`font-mono text-[10.5px] font-bold uppercase tracking-[0.15em] ${toneCls}`}>{title}</h3>
-      <span className="font-mono text-[10.5px] text-ink/45">{count}</span>
+      <span className="font-mono text-[10.5px] text-ink/45">{formatCount(count)}</span>
       {note && <span className="ml-auto font-mono text-[10.5px] text-ink/45">{note}</span>}
     </div>
   );
@@ -552,7 +553,7 @@ function RemoveAllBar({ count, afterMutate }: { count: number; afterMutate: () =
           onClick={() => setConfirming(true)}
           className="inline-flex items-center gap-1.5 rounded-md border border-danger-300/60 px-3 py-1.5 text-xs font-semibold text-danger-700 transition hover:bg-danger-50"
         >
-          <Trash2 className="h-3.5 w-3.5" aria-hidden /> Remove all {count} for good
+          <Trash2 className="h-3.5 w-3.5" aria-hidden /> Remove all {formatCount(count)} for good
         </button>
       ) : (
         <form action={formAction} className="flex flex-wrap items-center gap-2.5">
@@ -571,7 +572,7 @@ function RemoveAllBar({ count, afterMutate }: { count: number; afterMutate: () =
             disabled={pending}
             className="rounded-md bg-danger-700 px-3 py-1.5 text-xs font-semibold text-cream transition hover:bg-danger-800 disabled:opacity-60"
           >
-            {pending ? 'Removing…' : `Remove all ${count}`}
+            {pending ? 'Removing…' : `Remove all ${formatCount(count)}`}
           </button>
         </form>
       )}

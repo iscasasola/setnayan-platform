@@ -10,6 +10,7 @@ import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Photos you add' };
 
@@ -131,7 +132,7 @@ export default async function OurPhotosEditorPage({
           initialDisplayUrls={initialDisplayUrls}
           variant="wide"
           label="Photos you add"
-          help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${MAX_PHOTOS} photos. Drag to add more; remove any you don't want before saving.`}
+          help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${formatCount(MAX_PHOTOS)} photos. Drag to add more; remove any you don't want before saving.`}
         />
         <SubmitButton pendingLabel="Saving…" className="button-primary">Save gallery</SubmitButton>
       </form>

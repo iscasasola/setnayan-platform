@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * A SUPPLIER'S PRIVATE PORTFOLIO ALBUM — imported work, paid for out of their
  * own Papic credits, for THEIR business page. Never the couple's, never the
@@ -58,7 +59,7 @@ export function visiblePortfolioPhotos(rows: ReadonlyArray<Row>): PortfolioPhoto
 /** The one-line summary above the album grid. Counts what is SHOWN, never the raw rows. */
 export function portfolioAlbumSummary(photos: ReadonlyArray<PortfolioPhoto>): string {
   if (photos.length === 0) return 'Nothing imported yet.';
-  return `${photos.length} photo${photos.length === 1 ? '' : 's'}`;
+  return `${formatCount(photos.length)} photo${photos.length === 1 ? '' : 's'}`;
 }
 
 /**

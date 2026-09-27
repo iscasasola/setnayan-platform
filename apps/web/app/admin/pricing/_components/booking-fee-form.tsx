@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import { bookingFeePhp, bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { formatPhp } from '@/lib/php';
 
 /**
  * THE VENDOR BOOKING FEE — the owner's three numbers.
@@ -177,7 +178,7 @@ export function BookingFeeForm({
       )}
 
       <p className="mt-2 text-[11px] leading-relaxed text-ink/45">
-        The <strong>₱{minPhp}</strong> minimum and the fact that there is <strong>no upper cap</strong>{' '}
+        The <strong>{formatPhp(minPhp)}</strong> minimum and the fact that there is <strong>no upper cap</strong>{' '}
         are fixed and not editable here.{' '}
         {isFromDb ? 'Set in platform settings.' : 'Falling back to the built-in schedule — save once to store it.'}{' '}
         {enabled

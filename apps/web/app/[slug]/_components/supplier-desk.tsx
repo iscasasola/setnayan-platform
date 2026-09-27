@@ -14,6 +14,7 @@ import {
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import type { ClientEventWords } from './event-words-provider';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE SUPPLIER'S DESK, ON THE CELEBRATION'S OWN PAGE — for the whole life of
@@ -317,7 +318,7 @@ export function SupplierDesk({
             </div>
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="font-mono text-2xl font-bold text-ink">
-                {desk.attending} / {desk.invited}
+                {formatCount(desk.attending)} / {formatCount(desk.invited)}
               </span>
               <span className="text-sm text-ink/70">
                 {isToday

@@ -1,6 +1,7 @@
 import { formatPhp } from '@/lib/orders';
 import { THREAD_STAGE_LABEL, type ThreadStage } from '@/lib/vendor-thread-stage';
 import type { PaymentDispute } from '@/lib/payment-refusal';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * thread-decisions.ts — ONE timeline of everything that was actually decided in
@@ -628,7 +629,7 @@ function paymentNow(p: PaymentFact, f: ThreadDecisionFacts): DecisionNow {
 function guestCountNow(g: GuestCountFact, f: ThreadDecisionFacts): DecisionNow {
   // The quote still reads the old number — that is the standing fact, and it is
   // the supplier who re-prices.
-  const stillReads = `the quote still reads ${g.quotedPax} guests`;
+  const stillReads = `the quote still reads ${formatCount(g.quotedPax)} guests`;
   return {
     stage: null,
     text:

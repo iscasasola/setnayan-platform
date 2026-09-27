@@ -7,6 +7,7 @@ import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { fetchUserCommunities, fetchSamahanSecondDegree } from '@/lib/communities';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { proposeSamahanConnection } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Samahan on the People page (owner degree model 2026-07-17): the GROUPS you
@@ -55,7 +56,7 @@ export async function SamahanPeopleSection() {
                   <p className="font-medium text-ink">{c.name}</p>
                   <p className="truncate text-xs text-ink/55">
                     {c.role === 'organizer' ? 'Organizer · ' : ''}
-                    {`${c.member_count} ${c.member_count === 1 ? 'member' : 'members'}`}
+                    {`${formatCount(c.member_count)} ${c.member_count === 1 ? 'member' : 'members'}`}
                   </p>
                 </div>
               </Link>

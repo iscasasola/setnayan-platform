@@ -142,6 +142,7 @@ import {
   type ThreadAttribution,
 } from '@/lib/inquiry-attribution';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -1455,8 +1456,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               Guest count changed — {p.label}
             </p>
             <p className="mt-1 text-sm text-ink/70">
-              Now planning for <span className="font-semibold">{p.livePax}</span> guests
-              (you quoted ~{p.quoteBasePax}). At {peso(p.ratePhp)}/guest, your total
+              Now planning for <span className="font-semibold">{formatCount(p.livePax)}</span> guests
+              (you quoted ~{formatCount(p.quoteBasePax)}). At {peso(p.ratePhp)}/guest, your total
               would {up ? 'increase' : 'decrease'} by{' '}
               <span className="font-semibold text-terracotta-700">
                 {up ? '+' : '−'}{peso(p.delta)}

@@ -40,6 +40,7 @@ import {
 } from '@/lib/supplier-landing';
 import { formatPhp } from '@/lib/php';
 import { COUPLE_COMMISSION_PROMISE } from '@/lib/commission-promise';
+import { formatCount } from '@/lib/format-number';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
@@ -98,7 +99,7 @@ const BASIS_UNIT: Record<BasisSummary['basis'], string> = {
 function basisSentence(s: BasisSummary): string {
   const unit = BASIS_UNIT[s.basis];
   if (s.count === 1) return `One is priced at ${formatPhp(s.low)} (${unit}).`;
-  return `${s.count} list a ${unit} from ${formatPhp(s.low)} to ${formatPhp(s.high)}, with a median of ${formatPhp(s.median)}.`;
+  return `${formatCount(s.count)} list a ${unit} from ${formatPhp(s.low)} to ${formatPhp(s.high)}, with a median of ${formatPhp(s.median)}.`;
 }
 
 export async function landingMetadata(params: LandingParams): Promise<Metadata> {
@@ -295,7 +296,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
             </ul>
             {cards.length > CARDS_SHOWN ? (
               <p className="mt-4 text-sm text-ink/60">
-                Showing {CARDS_SHOWN} of {cards.length}.{' '}
+                Showing {formatCount(CARDS_SHOWN)} of {formatCount(cards.length)}.{' '}
                 <Link href="/explore" className="underline underline-offset-4">See them all on the marketplace</Link>
               </p>
             ) : null}

@@ -12,6 +12,7 @@ import {
 } from '@/lib/emcee-questions';
 import { ScriptComposer } from './script-composer';
 import { ShopCard } from '../../../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * SCRIPT — the host/MC's prep surface on the Customer Card.
@@ -190,7 +191,7 @@ export async function ScriptTab({
         <p className="flex items-start gap-2 rounded-xl border border-sage/30 bg-sage/10 px-3 py-2 text-sm text-ink/75">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sage-deep" aria-hidden />
           <span>
-            <strong className="text-ink">Drafted from your lines</strong> — {prefilled} of{' '}
+            <strong className="text-ink">Drafted from your lines</strong> — {formatCount(prefilled)} of{' '}
             {workbook.entries.length} moments arrived already written, in your words with their
             names filled in. Edit anything that should be different for {coupleName}.{' '}
             <Link href="/vendor-dashboard/lines" className="underline">
@@ -365,7 +366,7 @@ function TheyToldYou({
           What {coupleName} told you
         </p>
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
-          {questionnaire.answered} of {questionnaire.total} answered
+          {formatCount(questionnaire.answered)} of {formatCount(questionnaire.total)} answered
         </span>
       </div>
       <dl className="mt-2 space-y-2.5">

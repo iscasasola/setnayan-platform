@@ -52,7 +52,7 @@ test('and it is not simply dropped — it still ships, underneath', () => {
   // file, so losing it would be a real regression hiding inside a visual tweak.
   const after = SRC.slice(SRC.indexOf('</label>'));
   assert.match(after, /roundDropzone && !atCapacity/, 'the caption was moved out and never re-rendered');
-  assert.match(after, /up to \{maxSizeMB\} MB/, 'the size limit vanished with the caption');
+  assert.match(after, /up to \{formatCount\(maxSizeMB\)\} MB/, 'the size limit vanished with the caption');
 });
 
 test('the wide variant is untouched — this is a logo change, not a global one', () => {

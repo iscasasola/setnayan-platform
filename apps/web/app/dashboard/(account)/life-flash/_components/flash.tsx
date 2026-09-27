@@ -23,6 +23,7 @@ import { useFlashTimeline } from './use-flash-timeline';
 import { placeholderBackground, orbBackground } from './placeholder';
 import { captureLifeFlash } from './life-flash-analytics';
 import styles from './flash.module.css';
+import { formatCount } from '@/lib/format-number';
 
 export type FlashBeatView =
   | {
@@ -401,7 +402,7 @@ function BeatLayer({
               </span>
               {beat.peopleCount > 0 ? (
                 <span className={styles.chip}>
-                  {beat.peopleCount} {beat.peopleCount === 1 ? 'person' : 'people'} present
+                  {formatCount(beat.peopleCount)} {beat.peopleCount === 1 ? 'person' : 'people'} present
                 </span>
               ) : null}
             </div>

@@ -36,6 +36,7 @@ import type { DraftItem, DraftOption, DraftPackage } from './package-authoring';
 import { autoName } from './service-text-integrity';
 import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from './vendor-packages';
 import type { VendorCategory } from './vendors';
+import { formatCount } from '@/lib/format-number';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* THE WIRE                                                                   */
@@ -367,7 +368,7 @@ export function parseCustomizationDraft(raw: unknown): ParseCustomizationResult 
     // FIRST PROBLEM WINS, plus a count. The save paths bounce with a single
     // `?error=` string, so one sentence naming one line beats a concatenated
     // list nobody reads — and the count tells the vendor there is more.
-    const more = problems.length > 1 ? ` (${problems.length - 1} more like it.)` : '';
+    const more = problems.length > 1 ? ` (${formatCount(problems.length - 1)} more like it.)` : '';
     return { ok: false, message: `${first}${more} Nothing was saved.` };
   }
 

@@ -53,6 +53,7 @@ import { galleryChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { resolveReturnTo } from '@/lib/editor-return';
+import { formatCount } from '@/lib/format-number';
 
 /** Hard cap on the gallery size — keeps the page light + bounds R2 cost. */
 const MAX_PHOTOS = 24;
@@ -149,7 +150,7 @@ export async function updateOurPhotos(
     const note =
       blocked.length === 1
         ? "One photo couldn't be added — it didn't pass our automatic check. Please try a different image."
-        : `${blocked.length} photos couldn't be added — they didn't pass our automatic check. Please try different images.`;
+        : `${formatCount(blocked.length)} photos couldn't be added — they didn't pass our automatic check. Please try different images.`;
     redirect(
       `/dashboard/${eventId}/website/our-photos?error=${encodeURIComponent(note)}`,
     );

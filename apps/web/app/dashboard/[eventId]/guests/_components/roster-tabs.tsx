@@ -36,9 +36,9 @@
  */
 
 import Link from 'next/link';
-import { ClipboardCheck, LayoutGrid, QrCode, Send } from 'lucide-react';
+import { ClipboardCheck, LayoutGrid, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
-import { SaveFileLink } from '@/app/_components/save-file-link';
+import { GuestQrPdfLink } from './guest-save-links';
 
 export type RosterView = 'list' | 'map' | 'walk' | 'share';
 
@@ -136,22 +136,7 @@ export function RosterTabs({
             // owner's report, 2026-09-25). SaveFileLink still renders an
             // anchor with `download` set (the no-JS fallback); it just also
             // intercepts the click to fetch → blob → save/share.
-            <SaveFileLink
-              key={d.key}
-              href={d.href}
-              filename="guest-qr-codes.pdf"
-              data-guest-qr-pdf=""
-              title={d.label}
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
-            >
-              {() => (
-                <>
-                  <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  <span className="hidden sm:inline">{d.label}</span>
-                  <span className="sr-only sm:hidden">{d.label}</span>
-                </>
-              )}
-            </SaveFileLink>
+            <GuestQrPdfLink key={d.key} href={d.href} label={d.label} />
           ) : null,
         )}
       </div>

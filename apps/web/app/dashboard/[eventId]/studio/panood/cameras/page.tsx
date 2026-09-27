@@ -21,6 +21,7 @@ import {
 import { CopyLink } from '../_components/copy-link';
 import { ReissueCameraButton } from './reissue-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Camera operators' };
 export const dynamic = 'force-dynamic';
@@ -136,7 +137,7 @@ export default async function PanoodCamerasPage({ params }: Props) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink/55">
-          {claimedCount} of {rows.length} connected
+          {formatCount(claimedCount)} of {formatCount(rows.length)} connected
         </p>
         <Link
           href={`/dashboard/${eventId}/studio/panood/cameras/print`}

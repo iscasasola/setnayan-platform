@@ -34,6 +34,7 @@ import {
   type ColourDomain,
 } from '@/lib/colour-access';
 import { ColourChangeRowView } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card';
+import { formatCount } from '@/lib/format-number';
 
 type Result = { status: string };
 
@@ -121,7 +122,7 @@ export function CoordinatorColourDomains({
                 }`}
               >
                 <span aria-hidden className="h-[5px] w-[5px] rounded-full bg-current" />
-                {p.active.length} of {COLOUR_DOMAINS.length} on
+                {formatCount(p.active.length)} of {formatCount(COLOUR_DOMAINS.length)} on
               </span>
             </div>
 

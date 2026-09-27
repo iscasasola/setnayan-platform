@@ -92,6 +92,7 @@ import {
   InspectorColumn,
   InspectorLayout,
 } from '@/app/_components/inspector/inspector-column';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Guests' };
 
@@ -901,7 +902,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         titleNode={
           guestsMeasured ? (
             <>
-              <span className="font-mono">{stats.total}</span>{' '}
+              <span className="font-mono">{formatCount(stats.total)}</span>{' '}
               <span className="sn-h1-tail">
                 {stats.total === 1 ? 'guest' : 'guests'}
               </span>
@@ -960,7 +961,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           <p className="text-sm text-ink/75">
             <span className="font-semibold text-ink">That&rsquo;s a wrap.</span>{' '}
             {arrivedMeasured && arrivedCount > 0
-              ? `${arrivedCount} ${arrivedCount === 1 ? 'person' : 'people'} checked in on the day.`
+              ? `${formatCount(arrivedCount)} ${arrivedCount === 1 ? 'person' : 'people'} checked in on the day.`
               : guestsMeasured && stats.total === 0
                 ? 'Nobody was added to this one.'
                 : 'This is the list as it stood.'}
@@ -1007,7 +1008,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         >
           <span className="text-sm text-ink">
             <span className="font-semibold text-terracotta-700">
-              {pendingClaimsCount} guest {pendingClaimsCount === 1 ? 'request' : 'requests'}
+              {formatCount(pendingClaimsCount)} guest {pendingClaimsCount === 1 ? 'request' : 'requests'}
             </span>{' '}
             waiting for you to confirm
           </span>
@@ -1045,7 +1046,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         <p className="rounded-xl border border-ink/15 bg-ink/[0.03] px-4 py-3 text-sm text-ink/70">
           <span className="font-semibold text-ink">Guest list finalized</span>
           {finalize.finalPax
-            ? ` · your suppliers price for ${finalize.finalPax} ${finalize.finalPax === 1 ? 'head' : 'heads'}`
+            ? ` · your suppliers price for ${formatCount(finalize.finalPax)} ${finalize.finalPax === 1 ? 'head' : 'heads'}`
             : ''}
           . Changes after your guest‑list deadline no longer change what your
           suppliers charge, and your guests can no longer reply on your event
@@ -1545,7 +1546,7 @@ function pickFlash(search: {
 }): string | null {
   if (search.added) {
     const n = Number(search.added);
-    if (Number.isFinite(n) && n > 1) return `Added ${n} guests.`;
+    if (Number.isFinite(n) && n > 1) return `Added ${formatCount(n)} guests.`;
     return 'Guest added.';
   }
   if (search.saved) return 'Saved.';
@@ -1554,37 +1555,37 @@ function pickFlash(search: {
     const n = Number(search.imported);
     const s = Number(search.skipped ?? 0);
     const d = Number(search.duplicates ?? 0);
-    const parts = [`Imported ${n} guest${n === 1 ? '' : 's'}`];
+    const parts = [`Imported ${formatCount(n)} guest${n === 1 ? '' : 's'}`];
     if (d > 0) parts.push(`skipped ${d} duplicate${d === 1 ? '' : 's'}`);
     if (s > 0) parts.push(`skipped ${s} invalid row${s === 1 ? '' : 's'}`);
     return parts.join(' · ') + '.';
   }
   if (search.bulk_assigned) {
     const n = Number(search.bulk_assigned);
-    return `Role assigned to ${n} guest${n === 1 ? '' : 's'}.`;
+    return `Role assigned to ${formatCount(n)} guest${n === 1 ? '' : 's'}.`;
   }
   if (search.bulk_grouped) {
     const n = Number(search.bulk_grouped);
-    return `Added ${n} guest${n === 1 ? '' : 's'} to the group.`;
+    return `Added ${formatCount(n)} guest${n === 1 ? '' : 's'} to the group.`;
   }
   if (search.bulk_sided) {
     const n = Number(search.bulk_sided);
-    return `Side updated for ${n} guest${n === 1 ? '' : 's'}.`;
+    return `Side updated for ${formatCount(n)} guest${n === 1 ? '' : 's'}.`;
   }
   if (search.bulk_hosted) {
     // The count is what was WRITTEN, not what was selected — the action drops
     // guests who already wore the hat, so this never claims a change that did
     // not happen.
     const n = Number(search.bulk_hosted);
-    return `${n} guest${n === 1 ? ' is' : 's are'} part of the host now.`;
+    return `${formatCount(n)} guest${n === 1 ? ' is' : 's are'} part of the host now.`;
   }
   if (search.bulk_unhosted) {
     const n = Number(search.bulk_unhosted);
-    return `${n} guest${n === 1 ? ' is' : 's are'} no longer part of the host.`;
+    return `${formatCount(n)} guest${n === 1 ? ' is' : 's are'} no longer part of the host.`;
   }
   if (search.bulk_deleted) {
     const n = Number(search.bulk_deleted);
-    return `Removed ${n} guest${n === 1 ? '' : 's'} · seats opened up.`;
+    return `Removed ${formatCount(n)} guest${n === 1 ? '' : 's'} · seats opened up.`;
   }
   if (search.paired) return 'Paired — they walk in together.';
   if (search.unpaired) return 'Pair removed.';

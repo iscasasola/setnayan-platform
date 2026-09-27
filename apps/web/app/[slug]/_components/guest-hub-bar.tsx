@@ -18,6 +18,7 @@ import { rotateMyGuestQr } from '../rotate-qr-actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
+import { formatCount } from '@/lib/format-number';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
 // personal QR they land on their own InvitationSite view; this turns that page
@@ -214,7 +215,7 @@ export function GuestHubBar({
               <span>Photos of you</span>
               {galleryCount > 0 ? (
                 <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
-                  {galleryCount > 99 ? '99+' : galleryCount}
+                  {galleryCount > 99 ? '99+' : formatCount(galleryCount)}
                 </span>
               ) : null}
             </Link>
@@ -277,7 +278,7 @@ export function GuestHubBar({
             <span className="text-[0.6rem] font-medium leading-none">Photos</span>
             {galleryCount > 0 ? (
               <span className="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-terracotta-700 px-1 text-[0.6rem] font-semibold leading-[1.1rem] text-cream">
-                {galleryCount > 99 ? '99+' : galleryCount}
+                {galleryCount > 99 ? '99+' : formatCount(galleryCount)}
               </span>
             ) : null}
           </Link>

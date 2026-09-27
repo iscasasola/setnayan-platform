@@ -53,6 +53,7 @@ import {
   type StoryRoom,
   type TableHeat,
 } from '@/lib/story-room';
+import { formatCount } from '@/lib/format-number';
 
 /** Local string coercion — mirrors `data.ts`'s `asString`, kept dependency-free. */
 function asString(v: unknown): string | null {
@@ -437,7 +438,7 @@ export async function loadStorySpineFacts(args: {
       const fact = roadFact(
         'road-pre-captures',
         firstMs,
-        `${total} before the day`,
+        `${formatCount(total)} before the day`,
         'The camera opens',
         'The first photographs of this celebration, taken before the day itself.',
         'guest',

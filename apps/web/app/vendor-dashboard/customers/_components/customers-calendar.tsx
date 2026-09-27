@@ -15,6 +15,7 @@ import {
 } from '@/lib/vendor-customers';
 import { CustomersFilterBar, type FilterOption } from './customers-filter-bar';
 import { fetchCustomerCalendarMonth } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The centrepiece month calendar. Each day cell shows the date + a small status
@@ -473,7 +474,7 @@ export function CustomersCalendar({
                       day.state === 'booked' || day.state === 'full'
                         ? `${day.consumed}/${day.capacity} booked`
                         : day.state === 'waitlist'
-                          ? `${day.waitlistCount} waiting`
+                          ? `${formatCount(day.waitlistCount)} waiting`
                           : chip.label
                     }
                   >
@@ -482,7 +483,7 @@ export function CustomersCalendar({
                       : day.state === 'booked' && day.capacity > 0
                         ? `${day.consumed}/${day.capacity}`
                         : day.state === 'waitlist'
-                          ? `Waitlist ${day.waitlistCount}`
+                          ? `Waitlist ${formatCount(day.waitlistCount)}`
                           : chip.label}
                   </span>
                 ) : null}
@@ -501,10 +502,10 @@ export function CustomersCalendar({
                     title={
                       day.inquiryCount === 1
                         ? '1 couple is asking about this date'
-                        : `${day.inquiryCount} couples are asking about this date`
+                        : `${formatCount(day.inquiryCount)} couples are asking about this date`
                     }
                   >
-                    {day.inquiryCount === 1 ? '1 asking' : `${day.inquiryCount} asking`}
+                    {day.inquiryCount === 1 ? '1 asking' : `${formatCount(day.inquiryCount)} asking`}
                   </span>
                 ) : null}
                 {day.eventLabels.slice(0, 2).map((label) => (

@@ -5,6 +5,7 @@ import { getMyReferral, type ReferralRedemptionSummary } from '@/lib/referral-ac
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { CopyButton } from '@/app/_components/copy-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Refer a couple' };
 
@@ -97,7 +98,7 @@ export default async function ReferACouplePage({ params }: Props) {
           Couples you&rsquo;ve referred
           {redemptions.length > 0 ? (
             <span className="ml-2 text-xs font-normal text-ink/55">
-              {qualifiedCount} of {redemptions.length} booked their first service
+              {formatCount(qualifiedCount)} of {formatCount(redemptions.length)} booked their first service
             </span>
           ) : null}
         </h2>

@@ -612,7 +612,7 @@ export function StoryClock({
                     'What was shot at this minute is filling in for the people who were there. It publishes here with the edition.')
                 : openBar.captures === 0
                   ? 'A quiet minute. They happen.'
-                  : `${openBar.captures} capture${openBar.captures === 1 ? '' : 's'} were taken at this minute.`}
+                  : `${openBar.captures.toLocaleString('en-PH')} capture${openBar.captures === 1 ? '' : 's'} were taken at this minute.`}
             </p>
 
             {openBar.place ? (

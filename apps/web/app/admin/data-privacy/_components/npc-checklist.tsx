@@ -12,6 +12,7 @@ import {
   type NpcTaskStatus,
 } from '@/lib/npc-filing-tasks';
 import { TaskActions } from './task-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * NPC pre-filing checklist — the "checklist" tab of the compliance hub.
@@ -40,15 +41,15 @@ export async function NpcChecklist() {
   const counselGatedStill = isFilingCounselGated(tasks);
   const blockers = tasks.filter((t) => t.severity === 'blocking' && t.status !== 'resolved');
   const headline = counselGatedStill
-    ? `${resolved} of ${total} worked down · external counsel review outstanding — NOT cleared to file`
-    : `${resolved} of ${total} worked down · counsel review recorded — still verify every blocker before lodging`;
+    ? `${formatCount(resolved)} of ${formatCount(total)} worked down · external counsel review outstanding — NOT cleared to file`
+    : `${formatCount(resolved)} of ${formatCount(total)} worked down · counsel review recorded — still verify every blocker before lodging`;
   const tiers: (0 | 1 | 2 | 3)[] = [0, 1, 2, 3];
 
   return (
     <div>
       <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
         {headline}
-        {naCount > 0 ? ` · ${naCount} marked N/A` : ''}.
+        {naCount > 0 ? ` · ${formatCount(naCount)} marked N/A` : ''}.
       </p>
 
       {/* Anti-false-assurance banner — a green count is not clearance to file. */}

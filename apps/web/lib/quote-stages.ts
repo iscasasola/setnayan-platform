@@ -24,6 +24,7 @@
  */
 
 import { formatCentavos } from '@/lib/vendor-proposals';
+import { formatCount } from '@/lib/format-number';
 
 export type QuoteStageId = 'know' | 'offer' | 'price' | 'terms' | 'send';
 export type QuoteStageState = 'done' | 'cur' | 'later';
@@ -104,9 +105,9 @@ export function stageSummaries(f: QuoteStageFacts): Record<QuoteStageId, string>
   const money = formatCentavos(f.netPayableCentavos);
   return {
     know: f.eventLine ?? 'Their event',
-    offer: `${f.cardsLine ?? 'No card loaded'} · ${f.pax} guests · ${f.hours} h`,
+    offer: `${f.cardsLine ?? 'No card loaded'} · ${formatCount(f.pax)} guests · ${f.hours} h`,
     price: `${money}${f.feeText ? ` · fee ${f.feeText}` : ''}${f.papicText ? ` · Papic ${f.papicText}` : ''}`,
-    terms: `${f.paymentsCount} payment${f.paymentsCount === 1 ? '' : 's'} · ${
+    terms: `${formatCount(f.paymentsCount)} payment${f.paymentsCount === 1 ? '' : 's'} · ${
       f.railLabels.length ? f.railLabels.join(' · ') : 'every approved method'
     }${f.validUntil ? ` · until ${f.validUntil}` : ''}`,
     send: `Send · ${money}`,

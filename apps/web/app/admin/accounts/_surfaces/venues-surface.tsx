@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayVenueType } from '@/lib/venue-recommendations';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The read's own ceiling, named once and passed to the table as `cap` so a full
@@ -179,7 +180,7 @@ export async function VenuesSurface({
                 {t.label}
               </p>
               <p className="text-base font-semibold text-ink">
-                {count === null ? '—' : count}
+                {count === null ? '—' : formatCount(count)}
               </p>
             </Link>
           );

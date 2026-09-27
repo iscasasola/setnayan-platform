@@ -6,6 +6,7 @@ import { humanBytes } from '@/lib/website-media';
 import { loadWebsiteMedia } from '@/lib/website-media-server';
 import { MediaTable } from './media-table';
 import { ClearFolderButton } from './clear-folder-button';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Admin · Website media — what is actually stored in the media bucket for the
@@ -106,7 +107,7 @@ export default async function AdminWebsiteMediaPage() {
                     </h2>
                     <div className="flex items-center gap-1.5 text-[12px] text-[var(--m-slate,#6a6e76)] tabular-nums">
                       <Images className="h-3.5 w-3.5" aria-hidden />
-                      {g.rows.length} files · {humanBytes(g.totalBytes)}
+                      {formatCount(g.rows.length)} files · {humanBytes(g.totalBytes)}
                       {g.counts.unreferenced ? ` · ${g.counts.unreferenced} left over` : ''}
                     </div>
                   </div>

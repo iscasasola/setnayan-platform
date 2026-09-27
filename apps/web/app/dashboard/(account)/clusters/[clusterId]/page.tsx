@@ -18,6 +18,7 @@ import { RSVP_LABELS, type RsvpStatus } from '@/lib/guests';
 import { budgetStateNote, fetchClusterBudgets } from '@/lib/cluster-budgets';
 import { formatPhpRounded } from '@/lib/php';
 import { ClusterTools } from './_components/cluster-tools';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ITEM 7c — the timeline: the celebrations of one group, in order, with the
@@ -202,7 +203,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
                 ? `Across all ${budgets.countedIn} ${
                     budgets.countedIn === 1 ? 'celebration' : 'celebrations'
                   }`
-                : `Across ${budgets.countedIn} of ${budgets.rows.length} celebrations · ${makeUpOfLine(
+                : `Across ${formatCount(budgets.countedIn)} of ${formatCount(budgets.rows.length)} celebrations · ${makeUpOfLine(
                     budgets,
                   )}`}
             </p>

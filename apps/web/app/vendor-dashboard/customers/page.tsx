@@ -739,13 +739,13 @@ async function CustomersPipeline({ searchParams }: Props) {
               Messages
             </p>
             <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
-              {unreadCount}{' '}
+              {formatCount(unreadCount)}{' '}
               <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
                 new
               </span>
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              {conversationCount} conversation{conversationCount === 1 ? '' : 's'}
+              {formatCount(conversationCount)} conversation{conversationCount === 1 ? '' : 's'}
             </p>
             <Link
               href="?open=messages"
@@ -878,6 +878,7 @@ import MessagesSurface from '../messages/surface';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
 import { ShopEmpty } from '../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 // Folded sections below the pipeline (which already shows the ONE month
 // calendar + summary cards + QR + customers list). No "Calendar" section —

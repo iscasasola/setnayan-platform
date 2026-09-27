@@ -18,6 +18,7 @@ import {
   AddPreparationItem,
   DeletePreparationItemButton,
 } from './prep-item-controls';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * PreparationAgendaView — read-only render of the Preparation mode on
@@ -76,7 +77,7 @@ export function PreparationAgendaView({
           >
             {group.label}
             <span className="ml-2 text-ink/35">
-              {group.items.length} item{group.items.length === 1 ? '' : 's'}
+              {formatCount(group.items.length)} item{group.items.length === 1 ? '' : 's'}
             </span>
           </h2>
           <ul className="space-y-2">

@@ -19,6 +19,7 @@ import { RSVP_LABELS, guestDisplayName, plusOneSeats, type GuestRow } from '@/li
 import { PLACEHOLDER_FIRST_NAME } from '@/lib/extra-seats';
 import { layoutReport, type ReportColumn, type ReportRow } from '@/lib/print-report';
 import type { PrintDoc } from '@/lib/print-layout';
+import { formatCount } from '@/lib/format-number';
 
 /** What the registry reads of a guest — a subset of `GuestRow`, so a fixture can be small. */
 export type RegistryGuest = Pick<
@@ -153,7 +154,7 @@ export function layoutGuestRegistry(input: {
     piece: 'guest-registry',
     title: input.title,
     subtitle: [input.dateLabel, 'Guest list registry · reception desk'].filter(Boolean).join(' · '),
-    summary: `${t.guests} ${t.guests === 1 ? 'guest' : 'guests'} · ${t.people} ${t.people === 1 ? 'person' : 'people'} invited · ${t.attendingPeople} attending`,
+    summary: `${formatCount(t.guests)} ${t.guests === 1 ? 'guest' : 'guests'} · ${t.people} ${t.people === 1 ? 'person' : 'people'} invited · ${t.attendingPeople} attending`,
     sections: [{ columns: REGISTRY_COLUMNS, rows, empty: 'No guests on the Guest list yet.' }],
     footnote: 'Party = the guest and every seat they bring. Tick "Arrived" as each party checks in.',
   });

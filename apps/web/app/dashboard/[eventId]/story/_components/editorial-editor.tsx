@@ -79,6 +79,7 @@ import { ThemeStep } from './theme-step';
 import { sanitizeStoryTheme, type StoryTheme } from '@/lib/story-theme';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { formatCount } from '@/lib/format-number';
 
 // FREE couple-uploaded editorial imagery (no Papic required).
 const GALLERY_UPLOADS_MAX = 30;
@@ -1025,7 +1026,7 @@ export function EditorialEditor({
           </Field>
           <Field
             label="Gallery photos"
-            help={`Up to ${GALLERY_UPLOADS_MAX} images for the "From the Day" gallery.`}
+            help={`Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for the "From the Day" gallery.`}
           >
             <FileUpload
               bucket="media"
@@ -1188,7 +1189,7 @@ export function EditorialEditor({
                         <span
                           className={`mt-1 block text-right text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}
                         >
-                          {count}/{WRITEUP_SOFT_CAP}
+                          {formatCount(count)}/{formatCount(WRITEUP_SOFT_CAP)}
                         </span>
                       ) : null}
                     </div>
@@ -1356,7 +1357,7 @@ export function EditorialEditor({
                   </p>
                 ) : (
                   <p className="mt-1 text-xs text-ink/45">
-                    {c.body.length} of {CUSTOM_COLUMN_BODY_MAX} characters
+                    {formatCount(c.body.length)} of {formatCount(CUSTOM_COLUMN_BODY_MAX)} characters
                   </p>
                 )}
               </li>
@@ -1451,7 +1452,7 @@ export function EditorialEditor({
                         </label>
                         {isPro ? (
                           <span className={`text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}>
-                            {count}/{WISH_QUOTE_SOFT_CAP}
+                            {formatCount(count)}/{formatCount(WISH_QUOTE_SOFT_CAP)}
                           </span>
                         ) : null}
                       </div>

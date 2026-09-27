@@ -40,6 +40,7 @@ import { createPortal } from 'react-dom';
 import { Hammer, Lock } from 'lucide-react';
 import { goToBuildTab } from '@/lib/budget-build';
 import { haptic } from '@/lib/haptics';
+import { formatCount } from '@/lib/format-number';
 
 export function TeamSummaryChip({
   lockedCount,
@@ -77,7 +78,7 @@ export function TeamSummaryChip({
   // "TO LOCK", NOT "IN BUILD" — the same rename the Still-to-lock tile got
   // (S19). `inBuildCount` counts build picks NOT yet locked; right after a lock
   // the chip read "1 locked · 0 in build", as though the build were empty.
-  const summary = `${lockedCount} locked, ${inBuildCount} to lock, ${bufferText}`;
+  const summary = `${formatCount(lockedCount)} locked, ${formatCount(inBuildCount)} to lock, ${bufferText}`;
 
   return createPortal(
     <button
@@ -105,7 +106,7 @@ export function TeamSummaryChip({
       <span className="flex min-w-0 items-center gap-1.5">
         <Lock className="h-3.5 w-3.5 shrink-0 text-mulberry" strokeWidth={2} aria-hidden />
         <span className="whitespace-nowrap text-[12.5px] font-semibold text-ink">
-          {lockedCount} locked
+          {formatCount(lockedCount)} locked
         </span>
       </span>
       <span aria-hidden className="text-ink/25">
@@ -114,7 +115,7 @@ export function TeamSummaryChip({
       <span className="flex min-w-0 items-center gap-1.5">
         <Hammer className="h-3.5 w-3.5 shrink-0 text-ink/55" strokeWidth={2} aria-hidden />
         <span className="whitespace-nowrap text-[12.5px] text-ink/70">
-          {inBuildCount} to lock
+          {formatCount(inBuildCount)} to lock
         </span>
       </span>
       <span aria-hidden className="text-ink/25">

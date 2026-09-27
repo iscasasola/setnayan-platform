@@ -14,7 +14,7 @@
  */
 
 import Link from 'next/link';
-import { ArrowRight, Download, QrCode } from 'lucide-react';
+import { ArrowRight, QrCode } from 'lucide-react';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import {
   guestDisplayName,
@@ -26,7 +26,7 @@ import {
   plusOneSeats,
 } from '@/lib/guests';
 import { QrActions } from '@/app/_components/qr-actions';
-import { SaveFileLink } from '@/app/_components/save-file-link';
+import { GuestQrDownloadLink } from './guest-save-links';
 
 // ── chips ─────────────────────────────────────────────────────────────────
 
@@ -135,18 +135,7 @@ export function GuestQrCard({
         // save-file-link.tsx: iOS Safari / the Capacitor shell can ignore
         // `download` on a same-origin GET and open the file as a page instead
         // of saving it, which is the exact bug the owner reported.
-        <SaveFileLink
-          href={qrImageSrc}
-          filename={qrFileName}
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"
-        >
-          {(state) => (
-            <>
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {state === 'saving' ? 'Saving…' : 'Download QR'}
-            </>
-          )}
-        </SaveFileLink>
+        <GuestQrDownloadLink href={qrImageSrc} filename={qrFileName} />
       ) : (
         // No branded upgrade — the gated PNG would 403. Route to the
         // Invitation page, where every guest's free default scannable QR

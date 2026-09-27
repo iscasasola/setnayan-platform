@@ -16,6 +16,7 @@ import {
 import { compressVideoForWeb } from '@/lib/video-compress';
 import { orderTheDay } from '@/lib/samahan-reel';
 import type { SamahanStory } from '@/lib/samahan-stories';
+import { formatCount } from '@/lib/format-number';
 
 // Samahan Stories strip (Setlog concept, owner 2026-08-24): raw short clips,
 // one per member per hour, gone in 24 hours.
@@ -509,7 +510,7 @@ export function SamahanStories({
                 <Play className="h-3.5 w-3.5" aria-hidden /> Play the day
               </button>
               <span className="text-[11px] text-ink/55">
-                {reel.length} clips, one after another
+                {formatCount(reel.length)} clips, one after another
               </span>
             </div>
           ) : null}
@@ -682,7 +683,7 @@ export function SamahanStories({
             <div className="mt-3 flex items-center justify-between text-xs text-white/80">
               <span>
                 {playing.is_self ? 'You' : playing.author_name} · {hoursLeft(playing.expires_at)}
-                {reel.length > 1 ? ` · ${at + 1} of ${reel.length}` : ''}
+                {reel.length > 1 ? ` · ${formatCount(at + 1)} of ${formatCount(reel.length)}` : ''}
               </span>
               <span className="flex items-center gap-3">
                 {playing.is_self ? (

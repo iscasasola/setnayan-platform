@@ -1,5 +1,6 @@
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import type { KnownHashIntegrationStatus } from '@/lib/known-hash-match';
+import { formatCount } from '@/lib/format-number';
 
 // CSAM known-hash matching — READ-ONLY status.
 //
@@ -54,7 +55,7 @@ export function KnownHashCard({ status }: { status: KnownHashIntegrationStatus }
         <div>
           <dt className="text-ink/45">Recorded unchecked</dt>
           <dd className="font-mono text-ink/80">
-            {status.countsUnavailable ? 'unknown' : status.uncheckedCount}
+            {status.countsUnavailable ? 'unknown' : formatCount(status.uncheckedCount)}
           </dd>
         </div>
         <div>

@@ -64,6 +64,7 @@ import {
   canCompressVideo,
   WEB_COPY_MIN_BYTES,
 } from '@/lib/video-compress';
+import { formatCount } from '@/lib/format-number';
 
 // Papic · paparazzo capture (client)
 //
@@ -1332,7 +1333,7 @@ export function PapicSeatCapture({
     ? `${photos}/${photoCap} ${photos === 1 ? 'photo' : 'photos'}${
         clipsAllowed ? ` · ${clips}/${clipCap} ${clips === 1 ? 'clip' : 'clips'}` : ''
       }`
-    : `${photos + clips} ${photos + clips === 1 ? 'shot' : 'shots'}`;
+    : `${formatCount(photos + clips)} ${photos + clips === 1 ? 'shot' : 'shots'}`;
 
   // What this guest would LOSE by closing the tab — their own shots, which the
   // couple keeps either way. Drives the nudge above: nothing at stake reads
@@ -1404,7 +1405,7 @@ export function PapicSeatCapture({
             {shotsTaken > 0 ? (
               <>
                 <span className="font-semibold text-cream">
-                  {shotsTaken} {shotsTaken === 1 ? 'shot' : 'shots'} — yours only
+                  {formatCount(shotsTaken)} {shotsTaken === 1 ? 'shot' : 'shots'} — yours only
                   on this phone.
                 </span>{' '}
                 Save them to your account or they go when you close this tab.
@@ -1493,7 +1494,7 @@ export function PapicSeatCapture({
             </div>
             <div className="absolute left-1/2 top-4 -translate-x-1/2">
               <span className="inline-flex items-center gap-2 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-semibold text-cream">
-                  Scanning · {tagCount} tagged
+                  Scanning · {formatCount(tagCount)} tagged
               </span>
             </div>
           </>
@@ -1512,7 +1513,7 @@ export function PapicSeatCapture({
             {uploadingCount > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] text-cream/55">
                 <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
-                Uploading {uploadingCount}
+                Uploading {formatCount(uploadingCount)}
               </span>
             )}
           </div>
@@ -1598,7 +1599,7 @@ export function PapicSeatCapture({
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-cream">Tag who&rsquo;s in this shot</p>
               <span className="rounded-full bg-cream/10 px-2.5 py-1 text-xs font-medium text-cream/80">
-                {tagCount}
+                {formatCount(tagCount)}
               </span>
             </div>
             {taggedNames.length > 0 && (
@@ -1622,7 +1623,7 @@ export function PapicSeatCapture({
             {/* Persistent live region — announces notices + the running tag
                 count to screen readers without affecting the visual layout. */}
             <span aria-live="polite" role="status" className="sr-only">
-              {tagNotice ?? `${tagCount} tagged`}
+              {tagNotice ?? `${formatCount(tagCount)} tagged`}
             </span>
             <button
               type="button"
@@ -1811,7 +1812,7 @@ export function PapicSeatCapture({
                 className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full border border-cream/25 bg-cream/5 px-4 py-2 text-xs font-medium text-cream transition hover:bg-cream/10"
               >
                 <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                {tagCount > 0 ? `Tagged ${tagCount} · tag more` : 'Tag who’s in it'}
+                {tagCount > 0 ? `Tagged ${formatCount(tagCount)} · tag more` : 'Tag who’s in it'}
               </button>
             )}
           </>

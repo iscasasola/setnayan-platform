@@ -2,6 +2,7 @@
 
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
 import type { GuestRole } from '@/lib/guests';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * PER-ROLE ATTIRE — the couple says what each role wears (owner 2026-09-20).
@@ -52,7 +53,7 @@ export function RoleAttireField({
               <span className={`${labelCls} flex-1`}>
                 {label}
                 <span className="ml-2 text-ink/45">
-                  {count} {count === 1 ? 'person' : 'people'}
+                  {formatCount(count)} {count === 1 ? 'person' : 'people'}
                 </span>
               </span>
               <label htmlFor={`role-style-${role}`} className="sr-only">

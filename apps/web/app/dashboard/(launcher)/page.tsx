@@ -105,6 +105,7 @@ import { resolveHero } from '@/lib/event-hero';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
   title: 'Your events',
@@ -931,7 +932,7 @@ export default async function LauncherPage({
   // display name + role + count reach the DOM — never a user UUID or email.
   const samahanSubtitle = (c: CommunityWithRole) =>
     c.role === 'organizer'
-      ? `Organizer · ${c.member_count} ${c.member_count === 1 ? 'member' : 'members'}`
+      ? `Organizer · ${formatCount(c.member_count)} ${c.member_count === 1 ? 'member' : 'members'}`
       : 'Member';
   const MAX_SAMAHAN_CARDS = 3;
   const samahanRows: SpaceCardProps[] = communities
@@ -1521,7 +1522,7 @@ function PutAwaySwitch({ on, count }: { on: boolean; count: number }) {
           }`}
         />
       </span>
-      {on ? 'Hide the ones I put away' : `Show the ${count} I put away`}
+      {on ? 'Hide the ones I put away' : `Show the ${formatCount(count)} I put away`}
     </Link>
   );
 }
@@ -2147,7 +2148,7 @@ function PlanningHeaderActions({
     <span className="flex shrink-0 items-center gap-2.5">
       {count > 0 ? (
         <span className="text-[12px] tracking-[0.04em] text-[color:var(--sn-ink-400)]">
-          {count === 1 ? '1 event' : `${count} events`}
+          {count === 1 ? '1 event' : `${formatCount(count)} events`}
         </span>
       ) : null}
       {putAwayCount > 0 ? <PutAwaySwitch on={putAwayOn} count={putAwayCount} /> : null}

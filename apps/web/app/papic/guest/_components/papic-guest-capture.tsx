@@ -42,6 +42,7 @@ import {
   clipVideoBitsPerSecond,
   recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
+import { formatCount } from '@/lib/format-number';
 
 // NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
 // This file used to hardcode TAG_CAP = 10 and show a counter — while the DATABASE
@@ -1587,7 +1588,7 @@ export function PapicGuestCapture({
             ) : (
               <>
                 <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
-                <p className="text-base font-semibold">That&rsquo;s all {total} photos, {guestName}!</p>
+                <p className="text-base font-semibold">That&rsquo;s all {formatCount(total)} photos, {guestName}!</p>
                 <p className="text-sm text-cream/70">
                   Thank you for helping capture {eventName}. They’ll treasure these.
                 </p>
@@ -1755,7 +1756,7 @@ export function PapicGuestCapture({
                 Point at a place card or table sign
               </p>
               <span className="font-mono text-[11px] text-cream/55">
-                {tagCount} tagged
+                {formatCount(tagCount)} tagged
               </span>
             </div>
             {taggedNames.length > 0 ? (

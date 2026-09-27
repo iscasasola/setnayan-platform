@@ -379,6 +379,7 @@ export { UGAT_TABLE_KEYS, type UgatTableKey } from './data-pure';
 // A re-export does NOT bind the name locally, and this module uses the type in
 // six of its own signatures — so it is imported as well as re-exported.
 import type { UgatTableKey as UgatTableKeyLocal } from './data-pure';
+import { formatCount } from '@/lib/format-number';
 type UgatTableKey = UgatTableKeyLocal;
 
 /** A generic display row. `cells` are pre-formatted strings the table renders. */
@@ -1113,7 +1114,7 @@ async function runSavedSearchInner(
           question: 'Vendors with an active subscription',
           table: 'billing',
           count: count ?? 0,
-          summary: `${count ?? 0} active subscription${(count ?? 0) === 1 ? '' : 's'} — opening the Billing table.`,
+          summary: `${formatCount(count ?? 0)} active subscription${(count ?? 0) === 1 ? '' : 's'} — opening the Billing table.`,
         };
       }
       case 'orders-pending': {
@@ -1126,7 +1127,7 @@ async function runSavedSearchInner(
           question: 'Orders pending payment',
           table: 'orders',
           count: count ?? 0,
-          summary: `${count ?? 0} order${(count ?? 0) === 1 ? '' : 's'} awaiting payment — opening the Orders table.`,
+          summary: `${formatCount(count ?? 0)} order${(count ?? 0) === 1 ? '' : 's'} awaiting payment — opening the Orders table.`,
         };
       }
       case 'events-this-week': {
@@ -1140,7 +1141,7 @@ async function runSavedSearchInner(
           question: 'Events created this week',
           table: 'events',
           count: count ?? 0,
-          summary: `${count ?? 0} event${(count ?? 0) === 1 ? '' : 's'} created in the last 7 days — opening the Events table.`,
+          summary: `${formatCount(count ?? 0)} event${(count ?? 0) === 1 ? '' : 's'} created in the last 7 days — opening the Events table.`,
         };
       }
       default:

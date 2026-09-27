@@ -9,6 +9,7 @@ import {
   currentPeriodMonth,
   type SpotlightAwardType,
 } from '@/lib/spotlight-awards';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Setnayan HQ · Spotlight Awards server actions — the ONLY write path into
@@ -77,7 +78,7 @@ export async function recomputeSpotlightAwards(): Promise<void> {
   back(
     'ok',
     `Recompute done · ${summary.poolSize} verified vendors scanned · ` +
-      `${total} new award${total === 1 ? '' : 's'} written ` +
+      `${formatCount(total)} new award${total === 1 ? '' : 's'} written ` +
       `(${summary.written.top_pick} Top Pick · ${summary.written.most_booked} Most Booked)` +
       (summary.adminPreserved > 0
         ? ` · ${summary.adminPreserved} admin pick${summary.adminPreserved === 1 ? '' : 's'} kept`

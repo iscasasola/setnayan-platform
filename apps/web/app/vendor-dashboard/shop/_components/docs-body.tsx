@@ -31,6 +31,7 @@ import { VerifyPairs } from './verify-pairs';
 import { PAIR_SLOT_KEYS } from '@/lib/verification-pairs';
 import { REGISTRATION_NUMBER_TAKEN_MESSAGE } from '@/lib/vendor-registration-number';
 import { useSaveLoader } from '@/components/sd-loader';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Step 1 of the Get-verified stepper — the vendor's own document uploads.
@@ -223,7 +224,7 @@ function VendorSlotInput({
           }}
         />
         <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-          {seedValue.length}/{PORTFOLIO_MAX} photos added
+          {formatCount(seedValue.length)}/{formatCount(PORTFOLIO_MAX)} photos added
           {pending ? ' · saving…' : ''}
         </p>
       </div>

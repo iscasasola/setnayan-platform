@@ -64,7 +64,7 @@ test('the five are the bar’s made-once group, and the pure rule draws each whe
   assert.equal(makerPageStage('details', 'rsvp'), null);
   assert.equal(makerPageCanvasSrc(null, 'hero', 'rsvp'), null);
   // The canvas door is the host-only `?editor=1` one a stage uses.
-  assert.equal(makerPageCanvasSrc('/ana-ben', 'hero', 'rsvp'), '/ana-ben?phase=rsvp&editor=1');
+  assert.equal(makerPageCanvasSrc('/ana-ben', 'hero', 'rsvp'), '/ana-ben?phase=rsvp&editor=1&only=hero');
   // …except the Reveal, whose page must play the opening: only the stage preview does.
   assert.equal(makerPageCanvasSrc('/ana-ben', 'reveal', 'rsvp'), '/ana-ben?phase=save_the_date&preview=draft');
   // RSVP (owner 2026-09-27): the Invitation, on the SAMPLE seat-holder, reply
@@ -169,7 +169,7 @@ function assertIsAPage(html: string, key: string) {
 test('Hero · Reveal · Logo · Love Story each render as a page in the body, with their controls beside it', async () => {
   const hero = await paintWork({ kind: 'tool', key: 'hero' });
   assertIsAPage(hero, 'hero');
-  assert.match(hero, /data-maker-page-frame=""[^>]*src="\/ana-ben\?phase=rsvp&amp;editor=1"|src="\/ana-ben\?phase=rsvp&amp;editor=1"[^>]*data-maker-page-frame/, 'the hero page is the guest page');
+  assert.match(hero, /data-maker-page-frame=""[^>]*src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"|src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"[^>]*data-maker-page-frame/, 'the hero page is the guest page, the hero alone');
   assert.match(hero, /data-maker-page-controls=""[\s\S]*data-stub="hero-controls"/, 'the hero controls sit beside it');
 
   const reveal = await paintWork({ kind: 'tool', key: 'reveal' }, { revealStages: ['rsvp', 'event'] });

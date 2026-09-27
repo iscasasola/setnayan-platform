@@ -1,6 +1,7 @@
 import localFont from 'next/font/local';
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import type { InviteSkinInput } from './invite-skin';
+import { SealMark } from './seal-mark';
 import styles from './abaca.module.css';
 
 /**
@@ -65,7 +66,7 @@ const oswald = localFont({
   adjustFontFallback: 'Arial',
 });
 
-export function abacaSkin({ photo, accent, monogram }: InviteSkinInput): DoorSkin {
+export function abacaSkin({ photo, accent, monogram, mark }: InviteSkinInput): DoorSkin {
   return {
     themeId: 'abaca',
     className: [styles.abaca ?? '', alfaSlabOne.variable, oswald.variable].join(' '),
@@ -94,7 +95,9 @@ export function abacaSkin({ photo, accent, monogram }: InviteSkinInput): DoorSki
     ),
     crest: (
       <div className={styles.crest}>
-        <span className={styles.seal}>{monogram}</span>
+        <span className={styles.seal}>
+          <SealMark mark={mark} monogram={monogram} px={28} />
+        </span>
       </div>
     ),
     hinge: <div className={styles.hinge} />,

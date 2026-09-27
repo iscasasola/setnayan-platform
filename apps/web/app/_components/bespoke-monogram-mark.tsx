@@ -42,9 +42,15 @@ export function BespokeMonogramMark({
   shadow = false,
   entrance = false,
   plate = false,
+  px: pxOverride,
 }: {
   /** Sanitized SVG markup (events.monogram_custom_svg). */
   svg: string;
+  /**
+   * An exact size, for a slot that is neither the hero's 80px nor the maker's
+   * 96px — the invite doors' seals (52–66px). Same inert render, same mark.
+   */
+  px?: number;
   /** Kept for callers; the ring it coloured is gone (see the note above). */
   color?: string;
   size?: Size;
@@ -55,7 +61,7 @@ export function BespokeMonogramMark({
   /** A plain cream disc behind the mark, for dark surfaces. Never a ring. */
   plate?: boolean;
 }) {
-  const px = SIZE_PX[size];
+  const px = pxOverride ?? SIZE_PX[size];
   const uid = useId().replace(/[:]/g, '');
   const sc = `bm-${uid}`;
   const dataUri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;

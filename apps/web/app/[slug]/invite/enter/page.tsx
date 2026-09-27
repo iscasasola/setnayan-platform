@@ -21,7 +21,7 @@ import { thankYouHeadline, replySummary } from '../../_lib/thank-you-words';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { YourGuests } from '../../_components/your-guests';
 import { InviteQrPanel } from '../_components/invite-qr-panel';
-import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
+import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: 'Thank you', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -58,7 +58,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
     )
     .ilike('slug', slug)
     .maybeSingle();

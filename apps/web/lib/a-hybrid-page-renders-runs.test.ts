@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { HUB_SCENE_CLASSES } from './hub-scenes';
+import { HUB_SCENE_CLASSES, SCENE_PROGRESS_RANGE } from './hub-scenes';
 
 const row = (id: string, transition?: string) =>
   ({
@@ -67,12 +67,13 @@ test('⭐ a hybrid page emits its runs, its spacers and one progress segment per
   );
   // The scope names every section, so the progress mark can see them all.
   assert.match(html, /--hub-scope:--hub-s0, --hub-s1, --hub-s2, --hub-s3, --hub-s4, --hub-s5/);
-  // First-of-run / last-of-run / scroll ranges reach the segments.
-  assert.match(bar, /--hub-tl:--hub-s0;--hub-pr:entry 0% exit 55%/);
-  assert.match(bar, /--hub-tl:--hub-s1;--hub-pr:entry 45% exit 50%/);
-  assert.match(bar, /--hub-tl:--hub-s2;--hub-pr:entry 50% exit 50%/);
-  assert.match(bar, /--hub-tl:--hub-s3;--hub-pr:entry 0% exit 55%/);
-  assert.match(bar, /--hub-tl:--hub-s5;--hub-pr:entry 50% exit 50%/);
+  // Every segment — scroll, first/middle/last of a run — fills on the ONE line
+  // (`SCENE_PROGRESS_RANGE`), so they fill strictly in page order.
+  for (let i = 0; i < 6; i++) {
+    assert.ok(bar.includes(`--hub-tl:--hub-s${i};--hub-pr:${SCENE_PROGRESS_RANGE}`), `segment ${i} carries the one range`);
+  }
+  // Each run tells the stylesheet how many spacer rows to lay.
+  assert.equal(count(html, /class="hub-run" style="--hub-n:2"/g), 2, 'each run carries its size');
 });
 
 test('⛔ every class in the exported vocabulary is really emitted (the list the CSS guard trusts)', async () => {
@@ -153,7 +154,7 @@ test('🔒 the plain page is the default: spacers and the mark are not drawn out
   assert.match(outside, /\.hub-sp \{ display: none; \}/);
   assert.match(outside, /\.hub-prog \{ display: none; \}/);
   // Nothing that pins or pulls up exists anywhere but inside the gate.
-  for (const re of [/\.hub-scrub[^{]*\{[^}]*position:\s*sticky/, /margin-top:\s*-100s?vh/, /timeline-scope:\s*var/, /view-timeline:\s*var/]) {
+  for (const re of [/\.hub-scrub > \*\s*\{[^}]*position:\s*sticky/, /grid-template-rows:\s*repeat\(var\(--hub-n/, /timeline-scope:\s*var/, /view-timeline:\s*var/]) {
     assert.doesNotMatch(outside, re, `${re} leaked outside the gate`);
     assert.match(gate, re, `${re} is inside the gate`);
   }
@@ -164,11 +165,14 @@ test('🔒 the fallback keeps the hub rhythm: sections still stack 1rem apart wh
   assert.match(CSS, /\.hub-run > \.hub-scene ~ \.hub-scene \{ margin-top: 1rem; \}/);
 });
 
-test('🔑 the true cross-fade: in over entry 15–75%, out over exit 25–85%, on the spacer timeline', () => {
+test('🔑 the true cross-fade: IN leads OUT around the pin line, on the spacer timeline', () => {
   const gate = scenesGate();
-  assert.match(gate, /animation-range: entry 15% entry 75%, exit 25% exit 85%/, 'a mid-run section does both');
-  assert.match(gate, /height: 170vh;\s*view-timeline: var\(--hub-tl\) block;/, 'the spacer is ≥ 100vh and names the timeline');
-  assert.match(gate, /height: 100svh;/, 'a pinned section is one phone screen');
+  const IN = 'cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step))';
+  const OUT = 'cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step))';
+  assert.ok(gate.includes(`animation-range: ${IN}, ${OUT};`), 'a mid-run section does both');
+  assert.match(gate, /--hub-at: calc\(100% - var\(--hub-pin\) - var\(--hub-step\)\);/, 'ranges are measured from the pin line, not the screen height');
+  assert.match(gate, /grid-column: 2;\s*view-timeline: var\(--hub-tl\) block;/, 'the spacer sits in the zero-width column and names the timeline');
+  assert.match(gate, /grid-template-rows: repeat\(var\(--hub-n, 1\), var\(--hub-step\)\) auto;/, 'one step row per spacer, so drawn spacers abut');
 });
 
 test('⌨ a fully faded scene cannot take focus: visibility is hidden at, and only at, the faded end', () => {

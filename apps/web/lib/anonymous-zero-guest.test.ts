@@ -197,6 +197,8 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // anything about the host or the event. Reasoned about, not absorbed.
     'account',
     'accountlessPhotosClosed',
+    // checklist (2026-09-27) — THIS guest's own last-30-days ticks, or null.
+    'checklist',
     // didntReply (2026-09-27) — THIS guest's own "Didn't reply · you're in"
     // mark after the final count locked. About the guest's own reply only.
     'didntReply',

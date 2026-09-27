@@ -1548,7 +1548,7 @@ export function MakerWork({
                     canvasHold.current,
                     elementEditing.canvases,
                     type,
-                    patch.widgets?.[type]?.canvas ?? shown,
+                    patch.widgets?.[type as WidgetType]?.canvas ?? shown,
                     now,
                   );
                   for (const t of others) postWords(`w:${t}`, text);

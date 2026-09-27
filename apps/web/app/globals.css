@@ -5416,7 +5416,9 @@ html:has([data-sticky-top]) {
 }
 .hub-photo-beside > .hub-canvas-photo {
   position: relative;
+  /* `hidden` for an engine without `clip`, then `clip` — see `.hub-has-media`. */
   overflow: hidden;
+  overflow: clip;
   aspect-ratio: 4 / 3;
 }
 .hub-photo-beside > .hub-canvas-photo > .hub-canvas-photo-img {
@@ -5451,7 +5453,17 @@ html:has([data-sticky-top]) {
    The gradient guarantees the text keeps its contrast against ANY photo, and
    it is why the background is a layer rather than a `background-image` on the
    frame itself. */
-.hub-has-media { position: relative; isolation: isolate; overflow: hidden; }
+/* 🔴 `clip`, NEVER `hidden`, ON ANY BOX A SCENE'S PARTS MOVE INSIDE.
+   `overflow: hidden` makes the box a SCROLL CONTAINER, and `view()` binds to
+   the NEAREST scroll container — this one, which never scrolls. So every
+   scroll-linked animation inside a section with a background froze where it
+   started: measured, the Cinematic photo's lift read one value (0.5) at every
+   scroll position and its parts sat `finished` from the first frame, in
+   Chromium and on iOS Safari alike. `clip` cuts off exactly the same pixels
+   and is not a scroll container. `hidden` stays first as the fallback for an
+   engine that has no `clip` — which also has no scroll timelines to break.
+   `the-motion-reaches-the-guest.test.ts` holds it. */
+.hub-has-media { position: relative; isolation: isolate; overflow: hidden; overflow: clip; }
 .hub-has-media > .hub-canvas-media {
   position: absolute;
   inset: 0;
@@ -5591,7 +5603,7 @@ html:has([data-sticky-top]) {
      the words stay exactly where they were and only the ground grows.
      (Padding and margin percentages resolve against the COLUMN — the
      containing block — which is what makes the two cancel exactly.) */
-.hub-shape-framed { border-radius: var(--m-r-lg); overflow: hidden; }
+.hub-shape-framed { border-radius: var(--m-r-lg); overflow: hidden; overflow: clip; } /* clip: see `.hub-has-media` */
 .hub-shape-full {
   border-radius: 0;
   margin-inline: calc(50% - 50vw);
@@ -5629,6 +5641,17 @@ html:has(.hub-shape-full) { overflow-x: clip; }
    bare block with no padding, margin or background, so it changes nothing a
    guest can see; it just exists enough to animate. */
 .hub-no-media > .hub-canvas-body { display: block; }
+
+/* ↔ A PART ARRIVING FROM THE SIDE MUST NOT WIDEN THE PAGE. Waiting 28px to the
+   right of its place, it pushed the page's scroll width past the screen, so a
+   phone could be nudged sideways (measured: 12px of sideways scroll with
+   "Comes in: Move · from the Right"). `clip` on the x axis only — the body is
+   not made a scroll container, and nothing above or below is cut — and only on
+   sections whose motion travels, so a card's own shadow elsewhere is untouched. */
+.hub-in-move > .hub-canvas-body,
+.hub-in-move_fade > .hub-canvas-body,
+.hub-out-move > .hub-canvas-body,
+.hub-out-move_fade > .hub-canvas-body { overflow-x: clip; }
 
 /* ⛔ NO DARK-MODE SCRIM. There was one here: on a phone set to dark mode the
    photo's veil turned near-black while the words kept the ink measured for
@@ -6040,11 +6063,16 @@ html:has(.hub-shape-full) { overflow-x: clip; }
        ninth arriving with the eighth's delay is a far better failure than a
        section whose tail never appears. */
 
-    /* PLAYS ONCE — a real, time-based arrival. It runs on load rather than on
-       approach, which is the honest cost of having no script on the guest
-       page; in exchange the duration is a real duration and the easing is a
-       real ease, instead of a scrub pretending to be one. */
-    .hub-seq-whole.hub-tl-time > .hub-canvas-body {
+    /* PLAYS ONCE — a real, time-based arrival, that starts WHEN THE GUEST GETS
+       THERE. It used to start on page load, so only the first screen ever saw
+       it: measured, every "Calm" section below the fold had already finished
+       its arrival (`finished`, progress 1) before the guest scrolled to it.
+       🔑 `.pahina-in` is the page's ONE observer (`PahinaMotionObserver`,
+       pahina-motion.tsx) marking the scene as it nears the screen — no second
+       mechanism. And the rest state IS the waiting state: until the mark
+       lands, nothing is bound, so the words sit there visible. No script, a
+       blocked bundle, reduced motion → no mark → the page at rest. */
+    .hub-seq-whole.hub-tl-time.pahina-in > .hub-canvas-body {
       animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) both;
       will-change: opacity, transform;
     }
@@ -6062,40 +6090,61 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       will-change: opacity, transform;
     }
 
+    /* ── THE PARTS: their arrival AND their hand-off, as VALUES ─────────────
+       🔴 "GOES OUT" WAS DEAD HERE. This rule bound only the In
+       (`animation-name: var(--hub-in-kf)`), so a one-after-another section —
+       Editorial's and Cinematic's default — never left: measured, the part's
+       only animation was its arrival and it sat at opacity 1 all the way off
+       the top of the screen. The Out is now the second slot.
 
-    /* The parts carry the arrival, each a little after the one above it. */
+       🔑 WHY VALUES (`--hub-part-*`) AND ONE APPLYING RULE: a part the couple
+       gave its OWN motion (`lib/element-style.ts`) must out-rank this rule —
+       and still keep the slot it did NOT choose. Its rule reads these same
+       properties back into its own list, so a part with only Drift still
+       arrives and leaves with its section. Unset → `none`, nothing bound. */
     .hub-seq-parts > .hub-canvas-body > * > * {
-      animation-name: var(--hub-in-kf, none);
-      animation-fill-mode: both;
+      animation-name: var(--hub-part-in, none), var(--hub-part-out, none);
+      animation-duration: var(--hub-part-dur, 1s), 1s;
+      animation-timing-function: var(--hub-part-ease, linear), linear;
+      animation-delay: var(--hub-part-delay, 0s), 0s;
+      animation-fill-mode: both, backwards;
+      animation-timeline: var(--hub-part-in-tl, auto), var(--hub-part-out-tl, auto);
+      animation-range: var(--hub-part-in-range, normal), var(--hub-part-out-range, normal);
       will-change: opacity, transform;
     }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > * {
-      animation-duration: var(--hub-duration, 1.1s);
-      animation-timing-function: var(--hub-ease, ease-out);
+    /* Plays once: on approach, like the whole section above; no Out (a timed
+       exit fights the reader). */
+    .hub-seq-parts.hub-tl-time.pahina-in > .hub-canvas-body > * > * {
+      --hub-part-in: var(--hub-in-kf, none);
+      --hub-part-dur: var(--hub-duration, 1.1s);
+      --hub-part-ease: var(--hub-ease, ease-out);
     }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(2) { animation-delay: calc(var(--hub-stagger) * 1); }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(3) { animation-delay: calc(var(--hub-stagger) * 2); }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(4) { animation-delay: calc(var(--hub-stagger) * 3); }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(5) { animation-delay: calc(var(--hub-stagger) * 4); }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger) * 5); }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger) * 6); }
-    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(8) { animation-delay: calc(var(--hub-stagger) * 7); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(2) { --hub-part-delay: calc(var(--hub-stagger) * 1); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(3) { --hub-part-delay: calc(var(--hub-stagger) * 2); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(4) { --hub-part-delay: calc(var(--hub-stagger) * 3); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(5) { --hub-part-delay: calc(var(--hub-stagger) * 4); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(6) { --hub-part-delay: calc(var(--hub-stagger) * 5); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(7) { --hub-part-delay: calc(var(--hub-stagger) * 6); }
+    .hub-seq-parts.hub-tl-time > .hub-canvas-body > * > *:nth-child(8) { --hub-part-delay: calc(var(--hub-stagger) * 7); }
 
-    /* Scrubbed, the gap is a RANGE offset rather than a delay: a scroll-driven
-       animation has no time to be delayed by, so each part simply starts a
-       little further into the section's entry. */
+    /* Follows the scroll: the gap is a RANGE offset rather than a delay (a
+       scroll-driven animation has no time to be delayed by), and the hand-off
+       takes the part out on the exit range, as it does the whole section. */
     .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
-      animation-timeline: view();
-      animation-range: entry 0% entry 92%;
-      animation-timing-function: linear;
+      --hub-part-in: var(--hub-in-kf, none);
+      --hub-part-in-tl: view();
+      --hub-part-in-range: entry 0% entry 92%;
+      --hub-part-out: var(--hub-out-kf, none);
+      --hub-part-out-tl: view();
+      --hub-part-out-range: exit 8% exit 100%;
     }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { animation-range: entry 4% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { animation-range: entry 8% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { animation-range: entry 12% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { animation-range: entry 16% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { animation-range: entry 20% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { animation-range: entry 24% entry 92%; }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { animation-range: entry 28% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% entry 92%; }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% entry 92%; }
 
     /* ── DURING: the PICTURE drifts, never the words ──────────────────────
        🔑 It lives on the media layer on purpose. Put on the same element as
@@ -6121,9 +6170,26 @@ html:has(.hub-shape-full) { overflow-x: clip; }
     /* A section that asked for nothing is not animated at all — no name, no
        fill mode, nothing that can get stuck, and no promoted layer. */
     .hub-in-none.hub-out-none > .hub-canvas-body,
+    .hub-in-none.hub-out-none.pahina-in > .hub-canvas-body,
     .hub-in-none.hub-out-none > .hub-canvas-body > * > * {
       animation: none;
       will-change: auto;
+    }
+
+    /* ── A HERO PART'S OWN MOTION (`lib/element-style.ts`) ─────────────────
+       The part carries its In · During · Out as custom properties
+       (`--el-anim` · `--el-tl` · `--el-range`) and `data-el-motion`; THIS is
+       the only thing that turns them into movement, and it is inside both
+       gates. Before, they were an inline `animation` no gate could reach, and
+       an engine without scroll timelines played the Out on a clock and held
+       the date, the line and the time at opacity 0.
+       `:not(#el-own)` is one id's worth of specificity from an id nothing
+       carries: the part's own choice must beat the arrival
+       (`.sn-arrive [data-motion]`), as its inline style did. */
+    [data-el-motion]:not(#el-own) {
+      animation: var(--el-anim);
+      animation-timeline: var(--el-tl);
+      animation-range: var(--el-range);
     }
 
     /* ══ SCROLL · SCRUB — THE SCENES ══════════════════════════════════════
@@ -6212,26 +6278,36 @@ html:has(.hub-shape-full) { overflow-x: clip; }
          arrives and the rest arrive in turn while it is pinned — on the
          SPACER's timeline, so scrolling back takes them away again. Their
          chosen entrance (fade / move / from which side) is the keyframe. */
+      /* 🪤 EACH RESET IS WRITTEN TWICE — with and without `.pahina-in` — because
+         the approach-marked "Plays once" rules carry that one class more, and a
+         reset that is one class short loses: measured, a Calm scene inside a
+         Scrub run faded in on the clock AND with its scene, two opacities
+         multiplying to 0.48 while the scene read 0.87. */
       .hub-scrub > .hub-canvas > .hub-canvas-body,
-      .hub-scrub > .hub-canvas > .hub-canvas-body > * > *:first-child {
-        animation: none;
+      .hub-scrub > .hub-canvas.pahina-in > .hub-canvas-body { animation: none; }
+      /* The parts, as VALUES (`--hub-part-*`, applied by the one parts rule
+         above) so a part's own motion keeps what it did not choose. No part
+         leaves on its own here — the scene's cross-fade is the hand-off. */
+      .hub-scrub > .hub-canvas > .hub-canvas-body > * > *,
+      .hub-scrub > .hub-canvas.pahina-in > .hub-canvas-body > * > * {
+        --hub-part-in: none;
+        --hub-part-out: none;
       }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > * + * {
-        animation-name: var(--hub-in-kf, none);
-        animation-duration: auto;
-        animation-delay: 0s;
-        animation-fill-mode: both;
-        animation-timing-function: linear;
-        animation-timeline: var(--hub-tl);
-        animation-range: entry 30% entry 60%;
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 2) {
+        --hub-part-in: var(--hub-in-kf, none);
+        --hub-part-dur: 1s;
+        --hub-part-delay: 0s;
+        --hub-part-ease: linear;
+        --hub-part-in-tl: var(--hub-tl);
+        --hub-part-in-range: entry 30% entry 60%;
       }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { animation-delay: 0s; animation-range: entry 30% entry 60%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { animation-delay: 0s; animation-range: entry 45% entry 75%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { animation-delay: 0s; animation-range: entry 60% entry 90%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { animation-delay: 0s; animation-range: entry 75% contain 5%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: 0s; animation-range: entry 90% contain 20%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: 0s; animation-range: contain 5% contain 35%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { animation-delay: 0s; animation-range: contain 20% contain 50%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { --hub-part-delay: 0s; --hub-part-in-range: entry 30% entry 60%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { --hub-part-delay: 0s; --hub-part-in-range: entry 45% entry 75%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { --hub-part-delay: 0s; --hub-part-in-range: entry 60% entry 90%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { --hub-part-delay: 0s; --hub-part-in-range: entry 75% contain 5%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { --hub-part-delay: 0s; --hub-part-in-range: entry 90% contain 20%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { --hub-part-delay: 0s; --hub-part-in-range: contain 5% contain 35%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { --hub-part-delay: 0s; --hub-part-in-range: contain 20% contain 50%; }
       /* The picture's slow lift follows the hold too — `view()` inside a pinned
          scene would never move. */
       .hub-scrub > .hub-during-lift.hub-has-media > .hub-canvas-media {
@@ -6338,7 +6414,18 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       }
       /* The scene's own entrance is the hand-off, so the block's arrival is
          off inside a run (two opacities would multiply), as in Scrub. */
-      .hub-auto > .hub-canvas > .hub-canvas-body { animation: none; }
+      .hub-auto > .hub-canvas > .hub-canvas-body,
+      .hub-auto > .hub-canvas.pahina-in > .hub-canvas-body { animation: none; }
+      /* An armed run's scenes are SCROLL CONTAINERS (`overflow-y: auto`, for a
+         tall scene), so `view()` inside one never moves. Scroll-linked parts
+         and the picture's lift follow the run's own timeline instead. */
+      .hub-arun[data-armed] > .hub-auto > .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
+        --hub-part-in-tl: var(--hub-tl);
+        --hub-part-out-tl: var(--hub-tl);
+      }
+      .hub-arun[data-armed] > .hub-auto > .hub-during-lift.hub-has-media > .hub-canvas-media {
+        animation-timeline: var(--hub-tl);
+      }
       /* Below the progress mark, which itself sits below the invitation's
          pinned top bar when there is one — measured: at `top: 0.75rem` the
          button hid under the bar the moment the run reached the top. */

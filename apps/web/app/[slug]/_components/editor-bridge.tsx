@@ -10,6 +10,7 @@ import {
   HUB_SCENE_ELEMENT_KEYS,
   HUB_SCENE_ELEMENT_SELECTOR,
   hubElementDeclarations,
+  hubElementHeroMotionVars,
   hubElementSceneCss,
   hubRunDeclarations,
   hubTextHash,
@@ -212,9 +213,14 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   const clear: string[] = [...LOOK_PROPS];
   if (motion) clear.push(...HUB_ELEMENT_MOTION_PROPS, 'animation-name');
   for (const p of clear) part.style.removeProperty(p);
-  for (const [p, v] of hubElementDeclarations(style)) {
-    if (motion || LOOK_PROPS.includes(p)) part.style.setProperty(p, v);
-  }
+  for (const [p, v] of hubElementDeclarations(style)) part.style.setProperty(p, v);
+  if (!motion) return;
+  /* The motion as the guest page carries it: three custom properties and the
+     `data-el-motion` hook the one gated rule in globals.css reads. */
+  const vars = hubElementHeroMotionVars(style);
+  for (const [p, v] of vars) part.style.setProperty(p, v);
+  if (vars.length > 0) part.setAttribute('data-el-motion', '');
+  else part.removeAttribute('data-el-motion');
 }
 
 function textNodesOf(node: Node, out: Text[]): Text[] {

@@ -1096,14 +1096,17 @@ export function MakerWork({
                           : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ' (always here on this stage · comes from your guest list)' : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
+                        select?.(selectionForTile(tile));
                         /* ✍ A words scene's tile opens its words, focused
-                           (`lib/maker-scene-words.ts`). */
-                        const words =
+                           (`lib/maker-scene-words.ts`) — the same selection,
+                           on its Content tab. */
+                        if (
                           tile.kind === 'scene' &&
-                          isWordsScene(tile.type, elementEditing?.canvases[tile.type], detailsBound?.ownWords ?? []);
-                        const picked = selectionForTile(tile);
-                        select?.(words && picked.kind === 'scene' ? { ...picked, tab: 'content' } : picked);
-                        if (words) setWordsFocus({ key: tile.key, n: Date.now() });
+                          isWordsScene(tile.type, elementEditing?.canvases[tile.type], detailsBound?.ownWords ?? [])
+                        ) {
+                          select?.({ kind: 'scene', id: tile.widgetId, tab: 'content' });
+                          setWordsFocus({ key: tile.key, n: Date.now() });
+                        }
                         scrollPreviewTo(tile.kind === 'post-event' ? (tile.anchor ?? undefined) : tile.key);
                       }}
                       onPointerDown={(e) => {

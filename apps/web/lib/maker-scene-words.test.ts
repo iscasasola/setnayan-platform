@@ -296,9 +296,9 @@ test('the canvas tap and the navigator tile open Content with the box focused', 
   assert.ok(words > 0, 'the canvas tap asks whether it opens the words');
   assert.ok(words < onEdit.indexOf('setElementTarget((prev)'), 'before the style sheet can take the tap');
   assert.match(onEdit.slice(words), /select\?\.\(\{ \.\.\.picked, tab: 'content' \}\)[\s\S]*?setWordsFocus\(/);
-  const tile = shell.slice(shell.indexOf('selectionForTile(tile)') - 600, shell.indexOf('selectionForTile(tile)') + 400);
+  const tile = shell.slice(shell.indexOf('select?.(selectionForTile(tile));'), shell.indexOf('select?.(selectionForTile(tile));') + 700);
   assert.match(tile, /isWordsScene\(tile\.type/, 'the tile asks too');
-  assert.match(tile, /tab: 'content'/);
+  assert.match(tile, /select\?\.\(\{ kind: 'scene', id: tile\.widgetId, tab: 'content' \}\)/);
   assert.match(tile, /setWordsFocus\(/);
   assert.match(shell, /<CanvasWordsContext\.Provider value=\{canvasWords\}>\s*<Inspector/, 'the boxes can reach the canvas');
   // A canvas that reloads while a box is open gets the words again.

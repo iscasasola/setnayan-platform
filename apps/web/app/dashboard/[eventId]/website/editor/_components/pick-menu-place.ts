@@ -76,3 +76,20 @@ export function placePickList({
     side: 'above',
   };
 }
+
+/**
+ * The list's RUNS: consecutive options that share a `group` sit under one
+ * heading; options with no group (every picker but the compact Maker bar) form
+ * a run with `group: null` and are drawn with no heading at all. Order is kept
+ * exactly — a group is never gathered from two places in the list.
+ */
+export function pickRuns<T extends { group?: string }>(options: readonly T[]): { group: string | null; options: T[] }[] {
+  const runs: { group: string | null; options: T[] }[] = [];
+  for (const o of options) {
+    const g = o.group ?? null;
+    const last = runs[runs.length - 1];
+    if (last && last.group === g) last.options.push(o);
+    else runs.push({ group: g, options: [o] });
+  }
+  return runs;
+}

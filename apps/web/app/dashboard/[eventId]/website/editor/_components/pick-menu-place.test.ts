@@ -65,7 +65,7 @@ test('phone "Home ▾" near the bottom (button 732–772, a 232px list) opens UP
   assert.equal(p.top, 732 - 6 - 232);
 });
 
-test('a list that fits below opens below, unchanged (the toolbar "Stage ▾" / "Pages ▾" case)', () => {
+test('a list that fits below opens below, unchanged (the toolbar picker case)', () => {
   const toolbar = { top: 12, bottom: 52, left: 200, width: 120 };
   const p = placePickList({ button: toolbar, listHeight: 300, viewport: DESKTOP });
   assert.equal(p.side, 'below');

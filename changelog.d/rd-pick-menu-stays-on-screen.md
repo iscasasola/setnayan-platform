@@ -23,4 +23,26 @@ faces still draw in themselves — every `--font-*` variable is declared on
 Held by `pick-menu-place.test.ts` (the production measurements as cases, plus a
 source check that the list is portalled and clears the Maker's z).
 
-SPEC IMPACT: None
+### And: the compact Maker bar is ONE picker, not two
+
+Owner, on the compact bar showing "● Invitation ▾" + "Logo ▾": *"combine them
+in 1 dropdown"* (DECISION_LOG 2026-09-27, "THE COMPACT MAKER BAR IS ONE PICKER,
+NOT TWO"). When the bar is too narrow for the full row it now shows ONE button
+naming where the couple is ("● Invitation" on a stage, "Logo" while a page is
+open); its list has two labelled groups — **Stages** (Save the Date ·
+Invitation · On the Day · Post Event, live-today dot kept) and **Pages**
+(Details · Logo · Hero · Reveal · Love Story · RSVP · Prints & Tickets). Prints &
+Tickets stays under Pages because the old Pages picker listed it there and the
+compact bar must not lose a door. A pick runs the same `onPress` the wide row's
+button does. The wide row is unchanged.
+
+`PickMenu` gained an optional `group` per option: consecutive options sharing a
+group sit under one heading, drawn as `role="group"` with an `aria-label`; the
+heading is not a button, so arrow keys and first focus skip it. The picker's
+contents are the pure `makerPlacePick` / `makerPlaceItem` (`maker-bar.ts`),
+held by `the-compact-maker-bar-is-one-picker.test.ts`; the data attribute is now
+`data-maker-place-pick` (the old `data-maker-stage-pick` /
+`data-maker-pages-pick` are gone, and `the-maker-controls-are-compact.test.ts`
+now fails if either returns).
+
+SPEC IMPACT: None (the decision is already recorded in DECISION_LOG.md, 2026-09-27)

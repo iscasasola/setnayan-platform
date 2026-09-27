@@ -7,7 +7,14 @@ import { Info, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'l
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { MAKER_BAR, MAKER_COMING_NEXT, isStagePhase, type MakerBarItem } from './maker-bar';
+import {
+  MAKER_BAR,
+  MAKER_COMING_NEXT,
+  isStagePhase,
+  makerPlaceItem,
+  makerPlacePick,
+  type MakerBarItem,
+} from './maker-bar';
 import {
   MakerContext,
   MAKER_MORE_ROWS_ID,
@@ -487,17 +494,19 @@ export function MakerBar({
     showActive();
   }, [stage, selection, showActive]);
   /*
-    🧭 WHEN THE ROW CANNOT FIT, IT BECOMES TWO PICKERS (owner 2026-09-27, on the
+    🧭 WHEN THE ROW CANNOT FIT, IT BECOMES ONE PICKER (owner 2026-09-27, on the
     stage row clipped to "…vitation" / "Save the…" at laptop widths: *"we can
     also convert this to a drop down/tap to show options for smaller
-    screens?"*). Decided by MEASURED overflow, never a breakpoint: the full row
+    screens?"* — and then, on the two pickers that shipped: *"combine them in 1
+    dropdown"*). Decided by MEASURED overflow, never a breakpoint: the full row
     is drawn, its natural width is read, and only when it is wider than the
-    room the bar has does it collapse to "● Invitation ▾" + "Pages ▾". The room
-    is watched (ResizeObserver) and the row comes back the moment it fits. The
-    pickers run the SAME `onPress` the buttons do.
+    room the bar has does it collapse to "● Invitation ▾" (or "Logo ▾" while a
+    page is open), listing Stages and Pages. The room is watched
+    (ResizeObserver) and the row comes back the moment it fits. The picker runs
+    the SAME `onPress` the buttons do.
   */
   const [compact, setCompact] = useState(false);
-  /* …and when even the two pickers cannot fit beside the other controls (a
+  /* …and when even the picker cannot fit beside the other controls (a
      1024px laptop leaves the bar ~150px), the bar takes its own full row inside
      the toolbar rather than truncate "Invitation". It comes back beside them
      once the window is wider than where it wrapped. */
@@ -538,9 +547,12 @@ export function MakerBar({
       ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`
       : undefined;
 
-  const stageItems = MAKER_BAR.filter((i) => i.kind === 'stage');
-  const pageItems = MAKER_BAR.filter((i) => i.kind === 'tool');
-  const openTool = selection?.kind === 'tool' ? pageItems.find((i) => i.key === selection.key) ?? null : null;
+  const place = makerPlacePick({
+    stage,
+    liveStage,
+    openTool: selection?.kind === 'tool' ? selection.key : null,
+    hasWork,
+  });
 
   if (compact) {
     return (
@@ -553,30 +565,19 @@ export function MakerBar({
           wrapped ? 'md:order-last md:basis-full' : ''
         }`}
       >
+        {/* ▾ ONE PICKER, NOT TWO (owner 2026-09-27, on "● Invitation ▾" +
+            "Logo ▾": *"combine them in 1 dropdown"*). The button names where
+            the couple IS — the open page, else the stage — and the list holds
+            both, under "Stages" and "Pages" (`makerPlacePick`, maker-bar.ts). */}
         <PickMenu
-          label="Stage"
-          dataAttr="data-maker-stage-pick"
+          label="Stage or page"
+          dataAttr="data-maker-place-pick"
           className="shrink-0"
-          value={stage}
-          options={stageItems.map((i) => ({ key: i.key, label: i.label, dot: liveStage === i.key }))}
+          value={place.value}
+          options={place.options}
           onPick={(key) => {
-            const item = stageItems.find((i) => i.key === key);
+            const item = makerPlaceItem(key, hasWork);
             if (item) onPress(item);
-          }}
-        />
-        <PickMenu
-          label="Pages"
-          dataAttr="data-maker-pages-pick"
-          className="shrink-0"
-          value={openTool?.key ?? null}
-          options={pageItems.map((i) => ({
-            key: i.key,
-            label: i.label,
-            ...(hasWork ? {} : { disabledNote: 'only the couple can open this' }),
-          }))}
-          onPick={(key) => {
-            const item = pageItems.find((i) => i.key === key);
-            if (item && hasWork) onPress(item);
           }}
         />
       </nav>

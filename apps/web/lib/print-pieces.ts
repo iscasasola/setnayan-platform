@@ -40,6 +40,7 @@ export type PrintPieceKey =
   | 'invitation'
   | 'entourage'
   | 'details'
+  | 'menu'
   | 'pass'
   | 'poster'
   | 'card'
@@ -74,6 +75,8 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
   invitation: { key: 'invitation', label: 'The Invitation', size: '5 × 7 in', widthPt: inch(5), heightPt: inch(7), kind: 'set' },
   entourage: { key: 'entourage', label: 'The Entourage', size: '5 × 7 in', widthPt: inch(5), heightPt: inch(7), kind: 'set' },
   details: { key: 'details', label: 'The Finer Details', size: '5 × 7 in', widthPt: inch(5), heightPt: inch(7), kind: 'set' },
+  // Owner 2026-09-28: "add to print out our meals for tonight" — the menu, by moment.
+  menu: { key: 'menu', label: 'The Menu', size: '5 × 7 in', widthPt: inch(5), heightPt: inch(7), kind: 'set' },
   // CR80 — a real card size; a business card (3.5 × 2) is 4 % wider.
   // The pass's real size is its FORMAT (calling card by default) — see PRINT_FORMATS.
   pass: { key: 'pass', label: 'Event pass', size: 'Calling card · train · boarding pass', widthPt: 90 * (72 / 25.4), heightPt: 54 * (72 / 25.4), kind: 'set' },
@@ -120,8 +123,8 @@ export function isThemedPrint(theme: InviteThemeId): boolean {
   return theme !== CLASSIC_PRINT_THEME;
 }
 
-/** The six themed pieces, in the Maker's order. */
-export const PRINT_SET_KEYS = ['invitation', 'entourage', 'details', 'pass', 'poster', 'card'] as const satisfies readonly PrintPieceKey[];
+/** The themed pieces, in the Maker's order — the three invitation cards, the menu, then the rest. */
+export const PRINT_SET_KEYS = ['invitation', 'entourage', 'details', 'menu', 'pass', 'poster', 'card'] as const satisfies readonly PrintPieceKey[];
 export type PrintSetKey = (typeof PRINT_SET_KEYS)[number];
 
 export function isPrintSetKey(v: unknown): v is PrintSetKey {
@@ -189,7 +192,7 @@ export const DEFAULT_FORMAT: Record<PrintFormat['for'], PrintFormatId> = {
 /** Which format family a piece wears (the poster is A3, always). */
 export function formatFamilyOf(piece: PrintPieceKey): PrintFormat['for'] | null {
   if (piece === 'pass' || piece === 'passes') return 'pass';
-  if (piece === 'invitation' || piece === 'entourage' || piece === 'details') return 'invitation';
+  if (piece === 'invitation' || piece === 'entourage' || piece === 'details' || piece === 'menu') return 'invitation';
   if (piece === 'card') return 'card';
   return null;
 }
@@ -589,7 +592,77 @@ export function parseInclude(raw: unknown): PrintInclude {
 }
 
 /** `events.print_details` as stored: only what has no other home, plus the include choices. */
-export type StoredPrintDetails = { openingLine: string | null; rsvp: RsvpChoice | null; include: PrintInclude };
+export type StoredPrintDetails = { openingLine: string | null; rsvp: RsvpChoice | null; include: PrintInclude; menu: MenuMoment[] };
+
+// ─── The Menu ───────────────────────────────────────────────────────────────
+
+/**
+ * THE MENU, BY THE MOMENTS OF THE NIGHT — owner 2026-09-28, verbatim: *"add to
+ * print out our meals for tonight. from vendors from ceremony, to cocktail to
+ * the buffet."* Each moment (after the ceremony · cocktails · the buffet ·
+ * dessert) with its dishes, in the order they happen.
+ *
+ * Its home is `events.print_details.menu` — the jsonb whose rule is "only what
+ * has no other home" (migration 20271247112792). Measured 2026-09-28: no
+ * caterer on the platform authors a dish list (the food schemas count sample
+ * menus and store uploads; package lines are services), so what the couple
+ * types has no other home. A booked caterer's package lines are READ at print
+ * time (`readCatererMenu`) and never copied in here.
+ *
+ * Caps keep the stored JSON well inside the column's 16 KB CHECK.
+ */
+export type MenuMoment = { title: string; dishes: string[] };
+export const MENU_MAX_MOMENTS = 8;
+export const MENU_MAX_DISHES = 16;
+export const MENU_TITLE_MAX = 60;
+export const MENU_DISH_MAX = 100;
+
+/** Stored or posted menu → what prints. Unknown shapes are DROPPED, never repaired. */
+export function parseMenu(raw: unknown): MenuMoment[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MenuMoment[] = [];
+  for (const m of raw.slice(0, MENU_MAX_MOMENTS)) {
+    if (!m || typeof m !== 'object' || Array.isArray(m)) continue;
+    const r = m as Record<string, unknown>;
+    const title = clean(r.title, MENU_TITLE_MAX) ?? '';
+    const dishes = (Array.isArray(r.dishes) ? r.dishes : [])
+      .map((d) => clean(d, MENU_DISH_MAX))
+      .filter((d): d is string => Boolean(d))
+      .slice(0, MENU_MAX_DISHES);
+    if (!title && !dishes.length) continue;
+    out.push({ title, dishes });
+  }
+  return out;
+}
+
+/** Does this menu have anything to print? A card is never printed blank. */
+export function menuHasDishes(menu: readonly MenuMoment[] | null | undefined): boolean {
+  return Boolean(menu?.some((m) => m.dishes.length > 0));
+}
+
+/**
+ * The schedule's FOOD moments — the rows a couple already made (a cocktail
+ * hour, a reception & dinner) offered as the menu's moments, in time order, so
+ * the menu is started from the night they planned rather than typed twice.
+ */
+export const FOOD_BLOCK_TYPES = ['cocktails', 'dinner', 'reception'] as const;
+const FOOD_WORDS = /\b(cocktails?|dinner|lunch|breakfast|brunch|buffet|meal|merienda|snacks?|dessert|reception|tea)\b/i;
+export function foodMoments<T extends ScheduleBlockRow>(blocks: readonly T[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const top = blocks
+    .filter((b) => !b.parent_block_id && b.label && b.start_at)
+    .filter((b) => (FOOD_BLOCK_TYPES as readonly string[]).includes(b.block_type ?? '') || FOOD_WORDS.test(b.label ?? ''))
+    .sort((a, b) => String(a.start_at).localeCompare(String(b.start_at)));
+  for (const b of top) {
+    const t = clean(b.label, MENU_TITLE_MAX);
+    if (t && !seen.has(t.toLowerCase())) {
+      seen.add(t.toLowerCase());
+      out.push(t);
+    }
+  }
+  return out;
+}
 
 const LINE_MAX = 160;
 const clean = (v: unknown, max = LINE_MAX): string | null => {
@@ -605,7 +678,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * absent or broken value is nothing — never an invented opening line.
  */
 export function parsePrintDetails(raw: unknown): StoredPrintDetails {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE } };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { openingLine: null, rsvp: null, include: { ...DEFAULT_INCLUDE }, menu: [] };
   const r = raw as Record<string, unknown>;
   let rsvp: RsvpChoice | null = null;
   const c = r.rsvp && typeof r.rsvp === 'object' ? (r.rsvp as Record<string, unknown>) : null;
@@ -615,7 +688,7 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     const text = clean(c.text);
     if (text) rsvp = { kind: 'manual', text };
   }
-  return { openingLine: clean(r.opening_line, 240), rsvp, include: parseInclude(r.include) };
+  return { openingLine: clean(r.opening_line, 240), rsvp, include: parseInclude(r.include), menu: parseMenu(r.menu) };
 }
 
 /** The stored shape — what the form writes (snake_case, like every column). */
@@ -624,6 +697,7 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     opening_line: d.openingLine,
     rsvp: d.rsvp ? (d.rsvp.kind === 'host' ? { kind: 'host', moderator_id: d.rsvp.moderatorId } : { kind: 'manual', text: d.rsvp.text }) : null,
     include: d.include,
+    menu: d.menu,
   };
 }
 

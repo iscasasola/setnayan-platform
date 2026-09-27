@@ -28,7 +28,10 @@ import {
   ceremonyBlock,
   coupleNames,
   firstBlockOf,
+  foodMoments,
+  menuHasDishes,
   parsePrintDetails,
+  type MenuMoment,
   printedDate,
   printLookFor,
   type PrintLook,
@@ -37,6 +40,7 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
+import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 /**
@@ -317,6 +321,74 @@ export function parentsFromEntourage(
   return out;
 }
 
+// ─── The Menu's first source: a booked caterer ──────────────────────────────
+
+/** The supplier kinds whose package lines are food and drink for the guests (crew meals are not). */
+const MENU_CATEGORIES = new Set(['catering', 'cake_maker', 'mobile_bar']);
+
+/**
+ * THE CATERER'S MENU — owner 2026-09-28: *"from vendors from ceremony, to
+ * cocktail to the buffet"*. The dishes a couple's BOOKED supplier sells them:
+ * every LOCKED package's lines that survived the couple's own customisation
+ * (`keptItemRows`, the one definition the budget uses), where the line is food
+ * or drink (`resolveVendorCategory`). One moment per package, named as the
+ * supplier named it. Read at print time, never copied — the couple's own typed
+ * menu, when they have one, is what prints.
+ *
+ * A refused read is logged and reads as "no caterer menu" — the couple can
+ * still type theirs; nothing here invents a dish.
+ */
+export async function readCatererMenu(admin: SupabaseClient, eventId: string): Promise<MenuMoment[]> {
+  const { data: bookings, error } = await admin
+    .from('event_vendor_packages')
+    .select('booking_id, package_id, customizations_json')
+    .eq('event_id', eventId)
+    .eq('status', 'locked');
+  if (error) {
+    logQueryError('print-set.readCatererMenu', error, { event_id: eventId }, 'graceful_degrade');
+    return [];
+  }
+  const rows = (bookings ?? []) as Array<{ booking_id: string; package_id: string; customizations_json: unknown }>;
+  if (!rows.length) return [];
+  const ids = [...new Set(rows.map((r) => r.package_id))];
+  const [pkgRes, itemRes] = await Promise.all([
+    admin.from('vendor_packages').select('package_id, package_name').in('package_id', ids),
+    admin.from('vendor_package_items').select(VENDOR_PACKAGE_ITEM_SELECT).in('package_id', ids).order('display_order', { ascending: true }),
+  ]);
+  if (pkgRes.error) logQueryError('print-set.readCatererMenu.packages', pkgRes.error, { event_id: eventId }, 'graceful_degrade');
+  if (itemRes.error) {
+    logQueryError('print-set.readCatererMenu.items', itemRes.error, { event_id: eventId }, 'graceful_degrade');
+    return [];
+  }
+  const names = new Map(((pkgRes.data ?? []) as Array<{ package_id: string; package_name: string | null }>).map((p) => [p.package_id, p.package_name]));
+  const items = (itemRes.data ?? []) as unknown as VendorPackageItemRow[];
+  const out: MenuMoment[] = [];
+  for (const b of rows) {
+    const cj = b.customizations_json as { removed_item_ids?: unknown } | null;
+    const removed = Array.isArray(cj?.removed_item_ids) ? (cj!.removed_item_ids as unknown[]).filter((v): v is string => typeof v === 'string') : [];
+    const dishes = keptItemRows(items.filter((i) => i.package_id === b.package_id), removed)
+      .filter((i) => MENU_CATEGORIES.has(resolveVendorCategory(i.canonical_service)))
+      .map((i) => i.service_description?.replace(/\s+/g, ' ').trim())
+      .filter((d): d is string => Boolean(d));
+    if (dishes.length) out.push({ title: names.get(b.package_id)?.trim() || '', dishes });
+  }
+  return out;
+}
+
+/**
+ * What the Menu editor opens with, beyond the couple's saved menu: their booked
+ * caterer's lines (only read when they have typed none) and their schedule's
+ * food moments to name the moments by (`foodMoments`).
+ */
+export async function readMenuSources(eventId: string, saved: readonly MenuMoment[]): Promise<{ caterer: MenuMoment[]; suggestions: string[] }> {
+  const admin = createAdminClient();
+  const [blocks, caterer] = await Promise.all([
+    readBlocks(admin, eventId),
+    menuHasDishes(saved) ? Promise.resolve([] as MenuMoment[]) : readCatererMenu(admin, eventId),
+  ]);
+  return { caterer, suggestions: foodMoments(blocks) };
+}
+
 // ─── Images ─────────────────────────────────────────────────────────────────
 
 const stillCache = new Map<string, { at: number; bytes: Uint8Array }>();
@@ -421,7 +493,7 @@ export async function loadPrintSet(
 
   const stored = parsePrintDetails(event.print_details);
   const inc = stored.include;
-  const [blocks, entourage, venues, ownerSlug, stillRaw, giftLines, hosts, printMark] = await Promise.all([
+  const [blocks, entourage, venues, ownerSlug, stillRaw, giftLines, hosts, printMark, catererMenu] = await Promise.all([
     readBlocks(admin, eventId),
     readEntourage(admin, eventId),
     resolveStdFinalizedVenues(admin, eventId),
@@ -432,6 +504,8 @@ export async function loadPrintSet(
     readGiftLines(admin, eventId),
     stored.rsvp?.kind === 'host' ? readRsvpHosts(eventId) : Promise.resolve([] as RsvpHostOption[]),
     printMarkFor(event),
+    // The menu's order of sources: the couple's own typed menu, else their booked caterer's lines.
+    menuHasDishes(stored.menu) ? Promise.resolve([] as MenuMoment[]) : readCatererMenu(admin, eventId),
   ]);
 
   const ceremony = ceremonyBlock(blocks);
@@ -496,6 +570,7 @@ export async function loadPrintSet(
     attire: attireLines(event.dress_code_config),
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,
+    menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,
     hasStill: Boolean(images.still),
     hasEventQr,
   };

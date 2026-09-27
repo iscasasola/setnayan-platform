@@ -37,9 +37,7 @@ import { hasVenueContent } from '@/lib/website-section-content';
 
 // The components compile with the classic JSX runtime under tsx: React must be global.
 (globalThis as { React?: unknown }).React = React;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { VenueWidget } = require('../app/[slug]/_components/venue-widget') as typeof import('../app/[slug]/_components/venue-widget');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PublicEventDetails } = require('../app/[slug]/_components/empty-states') as typeof import('../app/[slug]/_components/empty-states');
 
 const CHURCH = 'Santuario de San Vicente de Paul Parish & Shrine of the Poor';

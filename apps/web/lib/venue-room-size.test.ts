@@ -52,23 +52,25 @@ test('a zero or negative stored value is not a room', () => {
 });
 
 test('the venue category matches the one the rest of the app already uses', async () => {
-  // Two readers, one word. `lib/std-venues.ts` calls the reception category
-  // 'venue'; if these ever diverge the lookup silently matches nothing and the
-  // feature just quietly stops suggesting — no error, no clue.
+  // Two readers, one word. `lib/event-venues.ts` (the Event Hub's venues, and
+  // since 2026-09-27 the Save-the-Date's too — `std-venues.ts` reads from it)
+  // calls the reception category 'venue'; if these ever diverge the lookup
+  // silently matches nothing and the feature just quietly stops suggesting — no
+  // error, no clue.
   const { readFileSync } = await import('node:fs');
   const { join, dirname } = await import('node:path');
   const { fileURLToPath } = await import('node:url');
   const here = dirname(fileURLToPath(import.meta.url));
   const src = readFileSync(join(here, 'venue-room-size.ts'), 'utf8');
-  const std = readFileSync(join(here, 'std-venues.ts'), 'utf8');
+  const std = readFileSync(join(here, 'event-venues.ts'), 'utf8');
 
   const mine = /const VENUE_CATEGORY = '([a-z_]+)'/.exec(src)?.[1];
-  const theirs = /const RECEPTION_CATEGORY = '([a-z_]+)'/.exec(std)?.[1];
+  const theirs = /const RECEPTION_VENUE_CATEGORY = '([a-z_]+)'/.exec(std)?.[1];
   assert.ok(mine, 'the venue category constant is gone');
   assert.equal(
     mine,
     theirs,
-    `The reception category diverged: this file says '${mine}', std-venues says ` +
+    `The reception category diverged: this file says '${mine}', event-venues says ` +
       `'${theirs}'. The lookup would match nothing and fail silently.`,
   );
 });

@@ -165,14 +165,17 @@ test('6 · the Colors panel posts ONE bg_color, filled by the Plain | Ombré fie
   const src = read(`${W}editor/_components/pro-panels.tsx`);
   const panel = fn(src, 'ColorsPanel');
   assert.match(panel, /<HubDraftField \/>/);
-  assert.match(panel, /<BackgroundField id=\{`\$\{rowKey\}-bg`\} value=\{bgColor\} themeId=\{themeId\} \/>/);
+  assert.match(panel, /<BackgroundField id=\{`\$\{rowKey\}-bg`\} value=\{bgColor\} themeId=\{themeId\}[^>]*\/>/);
   assert.doesNotMatch(panel, /name="bg_color"/, 'the panel must not post a second bg_color beside the field');
   const field = fn(src, 'BackgroundField');
   assert.equal((field.match(/name="bg_color"/g) ?? []).length, 1, 'exactly one bg_color is posted');
   // One colour + one effect → the column's own text form (owner: "pick a color,
   // and you apply either plain, dawn, diagonal or glow effect. that's it").
   assert.match(field, /const posted = encodeBackgroundChoice\(hex, effect\);/);
-  assert.equal((field.match(/type="color"/g) ?? []).length, 1, 'exactly ONE colour picker — no multi-colour builder');
+  // ONE colour picker — Keynote's split well since the toolbar rebuild (2026-09-27),
+  // which replaced the native swatch; still no multi-colour builder.
+  assert.equal((field.match(/<ColourWell\b/g) ?? []).length, 1, 'exactly ONE colour picker — no multi-colour builder');
+  assert.doesNotMatch(field, /type="color"/, 'no second, native picker beside the well');
   assert.match(field, /BACKGROUND_EFFECTS\.map\(/, 'the four effects are offered from the one list');
   assert.match(field, /aria-pressed=\{on\}/, 'the effects are a pressed set');
   assert.match(field, /backgroundImage: ombreCss\(\{ shape: e, base: previewBase \}\)/, 'an effect chip is a REAL gradient of the picked colour');

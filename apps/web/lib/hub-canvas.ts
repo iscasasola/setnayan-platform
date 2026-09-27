@@ -43,6 +43,7 @@ import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/sc
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
+import { ombreCss } from '@/lib/ombre';
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
@@ -230,9 +231,20 @@ export type HubSectionCanvas = {
    * the one nobody checks.
    */
   kind?: HubBackgroundKind;
-  /** The scene's colour — for `color`, and the tint of `glass` / `frost`.
-   *  `#rrggbb`. Never a ref — see `hubBackgroundColor`. */
+  /** The scene's colour — for `color`, `diagonal`, `glow`, and the tint of
+   *  `glass` / `frost`. `#rrggbb`. Never a ref — see `hubBackgroundColor`. */
   color?: string;
+  /** A glass's own opacity, 20–100 — see `hubGlassOpacity`. */
+  opacity?: number;
+  /**
+   * 🔖 "JUST THIS SCENE" (owner 2026-09-27: *"setting a background for one can
+   * be asked if they want to apply it to all or just this"*). Set when the
+   * couple answered Just this scene: the scene wears "Own background · ↺ Use
+   * the Event Hub's" and an "Every scene" answer elsewhere leaves it alone
+   * no longer — see `lib/scene-background-scope.ts`. Kept only beside a
+   * background.
+   */
+  own?: true;
   /**
    * 🖼 FRAMED OR FULL WIDTH (owner 2026-09-27: *"we will set it as a frame or
    * will the whole width. the user can choose"*). Absent = `framed`, the
@@ -430,20 +442,49 @@ export function hubMediaRef(value: unknown): string | null {
    only ever accepted a `hubMediaRef`. `resolveHubBackground` states that in one
    place so the next reader never has to wonder whether an absent `kind` means
    "photo" or means "half-written". */
-export const HUB_BACKGROUND_KINDS = ['photo', 'snippet', 'color', 'glass', 'frost', 'none'] as const;
+export const HUB_BACKGROUND_KINDS = ['photo', 'snippet', 'color', 'diagonal', 'glow', 'glass', 'frost', 'none'] as const;
 export type HubBackgroundKind = (typeof HUB_BACKGROUND_KINDS)[number];
 
 export const HUB_BACKGROUND_KIND_LABEL: Record<HubBackgroundKind, string> = {
   photo: 'A photo',
   snippet: 'A few seconds of video',
   color: 'A flat colour',
+  diagonal: 'Diagonal',
+  glow: 'Glow',
   glass: 'Opaque glass',
   frost: 'Frosted glass',
   none: 'No background',
 };
 
-/** The kinds a colour paints — a flat colour, and the two glasses it tints. */
-export const HUB_TINTED_KINDS = ['color', 'glass', 'frost'] as const;
+/**
+ * The kinds a colour paints — a flat colour, its two ombrés, and the two
+ * glasses it tints.
+ *
+ * 🌅 DIAGONAL AND GLOW PER SCENE (owner 2026-09-27, "MAKER TOOLBARS (KEYNOTE +
+ * PAGES) APPROVED", answer 1: the scene row is *No background · Plain ·
+ * Diagonal · Glow · Opaque · Frosted · Upload media*; Dawn is dropped here and
+ * stays for the whole Event Hub only). The SAME two ombrés the Main background
+ * offers (`lib/ombre.ts` `ombreCss`), derived from the scene's one colour — so
+ * one colour holds across Plain, both ombrés and both glasses.
+ */
+export const HUB_TINTED_KINDS = ['color', 'diagonal', 'glow', 'glass', 'frost'] as const;
+/** The two per-scene ombrés — a colour is required, like Plain. */
+export const HUB_OMBRE_KINDS = ['diagonal', 'glow'] as const;
+export type HubOmbreKind = (typeof HUB_OMBRE_KINDS)[number];
+
+/**
+ * 🪟 THE GLASS'S OPACITY (answer 5: *"both"* — Opaque and Frosted, 20–100%).
+ * Absent = the pane the glass draws by itself (`lib/scene-legibility.ts`); a
+ * stored value is the couple's own, in steps of 5. Kept only beside a glass.
+ */
+export const HUB_GLASS_OPACITY_MIN = 20;
+export const HUB_GLASS_OPACITY_MAX = 100;
+export const HUB_GLASS_OPACITY_STEP = 5;
+export function hubGlassOpacity(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return null;
+  if (value < HUB_GLASS_OPACITY_MIN || value > HUB_GLASS_OPACITY_MAX) return null;
+  return value % HUB_GLASS_OPACITY_STEP === 0 ? value : null;
+}
 export type HubTintedKind = (typeof HUB_TINTED_KINDS)[number];
 /** A glass chosen before any colour: a clear white pane over the page. */
 export const HUB_GLASS_DEFAULT_TINT = '#ffffff';
@@ -492,10 +533,10 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
      later reader would take the kind as evidence the media was once valid. */
   if (inSet(HUB_BACKGROUND_KINDS, canvas.kind)) {
     const kind = canvas.kind as HubBackgroundKind;
-    if (kind === 'color') {
+    if (kind === 'color' || kind === 'diagonal' || kind === 'glow') {
       const color = hubBackgroundColor(canvas.color);
       if (color) {
-        out.kind = 'color';
+        out.kind = kind;
         out.color = color;
       }
     } else if (kind === 'glass' || kind === 'frost') {
@@ -505,6 +546,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
       out.kind = kind;
       const color = hubBackgroundColor(canvas.color);
       if (color) out.color = color;
+      const opacity = hubGlassOpacity(canvas.opacity);
+      if (opacity !== null) out.opacity = opacity;
     } else if (kind === 'none') {
       out.kind = 'none';
     } else if (media) {
@@ -517,6 +560,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
     const painted = resolveHubBackground(out);
     if (painted && painted.kind !== 'none') out.shape = 'full';
   }
+  if (canvas.own === true && resolveHubBackground(out)) out.own = true;
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
   if (inSet(HUB_IN, canvas.in)) out.in = canvas.in;
   if (inSet(HUB_OUT, canvas.out)) out.out = canvas.out;
@@ -654,8 +698,8 @@ export type HubBackground =
 
 export function resolveHubBackground(canvas: HubSectionCanvas): HubBackground | null {
   if (canvas.kind === 'none') return { kind: 'none' };
-  if (canvas.kind === 'color') {
-    return canvas.color ? { kind: 'color', color: canvas.color } : null;
+  if (canvas.kind === 'color' || canvas.kind === 'diagonal' || canvas.kind === 'glow') {
+    return canvas.color ? { kind: canvas.kind, color: canvas.color } : null;
   }
   if (canvas.kind === 'glass' || canvas.kind === 'frost') {
     return { kind: canvas.kind, color: canvas.color ?? HUB_GLASS_DEFAULT_TINT };
@@ -666,9 +710,9 @@ export function resolveHubBackground(canvas: HubSectionCanvas): HubBackground | 
     : { kind: 'photo', media: canvas.media };
 }
 
-/** The colour a background paints (flat colour or either glass), else null. */
+/** The colour a background paints (flat colour, either ombré or either glass), else null. */
 export function hubBackgroundTint(bg: HubBackground | null): string | null {
-  return bg && (bg.kind === 'color' || bg.kind === 'glass' || bg.kind === 'frost') ? bg.color : null;
+  return bg && (HUB_TINTED_KINDS as readonly string[]).includes(bg.kind) ? (bg as { color: string }).color : null;
 }
 
 /** Photo or snippet — the two kinds that need a signed media URL. */
@@ -780,6 +824,11 @@ export function hubCanvasVars(
     ...(hubBackgroundTint(resolveHubBackground(canvas))
       ? { '--hub-bg-color': hubBackgroundTint(resolveHubBackground(canvas)) as string }
       : {}),
+    /* 🌅 Diagonal and Glow — the Main background's two ombrés, from the scene's
+       one colour (`ombreCss`: hex digits and keywords only, nothing typed). */
+    ...((canvas.kind === 'diagonal' || canvas.kind === 'glow') && canvas.color
+      ? { '--hub-bg-image': ombreCss({ shape: canvas.kind, base: canvas.color }) }
+      : {}),
     '--hub-focal': focalToObjectPosition(canvas.focal ?? HUB_DEFAULT_FOCAL),
     '--hub-zoom': String((canvas.zoom ?? HUB_DEFAULT_ZOOM) / 100),
     /* The KEYFRAME NAMES, not the choice words. One rule in `globals.css` reads
@@ -838,7 +887,7 @@ export function hubPhotoPlacement(canvas: HubSectionCanvas, hasMedia: boolean): 
      into a column beside the words and nothing to hide under "Words only", so
      it is painted behind in every arrangement — hiding it would turn the
      couple's colour into a control that moves no pixels. */
-  if (kind === 'color' || kind === 'glass' || kind === 'frost') return 'behind';
+  if (kind && (HUB_TINTED_KINDS as readonly string[]).includes(kind)) return 'behind';
   /* 🔑 A TEMPLATE SCENE PLACES ITS OWN PICTURES. Its photos live in `slots`
      and the template's layout puts them; `media` is then the SCENE
      BACKGROUND only ("Scene background · None — show main", owner 2026-09-24),

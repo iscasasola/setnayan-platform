@@ -49,7 +49,15 @@ import { contrastRatio } from '@/lib/hub-legibility';
 
 /* ── THE ELEMENTS ───────────────────────────────────────────────────────── */
 
-export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'line', 'date', 'time'] as const;
+/**
+ * 🔗 THE JOINER (owner 2026-09-27, "MAKER TOOLBARS (KEYNOTE + PAGES) APPROVED",
+ * answer 2: *"okay"* to "build the Joiner part") — the word between the two
+ * names ("and" · "&" · "+" · their own word), a part like any other: its own
+ * font · colour · size · motion, and its WORD (`HubElementStyle.word`). Before
+ * it, the "and" was made for the couple from the display name and could not be
+ * edited. Only on a two-person hero — a solo name has no joiner to draw.
+ */
+export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'line', 'date', 'time'] as const;
 export const HUB_SCENE_ELEMENT_KEYS = ['label', 'heading', 'body'] as const;
 export const HUB_ELEMENT_KEYS = [...HUB_HERO_ELEMENT_KEYS, ...HUB_SCENE_ELEMENT_KEYS] as const;
 export type HubHeroElementKey = (typeof HUB_HERO_ELEMENT_KEYS)[number];
@@ -60,6 +68,7 @@ export const HUB_ELEMENT_LABEL: Record<HubElementKey, string> = {
   eyebrow: 'Small line on top',
   mark: 'Your mark',
   names: 'Names',
+  joiner: 'Joiner',
   line: 'Invitation line',
   date: 'Date',
   time: 'Time',
@@ -91,17 +100,42 @@ export const HUB_SCENE_ELEMENT_SELECTOR: Record<HubSceneElementKey, string> = {
  */
 export const HUB_ELEMENT_EXCLUDED_WIDGETS: readonly string[] = ['rsvp'];
 
-/** What each element can take. The mark is a drawing: it has no font, colour or text of its own here. */
+/**
+ * What each element can take. The mark is a drawing: it has no font, colour or
+ * text of its own here — size, motion and show/hide only (the approved
+ * prototype: *"“Your mark” has size and motion only"*).
+ *
+ * The TEXT tab's Pages-style rows (2026-09-27, `prototypes/maker_toolbars_
+ * keynote_pages_2026-09-27.html`, frame B): weight where the face has weights ·
+ * B · I · U · alignment · line and letter spacing. The ARRANGE tab's show/hide
+ * (`hidden`). The joiner's `word`.
+ */
+const TEXT_FIELDS = [
+  'font',
+  'weight',
+  'italic',
+  'underline',
+  'color',
+  'size',
+  'align',
+  'leading',
+  'tracking',
+  'motion',
+  'hidden',
+] as const satisfies readonly HubElementField[];
 export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[]> = {
-  eyebrow: ['font', 'color', 'size', 'motion'],
-  mark: ['size', 'motion'],
-  names: ['font', 'color', 'size', 'motion'],
-  line: ['font', 'color', 'size', 'motion'],
-  date: ['font', 'color', 'size', 'motion'],
-  time: ['font', 'color', 'size', 'motion'],
-  label: ['font', 'color', 'size', 'motion'],
-  heading: ['font', 'color', 'size', 'motion'],
-  body: ['font', 'color', 'size', 'motion'],
+  eyebrow: TEXT_FIELDS,
+  mark: ['size', 'motion', 'hidden'],
+  names: TEXT_FIELDS,
+  // One word between two lines: no alignment or spacing of its own — it sits
+  // where the names put it — but the word itself is the couple's.
+  joiner: ['word', 'font', 'weight', 'italic', 'underline', 'color', 'size', 'motion', 'hidden'],
+  line: TEXT_FIELDS,
+  date: TEXT_FIELDS,
+  time: TEXT_FIELDS,
+  label: TEXT_FIELDS,
+  heading: TEXT_FIELDS,
+  body: TEXT_FIELDS,
 };
 
 /**
@@ -118,19 +152,176 @@ export const HUB_ELEMENT_RUN_KEYS: readonly HubElementKey[] = ['eyebrow', 'names
 
 /* ── THE CHOICES ────────────────────────────────────────────────────────── */
 
-export type HubElementField = 'font' | 'color' | 'size' | 'motion';
+export type HubElementField =
+  | 'font'
+  | 'color'
+  | 'size'
+  | 'motion'
+  | 'weight'
+  | 'italic'
+  | 'underline'
+  | 'align'
+  | 'leading'
+  | 'tracking'
+  | 'hidden'
+  | 'word';
 
 /**
- * SIZE, AS A STEP RELATIVE TO THE ELEMENT'S OWN SIZE. `m` is the element as
- * the theme set it, so `m` is an ABSENCE and is never stored.
+ * SIZE, AS A BOUNDED SCALE RELATIVE TO THE ELEMENT'S OWN SIZE — a − / +
+ * stepper, never a number the couple reads (owner 2026-09-27, answer 3:
+ * *"-+ only"*; and before it, *"Stepper with safe limits"*). It replaced
+ * S · M · L · XL.
+ *
+ * A step is a PERCENT of the size the theme gave the element; 100 is the
+ * element as the theme set it, so 100 is an ABSENCE and is never stored.
  *
  * 🔑 RELATIVE, NEVER PIXELS — "rails on" (owner 2026-09-23). A heading is 30px
- * on a phone and 60px on a laptop; "L" is 1.2× of whichever it is.
+ * on a phone and 60px on a laptop; 120 is 1.2× of whichever it is, so the phone
+ * and the laptop scale together and no step can outgrow one of them alone.
+ *
+ * 🛤 THE BOUNDS ARE PER ELEMENT (`HUB_ELEMENT_SIZE_BOUNDS`): words people must
+ * read never go below 85% (unreadable on a phone), the names and the heading
+ * never above 145% (past the scene's edge on a phone), the mark and the joiner
+ * — drawings and one small word — a little further each way.
+ *
+ * ♻ EVERY SIZE ALREADY SAVED KEEPS ITS LOOK. The old S · L · XL were exactly
+ * 0.85 · 1.2 · 1.45, so they map onto 85 · 120 · 145 — three of the steps — and
+ * every element's bounds contain all three (`element-size-scale.test.ts`).
  */
-export const HUB_ELEMENT_SIZES = ['s', 'm', 'l', 'xl'] as const;
-export type HubElementSize = (typeof HUB_ELEMENT_SIZES)[number];
-export const HUB_ELEMENT_SIZE_LABEL: Record<HubElementSize, string> = { s: 'S', m: 'M', l: 'L', xl: 'XL' };
-export const HUB_ELEMENT_SIZE_SCALE: Record<HubElementSize, number> = { s: 0.85, m: 1, l: 1.2, xl: 1.45 };
+export const HUB_ELEMENT_SIZE_STEPS = [70, 78, 85, 92, 100, 110, 120, 132, 145, 160] as const;
+export type HubElementSizeStep = (typeof HUB_ELEMENT_SIZE_STEPS)[number];
+/** The theme's own size — an absence. */
+export const HUB_ELEMENT_SIZE_BASE = 100;
+/** S · L · XL as they were stored before the stepper (M was never stored). */
+export const HUB_ELEMENT_LEGACY_SIZE: Readonly<Record<'s' | 'l' | 'xl', HubElementSizeStep>> = { s: 85, l: 120, xl: 145 };
+export const HUB_ELEMENT_SIZE_BOUNDS: Readonly<Record<HubElementKey, { min: HubElementSizeStep; max: HubElementSizeStep }>> = {
+  eyebrow: { min: 85, max: 145 },
+  mark: { min: 70, max: 160 },
+  names: { min: 70, max: 145 },
+  joiner: { min: 70, max: 160 },
+  line: { min: 85, max: 145 },
+  date: { min: 85, max: 145 },
+  time: { min: 85, max: 145 },
+  label: { min: 85, max: 145 },
+  heading: { min: 70, max: 145 },
+  body: { min: 85, max: 145 },
+};
+
+/**
+ * A stored size, or null (= the theme's own). Accepts a step, or one of the old
+ * S · L · XL; a step outside the element's bounds is pulled to the nearest
+ * bound (only a hand-made POST can carry one — the stepper never offers it).
+ */
+export function sanitizeHubElementSize(raw: unknown, key: HubElementKey): HubElementSizeStep | null {
+  let pct: number | null = null;
+  if (raw === 's' || raw === 'l' || raw === 'xl') pct = HUB_ELEMENT_LEGACY_SIZE[raw];
+  else if (typeof raw === 'number' && (HUB_ELEMENT_SIZE_STEPS as readonly number[]).includes(raw)) pct = raw;
+  if (pct === null) return null;
+  const { min, max } = HUB_ELEMENT_SIZE_BOUNDS[key];
+  const kept = Math.min(max, Math.max(min, pct)) as HubElementSizeStep;
+  return kept === HUB_ELEMENT_SIZE_BASE ? null : kept;
+}
+
+/**
+ * The percent a size draws at — a step as stored, or one of the old S · L · XL
+ * met unsanitized (a draft written before the stepper): never NaN, never CSS
+ * from anything else. Null = the theme's own.
+ */
+export function hubElementSizePct(size: unknown): number | null {
+  if (size === 's' || size === 'l' || size === 'xl') return HUB_ELEMENT_LEGACY_SIZE[size];
+  return typeof size === 'number' && (HUB_ELEMENT_SIZE_STEPS as readonly number[]).includes(size) && size !== HUB_ELEMENT_SIZE_BASE
+    ? size
+    : null;
+}
+
+/**
+ * One press of − or + — the next step inside the element's bounds, or `false`
+ * when the press would leave them (the button is then disabled). `null` = back
+ * to the theme's own size.
+ */
+export function stepHubElementSize(
+  current: number | null | undefined,
+  dir: 1 | -1,
+  key: HubElementKey,
+): HubElementSizeStep | null | false {
+  const steps = HUB_ELEMENT_SIZE_STEPS as readonly number[];
+  const at = steps.indexOf(current ?? HUB_ELEMENT_SIZE_BASE);
+  const from = at >= 0 ? at : steps.indexOf(HUB_ELEMENT_SIZE_BASE);
+  const next = steps[from + dir];
+  const { min, max } = HUB_ELEMENT_SIZE_BOUNDS[key];
+  if (next === undefined || next < min || next > max) return false;
+  return next === HUB_ELEMENT_SIZE_BASE ? null : (next as HubElementSizeStep);
+}
+
+/* ── THE TEXT TAB'S OTHER ROWS (Pages' Text inspector) ──────────────────── */
+
+/** Weight — offered only where the face has more than one loaded (`HUB_FONT_BY_KEY[k].weights`). */
+export const HUB_ELEMENT_WEIGHTS = [300, 400, 500, 600, 700] as const;
+export type HubElementWeight = (typeof HUB_ELEMENT_WEIGHTS)[number];
+export const HUB_ELEMENT_WEIGHT_LABEL: Record<HubElementWeight, string> = {
+  300: 'Light',
+  400: 'Regular',
+  500: 'Medium',
+  600: 'Semibold',
+  700: 'Bold',
+};
+export const HUB_ELEMENT_ALIGNS = ['left', 'center', 'right'] as const;
+export type HubElementAlign = (typeof HUB_ELEMENT_ALIGNS)[number];
+export const HUB_ELEMENT_ALIGN_LABEL: Record<HubElementAlign, string> = { left: 'Left', center: 'Centre', right: 'Right' };
+/** Line spacing, as a line-height. Absent = the theme's own ("Auto"). */
+export const HUB_ELEMENT_LEADING_STEPS = [0.9, 1, 1.1, 1.2, 1.35, 1.5, 1.75] as const;
+export type HubElementLeading = (typeof HUB_ELEMENT_LEADING_STEPS)[number];
+/** Letter spacing, in percent of the letter — the prototype's −2% · 0% · +8%. Absent = the theme's own. */
+export const HUB_ELEMENT_TRACKING_STEPS = [-2, 0, 8] as const;
+export type HubElementTracking = (typeof HUB_ELEMENT_TRACKING_STEPS)[number];
+
+/** Where − / + starts from while a spacing is still the theme's own. */
+const DISPLAY_KEYS: readonly HubElementKey[] = ['names', 'heading', 'joiner', 'mark'];
+function leadingStart(key: HubElementKey): HubElementLeading {
+  return DISPLAY_KEYS.includes(key) ? 1.1 : 1.5;
+}
+
+/** One press on a spacing stepper — the next step, or `false` at the end. From "Auto" it starts at the element's usual spacing. */
+export function stepHubSpacing(
+  kind: 'leading' | 'tracking',
+  current: number | null | undefined,
+  dir: 1 | -1,
+  key: HubElementKey,
+): number | false {
+  const steps: readonly number[] = kind === 'leading' ? HUB_ELEMENT_LEADING_STEPS : HUB_ELEMENT_TRACKING_STEPS;
+  if (current === null || current === undefined) {
+    if (kind === 'tracking') return dir < 0 ? steps[0]! : steps[steps.length - 1]!;
+    const start = steps.indexOf(leadingStart(key));
+    const next = steps[start + dir];
+    return next === undefined ? false : next;
+  }
+  const at = steps.indexOf(current);
+  const next = at >= 0 ? steps[at + dir] : undefined;
+  return next === undefined ? false : next;
+}
+
+/** "−2%" · "0%" · "+8%" · "1.05" — what a spacing stepper shows; "Auto" while it is the theme's. */
+export function hubSpacingLabel(kind: 'leading' | 'tracking', value: number | null | undefined): string {
+  if (value === null || value === undefined) return 'Auto';
+  if (kind === 'leading') return value.toFixed(2).replace(/0$/, '');
+  return `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value)}%`;
+}
+
+/**
+ * THE JOINER'S WORD. Three made for them, or their own — a short word, letters
+ * only (any script), never markup: it is drawn as React text, so nothing typed
+ * can become HTML or CSS. Absent = the word taken from the display name, as
+ * before the Joiner existed.
+ */
+export const HUB_JOINER_WORDS = ['and', '&', '+'] as const;
+export const HUB_JOINER_MAX = 12;
+export function sanitizeHubJoinerWord(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const w = raw.replace(/\s+/g, ' ').trim();
+  if (w.length === 0 || w.length > HUB_JOINER_MAX) return null;
+  if ((HUB_JOINER_WORDS as readonly string[]).includes(w)) return w;
+  return /^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u.test(w) ? w : null;
+}
 
 /* ── HOW ONE ELEMENT MOVES — Transition In · Animation During · Transition Out
    Owner, 2026-09-27: *"each element can have a transition and animation.
@@ -218,16 +409,30 @@ export type HubElementRun = {
   end: number;
   font?: HubFontKey;
   color?: string;
-  size?: Exclude<HubElementSize, 'm'>;
+  /** A step of `HUB_ELEMENT_SIZE_STEPS`, never 100. */
+  size?: HubElementSizeStep;
 };
 
 /** One element, as the couple left it. Every field absent = the theme's own. */
 export type HubElementStyle = {
   font?: HubFontKey;
-  /** `#rrggbb`, lowercased. */
+  /** `#rrggbb`, or `#rrggbbaa` below full opacity — lowercased. */
   color?: string;
-  /** Never `m` — see `HUB_ELEMENT_SIZES`. */
-  size?: Exclude<HubElementSize, 'm'>;
+  /** A step of `HUB_ELEMENT_SIZE_STEPS`, never 100 — see there. */
+  size?: HubElementSizeStep;
+  weight?: HubElementWeight;
+  italic?: true;
+  underline?: true;
+  align?: HubElementAlign;
+  leading?: HubElementLeading;
+  tracking?: HubElementTracking;
+  /**
+   * Arrange → Show: Hidden. Guests never see the part; the Maker canvas draws
+   * it ghosted so it can be brought back (the prototype's frame B).
+   */
+  hidden?: true;
+  /** The joiner's word only — `sanitizeHubJoinerWord`. */
+  word?: string;
   motion?: HubElementMotion;
   /** Runs, sorted, never overlapping — only with `of`. */
   runs?: HubElementRun[];
@@ -237,17 +442,22 @@ export type HubElementStyle = {
 
 export type HubElementStyles = Partial<Record<HubElementKey, HubElementStyle>>;
 
-const HEX = /^#[0-9a-f]{6}$/;
+const HEX = /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/;
 const HASH = /^[0-9a-f]{8}$/;
 /** Runs per element, and the longest text a run may reach into. */
 export const HUB_ELEMENT_MAX_RUNS = 24;
 const MAX_OFFSET = 400;
 
-/** `#rrggbb`, or null. The only shape a colour may take. */
+/**
+ * `#rrggbb` — or `#rrggbbaa` when the Colour panel's Opacity is below 100% —
+ * or null. The only shapes a colour may take. A fully opaque `…ff` is stored as
+ * its six digits, so one colour has one spelling.
+ */
 export function hubElementColor(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const v = value.trim().toLowerCase();
-  return HEX.test(v) ? v : null;
+  if (!HEX.test(v)) return null;
+  return v.length === 9 && v.endsWith('ff') ? v.slice(0, 7) : v;
 }
 
 /**
@@ -283,7 +493,7 @@ export function sanitizeHubElementMotion(raw: unknown): HubElementMotion | null 
 }
 
 /** Runs, or null — sorted, clipped to the closed sets, overlaps dropped. */
-export function sanitizeHubElementRuns(raw: unknown): HubElementRun[] | null {
+export function sanitizeHubElementRuns(raw: unknown, key: HubElementKey = 'names'): HubElementRun[] | null {
   if (!Array.isArray(raw)) return null;
   const runs: HubElementRun[] = [];
   for (const r of raw.slice(0, HUB_ELEMENT_MAX_RUNS)) {
@@ -298,7 +508,8 @@ export function sanitizeHubElementRuns(raw: unknown): HubElementRun[] | null {
     if (font) run.font = font;
     const color = hubElementColor(s.color);
     if (color) run.color = color;
-    if (s.size === 's' || s.size === 'l' || s.size === 'xl') run.size = s.size;
+    const size = sanitizeHubElementSize(s.size, key);
+    if (size) run.size = size;
     if (run.font || run.color || run.size) runs.push(run);
   }
   runs.sort((a, b) => a.start - b.start || a.end - b.end);
@@ -323,7 +534,17 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
   if (font) out.font = font;
   const color = fields.includes('color') ? hubElementColor(src.color) : null;
   if (color) out.color = color;
-  if (fields.includes('size') && (src.size === 's' || src.size === 'l' || src.size === 'xl')) out.size = src.size;
+  const size = fields.includes('size') ? sanitizeHubElementSize(src.size, key) : null;
+  if (size) out.size = size;
+  if (fields.includes('weight') && isIn(HUB_ELEMENT_WEIGHTS, src.weight)) out.weight = src.weight;
+  if (fields.includes('italic') && src.italic === true) out.italic = true;
+  if (fields.includes('underline') && src.underline === true) out.underline = true;
+  if (fields.includes('align') && isIn(HUB_ELEMENT_ALIGNS, src.align)) out.align = src.align;
+  if (fields.includes('leading') && isIn(HUB_ELEMENT_LEADING_STEPS, src.leading)) out.leading = src.leading;
+  if (fields.includes('tracking') && isIn(HUB_ELEMENT_TRACKING_STEPS, src.tracking)) out.tracking = src.tracking;
+  if (fields.includes('hidden') && src.hidden === true) out.hidden = true;
+  const word = fields.includes('word') ? sanitizeHubJoinerWord(src.word) : null;
+  if (word) out.word = word;
   if (fields.includes('motion')) {
     const motion =
       src.motion !== undefined
@@ -334,7 +555,7 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
     if (motion) out.motion = motion;
   }
   if (HUB_ELEMENT_RUN_KEYS.includes(key) && typeof src.of === 'string' && HASH.test(src.of)) {
-    const runs = sanitizeHubElementRuns(src.runs);
+    const runs = sanitizeHubElementRuns(src.runs, key);
     if (runs) {
       out.runs = runs;
       out.of = src.of;
@@ -362,18 +583,75 @@ export function sanitizeHubElements(raw: unknown): HubElementStyles | null {
  * the reset (↺): the field goes back to an absence, and an element with no
  * field left disappears, and elements with none left return null.
  */
+export type HubElementChoiceValue = string | number | boolean | null;
+
 export function withElementChoice(
   elements: HubElementStyles | null | undefined,
   key: HubElementKey,
   field: Exclude<HubElementField, 'motion'>,
-  value: string | null,
+  value: HubElementChoiceValue,
 ): HubElementStyles | null {
   const next: Record<string, unknown> = { ...(elements ?? {}) };
   const style: Record<string, unknown> = { ...(elements?.[key] ?? {}) };
-  if (value === null || (field === 'size' && value === 'm')) delete style[field];
+  if (value === null || value === false || (field === 'size' && value === HUB_ELEMENT_SIZE_BASE)) delete style[field];
   else style[field] = value;
   next[key] = style;
   return sanitizeHubElements(next);
+}
+
+/**
+ * THE WHOLE HERO TAKES ONE ALIGNMENT (the prototype: *"alignment moves the
+ * whole hero"*) — a left-aligned name over a centred date reads as a mistake,
+ * so aligning any of the hero's words aligns all of them. A scene's own label,
+ * heading and words align one by one.
+ */
+export function withElementAlign(
+  elements: HubElementStyles | null | undefined,
+  key: HubElementKey,
+  value: HubElementAlign | null,
+): HubElementStyles | null {
+  const hero = (HUB_HERO_ELEMENT_KEYS as readonly HubElementKey[]).includes(key);
+  const keys = hero ? HUB_HERO_ELEMENT_KEYS.filter((k) => HUB_ELEMENT_FIELDS[k].includes('align')) : [key];
+  let next: HubElementStyles | null = elements ?? null;
+  for (const k of keys) next = withElementChoice(next, k, 'align', value);
+  return next;
+}
+
+/**
+ * "↺ Use the Event Hub style" — every Text-tab choice on this element back to
+ * the theme's own, in one tap (motion, show/hide and the joiner's word are the
+ * other tabs' and stay). One word per concept: this is THE text reset.
+ */
+export const HUB_ELEMENT_TEXT_FIELDS = [
+  'font',
+  'weight',
+  'italic',
+  'underline',
+  'color',
+  'size',
+  'align',
+  'leading',
+  'tracking',
+] as const satisfies readonly HubElementField[];
+export function withoutTextStyle(elements: HubElementStyles | null | undefined, key: HubElementKey): HubElementStyles | null {
+  const next: Record<string, unknown> = { ...(elements ?? {}) };
+  const style: Record<string, unknown> = { ...(elements?.[key] ?? {}) };
+  for (const f of HUB_ELEMENT_TEXT_FIELDS) delete style[f];
+  delete style.runs;
+  delete style.of;
+  next[key] = style;
+  let out = sanitizeHubElements(next);
+  // The hero's alignment is one choice for the whole hero — taken off together.
+  if (elements?.[key]?.align && (HUB_HERO_ELEMENT_KEYS as readonly HubElementKey[]).includes(key)) {
+    out = withElementAlign(out, key, null);
+  }
+  return out;
+}
+
+/** Does this element carry any Text-tab choice of its own? */
+export function hasTextStyle(style: HubElementStyle | null | undefined): boolean {
+  if (!style) return false;
+  return HUB_ELEMENT_TEXT_FIELDS.some((f) => style[f] !== undefined) || Boolean(style.runs?.length);
 }
 
 /** One motion choice changed (`null` = back to its default). In and During never clear each other. */
@@ -405,14 +683,14 @@ export function withRunChoice(
   key: HubElementKey,
   range: { start: number; end: number; of: string },
   field: 'font' | 'color' | 'size',
-  value: string | null,
+  value: string | number | null,
 ): HubElementStyles | null {
   const style: HubElementStyle = { ...(elements?.[key] ?? {}) };
   const current = style.of === range.of ? (style.runs ?? []) : [];
   const same = current.find((r) => r.start === range.start && r.end === range.end);
   const others = current.filter((r) => r.end <= range.start || r.start >= range.end);
   const run: Record<string, unknown> = { ...(same ?? {}), start: range.start, end: range.end };
-  if (value === null || (field === 'size' && value === 'm')) delete run[field];
+  if (value === null || (field === 'size' && value === HUB_ELEMENT_SIZE_BASE)) delete run[field];
   else run[field] = value;
   const next: Record<string, unknown> = { ...(elements ?? {}) };
   next[key] = { ...style, runs: [...others, run], of: range.of };
@@ -627,15 +905,31 @@ export function hubElementMotionDeclarations(
  * `zoom` for size: it scales the element from ITS OWN size (a 3rem heading
  * becomes 3.6rem at L) where `font-size: 1.2em` would scale from the parent's.
  */
-export function hubElementDeclarations(style: HubElementStyle | null | undefined): Array<[string, string]> {
+export function hubElementDeclarations(
+  style: HubElementStyle | null | undefined,
+  opts: { editor?: boolean } = {},
+): Array<[string, string]> {
   if (!style) return [];
   const out: Array<[string, string]> = [];
   if (style.font) {
     const f = HUB_FONT_BY_KEY[style.font];
     out.push(['font-family', `var(${f.cssVar}), ${f.fallback}`]);
   }
+  if (style.weight) out.push(['font-weight', String(style.weight)]);
+  if (style.italic) out.push(['font-style', 'italic']);
+  if (style.underline) out.push(['text-decoration-line', 'underline']);
   if (style.color) out.push(['color', style.color]);
-  if (style.size) out.push(['zoom', String(HUB_ELEMENT_SIZE_SCALE[style.size])]);
+  const pct = hubElementSizePct(style.size);
+  if (pct) out.push(['zoom', String(pct / 100)]);
+  if (style.align) {
+    // `justify-content` too: the card's date is a flex row (rules either side).
+    out.push(['text-align', style.align]);
+    out.push(['justify-content', style.align === 'left' ? 'flex-start' : style.align === 'right' ? 'flex-end' : 'center']);
+  }
+  if (style.leading) out.push(['line-height', String(style.leading)]);
+  if (style.tracking !== undefined) out.push(['letter-spacing', `${style.tracking / 100}em`]);
+  // Hidden: never drawn for a guest; ghosted in the Maker so it can come back.
+  if (style.hidden) out.push(opts.editor ? ['opacity', '0.3'] : ['display', 'none']);
   return out;
 }
 
@@ -655,9 +949,12 @@ const camel = (prop: string) => prop.replace(/-([a-z])/g, (_, c: string) => c.to
  * motion, so an engine that fails the gate simply shows the words.
  * The part carries `data-el-motion` (`hubElementMotionAttr`) for that rule.
  */
-export function hubElementInlineStyle(style: HubElementStyle | null | undefined): Record<string, string> | undefined {
+export function hubElementInlineStyle(
+  style: HubElementStyle | null | undefined,
+  opts: { editor?: boolean } = {},
+): Record<string, string> | undefined {
   const out: Record<string, string> = {};
-  for (const [prop, value] of hubElementDeclarations(style)) out[camel(prop)] = value;
+  for (const [prop, value] of hubElementDeclarations(style, opts)) out[camel(prop)] = value;
   for (const [prop, value] of hubElementHeroMotionVars(style)) out[prop] = value;
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -696,7 +993,8 @@ export function hubRunDeclarations(run: HubElementRun): Array<[string, string]> 
     out.push(['font-family', `var(${f.cssVar}), ${f.fallback}`]);
   }
   if (run.color) out.push(['color', run.color]);
-  if (run.size) out.push(['font-size', `${HUB_ELEMENT_SIZE_SCALE[run.size]}em`]);
+  const pct = hubElementSizePct(run.size);
+  if (pct) out.push(['font-size', `${pct / 100}em`]);
   return out;
 }
 
@@ -719,7 +1017,20 @@ export function hubRunInlineStyle(run: HubElementRun): Record<string, string> {
  * change must not replay the part's entrance. `element-preview.test.ts` holds
  * that the two lists cover every property the declarations can emit.
  */
-export const HUB_ELEMENT_LOOK_PROPS = ['font-family', 'color', 'zoom'] as const;
+export const HUB_ELEMENT_LOOK_PROPS = [
+  'font-family',
+  'font-weight',
+  'font-style',
+  'text-decoration-line',
+  'color',
+  'zoom',
+  'text-align',
+  'justify-content',
+  'line-height',
+  'letter-spacing',
+  'opacity',
+  'display',
+] as const;
 export const HUB_ELEMENT_MOTION_PROPS = [
   '--el-anim',
   '--el-tl',
@@ -802,7 +1113,11 @@ const SCENES_GATE_OPEN = '@supports (animation-range: entry 0% exit 100%) and (t
  *   · inside a pinned Scrub scene or an armed Auto run, the part's own
  *     scroll-linked In and Out follow `--hub-tl` (`HubElementPlace`).
  */
-export function hubElementSceneCss(scope: string, elements: HubElementStyles | null | undefined): string | null {
+export function hubElementSceneCss(
+  scope: string,
+  elements: HubElementStyles | null | undefined,
+  opts: { editor?: boolean } = {},
+): string | null {
   const safe = hubElementScope(scope);
   if (!safe || !elements) return null;
   const host = `:has(+ style[data-hub-els="${safe}"])`;
@@ -813,7 +1128,19 @@ export function hubElementSceneCss(scope: string, elements: HubElementStyles | n
   for (const key of HUB_SCENE_ELEMENT_KEYS) {
     const style = elements[key];
     const target = `:is(${HUB_SCENE_ELEMENT_SELECTOR[key]})`;
-    const look = hubElementDeclarations(style);
+    /* 🙈 A HIDDEN PART: gone for a guest, ghosted in the Maker's canvas. The
+       canvas is told apart by the navigator's markers, which exist ONLY there
+       (`data-maker-section`, `site-body.tsx`) — no editor flag reaches a frame. */
+    if (style?.hidden) {
+      const at = `${host} ${target}`;
+      if (opts.editor === undefined) {
+        looks.push(`:root:not(:has([data-maker-section])) ${at}{display:none !important}`);
+        looks.push(`:root:has([data-maker-section]) ${at}{opacity:0.3 !important}`);
+      } else {
+        looks.push(`${at}{${opts.editor ? 'opacity:0.3' : 'display:none'} !important}`);
+      }
+    }
+    const look = hubElementDeclarations(style ? { ...style, hidden: undefined } : style, opts);
     if (look.length > 0) looks.push(`${host} ${target}{${look.map(([p, v]) => `${p}:${v} !important`).join(';')}}`);
     const motion = style?.motion;
     if (!motion) continue;
@@ -854,6 +1181,19 @@ export const HUB_ELEMENT_FONTS = hubFontsForPicker();
  */
 export const HUB_ELEMENT_MIN_CONTRAST = 4.5;
 export function hubElementContrast(color: string, ground: string): { ratio: number; ok: boolean } {
-  const ratio = contrastRatio(color, ground);
+  const ratio = contrastRatio(hubColorOver(color, ground), ground.slice(0, 7));
   return { ratio, ok: ratio >= HUB_ELEMENT_MIN_CONTRAST };
+}
+
+/**
+ * A `#rrggbbaa` colour as it is SEEN over its ground (`#rrggbb`) — what the
+ * contrast warning must measure. A six-digit colour is returned as it is.
+ */
+export function hubColorOver(color: string, ground: string): string {
+  if (color.length !== 9) return color.slice(0, 7);
+  const a = parseInt(color.slice(7, 9), 16) / 255;
+  const ch = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+  const g = ground.length >= 7 ? ground : '#ffffff';
+  const mix = [0, 1, 2].map((i) => Math.round(ch(color, i) * a + ch(g, i) * (1 - a)));
+  return `#${mix.map((n) => n.toString(16).padStart(2, '0')).join('')}`;
 }

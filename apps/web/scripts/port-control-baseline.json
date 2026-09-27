@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c55e8881a",
+  "generatedFromRef": "9b2f4a2e0",
   "routeCount": 435,
-  "destinations": 947,
+  "destinations": 946,
   "actions": 669,
-  "blocks": 4817,
+  "blocks": 4829,
   "routes": {
     "/": {
       "files": [
@@ -6032,7 +6032,6 @@
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/launch?tool=prints",
-        "/dashboard/[seg]/monogram?mode=upload",
         "/dashboard/[seg]/plan3d",
         "/marketplace"
       ],
@@ -6043,12 +6042,16 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "AddBtn",
+        "Chip",
         "ColourRow",
         "ComingNext",
         "CouldNotLoad",
         "DeviceButton",
         "DraftNote",
         "EventPoster",
+        "Face",
+        "Field",
         "FileUpload",
         "FineTune",
         "GridPageSkeleton",
@@ -6057,6 +6060,7 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLIFrameElement",
+        "HTMLInputElement",
         "HTMLSpanElement",
         "HubDraftDock",
         "HubDraftField",
@@ -6064,11 +6068,15 @@
         "HubSavesImmediately",
         "HubStage",
         "Icon",
+        "IconBtn",
         "IconButton",
         "InfoTip",
+        "KindIcon",
+        "LayerTools",
+        "LayeredLogoPlayer",
         "LifecyclePhase",
         "Link",
-        "LogoStudio",
+        "LogoLayer",
         "MadeOnce",
         "MakerBar",
         "MakerContext.Provider",
@@ -6096,15 +6104,17 @@
         "PrintSaveButton",
         "Row",
         "RsvpAskConfig",
+        "SVGSVGElement",
         "SaveState",
         "Segmented",
+        "SheetHead",
         "SiteStage",
+        "Slider",
         "SlugField",
         "State",
         "Switch",
+        "SwitchRow",
         "Toggle",
-        "UploadedLogo",
-        "VectorStudio",
         "ViewAsSwitch",
         "WebsiteEditorPage"
       ]
@@ -8307,6 +8317,7 @@
         "HubDraftToolbar",
         "InfoTip",
         "Link",
+        "MakerSaveStatus",
         "PaidMark",
         "ResultLine"
       ]

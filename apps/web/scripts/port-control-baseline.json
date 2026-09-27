@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "371790553",
+  "generatedFromRef": "5a690e1a5",
   "routeCount": 435,
   "destinations": 947,
   "actions": 669,
-  "blocks": 4820,
+  "blocks": 4823,
   "routes": {
     "/": {
       "files": [
@@ -900,6 +900,7 @@
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/plus-one-seats.server.ts",
+        "[slug]/_lib/preview-person.server.ts",
         "[slug]/_lib/previous-edition.server.ts",
         "[slug]/_lib/pro-site-vars.ts",
         "[slug]/_lib/reveal-props.ts",
@@ -1133,6 +1134,7 @@
         "PhotoMomentModeBadge",
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
+        "PreviewPerson",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -6085,9 +6087,11 @@
         "MakerLogoDoor",
         "MakerPage",
         "MakerPageFrame",
+        "MakerPageSwitch",
         "MakerPlayMenu",
         "MakerPrints",
         "MakerRevealPicker",
+        "MakerRsvpCanvas",
         "MakerRsvpSettings",
         "MakerSelection",
         "MakerShell",

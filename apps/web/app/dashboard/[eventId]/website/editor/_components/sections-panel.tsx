@@ -41,6 +41,7 @@ import {
   HUB_SCENE_SHAPE_LABEL,
   hubBackgroundTint,
   resolveHubBackground,
+  HUB_GLASS_DEFAULT_TINT,
 } from '@/lib/hub-canvas';
 import { canvasHasMotion } from '@/lib/hub-look-pro';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
@@ -871,6 +872,7 @@ export function SectionsPanel({
                   ownsPro={ownsPro}
                   action={setBackgroundAction}
                   returnTo={back}
+                  showSwatches={ownsPro && photoChoices.length === 0}
                 />
               ) : null}
 
@@ -1170,6 +1172,14 @@ function SectionColourChoices({
      changes the TINT and keeps the glass; otherwise it is a flat colour. */
   const tintKind = canvas.kind === 'glass' || canvas.kind === 'frost' ? canvas.kind : 'color';
   const colourOn = canvas.kind === 'color' || canvas.kind === 'glass' || canvas.kind === 'frost';
+  /* The scene's colour as it actually paints — a glass stored without one IS
+     the light pane, so the light swatch shows as chosen. */
+  const currentTint = hubBackgroundTint(resolveHubBackground(canvas));
+  /* ☀ THE LIGHT SURFACE COMES FIRST (owner 2026-09-27, "opaque glass, frosted
+     glass does not work"): a glass reads as glass when it is light, and the
+     couple's darkest swatch made both glasses look like a dark slab. Always
+     offered, never duplicated. */
+  const swatches = [HUB_GLASS_DEFAULT_TINT, ...colorChoices.filter((h) => h.toLowerCase() !== HUB_GLASS_DEFAULT_TINT)];
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
       <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
@@ -1191,8 +1201,8 @@ function SectionColourChoices({
           </button>
         </form>
       ) : null}
-      {colorChoices.map((hex) => {
-        const on = colourOn && canvas.color === hex;
+      {swatches.map((hex) => {
+        const on = colourOn && currentTint === hex;
         return (
           <form key={hex} action={action}>
             <HubDraftField />
@@ -1244,6 +1254,7 @@ function SceneBackgroundChoices({
   ownsPro,
   action,
   returnTo,
+  showSwatches = false,
 }: {
   eventId: string;
   widgetId: string;
@@ -1254,17 +1265,25 @@ function SceneBackgroundChoices({
   ownsPro: boolean;
   action: (formData: FormData) => void | Promise<void>;
   returnTo: string;
+  /** Draw the tint swatches here — only when no other row draws them. */
+  showSwatches?: boolean;
 }) {
   const bg = resolveHubBackground(canvas);
   const current = bg?.kind ?? null;
-  /* A glass or a colour starts from the scene's colour, else the couple's first. */
-  const tint = hubBackgroundTint(bg) ?? colorChoices[0] ?? '#ffffff';
+  /* A colour starts from the scene's colour, else the couple's first. */
+  const tint = hubBackgroundTint(bg) ?? colorChoices[0] ?? HUB_GLASS_DEFAULT_TINT;
+  /* 🪟 A GLASS STARTS LIGHT (owner 2026-09-27: "opaque glass, frosted glass
+     does not work" — both had started from the couple's darkest swatch and
+     read as a dark slab). Moving between the two glasses keeps the tint; from
+     anything else the pane starts as the light surface, and the swatches below
+     tint it. */
+  const glassTint = current === 'glass' || current === 'frost' ? tint : HUB_GLASS_DEFAULT_TINT;
   const photo = bg?.kind === 'photo' ? bg.media : (photoChoices[0]?.ref ?? null);
   const choices: Array<{ key: string; label: string; fields: Record<string, string> } | null> = [
     { key: 'none', label: 'No background', fields: { kind: 'none' } },
     { key: 'color', label: 'Full colour', fields: { kind: 'color', color: tint } },
-    { key: 'glass', label: 'Opaque glass', fields: { kind: 'glass', color: tint } },
-    { key: 'frost', label: 'Frosted glass', fields: { kind: 'frost', color: tint } },
+    { key: 'glass', label: 'Opaque glass', fields: { kind: 'glass', color: glassTint } },
+    { key: 'frost', label: 'Frosted glass', fields: { kind: 'frost', color: glassTint } },
     ownsPro && photo ? { key: 'photo', label: 'Photo', fields: { media: photo } } : null,
     ownsPro && videoChoice ? { key: 'snippet', label: 'Snippet', fields: { kind: 'snippet', media: videoChoice.ref } } : null,
   ];
@@ -1312,6 +1331,19 @@ function SceneBackgroundChoices({
             </form>
           ))}
         </div>
+      ) : null}
+      {/* The tint, for a couple whose other row (the photo picker) is not
+          drawn — a Pro couple with no photos yet. Everyone else already has
+          the same swatches in that row. */}
+      {showSwatches && (current === 'color' || current === 'glass' || current === 'frost') ? (
+        <SectionColourChoices
+          returnTo={returnTo}
+          eventId={eventId}
+          widgetId={widgetId}
+          canvas={canvas}
+          colorChoices={colorChoices.length > 0 ? colorChoices : [HUB_GLASS_DEFAULT_TINT]}
+          action={action}
+        />
       ) : null}
     </div>
   );

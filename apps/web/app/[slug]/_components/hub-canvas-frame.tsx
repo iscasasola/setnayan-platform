@@ -102,10 +102,22 @@ export function HubCanvasFrame({
      (owner 2026-09-25: "did you already make the font color adapt also based
      on the background?"). A flat colour re-derives the ink, heading and
      eyebrow through the Phase 3 rule (`hubLegibility`); nothing here reads an
-     entitlement. A photo or clip keeps the frame's measured scrim. */
+     entitlement. A photo or clip keeps the frame's measured scrim.
+     🪟 Both glasses too, measured over the pane they actually paint — and the
+     pane's own fill comes from the same answer, so the glass is exactly as
+     clear as its words allow (`sceneTintGround`). */
+  /* 🖼 …and a photo or snippet behind the words: under the light scrim it is a
+     light ground, so a dark theme's light page ink must not ride onto it. */
   const tint = hubBackgroundTint(bg);
+  const theme = INVITE_THEMES[hubTheme ?? 'house'];
   const legible =
-    tint && placement === 'behind' ? sceneLegibilityVars(INVITE_THEMES[hubTheme ?? 'house'], tint) : null;
+    placement !== 'behind'
+      ? null
+      : tint && (bg?.kind === 'color' || bg?.kind === 'glass' || bg?.kind === 'frost')
+        ? sceneLegibilityVars(theme, tint, bg.kind)
+        : mediaUrl && (bg?.kind === 'photo' || bg?.kind === 'snippet')
+          ? sceneLegibilityVars(theme, '#ffffff', 'media')
+          : null;
   return (
     <>
     <div

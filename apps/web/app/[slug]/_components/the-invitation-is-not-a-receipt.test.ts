@@ -90,7 +90,11 @@ test('🔒 ONLY the face changed — size, tracking, case and tone all stayed', 
   const countdown = scoped('countdown.tsx');
   assert.match(countdown, /font-sans text-xs uppercase tracking-\[0\.2em\] text-terracotta/,
     'the countdown heading lost its size, case, tracking or tone — only the face may change');
-  assert.match(countdown, /font-sans text-xs uppercase tracking-\[0\.15em\] text-ink\/50/,
+  // The units' TONE moved once, deliberately and on its own ruling: /50 → /70
+  // (2026-09-27, "text stays readable on any background" — the 12px units read
+  // 3.2:1 at /50 on a cream page, under the 4.5:1 floor). Size, case and
+  // tracking are still exactly what they were.
+  assert.match(countdown, /font-sans text-xs uppercase tracking-\[0\.15em\] text-ink\/70/,
     'the countdown unit labels lost their size, case, tracking or tone');
   const tier = scoped('tier-comparison-widget.tsx');
   assert.match(tier, /font-sans text-xs uppercase tracking-\[0\.2em\] text-ink\/55/,

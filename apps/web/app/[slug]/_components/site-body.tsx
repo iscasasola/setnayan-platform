@@ -20,7 +20,10 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { saveAttendedVendorAction } from '../actions';
+import { saveAttendedVendorAction, submitRsvp } from '../actions';
+import { GuestChecklist } from './guest-checklist';
+import { guestChecklistItems } from '../_lib/guest-checklist-facts';
+import { daysUntil } from '@/lib/guest-checklist';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
@@ -1831,6 +1834,31 @@ export async function SiteBody({
               A shared phone also stops announcing whose invitation it is before
               it says whose wedding it is.
               Guarded by `the-invitation-opens-on-the-mark.test.ts`. */}
+          {/* ☑ "YOUR CHECKLIST" — the last 30 days (owner 2026-09-26/27):
+              what to wear · motif colours · arrive by · venue + Maps · their
+              table · their pass, each a tick saved to THIS guest (their own
+              reply action, +0 routes). `g.checklist` is null outside the
+              window; the page decided that on the server. */}
+          {g.checklist && plan.body === 'normal' && !isMakerCanvas && !isLive && !isPost ? (
+            <GuestChecklist
+              items={guestChecklistItems({
+                role: guest.role,
+                dressCodeConfig: event.dress_code_config ?? null,
+                rolePalette: event.role_palette,
+                arriveBy: firstScheduleTimeLabel,
+                venueName: event.venue_name,
+                venueAddress: event.venue_address,
+                venueLatitude: event.venue_latitude,
+                venueLongitude: event.venue_longitude,
+                tableLabel: guestHubData.tableLabel,
+              })}
+              initialTicks={g.checklist.ticks}
+              readFailed={g.checklist.readFailed}
+              save={submitRsvp.bind(null, event.event_id, guest.guest_id)}
+              daysLeft={daysUntil({ eventDate: event.event_date, today: manilaToday() })}
+              dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
+            />
+          ) : null}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
           {/* Guest Hub Card — persistent status summary for identified returning
               guests. Shows RSVP status, seat, meal, and next schedule item at

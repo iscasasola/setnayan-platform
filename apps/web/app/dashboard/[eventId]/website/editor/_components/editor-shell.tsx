@@ -1304,7 +1304,7 @@ function LoveStoryControls({ rows }: { rows: Record<string, MakerRowPanel> }) {
   return (
     <section className="flex flex-col gap-3" data-made-once="love-story">
       <p className="px-1 text-[13.5px] text-ink/75">
-        <InfoTip label="The same chapters as your page." align="start">
+        <InfoTip label="The same chapters as your page." ariaLabel="About your chapters" align="start">
           Each moment is a scene on your {PUBLIC_STAGE_LABELS.rsvp}. Tap one to edit it on the page. A year is enough, and
           five stories in your words are free. The answers under each chapter feed your story&rsquo;s paragraph.
         </InfoTip>

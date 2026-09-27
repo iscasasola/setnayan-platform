@@ -108,6 +108,7 @@ import {
 } from '@/lib/invitation-widgets';
 import { updateSpecialMessage } from '../special-message/actions';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftAction } from '../hub-draft-actions';
 import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/lib/hub-draft';
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
@@ -1154,6 +1155,16 @@ export default async function WebsiteEditorPage({
       /* 🎭 Where the reveal plays (drafted over live) — its page previews the first. */
       revealStages={await readMakerRevealStages(eventId)}
       publicLandingUrl={slug ? `/${slug}` : null}
+      /* 🔤 Per-element editing: every scene's canvas as the canvas draws it (the
+         draft over live — `allWidgets`), and the theme's colours for swatches. */
+      elementEditing={{
+        canvases: Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
+        palette: (() => {
+          const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
+          return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
+        })(),
+        draftAction: hubDraftAction,
+      }}
       scenes={scenes}
       navigator={navigator}
       scenePanels={scenePanels}

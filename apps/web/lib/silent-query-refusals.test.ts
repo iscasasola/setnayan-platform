@@ -284,7 +284,12 @@ test('the gate still fetches the narrowing for every vendor-facing caller', () =
 test('the join door checks the id before it asks the database', () => {
   const src = code(read('app/join/[eventId]/page.tsx'));
   const guardAt = src.indexOf('isUuid(eventId)');
-  const firstQueryAt = src.indexOf("from('event_join_tokens')");
+  // Anchored on the FIRST database query in the file, whatever table it names —
+  // not on one table. #6030 removed the `event_join_tokens` read (the poster QR
+  // now goes to the event), and a table-named anchor then read -1 and failed a
+  // page that is still correct. The property is "the id is checked before ANY
+  // query", so the anchor is any `.from('…')` / `.rpc('…')`.
+  const firstQueryAt = src.search(/\.\s*(?:from|rpc)\(\s*['"`]/);
   assert.ok(guardAt >= 0, 'the join door hands a raw URL segment to a uuid column again');
   assert.ok(
     firstQueryAt >= 0 && guardAt < firstQueryAt,

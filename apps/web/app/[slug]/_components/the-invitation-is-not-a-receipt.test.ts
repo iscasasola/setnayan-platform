@@ -148,11 +148,18 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // scene drawn by ONE mapped eyebrow ("2021 · Falling"), in the same protected
   // treatment, so the SOURCE holds two fewer while the page shows one per
   // moment. The treatment is untouched; the count is of source lines.
+  //
+  // 18 SINCE 2026-09-28 (the Dress code scene wears the Mood Board — owner: "if
+  // in general, show our theme and the palettes of each role"). The general
+  // view gained ONE section head, "Our colours", above the Mood Board's main
+  // colours — the same job as "You are <role>" above the personal panel, in
+  // the same protected treatment, so it joins the count rather than inventing
+  // a second style. The per-role rows below it use a plain label, not this.
   assert.equal(
     gild,
-    17,
+    18,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `carried 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
       `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,

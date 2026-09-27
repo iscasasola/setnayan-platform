@@ -35,7 +35,7 @@
 
 import type { GuestRole } from '@/lib/guests';
 import { roleLabel } from '@/lib/entourage';
-import { resolveAttirePaletteColor, type RolePalette } from '@/lib/mood-board';
+import { resolveAttirePaletteColors, type RolePalette } from '@/lib/mood-board';
 
 /** The styles a couple may ask a role to wear. Owner's three, plus the ones a Filipino wedding actually uses. */
 export const ATTIRE_STYLES = [
@@ -157,6 +157,13 @@ export type GuestDressCode = {
   callTime: string | null;
   /** Hex from the couple's mood board, or null when they have not set one. */
   hex: string | null;
+  /**
+   * EVERY colour this role wears on the mood board — `hex` is its first.
+   * Owner, 2026-09-28: *"if there is an account specified to this, show their
+   * palette only"* — their palette, all of it, not its first swatch. Same
+   * chain as `hex` (`resolveAttirePaletteColors`), so the two cannot disagree.
+   */
+  hexes: string[];
 };
 
 /**
@@ -177,9 +184,10 @@ export function resolveGuestDressCode(input: {
 
   const label = roleLabel(role);
   const rule = input.roles[role] ?? null;
-  const hex = input.palette
-    ? resolveAttirePaletteColor(role, input.palette, input.sideColor ?? null)
-    : null;
+  const hexes = input.palette
+    ? resolveAttirePaletteColors(role, input.palette, input.sideColor ?? null)
+    : [];
+  const hex = hexes[0] ?? null;
 
   // Nothing to say at all — no label, no style, no colour — is not a panel.
   if (!label && !rule && !hex) return null;
@@ -191,6 +199,7 @@ export function resolveGuestDressCode(input: {
     note: rule?.note ?? null,
     callTime: formatCallTime(rule?.callTime),
     hex,
+    hexes,
   };
 }
 

@@ -110,7 +110,11 @@ test('1 · WIRING: the event page redirects a key with missing answers to the RS
 });
 
 test('1 · WIRING: the RSVP page asks the SAME rule for which answers are missing', () => {
-  assert.match(REPLY, /const gate = rsvpGate\(\{/, 'the RSVP page decides what is missing some other way');
+  assert.match(
+    REPLY,
+    /const gate = canvas \? \(\{ kind: 'inside', didntReply: false \} as const\) : rsvpGate\(\{/,
+    'the RSVP page decides what is missing some other way',
+  );
   assert.match(REPLY, /gate=\{gate\.kind === 'ask' \? \{ missing: gate\.missing, coupleMarked: gate\.coupleMarked \} : null\}/);
   // Both the event page and the RSVP page recognise the SAME key.
   assert.match(REPLY, /readGuestSessionForEvent\(event\.event_id as string\)/);

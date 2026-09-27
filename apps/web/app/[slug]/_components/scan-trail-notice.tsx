@@ -2,6 +2,7 @@ import { eventWordsForEvent } from '../_lib/event-words';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestScanTracking } from '../actions';
+import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 
 /**
  * THE HANDLE FOR `guests.scan_tracking_opt_out`.
@@ -62,10 +63,19 @@ export function scanOptOutTarget(current: boolean | null): boolean {
 export async function ScanTrailNotice({
   eventId,
   guestId,
+  preview = false,
 }: {
   eventId: string;
   guestId: string;
+  /** The Maker's canvas (`isEditorCanvas`). */
+  preview?: boolean;
 }) {
+  // 🖼 NOT IN THE MAKER'S CANVAS, AND NEVER FOR THE SAMPLE GUEST (owner
+  // 2026-09-27). The sample of the "After they reply" preview has no row, so
+  // the read fails (its id is not a uuid — 22P02) and the honest "we couldn't
+  // check" line would be said about a person who does not exist. Decided HERE,
+  // so every recognised guest's mount stays unconditional.
+  if (preview || guestId === SIMULATED_GUEST_ID) return null;
   const [w, optedOut] = await Promise.all([
     eventWordsForEvent(eventId),
     readScanOptOut(eventId, guestId),

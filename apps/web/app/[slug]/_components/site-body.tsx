@@ -165,7 +165,6 @@ import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
-import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
@@ -2273,9 +2272,7 @@ export async function SiteBody({
                   the "After they reply" preview — it has no row to read, and
                   the honest "we couldn't check" line would be a lie about a
                   person who does not exist (owner 2026-09-27). */}
-              {isEditorCanvas || guest.guest_id === SIMULATED_GUEST_ID ? null : (
-                <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} />
-              )}
+              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
 
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at

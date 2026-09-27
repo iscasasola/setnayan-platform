@@ -148,9 +148,11 @@ test('2 · no card around the reply, the ticket, the pass, the change link or th
 // ═══ 3 · no error about a person who does not exist ═══════════════════════
 
 test('3 · the canvas and the sample guest never show the scan-trail notice', () => {
+  assert.match(BODY, /<ScanTrailNotice eventId=\{event\.event_id\} guestId=\{guest\.guest_id\} preview=\{isEditorCanvas\} \/>/);
+  const NOTICE = read('[slug]/_components/scan-trail-notice.tsx');
   assert.match(
-    BODY,
-    /\{isEditorCanvas \|\| guest\.guest_id === SIMULATED_GUEST_ID \? null : \(\s*<ScanTrailNotice\b/,
+    NOTICE,
+    /if \(preview \|\| guestId === SIMULATED_GUEST_ID\) return null;/,
     'the "we couldn\'t check" line reaches the Maker preview again',
   );
 });

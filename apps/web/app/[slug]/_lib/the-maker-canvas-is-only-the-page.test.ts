@@ -88,7 +88,9 @@ test('the "Guest bars" switch brings back only the GUEST bars, never the host\'s
   // bars too — `lib/guest-bars-frame-the-slide.test.ts`.
   assert.match(BODY, /const showGuestBars = !isEditorCanvas \|\| canvasGuestBars \|\| isStagePreview;/);
   // In the canvas the tab bar is drawn for a guest — no host "Manage" slot.
-  assert.match(BODY, /viewer: ownerCapability && !isEditorCanvas \? \{ kind: 'couple' \} : \{ kind: 'public' \}/);
+  // …and since 2026-09-27 the canvas draws the bar of a guest HOLDING THEIR KEY
+  // (a stranger's bar is only Home · Details · Story — not what is designed).
+  assert.match(BODY, /viewer: ownerCapability && !isEditorCanvas \? \{ kind: 'couple' \} : isEditorCanvas \? \{ kind: 'guest' \} : \{ kind: 'public' \}/);
   // The request is canvas-only.
   assert.match(PAGE, /canvasGuestBars: isEditorCanvas && search\.bars === '1'/);
   // Host chrome ignores the switch entirely.

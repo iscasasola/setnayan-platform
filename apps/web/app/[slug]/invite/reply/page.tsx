@@ -1,22 +1,23 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
-import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { readGuestSession } from '@/lib/guest-session';
 import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
-import { guestListIsClosed } from '@/lib/guest-list-closed';
+import { guestListDeadlineEndMs, guestListIsClosed } from '@/lib/guest-list-closed';
 import { joinDoorMeta } from '@/lib/join-door-meta';
-import { arrivalSteps, CONNECT_THEN_REPLY, inviteEnterPath } from '@/lib/invite-arrival';
+import { inviteEnterPath } from '@/lib/invite-arrival';
 import { eventWordsFor } from '../../_lib/event-words';
 import type { GuestRow } from '../../_lib/types';
 import { RsvpWidget } from '../../_components/rsvp-widget';
+import { NotYouSwitch } from '../../_components/not-you-switch';
 import { submitInviteReply } from '../actions';
-import { guestAccountState, replyOffersKeep } from '@/lib/guest-one-path';
-import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
+import { rsvpGate } from '@/lib/guest-one-path';
+import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
+import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -27,21 +28,27 @@ type Props = {
 };
 
 /**
- * DOOR 02 · REPLY — the invite arrival's second door (lib/invite-arrival.ts).
+ * THE RSVP PAGE — the guest pathway's second screen (owner 2026-09-26/27,
+ * spec corpus DECISION_LOG "GET INSIDE … RSVP IS ONE EXTRA PAGE INSIDE THE
+ * EVENT HUB" and "THE RSVP IS ONE EDITABLE SCENE + ONE SWITCH").
  *
- * The guest is already on the list: door 01 matched them or admitted them, and
- * minted the guest session this page reads. Here they complete their OWN record
- * — the answer, how to reach them, their meal, their dietary notes, a plus-one
- * if the couple allowed one, a note, a selfie — with the SAME card and the SAME
- * write the Event Hub uses (`RsvpWidget` → `submitRsvp`). Until 2026-09-10 that
- * card lived only on the site, so the arrival ended before the part it exists for.
+ *   Invitation → RSVP → **this page** → Send → thank-you (door 03)
  *
- * 🔑 THE EMAIL IS THE LOGIN (owner 2026-09-10). Google and Apple sit at the TOP
- * of this door — before anything is typed, because a provider sign-in leaves the
- * page and comes back, and a redirect under a half-filled form loses the form.
- * They return through `/join/[eventId]/connect`, which binds this seat to the
- * account, then straight back here. A guest who types an email instead is sent
- * the passwordless sign-in link when they save (`submitInviteReply`).
+ * ONE button: Send. The guest never chooses a sign-in method here — saving to
+ * an account is the thank-you's one button, chosen by the device. So the
+ * Google / Apple row and the "Sign in instead" line that used to sit on this
+ * door are gone; what stays is the form, the Terms tick (required), and a small
+ * "Not you? Switch" under the name for a phone a family shares.
+ *
+ * 🔑 THE KEY GATE LANDS HERE. `/{slug}` redirects a guest with a missing
+ * required answer to this page (`rsvpGate`, lib/guest-one-path.ts), and this
+ * page asks the SAME function which answers are missing — so a question the
+ * couple switched on after the guest replied is asked alone, and a guest the
+ * couple already marked attending sees "The couple has you down as attending ✓"
+ * with only the details still missing.
+ *
+ * The write is `RsvpWidget` → `submitInviteReply` → `submitRsvp`, the same save
+ * the Event Hub's own card makes, with every guard it carries.
  */
 export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { slug } = await params;
@@ -62,11 +69,13 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   if (!event?.slug) notFound();
   const home = event.slug as string;
 
-  // The session IS the gate: door 01 (or a personal link) minted it, and it is
-  // the same credential the Event Hub trusts. No session for THIS event → the
-  // first door, where they can find themselves.
-  const session = await readGuestSession();
-  if (!session || session.event_id !== event.event_id) redirect(`/${home}/invite`);
+  // The KEY is the gate: the browser's guest pass for THIS event, or the seat a
+  // signed-in account holds on it (the page that redirects here recognises
+  // both, so this page must too — otherwise a signed-in guest on a new phone
+  // would be bounced between the two). No key → the event page, where a
+  // stranger gets the one "Get inside" button.
+  const session = await readGuestSessionForEvent(event.event_id as string);
+  if (!session) redirect(`/${home}`);
 
   const { data: guest, error: guestError } = await admin
     .from('guests')
@@ -80,7 +89,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   if (guestError) {
     throw new Error(`invite/reply: could not read guest ${session.guest_id}: ${guestError.message}`);
   }
-  if (!guest) redirect(`/${home}/invite`);
+  if (!guest) redirect(`/${home}`);
 
   // A TBA plus-one confirms their own name first — the same routing the Event Hub does.
   const isUnconfirmedTba =
@@ -89,11 +98,12 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceMode, supabase, look] = await Promise.all([
+  const [words, faceMode, supabase, look, seats] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolvePapicFaceMode(admin, event.event_id as string),
     createClient(),
     loadInviteLook(event),
+    plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
   ]);
   const {
     data: { user },
@@ -103,6 +113,15 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     lockedAt: event.guest_count_locked_at as string | null,
     editDeadline: event.guest_list_edit_deadline as string | null,
     eventDate: event.event_date as string | null,
+  });
+  const ask = resolveRsvpAsk(event.rsvp_ask_config);
+  const gate = rsvpGate({
+    rsvpStatus: guest.rsvp_status as string | null,
+    mealPreference: guest.meal_preference as string | null,
+    mobile: guest.mobile as string | null,
+    askMeal: ask.meal,
+    askMobile: ask.mobile,
+    locked: replyLocked,
   });
 
   // The answers this person has already given Setnayan — read only for a
@@ -132,61 +151,42 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     }
   }
 
-  // Signed in AND holding this seat? Then there is no account left to offer.
-  let seatIsLinked = false;
-  if (user?.id) {
-    const { data: held } = await admin
-      .from('event_members')
-      .select('id')
-      .eq('event_id', event.event_id)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    seatIsLinked = Boolean(held);
-  }
-
-  // Where a provider sign-in (or a password sign-in) comes back through: the
-  // connect route binds this seat to the account, then returns to this door.
-  const connectPath = `/join/${event.event_id}/connect?then=${CONNECT_THEN_REPLY}`;
-
-  // The keep box beside the email (form first, then sign up — owner
-  // 2026-09-25). The same decision the Event Hub's own card makes, from the
-  // same facts, so the door and the site cannot disagree about who is offered it.
-  const keepOffer = replyOffersKeep(
-    guestAccountState({
-      viewerUserId: user?.id ?? null,
-      viewerEmail: user?.email ?? null,
-      seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
-      linkSentForThisEvent: await keepLinkSentFor(event.event_id as string),
-    }),
-  );
-
   const flash =
     search.rsvp === 'error'
       ? {
           tone: 'error' as const,
           text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
         }
-      : null;
+      : search.rsvp === 'terms'
+        ? {
+            tone: 'error' as const,
+            text: 'Please tick “I agree to the Terms” to send your reply — it has not been sent yet.',
+          }
+        : null;
 
   /* ── THE WAY ONWARD FOR SOMEBODY WHO HAS ALREADY ANSWERED ────────────────
-     🔒 THE 2026-09-10 REDIRECT STAYS. `join-flow.tsx` sends a returning guest
-     straight here rather than back through the arrival, and that ruling is not
-     being reversed — a guest must not be made to type their name again. What
-     was missing is the other half: from this door there was NO way on to the
-     Event Hub or to their own QR except re-submitting the form. Owner hit
-     exactly that and called it being stuck.
+     A returning guest who opens the RSVP tab to change something has a way on
+     without re-sending the form: the thank-you screen (door 03), where their
+     plus-ones' invites and "Save to my account" live. Offered only once there
+     IS an answer to stand on — a guest the key gate sent here has not got one. */
+  const hasAnswered = gate.kind === 'inside' && ((guest.rsvp_status as string | null) ?? 'pending') !== 'pending';
 
-     🔑 THE LINK GOES TO DOOR 03, NOT TO THE HUB. Door 03 is where the QR is
-     handed over and where the phase-aware proceed button lives; sending them
-     past it would be the "stuck" complaint answered by skipping the thing they
-     were stuck without. It is the same `readGuestSession()` gate as this page,
-     so it cannot show anyone a code that is not theirs — and it replays no
-     reveal (that is door 01, which this guest is deliberately never sent back
-     to).
-
-     Offered only once there IS an answer to stand on: a 'pending' guest has not
-     replied yet, and their way onward is the card below. */
-  const hasAnswered = ((guest.rsvp_status as string | null) ?? 'pending') !== 'pending';
+  // When the list stops taking answers — the ONE deadline `guestListIsClosed`
+  // itself reads, so the date said here is the date the door really shuts.
+  const closesMs = replyLocked
+    ? null
+    : guestListDeadlineEndMs(
+        event.guest_list_edit_deadline as string | null,
+        event.event_date as string | null,
+      );
+  const closesLabel =
+    closesMs != null
+      ? new Date(closesMs).toLocaleDateString('en-PH', {
+          day: 'numeric',
+          month: 'long',
+          timeZone: 'UTC',
+        })
+      : null;
 
   const guestName =
     (guest.display_name as string | null)?.trim() ||
@@ -202,10 +202,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         event_date_precision: event.event_date_precision as string | null,
         venue_name: event.venue_name as string | null,
       })}
-      steps={arrivalSteps('reply')}
       width="lg"
       skin={look.skin}
     >
+      <NotYouSwitch slug={home} />
+
       {hasAnswered ? (
         <DoorNotice>
           Your reply is saved.{' '}
@@ -214,68 +215,21 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             href={inviteEnterPath(home)}
           >
             Go to your QR and open the {words.eventWord}
-          </Link>{' '}
+          </Link>
           {replyLocked ? null : <> &mdash; or change your answer below.</>}
         </DoorNotice>
-      ) : null}
-
-      {user && seatIsLinked ? (
-        <p className="text-sm text-ink/70">
-          You&rsquo;re signed in{user.email ? <> as <span className="font-medium text-ink">{user.email}</span></> : null} —
-          this reply is saved to your account.
-        </p>
-      ) : user ? (
-        <p className="text-sm text-ink/70">
-          You&rsquo;re signed in.{' '}
-          <Link className="font-medium text-link underline-offset-2 hover:underline" href={connectPath}>
-            Keep this invitation in your account
-          </Link>
-          .
-        </p>
-      ) : ANY_OAUTH_ENABLED ? (
-        <div className="space-y-3">
-          {/* ⚠ THE WORDS USED TO ASSUME AN ACCOUNT. This line read "Fills this in
-              for you, and becomes how you sign in later." — owner, 2026-09-11:
-              *"if they do not have an account yet, you say that it fills it up
-              for them. how is that if they do not have an account yet."* He is
-              right: the BEHAVIOUR was always correct (a provider sign-in MAKES
-              the account and hands back a name and an email), but the sentence
-              only made sense to somebody who already had one.
-
-              🔑 AND IT NOW CARRIES THE REASON THAT IS WORTH SOMETHING. Owner, same
-              day: *"logging in will sync and save their photos."* Written
-              against what SHIPS, and nothing wider:
-                · `photos-of-you-gallery.tsx` is mounted by site-body for
-                  `isLive || isPost` — on the day, this page really does show a
-                  guest the photos they are in;
-                · the account is what reaches the event afterwards. The
-                  guest-link cookie carries ONE event and dies at 60 days with no
-                  sliding refresh (lib/guest-session.ts); Path C in
-                  app/[slug]/page.tsx admits a signed-in person through their
-                  `event_members.guest_id` seat instead — any device, no link.
-              ⛔ NOT a cross-event "photo collection". No such surface was found,
-              so no such sentence is written. */}
-          <p className="text-sm text-ink/70">
-            No Setnayan account yet? Continuing with Google or Apple makes one in a tap — it
-            fills your name and email in below, and it becomes how you sign in from then on.
-          </p>
-          <p className="text-sm text-ink/70">
-            It also keeps the photos of you: on the day, this page shows each guest the photos
-            they are in, and the account is how you reach this {words.eventWord} again later —
-            from any phone, without the invite link.
-          </p>
-          <OAuthButtonRow next={connectPath} />
-          <p className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
-            <span aria-hidden className="h-px flex-1 bg-ink/10" />
-            or fill it in yourself
-            <span aria-hidden className="h-px flex-1 bg-ink/10" />
-          </p>
-        </div>
+      ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
+        <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
       ) : null}
 
       <RsvpWidget
         words={words}
-        guest={guest as unknown as GuestRow}
+        guest={{
+          ...(guest as unknown as GuestRow),
+          // One name box per seat (+1…+4). Names only — a seat's key is for
+          // the thank-you's "Send their invite", never for this form.
+          plus_one_seats: seats.map((s) => ({ guest_id: s.guest_id, name: s.name })),
+        }}
         eventId={event.event_id as string}
         eventPublicId={event.public_id as string}
         faceMode={faceMode}
@@ -293,22 +247,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
            a feature taken away: a prop, because this card is shared with the
            Event Hub's own RSVP card, which keeps its selfie. */
         offerSelfie={false}
-        keepOffer={keepOffer}
         ask={resolveRsvpAsk(event.rsvp_ask_config)}
+        gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
+        termsOnSend
+        oneAtATime={askOneAtATime(event.rsvp_ask_config)}
       />
-
-      {user ? null : (
-        <p className="text-sm text-ink/70">
-          Have an account?{' '}
-          <Link
-            className="font-medium text-link underline-offset-2 hover:underline"
-            href={`/login?next=${encodeURIComponent(connectPath)}`}
-          >
-            Sign in
-          </Link>{' '}
-          instead.
-        </p>
-      )}
     </DoorShell>
   );
 }

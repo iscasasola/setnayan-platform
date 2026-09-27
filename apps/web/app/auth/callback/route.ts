@@ -6,6 +6,7 @@ import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
 import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
+import { RSVP_TERMS_COOKIE, TERMS_VERSION, rsvpTermsCarried } from '@/lib/terms-agreement';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -82,6 +83,30 @@ export async function GET(request: NextRequest) {
           // reject too. Treat any throw exactly like a returned error: fall
           // through as customer (fixable at /open-shop via becomeVendor) — a
           // failed promotion must NEVER 500 the login.
+        }
+      }
+      // 🔒 THE TERMS A GUEST AGREED TO ON THE RSVP PAGE (owner 2026-09-26/27:
+      // recording the agreement at the Google/Apple door is "VITAL before
+      // invitations", and the tick sits on the RSVP page). This callback never
+      // wrote `terms_accepted_at`, so every Google/Apple account had none on
+      // record. The RSVP save leaves a server-set cookie holding the version
+      // the guest ticked (`RSVP_TERMS_COOKIE`); here — and only on a sign-in
+      // bound for the event-connect route, which is where "Save to my account"
+      // goes — it is written onto the account, and only onto one with no
+      // agreement on record (an existing agreement is never rewritten).
+      if (isEventConnectNext(fallbackNext) && rsvpTermsCarried(request.cookies.get(RSVP_TERMS_COOKIE)?.value)) {
+        try {
+          const { error: termsErr } = await createAdminClient()
+            .from('users')
+            .update({ terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION })
+            .eq('user_id', userId)
+            .is('terms_accepted_at', null);
+          if (termsErr) {
+            console.error('[supabase-error] app/auth/callback/route.ts · from:users.update terms', termsErr);
+          }
+        } catch {
+          // A failed stamp must never 500 the sign-in; the one-time re-ask
+          // (`needsTermsAgreement`) still catches an account with none.
         }
       }
       // A guest signing in from an invitation (magic link, Google / Apple) goes

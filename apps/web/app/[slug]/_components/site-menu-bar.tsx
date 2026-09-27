@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Home, Info, BookOpen, Camera, Images, Radio, User, Lock } from 'lucide-react';
+import { Home, Info, BookOpen, Camera, Images, Radio, User, Lock, Mail } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
 
 /**
@@ -86,6 +86,7 @@ export type SiteMenuWatch = { href: string } | null;
 const ICONS: Record<NavSlot['key'], typeof Home> = {
   home: Home,
   details: Info,
+  rsvp: Mail,
   story: BookOpen,
   camera: Camera,
   watch: Radio,

@@ -70,7 +70,6 @@ function PublicHideableWidgetBody({
   widget,
   event,
   scheduleBlocks,
-  isLive,
   scheduleEstimated = false,
   ourPhotoUrls,
   canvasMediaUrls,
@@ -92,18 +91,17 @@ function PublicHideableWidgetBody({
       ) : null;
 
     case 'schedule':
-      // Match InvitationSite — no double-render during day-of mode (the
-      // pinned schedule block already lives at the top of the article
-      // on the authed path; the anonymous path doesn't have that pin,
-      // but we still skip the standalone widget when isLive to match
-      // the editor's "always-on pin replaces hideable" contract).
-      //
       // NOT `compact` (owner, 2026-09-26: "event schedule on the event hub
       // should not be see other schedule it will extend as needed"). Same
       // change as the identified-guest tree in hideable-widget-render.tsx —
       // both trees must agree or an anonymous visitor sees a truncated
       // programme while a signed-in guest sees the full one.
-      return !isLive && scheduleBlocks.length > 0 ? (
+      // 🗓 AND IT SHOWS ON THE DAY TOO (owner 2026-09-27, "YES TO ALL" (2): *the
+      // day-of schedule (times, program) is GENERAL info visible without a
+      // key*). The `!isLive` skip that stood here assumed a pinned schedule at
+      // the top of the anonymous page — there is none for a visitor without a
+      // key, so on the one day the programme matters most it vanished for them.
+      return scheduleBlocks.length > 0 ? (
         <>
           <ScheduleWidget
             blocks={scheduleBlocks}

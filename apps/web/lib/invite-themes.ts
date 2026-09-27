@@ -362,9 +362,19 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     motion: 'cinematic',
     transitions: { pattern: [{ mode: 'auto', speed: 'slow' }, SCRUB], rest: 'scroll' },
     radius: 999,
-    scrim: { color: '#0e0504', opacity: 0.62 },
+    /**
+     * Deepened 62 %→86 % (DECISION_LOG 2026-09-27, owner "YES TO ALL" row, last
+     * sentence): the RSVP prototype measured Luxe's small text failing at 62 %
+     * — muted body ~4.8:1, gold small caps/counts ~3.5:1, both under AA_BODY
+     * (4.5). 86 % clears every text role with margin (re-measured below) while
+     * the big foil heading, which only needs AA_LARGE (3:1), was already fine
+     * at 62 % and stays fine here too. A per-scene split that keeps 62 % just
+     * behind the heading for a lighter chandelier reveal is a scene concern
+     * (RSVP builder territory, `rsvp-widget.tsx`), not this theme token.
+     */
+    scrim: { color: '#0e0504', opacity: 0.86 },
     foilNames: true,
-    measured: { body: 5.9, muted: 4.7, heading: 3.4, button: 9.7 },
+    measured: { body: 12.7, muted: 10.1, heading: 7.4, button: 9.7 },
   },
   vintage: {
     id: 'vintage',

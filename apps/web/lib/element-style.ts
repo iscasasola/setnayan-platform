@@ -44,7 +44,7 @@
  * Pure. No I/O.
  */
 
-import { HUB_FONT_BY_KEY, HUB_FONTS, sanitizeHubFontKey, type HubFontKey } from '@/lib/hub-fonts';
+import { HUB_FONT_BY_KEY, hubFontsForPicker, sanitizeHubFontKey, type HubFontKey } from '@/lib/hub-fonts';
 import { contrastRatio } from '@/lib/hub-legibility';
 
 /* ── THE ELEMENTS ───────────────────────────────────────────────────────── */
@@ -608,8 +608,12 @@ export function hubElementSceneCss(scope: string, elements: HubElementStyles | n
 
 /* ── THE SHEET'S HELPERS ────────────────────────────────────────────────── */
 
-/** The fonts the sheet offers — the library the app already ships, in its order. */
-export const HUB_ELEMENT_FONTS = HUB_FONTS;
+/**
+ * The fonts the sheet offers — EVERY face the app ships (owner 2026-09-27: "use
+ * all our fonts on the dropdown"), the five most used first, then Serif ·
+ * Script · Sans · Display. `pickGroup` is the dropdown's group heading.
+ */
+export const HUB_ELEMENT_FONTS = hubFontsForPicker();
 
 /**
  * Does this colour read on this ground? The WCAG body-text floor is 4.5:1. The

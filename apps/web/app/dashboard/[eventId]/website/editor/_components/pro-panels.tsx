@@ -1,6 +1,6 @@
 'use client';
 
-import { HUB_FONTS, hubFontPreviewStack } from '@/lib/hub-fonts';
+import { hubFontPreviewStack, hubFontsForPicker } from '@/lib/hub-fonts';
 import {
   MAGIC_TRAVELLERS,
   MAGIC_TRAVELLER_LABEL,
@@ -218,7 +218,21 @@ export function ColorsPanel({
             />
             <span className="text-[0.72rem] text-ink/70">The theme&rsquo;s own</span>
           </label>
-          {HUB_FONTS.map((f) => (
+          {/* Every face we ship, on the same shelves as the element Font
+              dropdown (owner 2026-09-27: "use all our fonts"): the five most
+              used first, then Serif · Script · Sans · Display. */}
+          {hubFontsForPicker().flatMap((f, i, all) => [
+            ...(i === 0 || all[i - 1]?.pickGroup !== f.pickGroup
+              ? [
+                  <p
+                    key={`group:${f.pickGroup}`}
+                    data-font-group={f.pickGroup}
+                    className="col-span-2 pt-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-ink/50"
+                  >
+                    {f.pickGroup}
+                  </p>,
+                ]
+              : []),
             <label
               key={f.key}
               className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5"
@@ -238,8 +252,8 @@ export function ColorsPanel({
                 </span>
                 <span className="block text-[0.62rem] leading-tight text-ink/45">{f.note}</span>
               </span>
-            </label>
-          ))}
+            </label>,
+          ])}
         </div>
       </fieldset>
 

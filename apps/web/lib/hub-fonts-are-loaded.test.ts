@@ -11,7 +11,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   HUB_FONTS,
@@ -35,13 +35,161 @@ const CONSUMERS =
   readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8') +
   readFileSync(join(__dirname, '..', 'tailwind.config.ts'), 'utf8');
 
-test('⛔ every offered face is declared by app/layout.tsx', () => {
-  const declared = new Set(
-    [...LAYOUT.matchAll(/variable:\s*'(--font-[a-z-]+)'/g)].map((m) => m[1] as string),
-  );
-  assert.ok(declared.size >= 8, `precondition: layout.tsx declares faces (${declared.size})`);
-  const missing = HUB_FONTS.filter((f) => !declared.has(f.cssVar)).map((f) => `${f.key} → ${f.cssVar}`);
+/*
+  THE TWO FILES THAT LOAD A FACE. `layout.tsx` carries the chrome faces and the
+  first nine choices; `_fonts/choice-faces.ts` carries every other face we ship
+  (2026-09-27, "use all our fonts on the dropdown"), none of them preloaded.
+*/
+const CHOICE = readFileSync(join(__dirname, '..', 'app', '_fonts', 'choice-faces.ts'), 'utf8');
+
+/** `const <name> = localFont({ … variable: '--font-x' … })` → name → var, per file. */
+function declaredFaces(src: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const m of src.matchAll(/const (\w+) = localFont\(\{([\s\S]*?)\n\}\);/g)) {
+    const v = /variable:\s*'(--font-[a-z-]+)'/.exec(m[2] ?? '')?.[1];
+    if (v) out.set(m[1] as string, v);
+  }
+  return out;
+}
+
+test('⛔ every offered face is declared by app/layout.tsx or app/_fonts/choice-faces.ts — AND applied', () => {
+  const layoutFaces = declaredFaces(LAYOUT);
+  const choiceFaces = declaredFaces(CHOICE);
+  assert.ok(layoutFaces.size >= 8, `precondition: layout.tsx declares faces (${layoutFaces.size})`);
+  assert.ok(choiceFaces.size >= 20, `precondition: choice-faces.ts declares faces (${choiceFaces.size})`);
+
+  /*
+    🔑 DECLARED IS NOT ENOUGH. A `localFont` whose `.variable` class is on no
+    element defines its custom property nowhere — `var(--font-hub-jost)` would
+    resolve to nothing on every page, exactly the silent fallback this file
+    exists for. So: a layout face's `.variable` must be in the <html> class, and
+    a choice face must be in HUB_CHOICE_FACES_CLASS, which must be in it too.
+  */
+  const htmlClass = /<html[\s\S]*?className=\{`([^`]*)`\}/.exec(LAYOUT)?.[1] ?? '';
+  assert.ok(htmlClass.length > 0, 'precondition: the <html> className is found');
+  const applied = new Set<string>();
+  for (const [name, v] of layoutFaces) if (htmlClass.includes(`\${${name}.variable}`)) applied.add(v);
+  assert.match(htmlClass, /\$\{HUB_CHOICE_FACES_CLASS\}/, 'the choice faces ride the <html> class');
+  assert.match(LAYOUT, /import \{ HUB_CHOICE_FACES_CLASS \} from '\.\/_fonts\/choice-faces';/);
+  const classList = /export const HUB_CHOICE_FACES_CLASS = \[([\s\S]*?)\]/.exec(CHOICE)?.[1] ?? '';
+  for (const [name, v] of choiceFaces) {
+    assert.match(classList, new RegExp(`\\b${name},`), `${name} is declared but not in HUB_CHOICE_FACES_CLASS`);
+    applied.add(v);
+  }
+
+  const missing = HUB_FONTS.filter((f) => !applied.has(f.cssVar)).map((f) => `${f.key} → ${f.cssVar}`);
   assert.deepEqual(missing, [], `offered but never loaded — these render as a silent fallback: ${missing.join(', ')}`);
+});
+
+test('📱 no new face is preloaded — a guest page downloads only what it sets', () => {
+  /*
+    99% of guests are on phones. A preloaded face is a download in every page's
+    <head> whether or not a letter is set in it. Every face in choice-faces.ts
+    must say `preload: false` (and `display: 'swap'`, so text paints at once).
+  */
+  const calls = [...CHOICE.matchAll(/localFont\(\{([\s\S]*?)\n\}\);/g)].map((m) => m[1] ?? '');
+  assert.ok(calls.length >= 20, `precondition: choice faces found (${calls.length})`);
+  const preloading = calls
+    .map((body) => /variable:\s*'([^']+)'/.exec(body)?.[1] ?? '?')
+    .filter((_, i) => !/\bpreload:\s*false\b/.test(calls[i] ?? ''));
+  assert.deepEqual(preloading, [], `these faces would be preloaded on every page: ${preloading.join(', ')}`);
+  for (const body of calls) assert.match(body, /display:\s*'swap'/);
+
+  // Every face past the original nine and the two chrome sans faces is a
+  // `--font-hub-*` from THIS file — none was slipped into layout.tsx, where
+  // it would be preloaded.
+  const layoutVars = new Set(declaredFaces(LAYOUT).values());
+  const ORIGINAL = new Set(['cormorant', 'fraunces', 'playfair', 'caslon', 'vidaloka', 'cinzel', 'script', 'tangerine', 'luxurious', 'manrope', 'hanken']);
+  for (const f of HUB_FONTS) {
+    if (ORIGINAL.has(f.key)) {
+      assert.ok(layoutVars.has(f.cssVar), `${f.key} is a face layout.tsx already loads`);
+    } else {
+      assert.match(f.cssVar, /^--font-hub-[a-z]+$/, `${f.key} must come from choice-faces.ts`);
+      assert.ok(!layoutVars.has(f.cssVar), `${f.key} must not be declared (and preloaded) by layout.tsx`);
+    }
+  }
+});
+
+/*
+  ── EVERY FAMILY WE SHIP IS OFFERED ────────────────────────────────────────
+  Owner, 2026-09-27: "remember to use all our fonts on the dropdown". The
+  shelves below are every place the repo keeps a font file; each family found
+  there must be in HUB_FONTS unless it is named in EXCLUDED with its reason.
+  (The EMS single-line faces in assets/cipher-fonts are `.svg` pen-plotter
+  outlines, not a web font format, and so are not scanned at all.)
+*/
+const EXCLUDED: Record<string, string> = {
+  'DM Mono': 'a monospaced UI face (eyebrows, label chips) — reads as code, not wedding text',
+  'Space Mono': 'a monospaced UI face (the app chrome) — reads as code, not wedding text',
+  Cormorant:
+    'the base cut of Cormorant Garamond, already offered as "Cormorant"; a second line with the same name and near-identical letters would be two names for one look',
+};
+
+async function shippedFamilies(): Promise<Map<string, string>> {
+  const web = join(__dirname, '..');
+  const out = new Map<string, string>(); // family → where it was found
+  // app/_fonts/<family-dir>/…woff2 — the dir IS the family (see fetch-brand-fonts.mjs).
+  for (const e of readdirSync(join(web, 'app', '_fonts'), { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const files = readdirSync(join(web, 'app', '_fonts', e.name)).filter((f) => f.endsWith('.woff2'));
+    if (files.length > 0) out.set(`dir:${e.name}`, `app/_fonts/${e.name}`);
+  }
+  // Every .ttf/.otf elsewhere — the family is read from the font's own name table.
+  const ot = (await import('opentype.js')) as unknown as {
+    parse?: (b: ArrayBuffer) => unknown;
+    default?: { parse: (b: ArrayBuffer) => unknown };
+  };
+  const parse = (ot.parse ?? ot.default?.parse) as (b: ArrayBuffer) => {
+    names: Record<string, Record<string, { en?: string }>>;
+  };
+  for (const dir of ['public/monogram-studio/fonts', 'assets/cipher-fonts', 'lib/social/fonts']) {
+    for (const f of readdirSync(join(web, dir))) {
+      if (!/\.(ttf|otf)$/i.test(f)) continue;
+      const b = readFileSync(join(web, dir, f));
+      const font = parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer);
+      const n = font.names.windows ?? font.names.macintosh ?? font.names.unicode ?? {};
+      const family = (n.preferredFamily?.en ?? n.fontFamily?.en ?? '').trim();
+      assert.ok(family, `${dir}/${f} has a family name`);
+      out.set(family, `${dir}/${f}`);
+    }
+  }
+  return out;
+}
+
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+
+test('⭐ every font family the repo ships is in the dropdown — only the named exclusions are not', async () => {
+  const shipped = await shippedFamilies();
+  assert.ok(shipped.size >= 30, `precondition: the shelves were read (${shipped.size} families)`);
+  const offered = new Set(HUB_FONTS.map((f) => squash(f.family)));
+  const excluded = new Set(Object.keys(EXCLUDED).map(squash));
+  const missing: string[] = [];
+  for (const [family, where] of shipped) {
+    const k = squash(family.replace(/^dir:/, ''));
+    if (!offered.has(k) && !excluded.has(k)) missing.push(`${family.replace(/^dir:/, '')} (${where})`);
+  }
+  assert.deepEqual(missing, [], `we ship these and the dropdown does not offer them: ${missing.join(', ')}`);
+  // An exclusion must still exist — a stale one hides nothing and reads as a decision.
+  const shippedKeys = new Set([...shipped.keys()].map((f) => squash(f.replace(/^dir:/, ''))));
+  for (const name of Object.keys(EXCLUDED)) {
+    assert.ok(shippedKeys.has(squash(name)), `EXCLUDED names ${name}, which the repo no longer ships`);
+    assert.ok(!offered.has(squash(name)), `${name} is both excluded and offered`);
+  }
+});
+
+test('⭐ the dropdown: five most used, then Serif · Script · Sans · Display — each face once', async () => {
+  const { hubFontsForPicker, HUB_FONTS_MOST_USED, HUB_FONTS_MOST_USED_GROUP, HUB_FONT_GROUPS } = await import('./hub-fonts');
+  const list = hubFontsForPicker();
+  assert.equal(list.length, HUB_FONTS.length, 'every face appears');
+  assert.equal(new Set(list.map((f) => f.key)).size, list.length, 'and none appears twice');
+  assert.deepEqual(
+    list.slice(0, 5).map((f) => [f.key, f.pickGroup]),
+    HUB_FONTS_MOST_USED.map((k) => [k, HUB_FONTS_MOST_USED_GROUP]),
+  );
+  // Groups are contiguous, in the stated order, after the five.
+  const order = [...new Set(list.slice(5).map((f) => f.pickGroup))];
+  assert.deepEqual(order, [...HUB_FONT_GROUPS]);
+  for (const f of list.slice(5)) assert.equal(f.pickGroup, f.group, `${f.key} sits on its own shelf`);
 });
 
 test('⛔ the hook it writes is the one globals.css reads', () => {
@@ -197,7 +345,18 @@ test('🔒 the column is granted and the CHECK names exactly the offered faces',
   assert.doesNotMatch(sql, /TO anon/, 'the guest site reads events through the admin client');
   // 🔑 The CHECK and the offered list must be the same set, or a face the couple
   // can pick is refused by the database — or one the app cannot render is stored.
-  const m = /site_font_key IN \(([^)]*)\)/s.exec(sql);
+  //
+  // 🪤 THE LATEST MIGRATION THAT STATES THE CHECK IS THE ONE IN FORCE. Reading
+  // the first one forever would pass while a later one narrowed it (or fail
+  // while a later one correctly widened it — 2026-09-27, every font we ship).
+  const dir = join(__dirname, '..', '..', '..', 'supabase', 'migrations');
+  const stating = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .filter((f) => /ADD CONSTRAINT events_site_font_key_check/.test(readFileSync(join(dir, f), 'utf8')));
+  assert.ok(stating.length >= 2, `precondition: the original and the widening both state the CHECK (${stating.join(', ')})`);
+  const latest = readFileSync(join(dir, stating[stating.length - 1] as string), 'utf8');
+  const m = /site_font_key IN \(([^)]*)\)/s.exec(latest);
   assert.ok(m, 'the CHECK exists');
   const inCheck = [...(m[1] ?? '').matchAll(/'([a-z]+)'/g)].map((x) => x[1]).sort();
   assert.deepEqual(inCheck, [...HUB_FONT_KEYS].sort(), 'the CHECK and lib/hub-fonts.ts must agree exactly');

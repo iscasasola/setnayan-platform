@@ -255,14 +255,21 @@ export function ElementSheet({
           <div className={ROW} data-element-row="font">
             <p className={LABEL}>Font</p>
             {/* ▾ A DROPDOWN, each face drawn in itself (owner 2026-09-27: "font
-                should be a drop down"); "Event Hub font" at the top is the reset. */}
+                should be a drop down"); "Event Hub font" at the top is the reset.
+                Then EVERY face we ship ("use all our fonts on the dropdown"),
+                grouped: the five most used, then Serif · Script · Sans · Display. */}
             <PickMenu
               label="Font"
               dataAttr="data-element-font"
               value={face.font ?? 'hub'}
               options={[
                 { key: 'hub', label: 'Event Hub font' },
-                ...HUB_ELEMENT_FONTS.map((f) => ({ key: f.key, label: f.label, fontFamily: hubFontPreviewStack(f.key) })),
+                ...HUB_ELEMENT_FONTS.map((f) => ({
+                  key: f.key,
+                  label: f.label,
+                  fontFamily: hubFontPreviewStack(f.key),
+                  group: f.pickGroup,
+                })),
               ]}
               onPick={(key) => choose('font', key === 'hub' ? null : key)}
               className="flex-1"

@@ -5562,6 +5562,19 @@ html:has([data-sticky-top]) {
    holding a full-width scene clips that sliver instead of scrolling sideways. */
 html:has(.hub-shape-full) { overflow-x: clip; }
 
+/* 🌅 DIAGONAL · GLOW PER SCENE (owner 2026-09-27, the Maker toolbars' approved
+   answer 1 — the scene row is No background · Plain · Diagonal · Glow · Opaque ·
+   Frosted · Upload media). The Main background's two ombrés, derived from the
+   scene's ONE colour (`--hub-bg-image`, `lib/ombre.ts` `ombreCss`); the flat
+   colour underneath while the gradient paints. Padded like every painted box. */
+.hub-bg-diagonal,
+.hub-bg-glow {
+  background-color: var(--hub-bg-color);
+  background-image: var(--hub-bg-image);
+}
+.hub-bg-diagonal > .hub-canvas-body,
+.hub-bg-glow > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+
 /* 🛑 REDUCED MOTION IS NOT HANDLED HERE, AND IT IS NOT HANDLED BY CSS AT ALL.
    The first draft of this block carried a reduced-motion media query that set
    the snippet video's CSS animation-play-state to paused. That is valid CSS,

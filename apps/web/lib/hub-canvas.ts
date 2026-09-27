@@ -43,6 +43,7 @@ import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/sc
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
+import { ombreCss } from '@/lib/ombre';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -811,6 +812,11 @@ export function hubCanvasVars(
        with or without the effect. */
     ...(hubBackgroundTint(resolveHubBackground(canvas))
       ? { '--hub-bg-color': hubBackgroundTint(resolveHubBackground(canvas)) as string }
+      : {}),
+    /* 🌅 Diagonal and Glow — the Main background's two ombrés, from the scene's
+       one colour (`ombreCss`: hex digits and keywords only, nothing typed). */
+    ...((canvas.kind === 'diagonal' || canvas.kind === 'glow') && canvas.color
+      ? { '--hub-bg-image': ombreCss({ shape: canvas.kind, base: canvas.color }) }
       : {}),
     '--hub-focal': focalToObjectPosition(canvas.focal ?? HUB_DEFAULT_FOCAL),
     '--hub-zoom': String((canvas.zoom ?? HUB_DEFAULT_ZOOM) / 100),

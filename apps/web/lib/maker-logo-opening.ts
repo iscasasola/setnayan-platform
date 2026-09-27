@@ -1,5 +1,5 @@
 import { resolveMonogram } from './monogram';
-import { safeMonogramSvg } from './monogram-svg-safe';
+import { resolveEventMonogramSvg } from './monogram-svg-safe';
 import { sanitizeStudioConfig, type StudioConfig } from './monogram-studio-shared';
 import { isLayeredLogo, type LogoLayerMeta } from './logo-layers';
 
@@ -21,6 +21,10 @@ import { isLayeredLogo, type LogoLayerMeta } from './logo-layers';
  *
  * A studio config beside no composition (an upload's leftover reveal settings,
  * `text: ""`) is NOT a design — the leak that drew "M & J" over the owner's logo.
+ *
+ * The mark is read through `resolveEventMonogramSvg` — the ONE resolver every
+ * surface uses (composition first, then the upload, with its ink policy) — so
+ * the editor opens on exactly the mark guests see.
  *
  * Opening writes nothing: the Logo page's save gate waits for a real touch
  * (`lib/maker-logo-save-gate.ts`). Pure, so `lib/the-logo-is-layers.test.ts`
@@ -48,15 +52,14 @@ export type MakerLogoOpening = {
 };
 
 export function makerLogoOpening(row: MakerLogoRow): MakerLogoOpening {
-  const custom = safeMonogramSvg(row.monogram_custom_svg);
-  const uploaded = safeMonogramSvg(row.monogram_uploaded_svg);
-  const cfg = custom ? sanitizeStudioConfig(row.monogram_studio_config) : null;
+  const mark = resolveEventMonogramSvg(row);
   const names = resolveMonogram(row).text;
+  if (!mark) return { source: 'names', layers: [], svg: null, names, anim: null };
+  // A composition exists (the resolver drew it, not the upload) → its config is
+  // the design's; with none, the config is an upload's leftovers.
+  const composed = typeof row.monogram_custom_svg === 'string' && row.monogram_custom_svg.length > 0;
+  const cfg = composed ? sanitizeStudioConfig(row.monogram_studio_config) : null;
   const anim = cfg?.anim ?? null;
-  if (custom && cfg?.layers?.length && isLayeredLogo(custom)) {
-    return { source: 'layers', layers: cfg.layers, svg: custom, names, anim };
-  }
-  if (custom) return { source: 'mark', layers: [], svg: custom, names, anim };
-  if (uploaded) return { source: 'upload', layers: [], svg: uploaded, names, anim: null };
-  return { source: 'names', layers: [], svg: null, names, anim: null };
+  if (cfg?.layers?.length && isLayeredLogo(mark)) return { source: 'layers', layers: cfg.layers, svg: mark, names, anim };
+  return { source: composed ? 'mark' : 'upload', layers: [], svg: mark, names, anim };
 }

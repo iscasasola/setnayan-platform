@@ -116,7 +116,12 @@ test('the Maker mounts ONE canvas iframe; the other src-less frames are the tile
   // Measured 862×539 = the canvas width at the 16:10 desktop tile ratio — the
   // thumbnail's layout box before its `transform: scale()`. Each tile reuses its
   // own frame when its copy changes, so saves do not add frames.
-  assert.equal((SHELL.match(/<iframe\b/g) ?? []).length, 1, 'one canvas iframe in the shell');
+  // 🪞 The canvas iframe lives in the double-buffer (2026-09-27): ONE element in
+  // source, at most two mounted — the page shown and the newest render loading
+  // behind it (`planCanvasFrames` replaces, never stacks; its own test holds that).
+  const BUFFER = read('app/dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx');
+  assert.equal((SHELL.match(/<iframe\b/g) ?? []).length, 0, 'the shell draws the canvas through the buffer');
+  assert.equal((BUFFER.match(/<iframe\b/g) ?? []).length, 1, 'one canvas iframe element');
   const PREVIEW = read('app/dashboard/[eventId]/website/editor/_components/scene-preview.tsx');
   assert.equal((PREVIEW.match(/<iframe\b/g) ?? []).length, 1);
   assert.match(PREVIEW, /srcDoc=\{srcDoc!\}/, 'the thumbnail is the src-less frame');
@@ -124,5 +129,5 @@ test('the Maker mounts ONE canvas iframe; the other src-less frames are the tile
   // ⚡ Keyed on `canvasStamp` (2026-09-27): it follows `renderStamp` on every
   // render EXCEPT one whose element choice the canvas already shows (the canvas
   // hold, `element-preview.ts`) — still replaced, never stacked.
-  assert.match(SHELL, /key=\{`\$\{stage\}:\$\{canvasStamp\}:\$\{maker\.viewAsHref \?\? ''\}`\}/, 'the canvas is REPLACED on a save, never stacked');
+  assert.match(SHELL, /frameKey=\{`\$\{stage\}:\$\{canvasStamp\}:\$\{maker\.viewAsHref \?\? ''\}`\}/, 'the canvas is REPLACED on a save, never stacked');
 });

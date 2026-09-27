@@ -436,9 +436,10 @@ test('quick choices on two scenes both count toward what the canvas shows', () =
 
 test('the stage canvas iframe is keyed on the held stamp, never on every render', () => {
   const src = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), 'utf8');
-  const iframe = src.slice(src.indexOf('<iframe'), src.indexOf('/>', src.indexOf('<iframe')));
-  assert.match(iframe, /key=\{`\$\{stage\}:\$\{canvasStamp\}/, 'the stage iframe must be keyed on canvasStamp');
-  assert.doesNotMatch(iframe, /renderStamp/, 'a key on renderStamp reloads the canvas on every element save');
+  const frame = src.slice(src.indexOf('<BufferedCanvasFrame'), src.indexOf('/>', src.indexOf('<BufferedCanvasFrame')));
+  assert.ok(frame.length > 0, 'the stage canvas is the buffered frame');
+  assert.match(frame, /frameKey=\{`\$\{stage\}:\$\{canvasStamp\}/, 'the stage canvas must be keyed on canvasStamp');
+  assert.doesNotMatch(frame, /renderStamp/, 'a key on renderStamp reloads the canvas on every element save');
   assert.match(src, /canvasKeepsItsPage\(canvasHold\.current/);
   assert.match(src, /onSaving=\{\(widgetType, canvas\) => \{\s*canvasHold\.current = holdCanvas\(/);
 });

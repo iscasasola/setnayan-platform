@@ -29,6 +29,7 @@ import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
 import { NO_CANVAS_HOLD, canvasKeepsItsPage, heldCanvasFor, holdCanvas, type CanvasHold } from './element-preview';
+import { BufferedCanvasFrame } from './buffered-canvas-frame';
 import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -510,9 +511,28 @@ export function MakerWork({
      lists that tab's scenes in page order (`lib/maker-navigator-tabs.ts`). */
   const [canvasBar, setCanvasBar] = useState<NavigatorBarItem[] | null>(null);
   const [tabKey, setTabKey] = useState<string | null>(null);
+  /* 🪞 The double-buffered canvas (`buffered-canvas-frame.tsx`): the window of
+     a frame still loading behind the page — its `ready` is the buffer's to
+     handle (it swaps and carries the scroll), so it is skipped here. */
+  const loadingCanvas = useRef<Window | null>(null);
+  const [shownFrameKey, setShownFrameKey] = useState('');
+  /** A buffered swap: the page kept its place, so only re-read and re-mark. */
+  const onCanvasSwapped = (ready: unknown) => {
+    scheduleSnapshots(700);
+    const bar = (ready as { bar?: unknown } | null)?.bar;
+    if (bar !== undefined) setCanvasBar(parseNavigatorBar(bar));
+    const target = elementRef.current;
+    if (target) {
+      frameRef.current?.contentWindow?.postMessage(
+        { source: 'setnayan-editor', t: 'markEl', key: target.key, el: target.el },
+        window.location.origin,
+      );
+    }
+  };
   useEffect(() => {
     const onReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
+      if (event.source && event.source === loadingCanvas.current) return;
       const data = event.data as { source?: string; t?: string; bar?: unknown } | null;
       if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
       scheduleSnapshots(700);
@@ -558,7 +578,7 @@ export function MakerWork({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [scheduleSnapshots, stage, canvasStamp, maker?.viewAsHref]);
+  }, [scheduleSnapshots, stage, shownFrameKey, maker?.viewAsHref]);
 
   /* ▶ "Play this scene" (the toolbar's ▶ menu) — played IN PLACE in the
      canvas: the bridge replays the selected section's entrance where it sits. */
@@ -1273,11 +1293,19 @@ export function MakerWork({
         className="relative order-1 flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
       >
         {canvasSrc ? (
-          <iframe
-            ref={frameRef}
-            key={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
+          /* 🪞 Double-buffered (`buffered-canvas-frame.tsx`): a new render loads
+             behind the page the couple is looking at and swaps in when ready —
+             no blank screen, no reload from the top, after any Maker write. */
+          <BufferedCanvasFrame
+            frameKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
+            group={`${stage}:${maker.viewAsHref ?? ''}`}
             src={canvasSrc}
             title={`Your Event Hub — ${PUBLIC_STAGE_LABELS[stage]}`}
+            frameRef={frameRef}
+            loadingRef={loadingCanvas}
+            anchorKey={() => selectedKeyRef.current}
+            onShown={setShownFrameKey}
+            onSwapped={onCanvasSwapped}
             className={`min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
               device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
             }`}
@@ -1318,7 +1346,7 @@ export function MakerWork({
           <CanvasStaysOnThePage
             frameRef={frameRef}
             pagePath={publicLandingUrl}
-            resetKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
+            resetKey={shownFrameKey}
             stageLabel={PUBLIC_STAGE_LABELS[stage]}
             onBack={() => {
               const f = frameRef.current;

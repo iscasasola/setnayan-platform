@@ -62,6 +62,7 @@
  */
 
 import Link from 'next/link';
+import { Settings } from 'lucide-react';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -241,7 +242,15 @@ export function EventRailContext({
           aria-current={activeKey === detailsRow.key ? 'page' : undefined}
         >
           <span className="fd-rctx-name">{eventName}</span>
-          <span className="fd-rctx-sub">{detailsRow.label} ›</span>
+          {/* ⚙ A GEAR, NOT THE WORD "DETAILS" (owner 2026-09-27: "make a
+              settings icon"). "Details" also names the Event Hub Maker's
+              include-checklist page, so one word meant two places; this row
+              opens Event Settings (names, date, venues, guest count), so it
+              wears the settings gear and says so. */}
+          <span className="fd-rctx-sub fd-rctx-settings">
+            <Settings aria-hidden className="fd-rctx-gear" strokeWidth={1.75} />
+            Event settings
+          </span>
         </Link>
       ) : (
         <div className="fd-rctx">{eventName}</div>

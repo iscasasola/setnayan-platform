@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b1e899a5cd",
+  "generatedFromRef": "03323e8fa8",
   "routeCount": 434,
-  "destinations": 943,
-  "actions": 670,
-  "blocks": 4930,
+  "destinations": 942,
+  "actions": 671,
+  "blocks": 4958,
   "routes": {
     "/": {
       "files": [
@@ -847,6 +847,7 @@
         "[slug]/_components/scene-clip.tsx",
         "[slug]/_components/scene-template.tsx",
         "[slug]/_components/schedule-widget.tsx",
+        "[slug]/_components/seat-door-line.tsx",
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/send-their-invite.tsx",
         "[slug]/_components/site-body.tsx",
@@ -940,7 +941,6 @@
         "/[seg]/invite",
         "/[seg]/print",
         "/[seg]/recap",
-        "/[seg]/seat/claim?t=[seg]",
         "/[seg]/welcome",
         "/api/guest/qr",
         "/dashboard/profile",
@@ -1190,6 +1190,7 @@
         "SceneClip",
         "ScenePlaceholder",
         "ScheduleWidget",
+        "SeatDoorLine",
         "SectionEmptyPlate",
         "SectionRule",
         "Select",
@@ -1337,7 +1338,11 @@
     },
     "/[slug]/find-seat": {
       "files": [
+        "[slug]/find-seat/_components/door-pass.tsx",
         "[slug]/find-seat/_components/name-search.tsx",
+        "[slug]/find-seat/_components/refresh-on-return.tsx",
+        "[slug]/find-seat/_components/seat-frame.tsx",
+        "[slug]/find-seat/_components/your-seat.tsx",
         "[slug]/find-seat/page.tsx"
       ],
       "destinations": [
@@ -1346,13 +1351,36 @@
       "actions": [],
       "blocks": [
         "AbortController",
+        "BeforeTheDay",
+        "ClockGlyph",
+        "DoorGlyph",
+        "DoorPass",
+        "Eyebrow",
+        "FoundCard",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "Lace",
         "Link",
-        "Logo",
-        "MatchCard",
+        "LiveRefresher",
+        "LockGlyph",
         "NameSearch",
-        "PromptCard",
+        "NotPostedYet",
+        "NotSeatedYet",
+        "OnTheDay",
+        "Outcome",
+        "PersonGlyph",
+        "Postmark",
+        "QrGlyph",
+        "RefreshOnReturn",
         "RoomFooter",
-        "Shell"
+        "RoomPlaceholder",
+        "ScriptWord",
+        "SearchGlyph",
+        "SeatFrame",
+        "StepUp",
+        "WalkIn3D",
+        "WayfindingMap",
+        "YourSeat"
       ]
     },
     "/[slug]/hub": {
@@ -6052,9 +6080,12 @@
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
+        "dashboard/[eventId]/launch/_components/print-choice-picker.tsx",
+        "dashboard/[eventId]/launch/_components/print-menu-editor.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
+        "dashboard/[eventId]/launch/_components/soft-post.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/page.tsx",
         "dashboard/[eventId]/launch/qr-look-actions.ts"
@@ -6071,6 +6102,7 @@
         "/marketplace"
       ],
       "actions": [
+        "PRINT_MENU_ENDPOINT",
         "PRINT_WORDS_ENDPOINT",
         "qrStyleAction",
         "removeHeroPhoto",
@@ -6139,6 +6171,9 @@
         "PageMasthead",
         "PaidMark",
         "PickMenu",
+        "PickOption",
+        "PrintChoicePicker",
+        "PrintMenuEditor",
         "PrintPreview",
         "PrintSaveButton",
         "QrLookControls",
@@ -6151,6 +6186,7 @@
         "SiteStage",
         "Slider",
         "SlugField",
+        "SoftPost",
         "State",
         "Switch",
         "SwitchRow",

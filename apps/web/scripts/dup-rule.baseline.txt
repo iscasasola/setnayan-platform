@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 363
+# facts: 381
 #   shadow  20
-#   omit    343
+#   omit    361
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -110,6 +110,14 @@ omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	role
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	display_name
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	middle_name
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	role
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	last_name
@@ -367,6 +375,16 @@ omit	lib/capture-credit.ts	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	lib/capture-credit.ts	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	lib/capture-credit.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	lib/capture-credit.ts	guests	ENTOURAGE_COLUMNS	role
+omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
+omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
+omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
+omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
+omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	middle_name
+omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	lib/life-story-moment-graph.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	lib/life-story-moment-graph.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	lib/life-story-moment-graph.ts	guests	ENTOURAGE_COLUMNS	middle_name

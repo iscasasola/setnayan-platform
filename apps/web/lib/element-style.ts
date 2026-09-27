@@ -596,7 +596,13 @@ export function hubElementMotionDeclarations(
 ): Array<[string, string]> {
   if (!motion) return [];
   const { slots } = motionSlots(motion, place, approached);
-  if (slots.length === 0) return [['animation', 'none']];
+  if (slots.length === 0) {
+    return [
+      ['animation', 'none'],
+      ['animation-timeline', 'auto'],
+      ['animation-range', 'normal'],
+    ];
+  }
   return [
     ['animation', slots.map((x) => x.a).join(', ')],
     ['animation-timeline', slots.map((x) => x.timeline).join(', ')],

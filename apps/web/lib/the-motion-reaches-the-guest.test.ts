@@ -264,9 +264,9 @@ test('8 🧩 a part with only Drift still arrives and leaves WITH its scene', ()
 });
 
 test('8 🔑 every element motion STATES its timeline and range — a scene\'s view() cannot take it over', () => {
-  for (const motion of everyMotion()) {
-    const d = Object.fromEntries(hubElementMotionDeclarations(motion));
-    assert.ok(d['animation-timeline'], `no timeline for ${JSON.stringify(motion)}`);
+  for (const motion of everyMotion()) for (const place of ['page', 'hero', 'scrub', 'auto'] as const) {
+    const d = Object.fromEntries(hubElementMotionDeclarations(motion, place));
+    assert.ok(d['animation-timeline'], `no timeline for ${JSON.stringify(motion)} at ${place}`);
     assert.ok(d['animation-range'], `no range for ${JSON.stringify(motion)}`);
     const n = (s: string) => s.split(/,\s*(?![^()]*\))/).length;
     assert.equal(n(d['animation-timeline']!), n(d.animation!), 'one timeline per animation');
@@ -292,7 +292,9 @@ test('🔎 the guest page ships it — the frame renders the gated style after t
   const { HubCanvasFrame } = await import('../app/[slug]/_components/hub-canvas-frame');
   const html = renderToStaticMarkup(
     React.createElement(
-      HubCanvasFrame,
+      // `children` as the third argument; the cast only relaxes the required prop
+      // (react/no-children-prop forbids passing it as a prop) — as element-style.test.ts does.
+      HubCanvasFrame as unknown as React.FC<{ widget: never; children?: React.ReactNode }>,
       {
         widget: {
           widget_id: 'w', event_id: 'e', widget_type: 'schedule', display_order: 1, is_visible: true,

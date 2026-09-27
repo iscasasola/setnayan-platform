@@ -23,7 +23,7 @@
  * embedded in his editor. `the-maker-canvas-is-only-the-page.test.ts` holds it.
  */
 
-export type HostCanvasSearch = { editor?: string; preview?: string };
+export type HostCanvasSearch = { editor?: string; preview?: string; only?: string };
 
 /** Does this request ASK for the host canvas? Never an answer on its own — the
  *  caller must still verify host membership before honouring it. */
@@ -42,3 +42,48 @@ export function asksForEditorBridge(search: HostCanvasSearch | undefined): boole
  * them. They carry `data-app-chrome`, and the canvas hides that one attribute.
  */
 export const EDITOR_CANVAS_HIDES_APP_CHROME = '[data-app-chrome]{display:none!important}';
+
+/**
+ * 🖼 ONE SCENE ALONE — the Maker's made-once Hero page (owner 2026-09-27: the
+ * Hero page showed "the day, the place, the story" and the host note under the
+ * hero). `?only=hero` asks the canvas to draw that scene and nothing else.
+ *
+ * 🔒 HOST CANVAS ONLY. `canvasOnlyScene` answers null unless the caller has
+ * ALREADY verified the host canvas (`isEditorCanvas`), so a guest who types
+ * `?only=hero` gets the ordinary page, byte for byte.
+ *
+ * It HIDES, never reveals: the CSS keeps the scene the navigator marks
+ * (`data-maker-section`, `lib/maker-scene-list.ts` keys), its ancestors, its
+ * contents and the page ground under it, and hides every other element. It
+ * applies only while that marker is on the page (`body:has(…)`), so a page with
+ * no such scene stays whole rather than going blank.
+ *
+ * Keyed by scene so the Logo page (logo alone) is one more row, not new code.
+ */
+export const CANVAS_ONLY_SCENES = { hero: 'f:hero' } as const;
+export type CanvasOnlyScene = keyof typeof CANVAS_ONLY_SCENES;
+
+export function canvasOnlyScene(
+  search: { only?: string } | undefined,
+  isEditorCanvas: boolean,
+): CanvasOnlyScene | null {
+  if (!isEditorCanvas) return null;
+  const only = search?.only;
+  return only && Object.prototype.hasOwnProperty.call(CANVAS_ONLY_SCENES, only) ? (only as CanvasOnlyScene) : null;
+}
+
+export function canvasOnlyCss(scene: CanvasOnlyScene): string {
+  const m = `[data-maker-section="${CANVAS_ONLY_SCENES[scene]}"]`;
+  const keep = [
+    `:has(${m} + *)`, // an ancestor of the scene
+    `${m} + *`, // the scene
+    `${m} + * *`, // inside the scene
+    '[data-main-ground]',
+    '[data-main-ground] *',
+    '[data-guest-ground]',
+    '[data-guest-ground] *',
+  ]
+    .map((s) => `:not(${s})`)
+    .join('');
+  return `body:has(${m}) *${keep}{display:none!important}`;
+}

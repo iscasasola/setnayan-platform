@@ -157,7 +157,7 @@ import {
   PublicEventDetails,
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
-import { EDITOR_CANVAS_HIDES_APP_CHROME } from '../_lib/editor-canvas';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } from '../_lib/editor-canvas';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
@@ -363,6 +363,9 @@ type SiteBodyProps = {
    *  (the Host controls bar, "Manage", the Live hub pill) never returns. Inert
    *  outside the canvas. */
   canvasGuestBars?: boolean;
+  /** 🖼 The Maker's made-once Hero page (`?only=hero`) — draw that ONE scene.
+   *  Resolved by `canvasOnlyScene`, which is null off the host canvas. */
+  canvasOnly?: CanvasOnlyScene | null;
   /** OWNER LAYER · FOUNDATION (2026-07-26). Non-null ONLY when the page
    *  server-verified this viewer's host membership of THIS event via
    *  `loadHostMembership` (see the owner-layer block in page.tsx). It travels
@@ -430,6 +433,7 @@ export async function SiteBody({
   isEditorCanvas = false,
   editorBridge = false,
   canvasGuestBars = false,
+  canvasOnly = null,
   ownerCapability = null,
   vendorCapability = null,
   supplierDesk = null,
@@ -2543,6 +2547,9 @@ export async function SiteBody({
           tab) are client components this page cannot un-mount, so in the
           Maker's canvas they are hidden by the one attribute they carry. */}
       {isEditorCanvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
+      {/* 🖼 ONE SCENE ALONE (Maker's Hero page, `?only=hero`) — host canvas only,
+          hides everything but that scene. See `_lib/editor-canvas.ts`. */}
+      {isEditorCanvas && canvasOnly ? <style>{canvasOnlyCss(canvasOnly)}</style> : null}
       <GuestPreload eventSlug={event.slug} />
       {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
           identity trees, for three reasons: (1) it is chrome, not a chapter,

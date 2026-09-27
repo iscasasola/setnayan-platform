@@ -1,4 +1,4 @@
-import { asksForHostCanvas, asksForEditorBridge } from './_lib/editor-canvas';
+import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene } from './_lib/editor-canvas';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -138,6 +138,9 @@ type Props = {
     // tab bar back into the canvas (never the host's). Canvas-only; inert
     // everywhere else.
     bars?: string;
+    // 🖼 The Maker's made-once Hero page — `?only=hero` draws one scene alone.
+    // Canvas-only (host-verified); inert everywhere else.
+    only?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
@@ -1161,6 +1164,10 @@ async function InvitationBody({
     // The click-to-edit bridge: the Maker's iframe only, never the preview tab.
     editorBridge: isEditorCanvas && asksForEditorBridge(search),
     canvasGuestBars: isEditorCanvas && search.bars === '1',
+    // 🖼 `?only=hero` — the Maker's Hero page draws the hero alone. Host canvas
+    // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
+    // `?only=` is ignored). See `_lib/editor-canvas.ts`.
+    canvasOnly: canvasOnlyScene(search, isEditorCanvas),
     // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
     // both had consumers. `ownerCapability` drives the read-only owner ribbon
     // and the host's own body copy (lib/owner-ribbon.ts, site-body.tsx);

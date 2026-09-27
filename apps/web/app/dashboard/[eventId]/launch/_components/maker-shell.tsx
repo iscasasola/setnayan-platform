@@ -248,7 +248,7 @@ export function MakerShell({
         role="region"
       >
         {/* ══ 1 · THE TOOLBAR ══ */}
-        <header className="sn-glass-bare relative z-20 flex shrink-0 flex-col gap-1 px-2 py-1.5 md:flex-row md:items-center md:gap-2 md:px-3">
+        <header className="sn-glass-bare relative z-20 flex shrink-0 flex-col gap-1 px-2 py-1.5 md:flex-row md:flex-wrap md:items-center md:gap-2 md:px-3">
           <div className="flex items-center gap-1">
             <Link
               href={`/dashboard/${eventId}`}
@@ -501,7 +501,13 @@ export function MakerBar({
     pickers run the SAME `onPress` the buttons do.
   */
   const [compact, setCompact] = useState(false);
+  /* …and when even the two pickers cannot fit beside the other controls (a
+     1024px laptop leaves the bar ~150px), the bar takes its own full row inside
+     the toolbar rather than truncate "Invitation". It comes back beside them
+     once the window is wider than where it wrapped. */
+  const [wrapped, setWrapped] = useState(false);
   const fullWidth = useRef(0);
+  const wrapAt = useRef(0);
   useEffect(() => {
     const el = navRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -509,15 +515,27 @@ export function MakerBar({
       if (!compact) {
         fullWidth.current = el.scrollWidth;
         if (barShouldCollapse(el.scrollWidth, el.clientWidth)) setCompact(true);
-      } else if (!barShouldCollapse(fullWidth.current, el.clientWidth)) {
-        setCompact(false);
+      } else if (!wrapped) {
+        if (barShouldCollapse(el.scrollWidth, el.clientWidth)) {
+          wrapAt.current = window.innerWidth;
+          setWrapped(true);
+        } else if (!barShouldCollapse(fullWidth.current, el.clientWidth)) {
+          setCompact(false);
+        }
       }
+    };
+    const onResize = () => {
+      if (wrapped && window.innerWidth > wrapAt.current + 24) setWrapped(false);
     };
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [compact]);
+    window.addEventListener('resize', onResize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', onResize);
+    };
+  }, [compact, wrapped]);
 
   const mask =
     !compact && (fade.l || fade.r)
@@ -534,12 +552,15 @@ export function MakerBar({
         ref={navRef}
         aria-label="Event Hub Maker"
         data-maker-bar=""
-        data-maker-bar-compact=""
-        className="-mx-2 flex min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2 md:mx-auto md:flex-1"
+        data-maker-bar-compact={wrapped ? 'wrapped' : ''}
+        className={`-mx-2 flex min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2 md:mx-auto md:flex-1 ${
+          wrapped ? 'md:order-last md:basis-full' : ''
+        }`}
       >
         <PickMenu
           label="Stage"
           dataAttr="data-maker-stage-pick"
+          className="shrink-0"
           value={stage}
           options={stageItems.map((i) => ({ key: i.key, label: i.label, dot: liveStage === i.key }))}
           onPick={(key) => {
@@ -550,6 +571,7 @@ export function MakerBar({
         <PickMenu
           label="Pages"
           dataAttr="data-maker-pages-pick"
+          className="shrink-0"
           value={openTool?.key ?? null}
           options={pageItems.map((i) => ({
             key: i.key,

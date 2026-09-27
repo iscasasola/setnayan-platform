@@ -102,7 +102,7 @@ export function PickMenu({
         aria-controls={open ? listId : undefined}
         {...(dataAttr ? { [dataAttr]: '' } : {})}
         onClick={() => setOpen((o) => !o)}
-        className={`sn-press inline-flex min-h-10 min-w-0 max-w-full shrink items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 px-3 text-[13px] font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${className}`}
+        className={`sn-press inline-flex min-h-10 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 px-3 text-[13px] font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${className}`}
       >
         {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
         <span className="min-w-0 truncate">{current?.label ?? label}</span>

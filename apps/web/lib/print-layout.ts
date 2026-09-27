@@ -33,9 +33,11 @@ import {
   dieCutFor,
   formatFor,
   maskAccountLine,
+  menuHasDishes,
   parentLine,
   printableText,
   type DieCut,
+  type MenuMoment,
   type PrintDetails,
   type PrintFontKey,
   type PrintFormat,
@@ -101,6 +103,8 @@ export type PrintSetData = {
   swatches: string[];
   /** Printed under the event QR — the address guests can type. */
   hubAddress: string | null;
+  /** The Menu card's moments, in order (the couple's own, else their caterer's package lines). */
+  menu?: MenuMoment[];
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
   hasEventQr: boolean;
@@ -1179,6 +1183,70 @@ function layoutDetails(ctx: Ctx): PrintDoc[] {
 }
 
 /**
+ * THE MENU — owner 2026-09-28: *"add to print out our meals for tonight. from
+ * vendors from ceremony, to cocktail to the buffet."* Each moment of the night
+ * as a heading (in the order the couple set), its dishes beneath, in the same
+ * theme, crest and QR corner as the Entourage and the Finer Details. Measured
+ * and paged by the same engine: the largest type that fits, a back side when
+ * a long buffet needs one, never past the safe line.
+ *
+ * With no dishes the card is NEVER printed (the route refuses it and the Maker
+ * offers no download); the Maker's picture of it carries the "add your menu"
+ * prompt instead, so a couple sees where the card will be.
+ */
+function layoutMenu(ctx: Ctx): PrintDoc[] {
+  const { look, data } = ctx;
+  const front = sheet('menu', ctx);
+  const { w, h } = front;
+  if (look.still === 'full' && data.hasStill) still(front.ops, look, data, w, h, front.bleed);
+  const firstTop = cardHead(ctx, front, 'The', 'Menu');
+  const cx = w / 2;
+  const inner = w - 68;
+  const moments = (data.menu ?? []).filter((m) => m.dishes.length > 0);
+  if (!menuHasDishes(moments)) {
+    let y = firstTop + 20;
+    for (const line of wrap('Add your menu in Prints & Tickets — the moments of your night, and the dishes of each.', look.bodyFont, 8.4, w - 80)) {
+      text(front.ops, line, cx, y, { font: look.bodyFont, size: 8.4, color: look.muted, align: 'center' });
+      y += 11;
+    }
+    if (data.hasEventQr) cornerQr(front);
+    safeGuide(front, ctx);
+    return [front];
+  }
+  const build = (f: number): FlowRow[] => {
+    const rows: FlowRow[] = [];
+    const dish = 9 * f;
+    const head = Math.max(PRINT_MIN_BODY_PT, 7.4 * f);
+    moments.forEach((m, i) => {
+      const before = (i === 0 ? 12 : 22) * f;
+      if (m.title) rows.push(headRow(look, m.title, cx, inner, before, 4 * f, head));
+      m.dishes.forEach((d, j) => rows.push(...paraRows(look, d, dish, look.ink, cx, inner, dish * 1.5, !m.title && j === 0 ? before : 0)));
+    });
+    return rows;
+  };
+  const backProbe = sheet('menu', ctx);
+  const geo: FlowGeo = {
+    die: front.die,
+    w,
+    h,
+    top: (p) => (p === 0 ? firstTop : continuedHead(backProbe, ctx, 'The Menu')),
+    floor: (p) => (p === 0 ? wordsFloor(front, ctx, 0) : h - SAFE_PT),
+  };
+  const { pages } = chooseScale(build, geo, 9);
+  return pages.map((placed, i) => {
+    const doc = i === 0 ? front : sheet('menu', ctx);
+    if (i > 0) {
+      if (look.still === 'full' && data.hasStill) still(doc.ops, look, data, w, h, doc.bleed);
+      continuedHead(doc, ctx, 'The Menu');
+    }
+    for (const { row, y } of placed) row.draw(doc.ops, y);
+    if (i === 0 && data.hasEventQr) cornerQr(doc);
+    safeGuide(doc, ctx);
+    return doc;
+  });
+}
+
+/**
  * THE PASS, in any of its formats (`PRINT_FORMATS`): a calling card, a CR80 ID
  * card, a train ticket (landscape, tear line) or a boarding pass (a stub, and
  * TABLE · SEAT · TIME where a gate and a seat would be). One composition, sized
@@ -1510,6 +1578,8 @@ export function layoutPieceDocs(piece: PrintSetKey, input: LayoutInput & { pass?
         return layoutEntourage(ctx).map((d) => fitDoc(d, w, h, ctx));
       case 'details':
         return layoutDetails(ctx).map((d) => fitDoc(d, w, h, ctx));
+      case 'menu':
+        return layoutMenu(ctx).map((d) => fitDoc(d, w, h, ctx));
       case 'pass':
         return [
           layoutPass(

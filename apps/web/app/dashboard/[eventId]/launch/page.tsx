@@ -53,7 +53,7 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerPrints } from './_components/maker-prints';
 import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
-import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
@@ -132,6 +132,9 @@ type Props = {
     pass_format?: string | string[];
     invitation_format?: string | string[];
     card_format?: string | string[];
+    /** The Menu editor's save result (`/api/hub-print/menu`). */
+    menu_saved?: string | string[];
+    menu_error?: string | string[];
   }>;
 };
 
@@ -954,6 +957,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     ]);
     if (printEvent) {
       const stored = parsePrintDetails(printEvent.print_details);
+      // The Menu card's other sources (a booked caterer's lines, the schedule's food moments).
+      const menuSources = await readMenuSources(eventId, stored.menu);
       /* 💾 The special message AND "what do you ask your guests?" both save
          into the DRAFT from here (the same door the editor's Text panel and
          the reveal picker use), so each shows the drafted value when the
@@ -1056,6 +1061,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         ),
       };
       prints = (
+        <>
+        {/* First visit to Prints & Tickets since the Menu arrived: what it is and where its dishes come from. */}
+        <MiniTour tourKey="customer_print_menu_v1" storeShell={storeShell} />
         <MakerPrints
           eventId={eventId}
           slug={printEvent.slug}
@@ -1065,12 +1073,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           storeShell={storeShell}
           flash={null}
           seatPlan={stored.include.seatPlan}
+          menu={{
+            saved: stored.menu,
+            ...menuSources,
+            flash: one(search.menu_saved) ? 'saved' : one(search.menu_error) ? 'error' : null,
+          }}
           formats={{
             pass: formatFor('pass', one(search.pass_format))!,
             invitation: formatFor('invitation', one(search.invitation_format))!,
             card: formatFor('card', one(search.card_format))!,
           }}
         />
+        </>
       );
     }
   }

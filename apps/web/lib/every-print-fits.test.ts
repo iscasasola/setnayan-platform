@@ -151,6 +151,14 @@ function heavy(paired: boolean): PrintSetData {
     ],
     swatches: ['#c9a27e', '#e8d9c4', '#7d8b6a', '#b7625a', '#3a3a3a', '#f4efe6'],
     hubAddress: 'setnayan.com/maria-clarissa-and-juan-indalecio-2026',
+    // A long buffet night, by moment — long dish names on purpose.
+    menu: [
+      { title: 'After the ceremony', dishes: ['Chilled calamansi and dalandan juice', 'Kutsinta, puto and sapin-sapin', 'Assorted local pastries from Pampanga'] },
+      { title: 'Cocktail hour at the garden terrace', dishes: ['Tuna kinilaw in coconut vinegar with ginger and red onion', 'Chicken inasal skewers with atchara', 'Lumpiang shanghai with sweet chili sauce', 'Cheese and charcuterie board with local kesong puti', 'Mango and bagoong crostini'] },
+      { title: 'The buffet', dishes: ['Whole Cebu lechon with liver sauce and spiced vinegar', 'Beef kare-kare with bagoong and steamed vegetables', 'Crispy pata with soy-calamansi dip', 'Chicken galantina with pickled vegetables', 'Pancit canton with shrimp and quail eggs', 'Grilled blue marlin with mango salsa', 'Garlic fried rice and steamed jasmine rice', 'Laing, pinakbet and ensaladang talong', 'Bulalo broth with corn and pechay'] },
+      { title: 'Dessert', dishes: ['Three-tier ube and macapuno wedding cake', 'Leche flan, buko pandan and mango float', 'Halo-halo station with all the toppings', 'Sans rival and silvanas'] },
+      { title: 'Midnight snack', dishes: ['Arroz caldo with chicken and toasted garlic', 'Taho and turon'] },
+    ],
     hasStill: true,
     hasEventQr: true,
   };
@@ -349,4 +357,67 @@ test('GUARD: the route prints every SIDE — nothing that serves a piece keeps o
   const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
   assert.doesNotMatch(route, /\blayoutPiece\(/, 'layoutPiece() is the front only — the route must use layoutPieceDocs / layoutPieceView');
   assert.match(route, /flatMap\(\(k\) => layoutPieceDocs\(/, 'the print-ready PDF carries every side');
+});
+
+// ─── The Menu ───────────────────────────────────────────────────────────────
+
+test('the Menu prints every dish of a long night — on the fewest sides, never blank', () => {
+  const data = heavy(true);
+  const dishes = (data.menu ?? []).reduce((a, m) => a + m.dishes.length, 0);
+  for (const theme of INVITE_THEME_IDS) {
+    const look = printLookFor(theme);
+    const docs = layoutPieceDocs('menu', { look, data, mode: 'print', foil: false, format: 'inv-5x7' });
+    const inked = docs.reduce((a, d) => a + d.ops.filter((o) => o.t === 'path' && o.fill === look.ink).length, 0);
+    assert.ok(inked >= dishes, `${theme}: ${inked} dish lines drawn for ${dishes} dishes`);
+    assert.ok(docs.length <= 2, `${theme}: the menu took ${docs.length} sides`);
+  }
+  // No dishes → one side carrying only the "add your menu" prompt (the Maker's picture of it).
+  const empty = layoutPieceDocs('menu', { look: printLookFor('house'), data: { ...data, menu: [{ title: 'Cocktail hour', dishes: [] }] }, mode: 'screen', foil: false });
+  assert.equal(empty.length, 1);
+  assert.ok(!empty[0]!.ops.some((o) => o.t === 'path' && o.fill === printLookFor('house').ink), 'an empty menu draws no dish ink');
+});
+
+test('the menu is stored as the couple typed it — capped, blanks dropped — and moments start from the schedule', async () => {
+  const { parseMenu, parsePrintDetails, serializePrintDetails, foodMoments, MENU_MAX_MOMENTS, MENU_MAX_DISHES } = await import('./print-pieces');
+  const many = Array.from({ length: 20 }, (_, i) => ({ title: `  Moment   ${i} `, dishes: [...Array.from({ length: 30 }, (_, j) => `Dish ${j}`), '', '   ', 7] }));
+  const parsed = parseMenu(many);
+  assert.equal(parsed.length, MENU_MAX_MOMENTS);
+  assert.equal(parsed[0]!.title, 'Moment 0');
+  assert.equal(parsed[0]!.dishes.length, MENU_MAX_DISHES);
+  assert.deepEqual(parseMenu([{ title: '', dishes: [] }, 'junk', null]), [], 'nothing at all is not a moment');
+  assert.deepEqual(parseMenu({ not: 'an array' }), []);
+  // Round trip through the stored shape keeps it, next to the words.
+  const stored = parsePrintDetails({ opening_line: 'Hello', menu: [{ title: 'Dessert', dishes: ['Leche flan'] }] });
+  assert.deepEqual(parsePrintDetails(serializePrintDetails(stored)).menu, [{ title: 'Dessert', dishes: ['Leche flan'] }]);
+  // The schedule's food moments, in time order, from its own labels.
+  const blocks = [
+    { label: 'Ceremony', block_type: 'ceremony', start_at: '2026-12-18T15:00:00+00:00', parent_block_id: null },
+    { label: 'Reception & dinner', block_type: 'reception', start_at: '2026-12-18T19:00:00+00:00', parent_block_id: null },
+    { label: 'Cocktail hour', block_type: 'cocktails', start_at: '2026-12-18T17:00:00+00:00', parent_block_id: null },
+    { label: 'Merienda for the crew', block_type: 'custom', start_at: '2026-12-18T10:00:00+00:00', parent_block_id: null },
+    { label: 'Toast', block_type: 'custom', start_at: '2026-12-18T20:00:00+00:00', parent_block_id: 'x' },
+  ];
+  assert.deepEqual(foodMoments(blocks), ['Merienda for the crew', 'Cocktail hour', 'Reception & dinner']);
+});
+
+test('GUARD: the menu is never printed blank, and a Details save never erases it', () => {
+  const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
+  assert.match(route, /piece === 'menu' && !hasMenu\)[\s\S]{0,40}status: 409|piece === 'menu' && !hasMenu\) \{\s*return new NextResponse\([^)]*\{ status: 409 \}/, 'an empty menu is refused as a print');
+  assert.match(route, /PRINT_SET_KEYS\.filter\(\(k\) => k !== 'menu' \|\| hasMenu\)/, 'the whole set leaves an empty menu out');
+  assert.match(route, /menu: stored\.menu \}/, 'the Details (words) save carries the stored menu over');
+  assert.match(route, /if \(!current\) \{[\s\S]{0,160}return NextResponse\.redirect/, 'an unreadable print_details is never overwritten blind');
+  const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
+  assert.match(maker, /\{menuEmpty \? null : \(/, 'the Maker offers no download for an empty menu');
+  assert.match(maker, /href="#print-menu"/);
+  const editor = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx'), 'utf8'));
+  assert.match(editor, /id="print-menu"/, 'the "Add your menu" link has somewhere to land');
+});
+
+test('every choice on Prints & Tickets is ONE dropdown — the shared PickMenu, never a row of pills', () => {
+  const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
+  assert.equal((maker.match(/<PrintChoicePicker\b/g) ?? []).length, 2, 'the size and the theme preview are each one dropdown');
+  assert.doesNotMatch(maker, /formatsFor\(fam\)\.map\(\(f\) => \(\s*<Link/, 'no pill row of sizes');
+  assert.doesNotMatch(maker, /HUB_THEMES\.filter\(\(x\) => x\.ready\)\.map\(\(x\) => \(\s*<Link/, 'no pill row of themes');
+  const picker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/print-choice-picker.tsx'), 'utf8'));
+  assert.match(picker, /import \{ PickMenu[^}]*\} from '@\/app\/dashboard\/\[eventId\]\/website\/editor\/_components\/pick-menu'/, 'the Maker\'s own PickMenu');
 });

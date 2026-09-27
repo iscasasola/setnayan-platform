@@ -158,3 +158,33 @@ test('🛂 the connect route will not let a request’s own email open the door'
   assert.match(helper, /emailMayBindRow\(/, 'the guard decides by something other than the one rule');
   assert.match(helper, /readGuestSession\(\)/, 'a device holding this event’s key would be refused');
 });
+
+// ── 3 · "Only my Guest List" has no ask-to-join anywhere (owner 2026-09-27) ─
+
+const PAGE = code(readFileSync(join(__dirname, 'page.tsx'), 'utf8'));
+
+test('🚪 on "Only my Guest List" the join page sends everyone to the event — a poster token included', () => {
+  const at = PAGE.indexOf('if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {');
+  assert.ok(at > -1, 'the page no longer asks "Who can RSVP?" before offering the request form');
+  assert.match(PAGE.slice(at, at + 200), /if \(event\.slug\) redirect\(`\/\$\{event\.slug\}`\);/, 'it does not go to the event');
+  assert.ok(at < PAGE.indexOf('<JoinFlow'), 'the request form renders before the rule is asked');
+  // The poster token must not be a way round it.
+  assert.doesNotMatch(PAGE, /tokenValid/, 'a valid poster token decides something on this page again');
+});
+
+test('🚪 …and both actions refuse the same way, before anything is written', () => {
+  for (const name of ['joinEventAction', 'selfJoinAction']) {
+    const body = fn(name);
+    const gate = body.indexOf('if (!anyoneMayAskToJoin(');
+    assert.ok(gate > -1, `${name} does not ask "Who can RSVP?"`);
+    assert.ok(gate < body.indexOf('await createJoinRequest('), `${name}: a request can be written before the rule is asked`);
+    assert.match(body.slice(gate, gate + 400), /GUEST_LIST_ONLY/, `${name}: a refused asker is not sent to the event`);
+  }
+  assert.doesNotMatch(ACTIONS, /tokenValid/, 'a poster token decides something in the join actions again');
+});
+
+test('🚪 the refusal code lands on the event page itself (its one door), never on an ask form', async () => {
+  const { selfJoinRefusalPath, GUEST_LIST_ONLY } = await import('@/lib/invite-arrival');
+  assert.equal(selfJoinRefusalPath({ eventId: 'e', token: 't', slug: 'cale-ice', error: GUEST_LIST_ONLY }), '/cale-ice');
+  assert.match(selfJoinRefusalPath({ eventId: 'e', token: 't', slug: null, error: GUEST_LIST_ONLY }), /^\/join\/e\?/);
+});

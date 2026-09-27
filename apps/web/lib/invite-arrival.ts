@@ -66,6 +66,9 @@ export function inviteReplyPath(slug: string): string {
   return `/${slug}/invite/reply`;
 }
 
+/** The refusal code for an ask-to-join on an "Only my Guest List" event. */
+export const GUEST_LIST_ONLY = 'guest_list_only' as const;
+
 /**
  * Where a refused self-join goes back to (owner 2026-09-25: "the link process
  * must be easy to understand"). The guest came in through `/{slug}/invite`, so
@@ -84,6 +87,9 @@ export function selfJoinRefusalPath(input: {
   const { eventId, token, slug, error } = input;
   if (!slug) return `/join/${eventId}?token=${encodeURIComponent(token)}&error=${encodeURIComponent(error)}`;
   if (error === 'event_is_private') return `/${slug}`;
+  // "Only my Guest List" (owner 2026-09-27): no ask-to-join anywhere, so the
+  // event's own door — Sign in or Upload your QR — is where they go.
+  if (error === GUEST_LIST_ONLY) return `/${slug}`;
   return `/${slug}/invite?error=${encodeURIComponent(error)}`;
 }
 

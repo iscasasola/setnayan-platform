@@ -1,3 +1,4 @@
+import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { redirect } from 'next/navigation';
@@ -221,7 +222,9 @@ export async function GET(
     .from('guests')
     .select('guest_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    // 🛂 A request is not a guest of the day until Keep or Link.
+    .neq('entry_source', REQUEST_ENTRY_SOURCE);
   if (guestCountError) {
     logQueryError(
       'PapicMagazineRoute.guestCount',

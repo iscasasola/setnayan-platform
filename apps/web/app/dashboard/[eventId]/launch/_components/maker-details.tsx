@@ -7,8 +7,6 @@ import { PabuyaMessageEditor } from '../../pabuya/_components/pabuya-message-edi
 import { OpeningLineField } from './opening-line-field';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
 import { SlugField } from '../../invitation/_components/slug-field';
-import { MakerRsvpAsk } from './maker-rsvp-ask';
-import type { RsvpAskConfig } from '@/lib/rsvp-ask';
 import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
 import { PRINT_PIECES } from '@/lib/print-pieces';
@@ -39,13 +37,10 @@ import { PRINT_PIECES } from '@/lib/print-pieces';
  * downloads — no guest page reads them; and the thank-you message is the
  * E-Gifts page's own column, edited there too.
  *
- * ── WHAT DO YOU ASK YOUR GUESTS? (owner 2026-09-25) ──────────────────────
- * The panel's newest section, `<MakerRsvpAsk>` — which of the RSVP form's OWN
- * questions this couple still asks: plus-ones, meal, dietary, a song request,
- * a note, a mobile number. UNLIKE every toggle above, a guest DOES read this
- * one (the reply card, live on the Event Hub), so it goes through the same
- * Draft → Apply door as the reveal and the logo (`events.rsvp_ask_config`,
- * `lib/rsvp-ask.ts`) — not the print words' live save.
+ * ── WHAT DO YOU ASK YOUR GUESTS? MOVED TO THE RSVP PAGE (owner 2026-09-27) ──
+ * It lived here from 2026-09-25; it is now a section of the Maker's own RSVP
+ * page (`maker-rsvp-ask.tsx` → `MakerRsvpSettings`), beside "Who can RSVP?",
+ * "Reply by" and "Requests waiting". Details keeps the event facts.
  *
  * 🖼 DETAILS IS A PAGE (owner 2026-09-25: *"we do not want a pop up for details,
  * logo, hero, reveal and love story. we want their actual page to be on the body
@@ -66,8 +61,6 @@ export function MakerDetails({
   flash,
   slug,
   slugAction,
-  rsvpAsk,
-  rsvpAskDrafted,
 }: {
   /** The event's address — owner: "Add the slug to details". */
   slug: string | null;
@@ -85,10 +78,6 @@ export function MakerDetails({
   /** The couple has E-Gifts set up. */
   hasGifts: boolean;
   flash: 'saved' | 'error' | null;
-  /** The drafted-over-live `events.rsvp_ask_config` — "What do you ask your guests?" */
-  rsvpAsk: RsvpAskConfig;
-  /** The draft holds a different set of questions than what guests currently see. */
-  rsvpAskDrafted: boolean;
 }) {
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
   const inc = stored.include;
@@ -261,13 +250,6 @@ export function MakerDetails({
             </button>
           </div>
         </form>
-
-        {/* ── What do you ask your guests? → events.rsvp_ask_config, DRAFTED ──
-            Owner 2026-09-25: a setup step for the RSVP form's own questions —
-            unlike the print toggles above (events.print_details, live), this
-            one changes what a GUEST sees, so it follows the Draft → Apply door
-            like the reveal and the logo, not the print words' live save. */}
-        <MakerRsvpAsk eventId={eventId} current={rsvpAsk} drafted={rsvpAskDrafted} />
       </div>
     </div>
   );

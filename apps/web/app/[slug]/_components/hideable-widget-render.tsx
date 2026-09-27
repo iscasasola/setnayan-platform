@@ -170,7 +170,13 @@ function HideableWidgetBody({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guest?.role ?? null} rolePalette={(event as { role_palette?: unknown }).role_palette as never} hideWhenEmpty={guestView} />;
+      /* 👗 WHO IS ASKING (owner 2026-09-28): a guest is answered for their own
+         role; the Maker canvas is GENERAL. `guestView` is false only there
+         (`site-body.tsx` passes `!isMakerCanvas`), where `guest` is the HOST
+         editing the hub — answering for the groom's own row showed the couple
+         "You are in the entourage · #FAF7F2" instead of the dress code their
+         guests will read. So the role is withheld on the canvas, not passed. */
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView ? (guest?.role ?? null) : null} rolePalette={event.role_palette} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;

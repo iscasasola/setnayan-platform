@@ -97,6 +97,7 @@ export type TourKey =
   | 'customer_ombre_background_v1'
   | 'customer_details_bound_v1'
   | 'customer_print_menu_v1'
+  | 'customer_schedule_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -115,6 +116,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_ombre_background_v1',
   'customer_details_bound_v1',
   'customer_print_menu_v1',
+  'customer_schedule_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -564,6 +566,44 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: CheckCircle2,
         title: 'Offered once it has a dish',
         body: 'An empty menu is never printed. Until you add a dish, its card shows where your menu will go.',
+      },
+    ],
+  },
+  /*
+    THE SCHEDULE'S FIRST VISIT (Schedule rebuild slice 1, 2026-09-27; owner
+    2026-09-25: every feature gets a first-visit tour). One slide per thing the
+    rebuilt page asks the couple to learn: the rail, tap-and-drag, the eye,
+    suppliers' requests, Announce. Sells nothing, so the store shell keeps all.
+  */
+  customer_schedule_v1: {
+    key: 'customer_schedule_v1',
+    label: 'Your schedule, as the day',
+    blurb: 'The day drawn as a rail — tap, drag, show to guests, announce.',
+    slides: [
+      {
+        Icon: Calendar,
+        title: 'Your day, drawn as it runs',
+        body: 'Event Day shows your day as a rail of time: each moment starts where its top sits and runs as long as it is tall. Journey is what already happened on the way; Preparation is what is still due.',
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'Tap to change, drag to move',
+        body: 'Tap a moment to change it. Drag it to move it, or drag its top or bottom edge to change how long it runs &mdash; everything lands on five minutes. Tap an empty time to add a moment there. On a phone, tap a moment first, then drag it.',
+      },
+      {
+        Icon: EyeOff,
+        title: 'The eye decides what guests see',
+        body: 'A moment with the eye open shows on your Event Hub, with a live &ldquo;happening now&rdquo; on the day. Close the eye to keep it between you, your coordinator and the suppliers you tag.',
+      },
+      {
+        Icon: MessageSquare,
+        title: 'Suppliers ask, you decide',
+        body: 'When a booked supplier asks for a change, it appears as a dashed moment where they asked, and in Requests. Approve or decline &mdash; they are told either way, and they never change your schedule themselves.',
+      },
+      {
+        Icon: Send,
+        title: 'Announce to your guests',
+        body: 'Tap <b>Announce</b> to send everyone one message &mdash; before the day or on it. Your latest announcement sits at the top of your guests&rsquo; Event Hub on the day. You and your approved coordinator can announce.',
       },
     ],
   },

@@ -1,14 +1,51 @@
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
-import type { GuestRole } from '@/lib/guests';
-import type { RolePalette } from '@/lib/mood-board';
+import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { resolveDisplayPalette } from '@/lib/room-palette';
 import {
   groupLabelOf,
   resolveGuestAttireWithGroups,
   sanitizeGroupAttire,
 } from '@/lib/role-group-dress-code';
+import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from '@/lib/dress-code-for-everyone';
 import { STYLE_UNSET_LINE, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { roleLabel } from '@/lib/entourage';
+
+/*
+ * 🧵 THE SILK CHIP, VISIBLE ON ANY GROUND. `.pahina-swatch` shades a chip with
+ * two inset shadows and no edge, so a near-white colour (#FAF7F2 — a real
+ * groom's first colour) on a light scene was a chip nobody could see. A 1px
+ * outline drawn INSIDE the chip gives every colour an edge without touching the
+ * shared swatch rule (`outline` is its own property, so the chip's
+ * `box-shadow` shading is left exactly as it was).
+ */
+const SWATCH_EDGE = 'outline outline-1 outline-ink/20 [outline-offset:-1px]';
+/** The same chip at row size — ten roles of full-size chips is a wall on a phone. */
+const ROW_SWATCH = `pahina-swatch !h-7 !w-5 shrink-0 ${SWATCH_EDGE}`;
+
+/*
+ * The INC and Muslim modest-dress guidance. Said on its own when the couple has
+ * authored nothing, and — since the Mood Board now fills this scene for nearly
+ * every couple (owner 2026-09-28) — used as the heading and words above the
+ * colours when the couple wrote no title or description of their own, so the
+ * guidance is not silently traded for a palette.
+ */
+const MODEST_GUIDANCE = {
+  // INC weddings require modest, formal attire of everyone present (no
+  // sleeveless / short) — INC_Wedding_Practices_Reference_2026-06-28.md § 5.4.
+  inc: {
+    heading: 'Modest & formal',
+    body:
+      'Our ceremony is held in the INC chapel, so we kindly ask everyone to dress modestly and formally — please avoid sleeveless tops and short dresses or skirts. Thank you for honoring the occasion with us.',
+  },
+  // lib/wedding-traditions 'muslim': modest dress.
+  muslim: {
+    heading: 'Modest dress',
+    body:
+      'We warmly ask everyone to dress modestly — shoulders and knees covered. Ladies, please feel free to bring a scarf for the ceremony. Thank you for honoring the occasion with us.',
+  },
+} as const;
 
 /**
  * Dress code section on the public landing page (CLAUDE.md 2026-05-22).
@@ -18,6 +55,24 @@ import { roleLabel } from '@/lib/entourage';
  * (brand-new event, host hasn't set anything yet), renders a polite
  * brand-voice fallback so guests know the section is intentional and to
  * check back closer to the day.
+ *
+ * ── WHO IS ASKING (owner 2026-09-28) ─────────────────────────────────────
+ * *"we already have a palette and it adjusts real time with the event hub. if
+ * in general, show our theme and the palettes of each role. but if there is an
+ * account specified to this, show their palette only."*
+ *
+ *   · GENERAL — no `guestRole`: a stranger on the public link, a guest with no
+ *     role, and the couple's own Maker canvas (the dispatcher withholds the
+ *     host's role there). "Our colours" (the Mood Board's main colours, merged
+ *     with any palette typed in the dress-code editor), then every role the
+ *     couple dressed with ALL of its colours and its outfit line.
+ *   · SPECIFIC — an identified guest whose role has something to say: that
+ *     role only, every colour it holds, call time first.
+ *
+ * The colours are read from `rolePalette` — the SAME `events.role_palette` the
+ * page's theme colours are built from (`buildSitePaletteVars`, `loaders.ts`),
+ * off the same row, which on the Maker canvas is the draft-overlaid one. So
+ * this scene moves when the Mood Board moves, exactly as the rest of the hub.
  */
 export function DressCodeWidget({
   config,
@@ -36,8 +91,9 @@ export function DressCodeWidget({
   config: EventRow['dress_code_config'];
   /** The reader's own role, when the reader is an identified guest. */
   guestRole?: GuestRole | null;
-  /** The couple's mood board — the colour a role wears comes from here. */
-  rolePalette?: RolePalette | null;
+  /** The couple's mood board (`events.role_palette`, raw — sanitised here) —
+   *  "Our colours" and every colour a role wears come from here. */
+  rolePalette?: unknown;
   ceremonyType?: string | null;
   genderSeparation?: string | null;
 }) {
@@ -61,7 +117,7 @@ export function DressCodeWidget({
   const donts = Array.isArray(config?.donts)
     ? config.donts.filter((s): s is string => typeof s === 'string' && s.length > 0)
     : [];
-  const palette = Array.isArray(config?.palette)
+  const authoredPalette = Array.isArray(config?.palette)
     ? config.palette.filter(
         (p): p is { name: string; hex: string } =>
           !!p &&
@@ -89,15 +145,35 @@ export function DressCodeWidget({
   // 🔑 Precedence is NOT decided here. `resolveGuestAttireWithGroups` delegates
   // to `resolveAttireFor`, the one place that ranks the tiers, so this widget
   // and the editor's preview cannot disagree about which line won.
-  const resolved = resolveGuestAttireWithGroups({
+  //
+  // 🎨 THE MOOD BOARD, READ ONCE. `stored` is the couple's own board; `board`
+  // is what the Mood Board SHOWS (`resolveDisplayPalette` — the untouched roles
+  // it derives from the main colours), the same palette the 3D room dresses
+  // people in. Every colour below comes from `board`, so this scene, the Mood
+  // Board and the room cannot tell one bridesmaid three different things.
+  const stored = sanitizeRolePalette(rolePalette);
+  const board = resolveDisplayPalette(stored);
+  const roles = sanitizeRoleAttire(
+    (config as { roles?: unknown } | null)?.roles,
+    (v) => roleLabel(v as GuestRole) !== null,
+  );
+  const groups = sanitizeGroupAttire((config as { groups?: unknown } | null)?.groups);
+  // THE GENERAL VIEW — "our theme and the palettes of each role".
+  const everyone = dressCodeForEveryone({ stored, board, roles, groups, ceremonyType });
+  // "Our colours": the Mood Board's main colours lead (live); a colour the
+  // couple typed in the dress-code editor lends a same-hex chip its name, or
+  // follows after — see `ourColoursWith` for why this merges.
+  const palette = ourColoursWith(everyone.ourColours, authoredPalette);
+  const generalHasContent = palette.length > 0 || everyone.rows.length > 0;
+  // THE SPECIFIC VIEW — "if there is an account specified to this, show their
+  // palette only". A panel that could only name the role stands down for the
+  // general view (`speaksToThisReader`).
+  const resolved = speaksToThisReader(resolveGuestAttireWithGroups({
     role: guestRole,
-    roles: sanitizeRoleAttire(
-      (config as { roles?: unknown } | null)?.roles,
-      (v) => roleLabel(v as GuestRole) !== null,
-    ),
-    groups: sanitizeGroupAttire((config as { groups?: unknown } | null)?.groups),
-    palette: rolePalette,
-  });
+    roles,
+    groups,
+    palette: board,
+  }), generalHasContent);
   const mine = resolved.panel;
   // Said only when the answer came from the group, so a reader knows the couple
   // dressed her whole group and did not overlook her.
@@ -108,7 +184,10 @@ export function DressCodeWidget({
     description.length > 0 ||
     dos.length > 0 ||
     donts.length > 0 ||
-    palette.length > 0 ||
+    // The Mood Board is a dress code too: "our theme and the palettes of each
+    // role" (owner 2026-09-28) — a couple who picked colours and typed nothing
+    // here still has something every guest can dress by.
+    generalHasContent ||
     // A line for THIS reader's role is a dress code, even when the couple
     // filled in nothing else.
     mine !== null;
@@ -128,13 +207,11 @@ export function DressCodeWidget({
               <span>Dress code</span>
             </p>
             <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
-              Modest &amp; formal
+              {MODEST_GUIDANCE.inc.heading}
             </h3>
           </header>
           <p className="max-w-prose text-base leading-relaxed text-ink/70">
-            Our ceremony is held in the INC chapel, so we kindly ask everyone to
-            dress modestly and formally — please avoid sleeveless tops and short
-            dresses or skirts. Thank you for honoring the occasion with us.
+            {MODEST_GUIDANCE.inc.body}
           </p>
         </section>
       );
@@ -150,13 +227,11 @@ export function DressCodeWidget({
               <span>Dress code</span>
             </p>
             <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
-              Modest dress
+              {MODEST_GUIDANCE.muslim.heading}
             </h3>
           </header>
           <p className="max-w-prose text-base leading-relaxed text-ink/70">
-            We warmly ask everyone to dress modestly — shoulders and knees
-            covered. Ladies, please feel free to bring a scarf for the ceremony.
-            Thank you for honoring the occasion with us.
+            {MODEST_GUIDANCE.muslim.body}
           </p>
           {genderNote ? (
             <p className="max-w-prose text-sm font-medium text-ink/75">{genderNote}</p>
@@ -193,7 +268,11 @@ export function DressCodeWidget({
   // A reader with a role is answered for THEIR role only: the whole palette is
   // everyone else's instructions, and a ninang does not need the groomsmen's.
   // A reader with no role (or no session) falls through to the general section
-  // below, unchanged.
+  // below: our colours, then every role's.
+  const modest =
+    ceremonyType === 'inc' ? MODEST_GUIDANCE.inc : ceremonyType === 'muslim' ? MODEST_GUIDANCE.muslim : null;
+  const shownTitle = title || (!description && modest ? modest.heading : 'Dress with us');
+  const shownDescription = description || (!title && modest ? modest.body : '');
 
   return (
     <section className="space-y-5">
@@ -202,16 +281,23 @@ export function DressCodeWidget({
           <span>Dress code</span>
         </p>
         <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
-          {title || 'Dress with us'}
+          {shownTitle}
         </h3>
       </header>
-      {description ? (
-        <p className="max-w-prose text-base leading-relaxed text-ink/70">{description}</p>
+      {shownDescription ? (
+        <p className="max-w-prose text-base leading-relaxed text-ink/70">{shownDescription}</p>
       ) : null}
       {mine ? (
-        <div className="space-y-3 border-l-2 border-gild bg-veil/50 p-4">
+        /* 🎀 NO FILL BEHIND "YOU". The box used to sit on `bg-veil/50`, which
+           a palette-tinted page turns pink, and a near-white first colour
+           (#FAF7F2) vanished into it. The gild rule alone marks the panel; the
+           chips carry their own edge (`SWATCH_EDGE`). */
+        <div className="space-y-3 border-l-2 border-gild py-1 pl-4" data-dress-code="you">
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-            You are {mine.roleLabel ?? 'in the entourage'}
+            {/* The entourage's own label first ("Ninang"); the couple are not
+                in the entourage list, so a bride or groom reads the guest
+                list's label ("Groom") instead of "in the entourage". */}
+            You are {mine.roleLabel ?? (guestRole ? ROLE_LABELS[guestRole] : null) ?? 'in the entourage'}
           </p>
           {/* WHERE THE ANSWER CAME FROM — said only when it came from the group.
               A ninang who reads her group's line needs to know the couple
@@ -241,46 +327,87 @@ export function DressCodeWidget({
               <span className="font-pahina text-2xl font-light tracking-tight">{mine.callTime}</span>
             </p>
           ) : null}
-          <div className="flex items-center gap-4">
-            {mine.hex ? (
-              <span
-                aria-hidden
-                className="pahina-swatch shrink-0"
-                style={{ backgroundColor: mine.hex }}
-              />
+          <div className="space-y-1">
+            <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
+              {mine.styleLabel ?? 'Outfit to be confirmed'}
+            </p>
+            {mine.styleLabel ? null : (
+              <p className="text-sm leading-relaxed text-ink/65">{STYLE_UNSET_LINE}</p>
+            )}
+            {mine.note ? (
+              <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p>
             ) : null}
-            <div className="space-y-1">
-              <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
-                {mine.styleLabel ?? 'Outfit to be confirmed'}
-              </p>
-              {mine.styleLabel ? null : (
-                <p className="text-sm leading-relaxed text-ink/65">{STYLE_UNSET_LINE}</p>
-              )}
-              {mine.note ? (
-                <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p>
-              ) : null}
-              {mine.hex ? (
-                <p className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink/55">
-                  {mine.hex}
-                </p>
-              ) : null}
-            </div>
           </div>
+          {/* 🎨 THEIR PALETTE, ALL OF IT (owner 2026-09-28: "show their palette
+              only"). It used to be `mine.hex` — the role's FIRST colour — so a
+              bridesmaid whose board holds three was shown one. */}
+          {mine.hexes.length > 0 ? (
+            <ul className="flex flex-wrap gap-2" aria-label="Your colours">
+              {mine.hexes.map((hex, i) => (
+                <li key={`${hex}-${i}`} className="w-[3.25rem]">
+                  <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
+                  <span className="mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/55">
+                    {hex}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
       {/* The full palette is everyone else's instructions. A reader who has
           their own line above does not need it (owner 2026-09-20). */}
       {!mine && palette.length > 0 ? (
-        <div className="flex flex-wrap gap-4">
-          {palette.map((p, i) => (
-            <figure key={`${p.hex}-${i}`} className="w-[3.25rem]">
-              <span aria-hidden className="pahina-swatch" style={{ backgroundColor: p.hex }} />
-              <figcaption className="mt-2 text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/60">
-                {p.name}
-              </figcaption>
-            </figure>
-          ))}
+        <div className="space-y-2" data-dress-code="ours">
+          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Our colours</p>
+          {/* gap-2: five full chips (the Mood Board's five main colours) fit
+              one line at 375px; gap-3 wrapped the fifth onto a row alone. */}
+          <ul className="flex flex-wrap gap-2">
+            {palette.map((p, i) => (
+              <li key={`${p.hex}-${i}`} className="w-[3.25rem]" title={p.name || p.hex}>
+                <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: p.hex }} />
+                {p.name ? (
+                  <span className="mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/60">
+                    {p.name}
+                  </span>
+                ) : (
+                  <span className="sr-only">{p.hex}</span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
+      ) : null}
+      {/* 👥 EVERY ROLE'S COLOURS — the general view's second half. One tidy row
+          per role the couple dressed (label + its outfit line on the left, its
+          chips on the right, wrapping under on a narrow phone), in the Mood
+          Board's own order. Roles with no colours and no outfit are left out
+          by `dressCodeForEveryone`, never drawn empty. */}
+      {!mine && everyone.rows.length > 0 ? (
+        <ul className="divide-y divide-ink/10 border-y border-ink/10" data-dress-code="roles">
+          {everyone.rows.map((row) => (
+            <li key={row.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2.5" data-role-row={row.key}>
+              <div className="min-w-0 flex-1 basis-40 space-y-0.5">
+                <p className="text-sm font-medium leading-snug text-ink">{row.label}</p>
+                {row.lines.map((line, i) => (
+                  <p key={i} className="text-xs leading-relaxed text-ink/65">
+                    {line.label} · {line.styleLabel}
+                    {line.note ? <> — {line.note}</> : null}
+                  </p>
+                ))}
+              </div>
+              {row.hexes.length > 0 ? (
+                <ul className="flex flex-wrap gap-1.5" aria-label={`${row.label} colours`}>
+                  {row.hexes.map((hex, i) => (
+                    <li key={`${hex}-${i}`} title={hex}>
+                      <span aria-hidden className={ROW_SWATCH} style={{ backgroundColor: hex }} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       ) : null}
       {dos.length > 0 || donts.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

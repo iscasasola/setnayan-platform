@@ -17,9 +17,14 @@ type Props = {
   eventId: string;
   /** Used for the download filename. */
   coupleName?: string | null;
+  /**
+   * `icon` — the Schedule rail's toolbar tool (Schedule rebuild, 2026-09-27):
+   * a 36px icon with its name in `aria-label`, same action, same modal.
+   */
+  variant?: 'button' | 'icon';
 };
 
-export function EmceeScriptButton({ eventId, coupleName }: Props) {
+export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: Props) {
   const [open, setOpen] = useState(false);
   const [script, setScript] = useState<string | null>(null);
   const [includePrivate, setIncludePrivate] = useState(false);
@@ -74,15 +79,28 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => generate(includePrivate)}
-        disabled={pending}
-        className="inline-flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-60"
-      >
-        <ScrollText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        {pending ? 'Generating…' : 'Generate emcee script'}
-      </button>
+      {variant === 'icon' ? (
+        <button
+          type="button"
+          onClick={() => generate(includePrivate)}
+          disabled={pending}
+          aria-label={pending ? 'Writing the emcee script…' : 'Emcee script'}
+          title="Emcee script"
+          className="sn-dot-btn grid h-9 w-9 place-items-center rounded-md text-ink/60 transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:opacity-60"
+        >
+          <ScrollText aria-hidden className="h-[17px] w-[17px]" strokeWidth={1.8} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => generate(includePrivate)}
+          disabled={pending}
+          className="inline-flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-60"
+        >
+          <ScrollText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {pending ? 'Generating…' : 'Generate emcee script'}
+        </button>
+      )}
 
       {open ? (
         <div

@@ -52,9 +52,10 @@ test('the sanitizer keeps closed-set values and drops everything else', () => {
     line: 'not an object',
   });
   assert.deepEqual(got, {
-    names: { font: 'cormorant', color: '#aabbcc', size: 'xl', motion: { in: 'rise', during: 'drift', timeline: 'scroll', out: 'lift' } },
+    // ♻ the old S · L · XL are carried onto the stepper's scale (85 · 120 · 145)
+    names: { font: 'cormorant', color: '#aabbcc', size: 145, motion: { in: 'rise', during: 'drift', timeline: 'scroll', out: 'lift' } },
     // the mark is a drawing: no font or colour of its own
-    mark: { size: 'l' },
+    mark: { size: 120 },
   });
   assert.equal(sanitizeHubElements({ heading: { size: 'm' } }), null, 'M is the theme size — an absence, never stored');
   assert.equal(sanitizeHubElements(null), null);
@@ -183,10 +184,10 @@ test("the hero's stored override renders for guests, inline on the part it names
 test('a reset clears one field, then the element, then the list', () => {
   const start = sanitizeHubElements({ heading: { font: 'cinzel', color: '#112233' }, body: { size: 's' } });
   const noFont = withElementChoice(start, 'heading', 'font', null);
-  assert.deepEqual(noFont, { heading: { color: '#112233' }, body: { size: 's' } });
+  assert.deepEqual(noFont, { heading: { color: '#112233' }, body: { size: 85 } });
   const noHeading = withElementChoice(noFont, 'heading', 'color', null);
-  assert.deepEqual(noHeading, { body: { size: 's' } }, 'an element with nothing left disappears');
-  assert.deepEqual(withElementChoice(noHeading, 'body', 'size', 'm'), null, 'M is the reset for size');
+  assert.deepEqual(noHeading, { body: { size: 85 } }, 'an element with nothing left disappears');
+  assert.deepEqual(withElementChoice(noHeading, 'body', 'size', 100), null, '100 (the theme size) is the reset for size');
   assert.equal(withoutElement(start, 'heading')?.heading, undefined);
 });
 
@@ -231,7 +232,8 @@ test('taking an element style OFF is free, even while another element keeps its 
     ],
   };
   const draft = mergeHubDraft(emptyHubDraft(), {
-    widgets: { schedule: { canvas: { elements: { body: { size: 'l' } } } } },
+    // ♻ a saved 'L' and the stepper's 120 are the SAME size — not a change.
+    widgets: { schedule: { canvas: { elements: { body: { size: 120 } } } } },
   });
   const plan = planHubDraftApply(draft, live, false);
   assert.equal(plan.refused.length, 0, 'a removal is never held');

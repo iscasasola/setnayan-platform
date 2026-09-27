@@ -1,5 +1,6 @@
 'use client';
 
+import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
@@ -162,6 +163,15 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
      Apply — `lib/maker-save-status.ts`. An error stays until a save succeeds. */
   const [saveStatus, setSaveStatus] = useState<MakerSaveStatus | null>(null);
   useEffect(() => onMakerSave(setSaveStatus), []);
+  /* More ▾ → "Reset this stage…" in the Maker toolbar opens THIS confirm. */
+  useEffect(() => {
+    const open = () => {
+      setOpen(true);
+      setAsking(true);
+    };
+    window.addEventListener(MAKER_OPEN_RESET_EVENT, open);
+    return () => window.removeEventListener(MAKER_OPEN_RESET_EVENT, open);
+  }, []);
   const act = (fields: Record<string, string>) => {
     run(fields);
     setAsking(false);

@@ -65,6 +65,14 @@ before(async () => {
       [eventId, tableId, g.rows[0]!.guest_id],
     );
   }
+
+  // ON the list, NOT seated — the case the open link must not reveal
+  // (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED" (2)).
+  await db.query(
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
+     VALUES ($1, 'Rosa', 'Unseated', 'both', 'friends')`,
+    [eventId],
+  );
 });
 
 after(async () => {
@@ -96,4 +104,15 @@ test('a PARTIAL/substring query returns NOTHING — no roster enumeration', asyn
 test('the min-length probe guard and unknown-name both return nothing', async () => {
   assert.deepEqual(await lookup('m'), [], '1-char probe guarded');
   assert.deepEqual(await lookup('Nobody Here'), [], 'a name not on the list returns nothing');
+});
+
+test('on the list but NOT seated answers exactly like a name that is not on the list', async () => {
+  // The open link's ONE message ("No table for that name yet") is only honest
+  // if the database gives the two cases the same answer. It does: the lookup
+  // JOINs the seat assignment, so an unseated guest yields zero rows — byte for
+  // byte what a stranger's invented name yields. A stranger learns nothing.
+  const unseated = await lookup('Rosa Unseated');
+  const stranger = await lookup('Rosa Nobody');
+  assert.deepEqual(unseated, [], 'an unseated guest is revealed by the open lookup');
+  assert.deepEqual(unseated, stranger, 'the two cases answer differently — the merged message would be a lie');
 });

@@ -34,6 +34,7 @@ import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
+import { SeatDoorLine } from './_components/seat-door-line';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteReplyPath } from '@/lib/invite-arrival';
@@ -1549,6 +1550,12 @@ async function InvitationBody({
         })
       : { guests: [], passes: {} };
   const meSlot = isEditorCanvas ? null : (
+    <>
+    {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
+        (4)) — the same line the Details scene carries; never a bar slot. */}
+    {seatPassActive ? (
+      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
+    ) : null}
     <GuestMe
       name={
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
@@ -1563,6 +1570,7 @@ async function InvitationBody({
       userAgent={(await headers()).get('user-agent')}
       termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
     />
+    </>
   );
 
   const venueOpen = venueIsOpen({

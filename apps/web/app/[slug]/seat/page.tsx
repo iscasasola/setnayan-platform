@@ -21,6 +21,7 @@ import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { resolveMonogram } from '@/lib/monogram';
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
+import { publicDisplayName } from '@/lib/find-your-seat';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
@@ -645,13 +646,6 @@ async function PublicTableView({
       </div>
     </SeatPassShell>
   );
-}
-
-function publicDisplayName(first: string | null, last: string | null): string {
-  const f = first?.trim() ?? '';
-  const lastInitial = last?.trim()?.charAt(0)?.toUpperCase();
-  if (f && lastInitial) return `${f} ${lastInitial}.`;
-  return f || (lastInitial ? `${lastInitial}.` : '');
 }
 
 // ─────────────────────────────────────────────────────────────────────────

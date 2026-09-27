@@ -3,7 +3,7 @@
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Info, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
+import { Check, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -23,7 +23,8 @@ import {
   type MakerState,
 } from './maker-context';
 import { MakerTour } from './maker-tour';
-import { MakerPlayMenu } from './maker-play-menu';
+import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
+import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 
@@ -36,7 +37,8 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
  * scrollable navigation, and editing tools each"* · *"we can opt to not have
  * the sidebar and top nav. we can have a button to exit editor"*):
  *
- *   1 · the toolbar — ✕ Exit · ▤ · ▶ · ＋ · THE BAR · Desktop/Phone/Both · ⊞ · ⓘ · ⋯
+ *   1 · the toolbar — Exit · Play · Add · THE PLACE PICKER · Scenes · View ▾ ·
+ *       More ▾ · Restore · Undo · Apply (Keynote's labelled buttons, 2026-09-27)
  *   2 · the navigator  ┐
  *   3 · the canvas     ├ the work area — `children`, built by the editor page
  *   4 · the inspector  ┘ with every panel and its own bound action
@@ -52,14 +54,13 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
  * canvas, a tool opens a panel that already ships, and an item with no build
  * yet opens ONE line saying it is coming in the next build.
  *
- * 🧩 THE APPLY BAR MOUNTS HERE, TWICE. Restore · Undo · Apply (`applySlot`,
+ * 🧩 THE APPLY BAR MOUNTS HERE, ONCE. Restore · Undo · Apply (`applySlot`,
  * `website/_components/hub-draft-bar.tsx`) must stay visible at the upper
- * right of the top nav on every width (owner 2026-09-25), and this toolbar
- * is one `flex-col`-below-`md`/`flex-row`-at-`md` element, not a single row —
- * so `applySlot` is rendered once for the phone's own line, right-aligned
- * under the icon row, and once in the desktop row after the device switch.
- * Both are the SAME prop; `loadHubDraftBarData` is `cache()`d so the two
- * mounts read the draft once, not twice.
+ * right of the top nav on every width (owner 2026-09-25). Since the Keynote
+ * toolbar (2026-09-27) the toolbar is one wrapping row: on a phone the slot
+ * takes a full-width, right-aligned line of its own under the tools; from
+ * `md` it sits at the row's right end. One mount — so one draft bar listens
+ * for More ▾'s "Reset this stage…" (`maker-open-reset.ts`).
  */
 export function MakerShell({
   eventId,
@@ -254,27 +255,32 @@ export function MakerShell({
         aria-label="Event Hub Maker"
         role="region"
       >
-        {/* ══ 1 · THE TOOLBAR ══ */}
-        <header className="sn-glass-bare relative z-20 flex shrink-0 flex-col gap-1 px-2 py-1.5 md:flex-row md:flex-wrap md:items-center md:gap-2 md:px-3">
-          <div className="flex items-center gap-1">
+        {/* ══ 1 · THE TOOLBAR — Keynote's, in the Maker's own look ══
+            (owner 2026-09-27: *"use keynote and pages as inspiration on how to
+            make our toolbars look"*; approved prototype
+            `prototypes/maker_toolbars_keynote_pages_2026-09-27.html`, the
+            "Today → New" strip): the Maker's own actions on the left as
+            labelled buttons (Exit · Play · Add), the ONE place picker, then
+            Scenes · View ▾ · More ▾, and Restore · Undo · Apply on the right.
+            ⛔ NO INSPECTOR SWITCHES HERE — Format · Animate · Arrange live only
+            as the inspector's own tabs (owner: *"repeated. just place it on
+            the sidebar instead of the top bar?"*). Snap grid, a note and not a
+            tool, moved into More ▾; About the Maker and the address sheet too. */}
+        <header
+          data-maker-toolbar=""
+          className="sn-glass-bare relative z-20 flex shrink-0 flex-wrap items-center gap-x-0.5 gap-y-1 px-1.5 py-1 md:flex-nowrap md:gap-1 md:px-2.5"
+        >
+          <div className="flex shrink-0 items-center" data-maker-tools="left">
             <Link
               href={`/dashboard/${eventId}`}
               aria-label="Exit the Event Hub Maker"
               title="Exit"
-              className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
+              data-maker-tool="exit"
+              className={MAKER_TOOL_BUTTON}
             >
               <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+              <span className={MAKER_TOOL_WORD}>Exit</span>
             </Link>
-            {hasWork ? (
-              <IconButton
-                label={navOpen ? 'Hide the scenes' : 'Show the scenes'}
-                pressed={navOpen}
-                onClick={() => setNavOpen((o) => !o)}
-                className="hidden lg:inline-flex"
-              >
-                <PanelLeft aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </IconButton>
-            ) : null}
             {playHref ? (
               /* ▶ Play this scene (in place, in the canvas) · Preview the whole
                  stage (a new tab, page-only, the draft). */
@@ -287,69 +293,120 @@ export function MakerShell({
                 }
               />
             ) : null}
-            <ComingNext label="Add a scene" note={MAKER_COMING_NEXT.add} align="start">
-              <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </ComingNext>
-            <p className="ml-1 truncate font-serif text-base text-ink md:hidden">Event Hub Maker</p>
-            <span className="ml-auto flex items-center gap-1 md:hidden">
-              <IconButton label="About the Event Hub Maker" onClick={() => setTour('again')}>
-                <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </IconButton>
-              <IconButton label="Your address, who can view, and more" pressed={moreOpen} onClick={() => setMoreOpen(true)}>
-                <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </IconButton>
+            <span className="hidden md:inline-flex">
+              <ComingNext label="Add a scene" note={MAKER_COMING_NEXT.add} align="start" tool="Add">
+                <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              </ComingNext>
             </span>
+          </div>
+          <i aria-hidden className="mx-1 hidden h-7 w-px shrink-0 bg-ink/15 md:block" />
+
+          {/* The ONE place picker — kept as is (it collapses to "● Invitation ▾"
+              by measured overflow, never a breakpoint). */}
+          <div className="flex min-w-0 flex-1 px-2 md:px-0" data-maker-place="">
+            <MakerBar
+              stage={stage}
+              liveStage={liveStage}
+              selection={selection}
+              hasWork={hasWork}
+              onPress={pressBar}
+            />
+          </div>
+
+          <i aria-hidden className="mx-1 hidden h-7 w-px shrink-0 bg-ink/15 md:block" />
+          <div className="flex shrink-0 items-center" data-maker-tools="right">
+            {hasWork ? (
+              <button
+                type="button"
+                aria-label={navOpen ? 'Hide the scenes' : 'Show the scenes'}
+                title={navOpen ? 'Hide the scenes' : 'Show the scenes'}
+                aria-pressed={navOpen}
+                onClick={() => setNavOpen((o) => !o)}
+                data-maker-tool="scenes"
+                className={`${MAKER_TOOL_BUTTON} hidden lg:inline-flex`}
+              >
+                <PanelLeft aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                <span className={MAKER_TOOL_WORD}>Scenes</span>
+              </button>
+            ) : null}
+            <span className="hidden md:inline-flex">
+              <ToolMenu
+                label="View"
+                tool="view"
+                icon={
+                  device === 'phone' ? (
+                    <Smartphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                  ) : (
+                    <Monitor aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                  )
+                }
+              >
+                {(close) => (
+                  <>
+                    <MenuItem on={device === 'desktop'} onClick={() => { setDevice('desktop'); close(); }}>
+                      Desktop
+                    </MenuItem>
+                    <MenuItem on={device === 'phone'} onClick={() => { setDevice('phone'); close(); }}>
+                      Phone
+                    </MenuItem>
+                    <MenuItem disabled note={MAKER_COMING_NEXT.both}>
+                      Both
+                    </MenuItem>
+                  </>
+                )}
+              </ToolMenu>
+            </span>
+            <ToolMenu label="More" tool="more" align="end" icon={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}>
+              {(close) => (
+                <>
+                  <MenuItem onClick={() => { close(); setMoreOpen(true); }}>Your Event Hub address</MenuItem>
+                  <MenuItem onClick={() => { close(); setMoreOpen(true); }}>Who can view</MenuItem>
+                  {hasWork && stageRoles.length > 0 ? (
+                    <>
+                      <MenuHeading>See it as…</MenuHeading>
+                      <MenuItem on={viewAsRole === null} onClick={() => { setViewAsRole(null); close(); }}>
+                        You · editing
+                      </MenuItem>
+                      {stageRoles.map((r) => (
+                        <MenuItem
+                          key={r.role}
+                          on={viewAsRole === r.role}
+                          disabled={!r.href}
+                          note={r.href ? undefined : 'No preview for this one yet.'}
+                          onClick={() => { setViewAsRole(r.role); close(); }}
+                        >
+                          {r.name}
+                        </MenuItem>
+                      ))}
+                    </>
+                  ) : null}
+                  {applySlot ? (
+                    <MenuItem onClick={() => { close(); window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT)); }}>
+                      Reset this stage…
+                    </MenuItem>
+                  ) : null}
+                  <MenuItem disabled note={MAKER_COMING_NEXT.add} className="md:hidden">
+                    Add a scene
+                  </MenuItem>
+                  <MenuItem disabled note={MAKER_COMING_NEXT.snap}>
+                    Snap grid
+                  </MenuItem>
+                  <MenuItem onClick={() => { close(); setTour('again'); }}>About the Maker</MenuItem>
+                </>
+              )}
+            </ToolMenu>
           </div>
 
           {/* 💾 RESTORE · UNDO · APPLY — upper right of the top nav, on every
-              screen (owner 2026-09-25: *"i thought there will be an action
-              buttons RESTORE/UNDO/APPLY on the upper right nav?"* →
-              *"upper right of the top nav"*). Below `md` the bar's icon row has
-              no room left for a third cluster of controls, so this is its own
-              right-aligned line rather than crowding into the row above — still
-              the top of the Maker, still the right edge. The desktop copy below
-              is the SAME `applySlot`, mounted a second time; `loadHubDraftBarData`
-              is `cache()`d so the two mounts cost one read, not two. */}
+              screen (owner 2026-09-25: *"upper right of the top nav"*),
+              unchanged. On a phone the bar's row has no room left for them, so
+              they take their own right-aligned line under it — still the top
+              of the Maker, still the right edge. ONE mount now, not two. */}
           {applySlot ? (
-            <div className="flex items-center justify-end gap-1.5 md:hidden" data-maker-apply-slot="mobile">
+            <div className="ml-auto flex basis-full items-center justify-end gap-1.5 md:basis-auto" data-maker-apply-slot="">
               {applySlot}
             </div>
           ) : null}
-
-          <MakerBar
-            stage={stage}
-            liveStage={liveStage}
-            selection={selection}
-            hasWork={hasWork}
-            onPress={pressBar}
-          />
-
-          <div className="hidden items-center gap-1 md:flex">
-            {applySlot ? <div data-maker-apply-slot="desktop">{applySlot}</div> : null}
-            {hasWork && stageRoles.length > 0 ? (
-              <ViewAsSwitch roles={stageRoles} value={viewAsRole} onChange={setViewAsRole} />
-            ) : null}
-            <div role="group" aria-label="Preview on" className="flex items-center rounded-full bg-ink/5 p-0.5">
-              <DeviceButton on={device === 'desktop'} label="Desktop" onClick={() => setDevice('desktop')}>
-                <Monitor aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </DeviceButton>
-              <DeviceButton on={device === 'phone'} label="Phone" onClick={() => setDevice('phone')}>
-                <Smartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </DeviceButton>
-              <ComingNext label="Both" note={MAKER_COMING_NEXT.both} align="end" small>
-                <span className="text-[11px] font-semibold">Both</span>
-              </ComingNext>
-            </div>
-            <ComingNext label="Snap grid" note={MAKER_COMING_NEXT.snap} align="end">
-              <span aria-hidden className="text-lg leading-none">⊞</span>
-            </ComingNext>
-            <IconButton label="About the Event Hub Maker" onClick={() => setTour('again')}>
-              <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </IconButton>
-            <IconButton label="Your address, who can view, and more" pressed={moreOpen} onClick={() => setMoreOpen(true)}>
-              <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </IconButton>
-          </div>
         </header>
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
@@ -652,86 +709,6 @@ export function barShouldCollapse(naturalWidth: number, room: number): boolean {
 }
 
 /**
- * VIEW AS — compact, in the toolbar (moved from the ⋯ sheet's old stage). It
- * re-points the canvas at the page as that role meets it, through the SAME
- * server-gated door the controller's stage used; a role with no door is listed
- * but cannot be chosen, and says why.
- */
-function ViewAsSwitch({
-  roles,
-  value,
-  onChange,
-}: {
-  roles: ReadonlyArray<{ role: string; name: string; href: string | null }>;
-  value: string | null;
-  onChange: (role: string | null) => void;
-}) {
-  return (
-    <label className="flex items-center gap-1 rounded-full bg-ink/5 px-2 text-[12px] font-semibold text-ink/70">
-      <span className="whitespace-nowrap">View as</span>
-      <select
-        data-maker-view-as=""
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="h-9 max-w-[9.5rem] cursor-pointer rounded-full bg-transparent pr-1 text-[12.5px] font-semibold text-ink focus:outline-none"
-      >
-        <option value="">You · editing</option>
-        {roles.map((r) => (
-          <option key={r.role} value={r.role} disabled={!r.href}>
-            {r.name}
-            {r.href ? '' : ' — no preview'}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function IconButton({
-  label,
-  pressed,
-  onClick,
-  className = '',
-  children,
-}: {
-  label: string;
-  pressed?: boolean;
-  onClick: () => void;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={pressed}
-      onClick={onClick}
-      className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function DeviceButton({ on, label, onClick, children }: { on: boolean; label: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      aria-label={`Preview on ${label.toLowerCase()}`}
-      title={label}
-      onClick={onClick}
-      className={`sn-press inline-flex h-9 min-w-9 items-center justify-center rounded-full px-2 transition-colors duration-sn-control ease-sn ${
-        on ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
  * A control whose build is the next one: pressing it says so, in one line, in
  * the same glass bubble the house `(i)` uses (`.sn-tip`). Never a dead button.
  */
@@ -742,10 +719,13 @@ export function ComingNext({
   chip = false,
   small = false,
   itemKey,
+  tool,
   children,
 }: {
   /** The bar item this chip is (`data-maker-bar-item`). */
   itemKey?: string;
+  /** A labelled toolbar button — the word under the icon ("Add"). */
+  tool?: string;
   label: string;
   note: string;
   align?: 'center' | 'start' | 'end';
@@ -795,8 +775,11 @@ export function ComingNext({
           place();
           setOpen((o) => !o);
         }}
+        data-maker-tool={tool ? tool.toLowerCase() : undefined}
         className={
-          chip
+          tool
+            ? MAKER_TOOL_BUTTON
+            : chip
             ? 'sn-press inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[13.5px] font-semibold text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink md:px-3.5'
             : small
               ? 'sn-press inline-flex h-9 items-center justify-center rounded-full px-2 text-ink/60 transition-colors duration-sn-control ease-sn hover:text-ink'
@@ -804,6 +787,7 @@ export function ComingNext({
         }
       >
         {children}
+        {tool ? <span className={MAKER_TOOL_WORD}>{tool}</span> : null}
         {chip ? <span aria-hidden className="text-[10px] text-ink/45">ⓘ</span> : null}
       </button>
       <span
@@ -816,6 +800,123 @@ export function ComingNext({
       </span>
     </span>
   );
+}
+
+/**
+ * ▾ A LABELLED TOOLBAR MENU — View ▾ and More ▾ (the approved prototype's top
+ * bar). A button with its word under the icon; the list opens under it, stays
+ * on screen (placed against the viewport, like `ComingNext`), and closes on a
+ * pick, a click outside and Escape. `children` is handed `close`.
+ */
+function ToolMenu({
+  label,
+  tool,
+  icon,
+  align = 'start',
+  children,
+}: {
+  label: string;
+  tool: string;
+  icon: ReactNode;
+  align?: 'start' | 'end';
+  children: (close: () => void) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  return (
+    <span ref={ref} className="relative inline-flex shrink-0">
+      <button
+        ref={btnRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        data-maker-tool={tool}
+        onClick={() => {
+          const r = btnRef.current?.getBoundingClientRect();
+          if (r) {
+            const width = Math.min(260, window.innerWidth - 16);
+            const left = align === 'end' ? r.right - width : r.left;
+            setAt({ top: r.bottom + 6, left: Math.max(8, Math.min(left, window.innerWidth - width - 8)) });
+          }
+          setOpen((o) => !o);
+        }}
+        className={MAKER_TOOL_BUTTON}
+      >
+        {icon}
+        <span className={MAKER_TOOL_WORD}>{label}</span>
+      </button>
+      {open && at ? (
+        <span
+          role="menu"
+          aria-label={label}
+          data-maker-tool-menu={tool}
+          style={{ position: 'fixed', top: at.top, left: at.left, width: Math.min(260, typeof window === 'undefined' ? 260 : window.innerWidth - 16) }}
+          className="sn-glass-bare z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-white/95 p-1 shadow-[0_24px_48px_-28px_rgba(30,26,18,.45)]"
+        >
+          {children(close)}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function MenuItem({
+  on,
+  disabled = false,
+  note,
+  onClick,
+  className = '',
+  children,
+}: {
+  /** A radio item that is the current choice (a tick). */
+  on?: boolean;
+  disabled?: boolean;
+  /** Why it is off, or what it will be — said on the item, never a dead row. */
+  note?: string;
+  onClick?: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role={on === undefined ? 'menuitem' : 'menuitemradio'}
+      aria-checked={on === undefined ? undefined : on}
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onClick}
+      className={`sn-press flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-[14px] text-ink transition-colors duration-sn-control ease-sn hover:bg-ink/5 lg:min-h-9 ${
+        disabled ? 'cursor-default text-ink/45 hover:bg-transparent' : ''
+      } ${on ? 'font-semibold' : ''} ${className}`}
+    >
+      <span className="min-w-0 flex-1">
+        {children}
+        {note ? <small className="block text-[11px] font-normal text-ink/50">{note}</small> : null}
+      </span>
+      {on ? <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.4} /> : null}
+    </button>
+  );
+}
+
+function MenuHeading({ children }: { children: ReactNode }) {
+  return <span className="px-3 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">{children}</span>;
 }
 
 function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {

@@ -229,7 +229,8 @@ test('taking an element style OFF is free, even while another element keeps its 
     ],
   };
   const draft = mergeHubDraft(emptyHubDraft(), {
-    widgets: { schedule: { canvas: { elements: { body: { size: 'l' } } } } },
+    // ♻ a saved 'L' and the stepper's 120 are the SAME size — not a change.
+    widgets: { schedule: { canvas: { elements: { body: { size: 120 } } } } },
   });
   const plan = planHubDraftApply(draft, live, false);
   assert.equal(plan.refused.length, 0, 'a removal is never held');

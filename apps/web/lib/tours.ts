@@ -38,6 +38,7 @@ import {
   Table2,
   UserSquare,
   Users,
+  UtensilsCrossed,
   Wallet,
   Wand2,
   type LucideIcon,
@@ -96,6 +97,7 @@ export type TourKey =
   | 'customer_ombre_background_v1'
   | 'customer_details_bound_v1'
   | 'customer_pro_qr_v1'
+  | 'customer_print_menu_v1'
   | 'customer_schedule_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
@@ -115,6 +117,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_ombre_background_v1',
   'customer_details_bound_v1',
   'customer_pro_qr_v1',
+  'customer_print_menu_v1',
   'customer_schedule_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
@@ -565,6 +568,34 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     ],
   },
   /*
+  /*
+    THE MENU CARD (owner 2026-09-28: *"add to print out our meals for tonight.
+    from vendors from ceremony, to cocktail to the buffet."*). Mounted in Prints
+    & Tickets (`maker-prints.tsx`), so it fires the first time a couple opens
+    it after the Menu arrived. Sells nothing — the Menu prints free in Classic.
+  */
+  customer_print_menu_v1: {
+    key: 'customer_print_menu_v1',
+    label: 'Your menu card',
+    blurb: 'The meals of your night, by moment, on a card in your theme.',
+    slides: [
+      {
+        Icon: UtensilsCrossed,
+        title: 'The meals of your night',
+        body: 'Add the moments of your night — cocktails, the buffet, dessert — in the order they happen, and the dishes of each. They print as <strong>The Menu</strong>, in your theme.',
+      },
+      {
+        Icon: Calendar,
+        title: 'Started from your plans',
+        body: 'The moments come from your schedule, and if your caterer&rsquo;s package is booked on Setnayan its dishes start the list. Change anything — your version is what prints.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Offered once it has a dish',
+        body: 'An empty menu is never printed. Until you add a dish, its card shows where your menu will go.',
+      },
+    ],
+  },
   /*
     THE SCHEDULE'S FIRST VISIT (Schedule rebuild slice 1, 2026-09-27; owner
     2026-09-25: every feature gets a first-visit tour). One slide per thing the

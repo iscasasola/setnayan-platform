@@ -66,6 +66,8 @@ const MAKER_FILES = [
   'app/dashboard/[eventId]/launch/_components/maker-logo.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-prints.tsx',
   'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
+  // Prints & Tickets' Menu editor (owner 2026-09-28, "add to print out our meals for tonight").
+  'app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx',
 ];
 
 /**
@@ -181,6 +183,9 @@ const LIVE: Record<string, string> = {
   // line, the "Kindly reply" choice).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx#MakerDetails#PRINT_WORDS_ENDPOINT']:
     'the printed set\'s settings (events.print_details) — read only by the prints the couple downloads (lib/print-set.server.ts), never by a guest page, so there is nothing for a guest to see before Apply',
+  // The Menu card's moments and dishes — the same column, the same reason.
+  ['app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx#PrintMenuEditor#PRINT_MENU_ENDPOINT']:
+    'the Menu card\'s moments and dishes (events.print_details.menu) — read only by the prints the couple downloads, never by a guest page, so there is nothing for a guest to see before Apply',
 };
 
 /** Writers the Maker's page may bind that go live — each behind a LIVE form above. */

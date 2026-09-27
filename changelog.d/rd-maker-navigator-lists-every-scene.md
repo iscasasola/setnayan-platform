@@ -21,6 +21,17 @@ the canvas drew ten; every other scene hid behind the other tabs.
   one opens the element sheet from #6019. The RSVP form is excluded.
 - A navigator tap scrolls the canvas to the scene's **top** (owner rule 2026-09-27, "a scene is as
   tall as its content"). No scene is resized.
+- **A tap only selects** (owner: *"dont jump directly to the menu because they can be just checking
+  how things flow"*). A scene made in a made-once editor says "This scene is made in the Hero
+  editor", and its one button "Open Hero editor" is the only thing that leaves the stage. The same
+  applies to Reveal, Love Story and Post Event. This extends `MAKER_FIXED_TOOL` with
+  `MAKER_TOOL_EDITOR_NAME`.
+- **The desktop navigator never scrolls sideways.** The cause was measured: every closed ⓘ bubble is
+  an 18rem box, so the 168px column held 314px of scrollable width. The bubbles and their labels are
+  now held to the column's width. Thumbnails scale with the column and keep their aspect ratio.
+- **The tools column resizes** by its left edge, like the navigator ("Drag to resize the tools"):
+  280–560px, and the canvas always keeps at least 420px. Desktop only.
+- **No card in the Format panel.** Its controls sit flat on the panel (house no-cards rule).
 
 SPEC IMPACT: None. This supersedes the 2026-09-26 "each tab lists its own scenes" navigator
 behaviour at the owner's request. `the-event-bar-is-the-stages-own.test.ts` now asserts the tab is

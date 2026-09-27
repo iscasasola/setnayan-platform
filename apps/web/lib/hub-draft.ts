@@ -707,7 +707,24 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
   for (const key of HUB_ELEMENT_KEYS) {
     // font · colour · size, the motion (In · During · Out · timeline) and the
     // text runs — each compared on its own, so taking one off stays a removal.
-    for (const field of ['font', 'color', 'size', 'motion', 'runs'] as const) {
+    // 🧰 The Text tab's Pages rows (weight · B · I · U · alignment · line and
+    // letter spacing, 2026-09-27) are LOOK too. Two element fields are NOT:
+    // `hidden` (Arrange → Show, like hiding a whole scene, which is free) and
+    // the joiner's `word` (words are the page we write — owner 2026-09-22/24,
+    // "Free is the page we write. Pro is changing how it looks").
+    for (const field of [
+      'font',
+      'color',
+      'size',
+      'motion',
+      'runs',
+      'weight',
+      'italic',
+      'underline',
+      'align',
+      'leading',
+      'tracking',
+    ] as const) {
       changes.push(refChange(asText(live.elements?.[key]?.[field]), asText(next.elements?.[key]?.[field])));
     }
   }

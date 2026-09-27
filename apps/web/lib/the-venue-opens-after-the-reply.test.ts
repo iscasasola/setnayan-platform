@@ -9,6 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { stripComments } from '@/lib/strip-comments';
 import { join } from 'node:path';
 import {
   VENUE_WITHHELD_LINE,
@@ -100,7 +101,7 @@ test('the invitation page withholds by DEFAULT and opens in exactly one place', 
   assert.match(src, /event: withheldVenue\(venuedEvent\)/, 'the shared props carry the closed row');
   const opens = src.match(/event=\{venueOpen \? venuedEvent : withheldVenue\(venuedEvent\)\}/g) ?? [];
   assert.equal(opens.length, 1, `exactly one branch opens the venue (found ${opens.length})`);
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const code = stripComments(src);
   const uses = code.match(/\bvenuedEvent\b/g) ?? [];
   assert.equal(uses.length, 4, `venuedEvent: 1 definition + 3 gated uses, found ${uses.length}`);
   assert.match(src, /venueIsOpen\(\{[\s\S]{0,160}rsvpStatus: guest\.rsvp_status/, 'and it opens on the guest’s own reply');

@@ -16,7 +16,7 @@ scrolls the panel to it. Milestones' button now reads "Add a milestone".
 **Pick from our events.** Owner: *"this should show all events that they are both
 there."* Lists every other event where BOTH partners (this event's couple members)
 are members in any role, newest first. Photos only from events the pair hosts
-(either is `couple` there); someone else's event is listed with none — the pair's
+(either is a host there — couple or coordinator, the shared `isHostMemberType`); someone else's event is listed with none — the pair's
 own Papic captures there live in a private bucket an Event Hub may never name.
 Read through the admin client with every scope applied in code
 (`our-events-read.ts`, the `resolveMutualStoryDays` pattern), fail-closed; the

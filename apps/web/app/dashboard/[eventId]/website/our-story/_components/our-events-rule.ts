@@ -4,10 +4,11 @@
  * Owner 2026-09-27, verbatim: *"this should show all events that they are both
  * there."* The pair is THIS event's couple members (both partners' accounts).
  * An event is theirs to show when EVERY one of the pair is a member of it — in
- * any role: couple, guest, coordinator, supplier. There is no separate "host"
- * member type: `couple` is the host of every event kind.
+ * any role: couple, guest, coordinator, supplier.
  *
- *   · HOSTED — either partner is `couple` there → its public photos (the hero
+ *   · HOSTED — either partner is a host there (`isHostMemberType`: couple or
+ *     coordinator, the one shared definition in `app/[slug]/_lib/host-scope.ts`,
+ *     applied by the reader as `host`) → its public photos (the hero
  *     and "Photos you add") are offered, as before.
  *   · SOMEONE ELSE'S — listed, with NO photos. The only photos the two of them
  *     took there are Papic captures, and those sit in a PRIVATE bucket that an
@@ -20,7 +21,8 @@
 export type MembershipRow = {
   event_id: string;
   user_id: string;
-  member_type: string;
+  /** `isHostMemberType(member_type)`, decided by the reader. */
+  host: boolean;
   hidden_at: string | null;
 };
 
@@ -40,7 +42,7 @@ export function sharedEvents(
     if (!people.includes(r.user_id)) continue;
     const e = byEvent.get(r.event_id) ?? { who: new Set<string>(), hosted: false };
     e.who.add(r.user_id);
-    if (r.member_type === 'couple') e.hosted = true;
+    if (r.host) e.hosted = true;
     byEvent.set(r.event_id, e);
   }
   return [...byEvent.entries()]

@@ -25,7 +25,7 @@ export type OtherEvent = {
   eventId: string;
   name: string;
   date: string | null;
-  /** Either partner is the couple (host) there — only then are photos offered. */
+  /** Either partner is a host there (couple or coordinator) — only then are photos offered. */
   hosted: boolean;
   photos: { ref: string; url: string }[];
 };

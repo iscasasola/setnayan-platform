@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readMomentMedia } from '@/lib/love-story-moments';
+import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { newestFirst, sharedEvents, type MembershipRow } from './our-events-rule';
 
 /**
@@ -34,7 +35,7 @@ export type OurEvent = {
   eventId: string;
   name: string;
   date: string | null;
-  /** Either partner is the couple (host) there. */
+  /** Either partner is a host there (couple or coordinator). */
   hosted: boolean;
   /** Public-bucket refs this event already shows guests — empty unless hosted. */
   refs: string[];
@@ -80,7 +81,16 @@ export async function readOurEvents(input: {
     logQueryError('OurEvents.memberships', rowsError ?? { message: 'no rows' }, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  const shared = sharedEvents(rows as MembershipRow[], pair, eventId);
+  // "Hosts" is the ONE shared definition — never a literal re-typed here.
+  const memberships: MembershipRow[] = (
+    rows as { event_id: string; user_id: string; member_type: string | null; hidden_at: string | null }[]
+  ).map((r) => ({
+    event_id: r.event_id,
+    user_id: r.user_id,
+    host: isHostMemberType(r.member_type),
+    hidden_at: r.hidden_at,
+  }));
+  const shared = sharedEvents(memberships, pair, eventId);
   if (shared.length === 0) return [];
 
   const { data: events, error: eventsError } = await admin

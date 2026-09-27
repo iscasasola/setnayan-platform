@@ -7,7 +7,7 @@
  * any role, newest first — and offers photos only from the ones they host.
  *
  *   1. the rule (`sharedEvents`): both must be live members; a declined/left
- *      membership (`hidden_at`) does not count; hosted = either is `couple`;
+ *      membership (`hidden_at`) does not count; hosted = either is a host (couple or coordinator);
  *   2. the read (`readOurEvents`) drives the REAL control flow through a fake
  *      admin client: refused for a non-couple, fail-closed on any error, refs
  *      only from hosted events, newest first;
@@ -25,14 +25,18 @@ const A = 'user-a';
 const B = 'user-b';
 const C = 'user-c';
 const THIS = 'ev-this';
-const row = (event_id: string, user_id: string, member_type: string, hidden_at: string | null = null): MembershipRow => ({
+type Raw = { event_id: string; user_id: string; member_type: string; hidden_at: string | null };
+const row = (event_id: string, user_id: string, member_type: string, hidden_at: string | null = null): Raw => ({
   event_id,
   user_id,
   member_type,
   hidden_at,
 });
+/** What the reader hands the rule: host decided by the shared definition. */
+const asRule = (rows: Raw[]): MembershipRow[] =>
+  rows.map((r) => ({ event_id: r.event_id, user_id: r.user_id, host: ['couple', 'coordinator'].includes(r.member_type), hidden_at: r.hidden_at }));
 
-const ROWS: MembershipRow[] = [
+const ROWS: Raw[] = [
   row(THIS, A, 'couple'),
   row(THIS, B, 'couple'),
   row('ev-friends-wedding', A, 'guest'),
@@ -40,7 +44,11 @@ const ROWS: MembershipRow[] = [
   row('ev-a-birthday', A, 'couple'),
   row('ev-a-birthday', B, 'guest'),
   row('ev-b-baptism', B, 'couple'),
-  row('ev-b-baptism', A, 'coordinator'),
+  row('ev-b-baptism', A, 'guest'),
+  row('ev-cousin-debut', A, 'coordinator'),
+  row('ev-cousin-debut', B, 'guest'),
+  row('ev-supplier-gig', A, 'vendor'),
+  row('ev-supplier-gig', B, 'guest'),
   row('ev-only-a', A, 'guest'),
   row('ev-declined', A, 'guest'),
   row('ev-declined', B, 'guest', '2026-09-01T00:00:00Z'),
@@ -48,18 +56,21 @@ const ROWS: MembershipRow[] = [
   row('ev-with-c', A, 'guest'),
 ];
 
-test('📐 both must be there: every shared event, any role, hosted when either is the couple', () => {
-  assert.deepEqual(sharedEvents(ROWS, [A, B], THIS), [
+test('📐 both must be there: every shared event, any role, hosted when either is a host', () => {
+  const rule = asRule(ROWS);
+  assert.deepEqual(sharedEvents(rule, [A, B], THIS), [
     { eventId: 'ev-a-birthday', hosted: true },
     { eventId: 'ev-b-baptism', hosted: true },
+    { eventId: 'ev-cousin-debut', hosted: true },
     { eventId: 'ev-friends-wedding', hosted: false },
+    { eventId: 'ev-supplier-gig', hosted: false },
   ]);
-  assert.deepEqual(sharedEvents(ROWS, [B, A], THIS), sharedEvents(ROWS, [A, B], THIS), 'symmetric in the pair');
-  assert.deepEqual(sharedEvents(ROWS, [], THIS), []);
+  assert.deepEqual(sharedEvents(rule, [B, A], THIS), sharedEvents(rule, [A, B], THIS), 'symmetric in the pair');
+  assert.deepEqual(sharedEvents(rule, [], THIS), []);
   // One partner has an account: the intersection of one is their own events.
   assert.deepEqual(
-    sharedEvents(ROWS, [A], THIS).map((e) => e.eventId),
-    ['ev-a-birthday', 'ev-b-baptism', 'ev-declined', 'ev-friends-wedding', 'ev-only-a', 'ev-with-c'],
+    sharedEvents(rule, [A], THIS).map((e) => e.eventId),
+    ['ev-a-birthday', 'ev-b-baptism', 'ev-cousin-debut', 'ev-declined', 'ev-friends-wedding', 'ev-only-a', 'ev-supplier-gig', 'ev-with-c'],
   );
 });
 
@@ -96,6 +107,8 @@ const EVENTS = [
   { event_id: 'ev-friends-wedding', display_name: 'Carla & Dan', event_date: '2025-06-01', our_photos: ['r2://setnayan-media/cd/1.jpg'], landing_page_hero_image_url: 'r2://setnayan-media/cd/hero.jpg' },
   { event_id: 'ev-a-birthday', display_name: 'Ana turns 30', event_date: '2023-03-03', our_photos: ['r2://setnayan-media/ab/1.jpg', 'r2://setnayan-thread-files/secret.jpg'], landing_page_hero_image_url: null },
   { event_id: 'ev-b-baptism', display_name: 'Baby Ben', event_date: '2026-01-10', our_photos: [], landing_page_hero_image_url: 'r2://setnayan-media/bb/hero.jpg' },
+  { event_id: 'ev-cousin-debut', display_name: 'Mia at 18', event_date: '2024-08-08', our_photos: ['r2://setnayan-media/md/1.jpg'], landing_page_hero_image_url: null },
+  { event_id: 'ev-supplier-gig', display_name: 'A client wedding', event_date: null, our_photos: ['r2://setnayan-media/cw/1.jpg'], landing_page_hero_image_url: null },
 ];
 
 test('🔒 the read: refs only from hosted events, never another couple’s gallery, newest first', async () => {
@@ -107,7 +120,9 @@ test('🔒 the read: refs only from hosted events, never another couple’s gall
     [
       ['ev-b-baptism', true, ['r2://setnayan-media/bb/hero.jpg']],
       ['ev-friends-wedding', false, []],
+      ['ev-cousin-debut', true, ['r2://setnayan-media/md/1.jpg']],
       ['ev-a-birthday', true, ['r2://setnayan-media/ab/1.jpg']],
+      ['ev-supplier-gig', false, []],
     ],
   );
 });

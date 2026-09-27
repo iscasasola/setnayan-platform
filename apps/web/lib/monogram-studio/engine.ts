@@ -333,11 +333,14 @@ export function mountStudio(opts) {
     outlineHex = '#C5A059';
     bindUI();
     // Seed from the event's initials (e.g. "A & B") on a FIRST open — when there
-    // is no saved studio design to restore. Without this the editor falls back to
-    // its built-in "Maria & Juan" placeholder, so a couple sees the wrong
-    // initials and a save would replace their assigned monogram with a generic
-    // one. A saved initialConfig (applyConfig) carries its own names, so skip then.
-    if (!initialConfig && initialNames) namesEl.value = initialNames;
+    // is no saved studio design to restore. The markup's Names box starts EMPTY
+    // ("Add your names") — there is no sample couple any more (owner 2026-09-27:
+    // "each editor of each event will adapt to their event"). A saved
+    // initialConfig (applyConfig) carries its own names, so skip then.
+    // A saved design with EMPTY names (an upload's leftover `text: ""`) is not
+    // names — the couple's own initials fill the box then too (2026-09-27).
+    if (initialNames && !(initialConfig && typeof initialConfig.text === 'string' && initialConfig.text.trim()))
+      namesEl.value = initialNames;
     derive();
   }
   function glyphPath(ch) {
@@ -435,9 +438,20 @@ export function mountStudio(opts) {
       const ch = Array.from(s || '')[0];
       return (ch || dflt).toUpperCase();
     };
-    if (parts.length >= 2) return [first(parts[0], 'M'), '&', first(parts[1], 'J')];
-    if (parts.length === 1) return [first(parts[0], 'M')];
-    return ['M', '&', 'J'];
+    if (parts.length >= 2) return [first(parts[0], 'S'), '&', first(parts[1], 'S')];
+    if (parts.length === 1) return [first(parts[0], 'S')];
+    // 🛑 An empty Names box is NOT a sample couple (owner 2026-09-27: a saved
+    // design with `text: ""` reopened on "M & J" over his real logo). It falls
+    // back to the event's own initials, and only a truly nameless event gets
+    // the neutral "S" — the same neutral `deriveMonogram` uses. Never recurse:
+    // the event's initials are split here without calling back in.
+    const own = (initialNames || '')
+      .trim()
+      .split(/\s*(?:&|\+|\band\b)\s*/i)
+      .filter(Boolean);
+    if (own.length >= 2) return [first(own[0], 'S'), '&', first(own[1], 'S')];
+    if (own.length === 1) return [first(own[0], 'S')];
+    return ['S'];
   }
   function derive() {
     /* In UPLOAD mode the pieces ARE the base, so `letters` becomes one label per
@@ -3396,7 +3410,8 @@ export function mountStudio(opts) {
   // ── config restore ──
   function applyConfig(cfg) {
     try {
-      if (typeof cfg.text === 'string') namesEl.value = cfg.text;
+      // Empty saved names never blank the box over the couple's own initials.
+      if (typeof cfg.text === 'string' && (cfg.text.trim() || !initialNames)) namesEl.value = cfg.text;
       if (cfg.ink) {
         inkHex = cfg.ink;
         ink = new paper.Color(inkHex);

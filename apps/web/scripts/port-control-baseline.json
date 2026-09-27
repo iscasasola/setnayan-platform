@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f29ab3a12",
+  "generatedFromRef": "98f93fd33",
   "routeCount": 435,
   "destinations": 947,
   "actions": 669,
-  "blocks": 4819,
+  "blocks": 4821,
   "routes": {
     "/": {
       "files": [
@@ -6070,6 +6070,7 @@
         "InfoTip",
         "LifecyclePhase",
         "Link",
+        "LogoStudio",
         "MadeOnce",
         "MakerBar",
         "MakerContext.Provider",
@@ -6104,6 +6105,7 @@
         "State",
         "Switch",
         "Toggle",
+        "UploadedLogo",
         "VectorStudio",
         "ViewAsSwitch",
         "WebsiteEditorPage"

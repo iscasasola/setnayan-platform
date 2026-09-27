@@ -43,6 +43,10 @@ const SURFACES: Array<[string, number]> = [
   ['app/[slug]/_components/schedule-widget.tsx', 1],
   ['app/dashboard/[eventId]/_components/event-dashboard.tsx', 1],
   ['app/dashboard/[eventId]/schedule/page.tsx', 2],
+  // The Schedule rebuild's rail (2026-09-27): the inspector's phase picker and
+  // its read-only phase line, and the Add-a-moment sheet's phase chips.
+  ['app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx', 2],
+  ['app/dashboard/[eventId]/schedule/_components/day-sheets.tsx', 1],
 ];
 
 for (const [file, n] of SURFACES) {
@@ -76,9 +80,11 @@ test('every guest-site ScheduleWidget mount passes the event type', () => {
   assert.equal(total, 4);
 });
 
-test('the host schedule threads eventType from the page to both children', () => {
+test('the host schedule threads eventType from the page to every child that prints a type', () => {
   const src = read('app/dashboard/[eventId]/schedule/page.tsx');
-  assert.equal(count(src, /eventType=\{eventRow\?\.event_type \?\? null\}/g), 1);
+  // Two mounts: the travel list (EventDayView) and the rebuilt rail (ScheduleDay).
+  assert.equal(count(src, /eventType=\{eventRow\?\.event_type \?\? null\}/g), 2);
+  assert.equal(count(src, /<ScheduleDay[\s\S]*?eventType=\{eventRow\?\.event_type \?\? null\}[\s\S]*?\/>/g), 1);
   assert.equal(count(src, /<AddBlockForm[^>]*eventType=\{eventType\}/g), 1);
   assert.equal(count(src, /<BlockCard[\s\S]*?eventType=\{eventType\}[\s\S]*?\/>/g), 1);
 });

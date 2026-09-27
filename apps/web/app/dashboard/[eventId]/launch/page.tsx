@@ -1029,6 +1029,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           </p>
         ),
         controls: (
+          <>
+          {/* 📮 First open of the RSVP page after the Maker welcome: the
+              reminder-emails hint (owner 2026-09-25 rule — every feature gets a
+              first-visit tour). Rendered only while this page is open (the
+              shell mounts `controls` for the open page alone), and never on
+              the Maker's very first visit, so two tours cannot stack. */}
+          {!firstVisit ? <MiniTour tourKey="customer_guest_reminders_v1" storeShell={storeShell} /> : null}
           <MakerRsvpSettings
             eventId={eventId}
             current={rsvpAsk}
@@ -1050,6 +1057,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               href: `/dashboard/${eventId}/guests/claims`,
             }}
           />
+          </>
         ),
       };
       prints = (

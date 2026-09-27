@@ -95,6 +95,7 @@ export type TourKey =
   | 'customer_post_event_v1'
   | 'customer_ombre_background_v1'
   | 'customer_details_bound_v1'
+  | 'customer_guest_reminders_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -112,6 +113,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_post_event_v1',
   'customer_ombre_background_v1',
   'customer_details_bound_v1',
+  'customer_guest_reminders_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -533,6 +535,30 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: CheckCircle2,
         title: 'Nothing goes live yet',
         body: 'Every change waits in your draft. Guests see it after you Apply.',
+      },
+    ],
+  },
+  /*
+    📮 GUEST REMINDER EMAILS (owner 2026-09-26, "THE LAST 30 DAYS"). Fires the
+    first time the couple opens the Maker's RSVP page after the Maker welcome —
+    the switch lives there. Two slides: what each guest gets, and that the
+    switch is theirs. Mounted inside the RSVP page's controls (launch/page.tsx),
+    so it never stacks on the Maker's own first-visit welcome.
+  */
+  customer_guest_reminders_v1: {
+    key: 'customer_guest_reminders_v1',
+    label: 'Reminder emails for your guests',
+    blurb: 'Three short emails — 30 days, 7 days and the day before — each listing only what a guest has not ticked.',
+    slides: [
+      {
+        Icon: Mailbox,
+        title: 'Your guests are reminded for you',
+        body: 'Every guest who gave an email gets three short reminders &mdash; <strong>30 days</strong>, <strong>7 days</strong> and <strong>the day before</strong>. Each one lists only what they have not ticked on their checklist, and links to their own page. A guest who has not replied is asked to reply by your date first.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'The switch is yours',
+        body: 'They are on by default. Turn <strong>Reminder emails</strong> off on this page and nobody is emailed. Guests without an email are never emailed either way &mdash; their invitation is the link you share.',
       },
     ],
   },

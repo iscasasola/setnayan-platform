@@ -65,6 +65,15 @@ export function isWhoCanRsvp(v: unknown): v is WhoCanRsvp {
 export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
   whoCanRsvp?: WhoCanRsvp;
   oneAtATime?: boolean;
+  /**
+   * 📮 REMINDER EMAILS at 30 · 7 · 1 days before the event (owner 2026-09-26:
+   * *"couple can switch off"*). Absent = ON, the owner's default; only an
+   * explicit `false` switches them off. Read by `runGuestReminderEmails`
+   * (lib/guest-reminder-emails.ts) from the LIVE column — a draft that has not
+   * been Applied changes nothing about what guests receive, like every other
+   * key here.
+   */
+  guestReminders?: boolean;
 };
 
 export function isRsvpAskField(v: unknown): v is RsvpAskField {
@@ -90,6 +99,10 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
     }
     if (key === 'oneAtATime') {
       if (typeof value === 'boolean') out.oneAtATime = value;
+      continue;
+    }
+    if (key === 'guestReminders') {
+      if (typeof value === 'boolean') out.guestReminders = value;
       continue;
     }
     if (!isRsvpAskField(key)) continue;
@@ -156,6 +169,18 @@ export function anyoneMayAskToJoin(raw: unknown): boolean {
 export function readOneAtATime(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).oneAtATime === true;
 }
+
+/**
+ * "Reminder emails" — absent reads as ON. Only an explicit `false` switches
+ * the 30 · 7 · 1 day guest reminders off (owner 2026-09-26: on by default, the
+ * couple can switch them off). The sender reads THIS, never the raw blob.
+ */
+export function readGuestReminders(raw: unknown): boolean {
+  return sanitizeRsvpAskConfig(raw).guestReminders !== false;
+}
+
+export const GUEST_REMINDERS_TIP =
+  'Guests who gave an email get three short reminders — 30 days, 7 days and the day before — each listing only what they have not ticked on their checklist, with a link to their own page. A guest who has not replied is asked to reply by your date first. Off means nobody is emailed. Guests without an email are never emailed either way.';
 
 export const ONE_AT_A_TIME_TIP =
   'OFF: every question on one scrolling page. ON: one question per screen with progress dots and Back — easier for elders and small screens. Same questions either way.';

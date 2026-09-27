@@ -23,8 +23,10 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
 import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { GUEST_REMINDER_GAP_MS } from '@/lib/periodic-job-registry';
 import { addDaysToIso } from '@/lib/anniversary-dates';
 import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
+import { runGuestReminderEmails } from '@/lib/guest-reminder-emails';
 import { runVerifiedBadgeDeadlineSweep } from '@/lib/verified-badge-sweep';
 import { eventWordsFor, type EventWords } from '@/app/[slug]/_lib/event-words';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -739,5 +741,13 @@ export async function runDailyEmailJobs(): Promise<void> {
   await runClaimedJob('verified-badge-deadlines', DAILY_GAP_MS, async () => {
     const { reminded, lapsed } = await runVerifiedBadgeDeadlineSweep();
     return reminded + lapsed;
+  });
+  // 📮 Guest reminder emails at 30 · 7 · 1 days (owner 2026-09-26). Every ~6h,
+  // not daily — a skipped calendar day is the whole day-before reminder; the
+  // per guest × milestone lock keeps the extra windows from ever double-sending.
+  // The couple's switch is read inside, per event, from the live config.
+  await runClaimedJob('guest-reminder-emails', GUEST_REMINDER_GAP_MS, async () => {
+    const { sent } = await runGuestReminderEmails();
+    return sent;
   });
 }

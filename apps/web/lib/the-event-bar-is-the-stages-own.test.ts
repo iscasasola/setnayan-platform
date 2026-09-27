@@ -157,7 +157,11 @@ test('4 · SOURCE: one value draws the bar and feeds the navigator; the navigato
   const SHELL = read('../app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
   assert.match(SHELL, /setCanvasBar\(parseNavigatorBar\(data\.bar\)\)/);
   assert.match(SHELL, /const tabs = canvasBar \? navigatorTabs\(canvasBar, list\.shown\.map\(\(t\) => t\.key\)\) : null;/);
-  assert.match(SHELL, /if \(activeTab && !activeTab\.tiles\.includes\(tile\.key\)\) return null;/, 'a tab lists only its own scenes');
+  // 2026-09-27 (owner: "navigation still does not show the scenes"): a tab is a
+  // HEADER between groups of one list, never a filter — every scene is listed.
+  // `every-scene-is-in-the-navigator.test.ts` holds that; here, the source.
+  assert.doesNotMatch(SHELL, /activeTab\.tiles\.includes\(tile\.key\)/, 'a tab must not hide the other scenes');
+  assert.match(SHELL, /const navRows = navigatorRows\(tabs, list\.shown\.map\(\(t\) => t\.key\)\);/);
   const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('{list.shown.map((tile, i) =>'));
   assert.doesNotMatch(nav, />\s*Main\s*</, 'the navigator must not draw a generic "Main" tile');
 });

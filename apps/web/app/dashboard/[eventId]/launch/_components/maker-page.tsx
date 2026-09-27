@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
 import { MAKER_PAGE_TITLE, type MakerPageKey } from '@/lib/maker-made-once-pages';
 
 /**
@@ -26,14 +25,16 @@ import { MAKER_PAGE_TITLE, type MakerPageKey } from '@/lib/maker-made-once-pages
  *
  * ⛔ NOT A DIALOG. No `role="dialog"`, no portal, no backdrop, no focus trap:
  * the bar stays live above it, and picking a stage puts the stage back.
+ *
+ * ⛔ NO "BACK TO …" CLOSE (owner 2026-09-27: *"no need for this"*). The Maker
+ * bar above already goes to every stage and every page; a second way back in
+ * the page's own header was one more thing to read.
  * `lib/the-made-once-items-are-pages.test.ts` holds it.
  */
 export function MakerPage({
   pageKey,
   page,
   controls = null,
-  onClose,
-  closeLabel,
 }: {
   pageKey: MakerPageKey;
   /** The item's own page — the body. */
@@ -41,9 +42,6 @@ export function MakerPage({
   /** Its controls, where a stage's inspector sits. Null = the page carries its
    *  own (the logo studio lays its panel beside its canvas). */
   controls?: ReactNode;
-  onClose: () => void;
-  /** "Back to the Invitation" — where closing lands. */
-  closeLabel: string;
 }) {
   const title = MAKER_PAGE_TITLE[pageKey];
   /* A field in the strip is being typed in — the strip grows on a phone. */
@@ -78,15 +76,6 @@ export function MakerPage({
         >
           <div className="flex items-center gap-2 px-4 pt-2.5 lg:pt-3">
             <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={closeLabel}
-              title={closeLabel}
-              className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink"
-            >
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-6 pt-2">
             {controls}

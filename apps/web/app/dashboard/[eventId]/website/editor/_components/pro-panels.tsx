@@ -25,6 +25,7 @@ import { unlockLabel } from './unlock-label';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { ColourWell } from './colour-well';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -99,7 +100,15 @@ export function ColorsPanel({
   proLocked = false,
   proLock = null,
   themeId = 'house',
+  moodBoard = null,
 }: {
+  /**
+   * 🎨 THE COLOURS THE MOOD BOARD GIVES THE PAGE (`moodBoardSiteColours`, the
+   * guest page's own resolver) — what the wells show while a colour is left
+   * blank, and the swatches offered first. Null = no Mood Board palette: the
+   * wells then show the theme's own page and button colours.
+   */
+  moodBoard?: { background: string; buttons: string; swatches: string[] } | null;
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   rowKey: string;
@@ -135,19 +144,16 @@ export function ColorsPanel({
       {/* 🌈 THE BACKGROUND — one colour, one effect (owner 2026-09-25). One
           field, one hidden `bg_color`. Full width: the four effect chips need
           the room, and the button colour sits under it. */}
-      <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} />
+      <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} />
       {proLocked ? null : (
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <HexField
-            id={`${rowKey}-button`}
-            name="button_color"
-            label="Buttons"
-            defaultValue={buttonColor}
-          />
+        <div className="mt-3">
+          <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
         </div>
       )}
       <p className="mt-1.5 text-[0.7rem] text-ink/45">
-        Leave blank to use your Mood Board palette.
+        {moodBoard
+          ? 'Until you pick a colour, the page wears your Mood Board’s.'
+          : 'Until you pick a colour, the page wears its theme’s.'}
       </p>
 
       {proLocked ? (
@@ -326,51 +332,51 @@ export function ColorsPanel({
   );
 }
 
-function HexField({
-  id,
+/** The theme's own page and button colours — what a page with no Mood Board wears. */
+function themeColours(themeId: string) {
+  const theme = INVITE_THEMES[(themeId in INVITE_THEMES ? themeId : LEGACY_THEME_ALIASES[themeId] ?? 'house') as InviteThemeId];
+  return { theme, background: theme.palette.canvas, buttons: theme.palette.accent };
+}
+
+/**
+ * BUTTONS — Keynote's split well (`colour-well.tsx`). Blank = the Mood Board's
+ * button colour, and the well SHOWS that colour, labelled "From your Mood
+ * Board" (owner 2026-09-27: *"mood board palettes did not update"* — the old
+ * swatch drew a fixed cream for blank). A hidden field carries the choice, so
+ * blank stays possible.
+ */
+function ButtonColourField({
   name,
-  label,
   defaultValue,
+  eventId,
+  moodBoard,
+  themeId,
 }: {
-  id: string;
   name: string;
-  label: string;
   defaultValue: string | null;
+  eventId: string;
+  moodBoard: { background: string; buttons: string; swatches: string[] } | null;
+  themeId: string;
 }) {
-  // The swatch IS the picker (owner 2026-07-25): a native color input drives a
-  // hidden text field so blank ( = "use my Mood-Board palette") stays possible —
-  // <input type="color"> alone always posts a value, so it can never mean "unset".
   const [hex, setHex] = useState<string>(defaultValue ?? '');
+  const fallback = moodBoard?.buttons ?? themeColours(themeId).buttons;
+  const unsetLabel = moodBoard ? 'From your Mood Board' : 'From your theme';
   return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-[0.7rem] font-semibold text-ink/60">
-        {label}
-      </label>
-      <div className="flex items-center gap-2">
-        <span className="relative inline-flex h-7 w-7 shrink-0">
-          <input
-            id={id}
-            type="color"
-            aria-label={`Pick ${label.toLowerCase()} color`}
-            value={hex || '#f4ecdd'}
-            onChange={(e) => setHex(e.target.value)}
-            className="absolute inset-0 h-full w-full cursor-pointer rounded-full border border-ink/15 p-0 [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-none"
-          />
-        </span>
-        <input type="hidden" name={name} value={hex} />
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink/60">
-          {hex || 'Palette (default)'}
-        </span>
-        {hex ? (
-          <button
-            type="button"
-            onClick={() => setHex('')}
-            className="shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-[0.62rem] font-medium text-ink/55 hover:border-ink/30"
-          >
-            Clear
-          </button>
-        ) : null}
-      </div>
+    <div data-button-colour-field="">
+      <p className="mb-1 text-[0.7rem] font-semibold text-ink/60">Buttons</p>
+      <input type="hidden" name={name} value={hex} />
+      <ColourWell
+        value={hex || null}
+        shown={fallback}
+        what="your buttons"
+        themeColours={moodBoard?.swatches.length ? moodBoard.swatches : [fallback]}
+        swatchesLabel={moodBoard ? 'Your Mood Board' : 'Your theme'}
+        unsetLabel={unsetLabel}
+        savedKey={`sn-maker-colours:${eventId}`}
+        onPick={(c) => setHex(c.slice(0, 7))}
+        onUnset={() => setHex('')}
+        data="buttons"
+      />
     </div>
   );
 }
@@ -391,57 +397,61 @@ function HexField({
    understand. Free: no lock, no price (`OMBRE_IS_PRO`). With no colour picked
    there is nothing to derive from, so the effects wait for the swatch. */
 
-function BackgroundField({ id, value, themeId }: { id: string; value: string | null; themeId: string }) {
+function BackgroundField({
+  id,
+  value,
+  themeId,
+  eventId,
+  moodBoard,
+}: {
+  id: string;
+  value: string | null;
+  themeId: string;
+  eventId: string;
+  moodBoard: { background: string; buttons: string; swatches: string[] } | null;
+}) {
   const stored = parseSiteBackground(value);
-  const theme = INVITE_THEMES[(themeId in INVITE_THEMES ? themeId : LEGACY_THEME_ALIASES[themeId] ?? 'house') as InviteThemeId];
+  const { theme, background: themeGround } = themeColours(themeId);
 
   const [hex, setHex] = useState<string>(stored ? (stored.kind === 'plain' ? stored.hex : stored.ombre.base) : '');
   const [effect, setEffect] = useState<BackgroundEffect>(stored?.kind === 'ombre' ? stored.ombre.shape : 'plain');
 
   const posted = encodeBackgroundChoice(hex, effect);
-  // The colour the previews derive from — the pick, or the panel's usual placeholder swatch.
-  const previewBase = hex || '#f4ecdd';
+  /* 🎨 The colour every preview derives from: the couple's pick, else THE
+     COLOUR THE PAGE ACTUALLY WEARS — the Mood Board's (`moodBoardSiteColours`,
+     the guest page's own resolver), else the theme's. Never a fixed cream. */
+  const resolved = moodBoard?.background ?? themeGround;
+  const previewBase = hex || resolved;
+  const unsetLabel = moodBoard ? 'From your Mood Board' : 'From your theme';
   const look = effect === 'plain' ? null : ombreLook(theme, { shape: effect, base: previewBase });
 
   return (
-    <div data-background-field="">
+    <div data-background-field="" id={id}>
       <input type="hidden" name="bg_color" value={posted} />
-      <div className="mb-1.5 flex items-center justify-between gap-2">
+      <div className="mb-1.5">
         <InfoTip label="Background" labelClassName="text-[0.7rem] font-semibold text-ink/60" align="start">
           Pick one colour, then an effect. Plain is the flat colour; Dawn, Diagonal and Glow blend it
           softly, lighter and darker, like a wallpaper. Your words are re-measured over the whole
           blend so they stay easy to read.
         </InfoTip>
-        {hex ? (
-          <button
-            type="button"
-            onClick={() => {
-              setHex('');
-              setEffect('plain');
-            }}
-            className="shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-[0.62rem] font-medium text-ink/55 hover:border-ink/30"
-          >
-            Clear
-          </button>
-        ) : null}
       </div>
 
-      {/* THE ONE COLOUR — the swatch IS the picker (owner 2026-07-25). */}
-      <div className="flex items-center gap-2">
-        <span className="relative inline-flex h-10 w-10 shrink-0">
-          <input
-            id={id}
-            type="color"
-            aria-label="Pick background color"
-            value={previewBase}
-            onChange={(e) => setHex(e.target.value.toLowerCase())}
-            className="absolute inset-0 h-full w-full cursor-pointer rounded-full border border-ink/15 p-0 [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-none"
-          />
-        </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink/60">
-          {hex || 'Palette (default)'}
-        </span>
-      </div>
+      {/* THE ONE COLOUR — Keynote's split well; blank shows the colour the page wears. */}
+      <ColourWell
+        value={hex || null}
+        shown={resolved}
+        what="the page"
+        themeColours={moodBoard?.swatches.length ? moodBoard.swatches : [resolved]}
+        swatchesLabel={moodBoard ? 'Your Mood Board' : 'Your theme'}
+        unsetLabel={unsetLabel}
+        savedKey={`sn-maker-colours:${eventId}`}
+        onPick={(c) => setHex(c.slice(0, 7).toLowerCase())}
+        onUnset={() => {
+          setHex('');
+          setEffect('plain');
+        }}
+        data="page"
+      />
 
       {/* THE FOUR EFFECTS — each chip previews the picked colour under that effect. */}
       <div role="group" aria-label="Background effect" className="mt-2 grid grid-cols-4 gap-1.5">
@@ -452,8 +462,13 @@ function BackgroundField({ id, value, themeId }: { id: string; value: string | n
               key={e}
               type="button"
               aria-pressed={on}
-              disabled={!hex && e !== 'plain'}
-              onClick={() => setEffect(e)}
+              data-background-effect={e}
+              onClick={() => {
+                /* An effect is made FROM a colour: with none picked, it takes the
+                   colour the page already wears (the Mood Board's). */
+                if (!hex && e !== 'plain') setHex(resolved);
+                setEffect(e);
+              }}
               className="group text-left transition-transform duration-300 ease-in-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span

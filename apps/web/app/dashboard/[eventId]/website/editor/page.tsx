@@ -79,8 +79,8 @@ import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop'
 import { updateOurStory } from '../our-story/actions';
 import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
-import { paletteSwatches } from '@/lib/site-palette';
-import type { RolePalette } from '@/lib/mood-board';
+import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
+import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
 import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
 import { updatePhotoMoments } from '../photo-moments/actions';
@@ -630,6 +630,11 @@ export default async function WebsiteEditorPage({
               proLocked={colorsProLocked}
               proLock={lockPanel('Button colour, typeface and motion')}
               themeId={currentThemeId}
+              /* 🎨 Blank = the Mood Board's colours — shown AS those colours
+                 (owner 2026-09-27: "mood board palettes did not update"). */
+              moodBoard={moodBoardSiteColours(
+                sanitizeRolePalette((event as { role_palette?: unknown }).role_palette),
+              )}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
               artDirection={

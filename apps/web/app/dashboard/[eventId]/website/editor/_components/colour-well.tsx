@@ -63,7 +63,16 @@ export function ColourWell({
   onPreview,
   onPick,
   data,
+  unsetLabel = 'Theme',
+  swatchesLabel = 'Theme colours',
+  onUnset,
 }: {
+  /** What the well says while no colour is chosen ("From your Mood Board"). */
+  unsetLabel?: string;
+  /** The heading over `themeColours` ("Your Mood Board"). */
+  swatchesLabel?: string;
+  /** Back to the unset colour (the Mood Board's / the theme's) — offered while one is chosen. */
+  onUnset?: () => void;
   /** The colour chosen, or null while it is the theme's own. */
   value: string | null;
   /** What the well paints while `value` is null (the theme's own colour). */
@@ -162,7 +171,7 @@ export function ColourWell({
           className="sn-press flex h-11 min-w-0 flex-1 items-center justify-between rounded-lg border border-ink/20 px-2.5 font-mono text-[11px] tracking-wide lg:h-9"
           style={{ background: current, color: readableOn(current) }}
         >
-          <span>{value ? shownHex : 'Theme'}</span>
+          <span className="truncate">{value ? shownHex : unsetLabel}</span>
           <ChevronDown aria-hidden className="h-3.5 w-3.5 opacity-80" strokeWidth={2.2} />
         </button>
         <button
@@ -249,7 +258,7 @@ export function ColourWell({
           <span className="font-mono text-[11.5px] text-ink/60">{shownHex}</span>
         </div>
 
-        <p className="pb-1.5 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">Theme colours</p>
+        <p className="pb-1.5 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">{swatchesLabel}</p>
         <div className="grid grid-cols-6 gap-1.5 lg:grid-cols-8">
           {themeColours.map((c) => (
             <Swatch key={c} colour={c} on={value?.slice(0, 7) === c.toLowerCase()} onClick={() => pickNow(c)} />
@@ -277,6 +286,19 @@ export function ColourWell({
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>
+        {onUnset && value ? (
+          <button
+            type="button"
+            data-colour-unset=""
+            onClick={() => {
+              if (timer.current) clearTimeout(timer.current);
+              onUnset();
+            }}
+            className="sn-press mt-2.5 inline-flex min-h-11 items-center rounded-full bg-ink/5 px-3.5 text-[12.5px] font-semibold text-ink/75 hover:bg-ink/10 lg:min-h-9"
+          >
+            ↺ {unsetLabel}
+          </button>
+        ) : null}
       </div>
     </div>
   );

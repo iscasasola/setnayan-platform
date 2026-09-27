@@ -24,7 +24,6 @@ import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
-import { isCustomSectionType } from '@/lib/custom-sections';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
@@ -466,7 +465,9 @@ export function MakerWork({
   useEffect(() => {
     const before = scenesBeforeAdd.current;
     if (!before || !select) return;
-    const added = scenes.find((s) => isCustomSectionType(s.type) && !before.has(s.type));
+    // The scene whose type was not here at the tap — only the add can bring one
+    // (nothing else inserts a row between the tap and the render).
+    const added = scenes.find((s) => !before.has(s.type));
     if (!added) return;
     scenesBeforeAdd.current = null;
     select({ kind: 'scene', id: added.id });

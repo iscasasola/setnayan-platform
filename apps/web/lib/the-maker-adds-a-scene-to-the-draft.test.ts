@@ -140,7 +140,7 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
     cap: body.search(/nextFreeCustomSlot\(used\)/),
     door: body.search(/if \(isHubDraftWrite\(formData\)\) \{/),
     insert: body.search(/\.\.\.ADDED_SCENE_LIVE,/),
-    drafted: body.search(/saveHubDraftPatch\(eventId, \{\s*widgets: \{ \[slot as string\]: addedSceneDraft\(/),
+    drafted: body.search(/saveHubDraftPatch\(\s*eventId,\s*\{\s*widgets: \{ \[slot as string\]: addedSceneDraft\([\s\S]{0,160}\{ formData, fallback: DRAFT_FALLBACK\(eventId\) \}/),
     back: body.search(/redirect\(resolveReturnTo\(formData, `\/dashboard\/\$\{eventId\}\/launch\?drafted=1`/),
     live: body.search(/is_visible: true,/),
   };
@@ -164,7 +164,7 @@ test('W · addCustomSection: Pro refusal → six-cap → draft door → hidden i
   const work = read(`${C}editor-shell.tsx`);
   assert.match(work, /onPick=\{onPickTemplate\}/, 'the sheet does not tell the work area a tile was tapped');
   assert.match(work, /scenesBeforeAdd\.current = new Set\(scenes\.map\(\(s\) => s\.type\)\)/);
-  assert.match(work, /scenes\.find\(\(s\) => isCustomSectionType\(s\.type\) && !before\.has\(s\.type\)\)[\s\S]{0,200}select\(\{ kind: 'scene', id: added\.id \}\)/);
+  assert.match(work, /scenes\.find\(\(s\) => !before\.has\(s\.type\)\)[\s\S]{0,200}select\(\{ kind: 'scene', id: added\.id \}\)/);
 });
 
 test('C · the six-cap holds: a seventh scene has no slot', () => {

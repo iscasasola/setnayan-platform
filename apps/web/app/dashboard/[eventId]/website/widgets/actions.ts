@@ -1084,9 +1084,15 @@ export async function addCustomSection(formData: FormData): Promise<void> {
       .select('widget_id')
       .single();
     if (addErr || !added) throw new Error(`Failed to add a section: ${addErr?.message ?? 'the row was refused'}`);
-    await saveHubDraftPatch(eventId, {
-      widgets: { [slot as string]: addedSceneDraft({ displayOrder: end, canvas }) } as HubDraftPatch['widgets'],
-    });
+    /* A failed draft write bounces back with the house message rather than
+       crashing the page (`the-draft-always-fits.test.ts`); the hidden row it
+       leaves behind is folded in the navigator as hidden, where it can be
+       shown or removed. */
+    await saveHubDraftPatch(
+      eventId,
+      { widgets: { [slot as string]: addedSceneDraft({ displayOrder: end, canvas }) } as HubDraftPatch['widgets'] },
+      { formData, fallback: DRAFT_FALLBACK(eventId) },
+    );
     revalidateWebsiteEditor(eventId, 'widgets');
     /* 🧷 It lands back EXACTLY where the couple is (`lib/maker-stay.ts` — the
        shell stamps `return_to` + `maker_stay`, and `resolveReturnTo` honours it

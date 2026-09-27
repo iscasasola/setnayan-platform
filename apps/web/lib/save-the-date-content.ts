@@ -84,7 +84,10 @@ export type ResolveStdFilmInput = {
   ceremonyVenue?: string | null;
   /** Reception venue name — caller resolves: finalized reception booking ?? manual ?? event. */
   receptionVenue?: string | null;
-  /** Reception city/area — caller resolves: manual override ?? event.venue_address. */
+  /** Reception city/area — caller resolves: manual override ?? event.venue_address.
+   *  🔒 On the guest page the address half is GATED (`stdFilmPlaceLine` in
+   *  lib/venue-disclosure.ts): a viewer who has not replied gets the city or
+   *  nothing, since this also becomes the calendar location below. */
   receptionCity?: string | null;
   /** Raw events.love_story (unknown shape) — teaser extracted + truncated. */
   loveStory?: unknown;

@@ -67,6 +67,7 @@ import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
 import { loadVenueBookings, resolveEventVenues } from '@/lib/event-venues';
+import { stdFilmOwnCity } from '@/lib/venue-disclosure';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { readHubDraftForHostPreview } from '@/lib/hub-draft-store';
@@ -713,7 +714,14 @@ export const loadMedia = cache(
         venueBookings.reception?.name ??
         (event.std_film_venue_name as string | null) ??
         event.venue_name,
-      receptionCity: (event.std_film_venue_city as string | null) ?? event.venue_address,
+      // 🔒 THE STD's OWN CITY ONLY — never the street address (2026-09-27 ·
+      // lib/venue-disclosure.ts). This object reaches every viewer un-gated;
+      // the address fallback happens at the film's mount, from the event the
+      // page already withheld or opened (`stdFilmPlaceLine`).
+      receptionCity: stdFilmOwnCity({
+        std_film_venue_city: event.std_film_venue_city as string | null,
+        venue_address: event.venue_address,
+      }),
     };
     const eventVenues = resolveEventVenues(venueBookings, {
       venue_name: event.venue_name,

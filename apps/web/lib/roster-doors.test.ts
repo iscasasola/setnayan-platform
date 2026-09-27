@@ -108,7 +108,14 @@ test('the free QR PDF is on the Guest list before and after the day, and it is a
   const tabs = stripComments(
     readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'roster-tabs.tsx'), 'utf8'),
   );
-  assert.match(tabs, /d\.kind === 'download'[\s\S]{0,700}<SaveFileLink\b[\s\S]{0,200}\bfilename\b/);
+  // The door mounts GuestQrPdfLink — the client wrapper that holds
+  // SaveFileLink's render-function child (a server component cannot pass a
+  // function across; that crashed the whole guest list, 2026-09-27).
+  assert.match(tabs, /d\.kind === 'download'[\s\S]{0,700}<GuestQrPdfLink\b/);
+  const links = stripComments(
+    readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-save-links.tsx'), 'utf8'),
+  );
+  assert.match(links, /export function GuestQrPdfLink[\s\S]{0,400}<SaveFileLink\b[\s\S]{0,200}\bfilename\b/);
   // Bounded window, not an open-ended slice: the `Tab` helper further down
   // this same file legitimately renders a `<Link>` for an unrelated door, and
   // an unbounded scan from here to end-of-file would trip on that one.

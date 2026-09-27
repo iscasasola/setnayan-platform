@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
@@ -47,9 +47,11 @@ test('no QR download control on the Guest list or its drawer navigates instead o
 });
 
 test('the Guest list + drawer QR downloads all go through SaveFileLink, not a bare <a download>', () => {
+  // roster-tabs.tsx and guest-detail-body.tsx are SERVER components, so they
+  // mount the client wrappers in guest-save-links.tsx (checked below) instead
+  // of SaveFileLink itself — see the next test for why.
   const MUST_USE_SAVE_FILE_LINK = [
-    'app/dashboard/[eventId]/guests/_components/roster-tabs.tsx',
-    'app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx',
+    'app/dashboard/[eventId]/guests/_components/guest-save-links.tsx',
     'app/_components/qr-actions.tsx',
   ];
   for (const rel of MUST_USE_SAVE_FILE_LINK) {
@@ -60,6 +62,51 @@ test('the Guest list + drawer QR downloads all go through SaveFileLink, not a ba
     );
     assert.ok(src.includes('<SaveFileLink'), `${rel} imports SaveFileLink but never mounts it`);
   }
+});
+
+test('the Guest list and the drawer mount the client wrappers, not SaveFileLink directly', () => {
+  const WRAPPED: Array<[string, string]> = [
+    ['app/dashboard/[eventId]/guests/_components/roster-tabs.tsx', '<GuestQrPdfLink'],
+    ['app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx', '<GuestQrDownloadLink'],
+  ];
+  for (const [rel, tag] of WRAPPED) {
+    const src = stripComments(read(rel));
+    assert.ok(src.includes("from './guest-save-links'"), `${rel} no longer imports the guest-save-links wrappers`);
+    assert.ok(src.includes(tag), `${rel} no longer mounts ${tag}`);
+  }
+});
+
+/*
+  🔑 SaveFileLink's children are a FUNCTION of its saving state. A function
+  cannot cross from a server component to a client one — React throws
+  "Functions cannot be passed directly to Client Components" and the whole
+  PAGE fails. That shipped once: the guest list crashed in production
+  (digest 3329950423, 2026-09-27) because two server components wrote
+  `<SaveFileLink>{() => …}</SaveFileLink>`. So SaveFileLink may be MOUNTED
+  only from a file that is itself 'use client'. Swept, not listed, so a new
+  caller is caught without anyone updating this file.
+*/
+test('SaveFileLink is mounted only from client components', () => {
+  const APP = join(__dirname, '..', 'app');
+  const offenders: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) {
+        if (name === 'node_modules' || name === '.next') continue;
+        walk(full);
+      } else if (name.endsWith('.tsx') && !name.endsWith('.test.tsx')) {
+        const raw = readFileSync(full, 'utf8');
+        const src = stripComments(raw);
+        if (!src.includes('<SaveFileLink')) continue;
+        // 'use client' must be the first statement; comments may precede it.
+        const isClient = /^(?:\s*(?:\/\*[\s\S]*?\*\/|\/\/[^\n]*))*\s*['"]use client['"]/.test(raw);
+        if (!isClient) offenders.push(full.slice(APP.length + 1));
+      }
+    }
+  };
+  walk(APP);
+  assert.deepEqual(offenders, [], `server components mounting SaveFileLink (a function child cannot cross to the client): ${offenders.join(', ')}`);
 });
 
 test('SaveFileLink itself: fetch → blob → save/share, never a raw cross-origin navigation', () => {

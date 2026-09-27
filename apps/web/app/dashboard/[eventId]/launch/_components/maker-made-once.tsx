@@ -13,8 +13,7 @@ import { fetchRevealConfig } from '@/lib/reveal-config';
 import { REVEAL_NONE } from '@/lib/reveal-access';
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
-import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
-import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { makerLogoOpening } from '@/lib/maker-logo-opening';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
@@ -329,19 +328,17 @@ export async function MakerLogoPanel({ eventId }: { eventId: string }) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="logo" />;
   const { live, drafted } = m;
-  const config = sanitizeStudioConfig(drafted.monogram_studio_config);
-  const uploaded = safeMonogramSvg(drafted.monogram_uploaded_svg);
-  // Whether a composition exists at all — only a yes/no; the mark itself is
-  // drawn by the studio from the re-editable design, never read raw.
-  const hasComposition = typeof drafted.monogram_custom_svg === 'string' && drafted.monogram_custom_svg.length > 0;
+  /* 🛑 The couple's own logo and initials, never a sample (owner 2026-09-27) —
+     a studio config is a design only beside a composition, an uploaded logo
+     with none is shown as it is. The rule lives in `lib/maker-logo-opening.ts`. */
+  const opening = makerLogoOpening(drafted);
   return (
     <MakerLogoDoor
       eventId={eventId}
-      initialConfig={config}
-      initialNames={resolveMonogram(drafted).text}
-      /* Compose FROM the uploaded logo when that is the couple's mark and no
-         design exists yet — the Monogram Maker page's own rule. */
-      initialUploadSvg={!config && uploaded && !hasComposition ? uploaded : null}
+      initialConfig={opening.config}
+      initialNames={opening.names}
+      initialUploadSvg={null}
+      uploadedLogoSrc={opening.uploadedSvg ? bespokeSvgToDataUri(opening.uploadedSvg) : null}
       drafted={
         drafted.monogram_custom_svg !== live.monogram_custom_svg ||
         JSON.stringify(drafted.monogram_studio_config ?? null) !== JSON.stringify(live.monogram_studio_config ?? null)

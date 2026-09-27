@@ -14,9 +14,16 @@ import { useId, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { candidateName, searchCandidates, type LinkCandidate } from '@/lib/unlisted-guests';
 
-export function LinkPicker({ candidates }: { candidates: LinkCandidate[] }) {
+export function LinkPicker({
+  candidates,
+  initial = null,
+}: {
+  candidates: LinkCandidate[];
+  /** The suggested match (Requests), picked in advance — the couple can change it. */
+  initial?: LinkCandidate | null;
+}) {
   const [q, setQ] = useState('');
-  const [picked, setPicked] = useState<LinkCandidate | null>(null);
+  const [picked, setPicked] = useState<LinkCandidate | null>(initial);
   const listId = useId();
   const matches = useMemo(() => searchCandidates(candidates, q), [candidates, q]);
 

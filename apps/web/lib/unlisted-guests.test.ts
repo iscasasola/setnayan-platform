@@ -27,7 +27,8 @@ const read = (...p: string[]) => stripComments(readFileSync(join(process.cwd(), 
 test('the page offers only unlinked guests, through the search picker', () => {
   const page = read('page.tsx');
   assert.match(page, /candidates = unlinkedCandidates\(/, 'linked guests are offered again');
-  assert.match(page, /<LinkPicker candidates=\{candidates\} \/>/, 'the search picker is gone');
+  // The Requests page picks the suggested match in advance (`initial`); the couple can change it.
+  assert.match(page, /<LinkPicker candidates=\{candidates\}( initial=\{match\})? \/>/, 'the search picker is gone');
   assert.ok(!/name="target_guest_id"[\s\S]{0,200}<option/.test(page), 'the 79-name dropdown is back');
 });
 

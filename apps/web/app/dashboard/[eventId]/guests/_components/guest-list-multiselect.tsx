@@ -538,10 +538,10 @@ function SelfJoinDesktopRow({
           <div className="min-w-0">
             <p className="truncate font-medium text-ink">{name}</p>
             <p className="truncate text-xs font-medium text-danger-700">
-              joined via your link · not on your list
+              asked to join · not on your list yet
             </p>
             <p className="truncate text-[11px] text-ink/45">
-              Already has their QR &amp; personal page — Keep to add them, Remove to revoke
+              Keep adds them and sends their invitation · Remove tells them nothing
             </p>
           </div>
         </div>
@@ -550,6 +550,8 @@ function SelfJoinDesktopRow({
         <div className="flex flex-wrap items-center justify-end gap-2">
           <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
+            {/* Keep needs the line the Requests page asks for; here it is the name as they typed it. */}
+            <input type="hidden" name="line" value={name} />
             <SubmitButton
               overlay={false}
               pendingLabel="Keeping…"
@@ -562,7 +564,7 @@ function SelfJoinDesktopRow({
             href={`/dashboard/${eventId}/guests/claims`}
             className="inline-flex h-8 items-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
           >
-            Link to invite
+            Link
           </Link>
           <form action={removeGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
@@ -1957,15 +1959,17 @@ function MobileSelfJoinCard({
         )}
         <div className="min-w-0">
           <p className="truncate font-medium text-ink">{name}</p>
-          <p className="truncate text-xs font-medium text-danger-700">joined via your link</p>
+          <p className="truncate text-xs font-medium text-danger-700">asked to join</p>
         </div>
       </div>
       <p className="px-3 pb-2 text-[11px] text-ink/55">
-        Already has their QR &amp; page — Keep to add them, Remove to revoke.
+        Keep adds them and sends their invitation · Remove tells them nothing.
       </p>
       <div className="flex items-center gap-2 px-3 pb-3">
         <form action={keepGuestAction.bind(null, eventId)} className="flex-1">
           <input type="hidden" name="guest_id" value={guest.guest_id} />
+          {/* Keep needs the line the Requests page asks for; here it is the name as they typed it. */}
+          <input type="hidden" name="line" value={name} />
           <SubmitButton
             overlay={false}
             pendingLabel="Keeping…"

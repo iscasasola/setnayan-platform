@@ -1,38 +1,72 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, UserCheck, UserPlus, Link2 } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { RSVP_LABELS, type GuestRole, type RsvpStatus } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
-import { unlinkedCandidates } from '@/lib/unlisted-guests';
+import { candidateName, unlinkedCandidates } from '@/lib/unlisted-guests';
+import {
+  REQUEST_ANSWERS,
+  keepLineFor,
+  maskMobile,
+  readRequestedSeats,
+  requestAge,
+  suggestRequestMatch,
+} from '@/lib/guest-requests';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { LinkPicker } from './link-picker';
 import { KeepQuickAdd } from './keep-quick-add';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { keepGuestAction, removeGuestAction, linkGuestAction } from './actions';
 
-export const metadata = { title: 'Unlisted guests' };
+export const metadata = { title: 'Requests' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; done?: string; bound?: string }>;
 };
 
-type UnlistedRow = {
+type RequestRow = {
   guest_id: string;
   first_name: string;
   last_name: string;
   display_name: string | null;
   email: string | null;
-  role: GuestRole;
+  mobile: string | null;
+  rsvp_status: RsvpStatus;
+  notes: string | null;
   created_at: string;
 };
 
-export default async function UnlistedGuestsPage({ params, searchParams }: Props) {
+/** What reached the person after Keep or Link (`doneOnRequests` in actions.ts). */
+const DONE_COPY: Record<string, string> = {
+  emailed: 'Done — their invitation is on its way by email, with "Save to my account" waiting on it.',
+  no_email: 'Done — they left no email, so share their invitation from the guest list.',
+  not_sent: 'Done — but their invitation email did not send. Share it from the guest list.',
+};
+
+/**
+ * GUEST LIST → REQUESTS (guest pathway, owner 2026-09-26: *"REQUESTS IS THE ONE
+ * WORD"*, and the shipped verbs *"Keep remove and link"*). The route stays
+ * `claims`; every word on screen says Requests.
+ *
+ * A request is someone WITHOUT a key who asked to join — they are NOT inside
+ * and the event is NOT in their account until the couple acts
+ * (`app/join/[eventId]/actions.ts`). Each shows what they answered and the
+ * person on the list they most look like (a SUGGESTION — a name is not a
+ * secret). Keep adds them; Link merges them into the guest they really are;
+ * both issue their key. Remove tells them nothing. Guests who added themselves
+ * before 2026-09-27 are here too, and stay inside until the couple decides.
+ *
+ * House style (DESIGN_BRIEF 2026-09-24): no bordered cards, the number is the
+ * hero, one dark button per request.
+ */
+export default async function RequestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { error: actionError } = await searchParams;
+  const { error: actionError, done } = await searchParams;
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -48,44 +82,31 @@ export default async function UnlistedGuestsPage({ params, searchParams }: Props
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  // Invite/Join v2 (0000 ADDENDUM 2026-06-25): people who joined via the invite
-  // link but whose name didn't match the list. They're already added — this is
-  // where the couple keeps or removes them.
-  //
-  // ⚠ THE SENTENCE BELOW THIS READ IS "Nobody to review right now." Supabase
-  // ⚠ RESOLVES with { error } rather than throwing, so a refused read arrives as
-  // ⚠ `data: null`, `?? []` turns it into an empty list, and that sentence is
-  // ⚠ printed to a couple who has people waiting — who then never get kept or
-  // ⚠ removed, because the couple was told there was nobody. Bind the error and
-  // ⚠ gate the claim on whether the read actually happened.
+  // ⚠ THE SENTENCE BELOW THIS READ IS "Nobody is waiting." Supabase RESOLVES
+  // ⚠ with { error } rather than throwing, so a refused read arrives as
+  // ⚠ `data: null`, `?? []` turns it into an empty list, and that sentence
+  // ⚠ would be printed to a couple who has people waiting — who then never get
+  // ⚠ an answer. Bind the error and gate the claim on whether the read happened.
   const { data: rowsRaw, error: rowsError } = await supabase
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, email, role, created_at')
+    .select('guest_id, first_name, last_name, display_name, email, mobile, rsvp_status, notes, created_at')
     .eq('event_id', eventId)
     .eq('entry_source', 'self_added_unlisted')
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (rowsError) {
-    logQueryError(
-      'UnlistedGuestsPage.unlisted',
-      rowsError,
-      { event_id: eventId },
-      'graceful_degrade',
-    );
+    logQueryError('RequestsPage.requests', rowsError, { event_id: eventId }, 'graceful_degrade');
   }
   const unlistedMeasured = !rowsError && rowsRaw !== null;
-  const rows = (rowsRaw ?? []) as UnlistedRow[];
+  const rows = (rowsRaw ?? []) as RequestRow[];
 
-  // Existing list members the couple can merge an unlisted joiner INTO (the
-  // "this is actually <name> under a different spelling" case). Host-seeded,
-  // non-deleted, name-ordered. Only fetched when there's something to reconcile.
+  // Who a request can be LINKED to — host-seeded, non-deleted, and not yet
+  // bound to an account (owner 2026-09-21). Measured separately: one read can be
+  // refused while the other is not, and a refused read here hides Link, which
+  // would read as "there is nobody to link them to".
   type Candidate = { guest_id: string; first_name: string; last_name: string; display_name: string | null };
   let candidates: Candidate[] = [];
-  // A refused read here hides the "Same as <someone already on your list>"
-  // merge form entirely, which reads as "there is nobody to merge them into" —
-  // so the couple keeps a duplicate instead of linking it. Measured separately
-  // from the list above: one can be refused while the other is not.
   let candidatesMeasured = true;
   if (rows.length > 0) {
     const { data: candRaw, error: candError } = await supabase
@@ -97,169 +118,200 @@ export default async function UnlistedGuestsPage({ params, searchParams }: Props
       .order('last_name', { ascending: true })
       .limit(500);
     if (candError) {
-      logQueryError(
-        'UnlistedGuestsPage.mergeCandidates',
-        candError,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
+      logQueryError('RequestsPage.mergeCandidates', candError, { event_id: eventId }, 'graceful_degrade');
     }
     candidatesMeasured = !candError && candRaw !== null;
     candidates = (candRaw ?? []) as Candidate[];
 
-    /*
-      ⚖ Owner 2026-09-21: "this should only show accounts that are not yet
-      linked". A guest an account already signed in as IS that person; the Link
-      action refuses to bind a second account to them, so offering them only
-      produced an error. Read with the admin client — the couple's own session
-      may not see other people's memberships — AFTER the couple check above.
-      A refused read hides the Link form rather than offering linked guests.
-    */
+    // Read with the admin client — the couple's own session may not see other
+    // people's memberships — AFTER the couple check above.
     const { data: boundRaw, error: boundError } = await createAdminClient()
       .from('event_members')
       .select('guest_id')
       .eq('event_id', eventId)
       .not('guest_id', 'is', null);
     if (boundError) {
-      logQueryError('UnlistedGuestsPage.linked', boundError, { event_id: eventId }, 'graceful_degrade');
+      logQueryError('RequestsPage.linked', boundError, { event_id: eventId }, 'graceful_degrade');
       candidatesMeasured = false;
       candidates = [];
     } else {
-      candidates = unlinkedCandidates(
-        candidates,
-        new Set((boundRaw ?? []).map((m) => m.guest_id as string)),
-      );
+      candidates = unlinkedCandidates(candidates, new Set((boundRaw ?? []).map((m) => m.guest_id as string)));
     }
   }
 
   // The Keep form's choices — what THIS event offers (the action re-checks).
-  const [{ offeredRoles }, { data: groupsRaw }] = rows.length > 0
-    ? await Promise.all([
-        resolveRoleSetForEvent(eventId),
-        supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId).order('label'),
-      ])
-    : [{ offeredRoles: [] as GuestRole[] }, { data: [] }];
+  const [{ offeredRoles }, { data: groupsRaw }] =
+    rows.length > 0
+      ? await Promise.all([
+          resolveRoleSetForEvent(eventId),
+          supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId).order('label'),
+        ])
+      : [{ offeredRoles: [] as GuestRole[] }, { data: [] }];
   const groupChoices = (groupsRaw ?? []) as { group_id: string; label: string; team_side: string }[];
 
+  // The suggested match for each request — a suggestion the couple acts on with
+  // Link, never a bind (a name is not a secret).
+  const seeds = candidates.map((c) => ({ guestId: c.guest_id, name: candidateName(c), email: null }));
+  const byId = new Map(candidates.map((c) => [c.guest_id, c]));
+  const items = rows.map((g) => {
+    const name = (g.display_name?.trim() || `${g.first_name} ${g.last_name === '—' ? '' : g.last_name}`).trim();
+    const hit = suggestRequestMatch(name, seeds);
+    return { g, name, match: hit ? (byId.get(hit.guestId) ?? null) : null };
+  });
+  const lookAlikes = items.filter((i) => i.match).length;
+  const answerLabel = (s: RsvpStatus) => REQUEST_ANSWERS.find((a) => a.value === s)?.label ?? RSVP_LABELS[s];
+
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6" data-requests-page="">
       <Link
         href={`/dashboard/${eventId}/guests`}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to guest list
+        <ArrowLeft className="h-4 w-4" /> Guest List
       </Link>
 
-      <header className="mt-3 space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <UserPlus className="h-6 w-6 text-terracotta" /> Unlisted guests
-        </h1>
-        <p className="text-sm text-ink/60">
-          These people joined through your invite link but weren&rsquo;t on your list — a
-          forgotten guest, a plus-one, or a typo. They&rsquo;re already added; keep the ones
-          who belong, remove the ones who don&rsquo;t.
-        </p>
-      </header>
+      <PageMasthead title="Requests" />
+      <p aria-hidden className="mt-2 text-3xl font-semibold tracking-tight text-ink">
+        Requests
+      </p>
 
       {actionError ? (
-        <p role="alert" className="mt-4 rounded-lg border border-danger-200 bg-danger-50/70 px-3 py-2 text-sm text-danger-900">
+        <p role="alert" className="mt-4 border-l-2 border-danger-700 pl-3 text-sm text-danger-900">
           {actionError}
+        </p>
+      ) : null}
+      {done && DONE_COPY[done] ? (
+        <p role="status" className="mt-4 border-l-2 border-success-700 pl-3 text-sm text-success-800">
+          {DONE_COPY[done]}
         </p>
       ) : null}
 
       {!unlistedMeasured ? (
-        <p
-          role="alert"
-          className="mt-10 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-        >
-          <strong className="text-ink">
-            We couldn&rsquo;t load who joined through your link.
-          </strong>{' '}
-          This does not mean nobody did. Nobody has been added or removed &mdash;
-          reload in a moment and they will be here.
+        <p role="alert" className="mt-8 border-l-2 border-mulberry/70 pl-3 text-sm text-ink/70">
+          <strong className="text-ink">We couldn&rsquo;t load your requests.</strong> This does not mean nobody asked.
+          Nobody has been added or removed &mdash; reload in a moment and they will be here.
         </p>
       ) : rows.length === 0 ? (
-        <div className="mt-10 rounded-xl border border-ink/10 bg-ink/[0.02] p-8 text-center">
-          <p className="text-sm text-ink/60">Nobody to review right now.</p>
+        <div className="mt-8 flex items-baseline gap-4">
+          <span className="font-serif text-7xl leading-none text-ink">0</span>
+          <p className="text-sm text-ink/60">Nobody is waiting. When someone without a key asks to join, they appear here.</p>
         </div>
       ) : (
-        <ul className="mt-6 space-y-3">
-          {rows.map((g) => {
-            const name = (g.display_name?.trim() || `${g.first_name} ${g.last_name}`).trim();
-            return (
-              <li key={g.guest_id} className="rounded-xl border border-ink/10 bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-ink">{name}</p>
-                    <p className="text-sm text-ink/60">
-                      {g.email ?? 'no email on file'} · joined as {ROLE_LABELS[g.role ?? 'guest']}
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-warn-100 px-2.5 py-1 text-xs font-medium text-warn-900">
-                    not on your list
-                  </span>
-                </div>
+        <>
+          <div className="mt-6 flex items-center gap-4">
+            <span className="font-serif text-7xl leading-none text-ink" data-requests-count={rows.length}>
+              {rows.length}
+            </span>
+            <div className="text-sm">
+              <p className="text-ink/70">asked to join</p>
+              {lookAlikes > 0 ? (
+                <p className="text-terracotta-700">
+                  {lookAlikes} {lookAlikes === 1 ? 'looks like someone' : 'look like people'} already on your list
+                </p>
+              ) : null}
+            </div>
+          </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {/* ⚖ Owner 2026-09-21: "allow manual add to list where you
-                      can choose their role, group, side, and name". Keep opens
-                      the form, prefilled with what they typed on joining. */}
-                  <details className="group/keep w-full">
-                    <summary className="button-primary inline-flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
-                      <UserCheck className="h-4 w-4" /> Keep on my list
-                    </summary>
-                    <form action={keepGuestAction.bind(null, eventId)} className="mt-3 space-y-3 rounded-lg border border-ink/10 bg-cream/60 p-3">
+          <ul className="mt-6 divide-y divide-ink/10 border-t border-ink/10">
+            {items.map(({ g, name, match }) => {
+              const seats = readRequestedSeats(g.notes);
+              const meta = [
+                answerLabel(g.rsvp_status),
+                seats > 1 ? `${seats} seats` : null,
+                maskMobile(g.mobile),
+                g.email,
+                requestAge(g.created_at),
+              ].filter(Boolean);
+              return (
+                <li key={g.guest_id} className="py-5" data-request={g.guest_id}>
+                  <p className="text-xl font-semibold text-ink">{name}</p>
+                  <p className="mt-0.5 text-sm text-ink/60">{meta.join(' · ')}</p>
+                  {match ? (
+                    <p className="mt-2 flex items-center gap-1.5 text-sm text-terracotta-700" data-request-match="">
+                      <ArrowLeftRight aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
+                      Same as <span className="font-semibold text-ink">{candidateName(match)}</span>
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-sm text-ink/55">No one like this on your list</p>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap items-start gap-2">
+                    {/* KEEP — onto the list, with the name, side, role and
+                        group the couple chooses (owner 2026-09-21), prefilled
+                        with what they typed and the seats they asked for. */}
+                    <details className="group/keep">
+                      <summary
+                        className={`sn-press inline-flex min-h-11 cursor-pointer list-none items-center rounded-full px-5 text-sm font-semibold [&::-webkit-details-marker]:hidden ${
+                          match ? 'bg-ink/[0.06] text-ink' : 'bg-ink text-cream'
+                        }`}
+                      >
+                        Keep
+                      </summary>
+                      <form action={keepGuestAction.bind(null, eventId)} className="mt-3 w-[min(100vw-2rem,36rem)] space-y-3">
+                        <input type="hidden" name="guest_id" value={g.guest_id} />
+                        <input type="hidden" name="from" value="requests" />
+                        <KeepQuickAdd
+                          defaultLine={keepLineFor(name, g.notes)}
+                          offeredRoles={offeredRoles}
+                          existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
+                        />
+                        <SubmitButton className="button-primary" pendingLabel="Adding…">
+                          Add to my list
+                        </SubmitButton>
+                      </form>
+                    </details>
+
+                    <form action={removeGuestAction.bind(null, eventId)}>
                       <input type="hidden" name="guest_id" value={g.guest_id} />
-                      <KeepQuickAdd
-                        defaultLine={name}
-                        offeredRoles={offeredRoles}
-                        existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
-                      />
-                      <SubmitButton className="button-primary inline-flex items-center gap-1.5" pendingLabel="Adding…">
-                        <UserCheck className="h-4 w-4" /> Add to my list
+                      <SubmitButton
+                        overlay={false}
+                        pendingLabel="Removing…"
+                        className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/[0.06] px-5 text-sm font-semibold text-ink"
+                      >
+                        Remove
                       </SubmitButton>
                     </form>
-                  </details>
 
-                  <form action={removeGuestAction.bind(null, eventId)}>
-                    <input type="hidden" name="guest_id" value={g.guest_id} />
-                    <button
-                      type="submit"
-                      className="rounded-md px-3 py-2 text-sm text-ink/50 hover:bg-ink/5 hover:text-ink"
-                    >
-                      Remove
-                    </button>
-                  </form>
-                </div>
+                    {/* LINK — they are someone already on the list. */}
+                    {candidates.length > 0 ? (
+                      <details className="group/link">
+                        <summary
+                          className={`sn-press inline-flex min-h-11 cursor-pointer list-none items-center rounded-full px-5 text-sm font-semibold [&::-webkit-details-marker]:hidden ${
+                            match ? 'bg-ink text-cream' : 'bg-ink/[0.06] text-ink'
+                          }`}
+                        >
+                          Link
+                        </summary>
+                        <form
+                          action={linkGuestAction.bind(null, eventId)}
+                          className="mt-3 flex w-[min(100vw-2rem,36rem)] flex-wrap items-center gap-2"
+                        >
+                          <input type="hidden" name="guest_id" value={g.guest_id} />
+                          <input type="hidden" name="from" value="requests" />
+                          <span className="text-sm text-ink/60">Same as</span>
+                          <LinkPicker candidates={candidates} initial={match} />
+                          <SubmitButton className="button-primary" pendingLabel="Linking…">
+                            Link
+                          </SubmitButton>
+                        </form>
+                      </details>
+                    ) : !candidatesMeasured ? (
+                      <p className="text-sm text-ink/55">
+                        We couldn&rsquo;t load your guest list just now, so Link is not offered. Reload in a moment.
+                      </p>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
 
-                {/* LINK: this joiner is actually someone already on the list. */}
-                {candidates.length > 0 ? (
-                  <form
-                    action={linkGuestAction.bind(null, eventId)}
-                    className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/5 pt-3"
-                  >
-                    <input type="hidden" name="guest_id" value={g.guest_id} />
-                    <span className="inline-flex items-center gap-1.5 text-sm text-ink/55">
-                      <Link2 className="h-4 w-4" /> Same as
-                    </span>
-                    <LinkPicker candidates={candidates} />
-                    <SubmitButton className="button-secondary text-sm" pendingLabel="Linking…">
-                      Link
-                    </SubmitButton>
-                  </form>
-                ) : !candidatesMeasured ? (
-                  <p className="mt-3 border-t border-ink/5 pt-3 text-sm text-ink/55">
-                    We couldn&rsquo;t load your guest list just now, so we
-                    can&rsquo;t offer to link this person to someone already on
-                    it. Reload in a moment.
-                  </p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+          <p className="mt-6 text-sm text-ink/55">
+            Keep or Link sends them their invitation, with &ldquo;Save to my account&rdquo; waiting on it. Remove tells
+            them nothing.
+          </p>
+        </>
       )}
     </div>
   );
 }
-

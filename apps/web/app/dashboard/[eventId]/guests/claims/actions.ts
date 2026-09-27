@@ -10,6 +10,7 @@ import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { readKeepLine, type KeepLine } from '@/lib/unlisted-guests';
 import { quickCreateGroup } from '../quick-add-actions';
 import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
+import { closeRequestClaim, issueRequestKey, type IssuedKey } from '@/lib/guest-request-key';
 
 /** Back to the page with a sentence the couple can act on. */
 function back(eventId: string, message: string): never {
@@ -17,12 +18,29 @@ function back(eventId: string, message: string): never {
 }
 
 /**
+ * After Keep or Link from the Requests page, say what reached the person — the
+ * key went by email, or they left no email and the couple shares it. The
+ * roster's inline buttons (no `from`) keep revalidating in place.
+ */
+function doneOnRequests(eventId: string, formData: FormData, issued: IssuedKey): void {
+  if (String(formData.get('from') ?? '') !== 'requests') return;
+  const sent = issued.emailed ? 'emailed' : issued.noEmail ? 'no_email' : 'not_sent';
+  redirect(`/dashboard/${eventId}/guests/claims?done=${sent}${issued.bound ? '&bound=1' : ''}`);
+}
+
+/**
  * Invite/Join v2 reconcile actions (0000 ADDENDUM 2026-06-25).
  *
- * Unlisted joiners are optimistically admitted as `guests` rows tagged
- * `entry_source = 'self_added_unlisted'`. This surface lets the couple reconcile
- * them: KEEP (promote to a normal list member), REMOVE (soft-delete + revoke the
- * account membership), or LINK (merge into an existing guest already on the list).
+ * REQUESTS (owner 2026-09-26, "NOBODY WITHOUT A KEY"): a person without a key
+ * who asks to join is a `guests` row tagged `entry_source = 'self_added_unlisted'`
+ * with NO membership and NO guest session (app/join/[eventId]/actions.ts). This
+ * surface — "Requests" in the UI, `claims` in the route — is where the couple
+ * decides, with the shipped verbs: KEEP (promote to a normal list member),
+ * REMOVE (soft-delete + revoke any membership + close the request), or LINK
+ * (merge into an existing guest already on the list). Keep and Link issue the
+ * key (`lib/guest-request-key.ts`). Guests self-added before 2026-09-27 were
+ * admitted at once; they appear here too, and nothing removes them unless the
+ * couple presses Remove.
  */
 
 /** Throw unless the caller is a couple member of this event. */
@@ -66,7 +84,7 @@ async function readUnlistedGuest(
  * is re-checked here against what this event offers (`readKeepChoice`).
  */
 export async function keepGuestAction(eventId: string, formData: FormData) {
-  await assertCouple(eventId);
+  const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = await readUnlistedGuest(admin, eventId, formData);
   if (!guestId) {
@@ -157,18 +175,35 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
   // them into a provisional seat if they don't have one.
   await applyReconcileForEvent(admin, eventId);
 
+  // 🔑 KEEP ISSUES THE KEY (owner 2026-09-26). Until this line the person had
+  // no way in — no membership, no guest session. Now their own account is bound
+  // (if they asked signed in) and their invitation link is emailed to them.
+  const issued = await issueRequestKey({
+    eventId,
+    requestGuestId: guestId,
+    seatGuestId: guestId,
+    reviewerUserId: user.id,
+  });
+
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);
+  doneOnRequests(eventId, formData, issued);
 }
 
 /** REMOVE: soft-delete the unlisted guest and revoke any account membership. */
 export async function removeGuestAction(eventId: string, formData: FormData) {
-  await assertCouple(eventId);
+  const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = await readUnlistedGuest(admin, eventId, formData);
   if (!guestId) {
     revalidatePath(`/dashboard/${eventId}/guests/claims`);
     return;
+  }
+
+  // Close a signed-in asker's request first, so nothing can later bind their
+  // account to it. Remove tells them nothing (owner 2026-09-26).
+  if (!(await closeRequestClaim({ eventId, requestGuestId: guestId, reviewerUserId: user.id }))) {
+    back(eventId, 'We could not close their request — nothing was removed. Try again.');
   }
 
   // Revoke the account membership (signed-in joiner) — no-op for accountless
@@ -253,7 +288,7 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
  * row, so they'd re-scan / use an email link to land on the merged guest.
  */
 export async function linkGuestAction(eventId: string, formData: FormData) {
-  await assertCouple(eventId);
+  const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const backTo = `/dashboard/${eventId}/guests/claims`;
 
@@ -303,6 +338,20 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
   if (targetBinding && sourceMember && targetBinding.user_id !== sourceMember.user_id) {
     revalidatePath(backTo);
     return;
+  }
+  // …and the same for a signed-in REQUEST (its account is remembered in
+  // guest_claims, not event_members): never hand a seat another account holds.
+  if (targetBinding) {
+    const { data: claim } = await admin
+      .from('guest_claims')
+      .select('claimer_user_id')
+      .eq('event_id', eventId)
+      .eq('target_guest_id', sourceId)
+      .eq('status', 'pending_review')
+      .maybeSingle();
+    if (claim && claim.claimer_user_id !== targetBinding.user_id) {
+      back(eventId, 'That guest is already linked to someone else’s account — Keep this person as new instead.');
+    }
   }
 
   // Carry the joiner's email onto the target if it has none.
@@ -356,6 +405,15 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
     back(eventId, 'Merged, but the duplicate is still on your list — remove it from the guest list.');
   }
 
+  // 🔑 LINK ISSUES THE KEY — the key of the guest they were linked to.
+  const issued = await issueRequestKey({
+    eventId,
+    requestGuestId: sourceId,
+    seatGuestId: targetId,
+    reviewerUserId: user.id,
+  });
+
   revalidatePath(backTo);
   revalidatePath(`/dashboard/${eventId}/guests`);
+  doneOnRequests(eventId, formData, issued);
 }

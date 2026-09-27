@@ -6,14 +6,18 @@ import {
   JOIN_DOOR_THROTTLED_MESSAGE,
 } from '@/lib/join-door-throttle';
 import { isUuid } from '@/lib/is-uuid';
-import { JoinFlow } from './_components/join-flow';
+import { JoinFlow, RequestSentScreen } from './_components/join-flow';
+import { anyoneMayAskToJoin } from '@/lib/rsvp-ask';
+import Link from 'next/link';
+import { DoorShell } from '@/app/_components/door/door-shell';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { InvalidTokenScreen } from './_components/join-shell';
 
 export const metadata = { title: 'Join event' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ token?: string; error?: string }>;
+  searchParams: Promise<{ token?: string; error?: string; sent?: string }>;
 };
 
 /**
@@ -42,23 +46,23 @@ export default async function JoinPage({ params, searchParams }: Props) {
     return <InvalidTokenScreen />;
   }
 
-  // Validate the token (admin client bypasses RLS).
+  // Validate the token (admin client bypasses RLS). A missing token is not a
+  // refusal on its own any more: "Who can RSVP? → Anyone, I approve" opens this
+  // door to people without a key, who can then only ASK (guest pathway item 1).
   const admin = createAdminClient();
-  const { data: tokenRow } = await admin
-    .from('event_join_tokens')
-    .select('event_id, revoked_at, expires_at')
-    .eq('event_id', eventId)
-    .eq('token', token)
-    .maybeSingle();
+  const { data: tokenRow } = token
+    ? await admin
+        .from('event_join_tokens')
+        .select('event_id, revoked_at, expires_at')
+        .eq('event_id', eventId)
+        .eq('token', token)
+        .maybeSingle()
+    : { data: null };
 
   const tokenValid =
     !!tokenRow &&
     !tokenRow.revoked_at &&
     (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
-
-  if (!token || !tokenValid) {
-    return <InvalidTokenScreen />;
-  }
 
   const { data: event } = await admin
     .from('events')
@@ -66,12 +70,54 @@ export default async function JoinPage({ params, searchParams }: Props) {
       // `event_date_precision` travels WITH `event_date` everywhere it is shown.
       // The column alone cannot say whether it is a decided day or a placeholder,
       // and this screen prints it to a stranger. See `doorMeta` in join-shell.tsx.
-      'event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug',
+      'event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, rsvp_ask_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
 
   if (!event) {
+    return <InvalidTokenScreen />;
+  }
+
+  // "Request sent" (prototype 7c) — where both join actions land a request.
+  // It says nothing about anybody's request; it only thanks whoever sent one.
+  if (search.sent === '1') {
+    const w = await eventWordsForEvent(eventId);
+    return (
+      <RequestSentScreen
+        event={{
+          display_name: event.display_name ?? '',
+          event_date: event.event_date,
+          event_date_precision: event.event_date_precision,
+          venue_name: event.venue_name,
+        }}
+        organizer={w.theOrganizer.charAt(0).toUpperCase() + w.theOrganizer.slice(1)}
+        slug={event.slug}
+      />
+    );
+  }
+
+  if (!tokenValid && !anyoneMayAskToJoin(event.rsvp_ask_config)) {
+    // No token at all = someone pressed "Ask to join" on an event whose couple
+    // chose "Who can RSVP? → Only my Guest List". That is not a broken link, so
+    // it is not told it is one: it is told the list is the couple's.
+    if (!token) {
+      const w = await eventWordsForEvent(eventId);
+      return (
+        <DoorShell
+          tone="dead_end"
+          eyebrow="Guest list"
+          title={event.display_name ?? 'This celebration'}
+          sub={`Only ${w.theOrganizer} can add guests to this celebration. Ask them to send you your personal invitation — it opens everything here.`}
+        >
+          {event.slug ? (
+            <Link className="button-secondary" href={`/${event.slug}`}>
+              Back to the details
+            </Link>
+          ) : null}
+        </DoorShell>
+      );
+    }
     return <InvalidTokenScreen />;
   }
 
@@ -101,7 +147,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
       event={event}
       token={token}
       errorKey={errorKey}
-      returnPath={`/join/${eventId}?token=${token}`}
+      returnPath={token ? `/join/${eventId}?token=${token}` : `/join/${eventId}`}
     />
   );
 }

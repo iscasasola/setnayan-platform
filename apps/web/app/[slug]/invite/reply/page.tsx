@@ -22,7 +22,8 @@ import { asksForHostCanvas } from '../../_lib/editor-canvas';
 import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
 import { getCurrentUser } from '@/lib/auth';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
-import { RSVP_CANVAS_GUEST } from '@/lib/simulated-guest-preview';
+import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
+import { loadPreviewPerson } from '../../_lib/preview-person.server';
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -101,7 +102,16 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   if (!canvas && !session) redirect(`/${home}`);
 
   const { data: guest, error: guestError } = canvas
-    ? { data: { ...RSVP_CANVAS_GUEST, plus_one_name_confirmed_at: null as string | null }, error: null }
+    ? {
+        data: {
+          // A real person from THIS event's list — name and plus-one allowance
+          // only (owner 2026-09-27: "each editor of each event will adapt to
+          // their event"); the sample's id, so nothing is written for them.
+          ...rsvpCanvasGuestFor(await loadPreviewPerson(admin, liveEvent.event_id as string)),
+          plus_one_name_confirmed_at: null as string | null,
+        },
+        error: null,
+      }
     : await admin
     .from('guests')
     .select(

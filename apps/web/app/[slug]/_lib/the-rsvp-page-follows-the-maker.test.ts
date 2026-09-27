@@ -197,7 +197,7 @@ test('5 · the RSVP canvas opens on the QUESTIONS, a sample who has not replied,
   assert.equal(makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'rsvp'), '/ana-ben/invite/reply?editor=1');
   assert.equal(RSVP_CANVAS_GUEST.rsvp_status, 'pending');
   assert.match(REPLY, /if \(viewer && \(await loadHostMembership\(admin, liveEvent\.event_id as string, viewer\.id\)\)\) \{/, 'the canvas door is the param alone');
-  assert.match(REPLY, /\? \{ data: \{ \.\.\.RSVP_CANVAS_GUEST, plus_one_name_confirmed_at: null as string \| null \}, error: null \}/);
+  assert.match(REPLY, /\.\.\.rsvpCanvasGuestFor\(await loadPreviewPerson\(admin, liveEvent\.event_id as string\)\),/);
   const LAUNCH = read('dashboard/[eventId]/launch/page.tsx');
   assert.match(LAUNCH, /<MakerRsvpCanvas questionsSrc=\{rsvpSrc\} repliedSrc=\{rsvpRepliedSrc\}/);
   const PAGE = read('dashboard/[eventId]/launch/_components/maker-page.tsx');
@@ -247,4 +247,30 @@ test('7 · the one-at-a-time switch: label, knob and value are the same value', 
   }
   const SRC = read('dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
   assert.match(SRC, /setLocal\(JSON\.parse\(currentKey\) as RsvpAskConfig\);/, 'the switch keeps a value the draft no longer holds');
+});
+
+// ═══ 8 · the preview wears this event's own guest (owner 2026-09-27) ══════
+
+test('8 · "each editor of each event will adapt to their event": a real name and allowance, read only', async () => {
+  const { rsvpCanvasGuestFor, previewNames, PREVIEW_FALLBACK_NAME, SIMULATED_GUEST_ID } = await import(
+    '@/lib/simulated-guest-preview'
+  );
+  const real = rsvpCanvasGuestFor({ first_name: 'Ana', last_name: 'Reyes', display_name: null, plus_one_allowed: true, plus_one_count: 2 });
+  assert.equal(real.display_name, 'Ana Reyes');
+  assert.equal(real.plus_one_count, 2);
+  assert.equal(real.guest_id, SIMULATED_GUEST_ID, 'the preview must keep the sample id — it can never write for a real guest');
+  assert.equal(real.rsvp_status, 'pending');
+  assert.equal(real.meal_preference, null, 'no answer of theirs is shown');
+  const none = rsvpCanvasGuestFor({ first_name: 'Leo', last_name: 'Cruz', display_name: null, plus_one_allowed: false, plus_one_count: 3 });
+  assert.equal(none.plus_one_allowed, false);
+  assert.equal(none.plus_one_count, 0, 'their real allowance, not the sample one');
+  assert.equal(previewNames(null).row.display_name, PREVIEW_FALLBACK_NAME);
+  assert.notEqual(previewNames(null).row.display_name, 'Sample Guest');
+  // The loader reads the name + allowance and nothing else, from THIS event.
+  const LOADER = read('[slug]/_lib/preview-person.server.ts');
+  assert.match(LOADER, /\.select\('first_name, last_name, display_name, plus_one_allowed, plus_one_count'\)/);
+  assert.match(LOADER, /\.eq\('event_id', eventId\)/);
+  assert.doesNotMatch(LOADER, /\.(insert|update|upsert|delete|rpc)\(/, 'the preview loader writes');
+  const PAGE = read('[slug]/page.tsx');
+  assert.match(PAGE, /person: await loadPreviewPerson\(admin, event\.event_id\),/);
 });

@@ -6,6 +6,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Pax changes · Admin' };
 
 /**
@@ -174,9 +175,9 @@ export default async function AdminPaxChangesPage() {
             hideBelow: 'md',
             cell: (r) => (
               <span className="whitespace-nowrap text-ink/70">
-                {r.prev_pax ?? '—'} →{' '}
-                <span className="font-semibold text-ink">{r.live_pax ?? '—'}</span>
-                <span className="text-xs text-ink/70"> (quoted {r.quote_base_pax ?? '—'})</span>
+                {formatCount(r.prev_pax)} →{' '}
+                <span className="font-semibold text-ink">{formatCount(r.live_pax)}</span>
+                <span className="text-xs text-ink/70"> (quoted {formatCount(r.quote_base_pax)})</span>
               </span>
             ),
           },

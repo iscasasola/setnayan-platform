@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import { clearLeftoverMediaAction } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Clear left-over files" — the folder-level control.
@@ -46,14 +47,14 @@ export function ClearFolderButton({
           className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-[12px] font-medium text-slate-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
-          Clear {count} left-over {count === 1 ? 'file' : 'files'}
+          Clear {formatCount(count)} left-over {count === 1 ? 'file' : 'files'}
         </button>
       ) : (
         <div className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
           <p className="flex gap-2 text-[12px] leading-relaxed text-red-900">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             <span>
-              This permanently deletes <strong>{count}</strong>{' '}
+              This permanently deletes <strong>{formatCount(count)}</strong>{' '}
               {count === 1 ? 'file' : 'files'} from <strong>{label}</strong>. Files marked{' '}
               <em>In use</em> or <em>Not sure</em> are never touched, and the check is re-run on the
               server before anything is removed. <strong>This cannot be undone.</strong>
@@ -66,7 +67,7 @@ export function ClearFolderButton({
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
                 inputMode="numeric"
-                aria-label={`Type ${count} to confirm deleting ${count} files`}
+                aria-label={`Type ${count} to confirm deleting ${formatCount(count)} files`}
                 className="ml-1 w-24 rounded border border-red-300 bg-white px-2 py-1 text-[12px] text-slate-900"
               />
             </label>

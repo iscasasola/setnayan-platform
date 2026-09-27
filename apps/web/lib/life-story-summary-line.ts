@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * The one-line summary under "See your whole life — while you're still in it."
  * on the launcher's Alaala tile.
@@ -21,10 +22,10 @@ export function lifeFlashSummaryLine(momentCount: number, peopleCount: number): 
   if (momentCount <= 0) {
     return 'Moments gather here live, from every celebration you’re part of.';
   }
-  const moments = `${momentCount} ${momentCount === 1 ? 'moment' : 'moments'}`;
+  const moments = `${formatCount(momentCount)} ${momentCount === 1 ? 'moment' : 'moments'}`;
   const people =
     peopleCount > 0
-      ? ` · ${peopleCount} ${peopleCount === 1 ? 'person' : 'people'} who made them`
+      ? ` · ${formatCount(peopleCount)} ${peopleCount === 1 ? 'person' : 'people'} who made them`
       : '';
   return `${moments}${people} — gathered while you’re living them`;
 }

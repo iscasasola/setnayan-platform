@@ -15,6 +15,7 @@
 
 import { Camera, CheckCircle2, Circle } from 'lucide-react';
 import type { ShotRow } from '@/lib/shot-list';
+import { formatCount } from '@/lib/format-number';
 
 export type ShotListCardState =
   | { state: 'ok'; rows: ShotRow[] }
@@ -86,7 +87,7 @@ export function ShotListCard({
           <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} /> Shot list
         </h2>
         <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {captured}/{rows.length} captured
+          {formatCount(captured)}/{formatCount(rows.length)} captured
         </span>
       </div>
       <p className="mt-1 text-sm text-ink/60">

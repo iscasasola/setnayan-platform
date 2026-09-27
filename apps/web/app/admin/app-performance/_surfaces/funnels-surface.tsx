@@ -38,6 +38,7 @@ import {
   fetchVendorPickerOptions,
 } from '../_components/funnel-vendor-picker';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 
 type RangeKey = 'week' | 'month' | 'quarter';
 
@@ -442,7 +443,7 @@ function FunnelTable({ funnel }: { funnel: Funnel }) {
             header: 'Count',
             align: 'right',
             mono: true,
-            cell: (s) => <span className="font-semibold text-ink">{s.count}</span>,
+            cell: (s) => <span className="font-semibold text-ink">{formatCount(s.count)}</span>,
           },
           {
             header: 'vs previous',

@@ -14,6 +14,7 @@ import {
 } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useSaveLoader } from '@/components/sd-loader';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /admin/menus editor — the admin-facing source of truth for the name + icon of
@@ -86,12 +87,12 @@ export function MenuRegistryEditor({
                   : 'border-ink/10 bg-cream text-ink/70 hover:bg-ink/5'
               }`}
             >
-              {SCOPE_LABEL[s]} <span className="text-ink/40">· {count}</span>
+              {SCOPE_LABEL[s]} <span className="text-ink/40">· {formatCount(count)}</span>
             </button>
           );
         })}
         <div className="ml-auto text-xs text-ink/50">
-          {overriddenCount} of {slots.length} customized
+          {formatCount(overriddenCount)} of {formatCount(slots.length)} customized
         </div>
       </div>
 

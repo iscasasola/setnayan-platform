@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { papicBucketPhrase } from '@/lib/papic-tier-copy';
 import { purchasePapicExtras } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Papic extra-cameras picker — the LIVE rungs of the ladder (owner 2026-07-20).
@@ -220,7 +221,7 @@ export default function ExtraCamerasPicker({
 
       <div className="flex items-baseline justify-between">
         <span className="text-sm text-ink/60">
-          {totalCameras} extra camera{totalCameras === 1 ? '' : 's'} · {dayLabel}
+          {formatCount(totalCameras)} extra camera{totalCameras === 1 ? '' : 's'} · {dayLabel}
         </span>
         <span className="text-lg font-medium tabular-nums text-ink">
           {free ? 'Free' : php(total)}
@@ -242,8 +243,8 @@ export default function ExtraCamerasPicker({
         {totalCameras < 1
           ? 'Pick at least one camera'
           : free
-            ? `Add ${totalCameras} extra camera${totalCameras === 1 ? '' : 's'} · Free`
-            : `Add ${totalCameras} extra camera${totalCameras === 1 ? '' : 's'} · ${php(total)}`}
+            ? `Add ${formatCount(totalCameras)} extra camera${totalCameras === 1 ? '' : 's'} · Free`
+            : `Add ${formatCount(totalCameras)} extra camera${totalCameras === 1 ? '' : 's'} · ${php(total)}`}
       </button>
       <p className="text-center text-xs text-ink/50">
         {free

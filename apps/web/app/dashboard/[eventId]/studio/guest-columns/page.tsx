@@ -10,6 +10,7 @@ import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.serv
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { ColumnQueueControls, type ColumnRow } from './_components/column-queue-controls';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Guest columns · Studio' };
 export const dynamic = 'force-dynamic';
@@ -166,7 +167,7 @@ export default async function GuestColumnsQueuePage({
           <>
             {pendingCount > 0 ? (
               <p className="mt-2 text-xs font-medium text-terracotta">
-                {pendingCount} awaiting your review
+                {formatCount(pendingCount)} awaiting your review
               </p>
             ) : null}
             <ColumnQueueControls eventId={eventId} rows={rows} />

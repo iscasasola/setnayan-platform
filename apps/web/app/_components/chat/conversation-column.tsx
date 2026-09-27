@@ -12,6 +12,7 @@ import {
   type ConversationRow,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_LABEL, THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE LEFT COLUMN — every conversation, beside the one being read.
@@ -92,7 +93,7 @@ export function ConversationColumn({
               these have something in them the reader has not seen. */}
           <span className="shrink-0 text-[11px] text-ink/55">
             {rows.length}
-            {unreadCount > 0 ? ` · ${unreadCount} new` : ''}
+            {unreadCount > 0 ? ` · ${formatCount(unreadCount)} new` : ''}
           </span>
         </div>
       ) : null}

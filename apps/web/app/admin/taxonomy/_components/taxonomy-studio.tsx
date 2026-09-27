@@ -116,6 +116,7 @@ import {
 // The key `promoteCategoryRequest` will actually mint, computed by the same
 // rule the action runs — never a second hand-typed slugifier.
 import { mintKeyFor } from '@/lib/category-proposal-draft';
+import { formatCount } from '@/lib/format-number';
 
 // ── Serializable prop shapes (mirror the server page's derivations) ───────────
 
@@ -1286,7 +1287,7 @@ function TileCard({
         {tile.label}
       </p>
       <div className="mt-auto flex flex-wrap gap-1">
-        <Badge tone="bg-ink/5 text-ink/60">{tile.serviceCount} svc</Badge>
+        <Badge tone="bg-ink/5 text-ink/60">{formatCount(tile.serviceCount)} svc</Badge>
         {tile.hidden ? (
           <Badge tone="bg-terracotta/15 text-mulberry">Hidden</Badge>
         ) : null}
@@ -1300,7 +1301,7 @@ function TileCard({
             title="Edit refinements"
             className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-violet-700 transition hover:bg-violet-100 hover:ring-1 hover:ring-violet-300"
           >
-            {tile.refinementCount} ref
+            {formatCount(tile.refinementCount)} ref
           </button>
         ) : null}
         {scoped ? (
@@ -1313,7 +1314,7 @@ function TileCard({
           <Badge tone="bg-ink/5 text-ink/45">all events</Badge>
         )}
         {tile.faithCount > 0 ? (
-          <Badge tone="bg-warn-50 text-warn-800">{tile.faithCount} faith</Badge>
+          <Badge tone="bg-warn-50 text-warn-800">{formatCount(tile.faithCount)} faith</Badge>
         ) : null}
       </div>
     </div>
@@ -1370,7 +1371,7 @@ function Inspector({
       title: `Delete ${tile.label}?`,
       body: hasContents ? (
         <>
-          {tile.serviceCount} service(s) and {tile.refinementCount} refinement set(s) will move to{' '}
+          {formatCount(tile.serviceCount)} service(s) and {formatCount(tile.refinementCount)} refinement set(s) will move to{' '}
           <strong>{data.tiles.find((t) => t.id === deleteDest)?.label ?? '—'}</strong>. IDs and slugs are
           unchanged; only their placement moves.
         </>
@@ -1595,7 +1596,7 @@ function Inspector({
               {hasContents ? (
                 <>
                   <p className="text-[11px] text-ink/60">
-                    Holds {tile.serviceCount} service(s) + {tile.refinementCount} refinement set(s). Pick where
+                    Holds {formatCount(tile.serviceCount)} service(s) + {formatCount(tile.refinementCount)} refinement set(s). Pick where
                     they move — nothing is stranded.
                   </p>
                   <select
@@ -2088,8 +2089,8 @@ function LeafRefinementsPanel({ tile, service }: { tile: StudioTile; service: St
         <span className="text-xs font-medium text-ink/80">Refinements</span>
         <span className="text-[10px] text-ink/45">(vendor attributes)</span>
         <span className="ml-auto flex items-center gap-1">
-          <Badge tone="bg-ink/5 text-ink/60">{activeCount} active</Badge>
-          {retiredCount > 0 ? <Badge tone="bg-ink/5 text-ink/40">{retiredCount} retired</Badge> : null}
+          <Badge tone="bg-ink/5 text-ink/60">{formatCount(activeCount)} active</Badge>
+          {retiredCount > 0 ? <Badge tone="bg-ink/5 text-ink/40">{formatCount(retiredCount)} retired</Badge> : null}
           <span className="font-mono text-[9px] text-ink/35">v{service.schemaVersion}</span>
         </span>
       </button>
@@ -3455,7 +3456,7 @@ function EventTypeVocabPanel({
                     scoped by {r.usage}
                   </Badge>
                   <Badge tone={tailored ? 'bg-warn-50 text-warn-700' : 'bg-ink/5 text-ink/45'}>
-                    offers {r.categoriesOffered}/{r.categoriesTotal}
+                    offers {formatCount(r.categoriesOffered)}/{formatCount(r.categoriesTotal)}
                   </Badge>
                 </span>
               }
@@ -3821,7 +3822,7 @@ function FaithVocabPanel({ rows, query }: { rows: StudioFaithVocab[]; query: str
               }
               subtitle={
                 r.launch
-                  ? `${r.launch.total} / ${r.launch.threshold} compatible · ${r.launch.vendorCount} vendors · ${r.launch.venueCount} ceremonial venues${r.launch.ready ? ' · ready' : ''}`
+                  ? `${formatCount(r.launch.total)} / ${formatCount(r.launch.threshold)} compatible · ${formatCount(r.launch.vendorCount)} vendors · ${formatCount(r.launch.venueCount)} ceremonial venues${r.launch.ready ? ' · ready' : ''}`
                   : 'No launch-status row maps to this faith.'
               }
             >

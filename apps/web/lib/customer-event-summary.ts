@@ -34,6 +34,7 @@
 import { formatLongDate, formatLongTimestamp } from '@/lib/format-date';
 import { guestCountRow } from '@/lib/guest-count-provenance';
 import { articleFor } from '@/app/[slug]/_lib/event-words';
+import { formatCount } from '@/lib/format-number';
 
 export type CustomerFactRow = {
   label: string;
@@ -219,6 +220,6 @@ export function buildCustomerEventSummary(
  */
 function lockedLabel(locked: number | null, total: number | null | undefined): string {
   if (locked == null) return UNKNOWN;
-  if (total != null && total > locked) return `${locked} of ${total}`;
+  if (total != null && total > locked) return `${formatCount(locked)} of ${formatCount(total)}`;
   return locked === 0 ? 'None yet' : `${locked} locked`;
 }

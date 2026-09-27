@@ -48,6 +48,7 @@ import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
 import { MutualDays } from '@/app/u/_components/mutual-days';
+import { formatCount } from '@/lib/format-number';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -902,7 +903,7 @@ function ChapterTimeline({
                   // somebody with two sentences and four hundred photographs.
                   excerpt: chapterExcerpt(c.body, 190),
                   imageUrl: pic?.url ?? null,
-                  imageNote: pic && pic.count > 1 ? `${pic.count} photos` : null,
+                  imageNote: pic && pic.count > 1 ? `${formatCount(pic.count)} photos` : null,
                   hasVideo: !!c.embed_url,
                   meta: date,
                   cue: c.embed_url ? 'Watch the chapter' : 'Read the chapter',

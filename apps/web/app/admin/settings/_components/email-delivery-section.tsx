@@ -6,6 +6,7 @@ import {
   VERDICT_LABEL,
   type DeliveryVerdict,
 } from '@/lib/email-delivery-log';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 📬 EMAIL DELIVERY — the full list behind the admin-home strip
@@ -89,7 +90,7 @@ export async function EmailDeliverySection() {
             </div>
             <div>
               <dt className="inline">Total </dt>
-              <dd className="inline font-semibold">{log.summary.total}</dd>
+              <dd className="inline font-semibold">{formatCount(log.summary.total)}</dd>
             </div>
           </dl>
           {log.truncated ? (
@@ -124,7 +125,7 @@ export async function EmailDeliverySection() {
             })}
           </ul>
           {log.rows.length > SHOWN ? (
-            <p className="mt-2 text-xs text-ink/60">Showing the newest {SHOWN} of {log.rows.length}.</p>
+            <p className="mt-2 text-xs text-ink/60">Showing the newest {formatCount(SHOWN)} of {formatCount(log.rows.length)}.</p>
           ) : null}
         </>
       )}

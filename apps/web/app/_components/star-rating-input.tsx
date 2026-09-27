@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Star } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   name: string;
@@ -38,7 +39,7 @@ export function StarRatingInput({ name, label, defaultValue = 0, required = fals
               onMouseLeave={() => setHover(0)}
               onFocus={() => setHover(n)}
               onBlur={() => setHover(0)}
-              aria-label={`${n} star${n === 1 ? '' : 's'}`}
+              aria-label={`${formatCount(n)} star${n === 1 ? '' : 's'}`}
               aria-pressed={value === n}
               className="inline-flex h-11 w-11 items-center justify-center rounded transition-colors hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
             >

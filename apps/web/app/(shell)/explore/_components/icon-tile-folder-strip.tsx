@@ -43,6 +43,7 @@ import {
 } from '@/lib/taxonomy';
 import { WEDDING_FOLDER_ICON } from '@/lib/taxonomy-icons';
 import { getLucideIcon } from '@/lib/nav-icons';
+import { formatCount } from '@/lib/format-number';
 
 export type FolderTab = {
   folder: WeddingFolder;
@@ -267,7 +268,7 @@ function TileLink({
       <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
       <div className="flex flex-col items-center leading-tight">
         <span className="text-[12px] font-medium">{label}</span>
-        <span className="font-mono text-[9px] opacity-60">{count}</span>
+        <span className="font-mono text-[9px] opacity-60">{formatCount(count)}</span>
       </div>
     </a>
   );

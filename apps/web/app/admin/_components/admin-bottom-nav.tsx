@@ -69,6 +69,7 @@ import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
+import { formatCount } from '@/lib/format-number';
 
 export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -239,8 +240,8 @@ export function AdminBottomNav({
             tone: workTone,
             label:
               overdue > 0
-                ? `${workTotal} pending, ${overdue} overdue`
-                : `${workTotal} pending`,
+                ? `${formatCount(workTotal)} pending, ${overdue} overdue`
+                : `${formatCount(workTotal)} pending`,
           },
         }
       : item;

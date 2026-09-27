@@ -36,6 +36,7 @@ import { Check, Loader2, Pause, Play, X } from 'lucide-react';
 
 import type { ActSongRequest } from '../../../../actions';
 import { decideActSongRequest, setSongRequestsOpen } from '../../../../actions';
+import { formatCount } from '@/lib/format-number';
 
 type Decision = 'accepted' | 'declined';
 
@@ -156,7 +157,7 @@ export function RequestsInbox({
 
       {declinedCount > 0 ? (
         <p className="text-xs text-ink/45">
-          {declinedCount} {declinedCount === 1 ? 'request' : 'requests'} declined.
+          {formatCount(declinedCount)} {declinedCount === 1 ? 'request' : 'requests'} declined.
         </p>
       ) : null}
     </section>

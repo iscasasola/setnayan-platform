@@ -18,6 +18,7 @@ import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability'
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimLockedQr } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
   title: 'Lock in your vendor',
@@ -405,7 +406,7 @@ async function ClaimForm({
       const compat = await countIncompatibleShortlist(adminClient, ev.event_id, agreedDate);
       const warn =
         compat.incompatible > 0
-          ? `${compat.incompatible} of ${compat.total} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
+          ? `${formatCount(compat.incompatible)} of ${formatCount(compat.total)} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
           : null;
       return { message, warn };
     }),

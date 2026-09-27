@@ -37,6 +37,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { formatCount } from '@/lib/format-number';
 
 /** One minute, as Relive shows it. Plain data — the server built every field. */
 export type ReliveSlide = {
@@ -244,7 +245,7 @@ export function Relive({
                 </p>
               ) : null}
               <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                {i + 1} of {slides.length} · arrow keys move, Escape closes
+                {formatCount(i + 1)} of {formatCount(slides.length)} · arrow keys move, Escape closes
               </p>
             </div>
           </div>

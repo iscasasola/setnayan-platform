@@ -60,6 +60,7 @@ import { AccessGrants, type GrantableMember } from './_components/access-grants'
 import { ShopEmpty } from '../_components/kit';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Event Hub · Vendor' };
 
@@ -595,7 +596,7 @@ export default async function VendorOnTheDayPage({
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
-                  {attending ?? '—'} / {invited ?? '—'}
+                  {formatCount(attending)} / {formatCount(invited)}
                 </span>
                 <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
                   pax

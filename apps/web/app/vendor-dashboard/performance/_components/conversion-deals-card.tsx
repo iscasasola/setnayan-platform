@@ -2,6 +2,7 @@ import { CheckCircle2, Banknote, CalendarClock, Trophy } from 'lucide-react';
 import { formatPhp } from '@/lib/orders';
 import { formatDuration, type ConversionAnalytics } from '@/lib/vendor-conversion-analytics';
 import { CountUp } from './count-up';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Conversion & deals" — My Performance · Phase B family 2 (Pro tier). Four
@@ -79,7 +80,7 @@ export function ConversionDealsCard({ data }: { data: ConversionAnalytics }) {
           value={dealValue}
           sub={
             deal.bookedPricedCount > 0
-              ? `${deal.bookedPricedCount} priced booking${deal.bookedPricedCount === 1 ? '' : 's'}`
+              ? `${formatCount(deal.bookedPricedCount)} priced booking${deal.bookedPricedCount === 1 ? '' : 's'}`
               : deal.avgQuotedPhp !== null
                 ? 'From accepted quotes'
                 : 'No priced deals yet'
@@ -91,7 +92,7 @@ export function ConversionDealsCard({ data }: { data: ConversionAnalytics }) {
           value={leadValue}
           sub={
             lead.bookedWithDateCount > 0 && lead.avgLeadDays !== null
-              ? `${lead.bookedWithDateCount} dated · avg ${Math.round(lead.avgLeadDays)}d before the event`
+              ? `${formatCount(lead.bookedWithDateCount)} dated · avg ${Math.round(lead.avgLeadDays)}d before the event`
               : 'No dated bookings yet'
           }
         />

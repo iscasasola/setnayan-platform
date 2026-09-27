@@ -9,6 +9,7 @@ import {
   type MeshRoomState,
   type RemotePeer,
 } from '@/lib/mesh-call-webrtc';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Prototype 3-way (up to 4) mesh-call room — for real multi-device testing of
@@ -121,7 +122,7 @@ export function MeshRoom({ room }: { room: string }) {
     <div className="space-y-4">
       <p className="text-sm text-[var(--m-grey,#8c8884)]">
         Room <span className="font-mono font-semibold text-[var(--m-ink,#1a1a1a)]">{room}</span> ·{' '}
-        {peers.length + 1}/{MAX_PEERS + 1} in the call
+        {formatCount(peers.length + 1)}/{formatCount(MAX_PEERS + 1)} in the call
         {full ? ' · full' : ''} ·{' '}
         {state === 'waiting' ? 'waiting for others…' : state === 'connected' ? 'connected' : 'left'}
       </p>

@@ -8,6 +8,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { acceptCommunityInvite } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
   title: 'Join a Samahan',
@@ -165,7 +166,7 @@ function InviteDoor({
       }
       title={`Join ${invite.name}?`}
       sub={sub}
-      meta={`${invite.member_count} ${invite.member_count === 1 ? 'member' : 'members'}`}
+      meta={`${formatCount(invite.member_count)} ${invite.member_count === 1 ? 'member' : 'members'}`}
     >
       {children}
     </DoorShell>

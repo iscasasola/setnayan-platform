@@ -10,6 +10,7 @@ import {
   buyVendorPapicPortfolioPack,
   type BuyVendorPapicPortfolioPackState,
 } from '../papic/portfolio-pack-actions';
+import { formatCount } from '@/lib/format-number';
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
@@ -72,7 +73,7 @@ export function PortfolioCreditsCard({
           {credits == null
             ? 'Couldn’t load your balance right now.'
             : left == null
-              ? `${credits} earned · unlimited to spend`
+              ? `${formatCount(credits)} earned · unlimited to spend`
               : `${left} left to spend`}
         </p>
       </div>
@@ -105,7 +106,7 @@ export function PortfolioCreditsCard({
             <ShoppingBag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             {packPricePhp == null
               ? 'Pack unavailable'
-              : `Buy ${packCredits} credits · ${peso(packPricePhp)}`}
+              : `Buy ${formatCount(packCredits)} credits · ${peso(packPricePhp)}`}
           </SubmitButton>
         </form>
       ) : null}

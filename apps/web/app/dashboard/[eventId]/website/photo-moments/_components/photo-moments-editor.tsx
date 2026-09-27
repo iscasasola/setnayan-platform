@@ -14,6 +14,7 @@ import {
   type PhotoMomentsConfig,
 } from '../config';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Client-side editor for the Photo Moments JSONB column. Keeps the
@@ -167,7 +168,7 @@ export function PhotoMomentsEditor({
           className="input-field min-h-[88px] py-2"
         />
         <p className="text-right text-[11px] text-ink/45">
-          {intro.length} / {PHOTO_MOMENT_LIMITS.MAX_INTRO_LEN}
+          {formatCount(intro.length)} / {formatCount(PHOTO_MOMENT_LIMITS.MAX_INTRO_LEN)}
         </p>
       </section>
 
@@ -179,7 +180,7 @@ export function PhotoMomentsEditor({
               Your moments
             </h2>
             <p className="mt-1 text-sm text-ink/65">
-              {moments.length} of {PHOTO_MOMENT_LIMITS.MAX_MOMENTS} · displayed in
+              {formatCount(moments.length)} of {formatCount(PHOTO_MOMENT_LIMITS.MAX_MOMENTS)} · displayed in
               this order on your landing page
             </p>
           </div>

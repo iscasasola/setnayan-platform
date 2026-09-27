@@ -70,6 +70,7 @@ import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
+import { formatCount } from '@/lib/format-number';
 
 export function EventRailContext({
   eventId,
@@ -302,7 +303,7 @@ export function EventRailContext({
                     <span className="fd-icon-caption">{item.label}</span>
                     {item.badge ? (
                       <>
-                        <span className="fd-ct fd-mono">{item.badge.count}</span>
+                        <span className="fd-ct fd-mono">{formatCount(item.badge.count)}</span>
                         {item.badge.label ? (
                           <span className="fd-sr-only">{item.badge.label}</span>
                         ) : null}

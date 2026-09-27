@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Play } from 'lucide-react';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { getPhotosAlbums } from '../_data/photos-albums';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * AlbumShelf — one cover per event, oldest first, above the whole-library grid.
@@ -67,7 +68,7 @@ export async function AlbumShelf({ userId }: { userId: string }) {
                 className="sn-press group block"
                 aria-label={
                   album.count > 0
-                    ? `${label} — ${album.count} ${album.count === 1 ? 'item' : 'items'}`
+                    ? `${label} — ${formatCount(album.count)} ${album.count === 1 ? 'item' : 'items'}`
                     : `${label} — nothing kept yet`
                 }
               >
@@ -100,7 +101,7 @@ export async function AlbumShelf({ userId }: { userId: string }) {
                 </span>
                 <span className="block text-[11px] text-ink/55">
                   {album.count > 0
-                    ? `${album.count} ${album.count === 1 ? 'item' : 'items'}`
+                    ? `${formatCount(album.count)} ${album.count === 1 ? 'item' : 'items'}`
                     : 'Nothing yet'}
                 </span>
               </Link>

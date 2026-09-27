@@ -53,6 +53,7 @@ import {
 import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { formatCount } from '@/lib/format-number';
 
 /** One number, read by the query AND disclosed by the table. Never two copies. */
 const ROW_LIMIT = 200;
@@ -199,7 +200,7 @@ export async function TransactionsLedger() {
             ? 'Some money queues could not be checked just now'
             : waitingTotal === 0
               ? 'Nothing is waiting for you'
-              : `${waitingTotal} ${waitingTotal === 1 ? 'thing needs' : 'things need'} you`}
+              : `${formatCount(waitingTotal)} ${waitingTotal === 1 ? 'thing needs' : 'things need'} you`}
         </p>
         <ul className="mt-3 flex flex-wrap gap-2">
           {moneyQueues.map((q) => (
@@ -219,7 +220,7 @@ export async function TransactionsLedger() {
                   }`}
                 >
                   {/* Em-dash = not measured. Never a confident 0. */}
-                  {q.count == null ? '—' : q.count}
+                  {q.count == null ? '—' : formatCount(q.count)}
                 </span>
               </Link>
             </li>

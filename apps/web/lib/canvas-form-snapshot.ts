@@ -20,6 +20,7 @@
  */
 
 import { priceIsSet } from './service-publish-gate';
+import { formatCount } from '@/lib/format-number';
 
 export type CanvasFormSnapshot = {
   hasCover: boolean;
@@ -113,7 +114,7 @@ export function cardPriceLine(fd: FormData): { priceLine: string; hasPrice: bool
     const unit = isCrewMeals ? 'per meal' : 'per head';
     const floor = isCrewMeals ? 'meals' : 'pax';
     return {
-      priceLine: `${php(rate)} ${unit}${minPax ? ` · min ${minPax} ${floor}` : ''}`,
+      priceLine: `${php(rate)} ${unit}${minPax ? ` · min ${formatCount(minPax)} ${floor}` : ''}`,
       hasPrice: true,
     };
   }

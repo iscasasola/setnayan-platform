@@ -83,6 +83,7 @@ import { CapacityCard } from './_components/capacity-card';
 import { SourceBreakdown } from '../_components/source-breakdown';
 import { PerformanceControls } from './_components/performance-controls';
 import { Reanimate } from './_components/reanimate';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'My Performance · Vendor' };
 
@@ -646,7 +647,7 @@ export default async function PerformanceHome({
         <Reanimate>
           <SourceBreakdown
             title="Where your bookings come from"
-            blurb={`Where your booked couples first found you (${label}). Sources with fewer than ${FUNNEL_MIN_N} bookings are hidden to keep the read reliable.`}
+            blurb={`Where your booked couples first found you (${label}). Sources with fewer than ${formatCount(FUNNEL_MIN_N)} bookings are hidden to keep the read reliable.`}
             slices={booked}
             emptyText="No bookings in this window yet."
           />

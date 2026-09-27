@@ -21,6 +21,7 @@ import {
 } from '@/lib/reviews';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { postVendorReply, submitFlagAsFake } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Reviews · Vendor' };
 
@@ -70,7 +71,7 @@ export default async function VendorReviewsPage() {
         {recommendingCouples > 0 ? (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-mulberry/10 px-3 py-1 text-xs font-medium text-mulberry">
             <Heart aria-hidden className="h-3.5 w-3.5 fill-mulberry/80" strokeWidth={2} />
-            Recommended by {recommendingCouples} couple{recommendingCouples === 1 ? '' : 's'}
+            Recommended by {formatCount(recommendingCouples)} couple{recommendingCouples === 1 ? '' : 's'}
           </p>
         ) : null}
       </header>
@@ -141,7 +142,7 @@ function StatsOverview({
           </span>
         </div>
         <p className="text-xs text-ink/60">
-          {stats.total_count} review{stats.total_count === 1 ? '' : 's'} total
+          {formatCount(stats.total_count)} review{stats.total_count === 1 ? '' : 's'} total
         </p>
       </div>
 
@@ -162,7 +163,7 @@ function StatsOverview({
                   style={{ width: `${(count / max) * 100}%` }}
                 />
               </span>
-              <span className="text-right font-mono text-[11px] text-ink/55">{count}</span>
+              <span className="text-right font-mono text-[11px] text-ink/55">{formatCount(count)}</span>
             </li>
           ))}
         </ul>
@@ -432,7 +433,7 @@ function TrackRecord({ events }: { events: ReadonlyArray<VendorCompletedEventRow
           Track record
         </h2>
         <span className="text-xs text-ink/45">
-          {events.length} event{events.length === 1 ? '' : 's'} delivered through Setnayan
+          {formatCount(events.length)} event{events.length === 1 ? '' : 's'} delivered through Setnayan
         </span>
       </div>
       <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">

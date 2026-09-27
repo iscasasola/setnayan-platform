@@ -40,6 +40,7 @@
  */
 
 import { PAPIC_SNIPPET_COST_MAX, PAPIC_POINTS_PER_PHOTO } from './papic-cameras-pure';
+import { formatCount } from '@/lib/format-number';
 
 export type VendorPapicTier = 'lite' | 'ltd' | 'unli';
 export type VendorPapicMedia = 'photo' | 'clip';
@@ -311,6 +312,6 @@ export function tierReadout(
   if (cap == null) return `${spec.label} · unlimited`;
   const video = allowVideoFor(tier, creditsGranted);
   return video
-    ? `${spec.label} · ${cap} pts · photos + video`
-    : `${spec.label} · ${cap} photos`;
+    ? `${spec.label} · ${formatCount(cap)} pts · photos + video`
+    : `${spec.label} · ${formatCount(cap)} photos`;
 }

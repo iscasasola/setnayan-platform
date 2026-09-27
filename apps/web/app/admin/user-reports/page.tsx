@@ -10,6 +10,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'User reports · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -337,7 +338,7 @@ export default async function AdminUserReportsPage({
             }`}
           >
             {f.label}
-            {f.value === 'open' && openCount > 0 ? ` · ${openCount}` : ''}
+            {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
           </a>
         ))}
       </div>

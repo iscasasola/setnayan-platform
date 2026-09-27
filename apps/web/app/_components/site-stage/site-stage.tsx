@@ -7,6 +7,7 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HubRole, HubRoleView } from '@/lib/event-hub-control';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { OB } from './obsidian';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE STAGE ASKS WHO, AND WHEN — one frame, two switches.
@@ -279,7 +280,7 @@ export function SiteStage({
         ) : null}
         {index >= 0 ? (
           <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: OB.soft }}>
-            Stage {index + 1} of {stages.length}
+            Stage {formatCount(index + 1)} of {formatCount(stages.length)}
           </span>
         ) : null}
         <InfoTip label={`About ${label}`}>

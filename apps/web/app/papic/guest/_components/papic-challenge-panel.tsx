@@ -33,6 +33,7 @@ import {
   sortGuestMissions,
 } from '@/lib/papic-missions';
 import type { GuestMissionRow } from '@/lib/papic-missions';
+import { formatCount } from '@/lib/format-number';
 
 /** The armed challenge, surfaced to the parent so the capture stage can show
  *  an "armed" indicator next to the shutter. */
@@ -272,7 +273,7 @@ function ChallengePanelInner({
               allDone ? 'bg-mulberry/30 text-cream' : 'bg-cream/10 text-cream/70'
             }`}
           >
-            {done}/{total}
+            {formatCount(done)}/{formatCount(total)}
           </span>
           <ChevronDown
             aria-hidden

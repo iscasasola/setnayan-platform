@@ -6,6 +6,7 @@ import { setTileEventTypeOffered, setFolderEventTypeOffered } from '../../action
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Scope categories · Event Types · Admin' };
 // Admin-client DB read → keep dynamic (same rationale as the roster page).
 export const dynamic = 'force-dynamic';
@@ -108,7 +109,7 @@ export default async function ScopeCategoriesPage({
           Changes are live immediately across the marketplace and the couple’s Shortlist.
         </p>
         <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
-          Offers {offeredCount} of {total} categories
+          Offers {formatCount(offeredCount)} of {formatCount(total)} categories
           {offeredCount === total ? ' · universal (not yet tailored)' : ' · tailored'}
         </p>
       </div>
@@ -131,7 +132,7 @@ export default async function ScopeCategoriesPage({
                 <h2 className="text-base font-semibold text-ink">
                   {folder.label_en}{' '}
                   <span className="font-mono text-[10px] font-normal uppercase tracking-[0.12em] text-ink/45">
-                    {folderOffered}/{tiles.length} offered
+                    {formatCount(folderOffered)}/{formatCount(tiles.length)} offered
                   </span>
                 </h2>
                 <div className="flex items-center gap-2">

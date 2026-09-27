@@ -34,6 +34,7 @@ import {
   type PapicSinkDeps,
 } from '@/lib/camera-bridge/papic-sink';
 import { enqueueOfflineItem } from '@/lib/offline/db';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   token: string;
@@ -316,7 +317,7 @@ export function CameraBridgePanel({ token, seatIndex, eventId }: Props) {
 
       {delivered.length > 0 ? (
         <p className="mt-2 text-xs text-cream/60">
-          {galleryCount !== null ? `${galleryCount} in the gallery · ` : ''}
+          {galleryCount !== null ? `${formatCount(galleryCount)} in the gallery · ` : ''}
           last:{' '}
           {delivered
             .slice(0, 3)

@@ -66,6 +66,7 @@ import {
   PapicFreeCreditClosing,
   PapicFreeCreditFact,
 } from './_papic-free-credits';
+import { formatCount } from '@/lib/format-number';
 
 /*
  * ⛔ NO `force-static` HERE, AND NO `revalidate`. This page sits inside
@@ -187,7 +188,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
 const FAQ = [
   {
     q: 'What is a credit?',
-    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${PAPIC_POINTS_PER_SNIPPET} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, the galleries are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
+    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${formatCount(PAPIC_POINTS_PER_SNIPPET)} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, the galleries are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
   },
   {
     q: 'Do guests need an app?',

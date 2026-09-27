@@ -15,6 +15,7 @@ import { ProgressRing } from '@/app/_components/progress-ring';
 import { forgetStreamKey } from '@/lib/desktop-stream-key';
 import { goLivePanood, endPanoodBroadcast } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Live Studio Phase 1 — one-tap "Go live" + the OBS connection card.
@@ -87,7 +88,7 @@ export function GoLiveCard({
     ? 'On air'
     : readyCount === prerequisites.length
       ? 'Ready'
-      : `${readyCount} of ${prerequisites.length} set`;
+      : `${formatCount(readyCount)} of ${formatCount(prerequisites.length)} set`;
 
   function handleGoLive() {
     setError(null);

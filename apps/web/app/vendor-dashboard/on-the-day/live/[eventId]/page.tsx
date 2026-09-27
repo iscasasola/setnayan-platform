@@ -28,6 +28,7 @@ import { SpecializationSlot } from './_components/specialization-slot';
 import { registeredSpecializationSets } from './_components/specialization-registry';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Live · Event Hub' };
 
@@ -343,7 +344,7 @@ export default async function VendorOnTheDayLivePage({
             </div>
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-2xl font-bold text-ink">
-                {attending} / {invited}
+                {formatCount(attending)} / {formatCount(invited)}
               </span>
               <span className="text-sm text-ink/65">attending · pulled live from RSVPs</span>
             </div>

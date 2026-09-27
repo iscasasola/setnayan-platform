@@ -24,6 +24,7 @@ import {
 } from '@/lib/live-wall-logic';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { HeroMonogramData } from '@/lib/hero-monogram-data';
+import { formatCount } from '@/lib/format-number';
 
 const NUDGE_POLL_MS = 12_000;
 const FULL_SWEEP_MS = 60_000;
@@ -190,7 +191,7 @@ export function WallProjection({
         </p>
         <div className="flex items-center gap-4">
           <p className="text-sm text-cream/80">
-            <span className="text-2xl font-semibold tabular-nums text-cream">{count}</span>{' '}
+            <span className="text-2xl font-semibold tabular-nums text-cream">{formatCount(count)}</span>{' '}
             photos
           </p>
           <ConnDot conn={conn} />

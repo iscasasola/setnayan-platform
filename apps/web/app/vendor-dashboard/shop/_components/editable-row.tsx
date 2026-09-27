@@ -15,6 +15,7 @@ import { Collapsible } from '../../_components/collapsible';
 // Type-only — the leaflet RUNTIME is dynamically imported inside HqAddressControl
 // (browser only; leaflet touches `window` at module scope so it must never SSR).
 import type { Map as LeafletMap, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet';
+import { formatCount } from '@/lib/format-number';
 
 type LeafletModule = typeof import('leaflet');
 
@@ -381,7 +382,7 @@ export function ServiceCoverageRow({
           </span>
           <span className="mt-0.5 block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
             {item.ok
-              ? `${count} ${count === 1 ? 'category' : 'categories'} · manage in Coverage`
+              ? `${formatCount(count)} ${count === 1 ? 'category' : 'categories'} · manage in Coverage`
               : 'Pick what you serve from our category tree'}
           </span>
         </span>
@@ -478,7 +479,7 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
     case 'venue_size':
       return data.venue_width_m && data.venue_length_m
         ? `${data.venue_width_m} × ${data.venue_length_m} m` +
-            (data.capacity_max ? ` · up to ${data.capacity_max} guests` : '')
+            (data.capacity_max ? ` · up to ${formatCount(Number(data.capacity_max))} guests` : '')
         : null;
     default:
       return null;

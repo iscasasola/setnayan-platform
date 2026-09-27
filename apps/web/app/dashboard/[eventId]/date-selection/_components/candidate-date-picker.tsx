@@ -33,6 +33,7 @@ import {
   Star,
 } from 'lucide-react';
 import { lockEventDate } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 export type CandidateVendor = {
   key: string;
@@ -243,9 +244,9 @@ function CandidateCard({
   const shortlistValue = (() => {
     if (c.shortlist.total === 0) return 'No vendors shortlisted yet';
     const free = c.shortlist.available + c.shortlist.confirmNeeded;
-    if (c.shortlist.booked === 0) return `All ${c.shortlist.total} shortlisted vendors free`;
-    if (free === c.shortlist.total) return `All ${c.shortlist.total} available`;
-    return `${free} of ${c.shortlist.total} vendors available`;
+    if (c.shortlist.booked === 0) return `All ${formatCount(c.shortlist.total)} shortlisted vendors free`;
+    if (free === c.shortlist.total) return `All ${formatCount(c.shortlist.total)} available`;
+    return `${formatCount(free)} of ${formatCount(c.shortlist.total)} vendors available`;
   })();
   const shortlistSub = (() => {
     if (c.shortlist.confirmNeeded > 0 && c.shortlist.booked > 0)
@@ -253,7 +254,7 @@ function CandidateCard({
     if (c.shortlist.confirmNeeded > 0)
       return `${c.shortlist.confirmNeeded} off-platform · confirm directly`;
     if (c.shortlist.booked > 0)
-      return `${c.shortlist.booked} vendor${c.shortlist.booked === 1 ? '' : 's'} booked elsewhere`;
+      return `${formatCount(c.shortlist.booked)} vendor${c.shortlist.booked === 1 ? '' : 's'} booked elsewhere`;
     return undefined;
   })();
 
@@ -283,7 +284,7 @@ function CandidateCard({
   const mktValue = c.marketplace.readFailed
     ? 'Coverage unavailable'
     : c.marketplace.totalCategories > 0
-      ? `${c.marketplace.availableCategories} of ${c.marketplace.totalCategories} categories bookable`
+      ? `${c.marketplace.availableCategories} of ${formatCount(c.marketplace.totalCategories)} categories bookable`
       : 'Marketplace available';
   const mktSub = c.marketplace.readFailed
     ? "We couldn't check vendor coverage just now — this date may still be fine"

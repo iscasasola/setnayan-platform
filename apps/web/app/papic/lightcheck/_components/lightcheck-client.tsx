@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Papic · /papic/lightcheck — THROWAWAY capability + frame-rate probe.
@@ -120,7 +121,7 @@ export function LightcheckClient() {
       } else {
         try {
           const blob = await new IC(track).takePhoto();
-          say(`ImageCapture.takePhoto(): OK — ${blob.size} bytes, ${blob.type}`);
+          say(`ImageCapture.takePhoto(): OK — ${formatCount(blob.size)} bytes, ${blob.type}`);
         } catch (e) {
           say(`ImageCapture.takePhoto(): THREW — ${(e as Error).message}`);
         }

@@ -29,6 +29,7 @@ import {
   updateDocUploadInline,
   type InlineDocsPayload,
 } from '../inline-docs-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE PAPER BESIDE THE FIELDS IT PROVES — the screen.
@@ -254,7 +255,7 @@ function Tally({
       <p className="text-xs tabular-nums" style={{ color: '#6E6A62' }} aria-live="polite">
         {nothingSent && tally.matched === 0 ? (
           <>
-            {tally.matched} of {total} checks · nothing sent yet
+            {formatCount(tally.matched)} of {formatCount(total)} checks · nothing sent yet
           </>
         ) : (
           order

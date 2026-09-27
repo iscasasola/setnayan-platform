@@ -28,6 +28,7 @@ import { buildDestinations } from './admin-destinations';
 import type { NavItem } from '@/app/_components/nav/types';
 import { MoreSearch } from '@/app/_components/more-search';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The desktop palette's haystack, by address. Built once per render of a server
@@ -136,8 +137,8 @@ function LandingCard({ item }: { item: LandingItem }) {
             className="absolute right-3 top-3 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 font-mono text-[11px] font-semibold"
             style={{ background: 'var(--m-mulberry)', color: '#fff' }}
           >
-            <span aria-hidden>{count > 99 ? '99+' : count}</span>
-            <span className="sr-only">{`${count} new`}</span>
+            <span aria-hidden>{count > 99 ? '99+' : formatCount(count)}</span>
+            <span className="sr-only">{`${formatCount(count)} new`}</span>
           </span>
         ) : null}
       </Link>

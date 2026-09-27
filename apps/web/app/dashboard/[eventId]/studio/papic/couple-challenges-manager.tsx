@@ -52,6 +52,7 @@ import {
   armChallengeAction,
   stopChallengeAction,
 } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 type MissionRow = {
   mission_id: string;
@@ -381,8 +382,8 @@ export async function CoupleChallengesManager({
           </p>
         ) : (
           <p className="mt-3 text-sm text-ink/80">
-            <span className="font-semibold tabular-nums">{chosen}</span> of{' '}
-            <span className="tabular-nums">{ceiling}</span> chosen
+            <span className="font-semibold tabular-nums">{formatCount(chosen)}</span> of{' '}
+            <span className="tabular-nums">{formatCount(ceiling)}</span> chosen
             {onBoard.length > 0 ? (
               <>
                 {' '}&middot; <span className="tabular-nums">{onBoard.length}</span> showing to guests
@@ -433,10 +434,10 @@ export async function CoupleChallengesManager({
           drops their work is a defect. */}
       <p
         className="mt-2 text-sm text-ink/80"
-        aria-label={`${chosen} of ${ceiling} challenges chosen, ${roomLeft} still free`}
+        aria-label={`${formatCount(chosen)} of ${formatCount(ceiling)} challenges chosen, ${roomLeft} still free`}
       >
-        <span className="font-semibold tabular-nums">{chosen}</span> of{' '}
-        <span className="tabular-nums">{ceiling}</span> chosen
+        <span className="font-semibold tabular-nums">{formatCount(chosen)}</span> of{' '}
+        <span className="tabular-nums">{formatCount(ceiling)}</span> chosen
         {roomLeft > 0 ? (
           <> &mdash; room for <span className="tabular-nums">{roomLeft}</span> more.</>
         ) : (
@@ -537,7 +538,7 @@ export async function CoupleChallengesManager({
               ? picker.rankedByPicks
                 ? `The ${PICKER_PAGE_SIZE} other hosts add most often. Search or filter below for the rest.`
                 : `Our ${PICKER_PAGE_SIZE} to begin with — nobody has picked enough yet for a favourites list. Search or filter below for the rest.`
-              : `${picker.total} ${picker.total === 1 ? 'match' : 'matches'}${
+              : `${formatCount(picker.total)} ${picker.total === 1 ? 'match' : 'matches'}${
                   picker.total > picker.rows.length ? ` — showing the first ${picker.rows.length}` : ''
                 }.`}
           </p>

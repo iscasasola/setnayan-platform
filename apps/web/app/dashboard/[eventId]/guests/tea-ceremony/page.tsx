@@ -13,6 +13,7 @@ import {
 import { roleImportanceRank } from '@/lib/role-groups';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { PrintButton } from '@/components/print-button';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Tea ceremony serving order' };
 
@@ -214,7 +215,7 @@ function SideBlock({
           {heading}
         </h2>
         <span className="ml-auto font-mono text-[11px] text-ink/45">
-          {guests.length === 1 ? '1 elder' : `${guests.length} elders`}
+          {guests.length === 1 ? '1 elder' : `${formatCount(guests.length)} elders`}
         </span>
       </div>
       {note ? <p className="text-xs text-ink/55">{note}</p> : null}

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { sendVendorGhostWarningEmail } from '@/lib/vendor-email-triggers';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Login-driven ghosting check (owner directive 2026-06-07 — NO cron).
@@ -103,7 +104,7 @@ export async function runLoginGhostingCheck(
             title:
               n === 1
                 ? 'An inquiry is awaiting your reply'
-                : `${n} inquiries are awaiting your reply`,
+                : `${formatCount(n)} inquiries are awaiting your reply`,
             body: 'Couples are waiting to hear from you. Answering keeps your response rate high — one answer covers all your services for that wedding.',
             relatedUrl: '/vendor-dashboard/messages',
           });

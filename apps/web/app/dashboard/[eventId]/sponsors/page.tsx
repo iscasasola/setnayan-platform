@@ -39,6 +39,7 @@ import {
   sendInvitation,
   updateSponsor,
 } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
   title: 'Sponsors',
@@ -285,10 +286,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
               Sponsor list progress
             </p>
             <p className="text-sm text-ink/65">
-              {filledCount} of {totalSlotsTarget} slots filled · {acceptedCount} accepted
-              {invitedCount > 0 ? ` · ${invitedCount} awaiting response` : ''}
-              {pendingCount > 0 ? ` · ${pendingCount} not yet invited` : ''}
-              {declinedCount > 0 ? ` · ${declinedCount} declined` : ''}
+              {formatCount(filledCount)} of {formatCount(totalSlotsTarget)} slots filled · {formatCount(acceptedCount)} accepted
+              {invitedCount > 0 ? ` · ${formatCount(invitedCount)} awaiting response` : ''}
+              {pendingCount > 0 ? ` · ${formatCount(pendingCount)} not yet invited` : ''}
+              {declinedCount > 0 ? ` · ${formatCount(declinedCount)} declined` : ''}
             </p>
           </div>
           <PairTargetPicker eventId={eventId} currentTarget={targetPairs} highestUsedPair={highestUsedPair} />

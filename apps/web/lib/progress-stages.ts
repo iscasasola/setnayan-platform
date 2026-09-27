@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * progress-stages.ts — pure journey-stage builder for the couple's
  * Decisions & Progress page (/dashboard/[eventId]/progress).
@@ -335,7 +336,7 @@ export function buildProgressStages(
       aiNote:
         openCategories === 0
           ? 'Every category is booked — your vendor team is complete.'
-          : `${lockedVendorCount} of ${totalLockableCategories} categories locked · ${openCategories} still open.`,
+          : `${formatCount(lockedVendorCount)} of ${formatCount(totalLockableCategories)} categories locked · ${openCategories} still open.`,
     },
     {
       key: 'inviting',
@@ -345,7 +346,7 @@ export function buildProgressStages(
       todo: invitingTodo,
       aiNote:
         guestsTotal > 0
-          ? `${guestsAttending} attending so far — RSVPs typically take about 6 weeks to settle.`
+          ? `${formatCount(guestsAttending)} attending so far — RSVPs typically take about 6 weeks to settle.`
           : 'A guest list unlocks invitations, RSVPs, and the seat plan.',
     },
     {

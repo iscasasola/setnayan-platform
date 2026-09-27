@@ -67,6 +67,7 @@ import {
   type LineGroup,
   type LineState,
 } from '@/lib/service-customization-draft';
+import { formatCount } from '@/lib/format-number';
 
 /** Client-side ref for a row that has no database id yet. */
 let seq = 0;
@@ -568,7 +569,7 @@ function LineRow({
                   })
                 }
               />
-              <span>of {item.options.length}</span>
+              <span>of {formatCount(item.options.length)}</span>
             </div>
           ) : null}
         </div>

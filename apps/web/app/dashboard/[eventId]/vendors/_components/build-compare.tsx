@@ -59,6 +59,7 @@ import {
   isPlanLoadable,
 } from '@/lib/plans-panel';
 import { useConfirm } from '@/app/_components/confirm-dialog';
+import { formatCount } from '@/lib/format-number';
 
 const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
@@ -772,9 +773,9 @@ export function BuildCompare({
                           </span>
                         ) : (
                           <span className="block text-[10px] leading-snug text-success-700">
-                            {a.totalAvailable} day{a.totalAvailable === 1 ? '' : 's'} free
+                            {formatCount(a.totalAvailable)} day{a.totalAvailable === 1 ? '' : 's'} free
                             {a.dayLabels.length > 0
-                              ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${a.moreCount}` : ''}`
+                              ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${formatCount(a.moreCount)}` : ''}`
                               : ''}
                           </span>
                         )}

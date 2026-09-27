@@ -286,6 +286,6 @@ test('what a supplier READS matches what they get', () => {
   // The readout is the third surface. On the bare tier it said "50 pts" to
   // somebody with 1,000 — a screen contradicting the two beside it.
   assert.equal(tierReadout('lite', 125), 'Papic Lite · 125 photos');
-  assert.equal(tierReadout('lite', 1000), 'Papic Lite · 1000 pts · photos + video');
+  assert.equal(tierReadout('lite', 1000), 'Papic Lite · 1,000 pts · photos + video');
   assert.equal(tierReadout('unli', 0), 'Papic Unli · unlimited');
 });

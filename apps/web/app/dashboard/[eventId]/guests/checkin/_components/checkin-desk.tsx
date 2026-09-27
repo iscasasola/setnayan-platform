@@ -18,6 +18,7 @@ import { guestTokenFromTag, nfcReadFailureCopy } from '@/lib/nfc-tag';
 import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
 import { useNfcTagReader } from '@/app/_components/use-nfc-tag-reader';
 import { checkInGuest, undoCheckIn, type CheckinMethod } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 export type DeskGuest = {
   guestId: string;
@@ -295,7 +296,7 @@ export function CheckinDesk({
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-medium text-ink/70">Arrived</p>
           <p className="text-sm tabular-nums text-ink/70">
-            <span className="text-xl font-semibold text-ink">{checkedCount}</span>
+            <span className="text-xl font-semibold text-ink">{formatCount(checkedCount)}</span>
             {' / '}
             {expected} attending
           </p>

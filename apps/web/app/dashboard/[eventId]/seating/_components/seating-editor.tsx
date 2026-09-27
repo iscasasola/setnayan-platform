@@ -166,6 +166,7 @@ import { useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { formatCount } from '@/lib/format-number';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -1178,13 +1179,13 @@ export function SeatingEditor({
       const fitCount = Object.keys(solved.placed).length;
       const overflowNote =
         overflow.length > 0
-          ? ` ⚠ ${overflow.length} table${overflow.length === 1 ? "" : "s"} couldn't fit cleanly at the ${aisleM.toFixed(1)} m walkway (${fitCount} of ${tables.length} fit)${
+          ? ` ⚠ ${overflow.length} table${overflow.length === 1 ? "" : "s"} couldn't fit cleanly at the ${aisleM.toFixed(1)} m walkway (${formatCount(fitCount)} of ${formatCount(tables.length)} fit)${
               solved.altPlacedAtFloor > fitCount ? ` — at 0.6 m (Tight) ${solved.altPlacedAtFloor} fit` : ''
             }. Try a narrower walkway, fewer tables, or a bigger room.`
           : '';
       setNotice(
         (res.seated > 0
-          ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${res.seated} guest${res.seated === 1 ? '' : 's'} seated.`
+          ? `Auto-arranged: ${tables.length} tables in priority order, ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}, ${formatCount(res.seated)} guest${res.seated === 1 ? '' : 's'} seated.`
           : `Auto-arranged: ${tables.length} tables in priority order${nextBooths.length > 0 ? ` and ${nextBooths.length} booth${nextBooths.length === 1 ? '' : 's'} ${boothWhere}` : ''}. Everyone who hasn't declined already has a seat.`) +
           keepApartNote +
           overflowNote,
@@ -1358,7 +1359,7 @@ export function SeatingEditor({
             }`
           : '';
       setNotice(
-        `Filled around ${lockedCount} locked seat${lockedCount === 1 ? '' : 's'}: ${res.seated} guest${
+        `Filled around ${formatCount(lockedCount)} locked seat${lockedCount === 1 ? '' : 's'}: ${formatCount(res.seated)} guest${
           res.seated === 1 ? '' : 's'
         } re-seated.` + keepApartNote,
       );
@@ -1461,7 +1462,7 @@ export function SeatingEditor({
       if (res && res.overflow > 0) {
         const label = tableLabelById.get(tableId) ?? 'that table';
         setNotice(
-          `${groupLabel}: seated ${res.seated} of ${res.requested} at ${label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
+          `${groupLabel}: seated ${formatCount(res.seated)} of ${formatCount(res.requested)} at ${label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
         );
       }
     });
@@ -1513,7 +1514,7 @@ export function SeatingEditor({
       const res = await runGated(() => seatRoleAtTable(fd));
       if (res && res.overflow > 0) {
         setNotice(
-          `${roleSet.tierLabels[tier]}: seated ${res.seated} of ${res.requested} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
+          `${roleSet.tierLabels[tier]}: seated ${formatCount(res.seated)} of ${formatCount(res.requested)} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
         );
       }
     });
@@ -1780,7 +1781,7 @@ export function SeatingEditor({
       if (!res) return; // lock lost — runGated already dropped us to view-only.
       setNotice(
         res.unseated > 0
-          ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${res.unseated} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
+          ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${formatCount(res.unseated)} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
           : `“${t.table_label}” is now a ${newLabel.toLowerCase()}.`,
       );
     });
@@ -3839,8 +3840,8 @@ export function SeatingEditor({
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-700" />
           <span className="min-w-0 flex-1 truncate">
             <span className="font-medium text-warn-800">Not enough seats:</span>{' '}
-            <span className="font-mono">{nonDeclinedCount}</span> guests but only{' '}
-            <span className="font-mono">{totalSeats}</span> {totalSeats === 1 ? 'seat' : 'seats'} — add
+            <span className="font-mono">{formatCount(nonDeclinedCount)}</span> guests but only{' '}
+            <span className="font-mono">{formatCount(totalSeats)}</span> {totalSeats === 1 ? 'seat' : 'seats'} — add
             more tables{autoplaceEnabled ? ' (auto-seating fills them as you add)' : ''}.
           </span>
         </div>
@@ -4013,7 +4014,7 @@ export function SeatingEditor({
                     >
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{grp.label}</span>
-                      <span className="text-[11px] text-ink/50">{grp.member_count}</span>
+                      <span className="text-[11px] text-ink/50">{formatCount(grp.member_count)}</span>
                       <ChevronDown className={`h-3.5 w-3.5 text-ink/40 transition ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
                     <button
@@ -4154,7 +4155,7 @@ export function SeatingEditor({
                         {u.label}
                       </span>
                       <span className="block font-mono text-[11px] text-ink/50">
-                        {filled}/{cap} {cap === 1 ? 'seat' : 'seats'} ·{' '}
+                        {formatCount(filled)}/{formatCount(cap)} {cap === 1 ? 'seat' : 'seats'} ·{' '}
                         {u.members.length > 1
                           ? `${u.members.length} tables joined`
                           : TABLE_TYPE_LABEL[u.lead.table_type]}
@@ -4338,7 +4339,7 @@ export function SeatingEditor({
                   warm ? 'bg-danger-100 text-danger-700' : 'bg-ink/8 text-ink/55'
                 }`}
               >
-                {count}
+                {formatCount(count)}
               </span>
             ) : null}
           </button>
@@ -4616,8 +4617,8 @@ export function SeatingEditor({
         >
           <Minus className="h-4 w-4" />
         </button>
-        <span className="px-1 font-mono text-[11px] tabular-nums text-ink/70" aria-label={`${effCap} of ${t.capacity} seats`}>
-          {effCap}/{t.capacity}
+        <span className="px-1 font-mono text-[11px] tabular-nums text-ink/70" aria-label={`${formatCount(effCap)} of ${formatCount(t.capacity)} seats`}>
+          {formatCount(effCap)}/{formatCount(t.capacity)}
         </span>
         <button
           type="button"
@@ -4748,7 +4749,7 @@ export function SeatingEditor({
         <button
           type="button"
           onClick={() => { selectPanelTab('people'); setOnlyUnseated(true); if (isNarrow) setDrawerSnap('half'); }}
-          title={`${seatedCount}/${totalCapacity} seated · ${tables.length} tables · ${unseatedCount} unseated — tap to show who's left`}
+          title={`${seatedCount}/${totalCapacity} seated · ${tables.length} tables · ${formatCount(unseatedCount)} unseated — tap to show who's left`}
           className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-ink/12 bg-cream px-3 py-1.5 font-mono text-[11px] text-ink/70 hover:border-terracotta sm:inline-flex"
         >
           <span className={toSeatReserved > 0 ? 'font-semibold text-terracotta' : ''}>
@@ -4807,7 +4808,7 @@ export function SeatingEditor({
               className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warn-300 bg-warn-50 px-2 py-1 text-[11px] font-medium text-warn-800 hover:bg-warn-100"
             >
               <AlertTriangle className="h-3 w-3" />
-              {count} notice{count === 1 ? '' : 's'}
+              {formatCount(count)} notice{count === 1 ? '' : 's'}
             </button>
           );
         })()}
@@ -4895,7 +4896,7 @@ export function SeatingEditor({
               <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 shadow-lg">
                 <MenuRow icon={Sparkles} label="Build my seating draft" hint="Lay out the whole floor in one tap" onClick={() => { setAutoMenuOpen(false); buildDraft(); }} disabled={!canEdit || isPending || tables.length > 0} />
                 {lockedCount > 0 ? (
-                  <MenuRow icon={Lock} label={`Fill around ${lockedCount} locked`} hint="Keep locked seats; re-seat everyone else around them" onClick={() => { setAutoMenuOpen(false); setConfirmFill(true); }} disabled={isPending || !canEdit} />
+                  <MenuRow icon={Lock} label={`Fill around ${formatCount(lockedCount)} locked`} hint="Keep locked seats; re-seat everyone else around them" onClick={() => { setAutoMenuOpen(false); setConfirmFill(true); }} disabled={isPending || !canEdit} />
                 ) : null}
               </div>
             </>
@@ -6070,7 +6071,7 @@ export function SeatingEditor({
                     <div className="flex flex-col gap-2">
                       <Step num={1} done={venueScaled} label="Set room size" hint={venueScaled ? `${venue.width}×${venue.length} m` : 'Match your reception footprint'} onClick={() => setShowRoomPanel(true)} disabled={!canEdit} />
                       <Step num={2} done={false} label="Add your first table" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); if (isNarrow) setDrawerSnap('half'); }} disabled={!canEdit} />
-                      <Step num={3} done={false} gold label="Build my seating draft" hint={draftable > 0 ? `Seat your ${draftable} guest${draftable === 1 ? '' : 's'} by role` : 'Add guests first'} onClick={buildDraft} disabled={!canEdit || isPending || draftable === 0} />
+                      <Step num={3} done={false} gold label="Build my seating draft" hint={draftable > 0 ? `Seat your ${formatCount(draftable)} guest${draftable === 1 ? '' : 's'} by role` : 'Add guests first'} onClick={buildDraft} disabled={!canEdit || isPending || draftable === 0} />
                     </div>
                   </div>
                 );
@@ -6360,7 +6361,7 @@ export function SeatingEditor({
                   <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
                     <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                     <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
-                      {filled}/{effCap}
+                      {formatCount(filled)}/{formatCount(effCap)}
                     </span>
                   </div>
                 ) : (
@@ -6387,7 +6388,7 @@ export function SeatingEditor({
                     >
                       <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                       <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
-                        {filled}/{effCap}
+                        {formatCount(filled)}/{formatCount(effCap)}
                       </span>
                     </div>
                   </button>
@@ -6675,7 +6676,7 @@ export function SeatingEditor({
                               full ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/55'
                             }`}
                           >
-                            {seated.length}/{cap}
+                            {formatCount(seated.length)}/{formatCount(cap)}
                           </span>
                           <ChevronDown className={`h-4 w-4 text-ink/40 transition ${expanded ? 'rotate-180' : ''}`} />
                         </button>
@@ -6892,7 +6893,7 @@ export function SeatingEditor({
               <h3 className="text-lg font-semibold text-ink">Fill around locked seats</h3>
             </div>
             <p className="text-sm text-ink/70">
-              Your <span className="font-semibold">{lockedCount}</span> locked seat
+              Your <span className="font-semibold">{formatCount(lockedCount)}</span> locked seat
               {lockedCount === 1 ? '' : 's'} stay exactly where they are. Everyone else is{' '}
               <span className="font-semibold">un-seated and re-seated</span> around them, by priority
               {keepApart.length > 0 ? ' and your keep-apart rules' : ''}.
@@ -6939,7 +6940,7 @@ export function SeatingEditor({
                     <h3 className="text-lg font-semibold text-ink">Delete {confirmDelete.label}?</h3>
                   </div>
                   <p className="text-sm text-ink/70">
-                    <span className="font-semibold">{seatedTotal}</span> seated{' '}
+                    <span className="font-semibold">{formatCount(seatedTotal)}</span> seated{' '}
                     {seatedTotal === 1 ? 'guest' : 'guests'} will go back to{' '}
                     <span className="font-semibold">Unseated</span>, and the{' '}
                     {joined ? `${confirmDelete.members.length} joined tables are` : 'table is'} removed from
@@ -7311,7 +7312,7 @@ function SeatPeoplePanel({
           ))}
         </div>
         <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-danger-600' : 'text-ink/55'}`}>
-          {seated}/{cap} · {free} free
+          {formatCount(seated)}/{formatCount(cap)} · {free} free
         </span>
       </div>
 
@@ -7399,7 +7400,7 @@ function SeatPeoplePanel({
                 >
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: grp.color }} />
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">{grp.label}</span>
-                  <span className="shrink-0 text-[11px] text-ink/50">{grp.member_count}</span>
+                  <span className="shrink-0 text-[11px] text-ink/50">{formatCount(grp.member_count)}</span>
                 </button>
               </li>
             ))
@@ -7604,7 +7605,7 @@ function AddTablePanel({
             setCapacity(Number.isFinite(v) ? Math.min(Math.max(1, v), maxSeats) : maxSeats);
           }}
           aria-label="Capacity"
-          title={`Up to ${maxSeats} seats for this table type`}
+          title={`Up to ${formatCount(maxSeats)} seats for this table type`}
           className="w-16 rounded-lg border border-ink/15 bg-cream px-2 py-1.5 text-sm outline-none focus:border-terracotta"
         />
       </div>

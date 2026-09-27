@@ -36,6 +36,7 @@ import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createVendorChallengeAction } from '../actions';
 import { ShopCard } from '../../../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; cls: string }> = {
   pending: { label: 'Awaiting couple', cls: 'bg-mulberry/15 text-mulberry' },
@@ -108,7 +109,7 @@ export async function VendorChallengeSection({
                 </div>
                 {vendorChallengeStatus(c) === 'live' ? (
                   <p className="mt-1 text-xs text-ink/50">
-                    {c.completions} guest{c.completions === 1 ? '' : 's'} completed
+                    {formatCount(c.completions)} guest{c.completions === 1 ? '' : 's'} completed
                   </p>
                 ) : null}
               </li>

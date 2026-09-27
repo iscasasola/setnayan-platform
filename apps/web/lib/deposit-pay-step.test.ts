@@ -215,7 +215,7 @@ test('the mobile team chip says the same thing as the tile — "to lock", never 
   // read "1 locked · 0 in build" right after a lock. Both the visible text and
   // the screen-reader summary are counted.
   const chip = read('../app/dashboard/[eventId]/vendors/_components/team-summary-chip.tsx');
-  const toLock = chip.match(/\{inBuildCount\} to lock/g) ?? [];
+  const toLock = chip.match(/\{formatCount\(inBuildCount\)\} to lock/g) ?? [];
   console.log(`chip "to lock" occurrences: ${toLock.length}`);
   assert.equal(toLock.length, 2, 'visible text + aria summary');
   assert.doesNotMatch(chip, /in build/i, 'the chip says "in build" again');

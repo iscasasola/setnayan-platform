@@ -104,7 +104,7 @@ export const COVERAGE_STRIP_HEADING = 'Cover your event';
 
 /** "Covered 3 of 9" — the strip's count line + the progress ring's aria-label. */
 export function coverageCountLabel(covered: number, total: number): string {
-  return `Covered ${covered} of ${total}`;
+  return `Covered ${formatCount(covered)} of ${formatCount(total)}`;
 }
 
 /** The NEXT flag's text + the screen-reader suffix on the tile it marks. */
@@ -125,16 +125,16 @@ export function coverageTileLabel(args: {
     args.state === 'covered'
       ? 'covered'
       : args.state === 'locked'
-        ? `${args.lockedCount} locked`
+        ? `${formatCount(args.lockedCount)} locked`
         : // PR-H · the screen-reader label must not borrow "locked" for a
           // supplier who has not answered. This is the one place a couple using
           // a screen reader learns the state at all.
           args.state === 'asked'
-          ? `${args.askedCount ?? 0} asked, waiting`
+          ? `${formatCount(args.askedCount ?? 0)} asked, waiting`
           : args.state === 'picked'
-            ? `${args.buildCount} in your build`
+            ? `${formatCount(args.buildCount)} in your build`
             : args.state === 'exploring'
-              ? `${args.vendorCount} shortlisted`
+              ? `${formatCount(args.vendorCount)} shortlisted`
               : 'not started';
   return `${args.label} — ${state}${args.isNext ? `, ${COVERAGE_NEXT_SR}` : ''}`;
 }
@@ -441,7 +441,7 @@ export function inlineMoreEmpty(query: string): string {
 export function inlineMoreSunkNote(count: number): string {
   return count === 1
     ? '1 of these shares no free day with your build — same rule as the row above.'
-    : `${count} of these share no free day with your build — same rule as the row above.`;
+    : `${formatCount(count)} of these share no free day with your build — same rule as the row above.`;
 }
 
 /* Row 2's failures. Each one names a DIFFERENT fact, because "nothing here" and
@@ -474,10 +474,11 @@ export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';
 
 import type { CardDates, DateOutcome } from '@/lib/card-dates';
 import { formatDayKeyLabel } from '@/lib/build-date-window';
+import { formatCount } from '@/lib/format-number';
 
 /** The mono "Free: …" line, from the parts rather than a pre-baked string. */
 export function cardDatesInlineLine(d: CardDates): string {
-  if (d.wide) return `Free ${d.all.length} of ${d.windowSize} days`;
+  if (d.wide) return `Free ${formatCount(d.all.length)} of ${formatCount(d.windowSize)} days`;
   return `Free: ${d.shown.map(formatDayKeyLabel).join(' · ')}`;
 }
 
@@ -498,5 +499,5 @@ export function cardDatesPopupTitle(vendorName: string): string {
 export function dateOutcomeLine(o: DateOutcome): string | null {
   if (!o) return null;
   if (o.kind === 'sets') return `Locking this sets your date to ${formatDayKeyLabel(o.day)}`;
-  return `Leaves ${o.count} possible dates — your date is not set yet`;
+  return `Leaves ${formatCount(o.count)} possible dates — your date is not set yet`;
 }

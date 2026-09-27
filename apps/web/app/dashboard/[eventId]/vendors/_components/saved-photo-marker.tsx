@@ -1,5 +1,7 @@
 'use client';
 
+import { formatCount } from '@/lib/format-number';
+
 /**
  * "You saved 2 of their photos" — the far end of the supplier gallery chain
  * (MB10).
@@ -44,7 +46,7 @@ export function savedPhotoMarkerLabel(count: number | null): string | null {
   if (count === null || count <= 0) return null;
   return count === 1
     ? 'You saved 1 of their photos'
-    : `You saved ${count} of their photos`;
+    : `You saved ${formatCount(count)} of their photos`;
 }
 
 export function SavedPhotoMarker({ count }: { count: number | null }) {

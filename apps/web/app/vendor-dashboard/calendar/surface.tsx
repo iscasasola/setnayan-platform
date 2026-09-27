@@ -35,6 +35,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import type { ReactNode } from 'react';
 import { shopInputClass } from '../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Calendar · Vendor' };
 
@@ -615,7 +616,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
                 <p className="text-xs text-ink/55">
                   {w.pendingCount === 1
                     ? '1 couple waiting'
-                    : `${w.pendingCount} couples waiting`}
+                    : `${formatCount(w.pendingCount)} couples waiting`}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1.5">

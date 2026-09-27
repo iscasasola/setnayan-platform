@@ -9,6 +9,7 @@ import {
   updateCoverageServes,
   deleteCoverage,
 } from '../coverage-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Coverage tab (v20 prototype structure — owner: "we had a prototype. follow
@@ -82,7 +83,7 @@ export function CoveragePanel({
         <span className="text-xs" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-3)' }}>
           Parents{' '}
           <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-orange-2)' }}>
-            {parentUsage.used} of {capLabel}
+            {formatCount(parentUsage.used)} of {capLabel}
           </b>
           {overCap ? ' · upgrade to add more' : ''}
         </span>
@@ -191,7 +192,7 @@ function YourCoverage({
                   >
                     {c.leafLabel}
                     {c.serviceCount > 0 ? (
-                      <span style={{ color: 'var(--m-slate-3)' }}>· {c.serviceCount}</span>
+                      <span style={{ color: 'var(--m-slate-3)' }}>· {formatCount(c.serviceCount)}</span>
                     ) : null}
                     <Tag className="h-3 w-3" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
                   </button>
@@ -203,7 +204,7 @@ function YourCoverage({
                         !confirm(
                           `Remove "${c.leafLabel}"? This drops it from search` +
                             (c.serviceCount > 0
-                              ? ` and unlinks its ${c.serviceCount} service card${c.serviceCount === 1 ? '' : 's'}.`
+                              ? ` and unlinks its ${formatCount(c.serviceCount)} service card${c.serviceCount === 1 ? '' : 's'}.`
                               : '.'),
                         )
                       )

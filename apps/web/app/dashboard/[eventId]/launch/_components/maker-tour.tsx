@@ -9,6 +9,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
    client reference, not the string — measured: `tour_seen_keys.includes(KEY)`
    was false for a couple who had finished the tour, so it replayed forever. */
 import { MAKER_TOUR_KEY, makerTourSlides } from './maker-bar';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE EVENT HUB MAKER'S WELCOME — its own skin on the shared tour system.
@@ -85,7 +86,7 @@ export function MakerTour({
           </span>
           <div className="space-y-2">
             <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink/60">
-              Event Hub Maker · {step + 1} of {slides.length}
+              Event Hub Maker · {formatCount(step + 1)} of {formatCount(slides.length)}
             </p>
             <h2 id="maker-tour-title" className="font-serif text-2xl leading-tight tracking-tight text-ink">
               {current.title}

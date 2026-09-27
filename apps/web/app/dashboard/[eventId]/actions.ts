@@ -46,6 +46,7 @@ import {
   type ConflictService,
   isCapacityBound,
 } from '@/lib/personalization-conflicts';
+import { formatCount } from '@/lib/format-number';
 
 const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
 
@@ -1355,7 +1356,7 @@ export async function previewPersonalizationConflicts(
     } else if (field === 'pax') {
       if (isCapacityBound(p.category)) {
         const n = Number(proposed);
-        const guests = Number.isInteger(n) && n > 0 ? `${n} guests` : 'the new guest count';
+        const guests = Number.isInteger(n) && n > 0 ? `${formatCount(n)} guests` : 'the new guest count';
         conflicts.push({
           ...base,
           reason: `Priced by headcount — may need to re-quote for ${guests}.`,

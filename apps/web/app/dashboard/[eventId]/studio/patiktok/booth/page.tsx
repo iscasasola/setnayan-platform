@@ -22,6 +22,7 @@ import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { formatCalendarDate } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
+import { formatCount } from '@/lib/format-number';
 
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
@@ -249,7 +250,7 @@ function CapacityStrip({
               {submissions}
             </span>
             <span className="font-mono text-xs text-ink/55">
-              / {PATIKTOK_VIDEO_SOFT_CAP}
+              / {formatCount(PATIKTOK_VIDEO_SOFT_CAP)}
             </span>
           </p>
         </div>

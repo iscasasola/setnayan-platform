@@ -29,6 +29,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import type { MatrixDate, ScheduleMatrix } from '@/lib/schedule-matrix';
+import { formatCount } from '@/lib/format-number';
 
 type Props = { eventId: string; matrix: ScheduleMatrix };
 
@@ -80,11 +81,11 @@ function coverageHeadline(date: MatrixDate): string {
   const swaps = date.coveredCount - date.topPicksKept;
   if (date.coveredCount === date.totalCategories) {
     if (date.topPicksKept === date.totalCategories) {
-      return `All ${date.totalCategories} categories covered · keeps every top pick`;
+      return `All ${formatCount(date.totalCategories)} categories covered · keeps every top pick`;
     }
-    return `All ${date.totalCategories} covered · ${swaps} swap${swaps === 1 ? '' : 's'}`;
+    return `All ${formatCount(date.totalCategories)} covered · ${swaps} swap${swaps === 1 ? '' : 's'}`;
   }
-  return `${date.coveredCount} of ${date.totalCategories} categories covered`;
+  return `${formatCount(date.coveredCount)} of ${formatCount(date.totalCategories)} categories covered`;
 }
 
 function comboSummary(date: MatrixDate): string {
@@ -282,7 +283,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
     <Shell>
       {matrix.offPlatformCount > 0 ? (
         <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/55">
-          {matrix.offPlatformCount} of your vendors {matrix.offPlatformCount === 1 ? 'is' : 'are'}{' '}
+          {formatCount(matrix.offPlatformCount)} of your vendors {matrix.offPlatformCount === 1 ? 'is' : 'are'}{' '}
           off-platform — we can&apos;t see their calendar, so they show as &ldquo;confirm
           directly.&rdquo;
         </p>

@@ -55,6 +55,7 @@ import {
   type QuoteStageId,
 } from '@/lib/quote-stages';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Vendor Proposal Maker — the in-thread quote editor.
@@ -230,7 +231,7 @@ function QuoteStage({
     <section
       data-stage={id}
       data-state={state}
-      aria-label={`Step ${def.n} of ${QUOTE_STAGES.length}: ${def.title}`}
+      aria-label={`Step ${formatCount(def.n)} of ${QUOTE_STAGES.length}: ${def.title}`}
       className={`relative border-b border-ink/10 pl-12 ${state === 'later' ? 'opacity-60' : ''}`}
     >
       {/* the spine: number bubble + the line to the next step */}
@@ -253,7 +254,7 @@ function QuoteStage({
         className="flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left disabled:cursor-default"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
-          Step {def.n} of {QUOTE_STAGES.length}
+          Step {formatCount(def.n)} of {formatCount(QUOTE_STAGES.length)}
         </span>
         <span className="font-serif text-lg font-semibold leading-tight text-ink">{def.title}</span>
         {!isCur ? (
@@ -1026,13 +1027,13 @@ export function ProposalMaker({
           <p className="mt-1.5 text-xs text-ink/55">
             {atSeed ? (
               <>
-                Sized to their plan now · <strong className="text-ink/75">{seedPax} pax</strong> · {requestedHours}h
-                {countsDiffer ? <> · was {requestedPax} at inquiry</> : null}
+                Sized to their plan now · <strong className="text-ink/75">{formatCount(seedPax)} pax</strong> · {requestedHours}h
+                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
               </>
             ) : (
               <>
-                Quoting <strong className="text-ink/75">{pax} pax · {hours}h</strong> — their plan says {seedPax} now
-                {countsDiffer ? <> · was {requestedPax} at inquiry</> : null}{' '}
+                Quoting <strong className="text-ink/75">{formatCount(pax)} pax · {hours}h</strong> — their plan says {formatCount(seedPax)} now
+                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}{' '}
                 <button
                   type="button"
                   onClick={resetToSeed}

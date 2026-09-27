@@ -56,6 +56,7 @@ import {
   SaveGateHint,
 } from '@/app/_components/anon-gate/save-to-continue';
 import { onServiceInquiryFocus } from '@/lib/service-inquiry-focus';
+import { formatCount } from '@/lib/format-number';
 
 export type InquiryComposerService = {
   vendorServiceId: string;
@@ -581,7 +582,7 @@ export function InquiryComposer({
           <span className="inline-flex items-center gap-1.5 text-sm text-ink/80">
             <Users aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
             Headcount for this inquiry:
-            <span className="font-semibold text-ink">{inquiryPax}</span>
+            <span className="font-semibold text-ink">{formatCount(inquiryPax)}</span>
           </span>
           {guestEditHref ? (
             <Link

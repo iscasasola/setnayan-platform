@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * vendor-pipeline-pressure.ts — how full is a shop's pipeline for ONE date, and
@@ -95,12 +96,12 @@ export function pipelinePressureLine(p: PipelinePressure): string | null {
   const day = pipelineDayLabel(p.dateIso);
   if (!day) return null;
   if (p.state === 'full') {
-    return `You're chasing ${p.used} of ${p.cap} for ${day} — your plan's limit.`;
+    return `You're chasing ${formatCount(p.used)} of ${formatCount(p.cap)} for ${day} — your plan's limit.`;
   }
   if (p.state === 'last') {
-    return `Your last slot for ${day} — you're chasing ${p.used} of ${p.cap}.`;
+    return `Your last slot for ${day} — you're chasing ${formatCount(p.used)} of ${p.cap}.`;
   }
-  return `You're chasing ${p.used} of ${p.cap} customers for ${day}.`;
+  return `You're chasing ${formatCount(p.used)} of ${formatCount(p.cap)} customers for ${day}.`;
 }
 
 /**

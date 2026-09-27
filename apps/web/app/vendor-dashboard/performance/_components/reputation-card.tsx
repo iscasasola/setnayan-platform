@@ -4,6 +4,7 @@ import {
   type ReputationAnalytics,
 } from '@/lib/vendor-reputation-analytics';
 import { CountUp } from './count-up';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Reputation" — My Performance · Phase B family 3 (Pro tier). Own-business
@@ -65,7 +66,7 @@ export function ReputationCard({ data }: { data: ReputationAnalytics }) {
           icon={<Star className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
           label="Overall rating"
           value={coverage.avgRating === null ? '—' : `${(Math.round(coverage.avgRating * 10) / 10).toFixed(1)}★`}
-          sub={total > 0 ? `Across ${total} review${total === 1 ? '' : 's'}` : 'No reviews yet'}
+          sub={total > 0 ? `Across ${formatCount(total)} review${total === 1 ? '' : 's'}` : 'No reviews yet'}
         />
         <Tile
           icon={<MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
@@ -136,7 +137,7 @@ export function ReputationCard({ data }: { data: ReputationAnalytics }) {
                           minHeight: p.count > 0 ? 2 : 0,
                           background: isLast ? 'var(--m-orange-2)' : 'var(--m-orange)',
                         }}
-                        title={`${p.label}: ${p.count} review${p.count === 1 ? '' : 's'}${p.avgRating !== null ? ` · avg ${(Math.round(p.avgRating * 10) / 10).toFixed(1)}★` : ''}`}
+                        title={`${p.label}: ${formatCount(p.count)} review${p.count === 1 ? '' : 's'}${p.avgRating !== null ? ` · avg ${(Math.round(p.avgRating * 10) / 10).toFixed(1)}★` : ''}`}
                       />
                     </div>
                     <span className="font-mono text-[9px] leading-none" style={{ color: 'var(--m-slate-3)' }}>

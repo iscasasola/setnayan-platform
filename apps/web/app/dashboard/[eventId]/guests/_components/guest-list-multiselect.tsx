@@ -109,6 +109,7 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { ArrangeSheet, ArrangeTh } from './arrange-controls';
+import { formatCount } from '@/lib/format-number';
 
 type SectionGroup = RoleGroup | 'guest';
 
@@ -198,7 +199,7 @@ function TierHeader({
       <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
         {label}
       </h3>
-      <span className="text-[11px] text-ink/35">{count}</span>
+      <span className="text-[11px] text-ink/35">{formatCount(count)}</span>
       {pinned ? (
         <span className="text-[10px] lowercase tracking-normal text-ink/30">
           always first
@@ -1390,7 +1391,7 @@ function useGuestRemoval(eventId: string) {
     );
     const n = result.removedIds.length;
     pushUndo({
-      label: `${n} guest${n === 1 ? '' : 's'} removed`,
+      label: `${formatCount(n)} guest${n === 1 ? '' : 's'} removed`,
       undo: async () => {
         if (plan.kind !== 'restore') return;
         const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
@@ -1497,11 +1498,11 @@ function OptimisticDeleteButton({
       type="button"
       onClick={handleDelete}
       disabled={deleting}
-      aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
+      aria-label={`Remove ${formatCount(count)} selected guest${count === 1 ? '' : 's'}`}
       className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100 disabled:opacity-60"
     >
       <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      {deleting ? 'Removing…' : `Delete ${count}`}
+      {deleting ? 'Removing…' : `Delete ${formatCount(count)}`}
     </button>
   );
 }
@@ -1545,7 +1546,7 @@ function BulkApplyForm({
 
       <div className="flex items-center gap-2">
         <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-terracotta-700 px-2 text-xs font-semibold text-cream">
-          {count}
+          {formatCount(count)}
         </span>
         <span className="text-sm font-medium text-ink">selected</span>
       </div>

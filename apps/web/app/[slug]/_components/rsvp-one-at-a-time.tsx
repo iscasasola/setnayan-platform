@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "ASK ONE QUESTION AT A TIME" — the RSVP scene's ONE switch (owner 2026-09-27:
@@ -129,7 +130,7 @@ export function RsvpOneAtATime() {
             ‹ Back
           </button>
           <p className="text-sm tabular-nums text-ink/70" aria-live="polite">
-            {index + 1} of {total}
+            {formatCount(index + 1)} of {formatCount(total)}
           </p>
           <span aria-hidden className="flex gap-1.5">
             {Array.from({ length: total }, (_, i) => (

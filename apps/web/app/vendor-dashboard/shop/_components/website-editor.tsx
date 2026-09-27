@@ -41,6 +41,7 @@ export type MicrositeReviewOption = { id: string; label: string };
  * un-touched page still renders its auto-composed baseline.
  */
 import { CouldNotLoad } from './could-not-load';
+import { formatCount } from '@/lib/format-number';
 
 export function WebsiteEditor({
   publicPath,
@@ -354,7 +355,7 @@ export function WebsiteEditor({
         />
         <div className="mt-1.5 flex items-center justify-between">
           <span className="text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
-            {aboutVal.length}/{MICROSITE_ABOUT_MAX}
+            {formatCount(aboutVal.length)}/{formatCount(MICROSITE_ABOUT_MAX)}
           </span>
           <button
             type="button"

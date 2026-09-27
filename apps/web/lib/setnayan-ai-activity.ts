@@ -46,6 +46,7 @@ import {
   completeByDate as paperworkCompleteByDate,
   type PaperworkRow,
 } from './paperwork';
+import { formatCount } from '@/lib/format-number';
 
 /** The live snapshot the studio ACTIVE state renders. */
 export type AiActivity = {
@@ -227,7 +228,7 @@ const plural = (n: number) => (n === 1 ? '' : 's');
 
 /** "62% locked in · 4 vendors on your board" */
 export function figureRanked(a: AiActivity): string {
-  return `${a.cockpit.briefing.lockedPct}% locked in · ${a.vendorsTracked} vendor${plural(
+  return `${a.cockpit.briefing.lockedPct}% locked in · ${formatCount(a.vendorsTracked)} vendor${plural(
     a.vendorsTracked,
   )} on your board`;
 }

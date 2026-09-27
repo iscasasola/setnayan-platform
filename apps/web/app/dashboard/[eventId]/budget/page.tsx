@@ -53,6 +53,7 @@ import {
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Budget' };
 
@@ -846,14 +847,14 @@ function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
         A Chinese wedding carries a few costs worth planning for. Ang pao — red
         envelopes — are given to elders during the tea ceremony, kept aside from
         your vendor spend. The lauriat banquet is typically the main reception
-        cost, and it&rsquo;s priced per table — about {LAURIAT_PAX_PER_TABLE}{' '}
+        cost, and it&rsquo;s priced per table — about {formatCount(LAURIAT_PAX_PER_TABLE)}{' '}
         guests to a table — so it&rsquo;s worth anchoring your budget around it
         early. These are your own arrangements, not a Setnayan or vendor charge,
         so they stay outside your committed totals.
       </p>
       {tables !== null && pax !== null ? (
         <p className="mt-2 text-sm font-medium text-emerald-900">
-          About {tables} lauriat {tables === 1 ? 'table' : 'tables'} for {pax}{' '}
+          About {tables} lauriat {tables === 1 ? 'table' : 'tables'} for {formatCount(pax)}{' '}
           guests.
         </p>
       ) : (

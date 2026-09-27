@@ -45,6 +45,7 @@ import type { GuestStoryPlan, StoryMediaItem, StoryMusic } from '@/lib/guest-sto
 import { STORY_MIN_PHOTOS, STORY_MAX_PHOTOS } from '@/lib/stories-templates';
 import { storySelectionState } from '@/lib/guest-stories-media-set';
 import { defaultCameraMove } from '@/lib/stories-camera-move';
+import { formatCount } from '@/lib/format-number';
 
 type Phase = 'idle' | 'preparing' | 'pick' | 'rendering' | 'ready' | 'too_few' | 'error';
 
@@ -341,11 +342,11 @@ export function GuestStoryMaker({ token }: { token: string }) {
                   selState.canRender ? 'text-mulberry' : 'text-ink/50'
                 }`}
               >
-                {selectedIds.length}/{STORY_MAX_PHOTOS}
+                {selectedIds.length}/{formatCount(STORY_MAX_PHOTOS)}
               </span>
             </div>
             <p className="mt-0.5 text-xs text-ink/50">
-              Tap up to {STORY_MAX_PHOTOS} — at least {STORY_MIN_PHOTOS} to make a
+              Tap up to {formatCount(STORY_MAX_PHOTOS)} — at least {formatCount(STORY_MIN_PHOTOS)} to make a
               Story. They play in the order you pick.
             </p>
             <ul className="mt-2 grid grid-cols-4 gap-1.5 sm:grid-cols-5">
@@ -501,9 +502,9 @@ export function GuestStoryMaker({ token }: { token: string }) {
             {photoCount && photoCount > 0
               ? `You're tagged in ${photoCount.toLocaleString()} photo${
                   photoCount === 1 ? '' : 's'
-                } so far — you'll need at least ${STORY_MIN_PHOTOS} to make a Story. Check back as more roll in.`
+                } so far — you'll need at least ${formatCount(STORY_MIN_PHOTOS)} to make a Story. Check back as more roll in.`
               : pickableCount > 0
-                ? `You have ${pickableCount} tagged ${pickableCount === 1 ? 'moment' : 'moments'} so far — you'll need at least ${STORY_MIN_PHOTOS} to make a Story. Check back as more roll in.`
+                ? `You have ${formatCount(pickableCount)} tagged ${pickableCount === 1 ? 'moment' : 'moments'} so far — you'll need at least ${formatCount(STORY_MIN_PHOTOS)} to make a Story. Check back as more roll in.`
                 : `No tagged photos of you just yet. Once you're tagged in a few, come back and make your Story — you'll need at least ${STORY_MIN_PHOTOS}.`}
           </p>
           <button

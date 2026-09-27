@@ -99,6 +99,10 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   updateOurStory: null,
   updateDressCode: null,
   loveStoryMomentAction: null,
+  // 2026-09-27 — "+ Add a scene" (DECISION_LOG "+ ADD A SCENE" WORKS IN THE
+  // EVENT HUB MAKER): the row is inserted HIDDEN and drafted shown, so guests
+  // meet it at Apply (proven in the-maker-adds-a-scene-to-the-draft.test.ts).
+  addCustomSection: null,
 };
 
 /**
@@ -171,8 +175,8 @@ const NEVER = 'never drafted by the build plan — address, who can view, what g
 const LIVE: Record<string, string> = {
   [`${C}sections-panel.tsx#SectionsPanel#saveCustomAction`]:
     "a scene's own words (config_json.custom, on its section row) and removing a scene (deletes the row) — the draft holds a section's canvas, mode and place, not its words or its absence",
-  // "+ Add a scene" (addCustomSection, inserts a row) is the template picker's
-  // live half — held by the picker test at the bottom, not by a row here.
+  // "+ Add a scene" (addCustomSection) drafts since 2026-09-27 — held by the
+  // picker test at the bottom, not by a row here.
   [`${C}media-panels.tsx#GalleryPanel#action`]: MEDIA,
   [`${C}media-panels.tsx#SiteChromePanel#action`]: MEDIA,
   [`${C}media-panels.tsx#VisibilityPanel#action`]: NEVER,
@@ -195,7 +199,6 @@ const LIVE_WRITERS = new Set([
   'setOpenBrowse',
   'updateSiteChrome',
   'updateOurPhotos',
-  'addCustomSection',
   // saveCustomSection is BOTH: its `arrange` intent is drafted, its words are live.
 ]);
 
@@ -409,9 +412,9 @@ test("the canvas preview loads the host's draft (?editor=1)", () => {
   assert.match(shell, /src=\{canvasSrc\}/);
 });
 
-test('the scene template picker: "Change template" drafts, "+ Add a scene" says it saves immediately', () => {
+test('the scene template picker: "Change template" and "+ Add a scene" both draft', () => {
   const picker = read(`${C}scene-template-picker.tsx`);
-  assert.match(picker, /\{!draft \? <HubSavesImmediately \/> : null\}/, 'the add sheet must say it saves immediately');
+  assert.match(picker, /\{!draft \? <HubSavesImmediately \/> : null\}/, 'a picker that writes live must say it saves immediately');
   let drafted = 0;
   let live = 0;
   for (const file of MAKER_FILES) {
@@ -422,22 +425,24 @@ test('the scene template picker: "Change template" drafts, "+ Add a scene" says 
       const isDraft = /^\s*draft\s*$/m.test(use) || /\sdraft(?:=\{true\})?[\s/]/.test(use);
       if (isDraft) {
         drafted += 1;
-        assert.equal(file, `${C}scene-slots-panel.tsx`, `${file}: only the slots panel's "Change template" may draft`);
-        assert.equal(action, 'saveAction');
-        assert.match(use, /intent:\s*'template'/, 'a drafted picker must post intent=template (the door)');
+        if (action === 'addCustomAction' || action === 'addScene.action') {
+          // "+ Add a scene" — addCustomSection's draft door (hidden row, drafted shown).
+          assert.match(use, /triggerLabel="\+ Add a scene"/, `${file}: ${action} is the add sheet`);
+        } else {
+          assert.equal(file, `${C}scene-slots-panel.tsx`, `${file}: a drafted picker posting ${action} is neither the add sheet nor "Change template"`);
+          assert.equal(action, 'saveAction');
+          assert.match(use, /intent:\s*'template'/, 'a drafted picker must post intent=template (the door)');
+        }
       } else {
         live += 1;
-        assert.ok(
-          action === 'addCustomAction' || action === 'addScene.action',
-          `${file}: a picker without draft posts ${action} — only "+ Add a scene" (addCustomSection) may write live`,
-        );
+        assert.fail(`${file}: a template picker posting ${action} writes live — every Maker picker drafts`);
       }
     }
   }
   // The slots panel's saveAction really is saveCustomSection.
   assert.match(read(`${C}sections-panel.tsx`), /<SceneSlotsPanel\b[\s\S]*?saveAction=\{saveCustomAction\}/);
   assert.match(read(PAGE), /addScene=[\s\S]*?action: addCustomSection/);
-  console.log(`[maker-forms] template pickers: drafted ${drafted} · add (live, marked) ${live}`);
-  assert.equal(drafted, 1);
-  assert.ok(live >= 2);
+  console.log(`[maker-forms] template pickers: drafted ${drafted} · live ${live}`);
+  assert.equal(drafted, 3);
+  assert.equal(live, 0);
 });

@@ -6,7 +6,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { nextTransition } from '@/lib/hub-scenes';
 import { sceneTemplateDefaults, sceneTemplateIdFromForm } from '@/lib/scene-templates';
-import { applySceneSlot, applySceneTemplate, applySceneVideo, type SlotPatch } from '@/lib/scene-writes';
+import {
+  ADDED_SCENE_LIVE,
+  addedSceneDraft,
+  applySceneSlot,
+  applySceneTemplate,
+  applySceneVideo,
+  type SlotPatch,
+} from '@/lib/scene-writes';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { hasContent, isWidgetType, widgetInPhase, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { configWithStageOrder, stagePlacesAfterMove, stageRowOrder } from '@/lib/stage-scenes';
@@ -1053,6 +1060,42 @@ export async function addCustomSection(formData: FormData): Promise<void> {
      so the default motion is written too. A POST with no template (an older
      form) still adds the plain section it always did. */
   const template = sceneTemplateIdFromForm(formData.get('template'));
+
+  /* 💾 THE MAKER ADDS INTO THE DRAFT (DECISION_LOG 2026-09-27, "+ ADD A SCENE"
+     WORKS IN THE EVENT HUB MAKER). The row is inserted HIDDEN
+     (`ADDED_SCENE_LIVE`) — a guest never meets it — and the draft says
+     "shown", so the host's canvas and navigator draw it at once and Apply is
+     what publishes it. It lands at the end of the DRAFTED order too, and comes
+     back with `?scene=` so the new scene is selected with its panel open. */
+  if (isHubDraftWrite(formData)) {
+    const drafted = await draftedDisplayOrders(eventId);
+    const end = Math.max(bottom, ...Object.values(drafted)) + 1;
+    const canvas = template ? (sceneTemplateDefaults(template, true) as HubSectionCanvas) : null;
+    const { data: added, error: addErr } = await supabase
+      .from('invitation_widgets')
+      .insert({
+        event_id: eventId,
+        widget_type: slot,
+        display_order: end,
+        ...ADDED_SCENE_LIVE,
+        is_always_on: false,
+        ...(canvas ? { config_json: { canvas } } : {}),
+      })
+      .select('widget_id')
+      .single();
+    if (addErr || !added) throw new Error(`Failed to add a section: ${addErr?.message ?? 'the row was refused'}`);
+    await saveHubDraftPatch(eventId, {
+      widgets: { [slot as string]: addedSceneDraft({ displayOrder: end, canvas }) } as HubDraftPatch['widgets'],
+    });
+    revalidateWebsiteEditor(eventId, 'widgets');
+    const back = new URL(
+      resolveReturnTo(formData, `/dashboard/${eventId}/launch?drafted=1`, '?drafted=1'),
+      'http://maker.local',
+    );
+    back.searchParams.set('scene', String((added as { widget_id: string }).widget_id));
+    redirect(`${back.pathname}${back.search}`);
+  }
+
   const { error: insertErr } = await supabase.from('invitation_widgets').insert({
     event_id: eventId,
     widget_type: slot,

@@ -17,6 +17,7 @@ import {
 } from './maker-bar';
 import {
   MakerContext,
+  MAKER_ADD_SCENE_SLOT_ID,
   MAKER_MORE_ROWS_ID,
   type MakerDevice,
   type MakerSelection,

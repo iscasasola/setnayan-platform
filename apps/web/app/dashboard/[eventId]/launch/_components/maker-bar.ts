@@ -63,9 +63,10 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
 /** What a 'next' item — or a tool whose full build is a later phase — says. */
 /* The Logo and Love Story notes are gone: both open as pages in the Maker's
    body now (2026-09-25), so "it opens in its own page" was no longer true. */
-export const MAKER_COMING_NEXT: Record<'hero' | 'add' | 'snap' | 'both', string> = {
+/* "add" is gone: ＋ Add a scene works (DECISION_LOG 2026-09-27) — the toolbar's
+   ＋ opens the template sheet, and the scene goes into the draft. */
+export const MAKER_COMING_NEXT: Record<'hero' | 'snap' | 'both', string> = {
   hero: 'One hero for every stage and the poster is coming in the next build — for now this sets the photo at the top.',
-  add: 'Add a scene from the 25 templates with “+ Add a scene” at the end of your scenes.',
   snap: 'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone. Placing things freely comes in the next build.',
   both: 'Desktop and phone side by side is coming in the next build — switch between them for now.',
 };

@@ -40,7 +40,7 @@ import {
   type WidgetType,
 } from './invitation-widgets';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
-import { isCustomSectionType, customSectionEditorLabel } from './custom-sections';
+import { CUSTOM_SECTION_TYPES, isCustomSectionType, customSectionEditorLabel } from './custom-sections';
 import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
 import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
@@ -510,4 +510,16 @@ export function swapsForDrop(fullOrder: readonly string[], movingId: string, bef
   const target = beforeId === null ? rest.length : rest.indexOf(beforeId);
   if (target < 0) return 0;
   return target - from;
+}
+
+/**
+ * "+ ADD A SCENE" — may a scene of the couple's own be added to this stage?
+ * The ONE place the Maker asks it (DECISION_LOG 2026-09-27). Read from
+ * `WIDGET_PHASES`, where a scene of their own sits on EVERY stage today (and
+ * stays so under "EACH STAGE DOES ONE JOB": after the stage's own scenes, in
+ * the couple's order). When a stage stops taking them, this answers false and
+ * the ＋ is not offered there.
+ */
+export function stageTakesOwnScenes(stage: LifecyclePhase): boolean {
+  return CUSTOM_SECTION_TYPES.some((t) => WIDGET_PHASES[t].includes(stage));
 }

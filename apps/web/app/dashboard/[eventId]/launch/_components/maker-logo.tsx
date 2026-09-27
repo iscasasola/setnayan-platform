@@ -3,13 +3,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft } from 'lucide-react';
 import type { StudioConfig } from '@/lib/monogram-studio-shared';
-import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { createLogoSaveGate } from '@/lib/maker-logo-save-gate';
 import { VectorStudio } from '../../monogram/studio';
 import { currentMark } from '../../monogram/mark-bench';
 import { hubDraftAction } from '../../website/hub-draft-actions';
-import { useMaker } from './maker-context';
 
 /**
  * THE LOGO, INSIDE THE MAKER — and it never loses work (Phase 6).
@@ -20,9 +18,22 @@ import { useMaker } from './maker-context';
  * same engine) AUTOSAVES INTO THE DRAFT:
  *
  *   · a short pause after any change on the canvas (pointer / key / input),
- *   · on "Back" (to the stage),
  *   · when the tab is hidden or the page is left (`visibilitychange`, `pagehide`),
  *   · when the page unmounts — picking any other bar item.
+ *
+ * 🛑 …BUT NEVER ON OPEN (owner 2026-09-27). Every one of those used to save
+ * whatever the canvas held the first time — so merely opening this page and
+ * leaving it put the studio's untouched starting design into the draft, over
+ * the couple's real logo. `createLogoSaveGate` (`lib/maker-logo-save-gate.ts`)
+ * now takes the canvas as it stood when the couple FIRST reached for it as the
+ * baseline, and saves only a canvas that differs from it.
+ *
+ * 🖼 THE COUPLE'S OWN LOGO FIRST. An event whose mark is an uploaded logo (and
+ * no design yet) opens on THAT logo, as it is — "Upload a different one" /
+ * "Design one instead". The studio mounts only when they ask to design.
+ *
+ * ⛔ No "Back to …" button (owner 2026-09-27: *"no need for this"*) — the
+ * Maker bar already goes anywhere, and leaving still saves a real edit.
  *
  * 🖼 THE STUDIO IS THE MAKER'S BODY, NOT A SHEET OVER IT (owner 2026-09-25: *"we
  * do not want a pop up for details, logo, hero, reveal and love story. we want
@@ -50,6 +61,94 @@ export function MakerLogoDoor({
   initialConfig,
   initialNames,
   initialUploadSvg,
+  uploadedLogoSrc = null,
+  drafted,
+}: {
+  eventId: string;
+  initialConfig: StudioConfig | null;
+  initialNames: string | null;
+  initialUploadSvg: string | null;
+  /** The couple's uploaded logo (a sanitised data URI) when it is their mark
+   *  and no design exists yet — shown as it is, never re-drawn by the studio
+   *  until they ask to design one. */
+  uploadedLogoSrc?: string | null;
+  drafted: boolean;
+}) {
+  const [designing, setDesigning] = useState(!uploadedLogoSrc);
+  if (!designing && uploadedLogoSrc) {
+    return (
+      <UploadedLogo eventId={eventId} src={uploadedLogoSrc} drafted={drafted} onDesign={() => setDesigning(true)} />
+    );
+  }
+  return (
+    <LogoStudio
+      eventId={eventId}
+      initialConfig={initialConfig}
+      initialNames={initialNames}
+      /* "Design one instead" starts from the couple's initials, not the upload. */
+      initialUploadSvg={uploadedLogoSrc ? null : initialUploadSvg}
+      drafted={drafted}
+    />
+  );
+}
+
+/** The couple's uploaded logo, as it is — nothing mounts that could save. */
+function UploadedLogo({
+  eventId,
+  src,
+  drafted,
+  onDesign,
+}: {
+  eventId: string;
+  src: string;
+  drafted: boolean;
+  onDesign: () => void;
+}) {
+  return (
+    <section
+      className="flex min-h-0 flex-1 flex-col"
+      data-made-once="logo"
+      data-maker-logo-page=""
+      data-maker-logo-uploaded=""
+    >
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-ink/10 bg-cream px-3 py-1.5">
+        <p className="font-serif text-lg text-ink">Logo</p>
+        {drafted ? (
+          <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
+            In your draft — guests see it after you Apply.
+          </p>
+        ) : null}
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-4 py-6">
+        <div className="flex h-56 w-full max-w-[320px] items-center justify-center rounded-2xl bg-white/70 p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a sanitised data: URI, not a remote image */}
+          <img src={src} alt="Your logo" className="max-h-full max-w-full object-contain" data-maker-logo-current="" />
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Link
+            href={`/dashboard/${eventId}/monogram?mode=upload`}
+            className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream hover:bg-ink/90"
+          >
+            Upload a different one
+          </Link>
+          <button
+            type="button"
+            onClick={onDesign}
+            className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/5 px-4 text-[13px] font-semibold text-ink hover:bg-ink/10"
+          >
+            Design one instead
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LogoStudio({
+  eventId,
+  initialConfig,
+  initialNames,
+  initialUploadSvg,
   drafted,
 }: {
   eventId: string;
@@ -59,9 +158,10 @@ export function MakerLogoDoor({
   drafted: boolean;
 }) {
   const router = useRouter();
-  const maker = useMaker();
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
-  const lastSvg = useRef<string | null>(null);
+  /* 🛑 Nothing saves until the couple has touched the studio AND the canvas
+     differs from how it stood then — see `lib/maker-logo-save-gate.ts`. */
+  const gate = useRef(createLogoSaveGate());
   const inFlight = useRef(false);
   const timer = useRef<number | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -75,7 +175,7 @@ export function MakerLogoDoor({
       }
       const m = currentMark();
       if (!m.ok || m.mark.source !== 'studio' || !m.mark.svg) return;
-      if (m.mark.svg === lastSvg.current || inFlight.current) return;
+      if (!gate.current.shouldSave(m.mark.svg) || inFlight.current) return;
       inFlight.current = true;
       setSave({ kind: 'saving' });
       try {
@@ -87,7 +187,7 @@ export function MakerLogoDoor({
         );
         const r = await hubDraftAction(eventId, fd);
         if (r.ok) {
-          lastSvg.current = m.mark.svg;
+          gate.current.saved(m.mark.svg);
           setSave({
             kind: 'saved',
             at: new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
@@ -110,12 +210,24 @@ export function MakerLogoDoor({
     timer.current = window.setTimeout(() => void flush(), PAUSE_MS);
   }, [flush]);
 
-  /* Back to the stage: save first, then show the stage (its canvas reloads on
-     the refresh, so the new logo is on the page at once). */
-  const close = useCallback(() => {
-    void flush({ refresh: true });
-    maker?.select(null);
-  }, [flush, maker]);
+  /* The couple reaching for the studio — their own pointer, key or typing,
+     caught BEFORE the edit lands (capture phase) — records the canvas as it
+     stood: the baseline a save must differ from. A script-made event is not
+     the couple (`isTrusted`). */
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const onReach = (e: Event) => {
+      if (!e.isTrusted) return;
+      const m = currentMark();
+      if (m.ok && m.mark.source === 'studio') gate.current.touch(m.mark.svg);
+    };
+    const REACH = ['pointerdown', 'keydown', 'beforeinput'] as const;
+    for (const t of REACH) host.addEventListener(t, onReach, true);
+    return () => {
+      for (const t of REACH) host.removeEventListener(t, onReach, true);
+    };
+  }, []);
 
   /* Any change on the canvas schedules a save after a short pause. */
   useEffect(() => {
@@ -165,19 +277,9 @@ export function MakerLogoDoor({
       <span className="text-ink/60">Every change saves to your draft by itself.</span>
     );
 
-  const back = maker ? PUBLIC_STAGE_LABELS[maker.stage] : 'your page';
-
   return (
     <section className="flex min-h-0 flex-1 flex-col" data-made-once="logo" data-maker-logo-page="">
       <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-ink/10 bg-cream px-2 py-1.5 md:px-3">
-        <button
-          type="button"
-          onClick={close}
-          className="sn-press inline-flex min-h-10 items-center gap-1 rounded-full px-3 text-[13px] font-semibold text-ink hover:bg-ink/5"
-        >
-          <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Back to {back}
-        </button>
         <p className="font-serif text-lg text-ink">Logo</p>
         {drafted ? (
           <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">

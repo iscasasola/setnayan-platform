@@ -110,5 +110,9 @@ export function makerPageCanvasSrc(
   // (`?preview=draft`) does — the editing canvas (`?editor=1`) skips it by
   // design (owner 2026-09-26: *"that role is for the preview stage"*).
   if (key === 'reveal') return `${publicLandingUrl}?phase=${phase}&preview=draft`;
+  // 🖼 The Hero page is the hero ALONE (owner 2026-09-27) — not the day, the
+  // place, the story or the host note under it. `only=hero` is honoured by the
+  // host canvas only (`canvasOnlyScene`, app/[slug]/_lib/editor-canvas.ts).
+  if (key === 'hero') return `${publicLandingUrl}?phase=${phase}&editor=1&only=hero`;
   return `${publicLandingUrl}?phase=${phase}&editor=1${anchor}`;
 }

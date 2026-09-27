@@ -217,7 +217,7 @@ export const STUDIO_HTML_V2 = `
         <div class="row" id="crosstop" style="display:none"></div>
         <div id="crossgap" style="display:none"><div class="lab2"><span>Gap · top letter <b id="cg_name"></b> (0 = none)</span><span id="cg_v"></span></div><input type="range" id="cg" min="0" max="14" step="1" aria-label="Gap under the top letter"></div>
       </div>
-      <div><p class="lab">Names</p><input class="names" id="names" type="text" value="Maria &amp; Juan" autocomplete="off" aria-label="Names — the initials come from here"></div>
+      <div><p class="lab">Names</p><input class="names" id="names" type="text" value="" placeholder="Add your names" autocomplete="off" aria-label="Names — the initials come from here"></div>
       <div class="box">
         <p class="lab">Colours</p>
         <div id="moods"></div>

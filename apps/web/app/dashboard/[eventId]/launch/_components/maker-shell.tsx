@@ -372,8 +372,6 @@ export function MakerShell({
                   )
                 }
                 controls={details?.controls ?? null}
-                onClose={() => select(null)}
-                closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
               />
             </div>
           ) : null}
@@ -393,8 +391,6 @@ export function MakerShell({
                   )
                 }
                 controls={rsvp?.controls ?? null}
-                onClose={() => select(null)}
-                closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
               />
             </div>
           ) : null}

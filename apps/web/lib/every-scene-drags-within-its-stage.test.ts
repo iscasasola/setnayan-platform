@@ -113,23 +113,33 @@ test('1 · …through the DRAFT: the preview shows it, Apply writes it (never Pr
 });
 
 test('2 · each stage keeps its OWN order — a drag on one never moves another', () => {
+  // The schedule and the venue are on BOTH the Invitation and the Day, so a drag
+  // on either stage rewrites their rows — the other stage's place must survive.
   const dayBefore = guestSees(base, 'event');
-  let rows = moveLive(base, 'rsvp', 'what_to_bring', 'up');
+  let rows = moveLive(base, 'rsvp', 'venue_map', 'up');
+  let invite = guestSees(rows, 'rsvp');
+  assert.ok(invite.indexOf('venue_map') < invite.indexOf('schedule'), 'the Invitation drag did not land');
   assert.deepEqual(guestSees(rows, 'event'), dayBefore, 'the Invitation drag moved On the Day');
-  // Now the day: the venue above the schedule.
-  rows = moveLive(rows, 'event', 'venue_map', 'up');
-  const day = guestSees(rows, 'event');
-  assert.deepEqual(day.slice(0, 2), ['venue_map', 'schedule']);
-  // …and the Invitation still has its own (the venue stays after the schedule there).
-  const invite = guestSees(rows, 'rsvp');
-  assert.ok(invite.indexOf('schedule') < invite.indexOf('venue_map'), `the day's drag moved the Invitation: ${invite.join(' → ')}`);
-  assert.ok(invite.indexOf('what_to_bring') < invite.indexOf('dress_code'), 'the Invitation lost its own drag');
+  // Now the day: the camera cues above the venue — every Day row is re-placed.
+  rows = moveLive(rows, 'event', 'photo_moments', 'up');
+  assert.deepEqual(guestSees(rows, 'event').slice(0, 3), ['schedule', 'photo_moments', 'venue_map']);
+  // …and the Invitation still has its own.
+  invite = guestSees(rows, 'rsvp');
+  assert.ok(invite.indexOf('venue_map') < invite.indexOf('schedule'), `the day's drag moved the Invitation: ${invite.join(' → ')}`);
   // In the DRAFT, places merge stage by stage: a second stage's drag keeps the first.
   const d1 = mergeHubDraft(emptyHubDraft(), { widgets: { venue_map: { stage_order: { rsvp: 4 } } } });
   const d2 = mergeHubDraft(d1, { widgets: { venue_map: { stage_order: { event: 0 } } } });
   assert.deepEqual(d2.widgets.venue_map?.stage_order, { rsvp: 4, event: 0 });
   // A stage nobody dragged reads the table.
   assert.deepEqual(guestSees(base, 'event'), [...STAGE_SCENES.event]);
+  // A scene with no saved place (added after the couple arranged) goes AFTER
+  // the placed ones — the placed order is never interleaved with the default.
+  const partly = base.map((r) =>
+    r.widget_type === 'what_to_bring' ? { ...r, config_json: { stage_order: { rsvp: 0 } } }
+    : r.widget_type === 'dress_code' ? { ...r, config_json: { stage_order: { rsvp: 1 } } }
+    : r,
+  );
+  assert.deepEqual(guestSees(partly, 'rsvp').slice(0, 3), ['what_to_bring', 'dress_code', 'countdown']);
 });
 
 test('3 · Film · Photos switches what guests see on the Save the Date', () => {

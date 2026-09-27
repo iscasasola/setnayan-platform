@@ -365,12 +365,11 @@ test("a scene's parts: the bridge writes the SAME scoped <style> the frame rende
     created_at: '',
     updated_at: '',
   };
-  const html = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, {
-      widget: widget as never,
-      children: React.createElement('section', null, 'x'),
-    }),
-  );
+  const frameProps: Parameters<typeof HubCanvasFrame>[0] = {
+    widget: widget as never,
+    children: React.createElement('section', null, 'x'),
+  };
+  const html = renderToStaticMarkup(React.createElement(HubCanvasFrame, frameProps));
   const serverCss = unesc(/<style[^>]*data-hub-els="details"[^>]*>([\s\S]*?)<\/style>/.exec(html)?.[1] ?? '');
   assert.ok(serverCss.includes('zoom:1.2'), 'the frame really rendered the choice');
 

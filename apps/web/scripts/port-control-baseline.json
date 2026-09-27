@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6fd71fb4b",
+  "generatedFromRef": "f29ab3a12",
   "routeCount": 435,
   "destinations": 947,
   "actions": 669,
-  "blocks": 4818,
+  "blocks": 4819,
   "routes": {
     "/": {
       "files": [
@@ -801,6 +801,7 @@
         "[slug]/_components/live-wall-block.tsx",
         "[slug]/_components/magic-move.tsx",
         "[slug]/_components/main-ground.tsx",
+        "[slug]/_components/maker-empty-scene.tsx",
         "[slug]/_components/not-you-switch.tsx",
         "[slug]/_components/our-love-story-widget.tsx",
         "[slug]/_components/our-photos-widget.tsx",
@@ -1096,6 +1097,7 @@
         "LoveStoryInput",
         "MagicMove",
         "MainGround",
+        "MakerEmptyScene",
         "Marked",
         "MediaStream",
         "MinuteEntry",

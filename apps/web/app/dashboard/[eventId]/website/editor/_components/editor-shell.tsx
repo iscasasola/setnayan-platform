@@ -29,9 +29,11 @@ import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
 import { DetailsBoundField } from './details-bound-field';
-import { detailsFactOfScene, type DetailsFact } from '@/lib/details-bound';
+import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
 import { isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
 import { CanvasWordsContext, type CanvasWords } from './canvas-words';
+import { NO_CANVAS_HOLD, canvasKeepsItsPage, heldCanvasFor, holdCanvas, type CanvasHold } from './element-preview';
+import { BufferedCanvasFrame } from './buffered-canvas-frame';
 import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -306,6 +308,35 @@ export function MakerWork({
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
   }, [selectionKey, stage]);
 
+  /* ⚡ THE CANVAS HOLD (`element-preview.ts`). The canvas iframe is keyed on
+     `canvasStamp`, not on every server render's `renderStamp`: an element
+     choice is already ON the canvas (the bridge's `elStyle`), so the render its
+     save triggers must not reload a page that already shows it. Every other
+     render — a scene order, a background, Undo, Restore, a render after the
+     hold lapsed — moves `canvasStamp` and reloads the canvas exactly as before. */
+  const [canvasStamp, setCanvasStamp] = useState(maker?.renderStamp ?? '');
+  const canvasHold = useRef<CanvasHold>(NO_CANVAS_HOLD);
+  const serverCanvases = elementEditing?.canvases;
+  const serverCanvasesRef = useRef(serverCanvases);
+  serverCanvasesRef.current = serverCanvases;
+  useEffect(() => {
+    const next = maker?.renderStamp ?? '';
+    if (canvasKeepsItsPage(canvasHold.current, serverCanvasesRef.current ?? {}, Date.now())) return;
+    canvasHold.current = NO_CANVAS_HOLD;
+    setCanvasStamp(next);
+  }, [maker?.renderStamp]);
+  /** A write that is not an element choice: the next render reloads the canvas. */
+  const releaseCanvas = () => {
+    canvasHold.current = NO_CANVAS_HOLD;
+  };
+  /* The sheet closed: its last save's refresh may still land (a few seconds),
+     then the hold ends — a later write elsewhere must reload the canvas. */
+  useEffect(() => {
+    if (elementTarget) return;
+    const hold = canvasHold.current;
+    if (hold.shows) canvasHold.current = { ...hold, until: Math.min(hold.until, Date.now() + 4_000) };
+  }, [elementTarget]);
+
   /* The first selection comes from the address (a save lands back here with
      `?scene=` or `?open=`). After that the shell's state owns it. */
   const seeded = useRef(false);
@@ -387,7 +418,12 @@ export function MakerWork({
       if (event.origin !== window.location.origin) return;
       const d = event.data as { source?: string; t?: string } | null;
       if (!d || d.source !== 'setnayan-site' || d.t !== 'ready') return;
-      for (const [key, text] of Object.entries(wordsPending.current)) postWords(key, text);
+      /* To the frame that said ready — with the canvas double-buffered it is the
+         one still loading behind the shown page, not yet `frameRef`. */
+      const to = event.source as Window | null;
+      for (const [key, text] of Object.entries(wordsPending.current)) {
+        to?.postMessage({ source: 'setnayan-editor', t: 'words', key, text }, window.location.origin);
+      }
     };
     window.addEventListener('message', onWordsReady);
     return () => window.removeEventListener('message', onWordsReady);
@@ -566,9 +602,28 @@ export function MakerWork({
      lists that tab's scenes in page order (`lib/maker-navigator-tabs.ts`). */
   const [canvasBar, setCanvasBar] = useState<NavigatorBarItem[] | null>(null);
   const [tabKey, setTabKey] = useState<string | null>(null);
+  /* 🪞 The double-buffered canvas (`buffered-canvas-frame.tsx`): the window of
+     a frame still loading behind the page — its `ready` is the buffer's to
+     handle (it swaps and carries the scroll), so it is skipped here. */
+  const loadingCanvas = useRef<Window | null>(null);
+  const [shownFrameKey, setShownFrameKey] = useState('');
+  /** A buffered swap: the page kept its place, so only re-read and re-mark. */
+  const onCanvasSwapped = (ready: unknown) => {
+    scheduleSnapshots(700);
+    const bar = (ready as { bar?: unknown } | null)?.bar;
+    if (bar !== undefined) setCanvasBar(parseNavigatorBar(bar));
+    const target = elementRef.current;
+    if (target) {
+      frameRef.current?.contentWindow?.postMessage(
+        { source: 'setnayan-editor', t: 'markEl', key: target.key, el: target.el },
+        window.location.origin,
+      );
+    }
+  };
   useEffect(() => {
     const onReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
+      if (event.source && event.source === loadingCanvas.current) return;
       const data = event.data as { source?: string; t?: string; bar?: unknown } | null;
       if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
       scheduleSnapshots(700);
@@ -614,7 +669,7 @@ export function MakerWork({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [scheduleSnapshots, stage, maker?.renderStamp, maker?.viewAsHref]);
+  }, [scheduleSnapshots, stage, shownFrameKey, maker?.viewAsHref]);
 
   /* ▶ "Play this scene" (the toolbar's ▶ menu) — played IN PLACE in the
      canvas: the bridge replays the selected section's entrance where it sits. */
@@ -654,6 +709,7 @@ export function MakerWork({
   ) => {
     const form = formRef.current;
     if (!form || pending) return;
+    releaseCanvas();
     for (const [name, val] of Object.entries(fields)) {
       const input = form.elements.namedItem(name) as HTMLInputElement | null;
       if (input) input.value = val;
@@ -963,7 +1019,14 @@ export function MakerWork({
           </li>
           {stage === 'save_the_date' && navigator.stdLead && elementEditing ? (
             <li className="flex shrink-0 flex-col items-start gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-std-lead="">
-              <StdLeadSwitch eventId={eventId} lead={navigator.stdLead} draftAction={elementEditing.draftAction} />
+              <StdLeadSwitch
+                eventId={eventId}
+                lead={navigator.stdLead}
+                draftAction={(id, fd) => {
+                  releaseCanvas();
+                  return elementEditing.draftAction(id, fd);
+                }}
+              />
             </li>
           ) : null}
           {activeTab?.leaves ? (
@@ -1331,11 +1394,19 @@ export function MakerWork({
         className="relative order-1 flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
       >
         {canvasSrc ? (
-          <iframe
-            ref={frameRef}
-            key={`${stage}:${maker.renderStamp}:${maker.viewAsHref ?? ''}`}
+          /* 🪞 Double-buffered (`buffered-canvas-frame.tsx`): a new render loads
+             behind the page the couple is looking at and swaps in when ready —
+             no blank screen, no reload from the top, after any Maker write. */
+          <BufferedCanvasFrame
+            frameKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
+            group={`${stage}:${maker.viewAsHref ?? ''}`}
             src={canvasSrc}
             title={`Your Event Hub — ${PUBLIC_STAGE_LABELS[stage]}`}
+            frameRef={frameRef}
+            loadingRef={loadingCanvas}
+            anchorKey={() => selectedKeyRef.current}
+            onShown={setShownFrameKey}
+            onSwapped={onCanvasSwapped}
             className={`min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
               device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
             }`}
@@ -1376,7 +1447,7 @@ export function MakerWork({
           <CanvasStaysOnThePage
             frameRef={frameRef}
             pagePath={publicLandingUrl}
-            resetKey={`${stage}:${maker.renderStamp}:${maker.viewAsHref ?? ''}`}
+            resetKey={shownFrameKey}
             stageLabel={PUBLIC_STAGE_LABELS[stage]}
             onBack={() => {
               const f = frameRef.current;
@@ -1392,11 +1463,23 @@ export function MakerWork({
         <ElementSheet
           eventId={eventId}
           target={elementTarget}
-          canvas={elementEditing.canvases[elementTarget.widgetType] ?? {}}
+          canvas={
+            heldCanvasFor(canvasHold.current, elementTarget.widgetType, Date.now()) ??
+            elementEditing.canvases[elementTarget.widgetType] ??
+            {}
+          }
           palette={elementEditing.palette}
           ownsPro={ownsPro}
           draftAction={elementEditing.draftAction}
           resize={toolsResize}
+          onPreview={(message) => {
+            frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+            // The navigator's tiles are pictures of the canvas — re-take them.
+            scheduleSnapshots(600);
+          }}
+          onSaving={(widgetType, canvas) => {
+            canvasHold.current = holdCanvas(canvasHold.current, elementEditing.canvases, widgetType, canvas, Date.now());
+          }}
           onPlay={() =>
             frameRef.current?.contentWindow?.postMessage(
               { source: 'setnayan-editor', t: 'playEl', key: elementTarget.key, el: elementTarget.el },
@@ -1431,6 +1514,45 @@ export function MakerWork({
                 draftAction={elementEditing.draftAction}
                 onOpenDetails={() => select?.({ kind: 'tool', key: 'details' })}
                 onStyle={() => setElementTarget({ key: `w:${selectedScene.type}`, widgetType: selectedScene.type, el: 'body' })}
+                onSaving={(patch, choice, text) => {
+                  /* ⚡ A WORDS SAVE JOINS THE CANVAS HOLD (`element-preview.ts`):
+                     the words are already on the page (the bridge's `words`), so
+                     the render the save brings back keeps the page instead of
+                     reloading it. "Use Details" and a cleared message reload —
+                     the page must draw what it did not preview. */
+                  if (choice === 'use-details' || text.trim().length === 0) {
+                    releaseCanvas();
+                    return;
+                  }
+                  const type = selectedScene.type;
+                  const now = Date.now();
+                  // "Everywhere" also changes every other scene still bound to Details.
+                  const others =
+                    choice === 'everywhere'
+                      ? Object.entries(elementEditing.canvases)
+                          .filter(([t]) => t !== type && !detailsBound.ownWords.includes(t))
+                          .filter(([t, c]) => detailsFactOfScene(t, c) === 'message' && !c.details?.message)
+                          .map(([t]) => t)
+                      : [];
+                  /* A scene the page drew EMPTY has no real look to preview in
+                     unless it carries one (`MakerEmptyScene` `look` — the Special
+                     message does); the page must redraw it, so it reloads. */
+                  const drawnEmpty = (t: string) =>
+                    !sceneBoundText('message', elementEditing.canvases[t], detailsBound.values.message).text;
+                  if ([type, ...others].some((t) => t !== 'special_message' && drawnEmpty(t))) {
+                    releaseCanvas();
+                    return;
+                  }
+                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? elementEditing.canvases[type] ?? {};
+                  canvasHold.current = holdCanvas(
+                    canvasHold.current,
+                    elementEditing.canvases,
+                    type,
+                    patch.widgets?.[type]?.canvas ?? shown,
+                    now,
+                  );
+                  for (const t of others) postWords(`w:${t}`, text);
+                }}
                 startingPoint={detailsBound.startingPoint ?? null}
                 startingHint={detailsBound.startingHint}
                 tour={detailsBound.tour}

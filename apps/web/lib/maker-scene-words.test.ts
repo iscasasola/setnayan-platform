@@ -302,7 +302,18 @@ test('the canvas tap and the navigator tile open Content with the box focused', 
   assert.match(tile, /setWordsFocus\(/);
   assert.match(shell, /<CanvasWordsContext\.Provider value=\{canvasWords\}>\s*<Inspector/, 'the boxes can reach the canvas');
   // A canvas that reloads while a box is open gets the words again.
-  assert.match(shell, /d\.t !== 'ready'\) return;\s*for \(const \[key, text\] of Object\.entries\(wordsPending\.current\)\) postWords\(key, text\)/);
+  const ready = shell.slice(shell.indexOf("d.t !== 'ready') return;"), shell.indexOf("window.addEventListener('message', onWordsReady)"));
+  assert.match(ready, /const to = event\.source as Window \| null;/, 'the words go to the frame that loaded (double-buffered canvas)');
+  assert.match(ready, /Object\.entries\(wordsPending\.current\)[\s\S]*to\?\.postMessage\(\{ source: 'setnayan-editor', t: 'words', key, text \}/);
+  // ⚡ A words save joins the canvas hold, so the page stays where it is.
+  const save = shell.slice(shell.indexOf('onSaving={(patch, choice, text) => {'), shell.indexOf('onSaving={(patch, choice, text) => {') + 3200);
+  assert.match(save, /canvasHold\.current = holdCanvas\(/, 'a words save holds the canvas');
+  assert.match(save, /choice === 'use-details' \|\| text\.trim\(\)\.length === 0\) \{\s*releaseCanvas\(\);/, 'what was not previewed reloads');
+  assert.match(
+    save,
+    /\[type, \.\.\.others\]\.some\(\(t\) => t !== 'special_message' && drawnEmpty\(t\)\)\) \{\s*releaseCanvas\(\);/,
+    'a scene drawn empty with no look of its own (an empty Letter) is redrawn, not held in placeholder type',
+  );
 });
 
 test('both words boxes preview as they are typed and take the focus', () => {
@@ -310,6 +321,7 @@ test('both words boxes preview as they are typed and take the focus', () => {
   assert.match(field, /useSceneWordsBox\(`w:\$\{widgetType\}`, box,/);
   assert.match(field, /onChange=\{\(e\) => \{[^}]*preview\(e\.target\.value\)/);
   assert.match(field, /ref=\{box\}/);
+  assert.match(field, /onSaving\?\.\(patch, choice, text\);\s*start\(/, 'the shell hears of a save BEFORE it is sent (the canvas hold)');
   const panel = read('app/dashboard/[eventId]/website/editor/_components/text-panel.tsx');
   assert.match(panel, /useSceneWordsBox\(previewKey, box,/);
   assert.match(panel, /onInput=\{\(e\) => preview\(e\.currentTarget\.value\)\}/);

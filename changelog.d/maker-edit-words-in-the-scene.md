@@ -18,6 +18,12 @@ editor, so we can edit here"* · *"needs to show on the scene editor"*.
   (stored in the scene's `config_json.canvas.details`, shown with "Edited here · ↺ Use Details"). Guest
   renders, the Letter scene and the navigator read the one rule, `sceneBoundText`
   (`lib/details-bound.ts`). First-visit tour `customer_details_bound_v1`.
+- **A words Save keeps the canvas in place** — it joins #6046's canvas hold (`element-preview.ts`
+  `holdCanvas`): the words are already on the page, so the render the save brings back does not reload
+  it. "Change it everywhere" also writes the new words onto every other scene still bound to Details.
+  "Use Details", a cleared message, and a scene the page drew empty with no real look of its own (an
+  empty Letter) reload instead, so the page draws what it did not preview. Words the box is still
+  holding are re-sent to the frame that loads (`event.source`, the double-buffered canvas).
 - **The navigator tile shows a scene's own version** of the message, and the tiles read the draft
   (they read the live message before).
 

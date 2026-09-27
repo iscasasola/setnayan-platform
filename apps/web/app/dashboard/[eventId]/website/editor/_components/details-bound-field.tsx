@@ -15,6 +15,7 @@ import {
   type DetailsFact,
 } from '@/lib/details-bound';
 import type { ElementDraftAction } from './element-sheet';
+import type { HubDraftPatch } from '@/lib/hub-draft';
 import { useSceneWordsBox } from './canvas-words';
 
 /**
@@ -58,6 +59,7 @@ export function DetailsBoundField({
   draftAction,
   onOpenDetails,
   onStyle,
+  onSaving,
   startingPoint = null,
   startingHint,
   tour = null,
@@ -74,6 +76,11 @@ export function DetailsBoundField({
   onOpenDetails?: () => void;
   /** Open the words' font · colour · size sheet (a tap on them now opens this box). */
   onStyle?: () => void;
+  /**
+   * ⚡ Called just before the save, with what is being saved — the shell uses it
+   * to keep the canvas page (the words are already on it) instead of reloading.
+   */
+  onSaving?: (patch: HubDraftPatch, choice: DetailsEditChoice, text: string) => void;
   /** AP-11 · the box starts somewhere when nothing is written — never saved by itself. */
   startingPoint?: string | null;
   startingHint?: string;
@@ -117,6 +124,7 @@ export function DetailsBoundField({
     const patch = detailsEditPatch({ choice, fact, text, widgetType, canvas: latest.current });
     const nextCanvas = patch.widgets?.[widgetType]?.canvas;
     if (nextCanvas) latest.current = nextCanvas;
+    onSaving?.(patch, choice, text);
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');

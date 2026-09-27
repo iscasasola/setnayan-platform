@@ -306,7 +306,6 @@ async function createJoinRequest(
         claimer_user_id: userId,
         claimer_name: answers.name,
         claimer_email: answers.email,
-        requested_role: 'guest',
         target_guest_id: requestId,
         status: 'pending_review',
         resolved_guest_id: null,

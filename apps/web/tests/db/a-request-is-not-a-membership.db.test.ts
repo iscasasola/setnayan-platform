@@ -76,10 +76,10 @@ async function request(eventId: string, name: string, email: string | null): Pro
 async function remember(eventId: string, userId: string, name: string, email: string, target: string) {
   await db.query(
     `INSERT INTO public.guest_claims
-       (event_id, claimer_user_id, claimer_name, claimer_email, requested_role,
+       (event_id, claimer_user_id, claimer_name, claimer_email,
         target_guest_id, status, resolved_guest_id, reviewed_at, reviewed_by_user_id,
         last_claim_at, updated_at)
-     VALUES ($1,$2,$3,$4,'guest',$5,'pending_review',NULL,NULL,NULL,now(),now())
+     VALUES ($1,$2,$3,$4,$5,'pending_review',NULL,NULL,NULL,now(),now())
      ON CONFLICT (event_id, claimer_user_id) DO UPDATE SET
        claimer_name = EXCLUDED.claimer_name, claimer_email = EXCLUDED.claimer_email,
        target_guest_id = EXCLUDED.target_guest_id, status = EXCLUDED.status,

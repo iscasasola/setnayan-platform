@@ -75,6 +75,10 @@ export function VectorStudio({
   const [previewSvg, setPreviewSvg] = useState<string | null>(null);
   const [previewAnim, setPreviewAnim] = useState<StudioAnim | null>(null);
   const [swEl, setSwEl] = useState<HTMLElement | null>(null);
+  /* The reveal preview's letters when it has no drawn mark — the couple's own
+     initials, never a sample couple's (owner 2026-09-27). The preview always
+     carries the mark it plays, so a nameless event simply shows no letters. */
+  const previewText = initialNames?.trim() ?? '';
 
   // The portal preview auto-dismisses after the reveal has finished + settled,
   // returning the canvas — the preview is a moment, not a mode. Keyed on
@@ -282,15 +286,15 @@ export function VectorStudio({
               }}
             >
               {previewKind === 'molten' ? (
-                <MoltenMonogramInline markSvg={previewSvg} monogram={initialNames ?? 'M & J'} />
+                <MoltenMonogramInline markSvg={previewSvg} monogram={previewText} />
               ) : previewKind === 'gold' && !previewAnim ? (
-                <GoldMonogramReveal markSvg={previewSvg} monogram={initialNames ?? 'M & J'} inline />
+                <GoldMonogramReveal markSvg={previewSvg} monogram={previewText} inline />
               ) : (
                 <div className="absolute inset-[8%]">
                   <StudioRevealPlayer
                     key={`${previewKind}-${previewAnim?.dur ?? 0}-${previewAnim?.delay ?? 0}`}
                     svg={previewSvg}
-                    monogram={initialNames ?? 'M & J'}
+                    monogram={previewText}
                     anim={previewAnim ?? { kind: previewKind, dur: 6, smooth: 0.9, delay: 0.3 }}
                     allowWebgl={false}
                   />

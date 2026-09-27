@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d6b84fc48",
+  "generatedFromRef": "57c176064",
   "routeCount": 435,
-  "destinations": 945,
+  "destinations": 947,
   "actions": 669,
-  "blocks": 4806,
+  "blocks": 4809,
   "routes": {
     "/": {
       "files": [
@@ -5812,6 +5812,7 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch?tool=rsvp-page",
         "/dashboard/[seg]/studio/save-the-date",
         "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/website",
@@ -6027,6 +6028,7 @@
         "/[seg]",
         "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/launch?tool=prints",
@@ -6066,6 +6068,7 @@
         "InfoTip",
         "LifecyclePhase",
         "Link",
+        "LogoStudio",
         "MadeOnce",
         "MakerBar",
         "MakerContext.Provider",
@@ -6074,10 +6077,11 @@
         "MakerDevice",
         "MakerLogoDoor",
         "MakerPage",
+        "MakerPageFrame",
         "MakerPlayMenu",
         "MakerPrints",
         "MakerRevealPicker",
-        "MakerRsvpAsk",
+        "MakerRsvpSettings",
         "MakerSelection",
         "MakerShell",
         "MakerState",
@@ -6099,6 +6103,7 @@
         "State",
         "Switch",
         "Toggle",
+        "UploadedLogo",
         "VectorStudio",
         "ViewAsSwitch",
         "WebsiteEditorPage"

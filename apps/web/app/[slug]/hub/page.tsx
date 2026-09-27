@@ -69,6 +69,7 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { venueIsOpen } from '@/lib/venue-disclosure';
+import { loadVenueBookings, resolveEventVenues, venueSearchQuery, VENUE_ROLE_LABEL } from '@/lib/event-venues';
 import { ScheduleWidget } from '../_components/schedule-widget';
 import { GuestCodeKeepers } from '../_components/guest-code-keepers';
 import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card';
@@ -120,7 +121,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, landing_page_visibility, scheduled_launch_at',
+      'event_id, slug, display_name, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, landing_page_visibility, scheduled_launch_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -522,11 +523,6 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   });
 
   // ── Directions availability. ───────────────────────────────────────────────
-  const hasCoords =
-    event.venue_latitude != null &&
-    event.venue_longitude != null &&
-    Number.isFinite(event.venue_latitude) &&
-    Number.isFinite(event.venue_longitude);
   // 🔒 The precise location is for people who have answered (owner 2026-09-20 ·
   // lib/venue-disclosure.ts). This hub is the DAY-OF surface, and the rule opens
   // on the event day anyway — so this only closes it for a guest who opens the
@@ -538,7 +534,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     // The VENUE's day, not the server's — this runs in UTC on Vercel.
     timeZone: eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude),
   });
-  const hasDirections = venueOpen && (hasCoords || Boolean((event.venue_address ?? '').trim()));
+  // 🏛💒 BOTH VENUES (2026-09-27 · lib/event-venues.ts) — the ceremony and the
+  // reception, the same answer the invitation page draws. Read ONLY when the
+  // venue is open to this viewer: a closed venue needs no address, so none is
+  // fetched.
+  const hubVenues = venueOpen ? resolveEventVenues(await loadVenueBookings(admin, event.event_id), event) : [];
+  const hasDirections = venueOpen && (hubVenues.some((v) => venueSearchQuery(v) || (v.latitude != null && v.longitude != null)));
 
   const firstName = guest?.first_name ?? null;
   // Only the LIVE window with an active/upcoming block should read "happening
@@ -772,23 +773,23 @@ export default async function EventHubPage({ params, searchParams }: Props) {
 
   const directionsPanel = hasDirections ? (
     <div className="mx-auto max-w-md space-y-3">
-      <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-6">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Getting there
-        </p>
-        <h3 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">
-          {event.venue_name ?? 'Venue'}
-        </h3>
-        {event.venue_address ? (
-          <p className="text-sm text-ink/65">{event.venue_address}</p>
-        ) : null}
-        <NavLinksRow
-          latitude={event.venue_latitude ?? null}
-          longitude={event.venue_longitude ?? null}
-          addressFallback={event.venue_address ?? event.venue_name ?? null}
-          label="Open in"
-        />
-      </article>
+      {hubVenues.map((v) => (
+        <article key={v.role} data-venue-role={v.role} className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-6">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+            {hubVenues.length > 1 ? `Getting there · ${VENUE_ROLE_LABEL[v.role]}` : 'Getting there'}
+          </p>
+          <h3 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">
+            {v.name ?? 'Venue'}
+          </h3>
+          {v.address ? <p className="text-sm text-ink/65">{v.address}</p> : null}
+          <NavLinksRow
+            latitude={v.latitude ?? null}
+            longitude={v.longitude ?? null}
+            addressFallback={venueSearchQuery(v)}
+            label="Open in"
+          />
+        </article>
+      ))}
     </div>
   ) : null;
 

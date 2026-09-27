@@ -2,6 +2,7 @@ import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import type { EventRow } from '../_lib/types';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
+import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue } from '@/lib/event-venues';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)
@@ -39,74 +40,106 @@ export function VenueWidget({ event }: { event: EventRow }) {
   // on every shop page with coordinates — a blocked iframe fails EXACTLY like a
   // missing one. `lib/csp-embeds-are-allowed.test.ts` pins the host, and now
   // names this surface too.
-  const hasCoords = event.venue_latitude != null && event.venue_longitude != null;
+  //
+  // 🏛💒 TWO VENUES (2026-09-27 · lib/event-venues.ts). A wedding has a ceremony
+  // and a reception (DECISION_LOG 2026-09-03), and this scene read ONE venue off
+  // the `events` row — so `cale-ice`, with a church and a hotel both booked,
+  // drew "Add your venue." Each venue now gets its own plate, labelled
+  // "Ceremony" / "Reception" (or "Ceremony & Reception" when they are one
+  // place), each with its own map and directions. `event.venues` is attached by
+  // page.tsx and withheld by `withheldVenue` like the event's own columns; a
+  // caller that never loaded it falls back to the one venue on the event row.
+  const venues: EventVenue[] = event.venues?.length ? event.venues : legacyVenues(event);
 
   return (
     <section className="space-y-4">
       <p className="pahina-eyebrow">
-        <span>The venue</span>
+        <span>{venues.length > 1 ? 'The venues' : 'The venue'}</span>
       </p>
-      <div>
-        {hasCoords ? (
-          <VendorLocationMap
-            latitude={event.venue_latitude ?? null}
-            longitude={event.venue_longitude ?? null}
-            // A non-identifying label. On a PRIVATE event the venue name is not
-            // secret from someone already reading the invitation — this widget
-            // renders the name in the heading two lines below — so passing it is
-            // no wider a disclosure than the block it sits in. With no name we
-            // say "the venue" rather than the component's vendor-shaped default.
-            label={event.venue_name ?? 'the venue'}
-            flush
-          />
-        ) : (
-          <div className="h-32 border border-b-0 border-ink/10 bg-gradient-to-br from-veil via-paper-deep to-gild/25" />
-        )}
-        <div className="pahina-plate space-y-3">
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-            Ceremony &amp; Reception
-          </p>
-          {/* "Venue to be confirmed" is only honest when nothing locates the
-              venue. With a pin on the map it contradicts the map directly above
-              it, so the heading steps aside and the map answers the question.
-              🔒 And a WITHHELD venue is not an unconfirmed one (owner 2026-09-26,
-              cale-ice: pin set, guest not yet replied → the page said "Venue to be
-              confirmed"). `withheldVenue` clears the pin, so without this the
-              heading would claim the couple has no venue; the withheld line below
-              says the true thing — it opens when they reply. */}
-          {event.venue_name ? (
-            <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
-              {event.venue_name}
-            </h3>
-          ) : hasCoords || event.venue_withheld ? null : (
-            <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
-              Venue to be confirmed
-            </h3>
-          )}
-          {event.venue_address ? (
-            <p className="text-sm leading-relaxed text-ink/65">{event.venue_address}</p>
-          ) : null}
-          {/* 🔒 CLOSED UNTIL THEY REPLY (owner 2026-09-20 · lib/venue-disclosure.ts).
-              The line is not decoration: an address that simply vanishes reads as a
-              couple who has not booked a venue. It says which it is.
-
-              ⚠ AND THE DIRECTIONS ROW MUST GO WITH IT. `NavLinksRow` falls back to
-              `venue_name` when there is no address or pin, so leaving it mounted
-              would hand out a maps search for the venue by name — the withheld fact,
-              one tap later. */}
-          {event.venue_withheld ? (
-            <p className="text-sm leading-relaxed text-ink/65">{VENUE_WITHHELD_LINE}</p>
-          ) : (
-            <NavLinksRow
-              latitude={event.venue_latitude ?? null}
-              longitude={event.venue_longitude ?? null}
-              addressFallback={event.venue_address ?? event.venue_name ?? null}
-              label="Get directions"
-              compact
-            />
-          )}
-        </div>
-      </div>
+      {venues.map((venue) => (
+        <VenuePlate key={venue.role} venue={venue} event={event} />
+      ))}
+      {/* 🔒 CLOSED UNTIL THEY REPLY (owner 2026-09-20 · lib/venue-disclosure.ts).
+          The line is not decoration: an address that simply vanishes reads as a
+          couple who has not booked a venue. It says which it is — once, under
+          every venue, since one reply opens them all. */}
+      {event.venue_withheld ? (
+        <p className="text-sm leading-relaxed text-ink/65">{VENUE_WITHHELD_LINE}</p>
+      ) : null}
     </section>
+  );
+}
+
+/** The one venue a caller that never loaded `event.venues` still knows about. */
+function legacyVenues(event: EventRow): EventVenue[] {
+  return [
+    {
+      role: 'both',
+      name: event.venue_name ?? null,
+      address: event.venue_address ?? null,
+      latitude: event.venue_latitude ?? null,
+      longitude: event.venue_longitude ?? null,
+    },
+  ];
+}
+
+function VenuePlate({ venue, event }: { venue: EventVenue; event: EventRow }) {
+  const hasCoords = venue.latitude != null && venue.longitude != null;
+  return (
+    <div data-venue-role={venue.role}>
+      {hasCoords ? (
+        <VendorLocationMap
+          latitude={venue.latitude ?? null}
+          longitude={venue.longitude ?? null}
+          // A non-identifying label. On a PRIVATE event the venue name is not
+          // secret from someone already reading the invitation — this plate
+          // renders the name in the heading two lines below — so passing it is
+          // no wider a disclosure than the block it sits in. With no name we
+          // say "the venue" rather than the component's vendor-shaped default.
+          label={venue.name ?? 'the venue'}
+          flush
+        />
+      ) : (
+        <div className="h-32 border border-b-0 border-ink/10 bg-gradient-to-br from-veil via-paper-deep to-gild/25" />
+      )}
+      <div className="pahina-plate space-y-3">
+        <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+          {VENUE_ROLE_LABEL[venue.role]}
+        </p>
+        {/* "Venue to be confirmed" is only honest when nothing locates the
+            venue. With a pin on the map it contradicts the map directly above
+            it, so the heading steps aside and the map answers the question.
+            🔒 And a WITHHELD venue is not an unconfirmed one (owner 2026-09-26,
+            cale-ice: pin set, guest not yet replied → the page said "Venue to be
+            confirmed"). `withheldVenue` clears the pin, so without this the
+            heading would claim the couple has no venue; the withheld line under
+            the plates says the true thing — it opens when they reply. */}
+        {venue.name ? (
+          <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
+            {venue.name}
+          </h3>
+        ) : hasCoords || event.venue_withheld ? null : (
+          <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
+            Venue to be confirmed
+          </h3>
+        )}
+        {venue.address ? (
+          <p className="text-sm leading-relaxed text-ink/65">{venue.address}</p>
+        ) : null}
+        {/* ⚠ THE DIRECTIONS ROW GOES WITH THE ADDRESS. `NavLinksRow` falls back
+            to a maps search when there is no pin, so leaving it mounted for a
+            withheld venue would hand out a search for the venue by name — the
+            withheld fact, one tap later. */}
+        {event.venue_withheld ? null : (
+          <NavLinksRow
+            latitude={venue.latitude ?? null}
+            longitude={venue.longitude ?? null}
+            addressFallback={venueSearchQuery(venue)}
+            label="Get directions"
+            compact
+          />
+        )}
+      </div>
+    </div>
   );
 }

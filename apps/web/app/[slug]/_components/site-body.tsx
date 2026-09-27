@@ -7,6 +7,7 @@ import { ArrivalActionRow } from './arrival-action';
 import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
+import { firstVenue, receptionVenue, venueNamesLine } from '@/lib/event-venues';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
 import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
@@ -661,6 +662,14 @@ export async function SiteBody({
   // dropped from the widened list so the menu never points at an empty
   // section. Unmapped types fail OPEN (assumed present). Byte-inert on the
   // flag-off path (resolveSiteBodyPlan ignores `content` when openBrowse=false).
+  // 🏛💒 WHERE, ONCE (2026-09-27 · lib/event-venues.ts). Every line below that
+  // names the venue reads it from here, so the greeting, the masthead, the
+  // keepsake, the checklist and the calendar cannot name different places. All
+  // three read the already-withheld `event` — never an address the viewer may
+  // not have yet.
+  const venueLine = venueNamesLine(event);
+  const firstPlace = firstVenue(event);
+  const receptionPlace = receptionVenue(event);
   const openBrowseContent = {
     schedule: scheduleBlocks.length > 0,
     venue_map: hasVenueContent(event),
@@ -965,8 +974,8 @@ export async function SiteBody({
       <SaveTheDateView
         displayName={event.display_name}
         dateIso={event.event_date}
-        venueName={event.venue_name}
-        venueAddress={event.venue_address}
+        venueName={firstPlace ? firstPlace.name : event.venue_name}
+        venueAddress={firstPlace ? firstPlace.address : event.venue_address}
         publicId={event.public_id}
         loveStory={event.love_story}
         // Anonymous with no hero media: the STD view carries the text hero
@@ -1153,7 +1162,7 @@ export async function SiteBody({
             {...heroElements}
             twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
-            venueName={event.venue_name}
+            venueName={venueLine}
             badgeSlot={dayOfBadge}
             monogramSlot={
               <HeroMonogram
@@ -1165,7 +1174,7 @@ export async function SiteBody({
               />
             }
             mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
-            mediaCaption={event.venue_name}
+            mediaCaption={venueLine}
           />
         ) : null}
         {phasedBody(() => (
@@ -1183,7 +1192,7 @@ export async function SiteBody({
                   card={inviteCard ?? undefined}
                   twoPeople={clientWords.twoPeople}
                   eventDate={event.event_date}
-                  venueName={event.venue_name}
+                  venueName={venueLine}
                   badgeSlot={dayOfBadge}
                   monogramSlot={
                     <HeroMonogram
@@ -1359,6 +1368,7 @@ export async function SiteBody({
                   dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
                   venueName={event.venue_name}
                   venueAddress={event.venue_address}
+                  venues={event.venues}
                 />
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {plan.publicSafeWidgets.length === 0 ? (
@@ -1747,10 +1757,10 @@ export async function SiteBody({
             ? 'We hope you can be with us on'
             : 'We’d love to celebrate with you on'}{' '}
           <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
-          {event.venue_name ? (
+          {venueNamesLine(event, ' and ') ? (
             <>
               {' '}
-              — at <span className="font-medium text-ink">{event.venue_name}</span>
+              — at <span className="font-medium text-ink">{venueNamesLine(event, ' and ')}</span>
             </>
           ) : null}
           . You&rsquo;re joining us as{' '}
@@ -1827,7 +1837,7 @@ export async function SiteBody({
               {...heroElements}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
-              venueName={event.venue_name}
+              venueName={venueLine}
               monogramSlot={
                 <HeroMonogram
                   event={event}
@@ -1838,7 +1848,7 @@ export async function SiteBody({
                 />
               }
               mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
-              mediaCaption={event.venue_name}
+              mediaCaption={venueLine}
             />
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
             <PahinaMasthead
@@ -1848,7 +1858,7 @@ export async function SiteBody({
               card={inviteCard ?? undefined}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
-              venueName={event.venue_name}
+              venueName={venueLine}
               monogramSlot={
                 <HeroMonogram
                   event={event}
@@ -1889,10 +1899,10 @@ export async function SiteBody({
                 dressCodeConfig: event.dress_code_config ?? null,
                 rolePalette: event.role_palette,
                 arriveBy: firstScheduleTimeLabel,
-                venueName: event.venue_name,
-                venueAddress: event.venue_address,
-                venueLatitude: event.venue_latitude,
-                venueLongitude: event.venue_longitude,
+                venueName: firstPlace ? firstPlace.name : event.venue_name,
+                venueAddress: firstPlace ? firstPlace.address : event.venue_address,
+                venueLatitude: firstPlace ? firstPlace.latitude : event.venue_latitude,
+                venueLongitude: firstPlace ? firstPlace.longitude : event.venue_longitude,
                 tableLabel: guestHubData.tableLabel,
               })}
               initialTicks={g.checklist.ticks}
@@ -1941,7 +1951,7 @@ export async function SiteBody({
           {seatMap ? (
             <YourSeatBlock
               tableLabel={guestHubData.tableLabel ?? 'your table'}
-              venueName={event.venue_name}
+              venueName={receptionPlace ? receptionPlace.name : event.venue_name}
               tables={seatMap.tables}
               entrance={seatMap.entrance}
               targetTableId={seatMap.targetTableId}
@@ -2239,7 +2249,7 @@ export async function SiteBody({
                       displayName={guestHubData.displayName}
                       guestId={guest.guest_id}
                       tableLabel={guestHubData.tableLabel}
-                      venueName={event.venue_name}
+                      venueName={venueLine}
                       eventDate={event.event_date}
                     />
                   ) : guest.rsvp_status === 'declined' ? (
@@ -2399,7 +2409,7 @@ export async function SiteBody({
               displayName={guestHubData.displayName}
               guestId={guest.guest_id}
               tableLabel={guestHubData.tableLabel}
-              venueName={event.venue_name}
+              venueName={venueLine}
               eventDate={event.event_date}
             />
           ) : null)}

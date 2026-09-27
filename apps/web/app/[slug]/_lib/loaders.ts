@@ -66,7 +66,7 @@ import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
-import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { loadVenueBookings, resolveEventVenues } from '@/lib/event-venues';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { readHubDraftForHostPreview } from '@/lib/hub-draft-store';
@@ -698,16 +698,31 @@ export const loadMedia = cache(
     // event's free-text venue. Ceremony = the finalized booking, else the couple's
     // manual ceremony venue (std_film_ceremony_name, owner 2026-06-19). The film
     // shows whichever venues resolved.
-    const stdFinalizedVenues = await resolveStdFinalizedVenues(admin, event.event_id);
+    //
+    // 🏛💒 ONE READ FOR BOTH (2026-09-27 · lib/event-venues.ts). The same pick
+    // also resolves the Event Hub's two venues (`eventVenues`) — ceremony and
+    // reception, each with the address and pin on record — so the film and the
+    // Venue scene cannot name different places. `eventVenues` is UN-WITHHELD:
+    // page.tsx hands it to `withheldVenue`, which closes each address and pin
+    // for a viewer who has not replied, exactly as it closes the event's own.
+    const venueBookings = await loadVenueBookings(admin, event.event_id);
     const stdVenues = {
       ceremony:
-        stdFinalizedVenues.ceremony ?? (event.std_film_ceremony_name as string | null) ?? null,
+        venueBookings.ceremony?.name ?? (event.std_film_ceremony_name as string | null) ?? null,
       reception:
-        stdFinalizedVenues.reception ??
+        venueBookings.reception?.name ??
         (event.std_film_venue_name as string | null) ??
         event.venue_name,
       receptionCity: (event.std_film_venue_city as string | null) ?? event.venue_address,
     };
+    const eventVenues = resolveEventVenues(venueBookings, {
+      venue_name: event.venue_name,
+      venue_address: event.venue_address,
+      venue_latitude: event.venue_latitude,
+      venue_longitude: event.venue_longitude,
+      std_film_ceremony_name: event.std_film_ceremony_name as string | null,
+      std_film_venue_name: event.std_film_venue_name as string | null,
+    });
 
     // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
     // URLs up-front so both render paths share the result. events.our_photos is a
@@ -745,6 +760,7 @@ export const loadMedia = cache(
       stdVideoUrl,
       stdVideoPosterUrl,
       stdVenues,
+      eventVenues,
       ourPhotoUrls,
       ownsStdReveal,
     };

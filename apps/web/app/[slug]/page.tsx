@@ -577,9 +577,15 @@ async function InvitationBody({
     stdVideoUrl,
     stdVideoPosterUrl,
     stdVenues,
+    eventVenues,
     ourPhotoUrls,
     ownsStdReveal,
   } = await timer.track('media', () => loadMedia(admin, event));
+  // 🏛💒 The event WITH its ceremony + reception venues (lib/event-venues.ts).
+  // Only the two SiteBody mounts below read it, and both go through
+  // `withheldVenue` — which closes every venue's address and pin — unless this
+  // viewer has replied. Never hand `venuedEvent` to a render un-withheld.
+  const venuedEvent = { ...event, venues: eventVenues };
 
   // Per-event widget registry — moved verbatim to `loadWidgets`
   // (_lib/loaders.ts), which carries the registry's full doc block.
@@ -1133,7 +1139,7 @@ async function InvitationBody({
     // render branch spreads this object, so a branch that knows nothing about
     // the viewer's reply shows no address, no map and no directions. The guest
     // branch below is the ONLY place that opens it, and only on a real reply.
-    event: withheldVenue(event),
+    event: withheldVenue(venuedEvent),
     monogram,
     animatedMonogram,
     studioAnim,
@@ -1549,7 +1555,7 @@ async function InvitationBody({
     <>
       <SiteBody
         {...siteProps}
-        event={venueOpen ? event : withheldVenue(event)}
+        event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         identity={guestIdentity({
           guest,
           qrSvg,

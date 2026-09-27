@@ -14,6 +14,7 @@ import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import type { StdBackground } from '@/lib/std-backgrounds';
 import type { ScheduleBlockRow } from '@/lib/schedule';
+import type { EventVenue } from '@/lib/event-venues';
 import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import type { GuestLiveGallery } from '@/lib/guest-live-gallery';
 import type { VendorCard } from '@/lib/vendor-cards';
@@ -87,6 +88,11 @@ export type EventRow = {
   /** True when the precise location is closed because the viewer has not
    *  replied yet (lib/venue-disclosure.ts). The NAME is still present. */
   venue_withheld?: boolean;
+  /** 🏛💒 The event's venues — ceremony and reception (or one, when they are the
+   *  same place) — from `lib/event-venues.ts`. Attached by page.tsx; withheld
+   *  with the rest of the precise location (`withheldVenue`). Absent on a path
+   *  that never loaded them, in which case the venue_* columns above answer. */
+  venues?: EventVenue[];
   slug: string;
   // Event type (events.event_type). Drives event-type-adaptive guest copy —
   // weddings keep "wedding", other types read "event" — now that non-wedding
@@ -284,6 +290,9 @@ export type EventMedia = {
   stdVideoUrl: string | null;
   stdVideoPosterUrl: string | null;
   stdVenues: StdVenues;
+  /** The Event Hub's venues — ceremony + reception, UN-withheld (page.tsx
+   *  withholds them per viewer). `lib/event-venues.ts`. */
+  eventVenues: EventVenue[];
   ourPhotoUrls: string[];
   ownsStdReveal: boolean;
 };

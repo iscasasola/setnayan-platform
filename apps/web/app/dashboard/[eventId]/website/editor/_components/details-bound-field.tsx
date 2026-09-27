@@ -15,6 +15,7 @@ import {
   type DetailsFact,
 } from '@/lib/details-bound';
 import type { ElementDraftAction } from './element-sheet';
+import { useSceneWordsBox } from './canvas-words';
 
 /**
  * A SCENE'S DETAILS FACT, EDITED ON THE SCENE — and the one question it asks.
@@ -39,6 +40,14 @@ import type { ElementDraftAction } from './element-sheet';
  *
  * Phone first: stacked, full-width, 44 px targets; the question replaces the
  * Save row in place — no pop-up over the scene.
+ *
+ * ✍ THE MAKER IS THE EDITOR (owner 2026-09-27: *"this is the editor, so we can
+ * edit here"* · *"needs to show on the scene editor"*). This is the scene's ONE
+ * words box — it took the Content tab's place from the plain `TextPanel`, and
+ * keeps that box's starting point (AP-11 `invitationWordsDraft`, handed in as
+ * `startingPoint` with its hint): what is typed is on the canvas scene as it is
+ * typed (`canvas-words.tsx`), a tap on the scene's words focuses it, and
+ * nothing is saved until Save.
  */
 export function DetailsBoundField({
   eventId,
@@ -48,6 +57,9 @@ export function DetailsBoundField({
   detailsValue,
   draftAction,
   onOpenDetails,
+  onStyle,
+  startingPoint = null,
+  startingHint,
   tour = null,
 }: {
   eventId: string;
@@ -60,6 +72,11 @@ export function DetailsBoundField({
   draftAction: ElementDraftAction;
   /** Open the Details page in the Maker body. */
   onOpenDetails?: () => void;
+  /** Open the words' font · colour · size sheet (a tap on them now opens this box). */
+  onStyle?: () => void;
+  /** AP-11 · the box starts somewhere when nothing is written — never saved by itself. */
+  startingPoint?: string | null;
+  startingHint?: string;
   /** The first-visit tour (`MiniTour`), server-rendered and handed down. */
   tour?: ReactNode;
 }) {
@@ -70,18 +87,28 @@ export function DetailsBoundField({
   const latest = useRef<HubSectionCanvas>(canvas);
   const bound = sceneBoundText(fact, canvas, detailsValue);
   const shown = bound.text ?? '';
-  const [text, setText] = useState(shown);
+  /* Nothing written anywhere → the box opens on the starting point (AP-11). */
+  const opening = shown || startingPoint || '';
+  const [text, setText] = useState(opening);
   const canvasJson = JSON.stringify(canvas);
+  const box = useRef<HTMLTextAreaElement>(null);
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const preview = useSceneWordsBox(`w:${widgetType}`, box, () => shownRef.current);
 
   /* A fresh canvas / Details value from the server (after the refresh) is the truth again. */
   useEffect(() => {
     latest.current = canvas;
-    setText(sceneBoundText(fact, canvas, detailsValue).text ?? '');
+    const next = sceneBoundText(fact, canvas, detailsValue).text ?? '';
+    setText(next || startingPoint || '');
     setAsking(false);
+    // The box opened on words the canvas does not show yet — show them there.
+    if (!next && startingPoint) preview(startingPoint);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasJson, detailsValue, fact, widgetType]);
 
   const label = DETAILS_FACT[fact].label;
+  const onStartingPoint = !shown && Boolean(startingPoint) && text === startingPoint;
   const changed = text.trim() !== shown.trim();
   const blank = text.trim().length === 0;
 
@@ -110,7 +137,7 @@ export function DetailsBoundField({
       {tour}
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor={fieldId} className="text-sm font-semibold text-ink">
-          {label}
+          {DETAILS_FACT[fact].boxLabel}
         </label>
         {bound.overridden ? (
           <button
@@ -136,16 +163,19 @@ export function DetailsBoundField({
 
       <textarea
         id={fieldId}
+        ref={box}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
           setAsking(false);
+          preview(e.target.value);
         }}
         rows={4}
         maxLength={DETAILS_OVERRIDE_MAX}
         placeholder="A heartfelt note to everyone joining you…"
-        className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] leading-relaxed text-ink"
+        className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[16px] leading-relaxed text-ink"
       />
+      {onStartingPoint && startingHint ? <p className="text-[12px] text-ink/55">{startingHint}</p> : null}
 
       {asking && changed ? (
         <div role="group" aria-label={`Where should this change to your ${label.toLowerCase()} go?`} data-details-ask="" className="space-y-2 rounded-xl bg-ink/[0.04] p-3">
@@ -174,8 +204,9 @@ export function DetailsBoundField({
           <button
             type="button"
             onClick={() => {
-              setText(shown);
+              setText(opening);
               setAsking(false);
+              preview(opening);
             }}
             className="sn-press flex min-h-10 w-full items-center justify-center text-[13px] font-semibold text-ink/65 hover:text-ink"
           >
@@ -193,6 +224,16 @@ export function DetailsBoundField({
           >
             Save
           </button>
+          {onStyle ? (
+            <button
+              type="button"
+              data-details-style=""
+              onClick={onStyle}
+              className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-ink/70 underline underline-offset-2 hover:text-ink"
+            >
+              Font, colour &amp; size
+            </button>
+          ) : null}
           {onOpenDetails ? (
             <button
               type="button"

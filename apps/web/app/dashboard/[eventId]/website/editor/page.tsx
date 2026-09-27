@@ -427,6 +427,24 @@ export default async function WebsiteEditorPage({
      panel that just saved it. (Locks and grandfathering still read `event`:
      what the couple already HAS live, never what they are trying.) */
   const drafted = overlayHubDraftEvent(event as Record<string, unknown>, hubDraft) as typeof event;
+  /* AP-11 · THE MESSAGE BOX STARTS SOMEWHERE (see the Special message row
+     below) — what both boxes that show it open on: the couple's own words
+     first, else the starting point (null once words exist, so it can never
+     sit on top of them). */
+  const messageBoxOpens =
+    (drafted.special_message as string | null) ||
+    invitationWordsDraft({
+      displayName: (event.display_name as string | null) ?? null,
+      eventDate: (event.event_date as string | null) ?? null,
+      venueName: (event.venue_name as string | null) ?? null,
+      occasionNoun: profile.terminology.occasionNoun,
+      // 🕊 THE LINE THAT MATTERS MOST. A wake takes the solemn arm; a cheerful
+      // auto-draft on a funeral page is precisely the defect the whole solemn
+      // register exists to prevent.
+      register: profile.terminology.register,
+      existing: (drafted.special_message as string | null) ?? null,
+    }) ||
+    null;
 
   const story: LoveStoryBlob =
     drafted.love_story && typeof drafted.love_story === 'object'
@@ -802,21 +820,9 @@ export default async function WebsiteEditorPage({
                  ⛔ NOT A LANGUAGE MODEL. Deterministic, and it says only what
                  the event already knows; with nothing known it returns null and
                  the box is exactly as blank as before. */
-              defaultValue={
-                (drafted.special_message as string | null) ||
-                invitationWordsDraft({
-                  displayName: (event.display_name as string | null) ?? null,
-                  eventDate: (event.event_date as string | null) ?? null,
-                  venueName: (event.venue_name as string | null) ?? null,
-                  occasionNoun: profile.terminology.occasionNoun,
-                  // 🕊 THE LINE THAT MATTERS MOST. A wake takes the solemn arm;
-                  // a cheerful auto-draft on a funeral page is precisely the
-                  // defect the whole solemn register exists to prevent.
-                  register: profile.terminology.register,
-                  existing: (drafted.special_message as string | null) ?? null,
-                }) ||
-                ''
-              }
+              defaultValue={messageBoxOpens ?? ''}
+              savedValue={(drafted.special_message as string | null) ?? ''}
+              previewKey="w:special_message"
               hint={
                 drafted.special_message ? undefined : INVITATION_WORDS_HINT
               }
@@ -840,6 +846,8 @@ export default async function WebsiteEditorPage({
               maxLength={600}
               placeholder="Gifts, registry, or a kind no-gift note…"
               defaultValue={(drafted.what_to_bring as string | null) ?? ''}
+              /* ✍ Typed here, seen on the scene at once (`canvas-words.tsx`). */
+              previewKey="w:what_to_bring"
             />
           ),
         },
@@ -1062,8 +1070,9 @@ export default async function WebsiteEditorPage({
       dressTitle: dressCodeConfig.title || null,
       dressLine: dressCodeConfig.description || null,
       photoMomentsLine: photoMomentsConfig.intro_copy || photoMomentsConfig.moments[0]?.title || null,
-      specialMessage: (event.special_message as string | null) ?? null,
-      whatToBring: (event.what_to_bring as string | null) ?? null,
+      // The draft over live — the tiles show what the canvas shows.
+      specialMessage: (drafted.special_message as string | null) ?? null,
+      whatToBring: (drafted.what_to_bring as string | null) ?? null,
       loveStory: event.love_story,
       entourageCount: entourageCount ?? null,
       heroPhotoUrl: heroRef ? (heroDisplay[heroRef] ?? null) : null,
@@ -1167,6 +1176,11 @@ export default async function WebsiteEditorPage({
           .filter((w) => isCustomSectionType(w.widget_type) && sanitizeCustomSection(w.config_json).body.trim().length > 0)
           .map((w) => w.widget_type),
         tour: <MiniTour tourKey="customer_details_bound_v1" storeShell={storeShell} />,
+        /* ✍ The Content box keeps AP-11's starting point (the same one the
+           plain box above opens on) — shown on the canvas as a preview, never
+           saved until Save. */
+        startingPoint: drafted.special_message ? null : messageBoxOpens,
+        startingHint: INVITATION_WORDS_HINT,
       }}
       elementEditing={{
         canvases: Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),

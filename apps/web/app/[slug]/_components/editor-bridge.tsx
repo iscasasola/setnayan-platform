@@ -27,7 +27,15 @@ import {
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el? }
  *   frame  → parent { source:'setnayan-site',   t:'select',   key, el, start, end, of, text }
  *   parent → frame  { source:'setnayan-editor', t:'playEl',   key, el }
+ *   parent → frame  { source:'setnayan-editor', t:'words',    key, text }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *
+ * ✍ `words` IS THE SCENE'S TEXT, LIVE (owner 2026-09-27, writing his own
+ * message: *"needs to show on the scene editor"*). The Content box of a scene
+ * whose words are ONE text (the Special message, a Letter, What to bring)
+ * posts what is in it on every keystroke, and the canvas shows it at once, in
+ * the scene's own look (`previewSceneWords`). Nothing is saved by it; Save puts
+ * the words in the draft. An `edit` tap on an empty scene says `empty: true`.
  *
  * 🧭 `bar` is the stage's Event Bar exactly as the page resolved it for this
  * canvas (`data-maker-bar`, stamped by `site-body.tsx` from the SAME value the
@@ -171,6 +179,42 @@ export function selectionInPart(
   return { part, el, start, end: start + text.length, of: hubTextHash(whole), text };
 }
 
+/**
+ * ✍ THE TEXT A SCENE'S WORDS ARE DRAWN IN. An empty scene in the Maker
+ * (`MakerEmptyScene`) carries the scene's real look, hidden (`data-maker-look`);
+ * otherwise the scene's own words: a template's text (`.hub-tpl-p`, never its
+ * signature) or its first body part.
+ */
+export function sceneWordsTarget(section: Element): { look: HTMLElement | null; text: HTMLElement | null } {
+  const look = section.querySelector<HTMLElement>('[data-maker-look]');
+  const scope: Element = look ?? section;
+  const text =
+    scope.querySelector<HTMLElement>('.hub-tpl-p') ??
+    scope.querySelector<HTMLElement>('[data-el="body"]') ??
+    scope.querySelector<HTMLElement>(HUB_SCENE_ELEMENT_SELECTOR.body);
+  return { look, text };
+}
+
+/**
+ * ✍ SHOW `text` AS THE SCENE'S WORDS, NOW. An empty scene swaps its "write your
+ * message" prompt for the real look carrying the text (blank → the prompt
+ * again); a written scene has its words replaced. Returns false when the scene
+ * draws no words to replace (the refresh after Save then shows them).
+ */
+export function previewSceneWords(section: Element, text: string): boolean {
+  const { look, text: target } = sceneWordsTarget(section);
+  if (look) {
+    const blank = text.trim().length === 0;
+    look.hidden = blank;
+    section.querySelectorAll<HTMLElement>('[data-maker-empty-prompt]').forEach((p) => {
+      p.hidden = !blank;
+    });
+  }
+  if (!target) return false;
+  target.textContent = text;
+  return true;
+}
+
 let marked: HTMLElement | null = null;
 /** Outline the element being edited, until another is chosen. */
 function mark(el: HTMLElement | null) {
@@ -232,10 +276,13 @@ export function EditorBridge() {
         } catch {
           /* a parent we cannot measure — the part stays where it was tapped */
         }
+        // ✍ An empty scene (the Maker's placeholder) says so: its words are
+        // what the couple came to write.
+        const empty = el.matches('[data-maker-empty]') || el.querySelector('[data-maker-empty]') ? { empty: true } : {};
         window.parent?.postMessage(
           part
-            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el') }
-            : { source: 'setnayan-site', t: 'edit', key },
+            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty }
+            : { source: 'setnayan-site', t: 'edit', key, ...empty },
           origin,
         );
       };
@@ -326,6 +373,12 @@ export function EditorBridge() {
             ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`)
             : null;
         mark(part);
+        return;
+      }
+      if (data.t === 'words') {
+        // ✍ The Content box's words, on the scene now (`previewSceneWords`).
+        const text = (data as { text?: unknown }).text;
+        if (typeof text === 'string') previewSceneWords(el, text.slice(0, 2000));
         return;
       }
       if (data.t === 'scrollTo') {

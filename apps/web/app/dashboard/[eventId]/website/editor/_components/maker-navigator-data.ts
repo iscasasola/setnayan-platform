@@ -22,6 +22,7 @@ import { makerStageLists, type MakerStageList, type MakerStageInput } from '@/li
 import { sanitizeHubCanvas, resolveHubBackground, hubBackgroundIsMedia, hubBackgroundTint } from '@/lib/hub-canvas';
 import { sanitizeCustomSection, isCustomSectionType } from '@/lib/custom-sections';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { detailsFactOfScene, sceneBoundText } from '@/lib/details-bound';
 import { loveStoryScenes } from '@/lib/love-story-moments';
 import type { PostEventMakerRead } from '@/lib/post-event-scenes';
 
@@ -126,13 +127,23 @@ export function buildMakerNavigatorData(input: {
   for (const row of input.sectionRows) {
     const canvas = sanitizeHubCanvas(row.config_json);
     const bg = resolveHubBackground(canvas);
+    /* 🔗 A scene bound to Details' message shows ITS words — its own version
+       where the couple chose "Just this scene", else Details' (`sceneBoundText`,
+       the rule the guest page draws by). The tile used to show Details' value
+       for every bound scene, so a scene changed "just here" looked unchanged. */
+    const boundMessage =
+      detailsFactOfScene(row.widget_type, canvas) === 'message'
+        ? sceneBoundText('message', canvas, facts.specialMessage).text
+        : null;
     const base: SceneMini = isCustomSectionType(row.widget_type)
       ? (() => {
           const c = sanitizeCustomSection(row.config_json);
           const tpl = canvas.template ? SCENE_TEMPLATES[canvas.template]?.name : undefined;
-          return { eyebrow: tpl ?? 'Your scene', title: c.title || tpl || 'Your own scene', line: firstLine(c.body) };
+          return { eyebrow: tpl ?? 'Your scene', title: c.title || tpl || 'Your own scene', line: firstLine(c.body || boundMessage) };
         })()
-      : (byType[row.widget_type] ?? { title: row.widget_type });
+      : row.widget_type === 'special_message'
+        ? { eyebrow: 'A message', title: firstLine(boundMessage, 40) ?? 'Special message' }
+        : (byType[row.widget_type] ?? { title: row.widget_type });
     minis[`w:${row.widget_type}`] = {
       ...base,
       // A colour — flat or either glass — is the tile's ground.

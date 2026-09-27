@@ -73,9 +73,11 @@ export const DETAILS_FACT: Record<
     column: 'special_message';
     /** The couple's word for it — the Details page's own label. */
     label: string;
+    /** The scene's words box's label — the Content tab's shipped "Your message". */
+    boxLabel: string;
   }
 > = {
-  message: { column: 'special_message', label: 'Special message' },
+  message: { column: 'special_message', label: 'Special message', boxLabel: 'Your message' },
 };
 
 export function isDetailsFact(v: unknown): v is DetailsFact {

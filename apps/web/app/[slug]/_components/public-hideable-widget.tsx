@@ -6,7 +6,7 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
-import { MakerEmptyScene } from './maker-empty-scene';
+import { MakerEmptyScene, makerWordsLook } from './maker-empty-scene';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import { sanitizeHubCanvas } from '@/lib/hub-canvas';
@@ -74,7 +74,11 @@ type PublicHideableWidgetProps = {
 export function PublicHideableWidget(props: PublicHideableWidgetProps) {
   return (
     <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>
-      {props.makerEmpty ? <MakerEmptyScene type={props.widget.widget_type} /> : PublicHideableWidgetBody(props)}
+      {props.makerEmpty ? (
+        <MakerEmptyScene type={props.widget.widget_type} look={makerWordsLook(props.widget.widget_type)} />
+      ) : (
+        PublicHideableWidgetBody(props)
+      )}
     </HubCanvasFrame>
   );
 }

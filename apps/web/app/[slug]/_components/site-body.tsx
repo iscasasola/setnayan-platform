@@ -33,7 +33,7 @@ import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { anyoneMayAskToJoin, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
@@ -1202,6 +1202,7 @@ export async function SiteBody({
                       eventId={event.event_id}
                       signedInNotListed={anon.signedInNotListed}
                       theOrganizer={clientWords.theOrganizer}
+                      mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
                     />
                   )}
                 </div>

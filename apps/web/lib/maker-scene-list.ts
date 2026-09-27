@@ -45,6 +45,7 @@ import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
 import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
 import type { SceneTemplateId } from './scene-templates';
+import { stageShowsEntourage } from './stage-scenes';
 
 /** The sections that are always in their place on a stage — never dragged. */
 export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'greeting' | 'pass' | 'rsvp' | 'entourage' | 'story';
@@ -375,7 +376,10 @@ function emptyOf(w: InvitationWidgetRow, input: MakerStageInput): string | undef
  * that is a separate owner decision. ONE rule, read by the page and this list.
  */
 export function widgetsGuestsMeet<T extends { widget_type: string }>(widgets: readonly T[], stage: LifecyclePhase): T[] {
-  return stage === 'editorial' ? [...widgets] : widgets.filter((w) => w.widget_type !== 'tier_comparison');
+  // 🗂 Since "EACH STAGE DOES ONE JOB" (owner 2026-09-27) the pitch is on NO
+  // stage — Post Event included (`STAGE_SCENES`, `lib/stage-scenes.ts`).
+  void stage;
+  return widgets.filter((w) => w.widget_type !== 'tier_comparison');
 }
 
 export function makerStageList(input: MakerStageInput): MakerStageList {
@@ -439,7 +443,8 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
       ...(empty ? { empty } : {}),
     });
   }
-  if (input.hasEntourage) shown.push(fixed('entourage'));
+  // The entourage is not the Save the Date's job (`STAGE_FIXED`).
+  if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
   if (input.storyRenders) shown.push(fixed('story'));
 
   // ── The fold: every other section, with the reason this stage leaves it out.
@@ -473,7 +478,9 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     folded.push({ key: `w:${t}`, widgetId: null, type: t, label: makerSceneLabel(t), reason: "Only on each guest's own link — every invited guest sees their own.", hiddenByCouple: false });
   }
 
-  return { stage, shown, folded, orderIsAutomatic: openBrowse };
+  // 🗂 Every stage keeps its scenes in the stage's own order now
+  // (`STAGE_SCENES`); only the couple's own scenes still move.
+  return { stage, shown, folded, orderIsAutomatic: true };
 }
 
 /** All four stages at once — the server hands the Maker this, and the stage switch reads it. */

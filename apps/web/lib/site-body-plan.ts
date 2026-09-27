@@ -22,6 +22,7 @@
 import type { WeddingOnlyParts } from './wedding-only-parts';
 import { revealStageChosen } from './reveal-stages';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
+import { inStageOrder } from './stage-scenes';
 import { anonymousPublicCapability } from './public-capability';
 import {
   visibleHideableWidgets,
@@ -429,6 +430,25 @@ export function resolveSiteBodyPlan(input: {
     );
     spotlight = null;
     widgetTerminalStates = {};
+  }
+
+  /* 🗂 EACH STAGE DOES ONE JOB (owner 2026-09-27, `lib/stage-scenes.ts`). On
+     BOTH paths — open browsing included, which used to draw every scene on
+     every stage "by kind" — a stage draws only its own scenes, in its own
+     order. And the Save the Date's photo gallery is the film's to show when a
+     film plays: the gallery SCENE draws there only when no film does. */
+  if (phasesEnabled) {
+    const stageOf = (rows: InvitationWidgetRow[]) =>
+      inStageOrder(
+        rows.filter(
+          (w) =>
+            widgetInPhase(w.widget_type, lifecyclePhase) &&
+            !(body === 'save_the_date' && w.widget_type === 'our_photos'),
+        ),
+        lifecyclePhase,
+      );
+    hideableInOrder = stageOf(hideableInOrder);
+    publicSafeWidgets = stageOf(publicSafeWidgets);
   }
 
   return {

@@ -61,11 +61,20 @@ export function parseNavigatorBar(raw: unknown): NavigatorBarItem[] | null {
   return out.length > 0 ? out : null;
 }
 
+/**
+ * The page anchor a tab lands on. On the day the "Schedule" tab lands on the
+ * day's details, whose first scene is the schedule (`STAGE_SCENES.event`), so
+ * it owns the details group.
+ */
+export function tabAnchor(key: string): string {
+  return key === 'schedule' ? 'details' : key;
+}
+
 export function navigatorTabs(bar: readonly NavigatorBarItem[], tileKeysInPageOrder: readonly string[]): NavigatorTab[] {
   const tabs: NavigatorTab[] = bar.map((b) => ({ ...b, leaves: !b.href.startsWith('#'), tiles: [] }));
-  const inPage = tabs.filter((t) => !t.leaves && (PAGE_ANCHOR_ORDER as readonly string[]).includes(t.key));
+  const inPage = tabs.filter((t) => !t.leaves && (PAGE_ANCHOR_ORDER as readonly string[]).includes(tabAnchor(t.key)));
   if (inPage.length === 0) return tabs;
-  const rank = (k: string) => (PAGE_ANCHOR_ORDER as readonly string[]).indexOf(k);
+  const rank = (k: string) => (PAGE_ANCHOR_ORDER as readonly string[]).indexOf(tabAnchor(k));
   for (const key of tileKeysInPageOrder) {
     const want = rank(anchorOfTile(key));
     // the nearest in-page tab at or above the scene's own anchor; else the first one

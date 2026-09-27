@@ -35,21 +35,26 @@ export type StageBar = {
 };
 
 export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
+  /* 🗂 EACH STAGE DOES ONE JOB (owner 2026-09-27) — and its bar says so. */
   save_the_date: {
     label: PUBLIC_STAGE_LABELS.save_the_date,
-    slots: ['home', 'details', 'story', 'camera', 'me'],
+    // Hold the date: Home · Story, and Me for a guest holding their key. No
+    // Camera before the day, and no Details — there are none on this stage.
+    slots: ['home', 'story', 'me'],
   },
   rsvp: {
     label: PUBLIC_STAGE_LABELS.rsvp,
-    // Owner 2026-09-26/27: the Invitation bar is Home · Details · RSVP · Story
-    // · Me — the camera returns on The Day. A stranger's bar is cut further by
-    // the resolver's own rules (Home · Details · Story).
-    slots: ['home', 'details', 'rsvp', 'story', 'me'],
+    // Get the reply: Home · Details · Story · RSVP — and RSVP becomes Me once
+    // the guest has answered (`resolveSiteNav`). A stranger's bar is cut
+    // further by the resolver's own rules (Home · Details · Story).
+    slots: ['home', 'details', 'story', 'rsvp', 'me'],
   },
   event: {
     label: PUBLIC_STAGE_LABELS.event,
+    // Be here now: Now · Schedule · Camera · Gallery · Me (owner: "yes").
+    // Watch takes the Schedule's place while a broadcast is running, and
     // `details` stays for a booked supplier's "Cues" tab on the day.
-    slots: ['home', 'details', 'watch', 'camera', 'gallery', 'me'],
+    slots: ['home', 'schedule', 'watch', 'camera', 'gallery', 'details', 'me'],
   },
   editorial: {
     label: PUBLIC_STAGE_LABELS.editorial,

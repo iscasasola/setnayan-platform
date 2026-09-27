@@ -24,6 +24,7 @@ import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { isCustomSectionType } from '@/lib/custom-sections';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
@@ -910,7 +911,9 @@ export function MakerWork({
             const on = tileIsSelected(tile, selection);
             const showing = scene ? sceneShowing(scene) : tile.kind === 'post-event' ? tile.drawn : true;
             const next = list.shown[i + 1];
-            const canDrag = tile.kind === 'scene' && !pending && !list.orderIsAutomatic;
+            /* 🗂 Each stage sets its own order (`STAGE_SCENES`); only the couple's
+               own scenes still move. */
+            const canDrag = tile.kind === 'scene' && !pending && (!list.orderIsAutomatic || isCustomSectionType(tile.type));
             return (
               <Fragment key={tile.key}>
               {header ? (
@@ -1092,8 +1095,8 @@ export function MakerWork({
                   {scene && menuFor === scene.id ? (
                     <SceneMenu
                       onClose={() => setMenuFor(null)}
-                      canUp={shownSceneIds.indexOf(scene.id) > 0 && !list.orderIsAutomatic}
-                      canDown={shownSceneIds.indexOf(scene.id) < shownSceneIds.length - 1 && !list.orderIsAutomatic}
+                      canUp={shownSceneIds.indexOf(scene.id) > 0 && (!list.orderIsAutomatic || isCustomSectionType(scene.type))}
+                      canDown={shownSceneIds.indexOf(scene.id) < shownSceneIds.length - 1 && (!list.orderIsAutomatic || isCustomSectionType(scene.type))}
                       showing={showing}
                       onUp={() => {
                         const k = shownSceneIds.indexOf(scene.id);
@@ -1124,7 +1127,7 @@ export function MakerWork({
           {list.orderIsAutomatic ? (
             <li className="shrink-0 self-center px-4 text-[11px] text-ink/60 lg:mt-2 lg:self-stretch">
               <InfoTip className="min-w-0 max-w-full" label="Order set for you" align="start">
-                Open browsing arranges the sections by kind, so dragging cannot change what guests see.
+                Each stage keeps its scenes in the order its job needs. Your own scenes can still be moved.
               </InfoTip>
             </li>
           ) : null}

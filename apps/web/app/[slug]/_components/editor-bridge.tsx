@@ -244,7 +244,10 @@ export function EditorBridge() {
         return;
       }
       if (data.t === 'scrollTo') {
-        el.scrollIntoView({ behavior: 'smooth', block: el.offsetHeight > window.innerHeight * 0.8 ? 'start' : 'center' });
+        /* To the scene's TOP, always (owner 2026-09-27: "a scene is as tall as
+           its content — never a forced full screen"). A short scene lands with
+           the next one below it on the same screen; nothing is resized. */
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         flash(el);
       } else if (data.t === 'play') {
         // ▶ PLAY THIS SCENE — in place, in the canvas: bring it into view, then

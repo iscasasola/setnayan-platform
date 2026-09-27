@@ -130,6 +130,8 @@ import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubMainGround, resolveMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
+import { MakerGuestScenes } from './maker-guest-scenes';
 import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
@@ -713,12 +715,10 @@ export async function SiteBody({
        2026-09-26: *"plan it properly … when linking to an account"* — the pitch
        is REPLACED by the post-RSVP "Save to my account" step). Filtered before
        the plan so every list the plan derives (the scenes, the Details tab's
-       presence) agrees. Post Event is untouched, and the Maker's own canvas
-       still lists the section so the couple can see and switch it. */
-    widgets:
-      isMakerCanvas || lifecyclePhase === 'editorial'
-        ? widgets
-        : widgets.filter((w) => w.widget_type !== 'tier_comparison'),
+       presence) agrees. Post Event is untouched.
+       🪞 THE MAKER SHOWS WHAT GUESTS SEE (owner review 2026-09-27): its canvas
+       and its navigator omit it too, through the ONE rule `widgetsGuestsMeet`. */
+    widgets: widgetsGuestsMeet(widgets, lifecyclePhase),
     openBrowse: Boolean(event.website_open_browse),
     // Is the invitation still open? The couple's guest-list deadline decides
     // (owner 2026-08-20). Read, never written — a public page load must not
@@ -729,7 +729,10 @@ export async function SiteBody({
       editDeadline: event.guest_list_edit_deadline,
       eventDate: event.event_date,
     }),
-    content: openBrowseContent,
+    /* 🧩 In the Maker an EMPTY scene keeps its place (owner 2026-09-27): the
+       plan fails open on content there, and the dispatcher draws the scene's
+       placeholder (`makerEmpty` below). Guests: unchanged. */
+    content: isMakerCanvas ? {} : openBrowseContent,
   });
 
   // ── THE GALLERY, AFTER THE WEDDING ────────────────────────────────────────
@@ -1064,6 +1067,10 @@ export async function SiteBody({
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
         guestView={!isMakerCanvas}
+        makerEmpty={
+          isMakerCanvas && makerDrawsEmpty(widget.widget_type) &&
+          (openBrowseContent as Partial<Record<string, boolean>>)[widget.widget_type] === false
+        }
         event={event}
         words={clientWords}
         scheduleBlocks={scheduleBlocks}
@@ -1331,6 +1338,16 @@ export async function SiteBody({
              *  sub-component is reused from the guest tree — same visual
              *  treatment, just a thinner per-type dispatcher because the
              *  anonymous path doesn't have a guest object to pass. */}
+            {/* 👤 The guest-link scenes, in place, in the Maker's canvas only
+                ("Your guest" — `maker-guest-scenes.tsx`). Guests: nothing here. */}
+            {isMakerCanvas ? (
+              <MakerGuestScenes
+                show={{ greeting: plan.greetingShouldRender, pass: plan.qrCardShouldRender, rsvp: plan.rsvpShouldRender }}
+                eventDate={event.event_date}
+                solemn={clientWords.solemn}
+                mark={makerMark}
+              />
+            ) : null}
             {plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
@@ -22,16 +22,33 @@ import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-m
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
-import { swapsForDrop, MAKER_FIXED_TOOL, MAKER_FIXED_SOURCE, type MakerFixedKey, type MakerStageList } from '@/lib/maker-scene-list';
+import { swapsForDrop, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
-import { isHubElementKey } from '@/lib/element-style';
+import { PickMenu } from './pick-menu';
+import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
-import { navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
+import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
+import {
+  canvasKeyOfSelection,
+  fixedOfKey,
+  fixedScenePanel,
+  selectionForCanvasKey,
+  selectionForTile,
+  tileIsSelected,
+} from '@/lib/maker-selection';
+import {
+  HUB_ELEMENT_EXCLUDED_WIDGETS,
+  HUB_ELEMENT_LABEL,
+  HUB_HERO_ELEMENT_KEYS,
+  HUB_SCENE_ELEMENT_KEYS,
+  isHubElementKey,
+  type HubElementKey,
+} from '@/lib/element-style';
 import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -246,6 +263,9 @@ export function MakerWork({
   const maker = useMaker();
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [navWidth, setNavWidth] = useState(168);
+  /* The tools column's width, beside the navigator's (owner 2026-09-27:
+     "navigation is resizable, so does the editing tool on the right"). */
+  const [toolsWidth, setToolsWidth] = useState(INSPECTOR_DEFAULT_W);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -260,7 +280,10 @@ export function MakerWork({
   const elementRef = useRef<ElementTarget | null>(null);
   elementRef.current = elementTarget;
   const elementEditingOn = Boolean(elementEditing);
-  useEffect(() => setElementTarget(null), [selection, stage]);
+  const selectionKey = canvasKeyOfSelection(selection, scenes);
+  useEffect(() => {
+    if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
+  }, [selectionKey, stage]);
 
   /* The first selection comes from the address (a save lands back here with
      `?scene=` or `?open=`). After that the shell's state owns it. */
@@ -330,30 +353,20 @@ export function MakerWork({
       if (!data || data.source !== 'setnayan-site' || data.t !== 'edit' || typeof data.key !== 'string') return;
       /* 🔤 A tap ON an element (the hero's names, a scene's heading) opens that
          element's sheet; its scene's panel stays as it was. */
-      if (isHubElementKey(data.el) && elementEditingOn) {
+      /* 🧭 ONE SELECTION (`lib/maker-selection.ts`): the canvas maps a tap exactly
+         as the navigator maps a tile, so each side's highlight follows the other.
+         A fixed scene opens its own panel beside the page — never a workspace
+         that replaces the stage. */
+      const picked = selectionForCanvasKey(data.key, scenes);
+      if (picked) {
+        select?.(picked);
         const widgetType = data.key === 'f:hero' ? 'hero' : data.key.startsWith('w:') ? data.key.slice(2) : null;
-        if (widgetType) {
-          setElementTarget({ key: data.key, widgetType, el: data.el });
-          return;
-        }
+        setElementTarget(
+          isHubElementKey(data.el) && elementEditingOn && widgetType ? { key: data.key, widgetType, el: data.el } : null,
+        );
+        return;
       }
       setElementTarget(null);
-      /* 🧭 A section tapped on the canvas selects its navigator tile. */
-      if (data.key.startsWith('w:')) {
-        const type = data.key.slice(2);
-        const scene = scenes.find((s) => s.type === type);
-        if (scene) select?.({ kind: 'scene', id: scene.id });
-        return;
-      }
-      if (data.key.startsWith('p:')) {
-        select?.({ kind: 'post-event', scene: data.key.slice(2) });
-        return;
-      }
-      if (data.key.startsWith('f:')) {
-        const tool = FIXED_TOOL[data.key.slice(2) as MakerFixedKey];
-        if (tool) select?.({ kind: 'tool', key: tool });
-        return;
-      }
       const match = Object.entries(rows).find(([, r]) => r.anchor === data.key);
       if (match) select?.({ kind: 'row', key: match[0] });
     };
@@ -498,19 +511,10 @@ export function MakerWork({
         }
         return;
       }
-      const key =
-        selection?.kind === 'scene'
-          ? (() => {
-              const s = scenes.find((x) => x.id === selection.id);
-              return s ? `w:${s.type}` : null;
-            })()
-          : selection?.kind === 'tool'
-            ? (Object.entries(FIXED_TOOL).find(([, t]) => t === selection.key)?.[0] ?? null)
-            : null;
+      const key = canvasKeyOfSelection(selection, scenes);
       if (!key) return;
-      const k = key.startsWith('w:') ? key : `f:${key}`;
       frameRef.current?.contentWindow?.postMessage(
-        { source: 'setnayan-editor', t: 'play', key: k },
+        { source: 'setnayan-editor', t: 'play', key },
         window.location.origin,
       );
     };
@@ -603,6 +607,22 @@ export function MakerWork({
     window.addEventListener('pointerup', onUp);
   };
 
+  /* ── resize the tools column by its LEFT edge — the navigator's pattern,
+        mirrored. The canvas keeps at least CANVAS_MIN_W; desktop only. ──── */
+  const startToolsResize = (e: React.PointerEvent) => {
+    const x0 = e.clientX;
+    const w0 = toolsWidth;
+    const onMove = (ev: PointerEvent) =>
+      setToolsWidth(clampToolsWidth(w0 - (ev.clientX - x0), window.innerWidth, navWidth));
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+  const toolsResize = { width: toolsWidth, onPointerDown: startToolsResize };
+
   const navOpen = maker?.navOpen ?? true;
   const device = maker?.device ?? 'desktop';
   const selectedScene = selection?.kind === 'scene' ? scenes.find((s) => s.id === selection.id) ?? null : null;
@@ -622,13 +642,7 @@ export function MakerWork({
     const marker = markerOf(t);
     return marker ? [[t.key, marker] as const] : [];
   });
-  const selectedTile = list.shown.find((t) =>
-    t.kind === 'scene'
-      ? selectedScene?.id === t.widgetId
-      : t.kind === 'post-event'
-        ? selection?.kind === 'post-event' && selection.scene === t.scene
-        : selection?.kind === 'tool' && selection.key === FIXED_TOOL[t.fixed],
-  );
+  const selectedTile = list.shown.find((t) => tileIsSelected(t, selection));
   selectedKeyRef.current = selectedTile ? markerOf(selectedTile) : null;
   const tabs = canvasBar ? navigatorTabs(canvasBar, list.shown.map((t) => t.key)) : null;
   const activeTab = tabs ? (tabs.find((t) => t.key === tabKey) ?? tabs.find((t) => !t.leaves) ?? null) : null;
@@ -637,6 +651,17 @@ export function MakerWork({
   useEffect(() => {
     if (selectedTabKey) setTabKey(selectedTabKey);
   }, [selectedTabKey]);
+  /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
+     the groups (`navigatorRows`) — never a tab that hides the rest. */
+  const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
+  /* …and the navigator keeps the selected tile in view, whichever side picked it. */
+  const selectedTileKey = selectedTile?.key ?? null;
+  useEffect(() => {
+    if (!selectedTileKey || !navList) return;
+    navList
+      .querySelector(`[data-maker-tile="${CSS.escape(selectedTileKey)}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [selectedTileKey, navList]);
 
   if (!maker) {
     return (
@@ -763,53 +788,62 @@ export function MakerWork({
           navOpen ? '' : 'lg:hidden'
         }`}
       >
-        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4">
+        {/* 🧭 THE DESKTOP COLUMN NEVER SCROLLS SIDEWAYS (owner's page, 2026-09-27:
+            after "Edit Our love story" the column slid left and clipped every
+            label). The cause was measured, not guessed: each closed ⓘ bubble is
+            an 18rem box, so a 168px column held 314px of scrollable width, and
+            `overflow-x: hidden` still lets focus and scrollIntoView scroll it.
+            The bubbles are held to the column's own width here. */}
+        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]">
           {/* 🧭 THE STAGE'S MENU — the tabs a guest sees on this stage, never a
               generic "Main". Each lists its own scenes; a tab that opens a page of
               its own (Camera, Join, Watch) says so. The look behind every scene
               (theme, colours, music, backdrop) is the palette button. */}
-          <li className="shrink-0 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
-            <div role="tablist" aria-label="This stage's menu" className="flex items-center gap-1 lg:flex-wrap">
-              {tabs
-                ? tabs.map((t) => {
-                    const on = activeTab?.key === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        data-maker-tab={t.key}
-                        onClick={() => {
-                          setTabKey(t.key);
-                          if (!t.leaves) scrollPreviewTo(t.key);
-                        }}
-                        className={`sn-press inline-flex min-h-11 items-center rounded-full px-3 text-[12px] font-semibold transition-colors duration-sn-control ease-sn ${
-                          on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    );
-                  })
-                : null}
-              <button
-                type="button"
-                onClick={() => select?.({ kind: 'main' })}
-                aria-pressed={selection?.kind === 'main'}
-                aria-label="Theme, colours and music — behind every scene"
-                title="Theme, colours and music — behind every scene"
-                className={`sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
-                  selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-                }`}
-              >
-                <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </div>
+          {/* 🧭 THE STAGE'S MENU AS ONE CONTROL (owner 2026-09-27, on the pill row
+              that wrapped to 140px in the 168px column: *"this should be a tap
+              to show option to pick or a drop down"*). It shows the group in
+              view ("Home ▾"); picking a tab JUMPS the navigator and the canvas to
+              that group — never a filter, never a stage change. One line at the
+              narrowest column, the palette beside it. */}
+          <li className="flex min-w-0 shrink-0 items-center gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
+            {tabs ? (
+              <PickMenu
+                label="This stage's menu"
+                dataAttr="data-maker-tab-pick"
+                value={activeTab?.key ?? null}
+                options={tabs.map((t) => ({
+                  key: t.key,
+                  label: t.label,
+                  ...(t.leaves ? { disabledNote: 'opens its own page' } : {}),
+                }))}
+                onPick={(key) => {
+                  const t = tabs.find((x) => x.key === key);
+                  if (!t || t.leaves) return;
+                  setTabKey(t.key);
+                  scrollPreviewTo(t.key);
+                  navList
+                    ?.querySelector(`[data-maker-group="${CSS.escape(t.key)}"]`)
+                    ?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
+                }}
+                className="flex-1"
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={() => select?.({ kind: 'main' })}
+              aria-pressed={selection?.kind === 'main'}
+              aria-label="Theme, colours and music — behind every scene"
+              title="Theme, colours and music — behind every scene"
+              className={`sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
+                selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
+              }`}
+            >
+              <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </button>
           </li>
           {activeTab?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
-              <InfoTip label={`${activeTab.label} opens its own page`} align="start">
+              <InfoTip className="min-w-0 max-w-full" label={`${activeTab.label} opens its own page`} align="start">
                 On this stage, “{activeTab.label}” takes a guest to a page of its own, so there are no scenes to arrange
                 here. Pick another tab to see its scenes.
               </InfoTip>
@@ -821,12 +855,12 @@ export function MakerWork({
           {stage === 'editorial' && navigator.postEvent ? (
             <li className="shrink-0 self-center px-1 text-[11px] font-semibold text-ink/60 lg:mb-2 lg:self-stretch" data-maker-post-event-state="">
               {navigator.postEvent === 'unreadable' ? (
-                <InfoTip label="Scenes unavailable" align="start">
+                <InfoTip className="min-w-0 max-w-full" label="Scenes unavailable" align="start">
                   Your story’s scenes could not be read just now. The story itself is unchanged — open the Maker
                   again in a moment.
                 </InfoTip>
               ) : (
-                <InfoTip
+                <InfoTip className="min-w-0 max-w-full"
                   label={`Auto · written ${new Date(navigator.postEvent.generatedAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
                   align="start"
                 >
@@ -840,20 +874,23 @@ export function MakerWork({
               draws it (`lib/maker-scene-list.ts`, asked of the page's own
               plan). Fixed sections are locked; the rest drag. */}
           {list.shown.map((tile, i) => {
-            if (activeTab && !activeTab.tiles.includes(tile.key)) return null;
+            const header = navRows[i]?.header ?? null;
             const scene = tile.kind === 'scene' ? (sceneById.get(tile.widgetId) ?? null) : null;
-            const on =
-              tile.kind === 'scene'
-                ? selectedScene?.id === tile.widgetId
-                : tile.kind === 'post-event'
-                  ? selection?.kind === 'post-event' && selection.scene === tile.scene
-                  : selection?.kind === 'tool' && selection.key === FIXED_TOOL[tile.fixed];
+            const on = tileIsSelected(tile, selection);
             const showing = scene ? sceneShowing(scene) : tile.kind === 'post-event' ? tile.drawn : true;
             const next = list.shown[i + 1];
             const canDrag = tile.kind === 'scene' && !pending && !list.orderIsAutomatic;
             return (
+              <Fragment key={tile.key}>
+              {header ? (
+                <li
+                  data-maker-group={header.key}
+                  className="shrink-0 self-center px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-ink/50 lg:mb-1 lg:mt-3 lg:self-stretch lg:px-4"
+                >
+                  {header.label}
+                </li>
+              ) : null}
               <li
-                key={tile.key}
                 data-maker-tile={tile.key}
                 className="relative shrink-0"
                 onDragOver={(e) => {
@@ -933,14 +970,8 @@ export function MakerWork({
                           : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ' (always here on this stage · comes from your guest list)' : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
-                        if (tile.kind === 'post-event') {
-                          select?.({ kind: 'post-event', scene: tile.scene });
-                          scrollPreviewTo(tile.anchor ?? undefined);
-                          return;
-                        }
-                        if (tile.kind === 'scene') select?.({ kind: 'scene', id: tile.widgetId });
-                        else if (FIXED_TOOL[tile.fixed]) select?.({ kind: 'tool', key: FIXED_TOOL[tile.fixed]! });
-                        scrollPreviewTo(tile.key);
+                        select?.(selectionForTile(tile));
+                        scrollPreviewTo(tile.kind === 'post-event' ? (tile.anchor ?? undefined) : tile.key);
                       }}
                       onPointerDown={(e) => {
                         if (e.pointerType !== 'touch' || tile.kind !== 'scene') return;
@@ -993,7 +1024,7 @@ export function MakerWork({
                       ) : null}
                     </div>
                     {tile.kind === 'fixed' ? (
-                      <InfoTip label={tile.label} align="start" labelClassName="line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
+                      <InfoTip className="min-w-0 max-w-full" label={tile.label} align="start" labelClassName="min-w-0 line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
                         {tile.why}
                         {MAKER_FIXED_SOURCE[tile.fixed] ? (
                           <span className="mt-1.5 block">
@@ -1008,7 +1039,7 @@ export function MakerWork({
                         ) : null}
                       </InfoTip>
                     ) : tile.kind === 'post-event' ? (
-                      <InfoTip
+                      <InfoTip className="min-w-0 max-w-full"
                         label={tile.label}
                         align="start"
                         labelClassName={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}
@@ -1018,6 +1049,12 @@ export function MakerWork({
                     ) : (
                       <span className={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}>
                         {tile.label}
+                        {/* 🧩 Empty: drawn in the Maker so it can be filled; guests do not see it yet. */}
+                        {tile.kind === 'scene' && tile.empty ? (
+                          <span className="block text-[10px] font-medium italic text-ink/50" data-maker-tile-empty="">
+                            Empty · tap to fill
+                          </span>
+                        ) : null}
                       </span>
                     )}
                   </div>
@@ -1050,11 +1087,12 @@ export function MakerWork({
                   </button>
                 ) : null}
               </li>
+              </Fragment>
             );
           })}
           {list.orderIsAutomatic ? (
             <li className="shrink-0 self-center px-4 text-[11px] text-ink/60 lg:mt-2 lg:self-stretch">
-              <InfoTip label="Order set for you" align="start">
+              <InfoTip className="min-w-0 max-w-full" label="Order set for you" align="start">
                 Open browsing arranges the sections by kind, so dragging cannot change what guests see.
               </InfoTip>
             </li>
@@ -1072,7 +1110,7 @@ export function MakerWork({
                     return (
                       <li key={f.key} data-maker-folded={f.key} className="flex items-center gap-1 text-[11.5px] text-ink/70">
                         <span className="min-w-0 flex-1">
-                          <InfoTip label={f.label} align="start" labelClassName="truncate">
+                          <InfoTip className="min-w-0 max-w-full" label={f.label} align="start" labelClassName="min-w-0 truncate">
                             {f.reason}
                           </InfoTip>
                         </span>
@@ -1138,7 +1176,7 @@ export function MakerWork({
               </div>
             ) : addScene && 'note' in addScene ? (
               <span className="flex items-center gap-1 pl-4 text-[11px] text-ink/60">
-                <InfoTip label="New scene" align="start">
+                <InfoTip className="min-w-0 max-w-full" label="New scene" align="start">
                   {addScene.note}
                 </InfoTip>
               </span>
@@ -1229,6 +1267,7 @@ export function MakerWork({
           palette={elementEditing.palette}
           ownsPro={ownsPro}
           draftAction={elementEditing.draftAction}
+          resize={toolsResize}
           onClose={() => {
             frameRef.current?.contentWindow?.postMessage(
               { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null },
@@ -1256,6 +1295,18 @@ export function MakerWork({
           showMotionTabs={ownsPro || !maker.storeShell}
           onClose={() => select?.(null)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
+          onOpenTool={(key) => select?.({ kind: 'tool', key })}
+          resize={toolsResize}
+          onElement={
+            elementEditing && selectionKey
+              ? (el) =>
+                  setElementTarget({
+                    key: selectionKey,
+                    widgetType: selectionKey === 'f:hero' ? 'hero' : selectionKey.slice(2),
+                    el,
+                  })
+              : null
+          }
         />
       ) : null}
       </>)}
@@ -1394,8 +1445,6 @@ function postEventTileNote(tile: PostEventTile): string {
   return `${tpl}. ${what}.${open}`;
 }
 
-/** Which toolbar tool a fixed section opens (none for the entourage). */
-const FIXED_TOOL = MAKER_FIXED_TOOL;
 
 
 /**
@@ -1597,6 +1646,41 @@ function MoreExtras({
   );
 }
 
+/**
+ * 🔤 THE SCENE'S PARTS, EACH A BUTTON — the same element sheet a tap on the
+ * part in the canvas opens (font · colour · size · animation, #6019).
+ */
+function ElementButtons({
+  keys,
+  onElement,
+}: {
+  keys: readonly HubElementKey[];
+  onElement: (el: HubElementKey) => void;
+}) {
+  return (
+    <div className="px-1 pt-1" data-maker-element-buttons="">
+      <p className="text-[12px] font-semibold text-ink/60">
+        <InfoTip label="Style a part" align="start">
+          Its own font, colour, size and animation — or tap the part on the page.
+        </InfoTip>
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {keys.map((k) => (
+          <button
+            key={k}
+            type="button"
+            data-maker-element={k}
+            onClick={() => onElement(k)}
+            className="sn-press inline-flex min-h-10 items-center rounded-full bg-ink/5 px-3.5 text-[13px] font-semibold text-ink/80 transition-colors duration-300 ease-in-out hover:bg-ink/10"
+          >
+            {HUB_ELEMENT_LABEL[k]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const TABS: Array<{ key: MakerSceneTab; label: string }> = [
   { key: 'format', label: 'Format' },
   { key: 'animate', label: 'Animate' },
@@ -1618,7 +1702,16 @@ function Inspector({
   showMotionTabs,
   onClose,
   onTab,
+  onOpenTool,
+  onElement,
+  resize,
 }: {
+  /** The tools column's width and its drag handle (desktop). */
+  resize: ToolsResize;
+  /** Open a fixed scene's workspace (Hero, Reveal, Love Story, Post Event). */
+  onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event' | 'rsvp-page') => void;
+  /** 🔤 Open one element's sheet (font · colour · size · animation) — null where not offered. */
+  onElement: ((el: HubElementKey) => void) | null;
   madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null;
   selection: NonNullable<MakerSelection>;
   /** 📖 The selected Post Event scene's tile (Maker Phase 8). */
@@ -1658,7 +1751,9 @@ function Inspector({
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
           ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', prints: 'Prints & Tickets', details: 'Details', 'rsvp-page': 'RSVP' }[selection.key]
-          : (rows[selection.key]?.label ?? 'Edit');
+          : fixedOfKey(selection.key)
+            ? fixedScenePanel(fixedOfKey(selection.key)!).label
+            : (rows[selection.key]?.label ?? 'Edit');
 
   const tabs = TABS.filter((t) => showMotionTabs || (t.key !== 'animate' && t.key !== 'transition'));
   const contentRow = scene ? CONTENT_ROW_FOR_TYPE[scene.type] : undefined;
@@ -1736,8 +1831,44 @@ function Inspector({
           </p>
         )
       ) : (
-        scenePanel ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>
+        <>
+          {scenePanel ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>}
+          {onElement && scene && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scene.type) ? (
+            <ElementButtons keys={HUB_SCENE_ELEMENT_KEYS} onElement={onElement} />
+          ) : null}
+        </>
       );
+  } else if (selection.kind === 'row' && fixedOfKey(selection.key)) {
+    /* 🔒 A FIXED SCENE'S PANEL (`lib/maker-selection.ts`) — never blank: what
+       it is, its workspace as a button when it has one, or in one line where
+       its content comes from; and for the names and date, its parts to style. */
+    const fixed = fixedOfKey(selection.key)!;
+    const f = fixedScenePanel(fixed);
+    body = (
+      <section className="space-y-3 px-1" data-maker-fixed-panel={fixed}>
+        <p className="text-[13px] text-ink/75">{f.line}</p>
+        {f.tool && f.button ? (
+          <button
+            type="button"
+            data-maker-open-editor={f.tool}
+            onClick={() => onOpenTool(f.tool!)}
+            className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90"
+          >
+            <PencilLine aria-hidden className="h-4 w-4" strokeWidth={2} />
+            {f.button}
+          </button>
+        ) : null}
+        {f.source ? (
+          <p className="text-[13px] text-ink/75">
+            {f.source.text}{' '}
+            <Link href={`/dashboard/${eventId}/${f.source.page}`} className="font-semibold underline underline-offset-2">
+              {f.source.link} →
+            </Link>
+          </p>
+        ) : null}
+        {fixed === 'hero' && onElement ? <ElementButtons keys={HUB_HERO_ELEMENT_KEYS} onElement={onElement} /> : null}
+      </section>
+    );
   } else if (selection.kind === 'main') {
     body = (
       <>
@@ -1778,8 +1909,10 @@ function Inspector({
   return (
     <aside
       aria-label="Inspector"
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col rounded-t-3xl lg:static lg:z-auto lg:order-3 lg:max-h-none lg:w-[340px] lg:shrink-0 lg:rounded-none"
+      style={{ ['--maker-tools-w' as string]: `${resize.width}px` }}
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
     >
+      <ToolsResizeHandle onPointerDown={resize.onPointerDown} />
       <div className="flex items-center gap-2 px-4 pt-3">
         <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
         <button

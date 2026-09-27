@@ -1,5 +1,6 @@
 'use client';
 
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Info, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
@@ -247,7 +248,7 @@ export function MakerShell({
         role="region"
       >
         {/* ══ 1 · THE TOOLBAR ══ */}
-        <header className="sn-glass-bare relative z-20 flex shrink-0 flex-col gap-1 px-2 py-1.5 md:flex-row md:items-center md:gap-2 md:px-3">
+        <header className="sn-glass-bare relative z-20 flex shrink-0 flex-col gap-1 px-2 py-1.5 md:flex-row md:flex-wrap md:items-center md:gap-2 md:px-3">
           <div className="flex items-center gap-1">
             <Link
               href={`/dashboard/${eventId}`}
@@ -485,10 +486,102 @@ export function MakerBar({
   useEffect(() => {
     showActive();
   }, [stage, selection, showActive]);
+  /*
+    🧭 WHEN THE ROW CANNOT FIT, IT BECOMES TWO PICKERS (owner 2026-09-27, on the
+    stage row clipped to "…vitation" / "Save the…" at laptop widths: *"we can
+    also convert this to a drop down/tap to show options for smaller
+    screens?"*). Decided by MEASURED overflow, never a breakpoint: the full row
+    is drawn, its natural width is read, and only when it is wider than the
+    room the bar has does it collapse to "● Invitation ▾" + "Pages ▾". The room
+    is watched (ResizeObserver) and the row comes back the moment it fits. The
+    pickers run the SAME `onPress` the buttons do.
+  */
+  const [compact, setCompact] = useState(false);
+  /* …and when even the two pickers cannot fit beside the other controls (a
+     1024px laptop leaves the bar ~150px), the bar takes its own full row inside
+     the toolbar rather than truncate "Invitation". It comes back beside them
+     once the window is wider than where it wrapped. */
+  const [wrapped, setWrapped] = useState(false);
+  const fullWidth = useRef(0);
+  const wrapAt = useRef(0);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      if (!compact) {
+        fullWidth.current = el.scrollWidth;
+        if (barShouldCollapse(el.scrollWidth, el.clientWidth)) setCompact(true);
+      } else if (!wrapped) {
+        if (barShouldCollapse(el.scrollWidth, el.clientWidth)) {
+          wrapAt.current = window.innerWidth;
+          setWrapped(true);
+        } else if (!barShouldCollapse(fullWidth.current, el.clientWidth)) {
+          setCompact(false);
+        }
+      }
+    };
+    const onResize = () => {
+      if (wrapped && window.innerWidth > wrapAt.current + 24) setWrapped(false);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    window.addEventListener('resize', onResize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', onResize);
+    };
+  }, [compact, wrapped]);
+
   const mask =
-    fade.l || fade.r
+    !compact && (fade.l || fade.r)
       ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`
       : undefined;
+
+  const stageItems = MAKER_BAR.filter((i) => i.kind === 'stage');
+  const pageItems = MAKER_BAR.filter((i) => i.kind === 'tool');
+  const openTool = selection?.kind === 'tool' ? pageItems.find((i) => i.key === selection.key) ?? null : null;
+
+  if (compact) {
+    return (
+      <nav
+        ref={navRef}
+        aria-label="Event Hub Maker"
+        data-maker-bar=""
+        data-maker-bar-compact={wrapped ? 'wrapped' : ''}
+        className={`-mx-2 flex min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2 md:mx-auto md:flex-1 ${
+          wrapped ? 'md:order-last md:basis-full' : ''
+        }`}
+      >
+        <PickMenu
+          label="Stage"
+          dataAttr="data-maker-stage-pick"
+          className="shrink-0"
+          value={stage}
+          options={stageItems.map((i) => ({ key: i.key, label: i.label, dot: liveStage === i.key }))}
+          onPick={(key) => {
+            const item = stageItems.find((i) => i.key === key);
+            if (item) onPress(item);
+          }}
+        />
+        <PickMenu
+          label="Pages"
+          dataAttr="data-maker-pages-pick"
+          className="shrink-0"
+          value={openTool?.key ?? null}
+          options={pageItems.map((i) => ({
+            key: i.key,
+            label: i.label,
+            ...(hasWork ? {} : { disabledNote: 'only the couple can open this' }),
+          }))}
+          onPick={(key) => {
+            const item = pageItems.find((i) => i.key === key);
+            if (item && hasWork) onPress(item);
+          }}
+        />
+      </nav>
+    );
+  }
 
   return (
     <nav
@@ -497,7 +590,7 @@ export function MakerBar({
       data-maker-bar=""
       onScroll={measure}
       style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
-      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto scroll-px-4 px-2 [scrollbar-width:none] md:mx-auto"
+      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto scroll-px-4 px-2 [scrollbar-width:none] md:mx-auto md:flex-1"
     >
       {groups.map((group, gi) => (
         <span
@@ -547,6 +640,14 @@ export function MakerBar({
       ))}
     </nav>
   );
+}
+
+/**
+ * Collapse the bar only when its natural width does not fit the room it has
+ * (a 1px tolerance for sub-pixel rounding). Exported for the test.
+ */
+export function barShouldCollapse(naturalWidth: number, room: number): boolean {
+  return naturalWidth > room + 1;
 }
 
 /**

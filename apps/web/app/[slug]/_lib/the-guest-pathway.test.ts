@@ -367,9 +367,10 @@ test('5 · "Not you? Switch" clears the guest pass with a POST, never a prefetch
 
 // ═══ 7 · "Two ways to celebrate" leaves the Invitation and the Day ════════
 
-test('7 · the tier_comparison pitch is filtered out before the plan, except Post Event and the Maker canvas', () => {
-  assert.match(
-    BODY,
-    /widgets:\s*isMakerCanvas \|\| lifecyclePhase === 'editorial'\s*\? widgets\s*: widgets\.filter\(\(w\) => w\.widget_type !== 'tier_comparison'\),/,
-  );
+test('7 · the tier_comparison pitch is filtered out before the plan, except Post Event — the Maker too', () => {
+  // Owner review 2026-09-27: the Maker shows what guests see, so its canvas no
+  // longer keeps the pitch on the Invitation or the Day. ONE rule, read by the
+  // page and the Maker's navigator (`widgetsGuestsMeet`, lib/maker-scene-list.ts).
+  assert.match(BODY, /widgets:\s*widgetsGuestsMeet\(widgets, lifecyclePhase\),/);
+  assert.doesNotMatch(BODY, /isMakerCanvas \|\| lifecyclePhase === 'editorial'/);
 });

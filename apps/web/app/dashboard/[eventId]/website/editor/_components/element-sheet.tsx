@@ -8,6 +8,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
+import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
 import { hubFontPreviewStack } from '@/lib/hub-fonts';
 import {
   HUB_ELEMENT_ANIMS,
@@ -97,7 +98,10 @@ export function ElementSheet({
   ownsPro,
   draftAction,
   onClose,
+  resize,
 }: {
+  /** The tools column's width and drag handle, shared with the inspector (desktop). */
+  resize?: ToolsResize;
   /** `hubDraftAction` — see `ElementDraftAction`. */
   draftAction: ElementDraftAction;
   eventId: string;
@@ -156,11 +160,13 @@ export function ElementSheet({
       role="dialog"
       aria-labelledby={titleId}
       data-maker-element-sheet={target.el}
+      style={resize ? { ['--maker-tools-w' as string]: `${resize.width}px` } : undefined}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
       }}
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[55dvh] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:static lg:z-auto lg:order-3 lg:max-h-none lg:w-[340px] lg:shrink-0 lg:rounded-none"
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[55dvh] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none"
     >
+      {resize ? <ToolsResizeHandle onPointerDown={resize.onPointerDown} /> : null}
       <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
       <div className="flex items-center gap-2 px-4 pt-2">
         <p id={titleId} className="min-w-0 flex-1 truncate font-serif text-lg text-ink">

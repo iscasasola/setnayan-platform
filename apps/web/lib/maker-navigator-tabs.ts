@@ -80,3 +80,34 @@ export function navigatorTabs(bar: readonly NavigatorBarItem[], tileKeysInPageOr
 export function tabOfTile(tabs: readonly NavigatorTab[], tileKey: string): NavigatorTab | null {
   return tabs.find((t) => t.tiles.includes(tileKey)) ?? null;
 }
+
+/**
+ * ONE SCROLLING LIST, THE TABS AS HEADERS (owner 2026-09-27, measured on his
+ * own page: *"navigation still does not show the scenes and allow the scenes
+ * to be edited"* — the Invitation's Home tab listed ONE scene and hid the
+ * others behind Details · Story).
+ *
+ * 🔴 A TAB USED TO BE A FILTER. Choosing "Home" drew only Home's tiles, so the
+ * navigator showed "Names & date" and nothing else while the canvas beside it
+ * drew ten sections. The tabs are now small HEADERS between the groups of one
+ * list: every scene of the stage is always listed, in canvas order, and a tab
+ * only jumps to its group.
+ *
+ * Returns EVERY tile key, in order, each with the header to draw before it
+ * (the first tile of each tab) — the caller maps over this, so it cannot drop
+ * a tile.
+ */
+export type NavigatorRow = { key: string; header: { key: string; label: string } | null };
+
+export function navigatorRows(
+  tabs: readonly NavigatorTab[] | null,
+  tileKeysInPageOrder: readonly string[],
+): NavigatorRow[] {
+  const headed = new Set<string>();
+  return tileKeysInPageOrder.map((key) => {
+    const tab = tabs ? tabOfTile(tabs, key) : null;
+    if (!tab || headed.has(tab.key)) return { key, header: null };
+    headed.add(tab.key);
+    return { key, header: { key: tab.key, label: tab.label } };
+  });
+}

@@ -29,6 +29,7 @@ import { HubCanvasFrame } from '../app/[slug]/_components/hub-canvas-frame';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from '../app/[slug]/_components/scene-bg-preview';
 import { sceneBgPreview, sceneBgPreviewMessage } from '../app/dashboard/[eventId]/website/editor/_components/scene-bg-preview-message';
 import { stripComments } from './strip-comments';
+import { INVITE_THEMES } from './invite-themes';
 import type { InvitationWidgetRow } from './invitation-widgets';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -54,7 +55,7 @@ class El {
     setProperty: (p: string, v: string) => void this.props.set(p, v),
     removeProperty: (p: string) => void this.props.delete(p),
   };
-  get firstChild() {
+  get firstChild(): El | null {
     return this.children[0] ?? null;
   }
   vars() {
@@ -87,18 +88,18 @@ function el(tag: string): El {
 }
 const doc = { createElement: (t: string) => el(t.toUpperCase()) } as unknown as Pick<Document, 'createElement'>;
 
-/** The server's frame for a canvas: its class list and its `--hub-…` variables. */
+/** The server's frame for a canvas: its class list and its WHOLE style (variables and ink). */
 function server(canvas: Record<string, unknown>) {
   const widget = { widget_id: 'w', widget_type: 'message', is_visible: true, display_order: 1, config_json: { canvas } } as unknown as InvitationWidgetRow;
   const html = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget, mediaUrls: URL_OF }, React.createElement('section', null, 'Hi')),
+    React.createElement(HubCanvasFrame, { widget, mediaUrls: URL_OF, children: React.createElement('section', null, 'Hi') }),
   );
   const m = /^<div class="([^"]*)" style="([^"]*)"/.exec(html);
   assert.ok(m, `the server drew a frame: ${html.slice(0, 200)}`);
   const vars: Record<string, string> = {};
   for (const d of m[2]!.replace(/&quot;/g, '"').split(';')) {
     const i = d.indexOf(':');
-    if (i > 0 && d.trim().startsWith('--hub-')) vars[d.slice(0, i).trim()] = d.slice(i + 1).trim();
+    if (i > 0) vars[d.slice(0, i).trim()] = d.slice(i + 1).trim();
   }
   return { classes: m[1]!, vars, photoLayer: html.includes('class="hub-canvas-media"') };
 }
@@ -108,7 +109,7 @@ function lay(canvas: HubSectionCanvas) {
   const parent = el('MAIN');
   const scene = el('SECTION');
   parent.appendChild(scene);
-  const msg = sanitizeSceneBgPreview([sceneBgPreview('message', canvas, mediaUrl)]);
+  const msg = sanitizeSceneBgPreview([sceneBgPreview('message', canvas, mediaUrl, INVITE_THEMES.house)]);
   const frame = applySceneBgPreview(scene as unknown as HTMLElement, msg[0]!, doc) as unknown as El;
   return { parent, scene, frame };
 }
@@ -141,7 +142,7 @@ test('every background choice previews as EXACTLY the frame the server draws', (
 test('re-laying a framed scene swaps its look and leaves nothing of the old one behind', () => {
   const { frame } = lay(sanitizeHubCanvas({ canvas: { media: PHOTO } }));
   const glow = sanitizeHubCanvas({ canvas: { kind: 'glow', color: '#a9834b' } });
-  applySceneBgPreview(frame as unknown as HTMLElement, sanitizeSceneBgPreview([sceneBgPreview('message', glow, mediaUrl)])[0]!, doc);
+  applySceneBgPreview(frame as unknown as HTMLElement, sanitizeSceneBgPreview([sceneBgPreview('message', glow, mediaUrl, INVITE_THEMES.house)])[0]!, doc);
   const want = server(glow as Record<string, unknown>);
   assert.equal(frame.className, want.classes);
   assert.deepEqual(frame.vars(), want.vars, 'the photo variable is gone');
@@ -155,7 +156,7 @@ test('"Every scene" previews every scene the patch touches — this stage only',
     { type: 'dress_code', canvas: sanitizeHubCanvas({ canvas: { kind: 'color', color: '#112233', own: true } }) },
   ];
   const patch = everySceneBackgroundPatch(stage, stage[0]!.canvas);
-  const msg = sceneBgPreviewMessage(Object.entries(patch.widgets).map(([type, w]) => ({ type, canvas: w.canvas })), mediaUrl);
+  const msg = sceneBgPreviewMessage(Object.entries(patch.widgets).map(([type, w]) => ({ type, canvas: w.canvas })), mediaUrl, INVITE_THEMES.house);
   assert.equal(msg.t, 'sceneBg');
   assert.deepEqual(msg.scenes.map((s) => s.key).sort(), ['w:countdown', 'w:dress_code', 'w:special_message']);
   for (const s of msg.scenes) assert.ok(s.classes.includes('hub-bg-frost'), `${s.key} previews the shared glass`);
@@ -166,11 +167,19 @@ test('nothing in the message reaches CSS unchecked', () => {
     {
       key: 'w:message',
       classes: ['hub-bg-color', 'evil class', 'x', 'hub-ok'],
-      vars: { '--hub-bg-color': '#123456', '--hub-x': 'red; background:url(x)', color: 'red', '--hub-y': '}' },
+      vars: {
+        '--hub-bg-color': '#123456',
+        '--color-ink': '27 26 23',
+        color: 'rgb(27 26 23)',
+        '--hub-x': 'red; background:url(x)',
+        background: 'url(x)',
+        position: 'fixed',
+        '--hub-y': '}',
+      },
     },
   ]);
   assert.deepEqual(s!.classes, ['hub-bg-color', 'hub-ok']);
-  assert.deepEqual(s!.vars, { '--hub-bg-color': '#123456' });
+  assert.deepEqual(s!.vars, { '--hub-bg-color': '#123456', '--color-ink': '27 26 23', color: 'rgb(27 26 23)' }, 'only the frame’s variables and the ink');
   assert.deepEqual(sanitizeSceneBgPreview([{ key: 'f:hero', classes: [], vars: {} }]), [], 'only a scene key');
   assert.deepEqual(sanitizeSceneBgPreview('nope'), []);
 });

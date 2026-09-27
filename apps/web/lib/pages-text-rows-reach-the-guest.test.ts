@@ -24,6 +24,7 @@ import {
   sanitizeHubElements,
   withElementAlign,
   withoutTextStyle,
+  type HubElementStyle,
 } from './element-style';
 import { emptyHubDraft, mergeHubDraft, planHubDraftApply, type HubLiveState } from './hub-draft';
 import type { InvitationWidgetRow } from './invitation-widgets';
@@ -81,7 +82,7 @@ test('at Apply the new look rows are Pro; hiding a part and the joiner’s word 
   assert.equal(planHubDraftApply(look, live, false).refused.length, 1, 'a weight is look — held for a free couple');
   assert.equal(planHubDraftApply(look, live, true).refused.length, 0, 'and written for a Pro couple');
   for (const field of [{ italic: true }, { underline: true }, { align: 'left' }, { leading: 1.2 }, { tracking: -2 }]) {
-    const d = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: field } } } } });
+    const d = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: field as HubElementStyle } } } } });
     assert.equal(planHubDraftApply(d, live, false).refused.length, 1, `${JSON.stringify(field)} is held for a free couple`);
   }
   const free = mergeHubDraft(emptyHubDraft(), {

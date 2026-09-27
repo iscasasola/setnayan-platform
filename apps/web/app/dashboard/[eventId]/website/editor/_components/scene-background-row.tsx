@@ -22,6 +22,7 @@ import {
   type HubBackgroundKind,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { ombreCss } from '@/lib/ombre';
 import {
   everySceneBackgroundPatch,
@@ -93,7 +94,10 @@ export function SceneBackgroundRow({
   ownsPro,
   mediaHref,
   onPreview,
+  hubTheme,
 }: {
+  /** The live theme — the preview's words take its inks over the new ground, as the page will. */
+  hubTheme?: InviteThemeId | null;
   /**
    * ⚡ Lay a background on the canvas NOW (the bridge's `sceneBg`), before the
    * save. The buffered reload that follows the save confirms it.
@@ -142,6 +146,7 @@ export function SceneBackgroundRow({
       sceneBgPreviewMessage(
         Object.entries(patch.widgets).map(([type, w]) => ({ type, canvas: w.canvas })),
         mediaUrl,
+        INVITE_THEMES[hubTheme ?? 'house'] ?? INVITE_THEMES.house,
       ),
     );
     start(async () => {
@@ -330,6 +335,14 @@ export function SceneBackgroundRow({
             onChange={(e) => {
               const n = Number(e.target.value);
               setOpacityDraft(n);
+              /* ⚡ The pane at this opacity, on the canvas while the thumb moves. */
+              onPreview?.(
+                sceneBgPreviewMessage(
+                  [{ type: widgetType, canvas: sanitizeHubCanvas({ canvas: { ...latest.current, opacity: n } }) }],
+                  mediaUrl,
+                  INVITE_THEMES[hubTheme ?? 'house'] ?? INVITE_THEMES.house,
+                ),
+              );
               if (opacityTimer.current) clearTimeout(opacityTimer.current);
               opacityTimer.current = setTimeout(() => {
                 setOpacityDraft(null);

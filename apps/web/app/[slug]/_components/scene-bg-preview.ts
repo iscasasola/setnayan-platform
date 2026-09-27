@@ -18,7 +18,8 @@
  * it. The buffered reload that follows the save confirms — this is the preview.
  *
  * 🔒 NOTHING FROM THE MESSAGE BECOMES CSS UNCHECKED. A class must be
- * `hub-…` lowercase; a variable must be a `--hub-…` name, and its value may not
+ * `hub-…` lowercase; a variable must be a `--hub-…` or `--color-…` name (or
+ * `color`, the ink the words follow), and its value may not
  * carry `;` `{` `}` `<` `>` or a backslash — so a value can never close the
  * declaration it sits in. The message is also origin-checked by the bridge.
  */
@@ -26,7 +27,9 @@
 export type SceneBgPreviewScene = { key: string; classes: string[]; vars: Record<string, string> };
 
 const CLASS = /^hub-[a-z0-9_-]{1,60}$/;
-const VAR = /^--hub-[a-z0-9-]{1,40}$/;
+/** The frame's own variables (`--hub-…`) and the legibility tokens its words are painted through (`--color-…`, `color`). */
+const VAR = /^(?:--hub-[a-z0-9-]{1,40}|--color-[a-z0-9-]{1,40}|color)$/;
+const OWNED = (p: string) => p.startsWith('--hub-') || p.startsWith('--color-') || p === 'color';
 const UNSAFE = /[;{}<>\\]/;
 
 /** The message's scenes, with anything that is not a closed-shape class or variable dropped. */
@@ -68,11 +71,11 @@ export function applySceneBgPreview(scene: HTMLElement, preview: SceneBgPreviewS
     body.appendChild(scene);
   }
   frame.className = ['hub-canvas', ...preview.classes.filter((c) => c !== 'hub-canvas')].join(' ');
-  // Every `--hub-…` the frame carried goes, then the new set is laid.
+  // Every variable and ink the frame carried goes, then the new set is laid.
   const old: string[] = [];
   for (let i = 0; i < frame.style.length; i += 1) {
     const p = frame.style.item(i);
-    if (p.startsWith('--hub-')) old.push(p);
+    if (OWNED(p)) old.push(p);
   }
   for (const p of old) frame.style.removeProperty(p);
   for (const [p, v] of Object.entries(preview.vars)) frame.style.setProperty(p, v);

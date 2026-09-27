@@ -261,7 +261,7 @@ test('a hero part: the bridge writes the SAME inline style the server renders, f
   const style = {
     font: FONT,
     color: '#123456',
-    size: 'xl',
+    size: 145,
     motion: { in: 'rise', during: 'drift', duration: 'slow', delay: 'short' },
   } as const;
   for (const el of ['names', 'eyebrow', 'date', 'time', 'line'] as const) {
@@ -275,15 +275,17 @@ test('a hero part: the bridge writes the SAME inline style the server renders, f
 });
 
 test('THE MARK: every size step reaches the canvas as the zoom the server renders', () => {
+  // ♻ The old S · L · XL (a draft saved before the stepper) still draw at their zoom.
   for (const size of ['s', 'l', 'xl'] as const) {
-    const server = masthead({ mark: { size } }).find('data-el', 'mark');
+    const legacy = { size } as unknown as es.HubElementStyle;
+    const server = masthead({ mark: legacy }).find('data-el', 'mark');
     const live = masthead(null).find('data-el', 'mark');
-    bridge.applyHeroPartStyle(live as unknown as HTMLElement, { size }, false);
+    bridge.applyHeroPartStyle(live as unknown as HTMLElement, legacy, false);
     assert.deepEqual(styleOf(live), styleOf(server));
     assert.equal(live.style.getPropertyValue('zoom'), String(es.HUB_ELEMENT_LEGACY_SIZE[size] / 100));
   }
   // Back to M is an ABSENCE: nothing of the old size is left behind.
-  const live = masthead({ mark: { size: 'xl' } }).find('data-el', 'mark');
+  const live = masthead({ mark: { size: 145 } }).find('data-el', 'mark');
   bridge.applyHeroPartStyle(live as unknown as HTMLElement, null, true);
   assert.deepEqual(styleOf(live), {});
 });
@@ -311,7 +313,7 @@ test('the preview clears exactly the properties the declarations can write', () 
     { during: 'drift' },
   ];
   for (const motion of motions) {
-    for (const [p] of es.hubElementDeclarations({ font: FONT, color: '#000000', size: 'l', motion } as never)) emitted.add(p);
+    for (const [p] of es.hubElementDeclarations({ font: FONT, color: '#000000', size: 120, motion } as never)) emitted.add(p);
   }
   const listed = new Set<string>([...es.HUB_ELEMENT_LOOK_PROPS, ...es.HUB_ELEMENT_MOTION_PROPS]);
   for (const p of emitted) assert.ok(listed.has(p), `${p} is written by the declarations but never cleared by the preview`);
@@ -320,8 +322,8 @@ test('the preview clears exactly the properties the declarations can write', () 
 test('✍ per-letter runs: the bridge re-cuts the part into the SAME spans the server renders', () => {
   const whole = 'MariaandJose'; // the card's names as `textContent` reads them
   const of = es.hubTextHash(whole);
-  const runsA = { runs: [{ start: 0, end: 1, color: '#aa0000' }, { start: 4, end: 6, font: FONT }, { start: 6, end: 9, size: 'l' }], of };
-  const runsB = { runs: [{ start: 2, end: 3, font: FONT_2, color: '#00aa00', size: 's' }], of };
+  const runsA = { runs: [{ start: 0, end: 1, color: '#aa0000' }, { start: 4, end: 6, font: FONT }, { start: 6, end: 9, size: 120 }], of };
+  const runsB = { runs: [{ start: 2, end: 3, font: FONT_2, color: '#00aa00', size: 85 }], of };
   const cut = (style: unknown) => es.sanitizeHubElementStyle(style, 'names');
 
   const live = masthead(null).find('data-el', 'names');
@@ -350,7 +352,7 @@ test('a date part keeps its gold rules while its runs are re-cut', () => {
 
 test("a scene's parts: the bridge writes the SAME scoped <style> the frame renders", () => {
   const elements = es.sanitizeHubElements({
-    heading: { color: '#112233', size: 'l', font: FONT },
+    heading: { color: '#112233', size: 120, font: FONT },
     body: { motion: { in: 'fade' } },
   })!;
   const widget = {
@@ -380,7 +382,7 @@ test("a scene's parts: the bridge writes the SAME scoped <style> the frame rende
   assert.equal(section.nextElementSibling, tag, 'placed straight after the scene, where `:has(+ style)` looks');
 
   // A second choice rewrites the SAME tag; a reset empties it.
-  const again = bridge.applySceneElementStyles(section as unknown as HTMLElement, 'details', { heading: { size: 's' } }, doc);
+  const again = bridge.applySceneElementStyles(section as unknown as HTMLElement, 'details', { heading: { size: 85 } }, doc);
   assert.equal(again as unknown, tag);
   assert.equal(page.querySelectorAll('[data-hub-els]').length, 1);
   bridge.applySceneElementStyles(section as unknown as HTMLElement, 'details', null, doc);
@@ -400,14 +402,14 @@ test('the elStyle message is wired: the canvas applies it, and replays on a moti
 
 /* ═══ 2 · AN ELEMENT SAVE DOES NOT RELOAD THE CANVAS ═════════════════════ */
 
-const hero: Canvas = { elements: { names: { size: 'l' } } };
+const hero: Canvas = { elements: { names: { size: 120 } } };
 const details: Canvas = { arrangement: 'left' };
 
 test('the hold keeps the page for a render that shows what the canvas shows', () => {
   const server = { hero: {}, details };
   const hold = ep.holdCanvas(ep.NO_CANVAS_HOLD, server, 'hero', hero, 1000);
   // The save's refresh: the server now holds the same canvas (key order differs).
-  const after = { details, hero: { elements: { names: { size: 'l' } } } } as Record<string, Canvas>;
+  const after = { details, hero: { elements: { names: { size: 120 } } } } as Record<string, Canvas>;
   assert.equal(ep.canvasKeepsItsPage(hold, after, 2000), true);
   // An empty canvas and an absent one are the same page.
   assert.equal(ep.canvasKeepsItsPage(ep.holdCanvas(ep.NO_CANVAS_HOLD, { details }, 'hero', {}, 0), { details }, 10), true);
@@ -447,9 +449,9 @@ test('the stage canvas iframe is keyed on the held stamp, never on every render'
 /* ═══ 3 · A REFUSED SAVE PUTS THE LAST SAVED LOOK BACK ═══════════════════ */
 
 test('a refused save reverts to the last saved canvas — unless a later choice is on its way', () => {
-  const saved: Canvas = { elements: { names: { size: 's' } } };
-  const failed: Canvas = { elements: { names: { size: 'xl' } } };
-  const later: Canvas = { elements: { names: { size: 'xl', color: '#000000' } } };
+  const saved: Canvas = { elements: { names: { size: 85 } } };
+  const failed: Canvas = { elements: { names: { size: 145 } } };
+  const later: Canvas = { elements: { names: { size: 145, color: '#000000' } } };
   assert.equal(ep.revertAfterFailedSave(failed, failed, saved), saved);
   assert.equal(ep.revertAfterFailedSave(failed, later, saved), null);
   // The revert is laid on the canvas quietly — no replay.
@@ -473,10 +475,10 @@ test('the sheet previews BEFORE it saves, and a refusal previews the saved look'
 /* ═══ 4 · A MOTION CHANGE REPLAYS THE ARRIVAL ════════════════════════════ */
 
 test('a motion change replays the In; a size, font or colour change does not', () => {
-  const base: Canvas = { elements: { names: { size: 'l' } } };
-  const withIn: Canvas = { elements: { names: { size: 'l', motion: { in: 'rise' } } } };
-  const slower: Canvas = { elements: { names: { size: 'l', motion: { in: 'rise', duration: 'slow' } } } };
-  const bigger: Canvas = { elements: { names: { size: 'xl', motion: { in: 'rise', duration: 'slow' } } } };
+  const base: Canvas = { elements: { names: { size: 120 } } };
+  const withIn: Canvas = { elements: { names: { size: 120, motion: { in: 'rise' } } } };
+  const slower: Canvas = { elements: { names: { size: 120, motion: { in: 'rise', duration: 'slow' } } } };
+  const bigger: Canvas = { elements: { names: { size: 145, motion: { in: 'rise', duration: 'slow' } } } };
   const inOn = ep.elementPreview('f:hero', 'names', base, withIn);
   assert.deepEqual([inOn.motion, inOn.replay], [true, true]);
   const dur = ep.elementPreview('f:hero', 'names', withIn, slower);
@@ -484,7 +486,7 @@ test('a motion change replays the In; a size, font or colour change does not', (
   const size = ep.elementPreview('f:hero', 'names', slower, bigger);
   assert.deepEqual([size.motion, size.replay], [false, false]);
   // Drift alone has no arrival to replay — it runs on its own.
-  const drift = ep.elementPreview('f:hero', 'names', base, { elements: { names: { size: 'l', motion: { during: 'drift' } } } });
+  const drift = ep.elementPreview('f:hero', 'names', base, { elements: { names: { size: 120, motion: { during: 'drift' } } } });
   assert.deepEqual([drift.motion, drift.replay], [true, false]);
   assert.equal(inOn.t, 'elStyle');
   assert.deepEqual(inOn.elements, withIn.elements);

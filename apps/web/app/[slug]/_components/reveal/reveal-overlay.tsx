@@ -53,7 +53,7 @@ import {
 } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
-import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
+import { rigidEffectFor, tuneRevealLooks, type RevealEffects } from '@/lib/std-reveal-effects';
 import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
 import { landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { revealAllowedFor } from '@/lib/reveal-access';
@@ -178,6 +178,9 @@ export function RevealOverlay({
   const [reducedMotion, setReducedMotion] = useState(false);
   const [open, setOpen] = useState(false);
   const [gone, setGone] = useState(false);
+  // 🎚 The couple's fine-tune over the house look (Maker's Reveal page) —
+  // untouched when they tuned nothing. `lib/std-reveal-effects.ts`.
+  const looks = tuneRevealLooks(config, eventEffects?.tune);
   // Read in the SAME effect that sets `mounted`, so it is known before this
   // component has ever rendered anything: the overlay renders null until
   // mounted, so a deferred one goes from nothing to nothing.
@@ -332,7 +335,7 @@ export function RevealOverlay({
         <VeilReveal
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}
-          look={config?.veil}
+          look={looks.veil}
           features={{
             petals: eventEffects?.petals ?? config?.features?.petals ?? true,
             logo: config?.features?.logo ?? true,
@@ -418,7 +421,7 @@ export function RevealOverlay({
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
           effect={rigidEffect}
-          effectLook={config?.effects}
+          effectLook={looks.effects}
         />
       ) : (
         <FourFlapEnvelope
@@ -429,7 +432,7 @@ export function RevealOverlay({
           fallbackSeed={sealFallbackSeed}
           onOpened={onOpened}
           effect={rigidEffect}
-          effectLook={config?.effects}
+          effectLook={looks.effects}
         />
       )}
     </div>

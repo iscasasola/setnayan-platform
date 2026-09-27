@@ -18,7 +18,7 @@ import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
-import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { resolveRevealEffects, revealTuneHouse } from '@/lib/std-reveal-effects';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -304,6 +304,9 @@ export async function MakerRevealPanel({
         JSON.stringify(resolveRevealEffects(m.drafted.std_reveal_effects)) !==
         JSON.stringify(resolveRevealEffects(m.live.std_reveal_effects))
       }
+      /* Where each fine-tune slider rests until the couple moves it — the
+         Reveal Studio's house look, read once above. */
+      tuneHouse={revealTuneHouse(config)}
     />
   );
 }

@@ -98,9 +98,14 @@ test('R3 · with NO selection, a choice styles the whole element; with one, only
   assert.deepEqual(whole, { names: { font: 'cinzel' } });
   const part = withRunChoice(null, 'names', { start: 0, end: 1, of: hubTextHash(NAMES_TEXT) }, 'font', 'cinzel');
   assert.deepEqual(part, { names: { runs: [{ start: 0, end: 1, font: 'cinzel' }], of: hubTextHash(NAMES_TEXT) } });
-  // The sheet chooses between the two by whether a range is selected.
+  // The sheet chooses between the two by whether a range is selected — and a
+  // run takes only font · colour · size (the Text tab's other rows, 2026-09-27,
+  // are the whole part's: weight, spacing, alignment are never per-letter).
   const SHEET = stripComments(read('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx'));
-  assert.match(SHEET, /range\s*\?\s*withRunChoice\(latest\.current\.elements, target\.el, range, field, value\)\s*:\s*withElementChoice\(/);
+  assert.match(
+    SHEET,
+    /range && \(field === 'font' \|\| field === 'color' \|\| field === 'size'\)\s*\?\s*withRunChoice\(latest\.current\.elements, target\.el, range, field, [^)]*\)\s*:\s*withElementChoice\(/,
+  );
 });
 
 test('R4 · hostile runs are dropped — no CSS text, no out-of-range offsets, no forged hash', () => {
@@ -147,9 +152,10 @@ test('M2 · under "Plays once" there is no Out; under "Follows the scroll" Out r
   assert.match(scrolled.animation ?? '', /el-in-fade .*, el-out-lift /);
   assert.equal(scrolled['animation-timeline'], 'view(), view()');
   assert.equal(scrolled['animation-range'], 'entry 0% cover 30%, exit 0% exit 100%');
-  // The sheet only offers Out when the element follows the scroll.
-  const SHEET = stripComments(read('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx'));
-  assert.match(SHEET, /\{scroll \? \(\s*<MotionRow label="Out"/);
+  // The sheet only offers Out when the element follows the scroll (the Animate
+  // tab's rows live in `part-inspector.tsx` since the Keynote rebuild).
+  const TAB = stripComments(read('app/dashboard/[eventId]/website/editor/_components/part-inspector.tsx'));
+  assert.match(TAB, /\{scroll \? \(\s*<IRow label="Out"/);
 });
 
 test('M3 · a hostile motion value is dropped — only closed-set keys ever reach CSS', () => {

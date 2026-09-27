@@ -2,48 +2,33 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { RotateCcw, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
-import { hubFontPreviewStack } from '@/lib/hub-fonts';
 import {
-  HUB_EL_DELAY,
-  HUB_EL_DELAY_LABEL,
-  HUB_EL_DURATION,
-  HUB_EL_DURATION_LABEL,
-  HUB_EL_DURING_LABEL,
-  HUB_EL_DURING_WORDS,
-  HUB_EL_IN,
-  HUB_EL_IN_LABEL,
-  HUB_EL_OUT,
-  HUB_EL_OUT_LABEL,
-  HUB_EL_TIMELINE,
-  HUB_EL_TIMELINE_LABEL,
-  HUB_ELEMENT_FIELDS,
-  HUB_ELEMENT_FONTS,
   HUB_ELEMENT_LABEL,
   HUB_ELEMENT_RUN_KEYS,
-  HUB_ELEMENT_SIZES,
-  HUB_ELEMENT_SIZE_LABEL,
-  hubElementColor,
   hubElementContrast,
+  withElementAlign,
   withElementChoice,
   withElementMotion,
   withRunChoice,
-  withoutElement,
   withoutMotion,
   withoutRuns,
+  withoutTextStyle,
+  type HubElementChoiceValue,
   type HubElementField,
   type HubElementKey,
   type HubElementMotion,
   type HubElementRun,
 } from '@/lib/element-style';
-import { PickMenu } from './pick-menu';
-import { Play } from 'lucide-react';
+import { InspectorTabs, IReset, ISeg, ISegmented } from './inspector-kit';
+import { PART_TABS, PartAnimateTab, PartArrangeTab, PartPicker, PartTextTab, type PartTab } from './part-inspector';
+import { elementPreview, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
 
 /**
  * THE ELEMENT SHEET — one tapped element's font · colour · size · animation.
@@ -63,7 +48,15 @@ import { Play } from 'lucide-react';
  *
  * 🔑 THE LATEST CANVAS IS A REF, NOT THE PROP. Two quick taps would otherwise
  * both build on the canvas from before the first save, and the second would
- * silently undo the first.
+ * silently undo the first. For the same reason a server canvas that arrives
+ * while a save is still on its way is NOT adopted — it is older than the ref.
+ *
+ * ⚡ EVERY CHOICE IS ON THE CANVAS BEFORE IT IS SAVED (owner 2026-09-27:
+ * *"changing size does nothing"*). `onPreview` posts it to the canvas first
+ * (`element-preview.ts` → the bridge's `elStyle`), then the save runs behind
+ * it; `onSaving` tells the shell what the canvas now shows, so the save's
+ * refresh does not reload the canvas. A refused save puts the last SAVED look
+ * back on the canvas and says why, in the sheet's own error line.
  *
  * Phone first: a bottom sheet over the lower canvas, the element still in view
  * above it; from `lg` it is the inspector's column. Still, app-like controls —
@@ -125,11 +118,32 @@ export function ElementSheet({
   onClose,
   resize,
   onPlay,
+  onPreview,
+  onSaving,
+  parts,
+  onPart,
+  sceneLabel,
+  onOpenHero,
+  usedColours = [],
 }: {
+  /** 🔤 Part ▾ — every part of this scene, in order (like Pages' "Body ▾"). */
+  parts?: readonly HubElementKey[];
+  /** Switch the sheet to another part of the same scene. */
+  onPart?: (el: HubElementKey) => void;
+  /** "Names & date" — the scene the part is on, beside the title. */
+  sceneLabel?: string;
+  /** The hero's parts: their words are written in the Hero editor. */
+  onOpenHero?: () => void;
+  /** Colours this Event Hub already uses — the synced half of "Saved colours". */
+  usedColours?: readonly string[];
   /** The tools column's width and drag handle, shared with the inspector (desktop). */
   resize?: ToolsResize;
   /** ▶ Replay this part's In on the canvas (the bridge's `playEl`). */
   onPlay?: () => void;
+  /** ⚡ Lay a choice on the canvas NOW (the bridge's `elStyle`), before its save. */
+  onPreview?: (message: ElementPreviewMessage) => void;
+  /** ⚡ The canvas now shows this scene canvas — hold it through the save's refresh. */
+  onSaving?: (widgetType: string, canvas: HubSectionCanvas) => void;
   /** `hubDraftAction` — see `ElementDraftAction`. */
   draftAction: ElementDraftAction;
   eventId: string;
@@ -144,32 +158,63 @@ export function ElementSheet({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const latest = useRef<HubSectionCanvas>(canvas);
+  /** The canvas the draft last ACCEPTED — what a refused save goes back to. */
+  const saved = useRef<HubSectionCanvas>(canvas);
+  /** Saves still on their way — while any is, the server's canvas is older than ours. */
+  const inflight = useRef(0);
   const [style, setStyle] = useState(canvas.elements?.[target.el] ?? {});
   const canvasJson = JSON.stringify(canvas);
 
-  /* A fresh canvas from the server (after the refresh) is the truth again. */
+  /* A fresh canvas from the server (after the refresh) is the truth again —
+     unless a save is still on its way, whose canvas is newer than it. */
   useEffect(() => {
+    if (inflight.current > 0) return;
     latest.current = canvas;
+    saved.current = canvas;
     setStyle(canvas.elements?.[target.el] ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasJson, target.el, target.widgetType]);
 
-  const fields = HUB_ELEMENT_FIELDS[target.el];
-  const has = (f: HubElementField) => fields.includes(f);
+  /* 🧰 Text · Animate · Arrange (Pages' inspector + Keynote's Animate). */
+  const [tab, setTab] = useState<PartTab>('text');
 
   const commit = (elements: HubSectionCanvas['elements'] | null) => {
-    const next: HubSectionCanvas = { ...latest.current };
+    const before = latest.current;
+    const next: HubSectionCanvas = { ...before };
     if (elements) next.elements = elements;
     else delete next.elements;
     latest.current = next;
     setStyle(next.elements?.[target.el] ?? {});
     setError(null);
+    /* ⚡ On the canvas first — the save runs behind it. */
+    onPreview?.(elementPreview(target.key, target.el, before, next));
+    onSaving?.(target.widgetType, next);
+    inflight.current += 1;
     start(async () => {
-      const res = await saveCanvas(draftAction, eventId, target.widgetType, next);
+      let res: HubDraftActionResult;
+      try {
+        res = await saveCanvas(draftAction, eventId, target.widgetType, next);
+      } catch {
+        res = { ok: false, intent: 'save', error: 'That change could not be saved. Please try again.' };
+      } finally {
+        inflight.current -= 1;
+      }
       if (!res.ok) {
+        /* ↩ Refused: the canvas and the sheet go back to the last saved look. */
+        const back = revertAfterFailedSave(next, latest.current, saved.current);
+        if (back) {
+          latest.current = back;
+          setStyle(back.elements?.[target.el] ?? {});
+          onPreview?.(elementPreview(target.key, target.el, next, back, false));
+          onSaving?.(target.widgetType, back);
+        }
         setError(res.error);
         return;
       }
+      saved.current = next;
+      /* The toolbar's Apply · Undo · Restore count reads the draft on the
+         server, so the page still refreshes — the shell's canvas hold keeps
+         the canvas from reloading for a render that shows what it shows. */
       router.refresh();
     });
   };
@@ -184,22 +229,32 @@ export function ElementSheet({
   /** What the font · colour · size controls show: the run's own, or the part's. */
   const face = range ? { font: run?.font, color: run?.color, size: run?.size } : style;
 
-  const choose = (field: Exclude<HubElementField, 'motion'>, value: string | null) =>
+  const choose = (field: Exclude<HubElementField, 'motion'>, value: HubElementChoiceValue) =>
     commit(
-      range
-        ? withRunChoice(latest.current.elements, target.el, range, field, value)
+      range && (field === 'font' || field === 'color' || field === 'size')
+        ? withRunChoice(latest.current.elements, target.el, range, field, value as string | number | null)
         : withElementChoice(latest.current.elements, target.el, field, value),
     );
   const motion: HubElementMotion = style.motion ?? {};
   const moveTo = (part: keyof HubElementMotion, value: string | null) =>
     commit(withElementMotion(latest.current.elements, target.el, part, value));
-  const scroll = motion.timeline === 'scroll';
+
+  /* ⚡ A colour DRAG on the wheel or a slider: on the canvas now, nothing saved
+     (the Colour panel commits through `choose` once the hand stops). */
+  const previewColour = (hex: string) => {
+    const els = range
+      ? withRunChoice(latest.current.elements, target.el, range, 'color', hex)
+      : withElementChoice(latest.current.elements, target.el, 'color', hex);
+    const next: HubSectionCanvas = { ...latest.current };
+    if (els) next.elements = els;
+    else delete next.elements;
+    onPreview?.(elementPreview(target.key, target.el, latest.current, next, false));
+  };
 
   /* The contrast warning — measured, never blocking (a quiet accent may be meant). */
   const ground = canvas.kind === 'color' && canvas.color ? canvas.color : palette.surface;
   const contrast = face.color ? hubElementContrast(face.color, ground) : null;
-  const swatches = [...new Set([palette.ink, palette.heading, palette.accent, palette.muted].map((c) => c.toLowerCase()))];
-  const custom = face.color && !swatches.includes(face.color) ? face.color : null;
+  const themeColours = [...new Set([palette.ink, palette.heading, palette.accent, palette.muted].map((c) => c.toLowerCase()))];
   const titleId = 'maker-element-sheet-title';
 
   return (
@@ -211,13 +266,16 @@ export function ElementSheet({
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
       }}
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[55dvh] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none"
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[62dvh] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none"
     >
       {resize ? <ToolsResizeHandle onPointerDown={resize.onPointerDown} /> : null}
       <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
       <div className="flex items-center gap-2 px-4 pt-2">
         <p id={titleId} className="min-w-0 flex-1 truncate font-serif text-lg text-ink">
-          {HUB_ELEMENT_LABEL[target.el]}
+          Part
+          {sceneLabel ? (
+            <span className="ml-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink/45">on {sceneLabel}</span>
+          ) : null}
           <PaidMark
             state={ownsPro ? 'unlocked' : 'locked'}
             text="Pro"
@@ -225,8 +283,8 @@ export function ElementSheet({
             className="ml-2 align-middle"
           />
         </p>
-        <InfoTip label="" ariaLabel="About this element" align="end">
-          Changes this element only — the rest keeps the Event Hub&rsquo;s look. Until you choose, it wears the
+        <InfoTip label="" ariaLabel="About this part" align="end">
+          Changes this part only — the rest keeps the Event Hub&rsquo;s look. Until you choose, it wears the
           Event Hub font and colour and moves with its scene.
           {ownsPro ? '' : ' Try it here; it goes live when you Apply with Event Hub Pro.'}
         </InfoTip>
@@ -234,246 +292,79 @@ export function ElementSheet({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="sn-press inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors duration-300 ease-in-out hover:bg-ink/10 hover:text-ink"
+          className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors duration-300 ease-in-out hover:bg-ink/10 hover:text-ink lg:h-10 lg:w-10"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
       </div>
 
-      {target.range && HUB_ELEMENT_RUN_KEYS.includes(target.el) ? (
-        <div className="flex items-center gap-2 px-4 pt-2" data-element-range="">
-          <Seg on={useRange} onClick={() => setUseRange(true)}>
-            “{target.range.text.length > 14 ? `${target.range.text.slice(0, 13)}…` : target.range.text}”
-          </Seg>
-          <Seg on={!useRange} onClick={() => setUseRange(false)}>
-            Whole {HUB_ELEMENT_LABEL[target.el].toLowerCase()}
-          </Seg>
-        </div>
-      ) : null}
-      <div className="min-h-0 flex-1 divide-y divide-ink/10 overflow-y-auto overflow-x-hidden px-4" aria-busy={pending}>
-        {has('font') ? (
-          <div className={ROW} data-element-row="font">
-            <p className={LABEL}>Font</p>
-            {/* ▾ A DROPDOWN, each face drawn in itself (owner 2026-09-27: "font
-                should be a drop down"); "Event Hub font" at the top is the reset.
-                Then EVERY face we ship ("use all our fonts on the dropdown"),
-                grouped: the five most used, then Serif · Script · Sans · Display. */}
-            <PickMenu
-              label="Font"
-              dataAttr="data-element-font"
-              value={face.font ?? 'hub'}
-              options={[
-                { key: 'hub', label: 'Event Hub font' },
-                ...HUB_ELEMENT_FONTS.map((f) => ({
-                  key: f.key,
-                  label: f.label,
-                  fontFamily: hubFontPreviewStack(f.key),
-                  group: f.pickGroup,
-                })),
-              ]}
-              onPick={(key) => choose('font', key === 'hub' ? null : key)}
-              className="flex-1"
+      <div className="px-4">
+        {parts && parts.length > 1 && onPart ? (
+          <PartPicker parts={parts} value={target.el} onPick={onPart} />
+        ) : (
+          <p className="py-2 text-[13px] font-semibold text-ink">{HUB_ELEMENT_LABEL[target.el]}</p>
+        )}
+        {/* ✍ "Whole part / this selection" — above the tabs while letters are selected. */}
+        {target.range && HUB_ELEMENT_RUN_KEYS.includes(target.el) ? (
+          <div className="py-2" data-element-range="">
+            <ISegmented label="What the choices style">
+              <ISeg on={useRange} onClick={() => setUseRange(true)}>
+                “{target.range.text.length > 14 ? `${target.range.text.slice(0, 13)}…` : target.range.text}”
+              </ISeg>
+              <ISeg on={!useRange} onClick={() => setUseRange(false)}>
+                Whole {HUB_ELEMENT_LABEL[target.el].toLowerCase()}
+              </ISeg>
+            </ISegmented>
+          </div>
+        ) : null}
+      </div>
+      <InspectorTabs tabs={PART_TABS} value={tab} onChange={setTab} label="Edit this part" />
+
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" aria-busy={pending} data-element-tab={tab}>
+        {tab === 'text' ? (
+          <>
+            <PartTextTab
+              el={target.el}
+              face={face}
+              style={style}
+              onRange={Boolean(range)}
+              choose={choose}
+              chooseAlign={(v) => commit(withElementAlign(latest.current.elements, target.el, v))}
+              resetText={() => commit(withoutTextStyle(latest.current.elements, target.el))}
+              themeColours={themeColours}
+              usedColours={usedColours}
+              shownColour={palette.ink}
+              contrast={contrast}
+              eventId={eventId}
+              onPreviewColour={previewColour}
             />
-          </div>
-        ) : null}
-
-        {has('color') ? (
-          <div className="py-3" data-element-row="color">
-            <div className="flex items-center gap-3">
-              <p className={LABEL}>Colour</p>
-              <div className="flex flex-1 flex-wrap items-center gap-2">
-                {swatches.map((c) => (
-                  <Swatch key={c} color={c} on={face.color === c} onClick={() => choose('color', c)} />
-                ))}
-                <label
-                  className={`sn-press relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[18px] text-ink/70 transition-all duration-300 ease-in-out ${
-                    custom ? 'ring-2 ring-ink ring-offset-2' : 'bg-ink/5 hover:bg-ink/10'
-                  }`}
-                  style={custom ? { background: custom } : undefined}
-                  title="Your own colour"
-                >
-                  {custom ? null : <span aria-hidden>+</span>}
-                  <span className="sr-only">Your own colour</span>
-                  <input
-                    type="color"
-                    value={face.color ?? palette.ink}
-                    onChange={(e) => {
-                      const c = hubElementColor(e.target.value);
-                      if (c) choose('color', c);
-                    }}
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  />
-                </label>
+            {range && run ? (
+              <div className="py-1.5">
+                <IReset onClick={() => commit(withoutRuns(latest.current.elements, target.el, range))}>Clear this selection</IReset>
               </div>
-            </div>
-            {contrast && !contrast.ok ? (
-              <p className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-terracotta-700" role="status" data-element-contrast="low">
-                Hard to read here · {contrast.ratio.toFixed(1)}:1
-                <InfoTip label="" ariaLabel="Why it is hard to read" align="center">
-                  Words need about 4.5:1 against their background for every guest to read them easily. You can still keep this colour.
-                </InfoTip>
-              </p>
             ) : null}
-          </div>
-        ) : null}
-
-        {has('size') ? (
-          <div className={ROW} data-element-row="size">
-            <p className={LABEL}>Size</p>
-            <Segmented>
-              {HUB_ELEMENT_SIZES.map((sz) => (
-                <Seg key={sz} on={(face.size ?? 'm') === sz} onClick={() => choose('size', sz === 'm' ? null : sz)}>
-                  {HUB_ELEMENT_SIZE_LABEL[sz]}
-                </Seg>
-              ))}
-            </Segmented>
-          </div>
-        ) : null}
-
-        {has('motion') && !range ? (
-          <div className="space-y-2.5 py-3" data-element-row="motion">
-            <div className="flex items-center gap-3">
-              <p className={LABEL}>Motion</p>
-              <Segmented>
-                {HUB_EL_TIMELINE.map((t) => (
-                  <Seg key={t} on={(motion.timeline ?? 'once') === t} onClick={() => moveTo('timeline', t === 'once' ? null : t)}>
-                    {HUB_EL_TIMELINE_LABEL[t]}
-                  </Seg>
-                ))}
-              </Segmented>
-            </div>
-            {/* In and During play TOGETHER — choosing one never clears the other. */}
-            <MotionRow label="In" data="in">
-              {HUB_EL_IN.map((v) => (
-                <Seg key={v} on={(motion.in ?? 'none') === v} onClick={() => moveTo('in', v === 'none' ? null : v)}>
-                  {HUB_EL_IN_LABEL[v]}
-                </Seg>
-              ))}
-            </MotionRow>
-            <MotionRow label="During" data="during">
-              {HUB_EL_DURING_WORDS.map((v) => (
-                <Seg key={v} on={(motion.during ?? 'still') === v} onClick={() => moveTo('during', v === 'still' ? null : v)}>
-                  {HUB_EL_DURING_LABEL[v]}
-                </Seg>
-              ))}
-            </MotionRow>
-            {scroll ? (
-              <MotionRow label="Out" data="out">
-                {HUB_EL_OUT.map((v) => (
-                  <Seg key={v} on={(motion.out ?? 'stay') === v} onClick={() => moveTo('out', v === 'stay' ? null : v)}>
-                    {HUB_EL_OUT_LABEL[v]}
-                  </Seg>
-                ))}
-              </MotionRow>
-            ) : null}
-            {/* Timed: Duration and Delay apply. Following the scroll: distance is
-                the control, so they dim. */}
-            <div className={scroll || !motion.in ? 'pointer-events-none opacity-40' : ''} aria-disabled={scroll || !motion.in}>
-              <MotionRow label="Duration" data="duration">
-                {HUB_EL_DURATION.map((v) => (
-                  <Seg key={v} on={(motion.duration ?? 'normal') === v} onClick={() => moveTo('duration', v === 'normal' ? null : v)}>
-                    {HUB_EL_DURATION_LABEL[v]}
-                  </Seg>
-                ))}
-              </MotionRow>
-              <div className="h-2.5" />
-              <MotionRow label="Delay" data="delay">
-                {HUB_EL_DELAY.map((v) => (
-                  <Seg key={v} on={(motion.delay ?? 'none') === v} onClick={() => moveTo('delay', v === 'none' ? null : v)}>
-                    {HUB_EL_DELAY_LABEL[v]}
-                  </Seg>
-                ))}
-              </MotionRow>
-            </div>
-            {onPlay && motion.in ? (
-              <button
-                type="button"
-                onClick={onPlay}
-                data-element-play=""
-                className="sn-press inline-flex min-h-10 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90"
-              >
-                <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Play
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2 py-3" data-element-row="resets">
-          {face.font ? <Reset onClick={() => choose('font', null)}>Use the Event Hub font</Reset> : null}
-          {face.color ? <Reset onClick={() => choose('color', null)}>Use the theme colour</Reset> : null}
-          {range && run ? (
-            <Reset onClick={() => commit(withoutRuns(latest.current.elements, target.el, range))}>Clear this selection</Reset>
-          ) : null}
-          {!range && style.motion ? (
-            <Reset onClick={() => commit(withoutMotion(latest.current.elements, target.el))}>Move with the scene</Reset>
-          ) : null}
-          {Object.keys(style).length > 1 ? (
-            <Reset onClick={() => commit(withoutElement(latest.current.elements, target.el))}>Reset this element</Reset>
-          ) : null}
-        </div>
+          </>
+        ) : tab === 'animate' ? (
+          <PartAnimateTab
+            motion={motion}
+            moveTo={moveTo}
+            onPreview={onPlay}
+            resetMotion={style.motion ? () => commit(withoutMotion(latest.current.elements, target.el)) : null}
+          />
+        ) : (
+          <PartArrangeTab
+            el={target.el}
+            hidden={Boolean(style.hidden)}
+            setHidden={(h) => choose('hidden', h ? true : null)}
+            onOpenHero={onOpenHero}
+          />
+        )}
         {error ? (
-          <p role="alert" className="pb-3 text-[12.5px] font-semibold text-terracotta-700">
+          <p role="alert" className="py-3 text-[12.5px] font-semibold text-terracotta-700">
             {error}
           </p>
         ) : null}
       </div>
     </aside>
-  );
-}
-
-function MotionRow({ label, data, children }: { label: string; data: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3" data-element-motion={data}>
-      <p className="w-[4.5rem] shrink-0 text-[12px] font-semibold text-ink/70">{label}</p>
-      <Segmented>{children}</Segmented>
-    </div>
-  );
-}
-
-function Swatch({ color, on, onClick }: { color: string; on: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      aria-label={`Colour ${color}`}
-      onClick={onClick}
-      style={{ background: color }}
-      className={`sn-press h-9 w-9 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.08)] transition-all duration-300 ease-in-out ${
-        on ? 'ring-2 ring-ink ring-offset-2' : ''
-      }`}
-    />
-  );
-}
-
-function Segmented({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto rounded-full bg-ink/5 p-0.5 [scrollbar-width:none]">{children}</div>;
-}
-
-function Seg({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`sn-press min-h-10 flex-1 whitespace-nowrap rounded-full px-1.5 text-[12.5px] font-semibold transition-all duration-300 ease-in-out ${
-        on ? 'bg-white text-ink shadow-sm' : 'text-ink/65 hover:text-ink'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Reset({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="sn-press inline-flex min-h-10 items-center gap-1.5 rounded-full bg-ink/5 px-3.5 text-[13px] font-semibold text-ink/80 transition-all duration-300 ease-in-out hover:bg-ink/10"
-    >
-      <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      {children}
-    </button>
   );
 }

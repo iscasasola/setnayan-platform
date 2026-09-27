@@ -829,18 +829,54 @@ export function hubElementInlineStyle(
   return out;
 }
 
-/** A run's inline style — font · colour · size (`em`, so it scales from the element's own size). */
-export function hubRunInlineStyle(run: HubElementRun): Record<string, string> {
-  const out: Record<string, string> = {};
+/**
+ * A run's declarations — font · colour · size (`em`, so it scales from the
+ * element's own size). ONE list, read by the guest page (`hubRunInlineStyle`)
+ * and by the Maker canvas's instant preview (`editor-bridge.tsx`).
+ */
+export function hubRunDeclarations(run: HubElementRun): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
   if (run.font) {
     const f = HUB_FONT_BY_KEY[run.font];
-    out.fontFamily = `var(${f.cssVar}), ${f.fallback}`;
+    out.push(['font-family', `var(${f.cssVar}), ${f.fallback}`]);
   }
-  if (run.color) out.color = run.color;
+  if (run.color) out.push(['color', run.color]);
   const pct = hubElementSizePct(run.size);
-  if (pct) out.fontSize = `${pct / 100}em`;
+  if (pct) out.push(['font-size', `${pct / 100}em`]);
   return out;
 }
+
+/** A run's inline style — `hubRunDeclarations` as a React style. */
+export function hubRunInlineStyle(run: HubElementRun): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [prop, value] of hubRunDeclarations(run)) out[camel(prop)] = value;
+  return out;
+}
+
+/**
+ * ⚡ EVERY CSS PROPERTY `hubElementDeclarations` CAN WRITE, split into the look
+ * and the motion. The Maker canvas's instant preview (`editor-bridge.tsx`)
+ * clears exactly these before it lays a new choice on a part, so a choice taken
+ * away (↺) leaves nothing behind — and it touches the motion ones ONLY when the
+ * motion changed, because re-writing an animation restarts it, and a font
+ * change must not replay the part's entrance. `element-preview.test.ts` holds
+ * that the two lists cover every property the declarations can emit.
+ */
+export const HUB_ELEMENT_LOOK_PROPS = [
+  'font-family',
+  'font-weight',
+  'font-style',
+  'text-decoration-line',
+  'color',
+  'zoom',
+  'text-align',
+  'justify-content',
+  'line-height',
+  'letter-spacing',
+  'opacity',
+  'display',
+] as const;
+export const HUB_ELEMENT_MOTION_PROPS = ['animation', 'animation-timeline', 'animation-range'] as const;
 
 /**
  * ✍ THE TEXT, CUT INTO SEGMENTS BY ITS RUNS — what the guest page renders.

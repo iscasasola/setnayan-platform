@@ -18,6 +18,7 @@ import {
   focalToObjectPosition,
   hubBackgroundTint,
   resolveHubBackground,
+  sanitizeHubCanvas,
   type HubBackgroundKind,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
@@ -33,6 +34,7 @@ import {
 import { ColourWell } from './colour-well';
 import type { ElementDraftAction } from './element-sheet';
 import { IButton, IHint, IRow, ISection, ISeg, ISegmented } from './inspector-kit';
+import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 
 /**
  * 🖼 THE SCENE'S FORMAT → BACKGROUND, as the approved prototype draws it
@@ -90,7 +92,13 @@ export function SceneBackgroundRow({
   videoChoice = null,
   ownsPro,
   mediaHref,
+  onPreview,
 }: {
+  /**
+   * ⚡ Lay a background on the canvas NOW (the bridge's `sceneBg`), before the
+   * save. The buffered reload that follows the save confirms it.
+   */
+  onPreview?: (message: SceneBgPreviewMessage) => void;
   eventId: string;
   widgetType: string;
   /** This scene's canvas as the canvas draws it — the draft over live. */
@@ -124,8 +132,18 @@ export function SceneBackgroundRow({
   /* A new scene is a new question. */
   useEffect(() => setAsking(false), [widgetType]);
 
+  /** The couple's own photo URLs, by ref — what a photo background paints with. */
+  const mediaUrl = (ref: string) =>
+    photoChoices.find((p) => p.ref === ref)?.url ?? (videoChoice?.ref === ref ? videoChoice.url : null);
   const save = (patch: { widgets: Record<string, { canvas: HubSectionCanvas }> }, after?: () => void) => {
     setError(null);
+    /* ⚡ On the canvas first — every scene the patch touches — then the save. */
+    onPreview?.(
+      sceneBgPreviewMessage(
+        Object.entries(patch.widgets).map(([type, w]) => ({ type, canvas: w.canvas })),
+        mediaUrl,
+      ),
+    );
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
@@ -149,7 +167,7 @@ export function SceneBackgroundRow({
   };
   /** A key beside the background (shape, crop) — never asks. */
   const putKeys = (keys: Partial<HubSectionCanvas>) => {
-    const next = { ...latest.current, ...keys } as HubSectionCanvas;
+    const next = sanitizeHubCanvas({ canvas: { ...latest.current, ...keys } });
     latest.current = next;
     setShown(next);
     save({ widgets: { [widgetType]: { canvas: next } } });

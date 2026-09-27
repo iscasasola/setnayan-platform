@@ -4,7 +4,7 @@ import OurStoryEditorPage from '../our-story/page';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
-import { nextFreeCustomSlot } from '@/lib/custom-sections';
+import { isCustomSectionType, nextFreeCustomSlot, sanitizeCustomSection } from '@/lib/custom-sections';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
@@ -1155,6 +1155,18 @@ export default async function WebsiteEditorPage({
       publicLandingUrl={slug ? `/${slug}` : null}
       /* 🔤 Per-element editing: every scene's canvas as the canvas draws it (the
          draft over live — `allWidgets`), and the theme's colours for swatches. */
+      /* 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — a scene bound to a Details
+         fact asks "everywhere or just here" in its Content tab. Details' value is
+         read drafted over live, like the canvases above. A couple's own section
+         that already carries its own words (typed before binding) keeps them and
+         is not offered the question — its words are not Details'. */
+      detailsBound={{
+        values: { message: (drafted.special_message as string | null) ?? null },
+        ownWords: allWidgets
+          .filter((w) => isCustomSectionType(w.widget_type) && sanitizeCustomSection(w.config_json).body.trim().length > 0)
+          .map((w) => w.widget_type),
+        tour: <MiniTour tourKey="customer_details_bound_v1" storeShell={storeShell} />,
+      }}
       elementEditing={{
         canvases: Object.fromEntries(allWidgets.map((w) => [w.widget_type, sanitizeHubCanvas(w.config_json)])),
         palette: (() => {

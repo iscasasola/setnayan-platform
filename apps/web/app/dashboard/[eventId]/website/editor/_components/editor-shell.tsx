@@ -7,7 +7,7 @@ import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, Qr
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
-import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
@@ -27,6 +27,8 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
+import { DetailsBoundField } from './details-bound-field';
+import { detailsFactOfScene, type DetailsFact } from '@/lib/details-bound';
 import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -208,7 +210,20 @@ export function MakerWork({
   madeOnce = null,
   revealStages = ['save_the_date'],
   elementEditing = null,
+  detailsBound = null,
 }: {
+  /**
+   * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
+   * live) for the scenes bound to them, the scenes whose words are still their
+   * own from before binding (their Content stays as it was), and the first-visit
+   * tour. A bound scene's Content tab asks "everywhere or just here"
+   * (`details-bound-field.tsx`); null = not offered.
+   */
+  detailsBound?: {
+    values: Record<DetailsFact, string | null>;
+    ownWords: readonly string[];
+    tour?: ReactNode;
+  } | null;
   /**
    * 🔤 PER-ELEMENT EDITING (owner 2026-09-27: *"we want the font color size and
    * animation"*) — every scene's canvas as the canvas draws it (the draft over
@@ -1316,6 +1331,25 @@ export function MakerWork({
       ) : selection ? (
         <Inspector
           selection={selection}
+          contentBound={(() => {
+            if (!selectedScene || !elementEditing || !detailsBound) return null;
+            if (detailsBound.ownWords.includes(selectedScene.type)) return null;
+            const sceneCanvas = elementEditing.canvases[selectedScene.type] ?? {};
+            const fact = detailsFactOfScene(selectedScene.type, sceneCanvas);
+            return fact ? (
+              <DetailsBoundField
+                key={`${selectedScene.type}:${fact}`}
+                eventId={eventId}
+                widgetType={selectedScene.type as WidgetType}
+                fact={fact}
+                canvas={sceneCanvas}
+                detailsValue={detailsBound.values[fact]}
+                draftAction={elementEditing.draftAction}
+                onOpenDetails={() => select?.({ kind: 'tool', key: 'details' })}
+                tour={detailsBound.tour}
+              />
+            ) : null;
+          })()}
           postEventTile={
             selection.kind === 'post-event'
               ? ((list.shown.find((t) => t.kind === 'post-event' && t.scene === selection.scene) as PostEventTile | undefined) ?? null)
@@ -1727,6 +1761,7 @@ const TABS: Array<{ key: MakerSceneTab; label: string }> = [
 
 function Inspector({
   selection,
+  contentBound = null,
   postEventTile = null,
   postEventWrittenAt = null,
   scene,
@@ -1745,6 +1780,9 @@ function Inspector({
 }: {
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
+  /** 🔗 A scene bound to a Details fact: its Content is this field, which asks
+   *  "everywhere or just here" (`details-bound-field.tsx`). */
+  contentBound?: ReactNode;
   /** Open a fixed scene's workspace (Hero, Reveal, Love Story, Post Event). */
   onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event' | 'rsvp-page') => void;
   /** 🔤 Open one element's sheet (font · colour · size · animation) — null where not offered. */
@@ -1857,7 +1895,9 @@ function Inspector({
       tab === 'content' ? (
         /* The hero scene's words and photo ARE the one hero (Phase 6): made
            once, in the Hero workspace — not a second, live-writing copy. */
-        scene?.type === 'hero' && madeOnce?.hero ? (
+        contentBound ? (
+          contentBound
+        ) : scene?.type === 'hero' && madeOnce?.hero ? (
           madeOnce.hero
         ) : contentRow && rows[contentRow] ? (
           <RowBlock row={rows[contentRow]!} />

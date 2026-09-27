@@ -234,7 +234,7 @@ async function createJoinRequest(
     // types someone else's email overwrite that person's request.
     const { data: priors } = await admin
       .from('guests')
-      .select('guest_id, first_name, last_name')
+      .select('guest_id, first_name, last_name, display_name')
       .eq('event_id', eventId)
       .eq('entry_source', 'self_added_unlisted')
       .ilike('email', answers.email)

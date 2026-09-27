@@ -69,6 +69,7 @@ import {
 } from '@/lib/hub-draft';
 import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
 import { HUB_MAIN_GROUND_KEY, isHubMainFollow, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
@@ -310,7 +311,16 @@ export async function hubDraftAction(
             from && typeof from === 'object' && !Array.isArray(from)
               ? { ...(from as Record<string, unknown>) }
               : {};
-          const key = item.field === 'main' ? HUB_MAIN_GROUND_KEY : 'canvas';
+          /* ↕ The stage places and 🎞 the Save the Date's pick are two more
+             `config_json` keys — the classifier hands the WHOLE merged key. */
+          const key =
+            item.field === 'main'
+              ? HUB_MAIN_GROUND_KEY
+              : item.field === 'stage_order'
+                ? STAGE_ORDER_KEY
+                : item.field === 'std_lead'
+                  ? STD_LEAD_KEY
+                  : 'canvas';
           before[key] = base[key] ?? null;
           if (item.value === null) delete base[key];
           else base[key] = item.value;

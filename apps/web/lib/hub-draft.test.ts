@@ -261,9 +261,11 @@ test('Reset never touches the couple’s own sections, and puts shipped ones bac
   assert.deepEqual(p.widgets?.countdown, { mode: 'auto', canvas: null, display_order: 5 });
   assert.equal(p.widgets?.hero?.display_order, 1);
   assert.equal(p.widgets?.our_love_story?.display_order, 16);
-  // A stage reset only names that stage's sections.
+  // A stage reset only names that stage's sections — since "EACH STAGE DOES
+  // ONE JOB" (owner 2026-09-27) the Save the Date's are its names, the gallery,
+  // the countdown and the Love Story (`STAGE_SCENES.save_the_date`).
   const std = hubResetPatch('save_the_date');
-  assert.deepEqual(Object.keys(std.widgets ?? {}).sort(), ['hero']);
+  assert.deepEqual(Object.keys(std.widgets ?? {}).sort(), ['countdown', 'hero', 'our_love_story', 'our_photos']);
 });
 
 

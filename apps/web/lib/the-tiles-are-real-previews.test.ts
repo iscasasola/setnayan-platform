@@ -127,7 +127,7 @@ const SNAPSHOT = stripComments(
 );
 
 test('5 · SOURCE: every shown tile mounts the real preview, keyed by its navigator key', () => {
-  const tileLoop = SHELL.slice(SHELL.indexOf('{list.shown.map((tile, i) =>'), SHELL.indexOf('{list.orderIsAutomatic ? ('));
+  const tileLoop = SHELL.slice(SHELL.indexOf('{list.shown.map((tile, i) =>'), SHELL.indexOf('{list.folded.length > 0 ? ('));
   assert.ok(tileLoop.length > 200, 'the tile loop was not found — this scan is blind, not clean');
   const previews = tileLoop.match(/<ScenePreview\b/g)?.length ?? 0;
   const minis = tileLoop.match(/<SceneMiniature\b/g)?.length ?? 0;

@@ -46,6 +46,12 @@ import { resolveSiteNav, type NavInput, type NavSlot } from './site-nav';
  *  than an accident nobody noticed. */
 const OFF_PAGE_SLOTS = ['camera', 'watch'] as const;
 
+/** Slots that are a SECOND NAME for an existing anchor. On the Day the second
+ *  tab reads "Schedule" and lands on the day's details, whose first scene IS
+ *  the schedule (owner 2026-09-27, "EACH STAGE DOES ONE JOB"). It adds a word,
+ *  not a destination — so the live anchor map needs no new entry. */
+const ALIAS_SLOTS = { schedule: 'details' } as const;
+
 /** `before` is the only phase in which every in-page anchor can appear — the
  *  resolver drops Details and Story once the wedding is happening. This is the
  *  phase the live bar's fixed tab list actually corresponds to. */
@@ -103,9 +109,15 @@ test('every anchor the LIVE bar can render is a slot the resolver knows about', 
 test('the resolver adds exactly the two OFF-PAGE slots, and no unexplained third', () => {
   const liveKeys = new Set(Object.keys(SITE_MENU_ANCHORS));
   const extra = [...everyResolverKey()].filter((k) => !liveKeys.has(k)).sort();
+  // An alias must land exactly where the anchor it names does.
+  for (const [alias, of] of Object.entries(ALIAS_SLOTS)) {
+    const slot = slotsAt({ phase: 'day' }).find((s) => s.key === alias);
+    assert.ok(slot, `the ${alias} alias is never emitted`);
+    assert.equal(slot.href, `#${SITE_MENU_ANCHORS[of]}`, `${alias} must land on the ${of} anchor`);
+  }
   assert.deepEqual(
     extra,
-    [...OFF_PAGE_SLOTS].sort(),
+    [...OFF_PAGE_SLOTS, ...Object.keys(ALIAS_SLOTS)].sort(),
     `The resolver models slots the live anchor map does not, and the ONLY ones that may differ ` +
       `are the two that LEAVE the page (camera, watch — the bar takes them as its own props).\n` +
       `An unexpected extra means a slot was added to the rules engine that no guest can reach, ` +

@@ -131,6 +131,7 @@ import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubMainGround, resolveMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
+import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveHero } from '@/lib/event-hero';
@@ -1379,7 +1380,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            <EntourageSection groups={entourage} id="site-entourage" />
+            {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" /> : null}
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
@@ -1479,6 +1480,7 @@ export async function SiteBody({
               anyChapterPublic: menuSections.gallery,
               hasStory: menuSections.story,
               hasDetails: menuSections.details,
+              hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
                 // Carries the event so the guest camera's refusal screen can
@@ -2354,7 +2356,7 @@ export async function SiteBody({
                   fails if either disappears.
 
                   No `previewHref` here either — see the anonymous mount above. */}
-              <EntourageSection groups={entourage} id="site-entourage" />
+              {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" /> : null}
 
               {isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
@@ -2499,6 +2501,9 @@ export async function SiteBody({
               anyChapterPublic: menuSections.gallery,
               hasStory: menuSections.story,
               hasDetails: menuSections.details,
+              hasSchedule: plan.hideableInOrder.some((w) => w.widget_type === 'schedule'),
+              // 🗂 RSVP becomes Me once they have answered (owner 2026-09-27).
+              replied: Boolean(guest.rsvp_status) && guest.rsvp_status !== 'pending',
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
                 camera: papicGuest

@@ -45,6 +45,7 @@ import type { WeddingOnlyParts } from './wedding-only-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
 import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-event-scenes';
 import type { SceneTemplateId } from './scene-templates';
+import { stageShowsEntourage } from './stage-scenes';
 
 /** The sections that are always in their place on a stage — never dragged. */
 export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'greeting' | 'pass' | 'rsvp' | 'entourage' | 'story';
@@ -118,9 +119,6 @@ export type MakerStageList = {
   stage: LifecyclePhase;
   shown: MakerTile[];
   folded: MakerFolded[];
-  /** Open browsing orders sections by their kind, not by the couple's order,
-   *  so dragging cannot change what guests see — the navigator says so. */
-  orderIsAutomatic: boolean;
 };
 
 /**
@@ -375,7 +373,10 @@ function emptyOf(w: InvitationWidgetRow, input: MakerStageInput): string | undef
  * that is a separate owner decision. ONE rule, read by the page and this list.
  */
 export function widgetsGuestsMeet<T extends { widget_type: string }>(widgets: readonly T[], stage: LifecyclePhase): T[] {
-  return stage === 'editorial' ? [...widgets] : widgets.filter((w) => w.widget_type !== 'tier_comparison');
+  // 🗂 Since "EACH STAGE DOES ONE JOB" (owner 2026-09-27) the pitch is on NO
+  // stage — Post Event included (`STAGE_SCENES`, `lib/stage-scenes.ts`).
+  void stage;
+  return widgets.filter((w) => w.widget_type !== 'tier_comparison');
 }
 
 export function makerStageList(input: MakerStageInput): MakerStageList {
@@ -439,7 +440,8 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
       ...(empty ? { empty } : {}),
     });
   }
-  if (input.hasEntourage) shown.push(fixed('entourage'));
+  // The entourage is not the Save the Date's job (`STAGE_FIXED`).
+  if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
   if (input.storyRenders) shown.push(fixed('story'));
 
   // ── The fold: every other section, with the reason this stage leaves it out.
@@ -473,7 +475,11 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     folded.push({ key: `w:${t}`, widgetId: null, type: t, label: makerSceneLabel(t), reason: "Only on each guest's own link — every invited guest sees their own.", hiddenByCouple: false });
   }
 
-  return { stage, shown, folded, orderIsAutomatic: openBrowse };
+  // ↕ Every scene drags within its stage — on both paths, open browsing
+  // included — and the stage keeps the couple's order (owner 2026-09-27,
+  // `config_json.stage_order`, read by the plan above). `STAGE_SCENES` is only
+  // the order before anybody drags.
+  return { stage, shown, folded };
 }
 
 /** All four stages at once — the server hands the Maker this, and the stage switch reads it. */
@@ -493,7 +499,9 @@ export function makerStageLists(input: Omit<MakerStageInput, 'stage'>): Record<L
  * shown scene at `to`" into the signed number of single swaps in that full
  * order — the same N-step chain the navigator already posts.
  *
- * `fullOrder` is every hideable widget id in (drafted) display order.
+ * `fullOrder` is the STAGE's whole list — every section on it, hidden and
+ * guest-only ones included, in the stage's (drafted) order: `stageRowOrder`
+ * (`lib/stage-scenes.ts`), the same list the move action swaps in.
  */
 export function swapsForDrop(fullOrder: readonly string[], movingId: string, beforeId: string | null): number {
   const from = fullOrder.indexOf(movingId);

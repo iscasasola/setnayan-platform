@@ -54,6 +54,10 @@
  *           theme's `tint` measured off its photo, or an opt-in override clip or
  *           photo — stored at `config_json.main`, read through
  *           `sanitizeHubMainGround`. `main: null` = the plain hero, unmeasured.
+ *           Every section also carries `stage_order` — its place on each stage
+ *           (owner 2026-09-27, every scene drags within its stage) — and the
+ *           GALLERY row alone `std_lead`, the Save the Date's Film · Photos pick;
+ *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
  */
 import {
   WIDGET_PHASES,
@@ -64,6 +68,15 @@ import {
   type WidgetType,
 } from '@/lib/invitation-widgets';
 import { isCustomSectionType } from '@/lib/custom-sections';
+import {
+  STAGE_ORDER_KEY,
+  configWithStageOrder,
+  configWithStdLead,
+  sanitizeStageOrder,
+  sanitizeStdLead,
+  storedStdLead,
+  type StdLead,
+} from '@/lib/stage-scenes';
 import {
   HUB_MAIN_GROUND_KEY,
   hubMainGround,
@@ -204,6 +217,19 @@ export type HubDraftWidget = {
    * be a second source of truth.
    */
   main?: HubMainGround | null;
+  /**
+   * ↕ This section's place on each stage (owner 2026-09-27, "EVERY SCENE DRAGS
+   * WITHIN ITS STAGE"), kept at `config_json.stage_order` (`lib/stage-scenes.ts`).
+   * Merged stage by stage; `null` for a stage = back to the stage's default.
+   * Never Pro — arranging is the page we write.
+   */
+  stage_order?: Partial<Record<LifecyclePhase, number | null>>;
+  /**
+   * 🎞 `our_photos` ROW ONLY — what leads the Save the Date, Film or Photos
+   * (same ruling), kept at `config_json.std_lead`; `null` = back to the
+   * default. Dropped on any other section: one home for one choice. Never Pro.
+   */
+  std_lead?: StdLead | null;
 };
 
 export type HubDraftState = {
@@ -356,6 +382,15 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
       if (main) out.main = main;
     }
   }
+  const places = sanitizeStageOrder(src.stage_order);
+  if (places) out.stage_order = places;
+  if (type === 'our_photos' && 'std_lead' in src) {
+    if (src.std_lead === null) out.std_lead = null;
+    else {
+      const lead = sanitizeStdLead(src.std_lead);
+      if (lead) out.std_lead = lead;
+    }
+  }
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -425,7 +460,13 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
   const next = stateOf(current);
   for (const [col, v] of Object.entries(clean.events)) next.events[col as HubDraftEventColumn] = v;
   for (const [type, w] of Object.entries(clean.widgets)) {
-    next.widgets[type as WidgetType] = { ...(next.widgets[type as WidgetType] ?? {}), ...w };
+    const prev = next.widgets[type as WidgetType] ?? {};
+    next.widgets[type as WidgetType] = {
+      ...prev,
+      ...w,
+      // ↕ Places merge STAGE BY STAGE — a drag on one stage never forgets another's.
+      ...(w.stage_order ? { stage_order: { ...(prev.stage_order ?? {}), ...w.stage_order } } : {}),
+    };
   }
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
   return { v: 1, ...next, history };
@@ -489,6 +530,8 @@ export function overlayHubDraftWidgets(
     let config: unknown = row.config_json;
     if (w.canvas !== undefined) config = configWithCanvas(config, w.canvas);
     if (w.main !== undefined && row.widget_type === 'hero') config = configWithMainGround(config, w.main);
+    if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
+    if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
     return {
       ...row,
       ...(w.mode !== undefined && !row.is_always_on ? { mode: w.mode } : {}),
@@ -527,7 +570,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -757,6 +800,22 @@ export function classifyHubDraft(
     }
     if (w.display_order !== undefined && !row.is_always_on && w.display_order !== row.display_order) {
       items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'display_order', value: w.display_order, change: 'change', pro: false });
+    }
+    /* ↕ The stage places and 🎞 the Save the Date's pick: each compared as the
+       page reads it (the merged `config_json` key), never Pro. The value written
+       is the WHOLE merged key, so Apply sets it exactly as the preview showed. */
+    if (w.stage_order !== undefined) {
+      const liveKey = configWithStageOrder(row.config_json, {})[STAGE_ORDER_KEY] ?? null;
+      const nextKey = configWithStageOrder(row.config_json, w.stage_order)[STAGE_ORDER_KEY] ?? null;
+      if (JSON.stringify(liveKey) !== JSON.stringify(nextKey)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false });
+      }
+    }
+    if (w.std_lead !== undefined && type === 'our_photos') {
+      const liveLead = storedStdLead([row]);
+      if ((w.std_lead ?? null) !== liveLead) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'std_lead', value: w.std_lead ?? null, change: 'change', pro: false });
+      }
     }
     if (w.main !== undefined && type === 'hero') {
       const liveMain = hubMainGround(row.config_json);
@@ -991,10 +1050,11 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
   if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
   if (item.field === 'main') return 'Behind every scene';
+  if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'
-      : item.field === 'display_order'
+      : item.field === 'display_order' || item.field === 'stage_order'
         ? 'its place'
         : 'how it looks';
   return `${sectionLabel(item.widgetType)} · ${what}`;

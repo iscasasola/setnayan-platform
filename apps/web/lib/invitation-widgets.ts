@@ -21,6 +21,7 @@
 
 import { getDayOfPhase, getMenuLifecyclePhase } from './day-of-mode';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { stagesOfScene } from './stage-scenes';
 
 /**
  * The 12 canonical widget types in the V1 landing-page render. This list
@@ -437,22 +438,26 @@ export const STD_THRESHOLD_DAYS = 90;
  */
 export const WIDGET_PHASES: Record<WidgetType, LifecyclePhase[]> = {
   ...CUSTOM_PHASES,
+  // The always-on parts — placed by the page itself.
   hero: ['save_the_date', 'rsvp', 'event', 'editorial'],
   greeting: ['rsvp'],
   qr_card: ['rsvp', 'event'],
-  event_details: ['rsvp', 'event'],
-  countdown: ['rsvp'],
-  schedule: ['rsvp', 'event'],
   rsvp: ['rsvp'],
-  venue_map: ['rsvp', 'event'],
-  dress_code: ['rsvp'],
-  photo_moments: ['rsvp'],
-  your_photos: ['event', 'editorial'],
-  tier_comparison: ['rsvp', 'event', 'editorial'],
-  special_message: ['rsvp', 'editorial'],
-  what_to_bring: ['rsvp'],
-  our_photos: ['rsvp', 'editorial'],
-  our_love_story: ['rsvp', 'editorial'],
+  /* 🗂 EVERY HIDEABLE SCENE'S STAGES ARE DERIVED from the one table,
+     `STAGE_SCENES` in `lib/stage-scenes.ts` (owner 2026-09-27, "EACH STAGE
+     DOES ONE JOB") — never listed twice. `tier_comparison` is on no stage. */
+  event_details: stagesOfScene('event_details'),
+  countdown: stagesOfScene('countdown'),
+  schedule: stagesOfScene('schedule'),
+  venue_map: stagesOfScene('venue_map'),
+  dress_code: stagesOfScene('dress_code'),
+  photo_moments: stagesOfScene('photo_moments'),
+  your_photos: stagesOfScene('your_photos'),
+  tier_comparison: stagesOfScene('tier_comparison'),
+  special_message: stagesOfScene('special_message'),
+  what_to_bring: stagesOfScene('what_to_bring'),
+  our_photos: stagesOfScene('our_photos'),
+  our_love_story: stagesOfScene('our_love_story'),
 };
 
 /**

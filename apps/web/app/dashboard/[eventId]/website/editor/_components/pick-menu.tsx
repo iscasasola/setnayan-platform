@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
+import { placePickList, type PickListPlacement } from './pick-menu-place';
 
 /**
  * ONE COMPACT PICKER — "Home ▾", "● Invitation ▾", "Pages ▾".
@@ -17,6 +19,17 @@ import { ChevronDown } from 'lucide-react';
  * toolbar and the navigator both scroll, and an overflow container would clip
  * a list that hangs below it — `ComingNext`'s rule). Esc and a tap outside
  * close it; arrow keys move through the options.
+ *
+ * 🪤 THE LIST IS PORTALLED TO `document.body` (measured live 2026-09-27): the
+ * element sheet is `.sn-glass-bare`, and an ancestor with `backdrop-filter`
+ * (or `transform` / `filter`) becomes the containing block for `position:
+ * fixed` — the Font list was drawn at the viewport top PLUS the sheet's own
+ * top, wholly below a phone screen. From `body` no ancestor can do that. Where
+ * it opens (below, or above when there is no room) is `placePickList`,
+ * executed by `pick-menu-place.test.ts`. The faces still resolve: every
+ * `--font-*` variable is declared on `<html>` (app/layout.tsx). `z-[95]`
+ * clears the Maker overlay (`fixed inset-0 z-[80]`) and its scene picker
+ * (z-[90]/z-[91]), and stays under toasts (z-[100]).
  */
 export type PickOption = {
   key: string;
@@ -48,7 +61,7 @@ export function PickMenu({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [at, setAt] = useState<{ top: number; left: number; minWidth: number } | null>(null);
+  const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
@@ -57,13 +70,34 @@ export function PickMenu({
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
     if (!r) return;
-    const minWidth = Math.max(r.width, 160);
-    setAt({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - minWidth - 8)), minWidth });
+    const next = placePickList({
+      button: r,
+      // The list's FULL height — `scrollHeight` ignores the maxHeight cap, so a
+      // re-measure never feeds the cap back into itself.
+      listHeight: listRef.current?.scrollHeight ?? 0,
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+    });
+    setAt((prev) =>
+      prev &&
+      prev.top === next.top &&
+      prev.left === next.left &&
+      prev.minWidth === next.minWidth &&
+      prev.maxHeight === next.maxHeight
+        ? prev
+        : next,
+    );
   };
+
+  // Placed BEFORE paint, twice: first from the button alone (the list is not
+  // mounted yet), then with the list's real height, which may flip it above
+  // the button. `place` keeps the same object when nothing moved, so this
+  // settles after one extra pass.
+  useLayoutEffect(() => {
+    if (open) place();
+  });
 
   useEffect(() => {
     if (!open) return;
-    place();
     const onDown = (e: PointerEvent) => {
       if (!btnRef.current?.contains(e.target as Node) && !listRef.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -112,7 +146,8 @@ export function PickMenu({
         </span>
         <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
-      {open && at ? (
+      {open && at
+        ? createPortal(
         <ul
           ref={listRef}
           id={listId}
@@ -127,8 +162,9 @@ export function PickMenu({
               move(-1);
             }
           }}
-          style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth }}
-          className="sn-glass-bare z-[60] max-h-[60dvh] overflow-y-auto rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
+          style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth, maxHeight: at.maxHeight }}
+          data-pick-side={at.side}
+          className="sn-glass-bare z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
         >
           {options.map((o) => (
             <li key={o.key}>
@@ -155,8 +191,10 @@ export function PickMenu({
               </button>
             </li>
           ))}
-        </ul>
-      ) : null}
+        </ul>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

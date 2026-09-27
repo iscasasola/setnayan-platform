@@ -118,10 +118,25 @@ test('a free couple is offered the section colour — and still no photo to pick
   for (const hex of SWATCHES) {
     assert.match(html, new RegExp(`name="color" value="${hex}"`), `swatch ${hex}`);
   }
-  // One form per swatch, plus the scene Background row's own "Full colour"
-  // choice (2026-09-27) — never a colour-clearing chip: "No background" is the
-  // one None now, and it means no box.
-  assert.equal(count(html, 'name="kind" value="color"'), SWATCHES.length + 1, 'an extra colour form appeared');
+  // One form per swatch, the light surface that always leads them (owner
+  // 2026-09-27: "opaque glass, frosted glass does not work" — a glass reads as
+  // glass when it is light), plus the scene Background row's own "Full colour"
+  // choice — never a colour-clearing chip: "No background" is the one None
+  // now, and it means no box.
+  assert.match(html, /name="color" value="#ffffff"/, 'the light surface is not offered');
+  const light = html.indexOf('aria-label="Use #ffffff as the background"');
+  assert.ok(light >= 0, 'anti-vacuity: the light swatch is not drawn');
+  assert.ok(
+    light < html.indexOf(`aria-label="Use ${SWATCHES[0]} as the background"`),
+    'the light surface must come first',
+  );
+  assert.equal(count(html, 'name="kind" value="color"'), SWATCHES.length + 2, 'an extra colour form appeared');
+  // Both glasses START light — never from the couple's darkest swatch (#35403a here).
+  for (const glass of ['glass', 'frost']) {
+    const form = new RegExp(`name="kind" value="${glass}"/><input type="hidden" name="color" value="([^"]+)"`).exec(html);
+    assert.ok(form, `anti-vacuity: no ${glass} choice`);
+    assert.equal(form[1], '#ffffff', `${glass} does not start as the light surface`);
+  }
   assert.match(html, /data-scene-bg-choice="none"/, 'No background is always offered — it is free');
   assert.doesNotMatch(html, new RegExp(`value="${PHOTO}"`), 'no photo may be offered to pick');
   assert.doesNotMatch(html, /name="kind" value="snippet"/, 'no video may be offered either');

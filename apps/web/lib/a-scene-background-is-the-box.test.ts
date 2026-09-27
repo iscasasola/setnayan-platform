@@ -118,12 +118,17 @@ test('2 · Frosted glass renders a backdrop blur, tinted with the scene’s own 
   assert.match(html, /--hub-bg-color:#5c2542/, 'the scene colour did not reach the glass');
   const frost = rule('.hub-bg-frost');
   assert.match(frost, /backdrop-filter:\s*blur\(/, 'frosted glass has no blur');
-  assert.match(frost, /var\(--hub-bg-color\)/, 'frosted glass is not tinted by the scene colour');
+  /* The pane is painted from `--hub-glass-fill` — the scene colour at the
+     opacity its words allow (`sceneTintGround`) — and falls back to the scene
+     colour itself. Both must carry the colour. */
+  assert.match(frost, /background-color:\s*var\(--hub-glass-fill,[^;]*var\(--hub-bg-color\)/, 'frosted glass is not tinted by the scene colour');
+  assert.match(html, /--hub-glass-fill:rgb\(92 37 66 \/ 0\.\d\d\)/, 'the frosted pane did not receive its measured fill');
   // Opaque glass wears the SAME colour — "with or without effects".
   const glass = paintCountdown({ kind: 'glass', color: '#5c2542' });
   assert.match(glass, /hub-bg-glass/);
   assert.match(glass, /--hub-bg-color:#5c2542/);
-  assert.match(rule('.hub-bg-glass'), /background-color:\s*var\(--hub-bg-color\)/);
+  assert.match(glass, /--hub-glass-fill:rgb\(92 37 66 \/ (0\.\d\d|1\.00)\)/);
+  assert.match(rule('.hub-bg-glass'), /background-color:\s*var\(--hub-glass-fill,\s*var\(--hub-bg-color\)\)/);
   // A glass chosen before any colour is a clear pane, never an empty value.
   assert.deepEqual(resolveHubBackground(sanitizeHubCanvas({ canvas: { kind: 'frost' } })), { kind: 'frost', color: '#ffffff' });
 });

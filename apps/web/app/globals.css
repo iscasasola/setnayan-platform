@@ -5521,19 +5521,35 @@ html:has([data-sticky-top]) {
    *"the goal is, to allow it to have the same background color with or without
    effects"* — so both glasses are tinted from the SAME `--hub-bg-color` the
    flat colour uses, and the colour holds whichever effect is on.
-   · OPAQUE GLASS — the colour, solid, with a pane's sheen: a soft light from
-     the top edge and a lift underneath. Nothing shows through.
-   · FROSTED GLASS — the colour, translucent, over a blur of whatever lies
-     behind the scene (the page ground, the main background). */
+   · OPAQUE GLASS — a MILKY pane: the colour, nearly solid, a little of the
+     page blurred through it, a sheen across the top, a bright edge and a lift
+     underneath. Reads as a thick pane, never as a flat card.
+   · FROSTED GLASS — a TRANSLUCENT pane over a real blur of whatever lies
+     behind the scene (the page ground, the main background), a thin bright
+     edge, no sheen and no lift: you see through it.
+   🪟 HOW SOLID each pane is, and whether the sheen stays, is not a guess
+   written here: `lib/scene-legibility.ts` `sceneTintGround` makes each pane
+   just solid enough that the scene's words clear AA over black AND white
+   behind it, and hands it over as `--hub-glass-fill` / `--hub-glass-sheen`.
+   The fallbacks below are only for a pane rendered without that answer.
+   (Owner 2026-09-27: "opaque glass, frosted glass does not work" — the first
+   cut painted opaque glass as the solid colour, identical to Full colour, and
+   tinted both from the darkest swatch.) */
 .hub-bg-glass {
-  background-color: var(--hub-bg-color);
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 55%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 18px 40px -30px rgb(30 26 18 / 0.5);
+  background-color: var(--hub-glass-fill, var(--hub-bg-color));
+  background-image: linear-gradient(180deg, rgb(255 255 255 / var(--hub-glass-sheen, 0.22)) 0%, rgb(255 255 255 / 0) 45%);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.75),
+    inset 0 0 0 1px rgb(255 255 255 / 0.35),
+    0 22px 44px -28px rgb(30 26 18 / 0.5);
 }
 .hub-bg-frost {
-  background-color: color-mix(in srgb, var(--hub-bg-color) 58%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
-  backdrop-filter: blur(18px) saturate(1.15);
+  background-color: var(--hub-glass-fill, color-mix(in srgb, var(--hub-bg-color) 50%, transparent));
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  backdrop-filter: blur(22px) saturate(1.35);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.55);
 }
 .hub-bg-glass > .hub-canvas-body,
 .hub-bg-frost > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
@@ -5541,6 +5557,29 @@ html:has([data-sticky-top]) {
    content sits on the page ground, and the widget draws no card of its own
    (`sceneWidgetIsBare`). */
 .hub-bg-none { background: none; box-shadow: none; border-radius: 0; }
+
+/* 🔅 A MUTED WORD NEVER GOES FAINTER THAN ITS GROUND ALLOWS (owner 2026-09-25:
+   "did you already make the font color adapt also based on the background?").
+   The scene's ink follows its ground through the tokens, but a softened word
+   is the ink at an ALPHA — `text-ink/50` is a gentle grey on pale paper and
+   unreadable on a dark translucent pane. Each scene frame carries
+   `--hub-mute-floor` (`lib/scene-legibility.ts`: the lowest alpha that still
+   clears 4.5:1 over everything its ground can show), and every muted word
+   inside takes the larger of its own alpha and that floor. Outside a painted
+   scene the floor is absent (0), so nothing changes there.
+   `scene-words-follow-the-ground.test.ts` fails if a scene widget uses a muted
+   ink with no line here. */
+.hub-canvas .text-ink\/40 { color: rgb(var(--color-ink) / max(0.4, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/45 { color: rgb(var(--color-ink) / max(0.45, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/50 { color: rgb(var(--color-ink) / max(0.5, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/55 { color: rgb(var(--color-ink) / max(0.55, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/60 { color: rgb(var(--color-ink) / max(0.6, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/65 { color: rgb(var(--color-ink) / max(0.65, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/70 { color: rgb(var(--color-ink) / max(0.7, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/75 { color: rgb(var(--color-ink) / max(0.75, var(--hub-mute-floor, 0))); }
+.hub-canvas .text-ink\/80 { color: rgb(var(--color-ink) / max(0.8, var(--hub-mute-floor, 0))); }
+.hub-canvas .hub-tpl-p { color: rgb(var(--color-ink) / max(0.82, var(--hub-mute-floor, 0))); }
+.hub-canvas .pahina-eyebrow { color: rgb(var(--color-ink) / max(0.72, var(--hub-mute-floor, 0))); }
 
 /* ── FRAMED OR FULL WIDTH (owner 2026-09-27) ───────────────────────────────
    *"we will set it as a frame or will the whole width. the user can choose"*.
@@ -5591,11 +5630,12 @@ html:has(.hub-shape-full) { overflow-x: clip; }
    guest can see; it just exists enough to animate. */
 .hub-no-media > .hub-canvas-body { display: block; }
 
-@media (prefers-color-scheme: dark) {
-  .hub-has-media > .hub-canvas-media::after {
-    background: linear-gradient(to bottom, rgb(20 19 15 / 0.86), rgb(20 19 15 / 0.94));
-  }
-}
+/* ⛔ NO DARK-MODE SCRIM. There was one here: on a phone set to dark mode the
+   photo's veil turned near-black while the words kept the ink measured for
+   the LIGHT veil (`lib/scene-legibility.ts`, kind `media`) — dark words on a
+   dark veil, on exactly the phones guests read at night. The guest page does
+   not follow the phone's theme (no token does), so the veil must not either:
+   it follows the words. */
 
 /* ── THE KEYFRAMES ─────────────────────────────────────────────────────────
    Owner, 2026-09-23: *"different stories fade in while entering from different

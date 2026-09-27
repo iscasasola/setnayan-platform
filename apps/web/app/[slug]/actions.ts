@@ -37,6 +37,8 @@ import {
 } from '@/lib/terms-agreement';
 import { KEEP_EMAIL_SHAPE } from '@/lib/guest-one-path';
 import { applyTick, isChecklistKey } from '@/lib/guest-checklist';
+import { moderateKwentoText } from '@/lib/kwento-moderation';
+import { SONG_ARTIST_MAX, SONG_TITLE_MAX } from '@/lib/guest-song-request-rule';
 import { cookies } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
@@ -877,6 +879,37 @@ export async function submitRsvp(
           .update({ plus_one_name: firstNamed, updated_at: stamp })
           .eq('guest_id', guestId)
           .eq('event_id', eventId);
+      }
+    }
+  }
+
+  /*
+    🎵 THE SONG ON THE RSVP (owner 2026-09-27: the "Song request" switch must
+    ask something). Through the SAME door the day-of card uses —
+    `guest_submit_song_request`, which checks the guest, the couple's inbox and
+    the rate limit — after the same moderation the song route runs. Only when
+    the couple still asks (`ask.song_request`, re-read above) and only for a
+    guest who is coming. Best-effort by design: a song that does not take must
+    never cost the guest their reply, so a refusal is logged for us, not thrown.
+  */
+  const songTitle = clean(formData.get('song_title')).slice(0, SONG_TITLE_MAX);
+  const songArtist = clean(formData.get('song_artist')).slice(0, SONG_ARTIST_MAX);
+  if (songTitle && ask.song_request && !replyLocked && status === 'attending') {
+    if (moderateKwentoText(`${songTitle}\n${songArtist}`).state !== 'blocked') {
+      const { error: songErr } = await admin.rpc('guest_submit_song_request', {
+        p_guest_id: guestId,
+        p_title: songTitle,
+        p_artist: songArtist,
+        p_requester_name: null,
+      });
+      if (songErr) {
+        await insertFaultLog({
+          event_type: 'SUPABASE_SAVE_ERROR',
+          element_name: 'RSVP song request',
+          file_path: 'app/[slug]/actions.ts',
+          error_message: songErr.message,
+          payload_snapshot: { eventId, guestId },
+        });
       }
     }
   }

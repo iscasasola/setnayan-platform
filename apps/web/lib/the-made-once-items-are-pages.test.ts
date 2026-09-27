@@ -73,10 +73,13 @@ test('the five are the bar’s made-once group, and the pure rule draws each whe
     assert.equal(makerPageStage('rsvp-page', stage), 'rsvp');
   }
   assert.equal(
-    makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'event'),
+    makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'event', { rsvpView: 'replied' }),
     '/ana-ben?phase=rsvp&editor=1&as=replied#your-details',
   );
   assert.equal(makerPageCanvasSrc(null, 'rsvp-page', 'rsvp'), null);
+  // "The questions" is the default (owner 2026-09-27): the RSVP page itself,
+  // for a sample guest who has not replied, wearing the draft.
+  assert.equal(makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'rsvp'), '/ana-ben/invite/reply?editor=1');
 });
 
 test('no made-once file mounts a dialog, a sheet or a portal', () => {

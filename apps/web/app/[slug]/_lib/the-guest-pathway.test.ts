@@ -110,7 +110,11 @@ test('1 · WIRING: the event page redirects a key with missing answers to the RS
 });
 
 test('1 · WIRING: the RSVP page asks the SAME rule for which answers are missing', () => {
-  assert.match(REPLY, /const gate = rsvpGate\(\{/, 'the RSVP page decides what is missing some other way');
+  assert.match(
+    REPLY,
+    /const gate = canvas \? \(\{ kind: 'inside', didntReply: false \} as const\) : rsvpGate\(\{/,
+    'the RSVP page decides what is missing some other way',
+  );
   assert.match(REPLY, /gate=\{gate\.kind === 'ask' \? \{ missing: gate\.missing, coupleMarked: gate\.coupleMarked \} : null\}/);
   // Both the event page and the RSVP page recognise the SAME key.
   assert.match(REPLY, /readGuestSessionForEvent\(event\.event_id as string\)/);
@@ -320,8 +324,16 @@ test('5 · the stranger gets ONE button — "Get inside" — and a signed-in non
   assert.match(door, /Get inside/);
   assert.match(door, /Scan your QR · Tap NFC · Sign in/);
   assert.match(door, /href="\/login\?next=%2Fana"/);
+  // "Ask to join" only on "Anyone, I approve" (owner 2026-09-27) — the closed
+  // list is pinned in the-poster-qr-opens-the-event.test.ts.
   const ask = renderToStaticMarkup(
-    React.createElement(GetInside, { slug: 'ana', eventId: 'e-1', signedInNotListed: true, theOrganizer: 'the couple' }),
+    React.createElement(GetInside, {
+      slug: 'ana',
+      eventId: 'e-1',
+      signedInNotListed: true,
+      theOrganizer: 'the couple',
+      mayAskToJoin: true,
+    }),
   );
   assert.match(ask, /You’re not on the guest list for this event yet/);
   assert.match(ask, /href="\/join\/e-1"[^>]*>Ask to join/);

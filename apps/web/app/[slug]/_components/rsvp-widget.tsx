@@ -33,7 +33,14 @@ export function RsvpWidget({
   gate = null,
   termsOnSend = false,
   oneAtATime = false,
+  previewEveryQuestion = false,
 }: {
+  /**
+   * The Maker's RSVP canvas (a host looking at the SAMPLE guest): every
+   * switched-on question is shown, none waiting on an "attending" tap — so
+   * each switch visibly adds or removes its question (owner 2026-09-27).
+   */
+  previewEveryQuestion?: boolean;
   /**
    * THE KEY GATE's verdict (lib/guest-one-path.ts `rsvpGate`), on the RSVP page
    * only. When the ANSWER is already on record — the couple marked them
@@ -186,6 +193,10 @@ export function RsvpWidget({
   const askDietary = rsvpAsks(ask, 'dietary');
   const askNote = rsvpAsks(ask, 'note');
   const askMobile = rsvpAsks(ask, 'mobile');
+  const askSong = rsvpAsks(ask, 'song_request');
+  // The Maker's canvas shows EVERY switched-on question at once — the couple is
+  // looking at what they ask, not answering it, so nothing waits on "attending".
+  const revealAll = previewEveryQuestion;
   // Meal + dietary share one reveal wrapper below — hide it outright when
   // BOTH are off, rather than rendering an empty grid with nothing inside it.
   const askMealOrDietary = askMeal || askDietary;
@@ -253,15 +264,11 @@ export function RsvpWidget({
     .join(' · ');
 
   return (
-    <form action={action} className={onDoor ? 'rsvp-form space-y-6' : 'rsvp-form pahina-deckle space-y-6 sm:p-8'}>
+    <form action={action} className="rsvp-form space-y-6">
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
-          className={`rounded-lg border px-3 py-2 text-sm ${
-            flash.tone === 'error'
-              ? 'border-terracotta/40 bg-terracotta/10 text-terracotta-700'
-              : 'border-success-700/30 bg-success-50 text-success-800'
-          }`}
+          className={`text-sm font-medium ${flash.tone === 'error' ? 'text-terracotta-700' : 'text-ink/80'}`}
         >
           {flash.text}
         </p>
@@ -310,7 +317,7 @@ export function RsvpWidget({
           attending — this is the "your place is reserved" confirmation. */}
       {guest.rsvp_status === 'attending' ? (
         <>
-          <p className="flex items-center gap-2.5 border-l-2 border-gild bg-veil/60 px-4 py-3 text-sm text-ink/80">
+          <p className="flex items-center gap-2.5 text-sm text-ink/80">
             <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
             {words.solemn
               ? 'Your place is noted — thank you for being with the family.'
@@ -336,7 +343,10 @@ export function RsvpWidget({
       {replyLocked ? (
         <LockedAnswer status={guest.rsvp_status} />
       ) : (
-        <div data-rsvp-step className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <fieldset data-rsvp-step className="space-y-2">
+          <legend className="mb-2 font-serif text-xl text-ink">
+            {words.solemn ? 'Will you be with us?' : 'Will you be there?'}
+          </legend>
           {(
             // The celebratory labels are the spec's reply-card wording and stay
             // byte-identical. A wake cannot ask anyone to "joyfully accept" —
@@ -355,11 +365,7 @@ export function RsvpWidget({
           ).map((option) => (
             <label
               key={option.key}
-              className={`flex h-16 cursor-pointer items-center justify-center border px-3 text-center font-pahina text-base font-light italic leading-tight transition-colors has-[:checked]:ring-1 has-[:checked]:ring-terracotta-700 has-[:checked]:ring-offset-2 has-[:checked]:ring-offset-paper-deep ${
-                guest.rsvp_status === option.key
-                  ? 'border-terracotta-700 bg-terracotta-700 text-cream'
-                  : 'border-ink/20 bg-paper text-ink hover:border-ink/40'
-              }`}
+              className="flex min-h-12 cursor-pointer items-center rounded-full bg-ink/[0.05] px-5 font-pahina text-base italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
             >
               <input
                 type="radio"
@@ -372,7 +378,7 @@ export function RsvpWidget({
               {option.label}
             </label>
           ))}
-        </div>
+        </fieldset>
       )}
 
       {/* ⚠ THE SELFIE IS REVEALED BY `:has(rsvp_status=attending:checked)`. With
@@ -382,156 +388,15 @@ export function RsvpWidget({
           find them is the whole point. Locked + attending renders it outright. */}
       {!offerSelfie ? null : replyLocked ? (
         guest.rsvp_status === 'attending' ? (
-          <div>
+          <div data-rsvp-step>
             <SelfieCapture faceMode={faceMode} />
           </div>
         ) : null
       ) : (
-        <div className="selfie-reveal">
+        <div data-rsvp-step className="selfie-reveal">
           <SelfieCapture faceMode={faceMode} />
         </div>
       )}
-
-      {/* ── MEAL + DIETARY: ONLY FOR SOMEBODY WHO IS COMING ──────────────────
-          Owner, 2026-09-11, walking the Reply door: a decline must not go on to
-          ask for the rest. A guest who is not coming does not eat, and a form
-          that keeps asking after "no" reads as if the answer was not heard.
-
-          ⚠ NO NEW MECHANISM. This rides the `attending-reveal` class the
-          plus-one block already uses — one CSS `:has()` rule, declared once at
-          the top of this form, no client state, still a server component. The
-          wrapper exists because the reveal sets `display:block`, which would
-          flatten the grid if the class sat on the grid itself.
-
-          🪤 AND THE CSS IS NOT THE ONLY PATH. With `replyLocked` the reveal rule
-          is not rendered AT ALL (there is no radio to watch), so the class is
-          inert and the boxes show — which is right, and deliberate: the list
-          finalizes about two weeks out, exactly when "nut allergy" matters most
-          (see the docblock on `replyLocked`). The one case that must still be
-          silenced there is a guest whose frozen answer IS "declined" — the same
-          shape as the locked selfie arm directly above.
-
-          WHAT SURVIVES A DECLINE (orchestrator's call on the owner's behalf,
-          2026-09-11, reversible): the contact boxes and the note to the host.
-          The host still needs a way to reach them, the email is also their
-          sign-in, and a declining guest most often wants to leave a message.
-
-          ⚙ ASK TOGGLE (owner 2026-09-25): the couple may turn either box off
-          on its own — the block itself disappears only when BOTH are off,
-          rather than rendering an empty grid with nothing inside it. */}
-      {!askMealOrDietary || (replyLocked && guest.rsvp_status === 'declined') ? null : (
-        <div data-rsvp-step className={replyLocked ? undefined : 'attending-reveal'}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {askMeal ? (
-              <Select
-                id="meal_preference"
-                label="Meal preference"
-                defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
-                options={[
-                  ['no_preference', 'No preference'],
-                  ['beef', 'Beef'],
-                  ['chicken', 'Chicken'],
-                  ['fish', 'Fish'],
-                  ['vegetarian', 'Vegetarian'],
-                  ['vegan', 'Vegan'],
-                  ['kids', 'Kids'],
-                ]}
-              />
-            ) : null}
-            {askDietary ? (
-              <Field
-                id="dietary_restrictions"
-                label="Dietary notes"
-                defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
-                placeholder="halal · nut allergy · …"
-              />
-            ) : null}
-          </div>
-        </div>
-      )}
-
-      {/* ── HOW THEY REACH YOU ──────────────────────────────────────────────
-          🔴 THESE THREE BOXES DID NOT EXIST. The host's own guest page carries
-          Email, Mobile and Display name, and NOTHING anywhere in the product
-          let the guest supply any of them — so a host without a number had to
-          leave the app and go and ask for it, for every guest.
-          Owner, 2026-08-21, pointing at that page: "these are all the
-          information we want to fill up."
-
-          🔒 First and last name stay HOST-ONLY, deliberately. The link that
-          reaches this card is printed on a poster, and a stranger who can
-          rename a seat-holder is the exact harm `seedBindAllowed` was hardened
-          against on 2026-08-01. What to CALL you is a label; who you ARE is not
-          a label, and only the host sets it.
-
-          ⚠ NOT FROZEN when the guest list closes. Only the ANSWER freezes
-          (owner, 2026-08-20) — a phone number corrected the week of the event
-          is worth more then than at any other time.
-
-          📦 AND IT FOLDS WHEN WE ALREADY KNOW. Owner, 2026-08-21: "if they have
-          an account, and all details are filled, all they need is to accept the
-          invitation." A signed-in guest whose profile already carries their
-          contact details is shown their answer and a ONE-LINE SUMMARY of what
-          we hold — not five boxes asking what the app can already read.
-
-          ⚠ AND THE SUMMARY NAMES WHAT IS BEHIND IT, or this repeats #4683 — the
-          guest's own message sat in a drawer whose label advertised something
-          else, and the host never saw it. Everything folded away is listed on
-          the line, and the inputs still POST: <details> hides, it does not
-          disable. */}
-      {detailsAlreadyKnown ? (
-        <details data-rsvp-step className="rounded-lg border border-ink/10 bg-ink/[0.02]">
-          <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm text-ink/80 hover:text-ink">
-            <span className="min-w-0">
-              <span className="block font-medium text-ink">Your details are filled in</span>
-              <span className="mt-0.5 block truncate text-xs text-ink/70">{knownSummary}</span>
-            </span>
-            <span className="shrink-0 text-xs font-medium text-mulberry">Change</span>
-          </summary>
-          <div className="space-y-4 px-4 pb-4">{contactFields}</div>
-        </details>
-      ) : (
-        <div data-rsvp-step className="space-y-1.5">
-          <span className="block text-sm font-medium text-ink">
-            How {words.theOrganizer} can reach you
-          </span>
-          {contactFields}
-        </div>
-      )}
-
-      {/* ── KEEP THIS INVITATION (owner 2026-09-25) ─────────────────────────
-          The reply's email box IS the sign-up. One unticked box, directly under
-          the address it will use, turns this Save into "save + email me the
-          sign-in link". Outside the folded details on purpose: a guest whose
-          details are already filled in must still see it. */}
-      {keepOffer ? (
-        <label
-          htmlFor="keep_invitation"
-          className="flex min-h-[44px] items-start gap-3 border-l-2 border-gild bg-veil/60 px-4 py-3 text-sm text-ink/75"
-        >
-          <input
-            id="keep_invitation"
-            name={TERMS_FIELD}
-            type="checkbox"
-            className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
-          />
-          <span>
-            <span className="block font-medium text-ink">Keep this invitation on my phone</span>
-            <span className="mt-0.5 block">
-              We&rsquo;ll email a sign-in link to the address above — no password needed. I agree
-              to the{' '}
-              <Link href="/terms" className="font-medium text-link underline-offset-2 hover:underline">
-                Terms
-              </Link>{' '}
-              and{' '}
-              <Link href="/privacy" className="font-medium text-link underline-offset-2 hover:underline">
-                Privacy Policy
-              </Link>
-              .
-            </span>
-          </span>
-        </label>
-      ) : null}
 
       {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────
           The card could not ask this before, and the reason was not a missing
@@ -553,7 +418,7 @@ export function RsvpWidget({
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
       {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
-        <div id="plus-ones" data-rsvp-step className="attending-reveal scroll-mt-6 space-y-1.5">
+        <div id="plus-ones" data-rsvp-step className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
           <span className="block text-sm font-medium text-ink">
             Who are you bringing?
           </span>
@@ -591,6 +456,82 @@ export function RsvpWidget({
         </div>
       ) : null}
 
+      {/* ── MEAL + DIETARY: ONLY FOR SOMEBODY WHO IS COMING ──────────────────
+          Owner, 2026-09-11, walking the Reply door: a decline must not go on to
+          ask for the rest. A guest who is not coming does not eat, and a form
+          that keeps asking after "no" reads as if the answer was not heard.
+
+          ⚠ NO NEW MECHANISM. This rides the `attending-reveal` class the
+          plus-one block already uses — one CSS `:has()` rule, declared once at
+          the top of this form, no client state, still a server component. The
+          wrapper exists because the reveal sets `display:block`, which would
+          flatten the grid if the class sat on the grid itself.
+
+          🪤 AND THE CSS IS NOT THE ONLY PATH. With `replyLocked` the reveal rule
+          is not rendered AT ALL (there is no radio to watch), so the class is
+          inert and the boxes show — which is right, and deliberate: the list
+          finalizes about two weeks out, exactly when "nut allergy" matters most
+          (see the docblock on `replyLocked`). The one case that must still be
+          silenced there is a guest whose frozen answer IS "declined" — the same
+          shape as the locked selfie arm directly above.
+
+          WHAT SURVIVES A DECLINE (orchestrator's call on the owner's behalf,
+          2026-09-11, reversible): the contact boxes and the note to the host.
+          The host still needs a way to reach them, the email is also their
+          sign-in, and a declining guest most often wants to leave a message.
+
+          ⚙ ASK TOGGLE (owner 2026-09-25): the couple may turn either box off
+          on its own — the block itself disappears only when BOTH are off,
+          rather than rendering an empty grid with nothing inside it. */}
+      {!askMealOrDietary || (replyLocked && guest.rsvp_status === 'declined') ? null : (
+        <div className={replyLocked || revealAll ? undefined : 'attending-reveal'}>
+          <div className="space-y-6">
+            {askMeal ? (
+              <div data-rsvp-step>
+              <Select
+                id="meal_preference"
+                label="Meal preference"
+                defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
+                options={[
+                  ['no_preference', 'No preference'],
+                  ['beef', 'Beef'],
+                  ['chicken', 'Chicken'],
+                  ['fish', 'Fish'],
+                  ['vegetarian', 'Vegetarian'],
+                  ['vegan', 'Vegan'],
+                  ['kids', 'Kids'],
+                ]}
+              />
+              </div>
+            ) : null}
+            {askDietary ? (
+              <div data-rsvp-step>
+              <Field
+                id="dietary_restrictions"
+                label="Dietary notes"
+                defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
+                placeholder="halal · nut allergy · …"
+              />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* 🎵 THE SONG (owner 2026-09-27 — "a switch that does nothing is a
+          lie"): the "Song request" switch now asks on the RSVP itself, one
+          question of its own, saved into the couple's song list through the
+          SAME door the day-of card uses (`guest_submit_song_request`). Optional;
+          a blank box asks nothing. Only for somebody who is coming. */}
+      {askSong && !replyLocked ? (
+        <div data-rsvp-step className={revealAll ? undefined : 'attending-reveal'}>
+          <div className="space-y-4">
+            <Field id="song_title" label="A song to get you dancing (optional)" placeholder="Song" />
+            <Field id="song_artist" label="Who sings it?" placeholder="Artist" />
+          </div>
+        </div>
+      ) : null}
+
       {/* ⚙ ASK TOGGLE (owner 2026-09-25): "Note to you" off. */}
       {askNote ? (
         <div data-rsvp-step className="space-y-1.5">
@@ -616,6 +557,90 @@ export function RsvpWidget({
             placeholder={`Anything you'd like ${words.theOrganizer} to know.`}
           />
         </div>
+      ) : null}
+
+      {/* ── HOW THEY REACH YOU ──────────────────────────────────────────────
+          🔴 THESE THREE BOXES DID NOT EXIST. The host's own guest page carries
+          Email, Mobile and Display name, and NOTHING anywhere in the product
+          let the guest supply any of them — so a host without a number had to
+          leave the app and go and ask for it, for every guest.
+          Owner, 2026-08-21, pointing at that page: "these are all the
+          information we want to fill up."
+
+          🔒 First and last name stay HOST-ONLY, deliberately. The link that
+          reaches this card is printed on a poster, and a stranger who can
+          rename a seat-holder is the exact harm `seedBindAllowed` was hardened
+          against on 2026-08-01. What to CALL you is a label; who you ARE is not
+          a label, and only the host sets it.
+
+          ⚠ NOT FROZEN when the guest list closes. Only the ANSWER freezes
+          (owner, 2026-08-20) — a phone number corrected the week of the event
+          is worth more then than at any other time.
+
+          📦 AND IT FOLDS WHEN WE ALREADY KNOW. Owner, 2026-08-21: "if they have
+          an account, and all details are filled, all they need is to accept the
+          invitation." A signed-in guest whose profile already carries their
+          contact details is shown their answer and a ONE-LINE SUMMARY of what
+          we hold — not five boxes asking what the app can already read.
+
+          ⚠ AND THE SUMMARY NAMES WHAT IS BEHIND IT, or this repeats #4683 — the
+          guest's own message sat in a drawer whose label advertised something
+          else, and the host never saw it. Everything folded away is listed on
+          the line, and the inputs still POST: <details> hides, it does not
+          disable. */}
+      {detailsAlreadyKnown ? (
+        <details data-rsvp-step>
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink/80 hover:text-ink">
+            <span className="min-w-0">
+              <span className="block font-medium text-ink">Your details are filled in</span>
+              <span className="mt-0.5 block truncate text-xs text-ink/70">{knownSummary}</span>
+            </span>
+            <span className="shrink-0 text-xs font-medium text-mulberry">Change</span>
+          </summary>
+          <div className="space-y-4 pt-2">{contactFields}</div>
+        </details>
+      ) : (
+        <div data-rsvp-step className="space-y-1.5">
+          <span className="block text-sm font-medium text-ink">
+            How {words.theOrganizer} can reach you
+          </span>
+          {contactFields}
+        </div>
+      )}
+
+      {/* ── KEEP THIS INVITATION (owner 2026-09-25) ─────────────────────────
+          The reply's email box IS the sign-up. One unticked box, directly under
+          the address it will use, turns this Save into "save + email me the
+          sign-in link". Outside the folded details on purpose: a guest whose
+          details are already filled in must still see it. */}
+      <div data-rsvp-step className="space-y-5">
+      {keepOffer ? (
+        <label
+          htmlFor="keep_invitation"
+          className="flex min-h-[44px] items-start gap-3 text-sm text-ink/75"
+        >
+          <input
+            id="keep_invitation"
+            name={TERMS_FIELD}
+            type="checkbox"
+            className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
+          />
+          <span>
+            <span className="block font-medium text-ink">Keep this invitation on my phone</span>
+            <span className="mt-0.5 block">
+              We&rsquo;ll email a sign-in link to the address above — no password needed. I agree
+              to the{' '}
+              <Link href="/terms" className="font-medium text-link underline-offset-2 hover:underline">
+                Terms
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="font-medium text-link underline-offset-2 hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </span>
+        </label>
       ) : null}
 
       {/* ONE PRESS. With the keep box ticked the same button says what it now
@@ -650,6 +675,7 @@ export function RsvpWidget({
         )}
       </SubmitButton>
       )}
+      </div>
     </form>
   );
 }
@@ -848,7 +874,7 @@ function LockedAnswer({ status }: { status: GuestRow['rsvp_status'] }) {
           ? 'You were undecided.'
           : 'No reply was received from you.';
   return (
-    <div className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
+    <div>
       <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
         Replies are closed
       </p>

@@ -40,6 +40,7 @@ import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
 import { GuestMe } from './_components/guest-me';
+import { loadPreviewPerson } from './_lib/preview-person.server';
 import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
@@ -1279,7 +1280,12 @@ async function InvitationBody({
       <>
         <SiteBody
           {...siteProps}
-          identity={buildSimulatedGuestIdentity({ slug: event.slug ?? slug })}
+          identity={buildSimulatedGuestIdentity({
+            slug: event.slug ?? slug,
+            // "Each editor of each event will adapt to their event" (owner
+            // 2026-09-27): a real person's name and plus-one allowance, read only.
+            person: await loadPreviewPerson(admin, event.event_id),
+          })}
         />
         {pageFooter}
       </>

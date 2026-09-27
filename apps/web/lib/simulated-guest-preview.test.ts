@@ -185,14 +185,24 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
   }
 });
 
-test('the simulated guest is obviously a sample, not a borrowed person', () => {
-  const identity = buildSimulatedGuestIdentity({ slug: SLUG });
-  assert.equal(identity.guest.display_name, SIMULATED_GUEST_DISPLAY_NAME);
-  assert.match(identity.guest.display_name ?? '', /sample/i);
-  assert.match(identity.guestHubData.displayName, /sample/i);
-  assert.match(identity.guestHubData.tableLabel ?? '', /sample/i);
-  assert.match(identity.qrSvg, /SAMPLE/);
-  assert.match(identity.invitationUrl, /sample/i);
+test('the preview wears THIS event’s person (name + allowance only), else a neutral "Your guest"', () => {
+  // 🔄 2026-09-27 (owner, DECISION_LOG "EACH EVENT'S EDITOR ADAPTS TO THAT
+  // EVENT"): "Sample Guest" was sample content in a real event's Maker. The
+  // name is now a real person's from the list — or "Your guest" when the list
+  // is empty. The pass and link stay visibly placeholders: no real token.
+  const empty = buildSimulatedGuestIdentity({ slug: SLUG });
+  assert.equal(empty.guest.display_name, 'Your guest');
+  assert.notEqual(empty.guest.display_name, SIMULATED_GUEST_DISPLAY_NAME);
+  assert.equal(empty.guestHubData.displayName, 'Your guest');
+  const real = buildSimulatedGuestIdentity({
+    slug: SLUG,
+    person: { first_name: 'Ana', last_name: 'Reyes', display_name: null, plus_one_allowed: false, plus_one_count: 0 },
+  });
+  assert.equal(real.guest.display_name, 'Ana Reyes');
+  assert.equal(real.guestHubData.firstName, 'Ana');
+  assert.match(real.guestHubData.tableLabel ?? '', /sample/i);
+  assert.match(real.qrSvg, /SAMPLE/);
+  assert.match(real.invitationUrl, /sample/i);
 });
 
 test('no real-guest-derived value can appear on the simulated identity', () => {

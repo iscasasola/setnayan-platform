@@ -1,5 +1,6 @@
 'use client';
 
+import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 import { ChevronRight } from 'lucide-react';
@@ -92,7 +93,10 @@ export function MakerRsvpSettings({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { rsvp_ask_config: next } }));
-        const r = await hubDraftAction(eventId, fd);
+        /* The RSVP page beside it and the toolbar's count read the draft: ONE
+           refresh after the last switch lands (`lib/maker-refresh.ts`) — the
+           action itself no longer re-renders the whole Maker. */
+        const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
         if (!r.ok) {
           setError(r.error);
           setLocal(current); // the save was refused — do not show a switch that did not take

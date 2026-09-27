@@ -43,6 +43,7 @@ import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview'
  *   parent → frame  { source:'setnayan-editor', t:'words',    key, text }
  *   parent → frame  { source:'setnayan-editor', t:'elStyle',  key, el, elements, motion, replay }
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
+ *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
  *
  * ✍ `words` IS THE SCENE'S TEXT, LIVE (owner 2026-09-27, writing his own
@@ -561,6 +562,17 @@ export function EditorBridge() {
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
       const el = findMakerSection(document, data.key);
       if (!el) return;
+      if (data.t === 'sceneShow') {
+        /* 🙈 A SCENE TAKEN OFF THE PAGE, NOW (owner 2026-09-28: *"picking
+           something takes a lot of time before the website reacts"*). The
+           server's next render does not draw a hidden scene at all; until it
+           lands, this one is simply not displayed — the same page, one frame
+           later. The Maker holds that render (`orderWithout`), so it never
+           reloads. Putting a scene back is never drawn here: a scene the page
+           did not draw has nothing to show, so that write reloads. */
+        el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
+        return;
+      }
       if (data.t === 'playEl') {
         /* ▶ REPLAY ONE ELEMENT'S IN (`replayElementIn`). */
         const part =

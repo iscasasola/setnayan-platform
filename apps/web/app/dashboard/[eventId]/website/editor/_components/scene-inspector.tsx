@@ -1,5 +1,6 @@
 'use client';
 
+import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Lock, PencilLine, Play } from 'lucide-react';
@@ -108,12 +109,9 @@ export function useSceneCanvas(
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
-      const res = await draftAction(eventId, fd);
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      router.refresh();
+      // One refresh after the last save in flight (`lib/maker-refresh.ts`).
+      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
+      if (!res.ok) setError(res.error);
     });
   };
   return { shown, save, pending, error };

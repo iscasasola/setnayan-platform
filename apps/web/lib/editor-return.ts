@@ -19,6 +19,8 @@
  * not a same-origin `/dashboard/…` path falls back.
  */
 
+import { MAKER_STAY_FIELD } from './maker-stay';
+
 /**
  * Resolve the post-save destination.
  *
@@ -36,6 +38,10 @@ export function resolveReturnTo(
   const raw = formData.get('return_to');
   if (typeof raw !== 'string' || raw.length === 0) return fallback;
   if (!isSafeInternalPath(raw)) return fallback;
+  /* 🧷 A Maker save lands on the address the couple is ALREADY on, verbatim
+     (`lib/maker-stay.ts`): a `?saved=1` suffix would make it a different page
+     key, and the App Router would remount the whole Maker for it. */
+  if (formData.get(MAKER_STAY_FIELD) === '1') return raw;
   if (!suffix) return raw;
   const query = suffix.replace(/^[?&]/, '');
   if (!query) return raw;

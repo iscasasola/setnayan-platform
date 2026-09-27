@@ -187,8 +187,9 @@ test('nothing in the message reaches CSS unchecked', () => {
 test('the background row posts the preview BEFORE it saves, and the bridge lays it', () => {
   const row = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx'), 'utf8'));
   const save = row.slice(row.indexOf('const save = '));
-  const preview = save.indexOf('onPreview?.(');
-  const draft = save.indexOf('await draftAction(');
+  // Laid through `lay(…)` (the same `onPreview` a refusal reverts with), the save inside `makerSave`.
+  const preview = save.indexOf('lay(touched)');
+  const draft = save.indexOf('draftAction(eventId, fd)');
   assert.ok(preview > 0 && draft > preview, 'the canvas is told before the save starts');
   const bridge = stripComments(readFileSync(join(__dirname, '../app/[slug]/_components/editor-bridge.tsx'), 'utf8'));
   assert.match(bridge, /data\.t === 'sceneBg'[\s\S]{0,600}sanitizeSceneBgPreview\([\s\S]{0,200}applySceneBgPreview\(/);

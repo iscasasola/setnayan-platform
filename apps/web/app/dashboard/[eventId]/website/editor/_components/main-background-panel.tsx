@@ -1,5 +1,6 @@
 'use client';
 
+import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
@@ -149,12 +150,9 @@ export function HeroFrameSync({
         if (!res.ok) throw new Error(String(res.status));
         const frame = await readFrame(await res.blob());
         if (frame.length === 0) throw new Error('empty frame');
-        const r = await saveMain(eventId, { follow: 'hero', of: heroRef, tint: { match, frame } });
+        const r = await makerSave(() => saveMain(eventId, { follow: 'hero', of: heroRef, tint: { match, frame } }), () => router.refresh());
         if (!r.ok) throw new Error(r.error);
-        if (!cancelled) {
-          setState('idle');
-          router.refresh();
-        }
+        if (!cancelled) setState('idle');
       } catch {
         if (!cancelled) setState('failed');
       }
@@ -276,12 +274,9 @@ export function MainBackgroundPanel({
     start(async () => {
       setError(null);
       try {
-        const r = await saveMain(eventId, main);
+        const r = await makerSave(() => saveMain(eventId, main), () => router.refresh());
         if (!r.ok) setError(r.error);
-        else {
-          after?.();
-          router.refresh();
-        }
+        else after?.();
       } catch {
         setError(failure);
       }

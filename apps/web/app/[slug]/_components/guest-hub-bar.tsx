@@ -50,7 +50,15 @@ export function GuestHubBar({
   dayOfLive,
   slug,
   menuOn,
+  meSlot = null,
 }: {
+  /**
+   * The guest's own Me (guest pathway item 4, owner 2026-09-26/27): their
+   * name + "Not you? Switch", their plus-ones, and "Save to my account" —
+   * server-rendered by the page and mounted INTO this section, so there is
+   * still exactly one element carrying `#site-me`.
+   */
+  meSlot?: React.ReactNode;
   /** Guest personal QR token — the /papic/me/[token] bridge resolves it. */
   qrToken: string;
   /** Full invitation URL the QR encodes (shown under the code for sharing). */
@@ -184,6 +192,7 @@ export function GuestHubBar({
           whichever came first, which is the blank one. */}
       {menuOn ? (
         <section id="site-me" className="mt-12 scroll-mt-6">
+          {meSlot ? <div className="mb-8">{meSlot}</div> : null}
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">You</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-ink">Your invitation</h2>
           <div className="mt-4 flex flex-wrap gap-3">

@@ -1280,7 +1280,6 @@ function SceneBackgroundChoices({
     }`;
   const hidden = (fields: Record<string, string>) => (
     <>
-      <HubDraftField />
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="widget_id" value={widgetId} />
       {Object.entries(fields).map(([k, v]) => (
@@ -1296,6 +1295,7 @@ function SceneBackgroundChoices({
         {choices.map((c) =>
           c ? (
             <form key={c.key} action={action}>
+              <HubDraftField />
               {hidden(c.fields)}
               <button type="submit" aria-pressed={current === c.key} data-scene-bg-choice={c.key} className={chip(current === c.key)}>
                 {c.label}
@@ -1311,6 +1311,7 @@ function SceneBackgroundChoices({
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Framed or full width">
           {HUB_SCENE_SHAPES.map((k) => (
             <form key={k} action={action}>
+              <HubDraftField />
               {hidden({ shape: k })}
               <button type="submit" aria-pressed={shape === k} data-scene-shape-choice={k} className={chip(shape === k)}>
                 {HUB_SCENE_SHAPE_LABEL[k]}

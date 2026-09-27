@@ -36,7 +36,8 @@ import {
 } from './hub-canvas';
 import { sectionBackgroundChange, HUB_CANVAS_LOOK_KEYS } from './hub-look-pro';
 import { canvasLookChange } from './hub-draft';
-import { HubCanvasFrame, sceneWidgetIsBare } from '../app/[slug]/_components/hub-canvas-frame';
+import { HubCanvasFrame } from '../app/[slug]/_components/hub-canvas-frame';
+import { sceneWidgetIsBare } from './scene-ground';
 import { CountdownWidget } from '../app/[slug]/_components/countdown';
 import type { InvitationWidgetRow } from './invitation-widgets';
 

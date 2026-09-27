@@ -259,7 +259,13 @@ function formsIn(file: string, src: string): Form[] {
 const PROP_POSTERS = ['SectionColourChoices', 'SceneBackgroundChoices'];
 function resolveLocalAction(f: Form, src: string): string[] {
   if (f.file.endsWith('sections-panel.tsx') && PROP_POSTERS.includes(f.component) && f.action === 'action') {
-    const passed = [...src.matchAll(new RegExp(`<${f.component}\\b[\\s\\S]*?\\baction=\\{(\\w+)\\}`, 'g'))].map((x) => x[1]!);
+    /* `action={action}` is one poster handing ITS OWN writer on to another
+       (`SceneBackgroundChoices` draws the swatch row for a Pro couple with no
+       photos, 2026-09-27) — the same writer, already resolved at the outer
+       poster's own render sites, so it is not a writer name of its own. */
+    const passed = [...src.matchAll(new RegExp(`<${f.component}\\b[\\s\\S]*?\\baction=\\{(\\w+)\\}`, 'g'))]
+      .map((x) => x[1]!)
+      .filter((x) => x !== 'action');
     assert.ok(passed.length > 0, `${f.component} is rendered with no action`);
     return passed;
   }

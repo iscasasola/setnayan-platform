@@ -193,8 +193,13 @@ test('⛔ the words always sit ABOVE the picture, and the scrim is not optional'
 
     So it reads THIS rule's own braces, both times the rule appears.
   */
+  /* ONE scrim, the light one (2026-09-27). The dark-mode copy is gone on
+     purpose: the words over a photo take the ink measured for the LIGHT veil
+     (`lib/scene-legibility.ts`, kind `media`, held by
+     `scene-words-follow-the-ground.test.ts`), and a phone in dark mode turned
+     the veil near-black under those dark words. */
   const scrims = ruleBodies(css, '.hub-canvas-media::after');
-  assert.equal(scrims.length, 2, 'one scrim for each theme — light and dark');
+  assert.equal(scrims.length, 1, 'exactly one scrim — the light one the words are measured over');
   for (const body of scrims) {
     assert.match(body, /linear-gradient\(/, 'each scrim is an actual gradient, in its own body');
     assert.doesNotMatch(body, /background:\s*none/, 'and none of them is switched off');

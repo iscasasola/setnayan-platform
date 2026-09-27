@@ -25,6 +25,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { parsePersonName } from '@/lib/person-name-parse';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -686,6 +687,102 @@ export async function softDeleteGuest(
 
 
 /**
+ * 🔁 GIVE THIS SPOT TO SOMEONE ELSE (guest pathway, owner DECISION_LOG
+ * 2026-09-26: *"if there is a person who never replied and we want to give the
+ * seat to someone else, so they can be part of the list and replace the count
+ * from the person who did not reply to them, like a reassign."* → *"correct."*).
+ *
+ * Reached through `releaseGuestClaim` when the form carries `swap_name` — the
+ * same door, so the swap costs no new server-action export. The rules:
+ *
+ *   · ONLY a guest who has NOT replied (`rsvp_status = 'pending'`). A confirmed
+ *     guest cannot be swapped this way — nor one who declined: they replied.
+ *   · The new person takes the SAME row — table, seat, side, role, groups and
+ *     place in the count all stay; nothing is re-counted.
+ *   · A NEW KEY: `rotate_guest_qr_token` runs FIRST and its failure aborts —
+ *     the old QR, the old link and any session minted from them stop working
+ *     (`lib/guest-session.ts` checks the token on every read).
+ *   · The old person is NOT notified, and everything that was theirs goes:
+ *     their account's hold on the seat (`event_members`), their person link,
+ *     email, mobile, photo and notes.
+ *   · Allowed after the final-count lock (the count does not change) — up to
+ *     the day, never after it.
+ */
+async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: string): Promise<void> {
+  const back = (error: string): never =>
+    redirect(`/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(error)}`);
+
+  // Authorisation is RLS: a caller who is not a host of this event reads nothing.
+  const supabase = await createClient();
+  const { data: row, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, rsvp_status')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (readErr || !row) back('swap_failed');
+  if ((row as { rsvp_status: string }).rsvp_status !== 'pending') back('swap_replied');
+
+  const parsed = parsePersonName(newName);
+  if (!parsed.firstName) back('swap_needs_name');
+
+  const admin = createAdminClient();
+  const { data: ev } = await admin.from('events').select('event_date').eq('event_id', eventId).maybeSingle();
+  const day = ((ev?.event_date as string | null) ?? '').slice(0, 10);
+  if (day && new Date().toISOString().slice(0, 10) > day) back('swap_after_day');
+
+  // 1. A NEW KEY FIRST. If this fails nothing else happens.
+  const { data: rpcData, error: rpcError } = await supabase.rpc('rotate_guest_qr_token', { p_guest_id: guestId });
+  const rotated = rpcData as { ok?: boolean; qr_token?: string } | null;
+  if (rpcError || !rotated?.ok || typeof rotated.qr_token !== 'string') back('swap_failed');
+
+  // 2. The old person's account lets go of the seat.
+  const { error: memberErr } = await admin
+    .from('event_members')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .eq('member_type', 'guest');
+  if (memberErr) back('swap_failed');
+
+  // 3. The row becomes the new person's. Seat, table, side, role, groups and
+  //    count are untouched; everything that was the old person's is cleared.
+  const { error: updErr } = await admin
+    .from('guests')
+    .update({
+      first_name: parsed.firstName,
+      last_name: parsed.lastName || '—',
+      name_prefix: parsed.prefix || null,
+      middle_name: parsed.middleName || null,
+      name_suffix: parsed.suffix || null,
+      display_name: null,
+      person_id: null,
+      email: null,
+      mobile: null,
+      photo_url: null,
+      photo_source: null,
+      photo_updated_at: null,
+      photo_set_by_user_id: null,
+      plus_one_name: null,
+      dietary_restrictions: null,
+      guest_note: null,
+      meal_preference: 'no_preference',
+      rsvp_responded_at: null,
+      invitation_sent_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .eq('rsvp_status', 'pending');
+  if (updErr) back('swap_failed');
+
+  revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(`/dashboard/${eventId}/guests/${guestId}?swapped=1`);
+}
+
+/**
  * RELEASE A CLAIMED SEAT — the couple's undo for a forwarded invitation.
  *
  * Owner ruling 2026-08-06: *"the couple has full control of their guests."*
@@ -718,8 +815,13 @@ export async function softDeleteGuest(
 export async function releaseGuestClaim(
   eventId: string,
   guestId: string,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<void> {
+  // "Give this spot to someone else" rides this door (+0 exports): a release
+  // that also hands the seat to a named new person. See giveSpotToSomeoneElse.
+  const swapName = String(formData.get('swap_name') ?? '').trim().slice(0, 120);
+  if (swapName) return giveSpotToSomeoneElse(eventId, guestId, swapName);
+
   // Authorisation is RLS, exactly as softDeleteGuest does it: read the guest
   // through the SESSION client first. A caller who is not a host of this event
   // reads nothing and we stop. Only then does the admin client write.
@@ -742,7 +844,7 @@ export async function releaseGuestClaim(
 
   // 1. ROTATE FIRST. If this fails we stop — a detached seat whose old QR still
   //    works is worse than no change at all.
-  const { data: rpcData, error: rpcError } = await admin.rpc('rotate_guest_qr_token', {
+  const { data: rpcData, error: rpcError } = await supabase.rpc('rotate_guest_qr_token', {
     p_guest_id: guestId,
   });
   const rotated = rpcData as { ok?: boolean; qr_token?: string } | null;

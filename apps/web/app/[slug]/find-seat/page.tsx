@@ -213,6 +213,9 @@ export default async function FindSeatPage({ params }: Props) {
     if (seatErr) throw new Error(`find-seat: could not read the table: ${seatErr.message}`);
     const ids = (seatRows ?? []).map((r) => r.guest_id as string);
     if (ids.length > 0) {
+      // 🔒 DELIBERATELY NARROW (baselined in dup-rule.baseline.txt): a tablemate
+      // is shown as first name + last initial and nothing else, so the read
+      // takes nothing else — no display name, role or pairing of other guests.
       const { data: people, error: peopleErr } = await admin
         .from('guests')
         .select('guest_id, first_name, last_name')

@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 383
+# facts: 391
 #   shadow  20
-#   omit    363
+#   omit    371
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -110,6 +110,14 @@ omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/avatar/page.tsx	guests	ENTOURAGE_COLUMNS	role
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	display_name
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	middle_name
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
+omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	role
 omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
 omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/[slug]/hub/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config

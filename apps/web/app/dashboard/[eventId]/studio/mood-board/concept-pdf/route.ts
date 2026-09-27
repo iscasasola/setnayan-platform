@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
-import QRCode from 'qrcode';
+import { renderStyledUrlQrPng } from '@/lib/qr';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -36,7 +37,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, moodboard_theme_name, moodboard_theme_description',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences, reception_design, moodboard_theme_name, moodboard_theme_description',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -140,19 +141,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     logoPng = null;
   }
 
-  // Website QR (optional). Nested /u/ under the cutover flag, bare root
-  // otherwise (self-noops OFF; no query pre-cutover).
+  // Event Hub QR (optional), in the event's look (lib/qr-look.ts). Nested /u/
+  // under the cutover flag, bare root otherwise (self-noops OFF; no query
+  // pre-cutover).
   let qrPng: Uint8Array | null = null;
   if (event.slug) {
-    const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
+    const admin = createAdminClient();
+    const ownerSlug = await resolveEventOwnerSlug(admin, eventId);
     try {
-      const png = await QRCode.toBuffer(publicEventUrl(appUrl, event.slug, ownerSlug), {
-        type: 'png',
-        width: 320,
-        margin: 1,
-        errorCorrectionLevel: 'H',
-        color: { dark: '#1E2229', light: '#FFFFFF' },
-      });
+      const look = await resolveEventQrLook(admin, eventId, event);
+      const png = await renderStyledUrlQrPng(publicEventUrl(appUrl, event.slug, ownerSlug), look, 320);
       qrPng = new Uint8Array(png);
     } catch {
       qrPng = null;

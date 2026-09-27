@@ -10,6 +10,12 @@ import { SlugField } from '../../invitation/_components/slug-field';
 import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
 import { PRINT_PIECES } from '@/lib/print-pieces';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import type { StoredQrStyle } from '@/lib/qr-look';
+import { MiniTour } from '@/app/_components/mini-tour';
+import { QrLookControls } from './qr-look-controls';
+import type { UpdateQrStyleResult } from '../qr-look-actions';
 
 /**
  * DETAILS — the made-once panel of the Event Hub Maker: WHAT the stages and the
@@ -61,11 +67,18 @@ export function MakerDetails({
   flash,
   slug,
   slugAction,
+  qr,
+  qrStyleAction,
 }: {
   /** The event's address — owner: "Add the slug to details". */
   slug: string | null;
   /** `updateEventSlug` bound to this event (the one writer, `findSlugConflict` behind it). */
   slugAction: (formData: FormData) => Promise<void>;
+  /** The QR's look choices (lib/qr-look.server.ts qrLookChoicesFromRow) — Pro
+   *  measured by the caller, the saved choices, the contrast-passing palette. */
+  qr: { ownsPro: boolean; style: StoredQrStyle; inks: string[]; storeShell: boolean };
+  /** `updateQrStyle` bound to this event. */
+  qrStyleAction: (patch: StoredQrStyle) => Promise<UpdateQrStyleResult>;
   eventId: string;
   stored: StoredPrintDetails;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
@@ -100,6 +113,41 @@ export function MakerDetails({
           <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
           <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
           <HubSavesImmediately className="mt-1" />
+        </section>
+
+        {/* ── Your QR (owner 2026-09-27) — the code every print and pass carries.
+            Free: the Setnayan mark in the centre, square, classic. Event Hub Pro:
+            YOUR logo in the centre, and Shape · Pattern · Colour — each ONE
+            dropdown (owner 2026-09-28), wearing the padlock until Pro. Saves
+            live (the QR is a picture on prints, not a drafted guest page) and
+            says so. Drawn beside these fields on the page. ── */}
+        <section data-details-qr="" className="flex flex-col gap-2 border-b border-ink/10 pb-5">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+            Your QR code
+            {paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell }) ? (
+              <PaidMark
+                state={paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!}
+                label={paidMarkLabel(paidMarkState({ owns: qr.ownsPro, storeShell: qr.storeShell })!, 'Event Hub Pro')}
+                text="Event Hub Pro"
+                size="xs"
+              />
+            ) : null}
+          </p>
+          <p className="text-xs text-ink/60">
+            {qr.ownsPro
+              ? 'Your logo sits in the centre of every guest QR. Pick its shape, pattern and colour — every print and pass follows.'
+              : 'Every guest QR carries the Setnayan mark in the centre. With Event Hub Pro it carries your own logo, and you choose the shape, pattern and colour.'}
+          </p>
+          <QrLookControls
+            eventId={eventId}
+            ownsPro={qr.ownsPro}
+            storeShell={qr.storeShell}
+            style={qr.style}
+            inks={qr.inks}
+            action={qrStyleAction}
+          />
+          <HubSavesImmediately className="mt-1" />
+          <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} />
         </section>
 
         {flash === 'saved' ? (
@@ -317,7 +365,9 @@ export function MakerDetailsPage({
           {slug ? (
             // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
             <img
-              src={`/api/website/qr/${encodeURIComponent(slug)}`}
+              // `v=` is the render stamp: the route's PNG is shared-cached, and
+              // a couple who just changed the shape must see it here at once.
+              src={`/api/website/qr/${encodeURIComponent(slug)}?v=${encodeURIComponent(stamp)}`}
               alt="QR code for your Event Hub address"
               width={176}
               height={176}
@@ -333,7 +383,10 @@ export function MakerDetailsPage({
             ) : (
               <p className="mt-1 text-sm text-ink/70">No address yet — choose one beside this page.</p>
             )}
-            <p className="mt-2 text-[12.5px] text-ink/60">Every printed piece carries this QR. Guests scan it to open your Event Hub.</p>
+            <p className="mt-2 text-[12.5px] text-ink/60">
+              Every printed piece and every guest pass carries this QR. Guests scan it to open your Event Hub. Its
+              shape, pattern and colour are chosen beside this page.
+            </p>
           </div>
         </section>
 

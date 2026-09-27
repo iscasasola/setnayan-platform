@@ -29,13 +29,13 @@
  * `pro-panels.tsx` under its old name so nothing that already imports it moves.
  *
  * ⛔ NO PRICE LIVES HERE. `COUPLE_WEBSITE_PRO` (titled "Event Hub Pro") is the
- * ONE unlock that opens all nine, and its figure is read live from
+ * ONE unlock that opens all ten, and its figure is read live from
  * `platform_retail_catalog_v2` via `formatV2Sku` — never typed into source. The
  * `couple-website-pro.ts` docblock records why: three different figures for one
  * product once lived in a single file.
  */
 
-/** The nine Pro items, named the way the couple sees them. */
+/** The ten Pro items, named the way the couple sees them. */
 export const WEBSITE_PRO_ITEMS = [
   'Cinematic Reveal',
   'Save-the-Date video',
@@ -54,6 +54,12 @@ export const WEBSITE_PRO_ITEMS = [
   // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO alias; the couple meets it on the
   // Logo Maker, where the owned state reads "Included with Event Hub Pro".
   'Animated logo',
+  // The Pro QR (owner 2026-09-27: "QR on Pro makes the logo use their logo on
+  // the center. and change the shape, pattern style"). Free codes carry the
+  // Setnayan mark; Pro puts the couple's own logo in the centre and opens Shape
+  // (square · circle) · Pattern · Colour on the Maker's Details page. The old
+  // "Custom QR per guest" product folded into this item (lib/qr-look.ts).
+  'Your logo on every QR code',
 ] as const;
 
 export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];
@@ -67,7 +73,7 @@ export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];
  * *"Event Hub PRO may NOT be SOLD on this inclusion while it is free."*
  *
  * It stays in the list — the controller SHOWS it, because it is genuinely one of
- * the nine the unlock covers — but it may never be the reason a couple is asked
+ * the ten the unlock covers — but it may never be the reason a couple is asked
  * for money. The free ruling is reversible and the owner's to reverse; until he
  * does, this constant is what keeps the offer honest.
  */

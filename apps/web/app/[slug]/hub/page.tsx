@@ -65,6 +65,7 @@ import {
   type WatchLiveLinks,
 } from '@/lib/watch-live-links';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
+import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
@@ -121,7 +122,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, landing_page_visibility, scheduled_launch_at',
+      // The CANONICAL monogram list + the QR look's two columns, never a
+      // hand-typed near-copy: the guest's code below wears the event's look.
+      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -297,7 +300,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       appUrl,
       slug,
       qrToken: guest.qr_token,
-      monogram,
+      // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's
+      // own logo · shape · pattern · ink on Event Hub Pro.
+      look: await resolveEventQrLook(admin, event.event_id, event),
       ownerSlug,
     });
     invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token, ownerSlug });

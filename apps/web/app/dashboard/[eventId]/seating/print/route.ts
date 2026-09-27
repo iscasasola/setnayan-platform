@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import QRCode from 'qrcode';
+import { renderStyledUrlQrPng, renderStyledUrlQrSvg } from '@/lib/qr';
+import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
@@ -30,7 +31,8 @@ const esc = (s: string) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
   );
 
-const QR_OPTS = { margin: 1, color: { dark: '#1E2229', light: '#FBFBFA' } } as const;
+/** An inline SVG as an <img> source — the table signs and place cards below. */
+const svgDataUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 export async function GET(req: Request, ctx: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await ctx.params;
@@ -52,10 +54,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // plan to, and that widening is not what the owner ruled on.
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, slug, event_date, monogram_text')
+    // + the QR look's columns: every code on the pack (table signs, place
+    // cards) wears the event's look — lib/qr-look.ts.
+    .select(`display_name, slug, event_date, ${QR_LOOK_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
+  // Pro is an event-level fact while `orders` RLS is purchaser-scoped, so the
+  // look is resolved with the admin client AFTER the member read above.
+  const look = await resolveEventQrLook(createAdminClient(), eventId, event);
 
   const [tables, assignments, guests] = await Promise.all([
     fetchTables(supabase, eventId),
@@ -134,8 +141,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       });
     }
     const images: PrintImages = {};
-    const png = async (text: string) =>
-      new Uint8Array(await QRCode.toBuffer(text, { ...QR_OPTS, width: 600, errorCorrectionLevel: 'M' }));
+    const png = async (text: string) => new Uint8Array(await renderStyledUrlQrPng(text, look, 600));
     for (const u of units) images[`t-${u.key}`] = { bytes: await png(`${site}?t=${u.lead.public_id}`), mime: 'image/png' };
     for (const pu of packUnits) {
       for (const g of pu.guests) images[g.qrRef] = { bytes: await png(`${site}?g=${g.qrRef.slice(2)}`), mime: 'image/png' };
@@ -155,7 +161,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const tableQr = new Map<string, string>(
     await Promise.all(
       units.map(
-        async (u) => [u.key, await QRCode.toDataURL(`${site}?t=${u.lead.public_id}`, QR_OPTS)] as const,
+        async (u) => [u.key, svgDataUrl(await renderStyledUrlQrSvg(`${site}?t=${u.lead.public_id}`, look))] as const,
       ),
     ),
   );
@@ -163,7 +169,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const placeQr = new Map<string, string>(
     await Promise.all(
       placeCards.map(
-        async (g) => [g.qr_token, await QRCode.toDataURL(`${site}?g=${g.qr_token}`, QR_OPTS)] as const,
+        async (g) => [g.qr_token, svgDataUrl(await renderStyledUrlQrSvg(`${site}?g=${g.qr_token}`, look))] as const,
       ),
     ),
   );

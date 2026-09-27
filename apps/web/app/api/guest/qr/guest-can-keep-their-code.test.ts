@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import QRCode from 'qrcode';
 import { decideGuestQrAccess, guestQrFileName } from './route';
 import { buildInvitationUrl, renderInvitationQrPng, renderInvitationQrSvg } from '@/lib/qr';
+import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -189,23 +190,17 @@ test('the same guest gets the same file every time', async () => {
 test('the saved file encodes the link that signs the guest in', async () => {
   // THE ONE THAT MATTERS. The url is spelled out BY HAND here, not built by the
   // code under test — so if the route's url construction ever drifts (the /u/
-  // nesting cutover has already moved this shape once), these bytes stop
-  // matching. Byte-equality against an independently-spelled url is the closest
-  // thing to scanning the file without shipping a QR decoder.
+  // nesting cutover has already moved this shape once), the decode stops
+  // matching. Until the Pro QR build this compared BYTES against a bare
+  // `QRCode.toBuffer` of the same url, "the closest thing to scanning the file
+  // without shipping a QR decoder" — but every saved code now carries a centre
+  // mark (the Setnayan mark for free, lib/qr-look.ts), so the bytes can never be
+  // equal again, and the repo ships a decoder (lib/qr-decode.ts). So: SCAN it.
   const mine = await renderInvitationQrPng(QR_PARAMS);
-  const fromHandSpelledUrl = await QRCode.toBuffer(
+  assert.equal(
+    await decodeQrPayloadFromImage(new Uint8Array(mine)),
     'https://x.test/ana-at-marco?invite=tok-abc',
-    {
-      errorCorrectionLevel: 'H',
-      margin: 4,
-      color: { dark: '#1A1A1A', light: '#FAF7F2' },
-      type: 'png',
-      width: 1024,
-    },
-  );
-  assert.ok(
-    mine.equals(fromHandSpelledUrl),
-    'the PNG does not encode https://x.test/ana-at-marco?invite=tok-abc — a guest would save a code that signs nobody in',
+    'the PNG does not decode to https://x.test/ana-at-marco?invite=tok-abc — a guest would save a code that signs nobody in',
   );
 });
 

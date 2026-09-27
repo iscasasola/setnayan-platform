@@ -95,6 +95,7 @@ export type TourKey =
   | 'customer_post_event_v1'
   | 'customer_ombre_background_v1'
   | 'customer_details_bound_v1'
+  | 'customer_pro_qr_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -112,6 +113,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_post_event_v1',
   'customer_ombre_background_v1',
   'customer_details_bound_v1',
+  'customer_pro_qr_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -533,6 +535,30 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: CheckCircle2,
         title: 'Nothing goes live yet',
         body: 'Every change waits in your draft. Guests see it after you Apply.',
+      },
+    ],
+  },
+  customer_pro_qr_v1: {
+    key: 'customer_pro_qr_v1',
+    label: 'Your QR code',
+    blurb: 'First visit to the Details page: what the QR carries, and what Event Hub Pro lets you change.',
+    slides: [
+      {
+        Icon: QrCode,
+        title: 'One code, on everything',
+        body: 'Every printed piece and every guest pass carries this QR. Guests scan it to open your Event Hub — the same code here, on the poster, on the passes.',
+      },
+      {
+        Icon: Sparkles,
+        title: 'Your logo in the centre',
+        // A pitch: dropped in the app-store shell, price never written here.
+        sells: true,
+        body: 'Free codes carry the Setnayan mark. With <strong>Event Hub Pro</strong> the centre carries your own logo, and you pick the shape (square or circle), the pattern and a colour from your Mood Board.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'It always scans',
+        body: 'Every look is checked to scan before it ships — the corners stay sharp, the logo stays small, and only colours dark enough to read are offered. A change here saves straight away and every print follows.',
       },
     ],
   },

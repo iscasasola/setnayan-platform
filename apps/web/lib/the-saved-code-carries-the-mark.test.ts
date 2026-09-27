@@ -38,12 +38,11 @@ import sharp from 'sharp';
 import {
   buildEventLandingUrl,
   buildInvitationUrl,
-  renderBrandedInvitationQrPng,
   renderEventLandingQrPng,
   renderInvitationQrPng,
   renderInvitationQrSvg,
-  resolveBrandedQrColors,
 } from '@/lib/qr';
+import { FREE_QR_LOOK, type QrLook } from '@/lib/qr-look';
 import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
 import { monogramOverlaySvg, resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { fontFileForStack, monogramBadgeSvgDocument } from '@/lib/qr-monogram-raster';
@@ -64,6 +63,18 @@ function monoFor(style: string | null, fontKey: string | null = 'cormorant'): Mo
     monogram_frame_key: null,
   });
 }
+
+/**
+ * Since the Pro QR build (2026-09-28) a renderer takes a LOOK, not a monogram
+ * (lib/qr-look.ts). The couple's lettered mark in the centre is the Pro look of
+ * an event with no drawn logo — which is exactly what owner decision #19 was
+ * about, so every assertion below is unchanged in what it proves.
+ */
+const proLook = (m: MonogramConfig, dark: string = FREE_QR_LOOK.dark): QrLook => ({
+  ...FREE_QR_LOOK,
+  dark,
+  centre: { kind: 'monogram', monogram: m },
+});
 
 type Raw = { data: Buffer; w: number; h: number; ch: number };
 
@@ -135,7 +146,7 @@ test('the saved PNG differs from the plain one AT THE CENTRE and nowhere else', 
   const plain = await renderInvitationQrPng(P);
   const marked = await renderInvitationQrPng({
     ...P,
-    monogram: monoFor('bar'),
+    look: proLook(monoFor('bar')),
     onMonogramError: (e) => assert.fail(`the badge failed to composite: ${String(e)}`),
   });
 
@@ -168,7 +179,7 @@ test('the badge is the couple’s INK, not a blank cream disc', async () => {
   // The failure this refuses: sharp renders the shapes, the glyph lookup finds
   // no font, and the couple saves a QR with an empty circle punched in it. Every
   // "the centre changed" assertion stays green through that.
-  const marked = await renderInvitationQrPng({ ...P, monogram: monoFor('bar') });
+  const marked = await renderInvitationQrPng({ ...P, look: proLook(monoFor('bar')) });
   const img = await toRaw(marked);
   const inner = box(img.w, 0.40, 0.40, 0.60, 0.60);
 
@@ -186,17 +197,19 @@ test('the badge is the couple’s INK, not a blank cream disc', async () => {
 test('a DIFFERENT couple gets a different mark in the same code', async () => {
   // Pins the badge to the event rather than to a constant: a hard-coded mark
   // would pass every test above.
-  const one = await renderInvitationQrPng({ ...P, monogram: monoFor('bar') });
+  const one = await renderInvitationQrPng({ ...P, look: proLook(monoFor('bar')) });
   const two = await renderInvitationQrPng({
     ...P,
-    monogram: resolveMonogram({
-      display_name: 'Rosa & Teodoro',
-      monogram_text: null,
-      monogram_color: RING,
-      monogram_font_key: 'cormorant',
-      monogram_style: 'bar',
-      monogram_frame_key: null,
-    }),
+    look: proLook(
+      resolveMonogram({
+        display_name: 'Rosa & Teodoro',
+        monogram_text: null,
+        monogram_color: RING,
+        monogram_font_key: 'cormorant',
+        monogram_style: 'bar',
+        monogram_frame_key: null,
+      }),
+    ),
   });
   const a = await toRaw(one);
   const b = await toRaw(two);
@@ -204,12 +217,14 @@ test('a DIFFERENT couple gets a different mark in the same code', async () => {
   assert.ok(centre > 5, `two different couples drew the same centre (|Δ| = ${centre.toFixed(2)})`);
 });
 
-test('no monogram supplied → byte-identical to the code this route has always served', async () => {
-  // The degrade path. A caller that cannot resolve branding must still get a
-  // working QR, and must not get a silently different one.
+test('no look supplied → byte-identical to the FREE look, never a bare code', async () => {
+  // The degrade path. A caller that cannot resolve the event's look must still
+  // get a working QR, and must get the same one every other free surface does.
   const before = await renderInvitationQrPng(P);
-  const after = await renderInvitationQrPng({ ...P, monogram: undefined });
+  const after = await renderInvitationQrPng({ ...P, look: undefined });
+  const free = await renderInvitationQrPng({ ...P, look: FREE_QR_LOOK });
   assert.ok(before.equals(after));
+  assert.ok(before.equals(free), 'a renderer given no look must render the free look (Setnayan mark)');
 });
 
 // ── And it still scans ──────────────────────────────────────────────────────
@@ -219,21 +234,22 @@ test('every composited PNG decodes to the SAME url as the plain code', async () 
   assert.equal(await decodeQrPayloadFromImage(await renderInvitationQrPng(P)), expected);
 
   for (const style of ['bar', 'duo', 'script', 'infinity', 'framed', null]) {
-    const png = await renderInvitationQrPng({ ...P, monogram: monoFor(style) });
+    const png = await renderInvitationQrPng({ ...P, look: proLook(monoFor(style)) });
     const got = await decodeQrPayloadFromImage(png);
     assert.equal(got, expected, `the ${style ?? 'legacy-initials'} badge broke the code`);
   }
 });
 
-test('the branded (palette-tinted) PNG carries the mark and still decodes', async () => {
-  const colors = resolveBrandedQrColors('#2F4858');
-  const plain = await renderBrandedInvitationQrPng({ ...P, colors });
-  const marked = await renderBrandedInvitationQrPng({ ...P, colors, monogram: monoFor('script') });
+test('a palette-inked PNG (the Pro colour choice) carries the mark and still decodes', async () => {
+  // What "Custom QR per guest" used to sell — now the Pro look's `dark`.
+  const dark = '#2F4858';
+  const plain = await renderInvitationQrPng({ ...P, look: { ...FREE_QR_LOOK, dark } });
+  const marked = await renderInvitationQrPng({ ...P, look: proLook(monoFor('script'), dark) });
 
   const a = await toRaw(plain);
   const b = await toRaw(marked);
   const centre = regionDeviation(a, b, box(a.w, 0.44, 0.44, 0.56, 0.56));
-  assert.ok(centre > 20, `the branded PNG's centre is unchanged (|Δ| = ${centre.toFixed(2)})`);
+  assert.ok(centre > 20, `the inked PNG's centre is unchanged (|Δ| = ${centre.toFixed(2)})`);
   assert.equal(regionDeviation(a, b, box(a.w, 0.05, 0.05, 0.28, 0.28)), 0);
   assert.equal(await decodeQrPayloadFromImage(marked), buildInvitationUrl(P));
 });
@@ -241,7 +257,7 @@ test('the branded (palette-tinted) PNG carries the mark and still decodes', asyn
 test('the master event QR PNG carries the mark and still decodes', async () => {
   const params = { appUrl: P.appUrl, slug: P.slug };
   const plain = await renderEventLandingQrPng(params);
-  const marked = await renderEventLandingQrPng({ ...params, monogram: monoFor('duo') });
+  const marked = await renderEventLandingQrPng({ ...params, look: proLook(monoFor('duo')) });
   const a = await toRaw(plain);
   const b = await toRaw(marked);
   assert.ok(regionDeviation(a, b, box(a.w, 0.44, 0.44, 0.56, 0.56)) > 20);
@@ -251,7 +267,7 @@ test('the master event QR PNG carries the mark and still decodes', async () => {
 test('it survives what a messaging app does to it', async () => {
   // The realistic journey: saved, sent through a chat that downscales and
   // re-encodes as JPEG, screenshotted at a venue door.
-  const marked = await renderInvitationQrPng({ ...P, monogram: monoFor('bar') });
+  const marked = await renderInvitationQrPng({ ...P, look: proLook(monoFor('bar')) });
   const mangled = await sharp(marked).resize(360, 360).jpeg({ quality: 70 }).toBuffer();
   assert.equal(await decodeQrPayloadFromImage(mangled), buildInvitationUrl(P));
 });
@@ -308,17 +324,17 @@ test('the browser badge is still a real <text> element in the couple’s webfont
   assert.ok(overlay.includes('<text'));
   assert.ok(overlay.includes('var(--font-display)'));
 
-  const svg = await renderInvitationQrSvg({ ...P, monogram: monoFor('bar') });
+  const svg = await renderInvitationQrSvg({ ...P, look: proLook(monoFor('bar')) });
   assert.ok(svg.includes('<text'), 'the on-screen QR lost its live monogram');
 });
 
-// ── Every route that SERVES a saved QR actually passes the mark ─────────────
+// ── Every route that SERVES a saved QR actually passes the look ─────────────
 
-test('all three PNG routes pass a resolved monogram to the renderer', async () => {
+test('all three PNG routes resolve the event\'s look and hand it to the renderer', async () => {
   // The lib guards above prove the compositor works. They cannot see a route
   // that stops calling it — and a route is where this regressed for months, not
   // the renderer. Comments are stripped first: this is a POSITIVE assertion, and
-  // every one of these files has the word "monogram" in its docblock.
+  // every one of these files has the word "look" in its docblock.
   const routes = [
     'app/api/guest/qr/route.ts',
     'app/api/website/qr/[slug]/route.ts',
@@ -327,18 +343,18 @@ test('all three PNG routes pass a resolved monogram to the renderer', async () =
   for (const rel of routes) {
     const src = stripComments(readFileSync(path.join(process.cwd(), rel), 'utf8'));
     assert.ok(
-      src.includes('resolveMonogram('),
-      `${rel} no longer resolves the couple's monogram — the saved image lost the mark`,
+      src.includes('resolveEventQrLook('),
+      `${rel} no longer resolves the event's look — the saved image lost its mark`,
     );
-    // Slice the RENDERER CALL, not the file: "the word monogram appears
-    // somewhere" is satisfied by the const that is then never passed, which is
-    // exactly the shape this guard exists to catch.
+    // Slice the RENDERER CALL, not the file: "the word look appears somewhere"
+    // is satisfied by the const that is then never passed, which is exactly the
+    // shape this guard exists to catch.
     const at = src.search(/render\w*QrPng\(\{/);
     assert.notEqual(at, -1, `${rel} does not call a PNG renderer from lib/qr.ts`);
     const call = src.slice(at, src.indexOf('});', at));
     assert.ok(
-      /\bmonogram\b\s*[,:]/.test(call),
-      `${rel} resolves a monogram but does not hand it to the renderer`,
+      /\blook\b\s*[,:]/.test(call),
+      `${rel} resolves a look but does not hand it to the renderer`,
     );
   }
 });

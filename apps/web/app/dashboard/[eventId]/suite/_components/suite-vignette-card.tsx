@@ -126,20 +126,6 @@ function Scene({ vignette, persona }: { vignette: string; persona: VignettePerso
           </div>
         </>
       );
-    case 'custom-qr-guest':
-      // A guest QR wearing their mark at the centre.
-      return (
-        <div className={styles.qrCard}>
-          <div className={styles.qrGrid}>
-            {Array.from({ length: 25 }, (_, i) => (
-              <i key={i} />
-            ))}
-          </div>
-          <span className={styles.qrBadge}>
-            <span>{persona.initials}</span>
-          </span>
-        </div>
-      );
     case 'papic':
       // Candids landing in the gallery as guests shoot.
       return (

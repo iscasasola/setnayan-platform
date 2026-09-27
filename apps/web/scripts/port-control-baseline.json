@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "596145a4b",
-  "routeCount": 435,
-  "destinations": 948,
-  "actions": 669,
-  "blocks": 4861,
+  "generatedFromRef": "134812e5c",
+  "routeCount": 433,
+  "destinations": 943,
+  "actions": 670,
+  "blocks": 4867,
   "routes": {
     "/": {
       "files": [
@@ -1249,6 +1249,7 @@
         "VendorMediaStrip",
         "VendorRow",
         "VendorsWeLoved",
+        "VenuePlate",
         "VenueWidget",
         "WallBadge",
         "WallControl",
@@ -5544,6 +5545,7 @@
         "dashboard/[eventId]/guests/_components/guest-mind-map.tsx",
         "dashboard/[eventId]/guests/_components/guest-name-fields.tsx",
         "dashboard/[eventId]/guests/_components/guest-optimistic-store.ts",
+        "dashboard/[eventId]/guests/_components/guest-save-links.tsx",
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guests-search.tsx",
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
@@ -5582,9 +5584,9 @@
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/guests?inspect=[seg]",
         "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/seating",
-        "/dashboard/[seg]/story",
-        "/dashboard/[seg]/studio/custom-qr-guest"
+        "/dashboard/[seg]/story"
       ],
       "actions": [
         "action",
@@ -5632,6 +5634,8 @@
         "GuestListMultiselect",
         "GuestMindMap",
         "GuestQrCard",
+        "GuestQrDownloadLink",
+        "GuestQrPdfLink",
         "GuestRole",
         "GuestRow",
         "GuestSide",
@@ -5986,7 +5990,8 @@
       ],
       "destinations": [
         "/api/website/qr/guest/[seg]",
-        "/dashboard/[seg]/guests/[seg]"
+        "/dashboard/[seg]/guests/[seg]",
+        "/dashboard/[seg]/invitation/print"
       ],
       "actions": [
         "markSent",
@@ -6039,8 +6044,10 @@
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
+        "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
-        "dashboard/[eventId]/launch/page.tsx"
+        "dashboard/[eventId]/launch/page.tsx",
+        "dashboard/[eventId]/launch/qr-look-actions.ts"
       ],
       "destinations": [
         "/[seg]",
@@ -6055,6 +6062,7 @@
       ],
       "actions": [
         "PRINT_WORDS_ENDPOINT",
+        "qrStyleAction",
         "removeHeroPhoto",
         "specialMessageAction",
         "uploadHeroPhoto"
@@ -6123,6 +6131,7 @@
         "PickMenu",
         "PrintPreview",
         "PrintSaveButton",
+        "QrLookControls",
         "Row",
         "RsvpAskConfig",
         "SVGSVGElement",
@@ -6138,6 +6147,7 @@
         "Toggle",
         "TuneFold",
         "TuneSlider",
+        "UpdateQrStyleResult",
         "ViewAsSwitch",
         "WebsiteEditorPage"
       ]
@@ -6956,45 +6966,6 @@
       "destinations": [],
       "actions": [],
       "blocks": []
-    },
-    "/dashboard/[eventId]/studio/custom-qr-guest": {
-      "files": [
-        "dashboard/[eventId]/studio/custom-qr-guest/loading.tsx",
-        "dashboard/[eventId]/studio/custom-qr-guest/page.tsx"
-      ],
-      "destinations": [
-        "/api/website/qr/guest/[seg]",
-        "/dashboard/[seg]/guests",
-        "/dashboard/[seg]/invitation",
-        "/dashboard/[seg]/studio",
-        "/dashboard/[seg]/studio/custom-qr-guest/print"
-      ],
-      "actions": [],
-      "blocks": [
-        "GridPageSkeleton",
-        "InlineCheckoutDrawer",
-        "Link",
-        "OwnedView",
-        "PageMasthead",
-        "PaymentUnderReview",
-        "QrActions",
-        "StudioBuyHero",
-        "UnownedView"
-      ]
-    },
-    "/dashboard/[eventId]/studio/custom-qr-guest/print": {
-      "files": [
-        "dashboard/[eventId]/studio/custom-qr-guest/print/loading.tsx",
-        "dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/studio/custom-qr-guest"
-      ],
-      "actions": [],
-      "blocks": [
-        "GridPageSkeleton",
-        "Link"
-      ]
     },
     "/dashboard/[eventId]/studio/editorial-pro": {
       "files": [
@@ -8387,13 +8358,18 @@
     "/dashboard/[eventId]/website/editor": {
       "files": [
         "dashboard/[eventId]/website/editor/_components/authoring-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx",
+        "dashboard/[eventId]/website/editor/_components/canvas-words.tsx",
+        "dashboard/[eventId]/website/editor/_components/details-bound-field.tsx",
         "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
+        "dashboard/[eventId]/website/editor/_components/element-preview.ts",
         "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
         "dashboard/[eventId]/website/editor/_components/main-background-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/maker-canvas-guard.tsx",
         "dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts",
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
+        "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
         "dashboard/[eventId]/website/editor/_components/pick-menu.tsx",
         "dashboard/[eventId]/website/editor/_components/pro-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/rail-rows.ts",
@@ -8439,9 +8415,15 @@
       "blocks": [
         "BackgroundEffect",
         "BackgroundField",
+        "BufferedCanvasFrame",
+        "CanvasFrames",
+        "CanvasHold",
         "CanvasStaysOnThePage",
+        "CanvasWords",
+        "CanvasWordsContext.Provider",
         "Choice",
         "ColorsPanel",
+        "DetailsBoundField",
         "DressCodeFields",
         "DressCodePanel",
         "EditorialPanel",
@@ -8458,6 +8440,7 @@
         "HTMLIFrameElement",
         "HTMLOListElement",
         "HTMLSpanElement",
+        "HTMLTextAreaElement",
         "HTMLUListElement",
         "HeroFrameSync",
         "HeroPhotoPanel",
@@ -8493,6 +8476,7 @@
         "PaidMark",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
+        "PickListPlacement",
         "PickMenu",
         "ProLockPanel",
         "QrActions",
@@ -8501,6 +8485,7 @@
         "RowBlock",
         "RsvpBackdropPanel",
         "SaveButton",
+        "SceneBackgroundChoices",
         "SceneMenu",
         "SceneMiniature",
         "ScenePreview",
@@ -8513,17 +8498,20 @@
         "Seg",
         "Segmented",
         "SiteChromePanel",
+        "StdLeadSwitch",
         "StdPanel",
         "StoryPanel",
         "SubmitButton",
         "Suspense",
         "Swatch",
+        "T",
         "TextPanel",
         "ThemePanel",
         "Thumb",
         "TileHead",
         "ToolsResizeHandle",
         "VisibilityPanel",
+        "Window",
         "WordsReturnTo"
       ]
     },

@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { renderInvitationQrPng } from '@/lib/qr';
-import { resolveMonogram } from '@/lib/monogram';
-import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
+import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
@@ -147,13 +146,14 @@ export async function GET() {
   // perfectly fine — a permanent-sounding refusal for a temporary condition.
   const { data: event, error: eventErr } = await admin
     .from('events')
-    // The monogram columns join this read for ONE reason: the file the guest
-    // saves must carry the couple's mark, and for most of them that saved
+    // The look columns join this read for ONE reason: the file the guest saves
+    // must carry the event's mark (Setnayan's for a free event, the couple's
+    // own for Event Hub Pro — lib/qr-look.ts), and for most of them that saved
     // picture IS the invitation (owner decision #19, 2026-09-16). Taken from the
     // CANONICAL list, not hand-typed — a hand-typed near-copy that silently drops
     // a column is the trap `pnpm lint:dup-rule` exists to catch, and it caught
     // exactly that here.
-    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
+    .select(`event_id, slug, ${QR_LOOK_COLUMNS}`)
     .eq('event_id', guest.event_id)
     .maybeSingle();
   if (eventErr) {
@@ -166,20 +166,22 @@ export async function GET() {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+  // The event's look — free (Setnayan mark) or Event Hub Pro (the couple's).
+  const look = await resolveEventQrLook(admin, event.event_id, event);
 
   // A badge that cannot be drawn must not cost the guest their code — the
-  // compositor returns the plain QR — but it must not be invisible either, and
-  // a log line alone is not enough: the header says which picture this is.
+  // renderer falls back to the plain QR — but it must not be invisible either,
+  // and a log line alone is not enough: the header says which picture this is.
   let markError: unknown = null;
   const png = await renderInvitationQrPng({
     appUrl,
     slug: event.slug,
     qrToken: guest.qr_token,
     ownerSlug,
-    monogram: resolveMonogram(event),
+    look,
     onMonogramError: (err) => {
       markError = err;
-      logQueryError('GuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade');
+      logQueryError('GuestQrPng.look', err, { eventId: event.event_id }, 'graceful_degrade');
     },
   });
 

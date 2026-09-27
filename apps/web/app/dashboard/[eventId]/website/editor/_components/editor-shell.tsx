@@ -1835,7 +1835,7 @@ function RowBlock({ row }: { row: MakerRowPanel }) {
  * Scan-to-view and the one Pro CTA — the rail's topbar and foot, ported into
  * the Maker's ⋯ sheet. The QR is the master event QR `/api/website/qr` already
  * serves, with the one control strip every link-QR carries. The CTA is the
- * umbrella unlock — one CTA for all nine Pro items (`WEBSITE_PRO_ITEMS`) — shown
+ * umbrella unlock — one CTA for all ten Pro items (`WEBSITE_PRO_ITEMS`) — shown
  * only while they do not own it, and never in the store shell.
  */
 function MoreExtras({

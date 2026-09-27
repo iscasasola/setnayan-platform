@@ -53,6 +53,8 @@ import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerPrints } from './_components/maker-prints';
 import { MakerDetails, MakerDetailsPage } from './_components/maker-details';
+import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
+import { updateQrStyle } from './qr-look-actions';
 import { hasPalette, parentsFromEntourageForEvent, printOwnsPro, printThemeFor, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
@@ -440,7 +442,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   /*
     ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
-    § 5.3: the nine Pro items are ONE purchase, so the controller does not grow
+    § 5.3: the ten Pro items are ONE purchase, so the controller does not grow
     nine upgrade slots — it grows one, and moves it to whichever of the four
     public pages is live. `resolveHubProOffer` returns null far more often than
     not: when the couple owns it, when the read did not happen, on the day, and
@@ -990,6 +992,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
           slug={printEvent.slug}
           slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+          // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
+          // it, the saved choices, and the contrast-passing Mood Board colours.
+          qr={{ ...qrLookChoicesFromRow(printEvent, printPro), storeShell }}
+          qrStyleAction={updateQrStyle.bind(null, eventId)}
         />
         ),
       };

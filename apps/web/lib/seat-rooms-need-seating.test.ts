@@ -81,20 +81,6 @@ test('the seating room itself refuses a kind with no seating surface', () => {
   assert.ok(/redirect\(/.test(src), 'the seating room must redirect, not render.');
 });
 
-test('the paid per-guest QR add-on is not offered where there is no seating', () => {
-  const src = code('lib/add-ons-catalog.ts');
-  const entry = src.slice(src.indexOf("key: 'custom-qr-guest'"));
-  assert.ok(entry.length > 100, "custom-qr-guest entry not found — renamed?");
-  const nextKey = entry.indexOf("key: '", 10);
-  const scoped = nextKey > 0 ? entry.slice(0, nextKey) : entry;
-  assert.ok(
-    times(scoped, "surface: 'seating'") === 1,
-    "CUSTOM_QR_GUEST prints a branded QR that opens a guest's SEAT PASS. " +
-      "Without surface: 'seating' the ₱1,499 card is offered on kinds whose " +
-      'seat pass 404s — selling something the buyer’s guests cannot open.',
-  );
-});
-
 /* 🔄 2026-09-24 (event menu by moment). The day-of "Seats" TAB is gone —
    Papic took its slot — and "Seat plan" is now ONE row of the one tree, in
    The day, drawn by the rail, the ☰ drawer and the phone's moment strip in

@@ -344,7 +344,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, assignments, tables, arrived, floorPlan, brandedQrActive] =
+  const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, assignments, tables, arrived, floorPlan] =
     await Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
       fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true }),
@@ -416,21 +416,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // never the slowest read) and is guarded like the other seat reads: a blip
       // degrades to the default anchor rather than taking down the Guests tab.
       fetchFloorPlan(supabase, eventId).catch(() => null),
-      // Living Roster QR doorway (2026-07-15) — is the paid CUSTOM_QR_GUEST
-      // upgrade admin-APPROVED for this event? Drives the guest drawer's QR
-      // section: when active it offers the real branded PNG download (the same
-      // gated /api/website/qr/guest/[guestId] route the Invitation surface uses);
-      // when not, the drawer routes to the Invitation page (where every guest's
-      // free default scannable QR always renders) + the Custom-QR studio. Read
-      // with the admin client because ownership is an EVENT fact while orders RLS
-      // is purchaser-scoped (a co-host who didn't place the order would be
-      // mis-gated) — exactly like the Invitation page + the PNG endpoint. Folds
-      // into this parallel fan-out; eventSkuActive throws on a non-graceful DB
-      // error, so degrade to the default (no branded download) rather than
-      // taking down the whole Guests tab.
-      eventSkuActive(createAdminClient(), eventId, 'CUSTOM_QR_GUEST').catch(
-        () => false,
-      ),
+      // The guest drawer's QR used to fold a CUSTOM_QR_GUEST ownership read in
+      // here. That product folded into Event Hub Pro (owner 2026-09-27): the
+      // drawer's PNG route now draws every guest's code in the event's look, so
+      // there is nothing left to gate and no read to make.
     ]);
 
   // `measured: false` means the guest read was REFUSED — the rows are unknown,
@@ -774,7 +763,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         data={inspectedCard}
         invitationBase={invitationBase}
-        brandedQrActive={brandedQrActive}
         photoDisplayUrl={
           photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
           accountFaceByGuest[inspectedGuest.guest_id] ??

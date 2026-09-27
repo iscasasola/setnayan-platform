@@ -197,7 +197,6 @@ export const routeMeta = {
     addOns: {
       index: { icon: Sparkles, label: 'Studio' },
       animatedMonogram: { icon: Type, label: 'Monogram Creator' },
-      customQrGuest: { icon: QrCode, label: 'Custom QR per guest' },
       indoorBlueprint: { icon: MapPin, label: 'Indoor Blueprint' },
       landingPage: { icon: Globe2, label: 'Landing Page' },
       led: { icon: Sparkles, label: 'LED Background' },

@@ -654,51 +654,6 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
-    key: 'custom-qr-guest',
-    // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
-    dayOfOnly: true,
-    // 🪑 THE PURCHASE HALF OF THE SEAT-ROOM GATE (owner 2026-08-28). This SKU
-    // prints a branded QR per guest that opens their SEAT PASS. On a kind with
-    // no 'seating' surface that pass now 404s, so offering the ₱1,499 card
-    // there would sell something the buyer's guests cannot open — which is the
-    // defect app/[slug]/seat/page.tsx records having already been fixed once.
-    // Every kind that keeps 'seating' (14 of 17, incl. every wedding) is
-    // byte-identical.
-    surface: 'seating',
-    tags: ['Invitation', 'Guests', 'Branding', 'Free'],
-    label: 'Custom QR per guest',
-    Icon: QrCode,
-    iteration: '0002',
-    status: 'web_v1',
-    category: 'tool',
-    blurb: 'A branded QR for every guest — your monogram and colors, print-ready on each invite.',
-    cta: 'Brand my QRs',
-    studioGroup: 'branding',
-    // FREE FOR EVERYONE (owner 2026-09-06: *"keep custom QR per guest free"*).
-    //
-    // 🔑 THE TIER IS THE SUITE GRID'S HALF OF THAT RULING, AND WITHOUT IT THE
-    // CONTRADICTION JUST MOVES UP A LAYER. `FREE_FOR_ALL_SKUS` in
-    // `entitlements.ts` decides whether the branded QR RENDERS; this field
-    // decides what the card SAYS. With the entitlement free and no `tier` here,
-    // the Suite would keep presenting a purchase for something every event
-    // already owns. Same shape as `mood-board` below.
-    //
-    // ⚠ `serviceKey` STAYS. It is what the ownership badge reads, and the SKU
-    // still exists (₱0.00, active — the row cannot be retired because
-    // `llms-txt.ts` names it in REQUIRED_RETAIL). Removing it would break the
-    // badge, not the price.
-    tier: 'free',
-    serviceKey: 'CUSTOM_QR_GUEST',
-    poster: {
-      motion: 'drift',
-      baseBackground:
-        'linear-gradient(135deg, #2B1810 0%, #5A2818 55%, #C97B4B 100%)',
-      motionBackground:
-        'radial-gradient(circle at 50% 50%, #FAF6F0 0%, transparent 50%)',
-      iconBadgeClass: 'bg-cream/20 text-cream',
-    },
-  },
-  {
     key: 'papic',
     // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
     dayOfOnly: true,

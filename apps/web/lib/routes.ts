@@ -275,10 +275,6 @@ export const routes = {
       // addOnHref/appStoreDetailHref, not these). See changelog studio-hygiene.
       // `bundle` helper removed 2026-07-15 (dead — zero callers; the /studio/bundle
       // route + Essentials/Complete bundles were retired). See changelog dead-route-cleanup.
-      customQrGuest: {
-        index: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest`,
-        print: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest/print`,
-      },
       indoorBlueprint: (eventId: string) => `/dashboard/${eventId}/studio/indoor-blueprint`,
       // Live Studio — the UNIFIED controller (owner 2026-07-25). Registry entries
       // for the live route folders, which were missing. ⚠ Do NOT link straight to

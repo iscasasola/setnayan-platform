@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
 import {
   fetchGuestsByEvent,
   guestDisplayName,
@@ -39,7 +40,7 @@ export async function GET(
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -117,6 +118,8 @@ export async function GET(
     floorPlan,
     palette: flatHexPalette,
     logoPng,
+    // The Event Hub code in the event's look (lib/qr-look.ts), like every print.
+    qrLook: await resolveEventQrLook(createAdminClient(), eventId, event),
   });
 
   // `<event slug>-seat-plan.pdf` (owner's naming rule — event first, then the

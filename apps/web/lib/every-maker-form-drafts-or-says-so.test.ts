@@ -362,6 +362,10 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
+  // The Pro QR build (2026-09-28): Shape · Pattern · Colour post from a
+  // transition into events.style_preferences.qr — the picture on every print
+  // and pass, not a drafted guest page — and say so beside the dropdowns.
+  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<QrLookControls\b[\s\S]*?\/>[\s{}]*<HubSavesImmediately\b/, 'the QR look writes live and must say so'],
 ];
 
 test('controls that write without a form of their own say "Saves immediately" beside them', () => {

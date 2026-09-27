@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
-import { compositeMonogram, type MonogramConfig } from './monogram';
 import { publicEventPath } from './public-event-url';
+import { FREE_QR_LOOK, type QrLook } from './qr-look';
+import { styledQrSvg } from './qr-style-svg';
 
 const QR_OPTIONS = {
   errorCorrectionLevel: 'H' as const, // ~30% redundancy per spec § Locked structural rules
@@ -12,13 +13,58 @@ const QR_OPTIONS = {
 };
 
 /**
- * Render an arbitrary URL as an inline QR SVG string (no monogram). Used for
- * the Papic seat-claim links a couple shares + prints so a friend can scan to
- * claim their photo-crew seat. Same level-H error correction + quiet zone +
- * ink/cream palette as the invitation QRs, so it scans + prints cleanly.
+ * ─────────────────────────────────────────────────────────────────────────
+ * EVERY GUEST QR WEARS A `QrLook` (owner 2026-09-27 — see lib/qr-look.ts).
+ *
+ * The renderers below take `look?: QrLook`. Left out, they render
+ * `FREE_QR_LOOK` — ink on cream, the SETNAYAN mark in the centre — so a call
+ * site that forgets to resolve the event's look still ships a code that obeys
+ * the free rule rather than a bare one. A Pro event's look (the couple's own
+ * logo, shape, pattern, palette ink) comes from `resolveEventQrLook`
+ * (lib/qr-look.server.ts), which is the ONE place the Pro entitlement is read
+ * for a QR.
+ *
+ * ⚠ CORRECTED 2026-09-28. Until this build these functions took `monogram?`
+ * and drew the couple's lettered lockup in the centre of every code, free or
+ * not, and a separate `renderBranded*` pair tinted the modules for the
+ * "Custom QR per guest" product. Both are gone: the centre and the colour are
+ * facts of the LOOK, and the look is decided by Event Hub Pro.
+ * ─────────────────────────────────────────────────────────────────────────
+ */
+
+/**
+ * Render an arbitrary URL as an inline QR SVG string — the PLAIN code, no
+ * centre mark. For codes that are NOT a guest's: the Papic seat-claim links a
+ * couple shares with their photo crew, a supplier's shortlist/locked QR, a
+ * cost-claim link. Same level-H error correction + quiet zone + ink/cream
+ * palette as the guest QRs, so it scans + prints cleanly.
+ *
+ * ⛔ Not for a guest-facing code. A QR a guest scans to reach the Event Hub,
+ * their pass, their seat or the invite door goes through `renderStyledUrlQrSvg`
+ * (or the invitation/landing renderers), so it carries the mark the free rule
+ * requires.
  */
 export async function renderUrlQrSvg(url: string, width = 200): Promise<string> {
   return QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width });
+}
+
+/**
+ * Any guest-facing URL in the event's look — the join-link QR the couple
+ * shares, the poster's story code, the seating pack's table and place-card
+ * codes. Synchronous underneath; async to match its siblings.
+ */
+export async function renderStyledUrlQrSvg(url: string, look: QrLook = FREE_QR_LOOK, width = 256): Promise<string> {
+  return styledQrSvg(url, look, { width });
+}
+
+/** PNG twin of `renderStyledUrlQrSvg` — for PDFs and print packs. */
+export async function renderStyledUrlQrPng(
+  url: string,
+  look: QrLook = FREE_QR_LOOK,
+  width = 600,
+  onLookError?: (err: unknown) => void,
+): Promise<Buffer> {
+  return styledPngOrPlain(url, look, width, onLookError);
 }
 
 /**
@@ -26,15 +72,15 @@ export async function renderUrlQrSvg(url: string, width = 200): Promise<string> 
  * fallback URL per spec § Token format and URI scheme — `setnayan://` is the
  * parsing convenience inside native apps, never embedded in printed QRs.
  *
- * When a monogram is supplied, the renderer composites a circular cream-on-
- * accent badge into the center of the QR pattern (level H error correction
- * keeps the code scannable through the clearance).
+ * The centre carries the look's mark (Setnayan's for a free event, the
+ * couple's for Pro); level H error correction keeps the code scannable through
+ * the clearance — lib/every-qr-look-decodes.test.ts proves it for every look.
  */
 export async function renderInvitationQrSvg(params: {
   appUrl: string;
   slug: string;
   qrToken: string;
-  monogram?: MonogramConfig;
+  look?: QrLook;
   /** Event owner's account slug — when the /u/ nesting cutover is ON, encodes
    *  `/u/{ownerSlug}/{slug}`; absent / cutover-OFF encodes the bare `/{slug}`. */
   ownerSlug?: string | null;
@@ -43,11 +89,7 @@ export async function renderInvitationQrSvg(params: {
   // and the PNG they save must encode the SAME url, and the only way to
   // guarantee that is to leave one place that knows how to spell it.
   const url = buildInvitationUrl(params);
-  const svg = await QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width: 256 });
-  if (params.monogram) {
-    return compositeMonogram(svg, params.monogram);
-  }
-  return svg;
+  return styledQrSvg(url, params.look ?? FREE_QR_LOOK, { width: 256 });
 }
 
 export function buildInvitationUrl(params: {
@@ -62,69 +104,60 @@ export function buildInvitationUrl(params: {
 /**
  * Render a guest's OWN invitation QR as a keepsake PNG — the file behind
  * "Save the code" on the guest's three QR surfaces (the invitation QR card,
- * the My QR modal, the day-of hub's Me panel).
+ * the My QR modal, the day-of hub's Me panel), and the code on every printed
+ * pass.
  *
- * Deliberately the SAME url + the SAME QR_OPTIONS + the SAME monogram badge as
- * renderInvitationQrSvg, so the picture a guest saves is the picture they were
- * shown. One thing differs, on purpose: it is BIGGER — 1024px survives being
- * printed, re-shared through a messaging app that recompresses, or held up on a
- * cracked phone at a venue door.
+ * Deliberately the SAME url + the SAME look as renderInvitationQrSvg, so the
+ * picture a guest saves is the picture they were shown. One thing differs, on
+ * purpose: it is BIGGER — 1024px survives being printed, re-shared through a
+ * messaging app that recompresses, or held up on a cracked phone at a venue
+ * door.
  *
- * ⚠ CORRECTED 2026-09-16 (owner decision #19). This docblock used to say "NO
- * MONOGRAM … the saved file is the bulletproof scannable one", and the two
- * other PNG routes said the same thing, all three citing the same cause:
- * compositeMonogram rewrites raw SVG and a PNG is not SVG. That cause was real
- * and it no longer holds — lib/qr-monogram-raster.ts rasterises the SAME badge
- * geometry (from the SAME monogramOverlaySvg) as vector outlines and composites
- * it with sharp, and the composited PNG still decodes to the same url (guarded
- * in lib/the-saved-code-carries-the-mark.test.ts).
- * 🔑 It mattered because on this platform the saved image IS the invitation:
+ * 🔑 It matters because on this platform the saved image IS the invitation:
  * 75 of 77 guests on one live wedding have neither an email address nor a
- * mobile number, so nothing digital reaches them.
+ * mobile number, so nothing digital reaches them (owner decision #19,
+ * 2026-09-16).
  *
- * `monogram` is optional and omitting it renders exactly what this function has
- * always rendered — the plain code — so a caller that cannot resolve the
- * couple's branding degrades to a working QR rather than an error.
- *
- * ⚠ NOT the branded PNG. renderBrandedInvitationQrPng tints the modules with
- * the couple's Mood Board palette and is served by the gated
- * /api/website/qr/guest/[guestId]. This one is the plain ink-on-cream code the
- * guest can already see for free, and is gated on nothing but being that guest.
+ * `onMonogramError` — kept under its historical name, which the route guards
+ * pin — fires when the STYLED render fails and the plain level-H code is
+ * served instead. A failed mark must never cost a guest their code, and must
+ * never be silent either: every route puts the outcome on the wire
+ * (`X-Setnayan-Monogram: composited | fallback`).
  */
 export async function renderInvitationQrPng(params: {
   appUrl: string;
   slug: string;
   qrToken: string;
-  monogram?: MonogramConfig;
+  look?: QrLook;
   ownerSlug?: string | null;
   width?: number;
   onMonogramError?: (err: unknown) => void;
 }): Promise<Buffer> {
   const url = buildInvitationUrl(params);
-  const png = await QRCode.toBuffer(url, {
-    ...QR_OPTIONS,
-    type: 'png',
-    width: params.width ?? 1024,
-  });
-  return withMonogram(png, params.monogram, params.onMonogramError);
+  return styledPngOrPlain(url, params.look ?? FREE_QR_LOOK, params.width ?? 1024, params.onMonogramError);
 }
 
 /**
- * The monogram half of every PNG renderer below, in ONE place.
+ * The styled raster, or the plain code when it cannot be drawn.
  *
- * The raster compositor is loaded dynamically for the same reason lib/qr-decode
+ * The raster module is loaded dynamically for the same reason lib/qr-decode
  * loads sharp dynamically: lib/qr.ts is imported by a dozen server components
  * that only ever want an SVG string, and none of them should pull `sharp` and a
  * font parser into their module graph to get one.
  */
-async function withMonogram(
-  png: Buffer,
-  monogram: MonogramConfig | undefined,
+async function styledPngOrPlain(
+  url: string,
+  look: QrLook,
+  width: number,
   onError?: (err: unknown) => void,
 ): Promise<Buffer> {
-  if (!monogram) return png;
-  const { compositeMonogramOntoQrPng } = await import('./qr-monogram-raster');
-  return compositeMonogramOntoQrPng(png, monogram, onError);
+  try {
+    const { styledQrPng } = await import('./qr-style-raster');
+    return await styledQrPng(url, look, width);
+  } catch (err) {
+    onError?.(err);
+    return QRCode.toBuffer(url, { ...QR_OPTIONS, type: 'png', width });
+  }
 }
 
 /**
@@ -140,15 +173,11 @@ async function withMonogram(
 export async function renderEventLandingQrSvg(params: {
   appUrl: string;
   slug: string;
-  monogram?: MonogramConfig;
+  look?: QrLook;
   ownerSlug?: string | null;
 }): Promise<string> {
-  const url = `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}`;
-  const svg = await QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width: 256 });
-  if (params.monogram) {
-    return compositeMonogram(svg, params.monogram);
-  }
-  return svg;
+  const url = buildEventLandingUrl(params);
+  return styledQrSvg(url, params.look ?? FREE_QR_LOOK, { width: 256 });
 }
 
 export function buildEventLandingUrl(params: {
@@ -160,164 +189,22 @@ export function buildEventLandingUrl(params: {
 }
 
 /**
- * The master event QR as a PNG, with the couple's monogram in the centre —
- * the file behind "Download QR" on the Website hub, and safe to use directly
- * as an `<img>` source.
+ * The master event QR as a PNG in the event's look — the file behind the
+ * Event Hub address on the Maker's Details page, the code every printed piece
+ * carries, and safe to use directly as an `<img>` source.
  *
  * The PNG twin of `renderEventLandingQrSvg`: same url (built by the same
- * `buildEventLandingUrl`), same level-H code, same badge. Bigger, because this
+ * `buildEventLandingUrl`), same level-H code, same look. Bigger, because this
  * one gets printed at A4 / postcard sizes.
  */
 export async function renderEventLandingQrPng(params: {
   appUrl: string;
   slug: string;
-  monogram?: MonogramConfig;
+  look?: QrLook;
   ownerSlug?: string | null;
   width?: number;
   onMonogramError?: (err: unknown) => void;
 }): Promise<Buffer> {
   const url = buildEventLandingUrl(params);
-  const png = await QRCode.toBuffer(url, {
-    ...QR_OPTIONS,
-    type: 'png',
-    width: params.width ?? 1024,
-  });
-  return withMonogram(png, params.monogram, params.onMonogramError);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Branded per-guest QR — CUSTOM_QR_GUEST, and it is FREE FOR EVERYONE
-// (owner 2026-09-06: "keep custom QR per guest free").
-//
-// ⚠ THIS COMMENT USED TO READ "the paid CUSTOM_QR_GUEST SKU (₱1,499)" AND THE
-// NUMBER WAS NEVER RIGHT AGAIN AFTER THE CATALOGUE MOVED. The live row has read
-// ₱0.00 for some time while this line kept quoting ₱1,499 — a price in a
-// comment that nothing checks, which is why `lib/public-price-literals.ts`
-// exists for the ones that face a customer. Do not restore a figure here: read
-// the catalogue.
-//
-// The default per-guest QR (above) always renders in ink-on-cream with the
-// couple's monogram in the center. The BRANDED variant additionally tints
-// the QR modules with the couple's palette color (pulled from their Mood
-// Board reception/couple palette) and ships inside a premium card layout
-// suitable for print + share. Ownership still runs through `eventOwnsSku`, and
-// that helper now answers TRUE for every event because the SKU is in
-// `FREE_FOR_ALL_SKUS` — so the branded variant is what everybody gets, and the
-// plain default is the fallback for a read that fails, not for a couple who
-// did not pay.
-//
-// Cross-references:
-//   • CLAUDE.md 2026-05-22 "Unified QR Code Lifecycle Model" (per-guest QR)
-//   • lib/v2-catalog.ts CUSTOM_QR_GUEST (the SKU this closes)
-//   • lib/mood-board.ts (the role_palette the brand color is drawn from)
-// ─────────────────────────────────────────────────────────────────────────
-
-export type BrandedQrColors = {
-  /** QR module (foreground) color — must stay dark enough to scan. */
-  dark: string;
-  /** QR background color. */
-  light: string;
-};
-
-const FALLBACK_DARK = '#1A1A1A'; // ink
-const FALLBACK_LIGHT = '#FAF7F2'; // cream
-
-/**
- * Relative luminance of a #RRGGBB hex (0 = black, 1 = white), per the
- * WCAG-style sRGB formula. Used only as a coarse contrast guard, not a
- * full WCAG contrast-ratio computation.
- */
-function hexLuminance(hex: string): number {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m || !m[1]) return 0;
-  const n = parseInt(m[1], 16);
-  const r = ((n >> 16) & 0xff) / 255;
-  const g = ((n >> 8) & 0xff) / 255;
-  const b = (n & 0xff) / 255;
-  const lin = (c: number) =>
-    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-}
-
-/**
- * Pick a scannable QR module color from the couple's palette.
- *
- * A QR code only stays readable if the dark modules contrast strongly with
- * the cream background. A pale blush or champagne palette color would make
- * the code unscannable, so we only honor the palette color when it's dark
- * enough (luminance ≤ 0.5); otherwise we fall back to ink. This keeps every
- * branded QR scannable regardless of which palette the couple picked.
- *
- * Returns the resolved { dark, light } pair the renderer should use.
- */
-export function resolveBrandedQrColors(
-  paletteColor: string | null | undefined,
-): BrandedQrColors {
-  const candidate = paletteColor?.trim();
-  if (candidate && /^#[0-9a-f]{6}$/i.test(candidate)) {
-    // Only use the palette color for modules if it contrasts well against
-    // cream. Above this luminance the code risks being unscannable.
-    if (hexLuminance(candidate) <= 0.5) {
-      return { dark: candidate.toUpperCase(), light: FALLBACK_LIGHT };
-    }
-  }
-  return { dark: FALLBACK_DARK, light: FALLBACK_LIGHT };
-}
-
-/**
- * Render a guest's BRANDED invitation QR — palette-tinted modules + the
- * couple's monogram composited in the center. Encodes the same guest-token
- * URL as `renderInvitationQrSvg`; only the styling differs.
- *
- * Level-H error correction (~30% redundancy) keeps the code scannable
- * through both the center monogram clearance and the colored modules.
- */
-export async function renderBrandedInvitationQrSvg(params: {
-  appUrl: string;
-  slug: string;
-  qrToken: string;
-  monogram?: MonogramConfig;
-  colors: BrandedQrColors;
-  ownerSlug?: string | null;
-}): Promise<string> {
-  const url = `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}?invite=${params.qrToken}`;
-  const svg = await QRCode.toString(url, {
-    ...QR_OPTIONS,
-    color: { dark: params.colors.dark, light: params.colors.light },
-    type: 'svg',
-    width: 256,
-  });
-  if (params.monogram) {
-    return compositeMonogram(svg, params.monogram);
-  }
-  return svg;
-}
-
-/**
- * The BRANDED per-guest QR as a PNG — palette-tinted modules + the couple's
- * monogram in the centre. The PNG twin of `renderBrandedInvitationQrSvg`, and
- * the file the gated /api/website/qr/guest/[guestId] serves.
- *
- * Built from `buildInvitationUrl` like every other invitation renderer, so the
- * branded card a guest is handed and the branded picture the couple downloads
- * encode the same token.
- */
-export async function renderBrandedInvitationQrPng(params: {
-  appUrl: string;
-  slug: string;
-  qrToken: string;
-  monogram?: MonogramConfig;
-  colors: BrandedQrColors;
-  ownerSlug?: string | null;
-  width?: number;
-  onMonogramError?: (err: unknown) => void;
-}): Promise<Buffer> {
-  const url = buildInvitationUrl(params);
-  const png = await QRCode.toBuffer(url, {
-    ...QR_OPTIONS,
-    color: { dark: params.colors.dark, light: params.colors.light },
-    type: 'png',
-    width: params.width ?? 1024,
-  });
-  return withMonogram(png, params.monogram, params.onMonogramError);
+  return styledPngOrPlain(url, params.look ?? FREE_QR_LOOK, params.width ?? 1024, params.onMonogramError);
 }

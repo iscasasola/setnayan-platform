@@ -29,7 +29,8 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
-import { renderUrlQrSvg } from '@/lib/qr';
+import { renderStyledUrlQrSvg } from '@/lib/qr';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -74,7 +75,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}`,
+      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, style_preferences`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -288,14 +289,15 @@ export default async function EditorialPrintPage({
     hideWatermark = false;
   }
 
-  // The QR encodes the canonical living-story URL. Reuse the platform QR
-  // machinery (lib/qr renderUrlQrSvg — the same ink/cream, level-H, quiet-zone
-  // renderer the invitation/seat QRs use). Best-effort: a QR failure just drops
-  // the code, never the sheet.
+  // The QR encodes the canonical living-story URL, in the event's LOOK (lib/qr-look.ts
+  // — the Setnayan mark for a free event, the couple's own on Event Hub Pro), through
+  // the same level-H, quiet-zone renderer every guest QR uses. Best-effort: a QR
+  // failure just drops the code, never the sheet.
   const storyUrl = `${SITE_URL}/${event.slug ?? slug}`;
   let qrSvg = '';
   try {
-    qrSvg = await renderUrlQrSvg(storyUrl, 240);
+    const look = await resolveEventQrLook(createAdminClient(), event.event_id, event);
+    qrSvg = await renderStyledUrlQrSvg(storyUrl, look, 240);
   } catch {
     qrSvg = '';
   }

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadGuestPasses, loadPrintSet, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPiece, layoutQrCodes, type PrintDoc, type PrintImages } from '@/lib/print-layout';
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -148,6 +149,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         event,
         appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
         ownerSlug: await resolveEventOwnerSlug(admin, eventId).catch(() => null),
+        // The free QR sheet wears the event's look too — the Setnayan mark, or
+        // the couple's own on Event Hub Pro (lib/qr-look.ts).
+        qrLook: await resolveEventQrLook(admin, eventId, event),
       };
       const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, limit: thumb ? 12 : undefined });
       if (!loaded.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });

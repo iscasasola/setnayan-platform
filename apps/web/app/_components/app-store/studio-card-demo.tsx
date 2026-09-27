@@ -417,94 +417,6 @@ function qrCard(name: string, role: string) {
     </div>
   );
 }
-const CUSTOM_QR_SCENES: RichFrame[] = [
-  {
-    caption: 'A code worthy of your invitation.',
-    hint: 'Open Custom QR per guest in Studio.',
-    scene: (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
-        <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-terracotta">Custom QR per guest</span>
-        <div className="mt-3 rounded-xl border border-ink/10 bg-white p-4 text-center">
-          <div className="relative mx-auto flex h-24 w-24 items-center justify-center">
-            <QrCode aria-hidden className="h-24 w-24" strokeWidth={0.75} style={{ color: MULB }} />
-            <span className="absolute flex h-8 w-8 items-center justify-center rounded-full text-[10px] text-cream ring-2 ring-cream" style={{ background: MULB, fontFamily: SERIF }}>A&amp;J</span>
-          </div>
-          <p className="mt-2 text-[12px] italic" style={{ fontFamily: SERIF }}>Anjelica &amp; José</p>
-          <p className="font-mono text-[7px] uppercase tracking-[0.2em] text-ink/55">December 14 · 2026</p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    caption: 'See plain become unmistakably yours.',
-    hint: 'Compare the default and branded code.',
-    scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-4 text-ink">
-        <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-terracotta">Your QR, two ways</span>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="rounded-lg border border-ink/10 bg-white p-2 text-center">
-            <QrCode aria-hidden className="mx-auto h-12 w-12 text-ink" strokeWidth={0.75} />
-            {/* ⚠ BOTH SIDES ARE FREE NOW (owner 2026-09-06, "keep custom QR
-                per guest free" → CUSTOM_QR_GUEST joined FREE_FOR_ALL_SKUS).
-                This pair used to read "Default — free" against an "Upgrade"
-                pill; leaving that would advertise a purchase that no longer
-                exists — the fake door this repo forbids. The comparison is
-                still worth showing: it is plain versus branded, not free
-                versus paid. */}
-            <p className="mt-1 text-[8px] font-medium">Plain</p>
-          </div>
-          <div className="relative rounded-lg border-2 border-terracotta bg-white p-2 text-center">
-            <span className="absolute right-1 top-1 rounded-full bg-terracotta-700 px-1 py-0.5 text-[6px] font-medium text-cream">Free</span>
-            <QrCode aria-hidden className="mx-auto h-12 w-12" strokeWidth={0.75} style={{ color: MULB }} />
-            <p className="mt-1 text-[8px] font-medium">Branded</p>
-          </div>
-        </div>
-        <button type="button" className="mt-auto mb-4 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Brand my guests’ QRs</button>
-      </div>
-    ),
-  },
-  {
-    caption: 'Every guest, already done.',
-    hint: 'Open after purchase to see them all.',
-    scene: (
-      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
-        <div className="flex items-center gap-1.5 rounded-md bg-emerald-600/12 px-2 py-1.5">
-          <Check aria-hidden className="h-3 w-3 text-emerald-700" strokeWidth={2.5} />
-          <span className="text-[9px] font-medium text-emerald-800">Your branded QR cards are ready</span>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {qrCard('Anjelica', 'Bride')}
-          {qrCard('José M.', 'Groom')}
-          {qrCard('Lola Rosa', 'Ninang')}
-          {qrCard('Tito Ben', 'Guest')}
-        </div>
-      </div>
-    ),
-  },
-  {
-    caption: 'Hand the whole set to your stationer.',
-    hint: 'Tap Print all (A4).',
-    scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
-        <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-terracotta">Print pack · A4</span>
-        <p className="text-[11px] font-semibold">Ready for your stationer</p>
-        <div className="mt-2 flex-1 rounded-lg border border-dashed border-ink/25 bg-white p-2">
-          <div className="grid grid-cols-3 gap-1.5">
-            {Array.from({ length: 6 }, (_, k) => (
-              <div key={k} className="rounded border border-ink/5 p-1 text-center" style={{ background: '#FAF7F2' }}>
-                <QrCode aria-hidden className="mx-auto h-7 w-7" strokeWidth={0.75} style={{ color: MULB }} />
-              </div>
-            ))}
-          </div>
-        </div>
-        <button type="button" className="mt-2 mb-3 inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-white py-1.5 text-[10px] font-medium">
-          <Printer aria-hidden className="h-3 w-3" strokeWidth={2} /> Print all (A4)
-        </button>
-      </div>
-    ),
-  },
-];
-
 // ── Photo Delivery — connect → hold → copy → delivered ──
 const PHOTO_DELIVERY_SCENES: RichFrame[] = [
   {
@@ -1166,7 +1078,6 @@ export const RICH_SCENES: Record<RichDemoSlug, RichFrame[]> = {
   'save-the-date': SAVE_THE_DATE_SCENES,
   'animated-monogram': ANIMATED_MONOGRAM_SCENES,
   'mood-board': MOOD_BOARD_SCENES,
-  'custom-qr-guest': CUSTOM_QR_SCENES,
   'photo-delivery': PHOTO_DELIVERY_SCENES,
   patiktok: PATIKTOK_SCENES,
   'indoor-blueprint': INDOOR_BLUEPRINT_SCENES,
@@ -1201,7 +1112,6 @@ const RICH_MEDIA: Record<string, DemoMedia> = {
   'save-the-date': m('save-the-date'),
   'animated-monogram': m('animated-monogram'),
   'mood-board': m('mood-board'),
-  'custom-qr-guest': m('custom-qr-guest'),
   'photo-delivery': m('photo-delivery'),
   patiktok: m('patiktok'),
   'indoor-blueprint': m('indoor-blueprint'),

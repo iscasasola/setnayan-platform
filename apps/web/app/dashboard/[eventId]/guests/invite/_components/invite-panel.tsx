@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, QrCode } from 'lucide-react';
-import QRCode from 'qrcode';
+import { renderStyledUrlQrSvg } from '@/lib/qr';
+import { QR_LOOK_COLUMNS, qrLookFromRow } from '@/lib/qr-look.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -83,7 +84,9 @@ export async function InvitePanel({
   // its per-column grant would refuse the WHOLE events query and blank this page.
   const lookAdmin = createAdminClient();
   const [{ data: lookRow, error: lookError }, ownsPro] = await Promise.all([
-    lookAdmin.from('events').select('invite_theme, mood_feel_key, event_type').eq('event_id', eventId).maybeSingle(),
+    // + the QR look's columns (lib/qr-look.server.ts): the join-link code below
+    // wears the event's look, and Pro is already measured on this same read.
+    lookAdmin.from('events').select(`invite_theme, mood_feel_key, event_type, ${QR_LOOK_COLUMNS}`).eq('event_id', eventId).maybeSingle(),
     eventCoupleWebsiteProActive(lookAdmin, eventId).catch(() => false),
   ]);
   if (lookError) {
@@ -185,16 +188,10 @@ export async function InvitePanel({
   const whoCanRsvp = askRes.error ? null : readWhoCanRsvp(askRes.data?.rsvp_ask_config);
 
 
-  // SVG QR of the join link — crisp at any size, ~3KB inline, no client JS.
-  const qrSvg = joinUrl
-    ? await QRCode.toString(joinUrl, {
-        type: 'svg',
-        errorCorrectionLevel: 'M',
-        margin: 2,
-        width: 320,
-        color: { dark: '#1B1A17', light: '#FBFBFA' },
-      })
-    : null;
+  // SVG QR of the join link — a guest scans this, so it wears the event's look
+  // (lib/qr-look.ts: the Setnayan mark for a free event, the couple's own on
+  // Event Hub Pro) at level H, like every other guest code. Inline, no client JS.
+  const qrSvg = joinUrl ? await renderStyledUrlQrSvg(joinUrl, qrLookFromRow(lookRow, ownsPro), 320) : null;
 
   return (
     <>

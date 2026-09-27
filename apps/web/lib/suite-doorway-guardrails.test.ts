@@ -255,40 +255,6 @@ test('every non-opensDirect live entry has an add-ons-detail entry (its /about p
 
 // ── 4 · free layer ≠ paid buy-wall surface ─────────────────────────────────────
 
-test('the Custom QR is in the free layer, because it is free', () => {
-  /*
-    ⚖ THIS ASSERTION IS INVERTED, NOT DELETED (2026-09-06). It read
-    `notEqual(tier, 'free')` — *"custom-qr-guest routes to the paid buy wall"* —
-    and that was correct for as long as the branded per-guest QR was sold.
-
-    The owner ruled otherwise: *"keep custom QR per guest free"*. The SKU joined
-    `FREE_FOR_ALL_SKUS`, so `eventOwnsSku` now answers true for every event, and
-    the catalogue entry carries `tier: 'free'` so the card stops offering a
-    purchase for something every event already owns.
-
-    🔑 THE OLD GUARD WAS PROTECTING A REAL DEFECT — a paid buy-wall leaking into
-    the free layer — and that defect simply cannot exist for this key any more.
-    Inverting keeps the key WATCHED: if someone quietly re-gates the QR, this
-    fails. Deleting the test would have left the reversal unguarded in both
-    directions, which is how a ruling gets undone by accident.
-
-    ⚠ The general rule it belonged to is untouched: `a free-trial chip is never
-    presented as "Free"` below still holds every other key to it.
-  */
-  const customQr = ADD_ONS.find((a) => a.key === 'custom-qr-guest');
-  assert.ok(customQr, 'custom-qr-guest should exist in the catalog');
-  assert.equal(
-    customQr!.tier,
-    'free',
-    'custom-qr-guest lost tier "free" — the Suite would offer a purchase for a ' +
-      'SKU that is in FREE_FOR_ALL_SKUS, so every event already owns it',
-  );
-  assert.ok(
-    suiteFreeLayerKeys().includes('custom-qr-guest'),
-    'the free per-guest QR is missing from the Suite free layer',
-  );
-});
-
 test('a free-trial chip is never presented as "Free" (trial ≠ free)', () => {
   for (const a of ADD_ONS) {
     if (a.freeTrial) {
@@ -319,7 +285,6 @@ test('the Suite free layer is exactly the reviewed set (any change is a consciou
   // the entry took `tier: 'free'`; this row is the Suite's half of that.
   assert.deepEqual(suiteFreeLayerKeys().sort(), [
     'animated-monogram',
-    'custom-qr-guest',
     'indoor-blueprint',
     'landing-page',
     'mood-board',
@@ -408,7 +373,7 @@ test('the Tab-1 refile holds: planning tools are not filed as identity', () => {
     assert.equal(groupOf(k), 'setnayan_ai', `${k}: refiled out of 'branding' 2026-08-14`);
   }
   const branding = ADD_ONS.filter((a) => a.studioGroup === 'branding').map((a) => a.key).sort();
-  assert.deepEqual(branding, ['animated-monogram', 'custom-qr-guest', 'pakanta']);
+  assert.deepEqual(branding, ['animated-monogram', 'pakanta']);
 });
 
 // ── 5 · free label ≠ paid SKU: every shipped entry's doorway works ─────────────

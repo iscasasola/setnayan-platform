@@ -39,6 +39,7 @@ import { manilaToday } from '@/lib/std-views';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
 import { loadPreviewPerson } from './_lib/preview-person.server';
 import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
@@ -1315,7 +1316,7 @@ async function InvitationBody({
   // Control flow — the invalid-invite landing and the /welcome redirect — stays
   // here, keyed off the loader's discriminated result.
   const guestContext = await timer.track('guest-context', () =>
-    loadGuestContext(admin, event, guestSession, dayOfPhase, slug, scheduleBlocks, monogram),
+    loadGuestContext(admin, event, guestSession, dayOfPhase, slug, scheduleBlocks),
   );
 
   // A cookie-holder whose guest row no longer exists (replaced invite) gets
@@ -1523,7 +1524,8 @@ async function InvitationBody({
     event.slug && !isEditorCanvas
       ? await yourGuestsFor(admin, { event_id: event.event_id, slug: event.slug }, guest.guest_id, {
           withPasses: true,
-          monogram,
+          // Their passes wear the event's QR look (lib/qr-look.ts), like their own.
+          look: await resolveEventQrLook(admin, event.event_id, event),
         })
       : { guests: [], passes: {} };
   const meSlot = isEditorCanvas ? null : (

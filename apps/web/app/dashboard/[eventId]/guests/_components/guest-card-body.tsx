@@ -136,7 +136,6 @@ export function GuestCardBody({
   eventId,
   data,
   invitationBase,
-  brandedQrActive,
   photoDisplayUrl,
   variant,
   returnTo,
@@ -149,7 +148,6 @@ export function GuestCardBody({
    *  event has a slug, in which case the QR card keeps its Invitation-page
    *  doorway instead of the Download · NFC · Copy strip. */
   invitationBase: string | null;
-  brandedQrActive: boolean;
   photoDisplayUrl: string | null;
   /**
    * Which frame is rendering.
@@ -258,7 +256,6 @@ export function GuestCardBody({
           guest={guest}
           eventId={eventId}
           invitationBase={invitationBase}
-          brandedQrActive={brandedQrActive}
         />
         <div className="overflow-hidden rounded-lg border border-ink/10">
           {guest.passed_away ? (
@@ -288,11 +285,14 @@ export function GuestCardBody({
             </p>
           )}
           <Link
-            href={`/dashboard/${eventId}/studio/custom-qr-guest`}
+            // The QR's look lives with the Event Hub address, on the Maker's
+            // Details page (owner 2026-09-27: shape · pattern · colour · your
+            // logo, with Event Hub Pro). The old Custom QR studio page is gone.
+            href={`/dashboard/${eventId}/launch?tool=details`}
             className="flex items-center gap-3 px-3.5 py-3 text-sm text-ink transition-colors hover:bg-ink/[0.03]"
           >
             <span>Customize guest QRs</span>
-            <span className="ml-auto text-ink/50">Your colours</span>
+            <span className="ml-auto text-ink/50">Shape · pattern · colour</span>
             <ArrowRight aria-hidden className="h-3.5 w-3.5 text-ink/40" strokeWidth={1.75} />
           </Link>
         </div>

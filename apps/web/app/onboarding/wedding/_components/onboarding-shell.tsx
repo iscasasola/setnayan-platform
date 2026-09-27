@@ -852,7 +852,7 @@ function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
@@ -863,7 +863,6 @@ const BUNDLE_BENEFIT: Record<string, string> = {
   animated_monogram: "Your monogram drawn in gold the moment a guest opens the invite — the small detail that says we took our wedding seriously.",
   thank_you: "A personalised thank-you video to send after the wedding — beats handwriting 200 cards, feels more like you.",
   pakanta: "An original song written just for your wedding. Yours, forever — the only couple in the world who'll ever dance to it.",
-  custom_qr: "A custom QR per guest opens their table, schedule, and photos with one tap — no awkward 'which table am I at?' for anyone, all night.",
   panood: "Livestream your day to family abroad — multi-camera, broadcast quality, so Lolo in California feels like he was in the front row.",
   live_background: "An LED stage backdrop with your palette and monogram — your story on the wall, instead of generic venue draping.",
   live_photowall: "A live photo wall at the venue — the night writes itself, guest pictures appearing on the wall minutes after each moment.",
@@ -900,7 +899,7 @@ const groupDigits = (raw: string) => {
 // live_background dropped 2026-07-22: Live Background is bundle-only (folded into
 // Monogram PRO = animated_monogram), so it is no longer a standalone onboarding
 // pick (its SKU is is_active=false → the card would otherwise render as ₱0).
-const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'pakanta', 'custom_qr', 'guest_stories', 'thank_you', 'live_photowall'];
+const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'pakanta', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
 // reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
 // first picked one of these, else falls back to the Services tab (owner 2026-06-06).
@@ -908,7 +907,6 @@ const INAPP_TO_ADDON_SLUG: Record<string, string> = {
   papic_seats: 'papic',
   animated_monogram: 'animated-monogram',
   panood: 'panood',
-  custom_qr: 'custom-qr-guest',
   indoor_blueprint: 'indoor-blueprint',
 };
 /* "You save ₱X vs <this>" — only rendered when the service HAS a market anchor
@@ -918,7 +916,7 @@ const INAPP_TO_ADDON_SLUG: Record<string, string> = {
    were sized against a ₱2,999 five-seat pack and a pax-priced guest pass,
    neither of which exists any more), so no savings line renders for them. */
 const INAPP_VS: Record<string, string> = {
-  advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
+  advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', pakanta: 'a composer + singer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
 /* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
@@ -960,15 +958,15 @@ const PICK_TO_INAPP: Record<string, string[]> = {
   photo_booth: ['papic_seats', 'papic_guest'], coffee: ['papic_guest'], mocktail: ['papic_guest'],
   dessert: ['papic_guest'], food_cart: ['papic_guest'], food_truck: ['papic_guest'], mobile_bar: ['papic_guest'],
   massage_chair: ['guest_stories'], nail_bar: ['guest_stories'], perfume_bar: ['guest_stories'], henna: ['guest_stories'],
-  tarot: ['guest_stories'], caricature: ['guest_stories'], arcade: ['papic_guest'], engraving: ['custom_qr'],
+  tarot: ['guest_stories'], caricature: ['guest_stories'], arcade: ['papic_guest'], engraving: [],
   // Prints
-  printing: ['custom_qr', 'animated_monogram'], souvenirs: ['custom_qr', 'animated_monogram'],
+  printing: ['animated_monogram'], souvenirs: ['animated_monogram'],
   // Transport
-  bridal_car: ['thank_you'], guest_shuttle: ['custom_qr'], escort: ['custom_qr'],
+  bridal_car: ['thank_you'], guest_shuttle: [], escort: [],
 };
 /* Priority order for the recommended set. Dedup against the picks bounds the union to the ≤14
    in-app services, so every chosen leaf surfaces its matched add-on(s) — no cap (owner 2026-06-05). */
-const REC_PRIORITY = ['papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_photowall', 'papic_guest', 'guest_stories', 'advanced_website', 'custom_qr'];
+const REC_PRIORITY = ['papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_photowall', 'papic_guest', 'guest_stories', 'advanced_website'];
 function recommendedInappFor(picks: string[]): string[] {
   const set = new Set<string>();
   for (const p of picks) for (const k of (PICK_TO_INAPP[p] ?? [])) set.add(k);

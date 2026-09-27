@@ -37,7 +37,6 @@ const STRIP_MOUNTS: Record<string, number> = {
   'app/vendor-dashboard/on-the-day/_components/guest-review-qr.tsx': 1, // review QR
   // Couple side
   'app/dashboard/[eventId]/invitation/page.tsx': 2, // per-guest rows, table + list
-  'app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx': 1, // branded cards
   // The join-link QR — lives in the panel both the invite page and the
   // guest list's Share tab render, so it is ONE mount, not two.
   'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx': 1,

@@ -196,10 +196,6 @@ const UNEXPLAINED_EMPTY_BILL: Readonly<Record<string, string>> = {
     'tells a delegate nobody has been invited. Owed a sentence.',
   'app/dashboard/[eventId]/website/widgets/page.tsx':
     'previews one guest; empty degrades to a placeholder rather than a claim',
-  'app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx':
-    'a paid QR pack; empty reads as "no guests to print". Owed a sentence.',
-  'app/dashboard/[eventId]/studio/custom-qr-guest/print/page.tsx':
-    'the print sheet for the above',
   'app/dashboard/[eventId]/invitation/print/page.tsx':
     'the print sheet for the invitation page',
   'app/dashboard/[eventId]/seating/lab/page.tsx':

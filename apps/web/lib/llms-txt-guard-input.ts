@@ -179,7 +179,11 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'KWENTO', title: 'Kwento', retail_price_php: 299, is_active: false },
   { service_code: 'PAPIC_ONE_100', title: '(retired — see service_code)', retail_price_php: 100, is_active: false },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: '(retired — see service_code)', retail_price_php: 50, is_active: false },
-  { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: true },
+  // CUSTOM_QR_GUEST is OFF SALE since 2026-09-28: the "Custom QR per guest"
+  // product folded into Event Hub Pro (owner 2026-09-27), deactivated in prod by
+  // the `_custom_qr_guest_folds_into_event_hub_pro` migration. Kept listed,
+  // inactive, so the change is legible here — the KWENTO convention above.
+  { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: false },
   // --- AI tier ladder: price-source rows, inactive BY DESIGN ---
   { service_code: 'SETNAYAN_AI_B', title: 'Setnayan AI (Tier B · major milestone)', retail_price_php: 1499, is_active: false },
   { service_code: 'SETNAYAN_AI_C', title: 'Setnayan AI (Tier C · standard event)', retail_price_php: 899, is_active: false },

@@ -470,9 +470,9 @@ export function monogramOverlaySvg(opts: {
   const cx = viewBoxSize / 2;
   const cy = viewBoxSize / 2;
 
-  // Badge sizing in module units.
-  const padR = Math.max(3, viewBoxSize * 0.08); // outer rounded-rect padding radius
-  const circleR = Math.max(2.5, viewBoxSize * 0.135);
+  // Badge sizing in module units (the clearance itself is drawn by
+  // clearanceBadgeSvg below; only the art's fit-box is sized here).
+  const circleR = clearanceCircleRadius(viewBoxSize);
   const fill = escapeAttr(monogram.bg ?? DEFAULT_BG);
   const stroke = escapeAttr(monogram.color);
 
@@ -526,11 +526,45 @@ export function monogramOverlaySvg(opts: {
 
   // Layered: rounded-rect clearance (cream) → circle (cream fill + accent ring)
   // → the couple's mark (lockup or initials).
+  return clearanceBadgeSvg({ viewBoxSize, fill, stroke, inner });
+}
+
+/**
+ * THE CLEARANCE BADGE — the one geometry every QR centre is drawn into: a
+ * rounded-rect clearance in the ground colour, a circle with a ring, then the
+ * art. Extracted (2026-09-28, the Pro QR build) so the Setnayan mark and the
+ * couple's drawn logo (lib/qr-style-svg.ts) share it with the lettered lockup
+ * above instead of carrying a second copy — a second copy is how two surfaces
+ * start disagreeing about one badge. Sizes are fractions of `viewBoxSize`, the
+ * QR's own side in module units, so the badge is the same relative size on a
+ * 33-module code and a 41-module one. `padR` (0.08) and `circleR` (0.135) are
+ * the footprint the QR has carried under level-H since 2026-05; the decode
+ * suite (lib/every-qr-look-decodes.test.ts) holds them.
+ */
+export function clearanceBadgeSvg(opts: {
+  viewBoxSize: number;
+  /** Ground colour, already attribute-escaped. */
+  fill: string;
+  /** Ring colour, already attribute-escaped. */
+  stroke: string;
+  /** The art, positioned by the caller around (viewBoxSize/2, viewBoxSize/2). */
+  inner: string;
+}): string {
+  const { viewBoxSize, fill, stroke, inner } = opts;
+  const cx = viewBoxSize / 2;
+  const cy = viewBoxSize / 2;
+  const padR = Math.max(3, viewBoxSize * 0.08);
+  const circleR = Math.max(2.5, viewBoxSize * 0.135);
   return `
     <rect x="${cx - padR}" y="${cy - padR}" width="${padR * 2}" height="${padR * 2}" rx="${padR * 0.35}" fill="${fill}" />
     <circle cx="${cx}" cy="${cy}" r="${circleR}" fill="${fill}" stroke="${stroke}" stroke-width="${Math.max(0.5, viewBoxSize * 0.018)}" />
     ${inner}
   `;
+}
+
+/** The badge circle's radius for a QR of this side — the box a centre art fits. */
+export function clearanceCircleRadius(viewBoxSize: number): number {
+  return Math.max(2.5, viewBoxSize * 0.135);
 }
 
 function escapeXml(str: string): string {

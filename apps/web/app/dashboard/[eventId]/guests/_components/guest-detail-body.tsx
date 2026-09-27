@@ -57,12 +57,10 @@ export function GuestQrCard({
   guest,
   eventId,
   invitationBase,
-  brandedQrActive = false,
 }: {
   guest: GuestRow;
   eventId: string;
   invitationBase?: string | null;
-  brandedQrActive?: boolean;
 }) {
   const name = guestDisplayName(guest);
   const qrFileName = `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
@@ -70,11 +68,12 @@ export function GuestQrCard({
   // "is not real... it should already be the real QR"). Until 2026-09-25 this
   // slot held a decorative pattern seeded from a hash of the token — visually
   // guest-distinct, but never encoding anything, so scanning it did nothing.
-  // An <img> of the gated PNG route is trivially the same generator and the
-  // same payload as the download: it IS the download, rendered inline. The
-  // route is free for every event (CUSTOM_QR_GUEST ∈ FREE_FOR_ALL_SKUS, see
-  // lib/entitlements.ts), so this is not behind `brandedQrActive` — a token
-  // this component was handed is a code that exists; there is no "not yet".
+  // An <img> of the PNG route is trivially the same generator and the same
+  // payload as the download: it IS the download, rendered inline. The route
+  // draws every member's guest in the event's LOOK (lib/qr-look.ts — the
+  // Setnayan mark, or the couple's own on Event Hub Pro) and gates on nothing
+  // but membership, so a token this component was handed is a code that exists;
+  // there is no "not yet".
   const qrImageSrc = `/api/website/qr/guest/${guest.guest_id}`;
   return (
     <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5">
@@ -115,41 +114,33 @@ export function GuestQrCard({
       <QrActions
         className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/[0.06] pt-3"
         url={`${invitationBase}?invite=${guest.qr_token}`}
-        download={
-          brandedQrActive
-            ? {
-                href: qrImageSrc,
-                filename: qrFileName,
-                label: 'Download QR',
-              }
-            : null
-        }
+        download={{
+          href: qrImageSrc,
+          filename: qrFileName,
+          label: 'Download QR',
+        }}
       />
     ) : null}
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/[0.06] pt-3">
-      {brandedQrActive ? (
-        // Owner of the branded upgrade: one-click download of the REAL
-        // palette-tinted PNG — same gated route the Invitation surface uses,
-        // and the same one the preview above is an <img> of. Goes through
-        // SaveFileLink (2026-09-25) rather than a bare `<a download>` — see
-        // save-file-link.tsx: iOS Safari / the Capacitor shell can ignore
-        // `download` on a same-origin GET and open the file as a page instead
-        // of saving it, which is the exact bug the owner reported.
-        <GuestQrDownloadLink href={qrImageSrc} filename={qrFileName} />
-      ) : (
-        // No branded upgrade — the gated PNG would 403. Route to the
-        // Invitation page, where every guest's free default scannable QR
-        // renders (and can be re-issued / printed).
-        <Link
-          href={`/dashboard/${eventId}/invitation`}
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"
-        >
-          <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          View scannable QR
-        </Link>
-      )}
+      {/* One-click download of the REAL PNG — the same route the Invitation
+          surface uses, and the same one the preview above is an <img> of. Goes
+          through SaveFileLink (2026-09-25) rather than a bare `<a download>` —
+          see save-file-link.tsx: iOS Safari / the Capacitor shell can ignore
+          `download` on a same-origin GET and open the file as a page instead of
+          saving it, which is the exact bug the owner reported. No ownership
+          branch any more: the route draws every guest in the event's look. */}
+      <GuestQrDownloadLink href={qrImageSrc} filename={qrFileName} />
       <Link
-        href={`/dashboard/${eventId}/studio/custom-qr-guest`}
+        href={`/dashboard/${eventId}/invitation`}
+        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/80 underline-offset-4 hover:text-terracotta-700 hover:underline"
+      >
+        <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        All guest QRs
+      </Link>
+      <Link
+        // Shape · pattern · colour · your logo live beside the Event Hub address
+        // on the Maker's Details page (Event Hub Pro).
+        href={`/dashboard/${eventId}/launch?tool=details`}
         className="inline-flex items-center gap-1 text-[13px] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
       >
         Customize guest QRs

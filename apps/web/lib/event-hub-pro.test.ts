@@ -71,10 +71,10 @@ test('NINE chips, in catalog order, with exactly ONE lit', () => {
   assert.deepEqual(
     offer.chips.map((c) => c.name),
     [...WEBSITE_PRO_ITEMS],
-    'the chips ARE the nine items — one list, not a second copy of it',
+    'the chips ARE the ten items — one list, not a second copy of it',
   );
   const lit = offer.chips.filter((c) => c.here);
-  assert.equal(lit.length, 1, 'one price nine times, not nine prices — exactly one chip is lit');
+  assert.equal(lit.length, 1, 'one price ten times, not ten prices — exactly one chip is lit');
   assert.equal(lit[0]?.name, offer.lead, 'and the lit one is where the couple is standing');
 });
 
@@ -125,7 +125,7 @@ test('⛔ THE UMBRELLA IS NEVER SOLD ON SOMETHING THAT IS ALREADY FREE', () => {
   }
 });
 
-test('all nine items are still SHOWN, including the free one', () => {
+test('all ten items are still SHOWN, including the free one', () => {
   const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
   assert.ok(offer);
   assert.ok(

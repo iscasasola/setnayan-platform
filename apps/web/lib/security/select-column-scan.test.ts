@@ -62,6 +62,8 @@ import {
   resolveConstantSelectSites,
   extractSelectConstantAliases,
   resolveConstantAliases,
+  extractSelectConstantComposites,
+  resolveConstantComposites,
   scanAllSelectSites,
   scanForOmittedColumns,
   scanSelectSites,
@@ -668,6 +670,50 @@ test('T19 · a phantom named through a CONSTANT is still reported', () => {
   );
   assert.equal(cross.resolved.length, 0, 'a file-local constant is not visible elsewhere');
   assert.equal(cross.unresolved.length, 1, 'and it is surfaced as unresolved, not dropped');
+});
+
+test('T19b · a canonical list EXTENDED in a template (`${A_COLUMNS}, more`) is still reported', () => {
+  /*
+    The Pro QR build (2026-09-28) declared
+      export const QR_LOOK_COLUMNS = `${HERO_MONOGRAM_COLUMNS}, role_palette, style_preferences`;
+    and eight live selects went dark to T1 until the resolver learned the shape.
+    A literal copy would have resolved — and made dup-rule file 52 facts about a
+    "new canonical list". Extending one list under a second name is what this
+    repo asks for, so the scanner must read it; this is the positive control.
+  */
+  const base = `
+    export const HERO_COLUMNS = 'display_name, monogram_text';
+  `;
+  const ext = `
+    import { HERO_COLUMNS } from '@/lib/hero';
+    export const LOOK_COLUMNS = \`\${HERO_COLUMNS}, role_palette, colour_that_does_not_exist\`;
+    export async function read(db: any) {
+      return db.from('events').select(LOOK_COLUMNS);
+    }
+  `;
+  const composites = extractSelectConstantComposites(ext, 'lib/look.ts');
+  assert.equal(composites.length, 1, 'the composite declaration must be found');
+  assert.deepEqual(composites[0]?.parts, [{ ref: 'HERO_COLUMNS' }, { literal: ', role_palette, colour_that_does_not_exist' }]);
+
+  const constants = resolveConstantComposites(extractAllSelectConstants(base, 'lib/hero.ts'), composites);
+  const look = constants.find((c) => c.name === 'LOOK_COLUMNS');
+  assert.ok(look, 'the composite must materialise once its base resolves');
+  assert.deepEqual(look!.columns, ['display_name', 'monogram_text', 'role_palette', 'colour_that_does_not_exist']);
+  assert.equal(look!.exported, true);
+
+  const { resolved, unresolved } = resolveConstantSelectSites(extractConstantSelectSites(ext, 'lib/look.ts'), constants);
+  assert.equal(unresolved.length, 0, 'the select naming the composite must resolve');
+  const schema = new Map([['events', { cols: new Set(['display_name', 'monogram_text', 'role_palette']) } as never]]);
+  assert.deepEqual(
+    findPhantomColumns(resolved, schema as never).map((p) => p.key),
+    ['events.colour_that_does_not_exist'],
+    'a phantom hidden in the composite\'s literal tail must still be caught',
+  );
+
+  // A hole that is NOT a canonical constant (an expression) stays unresolved —
+  // surfaced to T20, never guessed.
+  const expr = 'export const ODD_COLUMNS = `${cols.join(", ")}, x`;';
+  assert.deepEqual(extractSelectConstantComposites(expr, 'lib/odd.ts'), []);
 });
 
 /**

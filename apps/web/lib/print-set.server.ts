@@ -18,6 +18,8 @@ import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { ROLE_GROUP_LABELS } from '@/lib/role-groups';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
+import type { QrLook } from '@/lib/qr-look';
+import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { GuestRole } from '@/lib/guests';
@@ -55,7 +57,7 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -89,6 +91,8 @@ export type PrintEventRow = {
   monogram_uploaded_svg: string | null;
   /** Which RSVP-form questions this couple still asks — Details panel toggle (lib/rsvp-ask.ts). */
   rsvp_ask_config: unknown;
+  /** The couple's saved QR choices live under `.qr` (lib/qr-look.ts); the rest is onboarding's. */
+  style_preferences: unknown;
 };
 
 export async function readPrintEvent(admin: SupabaseClient, eventId: string): Promise<PrintEventRow | null> {
@@ -392,6 +396,9 @@ export type LoadedPrintSet = {
   images: PrintImages;
   appUrl: string;
   ownerSlug: string | null;
+  /** The look every code on the set wears — the event's QR look (lib/qr-look.ts),
+   *  resolved ONCE here so the corner QR and 200 guest passes agree. */
+  qrLook: QrLook;
 };
 
 export async function loadPrintSet(
@@ -430,10 +437,15 @@ export async function loadPrintSet(
   if (still && look.sepia) still = await sepia(still);
   if (still) images.still = { bytes: still, mime: 'image/jpeg' };
 
+  // The look every code on this set wears (lib/qr-look.ts): the Setnayan mark
+  // for a free event, the couple's own logo · shape · pattern · ink for Pro.
+  // Resolved once, here, so the corner QR and every guest pass agree.
+  const qrLook = await resolveEventQrLook(admin, eventId, event);
+
   let hasEventQr = false;
   if (opts.withEventQr !== false && event.slug) {
     try {
-      const png = await renderEventLandingQrPng({ appUrl, slug: event.slug, ownerSlug, width: opts.mode === 'print' ? 900 : 360 });
+      const png = await renderEventLandingQrPng({ appUrl, slug: event.slug, ownerSlug, look: qrLook, width: opts.mode === 'print' ? 900 : 360 });
       images.eventqr = { bytes: new Uint8Array(png), mime: 'image/png' };
       hasEventQr = true;
     } catch (err) {
@@ -483,7 +495,7 @@ export async function loadPrintSet(
     hasStill: Boolean(images.still),
     hasEventQr,
   };
-  return { event, theme, look, data, images, appUrl, ownerSlug };
+  return { event, theme, look, data, images, appUrl, ownerSlug, qrLook };
 }
 
 /**
@@ -492,7 +504,7 @@ export async function loadPrintSet(
  * (`renderInvitationQrPng`, so a printed code opens that guest's pass).
  */
 export async function loadGuestPasses(
-  set: Pick<LoadedPrintSet, 'event' | 'appUrl' | 'ownerSlug'>,
+  set: Pick<LoadedPrintSet, 'event' | 'appUrl' | 'ownerSlug' | 'qrLook'>,
   /** `limit` — the first N guests only (the Maker's thumbnail draws page 1, not 200 QRs). */
   opts: { width: number; limit?: number },
 ): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean }> {
@@ -531,7 +543,6 @@ export async function loadGuestPasses(
     }
   }
 
-  const mark = resolveMonogram(set.event);
   const images: PrintImages = {};
   const passes: PrintPass[] = [];
   let n = 0;
@@ -547,7 +558,7 @@ export async function loadGuestPasses(
         appUrl: set.appUrl,
         slug: set.event.slug ?? eventId,
         qrToken: g.qr_token!,
-        monogram: mark,
+        look: set.qrLook,
         ownerSlug: set.ownerSlug,
         width: opts.width,
       });

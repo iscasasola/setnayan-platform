@@ -60,7 +60,6 @@ export const STUDIO_PEAK_MONTHS: Readonly<Record<string, number>> = {
   'save-the-date': 8,
   'animated-monogram': 7,
   pakanta: 6,
-  'custom-qr-guest': 5,
   rsvp: 5,
   // `led: 4` removed 2026-08-11 with the LED wall backdrop — Setnayan can no
   // longer recommend a tool it does not have. (Booking an LED wall VENDOR is

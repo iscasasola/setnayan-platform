@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
-import { buildInvitationUrl, renderBrandedInvitationQrPng, resolveBrandedQrColors } from './qr';
+import { buildInvitationUrl, renderInvitationQrPng } from './qr';
 import { decodeQrPayloadFromImage } from './qr-decode';
 
 /**
@@ -73,14 +73,15 @@ test('the download route now names the file on the wire (Content-Disposition)', 
 
 // ── Executed: the route's own generator really is scannable ────────────────
 
-test('the branded PNG the drawer previews is a real PNG that decodes to the invite url', async () => {
+test('the PNG the drawer previews is a real PNG that decodes to the invite url', async () => {
+  // The route draws the event's LOOK (lib/qr-look.ts) since the Pro QR build;
+  // with no look resolved that is the free one — the Setnayan mark in the centre.
   const params = {
     appUrl: 'https://x.test',
     slug: 'ana-at-marco',
     qrToken: 'tok-abc',
-    colors: resolveBrandedQrColors(null),
   };
-  const png = await renderBrandedInvitationQrPng(params);
+  const png = await renderInvitationQrPng(params);
   assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'not a real PNG');
   const decoded = await decodeQrPayloadFromImage(new Uint8Array(png));
   assert.equal(decoded, buildInvitationUrl(params), 'the "real" QR does not decode to the guest\'s invite url');

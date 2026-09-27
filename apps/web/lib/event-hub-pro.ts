@@ -11,7 +11,7 @@
  * controller as well."*
  *
  * ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
- * It is NOT nine upgrade slots, and it is NOT a shop tab. The nine Pro items
+ * It is NOT ten upgrade slots, and it is NOT a shop tab. The ten Pro items
  * are ONE unlock — `COUPLE_WEBSITE_PRO`, titled "Event Hub Pro" in the live
  * catalog — and `pro-panels.tsx` has said so since it shipped: *"the Pro items
  * are ONE unlock … no per-feature buy button."* So the controller grows
@@ -50,7 +50,7 @@ import {
   type WebsiteProItem,
 } from '@/lib/website-pro-items';
 
-/** One chip in the nine — `here` is the item this channel is being sold on. */
+/** One chip in the ten — `here` is the item this channel is being sold on. */
 export type HubProChip = {
   name: WebsiteProItem;
   /** True for exactly one chip: the item the couple is standing in front of. */
@@ -65,7 +65,7 @@ export type HubProOffer = {
   channel: LifecyclePhase;
   headline: string;
   blurb: string;
-  /** All nine, in catalog order, exactly one flagged `here`. */
+  /** All ten, in catalog order, exactly one flagged `here`. */
   chips: readonly HubProChip[];
   ctaLabel: string;
   /** Path RELATIVE to `/dashboard/<eventId>` — the shipped buy surface. */
@@ -181,6 +181,11 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     blurb:
       'The mark you made in the Logo Maker plays its reveal on your page instead of sitting still. Pick the effect there; your guests see it move.',
   },
+  'Your logo on every QR code': {
+    headline: 'Your logo in the centre of every guest QR.',
+    blurb:
+      'Every pass, print and code carries your own logo instead of the Setnayan mark — square or circle, in the pattern and Mood Board colour you pick on the Details page.',
+  },
 };
 
 /**
@@ -248,7 +253,7 @@ export function resolveHubProOffer(args: {
     headline: PITCH[lead].headline,
     blurb: PITCH[lead].blurb,
     chips: WEBSITE_PRO_ITEMS.map((name) => ({ name, here: name === lead })),
-    ctaLabel: 'Unlock all nine',
+    ctaLabel: 'Unlock all ten',
     // The SHIPPED buy surface — the same href `website/editor/page.tsx` uses for
     // `ProLockPanel`. No new checkout, no new route.
     ctaPath: '/studio/website-pro',

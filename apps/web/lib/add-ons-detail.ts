@@ -194,28 +194,6 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     ],
   },
 
-  'custom-qr-guest': {
-    eyebrow: 'Custom QR',
-    heroTitle: 'A QR worthy of the invitation.',
-    tagline:
-      'A personal, branded code for every guest — in your monogram and colors, print-ready.',
-    paragraphs: [
-      'A plain black-and-white square doesn’t belong on your stationery.',
-      'Give every guest their own code, wrapped in your monogram and colors — and ready for the printer.',
-    ],
-    highlights: [
-      'A unique code for each guest',
-      'Wrapped in your monogram and colors',
-      'Takes each guest to their own page',
-      'Print-ready for invites and place cards',
-    ],
-    preview: [
-      { context: 'Per guest', glyph: '⌗', caption: 'Everyone gets their own code.' },
-      { context: 'On brand', glyph: '✥', caption: 'Your monogram, your colors.' },
-      { context: 'Print', glyph: '▤', caption: 'Ready for your stationer.' },
-    ],
-  },
-
   papic: {
     eyebrow: 'Papic',
     heroTitle: 'The moments you’ll miss, caught.',

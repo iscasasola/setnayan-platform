@@ -62,6 +62,7 @@ import {
   type PlanGroupId,
 } from './wedding-plan-groups';
 import { venueNowMs, DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { plannedInstant } from '@/lib/run-of-show';
 
 // ----------------------------------------------------------------------------
@@ -333,16 +334,19 @@ async function fetchScheduleBlockItems(
       date,
       daysFromNow: daysBetween(date, now),
       title: row.label,
-      subtitle: row.location ? formatScheduleSubtitle(date, row.end_at, row.location) : formatScheduleSubtitle(date, row.end_at, null),
+      // The LABEL reads the stored wall clock, not the lifted `date`: `date` is a
+      // real instant for sorting, and printing it in the server's zone showed a
+      // 1:30 PM arrival as "5:30 AM".
+      subtitle: formatScheduleSubtitle(row.start_at, row.end_at, row.location ?? null),
       href: `/dashboard/${eventId}/schedule`,
     };
   });
 }
 
-function formatScheduleSubtitle(start: Date, endIso: string | null, location: string | null): string {
-  const fmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-  const startLabel = fmt.format(start);
-  const timeLabel = endIso ? `${startLabel} – ${fmt.format(new Date(endIso))}` : startLabel;
+function formatScheduleSubtitle(startIso: string, endIso: string | null, location: string | null): string {
+  const startLabel = formatWallClock(startIso);
+  const endLabel = endIso ? formatWallClock(endIso) : '';
+  const timeLabel = endLabel ? `${startLabel} – ${endLabel}` : startLabel;
   return location ? `${timeLabel} · ${location}` : timeLabel;
 }
 

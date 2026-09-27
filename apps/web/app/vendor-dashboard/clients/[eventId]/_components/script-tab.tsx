@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Lock, Mic, EyeOff, Sparkles, AlertCircle, MessageCircleQuestion } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { buildScriptWorkbook, type ScriptBlock } from '@/lib/emcee-script-layer';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { matchLines, fillSlots, needsAttention, type SavedLine } from '@/lib/emcee-lines';
 import {
   buildQuestionnaire,
@@ -52,14 +53,11 @@ import { ShopCard } from '../../../_components/kit';
 const BLOCK_COLUMNS =
   'block_id,label,block_type,start_at,end_at,notes,is_public,sort_order,parent_block_id';
 
+/** ⏱ The venue wall clock, as the couple typed it — the same digits their
+ *  Schedule and their guests see. Re-zoning it into Asia/Manila added eight
+ *  hours a second time (a 1:30 PM arrival read 9:30 PM in the script). */
 function fmtTime(startIso: string): string {
-  const d = new Date(startIso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString('en-PH', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'Asia/Manila',
-  });
+  return formatWallClock(startIso) || '—';
 }
 
 export async function ScriptTab({

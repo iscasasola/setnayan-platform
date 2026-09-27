@@ -40,6 +40,7 @@
 
 import { BLOCK_CUE } from '@/lib/emcee-script';
 import type { ScheduleBlockType } from '@/lib/schedule';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 
 /** The block shape this needs — a strict subset of `ScheduleBlockRow`. */
 export type ScriptBlock = {
@@ -96,10 +97,10 @@ export type BuildOptions = {
   formatTime?: (startIso: string, endIso: string | null) => string;
 };
 
+/** ⏱ The venue wall clock — the same digits the Schedule and the guest page
+ *  show, whatever zone this runs in. */
 function defaultFormat(startIso: string): string {
-  const d = new Date(startIso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return formatWallClock(startIso) || '—';
 }
 
 function clean(s: string | null | undefined): string | null {

@@ -6,6 +6,7 @@ import { WordsReturnTo } from '../../our-story/_components/words-return-to';
 import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moments-editor';
 import type { DressCodeConfig } from '../../dress-code/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { unlockLabel } from './unlock-label';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -131,12 +132,9 @@ export function SchedulePeekPanel({
   venueAddress: string | null;
   blocks: Array<{ block_id: string; label: string; start_at: string; location: string | null }>;
 }) {
-  const fmtTime = (iso: string) => {
-    const d = new Date(iso);
-    return Number.isFinite(d.getTime())
-      ? d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
-      : '';
-  };
+  // ⏱ The venue wall clock — the same digits the guest page and the Schedule
+  // show. A bare toLocaleTimeString re-zoned it into whatever clock ran this.
+  const fmtTime = (iso: string) => formatWallClock(iso);
   return (
     <div className={PANEL}>
       <dl className="space-y-1 text-xs text-ink/70">

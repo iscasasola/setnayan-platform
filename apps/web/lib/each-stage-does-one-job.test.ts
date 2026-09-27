@@ -163,9 +163,11 @@ test('5 · the Save the Date: no Camera tab — Home · Story, and Me for a key-
 
 test('6 · an empty scene is on the Maker canvas (with its prompt) and absent for a guest', () => {
   const EMPTY = { ...FULL, content: { our_love_story: false, special_message: false } };
-  const list = makerStageList({ ...EMPTY, stage: 'rsvp' });
-  const story = list.shown.find((t) => t.kind === 'scene' && t.type === 'our_love_story');
-  assert.ok(story && story.kind === 'scene' && story.empty, 'the empty Love Story is not on the Maker canvas');
+  for (const openBrowse of [false, true]) {
+    const list = makerStageList({ ...EMPTY, openBrowse, stage: 'rsvp' });
+    const story = list.shown.find((t) => t.kind === 'scene' && t.type === 'our_love_story');
+    assert.ok(story && story.kind === 'scene' && story.empty, `the empty Love Story is not on the Maker canvas (openBrowse ${openBrowse})`);
+  }
   // A guest's own page, open browsing: the plan drops the empty scene.
   const guest = resolveSiteBodyPlan({
     identity: 'guest', phasesEnabled: true, lifecyclePhase: 'rsvp', stdFilm: false, isSample: false,

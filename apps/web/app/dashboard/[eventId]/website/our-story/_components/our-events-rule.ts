@@ -6,9 +6,8 @@
  * An event is theirs to show when EVERY one of the pair is a member of it — in
  * any role: couple, guest, coordinator, supplier.
  *
- *   · HOSTED — either partner is a host there (`isHostMemberType`: couple or
- *     coordinator, the one shared definition in `app/[slug]/_lib/host-scope.ts`,
- *     applied by the reader as `host`) → its public photos (the hero
+ *   · HOSTED — either partner is the COUPLE there (decided by the reader as
+ *     `host`) → its public photos (the hero
  *     and "Photos you add") are offered, as before.
  *   · SOMEONE ELSE'S — listed, with NO photos. The only photos the two of them
  *     took there are Papic captures, and those sit in a PRIVATE bucket that an
@@ -21,7 +20,7 @@
 export type MembershipRow = {
   event_id: string;
   user_id: string;
-  /** `isHostMemberType(member_type)`, decided by the reader. */
+  /** `member_type === 'couple'` — a coordinator runs another couple's event. Decided by the reader. */
   host: boolean;
   hidden_at: string | null;
 };

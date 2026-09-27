@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readMomentMedia } from '@/lib/love-story-moments';
-import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { newestFirst, sharedEvents, type MembershipRow } from './our-events-rule';
 
 /**
@@ -35,7 +34,7 @@ export type OurEvent = {
   eventId: string;
   name: string;
   date: string | null;
-  /** Either partner is a host there (couple or coordinator). */
+  /** Either partner is the couple there. A coordinator is not — that event is another couple's. */
   hosted: boolean;
   /** Public-bucket refs this event already shows guests — empty unless hosted. */
   refs: string[];
@@ -81,13 +80,16 @@ export async function readOurEvents(input: {
     logQueryError('OurEvents.memberships', rowsError ?? { message: 'no rows' }, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  // "Hosts" is the ONE shared definition — never a literal re-typed here.
+  // "The pair hosts it" = a partner is the COUPLE there. Deliberately NOT
+  // `isHostMemberType` (couple OR coordinator): a coordinator runs ANOTHER
+  // couple's event, and that couple's photos are not the pair's to offer.
+  // A coordinated event is listed like a guest one — with no photos.
   const memberships: MembershipRow[] = (
     rows as { event_id: string; user_id: string; member_type: string | null; hidden_at: string | null }[]
   ).map((r) => ({
     event_id: r.event_id,
     user_id: r.user_id,
-    host: isHostMemberType(r.member_type),
+    host: r.member_type === 'couple',
     hidden_at: r.hidden_at,
   }));
   const shared = sharedEvents(memberships, pair, eventId);

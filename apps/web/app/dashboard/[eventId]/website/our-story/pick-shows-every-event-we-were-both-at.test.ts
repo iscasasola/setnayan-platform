@@ -7,7 +7,8 @@
  * any role, newest first — and offers photos only from the ones they host.
  *
  *   1. the rule (`sharedEvents`): both must be live members; a declined/left
- *      membership (`hidden_at`) does not count; hosted = either is a host (couple or coordinator);
+ *      membership (`hidden_at`) does not count; hosted = either is the COUPLE there (a coordinator
+ *      runs another couple's event — listed, no photos);
  *   2. the read (`readOurEvents`) drives the REAL control flow through a fake
  *      admin client: refused for a non-couple, fail-closed on any error, refs
  *      only from hosted events, newest first;
@@ -32,9 +33,9 @@ const row = (event_id: string, user_id: string, member_type: string, hidden_at: 
   member_type,
   hidden_at,
 });
-/** What the reader hands the rule: host decided by the shared definition. */
+/** What the reader hands the rule: hosted = the couple there, nothing else. */
 const asRule = (rows: Raw[]): MembershipRow[] =>
-  rows.map((r) => ({ event_id: r.event_id, user_id: r.user_id, host: ['couple', 'coordinator'].includes(r.member_type), hidden_at: r.hidden_at }));
+  rows.map((r) => ({ event_id: r.event_id, user_id: r.user_id, host: r.member_type === 'couple', hidden_at: r.hidden_at }));
 
 const ROWS: Raw[] = [
   row(THIS, A, 'couple'),
@@ -56,12 +57,12 @@ const ROWS: Raw[] = [
   row('ev-with-c', A, 'guest'),
 ];
 
-test('📐 both must be there: every shared event, any role, hosted when either is a host', () => {
+test('📐 both must be there: every shared event, any role, hosted only when either is the couple', () => {
   const rule = asRule(ROWS);
   assert.deepEqual(sharedEvents(rule, [A, B], THIS), [
     { eventId: 'ev-a-birthday', hosted: true },
     { eventId: 'ev-b-baptism', hosted: true },
-    { eventId: 'ev-cousin-debut', hosted: true },
+    { eventId: 'ev-cousin-debut', hosted: false },
     { eventId: 'ev-friends-wedding', hosted: false },
     { eventId: 'ev-supplier-gig', hosted: false },
   ]);
@@ -120,11 +121,20 @@ test('🔒 the read: refs only from hosted events, never another couple’s gall
     [
       ['ev-b-baptism', true, ['r2://setnayan-media/bb/hero.jpg']],
       ['ev-friends-wedding', false, []],
-      ['ev-cousin-debut', true, ['r2://setnayan-media/md/1.jpg']],
+      ['ev-cousin-debut', false, []],
       ['ev-a-birthday', true, ['r2://setnayan-media/ab/1.jpg']],
       ['ev-supplier-gig', false, []],
     ],
   );
+});
+
+test('🧑‍💼 a partner who COORDINATED an event: listed, but that couple’s photos are never offered', async () => {
+  const { readOurEvents } = await import('./_components/our-events-read');
+  const got = await readOurEvents({ userId: A, eventId: THIS, adminClient: fakeAdmin({ event_members: ROWS, events: EVENTS }) });
+  const debut = got?.find((e) => e.eventId === 'ev-cousin-debut');
+  assert.ok(debut, 'the coordinated event is still listed — they were both there');
+  assert.equal(debut.hosted, false);
+  assert.deepEqual(debut.refs, [], 'Mia’s gallery is Mia’s, not the pair’s');
 });
 
 test('⛔ refused for anyone who is not the couple here, and fail-closed on any error', async () => {

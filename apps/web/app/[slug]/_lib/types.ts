@@ -271,6 +271,9 @@ export type EventRow = {
 export type StdVenues = {
   ceremony: string | null;
   reception: string | null;
+  /** The Save-the-Date's OWN city/area field only (`stdFilmOwnCity`) — never
+   *  the street address. This object is not gated; the film's mount adds the
+   *  address back through `stdFilmPlaceLine` for a viewer allowed it. */
   receptionCity: string | null;
 };
 

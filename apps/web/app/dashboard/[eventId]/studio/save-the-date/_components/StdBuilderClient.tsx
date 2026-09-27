@@ -415,7 +415,13 @@ export function StdBuilderClient({
   const handleAutofill = () => {
     if (autofillDate) setFilmDate(autofillDate);
     if (initialContent.receptionVenue) setVenueName(initialContent.receptionVenue);
-    if (initialContent.receptionCity) setVenueCity(initialContent.receptionCity);
+    // 🔒 The "City or area" field is filled from the couple's OWN saved city
+    // only — never `initialContent.receptionCity`, which falls back to the
+    // event's street address. Copying that here and saving it on Render
+    // turned the address into a "city" every viewer sees, around the
+    // reply gate (lib/venue-disclosure.ts · stdFilmOwnCity). The preview
+    // still shows the address, as a guest who has replied will see it.
+    if (initialFilmVenueCity?.trim()) setVenueCity(initialFilmVenueCity.trim());
     if (initialContent.storyTeaser) setFilmStory(initialContent.storyTeaser);
     if (result !== 'idle') setResult('idle');
   };

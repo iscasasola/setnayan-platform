@@ -31,7 +31,17 @@ Attending 4 → 2 · pending 77 → 77 · on the list 81 → 79. Headcount basis
 `attending` against an estimate of 230, so the live pax stays 230 (the estimate
 is the larger number); no final pax is locked.
 
-Held by `apps/web/lib/a-request-counts-for-nothing.test.ts` and
+**Also — "Only my Guest List" has no ask-to-join anywhere (owner ruling
+2026-09-27).** The couple's poster QR (`/join/{eventId}?token=…`) no longer
+opens the request form just because its token is valid: on such an event the
+page redirects to the event (`/{slug}`, whose door is Sign in or Upload your
+QR), and both join actions refuse with `GUEST_LIST_ONLY`, which
+`selfJoinRefusalPath` sends to the same page. Only "Anyone, I approve" shows the
+request form. `lib/join-throttle-adoption.test.ts` now anchors its "door before
+throttle" ordering on that check, since the token no longer gates anything.
+
+Held by `apps/web/lib/a-request-counts-for-nothing.test.ts`,
+`app/join/[eventId]/the-signed-in-guest-lands-on-the-event.test.ts` (§3) and
 `apps/web/tests/db/a-request-counts-for-nothing.db.test.ts`. Server actions: +0.
 
 SPEC IMPACT: None — implements the owner's 2026-09-27 answer as given.

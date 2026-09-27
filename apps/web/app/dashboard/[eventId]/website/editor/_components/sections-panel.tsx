@@ -54,6 +54,7 @@ import {
   resolveTransition,
 } from '@/lib/hub-scenes';
 import { SceneSlotsPanel } from './scene-slots-panel';
+import { detailsFactOfScene } from '@/lib/details-bound';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
@@ -786,18 +787,31 @@ export function SectionsPanel({
                         placeholder="Heading (optional)"
                         className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.74rem] text-ink placeholder:text-ink/40"
                       />
-                      <label htmlFor={`custom-body-${row.widget_id}`} className="sr-only">
-                        Words for {customSectionEditorLabel(row.widget_type)}
-                      </label>
-                      <textarea
-                        id={`custom-body-${row.widget_id}`}
-                        name="body"
-                        rows={3}
-                        maxLength={CUSTOM_COLUMN_BODY_MAX}
-                        defaultValue={body}
-                        placeholder="Your own words — this section stays hidden until you write something."
-                        className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[0.74rem] leading-relaxed text-ink placeholder:text-ink/40"
-                      />
+                      {/* 🔗 A Letter's words ARE the special message, bound to
+                          Details and edited under Content, where the scene asks
+                          "everywhere or just here" (`lib/details-bound.ts`). A
+                          body typed before binding stays editable here, so it
+                          can still be cleared. */}
+                      {!body && detailsFactOfScene(row.widget_type, sanitizeHubCanvas(row.config_json)) ? (
+                        <p className="text-[0.66rem] text-ink/60" data-letter-words-under-content="">
+                          This scene&rsquo;s words are your special message from Details — change them under Content.
+                        </p>
+                      ) : (
+                        <>
+                          <label htmlFor={`custom-body-${row.widget_id}`} className="sr-only">
+                            Words for {customSectionEditorLabel(row.widget_type)}
+                          </label>
+                          <textarea
+                            id={`custom-body-${row.widget_id}`}
+                            name="body"
+                            rows={3}
+                            maxLength={CUSTOM_COLUMN_BODY_MAX}
+                            defaultValue={body}
+                            placeholder="Your own words — this section stays hidden until you write something."
+                            className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[0.74rem] leading-relaxed text-ink placeholder:text-ink/40"
+                          />
+                        </>
+                      )}
                       <button
                         type="submit"
                         className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[0.65rem] font-semibold text-cream"

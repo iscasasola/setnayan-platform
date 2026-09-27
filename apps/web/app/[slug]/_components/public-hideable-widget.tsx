@@ -9,6 +9,8 @@ import type { InviteThemeId } from '@/lib/invite-themes';
 import { MakerEmptyScene } from './maker-empty-scene';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
+import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { sceneBoundText } from '@/lib/details-bound';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow } from '../_lib/types';
@@ -140,7 +142,9 @@ function PublicHideableWidgetBody({
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;
 
     case 'special_message':
-      return <SpecialMessageWidget text={event.special_message ?? null} />;
+      // 🔗 Bound to Details — this scene's own version where the couple chose
+      // "Just this scene", else Details' message (`lib/details-bound.ts`).
+      return <SpecialMessageWidget text={sceneBoundText('message', sanitizeHubCanvas(widget.config_json), event.special_message).text} />;
 
     case 'what_to_bring':
       return <WhatToBringWidget text={event.what_to_bring ?? null} />;

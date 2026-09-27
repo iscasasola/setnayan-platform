@@ -132,7 +132,12 @@ export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
             <p className="font-pahina text-3xl font-light tabular-nums sm:text-5xl">
               {String(b.value).padStart(2, '0')}
             </p>
-            <p className="mt-1 font-sans text-xs uppercase tracking-[0.15em] text-ink/50">
+            {/* /70, not /50: at 12px the units need 4.5:1 on the page itself
+                (measured 3.2:1 at /50 on a cream ground). Inside a painted
+                scene `--hub-mute-floor` lifts them further where the ground
+                needs it (owner 2026-09-27, "text stays readable on any
+                background"). */}
+            <p className="mt-1 font-sans text-xs uppercase tracking-[0.15em] text-ink/70">
               {b.label}
             </p>
           </div>

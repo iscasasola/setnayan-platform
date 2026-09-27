@@ -35,10 +35,35 @@ import { fitLoop, type Pt } from './trace-fit';
 
 /** Trace resolution CAP (never an upscale). Raised from 560: at 560 a
  *  photographed logo's thin serifs were a pixel or two wide, and no fitting can
- *  recover a shape the grid could not hold. */
-const MAX_TRACE_EDGE = 1024;
-const MIN_COMPONENT_FRAC = 0.0006; // drop specks below 0.06% of the canvas
-const MAX_COMPONENTS = 40;
+ *  recover a shape the grid could not hold.
+ *
+ *  Raised again 1024 → 2048 (2026-09-27, owner: *"the image is incomplete fix
+ *  this"* on his own 2000px monogram). A designer's hairline 3px wide in the
+ *  file was 1.5px at 1024, and the 3×3 blur below turns a 1–1.5px line into a
+ *  ridge that barely reaches the threshold — so thin swashes came back broken
+ *  or shortened. At 2048 a typical logo export (≤2000px) is traced at its own
+ *  resolution with no resampling at all. */
+const MAX_TRACE_EDGE = 2048;
+/** Below this fraction of the canvas a piece is a speck IF it is also far from
+ *  the rest of the artwork (see NEAR_INK_FRAC). */
+const MIN_COMPONENT_FRAC = 0.0006;
+/** Below this a piece is a speck however close it sits — a few pixels of dust. */
+const SPECK_FRAC = 0.000005;
+/** A small piece within this fraction of the long edge of a big piece is part
+ *  of the drawing, not dust.
+ *
+ *  ⚠ WHY THIS EXISTS: the owner's monogram crosses its own strokes, and a
+ *  crossing is drawn as a GAP — so one stroke is cut into short pieces. The
+ *  short bar between the C's bowl and the crossing gap was 0.05% of the canvas,
+ *  under the old flat 0.06% "speck" floor, and it was silently deleted: 100% of
+ *  that stroke gone, measured. A speck is small AND alone; a fragment of a
+ *  stroke is small and sits right beside the rest of the ink. */
+const NEAR_INK_FRAC = 0.02;
+/** How many separate pieces are kept (largest first). Raised from 40: a mark
+ *  with a name or a date under it is easily 40+ letters and dots, and every
+ *  piece past the cap was dropped without a word. Exported because the upload
+ *  tips SAY this number to the couple — the two must never disagree. */
+export const MAX_TRACE_PIECES = 80;
 
 /**
  * Trace a binary ink mask into closed loops via marching squares + chaining.
@@ -126,6 +151,87 @@ function keyPixels(key: number, S: number): [number, number, number, number] {
 
 export type TraceResult = { svg: string; elements: number };
 
+type Piece = { area: number; r: number; g: number; b: number; minX: number; maxX: number; minY: number; maxY: number };
+
+/** A piece at least this long (fraction of the long edge) AND drawn as a line —
+ *  its length several times its average thickness — is a stroke, not dust,
+ *  wherever it sits. A lone 2px hairline swash is tiny in AREA and was dropped
+ *  by the area rule however long it ran. */
+const STROKE_LEN_FRAC = 0.01;
+const STROKE_ASPECT = 3;
+
+/**
+ * Which connected pieces are ARTWORK (1) and which are specks (0).
+ *
+ * A piece is kept when it is big enough on its own (MIN_COMPONENT_FRAC); or
+ * when it is more than a few pixels of dust (SPECK_FRAC) AND either is drawn as
+ * a STROKE (long, and several times longer than it is thick) or sits within
+ * NEAR_INK_FRAC of a big piece — a stroke cut short by a crossing gap, the dot
+ * of an "i", a hairline's broken tip. Only small, compact pieces far from
+ * everything are dropped, which is what dust and paper grain on a photo are.
+ *
+ * "Near" is a square dilation of the big pieces (two running-max passes), so the
+ * cost is two sweeps of the image whatever the radius.
+ */
+function keptPieces(comps: Piece[], label: Int32Array, W: number, H: number): Uint8Array {
+  const keep = new Uint8Array(comps.length);
+  const bigArea = W * H * MIN_COMPONENT_FRAC;
+  const speck = Math.max(4, W * H * SPECK_FRAC);
+  const strokeLen = Math.max(W, H) * STROKE_LEN_FRAC;
+  let anySmall = false;
+  comps.forEach((c, id) => {
+    if (c.area >= bigArea) {
+      keep[id] = 1;
+      return;
+    }
+    if (c.area < speck) return;
+    const long = Math.max(c.maxX - c.minX, c.maxY - c.minY) + 1;
+    if (long >= strokeLen && long >= STROKE_ASPECT * (c.area / long)) keep[id] = 1;
+    else anySmall = true;
+  });
+  if (!anySmall) return keep;
+  const r = Math.max(2, Math.round(Math.max(W, H) * NEAR_INK_FRAC));
+  const big = new Uint8Array(W * H);
+  for (let p = 0; p < W * H; p++) {
+    const id = label[p] as number;
+    if (id >= 0 && keep[id]) big[p] = 1;
+  }
+  /* Horizontal then vertical sliding window: a pixel is "near" when any big
+   * pixel lies within r along the row, then within r along the column of that. */
+  const rowNear = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let last = -Infinity;
+    for (let x = 0; x < W; x++) {
+      if (big[y * W + x]) last = x;
+      if (x - last <= r) rowNear[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let x = W - 1; x >= 0; x--) {
+      if (big[y * W + x]) last = x;
+      if (last - x <= r) rowNear[y * W + x] = 1;
+    }
+  }
+  const near = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    let last = -Infinity;
+    for (let y = 0; y < H; y++) {
+      if (rowNear[y * W + x]) last = y;
+      if (y - last <= r) near[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let y = H - 1; y >= 0; y--) {
+      if (rowNear[y * W + x]) last = y;
+      if (last - y <= r) near[y * W + x] = 1;
+    }
+  }
+  for (let p = 0; p < W * H; p++) {
+    const id = label[p] as number;
+    if (id < 0 || keep[id] || !near[p]) continue;
+    if ((comps[id] as { area: number }).area >= speck) keep[id] = 1;
+  }
+  return keep;
+}
+
 /** The level that separates paper from ink on a [0,1] field: Otsu to find the
  *  two populations, then the midpoint between their averages. */
 function otsu(field: Float32Array): number {
@@ -191,15 +297,21 @@ function otsu(field: Float32Array): number {
   return T;
 }
 
+/** The grid an image of srcW×srcH is traced on — its own size up to
+ *  MAX_TRACE_EDGE on the long edge, never upscaled. Pure so a node test can
+ *  resample exactly as the browser will before calling traceRgbaToSvg. */
+export function traceSize(srcW: number, srcH: number): { W: number; H: number } {
+  const scale = Math.min(1, MAX_TRACE_EDGE / Math.max(srcW, srcH));
+  return { W: Math.max(8, Math.round(srcW * scale)), H: Math.max(8, Math.round(srcH * scale)) };
+}
+
 /**
  * Trace an image into a pure-paths SVG. Uses the alpha channel when the image
  * has transparency; otherwise a luminance threshold (dark ink on light paper).
  * Returns null when nothing traceable is found.
  */
 export function traceImageToSvg(img: CanvasImageSource, srcW: number, srcH: number): TraceResult | null {
-  const scale = Math.min(1, MAX_TRACE_EDGE / Math.max(srcW, srcH));
-  const W = Math.max(8, Math.round(srcW * scale));
-  const H = Math.max(8, Math.round(srcH * scale));
+  const { W, H } = traceSize(srcW, srcH);
   const cnv = document.createElement('canvas');
   cnv.width = W;
   cnv.height = H;
@@ -268,7 +380,7 @@ export function traceRgbaToSvg(data: Uint8ClampedArray | Uint8Array, W: number, 
 
   // connected components (4-neighbour BFS)
   const label = new Int32Array(W * H).fill(-1);
-  const comps: { area: number; r: number; g: number; b: number; minX: number }[] = [];
+  const comps: Piece[] = [];
   const qx = new Int32Array(W * H);
   const qy = new Int32Array(W * H);
   for (let y0 = 0; y0 < H; y0++) {
@@ -276,7 +388,7 @@ export function traceRgbaToSvg(data: Uint8ClampedArray | Uint8Array, W: number, 
       const p0 = y0 * W + x0;
       if (!ink[p0] || label[p0] !== -1) continue;
       const id = comps.length;
-      const comp = { area: 0, r: 0, g: 0, b: 0, minX: x0 };
+      const comp: Piece = { area: 0, r: 0, g: 0, b: 0, minX: x0, maxX: x0, minY: y0, maxY: y0 };
       let head = 0,
         tail = 0;
       qx[tail] = x0;
@@ -293,6 +405,9 @@ export function traceRgbaToSvg(data: Uint8ClampedArray | Uint8Array, W: number, 
         comp.g += data[i4 + 1] as number;
         comp.b += data[i4 + 2] as number;
         if (x < comp.minX) comp.minX = x;
+        if (x > comp.maxX) comp.maxX = x;
+        if (y < comp.minY) comp.minY = y;
+        if (y > comp.maxY) comp.maxY = y;
         const nb: [number, number][] = [
           [x + 1, y],
           [x - 1, y],
@@ -347,12 +462,12 @@ export function traceRgbaToSvg(data: Uint8ClampedArray | Uint8Array, W: number, 
     byComp.set(id, arr);
   });
 
-  const minArea = W * H * MIN_COMPONENT_FRAC;
+  const keep = keptPieces(comps, label, W, H);
   const paths: string[] = [];
   const kept = [...byComp.entries()]
-    .filter(([id]) => (comps[id] as { area: number }).area >= minArea)
+    .filter(([id]) => keep[id] === 1)
     .sort((a2, b2) => (comps[b2[0]] as { area: number }).area - (comps[a2[0]] as { area: number }).area)
-    .slice(0, MAX_COMPONENTS);
+    .slice(0, MAX_TRACE_PIECES);
   kept.forEach(([id, compLoops]) => {
     const c = comps[id] as { area: number; r: number; g: number; b: number };
     const col = `rgb(${Math.round(c.r / c.area)},${Math.round(c.g / c.area)},${Math.round(c.b / c.area)})`;

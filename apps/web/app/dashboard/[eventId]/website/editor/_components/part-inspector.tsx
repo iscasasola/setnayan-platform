@@ -87,7 +87,7 @@ export function PartPicker({
         value={value}
         options={parts.map((k) => ({ key: k, label: HUB_ELEMENT_LABEL[k] }))}
         onPick={(k) => onPick(k as HubElementKey)}
-        className="min-w-0 flex-1"
+        className="min-h-11 min-w-0 flex-1 lg:min-h-9"
       />
     </IRow>
   );
@@ -161,7 +161,7 @@ export function PartTextTab({
               })),
             ]}
             onPick={(key) => choose('font', key === 'hub' ? null : key)}
-            className="min-w-0 flex-1"
+            className="min-h-11 min-w-0 flex-1 lg:min-h-9"
           />
         </IRow>
       ) : null}
@@ -263,8 +263,8 @@ export function PartTextTab({
         </IRow>
       ) : null}
 
-      {has('leading') || has('tracking') ? (
-        <IRow label="Line" wrap data="spacing">
+      {has('leading') ? (
+        <IRow label="Line" data="spacing">
           {has('leading') ? (
             <IStepper
               label="Line spacing"
@@ -276,9 +276,12 @@ export function PartTextTab({
               onUp={() => leadUp !== false && choose('leading', leadUp)}
             />
           ) : null}
+        </IRow>
+      ) : null}
+      {has('tracking') ? (
+        <IRow label="Letter" data="letter">
           {has('tracking') ? (
             <>
-              <span className="ml-1 text-[12.5px] text-ink/60">Letter</span>
               <IStepper
                 label="Letter spacing"
                 data="tracking"
@@ -388,7 +391,7 @@ export function PartAnimateTab({
           value={motion.in ?? 'none'}
           options={HUB_EL_IN.map((v) => ({ key: v, label: HUB_EL_IN_LABEL[v] }))}
           onPick={(v) => moveTo('in', v === 'none' ? null : v)}
-          className="min-w-0 flex-1"
+          className="min-h-11 min-w-0 flex-1 lg:min-h-9"
         />
       </IRow>
       <IRow label="During" data="during">

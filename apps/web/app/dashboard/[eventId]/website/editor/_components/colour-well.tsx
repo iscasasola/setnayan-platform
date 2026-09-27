@@ -178,13 +178,16 @@ export function ColourWell({
         />
       </div>
 
+      {/* 📱 On the phone the panel is a full-width section of the sheet: it
+          reaches back over the row's label column (`IRow`'s 4.5rem + gap), so
+          the wheel is thumb-sized rather than squeezed beside "Colour". */}
       <div
         id={panelId}
         hidden={!open}
         role="group"
         aria-label={`Colour for ${what}`}
         data-colour-panel=""
-        className="mt-2 rounded-xl border border-ink/10 bg-white p-3 lg:absolute lg:right-0 lg:top-full lg:z-40 lg:mt-2 lg:w-[19rem] lg:shadow-[0_24px_48px_-28px_rgba(30,26,18,.45)]"
+        className="-ml-[5.125rem] mt-2 rounded-xl border border-ink/10 bg-white p-3 lg:absolute lg:ml-0 lg:right-0 lg:top-full lg:z-40 lg:mt-2 lg:w-[19rem] lg:shadow-[0_24px_48px_-28px_rgba(30,26,18,.45)]"
       >
         <div className="mb-2 flex items-center gap-2 text-[13px]">
           <b className="font-semibold text-ink">Colour</b>
@@ -247,13 +250,13 @@ export function ColourWell({
         </div>
 
         <p className="pb-1.5 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">Theme colours</p>
-        <div className="grid grid-cols-8 gap-1.5">
+        <div className="grid grid-cols-6 gap-1.5 lg:grid-cols-8">
           {themeColours.map((c) => (
             <Swatch key={c} colour={c} on={value?.slice(0, 7) === c.toLowerCase()} onClick={() => pickNow(c)} />
           ))}
         </div>
         <p className="pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">Saved colours</p>
-        <div className="grid grid-cols-8 gap-1.5">
+        <div className="grid grid-cols-6 gap-1.5 lg:grid-cols-8">
           {own.slice(0, SAVED_MAX - 1).map((c) => (
             <Swatch key={c} colour={c} on={value === c} onClick={() => pickNow(c)} />
           ))}
@@ -269,7 +272,7 @@ export function ColourWell({
               setSaved(next);
               writeSaved(savedKey, next);
             }}
-            className="sn-press grid aspect-square min-h-9 place-items-center rounded-md border border-dashed border-ink/25 text-ink/50 hover:text-ink"
+            className="sn-press grid aspect-square min-h-11 place-items-center lg:min-h-9 rounded-md border border-dashed border-ink/25 text-ink/50 hover:text-ink"
           >
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -308,7 +311,7 @@ function Swatch({ colour, on, onClick }: { colour: string; on: boolean; onClick:
       aria-label={`Colour ${colour}`}
       onClick={onClick}
       style={{ background: colour }}
-      className={`sn-press aspect-square min-h-9 rounded-md border border-black/10 ${on ? 'ring-2 ring-ink ring-offset-1' : ''}`}
+      className={`sn-press aspect-square min-h-11 rounded-md lg:min-h-9 border border-black/10 ${on ? 'ring-2 ring-ink ring-offset-1' : ''}`}
     />
   );
 }

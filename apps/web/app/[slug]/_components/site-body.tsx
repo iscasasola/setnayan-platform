@@ -133,7 +133,7 @@ import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubMainGround, resolveMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
-import { sceneBoundText } from '@/lib/details-bound';
+import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveHero } from '@/lib/event-hero';
@@ -678,9 +678,9 @@ export async function SiteBody({
     our_photos: ourPhotoUrls.length > 0,
     // 🔗 Bound to Details — a scene's own version counts too (`lib/details-bound.ts`).
     special_message: Boolean(
-      sceneBoundText(
+      sceneBoundTextOf(
         'message',
-        sanitizeHubCanvas(widgets.find((w) => w.widget_type === 'special_message')?.config_json),
+        widgets.find((w) => w.widget_type === 'special_message')?.config_json,
         event.special_message,
       ).text,
     ),

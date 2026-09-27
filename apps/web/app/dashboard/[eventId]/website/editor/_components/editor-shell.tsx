@@ -383,14 +383,14 @@ export function MakerWork({
   const postWords = (key: string, text: string) =>
     frameRef.current?.contentWindow?.postMessage({ source: 'setnayan-editor', t: 'words', key, text }, window.location.origin);
   useEffect(() => {
-    const onReady = (event: MessageEvent) => {
+    const onWordsReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const d = event.data as { source?: string; t?: string } | null;
       if (!d || d.source !== 'setnayan-site' || d.t !== 'ready') return;
       for (const [key, text] of Object.entries(wordsPending.current)) postWords(key, text);
     };
-    window.addEventListener('message', onReady);
-    return () => window.removeEventListener('message', onReady);
+    window.addEventListener('message', onWordsReady);
+    return () => window.removeEventListener('message', onWordsReady);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

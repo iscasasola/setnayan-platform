@@ -32,6 +32,7 @@ import {
   detailsFactOfScene,
   sanitizeDetailsOverrides,
   sceneBoundText,
+  sceneBoundTextOf,
 } from './details-bound';
 import { hasHubCanvas, sanitizeHubCanvas, type HubSectionCanvas } from './hub-canvas';
 import {
@@ -221,12 +222,30 @@ test('both guest dispatchers draw the Special message scene through the ONE rule
     const arm = src.slice(src.indexOf("case 'special_message':"), src.indexOf("case 'what_to_bring':"));
     assert.match(
       arm,
-      /<SpecialMessageWidget text=\{sceneBoundText\('message', sanitizeHubCanvas\(widget\.config_json\), event\.special_message\)\.text\} \/>/,
+      /<SpecialMessageWidget text=\{sceneBoundTextOf\('message', widget\.config_json, event\.special_message\)\.text\} \/>/,
       `${f} reads the scene's own version before Details`,
     );
   }
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /special_message: Boolean\(\s*sceneBoundText\(\s*'message',/, 'open browsing counts a scene’s own version as content');
+  assert.match(body, /special_message: Boolean\(\s*sceneBoundTextOf\(\s*'message',/, 'open browsing counts a scene’s own version as content');
+  // The dispatchers' reader (straight from config_json — the frame owns the
+  // canvas contract) agrees with the canvas rule on every shape.
+  for (const config of [
+    {},
+    null,
+    { canvas: { details: { message: 'Ours' } } },
+    { details: { message: 'Flat' } },
+    { canvas: { details: { message: '   ' } } },
+    { canvas: { template: 11, details: { message: 'Letter own' } } },
+  ]) {
+    for (const d of ['Details words', null]) {
+      assert.deepEqual(
+        sceneBoundTextOf('message', config, d),
+        sceneBoundText('message', sanitizeHubCanvas(config), d),
+        `${JSON.stringify(config)} / ${d}`,
+      );
+    }
+  }
 });
 
 /* ── 5 · nothing is live before Apply ──────────────────────────────────── */

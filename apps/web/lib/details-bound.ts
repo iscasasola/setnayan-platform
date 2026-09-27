@@ -123,6 +123,26 @@ export function sceneBoundText(
 }
 
 /**
+ * The same rule, read straight from a stored `config_json` — for the guest
+ * dispatchers, which must not reach for the canvas contract themselves (the
+ * frame owns it, `every-dispatcher-frames-the-canvas.test.ts`). Reads the
+ * canvas where `sanitizeHubCanvas` does: `config.canvas`, else the config.
+ */
+export function sceneBoundTextOf(
+  fact: DetailsFact,
+  configJson: unknown,
+  detailsValue: string | null | undefined,
+): { text: string | null; overridden: boolean } {
+  const src = configJson && typeof configJson === 'object' && !Array.isArray(configJson) ? (configJson as Record<string, unknown>) : null;
+  const canvas =
+    src && src.canvas && typeof src.canvas === 'object' && !Array.isArray(src.canvas)
+      ? (src.canvas as Record<string, unknown>)
+      : src;
+  const details = sanitizeDetailsOverrides(canvas?.details);
+  return sceneBoundText(fact, details ? { details } : null, detailsValue);
+}
+
+/**
  * WHICH DETAILS FACT A SCENE SHOWS, or null. The Special message scene shows
  * the message; a template scene built on the special message (11 · Letter)
  * shows it too. Nothing else is bound in v1 (see the file note).

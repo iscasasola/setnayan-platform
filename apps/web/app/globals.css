@@ -5613,6 +5613,19 @@ html:has([data-sticky-top]) {
    holding a full-width scene clips that sliver instead of scrolling sideways. */
 html:has(.hub-shape-full) { overflow-x: clip; }
 
+/* 🌅 DIAGONAL · GLOW PER SCENE (owner 2026-09-27, the Maker toolbars' approved
+   answer 1 — the scene row is No background · Plain · Diagonal · Glow · Opaque ·
+   Frosted · Upload media). The Main background's two ombrés, derived from the
+   scene's ONE colour (`--hub-bg-image`, `lib/ombre.ts` `ombreCss`); the flat
+   colour underneath while the gradient paints. Padded like every painted box. */
+.hub-bg-diagonal,
+.hub-bg-glow {
+  background-color: var(--hub-bg-color);
+  background-image: var(--hub-bg-image);
+}
+.hub-bg-diagonal > .hub-canvas-body,
+.hub-bg-glow > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+
 /* 🛑 REDUCED MOTION IS NOT HANDLED HERE, AND IT IS NOT HANDLED BY CSS AT ALL.
    The first draft of this block carried a reduced-motion media query that set
    the snippet video's CSS animation-play-state to paused. That is valid CSS,
@@ -5736,6 +5749,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 .hub-run > .hub-scene ~ .hub-scene { margin-top: 1rem; }
 .hub-sp { display: none; }
 .hub-prog { display: none; }
+/* A widget that rendered nothing (Countdown with no date) leaves an empty
+   scene. It is no scene: it takes no gap and — because a hidden box has no
+   timeline — no progress segment either. */
+.hub-scene:empty,
+.hub-scene:has(> .hub-canvas > .hub-canvas-body:empty) { display: none; }
 
 /* The scene keyframes. `visibility` rides with the fade on purpose: it
    interpolates as "visible anywhere strictly between the ends", so a scene is
@@ -5758,6 +5776,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
   to   { opacity: 0; visibility: hidden; pointer-events: none; }
 }
 @keyframes hub-prog-fill { to { transform: scaleX(1); } }
+/* A progress segment's width — applied ONLY while its section's timeline is
+   live (see "A SEGMENT EXISTS ONLY WHILE ITS SECTION DOES" below). */
+@keyframes hub-prog-seg {
+  from, to { flex-grow: 1; margin-inline: 2px; }
+}
 
 /* ── SCENE TEMPLATES — the 25 (Event Hub Maker Phase 5; `lib/scene-templates.ts`,
    renderer `app/[slug]/_components/scene-template.tsx`) ─────────────────────
@@ -6213,7 +6236,48 @@ html:has(.hub-shape-full) { overflow-x: clip; }
        its predecessor then fades out while the run scrolls away, which is not
        a blank screen. */
     @supports (animation-range: entry 0% exit 100%) and (timeline-scope: none) {
-      .hub-scenes { timeline-scope: var(--hub-scope); }
+      /* 📏 A SCENE IS AS TALL AS ITS CONTENT — SCRUB TOO (owner 2026-09-27:
+         "this scene should not be alone. the spacing between scenes depend on
+         the content to keep a balanced gap from each other"; DECISION_LOG "A
+         SCENE IS AS TALL AS ITS CONTENT" + "SCRUB SCENES ALSO FIT THEIR
+         CONTENT"). A Scrub scene used to pin at one full screen, so a 196px
+         Countdown sat centred in a 1,060px band with ~342px of nothing above
+         and below it, and a run of two short scenes took 4.4 screens of scroll.
+
+         THE MODEL NOW: the scenes of a run are STACKED in one grid cell, all at
+         the run's top. Each scene (the SLOT) is stretched to the whole run; its
+         frame — the thing a guest reads — is sticky inside it, so it pins at
+         `--hub-pin` exactly as tall as its content. The spacers stay the
+         clock: one `--hub-step` row each, in a zero-width column beside the
+         scenes, so spacer N and spacer N+1 still ABUT and one hands over to the
+         other with no gap and no overlap. Around the run the ordinary 1rem
+         rhythm applies (`.hub-scenes > .hub-prog ~ * ~ *`), so the scene before
+         a run and the scene after it sit as close as two Scroll scenes do.
+
+         🔑 WHY A SLOT AND A STICKY CHILD, not a sticky scene. A sticky box
+         stops pinning when its CONTAINING BLOCK runs out, and it keeps its
+         margins inside it — so a sticky scene can never be held for longer than
+         its own box allows. The slot is stretched to the run and carries an
+         `::after` of the run's track, which is what makes the run's last row
+         (`auto`) grow to fit the tallest scene: the run is always at least
+         "track + tallest frame", so no pinned frame is ever overlapped by the
+         section after the run, and after the last hand-over that section rises
+         to sit 1rem under the last frame.
+
+         ⚠ AN EMPTY SCENE INSIDE A RUN keeps its fixed row (the renderer cannot
+         see a widget that rendered nothing): the last frame simply holds for
+         one more step. It never shows a blank — the fades chain through the
+         spacers that ARE drawn. */
+      .hub-scenes {
+        timeline-scope: var(--hub-scope);
+        /* `--hub-pin` (where a frame pins) is set with the progress mark below. */
+        --hub-step: 60svh;
+        /* The cover-range offset at which a spacer's TOP sits on the pin line.
+           `100%` is the end of `cover` (the spacer's bottom leaving the top of
+           the screen), so every range below is measured from where the frames
+           actually are, never from the screen's height. */
+        --hub-at: calc(100% - var(--hub-pin) - var(--hub-step));
+      }
 
       /* A scroll section names its own box, only for its progress segment. */
       .hub-scroll { view-timeline: var(--hub-tl) block; }
@@ -6221,54 +6285,82 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       .hub-scrub:empty,
       .hub-scrub:has(> .hub-canvas > .hub-canvas-body:empty) { display: none; }
 
-      /* Pinned, one screen tall. `svh` so it is never taller than what a phone
-         shows. The content centres with auto margins (never above the top), and
-         a section taller than the screen scrolls inside its own scene rather
-         than being cut off where nobody can reach it. */
-      .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) {
+      /* THE RUN — only when it has a scene that drew something (one level of
+         `:has()`, never nested); a run of empty scenes stays an empty block. */
+      .hub-run:has(> .hub-scrub > .hub-canvas > .hub-canvas-body:not(:empty), > .hub-scrub > :not(.hub-canvas):not(style)) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 0;
+        grid-template-rows: repeat(var(--hub-n, 1), var(--hub-step)) auto;
+      }
+      /* As specific as the fallback's `.hub-run > .hub-scene ~ .hub-scene`
+         (1rem apart when nothing pins), so the stacked scenes all start at the
+         run's top — measured: one class short, the second scene sat 16px low. */
+      .hub-run > .hub-scene.hub-scrub {
+        grid-column: 1;
+        grid-row: 1 / -1;
+        margin-top: 0;
+      }
+      .hub-run > .hub-scrub::after {
+        content: '';
+        display: block;
+        height: calc((var(--hub-n, 1) - 0.5) * var(--hub-step));
+      }
+
+      /* THE FRAME — pinned, as tall as its content. A frame that is followed
+         by another one fades out WHILE pinned, so a frame taller than the
+         screen scrolls inside itself rather than losing its end; the run's
+         last frame is never capped, because it scrolls on with the page after
+         its hold and a guest reads it to the end the ordinary way. */
+      .hub-scrub > * {
         position: sticky;
-        top: 0;
-        height: 100vh;
-        height: 100svh;
-        display: flex;
-        flex-direction: column;
-        padding-block: max(4.75rem, 9vh) max(5rem, 8vh);
+        top: var(--hub-pin);
+      }
+      .hub-scrub:not(:empty):has(~ .hub-scrub:not(:empty)) > * {
+        max-height: calc(100svh - var(--hub-pin) - max(1.5rem, 3vh));
         overflow-y: auto;
         scrollbar-width: none;
       }
-      .hub-scrub > .hub-canvas { margin-block: auto; flex: none; }
+      /* 🪤 …and a SHORT one must never become scrollable by accident. A part
+         rising into place is translated below its box, and a transform counts
+         as overflow: measured, a 144px Editorial frame read scrollHeight 170, so
+         a swipe that started on it scrolled the frame 26px instead of the page
+         (iOS keeps the whole gesture on the inner scroller). Clipping at the
+         body stops the part's travel from reaching the frame; the most a rising
+         part loses is the few pixels past its card's own bottom padding. */
+      .hub-scrub:not(:empty):has(~ .hub-scrub:not(:empty)) > .hub-canvas > .hub-canvas-body { overflow-y: clip; }
 
-      /* The spacer: the scroll a scrub section consumes. ≥ 100vh is REQUIRED —
-         it is what makes spacer N's exit and spacer N+1's entry the same stretch
-         of scroll; the extra 70vh is the hold. */
+      /* The spacer: one step of scroll, in the zero-width column, auto-placed
+         into the next fixed row — so the drawn spacers always abut. */
       .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) + .hub-sp {
         display: block;
-        height: 170vh;
+        grid-column: 2;
         view-timeline: var(--hub-tl) block;
       }
 
       /* ── The cross-fades. OUT on a live scrub section that has a live one
-         after it; IN (and pulled up by its own height, so the spacers abut and
-         it is already pinned when it fades in) on one that has a live one
-         before it; both on one in the middle. Shorthand first, THEN timeline and
-         range — the shorthand resets them. OUT is listed last so it wins once it
-         starts; it has no backwards fill, so before its window IN rules. ── */
+         after it; IN on one that has a live one before it; both on one in the
+         middle. Shorthand first, THEN timeline and range — the shorthand resets
+         them. OUT is listed last so it wins once it starts; it has no backwards
+         fill, so before its window IN rules.
+         Measured from the pin line: the hand-over is when the boundary between
+         two spacers crosses `--hub-pin + ¼ step`. IN runs while the next
+         spacer's top travels from 0.6 to 0.1 of a step below the pin line; OUT
+         while this spacer's bottom travels from 0.5 step to the line — IN
+         leads, so the two are never both faint and the screen is never blank. ── */
       .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
         animation: hub-scene-out linear forwards;
         animation-timeline: var(--hub-tl);
-        animation-range: exit 25% exit 85%;
+        animation-range: cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step));
       }
       .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) {
-        margin-top: -100vh;
-        margin-top: -100svh;
         animation: hub-scene-in linear both;
         animation-timeline: var(--hub-tl);
-        animation-range: entry 15% entry 75%;
+        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step));
       }
       .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)) ~ .hub-scrub:not(:empty):not(:has(> .hub-canvas > .hub-canvas-body:empty)):has(~ .hub-scrub:not(:empty)) {
         animation: hub-scene-in linear both, hub-scene-out linear forwards;
         animation-timeline: var(--hub-tl), var(--hub-tl);
-        animation-range: entry 15% entry 75%, exit 25% exit 85%;
+        animation-range: cover calc(var(--hub-at) - 0.6 * var(--hub-step)) cover calc(var(--hub-at) - 0.1 * var(--hub-step)), cover calc(var(--hub-at) + 0.5 * var(--hub-step)) cover calc(var(--hub-at) + var(--hub-step));
       }
 
       /* ── WHILE IT HOLDS, THE SCROLL SCRUBS ITS CONTENTS ──────────────────
@@ -6293,21 +6385,23 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         --hub-part-in: none;
         --hub-part-out: none;
       }
+      /* Each part arrives while its spacer's top travels a quarter step past
+         the pin line, a little later than the one before — all of them before
+         the hand-over begins (half a step past the line). */
       .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 2) {
         --hub-part-in: var(--hub-in-kf, none);
         --hub-part-dur: 1s;
         --hub-part-delay: 0s;
         --hub-part-ease: linear;
         --hub-part-in-tl: var(--hub-tl);
-        --hub-part-in-range: entry 30% entry 60%;
+        --hub-part-in-range: cover calc(var(--hub-at) - 0.05 * var(--hub-step)) cover calc(var(--hub-at) + 0.2 * var(--hub-step));
       }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { --hub-part-delay: 0s; --hub-part-in-range: entry 30% entry 60%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { --hub-part-delay: 0s; --hub-part-in-range: entry 45% entry 75%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { --hub-part-delay: 0s; --hub-part-in-range: entry 60% entry 90%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { --hub-part-delay: 0s; --hub-part-in-range: entry 75% contain 5%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { --hub-part-delay: 0s; --hub-part-in-range: entry 90% contain 20%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { --hub-part-delay: 0s; --hub-part-in-range: contain 5% contain 35%; }
-      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { --hub-part-delay: 0s; --hub-part-in-range: contain 20% contain 50%; }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: cover calc(var(--hub-at) + 0 * var(--hub-step)) cover calc(var(--hub-at) + 0.25 * var(--hub-step)); }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: cover calc(var(--hub-at) + 0.05 * var(--hub-step)) cover calc(var(--hub-at) + 0.3 * var(--hub-step)); }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: cover calc(var(--hub-at) + 0.1 * var(--hub-step)) cover calc(var(--hub-at) + 0.35 * var(--hub-step)); }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: cover calc(var(--hub-at) + 0.15 * var(--hub-step)) cover calc(var(--hub-at) + 0.4 * var(--hub-step)); }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: cover calc(var(--hub-at) + 0.2 * var(--hub-step)) cover calc(var(--hub-at) + 0.45 * var(--hub-step)); }
+      .hub-scrub > .hub-seq-parts > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: cover calc(var(--hub-at) + 0.25 * var(--hub-step)) cover calc(var(--hub-at) + 0.5 * var(--hub-step)); }
       /* The picture's slow lift follows the hold too — `view()` inside a pinned
          scene would never move. */
       .hub-scrub > .hub-during-lift.hub-has-media > .hub-canvas-media {
@@ -6318,7 +6412,23 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       /* ── THE PROGRESS MARK — one segment per section. A pinned page hides
          how much is left, so this shows it while the scenes are on screen.
          Sticky at zero height rather than fixed: it cannot outlive the scenes,
-         and no transformed ancestor can knock it out of place. ── */
+         and no transformed ancestor can knock it out of place.
+
+         🔴 A SEGMENT EXISTS ONLY WHILE ITS SECTION DOES (owner 2026-09-28:
+         "look at the progress line, there was a blank" — 7 segments, #2 never
+         filled while #3 and #4 did). A widget can render nothing for a guest
+         (Countdown with no date) and the server cannot see that, so a segment
+         was drawn for a section with no box: its named timeline never existed
+         and its fill sat at zero for ever. Now a segment has NO WIDTH until its
+         own timeline is live — `hub-prog-seg` is the only thing that gives it
+         one, and an animation whose timeline does not exist has no effect. So
+         the stylesheet, which is the only thing that can see an empty section,
+         removes its segment too, with no list of names to keep in step.
+
+         🔑 EVERY SEGMENT FILLS ON THE SAME LINE — the middle of the screen —
+         while ITS section's box crosses it (`SCENE_PROGRESS_RANGE`). Sections
+         never overlap on the page, so one segment fills at a time, strictly in
+         order: a later segment can never be ahead of an earlier one. ── */
       .hub-prog {
         display: block;
         position: sticky;
@@ -6328,9 +6438,12 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         pointer-events: none;
       }
       html:has([data-sticky-top]) .hub-prog { top: calc(4.5rem + env(safe-area-inset-top, 0px)); }
+      /* The frames pin just under the progress mark (16px tall), which itself
+         sits under the invitation's pinned top bar when there is one. */
+      .hub-scenes { --hub-pin: calc(max(4.75rem, 9vh) + env(safe-area-inset-top, 0px)); }
+      html:has([data-sticky-top]) .hub-scenes { --hub-pin: calc(6.25rem + env(safe-area-inset-top, 0px)); }
       .hub-prog-bar {
         display: flex;
-        gap: 4px;
         max-width: 420px;
         margin: 0 auto;
         padding: 7px 10px;
@@ -6340,11 +6453,14 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         backdrop-filter: blur(6px);
       }
       .hub-prog-bar > i {
-        flex: 1;
+        flex: 0 0 0;
+        min-width: 0;
         height: 2px;
         border-radius: 2px;
         overflow: hidden;
         background: rgb(var(--color-ink) / 0.16);
+        animation: hub-prog-seg linear both;
+        animation-timeline: var(--hub-tl);
       }
       .hub-prog-bar > i::after {
         content: '';
@@ -6372,18 +6488,20 @@ html:has(.hub-shape-full) { overflow-x: clip; }
          half the run on screen and not stopped by the guest. Opacity (and
          visibility, pointer-events) only — no transform on a scene. */
       .hub-arun { view-timeline: var(--hub-tl) block; }
+      /* 📏 As tall as its tallest scene (owner 2026-09-27, "A SCENE IS AS
+         TALL AS ITS CONTENT"): the scenes share one cell, so the cell is the
+         tallest of them and the run sits in the page's 1rem rhythm like any
+         other section. It used to be held at one full screen with ~3.7rem of
+         padding above and below, which left a short scene alone in a band. */
       .hub-arun[data-armed] {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         align-items: center;
-        min-height: 100vh;
-        min-height: 100svh;
-        padding-block: max(3.5rem, 7vh);
       }
       .hub-arun[data-armed] > .hub-auto {
         grid-area: 1 / 1;
         margin-top: 0;
-        max-height: calc(100svh - max(7rem, 14vh));
+        max-height: calc(100svh - var(--hub-pin) - max(1.5rem, 3vh));
         overflow-y: auto;
         scrollbar-width: none;
       }
@@ -6426,18 +6544,18 @@ html:has(.hub-shape-full) { overflow-x: clip; }
       .hub-arun[data-armed] > .hub-auto > .hub-during-lift.hub-has-media > .hub-canvas-media {
         animation-timeline: var(--hub-tl);
       }
-      /* Below the progress mark, which itself sits below the invitation's
-         pinned top bar when there is one — measured: at `top: 0.75rem` the
-         button hid under the bar the moment the run reached the top. */
+      /* In the run's own top-right corner. The run is no longer a full screen
+         with padding to park the button in, so it sits ON the scene, small,
+         the way a player's pause button does. */
       .hub-arun[data-armed] > .hub-auto-pp {
         position: absolute;
-        top: 2.75rem;
-        right: 0.75rem;
+        top: 0.5rem;
+        right: 0.5rem;
         z-index: 4;
         display: inline-flex;
         align-items: center;
-        min-height: 2.25rem;
-        padding: 0 0.9rem;
+        min-height: 2rem;
+        padding: 0 0.8rem;
         border: 1px solid rgb(var(--color-ink) / 0.16);
         border-radius: 100px;
         background: rgb(var(--color-cream) / 0.9);
@@ -6446,7 +6564,6 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         letter-spacing: 0.06em;
         cursor: pointer;
       }
-      html:has([data-sticky-top]) .hub-arun[data-armed] > .hub-auto-pp { top: 6.75rem; }
     }
   }
 }

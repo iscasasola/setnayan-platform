@@ -49,7 +49,7 @@ import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSeatingPublished } from '@/lib/seat-pass';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
-import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
+import { DEFAULT_STUDIO_ANIM, heroMarkSvg } from '@/lib/hero-monogram-data';
 import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import {
@@ -105,8 +105,7 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
-import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
+import { sanitizeRolePalette } from '@/lib/mood-board';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -557,10 +556,10 @@ export const loadMedia = cache(
     /* WITH the couple's ink: this loader already selects `role_palette`, so an
      * uploaded mark stamped data-ink="palette" is repainted in their reception
      * colour on the guest site. A caller without the palette gets the file's
-     * own colours — the safe degrade, never black (lib/monogram-ink.ts). */
-    const bespokeSvg = resolveEventMonogramSvg(event, {
-      ink: getPrimaryColor(sanitizeRolePalette(event.role_palette), 'reception') ?? null,
-    });
+     * own colours — the safe degrade, never black (lib/monogram-ink.ts).
+     * `heroMarkSvg` is that call, shared with the invite doors' crest so the
+     * RSVP draws the same logo as this hero (owner 2026-09-28). */
+    const bespokeSvg = heroMarkSvg(event);
 
     // The reveal the couple designed in the Vector Studio "Animate the reveal" panel
     // (monogram_studio_config.anim) — the SOURCE for how the bespoke mark animates on

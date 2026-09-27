@@ -459,7 +459,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
         [movingRow.widget_type]: { display_order: neighborRow.display_order },
         [neighborRow.widget_type]: { display_order: movingRow.display_order },
       } as HubDraftPatch['widgets'],
-    });
+    }, { formData, fallback: DRAFT_FALLBACK(eventId) });
     finishDraftSave(formData, eventId);
   }
 
@@ -536,7 +536,7 @@ async function moveWithinStage(
       widgets: Object.fromEntries(
         places.map(({ row, place }) => [row.widget_type, { stage_order: { [stage]: place } }]),
       ) as HubDraftPatch['widgets'],
-    });
+    }, { formData, fallback: DRAFT_FALLBACK(eventId) });
     finishDraftSave(formData, eventId);
   }
 
@@ -1286,10 +1286,13 @@ async function canvasBase(
   return drafting ? draftedWidgetConfig(eventId, row.widget_type, live) : live;
 }
 
+/** Where a draft save lands with no `return_to` — and where a failed one does, with `draft_error=`. */
+const DRAFT_FALLBACK = (eventId: string) => `/dashboard/${eventId}/website/widgets?drafted=1`;
+
 /** Back to where the couple was, marked as a draft save. Never returns. */
 function finishDraftSave(formData: FormData, eventId: string): never {
   revalidateWebsiteEditor(eventId, 'widgets');
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?drafted=1`, '?drafted=1'));
+  redirect(resolveReturnTo(formData, DRAFT_FALLBACK(eventId), '?drafted=1'));
 }
 
 async function saveWidgetToDraft(
@@ -1298,7 +1301,11 @@ async function saveWidgetToDraft(
   widgetType: string,
   patch: HubDraftWidget,
 ): Promise<never> {
-  await saveHubDraftPatch(eventId, { widgets: { [widgetType]: patch } as HubDraftPatch['widgets'] });
+  await saveHubDraftPatch(
+    eventId,
+    { widgets: { [widgetType]: patch } as HubDraftPatch['widgets'] },
+    { formData, fallback: DRAFT_FALLBACK(eventId) },
+  );
   finishDraftSave(formData, eventId);
 }
 

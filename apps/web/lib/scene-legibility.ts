@@ -27,6 +27,7 @@ import {
   type HubLegibility,
 } from '@/lib/hub-legibility';
 import type { InviteTheme } from '@/lib/invite-themes';
+import { ombreCss, ombreLegibility, ombreRamp } from '@/lib/ombre';
 
 /**
  * The bar every search below aims at: AA, plus a sliver for the browser's own
@@ -53,7 +54,7 @@ export function sceneLegibility(theme: InviteTheme, groundHex: string): HubLegib
  * shipped light scrim. ("No background" has no box: the words sit on the page
  * ground and keep the page's own tokens.)
  */
-export type SceneTintKind = 'color' | 'glass' | 'frost' | 'media';
+export type SceneTintKind = 'color' | 'diagonal' | 'glow' | 'glass' | 'frost' | 'media';
 
 /**
  * 🖼 THE LIGHTEST POINT OF THE PHOTO / SNIPPET SCRIM — the white veil
@@ -74,7 +75,7 @@ export const SCENE_MEDIA_SCRIM = 0.86;
  * scene. Each is only ever made MORE solid than this, and only as far as the
  * words need (`sceneTintGround`).
  */
-export const SCENE_GLASS_ALPHA_FLOOR: Record<SceneTintKind, number> = { color: 1, glass: 0.86, frost: 0.5, media: 1 };
+export const SCENE_GLASS_ALPHA_FLOOR: Record<SceneTintKind, number> = { color: 1, diagonal: 1, glow: 1, glass: 0.86, frost: 0.5, media: 1 };
 /** The white light across the top of an opaque pane — dropped when the words need it gone. */
 export const SCENE_GLASS_SHEEN = 0.22;
 
@@ -87,8 +88,21 @@ export const SCENE_GLASS_SHEEN = 0.22;
 const BEHIND = ['#000000', '#ffffff'] as const;
 
 /** Every colour the words can sit on, for one pane at one opacity. */
-export function sceneGroundSamples(kind: SceneTintKind, tint: string, alpha: number, sheen: number): string[] {
+export function sceneGroundSamples(
+  kind: SceneTintKind,
+  tint: string,
+  alpha: number,
+  sheen: number,
+  /** An ombré's veil (the Main background's rule) — laid over every step of its ramp. */
+  veil?: { color: string; opacity: number } | null,
+): string[] {
   if (kind === 'color') return [tint];
+  /* 🌅 An ombré is every colour of its ramp — the one the CSS paints — under its veil. */
+  if (kind === 'diagonal' || kind === 'glow') {
+    return ombreRamp({ shape: kind, base: tint }).map((c) =>
+      veil && veil.opacity > 0 ? compositeOver(veil.color, veil.opacity, c) : c,
+    );
+  }
   if (kind === 'media') return BEHIND.map((pixel) => compositeOver('#ffffff', SCENE_MEDIA_SCRIM, pixel));
   const out: string[] = [];
   for (const behind of BEHIND) {
@@ -122,6 +136,8 @@ export type SceneTintGround = {
   muteFloor: number;
   /** The worst body-text contrast over every sample. */
   bodyContrast: number;
+  /** An ombré's veil (the Main background's rule), or null. */
+  scrim?: { color: string; opacity: number } | null;
 };
 
 /**
@@ -131,15 +147,37 @@ export type SceneTintGround = {
  * colour the pane can show, so a frosted pane is as clear as the words allow
  * and no clearer. Where the sheen alone would cost AA, the sheen goes.
  */
-export function sceneTintGround(theme: InviteTheme, kind: SceneTintKind, tintHex: string): SceneTintGround {
+export function sceneTintGround(
+  theme: InviteTheme,
+  kind: SceneTintKind,
+  tintHex: string,
+  /**
+   * 🪟 THE COUPLE'S OWN OPACITY for a glass (20–100, the Format → Opacity row;
+   * owner answer 5, *"both"*). It REPLACES the glass's floor as where the
+   * search starts — and the pane is still made more solid only if the words
+   * need it (rails on: never unreadable). Absent = the glass's own floor.
+   */
+  opacity?: number | null,
+): SceneTintGround {
   /* Under the scrim a photo reads as a light ground, whatever the photo. */
   const tint = kind === 'media' ? '#ffffff' : tintHex;
   const leg = sceneLegibility(theme, tint);
-  const ink = leg.ink;
+  let ink = leg.ink;
   let alpha = 1;
   let sheen = 0;
+  let scrim: { color: string; opacity: number } | null = null;
+  /* 🌅 AN OMBRÉ RUNS LIGHTER AND DARKER THAN ITS COLOUR, so its words follow the
+     Main background's OWN rule (`ombreLegibility` — the theme's ink over every
+     colour of the ramp, and a veil only when no ink holds): one rule for the
+     page's ombré and a scene's, never a second one. */
+  if (kind === 'diagonal' || kind === 'glow') {
+    const o = ombreLegibility(theme, { shape: kind, base: tint });
+    ink = o.ink;
+    scrim = o.scrim;
+  }
   if (kind === 'glass' || kind === 'frost') {
-    const floor = SCENE_GLASS_ALPHA_FLOOR[kind];
+    const own = typeof opacity === 'number' && opacity >= 20 && opacity <= 100 ? opacity / 100 : null;
+    const floor = own ?? SCENE_GLASS_ALPHA_FLOOR[kind];
     const sheens = kind === 'glass' ? [SCENE_GLASS_SHEEN, 0] : [0];
     search: for (const s of sheens) {
       for (let step = Math.round(floor * 100); step <= 100; step++) {
@@ -151,7 +189,7 @@ export function sceneTintGround(theme: InviteTheme, kind: SceneTintKind, tintHex
       }
     }
   }
-  const samples = sceneGroundSamples(kind, tint, alpha, sheen);
+  const samples = sceneGroundSamples(kind, tint, alpha, sheen, scrim);
   /* The accent as text only where it clears AA over the pane; else the ink. */
   const accent = worstContrast(leg.accent, samples) >= AA_TARGET ? leg.accent : ink;
   /* A plate is the ground a shade toward the ink — never so far that the ink
@@ -179,7 +217,7 @@ export function sceneTintGround(theme: InviteTheme, kind: SceneTintKind, tintHex
       break;
     }
   }
-  return { kind, tint, alpha, sheen, samples, ink, accent, plate, muteFloor, bodyContrast: worstContrast(ink, samples) };
+  return { kind, tint, alpha, sheen, samples, ink, accent, plate, muteFloor, bodyContrast: worstContrast(ink, samples), scrim };
 }
 
 /**
@@ -208,8 +246,10 @@ export function sceneLegibilityVars(
   theme: InviteTheme,
   groundHex: string,
   kind: SceneTintKind = 'color',
+  /** A glass's own opacity (20–100) — see `sceneTintGround`. */
+  opacity?: number | null,
 ): Record<string, string> {
-  const g = sceneTintGround(theme, kind, groundHex);
+  const g = sceneTintGround(theme, kind, groundHex, opacity);
   const ink = channels(g.ink);
   const accent = channels(g.accent);
   const ground = channels(g.tint);
@@ -230,7 +270,11 @@ export function sceneLegibilityVars(
     '--color-paper-deep': plate,
     color: `rgb(${ink})`,
     '--hub-mute-floor': g.muteFloor.toFixed(2),
-    ...(kind === 'color' || kind === 'media'
+    /* 🌅 An ombré that needed a veil wears it in its own gradient. */
+    ...((kind === 'diagonal' || kind === 'glow') && g.scrim && g.scrim.opacity > 0
+      ? { '--hub-bg-image': ombreCss({ shape: kind, base: g.tint }, g.scrim) }
+      : {}),
+    ...(kind !== 'glass' && kind !== 'frost'
       ? {}
       : {
           '--hub-glass-fill': `rgb(${ground} / ${g.alpha.toFixed(2)})`,

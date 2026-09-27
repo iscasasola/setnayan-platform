@@ -174,18 +174,25 @@ test('the fallback shows the couple, not a spinner', () => {
   const SKELETON = readFileSync(join(ROUTE, '_components', 'invitation-skeleton.tsx'), 'utf8');
   assert.match(
     SKELETON,
-    /\{displayName\}/,
+    /\{displayName\b/,
     'The skeleton stopped rendering the couple\'s name. It comes from the event ' +
       'row the page has ALREADY read to make its routing decision, so it costs ' +
       'nothing — and it is the thing that tells a guest standing at a venue they ' +
       'are in the right place. A spinner says "wait"; a name says "you found it".',
   );
+  // The only movement is the house `.skeleton` sweep (2026-09-27: the loading
+  // screen became the page's own skeleton, owner "A matching skeleton"). It
+  // needs no `motion-safe:` of its own: the global `prefers-reduced-motion`
+  // block in globals.css freezes every animation, so it respects the setting
+  // by construction — asserted here so a hand-rolled keyframe cannot slip in.
   assert.match(
     SKELETON,
-    /motion-safe:animate-pulse/,
-    'The only movement must respect prefers-reduced-motion — this renders on the ' +
-      'worst connection the product ever sees.',
+    /className=\{?[`"]skeleton\b/,
+    'The skeleton no longer uses the house `.skeleton` shimmer — the only movement ' +
+      'must be one the global reduced-motion rule already freezes; this renders on ' +
+      'the worst connection the product ever sees.',
   );
+  assert.doesNotMatch(SKELETON, /@keyframes|animation:/, 'the skeleton grew its own animation');
   assert.match(SKELETON, /role="status"/, 'the loading state must be announced, not implied by grey boxes');
   assert.match(
     SKELETON,

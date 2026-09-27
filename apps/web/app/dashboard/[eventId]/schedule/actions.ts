@@ -324,9 +324,21 @@ export async function updateScheduleBlock(formData: FormData) {
     is_public?: boolean;
     location?: string | null;
     notes?: string | null;
+    block_type?: ScheduleBlockType;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
+
+  // The Schedule rail's inspector changes a moment's phase in place (Schedule
+  // rebuild, 2026-09-27). Only the ordinary types are accepted here — the two
+  // travel-only classes keep their own create path and its clash guard.
+  const blockTypeRaw = formData.get('block_type');
+  if (blockTypeRaw !== null) {
+    if (typeof blockTypeRaw !== 'string' || !VALID_TYPES.has(blockTypeRaw as ScheduleBlockType)) {
+      throw new Error('Invalid block type');
+    }
+    patch.block_type = blockTypeRaw as ScheduleBlockType;
+  }
 
   const labelRaw = formData.get('label');
   if (typeof labelRaw === 'string') {

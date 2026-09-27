@@ -79,8 +79,8 @@ import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop'
 import { updateOurStory } from '../our-story/actions';
 import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
-import { paletteSwatches } from '@/lib/site-palette';
-import type { RolePalette } from '@/lib/mood-board';
+import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
+import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
 import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
 import { updatePhotoMoments } from '../photo-moments/actions';
@@ -160,7 +160,7 @@ export default async function WebsiteEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ open?: string; pin?: string; maker?: string; scene?: string; chain?: string }>;
+  searchParams: Promise<{ open?: string; pin?: string; maker?: string; scene?: string; chain?: string; draft_error?: string }>;
 }) {
   const { eventId } = await params;
   const {
@@ -169,6 +169,7 @@ export default async function WebsiteEditorPage({
     maker: inMaker,
     scene: sceneParam,
     chain: chainParam,
+    draft_error: draftError,
   } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -251,6 +252,8 @@ export default async function WebsiteEditorPage({
     const q = new URLSearchParams({ stage: initialPhase });
     if (typeof openRow === 'string') q.set('open', openRow);
     if (typeof pinResult === 'string') q.set('pin', pinResult);
+    // A draft save that did not land says so in the Maker's toolbar — carry it.
+    if (typeof draftError === 'string') q.set('draft_error', draftError);
     redirect(`/dashboard/${eventId}/launch?${q.toString()}`);
   }
   // 🔒 App-store shell: Pro-only rows and their locks are HIDDEN, not locked.
@@ -648,6 +651,11 @@ export default async function WebsiteEditorPage({
               proLocked={colorsProLocked}
               proLock={lockPanel('Button colour, typeface and motion')}
               themeId={currentThemeId}
+              /* 🎨 Blank = the Mood Board's colours — shown AS those colours
+                 (owner 2026-09-27: "mood board palettes did not update"). */
+              moodBoard={moodBoardSiteColours(
+                sanitizeRolePalette((event as { role_palette?: unknown }).role_palette),
+              )}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
               artDirection={
@@ -1081,36 +1089,36 @@ export default async function WebsiteEditorPage({
     photoUrls: { ...heroDisplay, ...galleryDisplay },
   });
 
-  const scenePanels = Object.fromEntries(
-    sectionRows.map((row) => [
-      row.widget_id,
-      <SectionsPanel
-        key={row.widget_id}
-        only={row.widget_id}
-        returnTo={`/dashboard/${eventId}/launch?scene=${row.widget_id}`}
-        hideLocked={storeShell}
-        eventId={eventId}
-        rows={sectionRows}
-        contentMap={sectionContent}
-        toggleAction={toggleWidgetVisibility}
-        moveUpAction={moveWidgetUp}
-        moveDownAction={moveWidgetDown}
-        setModeAction={setSectionMode}
-        setMotionAction={setWidgetMotion}
-        transitionLocked={!ownsPro}
-        setBackgroundAction={setWidgetBackground}
-        setCropAction={setWidgetCrop}
-        saveCustomAction={saveCustomSection}
-        addCustomAction={addCustomSection}
-        photoChoices={photoChoices}
-        ownsPro={ownsPro}
-        customLock={lockPanel('A section of your own')}
-        lookLock={lockPanel('How each section looks and moves')}
-        videoChoice={videoChoice}
-        colorChoices={colorChoices}
-        openBrowse={openBrowse}
-      />,
-    ]),
+  /* 🧰 THE MAKER'S SCENE INSPECTOR (Keynote rebuild, 2026-09-27). Format ·
+     Animate · Arrange are the Maker's own client tabs; from the server panel it
+     takes only what is still a form — a couple's own scene's words (Content) and
+     its confirm-first Remove (Arrange). `makerPart` draws just that part. */
+  const makerSectionPanel = (row: (typeof sectionRows)[number], makerPart: 'content' | 'remove') => (
+    <SectionsPanel
+      key={`${row.widget_id}:${makerPart}`}
+      only={row.widget_id}
+      makerPart={makerPart}
+      returnTo={`/dashboard/${eventId}/launch?scene=${row.widget_id}`}
+      hideLocked={storeShell}
+      eventId={eventId}
+      rows={sectionRows}
+      contentMap={sectionContent}
+      toggleAction={toggleWidgetVisibility}
+      moveUpAction={moveWidgetUp}
+      moveDownAction={moveWidgetDown}
+      setModeAction={setSectionMode}
+      saveCustomAction={saveCustomSection}
+      photoChoices={photoChoices}
+      ownsPro={ownsPro}
+      customLock={lockPanel('A section of your own')}
+      videoChoice={videoChoice}
+      colorChoices={colorChoices}
+      openBrowse={openBrowse}
+    />
+  );
+  const scenePanels = Object.fromEntries(sectionRows.map((row) => [row.widget_id, makerSectionPanel(row, 'content')]));
+  const sceneRemovers = Object.fromEntries(
+    sectionRows.filter((row) => isCustomSectionType(row.widget_type)).map((row) => [row.widget_id, makerSectionPanel(row, 'remove')]),
   );
 
   /* The theme panel reads the registry as it stands at merge time (Phase 3
@@ -1193,6 +1201,20 @@ export default async function WebsiteEditorPage({
       scenes={scenes}
       navigator={navigator}
       scenePanels={scenePanels}
+      sceneRemovers={sceneRemovers}
+      /* 🧰 The scene inspector's Format tab (background, one-or-all, uploads)
+         and Animate's lock — the same choices the old server panel was given. */
+      sceneFormat={{
+        colorChoices,
+        photoChoices,
+        videoChoice,
+        mediaHref: `${w}/our-photos`,
+        hubTheme: currentThemeId,
+        openBrowse,
+        hideLocked: storeShell,
+        lookLock: lockPanel('How each section looks and moves'),
+        twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
+      }}
       rows={rows}
       themes={themes}
       themeHref={`${base}/guests/invite`}

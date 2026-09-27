@@ -22,7 +22,7 @@ import {
   nextTransition,
   renderedTransition,
   resolveTransition,
-  sceneProgressRange,
+  SCENE_PROGRESS_RANGE,
   sceneTimelineName,
 } from './hub-scenes';
 
@@ -114,12 +114,11 @@ test('timeline names are unique per position and are dashed idents', () => {
   for (const n of names) assert.match(n, /^--hub-s\d+$/);
 });
 
-test('progress ranges are the prototype’s', () => {
-  assert.equal(sceneProgressRange('scroll', false, false), 'entry 50% exit 50%');
-  assert.equal(sceneProgressRange('scrub', true, true), 'entry 0% exit 50%');
-  assert.equal(sceneProgressRange('scrub', true, false), 'entry 0% exit 55%');
-  assert.equal(sceneProgressRange('scrub', false, false), 'entry 45% exit 55%');
-  assert.equal(sceneProgressRange('scrub', false, true), 'entry 45% exit 50%');
+test('every progress segment fills while its box crosses ONE line (start line = end line)', () => {
+  const m = /^cover (\S+) cover calc\(100% - (\S+)\)$/.exec(SCENE_PROGRESS_RANGE);
+  assert.ok(m, SCENE_PROGRESS_RANGE);
+  // "top on line L" → "bottom on line L": the same L, or two boxes could fill at once.
+  assert.equal(m[1], m[2]);
 });
 
 /* ══ THE WRITE AND ITS PRO GATE ══════════════════════════════════════════ */

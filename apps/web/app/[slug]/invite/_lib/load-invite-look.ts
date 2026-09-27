@@ -3,7 +3,9 @@ import 'server-only';
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { inviteDoorFor, type InviteThemeId } from '@/lib/invite-themes';
 import { resolveInviteButton } from '@/lib/invite-button-color';
+import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import { resolveHubLook, HUB_LOOK_COLUMNS, type HubLookEvent } from '../../_lib/hub-look';
+import { resolveMonogram } from '@/lib/monogram';
 import { inviteSkin } from '../_components/themes/invite-skin';
 
 /**
@@ -23,7 +25,41 @@ import { inviteSkin } from '../_components/themes/invite-skin';
  * copy of it.
  */
 export const INVITE_LOOK_COLUMNS = HUB_LOOK_COLUMNS;
-export type InviteLookEvent = HubLookEvent;
+
+/**
+ * THE COUPLE'S LOGO — the three columns the crest needs, selected by every door
+ * beside `INVITE_LOOK_COLUMNS` (owner 2026-09-28: *the logo did not adapt*).
+ *
+ * ⚠ A SEPARATE LIST, NOT PART OF `HUB_LOOK_COLUMNS`. That list is read by every
+ * page of the guest tree to pick a theme; the logo is ~13 KB of SVG only a door
+ * draws. A door that forgets these gets its crest in initials, silently —
+ * `the-door-wears-the-hub.test.ts` holds that every door selects them.
+ */
+export const INVITE_MARK_COLUMNS = 'monogram_custom_svg, monogram_uploaded_svg, role_palette' as const;
+
+export type InviteLookEvent = HubLookEvent & {
+  monogram_custom_svg?: string | null;
+  monogram_uploaded_svg?: string | null;
+  role_palette?: unknown;
+};
+
+/**
+ * The couple's mark for a door's crest: their LOGO (the one sanitised mark the
+ * Event Hub hero draws — `heroMarkSvg`), and their initials for when they have
+ * none. Pure; draft-aware for free, because the Maker's RSVP canvas hands in
+ * the row with the draft already laid over it (`overlayHubDraftEvent` carries
+ * `monogram_custom_svg`).
+ */
+export function doorMarkFor(event: InviteLookEvent): { mark: string | null; monogram: string } {
+  return {
+    mark: heroMarkSvg(event),
+    monogram: resolveMonogram({
+      display_name: event.display_name,
+      monogram_text: event.monogram_text ?? null,
+      monogram_color: event.monogram_color ?? null,
+    }).text,
+  };
+}
 
 /**
  * How a door of the invite arrival looks for this event — its theme, and the
@@ -47,6 +83,9 @@ export async function loadInviteLook(event: InviteLookEvent): Promise<{
     photo: look.photo,
     accent: look.accent,
     monogram: look.monogram,
+    // Their LOGO in the seal, as the Event Hub hero draws it; initials only
+    // when there is none (owner 2026-09-28).
+    mark: doorMarkFor(event).mark,
   });
   return {
     theme: look.theme,

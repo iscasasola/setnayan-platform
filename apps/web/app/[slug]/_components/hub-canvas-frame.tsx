@@ -1,15 +1,8 @@
-import {
-  hasHubCanvas,
-  hubBackgroundTint,
-  hubCanvasClass,
-  hubCanvasVars,
-  hubPhotoPlacement,
-  sanitizeHubCanvas,
-} from '@/lib/hub-canvas';
+import { hasHubCanvas, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { sceneGround } from '@/lib/scene-ground';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { sceneLegibilityVars } from '@/lib/scene-legibility';
+import { sceneFrameLook } from '@/lib/scene-frame-look';
 import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubElementSceneCss } from '@/lib/element-style';
 
 /**
@@ -94,35 +87,20 @@ export function HubCanvasFrame({
      `sceneGround` above, the same reader the dispatchers use to decide whether
      the widget draws its own card. */
   const { bg, mediaUrl, painted } = sceneGround(widget, mediaUrls);
-  /* WHERE the picture goes is the arrangement's call (`hubPhotoPlacement`):
-     behind the words, in its own column beside them, or — for "Words only" —
-     nowhere. The frame draws exactly the one layer that answer names. */
-  const placement = hubPhotoPlacement(canvas, painted);
-  /* 🔤 THE WORDS FOLLOW THE SCENE'S OWN GROUND — for every couple, never Pro
-     (owner 2026-09-25: "did you already make the font color adapt also based
-     on the background?"). A flat colour re-derives the ink, heading and
-     eyebrow through the Phase 3 rule (`hubLegibility`); nothing here reads an
-     entitlement. A photo or clip keeps the frame's measured scrim.
-     🪟 Both glasses too, measured over the pane they actually paint — and the
-     pane's own fill comes from the same answer, so the glass is exactly as
-     clear as its words allow (`sceneTintGround`). */
-  /* 🖼 …and a photo or snippet behind the words: under the light scrim it is a
-     light ground, so a dark theme's light page ink must not ride onto it. */
-  const tint = hubBackgroundTint(bg);
-  const theme = INVITE_THEMES[hubTheme ?? 'house'];
-  const legible =
-    placement !== 'behind'
-      ? null
-      : tint && (bg?.kind === 'color' || bg?.kind === 'glass' || bg?.kind === 'frost')
-        ? sceneLegibilityVars(theme, tint, bg.kind)
-        : mediaUrl && (bg?.kind === 'photo' || bg?.kind === 'snippet')
-          ? sceneLegibilityVars(theme, '#ffffff', 'media')
-          : null;
+  /* WHERE the picture goes (`hubPhotoPlacement`), the frame's classes and its
+     variables, and — 🔤 THE WORDS FOLLOW THE SCENE'S OWN GROUND, for every
+     couple, never Pro (owner 2026-09-25) — the legibility tokens: a flat
+     colour, both ombrés over their ramp, both glasses over the pane at the
+     couple's own opacity (`sceneTintGround`), a photo or clip under its light
+     scrim. ONE answer (`lib/scene-frame-look.ts`), read by this frame and by
+     the Maker's instant background preview, so the two cannot differ. */
+  const look = sceneFrameLook(canvas, { bg, mediaUrl, painted }, INVITE_THEMES[hubTheme ?? 'house']);
+  const placement = look.placement;
   return (
     <>
     <div
-      className={hubCanvasClass(canvas, painted)}
-      style={{ ...hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl), ...legible } as React.CSSProperties}
+      className={look.className}
+      style={look.style as React.CSSProperties}
     >
       {/* Beside the words: a clipping box around a CHILDLESS picture layer, so
           the couple's zoom stays inside its own column and — like the

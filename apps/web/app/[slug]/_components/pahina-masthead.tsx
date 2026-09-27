@@ -140,7 +140,9 @@ export function PahinaMasthead({
     // The part's own motion rides as custom properties; this is the hook the
     // ONE gated rule in globals.css reads (`[data-el-motion]`).
     ...hubElementMotionAttr(elements?.[key]),
-    style: hubElementInlineStyle(elements?.[key]),
+    // A part the couple hid is never drawn for a guest; in the Maker canvas it
+    // is ghosted so it can be brought back (`hubElementDeclarations`).
+    style: hubElementInlineStyle(elements?.[key], { editor: stampElements }),
   });
   /**
    * ✍ A piece of a part's text, with its runs (one letter, one word in its own
@@ -162,9 +164,14 @@ export function PahinaMasthead({
       ),
     );
   };
-  const cardJoiner = names.joiner === '&' ? 'and' : (names.joiner ?? '');
+  /* 🔗 THE JOINER — the couple's own word when they chose one (and · & · + ·
+     their own, `HubElementStyle.word`), else the word the display name gives,
+     exactly as before the Joiner existed. */
+  const ownJoiner = elements?.joiner?.word ?? null;
+  const cardJoiner = ownJoiner ?? (names.joiner === '&' ? 'and' : (names.joiner ?? ''));
+  const plainJoiner = ownJoiner ?? names.joiner ?? '';
   const cardNames = `${names.first}${names.second ? `${cardJoiner}${names.second}` : ''}`;
-  const plainNames = `${names.first}${names.second ? `${names.joiner ?? ''}${names.second}` : ''}`;
+  const plainNames = `${names.first}${names.second ? `${plainJoiner}${names.second}` : ''}`;
 
   if (card) {
     return (
@@ -189,7 +196,7 @@ export function PahinaMasthead({
               <span className="block">{txt('names', names.first, cardNames, 0)}</span>
               {names.second ? (
                 <>
-                  <span className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
+                  <span {...el('joiner')} className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
                     {txt('names', cardJoiner, cardNames, names.first.length)}
                   </span>
                   <span className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
@@ -239,10 +246,10 @@ export function PahinaMasthead({
         <span className="block">{txt('names', names.first, plainNames, 0)}</span>
         {names.second ? (
           <>
-            <span className="block font-pahina text-[0.42em] italic text-gild" aria-hidden>
-              {txt('names', names.joiner ?? '', plainNames, names.first.length)}
+            <span {...el('joiner')} className="block font-pahina text-[0.42em] italic text-gild" aria-hidden>
+              {txt('names', plainJoiner, plainNames, names.first.length)}
             </span>
-            <span className="block">{txt('names', names.second, plainNames, names.first.length + (names.joiner ?? '').length)}</span>
+            <span className="block">{txt('names', names.second, plainNames, names.first.length + plainJoiner.length)}</span>
           </>
         ) : null}
       </h1>

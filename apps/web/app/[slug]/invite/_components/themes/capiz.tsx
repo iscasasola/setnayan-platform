@@ -1,5 +1,6 @@
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import type { InviteSkinInput } from './invite-skin';
+import { SealMark } from './seal-mark';
 import styles from './capiz.module.css';
 
 /**
@@ -9,7 +10,7 @@ import styles from './capiz.module.css';
  * `JSON.stringify` — a quoted, escaped CSS string — so a presigned URL's `&`,
  * `%` or any stray quote can never break out of `url(…)`.
  */
-export function capizSkin({ photo, accent, monogram }: InviteSkinInput): DoorSkin {
+export function capizSkin({ photo, accent, monogram, mark }: InviteSkinInput): DoorSkin {
   return {
     themeId: 'capiz',
     className: styles.capiz ?? '',
@@ -24,7 +25,9 @@ export function capizSkin({ photo, accent, monogram }: InviteSkinInput): DoorSki
     ),
     crest: (
       <div className={styles.crest}>
-        <span className={styles.seal}>{monogram}</span>
+        <span className={styles.seal}>
+          <SealMark mark={mark} monogram={monogram} px={46} />
+        </span>
       </div>
     ),
     hinge: <div className={styles.hinge} />,

@@ -8,6 +8,8 @@ import {
 import { isUuid } from '@/lib/is-uuid';
 import { JoinFlow, RequestSentScreen } from './_components/join-flow';
 import { anyoneMayAskToJoin } from '@/lib/rsvp-ask';
+import Link from 'next/link';
+import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { InvalidTokenScreen } from './_components/join-shell';
 
@@ -96,6 +98,26 @@ export default async function JoinPage({ params, searchParams }: Props) {
   }
 
   if (!tokenValid && !anyoneMayAskToJoin(event.rsvp_ask_config)) {
+    // No token at all = someone pressed "Ask to join" on an event whose couple
+    // chose "Who can RSVP? → Only my Guest List". That is not a broken link, so
+    // it is not told it is one: it is told the list is the couple's.
+    if (!token) {
+      const w = await eventWordsForEvent(eventId);
+      return (
+        <DoorShell
+          tone="dead_end"
+          eyebrow="Guest list"
+          title={event.display_name ?? 'This celebration'}
+          sub={`Only ${w.theOrganizer} can add guests to this celebration. Ask them to send you your personal invitation — it opens everything here.`}
+        >
+          {event.slug ? (
+            <Link className="button-secondary" href={`/${event.slug}`}>
+              Back to the details
+            </Link>
+          ) : null}
+        </DoorShell>
+      );
+    }
     return <InvalidTokenScreen />;
   }
 

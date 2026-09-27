@@ -29,6 +29,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { formatPhp } from '@/lib/php';
 
 /**
  * Append a cache-buster query param to a QR image URL so that newly-uploaded
@@ -244,7 +245,7 @@ export default function ManualCheckoutModal({
                     className="flex items-baseline justify-between border-b border-zinc-800/60 pb-1.5 last:border-b-0 last:pb-0"
                   >
                     <span className="text-zinc-300">{item.name}</span>
-                    <span className="tabular-nums text-zinc-400">₱{item.totalAmount.value}</span>
+                    <span className="tabular-nums text-zinc-400">{formatPhp(Number(item.totalAmount.value))}</span>
                   </li>
                 ))}
               </ul>

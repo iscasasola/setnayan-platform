@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * The words on the couple's "A gift from the Setnayan team" notification —
  * emitted by issueCompGrant (app/admin/users/actions.ts) when an admin gifts
@@ -21,7 +22,7 @@ export function compGiftNoticeBody(args: {
     ? 'every Setnayan service'
     : args.serviceCount === 1
       ? 'a Setnayan service'
-      : `${args.serviceCount} Setnayan services`;
+      : `${formatCount(args.serviceCount)} Setnayan services`;
   const where = args.eventDisplayName ? ` for ${args.eventDisplayName}` : '';
   const until = args.expiryIso
     ? `, until ${new Date(args.expiryIso).toLocaleString('en-PH', {

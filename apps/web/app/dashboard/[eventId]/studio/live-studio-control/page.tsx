@@ -39,6 +39,7 @@ import {
   YOUTUBE_READY_NOTICE,
 } from '@/lib/live-studio-readiness';
 import { setYoutubeLiveReadyAck } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
@@ -209,7 +210,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       caption:
         stats.reviewCount === 0
           ? 'No reviews yet'
-          : `${stats.reviewCount} review${stats.reviewCount === 1 ? '' : 's'}`,
+          : `${formatCount(stats.reviewCount)} review${stats.reviewCount === 1 ? '' : 's'}`,
     },
     {
       eyebrow: 'Purchased',
@@ -217,7 +218,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       caption:
         stats.paidOrderCount === 0
           ? 'Be one of the first'
-          : `${stats.eventsWithFeature} event${stats.eventsWithFeature === 1 ? '' : 's'}`,
+          : `${formatCount(stats.eventsWithFeature)} event${stats.eventsWithFeature === 1 ? '' : 's'}`,
     },
     {
       eyebrow: 'Cameras',

@@ -9,6 +9,7 @@ import {
   type VendorActivity,
 } from '@/lib/vendor-activities';
 import { applyActivityPicks, toggleActivityPick } from '../activity-picks-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * EMCEE PICKS — the couple's menu of their host's segments, on the schedule page.
@@ -185,7 +186,7 @@ export async function EmceePicks({
             className="inline-flex items-center gap-2 bg-ink px-4 py-2.5 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-paper transition-opacity hover:opacity-90"
           >
             <CalendarPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-            Add {unplacedCount} to my timeline
+            Add {formatCount(unplacedCount)} to my timeline
           </button>
           <span className="mt-2 block text-xs leading-relaxed text-ink/60">
             They go in after everything you already have, back to back — nothing you have

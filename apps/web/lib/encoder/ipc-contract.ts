@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * apps/web/lib/encoder/ipc-contract.ts
  *
@@ -97,7 +98,7 @@ export class ContractParseError extends Error {
 function contractErrorMessage(e: ContractError): string {
   switch (e.kind) {
     case 'short_header':
-      return `encoder chunk truncated: ${e.len} bytes, need at least ${HEADER_LEN}`;
+      return `encoder chunk truncated: ${formatCount(e.len)} bytes, need at least ${HEADER_LEN}`;
     case 'unknown_kind':
       return `unknown chunk kind ${e.value}`;
     case 'reserved_not_zero':

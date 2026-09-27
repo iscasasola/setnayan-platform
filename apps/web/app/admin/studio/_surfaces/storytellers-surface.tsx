@@ -18,6 +18,7 @@ import {
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable, type ConsoleColumn } from '@/app/admin/_components/console-table';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * StorytellersSurface — the chapter-featuring body of the tabbed /admin/studio
@@ -163,7 +164,7 @@ export async function StorytellersSurface({
                     href="/admin/user-reports"
                     className="inline-flex items-center rounded-full bg-danger-100 px-2 py-0.5 text-[11px] font-medium text-danger-800 hover:underline"
                   >
-                    {r.openReportCount} open{' '}
+                    {formatCount(r.openReportCount)} open{' '}
                     {r.openReportCount === 1 ? 'report' : 'reports'}
                   </Link>
                 </p>
@@ -337,7 +338,7 @@ export async function StorytellersSurface({
           {rows ? (
             <p className="mb-4 text-sm text-ink/70">
               {rows.length} published {rows.length === 1 ? 'chapter' : 'chapters'} ·{' '}
-              {featuredCount} featured
+              {formatCount(featuredCount)} featured
             </p>
           ) : null}
 
@@ -436,7 +437,7 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
             Influencer analytics unlock once storytellers have driven{' '}
             <strong className="text-ink">{ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}</strong>{' '}
             attributed, vendor-unlocked inquiries platform-wide. So far:{' '}
-            <strong className="text-ink">{a.totalInquiriesDriven}</strong> of{' '}
+            <strong className="text-ink">{formatCount(a.totalInquiriesDriven)}</strong> of{' '}
             {ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}.
           </p>
         </div>

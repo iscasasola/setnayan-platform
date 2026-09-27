@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 
 import { rankTaxonomyOptions } from '@/lib/taxonomy-search-rank';
+import { formatCount } from '@/lib/format-number';
 
 export type TaxonomyOption = {
   /** The canonical_service key — written verbatim into `?category=` on select. */
@@ -287,7 +288,7 @@ export function TaxonomySearch({
                     vocabulary to find a photographer. */}
                 <span className="shrink-0 text-xs text-ink/45">
                   in {opt.column}
-                  {opt.columnCount ? ` · ${opt.columnCount} services` : ''}
+                  {opt.columnCount ? ` · ${formatCount(opt.columnCount)} services` : ''}
                 </span>
               </button>
             );

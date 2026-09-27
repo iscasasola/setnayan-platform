@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { checklistProgress, type ChecklistItem, type ChecklistKey } from '@/lib/guest-checklist';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "YOUR CHECKLIST" — the last 30 days (owner 2026-09-26: *"something
@@ -71,7 +72,7 @@ export function GuestChecklist({
       <h2 id="your-checklist-title" className="flex flex-wrap items-baseline gap-x-3 font-serif text-2xl text-ink">
         Your checklist
         <span className="text-sm font-medium text-ink/70" aria-live="polite">
-          {allSet ? 'You’re all set ✓' : `${ready} of ${total} ready`}
+          {allSet ? 'You’re all set ✓' : `${formatCount(ready)} of ${formatCount(total)} ready`}
         </span>
       </h2>
       {readFailed ? (

@@ -12,6 +12,7 @@ import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import { VENDOR_PAPIC_POINTS, type VendorPapicTier,
   VENDOR_PAPIC_VIDEO_MIN_POINTS,
 } from '@/lib/vendor-papic-tier';
+import { formatCount } from '@/lib/format-number';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
 // A consent gate → the live camera → gesture shutter (tap = photo · press-and-
@@ -404,7 +405,7 @@ export function PapicCaptureController({
             ) : null}
             {queuedCount > 0 ? (
               <div className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
-                <CloudOff aria-hidden className="h-3 w-3" strokeWidth={2} /> {queuedCount} waiting for signal
+                <CloudOff aria-hidden className="h-3 w-3" strokeWidth={2} /> {formatCount(queuedCount)} waiting for signal
               </div>
             ) : null}
           </div>
@@ -486,7 +487,7 @@ export function PapicCaptureController({
                      supplier AND the wrong reason to everyone — a refusal that
                      misdescribes itself sends somebody to fix the wrong thing.
                      The number is DERIVED, never re-typed. */
-                  `Photos only — video unlocks at ${VENDOR_PAPIC_VIDEO_MIN_POINTS} credits`}
+                  `Photos only — video unlocks at ${formatCount(VENDOR_PAPIC_VIDEO_MIN_POINTS)} credits`}
           </span>
         </div>
       </div>
@@ -527,7 +528,7 @@ function TierMeter({
           )}
         </div>
         <span className="font-mono text-sm font-bold" style={{ color: 'var(--m-ink)' }}>
-          {pointsCap == null ? 'Unlimited' : `${pointsLeft} left`}
+          {pointsCap == null ? 'Unlimited' : `${formatCount(pointsLeft)} left`}
         </span>
       </div>
       {pointsCap != null ? (

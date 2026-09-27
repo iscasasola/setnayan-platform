@@ -21,6 +21,7 @@ import {
   type ReactNode,
 } from 'react';
 import { AlertTriangle, Check, ChevronDown, Loader2, type LucideIcon } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -318,7 +319,7 @@ export function SaveStatusChip({
       : state === 'error'
         ? 'Retry save'
         : state === 'dirty'
-          ? `${unsavedCount} unsaved`
+          ? `${formatCount(unsavedCount)} unsaved`
           : savedAt
             ? `Saved · ${savedAt}`
             : 'Saved';

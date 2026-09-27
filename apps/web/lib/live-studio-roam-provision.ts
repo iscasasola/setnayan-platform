@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
 import { liveStudioRoamEnabled, type RoamManifest, type RoamZoneStatus } from '@/lib/live-studio-roam';
 import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
+import { formatCount } from '@/lib/format-number';
 // ⚠ `lib/panood-youtube.ts` and `lib/live-studio-channel-grants.ts` are imported
 // DYNAMICALLY inside provisionRoamBroadcasts, not here. Both carry
 // `import 'server-only'`, and a static edge to either would drag it into this
@@ -615,7 +616,7 @@ export function cameraDropNotice(input: {
   const wasWere = dropped === 1 ? 'is' : 'are';
   const cameraWord = cap === 1 ? 'camera' : 'cameras';
   return (
-    `${dropped} of your ${total} cameras ${wasWere} not being broadcast — ` +
+    `${dropped} of your ${formatCount(total)} cameras ${wasWere} not being broadcast — ` +
     `this channel carries ${cap} ${cameraWord} at a time. ` +
     `Turn off the cameras you don't need, then go live again.`
   );

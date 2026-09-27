@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Event Hub Maker — media limits (Phase 4, DECISION_LOG 2026-09-25).
@@ -179,5 +180,5 @@ function formatMB(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   // One decimal below 10 MB (small clips/photos are legible at that precision),
   // whole numbers above it — matches `bytesToHuman` house style in file-upload.tsx.
-  return mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`;
+  return mb < 10 ? `${formatCount(mb, 1)} MB` : `${formatCount(Math.round(mb))} MB`;
 }

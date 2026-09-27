@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * papic-exhaustion-truth.ts — WHAT A SPENT CAMERA IS ALLOWED TO SAY.
  *
@@ -221,7 +222,7 @@ export function arrivalTally(
   // sentence anchored on what is on screen would misreport a long night. These
   // two figures are session counters that are never trimmed.
   return {
-    headline: `${landed} of your ${total} shots landed.`,
+    headline: `${landed} of your ${formatCount(total)} shots landed.`,
     detail:
       // ⛔ "THE SHOTS", NEVER "YOUR CREDITS". Measured in production: not one
       // of `papic_event_pool_status`, `papic_capture_points_available` or

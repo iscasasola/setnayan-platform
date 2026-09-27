@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { presignUploadUrl } from '@/lib/uploads';
+import { formatCount } from '@/lib/format-number';
 
 /** Matches app/admin/recaps/actions.ts — jobId is interpolated into an R2 key. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
   const cap = kind === 'clip' ? CLIP_MAX_BYTES : REEL_MAX_BYTES;
   if (sizeBytes > cap) {
     return bad(
-      `file too large: ${sizeBytes} bytes exceeds the ${Math.round(cap / 1024 / 1024)} MB cap for ${kind}`,
+      `file too large: ${formatCount(sizeBytes)} bytes exceeds the ${formatCount(Math.round(cap / 1024 / 1024))} MB cap for ${kind}`,
       413,
     );
   }

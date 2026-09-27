@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { pageHref, pagerWindow, type Paged } from '@/lib/paginate';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ListPager — THE pager under every long supplier list.
@@ -97,7 +98,7 @@ export function ListPager({
             style={on}
             aria-current="page"
           >
-            {page} / {pageCount}
+            {formatCount(page)} / {formatCount(pageCount)}
           </span>
           {pagerWindow(page, pageCount).map((n, i) =>
             n === null ? (

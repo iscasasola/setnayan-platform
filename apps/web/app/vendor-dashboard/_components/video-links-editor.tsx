@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, X, Play, ExternalLink } from 'lucide-react';
 import { parseVideoLink } from '@/lib/video-embed';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Featured videos" editor — a repeater of up to 10 external video URL inputs.
@@ -106,7 +107,7 @@ export function VideoLinksEditor({
           Add another video
         </button>
       ) : (
-        <p className="pl-1 text-xs text-ink/45">Up to {MAX_LINKS} videos.</p>
+        <p className="pl-1 text-xs text-ink/45">Up to {formatCount(MAX_LINKS)} videos.</p>
       )}
     </div>
   );

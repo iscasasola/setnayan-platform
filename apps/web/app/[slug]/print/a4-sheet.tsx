@@ -31,6 +31,7 @@ import {
 } from './keepsake-layout';
 import { Colophon, LockedClose } from './print-sheet';
 import { ArrangedSheet } from '../_components/story/arranged-sheet';
+import { formatCount } from '@/lib/format-number';
 
 function CoverPage({
   data,
@@ -86,7 +87,7 @@ function MinutePage({
   return (
     <section className="k4-page k4-minute">
       <p className="k4-minute-index">
-        <span>Minute {index + 1} of {total}</span>
+        <span>Minute {formatCount(index + 1)} of {formatCount(total)}</span>
         {chapter.time ? <span className="k4-minute-time">{chapter.time}</span> : null}
       </p>
       {still ? (

@@ -89,6 +89,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
+import { formatCount } from '@/lib/format-number';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -1180,7 +1181,7 @@ function BadgeDot({
       style={{ background: bg, color: fg }}
     >
       <span aria-hidden>{display}</span>
-      <span className="sr-only">{label ?? `${count} new`}</span>
+      <span className="sr-only">{label ?? `${formatCount(count)} new`}</span>
     </span>
   );
 }

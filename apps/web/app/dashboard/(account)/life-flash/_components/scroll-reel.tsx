@@ -20,6 +20,7 @@ import {
 } from '@/app/[slug]/_components/editorial/living-moments';
 import { placeholderBackground } from './placeholder';
 import { captureLifeFlash } from './life-flash-analytics';
+import { formatCount } from '@/lib/format-number';
 
 export type ReelMoment = {
   id: string;
@@ -149,7 +150,7 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
               <p className="truncate text-xs text-ink/55">
                 {byLine(m)}
                 {m.peopleCount > 0
-                  ? ` · ${m.peopleCount} ${m.peopleCount === 1 ? 'person' : 'people'}`
+                  ? ` · ${formatCount(m.peopleCount)} ${m.peopleCount === 1 ? 'person' : 'people'}`
                   : ''}
               </p>
             </div>

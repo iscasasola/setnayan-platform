@@ -263,7 +263,7 @@ test('the pill never prints its total straight into a count-led label', () => {
   // the only kind waiting. The total needs its own noun.
   assert.match(
     src,
-    /\{count\} need you/,
+    /\{formatCount\(count\)\} need you/,
     'The pill total lost its noun. Printed bare it collides with the label’s ' +
       'own leading count and the card reads "3 3 payments to settle".',
   );

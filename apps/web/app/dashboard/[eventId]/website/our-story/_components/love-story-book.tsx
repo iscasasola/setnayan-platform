@@ -15,6 +15,7 @@ import { AddMomentLabel, MomentSheet } from './moment-sheet';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { InMakerReturnTo } from './in-maker-return-to';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).
@@ -106,7 +107,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
   ) : (
     <div data-love-story-cap="reached">
       <p className="text-[13px] text-[color:var(--ls-muted)]">
-        {FREE_MOMENT_CAP} of {FREE_MOMENT_CAP} free stories told
+        {formatCount(FREE_MOMENT_CAP)} of {formatCount(FREE_MOMENT_CAP)} free stories told
       </p>
       {proLine}
     </div>

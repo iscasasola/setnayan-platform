@@ -15,6 +15,7 @@ import { useRef } from 'react';
 import { Check, Images, Film, Maximize2, Minimize2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdMedia, StdNsfwStatus } from '@/lib/std-media';
+import { formatCount } from '@/lib/format-number';
 
 /** What the picker hands up when a video is uploaded (or null on clear). */
 export type StdVideoUpload = {
@@ -225,7 +226,7 @@ export function StdMediaPicker({
           <Images aria-hidden className="h-6 w-6 text-ink/60" strokeWidth={1.5} />
           <span className="text-sm font-medium text-ink">Photo gallery</span>
           <span className="text-[11px] text-ink/50">
-            {galleryCount > 0 ? `${galleryCount} photo${galleryCount === 1 ? '' : 's'}` : 'Your engagement / pre-wedding photos'}
+            {galleryCount > 0 ? `${formatCount(galleryCount)} photo${galleryCount === 1 ? '' : 's'}` : 'Your engagement / pre-wedding photos'}
           </span>
         </button>
 

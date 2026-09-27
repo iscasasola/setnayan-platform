@@ -111,6 +111,7 @@ import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
 import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { LifeFlashCard } from './_components/life-flash-card';
+import { formatCount } from '@/lib/format-number';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -1084,7 +1085,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                 : claimLinkUnclaimed > 0
                   ? `${claimLinkUnclaimed} to hand out`
                   : claimLinkTotal > 0
-                    ? `${claimLinkTotal} claimed`
+                    ? `${formatCount(claimLinkTotal)} claimed`
                     : 'None yet'
             }
             attention={!windowIsSet || claimLinkUnclaimed > 0}
@@ -1121,7 +1122,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               <p className="mb-3 text-xs text-ink/60">
                 A videographer friend, a hired second shooter — pick their tier.
                 {extraCameraCount !== null && extraCameraCount > 0
-                  ? ` ${extraCameraCount} active.`
+                  ? ` ${formatCount(extraCameraCount)} active.`
                   : ''}
               </p>
               <div className="max-w-sm">
@@ -1172,7 +1173,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               limitedStatus === 'active'
                 ? guestCameraCount === null
                   ? '—'
-                  : `${guestCameraCount} ready`
+                  : `${formatCount(guestCameraCount)} ready`
                 : limitedStatus === 'pending_payment'
                   ? 'Payment under review'
                   : 'Your event day'
@@ -1514,10 +1515,10 @@ function LimitedCard({
 
       <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="text-3xl font-semibold tracking-tight tabular-nums text-ink">
-          {guestCount}
+          {formatCount(guestCount)}
         </span>
         <span className="text-sm text-ink/60">
-          guest{guestCount === 1 ? '' : 's'} → {guestCount} camera
+          guest{guestCount === 1 ? '' : 's'} → {formatCount(guestCount)} camera
           {guestCount === 1 ? '' : 's'}
         </span>
       </div>
@@ -1531,7 +1532,7 @@ function LimitedCard({
             </>
           ) : (
             <>
-              {guestCameraCount} camera{guestCameraCount === 1 ? '' : 's'} ready.
+              {formatCount(guestCameraCount)} camera{guestCameraCount === 1 ? '' : 's'} ready.
               New &ldquo;yes&rdquo; RSVPs are added automatically &mdash; no
               extra charge.
             </>
@@ -1544,7 +1545,7 @@ function LimitedCard({
           <p className="text-sm text-ink/65">
             {guestCount < 1
               ? 'Add your guests first — Limited cameras come from your guest list.'
-              : `Your first ${PAPIC_FREE_CAMERA_COUNT} cameras are free — you’re covered. Paid cameras start at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
+              : `Your first ${formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free — you’re covered. Paid cameras start at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
           </p>
           <Link
             href={`/dashboard/${eventId}/guests`}
@@ -1698,7 +1699,7 @@ function StatusBanners({
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {Number(limitedSynced) > 0
-            ? `${limitedSynced} new guest camera${limitedSynced === '1' ? '' : 's'} added from your list.`
+            ? `${formatCount(Number(limitedSynced))} new guest camera${limitedSynced === '1' ? '' : 's'} added from your list.`
             : 'Your guest cameras are up to date.'}
         </p>
       ) : null}
@@ -1856,7 +1857,7 @@ function StatusBanners({
       ) : limitedError === 'below_min' ? (
         <p className={neutral}>
           <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          Your first {PAPIC_FREE_CAMERA_COUNT} cameras are free — you&rsquo;re
+          Your first {formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free — you&rsquo;re
           covered. Paid Limited starts at a {PAPIC_MIN_PAID_CAMERAS}-guest list.
         </p>
       ) : limitedError ? (

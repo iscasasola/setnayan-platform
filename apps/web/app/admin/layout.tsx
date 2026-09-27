@@ -46,6 +46,7 @@ import {
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Setnayan HQ' };
 
@@ -334,7 +335,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link
           href="/admin/work"
           className="relative inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink/70 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
-          aria-label={`${urgency.unknownCount} queue ${urgency.unknownCount === 1 ? 'count is' : 'counts are'} unavailable — open the work list`}
+          aria-label={`${formatCount(urgency.unknownCount)} queue ${urgency.unknownCount === 1 ? 'count is' : 'counts are'} unavailable — open the work list`}
         >
           <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
           Queue counts unavailable

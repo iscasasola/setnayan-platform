@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Camera, Check, Loader2, Pencil, X } from 'lucide-react';
 import { updateCommunityIdentity } from '../../actions';
+import { formatCount } from '@/lib/format-number';
 
 // The samahan's face, edited WHERE IT IS (owner 2026-08-24, looking at the
 // live header: "click on this image to upload photo? … taps the text to
@@ -57,7 +58,7 @@ export function SamahanIdentityHeader({
       return;
     }
     if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
-      setError(`Keep it under ${MAX_PHOTO_MB} MB.`);
+      setError(`Keep it under ${formatCount(MAX_PHOTO_MB)} MB.`);
       return;
     }
     const localUrl = URL.createObjectURL(file);

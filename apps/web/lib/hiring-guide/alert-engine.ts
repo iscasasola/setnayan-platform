@@ -25,6 +25,7 @@ import {
   sendHiringCountdownEmail,
 } from './emails';
 import { MILESTONE_TARGETS, SIGNAL_THRESHOLDS, type BottleneckSignalName, type SignalLevel } from './types';
+import { formatCount } from '@/lib/format-number';
 
 const BOTTLENECK_SUPPRESSION_DAYS = 7;
 const COUNTDOWN_THRESHOLDS = [30, 14, 7] as const;
@@ -61,7 +62,7 @@ export async function runHiringAlertSweep(dashboardUrl: string): Promise<SweepRe
     {
       name: 'verification',
       level: signals.verification_signal,
-      currentValue: `${signals.verification_backlog_count} pending verifications`,
+      currentValue: `${formatCount(signals.verification_backlog_count)} pending verifications`,
       threshold: SIGNAL_THRESHOLDS.verification.red,
       recommendedRole: 'Vendor Verification Lead',
       recommendedSalaryRange: '₱50,000–100,000/mo',

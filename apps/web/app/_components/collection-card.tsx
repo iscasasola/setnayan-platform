@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { AlertCircle, MapPin, Plus } from 'lucide-react';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE COLLECTION CARD — one shell that every collection fills.
@@ -242,7 +243,7 @@ export function CollectionAttentionRow({
       <AlertCircle aria-hidden className="h-[13px] w-[13px] shrink-0" />
       {count != null ? (
         <span className="shrink-0 font-mono text-[12px] font-bold leading-none">
-          {count} need you
+          {formatCount(count)} need you
         </span>
       ) : null}
       <span className="truncate text-[11px] font-bold">

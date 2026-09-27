@@ -38,6 +38,7 @@ import {
 } from './moodboard-render-parts';
 import { type MoodboardSlotKey } from './moodboard-slots';
 import { renderFailureCopy, type RenderFailureCopy } from './moodboard-render-failure';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The inspiration slot keys that currently hold at least one photo.
@@ -465,7 +466,7 @@ export function buildTileViewModel(args: {
     id,
     label,
     cost,
-    costLabel: `${cost} credit${cost === 1 ? '' : 's'}`,
+    costLabel: `${formatCount(cost)} credit${cost === 1 ? '' : 's'}`,
     hexes,
     hasColor,
     tag,

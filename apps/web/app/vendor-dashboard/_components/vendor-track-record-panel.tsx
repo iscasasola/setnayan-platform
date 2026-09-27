@@ -1,5 +1,6 @@
 import { CalendarHeart, Star, Trophy } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * vendor-track-record-panel.tsx — "One profile, every life event."
@@ -110,11 +111,11 @@ function TrackRecordRow({ row }: { row: VendorTrackRecordRow }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-ink">{label}</p>
         <p className="mt-0.5 text-xs text-ink/55">
-          {row.completed_count} completed
+          {formatCount(row.completed_count)} completed
           {hasRating ? (
             <>
               {' · '}
-              {row.review_count} review{row.review_count === 1 ? '' : 's'}
+              {formatCount(row.review_count)} review{row.review_count === 1 ? '' : 's'}
             </>
           ) : null}
         </p>
@@ -179,7 +180,7 @@ export async function VendorTrackRecordPanel({
           </h2>
         </div>
         <span className="text-xs text-ink/45 tabular-nums">
-          {total} completed · {rows.length} event type
+          {formatCount(total)} completed · {formatCount(rows.length)} event type
           {rows.length === 1 ? '' : 's'}
         </span>
       </div>

@@ -32,6 +32,7 @@ import {
 } from '@/lib/print-pieces';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -155,7 +156,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         event.display_name ?? 'Guest QR codes',
         loaded.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })),
       );
-      subject = `${loaded.passes.length} guests`;
+      subject = `${formatCount(loaded.passes.length)} guests`;
     } else {
       // THE GUEST LIST REGISTRY — the reception-desk list (lib/print-guest-registry.ts).
       // The measured read: a refused guest list is "we could not read it", never

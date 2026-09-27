@@ -18,6 +18,7 @@
 import Link from 'next/link';
 import { addEligibleUser, removeEligibleUser } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatCount } from '@/lib/format-number';
 
 export type EligibleRow = {
   user_id: string;
@@ -42,7 +43,7 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
       >
         {isPrivate ? (
           <>
-            Private code · {eligibleUsers.length} account
+            Private code · {formatCount(eligibleUsers.length)} account
             {eligibleUsers.length === 1 ? '' : 's'} can redeem
           </>
         ) : (

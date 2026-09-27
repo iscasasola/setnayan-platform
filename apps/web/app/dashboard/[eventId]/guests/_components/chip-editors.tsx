@@ -56,6 +56,7 @@ import {
 import { PlusBadge } from './seat-chip';
 import { groupsForSide, teamSideForNewGroup } from '@/lib/groups-for-side';
 import { quickCreateGroup } from '../quick-add-actions';
+import { formatCount } from '@/lib/format-number';
 
 type EditResult = { ok: boolean; error?: string };
 
@@ -345,7 +346,7 @@ export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: 
     commit({
       override: { plus_one_count: count, plus_one_allowed: count > 0 },
       priorOverride: { plus_one_count: current, plus_one_allowed: current > 0 },
-      label: count === 0 ? `${name} → no extra seats` : `${name} → +${count}`,
+      label: count === 0 ? `${name} → no extra seats` : `${name} → +${formatCount(count)}`,
       run: () => setGuestPlusOneCount(eventId, guest.guest_id, count),
       undoRun: () => setGuestPlusOneCount(eventId, guest.guest_id, current),
     });

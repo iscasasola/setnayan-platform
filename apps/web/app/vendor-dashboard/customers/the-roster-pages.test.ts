@@ -172,7 +172,7 @@ test('the render draws 20 rows, whole-list chip counts, and "41–60 of 1,000"',
   const html = await renderPage('3');
   const rows = (html.match(/<li\b/g) ?? []).length;
   assert.equal(rows, 20, `the roster drew ${rows} rows`);
-  assert.match(html, /Everyone <span class="font-mono">1000<\/span>/);
+  assert.match(html, /Everyone <span class="font-mono">1,000<\/span>/);
   for (const lane of CUSTOMER_LANES) {
     assert.ok(
       html.includes(`<span class="font-mono">${MIX[lane]}</span>`),

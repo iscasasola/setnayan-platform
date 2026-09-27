@@ -135,7 +135,7 @@ test('the pointer chip counts the rendered arrays — never a separate count que
   // so a looser check stays green while the displayed count is swapped out.
   assert.ok(
     block.includes(
-      'Featured in {featuredEditorials.length + featuredChapterCredits.length}',
+      'Featured in {formatCount(featuredEditorials.length + featuredChapterCredits.length)}',
     ),
     'the chip’s number is no longer `featuredEditorials.length + featuredChapterCredits.length`. ' +
       'It must be derived from the same arrays the section maps over — both are already sliced ' +

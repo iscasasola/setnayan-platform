@@ -3,6 +3,7 @@ import { ArrowRight, Camera, Play, Plus, Sparkles } from 'lucide-react';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { getPhotosAlbums, type Album } from '../_data/photos-albums';
 import { stanceClosedReason } from '@/lib/event-board';
+import { formatCount } from '@/lib/format-number';
 
 // Photos & Videos tab — the cross-event, album-per-event grid. One card per
 // event the user hosts (OWNED) or attended. An OWNED card opens the per-event
@@ -325,7 +326,7 @@ function AlbumCard({ album }: { album: Album }) {
             </div>
             <p className="mt-0.5 text-xs text-ink/55">
               {hasMedia
-                ? `${count} ${count === 1 ? 'photo or clip' : 'photos & clips'}`
+                ? `${formatCount(count)} ${count === 1 ? 'photo or clip' : 'photos & clips'}`
                 : 'Collecting…'}
             </p>
           </div>

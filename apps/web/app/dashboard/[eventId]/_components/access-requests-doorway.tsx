@@ -3,6 +3,7 @@ import { ArrowRight, ShieldQuestion } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { routes } from '@/lib/routes';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The doorway to /dashboard/[eventId]/access-requests — a page ships with its
@@ -57,7 +58,7 @@ export async function AccessRequestsDoorway({ eventId }: { eventId: string }) {
         <span className="block text-sm font-semibold text-ink">
           {count === 1
             ? 'Your coordinator is asking for access'
-            : `${count} access requests are waiting`}
+            : `${formatCount(count)} access requests are waiting`}
         </span>
         <span className="mt-0.5 block text-xs text-ink/60">
           You decide what to share, one thing at a time.

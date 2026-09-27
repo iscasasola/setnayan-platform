@@ -19,6 +19,7 @@ import {
   type RsvpAskConfig,
   type WhoCanRsvp,
 } from '@/lib/rsvp-ask';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE RSVP PAGE'S CONTROLS — the Maker's own RSVP page (guest pathway brief
@@ -200,7 +201,7 @@ export function MakerRsvpSettings({
         ) : (
           <div className="flex items-center gap-3">
             <span className="font-serif text-4xl leading-none text-ink" data-requests-count={requests.count}>
-              {requests.count}
+              {formatCount(requests.count)}
             </span>
             <span className="min-w-0 flex-1 truncate text-sm text-ink/70">
               {requests.count === 0 ? 'Nobody is waiting' : requests.count === 1 ? 'person asked to join' : 'people asked to join'}

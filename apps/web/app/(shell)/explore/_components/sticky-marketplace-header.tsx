@@ -62,6 +62,7 @@ import { SlidersHorizontal } from 'lucide-react';
 
 import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
 import { FilterDrawer, type FilterDrawerProps } from './filter-drawer';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * One chip in the contextual pill row. `href` is pre-built by the page —
@@ -216,7 +217,7 @@ export function StickyMarketplaceHeader({
         {appliedCount > 0 ? (
           <div className="mb-2 flex items-center justify-end gap-3">
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              {appliedCount} filter{appliedCount === 1 ? '' : 's'} applied
+              {formatCount(appliedCount)} filter{appliedCount === 1 ? '' : 's'} applied
             </span>
           </div>
         ) : null}
@@ -281,7 +282,7 @@ export function StickyMarketplaceHeader({
             onClick={() => setDrawerOpen(true)}
             aria-label={
               appliedCount > 0
-                ? `Open filters (${appliedCount} applied)`
+                ? `Open filters (${formatCount(appliedCount)} applied)`
                 : 'Open filters'
             }
             className="inline-flex h-11 items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm font-medium text-ink hover:border-terracotta/40 hover:text-terracotta-700"
@@ -297,7 +298,7 @@ export function StickyMarketplaceHeader({
                 aria-hidden
                 className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-terracotta-700 px-1.5 font-mono text-[10px] text-cream"
               >
-                {appliedCount}
+                {formatCount(appliedCount)}
               </span>
             ) : null}
           </button>

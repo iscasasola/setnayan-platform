@@ -37,6 +37,7 @@ import {
   type CompatWeights,
 } from '@/lib/compat-score';
 import { LENSES, freshnessRatioFrom, isLensKey, type LensKey } from '@/lib/ranking-lenses';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * What the segmented control can be set to: one of the five RANKING LENSES
@@ -193,7 +194,7 @@ function dimensionCopyFor(
   v: ShortlistVendor,
 ): { lead: string; plain: string } {
   if (dim === 'demandPressure' && v.demandCoupleCount != null) {
-    const phrase = `${v.demandCoupleCount} couples inquired for your date`;
+    const phrase = `${formatCount(v.demandCoupleCount)} couples inquired for your date`;
     return { lead: phrase, plain: phrase };
   }
   // `budgetFit` is scored off the service's "starts at", not a quote (see

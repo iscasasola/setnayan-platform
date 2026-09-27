@@ -20,6 +20,7 @@ import { publishRecap, unpublishRecap } from './actions';
 import { RecapDriveNudge } from './_components/recap-drive-nudge';
 import { RecapSocialFeatureToggle } from './_components/recap-social-feature-toggle';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 // Iteration 0012 Papic — Auto-Recap (couple-side management surface).
 //
@@ -236,12 +237,12 @@ export default async function CoupleRecapPage({
         </p>
         <ul className="mt-2 space-y-1.5 text-sm text-ink/70">
           <li>
-            • The <strong>{summary.publicPhotos}</strong>{' '}
+            • The <strong>{formatCount(summary.publicPhotos)}</strong>{' '}
             {summary.publicPhotos === 1 ? 'photo' : 'photos'} that are safe to share — the ones you
             curated, plus any privacy-screened, face-blurred wall photos.
           </li>
           <li>
-            • The <strong>{summary.publicVoices}</strong> guest{' '}
+            • The <strong>{formatCount(summary.publicVoices)}</strong> guest{' '}
             {summary.publicVoices === 1 ? 'message' : 'messages'} you approved to the Live Wall.
           </li>
           <li>• Your love story and the milestones you wrote.</li>

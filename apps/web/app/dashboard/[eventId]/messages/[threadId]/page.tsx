@@ -48,6 +48,7 @@ import { firstPaymentSentence } from '@/lib/accepted-quote-terms';
 import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Thread' };
 
@@ -654,9 +655,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   {eventDate ? <span>{formatLongDate(eventDate)}</span> : null}
                   {headerPax ? (
                     <span className="text-terracotta">
-                      ~{headerPax} guests
+                      ~{formatCount(headerPax)} guests
                       {thread.pax_at_inquiry && thread.pax_at_inquiry < headerPax
-                        ? ` · was ${thread.pax_at_inquiry} at inquiry`
+                        ? ` · was ${formatCount(thread.pax_at_inquiry)} at inquiry`
                         : ''}
                     </span>
                   ) : null}

@@ -14,6 +14,7 @@ import { DRIVE_COPY_RETRY_CEILING } from '@/lib/papic-drive-copy-retry-core';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { formatCount } from '@/lib/format-number';
 
 // Read-only admin readout for the Papic storage byte-telemetry (migration
 // 20270718100867). Surfaces the two numbers the pricing councils flagged as
@@ -35,7 +36,7 @@ const STRANDED_LIMIT = 100;
 type Row = StorageRow & { event_id: string | null };
 
 function gb(bytes: number): string {
-  return `${(bytes / BYTES_PER_GB).toFixed(2)} GB`;
+  return `${formatCount(bytes / BYTES_PER_GB, 2)} GB`;
 }
 function pct(ratio: number | null): string {
   return ratio == null ? '—' : `${(ratio * 100).toFixed(1)}%`;
@@ -205,7 +206,7 @@ export default async function PapicStoragePage() {
           hint="forever, on our R2"
         />
         <KpiStatCard
-          label={`Events over ${DEFAULT_WEB_COPY_CEILING_GB} GB`}
+          label={`Events over ${formatCount(DEFAULT_WEB_COPY_CEILING_GB)} GB`}
           value={overCeiling}
           hint="should stay 0"
         />
@@ -273,7 +274,7 @@ export default async function PapicStoragePage() {
             align: 'right',
             mono: true,
             hideBelow: 'md',
-            cell: (e) => `${e.summary.totalWebCopyGb.toFixed(2)} GB`,
+            cell: (e) => `${formatCount(e.summary.totalWebCopyGb, 2)} GB`,
           },
           {
             header: 'Ratio',

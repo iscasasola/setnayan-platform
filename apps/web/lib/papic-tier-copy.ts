@@ -46,6 +46,7 @@ import {
   PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
 } from '@/lib/papic-cameras-pure';
+import { formatCount } from '@/lib/format-number';
 
 /** Tier vocabulary — mirrors the papic_tier_config.tier_code CHECK. */
 export type PapicTierCode = 'free' | 'mini' | 'roll' | 'ltd' | 'unlimited';
@@ -342,8 +343,8 @@ export function papicCapacityPhrase(pointsPerDay: number | null): string {
   if (pointsPerDay == null) return 'unlimited photos and 10-second snippets, every day';
   const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
   return (
-    `about ${photos} photo${photos === 1 ? '' : 's'} a day — fewer if you shoot ` +
-    `snippets, since one 10-second snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`
+    `about ${formatCount(photos)} photo${photos === 1 ? '' : 's'} a day — fewer if you shoot ` +
+    `snippets, since one 10-second snippet counts as ${formatCount(PAPIC_POINTS_PER_SNIPPET)}`
   );
 }
 
@@ -422,8 +423,8 @@ export function papicOneRungPhrase(points: number, pricePhp: number): string {
  */
 export function papicPointCurrencyTerms(): readonly [string, string] {
   return [
-    `1 photo = ${PAPIC_POINTS_PER_PHOTO} credit`,
-    `a snippet (10 seconds) = ${PAPIC_POINTS_PER_SNIPPET} credits`,
+    `1 photo = ${formatCount(PAPIC_POINTS_PER_PHOTO)} credit`,
+    `a snippet (10 seconds) = ${formatCount(PAPIC_POINTS_PER_SNIPPET)} credits`,
   ];
 }
 
@@ -439,6 +440,6 @@ export function papicBucketPhrase(points: number): string {
   const photos = Math.floor(points / PAPIC_POINTS_PER_PHOTO);
   return (
     `about ${photos.toLocaleString('en-PH')} photograph${photos === 1 ? '' : 's'} — fewer if ` +
-    `you shoot snippets, since a snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`
+    `you shoot snippets, since a snippet counts as ${formatCount(PAPIC_POINTS_PER_SNIPPET)}`
   );
 }

@@ -2,6 +2,7 @@ import { Sparkles, Store, Info } from 'lucide-react';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import { formatPhp } from '@/lib/orders';
 import { CountUp } from './count-up';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Setnayan vs your own book · what the app added" — the app-vs-import ROI
@@ -46,7 +47,7 @@ function AttributionBar({
           {label}
         </span>
         <span className="font-mono text-xs tabular-nums" style={{ color: 'var(--m-slate)' }}>
-          {bookingCount} booking{bookingCount === 1 ? '' : 's'}
+          {formatCount(bookingCount)} booking{bookingCount === 1 ? '' : 's'}
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -68,7 +69,7 @@ function AttributionBar({
       </div>
       {pricedCount > 0 && pricedCount < bookingCount ? (
         <p className="mt-1 text-right text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-          {pricedCount} of {bookingCount} priced
+          {formatCount(pricedCount)} of {formatCount(bookingCount)} priced
         </p>
       ) : null}
     </div>
@@ -191,7 +192,7 @@ export function RoiAttributionCard({
               <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
                 Peso figures cover the{' '}
                 <span className="font-medium">
-                  {attribution.totalPriced} of {attribution.totalBookings}
+                  {formatCount(attribution.totalPriced)} of {formatCount(attribution.totalBookings)}
                 </span>{' '}
                 bookings with a confirmed price on Setnayan. You settle payment
                 directly with couples, so amounts agreed off-platform won&rsquo;t
@@ -204,7 +205,7 @@ export function RoiAttributionCard({
               not tied to any specific service; say so honestly. */}
           {scopeLabel && nullServiceExcluded && nullServiceExcluded > 0 ? (
             <p className="mt-3 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-              Excludes {nullServiceExcluded} booking
+              Excludes {formatCount(nullServiceExcluded)} booking
               {nullServiceExcluded === 1 ? '' : 's'} not tied to a specific
               service.
             </p>

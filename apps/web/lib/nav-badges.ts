@@ -36,6 +36,7 @@
  */
 
 import type { NavBadge } from '@/app/_components/nav/types';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The couple's Guests tab — a live head-count.
@@ -51,7 +52,7 @@ export function customerGuestsBadge(guestCount?: number | null): NavBadge | unde
     tone: 'neutral',
     // The bare number on a bottom-nav dot is ambiguous read aloud — "142" beside
     // a Guests icon could be anything. The sr-only label says which.
-    label: `${guestCount} ${guestCount === 1 ? 'guest' : 'guests'}`,
+    label: `${formatCount(guestCount)} ${guestCount === 1 ? 'guest' : 'guests'}`,
   };
 }
 
@@ -81,6 +82,6 @@ export function vendorCustomersBadge(
   return {
     count: total,
     tone: 'orange',
-    label: `${inquiries} new inquiries · ${threads} unread threads`,
+    label: `${formatCount(inquiries)} new inquiries · ${threads} unread threads`,
   };
 }

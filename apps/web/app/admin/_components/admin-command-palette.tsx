@@ -30,6 +30,7 @@ import { askTheAdmin, type AskAnswer } from './ask-actions';
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 
 import { buildDestinations, type Dest, type RowDest } from './admin-destinations';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * A job hiding inside an href, the way a page-destination hides in one, is read
@@ -868,7 +869,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
           style={{ borderColor: 'var(--sn-line-soft, #F1ECE3)', color: 'var(--sn-ink-500)' }}
         >
           <span>↑↓ move</span><span>↵ open</span><span>esc close</span>
-          <span className="ml-auto font-mono">{hits.length} of {all.length}</span>
+          <span className="ml-auto font-mono">{formatCount(hits.length)} of {formatCount(all.length)}</span>
         </div>
       </div>
     </>

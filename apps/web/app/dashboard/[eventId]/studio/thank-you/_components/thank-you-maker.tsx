@@ -30,6 +30,7 @@ import {
   THANK_YOU_PALETTE,
   type ThankYouPlan,
 } from '@/lib/thank-you-video-shared';
+import { formatCount } from '@/lib/format-number';
 
 type Phase = 'idle' | 'rendering' | 'done' | 'error';
 
@@ -96,10 +97,10 @@ export function ThankYouMaker({ plan }: { plan: ThankYouPlan }) {
   return (
     <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <p className="text-sm text-ink/70">
-        Using <span className="font-medium">{plan.photos.length}</span>{' '}
+        Using <span className="font-medium">{formatCount(plan.photos.length)}</span>{' '}
         {plan.photos.length === 1 ? 'photo' : 'photos'}
         {plan.availableCount > plan.photos.length
-          ? ` — the most recent of the ${plan.availableCount} that are cleared to share`
+          ? ` — the most recent of the ${formatCount(plan.availableCount)} that are cleared to share`
           : ''}
         , about {plan.targetSec} seconds
         {plan.musicLabel ? `, set to “${plan.musicLabel}”` : ', with no music yet'}.

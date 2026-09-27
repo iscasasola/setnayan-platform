@@ -36,6 +36,7 @@ import {
 } from './_components/account-card-nav';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Account · Admin' };
 
 /**
@@ -848,7 +849,7 @@ function SupportSection({
         <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
           {icon}
           {title}
-          <span className="font-normal text-ink/40">({count})</span>
+          <span className="font-normal text-ink/40">({formatCount(count)})</span>
         </h2>
         <Link href={href} className="text-xs font-medium text-mulberry underline hover:text-ink">
           {hrefLabel}

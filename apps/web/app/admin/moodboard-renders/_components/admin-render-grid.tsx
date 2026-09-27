@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { setRenderFeatured, setRenderReuseBlocked } from '../actions';
 import type { RenderFailureCopy } from '@/lib/moodboard-render-failure';
 import type { AdminRenderRow } from '@/lib/moodboard-render-gallery';
+import { formatCount } from '@/lib/format-number';
 
 export type AdminRenderItem = AdminRenderRow & {
   partLabel: string;
@@ -139,7 +140,7 @@ export function AdminRenderGrid({ items }: { items: AdminRenderItem[] }) {
                   {r.share_consented ? 'Shareable' : 'Private — no consent'}
                 </span>
                 <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">
-                  {r.credits_debited} {r.credits_debited === 1 ? 'credit' : 'credits'}
+                  {formatCount(r.credits_debited)} {r.credits_debited === 1 ? 'credit' : 'credits'}
                 </span>
                 {r.note ? (
                   <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] text-ink/55">

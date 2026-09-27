@@ -8,6 +8,7 @@ import { StudioCardDemo, type DemoFrame } from './studio-card-demo';
 // function" — the 3349409504 crash on every About page with no `demo` frames.
 import { isRichDemoSlug } from './rich-demo-slugs';
 import type { ReactNode } from 'react';
+import { formatCount } from '@/lib/format-number';
 
 // Shared App Store-style detail layout. Used by:
 //   • Customer add-on detail (apps/web/app/dashboard/[eventId]/studio/about/[addon]/page.tsx)
@@ -320,7 +321,7 @@ export function AppStoreLayout({
               <p className="text-xs text-ink/60">
                 {reviews.reviewCount === 0
                   ? 'Be the first to write a review after your event.'
-                  : `${reviews.reviewCount} review${reviews.reviewCount === 1 ? '' : 's'} from couples who used it`}
+                  : `${formatCount(reviews.reviewCount)} review${reviews.reviewCount === 1 ? '' : 's'} from couples who used it`}
               </p>
             </div>
             {reviews.avgRating !== null ? (

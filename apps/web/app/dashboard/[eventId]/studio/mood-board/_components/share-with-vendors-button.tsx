@@ -18,6 +18,7 @@ import { Send } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { shareMoodBoardWithVendors } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { formatCount } from '@/lib/format-number';
 
 export function ShareWithVendorsButton({
   eventId,
@@ -43,7 +44,7 @@ export function ShareWithVendorsButton({
         setDoneCount(sharedCount);
         if (sharedCount > 0) {
           toast.success(
-            `Shared with ${sharedCount} ${sharedCount === 1 ? 'vendor' : 'vendors'}`,
+            `Shared with ${formatCount(sharedCount)} ${sharedCount === 1 ? 'vendor' : 'vendors'}`,
           );
         } else {
           // Booked vendors exist but none have a claimed Setnayan account yet —
@@ -92,7 +93,7 @@ export function ShareWithVendorsButton({
       <p className="text-xs text-ink/55">
         {doneCount !== null && doneCount > 0
           ? 'Your booked vendors have been notified — they can open your board any time.'
-          : `Notify your ${bookedVendorCount} booked ${
+          : `Notify your ${formatCount(bookedVendorCount)} booked ${
               bookedVendorCount === 1 ? 'vendor' : 'vendors'
             } that your mood board is ready to view.`}
       </p>

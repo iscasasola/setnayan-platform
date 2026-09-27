@@ -10,6 +10,7 @@ import {
   type AlaalaWall,
   type WallItem,
 } from '@/lib/alaala-wall';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * AlaalaLensBody — what a lens actually answers with.
@@ -189,7 +190,7 @@ export function AlaalaLensBody({
                 {face.displayName}
               </span>
               <span className="text-[10px] text-ink/45">
-                {face.eventCount} {face.eventCount === 1 ? 'event' : 'events'}
+                {formatCount(face.eventCount)} {face.eventCount === 1 ? 'event' : 'events'}
               </span>
             </li>
           ))}
@@ -231,8 +232,8 @@ export function AlaalaLensBody({
       {wall.unreadable ? <Unreadable /> : null}
       <p className="text-[11px] text-ink/45">
         {lens === 'with_me'
-          ? `${total}${atLeast} ${total === 1 ? 'frame' : 'frames'} you are in`
-          : `${total}${atLeast} ${total === 1 ? 'frame' : 'frames'} kept`}
+          ? `${formatCount(total)}${atLeast} ${total === 1 ? 'frame' : 'frames'} you are in`
+          : `${formatCount(total)}${atLeast} ${total === 1 ? 'frame' : 'frames'} kept`}
         {more > 0 ? ` · showing the newest ${shown.length}` : null}
       </p>
     </div>

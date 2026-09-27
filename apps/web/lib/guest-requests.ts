@@ -28,6 +28,7 @@
 import { classifyClaimMatch, MAX_NAME_LENGTH, type SeedCandidate } from '@/lib/guest-claim-core';
 import { MEAL_LABELS, type MealPreference, type RsvpStatus } from '@/lib/guests';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import { formatCount } from '@/lib/format-number';
 
 /** What the guest may answer on the ask-to-join form (the three RSVP choices). */
 export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' | 'maybe' | 'declined'>; label: string }[] = [
@@ -111,7 +112,7 @@ export function readRequestAnswers(
 const SEATS_NOTE_RE = /^Asked for (\d) seats?\./;
 export function requestedSeatsNote(seats: number): string | null {
   if (!Number.isFinite(seats) || seats <= 1) return null;
-  return `Asked for ${Math.min(REQUEST_MAX_SEATS, Math.floor(seats))} seats.`;
+  return `Asked for ${formatCount(Math.min(REQUEST_MAX_SEATS, Math.floor(seats)))} seats.`;
 }
 export function readRequestedSeats(notes: string | null | undefined): number {
   const m = SEATS_NOTE_RE.exec((notes ?? '').trim());

@@ -47,6 +47,7 @@ import { fetchEventSetsForHost, buildVendorSets } from '@/lib/vendor-sets';
 import { PlaylistSlotSection } from './_components/playlist-slot-section';
 import { UnsortedTray } from './_components/unsorted-tray';
 import { HostSetlistPanel } from './_components/host-setlist-panel';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -190,7 +191,7 @@ export default async function PlaylistPage({ params }: Props) {
       {/* Pick count summary · helps the host see progress at a glance. */}
       {positiveCount > 0 ? (
         <p className="mb-6 text-xs text-ink/55">
-          {positiveCount} song{positiveCount === 1 ? '' : 's'} picked across{' '}
+          {formatCount(positiveCount)} song{positiveCount === 1 ? '' : 's'} picked across{' '}
           the timeline
           {grouped.banned_songs.length > 0
             ? ` · ${grouped.banned_songs.length} on the don't-play list`

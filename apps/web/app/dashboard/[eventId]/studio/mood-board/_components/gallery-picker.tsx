@@ -32,6 +32,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Check, ImageOff, Sparkles } from 'lucide-react';
 import type { GalleryAsset, GalleryPage } from '@/lib/moodboard-gallery';
 import { EventLinkedBadge } from './event-linked-badge';
+import { formatCount } from '@/lib/format-number';
 
 export type GalleryPickerProps = {
   eventId: string;
@@ -153,7 +154,7 @@ export function GalleryPicker({
               : loadError
                 ? 'We couldn’t load supplier photos just now.'
                 : assets.length > 0
-                  ? `${total} ${total === 1 ? 'photo' : 'photos'} from suppliers — every one credited to the shop that made it.`
+                  ? `${formatCount(total)} ${total === 1 ? 'photo' : 'photos'} from suppliers — every one credited to the shop that made it.`
                   : withheld > 0
                     ? `${withheld} ${withheld === 1 ? 'photo is' : 'photos are'} here but not ready to show — their shop isn’t verified yet, or the photo carries no sampled colours.`
                     : 'No supplier has added photos for this yet. Nothing is wrong — the shelf is new.'}
@@ -268,7 +269,7 @@ export function GalleryPicker({
           onClick={() => void loadPage(loadedThrough)}
           className="rounded-full border border-ink/15 px-4 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5 disabled:opacity-50"
         >
-          {loading ? 'Loading…' : `Show more (${Math.max(0, total - loadedThrough)} left)`}
+          {loading ? 'Loading…' : `Show more (${formatCount(Math.max(0, total - loadedThrough))} left)`}
         </button>
       ) : null}
     </section>

@@ -33,6 +33,7 @@ import {
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
 import type { VendorServiceRow, VendorServiceDiscount } from '@/lib/vendor-services';
+import { formatCount } from '@/lib/format-number';
 
 /** Max inclusions listed before we collapse the rest into "+N more included". */
 const SERVICE_CARD_INCLUSION_LIMIT = 3;
@@ -167,7 +168,7 @@ export function toServiceCard(
     row.per_pax_price_php > 0
   ) {
     const minPart =
-      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} ${perPaxUnit}s` : '';
+      row.min_pax !== null && row.min_pax > 0 ? ` · min ${formatCount(row.min_pax)} ${perPaxUnit}s` : '';
     priceDetail = `${formatPhpRounded(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
   } else if (
     row.pricing_basis === 'per_hour' &&

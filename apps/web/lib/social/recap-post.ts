@@ -7,6 +7,7 @@ import { renderRecapOgJpeg } from '@/lib/social/recap-card';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * apps/web/lib/social/recap-post.ts — compose a Setnayan-owned social post when
@@ -123,7 +124,7 @@ async function renderAndUploadRecapCard(eventId: string): Promise<string | null>
     const card = await loadRecapCardData(eventId);
     if (!card) return null;
 
-    const bits = [`${card.stats.photos} ${card.stats.photos === 1 ? 'photo' : 'photos'}`];
+    const bits = [`${formatCount(card.stats.photos)} ${card.stats.photos === 1 ? 'photo' : 'photos'}`];
     if (card.stats.voices > 0) {
       bits.push(`${card.stats.voices} ${card.stats.voices === 1 ? 'voice' : 'voices'}`);
     }

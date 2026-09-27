@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * build-date-window.ts — the PURE core of BUILD-CANDIDATE SCHEDULE CONVERGENCE,
  * the SOFT tier (`Explore_Replan_BUILD_SPEC_2026-07-27.md` §6 decision #12,
@@ -415,7 +416,7 @@ export function freeDaysLine(args: {
   const { freeDays, windowSize } = args;
   if (!freeDays || freeDays.length === 0) return null;
   const maxNames = args.maxNames ?? 3;
-  if (windowSize > 8) return `Free ${freeDays.length} of ${windowSize} days`;
+  if (windowSize > 8) return `Free ${formatCount(freeDays.length)} of ${formatCount(windowSize)} days`;
   const shown = freeDays.slice(0, maxNames).map(formatDayKeyLabel).join(' · ');
   const rest = freeDays.length - Math.min(maxNames, freeDays.length);
   return `Free: ${shown}${rest > 0 ? ` +${rest} more` : ''}`;

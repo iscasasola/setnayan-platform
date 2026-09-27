@@ -34,6 +34,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * SocialQueueSurface — the Social Sharing & Featuring Program mission control,
@@ -1692,7 +1693,7 @@ function QueueSection({
     <section id={id} className="mb-8 space-y-3">
       <div className="space-y-0.5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {title} · {count}
+          {title} · {formatCount(count)}
         </h2>
         <p className="text-xs text-ink/55">{hint}</p>
       </div>

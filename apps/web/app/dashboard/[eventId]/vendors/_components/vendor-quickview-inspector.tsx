@@ -14,6 +14,7 @@ import type { ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * VendorQuickViewInspector — the desktop inspector body for a Shortlist "bench"
@@ -165,7 +166,7 @@ export function VendorQuickViewInspector({
             <span className="font-semibold text-ink">{v.rating.toFixed(1)}</span>
             {v.reviewCount != null ? (
               <span className="text-ink/55">
-                · {v.reviewCount} {v.reviewCount === 1 ? 'review' : 'reviews'}
+                · {formatCount(v.reviewCount)} {v.reviewCount === 1 ? 'review' : 'reviews'}
               </span>
             ) : null}
           </div>

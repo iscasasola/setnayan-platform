@@ -78,6 +78,7 @@ import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 import { setEntourageLineOrder } from '../entourage-order-actions';
 import { joinEntourageLine, swapEntouragePlaces } from '../march-actions';
 import type { MarchResult } from '@/lib/march-result';
+import { formatCount } from '@/lib/format-number';
 
 export type WalkingLine = {
   /** The line's lead guest id — how the server names it. */
@@ -239,7 +240,7 @@ export function WalkingOrderLines({
     if (from === -1 || to < 0 || to >= order.length) return;
     const next = [...order];
     next.splice(to, 0, next.splice(from, 1)[0]!);
-    setSay(`${byId.get(id)?.label ?? 'Line'} is now ${to + 1} of ${next.length} in ${groupLabel}.`);
+    setSay(`${byId.get(id)?.label ?? 'Line'} is now ${formatCount(to + 1)} of ${formatCount(next.length)} in ${groupLabel}.`);
     /* Posts the whole sequence, exactly like the drag does — NOT "move this
        person one step". A single-step request means something only against the
        list the server happens to read, and two of them in flight mean it twice
@@ -257,7 +258,7 @@ export function WalkingOrderLines({
     const next = [...order];
     next.splice(to, 0, next.splice(from, 1)[0]!);
     setOrder(next);
-    setSay(`${byId.get(id)?.label ?? 'Line'} is now ${to + 1} of ${next.length} in ${groupLabel}.`);
+    setSay(`${byId.get(id)?.label ?? 'Line'} is now ${formatCount(to + 1)} of ${formatCount(next.length)} in ${groupLabel}.`);
   }
 
   function commit(next: string[]) {

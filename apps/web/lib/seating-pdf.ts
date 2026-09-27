@@ -17,6 +17,7 @@ import {
   type FloorPlanRow,
   type SeatAssignmentRow,
 } from '@/lib/seating';
+import { formatCount } from '@/lib/format-number';
 
 export type SeatingPdfMode = 'moodboard' | 'blueprint';
 
@@ -566,7 +567,7 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
       pg.drawImage(logo, { x: groupX, y: MARGIN - 16, width: markS, height: lh, opacity: 0.9 });
     }
     pg.drawText(credit, { x: groupX + markS + markGap, y: MARGIN - 14, size: 6.5, font, color: theme.soft });
-    const pn = `${i + 1} / ${pages.length}`;
+    const pn = `${formatCount(i + 1)} / ${formatCount(pages.length)}`;
     const pw = font.widthOfTextAtSize(pn, 6.5);
     pg.drawText(pn, { x: A4.w - MARGIN - pw, y: MARGIN - 14, size: 6.5, font, color: theme.soft });
   });

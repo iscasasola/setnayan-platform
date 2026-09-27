@@ -42,6 +42,7 @@ import { shopInitials } from '@/lib/shop-initials';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The card's terminal blurb when a story has no excerpt of its own.
@@ -248,7 +249,7 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
             {s.viewCount !== null ? (
               <>
                 {' '}
-                &middot; <span className="fd-mono">{s.viewCount} views</span>
+                &middot; <span className="fd-mono">{formatCount(s.viewCount)} views</span>
               </>
             ) : null}
           </p>
@@ -381,7 +382,7 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
             Couples pay you directly — we never take a cut of it.{' '}
             {isBookingFeeEnabled() ? (
               <>
-                Your first {FREE_BOOKING_LIMIT} bookings we introduce are free;
+                Your first {formatCount(FREE_BOOKING_LIMIT)} bookings we introduce are free;
                 after that a booking fee of {bookingFeeScheduleSummary()}, only
                 on couples we bring you. Your own clients stay free.{' '}
               </>

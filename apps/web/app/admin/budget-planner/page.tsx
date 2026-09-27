@@ -13,6 +13,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Budget Planner' };
 
 /**
@@ -411,7 +412,7 @@ export default async function AdminBudgetPlannerPage() {
               header: 'Couples',
               align: 'right',
               hideBelow: 'md',
-              cell: (a) => <span className="text-ink/70">{a.coupleCount}</span>,
+              cell: (a) => <span className="text-ink/70">{formatCount(a.coupleCount)}</span>,
             },
             {
               header: 'First-priority %',

@@ -8,6 +8,7 @@ import {
   fetchUserCommunities,
   type CommunityWithRole,
 } from '@/lib/communities';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
   title: 'Samahan',
@@ -112,7 +113,7 @@ function CommunityRow({ community }: { community: CommunityWithRole }) {
           </span>
         </span>
         <span className="mt-0.5 block font-mono text-xs text-ink/55">
-          {roleLabel} · {community.member_count}{' '}
+          {roleLabel} · {formatCount(community.member_count)}{' '}
           {community.member_count === 1 ? 'member' : 'members'}
         </span>
       </span>

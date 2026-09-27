@@ -8,6 +8,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 // V1 MVP catalog over `public.concierge_brain_chunks` (locked 2026-05-18 via
 // migration 20260518500000_iteration_0016_wizard_architecture_schema.sql).
 //
@@ -276,7 +277,7 @@ export async function BrainSurface() {
                 </span>
                 {paidCount > 0 ? (
                   <span className="inline-flex items-center rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[color:var(--sn-info)]">
-                    {paidCount} paid-tier
+                    {formatCount(paidCount)} paid-tier
                   </span>
                 ) : null}
               </div>
@@ -415,7 +416,7 @@ function ChunkRowView({
               <span className="font-mono uppercase tracking-[0.1em] text-ink/45">
                 Hits 30d ·
               </span>{' '}
-              {row.hit_count_30d}
+              {formatCount(row.hit_count_30d)}
             </span>
             {unmappedFilename ? (
               <span className="font-mono text-danger-700">

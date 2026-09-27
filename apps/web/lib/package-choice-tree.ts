@@ -66,6 +66,7 @@ import {
   optionDeltaCentavos,
   pickBounds as pickBoundsOf,
 } from './package-credit';
+import { formatCount } from '@/lib/format-number';
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Selection state                                                          */
@@ -519,7 +520,7 @@ export function pickState(
     max,
     belowMinimum: chosen < min,
     atMaximum: chosen >= max,
-    counterLabel: `${chosen} of ${max} chosen`,
+    counterLabel: `${formatCount(chosen)} of ${formatCount(max)} chosen`,
   };
 }
 

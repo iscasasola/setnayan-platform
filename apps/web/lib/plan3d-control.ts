@@ -35,6 +35,7 @@
 
 import { NOT_SHARED, type HubFact } from './event-hub-control';
 import { guestListDeadlineEndMs, guestListIsClosed } from './guest-list-closed';
+import { formatCount } from '@/lib/format-number';
 
 export type Plan3dEventRead = {
   measured: boolean;
@@ -231,14 +232,14 @@ export function resolvePlan3dNextStep(
   if (unseated > 0) {
     return plan.autoplace
       ? {
-          headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat yet`,
+          headline: `${formatCount(unseated)} guest${unseated === 1 ? ' has' : 's have'} no seat yet`,
           blurb: 'Auto-seating is on — seats fill themselves as you add tables. Add one and the room follows.',
           href: `${base}/seating`,
           cta: 'Add a table',
           tone: 'act',
         }
       : {
-          headline: `${unseated} guest${unseated === 1 ? ' has' : 's have'} no seat`,
+          headline: `${formatCount(unseated)} guest${unseated === 1 ? ' has' : 's have'} no seat`,
           blurb: 'Auto-seating is off, so these are yours to place. They will be told to ask at the door until then.',
           href: `${base}/seating`,
           cta: 'Seat them',

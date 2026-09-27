@@ -23,6 +23,7 @@ import { mintTurnstileToken } from '@/lib/turnstile-client';
 import { watchGuestCamera, type GuestCameraWatcher } from '@/lib/panood-guest-webrtc';
 import { GUEST_PICK_MAX_VIEWERS_PER_CAMERA } from '@/lib/live-studio-guest-pick';
 import type { PeerConnectionState } from '@/lib/panood-webrtc';
+import { formatCount } from '@/lib/format-number';
 
 type Status = 'connecting' | 'live' | 'full' | 'unavailable';
 
@@ -139,7 +140,7 @@ export function GuestCameraPlayer({
           <Users aria-hidden className="h-7 w-7 text-cream/60" strokeWidth={1.5} />
           <p className="text-sm font-medium text-cream">{label} is full</p>
           <p className="max-w-xs text-xs text-cream/60">
-            Up to {GUEST_PICK_MAX_VIEWERS_PER_CAMERA} guests can watch a side camera at
+            Up to {formatCount(GUEST_PICK_MAX_VIEWERS_PER_CAMERA)} guests can watch a side camera at
             once. Taking you back to the main stream — it has no limit.
           </p>
         </div>

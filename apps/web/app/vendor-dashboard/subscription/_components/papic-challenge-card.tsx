@@ -13,6 +13,7 @@ import {
 } from '../photo-challenge-actions';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Papic Challenges card — the sellable surface on the subscription hub.
@@ -143,11 +144,11 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
               <>
                 Free while you&rsquo;re on your first 5 bookings
                 {first5Remaining > 0 ? <> &middot; {first5Remaining} to go</> : null}, then{' '}
-                {peso(pricePhp)} / {periodDays} days.
+                {peso(pricePhp)} / {formatCount(periodDays)} days.
               </>
             ) : (
               <>
-                {peso(pricePhp)} / {periodDays} days &middot; unlimited.
+                {peso(pricePhp)} / {formatCount(periodDays)} days &middot; unlimited.
               </>
             )}
           </p>
@@ -221,8 +222,8 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
                 ? 'Extend Papic Challenges — still free'
                 : 'Turn on Papic Challenges — free'
               : active
-                ? `Renew — ${peso(pricePhp)} / ${periodDays} days`
-                : `Turn on Papic Challenges — ${peso(pricePhp)} / ${periodDays} days`}
+                ? `Renew — ${peso(pricePhp)} / ${formatCount(periodDays)} days`
+                : `Turn on Papic Challenges — ${peso(pricePhp)} / ${formatCount(periodDays)} days`}
           </SubmitButton>
         </form>
       )}

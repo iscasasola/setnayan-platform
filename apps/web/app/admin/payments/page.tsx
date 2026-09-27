@@ -49,6 +49,7 @@ import { computeVatFromBase } from '@/lib/receipts';
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -696,7 +697,7 @@ function PaymentsList({
         <p className="mb-3 rounded-xl border-2 border-terracotta bg-terracotta/5 px-3 py-2 text-sm font-medium text-ink">
           {totalSameDay === 1
             ? '1 pending payment is for an event happening TODAY — confirm it first.'
-            : `${totalSameDay} pending payments are for events happening TODAY — confirm those first.`}
+            : `${formatCount(totalSameDay)} pending payments are for events happening TODAY — confirm those first.`}
         </p>
       ) : null}
       <BatchApproveBar action={batchApprovePayments} totalCleanMatches={totalCleanMatches} />

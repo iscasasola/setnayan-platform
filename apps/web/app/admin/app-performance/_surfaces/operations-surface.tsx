@@ -30,6 +30,7 @@ import {
   type SignalLevel,
 } from '@/lib/hiring-guide/types';
 import { SmokeTestPanel } from '@/app/admin/operations-hiring/_components/smoke-test-panel';
+import { formatCount } from '@/lib/format-number';
 
 const SIGNAL_TONE: Record<SignalLevel, string> = {
   green: 'bg-success-100 text-success-800 border-success-200',
@@ -177,7 +178,7 @@ export async function OperationsHiringSurface() {
             <SignalRow
               icon={SIGNAL_DOT[signals.verification_signal]}
               label="Vendor verification"
-              detail={`${signals.verification_backlog_count} pending`}
+              detail={`${formatCount(signals.verification_backlog_count)} pending`}
               level={signals.verification_signal}
               threshold={SIGNAL_THRESHOLDS.verification}
             />

@@ -38,6 +38,7 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
 type FlagRow = {
@@ -557,7 +558,7 @@ function StrikePill({
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${ENFORCEMENT_LEVEL_TONE[level]}`}
     >
-      {count} {count === 1 ? 'strike' : 'strikes'} · {ENFORCEMENT_LEVEL_LABEL[level]}
+      {formatCount(count)} {count === 1 ? 'strike' : 'strikes'} · {ENFORCEMENT_LEVEL_LABEL[level]}
     </span>
   );
 }

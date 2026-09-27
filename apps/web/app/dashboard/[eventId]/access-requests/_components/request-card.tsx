@@ -15,6 +15,7 @@ import { Check, Loader2, ShieldCheck, X } from 'lucide-react';
 import type { DelegateArea } from '@/lib/event-moderators';
 import { FLOOR_AREA_LABEL, grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
 import { answerAccessRequest } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 export type PendingRequest = {
   requestId: string;
@@ -138,7 +139,7 @@ export function RequestCard({ eventId, request }: { eventId: string; request: Pe
         <span className="text-xs text-ink/55">
           {chosen === 0
             ? 'Choose share or decline for each thing.'
-            : `${chosen} of ${request.requestedAreas.length} decided`}
+            : `${formatCount(chosen)} of ${formatCount(request.requestedAreas.length)} decided`}
         </span>
       </div>
 

@@ -226,6 +226,7 @@ import {
   loadCategoryRequirements,
   saveCategoryRequirements,
 } from '../requirements-actions';
+import { formatCount } from '@/lib/format-number';
 
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
@@ -1228,7 +1229,7 @@ function VendorCard({
         {v.rating != null ? (
           <span className="stars">
             <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
-            {v.reviewCount != null ? ` · ${v.reviewCount}` : ''}
+            {v.reviewCount != null ? ` · ${formatCount(v.reviewCount)}` : ''}
           </span>
         ) : typeof v.reviewCount === 'number' ? (
           // 0 reviews on a real marketplace pick — "New", never a fake
@@ -1576,7 +1577,7 @@ function InlineMoreCard({
           {v.rating != null ? (
             <span className="stars">
               <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
-              {v.reviewCount != null ? ` · ${v.reviewCount}` : ''}
+              {v.reviewCount != null ? ` · ${formatCount(v.reviewCount)}` : ''}
             </span>
           ) : typeof v.reviewCount === 'number' ? (
             // No stars/average for a shop with 0 reviews — "New", never
@@ -2946,7 +2947,7 @@ export function ShortlistCategories({
                 ) : (
                   <span className={`fold-meta${folder.pickCount > 0 ? ' has' : ''}`}>
                     {folder.pickCount > 0
-                      ? `${folder.pickCount} considering`
+                      ? `${formatCount(folder.pickCount)} considering`
                       : `${folder.tiles.length} categories`}
                     <UnreadRollupBadge vendors={folder.tiles.flatMap((x) => x.vendors)} />
                   </span>

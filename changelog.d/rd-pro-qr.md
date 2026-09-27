@@ -61,6 +61,11 @@ own message ("fix the resolver"), the scanner now reads `${A_COLUMNS}, literal` 
 sabotage). `WEBSITE_PRO_ITEMS` is ten, so every sentence that counted nine now says ten
 (`Unlock all ten`, `One unlock covers all ten`).
 
+**Merged with `main`'s invite door (#6057).** The Enter door already carried `INVITE_MARK_COLUMNS`
+(the two logo SVGs + `role_palette`) for its own seal; the QR look adds only the columns it lacks
+(`QR_LOOK_COLUMNS_AFTER_INVITE_MARK`), and the decode suite holds that the door's three lists cover every
+`QR_LOOK_COLUMNS` column and name none twice.
+
 **Guards touched.** `every-qr-carries-the-strip` and `event-viewer` lose the deleted page's rows;
 `suite-doorway-guardrails` and `seat-rooms-need-seating` lose their custom-qr-guest tests (the entry
 is gone, not re-gated); `every-maker-form-drafts-or-says-so` gains the QR controls as a marked

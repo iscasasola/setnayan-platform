@@ -22,7 +22,7 @@ import {
 } from '@/lib/plan3d-control';
 import { Plan3dStage, type StageMiniature } from './_components/plan3d-stage';
 import { publishFromControlCentre, unpublishFromControlCentre } from './actions';
-import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: '3D Plan' };
@@ -85,12 +85,12 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
   const mayReadGuestList = !isDelegateWithoutArea(viewer, 'guest_list');
   const guestCountsPromise = mayReadGuestList
     ? Promise.all([
-        supabase.from('guests').select('guest_id', { count: 'exact', head: true }).eq('event_id', eventId).neq('entry_source', REQUEST_ENTRY_SOURCE),
+        supabase.from('guests').select('guest_id', { count: 'exact', head: true }).eq('event_id', eventId).neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false),
         supabase
           .from('guests')
           .select('guest_id', { count: 'exact', head: true })
           .eq('event_id', eventId)
-          .neq('entry_source', REQUEST_ENTRY_SOURCE)
+          .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
           .not('avatar_config', 'is', null),
       ])
     : Promise.resolve(null);

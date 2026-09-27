@@ -166,6 +166,9 @@ const RSVP_SECTION_ORDER: readonly string[] = [
   RSVP_LABELS.declined,
 ];
 
+/** What a roster row says under the name of a guest the couple marked "Passed away". */
+const PASSED_AWAY_LINE = 'In loving memory · not counted';
+
 function knownBucketOrder(key: ArrangeKey): readonly string[] {
   if (key === 'role') return ROLE_SECTION_ORDER;
   if (key === 'side') return SIDE_SECTION_ORDER;
@@ -367,6 +370,12 @@ function DesktopRow({
               >
                 {(guestFullName(guest) ?? guestDisplayName(guest))}
               </p>
+              {/* 🕯 Listed, never counted — the guest card's "Passed away". */}
+              {guest.passed_away ? (
+                <p className="truncate text-xs text-ink/55" data-passed-away="">
+                  {PASSED_AWAY_LINE}
+                </p>
+              ) : null}
               {plusOneSeats(guest) > 0 ? (
                 <p className="truncate text-xs text-ink/55">
                   {/* One named plus-one, or the count when there are more. */}
@@ -1847,6 +1856,11 @@ function MobileListRow({
         <p className="pointer-events-none truncate text-sm font-medium text-ink">
           {(guestFullName(guest) ?? guestDisplayName(guest))}
         </p>
+        {guest.passed_away ? (
+          <p className="pointer-events-none truncate text-xs text-ink/55" data-passed-away="">
+            {PASSED_AWAY_LINE}
+          </p>
+        ) : null}
         {/* Sub-line. Role and groups CANNOT be edited without being shown, so
             allowing that here costs a second line on rows that previously had
             one (owner call 2026-09-05 — "allow it if possible"). It is kept to

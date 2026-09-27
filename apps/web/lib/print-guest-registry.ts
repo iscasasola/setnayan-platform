@@ -26,11 +26,10 @@ export type RegistryGuest = Pick<
   'guest_id' | 'first_name' | 'last_name' | 'display_name' | 'name_suffix' | 'role' | 'rsvp_status' | 'plus_one_count' | 'plus_one_allowed' | 'plus_one_of_guest_id'
 > & {
   /**
-   * 🪝 THE "PASSED AWAY" HOOK. No such column exists yet (2026-09-25). When the
-   * Guest list gains one, select it into this field and nothing else changes:
-   * a guest marked here is LISTED — the family may want the name at the desk —
-   * but NOT COUNTED: no party size, no RSVP, out of every total. Until then it
-   * is always undefined and every guest counts.
+   * 🕯 `guests.passed_away` (migration 20271249859363) — the couple's "Passed
+   * away" toggle on the guest card. A guest marked here is LISTED — the family
+   * may want the name at the desk — but NOT COUNTED: no party size, no RSVP,
+   * out of every total. The route reads it with `includePassedAway: true`.
    */
   passed_away?: boolean | null;
 };

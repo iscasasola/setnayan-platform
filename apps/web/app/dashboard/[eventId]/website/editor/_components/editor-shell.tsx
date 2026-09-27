@@ -714,8 +714,6 @@ export function MakerWork({
   const pageView = pageKey ? (
     <MakerPage
       pageKey={pageKey}
-      onClose={() => select?.(null)}
-      closeLabel={`Back to ${PUBLIC_STAGE_LABELS[stage]}`}
       page={
         pageKey === 'logo' ? (
           madeOnce?.logo

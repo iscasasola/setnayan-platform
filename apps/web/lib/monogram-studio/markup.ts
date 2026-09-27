@@ -149,7 +149,7 @@ export const STUDIO_HTML = `
       <div class="row"><button type="button" class="tg" id="symdel">Delete</button><button type="button" class="tg" id="symdone">Done</button><span class="ro">Drag to move · gold dot to size/rotate</span></div>
     </div>
     <p class="sub">Setup</p>
-    <div><p class="lab">Names</p><input class="names" id="names" type="text" value="Maria &amp; Juan" autocomplete="off" aria-label="Names — the initials come from here"></div>
+    <div><p class="lab">Names</p><input class="names" id="names" type="text" value="" placeholder="Add your names" autocomplete="off" aria-label="Names — the initials come from here"></div>
     <div><p class="lab">Font · 8</p><div class="row" id="fonts">
       <button type="button" class="chip sel" data-f="cardo">Cardo</button>
       <button type="button" class="chip" data-f="gilda">Gilda</button>

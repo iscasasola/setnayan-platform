@@ -1,0 +1,161 @@
+'use client';
+
+import { createContext, useContext, useState, type ReactNode } from 'react';
+import type { ScheduleBlockType } from '@/lib/schedule';
+import type { DayActions } from './day-types';
+
+/** The page's server actions, provided once by `ScheduleDay` (see `DayActions`). */
+export const DayActionsContext = createContext<DayActions | null>(null);
+
+export function useDayActions(): DayActions {
+  const actions = useContext(DayActionsContext);
+  if (!actions) throw new Error('useDayActions outside <ScheduleDay>');
+  return actions;
+}
+
+/**
+ * Small pieces the Schedule rail and its sheets share (Schedule rebuild,
+ * slice 1). The prototype groups by whitespace and type scale, never by boxed
+ * cards, so these are deliberately quiet: an ⓘ that explains on tap, a switch,
+ * and the one accent bar per phase.
+ */
+
+/** One quiet accent per phase — the bar on a moment's left edge and the dot on
+ *  its chip. Decorative only: no word is ever painted in these. */
+export const PHASE_TINT: Record<ScheduleBlockType, string> = {
+  pre_ceremony: '#D9CFBF',
+  ceremony: '#CBA766',
+  cocktails: '#9FB39A',
+  reception: '#B98C8C',
+  dinner: '#B98C8C',
+  program: '#D89B7B',
+  dancing: '#8E9BB5',
+  send_off: '#7E8B7A',
+  after_party: '#7E8B7A',
+  custom: '#C7C2B8',
+  lodging: '#C7C2B8',
+  tour: '#C7C2B8',
+};
+
+/** A server action takes FormData; the rail holds plain values. */
+export function toFormData(values: Record<string, string | string[] | null | undefined>): FormData {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(values)) {
+    if (v === null || v === undefined) continue;
+    if (Array.isArray(v)) for (const item of v) fd.append(k, item);
+    else fd.set(k, v);
+  }
+  return fd;
+}
+
+/**
+ * The ⓘ. Hover on a desktop, TAP on a phone — a tap focuses it, and focus is
+ * what shows the words, so a thumb gets the same explanation a cursor does.
+ */
+export function Tip({ children, align = 'center' }: { children: ReactNode; align?: 'center' | 'end' }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex align-middle">
+      <button
+        type="button"
+        aria-label="More about this"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setOpen(false)}
+        className="inline-grid h-6 w-6 place-items-center rounded-full font-display text-xs italic text-ink/55 ring-1 ring-inset ring-ink/15 hover:text-ink"
+      >
+        i
+      </button>
+      {open ? (
+        <span
+          role="tooltip"
+          className={`absolute top-[calc(100%+6px)] z-[70] w-max max-w-[15rem] rounded-md bg-ink px-2.5 py-1.5 text-left text-[11px] font-normal normal-case leading-snug tracking-normal text-cream shadow-lg ${
+            align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'
+          }`}
+        >
+          {children}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** The on/off switch the prototype uses for "Visible to guests". */
+export function Switch({
+  on,
+  onChange,
+  label,
+  hint,
+  disabled = false,
+}: {
+  on: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      className="flex w-full items-center justify-between gap-3 py-2.5 text-left disabled:cursor-default"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-ink">{label}</span>
+        {hint ? <span className="block text-xs text-ink/55">{hint}</span> : null}
+      </span>
+      <span
+        aria-hidden
+        className={`relative h-6 w-10 flex-none rounded-full transition-colors ${on ? 'bg-success-600' : 'bg-ink/15'}`}
+      >
+        <span
+          className={`absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`}
+        />
+      </span>
+    </button>
+  );
+}
+
+/** The small uppercase label the prototype calls `.eye`. */
+export function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">{children}</span>
+  );
+}
+
+/** A round 36px tool in the day's toolbar, with its name for screen readers. */
+export function ToolButton({
+  label,
+  onClick,
+  active = false,
+  badge,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  badge?: number;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`relative grid h-9 w-9 place-items-center rounded-md transition-colors ${
+        active ? 'bg-ink text-cream' : 'text-ink/60 hover:bg-ink/[0.06] hover:text-ink'
+      }`}
+    >
+      {children}
+      {badge && badge > 0 ? (
+        <span className="absolute right-1 top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-mulberry px-0.5 text-[9px] font-bold text-white">
+          {badge}
+        </span>
+      ) : null}
+    </button>
+  );
+}

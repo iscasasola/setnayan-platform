@@ -29,6 +29,10 @@ import {
   toggleBlockVisibility,
   resolveScheduleSuggestion,
   setBlockPrepVisibility,
+  updateScheduleBlock,
+  bulkRetimeScheduleBlocks,
+  setBlockResponsibleParty,
+  loadScheduleTemplate,
 } from './actions';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 // Inline edit affordance for time/range on existing blocks, per
@@ -98,6 +102,27 @@ import {
 import { venueNowMs } from '@/lib/schedule';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+// ── Schedule rebuild, slice 1 (2026-09-27) ─────────────────────────────────
+// The Event Day view becomes the approved prototype's time rail
+// (`prototypes/schedule_redesign_2026-09-25.html`); the header gains Announce.
+// Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
+import { ScheduleDay } from './_components/day-rail';
+import { AnnounceButton } from './_components/announce-button';
+import { Tip } from './_components/day-ui';
+import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
+import { MiniTour } from '@/app/_components/mini-tour';
+import {
+  BROADCASTS_UNREADABLE,
+  fetchLatestBroadcasts,
+  isCoordinatorP3Enabled,
+  resolveBroadcastAuthority,
+} from '@/lib/coordinator-broadcasts-server';
+import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
+import { getDayOfPhase } from '@/lib/day-of-mode';
+import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
+import { findBookedHost } from '@/lib/booked-host';
+import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata = { title: 'Schedule' };
 
@@ -133,7 +158,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const [eventRes, blocks, suggestionsRes, recapRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, event_end_date, ceremony_type, event_type, created_at')
+      .select('event_id, event_date, event_end_date, ceremony_type, event_type, created_at, display_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
@@ -166,6 +191,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         ceremony_type: string | null;
         event_type: string | null;
         created_at: string | null;
+        display_name: string | null;
       }
     | null;
   const eventDate = eventRow?.event_date ?? null;
@@ -407,44 +433,166 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     }));
   }
 
-  return (
-    <section className="sn-col space-y-6">
-      <PageMasthead
-        title="Schedule"
-        actions={
-          <>
-            <p className="max-w-prose text-base text-ink/65">
-              {active === 'journey'
-                ? term(profile, {
-                    wedding:
-                      'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward. Your story, on one continuous timeline.',
-                    generic:
-                      'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward. Your story, on one continuous timeline.',
-                  })
-                : active === 'preparation'
-                  ? term(profile, {
-                      wedding:
-                        'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
-                      generic:
-                        'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
-                    })
-                  : term(profile, {
-                      wedding:
-                        'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-                      generic:
-                        'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-                    })}
-            </p>
-            <ScheduleModeToggle
-              active={active}
-              prepCount={agenda.items.length}
-              journeyCount={journey.totalEntries}
-            />
-          </>
-        }
-      />
+  // ── Schedule rebuild slice 1 — who may change it, the day, Announce ──────
+  //
+  // WHO EDITS: the couple (host), or a delegate the couple approved with
+  // `schedule: 'edit'` inside the access window. `resolveBroadcastAuthority` is
+  // that exact rule — the same pair the `event_schedule_blocks` write policies
+  // and the `coordinator_broadcasts` INSERT policies admit — so one answer
+  // gates both the rail's edit controls and Announce, and neither can show a
+  // control the database will refuse. Owner 2026-09-25: *"setting up the
+  // schedule can be done by hosts of the event and coordinator(upon approval)"*.
+  const [authority, announceEnabled] = await Promise.all([
+    resolveBroadcastAuthority(supabase, eventId, user.id),
+    isCoordinatorP3Enabled(),
+  ]);
+  const dayRole: DayRole = authority.canSend
+    ? authority.role === 'couple'
+      ? 'host'
+      : 'coordinator'
+    : 'view';
+  const canAnnounce = authority.canSend && announceEnabled;
+  // `null` = the read was refused — the sheet says so rather than "nothing yet".
+  let recentAnnouncements: CoordinatorBroadcastItem[] | null = [];
+  if (canAnnounce) {
+    const read = await fetchLatestBroadcasts(supabase, eventId);
+    recentAnnouncements = read === BROADCASTS_UNREADABLE ? null : read;
+  }
 
-      <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
+  // The live run-of-show strip is drawn ON THE DAY only (prototype: "one live
+  // strip on the day"); before it the page is for planning.
+  const isEventDay = eventDate ? getDayOfPhase(eventDate) === 'live' : false;
+  const eventDateKey = eventDate ? eventDate.slice(0, 10) : null;
+  const venueTodayKey = wallDateKey(new Date(venueNowMs()).toISOString());
+  const daysToGo = eventDateKey ? daysBetween(venueTodayKey, eventDateKey) : null;
+  const dateLabel = eventDateKey
+    ? new Date(`${eventDateKey}T00:00:00Z`).toLocaleDateString('en-GB', {
+        timeZone: 'UTC',
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : null;
+
+  // The host / MC tool shows only when a host is booked. Two lookups, UNION:
+  // `findBookedHost` is what the segments and questions use, and
+  // `fetchEmceeRecipients` is what "Tell the host" uses (it can see a booked but
+  // unpublished shop). Taking either keeps a tool that any of the three would
+  // fill — hiding it on one lookup's "no" would delete the other two's content.
+  let hasHost = false;
+  if (!isTravel) {
+    const lookup = await findBookedHost(supabase, eventId, 'SchedulePage.hostTool');
+    hasHost = lookup.state !== 'none';
+    if (!hasHost && canAdvanceRunOfShow) {
+      hasHost = (await fetchEmceeRecipients(supabase, eventId, createAdminClient())).length > 0;
+    }
+  }
+
+  // The rail's moments — the master rows, with the responsible-party meta and
+  // the coordinator's staging flattened on (a Map cannot cross to the client).
+  const stagedIds = new Set(stagedBlocks.map((b) => b.block_id));
+  const dayMoments: DayMoment[] = scheduleBlocks.map((b) => ({
+    block_id: b.block_id,
+    label: b.label,
+    block_type: b.block_type,
+    start_at: b.start_at,
+    end_at: b.end_at,
+    location: b.location,
+    notes: b.notes,
+    is_public: b.is_public,
+    parent_block_id: b.parent_block_id,
+    run_state: b.run_state,
+    staged: stagedIds.has(b.block_id),
+    responsible_party: rosMeta.get(b.block_id)?.responsible_party ?? null,
+    responsible_vendor_ids: rosMeta.get(b.block_id)?.responsible_vendor_ids ?? [],
+  }));
+  const dayRequests: DayRequest[] = openSuggestions.map((s) => ({
+    suggestion_id: s.suggestion_id,
+    block_id: s.block_id,
+    kind: s.kind,
+    by: s.suggested_by_name?.trim() || 'A booked supplier',
+    proposed_label: s.proposed_label,
+    proposed_start_at: s.proposed_start_at,
+    proposed_end_at: s.proposed_end_at,
+    proposed_location: s.proposed_location,
+    note: s.note,
+  }));
+
+  const roleLabel =
+    dayRole === 'host'
+      ? 'You can edit'
+      : dayRole === 'coordinator'
+        ? 'You can edit · coordinator'
+        : 'View only';
+  const viewNote =
+    active === 'journey'
+      ? term(profile, {
+          wedding:
+            'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward.',
+          generic:
+            'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward.',
+        })
+      : active === 'preparation'
+        ? 'Every dated step still ahead — gathered from your payments, paperwork and supplier meetings, sorted by month. Tap an item to manage it where it lives.'
+        : 'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
+
+  return (
+    <section className="sn-col space-y-5">
+      <PageMasthead title="Schedule" />
+
+      {/* ONE LINE AND AN ⓘ — the paragraph that opened this page is gone
+          ("SCHEDULE (event-day view) JOINS THE PAGE REDESIGN": intro paragraph
+          → one line + ⓘ). Who, when, how long to go, and whether you can edit. */}
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <p className="text-sm text-ink/60">
+            {eventRow?.display_name?.trim() ? (
+              <b className="font-semibold text-ink/85">{eventRow.display_name.trim()}</b>
+            ) : null}
+            {eventRow?.display_name?.trim() && dateLabel ? ' · ' : null}
+            {dateLabel}
+            {daysToGo !== null && daysToGo > 0 && !isEventDay ? (
+              <>
+                {' · '}
+                <b className="font-semibold text-ink/85">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
+              </>
+            ) : null}
+          </p>
+          <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink/[0.05] pl-2.5 pr-1 text-[11.5px] font-semibold text-ink/65">
+            <i
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full ${dayRole === 'view' ? 'bg-ink/35' : 'bg-success-600'}`}
+            />
+            {roleLabel}
+            <Tip>
+              Hosts build the schedule. A coordinator edits only after a host approves them — the host
+              invite plus your consent under the Data Privacy Act (RA 10173). Everyone else reads.
+            </Tip>
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ScheduleModeToggle
+            active={active}
+            prepCount={agenda.items.length}
+            journeyCount={journey.totalEntries}
+          />
+          <span className="ml-auto flex items-center gap-2">
+            <Tip align="end">{viewNote}</Tip>
+            {canAnnounce ? (
+              <AnnounceButton
+                eventId={eventId}
+                isEventDay={isEventDay}
+                recent={recentAnnouncements}
+              />
+            ) : null}
+          </span>
+        </div>
+      </header>
+
+      {active !== 'event-day' ? (
+        <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
+      ) : null}
 
       {active === 'journey' ? (
         <JourneyView
@@ -459,7 +607,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           hasEventDate={eventDate !== null}
           eventWord={eventNoun(eventRow?.event_type)}
         />
-      ) : (
+      ) : isTravel ? (
+        // A TRIP KEEPS ITS OWN VIEW. Hotel nights run from one afternoon to the
+        // next morning and tours carry a clash guard; drawn on a one-day rail
+        // they would be twenty-hour bars. The travel list, the day-by-day lens
+        // and the GRD-06 guard are unchanged — only non-travel events get the rail.
         <>
           {/* Run-of-show header — live now/next/±N driven by the shared
               run-state. The couple/host (and a delegate coordinator with
@@ -610,7 +762,80 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             </>
           )}
         </>
+      ) : (
+        <>
+          {isEventDay && runOfShowBlocks.length > 0 ? (
+            <RunOfShowHeader
+              eventId={eventId}
+              initial={runOfShowBlocks}
+              canAdvance={canAdvanceRunOfShow}
+              variant="strip"
+            />
+          ) : null}
+          <ScheduleDay
+            actions={{
+              updateScheduleBlock,
+              bulkRetimeScheduleBlocks,
+              createScheduleBlock,
+              deleteScheduleBlock,
+              toggleBlockVisibility,
+              setBlockResponsibleParty,
+              setBlockPrepVisibility,
+              loadScheduleTemplate,
+              resolveScheduleSuggestion,
+            }}
+            eventId={eventId}
+            eventType={eventRow?.event_type ?? null}
+            eventDateKey={eventDateKey}
+            moments={dayMoments}
+            requests={dayRequests}
+            suppliers={rosVendors}
+            role={dayRole}
+            canStage={canPrep}
+            rosEnabled={rosEnabled}
+            templates={
+              scheduleBlocks.length === 0
+                ? rosTemplates.map((t) => ({
+                    id: t.id,
+                    label: t.label,
+                    description: t.description,
+                    count: t.rows.length,
+                  }))
+                : []
+            }
+            isEventDay={isEventDay}
+            emcee={
+              <EmceeScriptButton
+                eventId={eventId}
+                coupleName={eventRow?.display_name ?? null}
+                variant="icon"
+              />
+            }
+            hostPanel={
+              hasHost ? (
+                <>
+                  <p className="text-[13px] text-ink/60">
+                    Your booked host&rsquo;s segments, their questions for you, and a line to them
+                    mid-service.
+                  </p>
+                  <EmceePicks supabase={supabase} eventId={eventId} />
+                  <HostQuestions supabase={supabase} eventId={eventId} flash={hostAnswersFlash} />
+                  <TellTheHost
+                    supabase={supabase}
+                    eventId={eventId}
+                    canSend={canAdvanceRunOfShow}
+                    flash={noteFlash}
+                  />
+                </>
+              ) : null
+            }
+          />
+        </>
       )}
+
+      {/* Every feature gets a first-visit tour (owner 2026-09-25) — the shipped
+          MiniTour, keyed once per person. */}
+      <MiniTour tourKey="customer_schedule_v1" />
     </section>
   );
 }

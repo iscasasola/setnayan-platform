@@ -1088,12 +1088,13 @@ export async function addCustomSection(formData: FormData): Promise<void> {
       widgets: { [slot as string]: addedSceneDraft({ displayOrder: end, canvas }) } as HubDraftPatch['widgets'],
     });
     revalidateWebsiteEditor(eventId, 'widgets');
-    const back = new URL(
-      resolveReturnTo(formData, `/dashboard/${eventId}/launch?drafted=1`, '?drafted=1'),
-      'http://maker.local',
-    );
-    back.searchParams.set('scene', String((added as { widget_id: string }).widget_id));
-    redirect(`${back.pathname}${back.search}`);
+    /* 🧷 It lands back EXACTLY where the couple is (`lib/maker-stay.ts` — the
+       shell stamps `return_to` + `maker_stay`, and `resolveReturnTo` honours it
+       verbatim), so the App Router keeps the Maker mounted and only the data
+       changes; the work area selects the scene that appeared (`editor-shell.tsx`
+       `scenesBeforeAdd`). A `?scene=<id>` here would be a NEW page key — the
+       whole Maker remounting for one tap, the very reload the owner named. */
+    redirect(resolveReturnTo(formData, `/dashboard/${eventId}/launch?drafted=1`, '?drafted=1'));
   }
 
   const { error: insertErr } = await supabase.from('invitation_widgets').insert({

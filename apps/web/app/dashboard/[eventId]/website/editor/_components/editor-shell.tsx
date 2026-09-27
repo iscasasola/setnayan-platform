@@ -13,7 +13,6 @@ import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
-  MAKER_ADD_SCENE_SLOT_ID,
   MAKER_MORE_ROWS_ID,
   useMaker,
   type MakerSceneTab,
@@ -25,6 +24,7 @@ import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
+import { isCustomSectionType } from '@/lib/custom-sections';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
@@ -296,7 +296,15 @@ export function MakerWork({
    * here (not Pro, all six in use, or the store shell) — the `note` form then
    * says why, in the same place, instead of a button that would be refused.
    */
-  addScene?: { action: FormAction; returnTo: string } | { note: string; locked?: boolean } | null;
+  addScene?:
+    | {
+        action: FormAction;
+        returnTo: string;
+        /** The first-visit tour (`MiniTour`), server-rendered and handed down; mounts when the sheet opens. */
+        tour?: ReactNode;
+      }
+    | { note: string; locked?: boolean }
+    | null;
   proUnlockHref: string;
   /** The live catalogue price, formatted — null when unread (never remembered). */
   proPriceLabel: string | null;
@@ -342,9 +350,9 @@ export function MakerWork({
   const [dropAt, setDropAt] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [moreHost, setMoreHost] = useState<HTMLElement | null>(null);
-  /* ＋ ADD A SCENE — one sheet, two doors: the toolbar's ＋ (portalled into the
-     shell's slot) and "+ Add a scene" at the end of the navigator. */
-  const [addHost, setAddHost] = useState<HTMLElement | null>(null);
+  /* ＋ ADD A SCENE — one sheet, two doors: the toolbar's ＋ (the shell draws it
+     from what is registered below) and "+ Add a scene" at the end of the
+     navigator. Both open this. */
   const [addOpen, setAddOpen] = useState(false);
 
   const stage = maker?.stage ?? 'rsvp';
@@ -426,8 +434,47 @@ export function MakerWork({
 
   useEffect(() => {
     setMoreHost(document.getElementById(MAKER_MORE_ROWS_ID));
-    setAddHost(document.getElementById(MAKER_ADD_SCENE_SLOT_ID));
   }, []);
+
+  /* ＋ ADD A SCENE — the shell's ＋ (desktop) and More ▾ row (phone) cannot know
+     whether a scene may be added here, so the work area REGISTERS the answer
+     (`MakerAddScene`, `maker-context.tsx`): ready opens the sheet below; refused
+     carries the note (padlocked when it is Event Hub Pro); null where the
+     navigator offers nothing either (the store shell, a stage without scenes
+     of their own — `stageTakesOwnScenes`). */
+  const setAddScene = maker?.setAddScene;
+  useEffect(() => {
+    if (!setAddScene) return;
+    if (!addScene || !stageTakesOwnScenes(stage)) {
+      setAddScene(null);
+      return;
+    }
+    setAddScene(
+      'action' in addScene
+        ? { kind: 'ready', open: () => setAddOpen(true) }
+        : { kind: 'refused', note: addScene.note, locked: addScene.locked === true, unlockHref: proUnlockHref },
+    );
+    return () => setAddScene(null);
+  }, [setAddScene, addScene, stage, proUnlockHref]);
+
+  /* The scene just added is SELECTED once the render that carries it lands.
+     A tile's post lands back on this very address (`lib/maker-stay.ts` — the
+     shell stamps `return_to` + `maker_stay`), so nothing remounts and `?scene=`
+     cannot seed it; instead the work area remembers which scenes it had when
+     the tile was tapped and picks the one that appeared. */
+  const scenesBeforeAdd = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const before = scenesBeforeAdd.current;
+    if (!before || !select) return;
+    const added = scenes.find((s) => isCustomSectionType(s.type) && !before.has(s.type));
+    if (!added) return;
+    scenesBeforeAdd.current = null;
+    select({ kind: 'scene', id: added.id });
+  }, [scenes, select]);
+  const onPickTemplate = useCallback(() => {
+    scenesBeforeAdd.current = new Set(scenes.map((s) => s.type));
+    setAddOpen(false);
+  }, [scenes]);
 
   /* ── the preview ─────────────────────────────────────────────────────── */
   /* 🖼 The canvas is ONLY the page (`isEditorCanvas` on the guest page). The
@@ -1699,6 +1746,8 @@ export function MakerWork({
                   draft
                   open={addOpen}
                   onOpenChange={setAddOpen}
+                  onPick={onPickTemplate}
+                  tour={addScene.tour ?? null}
                   action={addScene.action}
                   hidden={{ event_id: eventId, return_to: addScene.returnTo }}
                   stageLabel={stage === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[stage]}
@@ -1974,32 +2023,6 @@ export function MakerWork({
         <button type="submit" data-op="down" formAction={moveDownAction} tabIndex={-1} />
       </form>
 
-      {/* ＋ in the toolbar: opens the SAME sheet as the navigator's "+ Add a
-          scene" — or, where a scene cannot be added, says why (and wears the
-          padlock when the reason is Event Hub Pro). Absent where the navigator
-          offers nothing either (the store shell, a stage without scenes of
-          their own). */}
-      {addHost && addScene && stageTakesOwnScenes(stage)
-        ? createPortal(
-            'action' in addScene ? (
-              <button
-                type="button"
-                data-maker-add-scene=""
-                aria-label="Add a scene"
-                title="Add a scene"
-                aria-expanded={addOpen}
-                onClick={() => setAddOpen(true)}
-                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
-              >
-                <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </button>
-            ) : (
-              <AddSceneRefused note={addScene.note} locked={addScene.locked === true} unlockHref={proUnlockHref} />
-            ),
-            addHost,
-          )
-        : null}
-
       {/* The address rows live in the ⋯ sheet, with the rest of "your Event Hub". */}
       {moreHost
         ? createPortal(
@@ -2198,78 +2221,6 @@ function SceneMenu({
         {showing ? 'Hide from guests' : 'Show to guests'}
       </button>
     </div>
-  );
-}
-
-/**
- * The toolbar's ＋ where a scene cannot be added here — it says WHY, in the
- * house bubble, rather than doing nothing. When the reason is Event Hub Pro the
- * ＋ wears the padlock (`PaidMark`, the one paid-to-unlock mark) and the bubble
- * links to the unlock; the store shell never reaches this (no `addScene`).
- */
-function AddSceneRefused({ note, locked, unlockHref }: { note: string; locked: boolean; unlockHref: string }) {
-  const [at, setAt] = useState<{ top: number; left: number; width: number } | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!at) return;
-    const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setAt(null);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAt(null);
-    };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [at]);
-  return (
-    <span ref={ref} className="relative inline-flex shrink-0">
-      <button
-        ref={btnRef}
-        type="button"
-        data-maker-add-scene="refused"
-        aria-label={locked ? `Add a scene — ${paidMarkLabel('locked', 'Event Hub Pro')}` : 'Add a scene'}
-        title="Add a scene"
-        aria-expanded={Boolean(at)}
-        onClick={() => {
-          if (at) return setAt(null);
-          const r = btnRef.current?.getBoundingClientRect();
-          if (!r) return;
-          const width = Math.min(288, window.innerWidth - 32);
-          setAt({ top: r.bottom + 8, left: Math.max(16, Math.min(r.left, window.innerWidth - width - 16)), width });
-        }}
-        className="sn-press relative inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
-      >
-        <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        {locked ? (
-          <span className="absolute bottom-1 right-1 inline-flex rounded-full bg-cream">
-            <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" />
-          </span>
-        ) : null}
-      </button>
-      <span
-        role="status"
-        hidden={!at}
-        style={at ? { position: 'fixed', top: at.top, left: at.left, width: at.width } : undefined}
-        className="z-50"
-      >
-        <span className="sn-tip-body sn-glass-bare block">
-          {note}
-          {locked ? (
-            <>
-              {' '}
-              <Link href={unlockHref} className="font-semibold text-ink underline underline-offset-2">
-                See Event Hub Pro
-              </Link>
-            </>
-          ) : null}
-        </span>
-      </span>
-    </span>
   );
 }
 

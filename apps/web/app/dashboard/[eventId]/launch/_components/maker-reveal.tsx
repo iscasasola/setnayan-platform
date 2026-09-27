@@ -6,7 +6,13 @@ import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES, type RevealStage } from '@/lib/reveal-stages';
-import type { RevealEffects } from '@/lib/std-reveal-effects';
+import {
+  revealTuneKnobsFor,
+  type RevealEffects,
+  type RevealTuneHouse,
+  type RevealTuneKnob,
+} from '@/lib/std-reveal-effects';
+import { InfoTip } from '@/app/_components/info-tip';
 import { useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
@@ -35,6 +41,18 @@ import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
  *
  * 🖼 This panel sits BESIDE the Reveal's page (the Maker's body shows the stage
  * it plays on, playing it in place) — never over it.
+ *
+ * ✂ FEWER WORDS (owner 2026-09-27: *"less words as our prompt says"* — design
+ * brief 2026-09-24 "Zero Explanatory Clutter"). Each opening is its short label
+ * and its marks; what it is, the intro and how "Where it plays" behaves sit
+ * behind an ⓘ (`InfoTip`). Only status ("In your draft…") and errors stay out.
+ *
+ * 🎚 FINE-TUNE (owner 2026-09-27: *"where is the petal speed and other fine
+ * tuning?"*). A fold, shut by default, under the chosen opening: the few
+ * sliders THAT opening's engine reads (`revealTuneKnobsFor`), ranges clamped by
+ * the house resolver. A slider saves to the DRAFT when let go; the save
+ * refreshes the Maker and the Reveal page reloads, so the opening replays with
+ * it. Pro at Apply like every other change to the reveal's effects.
  */
 export type MakerRevealOpening = { id: string; label: string; blurb: string };
 
@@ -46,6 +64,7 @@ export function MakerRevealPicker({
   stagesDrafted,
   effects,
   effectsDrafted,
+  tuneHouse,
   themeName,
   defaultOpening,
   defaultIsTheme,
@@ -65,6 +84,8 @@ export function MakerRevealPicker({
   effects: RevealEffects;
   /** The draft holds different effects from what guests see. */
   effectsDrafted: boolean;
+  /** The house look's value for every fine-tune knob (the Reveal Studio's). */
+  tuneHouse: RevealTuneHouse;
   eventId: string;
   /** The drafted-over-live `std_reveal_template`: an id · 'none' · null (not chosen). */
   current: string | null;
@@ -156,37 +177,51 @@ export function MakerRevealPicker({
   const Row = ({ id, label, note, pro }: { id: string; label: string; note: string; pro: boolean }) => {
     const on = effective === id;
     const mark = pro ? paidMarkState({ owns: ownsPro, storeShell }) : null;
+    /* The whole row picks (a button laid over it); the ⓘ sits above that
+       button, so the note opens without picking. A picked row is ringed, not
+       inked, so the ⓘ stays readable on it. */
     return (
-      <li>
+      <li
+        className={`relative flex min-h-12 items-center gap-3 rounded-md px-3 py-2 text-ink transition-colors duration-sn-control ease-sn ${
+          on ? 'bg-white ring-2 ring-ink' : 'bg-white/70 hover:bg-white'
+        }`}
+      >
         <button
           type="button"
           aria-pressed={on}
+          aria-label={label}
           disabled={pending}
           data-maker-reveal={id}
           onClick={() => choose(id)}
-          className={`sn-press flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-sn-control ease-sn disabled:opacity-60 ${
-            on ? 'bg-ink text-cream' : 'bg-white/70 text-ink hover:bg-white'
-          }`}
+          className="sn-press absolute inset-0 rounded-md disabled:cursor-wait"
+        />
+        <InfoTip
+          label={label}
+          align="start"
+          className="pointer-events-none relative min-w-0 flex-1 [&_button]:pointer-events-auto"
+          labelClassName="text-[13.5px] font-semibold"
         >
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13.5px] font-semibold">{label}</span>
-            <span className={`block text-[12px] ${on ? 'text-cream/80' : 'text-ink/60'}`}>{note}</span>
+          {note}
+        </InfoTip>
+        {mark ? (
+          <span className="pointer-events-none relative">
+            <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} tone="auto" />
           </span>
-          {mark ? (
-            <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} tone={on ? 'current' : 'auto'} />
-          ) : null}
-          {on ? <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
-        </button>
+        ) : null}
+        {on ? <Check aria-hidden className="pointer-events-none relative h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
       </li>
     );
   };
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="reveal">
-      <p className="text-[13.5px] text-ink/75">
+      <InfoTip label="Opening" labelAs="h3" labelClassName="text-[13px] font-semibold text-ink" align="start">
         How your Event Hub opens for a guest — once, before the page. Your {themeName} theme dresses it
         {dressing ? `: ${dressing.charAt(0).toLowerCase()}${dressing.slice(1)}.` : '.'}
-      </p>
+        {!ownsPro && !storeShell && openings.length > 0
+          ? ' Every opening is part of Event Hub Pro — try one here; guests see it after you Apply with Pro.'
+          : null}
+      </InfoTip>
       <ul className="flex flex-col gap-1.5" aria-label="Choose how your Event Hub opens">
         <Row id="none" label="No reveal" note="Your page opens straight away. Always free." pro={false} />
         {openings.map((o) => (
@@ -204,12 +239,6 @@ export function MakerRevealPicker({
           In your draft — guests see it after you Apply.
         </p>
       ) : null}
-      {!ownsPro && !storeShell && openings.length > 0 ? (
-        <p className="text-[12px] text-ink/60">
-          Every opening is part of Event Hub Pro. Try one here — it plays in your own preview; guests see it only
-          after you Apply with Pro.
-        </p>
-      ) : null}
       {effective !== 'none' ? (
         <button
           type="button"
@@ -224,13 +253,20 @@ export function MakerRevealPicker({
         <FineTune
           opening={effective}
           effects={effects}
+          tuneHouse={tuneHouse}
           drafted={effectsDrafted}
           pending={pending}
           onChange={setEffects}
         />
       ) : null}
       <fieldset className="flex flex-col gap-1.5" data-maker-reveal-stages="">
-        <legend className="mb-1 text-[13px] font-semibold text-ink">Where it plays</legend>
+        <legend className="mb-1">
+          <InfoTip label="Where it plays" labelClassName="text-[13px] font-semibold text-ink" align="start">
+            On the {PUBLIC_STAGE_LABELS.save_the_date} (more than {stdWindowDays} days before the day) it opens your
+            film. On the {PUBLIC_STAGE_LABELS.rsvp} and {PUBLIC_STAGE_LABELS.event} it plays on the first page only —
+            once opened, it is gone.
+          </InfoTip>
+        </legend>
         <div className="flex flex-wrap gap-1.5">
           {REVEAL_STAGE_CHOICES.map((s) => {
             const on = stages.includes(s);
@@ -258,11 +294,6 @@ export function MakerRevealPicker({
             In your draft — guests see it after you Apply.
           </p>
         ) : null}
-        <p className="text-[12px] text-ink/60">
-          On the {PUBLIC_STAGE_LABELS.save_the_date} (more than {stdWindowDays} days before the day) it opens your
-          film. On the {PUBLIC_STAGE_LABELS.rsvp} and {PUBLIC_STAGE_LABELS.event} it plays on the first page only —
-          once opened, it is gone.
-        </p>
       </fieldset>
       {error ? (
         <p role="alert" className="text-[13px] text-terracotta-700">
@@ -283,19 +314,21 @@ const ENVELOPES = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizonta
 function FineTune({
   opening,
   effects,
+  tuneHouse,
   drafted,
   pending,
   onChange,
 }: {
   opening: string;
   effects: RevealEffects;
+  tuneHouse: RevealTuneHouse;
   drafted: boolean;
   pending: boolean;
   onChange: (next: RevealEffects) => void;
 }) {
   const envelope = ENVELOPES.has(opening);
   const veil = opening === 'veil-sheer';
-  const Switch = ({ on, label, hint, flip }: { on: boolean; label: string; hint: string; flip: () => void }) => (
+  const Switch = ({ on, label, flip }: { on: boolean; label: string; flip: () => void }) => (
     <button
       type="button"
       role="switch"
@@ -304,10 +337,7 @@ function FineTune({
       onClick={flip}
       className="sn-press flex min-h-12 w-full items-center gap-3 rounded-md bg-white/70 px-3 py-2 text-left hover:bg-white disabled:opacity-60"
     >
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13.5px] font-semibold text-ink">{label}</span>
-        <span className="block text-[12px] text-ink/60">{hint}</span>
-      </span>
+      <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">{label}</span>
       <span
         aria-hidden
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? 'bg-terracotta-700' : 'bg-ink/20'}`}
@@ -320,19 +350,17 @@ function FineTune({
   );
   return (
     <fieldset className="flex flex-col gap-1.5" data-maker-reveal-finetune={opening}>
-      <legend className="mb-1 text-[13px] font-semibold text-ink">Fine-tune</legend>
+      <legend className="mb-1 text-[13px] font-semibold text-ink">Effects</legend>
       {envelope ? (
         <Switch
           on={effects.butterflies}
           label="Butterflies"
-          hint="They fly out as the envelope opens."
           flip={() => onChange({ ...effects, butterflies: !effects.butterflies })}
         />
       ) : (
         <Switch
           on={effects.petals}
           label="Falling petals"
-          hint="Rose petals drift down through the opening."
           flip={() => onChange({ ...effects, petals: !effects.petals })}
         />
       )}
@@ -352,12 +380,117 @@ function FineTune({
           />
         </>
       ) : null}
+      <TuneFold
+        knobs={revealTuneKnobsFor(opening, effects)}
+        house={tuneHouse}
+        effects={effects}
+        pending={pending}
+        onChange={onChange}
+      />
       {drafted ? (
         <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
           In your draft — guests see it after you Apply.
         </p>
       ) : null}
     </fieldset>
+  );
+}
+
+/**
+ * 🎚 THE FINE-TUNE FOLD — shut by default (the Monogram Maker's own fold,
+ * `monogram/animate-rows.tsx`). Only the knobs this opening's engine reads.
+ * A slider moves freely and SAVES WHEN LET GO (pointer or keyboard), never on
+ * every tick; the save refreshes the Maker, which reloads the Reveal page, so
+ * the opening replays with the new value. Unset → the house look's value.
+ */
+function TuneFold({
+  knobs,
+  house,
+  effects,
+  pending,
+  onChange,
+}: {
+  knobs: RevealTuneKnob[];
+  house: RevealTuneHouse;
+  effects: RevealEffects;
+  pending: boolean;
+  onChange: (next: RevealEffects) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (knobs.length === 0) return null;
+  const commit = (knob: RevealTuneKnob, value: number) => {
+    if (effects.tune?.[knob.key] === value) return;
+    onChange({ ...effects, tune: { ...(effects.tune ?? {}), [knob.key]: value } });
+  };
+  return (
+    <div className="rounded-md bg-white/70" data-maker-reveal-tune="">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="sn-press flex min-h-11 w-full items-center justify-between px-3 text-left text-[13px] font-semibold text-ink"
+      >
+        Fine-tune
+        <span aria-hidden className={`transition-transform duration-sn-control ease-sn ${open ? 'rotate-90' : ''}`}>
+          ▸
+        </span>
+      </button>
+      {open ? (
+        <div className="flex flex-col gap-4 px-3 pb-3">
+          {knobs.map((knob) => (
+            <TuneSlider
+              key={knob.key}
+              knob={knob}
+              value={effects.tune?.[knob.key] ?? null}
+              house={house[knob.key]}
+              disabled={pending}
+              onCommit={(v) => commit(knob, v)}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TuneSlider({
+  knob,
+  value,
+  house,
+  disabled,
+  onCommit,
+}: {
+  knob: RevealTuneKnob;
+  value: number | null;
+  /** The house look's value for this knob (the Reveal Studio's). */
+  house: number;
+  disabled: boolean;
+  onCommit: (value: number) => void;
+}) {
+  /* A never-tuned slider rests on the house look's own value — what plays now. */
+  const [local, setLocal] = useState(value ?? house);
+  useEffect(() => setLocal(value ?? house), [value, house]);
+  return (
+    <label className="block" data-maker-reveal-knob={knob.key}>
+      <span className="text-[12.5px] font-semibold text-ink">{knob.label}</span>
+      <span className="mt-1 flex items-center gap-3 text-[12px] text-ink/60">
+        <span className="w-12 shrink-0">{knob.lo}</span>
+        <input
+          type="range"
+          min={knob.min}
+          max={knob.max}
+          step={knob.step}
+          value={local}
+          disabled={disabled}
+          aria-label={knob.label}
+          onChange={(e) => setLocal(Number(e.target.value))}
+          onPointerUp={(e) => onCommit(Number(e.currentTarget.value))}
+          onKeyUp={(e) => onCommit(Number(e.currentTarget.value))}
+          className="min-h-11 min-w-0 flex-1 accent-terracotta-700"
+        />
+        <span className="w-12 shrink-0 text-right">{knob.hi}</span>
+      </span>
+    </label>
   );
 }
 

@@ -98,7 +98,7 @@ export function revealTemplateWriteAllowed(value: string | null, ownsPro: boolea
 
 /** The reveal-only fields of events.std_reveal_effects (everything but `music`,
  *  which is the free film's own "Play music" toggle stored in the same JSON). */
-const REVEAL_ONLY_EFFECT_KEYS = ['butterflies', 'petals', 'veilColor', 'petalColor', 'gold'] as const;
+const REVEAL_ONLY_EFFECT_KEYS = ['butterflies', 'petals', 'veilColor', 'petalColor', 'gold', 'tune'] as const;
 
 /**
  * May this couple persist these effects? A non-Pro couple may re-save what is

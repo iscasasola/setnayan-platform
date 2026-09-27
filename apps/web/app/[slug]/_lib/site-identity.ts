@@ -31,6 +31,7 @@
  * field and not a third arm of `SiteIdentity`.
  */
 import type { GuestAccountState } from '@/lib/guest-one-path';
+import type { ChecklistKey } from '@/lib/guest-checklist';
 import type {
   GuestRow,
   GuestPapicCamera,
@@ -138,6 +139,13 @@ export type GuestSiteIdentity = {
    * 2026-09-27: the chip is shown to the guest). Decided by `rsvpGate`.
    */
   didntReply: boolean;
+  /**
+   * "Your checklist" — the last 30 days (owner 2026-09-26). NULL outside the
+   * window (nothing drawn); otherwise THIS guest's own ticks, read with the
+   * service role from `guest_checklist_ticks` (private to the guest).
+   * `readFailed` makes a failed read SAY so rather than look like "none ticked".
+   */
+  checklist: { ticks: ChecklistKey[]; readFailed: boolean } | null;
 };
 
 export type SiteIdentity = AnonymousSiteIdentity | GuestSiteIdentity;
@@ -456,8 +464,8 @@ export function anonymousIdentity(input: {
  * one. Absent ⇒ null ⇒ the card behaves exactly as it did before this existed.
  */
 export function guestIdentity(
-  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account' | 'didntReply'> &
-    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account' | 'didntReply'>>,
+  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist'> &
+    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account' | 'didntReply' | 'checklist'>>,
 ): GuestSiteIdentity {
   return {
     kind: 'guest',
@@ -479,6 +487,7 @@ export function guestIdentity(
     faceMode: input.faceMode,
     profileDetails: input.profileDetails ?? null,
     didntReply: input.didntReply === true,
+    checklist: input.checklist ?? null,
   };
 }
 

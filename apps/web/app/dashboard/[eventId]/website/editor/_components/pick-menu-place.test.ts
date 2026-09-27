@@ -103,6 +103,14 @@ test('the list is portalled to <body> and sits above the Maker overlay', () => {
   assert.match(src, /createPortal\(\s*<ul[\s\S]*?<\/ul>,\s*document\.body,?\s*\)/, 'the listbox must be portalled to document.body');
   assert.match(src, /placePickList\(/, 'placement must go through placePickList');
   assert.match(src, /listHeight:\s*listRef\.current\?\.scrollHeight/, 'the list must be measured, not guessed');
+  // Focus lands on the CURRENT option once the list exists (measured in the
+  // browser: on a first open it landed nowhere; a selector LIST always picked
+  // the top option). Inside the layout effect, the selected one first.
+  const layout = src.slice(src.indexOf('useLayoutEffect(() => {'), src.indexOf('useEffect(() => {'));
+  assert.match(
+    layout,
+    /querySelector<HTMLButtonElement>\('button\[aria-selected="true"\]:not\(\[disabled\]\)'\)\s*\?\?\s*listRef\.current\.querySelector<HTMLButtonElement>\('button:not\(\[disabled\]\)'\)/,
+  );
 
   const listClass = /role="listbox"[\s\S]*?className="([^"]*)"/.exec(src)?.[1] ?? '';
   const listZ = Number(/\bz-\[(\d+)\]/.exec(listClass)?.[1] ?? NaN);

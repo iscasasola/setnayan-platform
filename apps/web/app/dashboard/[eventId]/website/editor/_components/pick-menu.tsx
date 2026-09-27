@@ -95,8 +95,25 @@ export function PickMenu({
   // mounted yet), then with the list's real height, which may flip it above
   // the button. `place` keeps the same object when nothing moved, so this
   // settles after one extra pass.
+  // …and focus moves into the list the first time it is actually mounted (on a
+  // first open the list only exists after the placement pass, so a focus call
+  // in the `[open]` effect below found nothing — measured in the browser).
+  const focusedOnOpen = useRef(false);
   useLayoutEffect(() => {
-    if (open) place();
+    if (!open) {
+      focusedOnOpen.current = false;
+      return;
+    }
+    place();
+    if (!focusedOnOpen.current && listRef.current) {
+      focusedOnOpen.current = true;
+      // The CURRENT option first — a selector list would return whichever comes
+      // first in the document, i.e. always the top option.
+      (
+        listRef.current.querySelector<HTMLButtonElement>('button[aria-selected="true"]:not([disabled])') ??
+        listRef.current.querySelector<HTMLButtonElement>('button:not([disabled])')
+      )?.focus();
+    }
   });
 
   useEffect(() => {
@@ -115,7 +132,6 @@ export function PickMenu({
     window.addEventListener('keydown', onKey);
     window.addEventListener('resize', onMove);
     window.addEventListener('scroll', onMove, true);
-    listRef.current?.querySelector<HTMLButtonElement>('button[aria-selected="true"], button:not([disabled])')?.focus();
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey);

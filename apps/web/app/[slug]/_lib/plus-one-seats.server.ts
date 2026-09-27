@@ -3,6 +3,8 @@ import 'server-only';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
+import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -29,6 +31,39 @@ export type PlusOneSeat = {
   /** The seat's own key — only for a named seat. */
   qrToken: string | null;
 };
+
+/**
+ * The bringer's plus-ones as "Your guests" draws them: each named one's own
+ * invitation link (the ONE url speller, `buildInvitationUrl`, on the event's
+ * canonical slug) and — when `withPasses` — their pass, rendered by the same
+ * renderer as every other guest QR. Only this bringer's own seats (see above).
+ */
+export async function yourGuestsFor(
+  admin: AdminClient,
+  event: { event_id: string; slug: string },
+  bringerGuestId: string,
+  opts: { withPasses: boolean; monogram?: Parameters<typeof renderInvitationQrSvg>[0]['monogram'] },
+): Promise<{
+  guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
+  passes: Record<string, string>;
+}> {
+  const seats = await plusOneSeatsFor(admin, event.event_id, bringerGuestId);
+  if (seats.length === 0) return { guests: [], passes: {} };
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+  const passes: Record<string, string> = {};
+  const guests = await Promise.all(
+    seats.map(async (s) => {
+      if (!s.qrToken) return { guestId: s.guest_id, name: s.name, inviteUrl: null };
+      const params = { appUrl, slug: event.slug, qrToken: s.qrToken, ownerSlug };
+      if (opts.withPasses) {
+        passes[s.guest_id] = await renderInvitationQrSvg({ ...params, monogram: opts.monogram });
+      }
+      return { guestId: s.guest_id, name: s.name, inviteUrl: buildInvitationUrl(params) };
+    }),
+  );
+  return { guests, passes };
+}
 
 export async function plusOneSeatsFor(
   admin: AdminClient,

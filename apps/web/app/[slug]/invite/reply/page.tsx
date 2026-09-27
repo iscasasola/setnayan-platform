@@ -4,7 +4,7 @@ import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
-import { guestListDeadlineEndMs, guestListIsClosed } from '@/lib/guest-list-closed';
+import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 import { inviteEnterPath } from '@/lib/invite-arrival';
 import { eventWordsFor } from '../../_lib/event-words';
@@ -15,7 +15,7 @@ import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
-import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 
@@ -171,22 +171,22 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
      IS an answer to stand on — a guest the key gate sent here has not got one. */
   const hasAnswered = gate.kind === 'inside' && ((guest.rsvp_status as string | null) ?? 'pending') !== 'pending';
 
-  // When the list stops taking answers — the ONE deadline `guestListIsClosed`
-  // itself reads, so the date said here is the date the door really shuts.
-  const closesMs = replyLocked
+  // "Reply by" — the SAME date the couple sees on the Maker's RSVP page
+  // (`resolveReplyBy`, lib/rsvp-ask.ts: their own deadline, else 30 days before
+  // — owner 2026-09-26 "yes to all" (d)). Never shown once the list is locked.
+  const replyBy = replyLocked
     ? null
-    : guestListDeadlineEndMs(
-        event.guest_list_edit_deadline as string | null,
-        event.event_date as string | null,
-      );
-  const closesLabel =
-    closesMs != null
-      ? new Date(closesMs).toLocaleDateString('en-PH', {
-          day: 'numeric',
-          month: 'long',
-          timeZone: 'UTC',
-        })
-      : null;
+    : resolveReplyBy({
+        deadline: event.guest_list_edit_deadline as string | null,
+        eventDate: event.event_date as string | null,
+      });
+  const closesLabel = replyBy
+    ? new Date(`${replyBy.date}T00:00:00Z`).toLocaleDateString('en-PH', {
+        day: 'numeric',
+        month: 'long',
+        timeZone: 'UTC',
+      })
+    : null;
 
   const guestName =
     (guest.display_name as string | null)?.trim() ||

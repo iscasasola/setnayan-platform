@@ -20,7 +20,10 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { saveAttendedVendorAction } from '../actions';
+import { saveAttendedVendorAction, submitRsvp } from '../actions';
+import { GuestChecklist } from './guest-checklist';
+import { guestChecklistItems } from '../_lib/guest-checklist-facts';
+import { daysUntil } from '@/lib/guest-checklist';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
@@ -30,7 +33,7 @@ import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { anyoneMayAskToJoin, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
@@ -1120,8 +1123,13 @@ export async function SiteBody({
             the fixed SiteMenuBar's in-page links land on the right sections. */}
         <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
         {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
-            event.website_open_browse is TRUE; identity-aware. */}
-        {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
+            event.website_open_browse is TRUE; identity-aware.
+            ☝ ONE BUTTON (owner 2026-09-26/27): the stranger's "Find your
+            invitation" card is a second way in beside "Get inside" — it is not
+            drawn; "Get inside" is the one door. */}
+        {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? (
+          <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} />
+        ) : null}
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
@@ -1212,6 +1220,7 @@ export async function SiteBody({
                       eventId={event.event_id}
                       signedInNotListed={anon.signedInNotListed}
                       theOrganizer={clientWords.theOrganizer}
+                      mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
                     />
                   )}
                 </div>
@@ -1388,7 +1397,11 @@ export async function SiteBody({
               </p>
             </div>
           </section>
-        ) : plan.openBrowse ? (
+        ) : plan.openBrowse && archiveTense ? (
+          /* ☝ Before the day a stranger's one door is "Get inside" (owner
+             2026-09-26/27) — the "Open my invitation" card would be a second.
+             After the day it asks something different ("Were you a guest? Claim
+             your photos"), so it stays there. */
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
             <FindModeCard slug={event.slug} reason={reason} pastTense={archiveTense} occasion={clientWords.occasion} />
           </section>
@@ -1846,6 +1859,31 @@ export async function SiteBody({
               A shared phone also stops announcing whose invitation it is before
               it says whose wedding it is.
               Guarded by `the-invitation-opens-on-the-mark.test.ts`. */}
+          {/* ☑ "YOUR CHECKLIST" — the last 30 days (owner 2026-09-26/27):
+              what to wear · motif colours · arrive by · venue + Maps · their
+              table · their pass, each a tick saved to THIS guest (their own
+              reply action, +0 routes). `g.checklist` is null outside the
+              window; the page decided that on the server. */}
+          {g.checklist && plan.body === 'normal' && !isMakerCanvas && !isLive && !isPost ? (
+            <GuestChecklist
+              items={guestChecklistItems({
+                role: guest.role,
+                dressCodeConfig: event.dress_code_config ?? null,
+                rolePalette: event.role_palette,
+                arriveBy: firstScheduleTimeLabel,
+                venueName: event.venue_name,
+                venueAddress: event.venue_address,
+                venueLatitude: event.venue_latitude,
+                venueLongitude: event.venue_longitude,
+                tableLabel: guestHubData.tableLabel,
+              })}
+              initialTicks={g.checklist.ticks}
+              readFailed={g.checklist.readFailed}
+              save={submitRsvp.bind(null, event.event_id, guest.guest_id)}
+              daysLeft={daysUntil({ eventDate: event.event_date, today: manilaToday() })}
+              dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
+            />
+          ) : null}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
           {/* Guest Hub Card — persistent status summary for identified returning
               guests. Shows RSVP status, seat, meal, and next schedule item at
@@ -2413,7 +2451,12 @@ export async function SiteBody({
             </div>
           </RsvpSheet>
         ) : null}
-        <GuestGuidedTour tourKey="guest_welcome_v1" />
+        {/* 🧭 A GUEST'S first-visit tour — never in the Maker's canvas or its
+            stage preview (`isEditorCanvas`: both `?editor=1` and
+            `?preview=draft`). Seen live 2026-09-27: "You're invited · STEP 1
+            OF 3" mounted inside the Maker's RSVP-page preview and covered it.
+            Decided here, on the server — the couple is not a guest arriving. */}
+        {isEditorCanvas ? null : <GuestGuidedTour tourKey="guest_welcome_v1" />}
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors, SAME structure as anonymousTree. Flag-dark
             (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.

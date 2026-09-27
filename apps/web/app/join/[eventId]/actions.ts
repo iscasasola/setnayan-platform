@@ -13,7 +13,7 @@ import { recordScan } from '@/lib/scan-trail';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import type { GuestRole } from '@/lib/guests';
 import { seedBindAllowed } from '@/lib/guest-claim';
-import { inviteReplyPath, selfJoinRefusalPath } from '@/lib/invite-arrival';
+import { GUEST_LIST_ONLY, inviteReplyPath, selfJoinRefusalPath } from '@/lib/invite-arrival';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { anyoneMayAskToJoin, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import {
@@ -339,34 +339,21 @@ function requestSent(eventId: string, token: string): never {
  * A SIGNED-IN person on the join door. A seat the couple recorded under their
  * account's email → inside. Anyone else → a REQUEST (never an admission).
  *
- * The door is open when the event's join token is valid (the couple's own
- * poster QR) OR the couple chose "Who can RSVP? → Anyone, I approve".
+ * The door is open ONLY when the couple chose "Who can RSVP? → Anyone, I
+ * approve" — a poster token no longer opens it (owner ruling 2026-09-27).
  */
 export async function joinEventAction(eventId: string, token: string, formData: FormData) {
   // 🔒 ROLE IS THE HOST'S FIELD — see the header. Any `role` a stale form posts is ignored.
   const role: GuestRole = 'guest';
 
   const admin = createAdminClient();
-  const { data: tokenRow } = token
-    ? await admin
-        .from('event_join_tokens')
-        .select('event_id, revoked_at, expires_at')
-        .eq('event_id', eventId)
-        .eq('token', token)
-        .maybeSingle()
-    : { data: null };
-
-  const tokenValid =
-    !!tokenRow &&
-    !tokenRow.revoked_at &&
-    (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
 
   // 🔒 PRIVATE EVENTS REFUSE SELF-JOIN (added 2026-08-06). A page gate is not
   // an API gate — a server action can be invoked directly — so the same rule
   // holds HERE, through the SAME resolver the guest site uses.
   const { data: visRow } = await admin
     .from('events')
-    .select('landing_page_visibility, scheduled_launch_at, std_launched_at, rsvp_ask_config')
+    .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at, rsvp_ask_config')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -375,8 +362,12 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   if (!visRow) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
   }
-  if (!tokenValid && !anyoneMayAskToJoin(visRow.rsvp_ask_config)) {
-    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  // 🚪 "Only my Guest List" has no ask-to-join ANYWHERE (owner ruling
+  // 2026-09-27) — a poster token included. The event's own door is Sign in or
+  // Upload your QR. The slug comes from the DATABASE, never the form.
+  if (!anyoneMayAskToJoin(visRow.rsvp_ask_config)) {
+    const home = ((visRow.slug as string | null) ?? '').trim() || null;
+    return redirect(selfJoinRefusalPath({ eventId, token, slug: home, error: GUEST_LIST_ONLY }));
   }
   if (resolveEffectiveVisibility(visRow) === 'private') {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=event_is_private`);
@@ -496,25 +487,15 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     return backToDoor(eventId, token, 'missing_name');
   }
 
-  // 1. The door: a valid join token (the couple's poster QR), OR the couple
-  //    chose "Who can RSVP? → Anyone, I approve". Either way this can only
-  //    ever produce a REQUEST.
-  const { data: tokenRow } = token
-    ? await admin
-        .from('event_join_tokens')
-        .select('event_id, revoked_at, expires_at')
-        .eq('event_id', eventId)
-        .eq('token', token)
-        .maybeSingle()
-    : { data: null };
-
-  const tokenValid =
-    !!tokenRow &&
-    !tokenRow.revoked_at &&
-    (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
-
-  if (!tokenValid && !anyoneMayAskToJoin(event?.rsvp_ask_config)) {
-    return refuse('invalid_token');
+  // 1. The door: the couple chose "Who can RSVP? → Anyone, I approve", and
+  //    even then this can only ever produce a REQUEST.
+  // 🚪 "Only my Guest List" has no ask-to-join ANYWHERE (owner ruling
+  // 2026-09-27) — a poster token included: the event's own door is Sign in or
+  // Upload your QR. An unreadable event fails closed.
+  if (!anyoneMayAskToJoin(event?.rsvp_ask_config)) {
+    // → the event page itself (selfJoinRefusalPath), or, with no public
+    // address yet, back to this door with the code.
+    return refuse(GUEST_LIST_ONLY);
   }
 
   // 🚦 THE THROTTLE (2026-08-06). AFTER the door check so a junk token cannot

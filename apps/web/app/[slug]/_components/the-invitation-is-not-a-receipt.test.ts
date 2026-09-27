@@ -144,18 +144,11 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // scene drawn by ONE mapped eyebrow ("2021 · Falling"), in the same protected
   // treatment, so the SOURCE holds two fewer while the page shows one per
   // moment. The treatment is untouched; the count is of source lines.
-  //
-  // 18 SINCE 2026-09-27 (#6040 — the Event Hub shows both venues). The public
-  // details plate in `empty-states.tsx` names each venue in its own row —
-  // "CEREMONY" / "RECEPTION" — with the SAME gild key its single "WHERE" row
-  // uses, doing the same job (naming where). The mapped row is one more source
-  // line; the old "Where" row stays as the fallback for an event with no
-  // resolved venues. The treatment is untouched; the count is of source lines.
   assert.equal(
     gild,
-    18,
+    17,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 18 from 2026-09-27, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `carried 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
       `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,

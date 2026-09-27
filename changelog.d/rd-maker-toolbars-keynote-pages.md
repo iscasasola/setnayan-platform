@@ -21,9 +21,15 @@ The approved prototype `prototypes/maker_toolbars_keynote_pages_2026-09-27.html`
   any part. Guests see it; a solo name draws none.
 - **Size model** — S · M · L · XL became a bounded percent scale; every saved S · L · XL keeps its exact
   look (85 · 120 · 145).
+- **Instant background preview** — a background, its shape, and "Every scene" are laid on the canvas before
+  the save (a `sceneBg` bridge message computed with the page's own `sceneFrameLook`), and the reload confirms.
+- **Glass opacity feeds readability** — the couple's opacity is where the pane starts and it is raised only
+  as far as the words need; Diagonal and Glow follow the Main background's ink + veil rule over their ramp.
+- **Colors panel shows the Mood Board** — owner: *"mood board palettes did not update"*. A blank colour now
+  shows the colour the page actually wears ("From your Mood Board"), never a fixed cream.
 
-SPEC IMPACT: `DECISION_LOG.md` — one row recording the build of "MAKER TOOLBARS (KEYNOTE + PAGES)
-APPROVED", with the three places it departs from the drawing (Duplicate has no scene action to
+SPEC IMPACT: `DECISION_LOG.md` — one row (2026-09-28, "THE MAKER'S TOOLBARS ARE BUILT AFTER KEYNOTE +
+PAGES") recording the build of "MAKER TOOLBARS (KEYNOTE + PAGES) APPROVED", with the places it departs from the drawing (Duplicate has no scene action to
 call, so Arrange offers Remove… for a couple's own scene only; Saved colours are the colours the
 Event Hub already uses plus "+"-saved ones on the device; on a phone Restore · Undo · Apply keep their
 own line under the tools, because the draft bar's labelled buttons do not fit a 390 px row).

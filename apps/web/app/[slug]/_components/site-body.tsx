@@ -128,6 +128,7 @@ import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubMainGround, resolveMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
+import { MakerGuestScenes } from './maker-guest-scenes';
 import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
@@ -1324,6 +1325,16 @@ export async function SiteBody({
              *  sub-component is reused from the guest tree — same visual
              *  treatment, just a thinner per-type dispatcher because the
              *  anonymous path doesn't have a guest object to pass. */}
+            {/* 👤 The guest-link scenes, in place, in the Maker's canvas only
+                ("Your guest" — `maker-guest-scenes.tsx`). Guests: nothing here. */}
+            {isMakerCanvas ? (
+              <MakerGuestScenes
+                show={{ greeting: plan.greetingShouldRender, pass: plan.qrCardShouldRender, rsvp: plan.rsvpShouldRender }}
+                eventDate={event.event_date}
+                solemn={clientWords.solemn}
+                mark={makerMark}
+              />
+            ) : null}
             {plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),

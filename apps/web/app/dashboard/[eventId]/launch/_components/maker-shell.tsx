@@ -1,5 +1,6 @@
 'use client';
 
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Info, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
@@ -489,10 +490,80 @@ export function MakerBar({
   useEffect(() => {
     showActive();
   }, [stage, selection, showActive]);
+  /*
+    🧭 WHEN THE ROW CANNOT FIT, IT BECOMES TWO PICKERS (owner 2026-09-27, on the
+    stage row clipped to "…vitation" / "Save the…" at laptop widths: *"we can
+    also convert this to a drop down/tap to show options for smaller
+    screens?"*). Decided by MEASURED overflow, never a breakpoint: the full row
+    is drawn, its natural width is read, and only when it is wider than the
+    room the bar has does it collapse to "● Invitation ▾" + "Pages ▾". The room
+    is watched (ResizeObserver) and the row comes back the moment it fits. The
+    pickers run the SAME `onPress` the buttons do.
+  */
+  const [compact, setCompact] = useState(false);
+  const fullWidth = useRef(0);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      if (!compact) {
+        fullWidth.current = el.scrollWidth;
+        if (barShouldCollapse(el.scrollWidth, el.clientWidth)) setCompact(true);
+      } else if (!barShouldCollapse(fullWidth.current, el.clientWidth)) {
+        setCompact(false);
+      }
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [compact]);
+
   const mask =
-    fade.l || fade.r
+    !compact && (fade.l || fade.r)
       ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`
       : undefined;
+
+  const stageItems = MAKER_BAR.filter((i) => i.kind === 'stage');
+  const pageItems = MAKER_BAR.filter((i) => i.kind === 'tool');
+  const openTool = selection?.kind === 'tool' ? pageItems.find((i) => i.key === selection.key) ?? null : null;
+
+  if (compact) {
+    return (
+      <nav
+        ref={navRef}
+        aria-label="Event Hub Maker"
+        data-maker-bar=""
+        data-maker-bar-compact=""
+        className="-mx-2 flex min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2 md:mx-auto md:flex-1"
+      >
+        <PickMenu
+          label="Stage"
+          dataAttr="data-maker-stage-pick"
+          value={stage}
+          options={stageItems.map((i) => ({ key: i.key, label: i.label, dot: liveStage === i.key }))}
+          onPick={(key) => {
+            const item = stageItems.find((i) => i.key === key);
+            if (item) onPress(item);
+          }}
+        />
+        <PickMenu
+          label="Pages"
+          dataAttr="data-maker-pages-pick"
+          value={openTool?.key ?? null}
+          options={pageItems.map((i) => ({
+            key: i.key,
+            label: i.label,
+            ...(hasWork ? {} : { disabledNote: 'only the couple can open this' }),
+          }))}
+          onPick={(key) => {
+            const item = pageItems.find((i) => i.key === key);
+            if (item && hasWork) onPress(item);
+          }}
+        />
+      </nav>
+    );
+  }
 
   return (
     <nav
@@ -501,7 +572,7 @@ export function MakerBar({
       data-maker-bar=""
       onScroll={measure}
       style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
-      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto scroll-px-4 px-2 [scrollbar-width:none] md:mx-auto"
+      className="-mx-2 flex min-w-0 items-center gap-0.5 overflow-x-auto scroll-px-4 px-2 [scrollbar-width:none] md:mx-auto md:flex-1"
     >
       {groups.map((group, gi) => (
         <span
@@ -551,6 +622,14 @@ export function MakerBar({
       ))}
     </nav>
   );
+}
+
+/**
+ * Collapse the bar only when its natural width does not fit the room it has
+ * (a 1px tolerance for sub-pixel rounding). Exported for the test.
+ */
+export function barShouldCollapse(naturalWidth: number, room: number): boolean {
+  return naturalWidth > room + 1;
 }
 
 /**

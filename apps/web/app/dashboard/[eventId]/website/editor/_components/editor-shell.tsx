@@ -27,6 +27,7 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
+import { PickMenu } from './pick-menu';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
@@ -800,48 +801,47 @@ export function MakerWork({
               generic "Main". Each lists its own scenes; a tab that opens a page of
               its own (Camera, Join, Watch) says so. The look behind every scene
               (theme, colours, music, backdrop) is the palette button. */}
-          <li className="shrink-0 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
-            <div role="tablist" aria-label="This stage's menu" className="flex items-center gap-1 lg:flex-wrap">
-              {tabs
-                ? tabs.map((t) => {
-                    const on = activeTab?.key === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        data-maker-tab={t.key}
-                        onClick={() => {
-                          setTabKey(t.key);
-                          if (t.leaves) return;
-                          scrollPreviewTo(t.key);
-                          navList
-                            ?.querySelector(`[data-maker-group="${CSS.escape(t.key)}"]`)
-                            ?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
-                        }}
-                        className={`sn-press inline-flex min-h-11 items-center rounded-full px-3 text-[12px] font-semibold transition-colors duration-sn-control ease-sn ${
-                          on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    );
-                  })
-                : null}
-              <button
-                type="button"
-                onClick={() => select?.({ kind: 'main' })}
-                aria-pressed={selection?.kind === 'main'}
-                aria-label="Theme, colours and music — behind every scene"
-                title="Theme, colours and music — behind every scene"
-                className={`sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
-                  selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-                }`}
-              >
-                <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </div>
+          {/* 🧭 THE STAGE'S MENU AS ONE CONTROL (owner 2026-09-27, on the pill row
+              that wrapped to 140px in the 168px column: *"this should be a tap
+              to show option to pick or a drop down"*). It shows the group in
+              view ("Home ▾"); picking a tab JUMPS the navigator and the canvas to
+              that group — never a filter, never a stage change. One line at the
+              narrowest column, the palette beside it. */}
+          <li className="flex min-w-0 shrink-0 items-center gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
+            {tabs ? (
+              <PickMenu
+                label="This stage's menu"
+                dataAttr="data-maker-tab-pick"
+                value={activeTab?.key ?? null}
+                options={tabs.map((t) => ({
+                  key: t.key,
+                  label: t.label,
+                  ...(t.leaves ? { disabledNote: 'opens its own page' } : {}),
+                }))}
+                onPick={(key) => {
+                  const t = tabs.find((x) => x.key === key);
+                  if (!t || t.leaves) return;
+                  setTabKey(t.key);
+                  scrollPreviewTo(t.key);
+                  navList
+                    ?.querySelector(`[data-maker-group="${CSS.escape(t.key)}"]`)
+                    ?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
+                }}
+                className="flex-1"
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={() => select?.({ kind: 'main' })}
+              aria-pressed={selection?.kind === 'main'}
+              aria-label="Theme, colours and music — behind every scene"
+              title="Theme, colours and music — behind every scene"
+              className={`sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
+                selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
+              }`}
+            >
+              <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </button>
           </li>
           {activeTab?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
@@ -1711,7 +1711,7 @@ function Inspector({
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
   /** Open a fixed scene's workspace (Hero, Reveal, Love Story, Post Event). */
-  onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event') => void;
+  onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event' | 'rsvp-page') => void;
   /** 🔤 Open one element's sheet (font · colour · size · animation) — null where not offered. */
   onElement: ((el: HubElementKey) => void) | null;
   madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null;

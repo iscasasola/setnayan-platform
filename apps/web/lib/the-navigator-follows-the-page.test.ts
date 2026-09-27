@@ -134,11 +134,14 @@ test('2 · the owner’s page, stage by stage — fixed sections included, in th
   // it (owner review 2026-09-27; Post Event keeps it — a separate decision);
   // and the schedule shows on the day ("YES TO ALL" (2)).
   assert.deepEqual(keys('save_the_date'), ['f:film', 'f:hero', 'f:entourage']);
+  // …and each guest's own parts are drawn in place after the names, as "Your
+  // guest" (owner 2026-09-27): the greeting, the pass, the RSVP — whichever the
+  // page gives a guest on that stage.
   assert.deepEqual(keys('rsvp'), [
-    'f:hero', 'w:countdown', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:photo_moments',
+    'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'w:countdown', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:photo_moments',
     'w:special_message', 'w:what_to_bring', 'w:our_photos', 'w:our_love_story', 'f:entourage',
   ]);
-  assert.deepEqual(keys('event'), ['f:hero', 'w:schedule', 'w:venue_map', 'f:entourage']);
+  assert.deepEqual(keys('event'), ['f:hero', 'f:pass', 'w:schedule', 'w:venue_map', 'f:entourage']);
   assert.deepEqual(keys('editorial'), [
     'f:editorial', 'f:hero', 'w:tier_comparison', 'w:special_message', 'w:our_photos', 'w:our_love_story', 'f:entourage',
   ]);
@@ -177,7 +180,9 @@ test('3 · nothing is lost — every hideable section is shown XOR folded, and a
   assert.match(message && message.kind === 'scene' ? (message.empty ?? '') : '', /write your message/i);
   assert.match(why('event_details'), /own link/);
   assert.match(why('your_photos'), /own link|Not part of this stage/);
-  assert.match(why('rsvp'), /own link/);
+  // The RSVP is drawn in place in the Maker now, with "Open RSVP editor" (owner 2026-09-27).
+  assert.equal(why('rsvp'), '');
+  assert.ok(rsvp.shown.some((t) => t.key === 'f:rsvp'));
 });
 
 test('3b · a section the couple hid is folded with the eye, not lost', () => {

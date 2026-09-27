@@ -87,7 +87,7 @@ export function tileIsSelected(tile: MakerTile, selection: MakerSelection): bool
 export function fixedScenePanel(fixed: MakerFixedKey): {
   label: string;
   line: string;
-  tool: 'hero' | 'reveal' | 'post-event' | 'love-story' | null;
+  tool: 'hero' | 'reveal' | 'post-event' | 'love-story' | 'rsvp-page' | null;
   /** "Open Hero editor" — the ONE control that leaves the stage. */
   button: string | null;
   source: (typeof MAKER_FIXED_SOURCE)[MakerFixedKey] | null;

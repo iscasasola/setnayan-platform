@@ -47,7 +47,7 @@ import type { OpenUpKind, PostEventListRow, PostEventSceneStatus } from './post-
 import type { SceneTemplateId } from './scene-templates';
 
 /** The sections that are always in their place on a stage — never dragged. */
-export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'entourage' | 'story';
+export type MakerFixedKey = 'film' | 'editorial' | 'hero' | 'greeting' | 'pass' | 'rsvp' | 'entourage' | 'story';
 
 export type MakerTile =
   | {
@@ -150,6 +150,12 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
   film: { label: 'Save-the-Date film', why: 'Always first on the Save the Date — it plays before the page.' },
   editorial: { label: 'The story after the day', why: 'Always first after the day — the story leads the page.' },
   hero: { label: 'Names & date', why: 'Always here on this stage — your names and date open the page.' },
+  /* 👤 THE GUEST-LINK SCENES (owner 2026-09-27): drawn in the Maker in place,
+     with "Your guest" — never sample content — so the couple sees where each
+     guest's own part sits on the page. */
+  greeting: { label: 'Personal greeting', why: 'Each guest sees their own — their name, and how they are joining you.' },
+  pass: { label: "Guest's QR pass", why: 'Each guest sees their own pass and QR code.' },
+  rsvp: { label: 'RSVP', why: 'Each guest replies from their own link.' },
   entourage: { label: 'The entourage', why: 'Always here on this stage, after your sections — it lists everyone with a role.' },
   story: { label: 'Our story', why: 'Always here on this stage, after the entourage — written from your love story.' },
 };
@@ -160,8 +166,9 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
  * opens a Maker tool, or has nothing to edit in the Maker and says where it
  * comes from — never a tile that silently does nothing when tapped.
  */
-export const MAKER_FIXED_TOOL: Partial<Record<MakerFixedKey, 'hero' | 'reveal' | 'post-event' | 'love-story'>> = {
+export const MAKER_FIXED_TOOL: Partial<Record<MakerFixedKey, 'hero' | 'reveal' | 'post-event' | 'love-story' | 'rsvp-page'>> = {
   hero: 'hero',
+  rsvp: 'rsvp-page',
   film: 'reveal',
   editorial: 'post-event',
   story: 'love-story',
@@ -179,12 +186,23 @@ export const MAKER_TOOL_EDITOR_NAME: Record<NonNullable<(typeof MAKER_FIXED_TOOL
   reveal: 'Reveal',
   'post-event': 'Post Event',
   'love-story': 'Love Story',
+  'rsvp-page': 'RSVP',
 };
 
 /** For a fixed section with no Maker tool: what fills it, and the page that changes it. */
 export const MAKER_FIXED_SOURCE: Partial<Record<MakerFixedKey, { text: string; page: 'guests'; link: string }>> = {
   entourage: {
     text: 'Nothing to edit here. It comes from your guest list — the roles you give people there.',
+    page: 'guests',
+    link: 'Open your guest list',
+  },
+  greeting: {
+    text: 'Each guest sees their own greeting — written from your guest list.',
+    page: 'guests',
+    link: 'Open your guest list',
+  },
+  pass: {
+    text: 'Each guest sees their own pass and QR — made from your guest list.',
     page: 'guests',
     link: 'Open your guest list',
   },
@@ -401,6 +419,11 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   // The masthead: the full-bleed banner (normal body + hero media) or the
   // text masthead inside the body (no hero media).
   if (plan.anonymousHeroBanner || !input.hasHeroMedia) shown.push(fixed('hero'));
+  // 👤 The guest-link scenes, in place (`site-body.tsx` draws them in the Maker
+  // right after the masthead, with "Your guest").
+  if (plan.greetingShouldRender) shown.push(fixed('greeting'));
+  if (plan.qrCardShouldRender) shown.push(fixed('pass'));
+  if (plan.rsvpShouldRender) shown.push(fixed('rsvp'));
 
   const drawn = new Set<string>();
   for (const w of plan.publicSafeWidgets) {
@@ -438,9 +461,15 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     else reason = whyNotDrawn(w, input) ?? 'Not drawn on this stage.';
     folded.push({ key: `w:${t}`, widgetId: w.widget_id, type: t, label: makerSceneLabel(t), reason, hiddenByCouple: !visible });
   }
+  const listedGuestScene: Partial<Record<WidgetType, boolean>> = {
+    greeting: plan.greetingShouldRender,
+    qr_card: plan.qrCardShouldRender,
+    rsvp: plan.rsvpShouldRender,
+  };
   for (const t of ALWAYS_ON_GUEST_ONLY) {
     const row = widgets.find((w) => w.widget_type === t);
     if (!row) continue;
+    if (listedGuestScene[t]) continue; // drawn in place in the Maker, not under Not shown
     folded.push({ key: `w:${t}`, widgetId: null, type: t, label: makerSceneLabel(t), reason: "Only on each guest's own link — every invited guest sees their own.", hiddenByCouple: false });
   }
 

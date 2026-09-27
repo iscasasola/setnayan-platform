@@ -92,7 +92,7 @@ const doc = { createElement: (t: string) => el(t.toUpperCase()) } as unknown as 
 function server(canvas: Record<string, unknown>) {
   const widget = { widget_id: 'w', widget_type: 'message', is_visible: true, display_order: 1, config_json: { canvas } } as unknown as InvitationWidgetRow;
   const html = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget, mediaUrls: URL_OF, children: React.createElement('section', null, 'Hi') }),
+    React.createElement(HubCanvasFrame, { widget, mediaUrls: URL_OF } as never, React.createElement('section', null, 'Hi')),
   );
   const m = /^<div class="([^"]*)" style="([^"]*)"/.exec(html);
   assert.ok(m, `the server drew a frame: ${html.slice(0, 200)}`);

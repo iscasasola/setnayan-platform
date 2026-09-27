@@ -33,7 +33,7 @@ const CSS = readFileSync(join(__dirname, '..', 'app/globals.css'), 'utf8');
 function paint(canvas: unknown): string {
   const widget = { widget_id: 'w1', widget_type: 'message', is_visible: true, display_order: 1, config_json: { canvas } } as unknown as InvitationWidgetRow;
   return renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget, children: React.createElement('section', null, React.createElement('p', null, 'Hello')) }),
+    React.createElement(HubCanvasFrame, { widget } as never, React.createElement('section', null, React.createElement('p', null, 'Hello'))),
   );
 }
 

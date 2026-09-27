@@ -30,7 +30,7 @@ import {
   everySceneBackgroundPatch,
   justThisSceneCanvas,
   sceneBackgroundScope,
-  useHubBackgroundCanvas,
+  hubBackgroundCanvasFor,
   withBackground,
   type SceneOnStage,
 } from '@/lib/scene-background-scope';
@@ -283,7 +283,7 @@ export function SceneBackgroundRow({
             disabled={pending}
             data-scene-bg-use-hub=""
             onClick={() => {
-              const next = useHubBackgroundCanvas(scenes, widgetType, latest.current);
+              const next = hubBackgroundCanvasFor(scenes, widgetType, latest.current);
               latest.current = next;
               setShown(next);
               save({ widgets: { [widgetType]: { canvas: next } } });

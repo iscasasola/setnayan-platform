@@ -102,7 +102,10 @@ test('⛔ an unknown kind is DROPPED, never repaired', () => {
   }
   // Six since 2026-09-27 (DECISION_LOG "A SCENE'S BACKGROUND EXISTS TO SEPARATE
   // IT FROM THE NEXT": no background · full colour · opaque glass · frosted
-  // glass · photo · snippet). Still never a film.
-  assert.equal(HUB_BACKGROUND_KINDS.length, 6, 'six kinds — a film is deliberately not one');
+  // glass · photo · snippet); eight since the Maker toolbars' approved answer 1
+  // the same day added Diagonal and Glow (Dawn stays page-wide only). Still
+  // never a film.
+  assert.equal(HUB_BACKGROUND_KINDS.length, 8, 'eight kinds — a film is deliberately not one');
+  assert.ok(!(HUB_BACKGROUND_KINDS as readonly string[]).includes('dawn'), 'Dawn is not a scene background');
   assert.ok(!(HUB_BACKGROUND_KINDS as readonly string[]).includes('film'));
 });

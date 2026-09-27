@@ -26,7 +26,7 @@ import {
   justThisSceneCanvas,
   sceneBackgroundScope,
   sharedStageBackground,
-  useHubBackgroundCanvas,
+  hubBackgroundCanvasFor,
 } from './scene-background-scope';
 
 const c = (raw: Record<string, unknown>): HubSectionCanvas => sanitizeHubCanvas({ canvas: raw });
@@ -73,13 +73,13 @@ test('↺ Use the Event Hub’s returns to what the stage shares — or to none,
     { type: 'message', canvas: frosted },
     { type: 'dress_code', canvas: c({ kind: 'color', color: '#8a1c2b', own: true }) },
   ];
-  const back = useHubBackgroundCanvas(agreeing, 'dress_code', agreeing[2]!.canvas);
+  const back = hubBackgroundCanvasFor(agreeing, 'dress_code', agreeing[2]!.canvas);
   assert.equal(back.kind, 'frost');
   assert.equal(back.color, '#f4ecdd');
   assert.equal(back.own, undefined);
   // The stage-mates disagree (and one is itself own): the scene goes back to none.
   assert.equal(sharedStageBackground(invitation, 'dress_code'), null);
-  const none = useHubBackgroundCanvas(invitation, 'dress_code', invitation[2]!.canvas);
+  const none = hubBackgroundCanvasFor(invitation, 'dress_code', invitation[2]!.canvas);
   assert.equal(none.kind, undefined);
   assert.equal(none.shape, undefined, 'no box, so no shape');
 });

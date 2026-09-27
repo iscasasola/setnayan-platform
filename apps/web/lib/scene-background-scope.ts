@@ -108,7 +108,7 @@ export function sharedStageBackground(
 }
 
 /** ↺ USE THE EVENT HUB'S — the own scene back on its stage's shared background (or the theme's). */
-export function useHubBackgroundCanvas(stageScenes: readonly SceneOnStage[], type: string, canvas: HubSectionCanvas): HubSectionCanvas {
+export function hubBackgroundCanvasFor(stageScenes: readonly SceneOnStage[], type: string, canvas: HubSectionCanvas): HubSectionCanvas {
   return withBackground(canvas, sharedStageBackground(stageScenes, type) ?? {}, false);
 }
 

@@ -93,3 +93,65 @@ export function makerTourSlides(input: { storeShell: boolean; priceLabel: string
 export function isStagePhase(value: unknown): value is LifecyclePhase {
   return typeof value === 'string' && (PUBLIC_STAGE_ORDER as readonly string[]).includes(value);
 }
+
+/**
+ * ▾ THE COMPACT BAR IS ONE PICKER (owner 2026-09-27, on "● Invitation ▾" +
+ * "Logo ▾": *"combine them in 1 dropdown"*; DECISION_LOG "THE COMPACT MAKER
+ * BAR IS ONE PICKER, NOT TWO"). Pure, so a test holds what the couple sees:
+ *
+ *   · the button names where they ARE — the open page, else the stage;
+ *   · the list is two labelled groups, Stages then Pages, in `MAKER_BAR`'s own
+ *     words; Stages keep the live-today dot;
+ *   · Prints & Tickets stays under Pages, where the old Pages picker listed it,
+ *     so collapsing the bar never hides a door;
+ *   · a viewer who is not the couple sees the pages, each saying why it is shut.
+ *
+ * Every key is a `MAKER_BAR` key, and `makerPlaceItem` hands back THAT item, so
+ * a pick runs the same `onPress` the full row's button does — never a second
+ * meaning.
+ */
+export const MAKER_PLACE_GROUPS = { stages: 'Stages', pages: 'Pages' } as const;
+
+export type MakerPlaceOption = {
+  key: MakerBarItem['key'];
+  label: string;
+  group: (typeof MAKER_PLACE_GROUPS)[keyof typeof MAKER_PLACE_GROUPS];
+  dot?: boolean;
+  disabledNote?: string;
+};
+
+export function makerPlacePick(input: {
+  stage: LifecyclePhase;
+  liveStage: LifecyclePhase | null;
+  /** The key of the page open in the Maker, or null when none is. */
+  openTool: string | null;
+  hasWork: boolean;
+}): { value: string; options: MakerPlaceOption[] } {
+  const tools = MAKER_BAR.filter((i) => i.kind === 'tool');
+  const open = tools.find((i) => i.key === input.openTool) ?? null;
+  return {
+    value: open?.key ?? input.stage,
+    options: [
+      ...MAKER_BAR.filter((i) => i.kind === 'stage').map((i) => ({
+        key: i.key,
+        label: i.label,
+        group: MAKER_PLACE_GROUPS.stages,
+        ...(input.liveStage === i.key ? { dot: true } : {}),
+      })),
+      ...tools.map((i) => ({
+        key: i.key,
+        label: i.label,
+        group: MAKER_PLACE_GROUPS.pages,
+        ...(input.hasWork ? {} : { disabledNote: 'only the couple can open this' }),
+      })),
+    ],
+  };
+}
+
+/** The `MAKER_BAR` item a pick names — null for an unknown key, or for a page
+ *  a viewer who is not the couple cannot open. */
+export function makerPlaceItem(key: string, hasWork: boolean): MakerBarItem | null {
+  const item = MAKER_BAR.find((i) => i.key === key) ?? null;
+  if (!item) return null;
+  return item.kind === 'stage' || hasWork ? item : null;
+}

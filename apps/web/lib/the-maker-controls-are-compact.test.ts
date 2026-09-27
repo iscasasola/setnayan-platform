@@ -102,10 +102,12 @@ test('T · the bar collapses only when its natural width does not fit', async ()
   assert.equal(barShouldCollapse(1000.6, 1000), false, 'sub-pixel rounding is not overflow');
   assert.equal(barShouldCollapse(1080, 1000), true);
   assert.match(BAR, /new ResizeObserver\(check\)/, 'measured, not a breakpoint');
-  assert.match(BAR, /data-maker-stage-pick/);
-  assert.match(BAR, /data-maker-pages-pick/);
-  // Both pickers run the SAME onPress the buttons do.
-  assert.equal((BAR.match(/if \(item(?: && hasWork)?\) onPress\(item\);/g) ?? []).length, 2);
+  // ONE picker since the owner's "combine them in 1 dropdown" (2026-09-27) —
+  // `the-compact-maker-bar-is-one-picker.test.ts` holds its contents.
+  assert.match(BAR, /data-maker-place-pick/);
+  assert.doesNotMatch(BAR, /data-maker-stage-pick|data-maker-pages-pick/, 'the two pickers are back');
+  // The picker runs the SAME onPress the buttons do.
+  assert.equal((BAR.match(/const item = makerPlaceItem\(key, hasWork\);\s*if \(item\) onPress\(item\);/g) ?? []).length, 1);
 });
 
 /* ── The iframes the controller counted ────────────────────────────────── */

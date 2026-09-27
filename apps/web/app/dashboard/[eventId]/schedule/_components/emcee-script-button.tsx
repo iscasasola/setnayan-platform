@@ -86,7 +86,7 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
           disabled={pending}
           aria-label={pending ? 'Writing the emcee script…' : 'Emcee script'}
           title="Emcee script"
-          className="grid h-9 w-9 place-items-center rounded-md text-ink/60 transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:opacity-60"
+          className="sn-dot-btn grid h-9 w-9 place-items-center rounded-md text-ink/60 transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:opacity-60"
         >
           <ScrollText aria-hidden className="h-[17px] w-[17px]" strokeWidth={1.8} />
         </button>

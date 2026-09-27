@@ -658,7 +658,7 @@ export function ScheduleDay({
                         onPointerMove={moveDrag}
                         onPointerUp={endDrag}
                         onPointerCancel={cancelDrag}
-                        className={`group absolute z-[2] flex overflow-hidden rounded-md text-left transition-[box-shadow,opacity,transform] ${
+                        className={`group absolute z-[2] flex min-h-0 overflow-hidden rounded-md text-left transition-[box-shadow,opacity,transform] ${
                           short ? 'flex-row items-center gap-2.5 py-0' : 'flex-col py-2'
                         } pl-3 pr-10 ${
                           m.staged
@@ -762,7 +762,7 @@ export function ScheduleDay({
                               e.stopPropagation();
                               toggleEye(m);
                             }}
-                            className="absolute right-1.5 top-1/2 z-[3] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-ink/45 hover:bg-ink/[0.06] hover:text-ink disabled:hover:bg-transparent"
+                            className="sn-dot-btn absolute right-1.5 top-1/2 z-[3] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-ink/45 hover:bg-ink/[0.06] hover:text-ink disabled:hover:bg-transparent"
                           >
                             {m.is_public ? (
                               <Eye aria-hidden className="h-4 w-4" strokeWidth={1.8} />

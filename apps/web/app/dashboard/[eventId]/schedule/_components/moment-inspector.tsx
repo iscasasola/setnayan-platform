@@ -191,7 +191,7 @@ export function MomentInspector({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="grid h-10 w-10 place-items-center rounded-md text-ink/55 hover:bg-ink/[0.06] hover:text-ink"
+          className="sn-dot-btn grid h-10 w-10 place-items-center rounded-md text-ink/55 hover:bg-ink/[0.06] hover:text-ink"
         >
           <X aria-hidden className="h-4 w-4" />
         </button>
@@ -352,7 +352,7 @@ export function MomentInspector({
                                 m.responsible_vendor_ids.filter((id) => id !== s.vendor_id),
                               )
                             }
-                            className="grid h-7 w-7 place-items-center rounded-full hover:bg-white/15"
+                            className="sn-dot-btn grid h-7 w-7 place-items-center rounded-full hover:bg-white/15"
                           >
                             <X aria-hidden className="h-3 w-3" />
                           </button>
@@ -402,7 +402,7 @@ export function MomentInspector({
                             deleteScheduleBlock(toFormData({ event_id: eventId, block_id: p.block_id })),
                           )
                         }
-                        className="grid h-8 w-8 place-items-center rounded-md text-ink/40 hover:bg-ink/[0.06] hover:text-danger-700"
+                        className="sn-dot-btn grid h-8 w-8 place-items-center rounded-md text-ink/40 hover:bg-ink/[0.06] hover:text-danger-700"
                       >
                         <X aria-hidden className="h-3.5 w-3.5" />
                       </button>

@@ -61,6 +61,16 @@ export function toFormData(values: Record<string, string | string[] | null | und
 /**
  * The ⓘ. Hover on a desktop, TAP on a phone — a tap focuses it, and focus is
  * what shows the words, so a thumb gets the same explanation a cursor does.
+ *
+ * ⓘ IT IS ROUND (owner 2026-09-25: *"(i) is not round"*). The base layer gives
+ * every <button> a 44px floor, which drew this 24px circle as a tall capsule
+ * beside "Master · everything" and "Runs" (controller, 2026-09-28, phone shots).
+ * `.sn-dot-btn` is the repo's one opt-out — it drops the floor, pins the box
+ * square and widens the tap target with an invisible halo — and the drawn
+ * circle is the design foundation's own `<InfoTip>` trigger, class for class.
+ * Not `<InfoTip>` itself: that component PRINTS the label it sits beside, and
+ * every ⓘ here already sits beside a label the caller prints ("Runs 1 h 30
+ * min", the role pill, an eyebrow), so it would say each twice.
  */
 export function Tip({ children, align = 'center' }: { children: ReactNode; align?: 'center' | 'end' }) {
   const [open, setOpen] = useState(false);
@@ -72,9 +82,9 @@ export function Tip({ children, align = 'center' }: { children: ReactNode; align
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setOpen(false)}
-        className="inline-grid h-6 w-6 place-items-center rounded-full font-display text-xs italic text-ink/55 ring-1 ring-inset ring-ink/15 hover:text-ink"
+        className="sn-press sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
       >
-        i
+        <span aria-hidden="true">i</span>
       </button>
       {open ? (
         <span
@@ -153,7 +163,7 @@ export function Stepper({
         type="button"
         onClick={onMinus}
         aria-label={minusLabel}
-        className="grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
+        className="sn-dot-btn grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
       >
         −
       </button>
@@ -162,7 +172,7 @@ export function Stepper({
         type="button"
         onClick={onPlus}
         aria-label={plusLabel}
-        className="grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
+        className="sn-dot-btn grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
       >
         +
       </button>
@@ -197,7 +207,7 @@ export function ToolButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`relative grid h-9 w-9 place-items-center rounded-md transition-colors ${
+      className={`sn-dot-btn relative grid h-9 w-9 place-items-center rounded-md transition-colors ${
         active ? 'bg-ink text-cream' : 'text-ink/60 hover:bg-ink/[0.06] hover:text-ink'
       }`}
     >

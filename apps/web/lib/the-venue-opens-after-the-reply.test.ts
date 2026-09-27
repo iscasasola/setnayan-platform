@@ -93,21 +93,33 @@ test('withholding closes the address AND both coordinates, and says so', () => {
 
 test('the invitation page withholds by DEFAULT and opens in exactly one place', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', 'page.tsx'), 'utf8');
-  assert.match(src, /event: withheldVenue\(event\)/, 'the shared props carry the closed row');
-  const opens = src.match(/event=\{venueOpen \? event : withheldVenue\(event\)\}/g) ?? [];
+  // 🏛💒 Since 2026-09-27 the row handed to SiteBody is `venuedEvent` — the event
+  // WITH its ceremony + reception venues (lib/event-venues.ts). Same rule, same
+  // two mounts; and `venuedEvent` may appear NOWHERE else, or an un-withheld
+  // copy of both addresses could reach a render without passing the gate.
+  assert.match(src, /event: withheldVenue\(venuedEvent\)/, 'the shared props carry the closed row');
+  const opens = src.match(/event=\{venueOpen \? venuedEvent : withheldVenue\(venuedEvent\)\}/g) ?? [];
   assert.equal(opens.length, 1, `exactly one branch opens the venue (found ${opens.length})`);
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const uses = code.match(/\bvenuedEvent\b/g) ?? [];
+  assert.equal(uses.length, 4, `venuedEvent: 1 definition + 3 gated uses, found ${uses.length}`);
   assert.match(src, /venueIsOpen\(\{[\s\S]{0,160}rsvpStatus: guest\.rsvp_status/, 'and it opens on the guest’s own reply');
 });
 
 test('the widget drops the directions row when withheld — it searches BY NAME otherwise', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'venue-widget.tsx'), 'utf8');
-  // Anchor on the withheld TERNARY itself (`venue_withheld ? (`) — since 2026-09-26 the
-  // heading also mentions `event.venue_withheld` earlier, so the first mention is not it.
-  const branch = src.slice(src.indexOf('event.venue_withheld ? ('));
-  assert.ok(branch.length > 0, 'precondition: the widget asks whether the venue is withheld');
-  const withheldArm = branch.slice(0, branch.indexOf(') : ('));
-  assert.doesNotMatch(withheldArm, /NavLinksRow/, 'no directions row on the withheld arm');
-  assert.match(branch, /VENUE_WITHHELD_LINE/, 'the gap explains itself');
+  // 🏛💒 Since 2026-09-27 each venue (ceremony · reception) is its own plate, and
+  // the withheld line is said ONCE under them. So: every <NavLinksRow> must sit
+  // on the OPEN arm of a `venue_withheld ? null : (` ternary, and the line must
+  // be on the withheld arm of its own.
+  const rows = [...src.matchAll(/<NavLinksRow/g)].map((m) => m.index ?? 0);
+  assert.ok(rows.length >= 1, 'precondition: the widget draws directions');
+  for (const at of rows) {
+    const before = src.slice(Math.max(0, at - 80), at);
+    assert.match(before, /event\.venue_withheld \? null : \(\s*$/, 'a directions row outside the open arm');
+  }
+  const line = src.slice(src.indexOf('{event.venue_withheld ? ('));
+  assert.match(line.slice(0, line.indexOf(') : null')), /VENUE_WITHHELD_LINE/, 'the gap explains itself');
   assert.match(VENUE_WITHHELD_LINE, /repl(y|ied)/i, 'and the line says what opens it');
 });
 

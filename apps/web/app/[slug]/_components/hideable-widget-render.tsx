@@ -20,6 +20,7 @@ import { ScheduleWidget } from './schedule-widget';
 import { SpecialMessageWidget } from './special-message-widget';
 import { TierComparisonWidget } from './tier-comparison-widget';
 import { VenueWidget } from './venue-widget';
+import { VENUE_ROLE_LABEL } from '@/lib/event-venues';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import { YourPhotosWidget } from './your-photos-widget';
 
@@ -97,10 +98,25 @@ function HideableWidgetBody({
           </p>
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Detail label="Date" value={formatEventDate(event.event_date) || '—'} />
-            <Detail label="Venue" value={event.venue_name ?? '—'} />
-            {event.venue_address ? (
-              <Detail label="Address" value={event.venue_address} className="sm:col-span-2" />
-            ) : null}
+            {/* 🏛💒 One row per venue — "Ceremony" / "Reception" — when the page
+                loaded them (lib/event-venues.ts, withheld with the event). */}
+            {event.venues?.length ? (
+              event.venues.map((v) => (
+                <Detail
+                  key={v.role}
+                  label={VENUE_ROLE_LABEL[v.role]}
+                  value={[v.name, v.address].filter(Boolean).join(' · ') || '—'}
+                  className="sm:col-span-2"
+                />
+              ))
+            ) : (
+              <>
+                <Detail label="Venue" value={event.venue_name ?? '—'} />
+                {event.venue_address ? (
+                  <Detail label="Address" value={event.venue_address} className="sm:col-span-2" />
+                ) : null}
+              </>
+            )}
             <Detail label="Your role" value={ROLE_LABELS[guest.role]} />
             <Detail label="Side" value={sideLabel} />
           </dl>

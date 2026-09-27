@@ -74,11 +74,20 @@ export function hasVenueContent(event: {
   venue_address: string | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
+  /**
+   * 🏛💒 The ceremony + reception venues (`lib/event-venues.ts`), when the
+   * caller loaded them. `cale-ice` (2026-09-27): both venues booked, the
+   * event row's name and address NULL — and, for a guest who has not replied,
+   * the pin withheld too — so this answered "no venue" and the Maker drew
+   * "Add your venue." over a wedding with two. A named venue is content.
+   */
+  venues?: readonly { name: string | null; address: string | null; latitude: number | null; longitude: number | null }[];
 }): boolean {
   return Boolean(
     event.venue_name ||
       event.venue_address ||
-      (event.venue_latitude != null && event.venue_longitude != null),
+      (event.venue_latitude != null && event.venue_longitude != null) ||
+      (event.venues ?? []).some((v) => v.name || v.address || (v.latitude != null && v.longitude != null)),
   );
 }
 

@@ -121,5 +121,8 @@ test('the Maker mounts ONE canvas iframe; the other src-less frames are the tile
   assert.equal((PREVIEW.match(/<iframe\b/g) ?? []).length, 1);
   assert.match(PREVIEW, /srcDoc=\{srcDoc!\}/, 'the thumbnail is the src-less frame');
   assert.match(PREVIEW, /transform: `scale\(\$\{frame\.scale\}\)`/);
-  assert.match(SHELL, /key=\{`\$\{stage\}:\$\{maker\.renderStamp\}:\$\{maker\.viewAsHref \?\? ''\}`\}/, 'the canvas is REPLACED on a save, never stacked');
+  // ⚡ Keyed on `canvasStamp` (2026-09-27): it follows `renderStamp` on every
+  // render EXCEPT one whose element choice the canvas already shows (the canvas
+  // hold, `element-preview.ts`) — still replaced, never stacked.
+  assert.match(SHELL, /key=\{`\$\{stage\}:\$\{canvasStamp\}:\$\{maker\.viewAsHref \?\? ''\}`\}/, 'the canvas is REPLACED on a save, never stacked');
 });

@@ -261,7 +261,7 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
     // orphaned here.
     for (const shape of HUB_SCENE_SHAPES) {
       const canvas =
-        kind === 'color' || kind === 'glass' || kind === 'frost'
+        kind === 'color' || kind === 'diagonal' || kind === 'glow' || kind === 'glass' || kind === 'frost'
           ? { kind, color: '#a9834b', shape }
           : { kind, media: `r2://${PUBLIC_R2_BUCKET}/events/E1/a.jpg`, shape };
       for (const c of hubCanvasClass(canvas, true).split(' ')) emitted.add(c);

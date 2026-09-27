@@ -231,3 +231,58 @@ export function hubFontPreviewStack(key: HubFontKey): string {
   const f = HUB_FONT_BY_KEY[key];
   return `var(${f.cssVar}), ${f.fallback}`;
 }
+
+/**
+ * 🅱 WHAT EACH FACE CAN DO — the weights and the italic this app actually LOADS
+ * for it (`app/layout.tsx` + `app/_fonts/choice-faces.ts`), so the Maker's
+ * Text tab offers Weight only where a face has more than one (the approved
+ * prototype: *"pick a script face and Weight disappears"*) and B · I only where
+ * the face has them. A weight nobody loaded would be faked by the browser —
+ * smeared, not bold — so it is never offered.
+ *
+ * 🔒 `hub-font-faces-are-loaded.test.ts` reads both loader files and fails the
+ * moment this table and the files disagree, either way.
+ */
+export const HUB_FONT_FACES: Readonly<Record<HubFontKey, { weights: readonly number[]; italic: boolean }>> = {
+  cormorant: { weights: [400, 500, 600, 700], italic: false },
+  fraunces: { weights: [300, 400, 500, 600], italic: true },
+  playfair: { weights: [400, 600], italic: true },
+  caslon: { weights: [400], italic: false },
+  vidaloka: { weights: [400], italic: false },
+  cinzel: { weights: [400, 600], italic: false },
+  script: { weights: [400], italic: false },
+  tangerine: { weights: [400, 700], italic: false },
+  luxurious: { weights: [400], italic: false },
+  cormorantsc: { weights: [400, 600], italic: false },
+  playfairsc: { weights: [400], italic: false },
+  bodoni: { weights: [600], italic: false },
+  prata: { weights: [400], italic: false },
+  instrument: { weights: [400], italic: true },
+  cardo: { weights: [400, 700], italic: true },
+  gilda: { weights: [400], italic: false },
+  cinzeldeco: { weights: [400], italic: false },
+  italiana: { weights: [400], italic: false },
+  marcellus: { weights: [400], italic: false },
+  yeseva: { weights: [400], italic: false },
+  limelight: { weights: [400], italic: false },
+  alfaslab: { weights: [400], italic: false },
+  oswald: { weights: [500], italic: false },
+  syne: { weights: [400, 700], italic: false },
+  poiret: { weights: [400], italic: false },
+  pinyon: { weights: [400], italic: false },
+  herrvon: { weights: [400], italic: false },
+  haviland: { weights: [400], italic: false },
+  manrope: { weights: [400, 500, 600, 700], italic: false },
+  hanken: { weights: [400, 500, 600, 700, 800], italic: false },
+  jost: { weights: [400, 500], italic: false },
+  quicksand: { weights: [400, 500], italic: false },
+  outfit: { weights: [400, 500], italic: false },
+  schibsted: { weights: [600], italic: false },
+  poppins: { weights: [400, 500, 700], italic: false },
+};
+
+/** The face's heaviest loaded weight from 600 to 700 — what B makes it — or null (no B). */
+export function hubFontBoldWeight(key: HubFontKey): number | null {
+  const heavy = HUB_FONT_FACES[key].weights.filter((w) => w >= 600 && w <= 700);
+  return heavy.length > 0 ? Math.max(...heavy) : null;
+}

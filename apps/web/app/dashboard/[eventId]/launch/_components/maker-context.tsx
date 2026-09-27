@@ -31,7 +31,8 @@ export type MakerSelection =
   | { kind: 'post-event'; scene: string }
   | null;
 
-export type MakerSceneTab = 'format' | 'animate' | 'transition' | 'content';
+/** 'transition' is the folded tab (answer 4, "fold it") — an old address opens Animate. */
+export type MakerSceneTab = 'format' | 'animate' | 'arrange' | 'content' | 'transition';
 
 export type MakerState = {
   eventId: string;

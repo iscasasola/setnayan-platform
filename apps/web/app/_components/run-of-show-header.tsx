@@ -44,11 +44,20 @@ export function RunOfShowHeader({
   initial,
   canAdvance = false,
   compact = false,
+  variant = 'card',
 }: {
   eventId: string;
   initial: RunOfShowBlock[];
   canAdvance?: boolean;
   compact?: boolean;
+  /**
+   * `strip` — the Schedule rebuild's ONE live strip (2026-09-27, prototype
+   * `schedule_redesign_2026-09-25.html` § "the live strip"): Now and Up next
+   * merged into one row, with a single "Done — start …" press. Same run-state,
+   * same realtime channel, same advance action and refusal notice — only the
+   * drawing differs. Every other caller keeps the card, byte-identically.
+   */
+  variant?: 'card' | 'strip';
 }) {
   const [blocks, setBlocks] = useState<RunOfShowBlock[]>(initial);
   const [live, setLive] = useState(false);
@@ -155,6 +164,103 @@ export function RunOfShowHeader({
   // the same action on whichever block is actionable: the current live block to
   // advance, or the next upcoming block to start the show.
   const drift = driftLabel(driftMinutes);
+
+  if (variant === 'strip') {
+    const doneCount = blocks.filter((b) => b.run_state === 'done').length;
+    const progress = blocks.length > 0 ? Math.round((doneCount / blocks.length) * 100) : 0;
+    const target = current ?? next;
+    const pressLabel = current
+      ? next
+        ? `Done — start ${trim(next.label)}`
+        : `Finish ${trim(current.label)}`
+      : next
+        ? `Start ${trim(next.label)}`
+        : null;
+    return (
+      <section
+        aria-label="Run of show"
+        className="relative flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl bg-white/70 px-4 pb-3.5 pt-3 shadow-[0_1px_2px_rgba(40,34,24,0.05),0_18px_40px_-26px_rgba(30,26,18,0.4)] sm:px-6"
+      >
+        {allDone ? (
+          <p className="flex items-center gap-2 text-sm text-ink/70">
+            <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" />
+            Every moment is done.
+          </p>
+        ) : (
+          <>
+            <div className="flex min-w-0 flex-[1_1_100%] items-center gap-3 sm:flex-initial">
+              <span
+                aria-hidden
+                className={`h-2 w-2 flex-none rounded-full ${current ? 'animate-pulse bg-mulberry' : 'bg-ink/25'}`}
+              />
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-mulberry">Now</p>
+                <p className="truncate font-display text-xl leading-tight text-ink sm:text-2xl">
+                  {current ? current.label : notStarted ? 'Not started yet' : 'Between moments'}
+                </p>
+                {current ? (
+                  <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-ink/55">
+                    <span className="font-mono">{fmtTime(current.start_at)}</span>
+                    {current.actual_start_at ? (
+                      <span>started {fmtInstant(current.actual_start_at)}</span>
+                    ) : null}
+                    {drift ? (
+                      <span
+                        className={`font-semibold ${driftMinutes && driftMinutes > 0 ? 'text-danger-700' : 'text-success-700'}`}
+                      >
+                        {drift}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <span aria-hidden className="hidden h-9 w-px bg-ink/10 sm:block" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45">Up next</p>
+              <p className="truncate text-sm font-semibold text-ink/80 sm:text-base">
+                {next ? next.label : 'Nothing after this'}
+              </p>
+              {next ? (
+                <p className="hidden text-xs text-ink/55 sm:block">
+                  <span className="font-mono">{fmtTime(next.start_at)}</span>
+                  {next.location ? ` · ${next.location}` : ''}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              {canAdvance && target && pressLabel ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => onAdvance(target.block_id)}
+                  className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50"
+                >
+                  {pressLabel}
+                  <ChevronRight aria-hidden className="h-4 w-4" />
+                </button>
+              ) : (
+                <span
+                  className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45"
+                  title={live ? 'Updating in real time' : 'Reconnecting…'}
+                >
+                  {live ? 'Live · watching' : 'Syncing'}
+                </span>
+              )}
+            </div>
+          </>
+        )}
+        {notice ? (
+          <p role="status" className="w-full text-xs font-medium text-mulberry-600">
+            {notice}
+          </p>
+        ) : null}
+        <div aria-hidden className="absolute inset-x-4 bottom-0 h-0.5 bg-ink/[0.06] sm:inset-x-6">
+          <i className="absolute inset-y-0 left-0 bg-mulberry" style={{ width: `${progress}%` }} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -291,6 +397,21 @@ function fmtTime(iso: string | null): string {
   if (Number.isNaN(d.getTime())) return 'Time TBD';
   return d.toLocaleTimeString('en-PH', {
     timeZone: 'UTC',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
+ * When a moment ACTUALLY started. Unlike `start_at`, `actual_start_at` is a
+ * real instant (the database's `now()` at the press), so it is read in the
+ * venue's zone — the one clock everybody in the room shares.
+ */
+function fmtInstant(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-PH', {
+    timeZone: DEFAULT_EVENT_TZ,
     hour: 'numeric',
     minute: '2-digit',
   });

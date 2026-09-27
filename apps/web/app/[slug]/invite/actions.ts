@@ -12,6 +12,7 @@ import {
 } from '@/lib/terms-agreement';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { submitRsvp } from '../actions';
+import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 
 /**
  * DOOR 02 · REPLY — the save. Since 2026-09-27 this door IS the RSVP page of
@@ -38,6 +39,17 @@ import { submitRsvp } from '../actions';
  *     of Send.
  */
 export async function submitInviteReply(eventId: string, guestId: string, formData: FormData) {
+  // The Maker's canvas SAMPLE guest (`RSVP_CANVAS_GUEST`): a couple pressing
+  // Send in their own preview sets nothing — no Terms cookie, no write — and
+  // stays on the preview.
+  if (guestId === SIMULATED_GUEST_ID) {
+    const { data: ev } = await createAdminClient()
+      .from('events')
+      .select('slug')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    redirect(ev?.slug ? `${inviteReplyPath(ev.slug as string)}?editor=1` : '/');
+  }
   formData.set('return_to', INVITE_RETURN);
   const declining = formData.get('rsvp_status') === 'declined';
   const agreed = hasAgreedToTerms(formData.get(TERMS_FIELD));

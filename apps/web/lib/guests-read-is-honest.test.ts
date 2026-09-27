@@ -38,7 +38,7 @@ import { stripComments } from '@/lib/strip-comments';
 /** Minimal thenable query builder — every chained filter returns itself. */
 function stubClient(result: { data: unknown; error: unknown }): SupabaseClient {
   const builder: Record<string, unknown> = {};
-  for (const m of ['from', 'select', 'eq', 'is', 'order', 'not', 'in', 'limit']) {
+  for (const m of ['from', 'select', 'eq', 'neq', 'is', 'order', 'not', 'in', 'limit']) {
     builder[m] = () => builder;
   }
   builder.then = (resolve: (v: unknown) => unknown) =>

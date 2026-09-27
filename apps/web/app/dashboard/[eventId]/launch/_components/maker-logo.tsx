@@ -1,226 +1,288 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { StudioConfig } from '@/lib/monogram-studio-shared';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  ChevronDown,
+  ChevronUp,
+  CircleDashed,
+  ImagePlus,
+  Layers,
+  PenLine,
+  Play,
+  SlidersHorizontal,
+  Trash2,
+  Type,
+  X,
+} from 'lucide-react';
 import { createLogoSaveGate } from '@/lib/maker-logo-save-gate';
-import { VectorStudio } from '../../monogram/studio';
-import { currentMark } from '../../monogram/mark-bench';
+import { announceMakerSave } from '@/lib/maker-save-status';
+import type { MakerLogoOpening } from '@/lib/maker-logo-opening';
+import { STUDIO_FONTS, studioFontUrl, type StudioFontKey } from '@/lib/monogram-studio-fonts';
+import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
+import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
+import {
+  LOGO_DEFAULT_INK,
+  LOGO_DELAY_MAX,
+  LOGO_DELAY_STEP,
+  LOGO_DURING,
+  LOGO_DURING_LABEL,
+  LOGO_FRAME,
+  LOGO_FRAME_KINDS,
+  LOGO_FRAME_LABEL,
+  LOGO_IN,
+  LOGO_IN_LABEL,
+  LOGO_INKS,
+  LOGO_LAYER_KIND_LABEL,
+  LOGO_MAX_LAYERS,
+  LOGO_SCALE_MAX,
+  LOGO_SCALE_MIN,
+  clampToFrame,
+  composeLogoSvg,
+  defaultMotion,
+  defaultWriteWidth,
+  effectiveIn,
+  frameBody,
+  frameToLayer,
+  halfExtent,
+  layerShapes,
+  layerTransform,
+  layerToFrame,
+  layersFromSaved,
+  metaOf,
+  moveLayer,
+  newLayerId,
+  retimeLayers,
+  snapInFrame,
+  svgAsLayerBody,
+  writePathD,
+  type LogoFrameKind,
+  type LogoLayer,
+} from '@/lib/logo-layers';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 
 /**
- * THE LOGO, INSIDE THE MAKER — and it never loses work (Phase 6).
+ * 🅻 THE LOGO PAGE — A FULL-SCREEN LAYERED EDITOR, LIKE THE MAKER ITSELF (owner
+ * 2026-09-27, DECISION_LOG "THE LOGO MAKER IS A FULL-SCREEN LAYERED EDITOR").
+ * Owner, verbatim: *"remove these maximize the whole screen make the toolbar run
+ * like the editor toolbar. on the left navigator is where they can add a letter,
+ * word, text or image"* · *"on left they can add a text or upload an image, or
+ * frame"* · *"i want to be able to upload my 2 layer image so each letter gets
+ * its own animation. to make our exact logo"*.
  *
- * Owner, 2026-09-25 (FINAL_PLAN_INPUTS 29): he designed "A&B" in the Monogram
- * Maker, left without pressing one of its two buttons, and the design was gone —
- * the studio had no Save and no autosave. Here the studio (`VectorStudio`, the
- * same engine) AUTOSAVES INTO THE DRAFT:
+ *   · NO HEADER — the page is the body under the Maker's own toolbar; the draft
+ *     status ("Saving…", "Saved to your draft", or the error in words) is in the
+ *     toolbar's Apply area (`lib/maker-save-status.ts`).
+ *   · LEFT: the layers, top of the stack first, and "+ Add": Text · Image ·
+ *     Frame. Select, move up/down (the stack IS the drawing order), remove.
+ *   · CENTRE: the logo's square frame. Drag a layer to move it — RAILS ON: it
+ *     stays inside the frame and snaps to the centre and the edges.
+ *   · RIGHT: the selected layer's own tools — its words and face, its image
+ *     options, its frame, its colour, size and place, and its motion.
+ *   · PHONE: the layers and the tools are sheets from the bottom, like the Maker.
  *
- *   · a short pause after any change on the canvas (pointer / key / input),
- *   · when the tab is hidden or the page is left (`visibilitychange`, `pagehide`),
- *   · when the page unmounts — picking any other bar item.
+ * ✍ "SHOW HOW IT'S WRITTEN" (owner 2026-09-27, of his C: *"it loops to the left
+ * goes up makes the c and ends with a curl"*): on an image or text layer the
+ * couple traces the letter once, in writing order, with a finger or the mouse.
+ * That centreline is the layer's writing path; "Draw on" reveals the real
+ * letterform along it. Without one a layer cannot Draw on — it Fades.
  *
- * 🛑 …BUT NEVER ON OPEN (owner 2026-09-27). Every one of those used to save
- * whatever the canvas held the first time — so merely opening this page and
- * leaving it put the studio's untouched starting design into the draft, over
- * the couple's real logo. `createLogoSaveGate` (`lib/maker-logo-save-gate.ts`)
- * now takes the canvas as it stood when the couple FIRST reached for it as the
- * baseline, and saves only a canvas that differs from it.
+ * An uploaded image is traced to vector in the browser (the repo's own tracer,
+ * `fileToMarkSvg`) — black ink on white comes back as shapes and the white is
+ * gone. Two uploads made on the same canvas fill the frame the same way, so they
+ * land exactly on top of each other with no positioning.
  *
- * 🖼 THE COUPLE'S OWN LOGO FIRST. An event whose mark is an uploaded logo (and
- * no design yet) opens on THAT logo, as it is — "Upload a different one" /
- * "Design one instead". The studio mounts only when they ask to design.
- *
- * ⛔ No "Back to …" button (owner 2026-09-27: *"no need for this"*) — the
- * Maker bar already goes anywhere, and leaving still saves a real edit.
- *
- * 🖼 THE STUDIO IS THE MAKER'S BODY, NOT A SHEET OVER IT (owner 2026-09-25: *"we
- * do not want a pop up for details, logo, hero, reveal and love story. we want
- * their actual page to be on the body of the editor"*). Picking Logo in the bar
- * draws this page where a stage's canvas sits: the studio's own canvas fills the
- * body and its own panel sits beside it on a wide screen (the studio's container
- * query lays them side by side from ~700px), under it on a phone. No dialog, no
- * portal, no focus trap — the bar stays live above it.
- *
- * Each save posts `hubDraftAction` intent=save with `monogram_custom_svg` +
- * `monogram_studio_config` — the draft sanitises both with the studio's own
- * `sanitizeStudioSvg` / `sanitizeStudioConfig`, exactly as `saveStudioAction`
- * does. Guests keep the live logo until Apply; letters, frame and ink are free
- * (the animation plays for guests only with Pro — gated where it plays).
- *
- * 🔎 THE STATUS IS ALWAYS ON SCREEN: "Saving…", "Saved to your draft", or the
- * error in words — never a silent failure.
+ * 🛑 NEVER SAVES ON OPEN (#6023): the save gate takes the logo as it stood at the
+ * couple's first own touch and saves only a logo that differs from it.
  */
-type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved'; at: string } | { kind: 'error'; text: string };
+type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; text: string };
 
-const PAUSE_MS = 2500;
+const PAUSE_MS = 1500;
+
+/* ── text → shapes (the studio's own faces, opentype) ─────────────────────── */
+
+type Face = { getPath: (t: string, x: number, y: number, s: number) => OtPath };
+type OtPath = { getBoundingBox: () => { x1: number; y1: number; x2: number; y2: number }; toPathData: (d: number) => string };
+const faces = new Map<StudioFontKey, Promise<Face>>();
+function loadFace(key: StudioFontKey): Promise<Face> {
+  let p = faces.get(key);
+  if (!p) {
+    const file = STUDIO_FONTS.find((f) => f.key === key)?.file ?? STUDIO_FONTS[0]!.file;
+    p = (async () => {
+      const [mod, buf] = await Promise.all([
+        import('opentype.js'),
+        fetch(studioFontUrl(file)).then((r) => {
+          if (!r.ok) throw new Error('font');
+          return r.arrayBuffer();
+        }),
+      ]);
+      const ot = ((mod as { parse?: unknown }).parse ? mod : (mod as { default: unknown }).default) as {
+        parse: (b: ArrayBuffer) => Face;
+      };
+      return ot.parse(buf);
+    })();
+    p.catch(() => faces.delete(key));
+    faces.set(key, p);
+  }
+  return p;
+}
+async function textShapes(text: string, key: StudioFontKey): Promise<{ body: string; w: number; h: number } | null> {
+  const words = text.trim();
+  if (!words) return null;
+  const face = await loadFace(key);
+  const S = 200;
+  const bb = face.getPath(words, 0, 0, S).getBoundingBox();
+  if (!(bb.x2 > bb.x1) || !(bb.y2 > bb.y1)) return null;
+  const d = face.getPath(words, -bb.x1, -bb.y1, S).toPathData(2);
+  return { body: `<path d="${d}"/>`, w: bb.x2 - bb.x1, h: bb.y2 - bb.y1 };
+}
+
+/* ── the opening, as layers ─────────────────────────────────────────────── */
+
+function openingLayers(o: MakerLogoOpening): LogoLayer[] {
+  if (o.source === 'layers') return layersFromSaved(o.layers, o.svg);
+  if ((o.source === 'mark' || o.source === 'upload') && o.svg) {
+    const b = svgAsLayerBody(o.svg);
+    if (b) {
+      return [
+        {
+          // A FIXED id: this runs on the server render and again in the browser,
+          // and a random one would differ between them.
+          id: 'yourlogo',
+          kind: 'image',
+          name: o.source === 'mark' ? 'Your logo' : 'Your uploaded logo',
+          x: LOGO_FRAME / 2,
+          y: LOGO_FRAME / 2,
+          scale: 1,
+          color: null,
+          motion: defaultMotion(0),
+          autoDelay: true,
+          ...b,
+        },
+      ];
+    }
+  }
+  // Nothing yet: the couple's own initials, set once the face has loaded.
+  return [
+    {
+      id: 'initials',
+      kind: 'text',
+      name: 'Initials',
+      x: LOGO_FRAME / 2,
+      y: LOGO_FRAME / 2,
+      scale: 0.7,
+      color: LOGO_DEFAULT_INK,
+      motion: defaultMotion(0),
+      autoDelay: true,
+      text: o.names,
+      font: 'cardo',
+      body: '',
+      w: 1,
+      h: 1,
+    },
+  ];
+}
 
 export function MakerLogoDoor({
   eventId,
-  initialConfig,
-  initialNames,
-  initialUploadSvg,
-  uploadedLogoSrc = null,
-  drafted,
+  opening,
+  motionMark,
 }: {
   eventId: string;
-  initialConfig: StudioConfig | null;
-  initialNames: string | null;
-  initialUploadSvg: string | null;
-  /** The couple's uploaded logo (a sanitised data URI) when it is their mark
-   *  and no design exists yet — shown as it is, never re-drawn by the studio
-   *  until they ask to design one. */
-  uploadedLogoSrc?: string | null;
-  drafted: boolean;
-}) {
-  const [designing, setDesigning] = useState(!uploadedLogoSrc);
-  if (!designing && uploadedLogoSrc) {
-    return (
-      <UploadedLogo eventId={eventId} src={uploadedLogoSrc} drafted={drafted} onDesign={() => setDesigning(true)} />
-    );
-  }
-  return (
-    <LogoStudio
-      eventId={eventId}
-      initialConfig={initialConfig}
-      initialNames={initialNames}
-      /* "Design one instead" starts from the couple's initials, not the upload. */
-      initialUploadSvg={uploadedLogoSrc ? null : initialUploadSvg}
-      drafted={drafted}
-    />
-  );
-}
-
-/** The couple's uploaded logo, as it is — nothing mounts that could save. */
-function UploadedLogo({
-  eventId,
-  src,
-  drafted,
-  onDesign,
-}: {
-  eventId: string;
-  src: string;
-  drafted: boolean;
-  onDesign: () => void;
-}) {
-  return (
-    <section
-      className="flex min-h-0 flex-1 flex-col"
-      data-made-once="logo"
-      data-maker-logo-page=""
-      data-maker-logo-uploaded=""
-    >
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-ink/10 bg-cream px-3 py-1.5">
-        <p className="font-serif text-lg text-ink">Logo</p>
-        {drafted ? (
-          <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
-            In your draft — guests see it after you Apply.
-          </p>
-        ) : null}
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-4 py-6">
-        <div className="flex h-56 w-full max-w-[320px] items-center justify-center rounded-2xl bg-white/70 p-4">
-          {/* eslint-disable-next-line @next/next/no-img-element -- a sanitised data: URI, not a remote image */}
-          <img src={src} alt="Your logo" className="max-h-full max-w-full object-contain" data-maker-logo-current="" />
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Link
-            href={`/dashboard/${eventId}/monogram?mode=upload`}
-            className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream hover:bg-ink/90"
-          >
-            Upload a different one
-          </Link>
-          <button
-            type="button"
-            onClick={onDesign}
-            className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/5 px-4 text-[13px] font-semibold text-ink hover:bg-ink/10"
-          >
-            Design one instead
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function LogoStudio({
-  eventId,
-  initialConfig,
-  initialNames,
-  initialUploadSvg,
-  drafted,
-}: {
-  eventId: string;
-  initialConfig: StudioConfig | null;
-  initialNames: string | null;
-  initialUploadSvg: string | null;
-  drafted: boolean;
+  opening: MakerLogoOpening;
+  /** The paid mark on Motion (plays for guests with the Animated Monogram), or null. */
+  motionMark: PaidMarkState | null;
 }) {
   const router = useRouter();
+  const [layers, setLayers] = useState<LogoLayer[]>(() => openingLayers(opening));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<'layers' | 'tools' | null>(null);
+  const [playKey, setPlayKey] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
-  /* 🛑 Nothing saves until the couple has touched the studio AND the canvas
-     differs from how it stood then — see `lib/maker-logo-save-gate.ts`. */
+  /* ✍ The layer being traced, and the stroke so far (frame units). */
+  const [writing, setWriting] = useState<string | null>(null);
+  const [stroke, setStroke] = useState<Array<{ x: number; y: number }>>([]);
+
+  const selected = layers.find((l) => l.id === selectedId) ?? null;
+  const composed = useMemo(() => composeLogoSvg(layers.filter((l) => l.body)), [layers]);
+  /* Text layers wait for their face; until every layer has its shapes the logo
+     is not "as it stands", so no touch can take a baseline from it. */
+  const ready = layers.every((l) => Boolean(l.body));
+
+  /* ── the save gate (#6023) ── */
   const gate = useRef(createLogoSaveGate());
+  const composedRef = useRef(composed);
+  composedRef.current = composed;
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
   const inFlight = useRef(false);
   const timer = useRef<number | null>(null);
-  const hostRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLElement>(null);
 
-  /** Put what is on the canvas into the draft — only when it changed. */
   const flush = useCallback(
     async (opts: { refresh?: boolean } = {}) => {
       if (timer.current) {
         window.clearTimeout(timer.current);
         timer.current = null;
       }
-      const m = currentMark();
-      if (!m.ok || m.mark.source !== 'studio' || !m.mark.svg) return;
-      if (!gate.current.shouldSave(m.mark.svg) || inFlight.current) return;
+      const svg = composedRef.current;
+      if (!svg || !readyRef.current) return;
+      if (!gate.current.shouldSave(svg) || inFlight.current) return;
       inFlight.current = true;
       setSave({ kind: 'saving' });
+      announceMakerSave({ state: 'saving' });
       try {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set(
           'patch',
-          JSON.stringify({ events: { monogram_custom_svg: m.mark.svg, monogram_studio_config: m.mark.config ?? null } }),
+          JSON.stringify({
+            events: {
+              monogram_custom_svg: svg,
+              monogram_studio_config: {
+                layers: layersRef.current.map(metaOf),
+                ...(opening.anim ? { anim: opening.anim } : {}),
+              },
+            },
+          }),
         );
         const r = await hubDraftAction(eventId, fd);
         if (r.ok) {
-          gate.current.saved(m.mark.svg);
-          setSave({
-            kind: 'saved',
-            at: new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
-          });
+          gate.current.saved(svg);
+          setSave({ kind: 'saved' });
+          announceMakerSave({ state: 'saved' });
           if (opts.refresh) router.refresh();
         } else {
           setSave({ kind: 'error', text: r.error });
+          announceMakerSave({ state: 'error', text: r.error });
         }
       } catch {
-        setSave({ kind: 'error', text: 'Your logo could not be saved to your draft. Keep this open and try again.' });
+        const text = 'Your logo could not be saved to your draft. Keep this open and try again.';
+        setSave({ kind: 'error', text });
+        announceMakerSave({ state: 'error', text });
       } finally {
         inFlight.current = false;
       }
     },
-    [eventId, router],
+    [eventId, opening.anim, router],
   );
 
-  const schedule = useCallback(() => {
-    if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void flush(), PAUSE_MS);
-  }, [flush]);
-
-  /* The couple reaching for the studio — their own pointer, key or typing,
-     caught BEFORE the edit lands (capture phase) — records the canvas as it
-     stood: the baseline a save must differ from. A script-made event is not
-     the couple (`isTrusted`). */
+  /* The couple reaching for the page — their own pointer, key or typing, caught
+     BEFORE the edit lands — records the logo as it stood (`isTrusted`: a
+     script-made event is not the couple). */
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const onReach = (e: Event) => {
-      if (!e.isTrusted) return;
-      const m = currentMark();
-      if (m.ok && m.mark.source === 'studio') gate.current.touch(m.mark.svg);
+      if (!e.isTrusted || !readyRef.current) return;
+      gate.current.touch(composedRef.current);
     };
     const REACH = ['pointerdown', 'keydown', 'beforeinput'] as const;
     for (const t of REACH) host.addEventListener(t, onReach, true);
@@ -229,25 +291,15 @@ function LogoStudio({
     };
   }, []);
 
-  /* Any change on the canvas schedules a save after a short pause. */
+  /* A real change saves after a short pause. */
   useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const onChange = () => schedule();
-    host.addEventListener('pointerup', onChange);
-    host.addEventListener('keyup', onChange);
-    host.addEventListener('input', onChange);
-    host.addEventListener('change', onChange);
-    return () => {
-      host.removeEventListener('pointerup', onChange);
-      host.removeEventListener('keyup', onChange);
-      host.removeEventListener('input', onChange);
-      host.removeEventListener('change', onChange);
-    };
-  }, [schedule]);
+    if (!composed || !ready || !gate.current.shouldSave(composed)) return;
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => void flush(), PAUSE_MS);
+  }, [composed, ready, flush]);
 
-  /* Leaving — the tab hidden, the page closed, another bar item picked (this
-     page unmounts) — saves first. */
+  /* Leaving — the tab hidden, the page closed, another bar item picked —
+     saves first. */
   useEffect(() => {
     const onHide = () => {
       if (document.visibilityState === 'hidden') void flush();
@@ -262,50 +314,741 @@ function LogoStudio({
     };
   }, [flush]);
 
-  const status =
-    save.kind === 'saving' ? (
-      <span className="text-ink/60">Saving…</span>
-    ) : save.kind === 'saved' ? (
-      <span className="text-ink/70" data-logo-saved="">
-        Saved to your draft · {save.at}
-      </span>
-    ) : save.kind === 'error' ? (
-      <span role="alert" className="text-terracotta-700">
-        {save.text}
-      </span>
-    ) : (
-      <span className="text-ink/60">Every change saves to your draft by itself.</span>
+  /* ── text layers: shapes from their words + face ── */
+  const textKey = layers
+    .filter((l) => l.kind === 'text')
+    .map((l) => `${l.id}:${l.font}:${l.text}`)
+    .join('|');
+  useEffect(() => {
+    let alive = true;
+    for (const l of layersRef.current) {
+      if (l.kind !== 'text') continue;
+      const want = `${l.font}:${l.text}`;
+      void textShapes(l.text ?? '', l.font ?? 'cardo')
+        .then((shape) => {
+          if (!alive) return;
+          setLayers((cur) =>
+            cur.map((c) =>
+              c.id === l.id && `${c.font}:${c.text}` === want
+                ? shape
+                  ? { ...c, ...shape }
+                  : { ...c, body: '<path d=""/>', w: 1, h: 1 }
+                : c,
+            ),
+          );
+        })
+        .catch(() => {
+          if (alive) setProblem('That typeface could not be loaded just now — please try again.');
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [textKey]);
+
+  /* ── edits ── */
+  const update = (id: string, patch: Partial<LogoLayer>) =>
+    setLayers((cur) =>
+      cur.map((l) => {
+        if (l.id !== id) return l;
+        const next = { ...l, ...patch };
+        // RAILS: a new size or place never leaves the frame.
+        const p = clampToFrame(next, next.x, next.y);
+        return { ...next, ...p };
+      }),
     );
 
+  const addLayer = (layer: LogoLayer) => {
+    setLayers((cur) => (cur.length >= LOGO_MAX_LAYERS ? cur : retimeLayers([...cur, layer])));
+    setSelectedId(layer.id);
+    setSheet('tools');
+  };
+
+  const addText = () => {
+    const i = layers.length;
+    addLayer({
+      id: newLayerId(),
+      kind: 'text',
+      name: 'Text',
+      x: LOGO_FRAME / 2,
+      y: LOGO_FRAME / 2,
+      scale: 0.6,
+      color: LOGO_DEFAULT_INK,
+      motion: defaultMotion(i),
+      autoDelay: true,
+      text: opening.names,
+      font: 'cardo',
+      body: '',
+      w: 1,
+      h: 1,
+    });
+  };
+
+  const addFrame = () => {
+    const i = layers.length;
+    addLayer({
+      id: newLayerId(),
+      kind: 'frame',
+      name: LOGO_FRAME_LABEL.ring,
+      x: LOGO_FRAME / 2,
+      y: LOGO_FRAME / 2,
+      scale: 1,
+      color: '#C5A059',
+      motion: { ...defaultMotion(i), in: 'fade' },
+      autoDelay: true,
+      frame: 'ring',
+      ...frameBody('ring'),
+    });
+  };
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const addImage = async (file: File | undefined) => {
+    if (!file) return;
+    setProblem(null);
+    setBusy('Reading your image…');
+    const res = await fileToMarkSvg(file);
+    setBusy(null);
+    if (!res.ok) {
+      setProblem(res.error);
+      return;
+    }
+    const shape = svgAsLayerBody(res.svg);
+    if (!shape) {
+      setProblem('We couldn’t find a mark in that image — a dark mark on a light background works best.');
+      return;
+    }
+    const i = layersRef.current.length;
+    addLayer({
+      id: newLayerId(),
+      kind: 'image',
+      name: file.name.replace(/\.[a-z0-9]+$/i, '').slice(0, 40) || 'Image',
+      x: LOGO_FRAME / 2,
+      y: LOGO_FRAME / 2,
+      scale: 1,
+      color: null,
+      motion: defaultMotion(i),
+      autoDelay: true,
+      ...shape,
+    });
+  };
+
+  const remove = (id: string) => {
+    setLayers((cur) => retimeLayers(cur.filter((l) => l.id !== id)));
+    setSelectedId(null);
+    setSheet(null);
+  };
+
+  /* ── dragging on the canvas (rails + snapping) ── */
+  const svgRef = useRef<SVGSVGElement>(null);
+  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const toFrame = (e: React.PointerEvent) => {
+    const svg = svgRef.current;
+    const m = svg?.getScreenCTM();
+    if (!svg || !m) return null;
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    return { x: pt.x, y: pt.y };
+  };
+  const onDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (writing) {
+      const p = toFrame(e);
+      if (!p) return;
+      setStroke([p]);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+    const hit = (e.target as Element).closest('[data-logo-edit-layer]');
+    const id = hit?.getAttribute('data-logo-edit-layer') ?? null;
+    setSelectedId(id);
+    if (!id) return;
+    const p = toFrame(e);
+    const l = layers.find((x) => x.id === id);
+    if (!p || !l) return;
+    drag.current = { id, dx: l.x - p.x, dy: l.y - p.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (writing) {
+      if (!e.buttons && e.pointerType === 'mouse') return;
+      const p = toFrame(e);
+      if (!p) return;
+      setStroke((cur) => {
+        const last = cur[cur.length - 1];
+        // one point every few frame units — enough for a smooth path, never thousands
+        return !last || Math.hypot(p.x - last.x, p.y - last.y) >= 4 ? [...cur, p] : cur;
+      });
+      return;
+    }
+    const d = drag.current;
+    if (!d) return;
+    const p = toFrame(e);
+    if (!p) return;
+    setLayers((cur) =>
+      cur.map((l) => (l.id === d.id ? { ...l, ...snapInFrame(l, p.x + d.dx, p.y + d.dy) } : l)),
+    );
+  };
+  const onUp = () => {
+    drag.current = null;
+    if (!writing) return;
+    const l = layersRef.current.find((x) => x.id === writing);
+    if (l && stroke.length >= 2) {
+      const pts = stroke.map((p) => frameToLayer(l, p.x, p.y));
+      update(l.id, {
+        write: { w: l.write?.w ?? defaultWriteWidth(l.w, l.h), pts },
+        motion: { ...l.motion, in: 'draw' },
+      });
+    }
+    setWriting(null);
+    setStroke([]);
+  };
+  const startWriting = (id: string) => {
+    setWriting(id);
+    setStroke([]);
+    setPlaying(false);
+    setSheet(null);
+  };
+
+  const play = () => {
+    setPlaying(true);
+    setPlayKey((k) => k + 1);
+    setSheet(null);
+  };
+
+  /* ── render ── */
+  const topFirst = layers.slice().reverse();
+  const sel = selected ? halfExtent(selected) : null;
+
   return (
-    <section className="flex min-h-0 flex-1 flex-col" data-made-once="logo" data-maker-logo-page="">
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-ink/10 bg-cream px-2 py-1.5 md:px-3">
-        <p className="font-serif text-lg text-ink">Logo</p>
-        {drafted ? (
-          <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
-            In your draft — guests see it after you Apply.
-          </p>
-        ) : null}
-        <p className="text-[12px]">{status}</p>
-        <p className="ml-auto text-[12px] text-ink/60">
-          Have a logo already?{' '}
-          <Link href={`/dashboard/${eventId}/monogram?mode=upload`} className="font-semibold text-ink underline underline-offset-2">
-            Upload it instead
-          </Link>
-        </p>
-      </header>
-      <div ref={hostRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3 md:px-4">
-        <VectorStudio
-          eventId={eventId}
-          initialConfig={initialConfig}
-          initialNames={initialNames}
-          initialUploadSvg={initialUploadSvg}
-          /* The live "Remove" form is the Monogram Maker page's; inside the
-             Maker every change goes to the draft, so it is not mounted. */
-          hasStudio={false}
-          notice={null}
-        />
+    <section
+      ref={hostRef}
+      className="relative flex min-h-0 flex-1 flex-col bg-cream lg:flex-row"
+      data-made-once="logo"
+      data-maker-logo-page=""
+      data-logo-save={save.kind}
+    >
+      {/* ══ LEFT · THE LAYERS ══ */}
+      <aside
+        aria-label="Logo layers"
+        data-logo-navigator=""
+        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-h-[50dvh] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
+      >
+        <SheetHead title="Layers" onClose={() => setSheet(null)} />
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-2 pb-3">
+          {topFirst.length === 0 ? <p className="px-2 py-3 text-[13px] text-ink/60">Add text, an image or a frame.</p> : null}
+          <ol className="flex flex-col gap-1" aria-label="Top of the stack first">
+            {topFirst.map((l, idx) => {
+              const on = l.id === selectedId;
+              return (
+                <li key={l.id} className={`flex items-center gap-1 rounded-md ${on ? 'bg-ink text-cream' : 'hover:bg-ink/5'}`}>
+                  <button
+                    type="button"
+                    aria-pressed={on}
+                    data-logo-layer-row={l.id}
+                    onClick={() => {
+                      setSelectedId(l.id);
+                      setSheet('tools');
+                    }}
+                    className="sn-press flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left text-[13px] font-semibold"
+                  >
+                    <KindIcon kind={l.kind} />
+                    <span className="min-w-0 truncate">{l.kind === 'text' ? l.text || 'Text' : l.name}</span>
+                  </button>
+                  <IconBtn label={`Move ${l.name} up`} disabled={idx === 0} onClick={() => setLayers((c) => retimeLayers(moveLayer(c, l.id, 'up')))}>
+                    <ChevronUp aria-hidden className="h-4 w-4" />
+                  </IconBtn>
+                  <IconBtn
+                    label={`Move ${l.name} down`}
+                    disabled={idx === topFirst.length - 1}
+                    onClick={() => setLayers((c) => retimeLayers(moveLayer(c, l.id, 'down')))}
+                  >
+                    <ChevronDown aria-hidden className="h-4 w-4" />
+                  </IconBtn>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-2 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55">Add</p>
+          <div className="grid grid-cols-3 gap-1 px-1" data-logo-add="">
+            <AddBtn label="Text" onClick={addText} disabled={layers.length >= LOGO_MAX_LAYERS}>
+              <Type aria-hidden className="h-4 w-4" />
+            </AddBtn>
+            <AddBtn label="Image" onClick={() => fileRef.current?.click()} disabled={layers.length >= LOGO_MAX_LAYERS || Boolean(busy)}>
+              <ImagePlus aria-hidden className="h-4 w-4" />
+            </AddBtn>
+            <AddBtn label="Frame" onClick={addFrame} disabled={layers.length >= LOGO_MAX_LAYERS}>
+              <CircleDashed aria-hidden className="h-4 w-4" />
+            </AddBtn>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+            className="sr-only"
+            aria-label="Upload an image layer"
+            onChange={(e) => {
+              void addImage(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+          {busy ? <p className="px-2 text-[12px] text-ink/60">{busy}</p> : null}
+          {problem ? (
+            <p role="alert" className="px-2 text-[12px] text-terracotta-700">
+              {problem}
+            </p>
+          ) : null}
+        </div>
+      </aside>
+
+      {/* ══ CENTRE · THE LOGO'S FRAME ══ */}
+      {/* 📱 On a phone the frame sits at the TOP, so the half-height sheets
+          under it never cover the logo being edited. */}
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-start p-3 lg:justify-center lg:p-6">
+        {/* The frame is SQUARE: as wide as the space allows, never taller than
+            the space left under the Maker bar. */}
+        <div className="relative aspect-square w-full max-w-[min(100%,calc(100dvh-13rem))]" data-logo-frame="">
+          {playing ? (
+            <div className="absolute inset-0 rounded-md bg-white shadow-sm" data-logo-playing="">
+              {composed ? <LayeredLogoPlayer key={playKey} svg={composed} /> : null}
+            </div>
+          ) : (
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${LOGO_FRAME} ${LOGO_FRAME}`}
+              role="img"
+              aria-label="Your logo — drag a layer to move it"
+              data-logo-canvas=""
+              className="absolute inset-0 h-full w-full touch-none select-none rounded-md bg-white shadow-sm"
+              onPointerDown={onDown}
+              onPointerMove={onMove}
+              onPointerUp={onUp}
+              onPointerCancel={onUp}
+            >
+              {/* The frame's guides: its centre lines, faint. */}
+              <path d={`M${LOGO_FRAME / 2} 0V${LOGO_FRAME}M0 ${LOGO_FRAME / 2}H${LOGO_FRAME}`} stroke="#00000010" strokeWidth={2} />
+              {layers.map((l) =>
+                l.body ? (
+                  <g
+                    key={l.id}
+                    data-logo-edit-layer={l.id}
+                    transform={layerTransform(l)}
+                    className={writing ? '' : 'cursor-grab'}
+                    opacity={writing && writing !== l.id ? 0.18 : 1}
+                    dangerouslySetInnerHTML={{ __html: layerShapes(l) }}
+                  />
+                ) : null,
+              )}
+              {/* ✍ How the selected layer is written, faintly — and, while
+                  tracing, the stroke so far. */}
+              {selected?.write && !writing ? (
+                <path
+                  d={writePathD({ w: 0, pts: selected.write.pts.map((q) => layerToFrame(selected, q.x, q.y)) })}
+                  fill="none"
+                  stroke="#C5A059"
+                  strokeOpacity={0.55}
+                  strokeWidth={4}
+                  strokeDasharray="2 10"
+                  strokeLinecap="round"
+                  pointerEvents="none"
+                  data-logo-write-path=""
+                />
+              ) : null}
+              {writing && stroke.length > 1 ? (
+                <path
+                  d={writePathD({ w: 0, pts: stroke })}
+                  fill="none"
+                  stroke="#C5A059"
+                  strokeWidth={10}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  pointerEvents="none"
+                />
+              ) : null}
+              {selected && sel && !writing ? (
+                <rect
+                  x={selected.x - sel.hx}
+                  y={selected.y - sel.hy}
+                  width={sel.hx * 2}
+                  height={sel.hy * 2}
+                  fill="none"
+                  stroke="#C5A059"
+                  strokeWidth={3}
+                  strokeDasharray="10 8"
+                  pointerEvents="none"
+                  data-logo-selection=""
+                />
+              ) : null}
+            </svg>
+          )}
+          {writing ? (
+            <p
+              role="status"
+              className="absolute inset-x-2 bottom-2 rounded-md bg-ink/85 px-3 py-2 text-center text-[13px] font-semibold text-cream"
+              data-logo-writing=""
+            >
+              Trace the letter the way it is written — one stroke.{' '}
+              <button type="button" onClick={() => setWriting(null)} className="underline underline-offset-2">
+                Cancel
+              </button>
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => (playing ? setPlaying(false) : play())}
+            className="sn-press absolute right-2 top-2 inline-flex min-h-10 items-center gap-1.5 rounded-full bg-ink px-3.5 text-[13px] font-semibold text-cream shadow"
+            data-logo-play=""
+          >
+            {playing ? <X aria-hidden className="h-4 w-4" /> : <Play aria-hidden className="h-4 w-4" />}
+            {playing ? 'Edit' : 'Play'}
+          </button>
+        </div>
+        {/* 📱 Phone: the two sheets open from here, in the thumb. */}
+        <div className="mt-2 flex w-full max-w-sm gap-2 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSheet('layers')}
+            className="sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink/5 text-[13px] font-semibold text-ink"
+          >
+            <Layers aria-hidden className="h-4 w-4" /> Layers
+          </button>
+          <button
+            type="button"
+            disabled={!selected}
+            onClick={() => setSheet('tools')}
+            className="sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink/5 text-[13px] font-semibold text-ink disabled:opacity-50"
+          >
+            <SlidersHorizontal aria-hidden className="h-4 w-4" /> {selected ? `Edit ${selected.kind === 'text' ? 'text' : selected.name}` : 'Pick a layer'}
+          </button>
+        </div>
       </div>
+
+      {/* ══ RIGHT · THE SELECTED LAYER'S TOOLS ══ */}
+      <aside
+        aria-label="Layer tools"
+        data-logo-tools=""
+        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-h-[50dvh] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
+      >
+        <SheetHead title={selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer'} onClose={() => setSheet(null)} />
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pb-6 pt-1">
+          {!selected ? (
+            <p className="text-[13px] text-ink/60">Pick a layer on the left, or tap one on the logo.</p>
+          ) : (
+            <LayerTools
+              layer={selected}
+              motionMark={motionMark}
+              onWrite={() => startWriting(selected.id)}
+              onChange={(patch) => update(selected.id, patch)}
+              onRemove={() => remove(selected.id)}
+            />
+          )}
+        </div>
+      </aside>
     </section>
+  );
+}
+
+/* ── the tools for one layer ─────────────────────────────────────────────── */
+
+function LayerTools({
+  layer,
+  motionMark,
+  onWrite,
+  onChange,
+  onRemove,
+}: {
+  layer: LogoLayer;
+  motionMark: PaidMarkState | null;
+  onWrite: () => void;
+  onChange: (patch: Partial<LogoLayer>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <>
+      {layer.kind === 'text' ? (
+        <Field label="Words">
+          <input
+            type="text"
+            value={layer.text ?? ''}
+            maxLength={40}
+            onChange={(e) => onChange({ text: e.target.value })}
+            placeholder="Add your text"
+            className="min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 text-[15px] text-ink"
+            data-logo-text-input=""
+          />
+          <select
+            aria-label="Typeface"
+            value={layer.font ?? 'cardo'}
+            onChange={(e) => onChange({ font: e.target.value as StudioFontKey })}
+            className="mt-2 min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 text-[14px] text-ink"
+          >
+            {STUDIO_FONTS.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
+
+      {layer.kind === 'image' ? (
+        <Field label="Image">
+          <SwitchRow
+            on={!layer.keepWhite}
+            label="Remove white background"
+            onFlip={() => onChange({ keepWhite: !layer.keepWhite ? true : undefined })}
+          />
+        </Field>
+      ) : null}
+
+      {layer.kind === 'frame' ? (
+        <Field label="Frame">
+          <div className="flex flex-wrap gap-1.5">
+            {LOGO_FRAME_KINDS.map((k) => (
+              <Chip
+                key={k}
+                on={layer.frame === k}
+                label={LOGO_FRAME_LABEL[k]}
+                onClick={() => onChange({ frame: k as LogoFrameKind, name: LOGO_FRAME_LABEL[k], ...frameBody(k) })}
+              />
+            ))}
+          </div>
+        </Field>
+      ) : null}
+
+      <Field label="Colour">
+        <div className="flex flex-wrap items-center gap-2">
+          {layer.kind === 'image' ? (
+            <Chip on={layer.color === null} label="Its own" onClick={() => onChange({ color: null })} />
+          ) : null}
+          {LOGO_INKS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={`Colour ${c}`}
+              aria-pressed={layer.color === c}
+              onClick={() => onChange({ color: c })}
+              className={`h-9 max-h-9 min-h-9 w-9 min-w-9 max-w-9 shrink-0 rounded-full border border-ink/20 ${layer.color === c ? 'ring-2 ring-ink ring-offset-2 ring-offset-cream' : ''}`}
+              style={{ background: c }}
+            />
+          ))}
+        </div>
+      </Field>
+
+      <Field label="Size and place">
+        <Slider label="Size" min={LOGO_SCALE_MIN} max={LOGO_SCALE_MAX} step={0.01} value={layer.scale} onChange={(v) => onChange({ scale: v })} />
+        <Slider label="Across" min={0} max={LOGO_FRAME} step={1} value={layer.x} onChange={(v) => onChange({ x: v })} />
+        <Slider label="Up and down" min={0} max={LOGO_FRAME} step={1} value={layer.y} onChange={(v) => onChange({ y: v })} />
+        <button
+          type="button"
+          onClick={() => onChange({ x: LOGO_FRAME / 2, y: LOGO_FRAME / 2 })}
+          className="sn-press mt-1 inline-flex min-h-10 items-center self-start rounded-full bg-ink/5 px-3 text-[12.5px] font-semibold text-ink"
+        >
+          Centre it
+        </button>
+      </Field>
+
+      {layer.kind !== 'frame' ? (
+        <Field label="How it's written">
+          <button
+            type="button"
+            onClick={onWrite}
+            className="sn-press inline-flex min-h-11 items-center gap-1.5 self-start rounded-full bg-ink px-4 text-[13px] font-semibold text-cream"
+            data-logo-write=""
+          >
+            <PenLine aria-hidden className="h-4 w-4" />
+            {layer.write ? 'Trace it again' : "Show how it's written"}
+          </button>
+          {layer.write ? (
+            <>
+              <Slider
+                label="Brush"
+                min={Math.max(4, Math.round(Math.max(layer.w, layer.h) * 0.02))}
+                max={Math.round(Math.max(layer.w, layer.h) * 0.3)}
+                step={1}
+                value={layer.write.w}
+                onChange={(v) => onChange({ write: { ...layer.write!, w: v } })}
+              />
+              <button
+                type="button"
+                onClick={() => onChange({ write: undefined, motion: { ...layer.motion, in: 'fade' } })}
+                className="sn-press inline-flex min-h-10 items-center self-start rounded-full bg-ink/5 px-3 text-[12.5px] font-semibold text-ink"
+              >
+                Clear it
+              </button>
+            </>
+          ) : null}
+        </Field>
+      ) : null}
+
+      <Field
+        label="Motion"
+        mark={motionMark ? <PaidMark state={motionMark} label={paidMarkLabel(motionMark, 'the Animated Monogram')} size="xs" /> : null}
+      >
+        <p className="text-[12px] font-semibold text-ink/70">In</p>
+        <div className="flex flex-wrap gap-1.5">
+          {LOGO_IN.filter((k) => k !== 'draw' || layer.kind !== 'frame').map((k) => (
+            <Chip
+              key={k}
+              on={effectiveIn(layer) === k}
+              label={LOGO_IN_LABEL[k]}
+              disabled={k === 'draw' && !layer.write}
+              onClick={() => onChange({ motion: { ...layer.motion, in: k } })}
+            />
+          ))}
+        </div>
+        <p className="mt-2 text-[12px] font-semibold text-ink/70">During</p>
+        <div className="flex flex-wrap gap-1.5">
+          {LOGO_DURING.map((k) => (
+            <Chip key={k} on={layer.motion.during === k} label={LOGO_DURING_LABEL[k]} onClick={() => onChange({ motion: { ...layer.motion, during: k } })} />
+          ))}
+        </div>
+        <Slider
+          label={`Starts after ${layer.motion.delay.toFixed(1)}s`}
+          min={0}
+          max={LOGO_DELAY_MAX}
+          step={LOGO_DELAY_STEP}
+          value={layer.motion.delay}
+          onChange={(v) => onChange({ motion: { ...layer.motion, delay: Number(v.toFixed(1)) }, autoDelay: false })}
+        />
+      </Field>
+
+      <button
+        type="button"
+        onClick={onRemove}
+        className="sn-press inline-flex min-h-11 items-center gap-1.5 self-start rounded-full bg-ink/5 px-4 text-[13px] font-semibold text-terracotta-700 hover:bg-ink/10"
+        data-logo-remove=""
+      >
+        <Trash2 aria-hidden className="h-4 w-4" /> Remove this layer
+      </button>
+    </>
+  );
+}
+
+/* ── small parts ─────────────────────────────────────────────────────────── */
+
+function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="flex items-center gap-2 px-4 pb-2 pt-3">
+      <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={`Close ${title}`}
+        className="sn-press inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 lg:hidden"
+      >
+        <X aria-hidden className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function KindIcon({ kind }: { kind: LogoLayer['kind'] }) {
+  const cls = 'h-4 w-4 shrink-0';
+  if (kind === 'text') return <Type aria-label={LOGO_LAYER_KIND_LABEL.text} className={cls} />;
+  if (kind === 'frame') return <CircleDashed aria-label={LOGO_LAYER_KIND_LABEL.frame} className={cls} />;
+  return <ImagePlus aria-label={LOGO_LAYER_KIND_LABEL.image} className={cls} />;
+}
+
+function IconBtn({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-30"
+    >
+      {children}
+    </button>
+  );
+}
+
+function AddBtn({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      data-logo-add-kind={label.toLowerCase()}
+      className="sn-press inline-flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md bg-ink/5 text-[12px] font-semibold text-ink hover:bg-ink/10 disabled:opacity-40"
+    >
+      {children}
+      {label}
+    </button>
+  );
+}
+
+function Field({ label, mark = null, children }: { label: string; mark?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+        {label}
+        {mark}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function Chip({ on, label, disabled, onClick }: { on: boolean; label: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onClick}
+      className={`sn-press inline-flex min-h-10 items-center rounded-full px-3.5 text-[13px] font-semibold disabled:opacity-40 ${on ? 'bg-ink text-cream' : 'bg-ink/5 text-ink hover:bg-ink/10'}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function SwitchRow({ on, label, onFlip }: { on: boolean; label: string; onFlip: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onFlip}
+      className="sn-press flex min-h-11 w-full items-center gap-3 rounded-md bg-white/70 px-3 text-left"
+      data-logo-knockout=""
+    >
+      <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">{label}</span>
+      <span aria-hidden className={`relative h-6 w-11 shrink-0 rounded-full ${on ? 'bg-terracotta-700' : 'bg-ink/20'}`}>
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`} />
+      </span>
+    </button>
+  );
+}
+
+function Slider({
+  label,
+  min,
+  max,
+  step,
+  value,
+  onChange,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[12px] text-ink/70">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={label}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="min-h-11 w-full accent-terracotta-700"
+      />
+    </label>
   );
 }

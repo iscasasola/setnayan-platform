@@ -1,4 +1,10 @@
 import { MilestonesField, type MilestoneRow } from '../milestones-field';
+import { InfoTip } from '@/app/_components/info-tip';
+import {
+  LOVE_STORY_CHAPTERS,
+  LOVE_STORY_CHAPTER_LABEL,
+  type LoveStoryChapter,
+} from '@/lib/love-story-moments';
 
 /**
  * The Our-Story form BODY, shared by the sub-page and the unified editor's
@@ -10,6 +16,15 @@ import { MilestonesField, type MilestoneRow } from '../milestones-field';
  * that impossible and keeps the two surfaces from drifting. Moved verbatim from
  * the page (which now renders this too); caller supplies the surrounding
  * `<form action=…>` + submit button.
+ *
+ * 📖 GROUPED BY THE BOOK'S CHAPTERS (owner 2026-09-27: *"align this to what I
+ * see on the editing part"*). The questions sit under the SAME five chapters
+ * the scrapbook draws — `LOVE_STORY_CHAPTERS`, `LOVE_STORY_CHAPTER_LABEL` — not
+ * under a second set of headings ("The beginning · The spark · The almost …"
+ * retired). `StoryChapterFields` is one chapter's share, so the Maker's panel
+ * lays each under that chapter's moments. The field NAMES never change, and a
+ * form that renders every chapter posts every one of them
+ * (`the-love-story-panel-matches-the-page.test.ts`). Before us is moments only.
  */
 
 export type LoveStoryBlob = Record<string, unknown> & {
@@ -65,16 +80,32 @@ function Field({
   );
 }
 
-export function StoryFields({ story }: { story: LoveStoryBlob }) {
-  const s = storyString;
-  const anchors = (story.anchors ?? {}) as Record<string, unknown>;
-  const anchor = (k: string) => (typeof anchors[k] === 'string' ? (anchors[k] as string) : '');
-  const milestones = parseMilestones(story);
+/** Which questions sit under which chapter. Before us is moments only. */
+export const STORY_FIELDS_BY_CHAPTER: Record<LoveStoryChapter, readonly string[]> = {
+  before: [],
+  met: ['how_we_met', 'met_year'],
+  falling: [
+    'together_since',
+    'spark',
+    'spark_why',
+    'obstacle',
+    'obstacle_kept',
+    'obstacle_kind',
+    'anchor_song',
+    'anchor_place',
+    'anchor_injoke',
+    'anchor_food',
+  ],
+  yes: ['proposal', 'proposal_feel', 'proposal_year', 'proposal_setting', 'proposal_voice'],
+  toward: ['ms_year', 'ms_month', 'ms_day', 'ms_title'],
+};
 
-  return (
-    <div className="space-y-8">
-      <fieldset className="space-y-4">
-        <legend className="font-serif text-lg italic text-ink">The beginning</legend>
+/** One chapter's questions — null for a chapter that has none (Before us). */
+export function StoryChapterFields({ story, chapter }: { story: LoveStoryBlob; chapter: LoveStoryChapter }) {
+  const s = storyString;
+  if (chapter === 'met') {
+    return (
+      <div className="space-y-4">
         <Field
           label="How you met"
           name="how_we_met"
@@ -82,20 +113,22 @@ export function StoryFields({ story }: { story: LoveStoryBlob }) {
           placeholder="One jeepney, two strangers, and rain that would not stop."
           rows={3}
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="sn-eye">The year you met</span>
-            <input name="met_year" defaultValue={s(story, 'met_year')} placeholder="2022" maxLength={12} className={fieldCls} />
-          </label>
-          <label className="block">
-            <span className="sn-eye">Together since</span>
-            <input name="together_since" defaultValue={s(story, 'together_since')} placeholder="2022" maxLength={120} className={fieldCls} />
-          </label>
-        </div>
-      </fieldset>
-
-      <fieldset className="space-y-4">
-        <legend className="font-serif text-lg italic text-ink">The spark</legend>
+        <label className="block">
+          <span className="sn-eye">The year you met</span>
+          <input name="met_year" defaultValue={s(story, 'met_year')} placeholder="2022" maxLength={12} className={fieldCls} />
+        </label>
+      </div>
+    );
+  }
+  if (chapter === 'falling') {
+    const anchors = (story.anchors ?? {}) as Record<string, unknown>;
+    const anchor = (k: string) => (typeof anchors[k] === 'string' ? (anchors[k] as string) : '');
+    return (
+      <div className="space-y-4">
+        <label className="block">
+          <span className="sn-eye">Together since</span>
+          <input name="together_since" defaultValue={s(story, 'together_since')} placeholder="2022" maxLength={120} className={fieldCls} />
+        </label>
         <Field
           label="The first thing you noticed was…"
           name="spark"
@@ -108,10 +141,6 @@ export function StoryFields({ story }: { story: LoveStoryBlob }) {
           value={s(story, 'spark_why')}
           placeholder="Because nobody else laughs like that."
         />
-      </fieldset>
-
-      <fieldset className="space-y-4">
-        <legend className="font-serif text-lg italic text-ink">The almost</legend>
         <Field
           label="There was a moment you almost didn&rsquo;t make it because…"
           name="obstacle"
@@ -125,10 +154,35 @@ export function StoryFields({ story }: { story: LoveStoryBlob }) {
           placeholder="Sunday calls that never got shorter."
         />
         <input type="hidden" name="obstacle_kind" defaultValue={s(story, 'obstacle_kind')} />
-      </fieldset>
-
-      <fieldset className="space-y-4">
-        <legend className="font-serif text-lg italic text-ink">The yes</legend>
+        <div>
+          <InfoTip label="The little things" labelClassName="sn-eye" align="start">
+            The details only the two of you would know.
+          </InfoTip>
+          <div className="mt-2 grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="sn-eye">Your song</span>
+              <input name="anchor_song" defaultValue={anchor('song')} placeholder="The one you never skip" maxLength={120} className={fieldCls} />
+            </label>
+            <label className="block">
+              <span className="sn-eye">Your place</span>
+              <input name="anchor_place" defaultValue={anchor('place')} placeholder="Where it always ends up" maxLength={120} className={fieldCls} />
+            </label>
+            <label className="block">
+              <span className="sn-eye">Your inside joke</span>
+              <input name="anchor_injoke" defaultValue={anchor('injoke')} placeholder="No one else gets it" maxLength={120} className={fieldCls} />
+            </label>
+            <label className="block">
+              <span className="sn-eye">Your food</span>
+              <input name="anchor_food" defaultValue={anchor('food')} placeholder="The usual order" maxLength={120} className={fieldCls} />
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (chapter === 'yes') {
+    return (
+      <div className="space-y-4">
         <Field
           label="You knew the moment…"
           name="proposal"
@@ -159,39 +213,32 @@ export function StoryFields({ story }: { story: LoveStoryBlob }) {
           </label>
         </div>
         <input type="hidden" name="proposal_voice" defaultValue={s(story, 'proposal_voice')} />
-      </fieldset>
+      </div>
+    );
+  }
+  if (chapter === 'toward') {
+    return (
+      <div className="space-y-2">
+        <InfoTip label="Your timeline" labelClassName="sn-eye" align="start">
+          The dates worth a line of their own. They show as your story&rsquo;s timeline, sorted by date.
+        </InfoTip>
+        <MilestonesField initial={parseMilestones(story)} />
+      </div>
+    );
+  }
+  return null;
+}
 
-      <fieldset className="space-y-4">
-        <legend className="font-serif text-lg italic text-ink">The little things</legend>
-        <p className="text-sm text-ink/60">The details only the two of you would know.</p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="sn-eye">Your song</span>
-            <input name="anchor_song" defaultValue={anchor('song')} placeholder="The one you never skip" maxLength={120} className={fieldCls} />
-          </label>
-          <label className="block">
-            <span className="sn-eye">Your place</span>
-            <input name="anchor_place" defaultValue={anchor('place')} placeholder="Where it always ends up" maxLength={120} className={fieldCls} />
-          </label>
-          <label className="block">
-            <span className="sn-eye">Your inside joke</span>
-            <input name="anchor_injoke" defaultValue={anchor('injoke')} placeholder="No one else gets it" maxLength={120} className={fieldCls} />
-          </label>
-          <label className="block">
-            <span className="sn-eye">Your food</span>
-            <input name="anchor_food" defaultValue={anchor('food')} placeholder="The usual order" maxLength={120} className={fieldCls} />
-          </label>
-        </div>
-      </fieldset>
-
-      <fieldset className="space-y-4">
-        <legend className="font-serif text-lg italic text-ink">Your timeline</legend>
-        <p className="text-sm text-ink/60">
-          The moments worth a line of their own — they render as your story&rsquo;s
-          timeline.
-        </p>
-        <MilestonesField initial={milestones} />
-      </fieldset>
+/** Every question, under the book's chapter headings — the standalone page's form. */
+export function StoryFields({ story }: { story: LoveStoryBlob }) {
+  return (
+    <div className="space-y-8">
+      {LOVE_STORY_CHAPTERS.filter((c) => STORY_FIELDS_BY_CHAPTER[c].length > 0).map((chapter) => (
+        <fieldset key={chapter} className="space-y-4">
+          <legend className="font-serif text-lg italic text-ink">{LOVE_STORY_CHAPTER_LABEL[chapter]}</legend>
+          <StoryChapterFields story={story} chapter={chapter} />
+        </fieldset>
+      ))}
     </div>
   );
 }

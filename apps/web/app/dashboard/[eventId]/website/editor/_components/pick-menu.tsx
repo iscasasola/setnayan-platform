@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
+import { pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
 
 /**
  * ONE COMPACT PICKER — "Home ▾", "● Invitation ▾", "Pages ▾".
@@ -17,6 +19,17 @@ import { ChevronDown } from 'lucide-react';
  * toolbar and the navigator both scroll, and an overflow container would clip
  * a list that hangs below it — `ComingNext`'s rule). Esc and a tap outside
  * close it; arrow keys move through the options.
+ *
+ * 🪤 THE LIST IS PORTALLED TO `document.body` (measured live 2026-09-27): the
+ * element sheet is `.sn-glass-bare`, and an ancestor with `backdrop-filter`
+ * (or `transform` / `filter`) becomes the containing block for `position:
+ * fixed` — the Font list was drawn at the viewport top PLUS the sheet's own
+ * top, wholly below a phone screen. From `body` no ancestor can do that. Where
+ * it opens (below, or above when there is no room) is `placePickList`,
+ * executed by `pick-menu-place.test.ts`. The faces still resolve: every
+ * `--font-*` variable is declared on `<html>` (app/layout.tsx). `z-[95]`
+ * clears the Maker overlay (`fixed inset-0 z-[80]`) and its scene picker
+ * (z-[90]/z-[91]), and stays under toasts (z-[100]).
  */
 export type PickOption = {
   key: string;
@@ -27,6 +40,9 @@ export type PickOption = {
   disabledNote?: string;
   /** Draw the option IN a face (the font dropdown — each font in its own face). */
   fontFamily?: string;
+  /** A labelled group heading ("Stages", "Pages"); consecutive options with the
+   *  same group share one heading. Omitted = no heading (every other picker). */
+  group?: string;
 };
 
 export function PickMenu({
@@ -48,7 +64,7 @@ export function PickMenu({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [at, setAt] = useState<{ top: number; left: number; minWidth: number } | null>(null);
+  const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
@@ -57,13 +73,51 @@ export function PickMenu({
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
     if (!r) return;
-    const minWidth = Math.max(r.width, 160);
-    setAt({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - minWidth - 8)), minWidth });
+    const next = placePickList({
+      button: r,
+      // The list's FULL height — `scrollHeight` ignores the maxHeight cap, so a
+      // re-measure never feeds the cap back into itself.
+      listHeight: listRef.current?.scrollHeight ?? 0,
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+    });
+    setAt((prev) =>
+      prev &&
+      prev.top === next.top &&
+      prev.left === next.left &&
+      prev.minWidth === next.minWidth &&
+      prev.maxHeight === next.maxHeight
+        ? prev
+        : next,
+    );
   };
+
+  // Placed BEFORE paint, twice: first from the button alone (the list is not
+  // mounted yet), then with the list's real height, which may flip it above
+  // the button. `place` keeps the same object when nothing moved, so this
+  // settles after one extra pass.
+  // …and focus moves into the list the first time it is actually mounted (on a
+  // first open the list only exists after the placement pass, so a focus call
+  // in the `[open]` effect below found nothing — measured in the browser).
+  const focusedOnOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (!open) {
+      focusedOnOpen.current = false;
+      return;
+    }
+    place();
+    if (!focusedOnOpen.current && listRef.current) {
+      focusedOnOpen.current = true;
+      // The CURRENT option first — a selector list would return whichever comes
+      // first in the document, i.e. always the top option.
+      (
+        listRef.current.querySelector<HTMLButtonElement>('button[aria-selected="true"]:not([disabled])') ??
+        listRef.current.querySelector<HTMLButtonElement>('button:not([disabled])')
+      )?.focus();
+    }
+  });
 
   useEffect(() => {
     if (!open) return;
-    place();
     const onDown = (e: PointerEvent) => {
       if (!btnRef.current?.contains(e.target as Node) && !listRef.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -78,7 +132,6 @@ export function PickMenu({
     window.addEventListener('keydown', onKey);
     window.addEventListener('resize', onMove);
     window.addEventListener('scroll', onMove, true);
-    listRef.current?.querySelector<HTMLButtonElement>('button[aria-selected="true"], button:not([disabled])')?.focus();
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey);
@@ -112,51 +165,82 @@ export function PickMenu({
         </span>
         <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
-      {open && at ? (
-        <ul
-          ref={listRef}
-          id={listId}
-          role="listbox"
-          aria-label={label}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') {
-              e.preventDefault();
-              move(1);
-            } else if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              move(-1);
-            }
-          }}
-          style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth }}
-          className="sn-glass-bare z-[60] max-h-[60dvh] overflow-y-auto rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
-        >
-          {options.map((o) => (
-            <li key={o.key}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={o.key === value}
-                disabled={Boolean(o.disabledNote)}
-                data-pick-option={o.key}
-                onClick={() => {
-                  setOpen(false);
-                  onPick(o.key);
-                }}
-                className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
-                  o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'
-                }`}
-              >
-                {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
-                <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
-                  {o.label}
-                </span>
-                {o.dot ? <span className="text-[12px] font-medium opacity-70">· live today</span> : null}
-                {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {open && at
+        ? createPortal(
+            <ul
+              ref={listRef}
+              id={listId}
+              role="listbox"
+              aria-label={label}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  move(1);
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  move(-1);
+                }
+              }}
+              style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth, maxHeight: at.maxHeight }}
+              data-pick-side={at.side}
+              className="sn-glass-bare z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
+            >
+              {pickRuns(options).map((run, ri) =>
+                run.group === null ? (
+                  run.options.map(renderOption)
+                ) : (
+                  /* A labelled GROUP (owner 2026-09-27, the compact Maker bar:
+                     "combine them in 1 dropdown" — Stages and Pages in one
+                     list). The heading is not an option: no button, so the
+                     arrow keys and the first-focus query pass over it; the
+                     group is announced by its aria-label, the visible word is
+                     aria-hidden. */
+                  <li
+                    key={`group:${run.group}`}
+                    role="group"
+                    aria-label={run.group}
+                    data-pick-group={run.group}
+                    className={ri > 0 ? 'mt-1 border-t border-ink/10 pt-1' : ''}
+                  >
+                    <p aria-hidden className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+                      {run.group}
+                    </p>
+                    <ul role="none">{run.options.map(renderOption)}</ul>
+                  </li>
+                ),
+              )}
+            </ul>,
+            document.body,
+          )
+        : null}
     </>
   );
+
+  function renderOption(o: PickOption) {
+    return (
+      <li key={o.key} role="none">
+        <button
+          type="button"
+          role="option"
+          aria-selected={o.key === value}
+          disabled={Boolean(o.disabledNote)}
+          data-pick-option={o.key}
+          onClick={() => {
+            setOpen(false);
+            onPick(o.key);
+          }}
+          className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
+            o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'
+          }`}
+        >
+          {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
+          <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+            {o.label}
+          </span>
+          {o.dot ? <span className="text-[12px] font-medium opacity-70">· live today</span> : null}
+          {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
+        </button>
+      </li>
+    );
+  }
 }

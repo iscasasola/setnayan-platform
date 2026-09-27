@@ -316,6 +316,7 @@ export {
   CUSTOM_COLUMN_BODY_MAX,
   sectionOrderToPersist,
 } from './custom-columns';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 export type { CustomColumn };
 export { readCustomColumns };
 
@@ -955,7 +956,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .from('guests')
       .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
-      .is('deleted_at', null);
+      .is('deleted_at', null)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false);
     guests = total ?? 0;
   } catch {
     guests = 0;
@@ -966,6 +968,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('deleted_at', null)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
       .eq('rsvp_status', 'attending');
     attending = att ?? 0;
   } catch {
@@ -977,6 +980,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('deleted_at', null)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
       .neq('rsvp_status', 'pending');
     replied = rep ?? 0;
   } catch {

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -66,6 +66,17 @@ export function MakerRsvpSettings({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState<RsvpAskConfig>(current);
+  /* 🔁 ONE VALUE, NOT TWO (2026-09-27, "the switch reads Off but the input
+     carries checked"). The switch's label, its knob and its input are all
+     drawn from `local`; `local` is re-seeded from the server's draft whenever
+     that changes (Apply, Discard, another tab), so the switch can never keep
+     showing a value the draft no longer holds. (A `checked=""` ATTRIBUTE left
+     from the first server render is not the state — React drives the
+     `checked` PROPERTY, which is what `:checked` and the form read.) */
+  const currentKey = JSON.stringify(current);
+  useEffect(() => {
+    setLocal(JSON.parse(currentKey) as RsvpAskConfig);
+  }, [currentKey]);
 
   const save = (patch: RsvpAskConfig) =>
     start(async () => {
@@ -249,6 +260,7 @@ function Switch({
         type="checkbox"
         role="switch"
         checked={on}
+        aria-checked={on}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className="peer sr-only"

@@ -35,6 +35,7 @@
  */
 
 import type { RsvpStatus } from '@/lib/guests';
+import type { EventVenue } from '@/lib/event-venues';
 
 /** A reply is any answer the guest actually gave. 'pending' is not an answer. */
 export function hasReplied(status: RsvpStatus | null | undefined): boolean {
@@ -111,6 +112,9 @@ export type VenueFields = {
   venue_latitude?: number | null;
   venue_longitude?: number | null;
   venue_withheld?: boolean;
+  /** The ceremony + reception venues (`lib/event-venues.ts`). Each one's
+   *  address and pin close under the SAME rule as the event's own. */
+  venues?: readonly EventVenue[];
 };
 
 /**
@@ -127,6 +131,20 @@ export function withheldVenue<T extends VenueFields>(event: T): T {
     venue_address: null,
     venue_latitude: null,
     venue_longitude: null,
+    // 🏛💒 BOTH venues close, never just the one the event columns describe
+    // (2026-09-27). A wedding has a ceremony and a reception; withholding one
+    // address and handing out the other would be the same leak one scroll
+    // further down. Only the NAME survives — the same line as `venue_name`.
+    ...(event.venues
+      ? {
+          venues: event.venues.map((v) => ({
+            ...v,
+            address: null,
+            latitude: null,
+            longitude: null,
+          })),
+        }
+      : {}),
     venue_withheld: true,
   };
 }

@@ -6,14 +6,18 @@ import {
   JOIN_DOOR_THROTTLED_MESSAGE,
 } from '@/lib/join-door-throttle';
 import { isUuid } from '@/lib/is-uuid';
-import { JoinFlow } from './_components/join-flow';
+import { JoinFlow, RequestSentScreen } from './_components/join-flow';
+import { anyoneMayAskToJoin } from '@/lib/rsvp-ask';
+import { redirect } from 'next/navigation';
+import { DoorShell } from '@/app/_components/door/door-shell';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { InvalidTokenScreen } from './_components/join-shell';
 
 export const metadata = { title: 'Join event' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ token?: string; error?: string }>;
+  searchParams: Promise<{ token?: string; error?: string; sent?: string }>;
 };
 
 /**
@@ -42,23 +46,11 @@ export default async function JoinPage({ params, searchParams }: Props) {
     return <InvalidTokenScreen />;
   }
 
-  // Validate the token (admin client bypasses RLS).
+  // 🔑 THE POSTER TOKEN NO LONGER DECIDES ANYTHING HERE. This page only ever
+  // offers ONE thing — the ask-to-join request — and whether it does is the
+  // couple's "Who can RSVP?" (below), never whether a poster was scanned. The
+  // `token` is still carried through so a sign-in comes back to the same URL.
   const admin = createAdminClient();
-  const { data: tokenRow } = await admin
-    .from('event_join_tokens')
-    .select('event_id, revoked_at, expires_at')
-    .eq('event_id', eventId)
-    .eq('token', token)
-    .maybeSingle();
-
-  const tokenValid =
-    !!tokenRow &&
-    !tokenRow.revoked_at &&
-    (!tokenRow.expires_at || new Date(tokenRow.expires_at) > new Date());
-
-  if (!token || !tokenValid) {
-    return <InvalidTokenScreen />;
-  }
 
   const { data: event } = await admin
     .from('events')
@@ -66,13 +58,51 @@ export default async function JoinPage({ params, searchParams }: Props) {
       // `event_date_precision` travels WITH `event_date` everywhere it is shown.
       // The column alone cannot say whether it is a decided day or a placeholder,
       // and this screen prints it to a stranger. See `doorMeta` in join-shell.tsx.
-      'event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug',
+      'event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, rsvp_ask_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
 
   if (!event) {
     return <InvalidTokenScreen />;
+  }
+
+  // "Request sent" (prototype 7c) — where both join actions land a request.
+  // It says nothing about anybody's request; it only thanks whoever sent one.
+  if (search.sent === '1') {
+    const w = await eventWordsForEvent(eventId);
+    return (
+      <RequestSentScreen
+        event={{
+          display_name: event.display_name ?? '',
+          event_date: event.event_date,
+          event_date_precision: event.event_date_precision,
+          venue_name: event.venue_name,
+        }}
+        organizer={w.theOrganizer.charAt(0).toUpperCase() + w.theOrganizer.slice(1)}
+        slug={event.slug}
+      />
+    );
+  }
+
+  // 🚪 "ONLY MY GUEST LIST" HAS NO ASK-TO-JOIN ANYWHERE (owner ruling,
+  // 2026-09-27). Not on the Event Hub, and not here either — the couple's poster
+  // QR included: it goes to the EVENT, whose one door is Sign in or Upload your
+  // QR (Builder A's `/{slug}/invite` follows the same rule). A valid poster
+  // token therefore opens NOTHING extra on such an event; only "Anyone, I
+  // approve" puts the request form on this page.
+  if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {
+    if (event.slug) redirect(`/${event.slug}`);
+    // No public page yet: not a broken link, so it is not told it is one.
+    const w = await eventWordsForEvent(eventId);
+    return (
+      <DoorShell
+        tone="dead_end"
+        eyebrow="Guest list"
+        title={event.display_name ?? 'This celebration'}
+        sub={`Only ${w.theOrganizer} can add guests to this celebration. Ask them to send you your personal invitation — it opens everything here.`}
+      />
+    );
   }
 
   // Explain a self-join throttle instead of leaving the guest to guess why the
@@ -101,7 +131,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
       event={event}
       token={token}
       errorKey={errorKey}
-      returnPath={`/join/${eventId}?token=${token}`}
+      returnPath={token ? `/join/${eventId}?token=${token}` : `/join/${eventId}`}
     />
   );
 }

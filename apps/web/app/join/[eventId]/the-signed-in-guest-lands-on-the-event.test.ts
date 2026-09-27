@@ -1,21 +1,23 @@
 /**
- * THE SIGNED-IN GUEST LANDS ON THE CELEBRATION, NOT ON A DASHBOARD.
+ * THE JOIN DOOR: A KEY WALKS IN, EVERYONE ELSE ASKS.
  *
- * Owner, 2026-08-21: "if they login, they just confirm if they are coming or
- * not, and they get their QR code?" — they did not. Every signed-in ending sent
- * them to a success page whose only way on was "Go to your dashboard", while
- * the guest with NO account was redirected onto the event page and greeted by
- * name. The one who signed in got the worse ending.
+ * Two owner rules, pinned together because they live in the same two actions:
  *
- * 🔴 THE ONE-LINE VERSION OF THIS FIX IS THE WHOLE BUG. `/{slug}` decides
- * "guest or stranger" from the guest-session cookie and nothing else, so
- * swapping the redirect string alone typechecks, lints, passes every existing
- * test, and ships the STRANGER view to the person who just joined. The mint is
- * the change; the redirect is its consequence. These guards exist so the mint
- * cannot be removed while the redirect stays.
+ * 1 · THE SIGNED-IN GUEST WHO HOLDS A SEAT LANDS ON THE CELEBRATION (owner,
+ *     2026-08-21). `/{slug}` decides "guest or stranger" from the guest-session
+ *     cookie and nothing else, so a signed-in seat-holder is MINTED that cookie
+ *     (`enterAsGuest`) before being sent anywhere — or they would arrive as a
+ *     stranger on their own invitation.
  *
- * Behavioural proof lives in tests/db/signing-in-keeps-your-seat.db.test.ts —
- * the schema facts a grep cannot see. This file pins the wiring.
+ * 2 · 🛂 NOBODY WITHOUT A KEY GETS INSIDE UNTIL THE COUPLE KEEPS OR LINKS THEM
+ *     (owner, DECISION_LOG 2026-09-26 — reverses the 2026-06-25 optimistic
+ *     admit). A person without a key who asks is a REQUEST: a guest row with
+ *     their answers, NO `event_members` row (so the event is absent from their
+ *     account) and NO guest session. A typed name never binds anybody — a name
+ *     is not a secret.
+ *
+ * Behavioural proof of the schema half lives in
+ * tests/db/a-request-is-not-a-membership.db.test.ts. This file pins the wiring.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,48 +34,45 @@ function code(src: string): string {
 }
 const ACTIONS = code(readFileSync(join(__dirname, 'actions.ts'), 'utf8'));
 const SUCCESS = code(readFileSync(join(__dirname, 'success', 'page.tsx'), 'utf8'));
+const CONNECT = code(readFileSync(join(__dirname, 'connect', 'route.ts'), 'utf8'));
 const count = (h: string, n: RegExp) => (h.match(n) ?? []).length;
 
-test('every guest ending mints a session before it sends them anywhere', () => {
-  // Four: the returning member, the two clean binds, and the optimistic admit.
+/** The body of one top-level function, by name. */
+function fn(name: string): string {
+  const at = ACTIONS.search(new RegExp(`(?:export )?(?:async )?function ${name}\\(`));
+  assert.ok(at > -1, `${name} not found`);
+  const rest = ACTIONS.slice(at);
+  const end = rest.search(/\n}\n/);
+  return rest.slice(0, end > -1 ? end : undefined);
+}
+
+// ── 1 · a key walks in ──────────────────────────────────────────────────────
+
+test('only a seat-holder is minted a session — the returning member and the couple-recorded email', () => {
   assert.equal(
     count(ACTIONS, /await enterAsGuest\(/g),
-    4,
-    'a signed-in ending stopped minting — that one lands the joiner as a stranger',
+    2,
+    'a signed-in ending with a seat stopped minting (or a request started to)',
   );
 });
 
 test('the mint is the real one, from the seat the join just wrote', () => {
-  const helper = ACTIONS.slice(ACTIONS.indexOf('async function enterAsGuest'));
-  const body = helper.slice(0, helper.indexOf('\n}'));
+  const body = fn('enterAsGuest');
   assert.match(body, /findGuestSeatForUser\(eventId, userId\)/, 'the seat is not looked up');
   assert.match(body, /if \(!seat\) return null;/, 'a missing seat must fall back, not redirect to /undefined');
   assert.match(body, /setGuestSession\(/, 'no session is minted — the redirect would show the stranger view');
   assert.match(body, /qr_token: seat\.qrToken/, 'the session is signed with something other than the live token');
   assert.match(body, /return `\/\$\{seat\.slug\}`/, 'the destination is not built from the database slug');
-});
-
-test('the destination comes from the database, never from the caller', () => {
-  // The open-redirect lesson `[slug]/redeem` paid for on live prod.
-  const helper = ACTIONS.slice(ACTIONS.indexOf('async function enterAsGuest'));
-  const body = helper.slice(0, helper.indexOf('\n}'));
   assert.doesNotMatch(body, /slug\s*=\s*(formData|params|searchParams|token)/, 'the slug came from input');
 });
 
 test('every mint site keeps a fallback — a failed lookup must not strand anyone', () => {
   const sites = ACTIONS.split('await enterAsGuest(').slice(1);
-  const withFallback = sites.filter((tail) =>
-    /dest \?\? `\/join\/\$\{eventId\}\/success/.test(tail.slice(0, 220)),
-  ).length;
-  // Three of the four redirect on the result; the unlisted one deliberately
-  // keeps the success page (it carries the only "you weren't on the list"
-  // sentence), so it mints without consuming a destination.
-  assert.equal(withFallback, 3, 'a mint site lost its fallback to the success page');
+  const withFallback = sites.filter((tail) => /dest \?\? `\/join\/\$\{eventId\}\/success/.test(tail.slice(0, 220))).length;
+  assert.equal(withFallback, 2, 'a mint site lost its fallback to the success page');
 });
 
 test('🔒 the ORGANISER still goes to their dashboard', () => {
-  // An organiser dropped on their own event page gets a read-only ribbon whose
-  // only way out is the website editor. This branch must never be rerouted.
   assert.equal(count(ACTIONS, /redirect\(`\/dashboard\/\$\{eventId\}`\)/g), 1);
   const at = ACTIONS.indexOf('redirect(`/dashboard/${eventId}`)');
   const before = ACTIONS.slice(Math.max(0, at - 260), at);
@@ -82,109 +81,110 @@ test('🔒 the ORGANISER still goes to their dashboard', () => {
 });
 
 test('the mint stays out of the module that must not contain one', () => {
-  // A test in lib/ asserts that file holds zero mints, for a reason (a <Link>
-  // prefetch once executed it). The mint belongs in this Server Action.
-  const lib = code(
-    readFileSync(join(__dirname, '..', '..', '..', 'lib', 'guest-membership-session.ts'), 'utf8'),
-  );
+  const lib = code(readFileSync(join(__dirname, '..', '..', '..', 'lib', 'guest-membership-session.ts'), 'utf8'));
   assert.equal(count(lib, /setGuestSession/g), 0);
 });
 
-test('the unlisted admit reports whether it actually bound', () => {
-  // The mint reads the membership row this writes; a swallowed bind error is
-  // the difference between recognised and stranger.
-  assert.match(ACTIONS, /return !bindErr;/, 'admitAsUnlisted discards its bind error again');
-  assert.match(ACTIONS, /if \(admitted\) await enterAsGuest\(/, 'the unlisted mint is unconditional');
-});
-
-test('the success page stopped promising an invitation that already exists', () => {
+test('the success page opens the invitation — and nobody off the list reaches it any more', () => {
   assert.doesNotMatch(SUCCESS, /on its way/, 'the false promise is back');
-  assert.doesNotMatch(
-    SUCCESS,
-    /Go to your dashboard[\s\S]{0,60}<\/Link>\s*\)\s*;?\s*}\s*$/,
-    'the dashboard is the only way on again',
-  );
   assert.match(SUCCESS, /Open your invitation/, 'the way onto the celebration is gone');
   assert.match(SUCCESS, /href=\{`\/\$\{event\.slug\}`\}/, 'the link is not the event address');
-  // …and the slug it needs is actually read.
   assert.match(SUCCESS, /public_id, slug/, 'the page links to a slug it never selected');
-  // The dashboard survives ONLY as the fallback for an event with no address.
   assert.match(SUCCESS, /event\.slug \?/, 'the no-address fallback was collapsed away');
+  assert.doesNotMatch(SUCCESS, /added you and let the hosts/, 'the "we have added you" sentence is back — nobody is added by asking');
+  assert.doesNotMatch(ACTIONS, /unlisted=1/, 'a request is being sent to "You’re in"');
 });
 
-test('the "you weren’t on the list" sentence survives', () => {
-  // It is the only place anyone is told this; the unlisted ending keeps the
-  // success page precisely so it is not lost.
-  assert.match(
-    readFileSync(join(__dirname, 'success', 'page.tsx'), 'utf8'),
-    /weren&rsquo;t on the original list/,
-    'the only notice a self-added guest gets was deleted',
-  );
-  assert.match(ACTIONS, /unlisted=1/, 'the unlisted ending stopped reaching its own notice');
+// ── 2 · everyone else asks ─────────────────────────────────────────────────
+
+test('🛂 a REQUEST writes no membership and no guest session', () => {
+  const req = fn('createJoinRequest');
+  assert.doesNotMatch(req, /from\('event_members'\)\s*\.(insert|upsert|update)/, 'a request binds an account — the event would appear in it');
+  assert.doesNotMatch(req, /setGuestSession|enterAsGuest|bindMemberToSeed/, 'a request lets its asker in');
+  assert.match(req, /entry_source: 'self_added_unlisted'/, 'the request is not tagged for Requests');
+  // A signed-in asker is remembered for Keep/Link — in guest_claims, not event_members.
+  assert.match(req, /from\('guest_claims'\)\.upsert\(/, 'a signed-in asker is not remembered, so Keep could not bind them');
+  assert.match(req, /status: 'pending_review'/);
 });
 
-// ── ONE WRITER FOR THE GUEST'S EMAIL ────────────────────────────────────────
-//
-// 🔴 THIS GUARD EXISTS BECAUSE I ADDED A SECOND WRITER AND SHIPPED IT.
-//
-// The invite door asks for "Email (optional)". I followed that value as far as
-// the CALL to sendEventAccountMagicLink, saw the word "magic link", concluded
-// the address was used for mail and thrown away, and wrote a second copy into
-// the insert — with tests locking the duplicate in place.
-//
-// Opening the callee would have taken ten seconds. `lib/event-account-link.ts`
-// step 1 stamps the address onto the guest row BEFORE it generates any mail,
-// with the identical fill-a-blank rule, and all three join endings call it.
-// The feature already worked. **I read the call site and never opened the
-// callee** — the exact failure this repo writes down as "a sentence is not a
-// mechanism; grep the WRITER".
-//
-// It was not harmless. A second writer means two places to keep in step, and
-// mine wrote at INSERT time while the real one writes on UPDATE — and prod
-// carries a trigger firing `BEFORE INSERT OR UPDATE OF email` that binds the
-// guest to a person identity, so the duplicate quietly moved WHEN that binding
-// happens. A redundant write is not a no-op when something is listening.
-
-test('🔴 exactly ONE place writes a guest email from the join door', () => {
-  const writes = (ACTIONS.match(/\.update\(\{\s*email/g) ?? []).length;
-  assert.equal(
-    writes,
-    0,
-    'the join door writes the guest email directly again — sendEventAccountMagicLink already does it, with the same fill-a-blank rule',
-  );
-  const inserts = ACTIONS.slice(ACTIONS.indexOf('export async function selfJoinAction'));
-  const at = inserts.indexOf("entry_source: 'self_added_unlisted'");
-  assert.ok(at > -1, 'the self-join insert moved — re-point this guard');
-  const insert = inserts.slice(at, inserts.indexOf('.select(', at));
-  assert.doesNotMatch(
-    insert,
-    /(^|[^_a-zA-Z])email\s*:/,
-    'the self-join insert carries an email again — that is the SECOND writer, and it fires the person-binding trigger at a different moment than the real one',
-  );
+test('🛂 both actions end a request on "Request sent", never on the celebration or Reply', () => {
+  for (const name of ['joinEventAction', 'selfJoinAction']) {
+    const body = fn(name);
+    const at = body.indexOf('await createJoinRequest(');
+    assert.ok(at > -1, `${name} no longer creates a request`);
+    const after = body.slice(at);
+    assert.match(after, /return requestSent\(eventId, token\);/, `${name}: a request does not end on "Request sent"`);
+    assert.doesNotMatch(after, /setGuestSession|enterAsGuest|inviteReplyPath|bindMemberToSeed/, `${name}: something opens after a request`);
+  }
+  assert.match(fn('requestSent'), /redirect\(`\/join\/\$\{eventId\}\?sent=1/);
+  // The accountless action mints NOTHING of its own — the only Reply redirect
+  // left is for a device that already holds this event's key.
+  assert.doesNotMatch(fn('selfJoinAction'), /setGuestSession\(/, 'selfJoinAction mints a session again');
 });
 
-test('…and the one that does it is the only writer the email reaches', () => {
-  // ⚠ CHANGED 2026-09-25 (rd/guest-one-path). The join door asks for NO email
-  // any more — Door 01 stopped rendering the box on 2026-09-10, and the dead
-  // `email` read that fed three `sendEventAccountMagicLink` calls here was
-  // removed. The address is asked ONCE, on the Reply door, and reaches the one
-  // writer through `submitRsvp` → `sendKeepLinkOnce`. So: zero calls here, and
-  // no `formData.get('email')` left to resurrect them.
-  assert.equal(
-    (ACTIONS.match(/sendEventAccountMagicLink\(/g) ?? []).length,
-    0,
-    'the join door sends a sign-in link again — the email is asked on the Reply door',
-  );
-  assert.doesNotMatch(ACTIONS, /formData\.get\('email'\)/, 'the dead email read is back');
-  const lib = readFileSync(
-    join(__dirname, '..', '..', '..', 'lib', 'event-account-link.ts'),
-    'utf8',
-  );
-  const step = lib.slice(lib.indexOf('async function sendEventAccountMagicLink'));
-  assert.match(step, /\.update\(\{ email/, 'the one writer stopped writing');
-  assert.match(
-    step,
-    /\.is\('email', null\)/,
-    "the fill-a-blank rule is gone — a stranger scanning a poster could overwrite an address the host recorded",
-  );
+test('🛂 a name is not a secret — no typed name binds a seat', () => {
+  // The fuzzy matcher only SUGGESTS (Requests page); it is gone from the door.
+  assert.doesNotMatch(ACTIONS, /classifyClaimMatch\(/, 'the join door matches names again');
+  // seedBindAllowed survives only as the de-dupe of one asker's own request.
+  const uses = ACTIONS.split('seedBindAllowed(').length - 1;
+  assert.equal(uses, 1, 'seedBindAllowed is used for something other than de-duping a request');
+  assert.ok(fn('createJoinRequest').includes('seedBindAllowed('), 'seedBindAllowed left the request de-dupe');
+});
+
+test('the one bind left is the EMAIL the couple recorded — onto a row they put on the list', () => {
+  const body = fn('joinEventAction');
+  const at = body.indexOf('bindMemberToSeed(');
+  assert.ok(at > -1, 'the email bind is gone');
+  const before = body.slice(0, at);
+  assert.match(before, /\.eq\('entry_source', 'host_seeded'\)[\s\S]*\.ilike\('email', accountEmail\)/, 'the email bind can reach a request row');
+  assert.match(before, /emailMayBindRow\(/, 'the email bind skips the one rule that keeps requests out');
+  assert.equal(count(ACTIONS, /bindMemberToSeed\(/g), 2, 'a second bind site appeared (definition + the email bind only)');
+});
+
+test('the request insert is the ONE email writer on this door — and it never binds', () => {
+  assert.equal(count(ACTIONS, /\.update\(\{\s*email/g), 0, 'the join door writes a guest email outside the request insert');
+  assert.equal((ACTIONS.match(/sendEventAccountMagicLink\(/g) ?? []).length, 0, 'the join door sends a sign-in link');
+  assert.doesNotMatch(ACTIONS, /formData\.get\('email'\)/, 'the dead email read is back (the request field is contact_email)');
+  const req = fn('createJoinRequest');
+  assert.match(req, /email: answers\.email,/, 'the request stopped storing how to reach the asker — Keep could not send the key');
+});
+
+test('🛂 the connect route will not let a request’s own email open the door', () => {
+  const guard = CONNECT.indexOf('await onlyARequestHoldsThisEmail(');
+  const connect = CONNECT.indexOf('await connectEventForUser(');
+  assert.ok(guard > -1, 'the request-email guard is gone from the connect route');
+  assert.ok(guard < connect, 'the guard runs after the connect — too late');
+  const helper = CONNECT.slice(CONNECT.indexOf('async function onlyARequestHoldsThisEmail'));
+  assert.match(helper, /emailMayBindRow\(/, 'the guard decides by something other than the one rule');
+  assert.match(helper, /readGuestSession\(\)/, 'a device holding this event’s key would be refused');
+});
+
+// ── 3 · "Only my Guest List" has no ask-to-join anywhere (owner 2026-09-27) ─
+
+const PAGE = code(readFileSync(join(__dirname, 'page.tsx'), 'utf8'));
+
+test('🚪 on "Only my Guest List" the join page sends everyone to the event — a poster token included', () => {
+  const at = PAGE.indexOf('if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {');
+  assert.ok(at > -1, 'the page no longer asks "Who can RSVP?" before offering the request form');
+  assert.match(PAGE.slice(at, at + 200), /if \(event\.slug\) redirect\(`\/\$\{event\.slug\}`\);/, 'it does not go to the event');
+  assert.ok(at < PAGE.indexOf('<JoinFlow'), 'the request form renders before the rule is asked');
+  // The poster token must not be a way round it.
+  assert.doesNotMatch(PAGE, /tokenValid/, 'a valid poster token decides something on this page again');
+});
+
+test('🚪 …and both actions refuse the same way, before anything is written', () => {
+  for (const name of ['joinEventAction', 'selfJoinAction']) {
+    const body = fn(name);
+    const gate = body.indexOf('if (!anyoneMayAskToJoin(');
+    assert.ok(gate > -1, `${name} does not ask "Who can RSVP?"`);
+    assert.ok(gate < body.indexOf('await createJoinRequest('), `${name}: a request can be written before the rule is asked`);
+    assert.match(body.slice(gate, gate + 400), /GUEST_LIST_ONLY/, `${name}: a refused asker is not sent to the event`);
+  }
+  assert.doesNotMatch(ACTIONS, /tokenValid/, 'a poster token decides something in the join actions again');
+});
+
+test('🚪 the refusal code lands on the event page itself (its one door), never on an ask form', async () => {
+  const { selfJoinRefusalPath, GUEST_LIST_ONLY } = await import('@/lib/invite-arrival');
+  assert.equal(selfJoinRefusalPath({ eventId: 'e', token: 't', slug: 'cale-ice', error: GUEST_LIST_ONLY }), '/cale-ice');
+  assert.match(selfJoinRefusalPath({ eventId: 'e', token: 't', slug: null, error: GUEST_LIST_ONLY }), /^\/join\/e\?/);
 });

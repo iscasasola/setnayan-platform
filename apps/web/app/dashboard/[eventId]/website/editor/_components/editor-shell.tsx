@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
@@ -49,7 +50,7 @@ import {
   isHubElementKey,
   type HubElementKey,
 } from '@/lib/element-style';
-import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
+import { MakerPage, MakerPageFrame, MakerPageSwitch as PageSwitch } from '../../../launch/_components/maker-page';
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
@@ -659,8 +660,10 @@ export function MakerWork({
   const selectedScene = selection?.kind === 'scene' ? scenes.find((s) => s.id === selection.id) ?? null : null;
 
   /* 🧭 THE STAGE'S LIST — the canvas's own order (`lib/maker-scene-list.ts`). */
-  const { stageLists, fullOrder, minis, tint } = navigator;
+  const { stageLists, fullOrders, minis, tint } = navigator;
   const list = stageLists[stage];
+  /* ↕ The STAGE's whole list — what a move on this stage swaps in. */
+  const fullOrder = fullOrders[stage];
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
   const shownSceneIds = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
   /* "After the last scene on this stage" in the FULL order — the row that
@@ -872,6 +875,11 @@ export function MakerWork({
               <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </button>
           </li>
+          {stage === 'save_the_date' && navigator.stdLead && elementEditing ? (
+            <li className="flex shrink-0 flex-col items-start gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-std-lead="">
+              <StdLeadSwitch eventId={eventId} lead={navigator.stdLead} draftAction={elementEditing.draftAction} />
+            </li>
+          ) : null}
           {activeTab?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
               <InfoTip className="min-w-0 max-w-full" label={`${activeTab.label} opens its own page`} align="start">
@@ -910,7 +918,8 @@ export function MakerWork({
             const on = tileIsSelected(tile, selection);
             const showing = scene ? sceneShowing(scene) : tile.kind === 'post-event' ? tile.drawn : true;
             const next = list.shown[i + 1];
-            const canDrag = tile.kind === 'scene' && !pending && !list.orderIsAutomatic;
+            /* ↕ Every scene drags within its stage (owner 2026-09-27). */
+            const canDrag = tile.kind === 'scene' && !pending;
             return (
               <Fragment key={tile.key}>
               {header ? (
@@ -1092,8 +1101,8 @@ export function MakerWork({
                   {scene && menuFor === scene.id ? (
                     <SceneMenu
                       onClose={() => setMenuFor(null)}
-                      canUp={shownSceneIds.indexOf(scene.id) > 0 && !list.orderIsAutomatic}
-                      canDown={shownSceneIds.indexOf(scene.id) < shownSceneIds.length - 1 && !list.orderIsAutomatic}
+                      canUp={shownSceneIds.indexOf(scene.id) > 0}
+                      canDown={shownSceneIds.indexOf(scene.id) < shownSceneIds.length - 1}
                       showing={showing}
                       onUp={() => {
                         const k = shownSceneIds.indexOf(scene.id);
@@ -1121,13 +1130,6 @@ export function MakerWork({
               </Fragment>
             );
           })}
-          {list.orderIsAutomatic ? (
-            <li className="shrink-0 self-center px-4 text-[11px] text-ink/60 lg:mt-2 lg:self-stretch">
-              <InfoTip className="min-w-0 max-w-full" label="Order set for you" align="start">
-                Open browsing arranges the sections by kind, so dragging cannot change what guests see.
-              </InfoTip>
-            </li>
-          ) : null}
           {/* 🗂 THE FOLD — every section this stage does not draw, with why. */}
           {list.folded.length > 0 ? (
             <li className="shrink-0 self-start lg:mt-3 lg:self-stretch" data-maker-fold="">
@@ -1359,6 +1361,8 @@ export function MakerWork({
         <input type="hidden" name="next_visible" defaultValue="" />
         <input type="hidden" name="next_mode" defaultValue="" />
         <input type="hidden" name="return_to" defaultValue="" />
+        {/* ↕ A move arranges THIS stage only (`config_json.stage_order`). */}
+        <input type="hidden" name="stage" value={stage} readOnly />
         <button type="submit" data-op="toggle" formAction={toggleAction} tabIndex={-1} />
         <button type="submit" data-op="mode" formAction={setModeAction} tabIndex={-1} />
         <button type="submit" data-op="up" formAction={moveUpAction} tabIndex={-1} />
@@ -1405,49 +1409,19 @@ function madeOncePageKey(
   return madeOnce?.[selection.key] ? selection.key : null;
 }
 
-/** A two- or three-way switch at the top of a made-once page (not a tab bar:
- *  both sides are the same page, shown two ways). */
-function PageSwitch({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: ReadonlyArray<readonly [string, string]>;
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex shrink-0 justify-center px-2 pt-2" data-maker-page-switch="">
-      <div className="flex items-center rounded-full bg-ink/5 p-0.5">
-        {options.map(([v, text]) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={value === v}
-            onClick={() => onChange(v)}
-            className={`sn-press inline-flex min-h-9 items-center whitespace-nowrap rounded-full px-3 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn ${
-              value === v ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
-            }`}
-          >
-            {text}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-/** Love Story's controls, beside its page: the words the Invitation weaves into
- *  its story paragraph (the editor's own Story row, with its own bound action). */
+/** Love Story's controls, beside its page: the page's five chapters, each with
+ *  its moments and its questions (the Story row, with its own bound action —
+ *  `our-story/_components/love-story-chapters-panel.tsx`). */
 function LoveStoryControls({ rows }: { rows: Record<string, MakerRowPanel> }) {
   const keys = (TOOL_ROWS['love-story'] ?? []).filter((k) => rows[k]);
   return (
     <section className="flex flex-col gap-3" data-made-once="love-story">
       <p className="px-1 text-[13.5px] text-ink/75">
-        Your moments, each one a scene on your {PUBLIC_STAGE_LABELS.rsvp}. Add and arrange them on the page; a year is
-        enough, and five stories in your words are free.
+        <InfoTip label="The same chapters as your page." ariaLabel="About your chapters" align="start">
+          Each moment is a scene on your {PUBLIC_STAGE_LABELS.rsvp}. Tap one to edit it on the page. A year is enough, and
+          five stories in your words are free. The answers under each chapter feed your story&rsquo;s paragraph.
+        </InfoTip>
       </p>
       {keys.map((k) => (
         <RowBlock key={k} row={rows[k]!} />
@@ -2033,5 +2007,62 @@ function ThemePanel({
         </InfoTip>
       </p>
     </section>
+  );
+}
+
+/**
+ * 🎞 SAVE THE DATE: FILM · PHOTOS (owner 2026-09-27, "Couple picks Film or
+ * Photos"). One switch; the pick is kept on the gallery's row
+ * (`config_json.std_lead`) through the draft like every other Maker edit, so
+ * guests see it at Apply. Its own component: it is the only part of the
+ * navigator that needs the router (to redraw after a draft save).
+ */
+function StdLeadSwitch({
+  eventId,
+  lead,
+  draftAction,
+}: {
+  eventId: string;
+  lead: 'film' | 'photos';
+  draftAction: ElementDraftAction;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const pick = async (next: 'film' | 'photos') => {
+    if (busy || next === lead) return;
+    setBusy(true);
+    setFailed(false);
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: next } } }));
+    const res = await draftAction(eventId, fd).catch(() => null);
+    setBusy(false);
+    if (res?.ok) router.refresh();
+    else setFailed(true);
+  };
+  return (
+    <>
+      <div role="radiogroup" aria-label="What opens your Save the Date" className="inline-flex rounded-full bg-white/70 p-0.5">
+        {(['film', 'photos'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={lead === option}
+            disabled={busy}
+            onClick={() => void pick(option)}
+            className={`sn-press inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
+              lead === option ? 'bg-ink text-cream' : 'text-ink/75 hover:text-ink'
+            }`}
+          >
+            {option === 'film' ? 'Film' : 'Photos'}
+          </button>
+        ))}
+      </div>
+      {failed ? (
+        <span role="alert" className="px-1 text-[11px] text-terracotta">That did not save. Try again.</span>
+      ) : null}
+    </>
   );
 }

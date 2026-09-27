@@ -201,9 +201,13 @@ test('plus_ones ON changes nothing for a guest the host never allowed one', asyn
   assert.doesNotMatch(html, /Who are you bringing/);
 });
 
-test('song_request is not a field this widget renders at all — it gates the separate song-request card', () => {
+test('song_request asks a song ON the reply card too, behind the same switch (owner 2026-09-27)', () => {
+  // 🔄 It used to gate only the separate day-of song card, so the switch did
+  // nothing before the day — "a switch that does nothing is a lie". The card
+  // now asks one song question of its own, drawn only while the switch is on.
   const w = read('_components', 'rsvp-widget.tsx');
-  assert.doesNotMatch(w, /song_request/, 'song_request belongs to site-body.tsx’s card gate, not this form');
+  assert.match(w, /const askSong = rsvpAsks\(ask, 'song_request'\);/);
+  assert.match(w, /\{askSong && !replyLocked \? \(/);
 });
 
 // ── THE WIRING: site-body.tsx, invite/reply/page.tsx, the song-request route ─

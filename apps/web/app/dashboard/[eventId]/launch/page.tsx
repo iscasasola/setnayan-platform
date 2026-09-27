@@ -41,7 +41,7 @@ import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MakerPageFrame } from './_components/maker-page';
+import { MakerRsvpCanvas } from './_components/maker-page';
 import { MakerRsvpSettings } from './_components/maker-rsvp-ask';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
@@ -1016,11 +1016,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       ]);
       if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
       if (requestsRes?.error) logQueryError('LaunchPage.rsvpRequests', requestsRes.error, { event_id: eventId }, 'graceful_degrade');
-      const rsvpSrc = makerPageCanvasSrc(printEvent.slug ? `/${printEvent.slug}` : null, 'rsvp-page', 'rsvp');
+      const rsvpHome = printEvent.slug ? `/${printEvent.slug}` : null;
+      const rsvpSrc = makerPageCanvasSrc(rsvpHome, 'rsvp-page', 'rsvp');
+      const rsvpRepliedSrc = makerPageCanvasSrc(rsvpHome, 'rsvp-page', 'rsvp', { rsvpView: 'replied' });
       const rsvpStamp = String(Date.now());
       rsvp = {
-        page: rsvpSrc ? (
-          <MakerPageFrame src={rsvpSrc} title="Your RSVP — as a guest sees it" device="phone" frameKey={`rsvp:${rsvpStamp}`} />
+        page: rsvpSrc && rsvpRepliedSrc ? (
+          <MakerRsvpCanvas questionsSrc={rsvpSrc} repliedSrc={rsvpRepliedSrc} stamp={rsvpStamp} />
         ) : (
           <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
             Set your Event Hub address in Details to see your RSVP here.

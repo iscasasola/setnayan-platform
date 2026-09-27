@@ -25,6 +25,7 @@ import { earliestKnownEventDate, type EventDateFields } from '@/lib/event-dates'
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { monthsUntil, type RoadmapSignals } from '@/lib/wedding-roadmap';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 // Canonical reception/ceremony venue categories — reused from PLAN_GROUPS so the
 // auto-signal can never drift from the plan-card bucketing. Reception = ['venue'];
@@ -135,7 +136,8 @@ export async function fetchRoadmapState(
     supabase
       .from('guests')
       .select('event_id', { count: 'exact', head: true })
-      .eq('event_id', eventId),
+      .eq('event_id', eventId)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false),
     supabase
       .from('event_tables')
       .select('event_id', { count: 'exact', head: true })

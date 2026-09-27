@@ -58,6 +58,8 @@ const SECTION_IDS: Record<string, string> = {
   home: 'site-home',
   hero: 'site-home',
   details: 'site-details',
+  // On the day the Event Bar's "Schedule" tab lands on the day's details.
+  schedule: 'site-details',
   story: 'site-story',
   gallery: 'site-gallery',
   me: 'site-me',

@@ -21,7 +21,8 @@ import { HUB_MOTION_PRESET_LABEL } from '@/lib/hub-canvas';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
-import { readMomentMedia, resolveMoments } from '@/lib/love-story-moments';
+import { resolveMoments } from '@/lib/love-story-moments';
+import { readOurEvents } from './_components/our-events-read';
 import { readHubDraft } from '@/lib/hub-draft-store';
 
 export const metadata = { title: 'Our Love Story' };
@@ -141,7 +142,7 @@ export default async function OurStoryEditorPage({
     formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
     isStoreShellRequest(),
     resolveHubTheme(event).catch(() => null),
-    readOtherEvents(supabase, user.id, eventId),
+    readOtherEvents(user.id, eventId),
   ]);
   const theme = INVITE_THEMES[look?.theme ?? 'house'];
 
@@ -291,53 +292,26 @@ function daysToTheDay(eventDate: string | null, timezone: string | null): number
 }
 
 /**
- * The couple's OTHER events and the public photos each already shows — or
- * NULL when either read was refused, so the block says it could not look
- * rather than "this is the only event you host".
+ * The OTHER events both partners were at (owner 2026-09-27: "this should show
+ * all events that they are both there") and, for the ones the pair hosts, the
+ * public photos each already shows — or NULL when the read was refused, so the
+ * block says it could not look rather than "no other events". The scope lives
+ * in `readOurEvents` (admin read, fail-closed), shared with the pick action.
  */
-async function readOtherEvents(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  eventId: string,
-): Promise<OtherEvent[] | null> {
-  const { data: rows, error } = await supabase
-    .from('event_members')
-    .select('event_id')
-    .eq('user_id', userId)
-    .eq('member_type', 'couple');
-  if (error) {
-    logQueryError('OurStoryPage.otherEvents', error, { event_id: eventId }, 'graceful_degrade');
-    return null;
-  }
-  const ids = (rows ?? []).map((r) => r.event_id as string).filter((id) => id !== eventId);
-  if (ids.length === 0) return [];
-  const { data: events, error: eventsError } = await supabase
-    .from('events')
-    .select('event_id, display_name, event_date, our_photos, landing_page_hero_image_url')
-    .in('event_id', ids);
-  if (eventsError) {
-    logQueryError('OurStoryPage.otherEventRows', eventsError, { event_id: eventId }, 'graceful_degrade');
-    return null;
-  }
+async function readOtherEvents(userId: string, eventId: string): Promise<OtherEvent[] | null> {
+  const events = await readOurEvents({ userId, eventId });
+  if (events === null) return null;
   return Promise.all(
-    (events ?? []).map(async (e) => {
-      // One ref at a time — `readMomentMedia` caps a LIST at a moment's four.
-      const all: unknown[] = [e.landing_page_hero_image_url, ...(Array.isArray(e.our_photos) ? e.our_photos : [])];
-      const pool = [...new Set(all.flatMap((v) => readMomentMedia([v])))].slice(0, 12);
+    events.map(async (e) => {
       const photos = (
         await Promise.all(
-          pool.map(async (ref) => {
+          e.refs.slice(0, 12).map(async (ref) => {
             const url = await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null);
             return url ? { ref, url } : null;
           }),
         )
       ).filter((x): x is { ref: string; url: string } => x !== null);
-      return {
-        eventId: e.event_id as string,
-        name: (e.display_name as string | null) ?? 'Our event',
-        date: (e.event_date as string | null) ?? null,
-        photos,
-      };
+      return { eventId: e.eventId, name: e.name, date: e.date, hosted: e.hosted, photos };
     }),
   );
 }

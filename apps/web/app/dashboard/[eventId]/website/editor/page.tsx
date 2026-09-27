@@ -78,6 +78,7 @@ import { clearRsvpBackdrop, saveRsvpBackdrop, setLaunchPhase, setOpenBrowse } fr
 import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';
 import { updateOurStory } from '../our-story/actions';
 import type { LoveStoryBlob } from '../our-story/_components/story-fields';
+import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { paletteSwatches } from '@/lib/site-palette';
 import type { RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
@@ -112,6 +113,7 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets, type HubDraft } from '@/l
 import { HubSavesImmediately } from '../_components/hub-draft-field';
 import { updateWhatToBring } from '../what-to-bring/actions';
 import { buildMakerNavigatorData } from './_components/maker-navigator-data';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { resolveHubPhase } from '@/lib/event-hub-control';
 import { readPostEventForMaker } from '@/lib/post-event-compile.server';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
@@ -691,16 +693,17 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'story',
-          label: 'Our story',
-          blurb: 'How you met, the proposal, the milestones.',
+          label: 'Your chapters',
           href: `${w}/our-story`,
           anchor: 'story',
-          status: drafted.love_story ? done('Written') : todo('Not set'),
+          // What the page counts — never "Written" for an empty story.
+          status: loveStoryRowStatus(story),
           panel: (
             <StoryPanel
               action={updateOurStory.bind(null, eventId)}
               eventId={eventId}
               story={story}
+              ownsPro={ownsPro}
             />
           ),
         },
@@ -1050,12 +1053,10 @@ export default async function WebsiteEditorPage({
       firstBlock: firstBlock
         ? {
             label: firstBlock.label,
-            time: (() => {
-              const d = new Date(firstBlock.start_at);
-              return Number.isNaN(d.getTime())
-                ? null
-                : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: eventTz });
-            })(),
+            // ⏱ The venue wall clock, read the way the guest page and the
+            // Schedule read it. This tile used to re-zone it into `eventTz` and
+            // told the couple "Guests arrive · 9:30 PM" for a 1:30 PM arrival.
+            time: formatWallClock(firstBlock.start_at) || null,
           }
         : null,
       dressTitle: dressCodeConfig.title || null,
@@ -1137,7 +1138,7 @@ export default async function WebsiteEditorPage({
           </>
         ),
         reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
-        logo: <MakerLogoPanel eventId={eventId} />,
+        logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} />,
         /* 💌 Love Story's own PAGE — Our Love Story, the scrapbook — drawn in the
            Maker's body (owner 2026-09-25: "Love story, add and create your
            story"). Streamed, so the Maker never waits on it. */

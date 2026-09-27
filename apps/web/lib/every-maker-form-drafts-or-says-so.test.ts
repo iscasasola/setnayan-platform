@@ -252,11 +252,15 @@ function formsIn(file: string, src: string): Form[] {
   return out;
 }
 
-/** `<SectionColourChoices action={setBackgroundAction}>` — its forms post the prop it is handed. */
+/** `<SectionColourChoices action={setBackgroundAction}>` and the scene's
+ *  `<SceneBackgroundChoices action={setBackgroundAction}>` (2026-09-27) — their
+ *  forms post the prop they are handed, so the writer is whatever each is
+ *  rendered with. */
+const PROP_POSTERS = ['SectionColourChoices', 'SceneBackgroundChoices'];
 function resolveLocalAction(f: Form, src: string): string[] {
-  if (f.file.endsWith('sections-panel.tsx') && f.component === 'SectionColourChoices' && f.action === 'action') {
-    const passed = [...src.matchAll(/<SectionColourChoices\b[\s\S]*?\baction=\{(\w+)\}/g)].map((x) => x[1]!);
-    assert.ok(passed.length > 0, 'SectionColourChoices is rendered with no action');
+  if (f.file.endsWith('sections-panel.tsx') && PROP_POSTERS.includes(f.component) && f.action === 'action') {
+    const passed = [...src.matchAll(new RegExp(`<${f.component}\\b[\\s\\S]*?\\baction=\\{(\\w+)\\}`, 'g'))].map((x) => x[1]!);
+    assert.ok(passed.length > 0, `${f.component} is rendered with no action`);
     return passed;
   }
   return f.action.split('|');

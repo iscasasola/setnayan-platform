@@ -107,7 +107,7 @@ export function navPhaseFor(input: {
   return 'before';
 }
 
-export type NavSlotKey = 'home' | 'details' | 'rsvp' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
+export type NavSlotKey = 'home' | 'details' | 'schedule' | 'rsvp' | 'story' | 'camera' | 'watch' | 'gallery' | 'me';
 
 export type NavSlot = {
   key: NavSlotKey;
@@ -140,6 +140,15 @@ export type NavInput = {
    *  was pushed unconditionally and scrolled to an anchor that did not exist —
    *  a tab that does nothing when tapped. */
   hasDetails?: boolean;
+  /** Is there a schedule to show on the day? (On the Day's "Schedule" tab —
+   *  owner 2026-09-27, "EACH STAGE DOES ONE JOB".) Absent → assumed. */
+  hasSchedule?: boolean;
+  /**
+   * Has this guest answered? On the Invitation the RSVP tab is REPLACED by Me
+   * once they have (owner 2026-09-27: *"RSVP then Me replaces it once
+   * answered"*). Absent → not yet.
+   */
+  replied?: boolean;
   /** Is a broadcast running right now? */
   liveBroadcast: boolean;
   /** Where each leaving slot goes, resolved by the caller (it knows the slug,
@@ -209,14 +218,14 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     slots.push({ key: 'details', label: 'Details', state: 'live', href: ANCHOR.details });
   } else if (isVendor) {
     slots.push({ key: 'details', label: 'Cues', state: 'live', href: ANCHOR.details });
-  }
-
-  // 2½ — RSVP. The Invitation bar is Home · Details · RSVP · Story · Me (owner
-  //     2026-09-26/27): an IDENTIFIED guest's own reply page, before the day.
-  //     Never a stranger's — without a key there is nobody to reply as, and the
-  //     stranger's one way in is "Get inside" on the page itself.
-  if (phase === 'before' && viewer.kind === 'guest' && dest.rsvp) {
-    slots.push({ key: 'rsvp', label: 'RSVP', state: 'live', href: dest.rsvp });
+  } else if (phase === 'day' && (input.hasSchedule ?? true)) {
+    // 🗂 ON THE DAY the second tab is the SCHEDULE (owner 2026-09-27: *"On
+    //    the day. seams to be missing a lot of details and menus on the guest
+    //    bar"* → Now · Schedule · Camera · Gallery · Me, "yes"). It lands on
+    //    the day's details, whose first scene IS the schedule
+    //    (`STAGE_SCENES.event`). No key needed: the programme is general
+    //    information (#6018).
+    slots.push({ key: 'schedule', label: 'Schedule', state: 'live', href: ANCHOR.details });
   }
 
   // 3 — STORY. The couple's own words, before the day only: once the wedding is
@@ -224,6 +233,21 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     holds five.
   if (phase === 'before' && !isVendor && hasStory) {
     slots.push({ key: 'story', label: 'Story', state: 'live', href: ANCHOR.story });
+  }
+
+  // 3½ — RSVP, after Story: the Invitation bar is Home · Details · Story ·
+  //     RSVP, and RSVP is REPLACED BY Me once the guest has answered (owner
+  //     2026-09-27, "EACH STAGE DOES ONE JOB" — supersedes the 2026-09-26/27
+  //     order Home · Details · RSVP · Story · Me). An IDENTIFIED guest's own
+  //     reply page, before the day; never a stranger's — without a key there is
+  //     nobody to reply as, and the stranger's one way in is "Get inside".
+  //     Only where the stage offers RSVP at all: on the Save the Date the guest
+  //     keeps their Me.
+  const rsvpOnThisStage = !input.stageSlots || input.stageSlots.includes('rsvp');
+  const showRsvp =
+    phase === 'before' && viewer.kind === 'guest' && Boolean(dest.rsvp) && !input.replied && rsvpOnThisStage;
+  if (showRsvp) {
+    slots.push({ key: 'rsvp', label: 'RSVP', state: 'live', href: dest.rsvp! });
   }
 
   // 🔒 THE STRANGER — the general link, no key (owner 2026-09-26, "TWO LEVELS OF
@@ -301,6 +325,8 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // input for callers that still pass it; it is no longer drawn.
   if (isStranger) {
     // No Me, no Join.
+  } else if (showRsvp) {
+    // RSVP holds this place until they answer; then Me replaces it.
   } else {
     slots.push({
       key: 'me',

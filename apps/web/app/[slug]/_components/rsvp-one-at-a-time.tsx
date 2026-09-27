@@ -32,7 +32,10 @@ export function RsvpOneAtATime() {
     const all = Array.from(f.querySelectorAll<HTMLElement>('[data-rsvp-step]'));
     // Measure with every step shown, so the card's own reveals decide.
     for (const el of all) el.removeAttribute('data-rsvp-away');
-    const live = all.filter((el) => getComputedStyle(el).display !== 'none');
+    // Drawn = it has a box. `getComputedStyle(el).display` would still read
+    // "block" for a step whose PARENT the card hides (the meal inside the
+    // attending reveal), so a decliner would be walked through it.
+    const live = all.filter((el) => el.getClientRects().length > 0);
     return live;
   }, []);
 

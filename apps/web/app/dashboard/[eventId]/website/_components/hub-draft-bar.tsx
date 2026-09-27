@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Check, MoreVertical, RotateCcw, Undo2 } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { useMaker } from '../../launch/_components/maker-context';
@@ -16,6 +16,7 @@ import {
 } from '@/lib/hub-draft';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/maker-save-status';
 
 /**
  * THE DRAFT CONTROLS — Restore · Undo · Apply, ALWAYS VISIBLE at the upper
@@ -153,6 +154,10 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
   const { pending, result, run } = useDraftIntent(eventId);
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);
+  /* A page that autosaves into the draft (the Logo page) reports here, beside
+     Apply — `lib/maker-save-status.ts`. An error stays until a save succeeds. */
+  const [saveStatus, setSaveStatus] = useState<MakerSaveStatus | null>(null);
+  useEffect(() => onMakerSave(setSaveStatus), []);
   const act = (fields: Record<string, string>) => {
     run(fields);
     setAsking(false);
@@ -165,6 +170,18 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
 
   return (
     <div className="flex items-center gap-1" data-maker-draft-actions="">
+      {saveStatus ? (
+        <span
+          role={saveStatus.state === 'error' ? 'alert' : 'status'}
+          data-maker-save-status={saveStatus.state}
+          className={`max-w-[9rem] truncate text-[11px] font-semibold ${
+            saveStatus.state === 'error' ? 'text-terracotta-700' : 'text-ink/60'
+          }`}
+          title={makerSaveStatusText(saveStatus)}
+        >
+          {makerSaveStatusText(saveStatus)}
+        </span>
+      ) : null}
       {readError ? (
         <span role="alert" className="text-[11px] font-semibold text-terracotta-700">
           Draft could not load

@@ -33,7 +33,7 @@ export const metadata = { title: 'Guest detail' };
 
 type Props = {
   params: Promise<{ eventId: string; guestId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string; invite?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; invite?: string; swapped?: string }>;
 };
 
 export default async function GuestDetailPage({ params, searchParams }: Props) {
@@ -95,6 +95,9 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
 
   // Host-initiated email-invite feedback (Invite/Join v2).
   const inviteFlash =
+    search.swapped === '1'
+      ? { ok: true, msg: 'Done — the spot is theirs, with a new key. The old link and QR no longer work. Share their invitation from the guest list.' }
+      :
     search.invite === 'sent'
       ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
       : search.invite === 'failed'

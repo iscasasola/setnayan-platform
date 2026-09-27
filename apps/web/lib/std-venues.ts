@@ -20,12 +20,7 @@
  * on any read error so the film simply falls back to manual / skips the beat.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
-
-/** event_vendors.category values that represent the CEREMONY venue. */
-const CEREMONY_CATEGORIES = ['religious_venue', 'church_fees'] as const;
-/** event_vendors.category value for the RECEPTION venue. */
-const RECEPTION_CATEGORY = 'venue';
+import { loadVenueBookings } from '@/lib/event-venues';
 
 export type StdFinalizedVenues = {
   /** Finalized ceremony venue name, or null when none is booked on platform. */
@@ -34,43 +29,18 @@ export type StdFinalizedVenues = {
   reception: string | null;
 };
 
+/**
+ * 🔑 ONE READ, ONE PICK (2026-09-27). This used to run its own `event_vendors`
+ * query with its own copy of the ceremony/reception category lists. The Event
+ * Hub's venue scene now answers the same question with addresses and pins
+ * (`lib/event-venues.ts`), and two pickers of one fact would each pass their
+ * own tests while naming different places — so the film and the prints take
+ * the NAMES from the same pick the Event Hub draws.
+ */
 export async function resolveStdFinalizedVenues(
   admin: SupabaseClient,
   eventId: string,
 ): Promise<StdFinalizedVenues> {
-  try {
-    const { data, error } = await admin
-      .from('event_vendors')
-      .select('category, status, vendor_name, updated_at')
-      .eq('event_id', eventId)
-      .is('archived_at', null);
-    if (error) console.error('[supabase-error] lib/std-venues.ts · from:event_vendors.select', error);
-    if (error || !data) return { ceremony: null, reception: null };
-
-    type Row = {
-      category: string | null;
-      status: string | null;
-      vendor_name: string | null;
-      updated_at: string | null;
-    };
-    const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES as unknown as string[]);
-    const rows = (data as Row[]).filter(
-      (r) => r.status != null && confirmed.has(r.status) && r.vendor_name?.trim(),
-    );
-
-    // Most-recently-locked wins when a couple has more than one finalized pick
-    // in a category (e.g. switched venues).
-    const pick = (match: (c: string) => boolean): string | null =>
-      rows
-        .filter((r) => r.category != null && match(r.category))
-        .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))[0]
-        ?.vendor_name?.trim() ?? null;
-
-    return {
-      ceremony: pick((c) => (CEREMONY_CATEGORIES as readonly string[]).includes(c)),
-      reception: pick((c) => c === RECEPTION_CATEGORY),
-    };
-  } catch {
-    return { ceremony: null, reception: null };
-  }
+  const b = await loadVenueBookings(admin, eventId);
+  return { ceremony: b.ceremony?.name ?? null, reception: b.reception?.name ?? null };
 }

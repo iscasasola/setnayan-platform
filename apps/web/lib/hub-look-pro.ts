@@ -135,12 +135,14 @@ export function siteLookChange(
 }
 
 /**
- * The three kinds of section background (`HUB_BACKGROUND_KINDS` in
- * `lib/hub-canvas.ts`). A colour is free; media behind a section is Pro.
+ * The kinds of section background (`HUB_BACKGROUND_KINDS` in
+ * `lib/hub-canvas.ts`). A colour — flat or either glass — and "No background"
+ * are free; media behind a section (photo · snippet) is Pro (owner 2026-09-24,
+ * "changing background color is free. making media a background is pro.").
  * `setWidgetBackground` passes the kind the form actually posted — never a
  * hard-coded one — so a colour write reaches the colour arm below.
  */
-export type SectionBackgroundKind = 'photo' | 'snippet' | 'color';
+export type SectionBackgroundKind = 'photo' | 'snippet' | 'color' | 'glass' | 'frost' | 'none';
 
 /**
  * One section-background write. A COLOUR is never Pro, in any direction — so a
@@ -156,7 +158,7 @@ export function sectionBackgroundChange(input: {
   /** The media ref to store (photo / snippet), or null / '' for none. */
   nextMedia: string | null;
 }): LookChange {
-  if (input.kind === 'color') return input.currentMedia ? 'remove' : 'none';
+  if (input.kind !== 'photo' && input.kind !== 'snippet') return input.currentMedia ? 'remove' : 'none';
   return refChange(input.currentMedia, input.nextMedia);
 }
 

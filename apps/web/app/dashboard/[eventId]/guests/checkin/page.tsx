@@ -11,6 +11,7 @@ import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { CheckinDesk, type DeskGuest, type DeskCheckin } from './_components/checkin-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 export const metadata = { title: 'Check-in desk' };
 
@@ -72,6 +73,8 @@ export default async function CheckinDeskPage({ params }: Props) {
       )
       .eq('event_id', eventId)
       .is('deleted_at', null)
+      // 🛂 A request is not inside until Keep or Link.
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
       .order('last_name'),
     supabase
       .from('event_seat_assignments')

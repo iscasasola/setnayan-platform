@@ -629,7 +629,9 @@ type VendorSuggestion = {
 
 function fmtSuggestionTime(iso: string | null): string | null {
   if (!iso) return null;
+  // ⏱ Venue wall clock in a UTC column — read its digits (`timeZone: 'UTC'`).
   return new Date(iso).toLocaleString('en-PH', {
+    timeZone: 'UTC',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

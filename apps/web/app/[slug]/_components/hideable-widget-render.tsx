@@ -8,6 +8,7 @@ import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { HubCanvasFrame } from './hub-canvas-frame';
+import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow, GuestRow } from '../_lib/types';
@@ -20,6 +21,7 @@ import { ScheduleWidget } from './schedule-widget';
 import { SpecialMessageWidget } from './special-message-widget';
 import { TierComparisonWidget } from './tier-comparison-widget';
 import { VenueWidget } from './venue-widget';
+import { VENUE_ROLE_LABEL } from '@/lib/event-venues';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import { YourPhotosWidget } from './your-photos-widget';
 
@@ -87,20 +89,38 @@ function HideableWidgetBody({
   // an always-on widget here is a defensive no-op (would only happen
   // via a DB-side row that bypassed the editor's is_always_on flag).
   if (widget.is_always_on) return null;
+  /* 🖼 The scene background owns the box — the widget then draws no card of
+     its own (owner 2026-09-27, "no background means no box"). */
+  const bare = sceneWidgetIsBare(widget, canvasMediaUrls);
 
   switch (widget.widget_type) {
     case 'event_details':
       return (
-        <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+        <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
             Event details
           </p>
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Detail label="Date" value={formatEventDate(event.event_date) || '—'} />
-            <Detail label="Venue" value={event.venue_name ?? '—'} />
-            {event.venue_address ? (
-              <Detail label="Address" value={event.venue_address} className="sm:col-span-2" />
-            ) : null}
+            {/* 🏛💒 One row per venue — "Ceremony" / "Reception" — when the page
+                loaded them (lib/event-venues.ts, withheld with the event). */}
+            {event.venues?.length ? (
+              event.venues.map((v) => (
+                <Detail
+                  key={v.role}
+                  label={VENUE_ROLE_LABEL[v.role]}
+                  value={[v.name, v.address].filter(Boolean).join(' · ') || '—'}
+                  className="sm:col-span-2"
+                />
+              ))
+            ) : (
+              <>
+                <Detail label="Venue" value={event.venue_name ?? '—'} />
+                {event.venue_address ? (
+                  <Detail label="Address" value={event.venue_address} className="sm:col-span-2" />
+                ) : null}
+              </>
+            )}
             <Detail label="Your role" value={ROLE_LABELS[guest.role]} />
             <Detail label="Side" value={sideLabel} />
           </dl>
@@ -117,6 +137,7 @@ function HideableWidgetBody({
         <CountdownWidget
           targetIso={event.event_date}
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+          bare={bare}
         />
       ) : null;
 
@@ -151,7 +172,7 @@ function HideableWidgetBody({
       return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guest?.role ?? null} rolePalette={(event as { role_palette?: unknown }).role_palette as never} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;
 
     case 'your_photos':
       return (
@@ -198,6 +219,7 @@ function HideableWidgetBody({
           limited={isLimitedPlusOne}
           eventNoun={eventNounOf(event)}
           words={words}
+          bare={bare}
         />
       );
 

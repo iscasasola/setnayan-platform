@@ -49,14 +49,21 @@ test('a throttled caller is REFUSED, not merely logged', () => {
   }
 });
 
-test('the throttle sits AFTER token validation, so junk cannot spend a real budget', () => {
+test('the throttle sits AFTER the door check, so junk cannot spend a real budget', () => {
+  /*
+    ⤷ 2026-09-27 (guest pathway, owner): the poster TOKEN no longer opens this
+    door — only the couple's "Who can RSVP? → Anyone, I approve" does, and on
+    "Only my Guest List" everyone is sent to the event (GUEST_LIST_ONLY). The
+    property is unchanged: the door is checked BEFORE a throttle slot is spent,
+    so a caller who may not ask at all cannot exhaust a real event's budget.
+  */
   const body = selfJoinBody();
-  const tokenGate = body.indexOf('invalid_token');
+  const doorGate = body.indexOf('if (!anyoneMayAskToJoin(');
   const throttleCall = body.indexOf('allowGuestSelfJoinAttempt');
-  assert.ok(tokenGate > -1 && throttleCall > -1);
+  assert.ok(doorGate > -1 && throttleCall > -1);
   assert.ok(
-    tokenGate < throttleCall,
-    'validate the token first — otherwise anyone can exhaust a real event\'s budget with garbage',
+    doorGate < throttleCall,
+    'check the door first — otherwise anyone can exhaust a real event\'s budget with garbage',
   );
 });
 

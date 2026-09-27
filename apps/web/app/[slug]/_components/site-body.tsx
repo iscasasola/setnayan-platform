@@ -7,6 +7,7 @@ import { ArrivalActionRow } from './arrival-action';
 import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
+import { firstVenue, receptionVenue, venueNamesLine } from '@/lib/event-venues';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
 import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
@@ -131,6 +132,7 @@ import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubMainGround, resolveMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
+import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveHero } from '@/lib/event-hero';
@@ -166,6 +168,7 @@ import { KeepOnHomeScreen } from './keep-on-home-screen';
 import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
 import { inviteReplyPath } from '@/lib/invite-arrival';
+import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
@@ -659,6 +662,14 @@ export async function SiteBody({
   // dropped from the widened list so the menu never points at an empty
   // section. Unmapped types fail OPEN (assumed present). Byte-inert on the
   // flag-off path (resolveSiteBodyPlan ignores `content` when openBrowse=false).
+  // 🏛💒 WHERE, ONCE (2026-09-27 · lib/event-venues.ts). Every line below that
+  // names the venue reads it from here, so the greeting, the masthead, the
+  // keepsake, the checklist and the calendar cannot name different places. All
+  // three read the already-withheld `event` — never an address the viewer may
+  // not have yet.
+  const venueLine = venueNamesLine(event);
+  const firstPlace = firstVenue(event);
+  const receptionPlace = receptionVenue(event);
   const openBrowseContent = {
     schedule: scheduleBlocks.length > 0,
     venue_map: hasVenueContent(event),
@@ -963,8 +974,8 @@ export async function SiteBody({
       <SaveTheDateView
         displayName={event.display_name}
         dateIso={event.event_date}
-        venueName={event.venue_name}
-        venueAddress={event.venue_address}
+        venueName={firstPlace ? firstPlace.name : event.venue_name}
+        venueAddress={firstPlace ? firstPlace.address : event.venue_address}
         publicId={event.public_id}
         loveStory={event.love_story}
         // Anonymous with no hero media: the STD view carries the text hero
@@ -1151,7 +1162,7 @@ export async function SiteBody({
             {...heroElements}
             twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
-            venueName={event.venue_name}
+            venueName={venueLine}
             badgeSlot={dayOfBadge}
             monogramSlot={
               <HeroMonogram
@@ -1163,7 +1174,7 @@ export async function SiteBody({
               />
             }
             mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
-            mediaCaption={event.venue_name}
+            mediaCaption={venueLine}
           />
         ) : null}
         {phasedBody(() => (
@@ -1181,7 +1192,7 @@ export async function SiteBody({
                   card={inviteCard ?? undefined}
                   twoPeople={clientWords.twoPeople}
                   eventDate={event.event_date}
-                  venueName={event.venue_name}
+                  venueName={venueLine}
                   badgeSlot={dayOfBadge}
                   monogramSlot={
                     <HeroMonogram
@@ -1357,6 +1368,7 @@ export async function SiteBody({
                   dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
                   venueName={event.venue_name}
                   venueAddress={event.venue_address}
+                  venues={event.venues}
                 />
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {plan.publicSafeWidgets.length === 0 ? (
@@ -1378,7 +1390,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            <EntourageSection groups={entourage} id="site-entourage" />
+            {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" /> : null}
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
@@ -1478,6 +1490,7 @@ export async function SiteBody({
               anyChapterPublic: menuSections.gallery,
               hasStory: menuSections.story,
               hasDetails: menuSections.details,
+              hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
                 // Carries the event so the guest camera's refusal screen can
@@ -1648,7 +1661,7 @@ export async function SiteBody({
       <section
         id={PASS_ANCHOR}
         data-motion="pass"
-        className="mx-auto max-w-md scroll-mt-6 overflow-hidden rounded-2xl border border-ink/10 bg-cream text-center shadow-lg"
+        className="mx-auto max-w-md scroll-mt-6 text-center"
       >
         {/* The anchor the arrival action's day-of label points at. A fragment
             link to a missing id fails SILENTLY — the first version of that
@@ -1670,10 +1683,10 @@ export async function SiteBody({
             celebration, who you are, where you sit, when to arrive, and one
             large code. Colours are the site palette's (mulberry = the moodboard
             wine), never hard-coded. */}
-        <div className="bg-mulberry px-5 py-4 text-left text-cream">
-          <p className="font-pahina text-xl leading-tight">{event.display_name}</p>
+        <div className="text-left">
+          <p className="font-pahina text-xl leading-tight text-ink">{event.display_name}</p>
           {event.event_date ? (
-            <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-cream/80">
+            <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
               {formatEventDate(event.event_date)}
             </p>
           ) : null}
@@ -1684,7 +1697,7 @@ export async function SiteBody({
             one that stays quiet: the guest believes it and is moved in front
             of other people. See lib/guest-pass.ts. */}
         {passFacts.length > 0 ? (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-5 pt-5 text-left">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 text-left">
             {passFacts.map((fact) => (
               <div key={fact.label}>
                 <dt className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
@@ -1695,19 +1708,17 @@ export async function SiteBody({
             ))}
           </dl>
         ) : null}
-        {/* The tear line — where a paper pass would be torn at the door. */}
-        <div aria-hidden className="mx-5 mt-5 border-t border-dashed border-ink/20" />
         <div
           aria-label={`QR code for ${displayNameOf(guest)}`}
           className="mx-auto mt-5 inline-block rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-56"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
-        <p className="mx-auto mt-3 max-w-prose px-5 text-sm text-ink/60">
+        <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">
           Show this at the door. It finds your table too.
         </p>
         {/* Save it or copy it — the code is drawn as an inline SVG, so a
             long-press offers nothing and a screenshot was the only answer. */}
-        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4 px-5" />
+        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
         {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
             "Find my table" (the Indoor Blueprint map) and "Your seat pass"
             (this guest's exact seat, the same map, their tablemates and the
@@ -1746,10 +1757,10 @@ export async function SiteBody({
             ? 'We hope you can be with us on'
             : 'We’d love to celebrate with you on'}{' '}
           <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
-          {event.venue_name ? (
+          {venueNamesLine(event, ' and ') ? (
             <>
               {' '}
-              — at <span className="font-medium text-ink">{event.venue_name}</span>
+              — at <span className="font-medium text-ink">{venueNamesLine(event, ' and ')}</span>
             </>
           ) : null}
           . You&rsquo;re joining us as{' '}
@@ -1826,7 +1837,7 @@ export async function SiteBody({
               {...heroElements}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
-              venueName={event.venue_name}
+              venueName={venueLine}
               monogramSlot={
                 <HeroMonogram
                   event={event}
@@ -1837,7 +1848,7 @@ export async function SiteBody({
                 />
               }
               mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
-              mediaCaption={event.venue_name}
+              mediaCaption={venueLine}
             />
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
             <PahinaMasthead
@@ -1847,7 +1858,7 @@ export async function SiteBody({
               card={inviteCard ?? undefined}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
-              venueName={event.venue_name}
+              venueName={venueLine}
               monogramSlot={
                 <HeroMonogram
                   event={event}
@@ -1888,10 +1899,10 @@ export async function SiteBody({
                 dressCodeConfig: event.dress_code_config ?? null,
                 rolePalette: event.role_palette,
                 arriveBy: firstScheduleTimeLabel,
-                venueName: event.venue_name,
-                venueAddress: event.venue_address,
-                venueLatitude: event.venue_latitude,
-                venueLongitude: event.venue_longitude,
+                venueName: firstPlace ? firstPlace.name : event.venue_name,
+                venueAddress: firstPlace ? firstPlace.address : event.venue_address,
+                venueLatitude: firstPlace ? firstPlace.latitude : event.venue_latitude,
+                venueLongitude: firstPlace ? firstPlace.longitude : event.venue_longitude,
                 tableLabel: guestHubData.tableLabel,
               })}
               initialTicks={g.checklist.ticks}
@@ -1940,7 +1951,7 @@ export async function SiteBody({
           {seatMap ? (
             <YourSeatBlock
               tableLabel={guestHubData.tableLabel ?? 'your table'}
-              venueName={event.venue_name}
+              venueName={receptionPlace ? receptionPlace.name : event.venue_name}
               tables={seatMap.tables}
               entrance={seatMap.entrance}
               targetTableId={seatMap.targetTableId}
@@ -2238,13 +2249,13 @@ export async function SiteBody({
                       displayName={guestHubData.displayName}
                       guestId={guest.guest_id}
                       tableLabel={guestHubData.tableLabel}
-                      venueName={event.venue_name}
+                      venueName={venueLine}
                       eventDate={event.event_date}
                     />
                   ) : guest.rsvp_status === 'declined' ? (
                     /* Declined: a quiet line, never a keepsake — the ticket is
                        for people who are coming (design §11). */
-                    <div className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
+                    <div>
                       <p className="font-pahina text-xl font-light italic leading-snug text-ink/80">
                         We&rsquo;ll miss you.
                       </p>
@@ -2264,11 +2275,7 @@ export async function SiteBody({
                   {rsvpFlash ? (
                     <p
                       role={rsvpFlash.tone === 'error' ? 'alert' : 'status'}
-                      className={`rounded-lg border px-3 py-2 text-sm ${
-                        rsvpFlash.tone === 'error'
-                          ? 'border-terracotta/40 bg-terracotta/10 text-terracotta-700'
-                          : 'border-success-700/30 bg-success-50 text-success-800'
-                      }`}
+                      className={`text-sm font-medium ${rsvpFlash.tone === 'error' ? 'text-terracotta-700' : 'text-ink/80'}`}
                     >
                       {rsvpFlash.text}
                     </p>
@@ -2282,7 +2289,7 @@ export async function SiteBody({
                       mark, and one accent per screen is the point of that slice. */}
                   <a
                     href="#your-details"
-                    className="flex min-h-[52px] w-full items-center justify-between gap-3 border border-ink/20 bg-paper px-4 text-sm text-ink/80 transition-colors hover:border-ink/40 hover:text-ink"
+                    className="flex min-h-[52px] w-full items-center justify-between gap-3 text-sm text-ink/80 underline-offset-4 transition-colors hover:text-ink hover:underline"
                   >
                     {
                       rsvpSheetTrigger({
@@ -2305,7 +2312,11 @@ export async function SiteBody({
                   guest leaves a scan trail whether or not they ever gave a
                   selfie, so this cannot hide behind the selfie test above.
                   See scan-trail-notice.tsx. */}
-              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} />
+              {/* Not in the Maker's canvas, and never for the SAMPLE guest of
+                  the "After they reply" preview — it has no row to read, and
+                  the honest "we couldn't check" line would be a lie about a
+                  person who does not exist (owner 2026-09-27). */}
+              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
 
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at
@@ -2355,7 +2366,7 @@ export async function SiteBody({
                   fails if either disappears.
 
                   No `previewHref` here either — see the anonymous mount above. */}
-              <EntourageSection groups={entourage} id="site-entourage" />
+              {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" /> : null}
 
               {isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
@@ -2398,7 +2409,7 @@ export async function SiteBody({
               displayName={guestHubData.displayName}
               guestId={guest.guest_id}
               tableLabel={guestHubData.tableLabel}
-              venueName={event.venue_name}
+              venueName={venueLine}
               eventDate={event.event_date}
             />
           ) : null)}
@@ -2464,6 +2475,11 @@ export async function SiteBody({
                 keepOffer={account ? replyOffersKeep(account) : false}
                 hostPitch={account ? hostPitchShows(account) : false}
                 ask={rsvpAsk}
+                /* "Ask one question at a time" — the SAME stored value the RSVP
+                   page reads (owner 2026-09-27: "this is not one question per
+                   screen"). In the Maker's canvas `event` is the couple's DRAFT,
+                   so the switch shows here before Apply. */
+                oneAtATime={askOneAtATime(event.rsvp_ask_config)}
               />
             </div>
           </RsvpSheet>
@@ -2495,6 +2511,9 @@ export async function SiteBody({
               anyChapterPublic: menuSections.gallery,
               hasStory: menuSections.story,
               hasDetails: menuSections.details,
+              hasSchedule: plan.hideableInOrder.some((w) => w.widget_type === 'schedule'),
+              // 🗂 RSVP becomes Me once they have answered (owner 2026-09-27).
+              replied: Boolean(guest.rsvp_status) && guest.rsvp_status !== 'pending',
               liveBroadcast: Boolean(plan.liveMediaVisible && watchLive),
               destinations: {
                 camera: papicGuest

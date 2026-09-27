@@ -73,10 +73,13 @@ test('the five are the bar’s made-once group, and the pure rule draws each whe
     assert.equal(makerPageStage('rsvp-page', stage), 'rsvp');
   }
   assert.equal(
-    makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'event'),
+    makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'event', { rsvpView: 'replied' }),
     '/ana-ben?phase=rsvp&editor=1&as=replied#your-details',
   );
   assert.equal(makerPageCanvasSrc(null, 'rsvp-page', 'rsvp'), null);
+  // "The questions" is the default (owner 2026-09-27): the RSVP page itself,
+  // for a sample guest who has not replied, wearing the draft.
+  assert.equal(makerPageCanvasSrc('/ana-ben', 'rsvp-page', 'rsvp'), '/ana-ben/invite/reply?editor=1');
 });
 
 test('no made-once file mounts a dialog, a sheet or a portal', () => {
@@ -98,7 +101,7 @@ test('no made-once file mounts a dialog, a sheet or a portal', () => {
 /* ── the rendered work area ─────────────────────────────────────────────── */
 
 const STAGES = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
-const emptyList = (stage: (typeof STAGES)[number]) => ({ stage, shown: [], folded: [], orderIsAutomatic: false });
+const emptyList = (stage: (typeof STAGES)[number]) => ({ stage, shown: [], folded: [] });
 
 async function paintWork(selection: unknown, opts: { revealStages?: string[] } = {}) {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -128,7 +131,8 @@ async function paintWork(selection: unknown, opts: { revealStages?: string[] } =
         scenes: [],
         navigator: {
           stageLists: Object.fromEntries(STAGES.map((s) => [s, emptyList(s)])),
-          fullOrder: [],
+          fullOrders: Object.fromEntries(STAGES.map((s) => [s, []])),
+          stdLead: null,
           minis: {},
           tint: { canvas: '#fff', ink: '#111', accent: '#a55' },
         },

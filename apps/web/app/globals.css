@@ -5517,6 +5517,51 @@ html:has([data-sticky-top]) {
 .hub-bg-color { background-color: var(--hub-bg-color); }
 .hub-bg-color > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
 
+/* ── OPAQUE GLASS · FROSTED GLASS · NO BACKGROUND (owner 2026-09-27) ────────
+   *"the goal is, to allow it to have the same background color with or without
+   effects"* — so both glasses are tinted from the SAME `--hub-bg-color` the
+   flat colour uses, and the colour holds whichever effect is on.
+   · OPAQUE GLASS — the colour, solid, with a pane's sheen: a soft light from
+     the top edge and a lift underneath. Nothing shows through.
+   · FROSTED GLASS — the colour, translucent, over a blur of whatever lies
+     behind the scene (the page ground, the main background). */
+.hub-bg-glass {
+  background-color: var(--hub-bg-color);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 55%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 18px 40px -30px rgb(30 26 18 / 0.5);
+}
+.hub-bg-frost {
+  background-color: color-mix(in srgb, var(--hub-bg-color) 58%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+.hub-bg-glass > .hub-canvas-body,
+.hub-bg-frost > .hub-canvas-body { position: relative; z-index: 1; padding: clamp(14px, 3vw, 28px); }
+/* "No background" means NO BOX: no fill, no radius, no padding — the scene's
+   content sits on the page ground, and the widget draws no card of its own
+   (`sceneWidgetIsBare`). */
+.hub-bg-none { background: none; box-shadow: none; border-radius: 0; }
+
+/* ── FRAMED OR FULL WIDTH (owner 2026-09-27) ───────────────────────────────
+   *"we will set it as a frame or will the whole width. the user can choose"*.
+   · FRAMED (the default) — an inset panel in the page's column: the page's own
+     margins either side, rounded corners. The ONE sanctioned rounded surface
+     of a scene — the scene background IS the box, so no widget draws its own.
+   · FULL WIDTH — edge to edge, square. The ground breaks out of the column to
+     the screen's edges; its padding pulls the content back to the column, so
+     the words stay exactly where they were and only the ground grows.
+     (Padding and margin percentages resolve against the COLUMN — the
+     containing block — which is what makes the two cancel exactly.) */
+.hub-shape-framed { border-radius: var(--m-r-lg); overflow: hidden; }
+.hub-shape-full {
+  border-radius: 0;
+  margin-inline: calc(50% - 50vw);
+  padding-inline: calc(50vw - 50%);
+}
+/* A desktop scrollbar makes 100vw a few pixels wider than the page; a page
+   holding a full-width scene clips that sliver instead of scrolling sideways. */
+html:has(.hub-shape-full) { overflow-x: clip; }
+
 /* 🛑 REDUCED MOTION IS NOT HANDLED HERE, AND IT IS NOT HANDLED BY CSS AT ALL.
    The first draft of this block carried a reduced-motion media query that set
    the snippet video's CSS animation-play-state to paused. That is valid CSS,

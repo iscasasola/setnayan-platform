@@ -105,12 +105,13 @@ test('A · SOURCE: the placeholder flag is the Maker canvas only, and the plan k
   assert.ok(!makerDrawsEmpty('rsvp'), 'the RSVP form is never a placeholder');
 });
 
-test('T · "Two ways to celebrate" is omitted on the Invitation and the Day — for guests AND in the Maker', () => {
+test('T · "Two ways to celebrate" is omitted on EVERY stage — for guests AND in the Maker', () => {
+  // Owner 2026-09-27, "EACH STAGE DOES ONE JOB": on no stage, Post Event
+  // included (it was the separate decision this line used to hold open).
   const rows = (['schedule', 'tier_comparison', 'venue_map'] as WidgetType[]).map(row);
-  for (const stage of ['save_the_date', 'rsvp', 'event'] as const) {
+  for (const stage of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) {
     assert.ok(!widgetsGuestsMeet(rows, stage).some((w) => w.widget_type === 'tier_comparison'), `${stage}: still shown`);
   }
-  assert.ok(widgetsGuestsMeet(rows, 'editorial').some((w) => w.widget_type === 'tier_comparison'), 'Post Event keeps it (a separate owner decision)');
   // The page asks the ONE rule, with no Maker exception.
   assert.match(BODY, /widgets: widgetsGuestsMeet\(widgets, lifecyclePhase\),/);
   assert.doesNotMatch(BODY, /isMakerCanvas \|\| lifecyclePhase === 'editorial'/);

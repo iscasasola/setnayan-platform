@@ -166,6 +166,9 @@ const RSVP_SECTION_ORDER: readonly string[] = [
   RSVP_LABELS.declined,
 ];
 
+/** What a roster row says under the name of a guest the couple marked "Passed away". */
+const PASSED_AWAY_LINE = 'In loving memory · not counted';
+
 function knownBucketOrder(key: ArrangeKey): readonly string[] {
   if (key === 'role') return ROLE_SECTION_ORDER;
   if (key === 'side') return SIDE_SECTION_ORDER;
@@ -367,6 +370,12 @@ function DesktopRow({
               >
                 {(guestFullName(guest) ?? guestDisplayName(guest))}
               </p>
+              {/* 🕯 Listed, never counted — the guest card's "Passed away". */}
+              {guest.passed_away ? (
+                <p className="truncate text-xs text-ink/55" data-passed-away="">
+                  {PASSED_AWAY_LINE}
+                </p>
+              ) : null}
               {plusOneSeats(guest) > 0 ? (
                 <p className="truncate text-xs text-ink/55">
                   {/* One named plus-one, or the count when there are more. */}
@@ -538,10 +547,10 @@ function SelfJoinDesktopRow({
           <div className="min-w-0">
             <p className="truncate font-medium text-ink">{name}</p>
             <p className="truncate text-xs font-medium text-danger-700">
-              joined via your link · not on your list
+              asked to join · not on your list yet
             </p>
             <p className="truncate text-[11px] text-ink/45">
-              Already has their QR &amp; personal page — Keep to add them, Remove to revoke
+              Keep adds them and sends their invitation · Remove tells them nothing
             </p>
           </div>
         </div>
@@ -550,6 +559,8 @@ function SelfJoinDesktopRow({
         <div className="flex flex-wrap items-center justify-end gap-2">
           <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
+            {/* Keep needs the line the Requests page asks for; here it is the name as they typed it. */}
+            <input type="hidden" name="line" value={name} />
             <SubmitButton
               overlay={false}
               pendingLabel="Keeping…"
@@ -562,7 +573,7 @@ function SelfJoinDesktopRow({
             href={`/dashboard/${eventId}/guests/claims`}
             className="inline-flex h-8 items-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
           >
-            Link to invite
+            Link
           </Link>
           <form action={removeGuestAction.bind(null, eventId)} className="inline-flex">
             <input type="hidden" name="guest_id" value={guest.guest_id} />
@@ -1845,6 +1856,11 @@ function MobileListRow({
         <p className="pointer-events-none truncate text-sm font-medium text-ink">
           {(guestFullName(guest) ?? guestDisplayName(guest))}
         </p>
+        {guest.passed_away ? (
+          <p className="pointer-events-none truncate text-xs text-ink/55" data-passed-away="">
+            {PASSED_AWAY_LINE}
+          </p>
+        ) : null}
         {/* Sub-line. Role and groups CANNOT be edited without being shown, so
             allowing that here costs a second line on rows that previously had
             one (owner call 2026-09-05 — "allow it if possible"). It is kept to
@@ -1957,15 +1973,17 @@ function MobileSelfJoinCard({
         )}
         <div className="min-w-0">
           <p className="truncate font-medium text-ink">{name}</p>
-          <p className="truncate text-xs font-medium text-danger-700">joined via your link</p>
+          <p className="truncate text-xs font-medium text-danger-700">asked to join</p>
         </div>
       </div>
       <p className="px-3 pb-2 text-[11px] text-ink/55">
-        Already has their QR &amp; page — Keep to add them, Remove to revoke.
+        Keep adds them and sends their invitation · Remove tells them nothing.
       </p>
       <div className="flex items-center gap-2 px-3 pb-3">
         <form action={keepGuestAction.bind(null, eventId)} className="flex-1">
           <input type="hidden" name="guest_id" value={guest.guest_id} />
+          {/* Keep needs the line the Requests page asks for; here it is the name as they typed it. */}
+          <input type="hidden" name="line" value={name} />
           <SubmitButton
             overlay={false}
             pendingLabel="Keeping…"

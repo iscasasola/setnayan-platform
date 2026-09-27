@@ -129,25 +129,26 @@ test('1 · for EVERY stage, the scene tiles are the plan’s own list, in the pl
 test('2 · the owner’s page, stage by stage — fixed sections included, in the canvas’s order', () => {
   const keys = (stage: LifecyclePhase) => makerStageList({ ...OWNER, stage }).shown.map((t) => t.key);
   // Owner 2026-09-27: an EMPTY scene keeps its place in the Maker (drawn as a
-  // placeholder — the message, gift note, gallery and love story below); "Two
-  // ways to celebrate" is gone from the Invitation and the Day, as guests see
-  // it (owner review 2026-09-27; Post Event keeps it — a separate decision);
-  // and the schedule shows on the day ("YES TO ALL" (2)).
-  assert.deepEqual(keys('save_the_date'), ['f:film', 'f:hero', 'f:entourage']);
+  // placeholder — the message, gift note and love story below). And "EACH
+  // STAGE DOES ONE JOB" (`lib/stage-scenes.ts`): each stage draws its own
+  // scenes in its own order — the Save the Date holds the date, the
+  // Invitation gets the reply, the Day is here-and-now, and "Two ways to
+  // celebrate" is on no stage.
+  assert.deepEqual(keys('save_the_date'), ['f:film', 'f:hero', 'w:countdown', 'w:our_love_story']);
   // …and each guest's own parts are drawn in place after the names, as "Your
   // guest" (owner 2026-09-27): the greeting, the pass, the RSVP — whichever the
   // page gives a guest on that stage.
   assert.deepEqual(keys('rsvp'), [
-    'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'w:countdown', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:photo_moments',
-    'w:special_message', 'w:what_to_bring', 'w:our_photos', 'w:our_love_story', 'f:entourage',
+    'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule',
+    'w:venue_map', 'w:dress_code', 'w:what_to_bring', 'f:entourage',
   ]);
-  assert.deepEqual(keys('event'), ['f:hero', 'f:pass', 'w:schedule', 'w:venue_map', 'f:entourage']);
+  assert.deepEqual(keys('event'), ['f:hero', 'f:pass', 'w:schedule', 'w:venue_map', 'w:photo_moments', 'f:entourage']);
   assert.deepEqual(keys('editorial'), [
-    'f:editorial', 'f:hero', 'w:tier_comparison', 'w:special_message', 'w:our_photos', 'w:our_love_story', 'f:entourage',
+    'f:editorial', 'f:hero', 'w:our_love_story', 'w:our_photos', 'w:special_message', 'f:entourage',
   ]);
   const empties = (stage: LifecyclePhase) =>
     makerStageList({ ...OWNER, stage }).shown.flatMap((t) => (t.kind === 'scene' && t.empty ? [t.type] : []));
-  assert.deepEqual(empties('rsvp'), ['special_message', 'what_to_bring', 'our_photos', 'our_love_story']);
+  assert.deepEqual(empties('rsvp'), ['special_message', 'our_love_story', 'what_to_bring']);
 });
 
 test('2b · the navigator is NOT the same twelve on every stage', () => {
@@ -161,9 +162,9 @@ test('3 · nothing is lost — every hideable section is shown XOR folded, and a
     const list = makerStageList({ ...OWNER, stage });
     const shown = new Set(list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : [])));
     for (const w of OWNER.widgets.filter((x) => !x.is_always_on)) {
-      // "Two ways to celebrate" is not on the Invitation or the Day at all —
-      // guests never meet it there, so the Maker omits it (owner review 2026-09-27).
-      if (w.widget_type === 'tier_comparison' && stage !== 'editorial') {
+      // "Two ways to celebrate" is on no stage at all — guests never meet it,
+      // so the Maker omits it (owner 2026-09-27, "EACH STAGE DOES ONE JOB").
+      if (w.widget_type === 'tier_comparison') {
         assert.ok(!shown.has(w.widget_id) && !list.folded.some((f) => f.widgetId === w.widget_id), `${stage}: tier_comparison must be omitted`);
         continue;
       }
@@ -193,13 +194,25 @@ test('3b · a section the couple hid is folded with the eye, not lost', () => {
 });
 
 test('4 · a reorder moves the navigator exactly as it moves the page', () => {
-  const moved: WidgetType[] = [...OWNER_ORDER];
-  // Venue before the run of show.
+  // Owner 2026-09-27, "EACH STAGE DOES ONE JOB": a stage keeps ITS scenes in
+  // the order its job needs — the couple's display_order no longer moves them.
+  // Only the couple's OWN scenes follow the couple's order, after the stage's.
+  const moved: WidgetType[] = [...OWNER_ORDER, 'custom_2', 'custom_1'];
+  // Venue before the run of show — the stage's order wins.
   moved.splice(moved.indexOf('venue_map'), 1);
   moved.splice(moved.indexOf('schedule'), 0, 'venue_map');
   const list = makerStageList({ ...OWNER, widgets: rows(moved), stage: 'rsvp' });
   const scenes = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.type] : []));
-  assert.deepEqual(scenes.slice(0, 3), ['countdown', 'venue_map', 'schedule']);
+  assert.deepEqual(scenes.slice(3, 5), ['schedule', 'venue_map'], 'the stage keeps its own order');
+  assert.deepEqual(scenes.filter((t) => t.startsWith('custom_')), ['custom_2', 'custom_1'], 'the couple’s own scenes keep theirs');
+  // …and the page draws the same order (the navigator IS the plan).
+  const plan = resolveSiteBodyPlan({
+    identity: 'anonymous', phasesEnabled: true, lifecyclePhase: 'rsvp', stdFilm: false, isSample: false,
+    hasHeroMedia: false, hasBgMusic: false, liveMediaPublic: false,
+    widgets: widgetsGuestsMeet(rows(moved), 'rsvp'), openBrowse: false, content: {},
+  });
+  const drawn = plan.publicSafeWidgets.map((w) => w.widget_type);
+  assert.deepEqual(scenes, drawn.filter((t) => scenes.includes(t)));
 });
 
 test('4b · a drop is counted in the FULL order the move actions swap in', () => {
@@ -211,9 +224,16 @@ test('4b · a drop is counted in the FULL order the move actions swap in', () =>
   assert.equal(swapsForDrop(full, 'zzz', 'a'), 0, 'an unknown row moves nothing');
 });
 
-test('4c · open browsing orders by kind — the navigator says so instead of pretending to drag', () => {
+test('4c · open browsing no longer orders by kind — every scene drags, and the navigator says nothing is fixed', () => {
+  // Owner 2026-09-27, "EVERY SCENE DRAGS WITHIN ITS STAGE": the stage's order
+  // (the couple's, else `STAGE_SCENES`) holds on both paths, so there is no
+  // "order set for you" state left to announce.
   const list = makerStageList({ ...OWNER, openBrowse: true, stage: 'rsvp' });
-  assert.equal(list.orderIsAutomatic, true);
+  assert.ok(!('orderIsAutomatic' in list));
+  const SHELL = stripComments(
+    readFileSync(join(import.meta.dirname, '../app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), 'utf8'),
+  );
+  assert.doesNotMatch(SHELL, /Order set for you/);
 });
 
 test('5 · guest-facing words — no internal names in the navigator', () => {

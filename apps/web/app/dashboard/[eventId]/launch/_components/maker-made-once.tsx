@@ -17,7 +17,7 @@ import { makerLogoOpening } from '@/lib/maker-logo-opening';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
-import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { resolveRevealEffects, revealTuneHouse } from '@/lib/std-reveal-effects';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { EventPoster } from '@/app/_components/event-poster';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -27,6 +27,7 @@ import { HubDraftField } from '../../website/_components/hub-draft-bar';
 import { removeHeroPhoto, uploadHeroPhoto } from '../../website/hero-photo/actions';
 import { MakerRevealPicker } from './maker-reveal';
 import { MakerLogoDoor } from './maker-logo';
+import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 
 /**
  * THE MADE-ONCE GROUP — Logo · Hero · Reveal (Event Hub Maker Phase 6).
@@ -303,6 +304,9 @@ export async function MakerRevealPanel({
         JSON.stringify(resolveRevealEffects(m.drafted.std_reveal_effects)) !==
         JSON.stringify(resolveRevealEffects(m.live.std_reveal_effects))
       }
+      /* Where each fine-tune slider rests until the couple moves it — the
+         Reveal Studio's house look, read once above. */
+      tuneHouse={revealTuneHouse(config)}
     />
   );
 }
@@ -321,25 +325,22 @@ export async function readMakerRevealStages(eventId: string): Promise<readonly R
    LOGO
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export async function MakerLogoPanel({ eventId }: { eventId: string }) {
+export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId: string; storeShell?: boolean }) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="logo" />;
-  const { live, drafted } = m;
-  /* 🛑 The couple's own logo and initials, never a sample (owner 2026-09-27) —
-     a studio config is a design only beside a composition, an uploaded logo
-     with none is shown as it is. The rule lives in `lib/maker-logo-opening.ts`. */
-  const opening = makerLogoOpening(drafted);
+  /* 🛑 The couple's own logo and initials, never a sample (owner 2026-09-27):
+     their layers, else their mark or upload as one layer, else their initials —
+     `lib/maker-logo-opening.ts`. Opening writes nothing (the page's save gate). */
+  const opening = makerLogoOpening(m.drafted);
+  /* Each layer's motion plays for guests with the Animated Monogram (Event Hub
+     Pro includes it) — the same gate as every moving mark (`HeroMonogram`). */
+  const supabase = await createClient();
+  const ownsMotion = await eventOwnsAnimatedMonogram(supabase, eventId).catch(() => false);
   return (
     <MakerLogoDoor
       eventId={eventId}
-      initialConfig={opening.config}
-      initialNames={opening.names}
-      initialUploadSvg={null}
-      uploadedLogoSrc={opening.uploadedSvg ? bespokeSvgToDataUri(opening.uploadedSvg) : null}
-      drafted={
-        drafted.monogram_custom_svg !== live.monogram_custom_svg ||
-        JSON.stringify(drafted.monogram_studio_config ?? null) !== JSON.stringify(live.monogram_studio_config ?? null)
-      }
+      opening={opening}
+      motionMark={paidMarkState({ owns: ownsMotion, storeShell })}
     />
   );
 }

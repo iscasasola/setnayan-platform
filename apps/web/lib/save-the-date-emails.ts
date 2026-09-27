@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { siteUrl } from '@/lib/social/urls';
+import { PASSED_AWAY } from '@/lib/guests';
 import {
   buildInvitationGuestEmail,
   buildSaveTheDateGuestEmail,
@@ -142,6 +143,8 @@ export async function fanOutSaveTheDateEmails(
       .eq('event_id', eventId)
       .is('std_sent_at', null)
       .is('deleted_at', null)
+      // 🕯 Never to a guest the couple marked "Passed away".
+      .eq(PASSED_AWAY, false)
       .not('email', 'is', null);
 
     const recipients = ((guests ?? []) as StdGuestRow[]).filter((g) =>
@@ -222,6 +225,8 @@ export async function fanOutInvitationEmails(
       .eq('event_id', eventId)
       .is('invitation_sent_at', null)
       .is('deleted_at', null)
+      // 🕯 Never to a guest the couple marked "Passed away".
+      .eq(PASSED_AWAY, false)
       .not('email', 'is', null);
 
     const recipients = ((guests ?? []) as StdGuestRow[]).filter((g) => isSendableEmail(g.email));

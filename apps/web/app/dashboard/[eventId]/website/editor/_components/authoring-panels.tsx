@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { DressCodeFields } from '../../dress-code/_components/dress-code-fields';
-import { StoryFields, type LoveStoryBlob } from '../../our-story/_components/story-fields';
+import type { LoveStoryBlob } from '../../our-story/_components/story-fields';
+import { LoveStoryChaptersPanel } from '../../our-story/_components/love-story-chapters-panel';
+import { WordsReturnTo } from '../../our-story/_components/words-return-to';
 import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moments-editor';
 import type { DressCodeConfig } from '../../dress-code/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { unlockLabel } from './unlock-label';
-import { resolveMoments } from '@/lib/love-story-moments';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
@@ -76,46 +78,35 @@ export function PhotoMomentsPanel({
   );
 }
 
-/** Our story — the full 17-field form + milestones builder, inline
- *  (owner 2026-07-25: "our story … we want it to stay here"). Same shared-
- *  fields rule as dress code: updateOurStory reads every field per save. */
+/** Love Story — the page's five chapters, and under each its moments and its
+ *  questions (owner 2026-09-27: "align this to what I see on the editing
+ *  part"). ONE form still: updateOurStory reads every field per save, and every
+ *  chapter's fields render inside it (`LoveStoryChaptersPanel`). */
 export function StoryPanel({
   action,
   eventId,
   story,
+  ownsPro,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   story: LoveStoryBlob;
+  /** The ACTIVE Pro gate — whether a sixth moment may be added. */
+  ownsPro: boolean;
 }) {
-  /* 💌 THE DOOR TO OUR LOVE STORY (Event Hub Maker Phase 7). The Maker bar's
-     "Love Story" tool opens THIS row (P1 `TOOL_ROWS['love-story']`), so the
-     scrapbook — moments, each one a scene on the Invitation — is its first
-     line; the words form below still feeds the invitation's story paragraph. */
-  const moments = resolveMoments(story).length;
+  /* 💌 The moments are the PAGE's (the scrapbook beside this panel, Event Hub
+     Maker Phase 7); a tap here opens one there. The words below still feed the
+     invitation's story paragraph. */
   return (
     <form action={action} className={PANEL}>
-      <p className="mb-3 text-[13px] text-ink/70">
-        <Link
-          href={`/dashboard/${eventId}/website/our-story`}
-          className="font-semibold text-ink underline decoration-1 underline-offset-4"
-        >
-          Open Our Love Story ↗
-        </Link>{' '}
-        · {moments} {moments === 1 ? 'moment' : 'moments'}, each one a scene on your Invitation
-      </p>
       <HubDraftField />
-      <input
-        type="hidden"
-        name="return_to"
-        value={`/dashboard/${eventId}/website/editor?open=story`}
-      />
-      <StoryFields story={story} />
+      <WordsReturnTo eventId={eventId} />
+      <LoveStoryChaptersPanel story={story} ownsPro={ownsPro} />
       <SubmitButton
         pendingLabel="Saving…"
-        className="mt-3 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90"
+        className="mt-4 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90"
       >
-        Save our story
+        Save your answers
       </SubmitButton>
     </form>
   );
@@ -141,12 +132,9 @@ export function SchedulePeekPanel({
   venueAddress: string | null;
   blocks: Array<{ block_id: string; label: string; start_at: string; location: string | null }>;
 }) {
-  const fmtTime = (iso: string) => {
-    const d = new Date(iso);
-    return Number.isFinite(d.getTime())
-      ? d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
-      : '';
-  };
+  // ⏱ The venue wall clock — the same digits the guest page and the Schedule
+  // show. A bare toLocaleTimeString re-zoned it into whatever clock ran this.
+  const fmtTime = (iso: string) => formatWallClock(iso);
   return (
     <div className={PANEL}>
       <dl className="space-y-1 text-xs text-ink/70">

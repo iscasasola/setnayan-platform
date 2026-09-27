@@ -227,6 +227,16 @@ export type GuestRow = {
    * count is honest again because there is finally something to count.
    */
   invitation_sent_at: string | null;
+  /** How the row got on the list — `host_seeded` (the couple put them there,
+   *  or kept them) or `self_added_unlisted` (a REQUEST: counts for nothing until
+   *  Keep or Link — see `countsTowardEvent`). Optional so hand-built rows in
+   *  tests and fixtures read as the couple's own. */
+  entry_source?: string | null;
+  /** 🕯 The couple marked this guest "Passed away" on the guest card: LISTED
+   *  (the roster, the entourage, "the late …" on the prints) but never counted,
+   *  seated or sent an invitation — see `countsTowardEvent`. Optional so
+   *  hand-built rows in tests and fixtures read as living. */
+  passed_away?: boolean | null;
   /** COUPLE-PRIVATE note ABOUT this guest. Never render on a guest-facing
    *  surface — it used to be, via the RSVP form, which also overwrote it. */
   notes: string | null;
@@ -483,7 +493,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration
@@ -523,15 +533,52 @@ export type MeasuredGuests = {
   measured: boolean;
 };
 
+/**
+ * 🛂 A REQUEST COUNTS FOR NOTHING UNTIL THE COUPLE KEEPS OR LINKS IT (owner,
+ * 2026-09-27, verbatim: "no. only count when accepted."). A row with this
+ * `entry_source` asked to join (or, before 2026-09-27, added themselves) and
+ * has not been accepted: it waits in Guest List → Requests and is left out of
+ * every headcount, seat, caterer number and printed list. Keep promotes it to
+ * `host_seeded`; Link folds it into an existing guest. The SQL readers apply
+ * the same predicate (migration 20271249183421).
+ */
+export const REQUEST_ENTRY_SOURCE = 'self_added_unlisted';
+
+/**
+ * 🕯 LISTED, NEVER COUNTED (owner, 2026-09-25, verbatim: *"If passed away
+ * already, then not counted on the guestlist. but listed."*). The couple marks
+ * a guest "Passed away" on the guest card (`guests.passed_away`, migration
+ * 20271249859363). The roster still draws them and the prints name them
+ * ("the late …"); nothing counts, seats or sends to them. The SQL readers
+ * apply the same predicate.
+ */
+export const PASSED_AWAY = 'passed_away';
+
+/** Does this row count — in a headcount, a seat, a caterer's number? */
+export function countsTowardEvent(g: { entry_source?: string | null; passed_away?: boolean | null }): boolean {
+  return g.entry_source !== REQUEST_ENTRY_SOURCE && g.passed_away !== true;
+}
+
 export async function fetchGuestsByEventMeasured(
   supabase: SupabaseClient,
   eventId: string,
+  opts: {
+    /** The roster only: it draws requests as their own "asked to join" rows.
+     *  Everyone else reads the ACCEPTED list, which is the default. */
+    includeRequests?: boolean;
+    /** The roster and the reception-desk registry only: they LIST a guest who
+     *  passed away (never counting them). Everyone else reads the living list. */
+    includePassedAway?: boolean;
+  } = {},
 ): Promise<MeasuredGuests> {
-  const { data, error } = await supabase
+  let q = supabase
     .from('guests')
     .select(GUEST_FIELDS)
     .eq('event_id', eventId)
-    .is('deleted_at', null)
+    .is('deleted_at', null);
+  if (!opts.includeRequests) q = q.neq('entry_source', REQUEST_ENTRY_SOURCE);
+  if (!opts.includePassedAway) q = q.eq(PASSED_AWAY, false);
+  const { data, error } = await q
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
 
@@ -605,7 +652,9 @@ export async function countGuestsByEvent(
       .from('guests')
       .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
-      .is('deleted_at', null);
+      .is('deleted_at', null)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE)
+      .eq(PASSED_AWAY, false);
     if (error) {
       logQueryError(
         'countGuestsByEvent',
@@ -665,7 +714,10 @@ export async function fetchGuestById(
   return row ? coupleAttending(row) : null;
 }
 
-export function computeGuestStats(guests: GuestRow[]): GuestStats {
+export function computeGuestStats(all: GuestRow[]): GuestStats {
+  // A request — or a guest who passed away — is on the page (the roster draws
+  // it) but in no count.
+  const guests = all.filter(countsTowardEvent);
   const stats: GuestStats = {
     total: guests.length,
     attending: 0,

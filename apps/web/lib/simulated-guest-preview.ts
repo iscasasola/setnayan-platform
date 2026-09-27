@@ -39,6 +39,15 @@
  * entirely and the ordinary page renders, byte for byte. There is no second,
  * weaker "maybe this is the host" signal anywhere on this path.
  *
+ * 🔄 NARROWED 2026-09-27 (owner, DECISION_LOG "EACH EVENT'S EDITOR ADAPTS TO
+ * THAT EVENT": *"each editor of each event will adapt to their event"* —
+ * "previews that need a guest use a real guest from that event's list"). The
+ * preview may now wear ONE real person's NAME and PLUS-ONE ALLOWANCE
+ * (`PreviewPerson`), shown only to a verified host of that event, who already
+ * sees that list. Everything else stays fabricated — no answer, meal, dietary
+ * note, contact or photo is read — and the id stays the sample's, so nothing is
+ * ever written for them. Point 1 above still holds for everything not named here.
+ *
  * READ-ONLY BY CONSTRUCTION. This module returns literals. No write, no server
  * action, no persistence — the simulated guest exists for one render and is
  * never stored.
@@ -176,6 +185,68 @@ const SIMULATED_GUEST_ROW: Readonly<GuestRow> = Object.freeze({
 } satisfies GuestRow);
 
 /**
+ * THE SAMPLE GUEST THE MAKER'S RSVP CANVAS ASKS (owner 2026-09-27: "The
+ * questions" is the default view). Same invented person as above, one step
+ * EARLIER: they have not replied, so every question the couple switches on is
+ * drawn — including "Who are you bringing?", which is why this sample alone is
+ * allowed ONE plus-one (the plus-one switch must visibly do something here).
+ * Never written anywhere: the RSVP page renders it only for a verified host
+ * behind `?editor=1`, and `submitInviteReply` refuses it by id.
+ */
+export const RSVP_CANVAS_GUEST: Readonly<GuestRow> = Object.freeze({
+  ...SIMULATED_GUEST_ROW,
+  rsvp_status: 'pending',
+  plus_one_allowed: true,
+  plus_one_count: 1,
+  custom_tags: [],
+} satisfies GuestRow);
+
+/**
+ * 🎭 "EACH EDITOR OF EACH EVENT WILL ADAPT TO THEIR EVENT" (owner 2026-09-27,
+ * DECISION_LOG): the Maker previews the RSVP as a REAL person from this event's
+ * own list — their NAME and their PLUS-ONE ALLOWANCE only — instead of "Sample
+ * Guest". Nothing else of theirs is read (no answer, no meal, no contact), and
+ * the preview keeps the sample's id, so it can never write a reply, a scan row
+ * or anything else for them. With nobody on the list, a neutral "Your guest".
+ */
+export type PreviewPerson = {
+  first_name: string | null;
+  last_name: string | null;
+  display_name: string | null;
+  plus_one_allowed: boolean | null;
+  plus_one_count: number | null;
+};
+
+export const PREVIEW_FALLBACK_NAME = 'Your guest';
+
+export function previewNames(person: PreviewPerson | null | undefined): {
+  row: Pick<GuestRow, 'first_name' | 'last_name' | 'display_name' | 'plus_one_allowed' | 'plus_one_count'>;
+} {
+  const first = (person?.first_name ?? '').trim();
+  const last = (person?.last_name ?? '').trim();
+  const shown = (person?.display_name ?? '').trim() || `${first} ${last}`.trim();
+  if (!person || !shown) {
+    return {
+      row: { first_name: 'Your', last_name: 'guest', display_name: PREVIEW_FALLBACK_NAME, plus_one_allowed: true, plus_one_count: 1 },
+    };
+  }
+  return {
+    row: {
+      first_name: first || shown,
+      last_name: last,
+      display_name: shown,
+      plus_one_allowed: person.plus_one_allowed === true,
+      plus_one_count: person.plus_one_allowed ? Math.max(1, Math.min(4, person.plus_one_count ?? 1)) : 0,
+    },
+  };
+}
+
+/** The RSVP canvas's guest for this event — `RSVP_CANVAS_GUEST` wearing the person's name and allowance. */
+export function rsvpCanvasGuestFor(person: PreviewPerson | null | undefined): GuestRow {
+  return { ...RSVP_CANVAS_GUEST, ...previewNames(person).row, custom_tags: [] };
+}
+
+/**
  * Build the simulated guest identity.
  *
  * Routed through `guestIdentity()` — the key-pick constructor — for the same
@@ -188,9 +259,14 @@ const SIMULATED_GUEST_ROW: Readonly<GuestRow> = Object.freeze({
  * chrome), not guest data — it feeds the hub card's in-site nav links so they
  * point somewhere real instead of 404ing mid-preview.
  */
-export function buildSimulatedGuestIdentity(input: { slug: string }): GuestSiteIdentity {
+export function buildSimulatedGuestIdentity(input: {
+  slug: string;
+  /** "Each editor of each event will adapt to their event" — see `PreviewPerson`. */
+  person?: PreviewPerson | null;
+}): GuestSiteIdentity {
+  const who = previewNames(input.person);
   return guestIdentity({
-    guest: { ...SIMULATED_GUEST_ROW, custom_tags: [] },
+    guest: { ...SIMULATED_GUEST_ROW, ...who.row, custom_tags: [] },
     qrSvg: SIMULATED_GUEST_QR_SVG,
     invitationUrl: SIMULATED_GUEST_INVITATION_TEXT,
     // Null / false / empty across the board: every one of these is a real
@@ -199,8 +275,8 @@ export function buildSimulatedGuestIdentity(input: { slug: string }): GuestSiteI
     seatPassActive: false,
     needsFaceEnroll: false,
     guestHubData: {
-      firstName: 'Sample',
-      displayName: SIMULATED_GUEST_DISPLAY_NAME,
+      firstName: who.row.first_name,
+      displayName: who.row.display_name ?? SIMULATED_GUEST_DISPLAY_NAME,
       rsvpStatus: 'attending',
       tableLabel: SIMULATED_GUEST_TABLE_LABEL,
       mealPreference: null,

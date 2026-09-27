@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CalendarClock, MapPin, ScanLine } from 'lucide-react';
+import { VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
 
 /**
  * Open-browse empty / find-mode plates (OPEN-BROWSE PR8 — council verdict
@@ -127,12 +128,25 @@ export function PublicEventDetails({
   dateLabel,
   venueName,
   venueAddress,
+  venues,
 }: {
   dateLabel: string | null;
   venueName: string | null;
   venueAddress: string | null;
+  /** 🏛💒 Ceremony + reception (`lib/event-venues.ts`, already withheld by the
+   *  page). When present they REPLACE the single Where row: one row each,
+   *  keyed "Ceremony" / "Reception". */
+  venues?: readonly EventVenue[];
 }) {
-  if (!dateLabel && !venueName && !venueAddress) return null;
+  // One list, one row shape: the resolved venues when the page loaded them,
+  // else the single venue the event row names (labelled "Where", as before).
+  const resolved = (venues ?? []).filter((v) => v.name || v.address);
+  const places: EventVenue[] = resolved.length
+    ? resolved
+    : venueName || venueAddress
+      ? [{ role: 'both', name: venueName, address: venueAddress, latitude: null, longitude: null }]
+      : [];
+  if (!dateLabel && places.length === 0) return null;
   // Pahina (design 2026-07-25 §7): over a recessed paper-deep plate with the
   // printed inner hairline frame; WHEN / WHERE read as gild mono keys and the
   // venue name is set in the display face. Facts and gating unchanged — still
@@ -155,22 +169,20 @@ export function PublicEventDetails({
             </div>
           </div>
         ) : null}
-        {venueName || venueAddress ? (
-          <div className="flex items-start gap-3">
+        {places.map((v) => (
+          <div key={v.role} className="flex items-start gap-3" data-venue-role={v.role}>
             <MapPin aria-hidden className="mt-1 h-4 w-4 shrink-0 text-gild" strokeWidth={1.5} />
             <div>
-              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Where</p>
-              {venueName ? (
-                <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
-                  {venueName}
-                </p>
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+                {places.length > 1 || v.role !== 'both' ? VENUE_ROLE_LABEL[v.role] : 'Where'}
+              </p>
+              {v.name ? (
+                <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">{v.name}</p>
               ) : null}
-              {venueAddress ? (
-                <p className="mt-1 text-sm leading-relaxed text-ink/60">{venueAddress}</p>
-              ) : null}
+              {v.address ? <p className="mt-1 text-sm leading-relaxed text-ink/60">{v.address}</p> : null}
             </div>
           </div>
-        ) : null}
+        ))}
       </div>
     </section>
   );

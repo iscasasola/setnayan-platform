@@ -117,16 +117,20 @@ test('open-browse: RSVP open through the live window, closed-card excluded post-
 // Widened widget lists — no phase fence, spotlight order, terminal exclusion.
 // ---------------------------------------------------------------------------
 
-test('open-browse: guest hideable list is phase-independent except terminal exclusions', () => {
-  // rsvp vs event: same evergreen set (no WIDGET_PHASES strip).
+test('open-browse: each stage draws its OWN scenes — the stage fence applies (owner 2026-09-27)', () => {
+  // Supersedes "open browsing is phase-independent": DECISION_LOG 2026-09-27,
+  // "EACH STAGE DOES ONE JOB" — the controller measured Save the Date, the
+  // Invitation and On the Day drawing the SAME scenes, and the owner ruled each
+  // stage draws its own (`lib/stage-scenes.ts`). Open browsing is fenced too.
   const rsvp = ob('guest', 'rsvp').hideableInOrder.map((w) => w.widget_type);
   const stdate = ob('guest', 'save_the_date').hideableInOrder.map((w) => w.widget_type);
-  assert.deepEqual(rsvp, stdate, 'no phase fence pre-event');
-  // Under WIDGET_PHASES (flag-off), save_the_date would strip nearly all of
-  // these; open-browse keeps every visible widget.
+  assert.notDeepEqual(rsvp, stdate, 'the Save the Date and the Invitation draw different scenes');
+  // The Invitation gets the reply: its when-and-where scenes are all there.
   assert.ok(rsvp.includes('dress_code'));
   assert.ok(rsvp.includes('venue_map'));
   assert.ok(rsvp.includes('what_to_bring'));
+  // The Save the Date only holds the date.
+  assert.ok(!stdate.includes('dress_code'), 'no dress code on the Save the Date');
   // editorial drops the archive-terminal widgets (what_to_bring / photo_moments
   // / countdown), keeps the evergreens.
   const editorial = ob('guest', 'editorial').hideableInOrder.map((w) => w.widget_type);

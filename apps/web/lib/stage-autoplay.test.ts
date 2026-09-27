@@ -68,7 +68,10 @@ const CALE_ICE: MakerStageInput = {
 
 test('1 · the Auto steps are the navigator’s order for the stage — film first, each scene once', () => {
   const navigator = makerStageList(CALE_ICE).shown.map((t) => t.key);
-  assert.deepEqual(navigator, ['f:film', 'f:hero', 'f:entourage'], 'the fixture must be the owner’s stage');
+  // Owner 2026-09-27, "EACH STAGE DOES ONE JOB": the Save the Date holds the
+  // date — film → names & date → countdown → Love Story (its prompt, while
+  // unwritten, in the Maker) — and no longer carries the entourage.
+  assert.deepEqual(navigator, ['f:film', 'f:hero', 'w:countdown', 'w:our_love_story'], 'the fixture must be the owner’s stage');
   const steps = stageAutoplaySteps(navigator);
   console.log(`  Save the Date plays: ${steps.map((s) => s.key).join(' → ')}`);
   assert.deepEqual(steps.map((s) => s.key), navigator);

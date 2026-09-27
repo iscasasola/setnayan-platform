@@ -13,6 +13,7 @@ import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import {
   computeGuestStats,
+  countsTowardEvent,
   computePaxProgress,
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
@@ -344,7 +345,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // visit to the Guests tab.
   const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, assignments, tables, arrived, floorPlan, brandedQrActive] =
     await Promise.all([
-      fetchGuestsByEventMeasured(supabase, eventId),
+      // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
+      fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true }),
       supabase
         .from('events')
         // ⚠ THIS PAGE DID NOT READ THE EVENT'S DATE AT ALL. Owner, the morning
@@ -652,7 +654,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         // Only compute a suggestion for the state that actually renders it — a
         // seated or declined guest never shows the dashed hint.
         const suggested =
-          placed || g.rsvp_status === 'declined'
+          // A request is not seated or suggested a seat until Keep or Link.
+          placed || g.rsvp_status === 'declined' || !countsTowardEvent(g)
             ? null
             : suggestTableFor(g, tables, assignments, stage);
         return [g.guest_id, { placed, suggested }];
@@ -834,10 +837,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
   // Team Bride / Team Groom counts — "both" counts to both sides on
   // purpose (a guest invited by both shows in either team view).
+  // Requests are in Requests, not in these counts (countsTowardEvent).
+  const counted = guests.filter(countsTowardEvent);
   const teamCounts = {
-    all: guests.length,
-    bride: guests.filter((g) => g.side === 'bride' || g.side === 'both').length,
-    groom: guests.filter((g) => g.side === 'groom' || g.side === 'both').length,
+    all: counted.length,
+    bride: counted.filter((g) => g.side === 'bride' || g.side === 'both').length,
+    groom: counted.filter((g) => g.side === 'groom' || g.side === 'both').length,
   };
   // Minimal pool the quick-add sheet matches new names against for the
   // duplicate check — full unfiltered list, not the filtered `visible`.

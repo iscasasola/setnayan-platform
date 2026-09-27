@@ -8,11 +8,14 @@ import { InMakerReturnTo } from './in-maker-return-to';
 /**
  * PICK FROM OUR EVENTS — "From what Setnayan already holds" (prototype § pick).
  *
- * Reads the couple's OTHER events (owner 2026-09-25: *"Pick from our events"
- * still reads the couple's other events*) and offers the photos those events
- * already show guests — their "Photos you add" gallery and their hero. Nothing
- * is copied: a pick stores the same ref, and the server accepts only a ref one
- * of the couple's own events holds (`loveStoryMomentAction` intent `pick`).
+ * Lists every OTHER event BOTH partners were at, in any role, newest first
+ * (owner 2026-09-27: *"this should show all events that they are both
+ * there"*; the scope is `our-events-read.ts`). An event the pair HOSTS offers
+ * the photos it already shows guests — its "Photos you add" gallery and its
+ * hero. Someone else's event is listed with no photos: that couple's gallery is
+ * theirs, and the pair's own Papic captures there are private (below). Nothing
+ * is copied: a pick stores the same ref, and the server accepts only a ref the
+ * same read offers (`loveStoryMomentAction` intent `pick`).
  *
  * ⏭ Papic booth photos live in a PRIVATE bucket and need a per-event consent
  * answer before they can appear on another event's public page — they are not
@@ -22,6 +25,8 @@ export type OtherEvent = {
   eventId: string;
   name: string;
   date: string | null;
+  /** Either partner is the couple there — only then are photos offered. A coordinated event is another couple's. */
+  hosted: boolean;
   photos: { ref: string; url: string }[];
 };
 
@@ -67,7 +72,7 @@ export function PickFromOurEvents({
       </h2>
       {events.length === 0 ? (
         <p className="mt-3 text-[14px] text-[color:var(--ls-muted)]">
-          This is the only event you host here so far. Photos from events you host later can join your story.
+          No other event with both of you yet. Events you are both at will show here.
         </p>
       ) : (
         <ul className="mt-4 space-y-2 text-[14px]">
@@ -76,7 +81,11 @@ export function PickFromOurEvents({
               <b className="font-medium">{e.name}</b>
               {e.date ? <span className="text-[color:var(--ls-muted)]">{formatEventDate(e.date)}</span> : null}
               <span className="text-[color:var(--ls-muted)]">
-                {e.photos.length === 0 ? 'no photos yet' : `${e.photos.length} ${e.photos.length === 1 ? 'photo' : 'photos'}`}
+                {!e.hosted
+                  ? 'someone else’s event'
+                  : e.photos.length === 0
+                    ? 'no photos yet'
+                    : `${e.photos.length} ${e.photos.length === 1 ? 'photo' : 'photos'}`}
               </span>
             </li>
           ))}

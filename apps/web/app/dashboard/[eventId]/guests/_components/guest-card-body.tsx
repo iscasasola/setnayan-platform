@@ -5,11 +5,13 @@ import {
   Camera,
   Check,
   EyeOff,
+  Flower2,
   Tag,
   Users,
   UserX,
 } from 'lucide-react';
 import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   guestDisplayName,
   guestInitials,
@@ -123,6 +125,11 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   invalid_role: 'Invalid role selection.',
   invalid_rsvp: 'Invalid RSVP status.',
   invalid_meal: 'Invalid meal preference.',
+  // "Give this spot to someone else" (guestId/actions.ts giveSpotToSomeoneElse).
+  swap_replied: 'Only a guest who has not replied can give their spot away — this guest already answered.',
+  swap_needs_name: 'Type the name of the person taking the spot.',
+  swap_after_day: 'The day has passed — this spot can no longer be given away.',
+  swap_failed: 'The spot could not be given away just now — nothing was changed. Please try again.',
 };
 
 export function GuestCardBody({
@@ -254,7 +261,14 @@ export function GuestCardBody({
           brandedQrActive={brandedQrActive}
         />
         <div className="overflow-hidden rounded-lg border border-ink/10">
-          {guest.email ? (
+          {guest.passed_away ? (
+            // 🕯 Nothing is sent to a guest the couple marked "Passed away" —
+            // `inviteGuestByEmailAction` refuses it too, so this is said up front.
+            <p className="flex items-center gap-3 border-b border-ink/[0.06] px-3.5 py-3 text-sm text-ink/45">
+              <span>Email a sign-in link</span>
+              <span className="ml-auto italic">Not sent · passed away</span>
+            </p>
+          ) : guest.email ? (
             <form action={inviteAction}>
               <SubmitButton
                 className="flex w-full items-center gap-3 border-b border-ink/[0.06] px-3.5 py-3 text-left text-sm text-ink transition-colors hover:bg-ink/[0.03] disabled:opacity-60"
@@ -599,6 +613,21 @@ export function GuestCardBody({
             destroyed here either, which was not.
           */}
           <input type="hidden" name="relation" value={guest.relation ?? ''} />
+          {/* 🕯 PASSED AWAY — listed, never counted (owner 2026-09-25: *"a button
+              of passed can be placed there … If passed away already, then not
+              counted on the guestlist. but listed."*). They stay on this list
+              and print as "the late …" in the parents' lines; no headcount,
+              seat, caterer number or invitation counts them. Never offered for
+              the couple themselves — `updateGuest` refuses it for them too. */}
+          {isCouple ? null : (
+            <Toggle
+              name="passed_away"
+              defaultChecked={guest.passed_away === true}
+              icon={<Flower2 aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />}
+              label="Passed away"
+              note="Printed as “the late …”. Not counted, seated or sent an invitation."
+            />
+          )}
         </Section>
 
         {/* ── 6 · PRIVACY ────────────────────────────────────────────────── */}
@@ -690,6 +719,34 @@ export function GuestCardBody({
               Re-issuing the QR does NOT undo that: rotation writes qr_token and
               never person_id or email, so the link dies while the account keeps
               the seat. This does both, rotation FIRST. */}
+          {/* 🔁 GIVE THIS SPOT TO SOMEONE ELSE (owner 2026-09-26) — only for a
+              guest who has NOT replied. Same seat, table and count; a new key
+              (the old QR and link stop); the old person is not told. Rides the
+              release action's own door (`swap_name`), so +0 actions. */}
+          {guest.rsvp_status === 'pending' ? (
+            <form action={releaseAction} className="space-y-2 border-t border-ink/10 pt-4" data-give-spot="">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <InfoTip label="Give this spot to someone else" align="start">
+                  The new person takes this guest&rsquo;s table, seats and place in the count.{' '}
+                  {guestDisplayName(guest)}&rsquo;s link and QR stop working; they are not notified. Guests who
+                  already replied cannot be swapped.
+                </InfoTip>
+              </p>
+              <label className="block">
+                <span className="text-xs font-medium text-ink/60">Who takes it?</span>
+                <input
+                  name="swap_name"
+                  required
+                  autoComplete="off"
+                  placeholder="First and last name"
+                  className="input-field mt-1 w-full"
+                />
+              </label>
+              <SubmitButton className="button-primary w-full" pendingLabel="Giving the spot…">
+                Give the spot
+              </SubmitButton>
+            </form>
+          ) : null}
           <form action={releaseAction}>
             <SubmitButton
               className="block w-full rounded-lg border border-ink/15 px-3.5 py-2.5 text-left text-sm font-medium text-ink/70 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"

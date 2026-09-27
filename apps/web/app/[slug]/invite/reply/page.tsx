@@ -18,13 +18,19 @@ import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 import { resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
+import { asksForHostCanvas } from '../../_lib/editor-canvas';
+import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { getCurrentUser } from '@/lib/auth';
+import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
+import { loadPreviewPerson } from '../../_lib/preview-person.server';
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ rsvp?: string }>;
+  searchParams: Promise<{ rsvp?: string; editor?: string; preview?: string }>;
 };
 
 /**
@@ -55,7 +61,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: event, error: eventError } = await admin
+  const { data: liveEvent, error: eventError } = await admin
     .from('events')
     .select(
       `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}`,
@@ -66,7 +72,25 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   if (eventError) {
     throw new Error(`invite/reply: could not read the event for "${slug}": ${eventError.message}`);
   }
-  if (!event?.slug) notFound();
+  if (!liveEvent?.slug) notFound();
+
+  /* 🗳 THE MAKER'S RSVP CANVAS (owner 2026-09-27: "the slides showing doesn't
+     seem to follow the what to add"). `?editor=1` from a VERIFIED host of this
+     event — the same door the Event Hub canvas uses, never the param alone —
+     draws this page for a SAMPLE guest who has not replied, wearing the
+     couple's DRAFT (`overlayHubDraftEvent`), so every "What do you ask your
+     guests?" switch and "Ask one question at a time" shows before Apply. No
+     guest row is read and nothing is written for the sample. */
+  let canvas = false;
+  let hostDraft: Awaited<ReturnType<typeof loadHostPreviewDraft>> = null;
+  if (asksForHostCanvas(search)) {
+    const viewer = await getCurrentUser();
+    if (viewer && (await loadHostMembership(admin, liveEvent.event_id as string, viewer.id))) {
+      canvas = true;
+      hostDraft = await loadHostPreviewDraft(admin, liveEvent.event_id as string, viewer.id);
+    }
+  }
+  const event = overlayHubDraftEvent(liveEvent as Record<string, unknown>, hostDraft) as typeof liveEvent;
   const home = event.slug as string;
 
   // The KEY is the gate: the browser's guest pass for THIS event, or the seat a
@@ -74,20 +98,31 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   // both, so this page must too — otherwise a signed-in guest on a new phone
   // would be bounced between the two). No key → the event page, where a
   // stranger gets the one "Get inside" button.
-  const session = await readGuestSessionForEvent(event.event_id as string);
-  if (!session) redirect(`/${home}`);
+  const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
+  if (!canvas && !session) redirect(`/${home}`);
 
-  const { data: guest, error: guestError } = await admin
+  const { data: guest, error: guestError } = canvas
+    ? {
+        data: {
+          // A real person from THIS event's list — name and plus-one allowance
+          // only (owner 2026-09-27: "each editor of each event will adapt to
+          // their event"); the sample's id, so nothing is written for them.
+          ...rsvpCanvasGuestFor(await loadPreviewPerson(admin, liveEvent.event_id as string)),
+          plus_one_name_confirmed_at: null as string | null,
+        },
+        error: null,
+      }
+    : await admin
     .from('guests')
     .select(
       'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
     )
-    .eq('guest_id', session.guest_id)
+    .eq('guest_id', session!.guest_id)
     .eq('event_id', event.event_id)
     .is('deleted_at', null)
     .maybeSingle();
   if (guestError) {
-    throw new Error(`invite/reply: could not read guest ${session.guest_id}: ${guestError.message}`);
+    throw new Error(`invite/reply: could not read guest ${session?.guest_id}: ${guestError.message}`);
   }
   if (!guest) redirect(`/${home}`);
 
@@ -103,11 +138,13 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     resolvePapicFaceMode(admin, event.event_id as string),
     createClient(),
     loadInviteLook(event),
-    plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
+    canvas ? Promise.resolve([]) : plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
   ]);
   const {
-    data: { user },
+    data: { user: signedIn },
   } = await supabase.auth.getUser();
+  // The host looking at the sample is not the guest — never prefill from them.
+  const user = canvas ? null : signedIn;
 
   const replyLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
@@ -115,7 +152,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     eventDate: event.event_date as string | null,
   });
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
-  const gate = rsvpGate({
+  const gate = canvas ? ({ kind: 'inside', didntReply: false } as const) : rsvpGate({
     rsvpStatus: guest.rsvp_status as string | null,
     mealPreference: guest.meal_preference as string | null,
     mobile: guest.mobile as string | null,
@@ -195,8 +232,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
 
   return (
     <DoorShell
-      eyebrow="Your reply"
-      title={guestName}
+      eyebrow="You’re invited"
+      title={(event.display_name as string | null) || guestName}
       meta={joinDoorMeta({
         event_date: event.event_date as string | null,
         event_date_precision: event.event_date_precision as string | null,
@@ -205,7 +242,13 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
       width="lg"
       skin={look.skin}
     >
-      <NotYouSwitch slug={home} />
+      {/* Whose reply this is — and, on a phone a family shares, the way out. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <p className="font-serif text-lg text-ink" data-reply-for="">
+          {guestName}
+        </p>
+        {canvas ? null : <NotYouSwitch slug={home} />}
+      </div>
 
       {hasAnswered ? (
         <DoorNotice>
@@ -251,6 +294,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
         termsOnSend
         oneAtATime={askOneAtATime(event.rsvp_ask_config)}
+        previewEveryQuestion={canvas}
       />
     </DoorShell>
   );

@@ -32,6 +32,7 @@ import { revalidateGuestSite } from '@/lib/revalidate-site';
 import { requireHostMembership } from '@/lib/host-gate';
 import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib/hub-draft-store';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
+import { ourEventPhotoRefs } from './_components/our-events-read';
 import {
   MOMENT_BY_MAX,
   MOMENT_LINE_MAX,
@@ -307,10 +308,11 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
       return hide ? { ...rest, hidden: true } : rest;
     });
   } else {
-    // 'pick' — "Pick from our events": refs one of THEIR events already holds.
-    // Nothing is copied; a ref from anywhere else is dropped.
+    // 'pick' — "Pick from our events": refs an event the pair HOSTS already
+    // shows. The SAME read the page offers from (`readOurEvents`), so the two
+    // cannot disagree. Nothing is copied; a ref from anywhere else is dropped.
     if (!prior) return fail('Choose the moment to add these to.');
-    const mine = await myEventPhotoRefs(supabase, user.id);
+    const mine = await ourEventPhotoRefs(user.id, eventId);
     const allowed = readMomentMedia(formData.getAll('media')).filter((ref) => mine.has(ref));
     const media = readMomentMedia([...(prior.media ?? []), ...allowed]);
     const m: LoveStoryMoment = { ...prior, ...(media.length ? { media } : {}) };
@@ -368,29 +370,4 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   revalidateGuestSite(saved.slug);
 
   redirect(`${back}?saved=1${slotted}`);
-}
-
-/** Every public photo ref held by an event this user is a couple on. */
-async function myEventPhotoRefs(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-): Promise<Set<string>> {
-  const { data: rows } = await supabase
-    .from('event_members')
-    .select('event_id')
-    .eq('user_id', userId)
-    .eq('member_type', 'couple');
-  const ids = (rows ?? []).map((r) => r.event_id as string);
-  if (ids.length === 0) return new Set();
-  const { data: events } = await supabase
-    .from('events')
-    .select('our_photos, landing_page_hero_image_url')
-    .in('event_id', ids);
-  const out = new Set<string>();
-  for (const e of events ?? []) {
-    // One at a time: `readMomentMedia` caps a LIST at a moment's four.
-    const all: unknown[] = [e.landing_page_hero_image_url, ...(Array.isArray(e.our_photos) ? e.our_photos : [])];
-    for (const v of all) for (const ref of readMomentMedia([v])) out.add(ref);
-  }
-  return out;
 }

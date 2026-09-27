@@ -210,19 +210,35 @@ test('golden matrix — always-on widget gates per phase (guest tree)', () => {
   }
 });
 
+/** Each stage's own scenes, in the stage's own order — written out literally
+ *  so the golden does not re-derive what it checks (owner 2026-09-27, "EACH
+ *  STAGE DOES ONE JOB"; the source is `lib/stage-scenes.ts`). The Save the
+ *  Date's film carries the gallery, so `our_photos` is not a scene there while
+ *  the film plays. */
+const GOLDEN_STAGE_LISTS: Record<LifecyclePhase, WidgetType[]> = {
+  save_the_date: ['countdown', 'our_love_story'],
+  rsvp: ['countdown', 'special_message', 'our_love_story', 'event_details', 'schedule', 'venue_map', 'dress_code', 'what_to_bring'],
+  event: ['schedule', 'venue_map', 'photo_moments', 'your_photos'],
+  editorial: ['our_love_story', 'our_photos', 'special_message', 'your_photos'],
+};
+/** The couple's own scenes stay on every stage, after the stage's own. */
+const OWN_SCENES = WIDGET_TYPES.filter((t) => t.startsWith('custom_'));
+
 test('golden matrix — widget lists per phase (hideable order + anonymous firewall)', () => {
   for (const phase of PHASES) {
-    // Guest tree: every visible hideable widget in the phase, display order.
+    // Guest tree: the stage's own scenes, in the stage's order.
     assert.deepEqual(
       planFor('guest', phase).hideableInOrder.map((w) => w.widget_type),
-      hideableTypesInPhase(phase),
+      [...GOLDEN_STAGE_LISTS[phase], ...OWN_SCENES],
       `hideableInOrder in ${phase}`,
     );
+    // Membership still agrees with the phase matrix.
+    for (const t of GOLDEN_STAGE_LISTS[phase]) assert.ok(hideableTypesInPhase(phase).includes(t), `${t} in ${phase}`);
     // Anonymous tree: the same list additionally fenced by the allow-list.
     for (const identity of IDENTITIES) {
       assert.deepEqual(
         planFor(identity, phase).publicSafeWidgets.map((w) => w.widget_type),
-        hideableTypesInPhase(phase).filter((t) =>
+        [...GOLDEN_STAGE_LISTS[phase], ...OWN_SCENES].filter((t) =>
           PUBLIC_WIDGET_ALLOWLIST.includes(t),
         ),
         `publicSafeWidgets in ${phase} (${identity})`,

@@ -7,6 +7,8 @@ import type { Metadata, Viewport } from 'next';
 // `node scripts/fetch-brand-fonts.mjs`, which is the ONLY thing that should
 // ever talk to Google about fonts again.
 import localFont from 'next/font/local';
+// Every OTHER face we ship, as a Maker font choice — none preloaded (see the file).
+import { HUB_CHOICE_FACES_CLASS } from './_fonts/choice-faces';
 import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
@@ -557,7 +559,7 @@ export default async function RootLayout({
       lang="en-PH"
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
-      className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
+      className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable} ${HUB_CHOICE_FACES_CLASS}`}
     >
       <head>
         {/*

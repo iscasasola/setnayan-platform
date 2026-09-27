@@ -92,7 +92,7 @@ export function PahinaKeepsake({
   const dateLabel = formatEventDate(eventDate);
 
   return (
-    <section className="pahina-deckle space-y-5 sm:p-8" aria-label="Your keepsake">
+    <section className="space-y-5" aria-label="Your keepsake">
       <header className="flex items-start justify-between gap-4">
         <p className="pahina-eyebrow">
           <span aria-hidden>✦</span>

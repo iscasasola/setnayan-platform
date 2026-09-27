@@ -869,7 +869,6 @@ export function SectionsPanel({
                   photoChoices={photoChoices}
                   videoChoice={videoChoice}
                   ownsPro={ownsPro}
-                  hideLocked={hideLocked}
                   action={setBackgroundAction}
                   returnTo={back}
                 />
@@ -1225,11 +1224,13 @@ function SectionColourChoices({
  *
  * Every choice is a form posting to `setWidgetBackground` with `<HubDraftField />`
  * — the draft door; guests see nothing until Apply. Colour, both glasses, No
- * background and the shape are FREE; Photo and Snippet are Event Hub Pro at
- * Apply (owner 2026-09-24: "changing background color is free. making media a
- * background is pro") and wear the paid mark; in the store shell they are
- * hidden, not locked. Which photo, which colour, and the crop are picked in the
- * rows under this one — this row says WHAT the ground is.
+ * background and the shape are FREE (owner 2026-09-24: "changing background
+ * color is free. making media a background is pro"). Photo and Snippet are
+ * offered to a couple who owns Event Hub Pro only — a free couple is shown no
+ * photo to pick (the 2026-09-24 "A" ruling, `a-free-section-shows-no-look-
+ * controls.test.ts`); the panel's one lock names it. Which photo, which colour,
+ * and the crop are picked in the rows under this one — this row says WHAT the
+ * ground is.
  *
  * No cards: chips are pressables; the row is grouped by a hairline, never boxed.
  */
@@ -1241,7 +1242,6 @@ function SceneBackgroundChoices({
   photoChoices,
   videoChoice,
   ownsPro,
-  hideLocked,
   action,
   returnTo,
 }: {
@@ -1252,7 +1252,6 @@ function SceneBackgroundChoices({
   photoChoices: readonly { ref: string; url: string }[];
   videoChoice?: { ref: string } | null;
   ownsPro: boolean;
-  hideLocked: boolean;
   action: (formData: FormData) => void | Promise<void>;
   returnTo: string;
 }) {
@@ -1261,16 +1260,13 @@ function SceneBackgroundChoices({
   /* A glass or a colour starts from the scene's colour, else the couple's first. */
   const tint = hubBackgroundTint(bg) ?? colorChoices[0] ?? '#ffffff';
   const photo = bg?.kind === 'photo' ? bg.media : (photoChoices[0]?.ref ?? null);
-  const mediaMark = !ownsPro && !hideLocked;
-  const choices: Array<{ key: string; label: string; fields: Record<string, string>; pro?: boolean } | null> = [
+  const choices: Array<{ key: string; label: string; fields: Record<string, string> } | null> = [
     { key: 'none', label: 'No background', fields: { kind: 'none' } },
     { key: 'color', label: 'Full colour', fields: { kind: 'color', color: tint } },
     { key: 'glass', label: 'Opaque glass', fields: { kind: 'glass', color: tint } },
     { key: 'frost', label: 'Frosted glass', fields: { kind: 'frost', color: tint } },
-    photo && !(hideLocked && !ownsPro) ? { key: 'photo', label: 'Photo', fields: { media: photo }, pro: true } : null,
-    videoChoice && !(hideLocked && !ownsPro)
-      ? { key: 'snippet', label: 'Snippet', fields: { kind: 'snippet', media: videoChoice.ref }, pro: true }
-      : null,
+    ownsPro && photo ? { key: 'photo', label: 'Photo', fields: { media: photo } } : null,
+    ownsPro && videoChoice ? { key: 'snippet', label: 'Snippet', fields: { kind: 'snippet', media: videoChoice.ref } } : null,
   ];
   const painted = current !== null && current !== 'none';
   const shape = canvas.shape ?? HUB_DEFAULT_SCENE_SHAPE;
@@ -1299,9 +1295,6 @@ function SceneBackgroundChoices({
               {hidden(c.fields)}
               <button type="submit" aria-pressed={current === c.key} data-scene-bg-choice={c.key} className={chip(current === c.key)}>
                 {c.label}
-                {c.pro && mediaMark ? (
-                  <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" tone={current === c.key ? 'current' : 'auto'} />
-                ) : null}
               </button>
             </form>
           ) : null,

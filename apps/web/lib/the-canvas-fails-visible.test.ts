@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { PUBLIC_R2_BUCKET } from './r2-client-ref';
-import {
+import { HUB_SCENE_SHAPES,
   HUB_BACKGROUND_KINDS,
   HUB_ARRANGEMENTS,
   HUB_DIRECTIONS,
@@ -256,11 +256,16 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
      So each kind is built into a real canvas and run through the real
      function, exactly as the presets and arrangements above are. */
   for (const kind of HUB_BACKGROUND_KINDS) {
-    const canvas =
-      kind === 'color'
-        ? { kind, color: '#a9834b' }
-        : { kind, media: `r2://${PUBLIC_R2_BUCKET}/events/E1/a.jpg` };
-    for (const c of hubCanvasClass(canvas, true).split(' ')) emitted.add(c);
+    // …in BOTH shapes (2026-09-27, Framed / Full width) — also measured, never
+    // declared: a shape class the function stopped emitting leaves its rule
+    // orphaned here.
+    for (const shape of HUB_SCENE_SHAPES) {
+      const canvas =
+        kind === 'color' || kind === 'glass' || kind === 'frost'
+          ? { kind, color: '#a9834b', shape }
+          : { kind, media: `r2://${PUBLIC_R2_BUCKET}/events/E1/a.jpg`, shape };
+      for (const c of hubCanvasClass(canvas, true).split(' ')) emitted.add(c);
+    }
   }
   // The Scroll · Scrub scenes (hub-scenes.tsx) emit their own small vocabulary,
   // exported beside the contract so it is held to the same rule, not exempted.

@@ -118,7 +118,11 @@ test('a free couple is offered the section colour — and still no photo to pick
   for (const hex of SWATCHES) {
     assert.match(html, new RegExp(`name="color" value="${hex}"`), `swatch ${hex}`);
   }
-  assert.equal(count(html, 'name="kind" value="color"'), SWATCHES.length, 'no None chip until a colour is set');
+  // One form per swatch, plus the scene Background row's own "Full colour"
+  // choice (2026-09-27) — never a colour-clearing chip: "No background" is the
+  // one None now, and it means no box.
+  assert.equal(count(html, 'name="kind" value="color"'), SWATCHES.length + 1, 'an extra colour form appeared');
+  assert.match(html, /data-scene-bg-choice="none"/, 'No background is always offered — it is free');
   assert.doesNotMatch(html, new RegExp(`value="${PHOTO}"`), 'no photo may be offered to pick');
   assert.doesNotMatch(html, /name="kind" value="snippet"/, 'no video may be offered either');
   assert.doesNotMatch(html, /What to keep in frame/);
@@ -127,7 +131,10 @@ test('a free couple is offered the section colour — and still no photo to pick
 test('a free couple with a colour set can change it or clear it', async () => {
   const html = await paint(row({ canvas: { kind: 'color', color: SWATCHES[0] } }), false, SWATCHES);
   assert.match(html, new RegExp(`aria-label="Current background colour ${SWATCHES[0]}"`));
-  assert.match(html, /name="color" value=""/, 'a None chip clears the colour');
+  // "No background" is the free way off a colour (2026-09-27) — it posts
+  // kind=none, which also means no box.
+  assert.match(html, /name="kind" value="none"/, 'No background clears the colour');
+  assert.match(html, /aria-pressed="true" data-scene-bg-choice="color"/, 'the colour is not shown as chosen')
   assert.doesNotMatch(html, /Remove this section/, 'a colour is not media — nothing to remove');
 });
 

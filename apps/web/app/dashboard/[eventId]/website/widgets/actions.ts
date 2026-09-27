@@ -745,13 +745,16 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
      💾 A DRAFT save skips it: trying is free, and `hubDraftAction` apply asks
      the same classifier before anything reaches the live row. The ownership
      check below still runs for a draft — a draft may only hold THEIR photo. */
-  if (!drafting && !shapeOnly) await requireLookPro(
+  if (!drafting) await requireLookPro(
     eventId,
-    sectionBackgroundChange({
-      currentMedia: typeof canvas.media === 'string' ? canvas.media : null,
-      kind: tinted ? (kind as 'color' | 'glass' | 'frost' | 'none') : kind === 'snippet' ? 'snippet' : 'photo',
-      nextMedia: tinted || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
-    }),
+    // The shape alone changes no media — nothing to classify.
+    shapeOnly
+      ? 'none'
+      : sectionBackgroundChange({
+          currentMedia: typeof canvas.media === 'string' ? canvas.media : null,
+          kind: tinted ? (kind as 'color' | 'glass' | 'frost' | 'none') : kind === 'snippet' ? 'snippet' : 'photo',
+          nextMedia: tinted || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
+        }),
   );
 
   if (shapeOnly) {

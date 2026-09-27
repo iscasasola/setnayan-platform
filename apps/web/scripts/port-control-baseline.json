@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "24b04977a",
+  "generatedFromRef": "dec8d0aea",
   "routeCount": 435,
   "destinations": 948,
   "actions": 669,
-  "blocks": 4900,
+  "blocks": 4902,
   "routes": {
     "/": {
       "files": [
@@ -976,6 +976,7 @@
         "BackCover",
         "BackCoverBlock",
         "BackgroundMusic",
+        "Bar",
         "Blob",
         "ByTheNumbers",
         "CaptureTile",
@@ -1185,6 +1186,7 @@
         "SaveToAccount",
         "ScanTrailNotice",
         "SceneClip",
+        "ScenePlaceholder",
         "ScheduleWidget",
         "SectionEmptyPlate",
         "SectionRule",

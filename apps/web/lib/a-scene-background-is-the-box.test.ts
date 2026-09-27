@@ -35,6 +35,7 @@ import {
   sanitizeHubCanvas,
 } from './hub-canvas';
 import { sectionBackgroundChange, HUB_CANVAS_LOOK_KEYS } from './hub-look-pro';
+import { canvasLookChange } from './hub-draft';
 import { HubCanvasFrame, sceneWidgetIsBare } from '../app/[slug]/_components/hub-canvas-frame';
 import { CountdownWidget } from '../app/[slug]/_components/countdown';
 import type { InvitationWidgetRow } from './invitation-widgets';
@@ -199,6 +200,20 @@ test('6 · colour, both glasses, "none" and the shape are free; photo / snippet 
   for (const key of ['kind', 'color', 'shape']) {
     assert.ok(!(HUB_CANVAS_LOOK_KEYS as readonly string[]).includes(key), `${key} became a Pro look key`);
   }
+  // APPLY — the gate a draft meets: swapping a photo for a glass takes media
+  // down (free); colour ↔ glass ↔ frost ↔ none and the shape never gate.
+  const photo = sanitizeHubCanvas({ canvas: { media: 'r2://setnayan-media/p.jpg' } });
+  const glass = sanitizeHubCanvas({ canvas: { kind: 'glass', color: '#abcdef' } });
+  const frostFull = sanitizeHubCanvas({ canvas: { kind: 'frost', color: '#abcdef', shape: 'full' } });
+  const none = sanitizeHubCanvas({ canvas: { kind: 'none' } });
+  assert.equal(canvasLookChange(photo, glass), 'remove');
+  assert.equal(canvasLookChange(glass, frostFull), 'none', 'glass → frosted, full width was gated');
+  assert.equal(canvasLookChange(frostFull, none), 'none');
+  assert.equal(canvasLookChange(none, photo), 'add', 'putting a photo up must be Pro');
+  // WRITE — the live action classifies every tinted kind (and none) as media-free.
+  const writer = stripComments(readFileSync(join(ROOT, 'app/dashboard/[eventId]/website/widgets/actions.ts'), 'utf8'));
+  assert.match(writer, /const tinted = kind === 'color' \|\| kind === 'glass' \|\| kind === 'frost' \|\| kind === 'none';/);
+  assert.match(writer, /nextMedia: tinted \|\| wanted\.length === 0 \? null/);
 });
 
 /* ── 7 · the photo fills, the content sets the height ────────────────────── */

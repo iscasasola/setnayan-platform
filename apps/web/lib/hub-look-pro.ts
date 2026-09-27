@@ -183,6 +183,9 @@ export const HUB_CANVAS_LOOK_KEYS = [
   // Scroll · Scrub · Auto-scroll into the next scene (#5951, `lib/hub-scenes.ts`).
   'transition',
   'autoSpeed',
+  // One element's own font · colour · size · animation (`lib/element-style.ts`,
+  // owner 2026-09-26: per-element overrides are Pro, like fonts and colours).
+  'elements',
 ] as const;
 
 /** The motion subset — what "Reset how it moves" takes off. */

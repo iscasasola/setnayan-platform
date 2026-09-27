@@ -42,6 +42,7 @@ import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } fr
 import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/scene-templates';
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
+import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -288,6 +289,15 @@ export type HubSectionCanvas = {
    * only beside `tap`, the direction rule again.
    */
   video?: HubSceneVideo;
+  /**
+   * ONE ELEMENT'S OWN LOOK (owner 2026-09-26/27: *"tapping element, changes
+   * fonts, color, size, animation"*) — font · colour · size · animation per
+   * element, each winning over the theme for that element only, like Keynote.
+   * On the hero row: the invitation card's six parts; on any other scene: its
+   * label, heading and words. Absent = every element wears the theme. The
+   * contract, the selectors and the CSS are `lib/element-style.ts`.
+   */
+  elements?: HubElementStyles;
 };
 
 /** One slot of a template scene. See `slots` above. */
@@ -484,6 +494,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (stages) out.stages = stages;
   const video = hubSceneVideo(canvas.video);
   if (video) out.video = video;
+  const elements = sanitizeHubElements(canvas.elements);
+  if (elements) out.elements = elements;
   return out;
 }
 
@@ -803,7 +815,12 @@ export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): stri
  * they made on purpose.
  */
 export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
-  return Object.keys(canvas).length > 0;
+  /* ⛔ ELEMENT STYLES ALONE ARE NOT AN ARRANGEMENT. A couple who only changed a
+     heading's font did not ask for the section to be framed — and the frame
+     brings the default preset's motion with it, so the whole section would
+     start fading in because one word changed colour. The elements are drawn by
+     their own scoped style (`hubElementSceneCss`), framed or not. */
+  return Object.keys(canvas).some((k) => k !== 'elements');
 }
 
 /**

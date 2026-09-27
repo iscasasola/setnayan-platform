@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 381
+# facts: 383
 #   shadow  20
-#   omit    361
+#   omit    363
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -86,6 +86,14 @@ omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	name_
 omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	role
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	guest_id
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	middle_name
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
+omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/[slug]/actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/[slug]/actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/[slug]/actions.ts	guests	ENTOURAGE_COLUMNS	guest_id
@@ -110,12 +118,6 @@ omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
 omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
 omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
 omit	app/[slug]/hub/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
-omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
-omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
-omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	middle_name
-omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
-omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
-omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	last_name

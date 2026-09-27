@@ -159,6 +159,8 @@ import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { KeepOnHomeScreen } from './keep-on-home-screen';
 import { GuestAccountCard } from './guest-account-card';
+import { GetInside } from './get-inside';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
@@ -700,7 +702,16 @@ export async function SiteBody({
     hasHeroMedia,
     hasBgMusic: Boolean(bgMusicUrl),
     liveMediaPublic: Boolean(event.live_media_public),
-    widgets,
+    /* 🧾 "TWO WAYS TO CELEBRATE" LEAVES THE INVITATION AND THE DAY (owner
+       2026-09-26: *"plan it properly … when linking to an account"* — the pitch
+       is REPLACED by the post-RSVP "Save to my account" step). Filtered before
+       the plan so every list the plan derives (the scenes, the Details tab's
+       presence) agrees. Post Event is untouched, and the Maker's own canvas
+       still lists the section so the couple can see and switch it. */
+    widgets:
+      isMakerCanvas || lifecyclePhase === 'editorial'
+        ? widgets
+        : widgets.filter((w) => w.widget_type !== 'tier_comparison'),
     openBrowse: Boolean(event.website_open_browse),
     // Is the invitation still open? The couple's guest-list deadline decides
     // (owner 2026-08-20). Read, never written — a public page load must not
@@ -987,6 +998,14 @@ export async function SiteBody({
   /** The anonymous tree — verbatim the old PublicLanding body. */
   const anonymousTree = (anon: AnonymousSiteIdentity) => {
     const { reason, publicCandidCameraActive, publicAlbumHref } = anon;
+    /* 🔒 TWO LEVELS OF ACCESS (owner 2026-09-26, "THE GENERAL LINK IS GENERIC;
+       THE KEY OR SIGN-IN IS PERSONAL"): *"if just the event link will be
+       generic and no access to the announcements, and other info"*. This tree
+       is the page for everyone WITHOUT a key, so the inside of the event — the
+       camera, the photo wall, the seat finder — is not rendered for them at all.
+       Decided HERE, on the server; nothing is drawn and then hidden. The couple
+       (their own page) and a booked supplier (working the day) keep it. */
+    const insideAllowed = viewerIsHost || vendorCapability !== null;
     // Open-browse MENU SHELL (PR6, flag-dark; always on for the sample event).
     // Present-flags gate each middle tab so it never anchors to a section that
     // did not render (the council's no-dead-anchors rule). Anchor ids below.
@@ -1164,22 +1183,34 @@ export async function SiteBody({
                   This is your event page — the view your guests get. Invited guests see
                   their own name, seat and RSVP here when they open their personal link.
                 </p>
-              ) : reason === 'invalid_invite' ? (
-                <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-                  That invite link doesn&rsquo;t look right — it may have been replaced with a new
-                  one. Ask your host for your current QR or link; every guest has their own, and
-                  an old one stops working the moment it&rsquo;s replaced.
-                </p>
-              ) : reason === 'wrong_event' ? (
-                <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
-                  You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
-                  QR or invite link to switch.
-                </p>
               ) : (
-                <p className="mx-auto max-w-prose text-sm text-ink/70">
-                  This is a Setnayan invitation page. Scan your personal QR or open the link{' '}
-                  {clientWords.theOrganizer} sent you to see your invitation.
-                </p>
+                /* ── THE STRANGER'S ONE BUTTON (owner 2026-09-26/27) ──────────
+                   General details above; ONE way in below — "Get inside: Scan
+                   your QR, Tap NFC or Sign in", or, for a signed-in account not
+                   on this list, "Ask to join". A stale or other-event key keeps
+                   its one explaining line above the same button. */
+                <div className="space-y-4">
+                  {reason === 'invalid_invite' ? (
+                    <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+                      That invite link doesn&rsquo;t look right — it may have been replaced with a new
+                      one. Ask your host for your current QR or link; every guest has their own, and
+                      an old one stops working the moment it&rsquo;s replaced.
+                    </p>
+                  ) : reason === 'wrong_event' ? (
+                    <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
+                      You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
+                      QR or invite link to switch.
+                    </p>
+                  ) : null}
+                  {vendorCapability || isEditorCanvas ? null : (
+                    <GetInside
+                      slug={event.slug}
+                      eventId={event.event_id}
+                      signedInNotListed={anon.signedInNotListed}
+                      theOrganizer={clientWords.theOrganizer}
+                    />
+                  )}
+                </div>
               )}
             </div>
 
@@ -1197,10 +1228,13 @@ export async function SiteBody({
                 top-left chrome that never touches the bar, so it stays. */}
             {isEditorCanvas ? null : (
             <PublicEventDayBar
-              candidCameraActive={publicCandidCameraActive}
-              photosHref={publicAlbumHref}
+              /* 🔒 Inside content — the camera, the photos, the day-of hub — is
+                 handed to nobody without a key (`insideAllowed` above). With all
+                 three withheld the bar draws nothing at all. */
+              candidCameraActive={insideAllowed && publicCandidCameraActive}
+              photosHref={insideAllowed ? publicAlbumHref : null}
               hubHref={
-                dayOfPhase === 'live' || dayOfPhase === 'post'
+                insideAllowed && (dayOfPhase === 'live' || dayOfPhase === 'post')
                   ? `/${event.slug}/hub`
                   : null
               }
@@ -1215,6 +1249,7 @@ export async function SiteBody({
                 is safe to always render (mirrors the find-my-table CTA pattern). A
                 guest who scanned the shared venue QR taps this, types their name,
                 and sees their table — no app, no login, no paid SKU. */}
+            {insideAllowed ? (
             <div className="mt-8 text-center">
               <Link
                 href={`/${event.slug}/find-seat`}
@@ -1224,6 +1259,7 @@ export async function SiteBody({
                 Find your seat
               </Link>
             </div>
+            ) : null}
 
             {/* Panood Watch-Live — anonymous path FIRST: the remote relatives
                 clicking the shared link from Messenger are exactly the cookie-less
@@ -1248,7 +1284,7 @@ export async function SiteBody({
                 broken wall looked exactly like a setting, and nobody asked.
                 Same anchor id, so the event-day bar's "Photos" button still
                 lands somewhere that explains itself. */}
-            {dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
+            {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
               <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                 <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
                   {LIVE_WALL_UNREADABLE_LINE}
@@ -1256,7 +1292,7 @@ export async function SiteBody({
               </section>
             ) : null}
 
-            {dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
+            {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
               <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                 <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
                 <LiveWallBlock
@@ -1397,7 +1433,12 @@ export async function SiteBody({
                 the public bar here; that is a known, stated gap, not a silent
                 one, and it belongs to the supplier lane.
               */
-              viewer: ownerCapability && !isEditorCanvas ? { kind: 'couple' } : { kind: 'public' },
+              /* 🧭 In the Maker's canvas the bar is the one a GUEST holding their
+                 key sees (owner 2026-09-26: "show the actual guest bar for that
+                 stage") — Home · Details · RSVP · Story · Me on the Invitation.
+                 Since 2026-09-27 a stranger's bar is only Home · Details · Story,
+                 which is not the bar the couple is designing for. */
+              viewer: ownerCapability && !isEditorCanvas ? { kind: 'couple' } : isEditorCanvas ? { kind: 'guest' } : { kind: 'public' },
               phase: navPhase,
               hostAllowsCamera: hostCameraOpen,
               anyChapterPublic: menuSections.gallery,
@@ -1411,6 +1452,8 @@ export async function SiteBody({
                 camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
+                // Drawn only for the canvas's guest bar — a stranger has no RSVP tab.
+                rsvp: event.slug ? inviteReplyPath(event.slug) : null,
               },
               stageSlots: STAGE_BAR[pageStage].slots,
           });
@@ -1716,6 +1759,19 @@ export async function SiteBody({
             <DayOfBanner words={clientWords} kind="live" />
           ) : isPost ? (
             <DayOfBanner words={clientWords} kind="post" />
+          ) : null}
+
+          {/* "DIDN'T REPLY · YOU'RE IN" (owner 2026-09-26 "yes to all" (b);
+              2026-09-27: shown to the guest). The final count is locked and this
+              guest never answered — they are inside anyway, and no headcount
+              question is asked. `rsvpGate` decided it on the server. */}
+          {g.didntReply ? (
+            <p
+              data-didnt-reply
+              className="mx-auto w-fit border border-ink/20 px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-ink/70"
+            >
+              Didn&rsquo;t reply · you&rsquo;re in
+            </p>
           ) : null}
 
           {/* Hero. When the host uploads a banner photo/video via
@@ -2386,6 +2442,8 @@ export async function SiteBody({
                     : null,
                 watch: `/${event.slug}/hub`,
                 join: `/${event.slug}/invite`,
+                // The guest's own RSVP page — the Invitation bar's RSVP tab.
+                rsvp: event.slug ? inviteReplyPath(event.slug) : null,
               },
             })}
           />

@@ -756,7 +756,7 @@ export function MakerWork({
           and reveal and love story has no navigation since it is just full
           create your logo"*) — and none under Details, which the shell draws
           over this area: the navigator belongs to the four stages only. */}
-      {pageView ?? (selection?.kind === 'tool' && selection.key === 'details' ? null : <>
+      {pageView ?? (selection?.kind === 'tool' && isShellPage(selection.key) ? null : <>
       {/* ══ 2 · THE NAVIGATOR ══ */}
       <nav
         aria-label="Scenes"
@@ -1305,11 +1305,16 @@ export function MakerWork({
  * row). Logo · Hero · Reveal need their workspace; Love Story always has a page
  * (the scrapbook, or the story as guests see it). Details is the shell's.
  */
+/** Details and RSVP are drawn by the SHELL (`maker-shell.tsx`) over this area. */
+function isShellPage(key: string): key is 'details' | 'rsvp-page' {
+  return key === 'details' || key === 'rsvp-page';
+}
+
 function madeOncePageKey(
   selection: MakerSelection,
   madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null,
-): Exclude<MakerPageKey, 'details'> | null {
-  if (selection?.kind !== 'tool' || !isMakerPageKey(selection.key) || selection.key === 'details') return null;
+): Exclude<MakerPageKey, 'details' | 'rsvp-page'> | null {
+  if (selection?.kind !== 'tool' || !isMakerPageKey(selection.key) || isShellPage(selection.key)) return null;
   if (selection.key === 'love-story') return 'love-story';
   return madeOnce?.[selection.key] ? selection.key : null;
 }
@@ -1654,7 +1659,7 @@ function Inspector({
       : selection.kind === 'main'
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
-          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', prints: 'Prints & Tickets', details: 'Details' }[selection.key]
+          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', prints: 'Prints & Tickets', details: 'Details', 'rsvp-page': 'RSVP' }[selection.key]
           : (rows[selection.key]?.label ?? 'Edit');
 
   const tabs = TABS.filter((t) => showMotionTabs || (t.key !== 'animate' && t.key !== 'transition'));

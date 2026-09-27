@@ -67,8 +67,13 @@ function code(src: string): string {
 const BODY = code(readFileSync(join(HERE, '..', '_components', 'site-body.tsx'), 'utf8'));
 const PAGE = code(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
 
-/** The sentence written for a stranger. Addressed to a host it is a dead end. */
-const STRANGER_SENTENCE = 'This is a Setnayan invitation page.';
+/**
+ * The stranger's door. Addressed to a host it is a dead end. Until 2026-09-27
+ * this was the sentence "This is a Setnayan invitation page."; the owner then
+ * replaced it with ONE button — "Get inside: Scan your QR, Tap NFC or Sign in"
+ * (`get-inside.tsx`) — so the guard follows the door, not the old words.
+ */
+const STRANGER_SENTENCE = '<GetInside';
 
 test('META · the sources loaded and comment-stripping did not gut them', () => {
   // Anti-vacuity. If the paths were wrong or the stripper too greedy, every

@@ -30,6 +30,8 @@ const FINAL = [
   'Hero',
   'Reveal',
   'Love Story',
+  // Guest pathway, owner 2026-09-27: "RSVP is its own made-once page in the Maker bar".
+  'RSVP',
   'Save the Date',
   'Invitation',
   'On the Day',
@@ -38,7 +40,7 @@ const FINAL = [
 ];
 
 async function paint(
-  opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' } | null } = {},
+  opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'rsvp-page' } | null } = {},
 ) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerBar } = await import('./maker-shell');
@@ -57,7 +59,7 @@ test('the list is the final bar', () => {
   assert.deepEqual(MAKER_BAR.map((i) => i.label), FINAL);
 });
 
-test('the rendered bar has the ten items in order and exactly two dividers', async () => {
+test('the rendered bar has the eleven items in order and exactly two dividers', async () => {
   const html = await paint();
   const order = FINAL.map((label) => html.indexOf(label.replace('&', '&amp;')));
   for (const [i, at] of order.entries()) assert.ok(at > -1, `"${FINAL[i]}" is missing from the bar`);
@@ -67,8 +69,8 @@ test('the rendered bar has the ten items in order and exactly two dividers', asy
   assert.equal((html.match(/data-maker-divider/g) ?? []).length, 2, 'two dividers, three groups');
   const firstDivider = html.indexOf('data-maker-divider');
   const secondDivider = html.indexOf('data-maker-divider', firstDivider + 1);
-  assert.ok(order[4]! < firstDivider && firstDivider < order[5]!, 'the first divider sits after Love Story');
-  assert.ok(order[8]! < secondDivider && secondDivider < order[9]!, 'the second sits before Prints & Tickets');
+  assert.ok(order[5]! < firstDivider && firstDivider < order[6]!, 'the first divider sits after RSVP');
+  assert.ok(order[9]! < secondDivider && secondDivider < order[10]!, 'the second sits before Prints & Tickets');
 });
 
 test('the live stage wears the red dot, and only it', async () => {
@@ -119,7 +121,7 @@ test('ONE highlight in every state — a tool takes it from the stage, and any i
   const pressed = (html: string) => [...html.matchAll(/data-maker-bar-item="([^"]+)"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-maker-bar-item="([^"]+)"/g)].map((m) => m[1] ?? m[2]);
   const none = pressed(await paint());
   assert.deepEqual(none, ['rsvp'], 'with no tool open the stage is the one highlight');
-  for (const key of ['logo', 'hero', 'reveal', 'love-story'] as const) {
+  for (const key of ['logo', 'hero', 'reveal', 'love-story', 'rsvp-page'] as const) {
     const on = pressed(await paint({ selection: { kind: 'tool', key } }));
     assert.deepEqual(on, [key], `with ${key} open, ${key} alone is highlighted (got ${on.join(', ')})`);
   }

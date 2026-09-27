@@ -8,7 +8,7 @@ import { TOURS, type TourKey } from '@/lib/tours';
  * Owner-final (DECISION_LOG 2026-09-24/25, `EVENT_HUB_MAKER_BUILD_PLAN_2026-09-25.md`
  * Phase 1):
  *
- *     Details · Logo · Hero · Reveal · Love Story │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
+ *     Details · Logo · Hero · Reveal · Love Story · RSVP │ Save the Date · Invitation · On the Day · Post Event │ Prints & Tickets
  *
  * Owner, FINAL order (2026-09-25, verbatim): *"DETAILS LOGO HERO REVEAL LOVE STORY / SAVE THE DATE
  * INVITATION ON THE DAY POST EVENT | PRINTS AND TICKETS"*. `MAKER_BAR` below is the one array.
@@ -37,7 +37,7 @@ export type MakerBarGroup = 'made-once' | 'stages' | 'prints';
 export const MAKER_DETAILS_LABEL = 'Details';
 
 export type MakerBarItem =
-  | { key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'details'; label: string; group: 'made-once'; kind: 'tool' }
+  | { key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'details' | 'rsvp-page'; label: string; group: 'made-once'; kind: 'tool' }
   | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' }
   | { key: 'prints'; label: string; group: 'prints'; kind: 'tool' };
 
@@ -48,6 +48,10 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
   { key: 'hero', label: 'Hero', group: 'made-once', kind: 'tool' },
   { key: 'reveal', label: 'Reveal', group: 'made-once', kind: 'tool' },
   { key: 'love-story', label: 'Love Story', group: 'made-once', kind: 'tool' },
+  // Guest pathway (owner 2026-09-27): "RSVP is its own made-once page in the
+  // Maker bar (Details · Logo · Hero · Reveal · Love Story · RSVP)". Keyed
+  // `rsvp-page` — `rsvp` is the Invitation stage's key, in the next group.
+  { key: 'rsvp-page', label: 'RSVP', group: 'made-once', kind: 'tool' },
   ...PUBLIC_STAGE_ORDER.map(
     (phase) =>
       ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,

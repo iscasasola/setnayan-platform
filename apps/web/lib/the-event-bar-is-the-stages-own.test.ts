@@ -40,18 +40,19 @@ const NAV_PHASE: Record<LifecyclePhase, ReturnType<typeof navPhaseFor>> = {
   editorial: navPhaseFor({ dayOfPhase: 'post', isRecapBody: true }),
 };
 
-/** The canvas's own bar for a stage: the public viewer, the stage's allow-list. */
+/** The canvas's own bar for a stage: a guest holding their key (since 2026-09-27
+ *  a stranger's bar is only Home · Details · Story), the stage's allow-list. */
 function canvasBar(stage: LifecyclePhase, facts: { hasDetails: boolean; hasStory: boolean }) {
   return makerBarItems(
     resolveSiteNav({
-      viewer: { kind: 'public' },
+      viewer: { kind: 'guest' },
       phase: NAV_PHASE[stage],
       hostAllowsCamera: true,
       anyChapterPublic: false,
       hasStory: facts.hasStory,
       hasDetails: facts.hasDetails,
       liveBroadcast: false,
-      destinations: { camera: '/papic/guest?from=cale-ice', watch: '/cale-ice/hub', join: '/cale-ice/invite' },
+      destinations: { camera: '/papic/guest?from=cale-ice', watch: '/cale-ice/hub', join: '/cale-ice/invite', rsvp: '/cale-ice/invite/reply' },
       stageSlots: STAGE_BAR[stage].slots,
     }),
   );
@@ -102,11 +103,12 @@ test('1 · the header names the stage it shows — each stage its own label, nev
   assert.equal(pageStageFor({ phasesEnabled: false, lifecyclePhase: 'rsvp', dayOfPhase: 'pre' }), 'rsvp');
 });
 
-test('2 · the tab bar follows the stage’s one config — On the Day is Now · Camera · Join, Post Event is set in one place', () => {
+test('2 · the tab bar follows the stage’s one config — On the Day is Now · Camera · Me, the Invitation is Home · Details · RSVP · Story · Me', () => {
   const day = canvasBar('event', { hasDetails: true, hasStory: false }).map((b) => b.label);
-  assert.deepEqual(day, ['Now', 'Camera', 'Join']);
+  assert.deepEqual(day, ['Now', 'Camera', 'Me']);
+  // Owner 2026-09-26/27: the Invitation bar — the camera returns on The Day.
   const invite = canvasBar('rsvp', { hasDetails: true, hasStory: true }).map((b) => b.label);
-  assert.deepEqual(invite, ['Home', 'Details', 'Story', 'Camera', 'Join']);
+  assert.deepEqual(invite, ['Home', 'Details', 'RSVP', 'Story', 'Me']);
   // the allow-list removes: a stage that does not list a slot never draws it
   const narrowed = resolveSiteNav({
     viewer: { kind: 'public' }, phase: 'after', hostAllowsCamera: true, anyChapterPublic: true, liveBroadcast: false,

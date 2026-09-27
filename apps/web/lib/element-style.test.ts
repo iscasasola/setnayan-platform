@@ -101,16 +101,19 @@ async function renderFrame(type: string, config: unknown): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HubCanvasFrame } = await import('../app/[slug]/_components/hub-canvas-frame');
   return renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, {
-      widget: widget(type, config),
-      children: React.createElement(
+    React.createElement(
+      // `children` arrives as the third argument; the cast only relaxes the
+      // prop type's required `children` (react/no-children-prop forbids the prop).
+      HubCanvasFrame as unknown as React.FC<{ widget: InvitationWidgetRow; children?: React.ReactNode }>,
+      { widget: widget(type, config) },
+      React.createElement(
         'section',
         null,
         React.createElement('p', { className: 'pahina-eyebrow' }, 'The day'),
         React.createElement('h2', null, 'Schedule'),
         React.createElement('p', null, 'Ceremony at three.'),
       ),
-    }),
+    ),
   );
 }
 

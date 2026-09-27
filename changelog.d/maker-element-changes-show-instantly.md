@@ -23,6 +23,17 @@ arrival it had just replayed.
   render (scene order, background, Undo, Restore, the Save-the-Date lead
   switch, a lapsed hold) reloads it as before. The save still refreshes the page,
   so the toolbar's Apply · Undo · Restore count stays true.
+- **Every other Maker write no longer blanks the page** (owner: *"everytime we
+  edit something, the loading takes time and loads the whole screen"*). The
+  canvas is double-buffered (`buffered-canvas-frame.tsx`). A new render loads in
+  a hidden frame behind the page the couple is looking at; the old page stays
+  visible and tappable, and the new one swaps in when its bridge says `ready`.
+  The scroll carries across: the selected scene stays at the same height on
+  screen. A new stage or a new "view as" still switches at once. At most two
+  frames exist; a newer render replaces the one loading. Measured locally with
+  a 2.5 s page load: blank time 2.5 s → 0 ms, and the scroll held
+  420 → 420 px. The swap does not make the server faster: a background change
+  still shows after save + load (~3.5 s here).
 - **A refused save reverts** the canvas and the sheet to the last saved look and
   shows the sheet's existing error. A server canvas that arrives while a save is
   still on its way is no longer adopted over the newer choice.

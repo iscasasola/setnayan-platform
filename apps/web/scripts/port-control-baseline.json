@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "7969e7993",
+  "generatedFromRef": "c05b6beee",
   "routeCount": 435,
   "destinations": 947,
   "actions": 669,
@@ -8420,7 +8420,6 @@
         "BackgroundEffect",
         "BackgroundField",
         "CanvasStaysOnThePage",
-        "Chip",
         "Choice",
         "ColorsPanel",
         "DressCodeFields",
@@ -8466,6 +8465,7 @@
         "Measured",
         "MiniTour",
         "MoreExtras",
+        "MotionRow",
         "OpenBrowsePanel",
         "OurStoryEditorPage",
         "PageSwitch",

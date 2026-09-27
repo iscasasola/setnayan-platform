@@ -5592,6 +5592,24 @@ html:has([data-sticky-top]) {
   to   { transform: scale(var(--hub-zoom, 1)) translate3d(0, -2.5%, 0); }
 }
 
+/* ── ELEMENT MOTION — one element's In · During · Out (owner 2026-09-27: "each
+   element can have a transition and animation. Transition in and out.
+   Animation During."; model: prototypes/hero-canvas-editor-2026-09-23.html).
+   Named by `lib/element-style.ts` (`hubElementMotionDeclarations`) and run as
+   comma-separated animations, so an In and a During play TOGETHER. In and Out
+   move `transform`; During moves the separate `translate` property, so Drift
+   composes with an arrival instead of replacing it. Each In has a `-p` twin
+   that is the same motion under another name: the Maker's Play button swaps
+   to the twin, because a CSS animation restarts only when its name changes. */
+@keyframes el-in-rise    { from { opacity: 0; transform: translate3d(0, 18px, 0); } }
+@keyframes el-in-rise-p  { from { opacity: 0; transform: translate3d(0, 18px, 0); } }
+@keyframes el-in-fade    { from { opacity: 0; } }
+@keyframes el-in-fade-p  { from { opacity: 0; } }
+@keyframes el-during-drift { from { translate: 0 0; } to { translate: 0 -6px; } }
+@keyframes el-out-fade   { to { opacity: 0; } }
+@keyframes el-out-lift   { to { opacity: 0; transform: translate3d(0, -22px, 0); } }
+@keyframes el-out-settle { to { opacity: 0; transform: scale(0.965); } }
+
 /* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
    contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)
    ──────────────────────────────────────────────────────────────────────────

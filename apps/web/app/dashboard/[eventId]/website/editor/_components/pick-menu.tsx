@@ -25,6 +25,8 @@ export type PickOption = {
   dot?: boolean;
   /** Listed but not pickable, with its reason (a tab that opens its own page). */
   disabledNote?: string;
+  /** Draw the option IN a face (the font dropdown — each font in its own face). */
+  fontFamily?: string;
 };
 
 export function PickMenu({
@@ -105,7 +107,9 @@ export function PickMenu({
         className={`sn-press inline-flex min-h-10 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 px-3 text-[13px] font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${className}`}
       >
         {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
-        <span className="min-w-0 truncate">{current?.label ?? label}</span>
+        <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
+          {current?.label ?? label}
+        </span>
         <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
       {open && at ? (
@@ -143,7 +147,9 @@ export function PickMenu({
                 }`}
               >
                 {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
-                <span className="font-semibold">{o.label}</span>
+                <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+                  {o.label}
+                </span>
                 {o.dot ? <span className="text-[12px] font-medium opacity-70">· live today</span> : null}
                 {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
               </button>

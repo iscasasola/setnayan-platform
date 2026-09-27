@@ -361,8 +361,12 @@ export function MakerWork({
       if (picked) {
         select?.(picked);
         const widgetType = data.key === 'f:hero' ? 'hero' : data.key.startsWith('w:') ? data.key.slice(2) : null;
-        setElementTarget(
-          isHubElementKey(data.el) && elementEditingOn && widgetType ? { key: data.key, widgetType, el: data.el } : null,
+        const el = data.el;
+        setElementTarget((prev) =>
+          isHubElementKey(el) && elementEditingOn && widgetType
+            ? // The same part tapped again keeps the text selected in it (✍ runs).
+              { key: data.key!, widgetType, el, range: prev && prev.key === data.key && prev.el === el ? prev.range : null }
+            : null,
         );
         return;
       }
@@ -371,7 +375,34 @@ export function MakerWork({
       if (match) select?.({ kind: 'row', key: match[0] });
     };
     window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    /* ✍ A selection inside a part's text (`selectionInPart` in the bridge): the
+       sheet's font · colour · size then apply to just that range. A cleared
+       selection drops the range — the choice styles the whole part again. */
+    const onSelect = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as
+        | { source?: string; t?: string; key?: string | null; el?: unknown; start?: unknown; end?: unknown; of?: unknown; text?: unknown }
+        | null;
+      if (!d || d.source !== 'setnayan-site' || d.t !== 'select') return;
+      if (!d.key || !isHubElementKey(d.el) || !elementEditingOn) {
+        setElementTarget((prev) => (prev ? { ...prev, range: null } : prev));
+        return;
+      }
+      const key = d.key;
+      const el = d.el;
+      if (typeof d.start !== 'number' || typeof d.end !== 'number' || typeof d.of !== 'string' || typeof d.text !== 'string') return;
+      const range = { start: d.start, end: d.end, of: d.of, text: d.text };
+      const widgetType = key === 'f:hero' ? 'hero' : key.startsWith('w:') ? key.slice(2) : null;
+      if (!widgetType) return;
+      const picked = selectionForCanvasKey(key, scenes);
+      if (picked) select?.(picked);
+      setElementTarget({ key, widgetType, el, range });
+    };
+    window.addEventListener('message', onSelect);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      window.removeEventListener('message', onSelect);
+    };
   }, [rows, scenes, select, elementEditingOn]);
 
   /* 🖼 THE TILES' PREVIEWS (owner 2026-09-26: *"the navigator preview must
@@ -1268,6 +1299,12 @@ export function MakerWork({
           ownsPro={ownsPro}
           draftAction={elementEditing.draftAction}
           resize={toolsResize}
+          onPlay={() =>
+            frameRef.current?.contentWindow?.postMessage(
+              { source: 'setnayan-editor', t: 'playEl', key: elementTarget.key, el: elementTarget.el },
+              window.location.origin,
+            )
+          }
           onClose={() => {
             frameRef.current?.contentWindow?.postMessage(
               { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null },

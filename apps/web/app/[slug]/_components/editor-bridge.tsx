@@ -3,8 +3,11 @@
 import { useEffect } from 'react';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
+  HUB_ELEMENT_RUN_KEYS,
   HUB_SCENE_ELEMENT_KEYS,
   HUB_SCENE_ELEMENT_SELECTOR,
+  hubTextHash,
+  type HubElementKey,
 } from '@/lib/element-style';
 
 /**
@@ -22,6 +25,8 @@ import {
  *   parent → frame  { source:'setnayan-editor', t:'play',     key }
  *   parent → frame  { source:'setnayan-editor', t:'markEl',   key, el }
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el? }
+ *   frame  → parent { source:'setnayan-site',   t:'select',   key, el, start, end, of, text }
+ *   parent → frame  { source:'setnayan-editor', t:'playEl',   key, el }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
  *
  * 🧭 `bar` is the stage's Event Bar exactly as the page resolved it for this
@@ -135,6 +140,35 @@ export function tappedElement(target: EventTarget | null, section: HTMLElement):
   return owner === section ? part : null;
 }
 
+/**
+ * ✍ THE SELECTION INSIDE ONE PART, AS OFFSETS INTO ITS TEXT (owner 2026-09-27:
+ * *"they can take 1 letter and change the font"*). Both ends must sit inside
+ * the same `data-el` part whose text can carry runs (the hero's words); the
+ * offsets are counted in that part's `textContent`, the SAME string the guest
+ * page cuts its spans from, and `of` fingerprints it so a run can never land on
+ * different letters after the text changes. Null when there is no such
+ * selection — the choice then styles the whole part.
+ */
+export function selectionInPart(
+  sel: Selection | null,
+): { part: HTMLElement; el: HubElementKey; start: number; end: number; of: string; text: string } | null {
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+  const range = sel.getRangeAt(0);
+  const startEl = (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement) as Element | null;
+  const part = startEl?.closest?.('[data-el]') as HTMLElement | null;
+  if (!part || !part.contains(range.endContainer)) return null;
+  const el = part.getAttribute('data-el') as HubElementKey;
+  if (!HUB_ELEMENT_RUN_KEYS.includes(el)) return null;
+  const pre = document.createRange();
+  pre.selectNodeContents(part);
+  pre.setEnd(range.startContainer, range.startOffset);
+  const start = pre.toString().length;
+  const text = range.toString();
+  if (text.length === 0) return null;
+  const whole = part.textContent ?? '';
+  return { part, el, start, end: start + text.length, of: hubTextHash(whole), text };
+}
+
 let marked: HTMLElement | null = null;
 /** Outline the element being edited, until another is chosen. */
 function mark(el: HTMLElement | null) {
@@ -227,6 +261,29 @@ export function EditorBridge() {
       if (el) bind(el, key);
     }
 
+    // ── canvas → Maker: a selection inside a part's text (✍ runs) ──────────
+    let selTimer: number | null = null;
+    const onSelection = () => {
+      if (selTimer) window.clearTimeout(selTimer);
+      selTimer = window.setTimeout(() => {
+        const hit = selectionInPart(window.getSelection());
+        const section = hit?.part.closest('[data-setnayan-editor-bound="1"]') as HTMLElement | null;
+        const marker = section?.previousElementSibling;
+        const key = marker?.getAttribute('data-maker-section') ?? null;
+        window.parent?.postMessage(
+          hit && key
+            ? { source: 'setnayan-site', t: 'select', key, el: hit.el, start: hit.start, end: hit.end, of: hit.of, text: hit.text }
+            : { source: 'setnayan-site', t: 'select', key: null },
+          origin,
+        );
+      }, 160);
+    };
+    document.addEventListener('selectionchange', onSelection);
+    cleanups.push(() => {
+      document.removeEventListener('selectionchange', onSelection);
+      if (selTimer) window.clearTimeout(selTimer);
+    });
+
     // ── Maker → canvas: scroll to a tile, or play its entrance in place ──────
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== origin) return;
@@ -234,6 +291,32 @@ export function EditorBridge() {
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
       const el = findMakerSection(document, data.key);
       if (!el) return;
+      if (data.t === 'playEl') {
+        /* ▶ REPLAY ONE ELEMENT'S IN, with the editing furniture hidden. A CSS
+           animation restarts only when its NAME changes, so the In keyframe is
+           swapped for its `-p` twin (and back on the next Play); a part that
+           follows the scroll plays on the clock for this one replay. */
+        const part =
+          typeof data.el === 'string' ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`) : null;
+        if (!part) return;
+        const names = getComputedStyle(part).animationName.split(',').map((n) => n.trim());
+        const i = names.findIndex((n) => n.startsWith('el-in-'));
+        if (i < 0) return;
+        names[i] = names[i]!.endsWith('-p') ? names[i]!.slice(0, -2) : `${names[i]}-p`;
+        const prevOutline = part.style.outline;
+        part.style.outline = 'none';
+        part.scrollIntoView({ behavior: 'auto', block: 'center' });
+        const timelines = getComputedStyle(part).getPropertyValue('animation-timeline');
+        if (timelines && timelines.includes('view')) {
+          part.style.setProperty('animation-timeline', timelines.split(',').map(() => 'auto').join(', '));
+        }
+        part.style.animationName = names.join(', ');
+        window.setTimeout(() => {
+          part.style.outline = prevOutline;
+          part.style.removeProperty('animation-timeline');
+        }, 2200);
+        return;
+      }
       if (data.t === 'markEl') {
         // The Maker's element sheet is open on this part (after a reload too).
         const part =

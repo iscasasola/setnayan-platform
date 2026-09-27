@@ -662,8 +662,10 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
      animation is Pro (owner 2026-09-26, "Pro, per the fonts/colours Pro rule");
      a free couple tries it in the draft and it is held at Apply. */
   for (const key of HUB_ELEMENT_KEYS) {
-    for (const field of ['font', 'color', 'size', 'anim'] as const) {
-      changes.push(refChange(live.elements?.[key]?.[field] ?? null, next.elements?.[key]?.[field] ?? null));
+    // font · colour · size, the motion (In · During · Out · timeline) and the
+    // text runs — each compared on its own, so taking one off stays a removal.
+    for (const field of ['font', 'color', 'size', 'motion', 'runs'] as const) {
+      changes.push(refChange(asText(live.elements?.[key]?.[field]), asText(next.elements?.[key]?.[field])));
     }
   }
   /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same

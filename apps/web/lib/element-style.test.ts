@@ -22,7 +22,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  HUB_ELEMENT_ANIMS,
   HUB_SCENE_ELEMENT_SELECTOR,
   hubElementContrast,
   hubElementDeclarations,
@@ -45,15 +44,15 @@ const WEB = join(__dirname, '..');
 
 test('the sanitizer keeps closed-set values and drops everything else', () => {
   const got = sanitizeHubElements({
-    names: { font: 'cormorant', color: '#AABBCC', size: 'xl', anim: 'cinematic' },
-    heading: { font: 'Comic Sans', color: 'red', size: 'm', anim: 'bounce' },
+    names: { font: 'cormorant', color: '#AABBCC', size: 'xl', motion: { in: 'rise', during: 'drift', timeline: 'scroll', out: 'lift' } },
+    heading: { font: 'Comic Sans', color: 'red', size: 'm', motion: { in: 'bounce', during: 'spin', timeline: 'sideways' } },
     body: { color: '#123456; background:url(x)' },
     mark: { color: '#112233', font: 'fraunces', size: 'l' },
     evil: { color: '#000000' },
     line: 'not an object',
   });
   assert.deepEqual(got, {
-    names: { font: 'cormorant', color: '#aabbcc', size: 'xl', anim: 'cinematic' },
+    names: { font: 'cormorant', color: '#aabbcc', size: 'xl', motion: { in: 'rise', during: 'drift', timeline: 'scroll', out: 'lift' } },
     // the mark is a drawing: no font or colour of its own
     mark: { size: 'l' },
   });
@@ -62,8 +61,17 @@ test('the sanitizer keeps closed-set values and drops everything else', () => {
   assert.equal(sanitizeHubElements([]), null);
 });
 
-test("the animation list is the scene presets' own four names", () => {
-  assert.deepEqual([...HUB_ELEMENT_ANIMS], [...HUB_MOTION_PRESETS]);
+test("#6019's single Animation choice is carried onto the model — the nearest In + During pair, never dropped", () => {
+  // Every old preset name still means something (HUB_MOTION_PRESETS is the list #6019 offered).
+  const carried = Object.fromEntries(
+    HUB_MOTION_PRESETS.map((p) => [p, sanitizeHubElements({ heading: { anim: p } })?.heading?.motion ?? null]),
+  );
+  assert.deepEqual(carried, {
+    still: null,
+    calm: { in: 'fade' },
+    editorial: { in: 'rise' },
+    cinematic: { in: 'rise', during: 'drift', timeline: 'scroll' },
+  });
 });
 
 test('the canvas contract carries the elements, and elements alone are not an arrangement', () => {
@@ -119,7 +127,7 @@ async function renderFrame(type: string, config: unknown): Promise<string> {
 
 test("a scene's stored override renders for guests — a scoped style right after the scene", async () => {
   const html = await renderFrame('schedule', {
-    canvas: { elements: { heading: { font: 'cinzel', color: '#8a1c2b', size: 'l', anim: 'calm' } } },
+    canvas: { elements: { heading: { font: 'cinzel', color: '#8a1c2b', size: 'l', motion: { in: 'fade' } } } },
   });
   const m = /<\/section><style hidden="" data-hub-els="schedule">([^<]*)<\/style>$/.exec(html);
   assert.ok(m, `the style must sit straight after the scene, unframed: ${html}`);
@@ -128,7 +136,7 @@ test("a scene's stored override renders for guests — a scoped style right afte
   assert.match(css, /color:#8a1c2b !important/);
   assert.match(css, /font-family:var\(--font-cinzel\), Georgia, serif !important/);
   assert.match(css, /zoom:1\.2 !important/);
-  assert.match(css, /animation:hub-in-fade 1\.1s/);
+  assert.match(css, /animation:el-in-fade 1\.1s/);
   assert.doesNotMatch(html, /class="hub-canvas/, 'elements alone must not frame the scene');
 });
 
@@ -161,9 +169,9 @@ test("the hero's stored override renders for guests, inline on the part it names
   const html = await renderMasthead({ elements: { names: { color: '#8a1c2b', size: 'xl' }, time: { font: 'script' } } });
   assert.match(html, /<h1 style="color:#8a1c2b;zoom:1\.45" data-motion="arrive-names"/);
   assert.match(html, /<p style="font-family:var\(--font-script\), cursive" class="mt-2 text-xs/);
-  // The hero IS the first screen: its entrance plays on arrival, never waits for a scroll.
-  const moving = await renderMasthead({ elements: { names: { anim: 'editorial' } } });
-  assert.match(moving, /<h1 style="animation:hub-in-movefade-below 1\.1s[^"]*backwards"/);
+  // "Plays once" arrives on the clock — no scroll timeline.
+  const moving = await renderMasthead({ elements: { names: { motion: { in: 'rise' } } } });
+  assert.match(moving, /<h1 style="animation:el-in-rise 1\.1s[^"]*backwards"/);
   assert.doesNotMatch(moving, /animation-timeline/);
 });
 

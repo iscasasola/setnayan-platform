@@ -91,22 +91,34 @@ export const HUB_SCENE_ELEMENT_SELECTOR: Record<HubSceneElementKey, string> = {
  */
 export const HUB_ELEMENT_EXCLUDED_WIDGETS: readonly string[] = ['rsvp'];
 
-/** What each element can take. The mark is a drawing: it has no font or colour of its own here. */
+/** What each element can take. The mark is a drawing: it has no font, colour or text of its own here. */
 export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[]> = {
-  eyebrow: ['font', 'color', 'size', 'anim'],
-  mark: ['size', 'anim'],
-  names: ['font', 'color', 'size', 'anim'],
-  line: ['font', 'color', 'size', 'anim'],
-  date: ['font', 'color', 'size', 'anim'],
-  time: ['font', 'color', 'size', 'anim'],
-  label: ['font', 'color', 'size', 'anim'],
-  heading: ['font', 'color', 'size', 'anim'],
-  body: ['font', 'color', 'size', 'anim'],
+  eyebrow: ['font', 'color', 'size', 'motion'],
+  mark: ['size', 'motion'],
+  names: ['font', 'color', 'size', 'motion'],
+  line: ['font', 'color', 'size', 'motion'],
+  date: ['font', 'color', 'size', 'motion'],
+  time: ['font', 'color', 'size', 'motion'],
+  label: ['font', 'color', 'size', 'motion'],
+  heading: ['font', 'color', 'size', 'motion'],
+  body: ['font', 'color', 'size', 'motion'],
 };
 
-/* ── THE FOUR CHOICES ───────────────────────────────────────────────────── */
+/**
+ * ✍ THE ELEMENTS WHOSE TEXT CAN CARRY RUNS (one letter, one word in its own
+ * font · colour · size — owner 2026-09-27: *"they can take 1 letter and change
+ * the font"*). Only the hero's parts: their words are drawn HERE
+ * (`PahinaMasthead`), so the guest page can render the runs as spans, server-
+ * side, exactly as the canvas shows them. A scene's label / heading / words are
+ * drawn by widgets that must stay ignorant of the canvas
+ * (`every-widget-is-one-section.test.ts`), so a run there could not reach a
+ * guest — offering it would be a control that moves no guest's pixels.
+ */
+export const HUB_ELEMENT_RUN_KEYS: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'date', 'time'];
 
-export type HubElementField = 'font' | 'color' | 'size' | 'anim';
+/* ── THE CHOICES ────────────────────────────────────────────────────────── */
+
+export type HubElementField = 'font' | 'color' | 'size' | 'motion';
 
 /**
  * SIZE, AS A STEP RELATIVE TO THE ELEMENT'S OWN SIZE. `m` is the element as
@@ -120,32 +132,93 @@ export type HubElementSize = (typeof HUB_ELEMENT_SIZES)[number];
 export const HUB_ELEMENT_SIZE_LABEL: Record<HubElementSize, string> = { s: 'S', m: 'M', l: 'L', xl: 'XL' };
 export const HUB_ELEMENT_SIZE_SCALE: Record<HubElementSize, number> = { s: 0.85, m: 1, l: 1.2, xl: 1.45 };
 
-/**
- * THE ANIMATION — the scene presets' own four names (`HUB_MOTION_PRESETS` in
- * `lib/hub-canvas.ts`; `element-style.test.ts` holds the two lists equal). Kept
- * as its own constant so this module imports nothing from the canvas contract,
- * which imports this one.
- */
-export const HUB_ELEMENT_ANIMS = ['still', 'calm', 'editorial', 'cinematic'] as const;
-export type HubElementAnim = (typeof HUB_ELEMENT_ANIMS)[number];
-export const HUB_ELEMENT_ANIM_LABEL: Record<HubElementAnim, string> = {
+/* ── HOW ONE ELEMENT MOVES — Transition In · Animation During · Transition Out
+   Owner, 2026-09-27: *"each element can have a transition and animation.
+   Transition in and out. Animation During. we already discussed this."* The
+   model is the 2026-09-23 hero-canvas editor's
+   (`prototypes/hero-canvas-editor-2026-09-23.html`):
+
+     · IN (how it arrives) — Rise · Fade · None
+     · DURING (while they read) — Drift · Still for words; Ken Burns · Parallax
+       are for a photo, and no element here is a photo, so they are dropped
+     · OUT (the hand-off to the next scene) — Fade away · Lift away · Settle
+       back · Stay put — ONLY when the element follows the scroll
+     · PLAYS ONCE / FOLLOWS THE SCROLL above all three: once → Duration and
+       Delay apply and there is no Out; scroll → distance is the control
+       (`animation-timeline: view()`, `entry` / `exit` ranges, no script).
+
+   🔑 IN AND DURING ARE NOT ALTERNATIVES. They are two comma-separated
+   animations on the same element, and choosing one never clears the other.
+   Every value is a closed-set key; none of it is CSS text from input. */
+export const HUB_EL_IN = ['rise', 'fade', 'none'] as const;
+export const HUB_EL_DURING = ['drift', 'still', 'kenburns', 'parallax'] as const;
+export const HUB_EL_DURING_WORDS = ['drift', 'still'] as const;
+export const HUB_EL_OUT = ['fade', 'lift', 'settle', 'stay'] as const;
+export const HUB_EL_TIMELINE = ['once', 'scroll'] as const;
+export const HUB_EL_DURATION = ['quick', 'normal', 'slow'] as const;
+export const HUB_EL_DELAY = ['none', 'short', 'long'] as const;
+export type HubElIn = (typeof HUB_EL_IN)[number];
+export type HubElDuring = (typeof HUB_EL_DURING)[number];
+export type HubElOut = (typeof HUB_EL_OUT)[number];
+export type HubElTimeline = (typeof HUB_EL_TIMELINE)[number];
+export type HubElDuration = (typeof HUB_EL_DURATION)[number];
+export type HubElDelay = (typeof HUB_EL_DELAY)[number];
+
+export const HUB_EL_IN_LABEL: Record<HubElIn, string> = { rise: 'Rise', fade: 'Fade', none: 'None' };
+export const HUB_EL_DURING_LABEL: Record<HubElDuring, string> = {
+  drift: 'Drift',
   still: 'Still',
-  calm: 'Calm',
-  editorial: 'Editorial',
-  cinematic: 'Cinematic',
+  kenburns: 'Ken Burns',
+  parallax: 'Parallax',
+};
+export const HUB_EL_OUT_LABEL: Record<HubElOut, string> = {
+  fade: 'Fade away',
+  lift: 'Lift away',
+  settle: 'Settle back',
+  stay: 'Stay put',
+};
+export const HUB_EL_TIMELINE_LABEL: Record<HubElTimeline, string> = { once: 'Plays once', scroll: 'Follows the scroll' };
+export const HUB_EL_DURATION_LABEL: Record<HubElDuration, string> = { quick: 'Quick', normal: 'Normal', slow: 'Slow' };
+export const HUB_EL_DELAY_LABEL: Record<HubElDelay, string> = { none: 'None', short: 'Short', long: 'Long' };
+const DURATION_S: Record<HubElDuration, number> = { quick: 0.6, normal: 1.1, slow: 1.8 };
+const DELAY_S: Record<HubElDelay, number> = { none: 0, short: 0.3, long: 0.8 };
+
+/** One element's motion. Every field absent = its default (In none · Still · Plays once). */
+export type HubElementMotion = {
+  in?: Exclude<HubElIn, 'none'>;
+  during?: Exclude<HubElDuring, 'still'>;
+  /** Only beside `timeline: 'scroll'` — a timed element has no Out. */
+  out?: Exclude<HubElOut, 'stay'>;
+  timeline?: 'scroll';
+  /** Only beside a timed In. */
+  duration?: Exclude<HubElDuration, 'normal'>;
+  /** Only beside a timed In. */
+  delay?: Exclude<HubElDelay, 'none'>;
 };
 
 /**
- * What each animation does to ONE element — the scene presets' own arrivals
- * (`HUB_PRESET_BODY`): the same keyframes (`hub-in-*` in `globals.css`), the
- * same durations, the same ease. `still` is "this element does not move", which
- * also stops the page's own arrival on it.
+ * The OLD single "Animation" row (#6019: Still · Calm · Editorial · Cinematic)
+ * mapped onto the model — the nearest In + During pair — so a choice a couple
+ * already made is carried, never dropped.
  */
-const ANIM_BODY: Record<HubElementAnim, { keyframe: string; duration: number } | null> = {
+const LEGACY_ANIM: Record<string, HubElementMotion | null> = {
   still: null,
-  calm: { keyframe: 'hub-in-fade', duration: 1.1 },
-  editorial: { keyframe: 'hub-in-movefade-below', duration: 1.1 },
-  cinematic: { keyframe: 'hub-in-movefade-left', duration: 1.8 },
+  calm: { in: 'fade' },
+  editorial: { in: 'rise' },
+  cinematic: { in: 'rise', during: 'drift', timeline: 'scroll' },
+};
+
+/**
+ * ✍ ONE RUN — a range of the element's text (a word, ONE letter) in its own
+ * font · colour · size. `start`/`end` are offsets into the element's text as
+ * drawn; `of` on the element says WHICH text they were made on.
+ */
+export type HubElementRun = {
+  start: number;
+  end: number;
+  font?: HubFontKey;
+  color?: string;
+  size?: Exclude<HubElementSize, 'm'>;
 };
 
 /** One element, as the couple left it. Every field absent = the theme's own. */
@@ -155,18 +228,83 @@ export type HubElementStyle = {
   color?: string;
   /** Never `m` — see `HUB_ELEMENT_SIZES`. */
   size?: Exclude<HubElementSize, 'm'>;
-  anim?: HubElementAnim;
+  motion?: HubElementMotion;
+  /** Runs, sorted, never overlapping — only with `of`. */
+  runs?: HubElementRun[];
+  /** The hash (`hubTextHash`) of the text the runs were made on. */
+  of?: string;
 };
 
 export type HubElementStyles = Partial<Record<HubElementKey, HubElementStyle>>;
 
 const HEX = /^#[0-9a-f]{6}$/;
+const HASH = /^[0-9a-f]{8}$/;
+/** Runs per element, and the longest text a run may reach into. */
+export const HUB_ELEMENT_MAX_RUNS = 24;
+const MAX_OFFSET = 400;
 
 /** `#rrggbb`, or null. The only shape a colour may take. */
 export function hubElementColor(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const v = value.trim().toLowerCase();
   return HEX.test(v) ? v : null;
+}
+
+/**
+ * The text's fingerprint (FNV-1a, 32-bit, hex). A run is kept only while the
+ * element's text still hashes to the `of` it was made on — if the couple
+ * rewrites the names, a run on "I" must not land on a different letter.
+ */
+export function hubTextHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+const isIn = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v);
+
+/** A motion, or null. Drops what the model does not allow (an Out on a timed element). */
+export function sanitizeHubElementMotion(raw: unknown): HubElementMotion | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const src = raw as Record<string, unknown>;
+  const out: HubElementMotion = {};
+  if (isIn(HUB_EL_IN, src.in) && src.in !== 'none') out.in = src.in;
+  // Words drift or stay still; Ken Burns and Parallax are for a photo.
+  if (isIn(HUB_EL_DURING_WORDS, src.during) && src.during !== 'still') out.during = src.during;
+  const scroll = src.timeline === 'scroll';
+  if (scroll) out.timeline = 'scroll';
+  if (scroll && isIn(HUB_EL_OUT, src.out) && src.out !== 'stay') out.out = src.out;
+  if (!scroll && out.in && isIn(HUB_EL_DURATION, src.duration) && src.duration !== 'normal') out.duration = src.duration;
+  if (!scroll && out.in && isIn(HUB_EL_DELAY, src.delay) && src.delay !== 'none') out.delay = src.delay;
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** Runs, or null — sorted, clipped to the closed sets, overlaps dropped. */
+export function sanitizeHubElementRuns(raw: unknown): HubElementRun[] | null {
+  if (!Array.isArray(raw)) return null;
+  const runs: HubElementRun[] = [];
+  for (const r of raw.slice(0, HUB_ELEMENT_MAX_RUNS)) {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) continue;
+    const s = r as Record<string, unknown>;
+    const start = s.start;
+    const end = s.end;
+    if (typeof start !== 'number' || typeof end !== 'number') continue;
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > MAX_OFFSET) continue;
+    const run: HubElementRun = { start, end };
+    const font = sanitizeHubFontKey(s.font);
+    if (font) run.font = font;
+    const color = hubElementColor(s.color);
+    if (color) run.color = color;
+    if (s.size === 's' || s.size === 'l' || s.size === 'xl') run.size = s.size;
+    if (run.font || run.color || run.size) runs.push(run);
+  }
+  runs.sort((a, b) => a.start - b.start || a.end - b.end);
+  const kept: HubElementRun[] = [];
+  for (const r of runs) if (!kept.length || r.start >= kept[kept.length - 1]!.end) kept.push(r);
+  return kept.length > 0 ? kept : null;
 }
 
 /**
@@ -186,8 +324,21 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
   const color = fields.includes('color') ? hubElementColor(src.color) : null;
   if (color) out.color = color;
   if (fields.includes('size') && (src.size === 's' || src.size === 'l' || src.size === 'xl')) out.size = src.size;
-  if (fields.includes('anim') && (HUB_ELEMENT_ANIMS as readonly unknown[]).includes(src.anim)) {
-    out.anim = src.anim as HubElementAnim;
+  if (fields.includes('motion')) {
+    const motion =
+      src.motion !== undefined
+        ? sanitizeHubElementMotion(src.motion)
+        : typeof src.anim === 'string'
+          ? (LEGACY_ANIM[src.anim] ?? null)
+          : null;
+    if (motion) out.motion = motion;
+  }
+  if (HUB_ELEMENT_RUN_KEYS.includes(key) && typeof src.of === 'string' && HASH.test(src.of)) {
+    const runs = sanitizeHubElementRuns(src.runs);
+    if (runs) {
+      out.runs = runs;
+      out.of = src.of;
+    }
   }
   return Object.keys(out).length > 0 ? out : null;
 }
@@ -214,13 +365,78 @@ export function sanitizeHubElements(raw: unknown): HubElementStyles | null {
 export function withElementChoice(
   elements: HubElementStyles | null | undefined,
   key: HubElementKey,
-  field: HubElementField,
+  field: Exclude<HubElementField, 'motion'>,
   value: string | null,
 ): HubElementStyles | null {
   const next: Record<string, unknown> = { ...(elements ?? {}) };
   const style: Record<string, unknown> = { ...(elements?.[key] ?? {}) };
   if (value === null || (field === 'size' && value === 'm')) delete style[field];
   else style[field] = value;
+  next[key] = style;
+  return sanitizeHubElements(next);
+}
+
+/** One motion choice changed (`null` = back to its default). In and During never clear each other. */
+export function withElementMotion(
+  elements: HubElementStyles | null | undefined,
+  key: HubElementKey,
+  part: keyof HubElementMotion,
+  value: string | null,
+): HubElementStyles | null {
+  const next: Record<string, unknown> = { ...(elements ?? {}) };
+  const style: Record<string, unknown> = { ...(elements?.[key] ?? {}) };
+  const motion: Record<string, unknown> = { ...((elements?.[key]?.motion as Record<string, unknown>) ?? {}) };
+  if (value === null) delete motion[part];
+  else motion[part] = value;
+  style.motion = motion;
+  next[key] = style;
+  return sanitizeHubElements(next);
+}
+
+/**
+ * ✍ A RANGE OF THE ELEMENT'S TEXT GETS ONE CHOICE. A run with exactly this
+ * range is updated; runs that overlap it partly are replaced by it (a letter
+ * never belongs to two runs). `of` is the hash of the text the range was
+ * measured on — the element's runs are re-anchored to THAT text, and any run
+ * made on older text is dropped rather than moved onto the wrong letters.
+ */
+export function withRunChoice(
+  elements: HubElementStyles | null | undefined,
+  key: HubElementKey,
+  range: { start: number; end: number; of: string },
+  field: 'font' | 'color' | 'size',
+  value: string | null,
+): HubElementStyles | null {
+  const style: HubElementStyle = { ...(elements?.[key] ?? {}) };
+  const current = style.of === range.of ? (style.runs ?? []) : [];
+  const same = current.find((r) => r.start === range.start && r.end === range.end);
+  const others = current.filter((r) => r.end <= range.start || r.start >= range.end);
+  const run: Record<string, unknown> = { ...(same ?? {}), start: range.start, end: range.end };
+  if (value === null || (field === 'size' && value === 'm')) delete run[field];
+  else run[field] = value;
+  const next: Record<string, unknown> = { ...(elements ?? {}) };
+  next[key] = { ...style, runs: [...others, run], of: range.of };
+  return sanitizeHubElements(next);
+}
+
+/** Every run on this range (or overlapping it) gone. */
+export function withoutRuns(
+  elements: HubElementStyles | null | undefined,
+  key: HubElementKey,
+  range: { start: number; end: number } | null,
+): HubElementStyles | null {
+  const style: HubElementStyle = { ...(elements?.[key] ?? {}) };
+  const runs = range ? (style.runs ?? []).filter((r) => r.end <= range.start || r.start >= range.end) : [];
+  const next: Record<string, unknown> = { ...(elements ?? {}) };
+  next[key] = { ...style, runs };
+  return sanitizeHubElements(next);
+}
+
+/** The element's own motion gone — it moves with its scene again. */
+export function withoutMotion(elements: HubElementStyles | null | undefined, key: HubElementKey): HubElementStyles | null {
+  const next: Record<string, unknown> = { ...(elements ?? {}) };
+  const style: Record<string, unknown> = { ...(elements?.[key] ?? {}) };
+  delete style.motion;
   next[key] = style;
   return sanitizeHubElements(next);
 }
@@ -234,6 +450,49 @@ export function withoutElement(elements: HubElementStyles | null | undefined, ke
 
 /* ── WHAT THE PAGE DRAWS ────────────────────────────────────────────────── */
 
+const EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
+/** In, During and Out keyframes (`globals.css`, "ELEMENT MOTION"). `-p` twins replay In. */
+const IN_KF: Record<Exclude<HubElIn, 'none'>, string> = { rise: 'el-in-rise', fade: 'el-in-fade' };
+const DURING_KF: Record<'drift', string> = { drift: 'el-during-drift' };
+const OUT_KF: Record<Exclude<HubElOut, 'stay'>, string> = {
+  fade: 'el-out-fade',
+  lift: 'el-out-lift',
+  settle: 'el-out-settle',
+};
+
+/**
+ * The element's animations as ONE declaration set — In, During and Out are
+ * comma-separated animations that run together. Returns nothing for an element
+ * with no motion of its own (it then moves with its scene).
+ */
+export function hubElementMotionDeclarations(motion: HubElementMotion | undefined): Array<[string, string]> {
+  if (!motion) return [];
+  const scroll = motion.timeline === 'scroll';
+  const anims: Array<{ a: string; timeline: string; range: string }> = [];
+  if (motion.in) {
+    const dur = scroll ? 1 : DURATION_S[motion.duration ?? 'normal'];
+    const delay = scroll ? 0 : DELAY_S[motion.delay ?? 'none'];
+    anims.push({
+      a: `${IN_KF[motion.in]} ${dur}s ${scroll ? 'linear' : EASE} ${delay}s backwards`,
+      timeline: scroll ? 'view()' : 'auto',
+      range: scroll ? 'entry 0% cover 30%' : 'normal',
+    });
+  }
+  if (motion.during === 'drift') {
+    anims.push({ a: `${DURING_KF.drift} 7s ease-in-out 0s infinite alternate`, timeline: 'auto', range: 'normal' });
+  }
+  if (scroll && motion.out) {
+    anims.push({ a: `${OUT_KF[motion.out]} 1s linear both`, timeline: 'view()', range: 'exit 0% exit 100%' });
+  }
+  if (anims.length === 0) return [['animation', 'none']];
+  const out: Array<[string, string]> = [['animation', anims.map((x) => x.a).join(', ')]];
+  if (anims.some((x) => x.timeline !== 'auto')) {
+    out.push(['animation-timeline', anims.map((x) => x.timeline).join(', ')]);
+    out.push(['animation-range', anims.map((x) => x.range).join(', ')]);
+  }
+  return out;
+}
+
 /**
  * The CSS declarations one style contributes, as `property → value` in CSS
  * spelling. An empty style contributes nothing, so an element the couple never
@@ -242,22 +501,14 @@ export function withoutElement(elements: HubElementStyles | null | undefined, ke
  * `zoom` for size: it scales the element from ITS OWN size (a 3rem heading
  * becomes 3.6rem at L) where `font-size: 1.2em` would scale from the parent's.
  *
- * The animation is scroll-driven where the browser can (`animation-timeline:
- * view()`) and plays once on arrival where it cannot. `backwards` fill only —
- * no transform is HELD once it lands (`an-identity-transform-unpins-every-
- * fixed-child.test.ts`), and a guest who asked for less motion gets the global
+ * No transform is HELD once an arrival lands (`backwards` fill,
+ * `an-identity-transform-unpins-every-fixed-child.test.ts`); Drift moves the
+ * separate `translate` property, so it composes with an In's transform instead
+ * of replacing it. A guest who asked for less motion gets the global
  * reduced-motion freeze in `globals.css`, whose `!important` lives in a layer
  * and so outranks anything written here.
  */
-export function hubElementDeclarations(
-  style: HubElementStyle | null | undefined,
-  /**
-   * Play once on arrival instead of following the scroll. The hero's parts ARE
-   * the first screen (`data-pahina-first-screen`): already in view when the page
-   * opens, so a scroll-driven entrance would sit finished and never be seen.
-   */
-  opts: { timed?: boolean } = {},
-): Array<[string, string]> {
+export function hubElementDeclarations(style: HubElementStyle | null | undefined): Array<[string, string]> {
   if (!style) return [];
   const out: Array<[string, string]> = [];
   if (style.font) {
@@ -266,29 +517,62 @@ export function hubElementDeclarations(
   }
   if (style.color) out.push(['color', style.color]);
   if (style.size) out.push(['zoom', String(HUB_ELEMENT_SIZE_SCALE[style.size])]);
-  if (style.anim) {
-    const body = ANIM_BODY[style.anim];
-    if (!body) {
-      out.push(['animation', 'none']);
-    } else {
-      out.push(['animation', `${body.keyframe} ${body.duration}s cubic-bezier(0.22, 0.61, 0.36, 1) backwards`]);
-      if (!opts.timed) {
-        out.push(['animation-timeline', 'view()']);
-        out.push(['animation-range', 'entry 0% cover 30%']);
-      }
-    }
-  }
+  out.push(...hubElementMotionDeclarations(style.motion));
   return out;
 }
 
-/** The same declarations as a React inline style (the hero's parts — timed, see above). */
+const camel = (prop: string) => prop.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+
+/** The same declarations as a React inline style (the hero's parts). */
 export function hubElementInlineStyle(style: HubElementStyle | null | undefined): Record<string, string> | undefined {
-  const decls = hubElementDeclarations(style, { timed: true });
+  const decls = hubElementDeclarations(style);
   if (decls.length === 0) return undefined;
   const out: Record<string, string> = {};
-  for (const [prop, value] of decls) {
-    out[prop.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())] = value;
+  for (const [prop, value] of decls) out[camel(prop)] = value;
+  return out;
+}
+
+/** A run's inline style — font · colour · size (`em`, so it scales from the element's own size). */
+export function hubRunInlineStyle(run: HubElementRun): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (run.font) {
+    const f = HUB_FONT_BY_KEY[run.font];
+    out.fontFamily = `var(${f.cssVar}), ${f.fallback}`;
   }
+  if (run.color) out.color = run.color;
+  if (run.size) out.fontSize = `${HUB_ELEMENT_SIZE_SCALE[run.size]}em`;
+  return out;
+}
+
+/**
+ * ✍ THE TEXT, CUT INTO SEGMENTS BY ITS RUNS — what the guest page renders.
+ *
+ * `segmentStart` is where this piece of text sits inside the element's whole
+ * text (the names are three pieces: first · joiner · second). Runs are applied
+ * ONLY while `style.of` is the hash of the element's whole text — otherwise
+ * the text changed after they were made, and every run is dropped rather than
+ * landing on different letters.
+ */
+export function hubTextSegments(
+  text: string,
+  style: HubElementStyle | null | undefined,
+  whole: { text: string; segmentStart: number },
+): Array<{ text: string; run: HubElementRun | null }> {
+  const runs = style?.runs && style.of === hubTextHash(whole.text) ? style.runs : null;
+  if (!runs) return [{ text, run: null }];
+  const from = whole.segmentStart;
+  const to = from + text.length;
+  const out: Array<{ text: string; run: HubElementRun | null }> = [];
+  let at = from;
+  for (const r of runs) {
+    const s = Math.max(r.start, from);
+    const e = Math.min(r.end, to);
+    if (e <= s) continue;
+    if (s > at) out.push({ text: text.slice(at - from, s - from), run: null });
+    out.push({ text: text.slice(s - from, e - from), run: r });
+    at = e;
+  }
+  if (at < to) out.push({ text: text.slice(at - from), run: null });
   return out;
 }
 

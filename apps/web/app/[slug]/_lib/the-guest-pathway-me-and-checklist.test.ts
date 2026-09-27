@@ -210,3 +210,19 @@ test('5 · "Ask to join" shows only when the couple chose "Anyone, I approve"', 
   assert.doesNotMatch(closed, /Ask to join/, 'a door that turns them away is offered');
   assert.match(BODY, /mayAskToJoin=\{anyoneMayAskToJoin\(event\.rsvp_ask_config\)\}/);
 });
+
+test('🧭 the guest first-visit tour never mounts in the Maker canvas or its stage preview', () => {
+  // Live 2026-09-27: "You're invited · STEP 1 OF 3" covered the Maker's RSVP preview.
+  const mounts = BODY.match(/<GuestGuidedTour\b/g)?.length ?? 0;
+  const gated = BODY.match(/\{isEditorCanvas \? null : <GuestGuidedTour\b/g)?.length ?? 0;
+  assert.ok(mounts > 0, 'the guest tour is gone from the page entirely — read this test');
+  assert.equal(gated, mounts, `${gated} of ${mounts} guest-tour mounts are gated on isEditorCanvas`);
+  // `isEditorCanvas` is true for BOTH the canvas (?editor=1) and the preview (?preview=draft).
+  assert.match(BODY, /const isStagePreview = isEditorCanvas && !editorBridge;/);
+});
+
+test('5 · ☝ ONE door for a stranger — no "Find your invitation" card, no "Open my invitation" before the day', () => {
+  const anon = BODY.slice(BODY.indexOf('const anonymousTree = '), BODY.indexOf('const guestTree = '));
+  assert.match(anon, /plan\.spotlight && plan\.spotlight\.kind !== 'find_invite' \? \(/, 'the "Find your invitation" card is back beside Get inside');
+  assert.match(anon, /\) : plan\.openBrowse && archiveTense \? \(/, '"Open my invitation" is offered before the day again');
+});

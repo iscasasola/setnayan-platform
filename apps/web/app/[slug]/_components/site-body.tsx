@@ -1112,8 +1112,13 @@ export async function SiteBody({
             the fixed SiteMenuBar's in-page links land on the right sections. */}
         <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
         {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
-            event.website_open_browse is TRUE; identity-aware. */}
-        {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
+            event.website_open_browse is TRUE; identity-aware.
+            ☝ ONE BUTTON (owner 2026-09-26/27): the stranger's "Find your
+            invitation" card is a second way in beside "Get inside" — it is not
+            drawn; "Get inside" is the one door. */}
+        {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? (
+          <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} />
+        ) : null}
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
@@ -1379,7 +1384,11 @@ export async function SiteBody({
               </p>
             </div>
           </section>
-        ) : plan.openBrowse ? (
+        ) : plan.openBrowse && archiveTense ? (
+          /* ☝ Before the day a stranger's one door is "Get inside" (owner
+             2026-09-26/27) — the "Open my invitation" card would be a second.
+             After the day it asks something different ("Were you a guest? Claim
+             your photos"), so it stays there. */
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
             <FindModeCard slug={event.slug} reason={reason} pastTense={archiveTense} occasion={clientWords.occasion} />
           </section>
@@ -2427,7 +2436,12 @@ export async function SiteBody({
             </div>
           </RsvpSheet>
         ) : null}
-        <GuestGuidedTour tourKey="guest_welcome_v1" />
+        {/* 🧭 A GUEST'S first-visit tour — never in the Maker's canvas or its
+            stage preview (`isEditorCanvas`: both `?editor=1` and
+            `?preview=draft`). Seen live 2026-09-27: "You're invited · STEP 1
+            OF 3" mounted inside the Maker's RSVP-page preview and covered it.
+            Decided here, on the server — the couple is not a guest arriving. */}
+        {isEditorCanvas ? null : <GuestGuidedTour tourKey="guest_welcome_v1" />}
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors, SAME structure as anonymousTree. Flag-dark
             (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.

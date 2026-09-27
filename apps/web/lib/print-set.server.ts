@@ -36,6 +36,7 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
+import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 /**
  * lib/print-set.server.ts — everything a print piece needs, read ONCE.
@@ -484,6 +485,8 @@ export async function loadGuestPasses(
     .select(`${ENTOURAGE_COLUMNS}, qr_token`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
+    // 🛂 No pass for a request until Keep or Link.
+    .neq('entry_source', REQUEST_ENTRY_SOURCE)
     .order('last_name', { ascending: true });
   if (error) {
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');

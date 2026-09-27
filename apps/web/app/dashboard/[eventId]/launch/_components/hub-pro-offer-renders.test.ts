@@ -120,9 +120,10 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
   assert.notEqual(html, '', 'the offer must actually render');
   assert.match(html, /cinematic reveal/i, 'the item they are standing in front of, by name');
   assert.match(html, /Event Hub Pro/, 'the catalog’s own title for the one unlock');
-  assert.match(html, /Unlock all nine/, 'one CTA, for all nine');
+  assert.match(html, /Unlock all ten/, 'one CTA, for all ten');
   assert.match(html, /\/studio\/website-pro/, 'pointing at the shipped buy surface');
-  // All nine are named, including the free one — the unlock genuinely covers it.
+  // All ten are named, including the free one — the unlock genuinely covers it.
+  // (The tenth, "Your logo on every QR code", joined with the Pro QR build, 2026-09-28.)
   for (const item of [
     'Cinematic Reveal',
     'Save-the-Date video',
@@ -133,8 +134,9 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
     'Button color',
     '9 Event Hub themes, invite link included',
     'Animated logo',
+    'Your logo on every QR code',
   ]) {
-    assert.ok(html.includes(item), `"${item}" is one of the nine and must be shown`);
+    assert.ok(html.includes(item), `"${item}" is one of the ten and must be shown`);
   }
 });
 
@@ -161,5 +163,5 @@ test('⛔ AN UNREADABLE CATALOG OMITS THE FIGURE — it never remembers one', as
   assert.notEqual(unpriced, '', 'a failed price read must not blank the offer');
   assert.doesNotMatch(unpriced, /₱/, 'and must not fall back to a number from anywhere');
   assert.match(unpriced, /Event Hub Pro/, 'the offer still names itself');
-  assert.match(unpriced, /Unlock all nine/, 'and still has its one CTA');
+  assert.match(unpriced, /Unlock all ten/, 'and still has its one CTA');
 });

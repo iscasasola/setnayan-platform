@@ -1086,36 +1086,36 @@ export default async function WebsiteEditorPage({
     photoUrls: { ...heroDisplay, ...galleryDisplay },
   });
 
-  const scenePanels = Object.fromEntries(
-    sectionRows.map((row) => [
-      row.widget_id,
-      <SectionsPanel
-        key={row.widget_id}
-        only={row.widget_id}
-        returnTo={`/dashboard/${eventId}/launch?scene=${row.widget_id}`}
-        hideLocked={storeShell}
-        eventId={eventId}
-        rows={sectionRows}
-        contentMap={sectionContent}
-        toggleAction={toggleWidgetVisibility}
-        moveUpAction={moveWidgetUp}
-        moveDownAction={moveWidgetDown}
-        setModeAction={setSectionMode}
-        setMotionAction={setWidgetMotion}
-        transitionLocked={!ownsPro}
-        setBackgroundAction={setWidgetBackground}
-        setCropAction={setWidgetCrop}
-        saveCustomAction={saveCustomSection}
-        addCustomAction={addCustomSection}
-        photoChoices={photoChoices}
-        ownsPro={ownsPro}
-        customLock={lockPanel('A section of your own')}
-        lookLock={lockPanel('How each section looks and moves')}
-        videoChoice={videoChoice}
-        colorChoices={colorChoices}
-        openBrowse={openBrowse}
-      />,
-    ]),
+  /* 🧰 THE MAKER'S SCENE INSPECTOR (Keynote rebuild, 2026-09-27). Format ·
+     Animate · Arrange are the Maker's own client tabs; from the server panel it
+     takes only what is still a form — a couple's own scene's words (Content) and
+     its confirm-first Remove (Arrange). `makerPart` draws just that part. */
+  const makerSectionPanel = (row: (typeof sectionRows)[number], makerPart: 'content' | 'remove') => (
+    <SectionsPanel
+      key={`${row.widget_id}:${makerPart}`}
+      only={row.widget_id}
+      makerPart={makerPart}
+      returnTo={`/dashboard/${eventId}/launch?scene=${row.widget_id}`}
+      hideLocked={storeShell}
+      eventId={eventId}
+      rows={sectionRows}
+      contentMap={sectionContent}
+      toggleAction={toggleWidgetVisibility}
+      moveUpAction={moveWidgetUp}
+      moveDownAction={moveWidgetDown}
+      setModeAction={setSectionMode}
+      saveCustomAction={saveCustomSection}
+      photoChoices={photoChoices}
+      ownsPro={ownsPro}
+      customLock={lockPanel('A section of your own')}
+      videoChoice={videoChoice}
+      colorChoices={colorChoices}
+      openBrowse={openBrowse}
+    />
+  );
+  const scenePanels = Object.fromEntries(sectionRows.map((row) => [row.widget_id, makerSectionPanel(row, 'content')]));
+  const sceneRemovers = Object.fromEntries(
+    sectionRows.filter((row) => isCustomSectionType(row.widget_type)).map((row) => [row.widget_id, makerSectionPanel(row, 'remove')]),
   );
 
   /* The theme panel reads the registry as it stands at merge time (Phase 3
@@ -1198,6 +1198,20 @@ export default async function WebsiteEditorPage({
       scenes={scenes}
       navigator={navigator}
       scenePanels={scenePanels}
+      sceneRemovers={sceneRemovers}
+      /* 🧰 The scene inspector's Format tab (background, one-or-all, uploads)
+         and Animate's lock — the same choices the old server panel was given. */
+      sceneFormat={{
+        colorChoices,
+        photoChoices,
+        videoChoice,
+        mediaHref: `${w}/our-photos`,
+        hubTheme: currentThemeId,
+        openBrowse,
+        hideLocked: storeShell,
+        lookLock: lockPanel('How each section looks and moves'),
+        twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
+      }}
       rows={rows}
       themes={themes}
       themeHref={`${base}/guests/invite`}

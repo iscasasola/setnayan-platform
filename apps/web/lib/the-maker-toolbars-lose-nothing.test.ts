@@ -90,6 +90,12 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Title: the part’s name + the Pro mark', 'sheet', ['<PaidMark', '<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
   ['"Whole part / this selection" (a run of letters)', 'sheet', ['data-element-range', 'Whole {HUB_ELEMENT_LABEL', 'Clear this selection']],
   ['The sheet’s tabs — Text · Animate · Arrange', 'sheet', ['<InspectorTabs tabs={PART_TABS}', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
+  // ── The wiring: every tab is mounted in the Maker, and #6048's words stay ──
+  ['Scene tabs mounted: Format · Animate · Arrange · Content', 'shell', ['<InspectorTabs tabs={tabs}', '<SceneBackgroundRow', '<SceneAnimateTab', '<SceneArrangeTab', '<SceneLayoutRow', '<SceneParts']],
+  ['Transition folded into Animate (an old address opens Animate)', 'shell', ["asked === 'transition' ? 'animate' : asked", "tab: 'animate' })"]],
+  ['#6048: the Content box + "Change it everywhere / Just this scene" + the Details chip', 'shell', ['<DetailsBoundField', 'contentBound', 'CanvasWordsContext.Provider']],
+  ['Background choices preview on the canvas before their save', 'shell', ['postToCanvas(message)']],
+  ['The part sheet’s Part ▾ and the scene it is on', 'shell', ['parts={', 'onPart={', 'sceneLabel={']],
   ['⚡ Every choice on the canvas first (#6046)', 'sheet', ['onPreview?.(elementPreview(target.key, target.el, before, next))', 'onPreviewColour={previewColour}']],
 ];
 

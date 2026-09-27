@@ -2,6 +2,7 @@ import { Wallet, CheckCircle2, Clock3, AlertTriangle } from 'lucide-react';
 import { formatPhp } from '@/lib/orders';
 import type { PaydayTotals } from '@/lib/vendor-cashflow';
 import { shopCardClass } from '../../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Payday KPI cards — expected / confirmed / still-owed / overdue. Read-only
@@ -32,7 +33,7 @@ export function PaydaySummary({ totals }: { totals: PaydayTotals }) {
       bg: 'bg-ink/5',
     },
     {
-      label: `Overdue${totals.overdueCount ? ` · ${totals.overdueCount}` : ''}`,
+      label: `Overdue${totals.overdueCount ? ` · ${formatCount(totals.overdueCount)}` : ''}`,
       value: formatPhp(totals.overduePhp),
       icon: AlertTriangle,
       tone: totals.overdueCount ? 'text-rose-600' : 'text-ink/40',

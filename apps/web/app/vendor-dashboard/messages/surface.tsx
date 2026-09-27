@@ -25,6 +25,7 @@ import { InquiryOutcomesRollup } from './_components/inquiry-outcomes-rollup';
 import { ShopEmpty } from '../_components/kit';
 import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { paginate } from '@/lib/paginate';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Messages · Vendor' };
 
@@ -244,7 +245,7 @@ export default async function VendorMessagesPage({ searchParams }: Props = {}) {
               open={sp.mapage ? true : undefined}
             >
               <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink">
-                Archived · {archivedPage.total}
+                Archived · {formatCount(archivedPage.total)}
               </summary>
               <ul className="space-y-2 px-2 pb-3">{archivedThreads.map(renderRow)}</ul>
               <div className="px-2 pb-3">

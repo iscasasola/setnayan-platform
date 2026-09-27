@@ -25,6 +25,7 @@ import {
   type AmendmentItemKind,
   type AmendmentStatus,
 } from '@/lib/proposal-amendments';
+import { formatCount } from '@/lib/format-number';
 
 export type AmendmentItemView = {
   item_id: string;
@@ -135,7 +136,7 @@ export function ChatAmendmentCard({
             Deal
           </p>
           <p className="truncate text-[15px] font-medium text-ink">
-            {items.length} item{items.length === 1 ? '' : 's'} requested
+            {formatCount(items.length)} item{items.length === 1 ? '' : 's'} requested
           </p>
         </div>
         <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.cls}`}>

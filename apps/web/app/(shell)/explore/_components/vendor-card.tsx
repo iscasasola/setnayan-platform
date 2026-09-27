@@ -75,6 +75,7 @@ import { FollowGate } from '@/app/_components/follow-gate';
 import { SaveVendorButton } from './save-vendor-button';
 import { ReviewCarousel } from './review-carousel';
 import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Row shape consumed by the card. Mirrors `VendorCardRow` in page.tsx
@@ -534,7 +535,7 @@ export async function VendorCard({
               </span>
               {reviewCount > 0 ? (
                 <span className="text-ink/45">
-                  ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+                  ({formatCount(reviewCount)} {reviewCount === 1 ? 'review' : 'reviews'})
                 </span>
               ) : null}
             </>
@@ -741,7 +742,7 @@ function ActivityBadges({
       {experienceLabel ? (
         <li
           className="inline-flex items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-violet-900"
-          title={`${finalizedBookingCount} finalized events through Setnayan.`}
+          title={`${formatCount(finalizedBookingCount)} finalized events through Setnayan.`}
         >
           {experienceLabel}
         </li>

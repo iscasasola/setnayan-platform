@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Users, Compass, Sparkles, Newspaper, Images } from 'lucide-react';
 import type { AfterSummary } from '@/lib/after-summary';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * finished-event-summary.tsx — what the Overview says once the day is over.
@@ -132,7 +133,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
               : summary.checkedIn !== null && summary.checkedIn > 0
                 ? `${summary.checkedIn} checked in on the day.`
                 : summary.guestsAttending !== null
-                  ? `${summary.guestsAttending} said they were coming.`
+                  ? `${formatCount(summary.guestsAttending)} said they were coming.`
                   : 'Who you invited, and who came.'}
           </span>
         </Card>

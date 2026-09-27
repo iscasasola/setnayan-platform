@@ -22,6 +22,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Fraud queue · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -288,7 +289,7 @@ export default async function AdminFraudQueuePage() {
                       <StateBadge state={state} />
                     </div>
                     <p className="mt-1 text-xs text-ink/55">
-                      {meta?.publicId} · {s.open_signal_count}{' '}
+                      {meta?.publicId} · {formatCount(s.open_signal_count)}{' '}
                       open signal{s.open_signal_count === 1 ? '' : 's'} · latest{' '}
                       {timeAgo(s.latest_detected_at)}
                     </p>

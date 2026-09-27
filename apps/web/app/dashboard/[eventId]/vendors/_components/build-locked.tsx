@@ -52,6 +52,7 @@ import { TeamSummaryChip } from './team-summary-chip';
 import type { BlockedLockReason } from '@/lib/bench-card-actions';
 import { BLOCKED_LOCK_ROW, CANT_LOCK_YET_HEADING } from '@/lib/explore-info-copy';
 import { depositStepHref, type DepositStep } from '@/lib/deposit-pay-step';
+import { formatCount } from '@/lib/format-number';
 
 const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLocaleString('en-PH')}`;
 const pesoFromPhp = (php: number | null) =>
@@ -504,7 +505,7 @@ export function BuildLocked({
       </ul>
       {decisions.hiddenCount > 0 ? (
         <p className="px-2 pt-1 text-xs text-ink/45">
-          …and {decisions.hiddenCount} more to decide.
+          …and {formatCount(decisions.hiddenCount)} more to decide.
         </p>
       ) : null}
     </section>
@@ -597,7 +598,7 @@ export function BuildLocked({
 function decisionMeta(daysLeft: number | null, optionCount: number): string | null {
   if (daysLeft != null && daysLeft < 0) return `${Math.abs(daysLeft)}d overdue`;
   if (daysLeft != null && daysLeft <= 30) return `${daysLeft}d left`;
-  if (optionCount > 0) return `${optionCount} shortlisted`;
+  if (optionCount > 0) return `${formatCount(optionCount)} shortlisted`;
   return null;
 }
 

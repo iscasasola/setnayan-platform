@@ -114,6 +114,7 @@ import {
   CHANGE_LINES_EMBED,
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -2473,7 +2474,7 @@ export async function EventDashboard({
                         they are named here so the smaller number cannot read as
                         "we lost six things". */}
                     {datesCount > 0
-                      ? ` · ${datesCount} ${datesCount === 1 ? 'date' : 'dates'} coming`
+                      ? ` · ${formatCount(datesCount)} ${datesCount === 1 ? 'date' : 'dates'} coming`
                       : ''}
                   </span>
                 </div>
@@ -2548,7 +2549,7 @@ export async function EventDashboard({
                       style={{ background: 'var(--sn-gold-500)' }}
                     />
                     <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">
-                      <span className="font-mono font-bold">{stats.pending}</span>{' '}
+                      <span className="font-mono font-bold">{formatCount(stats.pending)}</span>{' '}
                       {stats.pending === 1 ? 'guest hasn' : 'guests haven'}&rsquo;t replied yet
                     </span>
                     <span className="flex-none text-[13.5px] text-ink/45">&rarr;</span>
@@ -2640,7 +2641,7 @@ export async function EventDashboard({
               className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
               style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
             >
-              {openDecisionCount} open
+              {formatCount(openDecisionCount)} open
             </span>
             {/* "each one links to its room" describes a link the reader can
                 see, and the free line said nothing the heading does not. What
@@ -2727,7 +2728,7 @@ export async function EventDashboard({
                 className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
                 style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
               >
-                {datesCount} {datesCount === 1 ? 'date' : 'dates'}
+                {formatCount(datesCount)} {datesCount === 1 ? 'date' : 'dates'}
               </span>
             </div>
             <div className="grid gap-3.5 lg:grid-cols-2">
@@ -2886,7 +2887,7 @@ export async function EventDashboard({
                   {!vendorsMeasured
                     ? 'not loaded'
                     : eventType === 'wedding'
-                      ? `${lockedVendorCount} of ${totalLockableCategories} booked`
+                      ? `${formatCount(lockedVendorCount)} of ${formatCount(totalLockableCategories)} booked`
                       : `${teamVendors.length} ${teamVendors.length === 1 ? 'vendor' : 'vendors'} booked`}
                 </span>
               }
@@ -2954,7 +2955,7 @@ export async function EventDashboard({
                     className="rounded-full px-2 py-0.5 text-[11.5px] font-bold"
                     style={chipToneStyle.warm}
                   >
-                    {unreadCount} unread
+                    {formatCount(unreadCount)} unread
                   </span>
                 ) : null}
                 <Link
@@ -3064,7 +3065,7 @@ export async function EventDashboard({
                   ))}
                   {schedulePreview.moreCount > 0 ? (
                     <p className="border-t border-ink/5 pt-2 text-[11.5px] text-ink/45">
-                      +{schedulePreview.moreCount} more{' '}
+                      +{formatCount(schedulePreview.moreCount)} more{' '}
                       {schedulePreview.moreCount === 1 ? 'block' : 'blocks'} in your
                       timeline
                     </p>

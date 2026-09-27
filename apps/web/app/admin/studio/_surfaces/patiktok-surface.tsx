@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { findPatiktokTemplate } from '@/lib/patiktok';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable, type ConsoleColumn } from '@/app/admin/_components/console-table';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * PatiktokSurface — the Patiktok render-job monitor body, inside the tabbed
@@ -67,7 +68,7 @@ const STATUSES = ['queued', 'processing', 'completed', 'failed', 'cancelled'] as
 
 function fmtMb(bytes: number | null): string {
   if (!bytes || bytes <= 0) return '—';
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${formatCount(bytes / 1024 / 1024, 1)} MB`;
 }
 
 function StatusPill({ status }: { status: JobRow['status'] }) {
@@ -203,7 +204,7 @@ export async function PatiktokSurface() {
             key={s}
             className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/70 px-3 py-1 font-mono uppercase tracking-[0.15em] text-ink/70"
           >
-            {s} · {jobs ? (counts[s] ?? 0) : '—'}
+            {s} · {jobs ? formatCount(counts[s] ?? 0) : '—'}
           </span>
         ))}
       </div>

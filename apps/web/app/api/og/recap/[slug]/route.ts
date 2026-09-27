@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ogCardVisibleToStrangers } from '@/lib/social/og-card-audience';
 import { isRecapPublished, loadRecapCardData } from '@/lib/auto-recap';
 import { renderRecapOgJpeg, type RecapCardFormat } from '@/lib/social/recap-card';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * GET /api/og/recap/[slug]?format=og|square|story — the shareable card for a
@@ -47,7 +48,7 @@ function brandFallback(): Response {
 }
 
 function statLine(stats: { photos: number; voices: number; guests: number | null }): string {
-  const bits = [`${stats.photos} ${stats.photos === 1 ? 'photo' : 'photos'}`];
+  const bits = [`${formatCount(stats.photos)} ${stats.photos === 1 ? 'photo' : 'photos'}`];
   if (stats.voices > 0) bits.push(`${stats.voices} ${stats.voices === 1 ? 'voice' : 'voices'}`);
   if (stats.guests && stats.guests > 0) bits.push(`${stats.guests} guests`);
   return bits.join(' · ');

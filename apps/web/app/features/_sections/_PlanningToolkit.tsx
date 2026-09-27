@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
+import { formatCount } from '@/lib/format-number';
 
 // Planning toolkit — guest list (0001), seating (0008), budget (0007),
 // mood board (0010), schedule. One sub-section per feature with the
@@ -321,7 +322,7 @@ function BudgetMock() {
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-ink">Budget &middot; PHP</p>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-            {Math.round((totalPaid / totalBudget) * 100)}% paid
+            {formatCount(Math.round((totalPaid / totalBudget) * 100))}% paid
           </span>
         </div>
         <ul className="space-y-2">

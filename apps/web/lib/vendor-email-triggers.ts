@@ -21,6 +21,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail, type SendEmailResult } from '@/lib/email';
+import { formatCount } from '@/lib/format-number';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -144,7 +145,7 @@ export async function sendVendorSuspensionEmail(
   if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
 
   const helpUrl = `${APP_URL}/help`;
-  const countWord = cancellationCount === 1 ? '1 cancellation' : `${cancellationCount} cancellations`;
+  const countWord = cancellationCount === 1 ? '1 cancellation' : `${formatCount(cancellationCount)} cancellations`;
 
   const text = [
     `Hi ${contact.businessName},`,

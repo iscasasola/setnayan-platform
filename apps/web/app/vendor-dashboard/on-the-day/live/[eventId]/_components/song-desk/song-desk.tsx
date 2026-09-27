@@ -19,6 +19,7 @@ import {
 } from '@/lib/song-desk';
 import { ConsoleRule } from '../../../../_components/pahina-console';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE SONG DESK — the day-of specialization for a band / singer / choir /
@@ -280,10 +281,10 @@ function HostPlaylist({
  * clause — confidence, not a zero.
  */
 function summarise(playlist: HostPlaylistModel): string {
-  const songs = `${playlist.positiveCount} ${playlist.positiveCount === 1 ? 'song' : 'songs'}`;
+  const songs = `${formatCount(playlist.positiveCount)} ${playlist.positiveCount === 1 ? 'song' : 'songs'}`;
   const moments = `${playlist.moments.length} ${playlist.moments.length === 1 ? 'moment' : 'moments'}`;
   return playlist.gapCount > 0
-    ? `${songs} across ${moments} — ${playlist.gapCount} not in your repertoire.`
+    ? `${songs} across ${moments} — ${formatCount(playlist.gapCount)} not in your repertoire.`
     : `${songs} across ${moments}, all in your repertoire.`;
 }
 
@@ -307,7 +308,7 @@ function Banned({ playlist }: { playlist: HostPlaylistModel }) {
         <p className="text-xs leading-relaxed text-terracotta-700">
           {playlist.hazardCount === 1
             ? '1 of these is in your repertoire — worth a mark on your list.'
-            : `${playlist.hazardCount} of these are in your repertoire — worth a mark on your list.`}
+            : `${formatCount(playlist.hazardCount)} of these are in your repertoire — worth a mark on your list.`}
         </p>
       ) : null}
       <ul>
@@ -390,7 +391,7 @@ function Coverage({ desk, coupleName }: { desk: SongDeskModel; coupleName: strin
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-2">
         <span className="font-mono text-2xl font-bold text-ink">
-          {desk.coveredCount} / {desk.requestedCount}
+          {formatCount(desk.coveredCount)} / {formatCount(desk.requestedCount)}
         </span>
         <span className="text-sm text-ink/65">
           of {coupleName}’s requests are in your repertoire

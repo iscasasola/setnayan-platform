@@ -19,6 +19,7 @@ import {
   setConnectionLabel,
   withdrawConnection,
 } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * people-roster-view.tsx — People, wearing the Guest List's clothes.
@@ -374,7 +375,7 @@ export function PeopleRosterView({
                 }`}
               >
                 {f.label}
-                <span className="tabular-nums opacity-60">{counts[f.key]}</span>
+                <span className="tabular-nums opacity-60">{formatCount(counts[f.key])}</span>
               </button>
             ),
           )}

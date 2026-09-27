@@ -115,6 +115,7 @@ import {
 import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
+import { formatCount } from '@/lib/format-number';
 
 // A dance target is pulled this far inside the dance-floor edge so the avatar
 // lands squarely on the floor (body radius here is 0.2, matching the walk).
@@ -1573,7 +1574,7 @@ export default function GuestVenue3D({
       {sharedRoom.enabled && sharedRoom.onlineCount > 1 ? (
         <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
-            {sharedRoom.onlineCount} here now
+            {formatCount(sharedRoom.onlineCount)} here now
           </span>
           <button
             type="button"

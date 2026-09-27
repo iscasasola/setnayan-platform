@@ -9,6 +9,7 @@ import {
 import { StoryChapterFields, type LoveStoryBlob } from './story-fields';
 import { ChapterMoments } from './chapter-moments';
 import { PanelFollowsThePage } from './panel-follows-the-page';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE MAKER'S LOVE STORY PANEL — THE PAGE'S FIVE CHAPTERS (owner 2026-09-27,
@@ -38,7 +39,7 @@ export function LoveStoryChaptersPanel({
   const moments = resolveMoments(story);
   const chapters = groupByChapter(moments);
   const canAdd = mayAddMoment(moments.length, ownsPro);
-  const capLine = `${FREE_MOMENT_CAP} of ${FREE_MOMENT_CAP} free stories told`;
+  const capLine = `${formatCount(FREE_MOMENT_CAP)} of ${formatCount(FREE_MOMENT_CAP)} free stories told`;
 
   return (
     <div className="space-y-5" data-love-story-panel="">

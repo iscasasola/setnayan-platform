@@ -15,6 +15,7 @@ import {
 import type { FaceGateReason, FaceGateResult } from '@/lib/face-gate';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { FaceReceiptCard } from './face-receipt-card';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * RSVP selfie capture (owner directive 2026-06-05 — guest photos come from a
@@ -638,7 +639,7 @@ export function SelfieCapture({
               <>
                 {multiShot ? (
                   <p className="text-center text-xs font-medium text-ink/70">
-                    Angle {shots.length + 1} of {maxShots} ·{' '}
+                    Angle {formatCount(shots.length + 1)} of {formatCount(maxShots)} ·{' '}
                     <span className="text-terracotta">
                       {POSE_HINTS[shots.length] ?? 'One more angle'}
                     </span>
@@ -680,7 +681,7 @@ export function SelfieCapture({
                     className="inline-flex items-center gap-2 rounded-full bg-terracotta-700 px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-50"
                   >
                     <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                    {multiShot ? `Capture angle ${shots.length + 1}` : 'Capture'}
+                    {multiShot ? `Capture angle ${formatCount(shots.length + 1)}` : 'Capture'}
                   </button>
                 </div>
               </>
@@ -775,7 +776,7 @@ export function SelfieCapture({
             </div>
             <p className="inline-flex items-center gap-1.5 text-xs text-ink/70">
               <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-              {shots.length} of {maxShots} angles added
+              {formatCount(shots.length)} of {formatCount(maxShots)} angles added
               {shots.length < maxShots
                 ? ' — more angles help the photos find you'
                 : ' — perfect'}

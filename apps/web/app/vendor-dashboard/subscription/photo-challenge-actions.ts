@@ -31,6 +31,7 @@ import {
   fetchPhotoChallengeExpiry,
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from '@/lib/vendor-photo-challenge';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Papic Challenges — the vendor turns guest photo missions ON FOR THEIR SHOP.
@@ -297,7 +298,7 @@ export async function sponsorPhotoChallenge(
     return {
       status: 'activated',
       message:
-        `Papic Challenges is on for every celebration you're booked for — free while you're on your first ${FREE_BOOKING_LIMIT} bookings` +
+        `Papic Challenges is on for every celebration you're booked for — free while you're on your first ${formatCount(FREE_BOOKING_LIMIT)} bookings` +
         (remaining > 0 ? ` (${remaining} to go)` : '') +
         `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} every ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days.`,
     };

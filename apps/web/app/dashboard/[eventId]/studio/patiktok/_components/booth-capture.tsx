@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { matchPatiktokFace, recordPatiktokClip } from '../actions';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { TagSheet, type BoothGuest, type BoothTable, type BoothTag } from './tag-sheet';
+import { formatCount } from '@/lib/format-number';
 
 type CaptureTemplate = {
   slug: string;
@@ -438,7 +439,7 @@ export function BoothCapture({
         {captured.length > 0 ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-900">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {captured.length} clip{captured.length === 1 ? '' : 's'} this session
+            {formatCount(captured.length)} clip{captured.length === 1 ? '' : 's'} this session
           </span>
         ) : null}
       </div>
@@ -662,7 +663,7 @@ export function BoothCapture({
           className="inline-flex items-center gap-2 rounded-md border border-terracotta/40 bg-terracotta/5 px-4 py-2 text-sm font-medium text-terracotta-700 hover:bg-terracotta/10"
         >
           <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Continue to render ({captured.length} clip{captured.length === 1 ? '' : 's'} ready)
+          Continue to render ({formatCount(captured.length)} clip{captured.length === 1 ? '' : 's'} ready)
         </Link>
       ) : null}
 

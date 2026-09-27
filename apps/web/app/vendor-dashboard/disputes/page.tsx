@@ -9,6 +9,7 @@ import { ShopEmpty, ShopNotice } from '../_components/kit';
 import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { paginate } from '@/lib/paginate';
 import { readVendorDisputes } from '@/lib/vendor-disputes-read';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Disputes · Vendor' };
 
@@ -154,7 +155,7 @@ export default async function VendorDisputesPage({ searchParams }: Props) {
         <>
           {openCount > 0 ? (
             <p className="mb-4 text-sm text-ink/70">
-              <span className="font-semibold text-ink">{openCount}</span>{' '}
+              <span className="font-semibold text-ink">{formatCount(openCount)}</span>{' '}
               {openCount === 1 ? 'dispute is' : 'disputes are'} under review.
             </p>
           ) : null}

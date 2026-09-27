@@ -22,6 +22,7 @@ import {
   setWalkthroughZonePublished,
   setWalkthroughZoneTables,
 } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 export type ZoneVM = {
   zoneId: string;
@@ -81,7 +82,7 @@ export function WalkthroughManager({
         </p>
         {tables.length > 0 && untaggedCount > 0 ? (
           <p className="mt-2 text-ink/55">
-            {untaggedCount} of {tables.length} table{tables.length === 1 ? '' : 's'} not in a zone
+            {formatCount(untaggedCount)} of {formatCount(tables.length)} table{tables.length === 1 ? '' : 's'} not in a zone
             yet.
           </p>
         ) : null}

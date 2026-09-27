@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * PACKAGE CREDIT ENGINE — pure, total, fail-closed (owner-locked 2026-07-26).
  *
@@ -877,7 +878,7 @@ export function computePackageCredit(input: PackageCreditInput): PackageCreditRe
         // refuse rather than quote less.
         fail(
           'pick_below_minimum',
-          `${picked.length} of ${min} required alternatives chosen`,
+          `${formatCount(picked.length)} of ${formatCount(min)} required alternatives chosen`,
           item.item_id,
         );
         return;

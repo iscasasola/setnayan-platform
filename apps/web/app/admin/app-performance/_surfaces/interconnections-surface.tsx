@@ -7,6 +7,7 @@ import { PROBES } from '@/lib/interconnect/probes';
 const ROW_LIMIT = 400;
 import { UGAT_JOINTS } from '@/lib/ugat/graph';
 import { VERDICT_COPY, isFault, type ProbeVerdict } from '@/lib/interconnect/verdict';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Interconnections — the runtime health of the joints BETWEEN subsystems.
@@ -174,7 +175,7 @@ export async function InterconnectionsSurface() {
               </span>
               {run ? (
                 <p className="mt-1.5 text-xs text-ink/50">
-                  {run.subject_count}/{run.truth_count} served · {ago(run.ran_at)}
+                  {formatCount(run.subject_count)}/{formatCount(run.truth_count)} served · {ago(run.ran_at)}
                 </p>
               ) : null}
             </div>

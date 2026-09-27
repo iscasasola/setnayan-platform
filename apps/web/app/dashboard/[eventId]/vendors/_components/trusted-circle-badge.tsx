@@ -21,6 +21,7 @@
 import { HeartHandshake } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getTrustedCircleVendorSignal } from '@/lib/trusted-circle-recs';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   /** The host's event. */
@@ -71,7 +72,7 @@ export async function TrustedCircleBadge({ eventId, vendorProfileId }: Props) {
   const primary =
     vouchedBy.length > 0
       ? vouchPhrase(vouchedBy)
-      : `${connectedTotal} ${connectedTotal === 1 ? 'person' : 'people'} in your circle trusted this vendor`;
+      : `${formatCount(connectedTotal)} ${connectedTotal === 1 ? 'person' : 'people'} in your circle trusted this vendor`;
 
   // Muted context line — rating + near-match hints, only when present.
   const contextBits: string[] = [];

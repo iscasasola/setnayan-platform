@@ -69,6 +69,7 @@ import {
   type ReviewStatsRow,
   type TrustedReviewStatsRow,
 } from '@/lib/reviews';
+import { formatCount } from '@/lib/format-number';
 
 // ----------------------------------------------------------------------------
 // Server-side fetch helpers
@@ -674,7 +675,7 @@ function ReviewsHero({ trusted }: { trusted: TrustedReviewStatsRow }) {
         {hero > 0 ? formatStarRating(hero) : '—'}
       </span>
       <span className="text-xs text-ink/60">
-        {count} review{count === 1 ? '' : 's'}
+        {formatCount(count)} review{count === 1 ? '' : 's'}
       </span>
     </div>
   );

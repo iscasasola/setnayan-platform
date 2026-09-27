@@ -34,6 +34,7 @@ import { ShopEmpty } from '../_components/kit';
 import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { paginate } from '@/lib/paginate';
 import { readInChunks } from '@/lib/read-all-pages';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Bookings · Vendor' };
 
@@ -347,7 +348,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                     isActive ? 'bg-cream/20 text-cream' : 'bg-ink/10 text-ink/65'
                   }`}
                 >
-                  {counts[f]}
+                  {formatCount(counts[f])}
                 </span>
               ) : null}
             </Link>

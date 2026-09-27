@@ -5,6 +5,7 @@ import { FOUNDER_SEAT_CAP } from '@/lib/founder-seats';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { grantFounderSeat, revokeFounderSeat } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Founder seats · Admin' };
 export const dynamic = 'force-dynamic';
@@ -89,7 +90,7 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
         <h2 className="mb-3 text-sm font-semibold text-ink">
           Grant a seat{' '}
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-            {openSeats} of {FOUNDER_SEAT_CAP} open
+            {formatCount(openSeats)} of {formatCount(FOUNDER_SEAT_CAP)} open
           </span>
         </h2>
         <form action={grantFounderSeat} className="flex flex-wrap items-end gap-3">

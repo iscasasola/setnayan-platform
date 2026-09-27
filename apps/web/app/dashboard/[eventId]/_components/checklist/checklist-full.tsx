@@ -14,6 +14,7 @@ import type { VendorCategoryProgress } from '@/lib/vendor-category-progress';
 import type { CategoryDecisionState } from '@/lib/checklist-state';
 import { toggleChecklistItem } from '../../checklist-actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ChecklistFull — the browsable, full wedding checklist.
@@ -130,7 +131,7 @@ function LeafSuggestions({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-ink">{s.label}</p>
                 <p className="truncate text-xs text-ink/50">
-                  {s.tileLabel} · {s.vendorCount} {s.vendorCount === 1 ? 'vendor' : 'vendors'} available
+                  {s.tileLabel} · {formatCount(s.vendorCount)} {s.vendorCount === 1 ? 'vendor' : 'vendors'} available
                 </p>
               </div>
               <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
@@ -324,7 +325,7 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
               <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
                   <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                    {doneCount} of {totalCount} ticked
+                    {formatCount(doneCount)} of {formatCount(totalCount)} ticked
                   </span>
                   {eventIsOver ? null : (
                     <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
@@ -389,7 +390,7 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
                       {phase ? (phase.id === 'p9' ? chrome.dayOfLabel : phase.label) : 'Your own tasks'}
                     </h2>
                     <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-                      {phaseDone}/{items.length}
+                      {formatCount(phaseDone)}/{formatCount(items.length)}
                     </span>
                   </div>
                   {phase && chrome.showPhaseBlurbs ? (

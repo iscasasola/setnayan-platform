@@ -13,6 +13,7 @@ import { isFaceModelConfigured } from '@/lib/face-embed-core';
 import { euclideanDistance } from '@/lib/face-match-core';
 import { PAPIC_STYLES, DEFAULT_PAPIC_STYLE } from '@/lib/papic-photo-styles';
 import { recordDemoShot } from '@/app/_actions/demo-session-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The phone-side half of the Papic homepage demo (owner spec, DECISION_LOG
@@ -318,7 +319,7 @@ export function DemoJoinFlow({
         <div className="mt-1 flex items-center justify-between">
           <h1 className="text-lg font-semibold tracking-tight">Shoot the moment</h1>
           <span className="text-xs font-medium text-[var(--m-grey,#8c8884)]">
-            {capped ? 'Demo roll used up' : `${remaining} shot${remaining === 1 ? '' : 's'} left`}
+            {capped ? 'Demo roll used up' : `${formatCount(remaining)} shot${remaining === 1 ? '' : 's'} left`}
           </span>
         </div>
         <p className="mt-1 text-xs text-[var(--m-grey,#8c8884)]">

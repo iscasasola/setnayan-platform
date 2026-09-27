@@ -4,6 +4,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { InMakerReturnTo } from './in-maker-return-to';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * PICK FROM OUR EVENTS — "From what Setnayan already holds" (prototype § pick).
@@ -85,7 +86,7 @@ export function PickFromOurEvents({
                   ? 'someone else’s event'
                   : e.photos.length === 0
                     ? 'no photos yet'
-                    : `${e.photos.length} ${e.photos.length === 1 ? 'photo' : 'photos'}`}
+                    : `${formatCount(e.photos.length)} ${e.photos.length === 1 ? 'photo' : 'photos'}`}
               </span>
             </li>
           ))}

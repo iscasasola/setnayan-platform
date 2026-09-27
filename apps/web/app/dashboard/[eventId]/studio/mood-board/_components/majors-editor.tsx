@@ -23,6 +23,7 @@ import { PALETTE_LIMITS } from '@/lib/mood-board';
 import { nearestColorName } from '@/lib/color-names';
 import { usePaletteBoard } from './palette-board-context';
 import { SwatchPopover } from './swatch-popover';
+import { formatCount } from '@/lib/format-number';
 
 const LIMITS = PALETTE_LIMITS.reception;
 
@@ -94,7 +95,7 @@ export function MajorsEditor() {
         ) : null}
       </div>
       <p className="text-xs text-ink/50">
-        {colors.length} / {LIMITS.min}–{LIMITS.max} — the palette below (in{' '}
+        {formatCount(colors.length)} / {formatCount(LIMITS.min)}–{LIMITS.max} — the palette below (in{' '}
         <a href="#palette" className="underline underline-offset-2 hover:text-terracotta">
           Palette
         </a>

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * lens-pill.tsx — one facet pill (Side / RSVP / View / Tags), with the payload
@@ -84,7 +85,7 @@ export function LensPill({
         <span
           className={`font-mono tabular-nums ${active ? 'text-cream/75' : 'text-ink/40'}`}
         >
-          {count}
+          {formatCount(count)}
         </span>
       ) : null}
     </Link>

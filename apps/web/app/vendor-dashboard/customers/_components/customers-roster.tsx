@@ -11,6 +11,7 @@ import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { ShopEmpty } from '../../_components/kit';
 import { ListPager } from '../../_components/list-pager';
 import type { Paged } from '@/lib/paginate';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * CUSTOMERS — the roster, opening on who is waiting.
@@ -225,7 +226,7 @@ export function CustomersRoster({
         <h2 className="sn-sec">Customers</h2>
         <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
           {waitingCount > 0
-            ? `${waitingCount} waiting on you`
+            ? `${formatCount(waitingCount)} waiting on you`
             : total > 0
               ? 'nobody waiting on you'
               : ''}
@@ -277,7 +278,7 @@ export function CustomersRoster({
               : { background: 'transparent', color: 'var(--m-slate)', borderColor: 'var(--m-line)' }
           }
         >
-          Everyone <span className="font-mono">{total}</span>
+          Everyone <span className="font-mono">{formatCount(total)}</span>
         </Link>
         {CUSTOMER_LANES.map((lane) => {
           const on = activeLane === lane;
@@ -295,7 +296,7 @@ export function CustomersRoster({
                   : { background: tone.bg, color: tone.fg, borderColor: tone.border }
               }
             >
-              {LANE_LABEL[lane]} <span className="font-mono">{counts[lane]}</span>
+              {LANE_LABEL[lane]} <span className="font-mono">{formatCount(counts[lane])}</span>
             </Link>
           );
         })}

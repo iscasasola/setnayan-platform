@@ -35,6 +35,7 @@ import {
 import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
 import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
+import { formatCount } from '@/lib/format-number';
 
 const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
@@ -514,7 +515,7 @@ export function CategorySearchOverlay({
             ) : null}
             {r.rating !== null && r.reviewCount ? (
               <span className="stars">
-                ★ {r.rating.toFixed(1)} ({r.reviewCount})
+                ★ {r.rating.toFixed(1)} ({formatCount(r.reviewCount)})
               </span>
             ) : typeof r.reviewCount === 'number' ? (
               // 0 reviews — "New", never a fake "☆ 0.0 (0)" (owner ruling
@@ -567,7 +568,7 @@ export function CategorySearchOverlay({
                 className="badge fx"
                 title="Matches the service details you picked"
               >
-                ✓ Matches {r.facetMatchCount} of your {r.facetSelectedCount}
+                ✓ Matches {formatCount(r.facetMatchCount)} of your {formatCount(r.facetSelectedCount)}
               </span>
             ) : null}
             {/* Service-date availability — down-ranked, never removed. */}
@@ -685,7 +686,7 @@ export function CategorySearchOverlay({
                     'a budget feel'
                   )}
                   {budgetEstimate.pax != null
-                    ? ` for about ${budgetEstimate.pax} guests`
+                    ? ` for about ${formatCount(budgetEstimate.pax)} guests`
                     : ''}
                   , so we&rsquo;re working from around{' '}
                   {formatPhpRounded(budgetEstimate.eventBudgetPhp)} for the whole

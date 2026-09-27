@@ -17,6 +17,7 @@
  */
 import { diePathFor, drawText, wrap, type PrintDoc, type PrintOp } from '@/lib/print-layout';
 import { PRINT_PIECES, PT_PER_MM, type PrintPieceKey } from '@/lib/print-pieces';
+import { formatCount } from '@/lib/format-number';
 
 export const REPORT_INK = '#1a1a1a';
 export const REPORT_MUTED = '#6b6b6b';
@@ -208,7 +209,7 @@ export function layoutReport(input: ReportInput): PrintDoc[] {
 
   // "page n of N" on every page, now that N is known.
   pages.forEach((p, i) => {
-    drawText(p.ops, `Printed from Setnayan · page ${i + 1} of ${pages.length}`, W - MARGIN, H - MARGIN + 4, {
+    drawText(p.ops, `Printed from Setnayan · page ${formatCount(i + 1)} of ${formatCount(pages.length)}`, W - MARGIN, H - MARGIN + 4, {
       font: 'poppins',
       size: 6.8,
       color: REPORT_MUTED,

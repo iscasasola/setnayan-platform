@@ -8,6 +8,7 @@ import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Seat Plan · Vendor' };
 
@@ -174,7 +175,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Seat plan</h1>
         <p className="max-w-prose text-base text-ink/65">
           The couple&rsquo;s published floor plan — {plan.tables.length} tables,{' '}
-          {totalSeated} guests seated. Counts only; guest names stay private.
+          {formatCount(totalSeated)} guests seated. Counts only; guest names stay private.
         </p>
       </header>
 
@@ -273,7 +274,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
                 {t.label}
               </span>
               <span className="text-[9px] tabular-nums text-ink/50">
-                {t.seated}/{t.capacity}
+                {formatCount(t.seated)}/{formatCount(t.capacity)}
               </span>
             </div>
           ))}
@@ -298,7 +299,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
               <div>
                 <p className="text-sm font-medium">{t.label}</p>
                 <p className="text-xs text-ink/55">
-                  {t.seated} of {t.capacity} seated
+                  {formatCount(t.seated)} of {formatCount(t.capacity)} seated
                   {t.x === null ? ' · not placed on the map yet' : ''}
                 </p>
               </div>

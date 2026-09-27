@@ -24,6 +24,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatCount } from '@/lib/format-number';
 
 /** Mirrors the CHECK bounds in 20271029000675. */
 export const PARTY_SIZE_MIN = 1;
@@ -112,7 +113,7 @@ export function seatsRemaining(seatsCapacity: number, seatsTaken: number): numbe
 /** "7PM Seating · 6 of 12 seats left" — the availability line. */
 export function availabilityLabel(a: SlotDayAvailability): string {
   if (a.seatsRemaining <= 0) return 'Fully booked';
-  return `${a.seatsRemaining} of ${a.seatsCapacity} seats left`;
+  return `${formatCount(a.seatsRemaining)} of ${formatCount(a.seatsCapacity)} seats left`;
 }
 
 /**

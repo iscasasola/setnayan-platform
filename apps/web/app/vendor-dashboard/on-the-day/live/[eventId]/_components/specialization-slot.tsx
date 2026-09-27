@@ -10,6 +10,7 @@ import {
   ConsolePlate,
 } from '../../../_components/pahina-console';
 import { SPECIALIZATION_SURFACES } from './specialization-registry';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The specialization SLOT — the one place the console renders a vendor's
@@ -72,7 +73,7 @@ function RunOfDay({
         </p>
       ) : (
         <p className="mt-2 text-sm leading-relaxed text-ink/70">
-          <strong className="text-ink">{run.yoursCount}</strong> of {run.entries.length} moments are
+          <strong className="text-ink">{formatCount(run.yoursCount)}</strong> of {formatCount(run.entries.length)} moments are
           yours in this role. The rest are here so nothing surprises you.
           {run.callTime ? (
             <>

@@ -41,6 +41,7 @@ import {
 import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../actions';
 import { SettingRow } from './setting-row';
 import { GuestAllotmentPicker } from './guest-allotment-picker';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "HOW MANY CREDITS EACH GUEST GETS" — the couple's own numbers, one row.
@@ -326,13 +327,13 @@ export async function GuestAllotmentsChoice({
                 no idea why their number was not the one that applied. */}
             {everyoneElse !== null && everyoneElse > split.perHead ? (
               <p className="text-xs text-terracotta">
-                Your celebration holds enough for {split.perHead} credits each right now, so that is
+                Your celebration holds enough for {formatCount(split.perHead)} credits each right now, so that is
                 what each guest gets. Add credits and it rises on its own, up to your {everyoneElse}.
               </p>
             ) : null}
             <p className="text-xs text-ink/55">
               Leave this empty and their limit is an equal share of what is left —{' '}
-              {split.perHead} credits each right now. The smallest you can set is 1. To stop one
+              {formatCount(split.perHead)} credits each right now. The smallest you can set is 1. To stop one
               person taking anything, name them below and set them to 0.
               {sponsors.length > 0
                 ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'

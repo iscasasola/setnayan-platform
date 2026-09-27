@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * <MarkEverywhere> — the "Your monogram, everywhere" save sequence (benchmark
@@ -167,7 +168,7 @@ export function MarkEverywhere({ svg }: { svg: string }) {
                 {active.label}
               </p>
               <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink/45">
-                {scene + 1} / {scenes.length} · tap to continue
+                {formatCount(scene + 1)} / {formatCount(scenes.length)} · tap to continue
               </span>
             </div>
           </button>

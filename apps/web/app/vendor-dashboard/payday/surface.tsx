@@ -10,6 +10,7 @@ import { PaydaySummary } from './_components/payday-summary';
 import { PaydayInstallmentRow as PaydayRow } from './_components/payday-installment-row';
 import { ShopEmpty } from '../_components/kit';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Payday · Vendor' };
 
@@ -100,7 +101,7 @@ export default async function VendorPaydayPage() {
 
           {timeline.totals.unresolvedCount > 0 ? (
             <p className="sn-row px-4 py-3 text-xs text-ink/55">
-              {timeline.totals.unresolvedCount} installment
+              {formatCount(timeline.totals.unresolvedCount)} installment
               {timeline.totals.unresolvedCount === 1 ? '' : 's'} couldn&rsquo;t
               show an amount — these are percentage-based installments on a
               booking whose total wasn&rsquo;t set when it locked. They&rsquo;re

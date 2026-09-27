@@ -18,6 +18,7 @@ import {
 } from '@/lib/force-majeure';
 import { fileForceMajeureFlag } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Disputes' };
 
@@ -329,7 +330,7 @@ function FlagCard({
         <div className="flex flex-wrap items-center gap-2 text-xs text-ink/60">
           <Paperclip aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           <span>
-            {evidenceCount} attachment{evidenceCount === 1 ? '' : 's'}:
+            {formatCount(evidenceCount)} attachment{evidenceCount === 1 ? '' : 's'}:
           </span>
           {resolvedEvidenceUrls?.map((url, idx) => (
             <a

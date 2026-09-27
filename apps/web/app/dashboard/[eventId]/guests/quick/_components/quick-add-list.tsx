@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { CheckCircle2, X, Pencil, ArrowUp, Loader2 } from 'lucide-react';
 import { bulkAddGuests } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 type Guest = { firstName: string; lastName: string };
 
@@ -195,7 +196,7 @@ export function QuickAddList({ eventId }: Props) {
       {/* Live entry row */}
       <div className="rounded-xl border border-terracotta/40 bg-cream p-3 ring-1 ring-terracotta/10">
         <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
-          New guest · row {guests.length + 1}
+          New guest · row {formatCount(guests.length + 1)}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
@@ -234,7 +235,7 @@ export function QuickAddList({ eventId }: Props) {
                 Enter
               </kbd>{' '}
               twice on an empty first-name field to upload all{' '}
-              <span className="font-medium text-ink">{guests.length}</span> guests.
+              <span className="font-medium text-ink">{formatCount(guests.length)}</span> guests.
             </>
           ) : (
             <>Add as many guests as you need, then click Upload below.</>
@@ -249,7 +250,7 @@ export function QuickAddList({ eventId }: Props) {
             <>Nothing to upload yet.</>
           ) : (
             <>
-              <span className="font-semibold text-ink">{guests.length}</span>{' '}
+              <span className="font-semibold text-ink">{formatCount(guests.length)}</span>{' '}
               guest{guests.length === 1 ? '' : 's'} ready &middot; they&rsquo;ll go into{' '}
               <span className="font-mono text-xs">Other (uncategorized)</span> with
               default side &amp; role &mdash; refine later from the guest list.

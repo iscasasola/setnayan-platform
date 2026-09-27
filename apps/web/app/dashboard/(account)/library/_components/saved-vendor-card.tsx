@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Heart, MessageCircle } from 'lucide-react';
 import type { SavedVendorCard as SavedVendorCardData } from '../_data/saved-vendors';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Lighter, bespoke saved-vendor card for the Library tab. The marketplace
@@ -52,7 +53,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
           ) : null}
           <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta">
             <Heart aria-hidden className="h-3 w-3" strokeWidth={2} />
-            Saved in {vendor.savedInEventCount}{' '}
+            Saved in {formatCount(vendor.savedInEventCount)}{' '}
             {vendor.savedInEventCount === 1 ? 'event' : 'events'}
           </span>
         </div>

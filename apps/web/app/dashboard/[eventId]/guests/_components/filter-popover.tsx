@@ -36,6 +36,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 export function FilterPopover({
   activeCount,
@@ -78,7 +79,7 @@ export function FilterPopover({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={activeCount ? `Filter — ${activeCount} applied` : 'Filter'}
+        aria-label={activeCount ? `Filter — ${formatCount(activeCount)} applied` : 'Filter'}
         // 44px: the same height as the search box and the switch buttons, so
         // the row lines up when it aligns to the top.
         className={`inline-flex h-11 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors ${
@@ -91,7 +92,7 @@ export function FilterPopover({
         <span className="hidden sm:inline">Filter</span>
         {activeCount ? (
           <span className="rounded bg-terracotta-700 px-1.5 text-[11px] font-semibold leading-5 text-cream">
-            {activeCount}
+            {formatCount(activeCount)}
           </span>
         ) : null}
       </button>

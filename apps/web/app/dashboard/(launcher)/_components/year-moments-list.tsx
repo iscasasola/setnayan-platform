@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronDown, CalendarHeart, Sparkles, Check, Plus } from 'lucide-react';
 
 import { StartPlanningLink } from './start-planning-link';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Serializable view of one "Your year" moment — the strings are precomputed on
@@ -74,7 +75,7 @@ export function YearMomentsList({
             aria-expanded={showAll}
             className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep transition-colors hover:text-ink"
           >
-            {showAll ? 'Show less' : `Show ${hiddenCount} more`}
+            {showAll ? 'Show less' : `Show ${formatCount(hiddenCount)} more`}
             <ChevronDown
               aria-hidden
               className={`h-3.5 w-3.5 transition-transform duration-200 ${

@@ -23,6 +23,7 @@ import {
   type SubmitResult,
 } from '../inline-docs-actions';
 import { DocsBody } from './docs-body';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "Get verified" — the always-visible verification stage on My Shop (owner-
@@ -447,7 +448,7 @@ function DocsStep({
       n={n}
       title="Your documents"
       sub="DTI/SEC, BIR 2303, Business Permit, bank proof — plus optional extras"
-      pill={<StepPill tone={done ? 'done' : 'action'}>{shown} of {vendorTotal} in</StepPill>}
+      pill={<StepPill tone={done ? 'done' : 'action'}>{formatCount(shown)} of {formatCount(vendorTotal)} in</StepPill>}
       done={done}
       open={open}
       onToggle={handleToggle}

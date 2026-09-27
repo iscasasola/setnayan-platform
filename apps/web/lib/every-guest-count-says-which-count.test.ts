@@ -174,12 +174,12 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
   // while one branch has silently lost its label, which is what a first version
   // of this assertion did: the mutation that stripped one branch left it green.
   assert.equal(
-    (makerSrc.match(/was \{requestedPax\} at inquiry/g) ?? []).length,
+    (makerSrc.match(/was \{formatCount\(requestedPax\)\} at inquiry/g) ?? []).length,
     2,
     'both branches must name the inquiry count the quote is being moved away from',
   );
   assert.equal(
-    (makerSrc.match(/\{seedPax\} pax|their plan says \{seedPax\} now/g) ?? []).length,
+    (makerSrc.match(/\{formatCount\(seedPax\)\} pax|their plan says \{formatCount\(seedPax\)\} now/g) ?? []).length,
     2,
     'and both must say the figure they opened at is the current plan',
   );

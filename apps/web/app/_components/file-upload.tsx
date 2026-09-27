@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { createStallWatchdog } from '@/lib/stall-watchdog';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Reusable file-upload widget that targets Cloudflare R2 via the
@@ -311,9 +312,9 @@ function isAudio(contentType: string): boolean {
 }
 
 function bytesToHuman(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes < 1024) return `${formatCount(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${formatCount(bytes / 1024, 1)} KB`;
+  return `${formatCount(bytes / 1024 / 1024, 1)} MB`;
 }
 
 /**
@@ -562,7 +563,7 @@ export function FileUpload({
       const toUpload = files.slice(0, slotsLeft);
       if (toUpload.length < files.length) {
         setError(
-          `Only the first ${toUpload.length} file${toUpload.length === 1 ? '' : 's'} will upload — limit is ${effectiveMaxFiles}.`,
+          `Only the first ${formatCount(toUpload.length)} file${toUpload.length === 1 ? '' : 's'} will upload — limit is ${effectiveMaxFiles}.`,
         );
       }
 
@@ -586,7 +587,7 @@ export function FileUpload({
             (compressVideo && isVideo(file.type));
           if (!willCompress && file.size > maxBytes) {
             setError(
-              `${file.name} is ${bytesToHuman(file.size)} — max ${maxSizeMB} MB.`,
+              `${file.name} is ${bytesToHuman(file.size)} — max ${formatCount(maxSizeMB)} MB.`,
             );
             continue;
           }
@@ -765,8 +766,8 @@ export function FileUpload({
       if (isMountedRef.current) {
         setError(
           file === rawFile
-            ? `${rawFile.name} is ${bytesToHuman(file.size)} — max ${maxSizeMB} MB.`
-            : `${rawFile.name} is ${bytesToHuman(file.size)} even after compression — max ${maxSizeMB} MB.`,
+            ? `${rawFile.name} is ${bytesToHuman(file.size)} — max ${formatCount(maxSizeMB)} MB.`
+            : `${rawFile.name} is ${bytesToHuman(file.size)} even after compression — max ${formatCount(maxSizeMB)} MB.`,
         );
       }
       return;
@@ -1096,7 +1097,7 @@ export function FileUpload({
               {acceptedTypes
                 .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
                 .join(' · ')}{' '}
-              · up to {maxSizeMB} MB
+              · up to {formatCount(maxSizeMB)} MB
               {multiple ? ` · max ${effectiveMaxFiles}` : ''}
             </span>
           )}
@@ -1118,7 +1119,7 @@ export function FileUpload({
           {acceptedTypes
             .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
             .join(' · ')}{' '}
-          · up to {maxSizeMB} MB
+          · up to {formatCount(maxSizeMB)} MB
         </span>
       ) : null}
 

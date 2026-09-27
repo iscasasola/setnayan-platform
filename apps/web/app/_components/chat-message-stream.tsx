@@ -81,6 +81,7 @@ import type { SupplierStanding } from '@/lib/supplier-standing';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
+import { formatCount } from '@/lib/format-number';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalLineItem = {
@@ -1630,11 +1631,11 @@ function ownsBubble(
 
 function formatBytes(bytes: number | null): string {
   if (!bytes || bytes <= 0) return '';
-  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024) return `${formatCount(bytes)} B`;
   const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} KB`;
+  if (kb < 1024) return `${formatCount(kb, kb < 10 ? 1 : 0)} KB`;
   const mb = kb / 1024;
-  return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
+  return `${formatCount(mb, mb < 10 ? 1 : 0)} MB`;
 }
 
 /**

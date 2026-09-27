@@ -43,6 +43,7 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Earnings · Vendor' };
 
@@ -285,7 +286,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           value={formatPhp(view.ytdPhp)}
           help={
             view.measured
-              ? `${view.paymentCount} payment${view.paymentCount === 1 ? '' : 's'} confirmed`
+              ? `${formatCount(view.paymentCount)} payment${view.paymentCount === 1 ? '' : 's'} confirmed`
               : 'not read'
           }
         />
@@ -294,7 +295,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           value={formatPhp(view.thisMonthPhp)}
           help={
             view.measured
-              ? `${view.thisMonthCount} booking${view.thisMonthCount === 1 ? '' : 's'}`
+              ? `${formatCount(view.thisMonthCount)} booking${view.thisMonthCount === 1 ? '' : 's'}`
               : 'not read'
           }
         />
@@ -345,7 +346,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                 <div className="min-w-0">
                   <p className="font-medium text-ink">{m.label}</p>
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    {m.order_count} order{m.order_count === 1 ? '' : 's'}
+                    {formatCount(m.order_count)} order{m.order_count === 1 ? '' : 's'}
                   </p>
                 </div>
                 <p className="font-mono text-sm font-semibold text-ink">
@@ -487,7 +488,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         <div className="flex items-center justify-end">
           {totalPages > 1 ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Page {page} / {totalPages}
+              Page {formatCount(page)} / {formatCount(totalPages)}
             </p>
           ) : null}
         </div>

@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * HOW A CELEBRATION'S CREDITS ARE DIVIDED — one rule, one reader.
  *
@@ -472,7 +473,7 @@ export function summariseAllotments(i: SplitInputs): string {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   if (split.overCommitted) {
-    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests' limits add up to ${split.namedTotal - i.pot} credits more than this celebration holds, so they cannot all take their full amount`;
+    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests' limits add up to ${formatCount(split.namedTotal - i.pot)} credits more than this celebration holds, so they cannot all take their full amount`;
   }
 
   // Sponsors get their own clause, so the couple can see a ninong's bigger

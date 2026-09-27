@@ -36,6 +36,7 @@ import {
 } from '@/lib/event-types-mutations';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
+import { formatCount } from '@/lib/format-number';
 
 const BASE = '/admin/taxonomy';
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
@@ -722,7 +723,7 @@ export async function setFolderEventTypes(formData: FormData) {
   redirectBack(
     formData,
     'ok',
-    `Applied to ${tileIds.length} tiles (${changedIds.length} changed${prevScopedCount ? `, ${prevScopedCount} previously had their own scope` : ''}).`,
+    `Applied to ${tileIds.length} tiles (${changedIds.length} changed${prevScopedCount ? `, ${formatCount(prevScopedCount)} previously had their own scope` : ''}).`,
   );
 }
 
@@ -836,7 +837,7 @@ export async function deleteTaxonomyNode(formData: FormData) {
     .select('canonical_service', { count: 'exact', head: true })
     .eq('tile_id', id);
   if ((mappedCount ?? 0) > 0) {
-    redirectBack(formData, 'error', `${mappedCount} service(s) still mapped here — re-map them first.`);
+    redirectBack(formData, 'error', `${formatCount(mappedCount)} service(s) still mapped here — re-map them first.`);
   }
   const { error } = await admin.from('service_categories').delete().eq('id', id);
   if (error) redirectBack(formData, 'error', error.message);
@@ -1494,7 +1495,7 @@ export async function moveTileToFolder(
   revalidatePath('/explore');
   return {
     ok: true,
-    message: repointCount > 0 ? `Moved — ${repointCount} service(s) re-pointed.` : 'Moved.',
+    message: repointCount > 0 ? `Moved — ${formatCount(repointCount)} service(s) re-pointed.` : 'Moved.',
   };
 }
 
@@ -2839,6 +2840,6 @@ export async function mergeCanonicalService(
   revalidatePath('/explore');
   return {
     ok: true,
-    message: `"${labelOf(source)}" is now part of "${labelOf(dest)}" — ${totalMoved} record(s) moved. The old name still resolves.`,
+    message: `"${labelOf(source)}" is now part of "${labelOf(dest)}" — ${formatCount(totalMoved)} record(s) moved. The old name still resolves.`,
   };
 }

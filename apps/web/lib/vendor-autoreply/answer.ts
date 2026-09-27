@@ -14,6 +14,7 @@ import type {
   StoreService,
   VendorStoreSnapshot,
 } from './types';
+import { formatCount } from '@/lib/format-number';
 
 const PESO = '₱'; // ₱
 
@@ -59,7 +60,7 @@ function servicePriceLine(s: StoreService): string | null {
   if (s.startingPricePhp == null) return null;
   let line = `${serviceTitle(s)} starts at ${formatPhpApprox(s.startingPricePhp)}`;
   if (s.pricingBasis === 'per_pax' && s.perPaxPricePhp != null) {
-    line += ` (${formatPhpApprox(s.perPaxPricePhp)}/guest${s.minPax != null ? `, min ${s.minPax} pax` : ''})`;
+    line += ` (${formatPhpApprox(s.perPaxPricePhp)}/guest${s.minPax != null ? `, min ${formatCount(s.minPax)} pax` : ''})`;
   } else if (s.pricingBasis === 'per_hour' && s.hourBasePhp != null) {
     // Never invent a duration: only state the covered hours when the vendor set
     // minHours (else just the extra-hour rate, if any). No hardcoded "1 hr".
@@ -71,7 +72,7 @@ function servicePriceLine(s: StoreService): string | null {
       line += ` (+${formatPhpApprox(s.extraHourPhp)}/extra hr)`;
     }
   } else if (s.basePax != null) {
-    line += ` (up to ${s.basePax} pax)`;
+    line += ` (up to ${formatCount(s.basePax)} pax)`;
   }
   return line;
 }
@@ -142,7 +143,7 @@ function buildDiscount(store: VendorStoreSnapshot): string {
 
 function buildSocialProof(store: VendorStoreSnapshot): string | null {
   if (store.avgRating == null || (store.reviewCount ?? 0) <= 0) return null;
-  let s = `We're rated ${store.avgRating.toFixed(1)}★ from ${store.reviewCount} review${
+  let s = `We're rated ${store.avgRating.toFixed(1)}★ from ${formatCount(store.reviewCount)} review${
     store.reviewCount === 1 ? '' : 's'
   }.`;
   const recent = store.reviews.find((r) => r.body && r.body.trim().length > 0);

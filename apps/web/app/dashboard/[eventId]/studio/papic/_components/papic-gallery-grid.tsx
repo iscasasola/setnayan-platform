@@ -16,6 +16,7 @@ import { saveMediaToDevice } from '@/lib/save-to-device';
 import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreserved } from '../actions';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { formatCount } from '@/lib/format-number';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -530,13 +531,13 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
         become smaller copies unless you choose to keep them.{' '}
         {nonePicked ? (
           <>Tap a photo to choose it. A photo is one credit; a 10-second video is{' '}
-          {PAPIC_POINTS_PER_SNIPPET}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
+          {formatCount(PAPIC_POINTS_PER_SNIPPET)}, and {PRESERVATION_BLOCK_POINTS.toLocaleString('en-PH')}{' '}
           credits&rsquo; worth is {formatPhp(PRESERVATION_BLOCK_PHP)} a year.</>
         ) : (
           <>
             Keeping what you have chosen would be {formatPhp(annualPhp)} a year
             {blocks > 1 ? ` (${blocks} × ${formatPhp(PRESERVATION_BLOCK_PHP)})` : ''}. A photo is
-            one credit; a 10-second video is {PAPIC_POINTS_PER_SNIPPET}.
+            one credit; a 10-second video is {formatCount(PAPIC_POINTS_PER_SNIPPET)}.
           </>
         )}{' '}
         Nothing is ever deleted — anything you don&rsquo;t choose stays in your gallery, only

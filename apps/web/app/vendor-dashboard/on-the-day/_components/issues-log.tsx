@@ -31,6 +31,7 @@ import type { DayRequestRow } from '@/lib/day-requests';
 import { getDayRequestsView } from '../actions';
 import { RequestsInbox } from './requests-inbox';
 import { shopEmptyInlineClass } from '../../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 type Issue = { id: string; text: string; resolved: boolean; at: number };
 
@@ -134,7 +135,7 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
           log
         </h3>
         <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {openCount} open
+          {formatCount(openCount)} open
         </span>
       </div>
       <p className="mt-2 text-sm text-ink/65">

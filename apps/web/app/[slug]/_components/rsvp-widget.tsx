@@ -15,6 +15,7 @@ import { TERMS_FIELD } from '@/lib/terms-agreement';
 import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import Link from 'next/link';
+import { formatCount } from '@/lib/format-number';
 
 export function RsvpWidget({
   guest,
@@ -802,7 +803,7 @@ function RsvpFocusForm({
           </div>
         ) : null}
         <p className="font-serif text-xl text-ink">
-          {count === 1 ? 'One more thing' : count === 2 ? 'Two more things' : `${count} more things`}
+          {count === 1 ? 'One more thing' : count === 2 ? 'Two more things' : `${formatCount(count)} more things`}
         </p>
         {carried(false)}
         {askMeal ? (

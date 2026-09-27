@@ -12,6 +12,7 @@ import {
   type CardFormat,
 } from '@/lib/social/card';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * GET /api/social/card/[postId] — the branded social card for a social_posts
@@ -130,7 +131,7 @@ async function eventRecapContext(
   if (!card) {
     return { sourceType: 'announcement', title: post.title, body: post.body };
   }
-  const bits = [`${card.stats.photos} ${card.stats.photos === 1 ? 'photo' : 'photos'}`];
+  const bits = [`${formatCount(card.stats.photos)} ${card.stats.photos === 1 ? 'photo' : 'photos'}`];
   if (card.stats.voices > 0) {
     bits.push(`${card.stats.voices} ${card.stats.voices === 1 ? 'voice' : 'voices'}`);
   }

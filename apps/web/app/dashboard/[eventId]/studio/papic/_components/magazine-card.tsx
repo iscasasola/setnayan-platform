@@ -1,6 +1,7 @@
 import { BookHeart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Kwento Magazine — Variant A card (0012 § Kwento Magazine): the FREE,
@@ -53,7 +54,7 @@ export async function MagazineCard({ eventId }: { eventId: string }) {
         Kwento Magazine
       </h2>
       <p className="mt-1 text-sm text-ink/60">
-        Your day as a keepsake magazine — {photos} {photos === 1 ? 'photo' : 'photos'}
+        Your day as a keepsake magazine — {formatCount(photos)} {photos === 1 ? 'photo' : 'photos'}
         {kwentos ? ` and ${kwentos} ${kwentos === 1 ? 'kwento' : 'kwentos'} from your guests` : ''},
         in the order it all happened. Free, just for the two of you.
       </p>

@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * guest-count-provenance.ts — every guest count on a supplier's screen says
  * WHICH guest count it is.
@@ -79,7 +80,7 @@ export type GuestCountReading = {
  * money against.
  */
 function withUnit(count: number, unit: GuestCountUnit, approximate: boolean): string {
-  return `${approximate ? '~' : ''}${count} ${unit}`;
+  return `${approximate ? '~' : ''}${formatCount(count)} ${unit}`;
 }
 
 /**

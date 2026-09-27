@@ -25,6 +25,7 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { detailsFactOfScene, sceneBoundText } from '@/lib/details-bound';
 import { loveStoryScenes } from '@/lib/love-story-moments';
 import type { PostEventMakerRead } from '@/lib/post-event-scenes';
+import { formatCount } from '@/lib/format-number';
 
 export type SceneMini = {
   eyebrow?: string;
@@ -98,7 +99,7 @@ export function buildMakerNavigatorData(input: {
   minis['f:entourage'] = {
     eyebrow: 'Standing with us',
     title: 'The entourage',
-    line: facts.entourageCount && facts.entourageCount > 0 ? `${facts.entourageCount} with a role` : undefined,
+    line: facts.entourageCount && facts.entourageCount > 0 ? `${formatCount(facts.entourageCount)} with a role` : undefined,
   };
   minis['f:story'] = { eyebrow: 'Our story', title: 'How it began', line: undefined };
 

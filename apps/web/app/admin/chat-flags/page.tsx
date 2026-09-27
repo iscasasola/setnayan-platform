@@ -7,6 +7,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { resolveChatFlag } from './actions';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Chat contact flags · Admin' };
 export const dynamic = 'force-dynamic';
@@ -170,7 +171,7 @@ export default async function AdminChatFlagsPage({
             }`}
           >
             {f.label}
-            {f.value === 'open' && openCount > 0 ? ` · ${openCount}` : ''}
+            {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
           </a>
         ))}
       </div>
@@ -216,7 +217,7 @@ export default async function AdminChatFlagsPage({
 
                 <p className="text-sm text-ink/80">
                   <span className="font-medium">{who}</span> was blocked from sharing{' '}
-                  {(r.hit_count ?? 0) > 1 ? `${r.hit_count} pieces of ` : ''}off-platform
+                  {(r.hit_count ?? 0) > 1 ? `${formatCount(r.hit_count)} pieces of ` : ''}off-platform
                   contact info
                   {vn ? (
                     <>

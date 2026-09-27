@@ -73,6 +73,7 @@ export {
   eventSearchTerms,
 } from '@/lib/event-vocabulary';
 import { eventSearchTerms, eventTypeBadge, parseEventDate } from '@/lib/event-vocabulary';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Short "Mon D" date matching the mockup (tz-safe, date-only).
@@ -214,7 +215,7 @@ export const resolveCommandItems = cache(
             label: c.name,
             sublabel:
               c.role === 'organizer'
-                ? `Organizer · ${c.member_count} ${c.member_count === 1 ? 'member' : 'members'}`
+                ? `Organizer · ${formatCount(c.member_count)} ${c.member_count === 1 ? 'member' : 'members'}`
                 : 'Member',
             href: `/dashboard/samahan/${c.community_id}`,
             kind: 'space',

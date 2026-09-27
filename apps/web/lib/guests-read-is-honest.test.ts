@@ -168,11 +168,11 @@ test('every claim on the page is gated on that measurement', () => {
   // 2 · the headcount (precedent rule 3)
   assert.match(
     src,
-    /guestsMeasured \? \(\s*<>\s*<span className="font-mono">\{stats\.total\}/,
+    /guestsMeasured \? \(\s*<>\s*<span className="font-mono">\{formatCount\(stats\.total\)\}/,
     'the masthead headcount must be gated',
   );
   // 3 · the confirmations meter — in its own component now, fed by the page
-  assert.match(meters(), /measured \? \(\s*<>\s*\{responded\} of \{stats\.total\}/, 'the RSVP figure must be gated');
+  assert.match(meters(), /measured \? \(\s*<>\s*\{formatCount\(responded\)\} of \{formatCount\(stats\.total\)\}/, 'the RSVP figure must be gated');
   assert.match(meters(), /: 'Responses could not be loaded'/, 'including for screen readers');
   assert.match(
     src,
@@ -194,7 +194,7 @@ test('the phone summary states no figure it did not measure', () => {
       'utf8',
     ),
   );
-  assert.match(src, /measured \? \(\s*<>\s*\{total\}/, 'the headline count must be gated');
+  assert.match(src, /measured \? \(\s*<>\s*\{formatCount\(total\)\}/, 'the headline count must be gated');
   const pills = src.match(/\{measured \? \w+ : '—'\}/g) ?? [];
   assert.equal(pills.length, 3, 'all three RSVP pills — attending, pending, declined');
 });

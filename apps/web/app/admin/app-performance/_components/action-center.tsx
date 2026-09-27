@@ -8,6 +8,7 @@ import {
 } from '@/lib/admin/queue-counts';
 
 import { StatusPill } from './charts';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Action Center — Zone 1 of the App Performance cockpit ("what to do next";
@@ -117,7 +118,7 @@ export async function ActionCenterZone() {
         <p className="text-xs text-ink/55">
           {acting > 0 || watching > 0
             ? `${acting} overdue · ${watching} due soon · ${clear.length} queues clear`
-            : `Nothing overdue — ${clear.length} of ${cards.length} queues clear.`}{' '}
+            : `Nothing overdue — ${formatCount(clear.length)} of ${formatCount(cards.length)} queues clear.`}{' '}
           Counts come from the same digest as the Work command center.
         </p>
       </header>
@@ -142,7 +143,7 @@ export async function ActionCenterZone() {
                       data-countup=""
                       style={{ color: style.dot }}
                     >
-                      {c.row.count ?? '—'}
+                      {formatCount(c.row.count)}
                     </span>
                   </div>
                   <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>

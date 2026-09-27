@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * THE DESK — one queue over four sources (08 step 1.2 · design `02` §2).
  *
@@ -140,7 +141,7 @@ export function setHoldSentence(acceptable: number, held: number): string {
   const which = held === 1 ? 'One' : `${held}`;
   const shows = held === 1 ? 'shows' : 'show';
   return (
-    `${which} of the ${total} ${shows} a guest who opted out of photos. ` +
+    `${which} of the ${formatCount(total)} ${shows} a guest who opted out of photos. ` +
     `That ${held === 1 ? 'one is' : 'those are'} already held back — you cannot ` +
     `accept ${held === 1 ? 'it' : 'them'}, and ${held === 1 ? 'it is' : 'they are'} ` +
     'not counted above.'

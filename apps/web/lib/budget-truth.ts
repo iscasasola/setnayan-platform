@@ -98,6 +98,7 @@ import {
 } from './setnayan-ai-triggers';
 import { PLAN_GROUPS } from './wedding-plan-groups';
 import type { EventVendorRow, VendorCategory } from './vendors';
+import { formatCentavosPhp, formatPhp } from './php';
 
 // ── Public shape ─────────────────────────────────────────────────────────────
 
@@ -1568,9 +1569,9 @@ export function checkMoneyInvariant(money: EventMoney): string | null {
   const rhs = Math.round((money.paid + money.stillOwed) * 100);
   if (lhs === rhs) return null;
   return (
-    `Budget totals do not reconcile: committed ₱${money.committed} + overpaid ` +
-    `₱${money.overpaid} ≠ paid ₱${money.paid} + still owed ₱${money.stillOwed} ` +
-    `(off by ₱${Math.abs(lhs - rhs) / 100}).`
+    `Budget totals do not reconcile: committed ${formatPhp(money.committed)} + overpaid ` +
+    `${formatPhp(money.overpaid)} ≠ paid ${formatPhp(money.paid)} + still owed ${formatPhp(money.stillOwed)} ` +
+    `(off by ${formatCentavosPhp(Math.abs(lhs - rhs))}).`
   );
 }
 

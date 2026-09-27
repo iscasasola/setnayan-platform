@@ -11,6 +11,7 @@ import {
 } from '@/lib/papic-drive';
 import { readR2Object, uploadFileToDrive } from '@/lib/drive-upload';
 import { emitNotification } from '@/lib/notification-emit';
+import { formatCount } from '@/lib/format-number';
 
 // 0009 Photo Delivery — release + tick business logic.
 //
@@ -446,7 +447,7 @@ async function fanOutFinalizationNotice(input: {
     const total = (jobRow.total_files as number) ?? uploaded;
     const title = 'Photos delivered to your Google Drive';
     const body =
-      `${uploaded} of ${total} photo${total === 1 ? '' : 's'} uploaded to ` +
+      `${formatCount(uploaded)} of ${formatCount(total)} photo${total === 1 ? '' : 's'} uploaded to ` +
       (folderName ? `“${folderName}” in ` : '') +
       `your Drive. Open the panel to see the folder link or push a re-delivery if more photos come in.`;
     for (const userId of recipients) {
@@ -461,7 +462,7 @@ async function fanOutFinalizationNotice(input: {
   } else {
     const title = 'Photo delivery hit a snag';
     const body =
-      `${input.failedCount} photo${input.failedCount === 1 ? '' : 's'} couldn’t be uploaded for ${displayName} after 5 retries. ` +
+      `${formatCount(input.failedCount)} photo${input.failedCount === 1 ? '' : 's'} couldn’t be uploaded for ${displayName} after 5 retries. ` +
       `Open the panel to review the failures, redeliver, or disconnect and reconnect Drive.`;
     for (const userId of recipients) {
       await emitNotification({

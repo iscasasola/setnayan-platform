@@ -47,6 +47,7 @@ import {
 } from '../actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SamahanIdentityHeader } from './_components/samahan-identity-header';
+import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
   title: 'Samahan',
@@ -180,7 +181,7 @@ export default async function SamahanSpacePage({
                 count was refused, say nothing rather than a figure. */}
             {community.member_count_measured === false
               ? 'Members not loaded'
-              : `${community.member_count} ${community.member_count === 1 ? 'member' : 'members'}`}{' '}
+              : `${formatCount(community.member_count)} ${community.member_count === 1 ? 'member' : 'members'}`}{' '}
             · {events.length}{' '}
             {events.length === 1 ? 'event' : 'events'}
           </p>
@@ -308,13 +309,13 @@ function OverviewTab({
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
               Members
             </p>
-            <p className="mt-1 font-mono text-2xl text-ink">{memberCount}</p>
+            <p className="mt-1 font-mono text-2xl text-ink">{formatCount(memberCount)}</p>
           </div>
           <div className="rounded-xl border border-ink/10 bg-cream p-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
               Events
             </p>
-            <p className="mt-1 font-mono text-2xl text-ink">{eventCount}</p>
+            <p className="mt-1 font-mono text-2xl text-ink">{formatCount(eventCount)}</p>
           </div>
         </div>
         {/* Shipped 2026-08-24 — the note this replaced said "coming soon"

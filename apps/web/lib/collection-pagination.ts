@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * THE COLLECTION TEMPLATE'S PAGES — ten to a page, and the pager that says so.
  *
@@ -106,7 +107,7 @@ export function paginateCollection(
     total: safeTotal,
     from,
     to,
-    rangeLabel: safeTotal === 0 ? '' : `${from + 1}–${to} of ${safeTotal}`,
+    rangeLabel: safeTotal === 0 ? '' : `${formatCount(from + 1)}–${formatCount(to)} of ${formatCount(safeTotal)}`,
     showPager,
     hasRoomForNewTile: to - from < perPage,
     stops,

@@ -18,6 +18,7 @@ import {
   type SupplyCategoryKey,
   type SupplyProduct,
 } from '../_data/products';
+import { formatCount } from '@/lib/format-number';
 
 // Client-side scaffold for the Supplies Marketplace browse + cart UX.
 //
@@ -192,12 +193,12 @@ export function SuppliesMarketplaceBrowser({ recommended }: Props) {
           type="button"
           onClick={() => setDrawerOpen(true)}
           className="fixed bottom-20 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-medium text-cream shadow-lg shadow-mulberry/30 transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry lg:bottom-6"
-          aria-label={`Open cart with ${cartCount} item${cartCount === 1 ? '' : 's'}`}
+          aria-label={`Open cart with ${formatCount(cartCount)} item${cartCount === 1 ? '' : 's'}`}
         >
           <ShoppingCart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           <span>Cart</span>
           <span className="rounded-full bg-cream/25 px-2 py-0.5 font-mono text-[10px] tracking-wider">
-            {cartCount}
+            {formatCount(cartCount)}
           </span>
           <span aria-hidden className="font-mono text-[11px] opacity-90">
             {formatPhp(subtotal)}

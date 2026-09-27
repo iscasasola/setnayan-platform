@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, CameraOff, Check, Gift, Search, Undo2 } from 'lucide-react';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { markSouvenirReceived, undoSouvenirReceived } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 // Souvenir-table desk (owner 2026-06-28). Same scan-or-search → confirm flow as
 // the check-in desk, pointed at guest_souvenir_claims: staff scan a guest's
@@ -227,7 +228,7 @@ export function SouvenirDesk({
           Souvenirs given
         </p>
         <p className="font-mono text-sm tabular-nums text-ink/70">
-          {received} <span className="text-ink/40">/ {total}</span>
+          {received} <span className="text-ink/40">/ {formatCount(total)}</span>
         </p>
       </div>
 

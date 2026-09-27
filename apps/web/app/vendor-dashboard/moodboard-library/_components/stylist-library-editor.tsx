@@ -54,6 +54,7 @@ import {
 } from '@/lib/moodboard-gallery-pure';
 import { ShopNotice } from '../../_components/kit';
 import { RejectionNotice } from './rejection-notice';
+import { formatCount } from '@/lib/format-number';
 
 export type StylistAsset = {
   asset_id: string;
@@ -409,7 +410,7 @@ export function StylistLibraryEditor({
               <p className="text-[11px] text-ink/55">
                 {backCatalogueCap === 0
                   ? `You can add ${uploadSlotLabel} photos from celebrations you were booked on, but not from your back catalogue. Those never count against any category.`
-                  : `${uploadSlotLabel} back-catalogue photos: ${usedInSelectedSlot} of ${backCatalogueCap} used. Photos from celebrations you were booked on never count, and this cap is per category — your other shelves have their own room.`}
+                  : `${uploadSlotLabel} back-catalogue photos: ${formatCount(usedInSelectedSlot)} of ${formatCount(backCatalogueCap)} used. Photos from celebrations you were booked on never count, and this cap is per category — your other shelves have their own room.`}
               </p>
             ) : null}
 

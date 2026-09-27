@@ -25,6 +25,7 @@ import { Gem, MapPin, Sparkles, BadgeCheck } from 'lucide-react';
 import { formatPhpRounded } from '@/lib/php';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { shopInitials } from '@/lib/shop-initials';
+import { formatCount } from '@/lib/format-number';
 
 /** One display-safe vendor row. Money/rating are display fields; no PII, no
  *  contact, no ids beyond the opaque vendor key (unused on the client). */
@@ -137,10 +138,10 @@ function VendorCard({ v, aiOn }: { v: TourVendor; aiOn: boolean }) {
             <div className="whyline">{why.join(' · ')}</div>
           ) : null}
           {stars ? (
-            <div className="stars" aria-label={`${v.rating} stars`}>
+            <div className="stars" aria-label={`${formatCount(v.rating)} stars`}>
               {stars}
               <span style={{ color: 'rgba(30,26,18,.18)' }}>{starsEmpty}</span>
-              {v.reviewCount !== null ? <span className="rcount">{v.reviewCount}</span> : null}
+              {v.reviewCount !== null ? <span className="rcount">{formatCount(v.reviewCount)}</span> : null}
             </div>
           ) : v.reviewCount !== null ? (
             // 0 reviews — "New", never a fake 0.0 (owner ruling 2026-09-11).
@@ -203,7 +204,7 @@ export function TourShortlist({
         <span className="flex items-center gap-2 text-sm text-[#5F5E5A]">
           <Gem className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} aria-hidden />
           {aiOn
-            ? `Setnayan AI ranked ${vendorCount} vendors by fit`
+            ? `Setnayan AI ranked ${formatCount(vendorCount)} vendors by fit`
             : 'Setnayan AI is off — showing a plain search'}
         </span>
         <button

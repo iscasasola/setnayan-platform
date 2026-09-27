@@ -13,6 +13,7 @@ import { CHANNEL_HEARTBEAT_MS, cameraSlotForIndex } from '@/lib/live-studio-chan
 import { publishGuestFanout, type GuestFanout } from '@/lib/panood-guest-webrtc';
 import { GUEST_PICK_MAX_VIEWERS_PER_CAMERA } from '@/lib/live-studio-guest-pick';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { formatCount } from '@/lib/format-number';
 
 // Live Studio · camera-operator local preview (PR5 — join + local preview only).
 //
@@ -348,7 +349,7 @@ export function PanoodCameraPublish({
             "0 watching" would just be noise for an operator with a job to do. */}
         {guestViewers > 0 ? (
           <p className="mt-2 px-1 text-[11px] text-cream/55">
-            {guestViewers} of {GUEST_PICK_MAX_VIEWERS_PER_CAMERA} guests watching your
+            {formatCount(guestViewers)} of {formatCount(GUEST_PICK_MAX_VIEWERS_PER_CAMERA)} guests watching your
             camera.
           </p>
         ) : null}

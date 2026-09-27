@@ -24,6 +24,7 @@ import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SaveVendorButton } from '../_components/save-vendor-button';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
@@ -555,7 +556,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                         </span>
                         {rating > 0 ? (
                           <span className="text-ink/45">
-                            ({count} {count === 1 ? 'review' : 'reviews'})
+                            ({formatCount(count)} {count === 1 ? 'review' : 'reviews'})
                           </span>
                         ) : null}
                       </span>

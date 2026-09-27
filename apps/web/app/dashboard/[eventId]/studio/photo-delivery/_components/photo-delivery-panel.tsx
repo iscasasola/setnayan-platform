@@ -19,6 +19,7 @@ import {
   DriveReconnectBanner,
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatCount } from '@/lib/format-number';
 
 // 0009 Photo Delivery panel — wired to real OAuth + release flow.
 //
@@ -480,7 +481,7 @@ function ConnectedState({
             </div>
             <p className="text-sm text-ink/75">
               {failedCount > 0
-                ? `${failedCount} file${failedCount === 1 ? '' : 's'} couldn't make it after several retries. `
+                ? `${formatCount(failedCount)} file${failedCount === 1 ? '' : 's'} couldn't make it after several retries. `
                 : ''}
               Setnayan still has your photos safely in R2 — retry whenever you&rsquo;re ready.
             </p>
@@ -547,7 +548,7 @@ function formatCompletedAt(iso: string): string {
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-  if (bytes >= 1_000_000) return `${Math.round(bytes / 1_000_000)} MB`;
-  return `${Math.round(bytes / 1_000)} KB`;
+  if (bytes >= 1_000_000_000) return `${formatCount(bytes / 1_000_000_000, 1)} GB`;
+  if (bytes >= 1_000_000) return `${formatCount(Math.round(bytes / 1_000_000))} MB`;
+  return `${formatCount(Math.round(bytes / 1_000))} KB`;
 }

@@ -5,6 +5,7 @@ import { fetchTables, fetchAssignments, type EventTableRow } from '@/lib/seating
 import { guestDisplayName } from '@/lib/guests';
 import { DEFAULT_ENTRANCE } from '@/lib/indoor-blueprint';
 import { FindYourSeat, type TourSeat } from './_components/find-your-seat';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /tour/seating — Stop 3 of the public Maria & Jose tour: "Every guest finds their table."
@@ -125,8 +126,8 @@ export default async function TourSeatingPage() {
           {bride} & {groom} arranged{' '}
           {tableCount > 0 ? (
             <>
-              <span className="font-medium text-[#1B1A17]">{tableCount} tables</span> for{' '}
-              <span className="font-medium text-[#1B1A17]">{seatedCount} guests</span>
+              <span className="font-medium text-[#1B1A17]">{formatCount(tableCount)} tables</span> for{' '}
+              <span className="font-medium text-[#1B1A17]">{formatCount(seatedCount)} guests</span>
             </>
           ) : (
             'their reception floor'

@@ -27,6 +27,7 @@ import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 // Papic · Your photo crew (couple-side seat management)
 //
@@ -269,7 +270,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
         {seats.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm text-ink/55">
-              {claimedCount} of {seats.length} cameras claimed.
+              {formatCount(claimedCount)} of {formatCount(seats.length)} cameras claimed.
             </p>
             <Link
               href={`${backLink}/crew/print`}

@@ -20,6 +20,7 @@ import {
   describeDestinationChange,
   type PaymentDestinationField,
 } from '@/lib/payment-destination';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Admin settings server actions — V2 publisher posture, split flows.
@@ -753,7 +754,7 @@ export async function uploadBrandIcon(formData: FormData) {
   const upload = file as File;
   if (upload.size > 6 * 1024 * 1024) {
     settingsError(
-      `Image is ${(upload.size / 1024 / 1024).toFixed(1)} MB — max is 6 MB.`,
+      `Image is ${formatCount(upload.size / 1024 / 1024, 1)} MB — max is 6 MB.`,
     );
   }
 

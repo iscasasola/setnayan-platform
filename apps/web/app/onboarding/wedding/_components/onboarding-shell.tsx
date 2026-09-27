@@ -110,6 +110,7 @@ import { WelcomeMoments } from './welcome-moments';
 import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
+import { formatCount } from '@/lib/format-number';
 
 /* ── string-id navigation model (replaces integer-step `step === N` addressing) ──
  * The 17 screens are addressed by a stable string id. The two forks that used to
@@ -671,7 +672,7 @@ function RefineStep({
       <div className="viewzone">
         {hideProgress ? null : (
           <div className="prefprog">
-            <span className="prefcount">Service {idx + 1} of {queue.length} · {leafData.label}</span>
+            <span className="prefcount">Service {formatCount(idx + 1)} of {formatCount(queue.length)} · {leafData.label}</span>
             <span className="prefdots">{queue.map((_, d) => <i key={d} className={d <= idx ? 'on' : ''} />)}</span>
           </div>
         )}
@@ -1175,7 +1176,7 @@ function CountUp({ value, prefix = '', suffix = '', active }: { value: number; p
   return (
     <b>
       {prefix}
-      {disp.toLocaleString('en-US')}
+      {formatCount(disp)}
       {suffix}
     </b>
   );
@@ -2396,7 +2397,7 @@ export function OnboardingShell({
     return 'To be set';
   })();
   const recapWhere = REGLABEL[state.region ?? 'ncr'] ?? 'Philippines';
-  const recapGuests = state.pax != null ? String(state.pax) : '—';
+  const recapGuests = state.pax != null ? formatCount(state.pax) : '—';
   /* live per-couple savings — replaces the hardcoded demo strip (owner 2026-06-02) */
   const savings = computeOnboardingSavings(state, new Date());
 
@@ -3662,7 +3663,7 @@ export function OnboardingShell({
                 <figcaption className="budgetcap">
                   {budgetSet ? (
                     <>
-                      <span className="budgetcaptag">{budgetView.label} budget · {pax} pax</span>
+                      <span className="budgetcaptag">{budgetView.label} budget · {formatCount(pax)} pax</span>
                       <span className="budgetcapsub">{budgetView.tag}</span>
                       <span className="budgetcaprange">{budgetView.rangeText}</span>
                     </>
@@ -4218,7 +4219,7 @@ export function OnboardingShell({
                       <div className="vmeta">
                         {hasRating && (
                           <>
-                            <span className="stars">{starStr(v.rating!)}</span> {v.rating!.toFixed(1)} ({v.reviewCount})
+                            <span className="stars">{starStr(v.rating!)}</span> {v.rating!.toFixed(1)} ({formatCount(v.reviewCount)})
                             {v.city ? ' · ' : ''}
                           </>
                         )}
@@ -4410,7 +4411,7 @@ export function OnboardingShell({
                     <span className="dash-shbtn">Show {bloomPartnerName} &#128141;</span>
                     <span className="dash-shbtn">your page <span className="lnk">setnayan.com/{coupleSlug}</span></span>
                   </div>
-                  <div className="dash-guests">{state.pax != null ? `${state.pax} guests` : 'Your guests'} will see this page</div>
+                  <div className="dash-guests">{state.pax != null ? `${formatCount(state.pax)} guests` : 'Your guests'} will see this page</div>
                 </div>
                 </div>
               </div>

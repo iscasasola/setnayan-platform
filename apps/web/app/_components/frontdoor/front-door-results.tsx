@@ -51,6 +51,7 @@ import { searchReads } from '@/lib/site-search';
 import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data';
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 import { shopInitials } from '@/lib/shop-initials';
+import { formatCount } from '@/lib/format-number';
 
 /** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
  * used for `item.label` (the searcher's own event/space) below — that call
@@ -231,7 +232,7 @@ export async function FrontDoorResults({
         <span className="fd-meta">
           {total === 0
             ? 'nothing here yet'
-            : `${total} ${total === 1 ? 'thing' : 'things'}`}
+            : `${formatCount(total)} ${total === 1 ? 'thing' : 'things'}`}
         </span>
         {/*
           THE WAY BACK IS PART OF THE RESULTS, not something to find. A search

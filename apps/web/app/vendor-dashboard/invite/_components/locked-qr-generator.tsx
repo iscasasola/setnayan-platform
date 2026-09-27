@@ -7,6 +7,7 @@ import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockScheduleRow } from '@/lib/vendor-locked-qr';
 import { issueLockedQr } from '../actions';
 import { resolveVendorDateStatus } from '../date-status-actions';
+import { formatCount } from '@/lib/format-number';
 
 type Opt = { value: string; label: string };
 type Row = {
@@ -388,7 +389,7 @@ export function LockedQrGenerator({
                     <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
                       <span>
-                        {dateStatus.waitlistCount} couple
+                        {formatCount(dateStatus.waitlistCount)} couple
                         {dateStatus.waitlistCount === 1 ? '' : 's'} waitlisted for this date.
                       </span>
                     </p>

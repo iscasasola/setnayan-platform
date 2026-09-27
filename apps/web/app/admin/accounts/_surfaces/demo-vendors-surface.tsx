@@ -10,6 +10,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The three scan ceilings, named once each.
@@ -532,7 +533,7 @@ export async function DemoVendorsSurface() {
                   <MapPin aria-hidden className="h-3.5 w-3.5 text-ink/70" />
                   {city}
                 </span>
-                <span className="font-mono text-sm tabular-nums">{count}</span>
+                <span className="font-mono text-sm tabular-nums">{formatCount(count)}</span>
               </div>
             ))}
           </div>

@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { presignUploadUrl } from '@/lib/uploads';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Creator Adventure-Chapter TEASER — presigned-PUT endpoint.
@@ -72,9 +73,9 @@ export async function POST(req: NextRequest) {
   }
   if (sizeBytes > TEASER_MAX_BYTES) {
     return bad(
-      `file too large: ${sizeBytes} bytes exceeds the ${Math.round(
+      `file too large: ${formatCount(sizeBytes)} bytes exceeds the ${formatCount(Math.round(
         TEASER_MAX_BYTES / 1024 / 1024,
-      )} MB teaser cap`,
+      ))} MB teaser cap`,
       413,
     );
   }

@@ -3,6 +3,7 @@
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
 import { groupOverrides, type GroupAttireMap } from '@/lib/role-group-dress-code';
 import type { RoleGroup } from '@/lib/role-groups';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ONE LINE FOR A WHOLE GROUP — the coarse tier above `RoleAttireField`.
@@ -78,7 +79,7 @@ export function GroupAttireField({
                 {label}
                 <span className="ml-2 text-ink/45">
                   {people} {people === 1 ? 'person' : 'people'}
-                  {roleCount > 1 ? ` · ${roleCount} roles` : ''}
+                  {roleCount > 1 ? ` · ${formatCount(roleCount)} roles` : ''}
                 </span>
               </span>
               <label htmlFor={`group-style-${group}`} className="sr-only">

@@ -14,6 +14,7 @@ import {
   previewFamilySave,
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
+import { formatCount } from '@/lib/format-number';
 
 export type PapicRungRow = {
   serviceCode: string;
@@ -172,7 +173,7 @@ export function PapicLadderEditor({
                           setAnchorPhp((p) => ({ ...p, [rung.shots]: e.target.value }))
                         }
                         className="input-field h-9 w-32 pl-6 text-right font-mono tabular-nums"
-                        aria-label={`Regular price for ${rung.shots} credits`}
+                        aria-label={`Regular price for ${formatCount(rung.shots)} credits`}
                       />
                     </span>
                   ) : (
@@ -248,7 +249,7 @@ export function PapicLadderEditor({
           <span className="text-[12.5px] text-ink/60">
             {changedCount === 0
               ? 'No price would change.'
-              : `${changedCount} of ${rows.length} prices would change.`}
+              : `${formatCount(changedCount)} of ${formatCount(rows.length)} prices would change.`}
           </span>
           {ladderState.message && (
             <span className={`text-xs ${ladderState.ok ? 'text-success-800' : 'text-danger-700'}`}>

@@ -54,6 +54,7 @@ import type {
 } from '@/lib/admin/queue-counts';
 
 import { adminRailMenus, activeAdminMenuKey } from './admin-sidebar';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The word under the icon at the 72px strip. The full label is often two words
@@ -160,7 +161,7 @@ function AdminRailRow({ menu, active }: { menu: NavItem; active: boolean }) {
           className={`fd-ct fd-mono font-semibold ${BADGE_TONE[menu.badge.tone]}`}
           aria-label={menu.badge.label}
         >
-          {menu.badge.count > 99 ? '99+' : menu.badge.count}
+          {menu.badge.count > 99 ? '99+' : formatCount(menu.badge.count)}
         </span>
       ) : null}
     </Link>

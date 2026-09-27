@@ -21,6 +21,7 @@ import {
 import { submitVendorEditorialMedia, deleteVendorEditorialMedia } from '../actions';
 import { MAX_PER_TYPE, type SubmitMediaItem } from '@/lib/editorial-vendor-media';
 import { ShopPill } from '../../../../_components/kit';
+import { formatCount } from '@/lib/format-number';
 
 export type ExistingMedia = {
   mediaId: string;
@@ -276,7 +277,7 @@ export function EditorialMediaStudio({
       <section className="sn-tile p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Add to the editorial</h2>
         <p className="mt-0.5 text-sm text-ink/60">
-          {photoRoom} photo{photoRoom === 1 ? '' : 's'} and {clipRoom} clip{clipRoom === 1 ? '' : 's'} left.
+          {formatCount(photoRoom)} photo{photoRoom === 1 ? '' : 's'} and {formatCount(clipRoom)} clip{clipRoom === 1 ? '' : 's'} left.
         </p>
 
         <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={onPickPhotos} />

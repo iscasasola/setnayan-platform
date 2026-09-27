@@ -33,6 +33,7 @@ import {
   parseOpenShopDraft,
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic";
@@ -409,7 +410,7 @@ export function OpenShopWizard({
           aria-valuemin={1}
           aria-valuemax={TOTAL_STEPS}
           aria-valuenow={step}
-          aria-label={`Step ${step} of ${TOTAL_STEPS}`}
+          aria-label={`Step ${formatCount(step)} of ${formatCount(TOTAL_STEPS)}`}
         >
           {([1, 2, 3, 4] as Step[]).map((n) => (
             <span

@@ -1,4 +1,5 @@
 import { formatPhp } from '@/lib/orders';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * Momentum mini-charts — the visual half of the "Momentum" card. Two pure,
@@ -61,7 +62,7 @@ export function BookingsBars({
       <div
         className="flex h-16 items-end gap-1"
         role="img"
-        aria-label={`Bookings per ${unitWord} for the last ${series.length} ${unitWord}s: ${total} total.`}
+        aria-label={`Bookings per ${unitWord} for the last ${series.length} ${unitWord}s: ${formatCount(total)} total.`}
       >
         {series.map((p, i) => {
           const isCurrent = i === series.length - 1;

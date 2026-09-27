@@ -36,6 +36,7 @@
  */
 
 import type { PaxProgress } from '@/lib/guests';
+import { formatCount } from '@/lib/format-number';
 
 export type MeterStats = {
   total: number;
@@ -75,8 +76,8 @@ export function RosterMeters({
         numbers={
           measured ? (
             <>
-              {responded} of {stats.total} · {repliedPct}%
-              {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-one${stats.plus_ones === 1 ? '' : 's'}` : ''}
+              {formatCount(responded)} of {formatCount(stats.total)} · {repliedPct}%
+              {stats.plus_ones > 0 ? ` · ${formatCount(stats.plus_ones)} plus-one${stats.plus_ones === 1 ? '' : 's'}` : ''}
             </>
           ) : (
             'not loaded'
@@ -84,7 +85,7 @@ export function RosterMeters({
         }
         ariaLabel={
           measured
-            ? `${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`
+            ? `${formatCount(responded)} of ${formatCount(stats.total)} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`
             : 'Responses could not be loaded'
         }
         segments={
@@ -111,10 +112,10 @@ function TargetMeter({ p }: { p: PaxProgress }) {
         accent
         numbers={
           <>
-            {p.headcount} guests · {p.overBy} over your {p.target} minimum
+            {formatCount(p.headcount)} guests · {p.overBy} over your {p.target} minimum
           </>
         }
-        ariaLabel={`Now planning for ${p.headcount} attending guests, ${p.overBy} over the ${p.target} minimum pax`}
+        ariaLabel={`Now planning for ${formatCount(p.headcount)} attending guests, ${p.overBy} over the ${p.target} minimum pax`}
         segments={[{ w: 100, cls: 'bg-terracotta-700' }]}
       />
     );
@@ -127,14 +128,14 @@ function TargetMeter({ p }: { p: PaxProgress }) {
       accent
       numbers={
         <>
-          {p.headcount} of {p.target} pax ·{' '}
+          {formatCount(p.headcount)} of {formatCount(p.target)} pax ·{' '}
           {p.overListed > 0 ? `${p.listed} listed, ${p.overListed} over` : `${p.listed} listed`}
         </>
       }
       // The unassigned pool lives in the sentence a screen reader hears and in
       // the tooltip — the one fact that is shown by the empty tail, not printed.
-      ariaLabel={`${p.headcount} attending of a ${p.target} minimum pax target, ${p.progressPct}%. ${p.listed} listed, ${
-        p.overListed > 0 ? `${p.overListed} over the target` : `${p.unassigned} seats still unassigned`
+      ariaLabel={`${formatCount(p.headcount)} attending of a ${p.target} minimum pax target, ${p.progressPct}%. ${p.listed} listed, ${
+        p.overListed > 0 ? `${p.overListed} over the target` : `${formatCount(p.unassigned)} seats still unassigned`
       }.`}
       title={p.overListed > 0 ? `${p.overListed} listed over your ${p.target}` : `${p.unassigned} still to invite`}
       segments={[

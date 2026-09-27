@@ -30,6 +30,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import type { VendorReviewPreview } from '@/lib/vendor-reviews-preview';
 import { formatStarRating } from '@/lib/reviews';
+import { formatCount } from '@/lib/format-number';
 
 type Props = {
   reviews: ReadonlyArray<VendorReviewPreview>;
@@ -86,7 +87,7 @@ export function ReviewCarousel({ reviews, vendorName }: Props) {
               aria-live="polite"
               className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50"
             >
-              {index + 1} / {total}
+              {formatCount(index + 1)} / {formatCount(total)}
             </span>
             <button
               type="button"

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { PAPIC_FREE_CAMERA_COUNT, papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ⚠ THE POINT WEIGHTS AND THE FREE-CAMERA ALLOWANCE ARE NOT IN THIS FILE — they
@@ -565,7 +566,7 @@ export function computeCameraQuote(
   const paidCount = PAPIC_RUNGS.reduce((s, r) => s + lines[r].count, 0);
 
   const parts = PAPIC_RUNGS.filter((r) => lines[r].count > 0).map(
-    (r) => `${lines[r].count} ${RUNG_LABEL[r]}`,
+    (r) => `${formatCount(lines[r].count)} ${RUNG_LABEL[r]}`,
   );
   const rungSummary = parts.join(' + ') || 'none';
   const description = `Papic cameras — ${rungSummary} · ${d} day${d > 1 ? 's' : ''}`;

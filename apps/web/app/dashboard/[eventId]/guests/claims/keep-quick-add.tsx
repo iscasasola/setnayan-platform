@@ -14,6 +14,7 @@
 import { useMemo, useState } from 'react';
 import { ROLE_LABELS, SIDE_LABELS, type GuestRole } from '@/lib/guests';
 import { readKeepLine } from '@/lib/unlisted-guests';
+import { formatCount } from '@/lib/format-number';
 
 export function KeepQuickAdd({
   defaultLine,
@@ -60,7 +61,7 @@ export function KeepQuickAdd({
                 {known.has(g.toLowerCase()) ? '' : ' · new group'}
               </Chip>
             ))}
-            {read.value.plusOnes > 0 ? <Chip>+{read.value.plusOnes} seats beside them</Chip> : null}
+            {read.value.plusOnes > 0 ? <Chip>+{formatCount(read.value.plusOnes)} seats beside them</Chip> : null}
           </>
         ) : (
           <span className="text-danger-800">{read.error}</span>

@@ -66,6 +66,7 @@ import {
   updateCoverageServesInPlace,
   type CoverageServesResult,
 } from '../coverage-actions';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -925,7 +926,7 @@ export function CanvasMaker({
           className="font-mono text-[10px] uppercase tracking-[0.12em]"
           style={{ color: 'var(--m-slate-3)' }}
         >
-          {passIndex + 1} of {firstPassSteps.length}
+          {formatCount(passIndex + 1)} of {formatCount(firstPassSteps.length)}
         </span>
         <button
           type="button"
@@ -1126,7 +1127,7 @@ export function CanvasMaker({
                   </span>
                 ) : null}
                 <span className="sr-only">
-                  {snap.photoCount} showcase photo{snap.photoCount === 1 ? '' : 's'}
+                  {formatCount(snap.photoCount)} showcase photo{snap.photoCount === 1 ? '' : 's'}
                   {snap.hasClip ? ` and a ${clipPillLabel(clipSeconds)} clip` : ''}
                 </span>
               </span>
@@ -1256,7 +1257,7 @@ export function CanvasMaker({
         {otherCategoriesShown.length > 0 ? (
           <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
             <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-              Comes with{snap.linkedCount > 0 ? ` · ${snap.linkedCount}` : ''}
+              Comes with{snap.linkedCount > 0 ? ` · ${formatCount(snap.linkedCount)}` : ''}
             </summary>
             <div className="space-y-1.5 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
               <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
@@ -1300,7 +1301,7 @@ export function CanvasMaker({
             }
           />
           {snap.linkedCount > 0 ? (
-            <Recap k="Comes with" v={`${snap.linkedCount} service${snap.linkedCount === 1 ? '' : 's'}`} />
+            <Recap k="Comes with" v={`${formatCount(snap.linkedCount)} service${snap.linkedCount === 1 ? '' : 's'}`} />
           ) : null}
         </dl>
 
@@ -2188,7 +2189,7 @@ function HealthHeader({
             className="min-h-[34px] shrink-0 px-1 text-xs font-medium"
             style={{ color: 'var(--m-slate-2)' }}
           >
-            {items.length} item{items.length === 1 ? '' : 's'} {open ? '▴' : '▾'}
+            {formatCount(items.length)} item{items.length === 1 ? '' : 's'} {open ? '▴' : '▾'}
           </button>
         ) : null}
       </div>

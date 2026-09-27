@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c05b6beee",
+  "generatedFromRef": "4e94fbbb8",
   "routeCount": 435,
-  "destinations": 947,
+  "destinations": 948,
   "actions": 669,
-  "blocks": 4831,
+  "blocks": 4861,
   "routes": {
     "/": {
       "files": [
@@ -878,6 +878,7 @@
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
+        "[slug]/_components/upload-your-qr.tsx",
         "[slug]/_components/vendor-doorway.tsx",
         "[slug]/_components/venue-widget.tsx",
         "[slug]/_components/watch-live-block.tsx",
@@ -902,6 +903,7 @@
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/plus-one-seats.server.ts",
+        "[slug]/_lib/preview-person.server.ts",
         "[slug]/_lib/previous-edition.server.ts",
         "[slug]/_lib/pro-site-vars.ts",
         "[slug]/_lib/reveal-props.ts",
@@ -1137,6 +1139,7 @@
         "PhotoMomentModeBadge",
         "PhotoMomentsWidget",
         "PhotosOfYouGallery",
+        "PreviewPerson",
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
@@ -1237,6 +1240,7 @@
         "TierComparisonWidget",
         "ToolTile",
         "UnnameResult",
+        "UploadYourQr",
         "VeilLook",
         "VeilReveal",
         "VendorCapability",
@@ -5640,6 +5644,7 @@
         "HTMLInputElement",
         "HTMLSpanElement",
         "Icon",
+        "InfoTip",
         "InlineEditor",
         "InlineResult",
         "InspectorColumn",
@@ -5789,6 +5794,7 @@
         "Link",
         "LinkCandidate",
         "LinkPicker",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -6044,7 +6050,6 @@
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/launch?tool=prints",
-        "/dashboard/[seg]/monogram?mode=upload",
         "/dashboard/[seg]/plan3d",
         "/marketplace"
       ],
@@ -6055,12 +6060,16 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "AddBtn",
+        "Chip",
         "ColourRow",
         "ComingNext",
         "CouldNotLoad",
         "DeviceButton",
         "DraftNote",
         "EventPoster",
+        "Face",
+        "Field",
         "FileUpload",
         "FineTune",
         "GridPageSkeleton",
@@ -6069,6 +6078,7 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLIFrameElement",
+        "HTMLInputElement",
         "HTMLSpanElement",
         "HubDraftDock",
         "HubDraftField",
@@ -6076,11 +6086,15 @@
         "HubSavesImmediately",
         "HubStage",
         "Icon",
+        "IconBtn",
         "IconButton",
         "InfoTip",
+        "KindIcon",
+        "LayerTools",
+        "LayeredLogoPlayer",
         "LifecyclePhase",
         "Link",
-        "LogoStudio",
+        "LogoLayer",
         "MadeOnce",
         "MakerBar",
         "MakerContext.Provider",
@@ -6090,9 +6104,11 @@
         "MakerLogoDoor",
         "MakerPage",
         "MakerPageFrame",
+        "MakerPageSwitch",
         "MakerPlayMenu",
         "MakerPrints",
         "MakerRevealPicker",
+        "MakerRsvpCanvas",
         "MakerRsvpSettings",
         "MakerSelection",
         "MakerShell",
@@ -6109,15 +6125,19 @@
         "PrintSaveButton",
         "Row",
         "RsvpAskConfig",
+        "SVGSVGElement",
         "SaveState",
         "Segmented",
+        "SheetHead",
         "SiteStage",
+        "Slider",
         "SlugField",
         "State",
         "Switch",
+        "SwitchRow",
         "Toggle",
-        "UploadedLogo",
-        "VectorStudio",
+        "TuneFold",
+        "TuneSlider",
         "ViewAsSwitch",
         "WebsiteEditorPage"
       ]
@@ -8320,6 +8340,7 @@
         "HubDraftToolbar",
         "InfoTip",
         "Link",
+        "MakerSaveStatus",
         "PaidMark",
         "ResultLine"
       ]
@@ -8395,8 +8416,7 @@
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/save-the-date",
-        "/dashboard/[seg]/studio/website-pro",
-        "/dashboard/[seg]/website/our-story"
+        "/dashboard/[seg]/studio/website-pro"
       ],
       "actions": [
         "action",
@@ -8452,6 +8472,7 @@
         "LaunchStdButton",
         "LifecyclePhase",
         "Link",
+        "LoveStoryChaptersPanel",
         "LoveStoryControls",
         "MainBackgroundPanel",
         "MakerHeroPanel",
@@ -8493,7 +8514,6 @@
         "Segmented",
         "SiteChromePanel",
         "StdPanel",
-        "StoryFields",
         "StoryPanel",
         "SubmitButton",
         "Suspense",
@@ -8503,7 +8523,8 @@
         "Thumb",
         "TileHead",
         "ToolsResizeHandle",
-        "VisibilityPanel"
+        "VisibilityPanel",
+        "WordsReturnTo"
       ]
     },
     "/dashboard/[eventId]/website/editorial": {
@@ -8589,12 +8610,20 @@
     },
     "/dashboard/[eventId]/website/our-story": {
       "files": [
+        "dashboard/[eventId]/website/our-story/_components/chapter-moments.tsx",
         "dashboard/[eventId]/website/our-story/_components/in-maker-return-to.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-book.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-chapters-panel.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-open.ts",
         "dashboard/[eventId]/website/our-story/_components/love-story-pro-line.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-status.ts",
         "dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx",
+        "dashboard/[eventId]/website/our-story/_components/our-events-read.ts",
+        "dashboard/[eventId]/website/our-story/_components/our-events-rule.ts",
+        "dashboard/[eventId]/website/our-story/_components/panel-follows-the-page.tsx",
         "dashboard/[eventId]/website/our-story/_components/pick-from-our-events.tsx",
         "dashboard/[eventId]/website/our-story/_components/story-fields.tsx",
+        "dashboard/[eventId]/website/our-story/_components/words-return-to.tsx",
         "dashboard/[eventId]/website/our-story/actions.ts",
         "dashboard/[eventId]/website/our-story/milestones-field.tsx",
         "dashboard/[eventId]/website/our-story/page.tsx"
@@ -8608,24 +8637,31 @@
       ],
       "blocks": [
         "AddMomentLabel",
+        "ChapterMoments",
         "Field",
         "FileUpload",
         "HTMLButtonElement",
         "HTMLDivElement",
+        "HTMLElement",
         "HubDraftField",
         "InMakerReturnTo",
         "InfoTip",
         "Link",
         "LoveStoryBook",
+        "LoveStoryChapter",
+        "LoveStoryOpenAsk",
         "LoveStoryProLine",
         "MilestonesField",
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
+        "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",
+        "StoryChapterFields",
         "StoryFields",
-        "SubmitButton"
+        "SubmitButton",
+        "T"
       ]
     },
     "/dashboard/[eventId]/website/photo-moments": {
@@ -8929,18 +8965,23 @@
       "files": [
         "join/[eventId]/_components/join-flow.tsx",
         "join/[eventId]/_components/join-shell.tsx",
+        "join/[eventId]/_components/request-form.tsx",
         "join/[eventId]/actions.ts",
         "join/[eventId]/loading.tsx",
         "join/[eventId]/page.tsx"
       ],
       "destinations": [
-        "/"
+        "/",
+        "/[seg]",
+        "/privacy",
+        "/terms"
       ],
       "actions": [
         "action",
         "selfAction"
       ],
       "blocks": [
+        "AskToJoinIntro",
         "DoorShell",
         "FormFlash",
         "FormPageSkeleton",
@@ -8948,6 +8989,8 @@
         "JoinFlow",
         "JoinShell",
         "Link",
+        "RequestForm",
+        "RequestSentScreen",
         "SubmitButton"
       ]
     },
@@ -8993,7 +9036,6 @@
       ],
       "actions": [],
       "blocks": [
-        "DoorNotice",
         "DoorShell",
         "FormPageSkeleton",
         "Link"

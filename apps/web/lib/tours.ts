@@ -656,7 +656,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Send,
         title: 'Announce to your guests',
-        body: 'Tap <b>Announce</b> to send everyone one message &mdash; before the day or on it. Your latest announcement sits at the top of your guests&rsquo; Event Hub on the day. You and your approved coordinator can announce.',
+        body: 'Tap <b>Announce</b> to send everyone one message &mdash; before the day or on it. Your latest announcement sits at the top of your guests&rsquo; Event Hub as soon as you send it, and comes down once the event is over. You and your approved coordinator can announce.',
       },
     ],
   },

@@ -8,16 +8,30 @@
  * reach only the couple's own dashboard. This file pins the four properties
  * that make the receiver correct, all of which are easy to undo by accident.
  *
- * Source scans: there is no DOM under `tsx --test`, and the render path needs a
- * live event, a guest session and a day-of phase. What regresses here is the
- * WIRING — someone widens the audience, drops the live-window gate, or makes an
- * announcement dismissible.
+ * ── THE RULE CHANGED ON 2026-09-28, AND THIS FILE CHANGED WITH IT ───────────
+ * Until then the second test here pinned "live window only": the loader took
+ * `isLive` and returned null outside the day. The owner ruled (DECISION_LOG
+ * "OWNER ANSWERS — ANNOUNCEMENTS, PRINT COLUMNS…", item 1): *"an announcement
+ * shows to guests as soon as it is sent"* — before the day at the top of their
+ * Invitation/Event Hub, on the day at the top as before. The Schedule's
+ * Announce (PR #6061) could already be sent a week early; until this change the
+ * words were saved and shown to nobody until the day. What survives of the old
+ * gate is its conservative half: once the event is OVER the announcement comes
+ * down, so the last "dinner is moving up 15 minutes" cannot haunt the Post
+ * Event page. `announcementStage` in lib/coordinator-broadcasts.ts is the one
+ * place that decides, and it is tested here BEHAVIOURALLY, not by source scan.
+ *
+ * Source scans for the rest: there is no DOM under `tsx --test`, and the render
+ * path needs a live event and a guest session. What regresses here is the
+ * WIRING — someone widens the audience, re-adds a day-of-only gate, drops the
+ * ended gate, or makes an announcement dismissible.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { announcementStage } from '@/lib/coordinator-broadcasts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CARD = readFileSync(join(HERE, 'day-of-announcement.tsx'), 'utf8');
@@ -69,13 +83,38 @@ test('announcement · GUESTS only — a stranger with the link never sees it', (
   );
 });
 
-test('announcement · live window only — nothing stale survives the day', () => {
-  // The loader takes the resolved phase and returns null outside it. If someone
-  // drops that argument the guard is gone and a "we are running late" from the
-  // wedding day haunts the page forever.
+test('announcement · before the day, a sent announcement SHOWS (owner 2026-09-28)', () => {
+  // The decision, behaviourally. 'pre' is the last three days; 'inactive' is
+  // any earlier day — both are "before", and both render.
+  assert.equal(announcementStage('pre', false), 'before', 'three days out: shown');
+  assert.equal(announcementStage('inactive', false), 'before', 'a month out: shown');
+  // On the day the live look holds — including through the night after, when
+  // the calendar already says "yesterday" but the day-of window is still open.
+  assert.equal(announcementStage('live', false), 'live');
+  assert.equal(announcementStage('live', true), 'live', 'the live window outranks the calendar');
+
+  // And the wiring carries it: the loader takes the STAGE, not a live flag, and
+  // the only stage it refuses is 'after'. A re-added `if (!isLive)` is exactly
+  // the regression this test exists to catch.
   assert.match(LOADERS, /export const loadDayOfBroadcast = cache\(/);
-  assert.match(LOADERS, /isLive: boolean,/);
-  assert.match(LOADERS, /if \(!isLive\) return null;/);
+  assert.match(LOADERS, /stage: AnnouncementStage,/);
+  assert.match(LOADERS, /if \(stage === 'after'\) return null;/);
+  assert.doesNotMatch(LOADERS, /if \(!isLive\) return null;/, 'the day-of-only gate is back');
+  assert.match(LAYOUT, /stage = announcementStage\(phase, ended\)/, 'the layout must resolve the stage');
+  assert.match(LAYOUT, /loadDayOfBroadcast\(createAdminClient\(\), event\.event_id, stage\)/);
+  // The calm variant is asked for before the day; the day-of look on the day.
+  assert.match(LAYOUT, /stage=\{stage === 'live' \? 'live' : 'before'\}/);
+  assert.match(CARD, /stage\?: 'before' \| 'live';/, 'the card must accept the stage');
+});
+
+test('announcement · once the event is over it comes down — nothing stale survives', () => {
+  // The conservative half of the old rule, kept on purpose: the Post Event page
+  // keeps its own words. "Over" is `isFinishedEvent`'s verdict (the last day has
+  // passed in the venue's calendar), never a second definition.
+  assert.equal(announcementStage('post', true), 'after');
+  assert.equal(announcementStage('inactive', true), 'after', 'a month after: hidden');
+  assert.match(LAYOUT, /isFinishedEvent\(/, 'the layout must ask the board\u2019s own "is it over"');
+  assert.match(LAYOUT, /calendarDayInZone\(venueTz\)/, 'and ask it in the VENUE\u2019s calendar, not the server\u2019s');
 });
 
 test('announcement · one message, never a feed', () => {

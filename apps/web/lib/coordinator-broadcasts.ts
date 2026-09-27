@@ -34,6 +34,36 @@ export const BROADCAST_MAX_LENGTH = 500;
 
 export type BroadcastSenderRole = 'couple' | 'coordinator';
 
+/**
+ * WHEN A GUEST SEES THE ANNOUNCEMENT — owner ruling 2026-09-28 (DECISION_LOG
+ * "OWNER ANSWERS — ANNOUNCEMENTS, PRINT COLUMNS…", item 1): *"an announcement
+ * shows to guests as soon as it is sent"* — before the day at the top of their
+ * Invitation/Event Hub, on the day at the top as before. This supersedes the
+ * day-of-only window `day-of-announcement.test.ts` used to pin.
+ *
+ *   'before' — sent ahead of the day: shown, in the calm Invitation-stage look.
+ *   'live'   — the day-of window: shown, in the day-of look, sticky.
+ *   'after'  — the event has ended: HIDDEN. The conservative reading — "dinner
+ *              is moving up 15 minutes" has no meaning the month after, and the
+ *              Post Event stage has its own words (the recap). Showing the last
+ *              operational line there would be the stale-haunting the old rule
+ *              was written against.
+ *
+ * `ended` is `isFinishedEvent`'s verdict (lib/event-board.ts: the LAST day has
+ * passed in the venue's calendar) — one definition of "over" in the product,
+ * not a second one invented here. `phase` wins first so the live look holds
+ * through the night after a reception, exactly as the day-of board does.
+ */
+export type AnnouncementStage = 'before' | 'live' | 'after';
+
+export function announcementStage(
+  phase: 'pre' | 'live' | 'post' | 'inactive',
+  ended: boolean,
+): AnnouncementStage {
+  if (phase === 'live') return 'live';
+  return ended ? 'after' : 'before';
+}
+
 /** The card's render shape — resolved server-side, passed as props (the
  *  day-of grid's existing read model: server fetch → props into cards). */
 export type CoordinatorBroadcastItem = {

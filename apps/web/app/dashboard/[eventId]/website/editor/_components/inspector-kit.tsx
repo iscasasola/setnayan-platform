@@ -94,7 +94,7 @@ export function ISegmented({ children, label, grow = true }: { children: ReactNo
     <div
       role="group"
       aria-label={label}
-      className={`flex min-w-0 flex-wrap gap-0.5 rounded-[10px] bg-ink/[0.06] p-0.5 ${grow ? 'flex-1' : ''}`}
+      className={`flex min-w-0 flex-wrap gap-0.5 rounded-lg bg-ink/[0.06] p-0.5 ${grow ? 'flex-1' : ''}`}
     >
       {children}
     </div>
@@ -165,7 +165,7 @@ export function IStepper({
       role="group"
       aria-label={label}
       data-stepper={data}
-      className="inline-flex shrink-0 items-stretch overflow-hidden rounded-lg border border-ink/15 bg-white"
+      className="inline-flex shrink-0 items-stretch overflow-hidden rounded-md border border-ink/15 bg-white"
     >
       <button
         type="button"

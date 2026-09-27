@@ -222,11 +222,11 @@ export function SceneBackgroundRow({
               aria-pressed={current === c}
               data-scene-bg-choice={c}
               onClick={() => pick(c)}
-              className={`sn-press flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-1.5 text-center text-[11px] font-semibold leading-tight transition-colors duration-sn-control ease-sn ${
-                current === c ? 'border-ink bg-white text-ink shadow-sm' : 'border-ink/12 bg-white/60 text-ink/60 hover:border-ink/35'
+              className={`sn-press flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-1.5 text-center text-[11px] font-semibold leading-tight ring-1 transition-colors duration-sn-control ease-sn ${
+                current === c ? 'bg-white text-ink shadow-sm ring-ink' : 'bg-white/60 text-ink/60 ring-ink/12 hover:ring-ink/35'
               }`}
             >
-              <span aria-hidden className="h-6 w-10 rounded-[5px] border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
+              <span aria-hidden className="h-6 w-10 rounded border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
               <span className="inline-flex items-center gap-1">
                 {CHOICE_LABEL[c]}
                 {/* 💎 Media behind a scene is Event Hub Pro — the chip is drawn only for a couple who owns it. */}
@@ -240,7 +240,7 @@ export function SceneBackgroundRow({
       </div>
 
       {asking && bg ? (
-        <div role="group" aria-label="Use this background where?" data-scene-bg-ask="" className="mb-2.5 rounded-xl border border-gild/50 bg-gild/10 p-3">
+        <div role="group" aria-label="Use this background where?" data-scene-bg-ask="" className="mb-2.5 rounded-xl bg-gild/10 p-3">
           <p className="text-[13.5px] font-semibold text-ink">Use this background on every scene?</p>
           <div className="mt-2 flex gap-1.5">
             <IButton
@@ -375,7 +375,7 @@ export function SceneBackgroundRow({
           <IRow label="Media" wrap data="scene-media">
             <a
               href={mediaHref}
-              className="sn-press inline-flex min-h-11 flex-1 items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 text-[12.5px] font-semibold text-ink lg:min-h-9"
+              className="sn-press inline-flex min-h-11 flex-1 items-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-[12.5px] font-semibold text-ink lg:min-h-9"
             >
               <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
               Upload a photo or clip

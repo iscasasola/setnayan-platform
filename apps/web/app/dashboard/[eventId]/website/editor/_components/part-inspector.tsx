@@ -348,7 +348,7 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
             maxLength={HUB_JOINER_MAX}
             onChange={(e) => setText(e.target.value)}
             placeholder="at saka"
-            className="min-h-11 min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
+            className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
           />
           <IButton type="submit" fill disabled={!ok}>
             Use it

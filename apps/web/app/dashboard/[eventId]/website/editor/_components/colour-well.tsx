@@ -168,7 +168,7 @@ export function ColourWell({
           aria-controls={panelId}
           onClick={() => setOpen((o) => !o)}
           data-colour-well-wide=""
-          className="sn-press flex h-11 min-w-0 flex-1 items-center justify-between rounded-lg border border-ink/20 px-2.5 font-mono text-[11px] tracking-wide lg:h-9"
+          className="sn-press flex h-11 min-w-0 flex-1 items-center justify-between rounded-md border border-ink/20 px-2.5 font-mono text-[11px] tracking-wide lg:h-9"
           style={{ background: current, color: readableOn(current) }}
         >
           <span className="truncate">{value ? shownHex : unsetLabel}</span>
@@ -196,7 +196,7 @@ export function ColourWell({
         role="group"
         aria-label={`Colour for ${what}`}
         data-colour-panel=""
-        className="-ml-[5.125rem] mt-2 rounded-xl border border-ink/10 bg-white p-3 lg:absolute lg:ml-0 lg:right-0 lg:top-full lg:z-40 lg:mt-2 lg:w-[19rem] lg:shadow-[0_24px_48px_-28px_rgba(30,26,18,.45)]"
+        className="-ml-[5.125rem] mt-2 rounded-xl bg-white p-3 shadow-sm lg:absolute lg:ml-0 lg:right-0 lg:top-full lg:z-40 lg:mt-2 lg:w-[19rem] lg:shadow-[0_24px_48px_-28px_rgba(30,26,18,.45)]"
       >
         <div className="mb-2 flex items-center gap-2 text-[13px]">
           <b className="font-semibold text-ink">Colour</b>

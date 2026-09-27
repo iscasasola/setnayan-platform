@@ -24,7 +24,7 @@ import { InfoTip } from '@/app/_components/info-tip';
  * shows from `md`; on a phone the button is its 44 px icon, the word its name.
  */
 export const MAKER_TOOL_BUTTON =
-  'sn-press inline-flex h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-[10px] px-1.5 text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink aria-pressed:bg-ink/[0.09] aria-pressed:text-ink aria-expanded:bg-ink/[0.09] md:h-12 md:min-w-[3.25rem]';
+  'sn-press inline-flex h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink aria-pressed:bg-ink/[0.09] aria-pressed:text-ink aria-expanded:bg-ink/[0.09] md:h-12 md:min-w-[3.25rem]';
 export const MAKER_TOOL_WORD = 'hidden text-[10.5px] font-semibold leading-none md:block';
 
 /** The toolbar's "Play this scene" fires this; the work area plays it in the canvas. */

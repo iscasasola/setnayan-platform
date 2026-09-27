@@ -869,7 +869,7 @@ function ToolMenu({
           aria-label={label}
           data-maker-tool-menu={tool}
           style={{ position: 'fixed', top: at.top, left: at.left, width: Math.min(260, typeof window === 'undefined' ? 260 : window.innerWidth - 16) }}
-          className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl border border-ink/10 bg-white p-1 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
+          className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-white p-1 ring-1 ring-ink/10 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
         >
           {children(close)}
         </span>

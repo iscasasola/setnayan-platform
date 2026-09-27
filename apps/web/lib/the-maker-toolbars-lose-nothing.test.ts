@@ -87,6 +87,10 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['▶ Play', 'part', ['Preview']],
   ['Resets: font · colour · motion · element', 'part', ['Use the Event Hub style', 'Move with the scene']],
   ['Saved + theme colours', 'colour', ['Theme colours', 'Saved colours', 'Save the current colour']],
+  ['Title: the part’s name + the Pro mark', 'sheet', ['<PaidMark', '<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
+  ['"Whole part / this selection" (a run of letters)', 'sheet', ['data-element-range', 'Whole {HUB_ELEMENT_LABEL', 'Clear this selection']],
+  ['The sheet’s tabs — Text · Animate · Arrange', 'sheet', ['<InspectorTabs tabs={PART_TABS}', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
+  ['⚡ Every choice on the canvas first (#6046)', 'sheet', ['onPreview?.(elementPreview(target.key, target.el, before, next))', 'onPreviewColour={previewColour}']],
 ];
 
 test('every control from the "Today → New" strip still has its home', () => {

@@ -7,7 +7,7 @@ import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { MakerEmptyScene } from './maker-empty-scene';
-import { HubCanvasFrame } from './hub-canvas-frame';
+import { HubCanvasFrame, sceneWidgetIsBare } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow } from '../_lib/types';
@@ -86,6 +86,9 @@ function PublicHideableWidgetBody({
   canvasMediaUrls,
   guestView = false,
 }: PublicHideableWidgetProps) {
+  /* 🖼 The scene background owns the box — the widget then draws no card of
+     its own (owner 2026-09-27, "no background means no box"). */
+  const bare = sceneWidgetIsBare(widget, canvasMediaUrls);
   switch (widget.widget_type) {
     case 'countdown':
       // Match InvitationSite's per-widget skip — no event date, no
@@ -98,6 +101,7 @@ function PublicHideableWidgetBody({
         <CountdownWidget
           targetIso={event.event_date}
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+          bare={bare}
         />
       ) : null;
 
@@ -132,7 +136,7 @@ function PublicHideableWidgetBody({
       return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;
 
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;
@@ -172,6 +176,7 @@ function PublicHideableWidgetBody({
           limited={false}
           eventNoun={eventNounOf(event)}
           words={words}
+          bare={bare}
         />
       );
 

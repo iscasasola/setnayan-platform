@@ -220,7 +220,7 @@ export type HubSectionCanvas = {
    */
   media?: string;
   /**
-   * WHICH OF THE THREE the background is. Absent means `photo` — see
+   * WHICH background it is (`HUB_BACKGROUND_KINDS`). Absent means `photo` — see
    * `resolveHubBackground`, which is the one place that rule is written.
    *
    * ⚠ A `snippet` rides the SAME `media` field and the SAME allow-list as a
@@ -229,8 +229,16 @@ export type HubSectionCanvas = {
    * the one nobody checks.
    */
   kind?: HubBackgroundKind;
-  /** Only for `kind: 'color'`. `#rrggbb`. Never a ref — see `hubBackgroundColor`. */
+  /** The scene's colour — for `color`, and the tint of `glass` / `frost`.
+   *  `#rrggbb`. Never a ref — see `hubBackgroundColor`. */
   color?: string;
+  /**
+   * 🖼 FRAMED OR FULL WIDTH (owner 2026-09-27: *"we will set it as a frame or
+   * will the whole width. the user can choose"*). Absent = `framed`, the
+   * default. Kept only beside a background that paints something — "No
+   * background" has no box to shape.
+   */
+  shape?: HubSceneShape;
   preset?: HubMotionPreset;
   /** Fine-tune. Each absent when the couple left it on Auto. */
   in?: HubIn;
@@ -392,8 +400,14 @@ export function hubMediaRef(value: unknown): string | null {
 }
 
 /* ── WHAT A SECTION'S BACKGROUND IS MADE OF ────────────────────────────────
-   Three kinds, and the list is short on purpose: a photo the couple already
-   has, a short snippet of their own footage, or a flat colour.
+   Six kinds (owner 2026-09-27, DECISION_LOG "A SCENE'S BACKGROUND EXISTS TO
+   SEPARATE IT FROM THE NEXT": *"full background color, opeque glass, frosted
+   glass, upload a photo/video link, no background. the purpose of the
+   background for a scene, is to create separation"*): a photo the couple
+   already has, a short snippet of their own footage, a flat colour, OPAQUE
+   GLASS and FROSTED GLASS — both tinted from the SAME colour, so the colour
+   holds with or without the effect — and NO BACKGROUND, which means no box at
+   all: the scene sits on the page ground ("NO BACKGROUND MEANS NO BOX").
 
    ⛔ NEVER A FILM. A section background plays behind words a guest is reading.
    A film asks to be watched, which is a different job and already has one —
@@ -407,14 +421,29 @@ export function hubMediaRef(value: unknown): string | null {
    only ever accepted a `hubMediaRef`. `resolveHubBackground` states that in one
    place so the next reader never has to wonder whether an absent `kind` means
    "photo" or means "half-written". */
-export const HUB_BACKGROUND_KINDS = ['photo', 'snippet', 'color'] as const;
+export const HUB_BACKGROUND_KINDS = ['photo', 'snippet', 'color', 'glass', 'frost', 'none'] as const;
 export type HubBackgroundKind = (typeof HUB_BACKGROUND_KINDS)[number];
 
 export const HUB_BACKGROUND_KIND_LABEL: Record<HubBackgroundKind, string> = {
   photo: 'A photo',
   snippet: 'A few seconds of video',
   color: 'A flat colour',
+  glass: 'Opaque glass',
+  frost: 'Frosted glass',
+  none: 'No background',
 };
+
+/** The kinds a colour paints — a flat colour, and the two glasses it tints. */
+export const HUB_TINTED_KINDS = ['color', 'glass', 'frost'] as const;
+export type HubTintedKind = (typeof HUB_TINTED_KINDS)[number];
+/** A glass chosen before any colour: a clear white pane over the page. */
+export const HUB_GLASS_DEFAULT_TINT = '#ffffff';
+
+/** FRAMED (an inset panel, rounded) or FULL WIDTH (edge to edge, square). */
+export const HUB_SCENE_SHAPES = ['framed', 'full'] as const;
+export type HubSceneShape = (typeof HUB_SCENE_SHAPES)[number];
+export const HUB_DEFAULT_SCENE_SHAPE: HubSceneShape = 'framed';
+export const HUB_SCENE_SHAPE_LABEL: Record<HubSceneShape, string> = { framed: 'Framed', full: 'Full width' };
 
 /** `#rrggbb`, lowercased. The only shape a colour may take. */
 const HUB_COLOR = /^#[0-9a-f]{6}$/;
@@ -460,9 +489,24 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
         out.kind = 'color';
         out.color = color;
       }
+    } else if (kind === 'glass' || kind === 'frost') {
+      /* A glass is a choice on its own, so it is kept with or without a colour —
+         with none it is a clear pane (`HUB_GLASS_DEFAULT_TINT`). A colour that is
+         not six hex digits is dropped, never repaired. */
+      out.kind = kind;
+      const color = hubBackgroundColor(canvas.color);
+      if (color) out.color = color;
+    } else if (kind === 'none') {
+      out.kind = 'none';
     } else if (media) {
       out.kind = kind;
     }
+  }
+  /* 🖼 FULL WIDTH is stored only beside a background that paints a box;
+     framed is the default and is the absence of the key. */
+  if (canvas.shape === 'full') {
+    const painted = resolveHubBackground(out);
+    if (painted && painted.kind !== 'none') out.shape = 'full';
   }
   if (inSet(HUB_MOTION_PRESETS, canvas.preset)) out.preset = canvas.preset;
   if (inSet(HUB_IN, canvas.in)) out.in = canvas.in;
@@ -594,16 +638,55 @@ export function hubSceneVideo(value: unknown): HubSceneVideo | null {
 export type HubBackground =
   | { kind: 'photo'; media: string }
   | { kind: 'snippet'; media: string }
-  | { kind: 'color'; color: string };
+  | { kind: HubTintedKind; color: string }
+  | { kind: 'none' };
 
 export function resolveHubBackground(canvas: HubSectionCanvas): HubBackground | null {
+  if (canvas.kind === 'none') return { kind: 'none' };
   if (canvas.kind === 'color') {
     return canvas.color ? { kind: 'color', color: canvas.color } : null;
+  }
+  if (canvas.kind === 'glass' || canvas.kind === 'frost') {
+    return { kind: canvas.kind, color: canvas.color ?? HUB_GLASS_DEFAULT_TINT };
   }
   if (!canvas.media) return null;
   return canvas.kind === 'snippet'
     ? { kind: 'snippet', media: canvas.media }
     : { kind: 'photo', media: canvas.media };
+}
+
+/** The colour a background paints (flat colour or either glass), else null. */
+export function hubBackgroundTint(bg: HubBackground | null): string | null {
+  return bg && (bg.kind === 'color' || bg.kind === 'glass' || bg.kind === 'frost') ? bg.color : null;
+}
+
+/** Photo or snippet — the two kinds that need a signed media URL. */
+export function hubBackgroundIsMedia(
+  bg: HubBackground | null,
+): bg is { kind: 'photo'; media: string } | { kind: 'snippet'; media: string } {
+  return Boolean(bg && (bg.kind === 'photo' || bg.kind === 'snippet'));
+}
+
+/**
+ * 🖼 WHO DRAWS THE SCENE'S BOX — the scene background, or the widget's own card.
+ *
+ * Owner 2026-09-27: *"if we set no background it will remove the square
+ * frame"* — the box IS the scene background, not the widget. So a widget that
+ * draws its own card (the Countdown's rounded panel and its tile per number,
+ * Photo moments, Tier comparison, Event details) draws it ONLY when the couple
+ * has chosen no background at all — the page as it always looked. With "No
+ * background" there is no box; with any painted background the frame IS the
+ * box, and a second card inside it would be a box in a box.
+ *
+ * `painted` is the frame's own answer (`sceneGround` in `hub-canvas-frame.tsx`):
+ * a colour or glass always paints; a photo or snippet only once its URL
+ * resolved.
+ */
+export function hubBackgroundOwnsBox(canvas: HubSectionCanvas, painted: boolean): boolean {
+  const bg = resolveHubBackground(canvas);
+  if (!bg) return false;
+  if (bg.kind === 'none') return true;
+  return hubPhotoPlacement(canvas, painted) === 'behind';
 }
 
 /** The preset, with any override the couple reached in and set. */
@@ -681,8 +764,10 @@ export function hubCanvasVars(
       : {}),
     /* The flat colour, when that is what the couple chose. Its own property so
        no rule can confuse "a colour behind the words" with "a picture". */
-    ...(resolveHubBackground(canvas)?.kind === 'color'
-      ? { '--hub-bg-color': canvas.color as string }
+    /* …and the tint of either glass — the SAME property, so the colour holds
+       with or without the effect. */
+    ...(hubBackgroundTint(resolveHubBackground(canvas))
+      ? { '--hub-bg-color': hubBackgroundTint(resolveHubBackground(canvas)) as string }
       : {}),
     '--hub-focal': focalToObjectPosition(canvas.focal ?? HUB_DEFAULT_FOCAL),
     '--hub-zoom': String((canvas.zoom ?? HUB_DEFAULT_ZOOM) / 100),
@@ -734,13 +819,15 @@ export function hubArrangement(value: unknown): HubArrangement | null {
  */
 export type HubPhotoPlacement = 'behind' | 'beside' | 'none';
 export function hubPhotoPlacement(canvas: HubSectionCanvas, hasMedia: boolean): HubPhotoPlacement {
-  if (!hasMedia) return 'none';
   const kind = resolveHubBackground(canvas)?.kind;
+  /* No background draws nothing — the scene sits on the page ground. */
+  if (kind === 'none') return 'none';
+  if (!hasMedia) return 'none';
   /* 🔑 A COLOUR IS THE GROUND ITSELF, NOT A PICTURE. There is nothing to move
      into a column beside the words and nothing to hide under "Words only", so
      it is painted behind in every arrangement — hiding it would turn the
      couple's colour into a control that moves no pixels. */
-  if (kind === 'color') return 'behind';
+  if (kind === 'color' || kind === 'glass' || kind === 'frost') return 'behind';
   /* 🔑 A TEMPLATE SCENE PLACES ITS OWN PICTURES. Its photos live in `slots`
      and the template's layout puts them; `media` is then the SCENE
      BACKGROUND only ("Scene background · None — show main", owner 2026-09-24),
@@ -786,6 +873,13 @@ export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): stri
        the FRAME itself, so the kind class without its video would lay a
        white wash over the words with nothing behind it. */
     ...(bg && placement !== 'none' ? [`hub-bg-${bg.kind}`] : []),
+    /* 🖼 "No background" is a choice too, and says so — no box, no padding. */
+    ...(bg?.kind === 'none' ? ['hub-bg-none'] : []),
+    /* 🖼 FRAMED or FULL WIDTH — only on a background that is actually painted
+       behind the scene; a photo BESIDE the words is a picture, not a box. */
+    ...(bg && bg.kind !== 'none' && placement === 'behind'
+      ? [`hub-shape-${canvas.shape ?? HUB_DEFAULT_SCENE_SHAPE}`]
+      : []),
     /* A template scene: its body is a size container, so the template can
        choose its desktop or phone arrangement by the width it is actually
        given — the editor's phone preview included. */

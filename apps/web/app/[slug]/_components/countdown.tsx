@@ -39,6 +39,14 @@ type Props = {
    * `DEFAULT_EVENT_TZ` every other date surface falls back to.
    */
   timeZone?: string;
+  /**
+   * 🖼 THE SCENE BACKGROUND OWNS THE BOX (owner 2026-09-27: *"if we set no
+   * background it will remove the square frame"*) — `sceneWidgetIsBare`. True:
+   * no card of this widget's own (no border, no fill, no radius); the scene's
+   * background, or the page ground, is the box. Absent/false: the card, as the
+   * page always looked when no background was chosen.
+   */
+  bare?: boolean;
 };
 
 type Remaining = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
@@ -56,7 +64,7 @@ function compute(target: number): Remaining {
   return { days, hours, minutes, seconds, isPast: false };
 }
 
-export function CountdownWidget({ targetIso, timeZone }: Props) {
+export function CountdownWidget({ targetIso, timeZone, bare = false }: Props) {
   // 🔴 THIS LABEL IS A WEDDING VOW. It read "Until we say 'I do'" on a
   // seven-year-old's birthday and on a graduation — seen on the real pages, not
   // caught by any scan, because it contains none of the words a wedding-word
@@ -106,7 +114,10 @@ export function CountdownWidget({ targetIso, timeZone }: Props) {
   ];
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-veil/40 p-6 text-center sm:p-8">
+    <section
+      data-scene-card={bare ? 'bare' : 'own'}
+      className={bare ? 'text-center' : 'rounded-2xl border border-ink/10 bg-veil/40 p-6 text-center sm:p-8'}
+    >
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">
         {w.eventWord === 'wedding' ? (
           <>Until we say &lsquo;I do&rsquo;</>
@@ -116,7 +127,8 @@ export function CountdownWidget({ targetIso, timeZone }: Props) {
       </p>
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (
-          <div key={b.label} className="rounded-lg border border-ink/10 bg-paper py-3">
+          /* With no box, the numbers stand on their own — no tile each. */
+          <div key={b.label} className={bare ? 'py-3' : 'rounded-lg border border-ink/10 bg-paper py-3'}>
             <p className="font-pahina text-3xl font-light tabular-nums sm:text-5xl">
               {String(b.value).padStart(2, '0')}
             </p>

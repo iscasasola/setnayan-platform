@@ -36,6 +36,11 @@ import {
   HUB_ZOOMS,
   focalToObjectPosition,
   sanitizeHubCanvas,
+  HUB_DEFAULT_SCENE_SHAPE,
+  HUB_SCENE_SHAPES,
+  HUB_SCENE_SHAPE_LABEL,
+  hubBackgroundTint,
+  resolveHubBackground,
 } from '@/lib/hub-canvas';
 import { canvasHasMotion } from '@/lib/hub-look-pro';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
@@ -855,6 +860,21 @@ export function SectionsPanel({
                 })()
               ) : null}
 
+              {setBackgroundAction ? (
+                <SceneBackgroundChoices
+                  eventId={eventId}
+                  widgetId={row.widget_id}
+                  canvas={sanitizeHubCanvas(row.config_json)}
+                  colorChoices={colorChoices}
+                  photoChoices={photoChoices}
+                  videoChoice={videoChoice}
+                  ownsPro={ownsPro}
+                  hideLocked={hideLocked}
+                  action={setBackgroundAction}
+                  returnTo={back}
+                />
+              ) : null}
+
               {setBackgroundAction && !ownsPro ? (
                 /* 🔓 A FREE COUPLE MAY ALWAYS TAKE MEDIA OFF, AND MAY ALWAYS
                    CHOOSE A COLOUR (owner 2026-09-24: "changing background
@@ -890,7 +910,6 @@ export function SectionsPanel({
                         canvas={canvas}
                         colorChoices={colorChoices}
                         action={setBackgroundAction}
-                        withNone
                       />
                     </div>
                   );
@@ -907,24 +926,9 @@ export function SectionsPanel({
                         {isCustomSectionType(row.widget_type) ? 'Photo' : 'Background'}
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <form action={setBackgroundAction}>
-                          <HubDraftField />
-                          <input type="hidden" name="event_id" value={eventId} />
-                          <input type="hidden" name="widget_id" value={row.widget_id} />
-                          <input type="hidden" name="media" value="" />
-                          <input type="hidden" name="return_to" value={back} />
-                          <button
-                            type="submit"
-                            aria-pressed={!canvas.media}
-                            className={`inline-flex h-9 items-center rounded-md border px-2 text-[0.6rem] font-semibold ${
-                              !canvas.media
-                                ? 'border-ink bg-ink text-cream'
-                                : 'border-ink/15 bg-cream text-ink/55 hover:border-ink/30'
-                            }`}
-                          >
-                            None
-                          </button>
-                        </form>
+                        {/* 🖼 No "None" here any more: "No background" in the
+                            Background row above is the one None, and it means
+                            no box (owner 2026-09-27). */}
                         {/* 🎬 THEIR OWN FOOTAGE, when they have some. One choice,
                             not a gallery: `landing_page_hero_video_r2_key` is the
                             only video an event owns, so offering a list would be
@@ -1162,7 +1166,11 @@ function SectionColourChoices({
 }) {
   if (colorChoices.length === 0) return null;
   const back = returnTo ?? RETURN_TO(eventId);
-  const colourOn = canvas.kind === 'color';
+  /* 🪟 A glass is tinted by these same swatches (owner 2026-09-27: "the same
+     background color with or without effects") — so on a glass a swatch
+     changes the TINT and keeps the glass; otherwise it is a flat colour. */
+  const tintKind = canvas.kind === 'glass' || canvas.kind === 'frost' ? canvas.kind : 'color';
+  const colourOn = canvas.kind === 'color' || canvas.kind === 'glass' || canvas.kind === 'frost';
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
       <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/35">
@@ -1191,7 +1199,7 @@ function SectionColourChoices({
             <HubDraftField />
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="widget_id" value={widgetId} />
-            <input type="hidden" name="kind" value="color" />
+            <input type="hidden" name="kind" value={tintKind} />
             <input type="hidden" name="color" value={hex} />
             <input type="hidden" name="return_to" value={back} />
             <button
@@ -1206,6 +1214,111 @@ function SectionColourChoices({
           </form>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * 🖼 THE SCENE'S BACKGROUND — six choices, then Framed / Full width (owner
+ * 2026-09-27, DECISION_LOG "A SCENE'S BACKGROUND EXISTS TO SEPARATE IT FROM THE
+ * NEXT" + "NO BACKGROUND MEANS NO BOX…FRAMED OR FULL WIDTH").
+ *
+ * Every choice is a form posting to `setWidgetBackground` with `<HubDraftField />`
+ * — the draft door; guests see nothing until Apply. Colour, both glasses, No
+ * background and the shape are FREE; Photo and Snippet are Event Hub Pro at
+ * Apply (owner 2026-09-24: "changing background color is free. making media a
+ * background is pro") and wear the paid mark; in the store shell they are
+ * hidden, not locked. Which photo, which colour, and the crop are picked in the
+ * rows under this one — this row says WHAT the ground is.
+ *
+ * No cards: chips are pressables; the row is grouped by a hairline, never boxed.
+ */
+function SceneBackgroundChoices({
+  eventId,
+  widgetId,
+  canvas,
+  colorChoices,
+  photoChoices,
+  videoChoice,
+  ownsPro,
+  hideLocked,
+  action,
+  returnTo,
+}: {
+  eventId: string;
+  widgetId: string;
+  canvas: ReturnType<typeof sanitizeHubCanvas>;
+  colorChoices: readonly string[];
+  photoChoices: readonly { ref: string; url: string }[];
+  videoChoice?: { ref: string } | null;
+  ownsPro: boolean;
+  hideLocked: boolean;
+  action: (formData: FormData) => void | Promise<void>;
+  returnTo: string;
+}) {
+  const bg = resolveHubBackground(canvas);
+  const current = bg?.kind ?? null;
+  /* A glass or a colour starts from the scene's colour, else the couple's first. */
+  const tint = hubBackgroundTint(bg) ?? colorChoices[0] ?? '#ffffff';
+  const photo = bg?.kind === 'photo' ? bg.media : (photoChoices[0]?.ref ?? null);
+  const mediaMark = !ownsPro && !hideLocked;
+  const choices: Array<{ key: string; label: string; fields: Record<string, string>; pro?: boolean } | null> = [
+    { key: 'none', label: 'No background', fields: { kind: 'none' } },
+    { key: 'color', label: 'Full colour', fields: { kind: 'color', color: tint } },
+    { key: 'glass', label: 'Opaque glass', fields: { kind: 'glass', color: tint } },
+    { key: 'frost', label: 'Frosted glass', fields: { kind: 'frost', color: tint } },
+    photo && !(hideLocked && !ownsPro) ? { key: 'photo', label: 'Photo', fields: { media: photo }, pro: true } : null,
+    videoChoice && !(hideLocked && !ownsPro)
+      ? { key: 'snippet', label: 'Snippet', fields: { kind: 'snippet', media: videoChoice.ref }, pro: true }
+      : null,
+  ];
+  const painted = current !== null && current !== 'none';
+  const shape = canvas.shape ?? HUB_DEFAULT_SCENE_SHAPE;
+  const chip = (on: boolean) =>
+    `inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[0.6rem] font-semibold ${
+      on ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30'
+    }`;
+  const hidden = (fields: Record<string, string>) => (
+    <>
+      <HubDraftField />
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="widget_id" value={widgetId} />
+      {Object.entries(fields).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
+      <input type="hidden" name="return_to" value={returnTo} />
+    </>
+  );
+  return (
+    <div className="mt-2 border-t border-dashed border-ink/10 pt-2" data-scene-background="">
+      <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">Background</p>
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Scene background">
+        {choices.map((c) =>
+          c ? (
+            <form key={c.key} action={action}>
+              {hidden(c.fields)}
+              <button type="submit" aria-pressed={current === c.key} data-scene-bg-choice={c.key} className={chip(current === c.key)}>
+                {c.label}
+                {c.pro && mediaMark ? (
+                  <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="xs" tone={current === c.key ? 'current' : 'auto'} />
+                ) : null}
+              </button>
+            </form>
+          ) : null,
+        )}
+      </div>
+      {painted ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Framed or full width">
+          {HUB_SCENE_SHAPES.map((k) => (
+            <form key={k} action={action}>
+              {hidden({ shape: k })}
+              <button type="submit" aria-pressed={shape === k} data-scene-shape-choice={k} className={chip(shape === k)}>
+                {HUB_SCENE_SHAPE_LABEL[k]}
+              </button>
+            </form>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

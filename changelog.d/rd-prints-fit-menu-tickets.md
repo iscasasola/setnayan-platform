@@ -30,7 +30,7 @@ the right column only below where the twelve bridesmaids ended.
   shrinking to 3.5 pt; the poster's QR panel and NFC spot no longer run off a
   Modern poster.
 - **The crest is the couple's logo.** Prints now resolve the mark through the
-  Event Hub hero's resolver (`resolveEventMonogram`) and flatten a studio logo's
+  Event Hub hero's one logo call (`heroMarkSvg`, shared with the invite doors) and flatten a studio logo's
   group transforms into outlines (`lib/print-mark.ts`, even-odd holes kept in
   both the SVG and the PDF); an uploaded picture logo prints as that picture.
   The "I & C" ring remains only for a couple with no logo.

@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { INVITE_THEMES, normalizeThemeId, themeMediaKey, type InviteThemeId } from '@/lib/invite-themes';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
-import { resolveEventMonogram } from '@/lib/hero-monogram-data';
+import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import { flattenSvgMark, rasterMarkPayload } from '@/lib/print-mark';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
 import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
@@ -56,7 +56,7 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, rsvp_ask_config';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -88,8 +88,6 @@ export type PrintEventRow = {
   monogram_frame_key: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
-  monogram_motion_key: string | null;
-  monogram_studio_config: unknown;
   /** Which RSVP-form questions this couple still asks — Details panel toggle (lib/rsvp-ask.ts). */
   rsvp_ask_config: unknown;
 };
@@ -119,21 +117,17 @@ export function printThemeFor(event: Pick<PrintEventRow, 'invite_theme'>, previe
 }
 
 /**
- * THE COUPLE'S LOGO ON PAPER — through THE resolver the Event Hub hero uses
- * (`resolveEventMonogram`: the studio composition ?? the uploaded logo, the
- * read-time safety gate, and the ink policy with the couple's mood-board
- * colour), never a print-only read of the monogram columns. Owner 2026-09-28:
+ * THE COUPLE'S LOGO ON PAPER — the ONE call every surface that stands for the
+ * Event Hub hero makes (`heroMarkSvg`: the Maker's Logo composition, then an
+ * upload, sanitised, in the couple's reception ink when the mark asks for the
+ * palette), never a print-only read of the monogram columns. Owner 2026-09-28:
  * cale-ice's cards printed an "I & C" ring although the couple had made their
  * logo in the Maker — the old reader refused any `transform=`, which every
  * studio logo has. Outlines when the mark is vector (`lib/print-mark.ts`), the
  * uploaded picture when it is the raster wrapper, the initials otherwise.
  */
-export async function printMarkFor(
-  admin: SupabaseClient,
-  event: PrintEventRow,
-): Promise<{ monogram: PrintMonogram | null; image: PrintImages[string] }> {
-  const resolved = await resolveEventMonogram(admin, event.event_id, event).catch(() => null);
-  const svg = resolved?.bespokeSvg ?? null;
+export async function printMarkFor(event: PrintEventRow): Promise<{ monogram: PrintMonogram | null; image: PrintImages[string] }> {
+  const svg = heroMarkSvg(event);
   const raster = rasterMarkPayload(svg);
   if (raster) {
     try {
@@ -437,7 +431,7 @@ export async function loadPrintSet(
       : Promise.resolve(null),
     readGiftLines(admin, eventId),
     stored.rsvp?.kind === 'host' ? readRsvpHosts(eventId) : Promise.resolve([] as RsvpHostOption[]),
-    printMarkFor(admin, event),
+    printMarkFor(event),
   ]);
 
   const ceremony = ceremonyBlock(blocks);

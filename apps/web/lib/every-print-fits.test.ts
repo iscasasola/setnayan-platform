@@ -341,7 +341,7 @@ test('the couple’s LOGO prints — a studio logo’s transforms are baked, its
   assert.ok(doc.ops.some((o) => o.t === 'path' && o.evenOdd), 'the crest draws the logo, not the initials ring');
   // The print reads the mark through THE hero resolver, never the columns.
   const loader = stripComments(readFileSync(join(WEB, 'lib/print-set.server.ts'), 'utf8'));
-  assert.match(loader, /resolveEventMonogram\(admin, event\.event_id, event\)/);
+  assert.match(loader, /heroMarkSvg\(event\)/, 'the print asks the ONE hero logo call (lib/hero-monogram-data.ts)');
   assert.doesNotMatch(loader, /monogram_custom_svg\s*\)|resolveEventMonogramSvg\(/, 'no second resolver for the print');
 });
 

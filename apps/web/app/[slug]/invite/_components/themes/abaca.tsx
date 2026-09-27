@@ -33,6 +33,7 @@ const alfaSlabOne = localFont({
     },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-abaca-display',
   // Metric-matched fallback while the face loads — with local files it must be
   // stated (app/layout.tsx carries the same note).
@@ -59,6 +60,7 @@ const alfaSlabOne = localFont({
 const oswald = localFont({
   src: [{ path: '../../../../_fonts/oswald/oswald-500.woff2', weight: '500', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-abaca-utility',
   adjustFontFallback: 'Arial',
 });

@@ -29,6 +29,7 @@ import styles from './velvet.module.css';
 const bodoni = localFont({
   src: [{ path: '../../../../_fonts/bodoni-moda/bodoni-moda-600.woff2', weight: '600', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-velvet-display',
   // Metric-matched fallback while the face loads — with local files it must be
   // stated (app/layout.tsx carries the same note).
@@ -49,6 +50,7 @@ const jost = localFont({
     { path: '../../../../_fonts/jost/jost-500.woff2', weight: '500', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-velvet-utility',
   adjustFontFallback: 'Arial',
 });

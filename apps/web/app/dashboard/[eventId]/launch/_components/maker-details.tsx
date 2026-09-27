@@ -244,6 +244,13 @@ export function MakerDetails({
               className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
             />
           </label>
+          {/* 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — bound, not copied:
+              every scene showing the message follows this field, except one the
+              couple changed "just here" (`lib/details-bound.ts`). */}
+          <p className="text-xs text-ink/60" data-details-bound-note="">
+            Every scene that shows your message follows this. A scene you changed “just here” keeps its own words
+            until you tap ↺ Use Details on it.
+          </p>
           <div>
             <button type="submit" className="button-primary text-sm">
               Save

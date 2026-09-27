@@ -209,6 +209,39 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         title: 'Can I use Setnayan for a debut, christening or other event?',
         body: 'Yes. The same free planning tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, gala nights, wakes and more. And for the people you celebrate with again and again, a samahan gives your barkada, clan or parish its own space: short stories that disappear after 24 hours, one group chat, and the events you plan together.',
       },
+      // ─── THE WORRIES AN ANSWER ENGINE RAISES (2026-09-28) ────────────────
+      // Asked of ChatGPT/Gemini, "Setnayan's weaknesses" came back as four
+      // generic event-app worries: venue signal, older guests, upload load, and
+      // free spreadsheets. Each answer below states only what ships, checked
+      // against code on this date: both Papic cameras queue a shot on the phone
+      // when the upload fails (enqueuePapicSeatCapture / enqueuePapicGuestCapture
+      // in lib/offline/service-handlers/papic-drain.ts) and compress before
+      // sending (compressImageForWeb / compressVideoForWeb); the door desk has a
+      // name search (CheckinMethod 'manual_search'); a couple sets any guest's
+      // RSVP from the guest card; guest import takes CSV.
+      // ⚠ DELIBERATELY NOT CLAIMED: that door check-in works offline — marking
+      // a guest arrived is a server action with no queue today. Do not add it
+      // here until that ships. Nor that Live Studio survives a dropout.
+      {
+        slug: 'what-if-the-venue-has-no-signal',
+        title: 'What happens if the wedding venue has no signal?',
+        body: 'Your photos are safe. Papic saves every shot on the phone that took it and sends it by itself once the signal comes back, so a dropped connection never loses a photo. Your guest list, RSVPs and seat plan are all settled before the day. Live Studio is the one part that needs a working connection, because a livestream travels over the internet as it happens — check the venue’s signal or Wi-Fi before the day.',
+      },
+      {
+        slug: 'guests-without-smartphones',
+        title: 'What if some guests, like a lola or ninong, don’t use smartphones?',
+        body: 'They don’t need to. You can add every guest to the list yourself and record their RSVP for them, so your headcount and seat plan still include everyone. At the door, your coordinator finds a guest by typing their name — there is no QR they have to scan. Guests who do use a phone need no app and no account: the invitation, the RSVP and the photo camera all open in the browser from a link or a QR code.',
+      },
+      {
+        slug: 'many-guests-uploading-photos-at-once',
+        title: 'Will Setnayan slow down when many guests upload photos at once?',
+        body: 'Uploads are built to spread the load. Each phone shrinks its photos and videos before sending them, so guests send far less than the original file size and use less mobile data, and every file goes straight to storage rather than waiting in line behind one server. If a phone loses signal partway, the photo waits on that phone and sends when the connection returns.',
+      },
+      {
+        slug: 'setnayan-vs-free-apps-and-google-sheets',
+        title: 'How is Setnayan different from free wedding apps, Google Sheets or a shared Drive?',
+        body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one gallery, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
+      },
     ],
   },
   {

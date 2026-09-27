@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
-import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
@@ -28,6 +28,10 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
+import { DetailsBoundField } from './details-bound-field';
+import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
+import { isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
+import { CanvasWordsContext, type CanvasWords } from './canvas-words';
 import { NO_CANVAS_HOLD, canvasKeepsItsPage, heldCanvasFor, holdCanvas, type CanvasHold } from './element-preview';
 import { BufferedCanvasFrame } from './buffered-canvas-frame';
 import { PickMenu } from './pick-menu';
@@ -211,7 +215,23 @@ export function MakerWork({
   madeOnce = null,
   revealStages = ['save_the_date'],
   elementEditing = null,
+  detailsBound = null,
 }: {
+  /**
+   * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
+   * live) for the scenes bound to them, the scenes whose words are still their
+   * own from before binding (their Content stays as it was), and the first-visit
+   * tour. A bound scene's Content tab asks "everywhere or just here"
+   * (`details-bound-field.tsx`); null = not offered.
+   */
+  detailsBound?: {
+    values: Record<DetailsFact, string | null>;
+    ownWords: readonly string[];
+    tour?: ReactNode;
+    /** ✍ AP-11's starting point for the message box, and its hint (never saved by itself). */
+    startingPoint?: string | null;
+    startingHint?: string;
+  } | null;
   /**
    * 🔤 PER-ELEMENT EDITING (owner 2026-09-27: *"we want the font color size and
    * animation"*) — every scene's canvas as the canvas draws it (the draft over
@@ -377,6 +397,39 @@ export function MakerWork({
     );
   }, []);
 
+  /* ✍ A SCENE'S WORDS, EDITED FROM THE SCENE (`canvas-words.tsx`). The Content
+     box previews what is typed on the canvas (the bridge's `words`), and a tap
+     on the scene's words focuses it. The last preview per scene is kept and
+     sent again when the canvas reloads while the box is open. */
+  const [wordsFocus, setWordsFocus] = useState<{ key: string; n: number } | null>(null);
+  const wordsPending = useRef<Record<string, string>>({});
+  const wordsInfo = useRef({ canvases: elementEditing?.canvases ?? {}, ownWords: detailsBound?.ownWords ?? [] });
+  wordsInfo.current = { canvases: elementEditing?.canvases ?? {}, ownWords: detailsBound?.ownWords ?? [] };
+  const openWordsOnTap = (key: string, el: unknown, empty: unknown) => {
+    if (!key.startsWith('w:')) return false;
+    const type = key.slice(2);
+    const { canvases, ownWords } = wordsInfo.current;
+    return tapOpensWords({ wordsScene: isWordsScene(type, canvases[type], ownWords), el, empty });
+  };
+  const postWords = (key: string, text: string) =>
+    frameRef.current?.contentWindow?.postMessage({ source: 'setnayan-editor', t: 'words', key, text }, window.location.origin);
+  useEffect(() => {
+    const onWordsReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as { source?: string; t?: string } | null;
+      if (!d || d.source !== 'setnayan-site' || d.t !== 'ready') return;
+      /* To the frame that said ready — with the canvas double-buffered it is the
+         one still loading behind the shown page, not yet `frameRef`. */
+      const to = event.source as Window | null;
+      for (const [key, text] of Object.entries(wordsPending.current)) {
+        to?.postMessage({ source: 'setnayan-editor', t: 'words', key, text }, window.location.origin);
+      }
+    };
+    window.addEventListener('message', onWordsReady);
+    return () => window.removeEventListener('message', onWordsReady);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* Preview → inspector: a section tapped on the page opens its panel. */
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -390,6 +443,21 @@ export function MakerWork({
          A fixed scene opens its own panel beside the page — never a workspace
          that replaces the stage. */
       const picked = selectionForCanvasKey(data.key, scenes);
+      /* ✍ THE MAKER IS THE EDITOR (owner 2026-09-27: "this is the editor, so we
+         can edit here"): a tap on a words scene's words — or anywhere on it
+         while it is empty — opens its Content with the box focused
+         (`lib/maker-scene-words.ts`), not the style sheet. */
+      if (picked?.kind === 'scene' && openWordsOnTap(data.key, data.el, (data as { empty?: unknown }).empty)) {
+        setElementTarget(null);
+        select?.({ ...picked, tab: 'content' });
+        setWordsFocus({ key: data.key, n: Date.now() });
+        // The words are what is edited, not the part the tap outlined.
+        frameRef.current?.contentWindow?.postMessage(
+          { source: 'setnayan-editor', t: 'markEl', key: data.key, el: null },
+          window.location.origin,
+        );
+        return;
+      }
       if (picked) {
         select?.(picked);
         const widgetType = data.key === 'f:hero' ? 'hero' : data.key.startsWith('w:') ? data.key.slice(2) : null;
@@ -500,6 +568,29 @@ export function MakerWork({
   useEffect(() => () => {
     if (snapTimer.current) window.clearTimeout(snapTimer.current);
   }, []);
+
+  /* ✍ The words context the Content boxes read (`canvas-words.tsx`). A preview
+     is on the canvas at once; the navigator's tiles are pictures of the canvas,
+     so they are re-taken shortly after. */
+  const canvasWords = useMemo<CanvasWords>(
+    () => ({
+      preview: (key, text) => {
+        wordsPending.current[key] = text;
+        postWords(key, text);
+        scheduleSnapshots(600);
+      },
+      release: (key, saved) => {
+        if (!(key in wordsPending.current)) return;
+        delete wordsPending.current[key];
+        postWords(key, saved);
+        scheduleSnapshots(600);
+      },
+      focus: wordsFocus,
+      focused: (n) => setWordsFocus((f) => (f && f.n === n ? null : f)),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [wordsFocus, scheduleSnapshots],
+  );
 
   /* A canvas that is READY: re-take the previews, and bring the scene being
      edited back into view — a reload (the Event Bar switch among them) must
@@ -1069,6 +1160,16 @@ export function MakerWork({
                       }
                       onClick={() => {
                         select?.(selectionForTile(tile));
+                        /* ✍ A words scene's tile opens its words, focused
+                           (`lib/maker-scene-words.ts`) — the same selection,
+                           on its Content tab. */
+                        if (
+                          tile.kind === 'scene' &&
+                          isWordsScene(tile.type, elementEditing?.canvases[tile.type], detailsBound?.ownWords ?? [])
+                        ) {
+                          select?.({ kind: 'scene', id: tile.widgetId, tab: 'content' });
+                          setWordsFocus({ key: tile.key, n: Date.now() });
+                        }
                         scrollPreviewTo(tile.kind === 'post-event' ? (tile.anchor ?? undefined) : tile.key);
                       }}
                       onPointerDown={(e) => {
@@ -1394,8 +1495,70 @@ export function MakerWork({
           }}
         />
       ) : selection ? (
+        <CanvasWordsContext.Provider value={canvasWords}>
         <Inspector
           selection={selection}
+          contentBound={(() => {
+            if (!selectedScene || !elementEditing || !detailsBound) return null;
+            if (detailsBound.ownWords.includes(selectedScene.type)) return null;
+            const sceneCanvas = elementEditing.canvases[selectedScene.type] ?? {};
+            const fact = detailsFactOfScene(selectedScene.type, sceneCanvas);
+            return fact ? (
+              <DetailsBoundField
+                key={`${selectedScene.type}:${fact}`}
+                eventId={eventId}
+                widgetType={selectedScene.type as WidgetType}
+                fact={fact}
+                canvas={sceneCanvas}
+                detailsValue={detailsBound.values[fact]}
+                draftAction={elementEditing.draftAction}
+                onOpenDetails={() => select?.({ kind: 'tool', key: 'details' })}
+                onStyle={() => setElementTarget({ key: `w:${selectedScene.type}`, widgetType: selectedScene.type, el: 'body' })}
+                onSaving={(patch, choice, text) => {
+                  /* ⚡ A WORDS SAVE JOINS THE CANVAS HOLD (`element-preview.ts`):
+                     the words are already on the page (the bridge's `words`), so
+                     the render the save brings back keeps the page instead of
+                     reloading it. "Use Details" and a cleared message reload —
+                     the page must draw what it did not preview. */
+                  if (choice === 'use-details' || text.trim().length === 0) {
+                    releaseCanvas();
+                    return;
+                  }
+                  const type = selectedScene.type;
+                  const now = Date.now();
+                  // "Everywhere" also changes every other scene still bound to Details.
+                  const others =
+                    choice === 'everywhere'
+                      ? Object.entries(elementEditing.canvases)
+                          .filter(([t]) => t !== type && !detailsBound.ownWords.includes(t))
+                          .filter(([t, c]) => detailsFactOfScene(t, c) === 'message' && !c.details?.message)
+                          .map(([t]) => t)
+                      : [];
+                  /* A scene the page drew EMPTY has no real look to preview in
+                     unless it carries one (`MakerEmptyScene` `look` — the Special
+                     message does); the page must redraw it, so it reloads. */
+                  const drawnEmpty = (t: string) =>
+                    !sceneBoundText('message', elementEditing.canvases[t], detailsBound.values.message).text;
+                  if ([type, ...others].some((t) => t !== 'special_message' && drawnEmpty(t))) {
+                    releaseCanvas();
+                    return;
+                  }
+                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? elementEditing.canvases[type] ?? {};
+                  canvasHold.current = holdCanvas(
+                    canvasHold.current,
+                    elementEditing.canvases,
+                    type,
+                    patch.widgets?.[type as WidgetType]?.canvas ?? shown,
+                    now,
+                  );
+                  for (const t of others) postWords(`w:${t}`, text);
+                }}
+                startingPoint={detailsBound.startingPoint ?? null}
+                startingHint={detailsBound.startingHint}
+                tour={detailsBound.tour}
+              />
+            ) : null;
+          })()}
           postEventTile={
             selection.kind === 'post-event'
               ? ((list.shown.find((t) => t.kind === 'post-event' && t.scene === selection.scene) as PostEventTile | undefined) ?? null)
@@ -1425,6 +1588,7 @@ export function MakerWork({
               : null
           }
         />
+        </CanvasWordsContext.Provider>
       ) : null}
       </>)}
 
@@ -1779,6 +1943,7 @@ const TABS: Array<{ key: MakerSceneTab; label: string }> = [
 
 function Inspector({
   selection,
+  contentBound = null,
   postEventTile = null,
   postEventWrittenAt = null,
   scene,
@@ -1797,6 +1962,9 @@ function Inspector({
 }: {
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
+  /** 🔗 A scene bound to a Details fact: its Content is this field, which asks
+   *  "everywhere or just here" (`details-bound-field.tsx`). */
+  contentBound?: ReactNode;
   /** Open a fixed scene's workspace (Hero, Reveal, Love Story, Post Event). */
   onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event' | 'rsvp-page') => void;
   /** 🔤 Open one element's sheet (font · colour · size · animation) — null where not offered. */
@@ -1909,7 +2077,9 @@ function Inspector({
       tab === 'content' ? (
         /* The hero scene's words and photo ARE the one hero (Phase 6): made
            once, in the Hero workspace — not a second, live-writing copy. */
-        scene?.type === 'hero' && madeOnce?.hero ? (
+        contentBound ? (
+          contentBound
+        ) : scene?.type === 'hero' && madeOnce?.hero ? (
           madeOnce.hero
         ) : contentRow && rows[contentRow] ? (
           <RowBlock row={rows[contentRow]!} />

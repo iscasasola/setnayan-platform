@@ -897,9 +897,22 @@ export function hubElementSceneCss(
   if (!safe || !elements) return null;
   const rules: string[] = [];
   for (const key of HUB_SCENE_ELEMENT_KEYS) {
-    const decls = hubElementDeclarations(elements[key], opts);
-    if (decls.length === 0) continue;
+    const style = elements[key];
     const target = `:is(${HUB_SCENE_ELEMENT_SELECTOR[key]})`;
+    /* 🙈 A HIDDEN PART: gone for a guest, ghosted in the Maker's canvas. The
+       canvas is told apart by the navigator's markers, which exist ONLY there
+       (`data-maker-section`, `site-body.tsx`) — no editor flag reaches a frame. */
+    if (style?.hidden) {
+      const at = `:has(+ style[data-hub-els="${safe}"]) ${target}`;
+      if (opts.editor === undefined) {
+        rules.push(`:root:not(:has([data-maker-section])) ${at}{display:none !important}`);
+        rules.push(`:root:has([data-maker-section]) ${at}{opacity:0.3 !important}`);
+      } else {
+        rules.push(`${at}{${opts.editor ? 'opacity:0.3' : 'display:none'} !important}`);
+      }
+    }
+    const decls = hubElementDeclarations(style ? { ...style, hidden: undefined } : style, opts);
+    if (decls.length === 0) continue;
     // Every LOOK wins over the theme (the Keynote rule); the motion does not
     // need to, and `!important` on an animation would outrank the guest's
     // reduced-motion freeze.

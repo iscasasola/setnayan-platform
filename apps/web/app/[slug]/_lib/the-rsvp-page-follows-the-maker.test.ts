@@ -270,6 +270,8 @@ test('8 · "each editor of each event will adapt to their event": a real name an
   const LOADER = read('[slug]/_lib/preview-person.server.ts');
   assert.match(LOADER, /\.select\('first_name, last_name, display_name, plus_one_allowed, plus_one_count'\)/);
   assert.match(LOADER, /\.eq\('event_id', eventId\)/);
+  assert.match(LOADER, /\.not\('role', 'in', `\(\$\{SIDE_PRINCIPAL_ROLES\.join\(','\)\}\)`\)/, 'the preview can wear the couple themselves');
+  assert.match(LOADER, /\.order\('plus_one_allowed', \{ ascending: false \}\)/);
   assert.doesNotMatch(LOADER, /\.(insert|update|upsert|delete|rpc)\(/, 'the preview loader writes');
   const PAGE = read('[slug]/page.tsx');
   assert.match(PAGE, /person: await loadPreviewPerson\(admin, event\.event_id\),/);

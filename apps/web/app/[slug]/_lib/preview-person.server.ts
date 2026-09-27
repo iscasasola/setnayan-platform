@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { createAdminClient } from '@/lib/supabase/admin';
 import type { PreviewPerson } from '@/lib/simulated-guest-preview';
+import { SIDE_PRINCIPAL_ROLES } from '@/lib/guest-side-question';
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -22,6 +23,12 @@ export async function loadPreviewPerson(admin: AdminClient, eventId: string): Pr
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .is('plus_one_of_guest_id', null)
+    // Not the couple themselves — they do not reply to their own wedding
+    // (measured 2026-09-27: cale-ice's first row is the bride).
+    .not('role', 'in', `(${SIDE_PRINCIPAL_ROLES.join(',')})`)
+    // Someone the couple allowed a plus-one first, where there is one — so the
+    // "Plus-ones" switch visibly adds and removes its question in the preview.
+    .order('plus_one_allowed', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();

@@ -103,12 +103,15 @@ test('1 · the header names the stage it shows — each stage its own label, nev
   assert.equal(pageStageFor({ phasesEnabled: false, lifecyclePhase: 'rsvp', dayOfPhase: 'pre' }), 'rsvp');
 });
 
-test('2 · the tab bar follows the stage’s one config — On the Day is Now · Camera · Me, the Invitation is Home · Details · RSVP · Story · Me', () => {
+test('2 · the tab bar follows the stage’s one config — On the Day is Now · Schedule · Camera · Me, the Invitation is Home · Details · Story · RSVP', () => {
+  // Owner 2026-09-27, "EACH STAGE DOES ONE JOB": the day gains its Schedule
+  // (Gallery joins once a chapter is public — none is here).
   const day = canvasBar('event', { hasDetails: true, hasStory: false }).map((b) => b.label);
-  assert.deepEqual(day, ['Now', 'Camera', 'Me']);
-  // Owner 2026-09-26/27: the Invitation bar — the camera returns on The Day.
+  assert.deepEqual(day, ['Now', 'Schedule', 'Camera', 'Me']);
+  // …and the Invitation reads Home · Details · Story · RSVP — RSVP becomes Me
+  // once the guest has answered (held in each-stage-does-one-job.test.ts).
   const invite = canvasBar('rsvp', { hasDetails: true, hasStory: true }).map((b) => b.label);
-  assert.deepEqual(invite, ['Home', 'Details', 'RSVP', 'Story', 'Me']);
+  assert.deepEqual(invite, ['Home', 'Details', 'Story', 'RSVP']);
   // the allow-list removes: a stage that does not list a slot never draws it
   const narrowed = resolveSiteNav({
     viewer: { kind: 'public' }, phase: 'after', hostAllowsCamera: true, anyChapterPublic: true, liveBroadcast: false,
@@ -140,11 +143,13 @@ test('3 · for EVERY stage the navigator’s tabs are exactly that stage’s Eve
       if (t.leaves) assert.equal(t.tiles.length, 0, `${stage}/${t.label} opens its own page — it lists no scenes`);
     }
   }
-  // On the Day has no Details tab, so the page's sections sit under Now, the tab above them
+  // On the Day has no Details tab: its Schedule tab lands on the details, so
+  // the day's sections sit under Schedule and the top of the page under Now.
   assert.equal(anchorOfTile('w:venue_map'), 'details');
   const dayTiles = makerStageList({ ...PAGE, stage: 'event' }).shown.map((t) => t.key);
   const dayTabs = navigatorTabs(canvasBar('event', { hasDetails: true, hasStory: false }), dayTiles);
-  assert.deepEqual(dayTabs.find((t) => t.label === 'Now')?.tiles, dayTiles);
+  assert.deepEqual(dayTabs.find((t) => t.label === 'Now')?.tiles, ['f:hero', 'f:pass']);
+  assert.deepEqual(dayTabs.find((t) => t.label === 'Schedule')?.tiles, ['w:schedule', 'w:venue_map', 'w:photo_moments', 'f:entourage']);
 });
 
 test('4 · SOURCE: one value draws the bar and feeds the navigator; the navigator builds no menu of its own', () => {

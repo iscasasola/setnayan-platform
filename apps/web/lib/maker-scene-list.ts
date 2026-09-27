@@ -161,6 +161,20 @@ export const MAKER_FIXED_TOOL: Partial<Record<MakerFixedKey, 'hero' | 'reveal' |
   story: 'love-story',
 };
 
+/**
+ * THE EDITOR EACH TOOL IS, BY NAME — for the scene panel's one line and one
+ * button (owner 2026-09-27: *"it should just open the right tab and show this
+ * scene is on Hero editor, Open Hero editor"*). A tap on the scene only selects
+ * it; only this button leaves the stage (*"dont jump directly to the menu
+ * because they can be just checking how things flow"*).
+ */
+export const MAKER_TOOL_EDITOR_NAME: Record<NonNullable<(typeof MAKER_FIXED_TOOL)[MakerFixedKey]>, string> = {
+  hero: 'Hero',
+  reveal: 'Reveal',
+  'post-event': 'Post Event',
+  'love-story': 'Love Story',
+};
+
 /** For a fixed section with no Maker tool: what fills it, and the page that changes it. */
 export const MAKER_FIXED_SOURCE: Partial<Record<MakerFixedKey, { text: string; page: 'guests'; link: string }>> = {
   entourage: {

@@ -1843,14 +1843,15 @@ function Inspector({
     body = (
       <section className="space-y-3 px-1" data-maker-fixed-panel={fixed}>
         <p className="text-[13px] text-ink/75">{f.line}</p>
-        {f.tool ? (
+        {f.tool && f.button ? (
           <button
             type="button"
+            data-maker-open-editor={f.tool}
             onClick={() => onOpenTool(f.tool!)}
             className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90"
           >
             <PencilLine aria-hidden className="h-4 w-4" strokeWidth={2} />
-            {fixed === 'hero' ? 'Edit the names, date and photo' : `Open ${f.label}`}
+            {f.button}
           </button>
         ) : null}
         {f.source ? (

@@ -22,6 +22,7 @@ import {
   MAKER_FIXED_LABEL,
   MAKER_FIXED_SOURCE,
   MAKER_FIXED_TOOL,
+  MAKER_TOOL_EDITOR_NAME,
   type MakerFixedKey,
   type MakerTile,
 } from '@/lib/maker-scene-list';
@@ -87,12 +88,17 @@ export function fixedScenePanel(fixed: MakerFixedKey): {
   label: string;
   line: string;
   tool: 'hero' | 'reveal' | 'post-event' | 'love-story' | null;
+  /** "Open Hero editor" — the ONE control that leaves the stage. */
+  button: string | null;
   source: (typeof MAKER_FIXED_SOURCE)[MakerFixedKey] | null;
 } {
+  const tool = MAKER_FIXED_TOOL[fixed] ?? null;
+  const editor = tool ? MAKER_TOOL_EDITOR_NAME[tool] : null;
   return {
     label: MAKER_FIXED_LABEL[fixed].label,
-    line: MAKER_FIXED_LABEL[fixed].why,
-    tool: MAKER_FIXED_TOOL[fixed] ?? null,
+    line: editor ? `This scene is made in the ${editor} editor.` : MAKER_FIXED_LABEL[fixed].why,
+    tool,
+    button: editor ? `Open ${editor} editor` : null,
     source: MAKER_FIXED_SOURCE[fixed] ?? null,
   };
 }

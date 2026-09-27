@@ -172,6 +172,34 @@ test('3 · a canvas tap sets the SAME selection as the navigator tile', () => {
   assert.doesNotMatch(SHELL, /select\?\.\(\{ kind: 'tool', key: tool \}\)/, 'a canvas tap must not open a workspace in place of the stage');
 });
 
+test('🛑 a tap only SELECTS — no tile or canvas tap leaves the stage (owner: "dont jump directly to the menu")', () => {
+  // A made-once page (Hero, Reveal, Love Story, Post Event) opens only when
+  // the selection is a `tool`; no tap may produce one.
+  for (const k of Object.keys(MAKER_FIXED_LABEL) as MakerFixedKey[]) {
+    const tile = invitationTiles().find((t) => t.key === `f:${k}`) ?? {
+      kind: 'fixed' as const, key: `f:${k}` as const, fixed: k, label: k, why: '',
+    };
+    assert.notEqual(selectionForTile(tile).kind, 'tool', `navigator tap on ${k} opens a page`);
+    assert.notEqual(selectionForCanvasKey(`f:${k}`, [])?.kind, 'tool', `canvas tap on ${k} opens a page`);
+  }
+  assert.match(SHELL, /if \(selection\?\.kind !== 'tool' \|\| !isMakerPageKey\(selection\.key\)/, 'the made-once page opens only for a tool selection');
+  // Every click handler in the navigator: no tool, no stage change, no router.
+  const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
+  const handlers = [...nav.matchAll(/onClick=\{([\s\S]*?)\}\s*(?:\n|\s+[a-zA-Z-]+=|\/?>)/g)].map((m) => m[1]!);
+  assert.ok(handlers.length >= 5, `expected the navigator's click handlers, found ${handlers.length}`);
+  for (const h of handlers) {
+    assert.doesNotMatch(h, /kind: 'tool'|setStage|router\.|location\.|window\.open/, `a navigator tap leaves the stage: ${h.trim().slice(0, 80)}`);
+  }
+  // The ONE way out is the panel's own button, in the owner's words.
+  const hero = fixedScenePanel('hero');
+  assert.equal(hero.line, 'This scene is made in the Hero editor.');
+  assert.equal(hero.button, 'Open Hero editor');
+  assert.equal(fixedScenePanel('story').button, 'Open Love Story editor');
+  assert.equal(fixedScenePanel('entourage').button, null, 'the entourage has no editor — it says where it comes from');
+  assert.equal((SHELL.match(/onOpenTool\(/g) ?? []).length, 1, 'only the "Open … editor" button opens a page');
+  assert.match(SHELL, /data-maker-open-editor=\{f\.tool\}\s+onClick=\{\(\) => onOpenTool\(f\.tool!\)\}/);
+});
+
 test('D · the desktop column never scrolls sideways — its ⓘ bubbles are held to its width', () => {
   // Measured in a browser at 1309 wide: without this the 168px column held
   // 314px of scrollable width (each closed bubble is 18rem), and focus or

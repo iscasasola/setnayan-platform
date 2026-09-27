@@ -557,27 +557,6 @@ export function MakerWork({
   /* ── the one hidden form every navigator write goes through ────────────── */
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, setPending] = useState(false);
-  const router = useRouter();
-
-  /* 🎞 SAVE THE DATE: FILM · PHOTOS (owner 2026-09-27, "Couple picks Film or
-     Photos"). One switch; the pick is kept on the gallery's row
-     (`config_json.std_lead`) through the draft like every other Maker edit,
-     so guests see it at Apply. */
-  const [leadError, setLeadError] = useState(false);
-  const pickStdLead = async (lead: 'film' | 'photos') => {
-    if (!elementEditing || pending || lead === navigator.stdLead) return;
-    setPending(true);
-    setLeadError(false);
-    const fd = new FormData();
-    fd.set('intent', 'save');
-    fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: lead } } }));
-    const res = await elementEditing.draftAction(eventId, fd).catch(() => null);
-    if (res?.ok) router.refresh();
-    else {
-      setPending(false);
-      setLeadError(true);
-    }
-  };
   const back = (sceneId: string, rest?: string) => {
     const q = new URLSearchParams({ stage, scene: sceneId });
     if (rest) q.set('chain', rest);
@@ -898,26 +877,7 @@ export function MakerWork({
           </li>
           {stage === 'save_the_date' && navigator.stdLead && elementEditing ? (
             <li className="flex shrink-0 flex-col items-start gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-std-lead="">
-              <div role="radiogroup" aria-label="What opens your Save the Date" className="inline-flex rounded-full bg-white/70 p-0.5">
-                {(['film', 'photos'] as const).map((lead) => (
-                  <button
-                    key={lead}
-                    type="button"
-                    role="radio"
-                    aria-checked={navigator.stdLead === lead}
-                    disabled={pending}
-                    onClick={() => void pickStdLead(lead)}
-                    className={`sn-press inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
-                      navigator.stdLead === lead ? 'bg-ink text-cream' : 'text-ink/75 hover:text-ink'
-                    }`}
-                  >
-                    {lead === 'film' ? 'Film' : 'Photos'}
-                  </button>
-                ))}
-              </div>
-              {leadError ? (
-                <span role="alert" className="px-1 text-[11px] text-terracotta">That did not save. Try again.</span>
-              ) : null}
+              <StdLeadSwitch eventId={eventId} lead={navigator.stdLead} draftAction={elementEditing.draftAction} />
             </li>
           ) : null}
           {activeTab?.leaves ? (
@@ -2077,5 +2037,62 @@ function ThemePanel({
         </InfoTip>
       </p>
     </section>
+  );
+}
+
+/**
+ * 🎞 SAVE THE DATE: FILM · PHOTOS (owner 2026-09-27, "Couple picks Film or
+ * Photos"). One switch; the pick is kept on the gallery's row
+ * (`config_json.std_lead`) through the draft like every other Maker edit, so
+ * guests see it at Apply. Its own component: it is the only part of the
+ * navigator that needs the router (to redraw after a draft save).
+ */
+function StdLeadSwitch({
+  eventId,
+  lead,
+  draftAction,
+}: {
+  eventId: string;
+  lead: 'film' | 'photos';
+  draftAction: ElementDraftAction;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const pick = async (next: 'film' | 'photos') => {
+    if (busy || next === lead) return;
+    setBusy(true);
+    setFailed(false);
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: next } } }));
+    const res = await draftAction(eventId, fd).catch(() => null);
+    setBusy(false);
+    if (res?.ok) router.refresh();
+    else setFailed(true);
+  };
+  return (
+    <>
+      <div role="radiogroup" aria-label="What opens your Save the Date" className="inline-flex rounded-full bg-white/70 p-0.5">
+        {(['film', 'photos'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={lead === option}
+            disabled={busy}
+            onClick={() => void pick(option)}
+            className={`sn-press inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
+              lead === option ? 'bg-ink text-cream' : 'text-ink/75 hover:text-ink'
+            }`}
+          >
+            {option === 'film' ? 'Film' : 'Photos'}
+          </button>
+        ))}
+      </div>
+      {failed ? (
+        <span role="alert" className="px-1 text-[11px] text-terracotta">That did not save. Try again.</span>
+      ) : null}
+    </>
   );
 }

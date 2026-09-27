@@ -804,6 +804,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                 : []
             }
             isEventDay={isEventDay}
+            daysToGo={daysToGo}
             emcee={
               <EmceeScriptButton
                 eventId={eventId}

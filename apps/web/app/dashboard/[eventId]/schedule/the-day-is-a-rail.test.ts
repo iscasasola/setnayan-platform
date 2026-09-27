@@ -16,7 +16,18 @@
  *   5 · Announce is mounted on the page for exactly the people the
  *       announcement INSERT policy admits, writes through the ONE existing
  *       channel, and tells the couple honestly when guests will see it;
- *   6 · the page has its first-visit tour.
+ *   6 · the page has its first-visit tour;
+ *
+ * and, finishing the rebuild (2026-09-28, owner rules of 2026-09-27):
+ *
+ *   7 · every set of choices is ONE dropdown — the shared PickMenu the Maker
+ *       uses — never a pill row or a native select; a quantity is a −/+ stepper;
+ *   8 · Announce works BEFORE the day: hosts always, a coordinator only with
+ *       schedule 'edit', suppliers never — the resolver and the action agree;
+ *   9 · the guest-facing schedule scene on the Event Hub reads the SAME rows
+ *       the rail writes (`event_schedule_blocks`, `is_public`), so the eye on
+ *       the rail is the eye the guests see;
+ *  10 · the dev lab that lets a phone drive the real rail is dev-only.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,11 +38,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
 import { TOURS } from '@/lib/tours';
 import { ScheduleDay } from './_components/day-rail';
+import { lengthOptions, startOptions } from './_components/day-sheets';
 import type { DayActions, DayMoment, DayRequest, DayRole } from './_components/day-types';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
 const read = (rel: string) => stripComments(readFileSync(join(import.meta.dirname, rel), 'utf8'));
+const WEB = join(import.meta.dirname, '..', '..', '..', '..');
+const readWeb = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 
 function moment(over: Partial<DayMoment> & Pick<DayMoment, 'block_id' | 'label' | 'start_at'>): DayMoment {
   return {
@@ -207,4 +222,98 @@ test('5b · the rail writes only through the existing actions the page hands it'
 test('6 · the page has its first-visit tour, and the tour exists', () => {
   assert.match(read('page.tsx'), /<MiniTour tourKey="customer_schedule_v1" \/>/);
   assert.ok(TOURS.customer_schedule_v1.slides.length >= 3);
+});
+
+// ── Finishing the rebuild ───────────────────────────────────────────────────
+
+const CHOICE_FILES = ['_components/day-rail.tsx', '_components/moment-inspector.tsx', '_components/day-sheets.tsx'];
+
+test('7 · every set of choices is ONE PickMenu — the Maker’s — never a select or a pill row', () => {
+  // One dropdown component in the whole app: the rail takes the Maker's.
+  assert.match(
+    read('_components/day-ui.tsx'),
+    /export \{ PickMenu \} from '\.\.\/\.\.\/website\/editor\/_components\/pick-menu'/,
+  );
+  const pickMenus: Record<string, number> = {};
+  for (const f of CHOICE_FILES) {
+    const src = read(f);
+    assert.equal(count(src, /<select\b/g), 0, `${f} still has a native <select>`);
+    assert.equal(count(src, /aria-pressed=\{(?!isSel)/g), 0, `${f} still has a row of toggle chips`);
+    pickMenus[f] = count(src, /<PickMenu\b/g);
+    assert.ok(pickMenus[f]! >= 1, `${f} mounts no PickMenu`);
+  }
+  console.log('PickMenu mounts:', JSON.stringify(pickMenus));
+  // phase · tag a supplier (inspector) · phase · starts · runs for · from · through · by (sheets) · view as (rail)
+  assert.equal(pickMenus['_components/moment-inspector.tsx'], 2);
+  assert.equal(pickMenus['_components/day-sheets.tsx'], 6);
+  assert.equal(pickMenus['_components/day-rail.tsx'], 1);
+  // A quantity is a −/+ stepper: starts and ends (inspector); starts, runs for, by (sheets).
+  assert.equal(count(read('_components/moment-inspector.tsx'), /<Stepper\b/g), 2);
+  assert.equal(count(read('_components/day-sheets.tsx'), /<Stepper\b/g), 3);
+
+  // Rendered: the View-as dropdown is the PickMenu button, named for a reader.
+  const html = render('host');
+  assert.match(html, /aria-label="View as: Master · everything"[^>]*aria-haspopup="listbox"/);
+  assert.match(html, /data-schedule-lens=""/);
+
+  // The dropdowns never read blank after a −/+ press moves the value off their grid.
+  const starts = startOptions(14 * 60 + 5);
+  assert.ok(starts.some((o) => o.key === '845' && o.label === '2:05 PM'), 'an off-grid start is listed');
+  assert.deepEqual(
+    starts.map((o) => Number(o.key)),
+    [...starts.map((o) => Number(o.key))].sort((a, b) => a - b),
+    'starts stay in clock order',
+  );
+  assert.equal(startOptions(14 * 60).length + 1, starts.length, 'on-grid adds nothing');
+  assert.ok(lengthOptions(80).some((o) => o.key === '80' && o.label === '1 h 20 min'));
+  assert.equal(lengthOptions(60).length, 6);
+});
+
+test('8 · Announce before the day: hosts always · coordinator only with schedule edit · suppliers never', () => {
+  const page = read('page.tsx');
+  // Mounted from the authority alone — `isEventDay` is a PROP that changes the
+  // wording, never a gate on the button, so the composer exists before the day.
+  assert.match(page, /<AnnounceButton\s+eventId=\{eventId\}\s+isEventDay=\{isEventDay\}/);
+  assert.doesNotMatch(page, /isEventDay\s*&&\s*canAnnounce|canAnnounce\s*&&\s*isEventDay/);
+
+  const resolver = readWeb('lib/coordinator-broadcasts-server.ts');
+  const fn = resolver.slice(resolver.indexOf('export async function resolveBroadcastAuthority'));
+  assert.match(fn, /\.from\('event_members'\)[\s\S]*?\.eq\('member_type', 'couple'\)/, 'a host is a couple member');
+  assert.match(fn, /return \{ canSend: true, role: 'couple' \}/);
+  assert.match(fn, /resolveAreaLevel\(perms, 'schedule'\) === 'edit'/, 'a coordinator needs schedule edit');
+  assert.match(fn, /return \{ canSend: true, role: 'coordinator' \}/);
+  // No third door: nothing a supplier holds (a seat, a booking, a shop) is read.
+  assert.doesNotMatch(fn, /vendor|supplier|booking/i, 'the resolver must know nothing about suppliers');
+  assert.match(fn, /return \{ canSend: false, role: null \}/);
+
+  // …and the ONE channel refuses on the same answer, before any write.
+  const action = readWeb('app/dashboard/[eventId]/_actions/day-of-broadcast.ts');
+  assert.match(action, /const authority = await resolveBroadcastAuthority\(supabase, eventId, user\.id\);\s*if \(!authority\.canSend\)/);
+  assert.ok(
+    action.indexOf('if (!authority.canSend)') < action.indexOf(".from('coordinator_broadcasts').insert("),
+    'the refusal comes before the insert',
+  );
+});
+
+test('9 · the guest-facing schedule scene reads the rows the rail writes', () => {
+  const lib = readWeb('lib/schedule.ts');
+  const pub = lib.slice(lib.indexOf('export async function fetchPublicScheduleBlocks'));
+  assert.match(pub, /\.from\('event_schedule_blocks'\)[\s\S]*?\.eq\('is_public', true\)/);
+  // The Event Hub scene mounts on that read…
+  const hub = readWeb('app/[slug]/hub/page.tsx');
+  assert.match(hub, /const scheduleBlocks = await fetchPublicScheduleBlocks\(/);
+  assert.match(hub, /<ScheduleWidget[\s\S]*?blocks=\{scheduleBlocks\}/);
+  // …and the rail's eye is the write that flips exactly that column.
+  const actions = readWeb('app/dashboard/[eventId]/schedule/actions.ts');
+  const toggle = actions.slice(actions.indexOf('export async function toggleBlockVisibility'));
+  assert.match(toggle.slice(0, toggle.indexOf('\nexport ')), /is_public/);
+  assert.match(read('_components/day-rail.tsx'), /toggleBlockVisibility\(\s*toFormData\(\{ event_id: eventId, block_id: m\.block_id, desired:/);
+});
+
+test('10 · the schedule lab drives the real rail and is dev-only', () => {
+  const lab = readWeb('app/dev/schedule-lab/page.tsx');
+  assert.match(lab, /if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
+  const client = readWeb('app/dev/schedule-lab/schedule-lab-client.tsx');
+  assert.match(client, /from '@\/app\/dashboard\/\[eventId\]\/schedule\/_components\/day-rail'/);
+  assert.doesNotMatch(client, /@\/lib\/supabase|createClient/, 'the lab opens no database');
 });

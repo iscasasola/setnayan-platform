@@ -14,6 +14,7 @@ import {
   formatClock,
   formatClockRange,
   formatDateHeading,
+  formatDuration,
   spanOf,
   toDatetimeLocal,
   wallDateKey,
@@ -22,7 +23,7 @@ import {
 import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { DayMoment, DayRequest } from './day-types';
-import { Eyebrow, PHASE_TINT, Switch, Tip, toFormData, useDayActions } from './day-ui';
+import { Eyebrow, PHASE_TINT, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions, type PickOption } from './day-ui';
 
 const COULD_NOT_SAVE = 'That did not save. Check your connection and try again.';
 
@@ -39,16 +40,37 @@ function SheetHead({ id, title, tip }: { id: string; title: React.ReactNode; tip
 
 // ─────────────────────────────── Add a moment ───────────────────────────────
 
+/** "Runs for" presets — the prototype's row, now the options of ONE dropdown. */
 const LENGTHS: Array<[number, string]> = [
-  [15, '15m'],
-  [30, '30m'],
-  [45, '45m'],
-  [60, '1h'],
-  [90, '1½h'],
-  [120, '2h'],
+  [15, '15 min'],
+  [30, '30 min'],
+  [45, '45 min'],
+  [60, '1 h'],
+  [90, '1 h 30 min'],
+  [120, '2 h'],
 ];
 
-const HOURS = Array.from({ length: 19 }, (_, i) => i + 5); // 5 AM … 11 PM
+const FIRST_SLOT = 5 * 60; // 5:00 AM
+const LAST_SLOT = 23 * 60 + 45; // 11:45 PM
+
+/**
+ * Every quarter hour from 5 AM to 11:45 PM — plus the value currently held when
+ * the −/+ stepper has moved it off that grid, so the button never reads blank.
+ */
+export function startOptions(current: number): PickOption[] {
+  const mins: number[] = [];
+  for (let m = FIRST_SLOT; m <= LAST_SLOT; m += 15) mins.push(m);
+  if (!mins.includes(current)) mins.push(current);
+  mins.sort((a, b) => a - b);
+  return mins.map((m) => ({ key: String(m), label: formatClock(m) }));
+}
+
+export function lengthOptions(current: number): PickOption[] {
+  const rows: Array<[number, string]> = LENGTHS.some(([n]) => n === current)
+    ? LENGTHS
+    : [...LENGTHS, [current, formatDuration(current)] as [number, string]].sort((a, b) => a[0] - b[0]);
+  return rows.map(([n, text]) => ({ key: String(n), label: text }));
+}
 
 export function AddMomentSheet({
   open,
@@ -75,9 +97,7 @@ export function AddMomentSheet({
   const [label, setLabel] = useState('');
   const [type, setType] = useState<ScheduleBlockType>('custom');
   const [start, setStart] = useState(startMin);
-  const [length, setLength] = useState(60);
-  const [custom, setCustom] = useState('');
-  const [picker, setPicker] = useState<'none' | 'time' | 'length'>('none');
+  const [runs, setRuns] = useState(60);
   const [isPublic, setIsPublic] = useState(true);
   const [staged, setStaged] = useState(false);
   const [where, setWhere] = useState('');
@@ -91,9 +111,7 @@ export function AddMomentSheet({
     setLabel('');
     setType('custom');
     setStart(startMin);
-    setLength(60);
-    setCustom('');
-    setPicker('none');
+    setRuns(60);
     setIsPublic(true);
     setStaged(false);
     setWhere('');
@@ -101,8 +119,6 @@ export function AddMomentSheet({
     setError(null);
   }, [open, startMin, dateKey]);
 
-  const customMinutes = Number.parseInt(custom, 10);
-  const runs = custom && Number.isFinite(customMinutes) && customMinutes > 0 ? customMinutes : length;
   const fits =
     nextMoment && start + runs <= wallMinutes(nextMoment.start_at)
       ? `Fits the gap before ${nextMoment.label}`
@@ -165,21 +181,15 @@ export function AddMomentSheet({
 
         <div>
           <Eyebrow>Phase</Eyebrow>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {SCHEDULE_BLOCK_TYPES.map((t) => (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={type === t}
-                onClick={() => setType(t)}
-                className={`inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-[12.5px] ${
-                  type === t ? 'bg-ink text-cream' : 'text-ink/80 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06]'
-                }`}
-              >
-                <i aria-hidden className="h-2 w-2 rounded-full" style={{ background: PHASE_TINT[t] }} />
-                {scheduleBlockLabelFor(t, eventType)}
-              </button>
-            ))}
+          <div className="mt-1.5 flex items-center gap-2">
+            <i aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: PHASE_TINT[type] }} />
+            <PickMenu
+              label="Phase"
+              value={type}
+              dataAttr="data-add-phase"
+              options={SCHEDULE_BLOCK_TYPES.map((t) => ({ key: t, label: scheduleBlockLabelFor(t, eventType) }))}
+              onPick={(key) => setType(key as ScheduleBlockType)}
+            />
           </div>
         </div>
 
@@ -197,72 +207,51 @@ export function AddMomentSheet({
           <p className="text-xs text-ink/55">{formatDateHeading(dateKey)}</p>
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <PickerField
-            label="Starts"
-            value={formatClock(start)}
-            open={picker === 'time'}
-            onToggle={() => setPicker(picker === 'time' ? 'none' : 'time')}
-          >
-            <Eyebrow>Hour</Eyebrow>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {HOURS.map((h) => (
-                <Chip key={h} on={Math.floor(start / 60) === h} onClick={() => setStart(h * 60 + (start % 60))}>
-                  {h % 12 === 0 ? 12 : h % 12} {h >= 12 ? 'PM' : 'AM'}
-                </Chip>
-              ))}
+        {/* Starts and Runs for: each ONE dropdown for the choice, and the −/+
+            stepper (five minutes a press) for anything between two options. */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <Eyebrow>Starts</Eyebrow>
+              <Tip>Pick a time — or drag the moment on the rail afterwards. Everything snaps to 5 minutes.</Tip>
             </div>
-            <div className="mt-3">
-              <Eyebrow>Minutes</Eyebrow>
+            <div className="mt-1.5">
+              <PickMenu
+                label="Starts"
+                value={String(start)}
+                dataAttr="data-add-starts"
+                options={startOptions(start)}
+                onPick={(key) => setStart(Number(key))}
+              />
             </div>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {[0, 15, 30, 45].map((mm) => (
-                <Chip key={mm} on={start % 60 === mm} onClick={() => setStart(Math.floor(start / 60) * 60 + mm)}>
-                  :{String(mm).padStart(2, '0')}
-                </Chip>
-              ))}
-              <Chip on={false} onClick={() => setStart(start - 5)}>
-                −5
-              </Chip>
-              <Chip on={false} onClick={() => setStart(start + 5)}>
-                +5
-              </Chip>
-            </div>
-          </PickerField>
-          <PickerField
-            label="Runs for"
-            value={custom ? `${runs} min` : (LENGTHS.find(([n]) => n === length)?.[1] ?? `${length} min`)}
-            open={picker === 'length'}
-            onToggle={() => setPicker(picker === 'length' ? 'none' : 'length')}
-          >
-            <div className="flex flex-wrap gap-1.5">
-              {LENGTHS.map(([n, text]) => (
-                <Chip
-                  key={n}
-                  on={!custom && length === n}
-                  onClick={() => {
-                    setCustom('');
-                    setLength(n);
-                  }}
-                >
-                  {text}
-                </Chip>
-              ))}
-            </div>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={5}
-              step={5}
-              value={custom}
-              onChange={(e) => setCustom(e.target.value)}
-              placeholder="or minutes, e.g. 80"
-              aria-label="Custom length in minutes"
-              className="mt-2 w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-sm text-ink outline-none focus:border-ink"
+            <Stepper
+              onMinus={() => setStart((s) => Math.max(0, s - 5))}
+              onPlus={() => setStart((s) => s + 5)}
             />
-          </PickerField>
+          </div>
+          <div>
+            <Eyebrow>Runs for</Eyebrow>
+            <div className="mt-1.5">
+              <PickMenu
+                label="Runs for"
+                value={String(runs)}
+                dataAttr="data-add-runs"
+                options={lengthOptions(runs)}
+                onPick={(key) => setRuns(Number(key))}
+              />
+            </div>
+            <Stepper
+              onMinus={() => setRuns((r) => Math.max(5, r - 5))}
+              onPlus={() => setRuns((r) => r + 5)}
+              minusLabel="5 minutes shorter"
+              plusLabel="5 minutes longer"
+            />
+          </div>
         </div>
-        {fits ? <p className="text-[12.5px] text-ink/55">{fits}</p> : null}
+        <p className="text-[12.5px] text-ink/55">
+          Ends <span className="font-mono">{formatClock(start + runs)}</span>
+          {fits ? ` · ${fits}` : ''}
+        </p>
 
         <div>
           <Switch
@@ -317,58 +306,17 @@ export function AddMomentSheet({
   );
 }
 
-function PickerField({
-  label,
-  value,
-  open,
-  onToggle,
-  children,
-}: {
-  label: string;
-  value: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={onToggle}
-        className="flex min-h-12 w-full items-center justify-between gap-2 border-b border-ink/15 py-1.5 text-left"
-      >
-        <span>
-          <Eyebrow>{label}</Eyebrow>
-          <span className="block text-lg font-semibold tabular-nums text-ink">{value}</span>
-        </span>
-        <span aria-hidden className={`text-ink/45 transition-transform ${open ? 'rotate-180' : ''}`}>
-          ▾
-        </span>
-      </button>
-      {open ? <div className="pt-3">{children}</div> : null}
-    </div>
-  );
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`min-h-10 rounded-full px-3 text-[12.5px] font-semibold ${
-        on ? 'bg-ink text-cream' : 'text-ink/75 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06]'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 // ─────────────────────────────── Running late ───────────────────────────────
 
-const AMOUNTS = [-15, 15, 30, 45];
+/** How late a day usually runs — the options of ONE dropdown, then −/+ for the rest. */
+const AMOUNTS = [-30, -15, -5, 5, 10, 15, 20, 30, 45, 60];
+
+const signed = (n: number) => (n > 0 ? `+${n} min` : `−${Math.abs(n)} min`);
+
+function amountOptions(current: number): PickOption[] {
+  const all = AMOUNTS.includes(current) ? AMOUNTS : [...AMOUNTS, current].sort((a, b) => a - b);
+  return all.map((n) => ({ key: String(n), label: signed(n) }));
+}
 
 export function ShiftSheet({
   open,
@@ -453,69 +401,53 @@ export function ShiftSheet({
           title="Running late"
           tip="Moves the chosen moment and everything after it by the same amount. Parts travel with their moment; how long each runs is kept."
         />
-        <label className="block">
-          <Eyebrow>From</Eyebrow>
-          <select
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="mt-1 block w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink"
-          >
-            {top.map((m) => (
-              <option key={m.block_id} value={m.block_id}>
-                {label(m)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <Eyebrow>Through</Eyebrow>
-          <select
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="mt-1 block w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink"
-          >
-            <option value="">End of day</option>
-            {top.map((m) => (
-              <option key={m.block_id} value={m.block_id}>
-                {label(m)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="pt-2 text-4xl font-semibold tabular-nums tracking-tight text-ink">
-          {delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`}
-          <small className="ml-1.5 text-sm font-normal text-ink/55">min</small>
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {AMOUNTS.map((a) => (
-            <button
-              key={a}
-              type="button"
-              aria-pressed={delta === a}
-              onClick={() => setDelta(a)}
-              className={`h-10 rounded-full px-3.5 text-[13px] font-semibold ${
-                delta === a ? 'bg-ink text-cream' : 'text-ink/65 ring-1 ring-inset ring-ink/15'
-              }`}
-            >
-              {a > 0 ? `+${a}` : `−${Math.abs(a)}`}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setDelta((d) => (d - 5 === 0 ? -5 : d - 5))}
-            className="h-10 rounded-full px-3 text-[13px] font-semibold text-ink/65 ring-1 ring-inset ring-ink/15"
-            aria-label="5 minutes less"
-          >
-            −5
-          </button>
-          <button
-            type="button"
-            onClick={() => setDelta((d) => (d + 5 === 0 ? 5 : d + 5))}
-            className="h-10 rounded-full px-3 text-[13px] font-semibold text-ink/65 ring-1 ring-inset ring-ink/15"
-            aria-label="5 minutes more"
-          >
-            +5
-          </button>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Eyebrow>From</Eyebrow>
+            <div className="mt-1.5">
+              <PickMenu
+                label="From"
+                value={from}
+                dataAttr="data-shift-from"
+                options={top.map((m) => ({ key: m.block_id, label: label(m) }))}
+                onPick={setFrom}
+              />
+            </div>
+          </div>
+          <div>
+            <Eyebrow>Through</Eyebrow>
+            <div className="mt-1.5">
+              <PickMenu
+                label="Through"
+                value={to || 'end'}
+                dataAttr="data-shift-through"
+                options={[{ key: 'end', label: 'End of day' }, ...top.map((m) => ({ key: m.block_id, label: label(m) }))]}
+                onPick={(key) => setTo(key === 'end' ? '' : key)}
+              />
+            </div>
+          </div>
+        </div>
+        <div>
+          <Eyebrow>By</Eyebrow>
+          <p className="pt-1 text-4xl font-semibold tabular-nums tracking-tight text-ink">
+            {delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`}
+            <small className="ml-1.5 text-sm font-normal text-ink/55">min</small>
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <PickMenu
+              label="By"
+              value={String(delta)}
+              dataAttr="data-shift-by"
+              options={amountOptions(delta)}
+              onPick={(key) => setDelta(Number(key))}
+            />
+            <Stepper
+              onMinus={() => setDelta((d) => (d - 5 === 0 ? -5 : d - 5))}
+              onPlus={() => setDelta((d) => (d + 5 === 0 ? 5 : d + 5))}
+              minusLabel="5 minutes less"
+              plusLabel="5 minutes more"
+            />
+          </div>
         </div>
         <p className="text-[13px] text-ink/65">
           {movingTop.length} moment{movingTop.length === 1 ? '' : 's'} move

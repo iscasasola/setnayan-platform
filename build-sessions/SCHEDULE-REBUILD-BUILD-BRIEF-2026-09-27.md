@@ -18,24 +18,23 @@ Every anchor below is a DECISION_LOG headline — find it with
 | `PHOTOGRAPHERS & VIDEOGRAPHERS USE THE SAME SCHEDULE` | their requests via the same inbox (already true); their uploads auto-file into the day's chapters | 4 |
 | `YES TO ALL — PALETTE, DAY-OF SCHEDULE` item (4) | the Event Hub schedule scene uses ONE style | not this build — `app/[slug]/**` belongs to the stage-scene builders |
 
-## ⏸ STATUS — PAUSED FOR APPLE (owner scope change, 2026-09-27)
+## ✅ STATUS — SLICE 1 FINISHED (2026-09-28, `rd/schedule-rebuild`; owner 2026-09-28: every Event Hub build lands before the Thursday Apple check)
 
-Slice 1 is committed as WIP on `rd/schedule-rebuild-1`, **no PR opened**. To resume:
+Resumed from the WIP on `rd/schedule-rebuild-1`, cherry-picked onto `origin/main` AFTER the timezone
+hotfix (`rd/schedule-times-in-manila`: a schedule time is the venue's wall clock in a UTC column;
+`lib/schedule-rail.ts` already read and wrote UTC digits, so nothing moved — its round-trip test and
+`lib/a-schedule-time-reads-the-same-everywhere.test.ts` both hold; the strip's real-instant
+`fmtInstant` is listed in that guard's EXEMPT with its reason).
 
-1. **Rebase onto the timezone hotfix** (`rd/schedule-times-in-manila`, lands first). Route every
-   read/write of `start_at`/`end_at` through its shared helper — in this slice those conversions
-   live ONLY in `lib/schedule-rail.ts` (`wallDateKey` · `wallMinutes` · `spanOf` ·
-   `toDatetimeLocal`) plus the optimistic `fromDatetimeLocalValue(toDatetimeLocal(…))` calls in
-   `day-rail.tsx` / `moment-inspector.tsx`. Re-run `lib/schedule-rail.test.ts` — its first test is
-   the round trip and must still hold against the hotfix's storage rule.
-2. Run the full `pnpm typecheck` (NOT yet run — the heavy lock was busy all session), `npm run lint`,
-   the unit suite, and the CI guard set (all install-free guards were green at pause).
-3. Visual check at 375/390 with touch (not yet done), then open the PR — no auto-merge.
+Added on resume, per the owner's 2026-09-27 control rules: every set of choices is ONE `PickMenu`
+(phase · tag a supplier · View as · Starts · Runs for · From · Through · By), quantities are −/+
+steppers, on/off stays a switch — no pill rows, no native selects. Glance shows days to go.
+`/dev/schedule-lab` drives the real rail on the prototype's fixtures (dev-only). Full typecheck, lint,
+unit suite and the CI guard set run before the PR; visual check at 375 and desktop in the lab.
 
-Already verified at pause: `lib/schedule-rail.test.ts` (16), `schedule/the-day-is-a-rail.test.ts`
-(7), the schedule-page guards (birthday labels, first-visit, finished-event, delegate window, debut,
-stage notes, tour titles), every install-free CI guard; each new guard seen red by sabotage and
-restored clean.
+Still owned elsewhere: a pre-day announcement reaches guests only inside the day-of window
+(`app/[slug]/**`, pinned by `day-of-announcement.test.ts`). Decline-with-a-reason still needs a
+column (slice 7).
 
 ## Slice 1 — the rebuilt page on the existing data (this PR)
 

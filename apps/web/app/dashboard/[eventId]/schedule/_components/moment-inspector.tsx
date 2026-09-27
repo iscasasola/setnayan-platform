@@ -30,7 +30,7 @@ import {
   wallDateKey,
 } from '@/lib/schedule-rail';
 import type { DayMoment, DayRequest, DaySupplier } from './day-types';
-import { Eyebrow, Switch, Tip, toFormData, useDayActions } from './day-ui';
+import { Eyebrow, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions } from './day-ui';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -207,30 +207,29 @@ export function MomentInspector({
         className="w-full border-0 border-b border-ink/15 bg-transparent px-0 pb-1.5 pt-0.5 font-display text-[21px] leading-tight text-ink outline-none focus:border-ink read-only:border-transparent lg:text-2xl"
       />
 
-      <label className="mt-4 block">
+      <div className="mt-4">
         <Eyebrow>Phase</Eyebrow>
         {readOnly ? (
           <p className="py-1.5 text-[15px] text-ink">{phaseLabel}</p>
         ) : (
-          <select
-            value={m.block_type}
-            onChange={(e) => {
-              const next = e.target.value as DayMoment['block_type'];
-              onOverride(m.block_id, { block_type: next });
-              run([m.block_id], () =>
-                updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, block_type: next })),
-              );
-            }}
-            className="w-full appearance-none border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink"
-          >
-            {SCHEDULE_BLOCK_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {scheduleBlockLabelFor(t, eventType)}
-              </option>
-            ))}
-          </select>
+          <div className="mt-1">
+            <PickMenu
+              label="Phase"
+              value={m.block_type}
+              dataAttr="data-moment-phase"
+              options={SCHEDULE_BLOCK_TYPES.map((t) => ({ key: t, label: scheduleBlockLabelFor(t, eventType) }))}
+              onPick={(key) => {
+                const next = key as DayMoment['block_type'];
+                if (next === m.block_type) return;
+                onOverride(m.block_id, { block_type: next });
+                run([m.block_id], () =>
+                  updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, block_type: next })),
+                );
+              }}
+            />
+          </div>
         )}
-      </label>
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
@@ -328,33 +327,51 @@ export function MomentInspector({
             className="w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink read-only:border-transparent"
           />
           {suppliers.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {suppliers.map((s) => {
-                const on = m.responsible_vendor_ids.includes(s.vendor_id);
-                if (readOnly && !on) return null;
-                return (
-                  <button
-                    key={s.vendor_id}
-                    type="button"
-                    disabled={readOnly}
-                    aria-pressed={on}
-                    onClick={() =>
-                      saveResponsible(
-                        party,
-                        on
-                          ? m.responsible_vendor_ids.filter((id) => id !== s.vendor_id)
-                          : [...m.responsible_vendor_ids, s.vendor_id],
-                      )
-                    }
-                    className={`inline-flex min-h-9 items-center gap-1 rounded-full px-3 text-xs ${
-                      on ? 'bg-ink text-cream' : 'text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06]'
-                    }`}
-                  >
-                    {s.vendor_name}
-                    {on && !readOnly ? <X aria-hidden className="h-3 w-3" /> : null}
-                  </button>
-                );
-              })}
+            <div className="mt-2">
+              {/* The suppliers already on this moment, each with its ✕; the ones
+                  not yet tagged wait in ONE dropdown — never a row of toggles. */}
+              {m.responsible_vendor_ids.length > 0 ? (
+                <ul className="mb-1.5 flex flex-wrap gap-1.5">
+                  {suppliers
+                    .filter((s) => m.responsible_vendor_ids.includes(s.vendor_id))
+                    .map((s) => (
+                      <li
+                        key={s.vendor_id}
+                        className="inline-flex min-h-9 items-center gap-1 rounded-full bg-ink pl-3 pr-1.5 text-xs text-cream"
+                      >
+                        {s.vendor_name}
+                        {readOnly ? (
+                          <span className="w-1.5" />
+                        ) : (
+                          <button
+                            type="button"
+                            aria-label={`Untag ${s.vendor_name}`}
+                            onClick={() =>
+                              saveResponsible(
+                                party,
+                                m.responsible_vendor_ids.filter((id) => id !== s.vendor_id),
+                              )
+                            }
+                            className="grid h-7 w-7 place-items-center rounded-full hover:bg-white/15"
+                          >
+                            <X aria-hidden className="h-3 w-3" />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              ) : null}
+              {!readOnly && suppliers.some((s) => !m.responsible_vendor_ids.includes(s.vendor_id)) ? (
+                <PickMenu
+                  label="Tag a supplier"
+                  value={null}
+                  dataAttr="data-moment-tag-supplier"
+                  options={suppliers
+                    .filter((s) => !m.responsible_vendor_ids.includes(s.vendor_id))
+                    .map((s) => ({ key: s.vendor_id, label: s.vendor_name }))}
+                  onPick={(id) => saveResponsible(party, [...m.responsible_vendor_ids, id])}
+                />
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -528,30 +545,6 @@ export function MomentInspector({
           )}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function Stepper({ onMinus, onPlus }: { onMinus: () => void; onPlus: () => void }) {
-  return (
-    <div className="mt-1.5 inline-flex items-center gap-0.5">
-      <button
-        type="button"
-        onClick={onMinus}
-        aria-label="5 minutes earlier"
-        className="grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
-      >
-        −
-      </button>
-      <span className="px-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink/45">5 min</span>
-      <button
-        type="button"
-        onClick={onPlus}
-        aria-label="5 minutes later"
-        className="grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
-      >
-        +
-      </button>
     </div>
   );
 }

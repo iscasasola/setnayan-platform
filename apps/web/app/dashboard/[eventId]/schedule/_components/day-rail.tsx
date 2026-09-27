@@ -40,17 +40,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
-import {
-  CalendarClock,
-  Check,
-  Eye,
-  EyeOff,
-  MessageSquare,
-  Mic,
-  MoveVertical,
-  Plus,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { CalendarClock, Check, Eye, EyeOff, MessageSquare, Mic, MoveVertical, Plus } from 'lucide-react';
 import { useIsDesktop } from '@/lib/use-responsive';
 import { venueNowMs } from '@/lib/schedule';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
@@ -83,7 +73,7 @@ import type {
   DaySupplier,
   DayTemplate,
 } from './day-types';
-import { DayActionsContext, PHASE_TINT, Eyebrow, Tip, ToolButton, toFormData } from './day-ui';
+import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
 
@@ -121,12 +111,15 @@ export function ScheduleDay({
   rosEnabled,
   templates,
   isEventDay,
+  daysToGo = null,
   emcee,
   hostPanel,
   actions,
 }: {
   /** The existing server actions in `../actions`, handed down by the page. */
   actions: DayActions;
+  /** Whole days until the event, for the glance column; null past it or undated. */
+  daysToGo?: number | null;
   eventId: string;
   eventType: string | null;
   /** events.event_date as "YYYY-MM-DD", or null when no date is set. */
@@ -160,7 +153,6 @@ export function ScheduleDay({
   const suppressClick = useRef(false);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [lens, setLens] = useState<Lens>({ kind: 'all' });
-  const [lensOpen, setLensOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [now, setNow] = useState<{ key: string; min: number } | null>(null);
@@ -398,70 +390,33 @@ export function ScheduleDay({
           explanation lives behind the ⓘ, never in a paragraph above the rail. */}
       <div className="relative flex flex-wrap items-center gap-1">
         {topLevel.length > 0 ? (
-          <div className="relative">
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={lensOpen}
-              onClick={() => setLensOpen((v) => !v)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.05]"
-            >
-              <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.8} />
-              <span className="sr-only">View as: </span>
-              {lensLabel}
-              <span aria-hidden className="text-ink/45">▾</span>
-            </button>
-            {lensOpen ? (
-              <div
-                role="menu"
-                className="absolute left-0 top-11 z-[45] w-64 rounded-2xl bg-white/95 p-2 shadow-[0_28px_54px_-30px_rgba(30,26,18,0.5)] ring-1 ring-ink/10 backdrop-blur"
-              >
-                <div className="flex items-center justify-between px-2 pb-2 pt-1">
-                  <Eyebrow>View as</Eyebrow>
-                  <Tip align="end">
-                    Every view is a live filter over this one timeline. Change the master; each
-                    view follows.
-                  </Tip>
-                </div>
-                <LensOption
-                  label="Master"
-                  hint="everything"
-                  on={lens.kind === 'all'}
-                  onPick={() => {
-                    setLens({ kind: 'all' });
-                    setLensOpen(false);
-                  }}
-                />
-                <LensOption
-                  label="Guests"
-                  hint="what the Event Hub shows"
-                  on={lens.kind === 'guest'}
-                  onPick={() => {
-                    setLens({ kind: 'guest' });
-                    setSelectedId(null);
-                    setLensOpen(false);
-                  }}
-                />
-                {rosEnabled
+          <div className="flex items-center gap-1">
+            {/* VIEW AS — one dropdown (the shared PickMenu), never a chip row.
+                Every view is a live filter over this one timeline. */}
+            <PickMenu
+              label="View as"
+              value={lens.kind === 'all' ? 'all' : lens.kind === 'guest' ? 'guest' : `vendor:${lens.id}`}
+              dataAttr="data-schedule-lens"
+              options={[
+                { key: 'all', label: 'Master · everything' },
+                { key: 'guest', label: 'Guests · what the Event Hub shows' },
+                ...(rosEnabled
                   ? taggedSuppliers.map((s) => {
                       const n = topLevel.filter((m) => m.responsible_vendor_ids.includes(s.vendor_id)).length;
-                      return (
-                        <LensOption
-                          key={s.vendor_id}
-                          label={s.vendor_name}
-                          hint={`${n} moment${n === 1 ? '' : 's'}`}
-                          on={lens.kind === 'vendor' && lens.id === s.vendor_id}
-                          onPick={() => {
-                            setLens({ kind: 'vendor', id: s.vendor_id });
-                            setSelectedId(null);
-                            setLensOpen(false);
-                          }}
-                        />
-                      );
+                      return { key: `vendor:${s.vendor_id}`, label: `${s.vendor_name} · ${n} moment${n === 1 ? '' : 's'}` };
                     })
-                  : null}
-              </div>
-            ) : null}
+                  : []),
+              ]}
+              onPick={(key) => {
+                if (key === 'all') {
+                  setLens({ kind: 'all' });
+                  return;
+                }
+                setSelectedId(null);
+                setLens(key === 'guest' ? { kind: 'guest' } : { kind: 'vendor', id: key.slice('vendor:'.length) });
+              }}
+            />
+            <Tip>Every view is a live filter over this one timeline. Change the master; each view follows.</Tip>
           </div>
         ) : null}
 
@@ -867,6 +822,7 @@ export function ScheduleDay({
                 topLevel={topLevel}
                 requests={requests.length}
                 role={role}
+                daysToGo={daysToGo}
                 onRequests={() => setSheet({ kind: 'requests' })}
               />
             )}
@@ -950,36 +906,6 @@ export function ScheduleDay({
   );
 }
 
-function LensOption({
-  label,
-  hint,
-  on,
-  onPick,
-}: {
-  label: string;
-  hint: string;
-  on: boolean;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitemradio"
-      aria-checked={on}
-      onClick={onPick}
-      className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2.5 text-left text-[13px] font-medium text-ink hover:bg-ink/[0.06]"
-    >
-      <span>
-        {label} <small className="text-[11px] text-ink/55">· {hint}</small>
-      </span>
-      <i
-        aria-hidden
-        className={`h-2 w-2 rounded-full ${on ? 'bg-ink' : 'ring-1 ring-inset ring-ink/40'}`}
-      />
-    </button>
-  );
-}
-
 /** Nothing selected, wide screen: the day at a glance, in numbers. */
 function Glance({
   count,
@@ -988,6 +914,7 @@ function Glance({
   topLevel,
   requests,
   role,
+  daysToGo,
   onRequests,
 }: {
   count: number;
@@ -996,6 +923,8 @@ function Glance({
   topLevel: DayMoment[];
   requests: number;
   role: DayRole;
+  /** Whole days until the event (prototype `.g-plan`); null past it or undated. */
+  daysToGo: number | null;
   onRequests: () => void;
 }) {
   let first = Infinity;
@@ -1018,6 +947,11 @@ function Glance({
         <p>
           Your day runs <b className="font-normal text-ink">{formatClockRange(first, last)}</b>
           <span className="mt-0.5 block font-sans text-[12.5px] text-ink/55">{formatDuration(last - first)}</span>
+        </p>
+      ) : null}
+      {daysToGo !== null && daysToGo > 0 ? (
+        <p>
+          <b className="font-normal text-ink">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
         </p>
       ) : null}
       {role !== 'view' && requests > 0 ? (

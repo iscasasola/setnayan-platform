@@ -4,6 +4,16 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { ScheduleBlockType } from '@/lib/schedule';
 import type { DayActions } from './day-types';
 
+/**
+ * EVERY SET OF CHOICES IS ONE `PickMenu` (owner, 2026-09-27: *"this should be a
+ * tap to show option to pick or a drop down"* — never a pill row). The rail, the
+ * inspector and the sheets take it from here, so the Schedule's dropdown is the
+ * Maker's dropdown, byte for byte: phase · starts · runs for · view as · the
+ * supplier to tag · from / through / by on a late day.
+ */
+export { PickMenu } from '../../website/editor/_components/pick-menu';
+export type { PickOption } from '../../website/editor/_components/pick-menu';
+
 /** The page's server actions, provided once by `ScheduleDay` (see `DayActions`). */
 export const DayActionsContext = createContext<DayActions | null>(null);
 
@@ -116,6 +126,47 @@ export function Switch({
         />
       </span>
     </button>
+  );
+}
+
+/**
+ * The −/+ pair for a QUANTITY (owner: *"Size is a −/+ stepper"*) — here always
+ * minutes, five a press, the same five the rail snaps to. 40px targets on a
+ * phone, 32px beside a desktop inspector.
+ */
+export function Stepper({
+  onMinus,
+  onPlus,
+  unit = '5 min',
+  minusLabel = '5 minutes earlier',
+  plusLabel = '5 minutes later',
+}: {
+  onMinus: () => void;
+  onPlus: () => void;
+  unit?: string;
+  minusLabel?: string;
+  plusLabel?: string;
+}) {
+  return (
+    <div className="mt-1.5 inline-flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={onMinus}
+        aria-label={minusLabel}
+        className="grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
+      >
+        −
+      </button>
+      <span className="px-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink/45">{unit}</span>
+      <button
+        type="button"
+        onClick={onPlus}
+        aria-label={plusLabel}
+        className="grid h-10 w-10 place-items-center rounded-md text-[15px] text-ink/65 ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.06] lg:h-8 lg:w-8"
+      >
+        +
+      </button>
+    </div>
   );
 }
 

@@ -56,21 +56,41 @@ function shippedScript(): string {
   return src;
 }
 
-type FakeEl = { classes: Set<string>; classList: { add(c: string): void } };
+type FakeEl = {
+  classes: Set<string>;
+  classList: { add(c: string): void };
+  tagName?: string;
+  previousElementSibling?: FakeEl | null;
+};
 
 function makeEl(): FakeEl {
   const classes = new Set<string>();
-  return { classes, classList: { add: (c: string) => void classes.add(c) } };
+  return { classes, classList: { add: (c: string) => void classes.add(c) }, tagName: 'SECTION' };
+}
+
+/** A hub scene: a `.hub-canvas` frame, or a bare scene followed by its element `<style>`. */
+function makeHub(kind: 'frame' | 'styled'): { scene: FakeEl; node: FakeEl } {
+  const scene = makeEl();
+  scene.tagName = kind === 'frame' ? 'DIV' : 'SECTION';
+  if (kind === 'frame') return { scene, node: scene };
+  const style = makeEl();
+  style.tagName = 'STYLE';
+  style.previousElementSibling = scene;
+  return { scene, node: style };
 }
 
 /**
  * Run the shipped script against a DOM that reveals `chapters` only once
  * `flush()` is called — i.e. the page is still streaming when it executes.
  */
-function run(chaptersAfterFlush: number, chaptersNow = 0) {
+function run(chaptersAfterFlush: number, chaptersNow = 0, hubAfterFlush: Array<'frame' | 'styled'> = []) {
   const rootClasses = new Set<string>(['pahina-js']);
   const els: FakeEl[] = Array.from({ length: chaptersAfterFlush }, makeEl);
   let visible = chaptersNow;
+  const hubs = hubAfterFlush.map(makeHub);
+  let hubVisible = 0;
+  const hubObserved: FakeEl[] = [];
+  let hubCallback: ((entries: Array<{ isIntersecting: boolean; target: FakeEl }>) => void) | null = null;
   const listeners: Array<() => void> = [];
   const timers: Array<() => void> = [];
   const observed: FakeEl[] = [];
@@ -86,15 +106,25 @@ function run(chaptersAfterFlush: number, chaptersNow = 0) {
         remove: (c: string) => void rootClasses.delete(c),
       },
     },
-    querySelectorAll: () => els.slice(0, visible),
+    // Answer by SELECTOR: the chapters and the hub's scenes are two different queries.
+    querySelectorAll: (sel: string) =>
+      sel.includes('data-pahina-chapters') ? els.slice(0, visible) : hubs.slice(0, hubVisible).map((h) => h.node),
     addEventListener: (_ev: string, fn: () => void) => void listeners.push(fn),
   };
   const win: Record<string, unknown> = {};
   class FakeIO {
-    constructor(cb: (entries: Array<{ isIntersecting: boolean; target: FakeEl }>) => void) {
-      ioCallback = cb;
+    private hub: boolean;
+    constructor(
+      cb: (entries: Array<{ isIntersecting: boolean; target: FakeEl }>) => void,
+      opts?: { rootMargin?: string },
+    ) {
+      // The hub's observer fires BEFORE a scene enters (a positive bottom margin);
+      // the chapters' fires inside the screen. That is how the two are told apart.
+      this.hub = /^0px 0px \d/.test(opts?.rootMargin ?? '');
+      if (this.hub) hubCallback = cb;
+      else ioCallback = cb;
     }
-    observe(t: FakeEl) { observed.push(t); }
+    observe(t: FakeEl) { (this.hub ? hubObserved : observed).push(t); }
     unobserve() {}
   }
   const console = { warn: (m: string) => void warnings.push(m) };
@@ -105,12 +135,13 @@ function run(chaptersAfterFlush: number, chaptersNow = 0) {
   );
 
   return {
-    rootClasses, els, observed, warnings, win,
+    rootClasses, els, observed, warnings, win, hubs, hubObserved,
     /** The rest of the page arrives, then DOMContentLoaded fires. */
-    flush() { visible = chaptersAfterFlush; document.readyState = 'complete'; listeners.forEach((f) => f()); },
+    flush() { visible = chaptersAfterFlush; hubVisible = hubs.length; document.readyState = 'complete'; listeners.forEach((f) => f()); },
     /** The 1.5s belt-and-braces retry, without DOMContentLoaded ever firing. */
-    fireTimer() { visible = chaptersAfterFlush; timers.forEach((f) => f()); },
+    fireTimer() { visible = chaptersAfterFlush; hubVisible = hubs.length; timers.forEach((f) => f()); },
     intersect(i: number) { ioCallback?.([{ isIntersecting: true, target: els[i]! }]); },
+    approach(i: number) { hubCallback?.([{ isIntersecting: true, target: hubs[i]!.scene }]); },
     timerCount: () => timers.length,
   };
 }
@@ -194,4 +225,42 @@ test('it does nothing at all when the flag was never set (reduced motion / no IO
     doc, win, class {}, { warn: () => {} }, () => {},
   );
   assert.equal(win.__pahinaArmed, undefined, 'it armed itself on a page that opted out of motion');
+});
+
+/* ── ⏳ THE EVENT HUB'S "PLAYS ONCE" WAITS FOR THE GUEST (2026-09-27) ──────
+   The same observer marks each hub scene `.pahina-in` as it nears the screen,
+   so a timed arrival starts when the guest gets there instead of on page load
+   (measured before: every Calm scene below the fold `finished` before it was
+   seen). */
+
+test('⏳ a hub scene streamed in late is observed, framed or bare-with-its-style', () => {
+  const r = run(3, 0, ['frame', 'styled']);
+  assert.equal(r.hubObserved.length, 0, 'nothing streamed yet');
+  r.flush();
+  assert.deepEqual(
+    r.hubObserved.map((h) => h.tagName),
+    ['DIV', 'SECTION'],
+    'the frame itself, and for a bare scene the element BEFORE its style — never the <style>',
+  );
+});
+
+test('⏳ a scene nearing the screen is marked pahina-in — and only that one', () => {
+  const r = run(2, 0, ['frame', 'styled', 'frame']);
+  r.flush();
+  r.approach(1);
+  assert.ok(r.hubs[1]!.scene.classes.has('pahina-in'), 'the approached scene was not marked');
+  assert.ok(!r.hubs[0]!.scene.classes.has('pahina-in'), 'a scene the guest never reached was marked');
+});
+
+test('⏳ the scenes are observed even when the chapters stand down', () => {
+  const r = run(0, 0, ['frame']);
+  r.flush();
+  assert.ok(!r.rootClasses.has('pahina-js'), 'precondition: no chapters, so the reveal stood down');
+  assert.equal(r.hubObserved.length, 1, 'a page with no chapters lost its scenes\' arrival too');
+});
+
+test('⏳ the timer path picks the scenes up when DOMContentLoaded never fires', () => {
+  const r = run(1, 0, ['frame', 'frame']);
+  r.fireTimer();
+  assert.equal(r.hubObserved.length, 2);
 });

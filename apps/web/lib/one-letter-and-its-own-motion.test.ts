@@ -27,6 +27,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import {
   hubElementDeclarations,
+  hubElementMotionDeclarations,
   hubTextHash,
   sanitizeHubElementMotion,
   sanitizeHubElements,
@@ -128,8 +129,9 @@ test('M1 · In and During play TOGETHER — two comma-separated animations, and 
   let els = withElementMotion(null, 'names', 'in', 'rise');
   els = withElementMotion(els, 'names', 'during', 'drift');
   assert.deepEqual(els?.names?.motion, { in: 'rise', during: 'drift' }, 'choosing During cleared In');
-  const decl = Object.fromEntries(hubElementDeclarations(els?.names));
-  assert.match(decl.animation ?? '', /^el-in-rise .* backwards, el-during-drift .* infinite alternate$/);
+  const decl = Object.fromEntries(hubElementMotionDeclarations(els?.names?.motion));
+  // (the name is written LAST in each slot — see `MotionSlot`)
+  assert.match(decl.animation ?? '', / none el-in-rise, 7s ease-in-out 0s infinite alternate el-during-drift, /);
   // Drift moves `translate`, In moves `transform` — they compose.
   const CSS = read('app/globals.css');
   assert.match(CSS, /@keyframes el-during-drift \{[^}]*translate: 0 0;[^}]*\}/);
@@ -140,11 +142,12 @@ test('M2 · under "Plays once" there is no Out; under "Follows the scroll" Out r
   assert.deepEqual(sanitizeHubElementMotion({ in: 'rise', out: 'lift', duration: 'slow' }), { in: 'rise', duration: 'slow' });
   const scroll = sanitizeHubElementMotion({ in: 'fade', out: 'lift', timeline: 'scroll', duration: 'slow', delay: 'long' });
   assert.deepEqual(scroll, { in: 'fade', out: 'lift', timeline: 'scroll' }, 'Duration and Delay do not apply to a scrolled element');
-  const once = Object.fromEntries(hubElementDeclarations({ motion: { in: 'rise' } }));
+  const once = Object.fromEntries(hubElementMotionDeclarations({ in: 'rise' }));
   assert.doesNotMatch(once.animation ?? '', /el-out-/);
-  assert.equal(once['animation-timeline'], undefined);
-  const scrolled = Object.fromEntries(hubElementDeclarations({ motion: scroll! }));
-  assert.match(scrolled.animation ?? '', /el-in-fade .*, el-out-lift /);
+  // 🔑 A timed element STATES its timeline, so a scene's `view()` cannot take it over.
+  assert.match(once['animation-timeline'] ?? '', /^auto, /);
+  const scrolled = Object.fromEntries(hubElementMotionDeclarations(scroll!));
+  assert.match(scrolled.animation ?? '', /el-in-fade, .* el-out-lift$/);
   assert.equal(scrolled['animation-timeline'], 'view(), view()');
   assert.equal(scrolled['animation-range'], 'entry 0% cover 30%, exit 0% exit 100%');
   // The sheet only offers Out when the element follows the scroll.

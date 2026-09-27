@@ -43,6 +43,12 @@ export type BrandedEmailParts = {
   ctaHref: string;
   /** Optional small print under the button. */
   footnote?: string;
+  /**
+   * The "why you got this" line at the very bottom. Defaults to the Papic
+   * gallery line this template has always printed; a mail sent to somebody
+   * who never started a gallery (a couple's GUEST) passes its own true reason.
+   */
+  footer?: string;
 };
 
 /**
@@ -51,6 +57,7 @@ export type BrandedEmailParts = {
  */
 export function renderBrandedEmail(parts: BrandedEmailParts): string {
   const { heading, paragraphs, ctaLabel, ctaHref, footnote } = parts;
+  const footer = parts.footer ?? "You're receiving this because you started a Papic gallery for your event.";
   const body = paragraphs
     .map(
       (p) =>
@@ -92,7 +99,7 @@ export function renderBrandedEmail(parts: BrandedEmailParts): string {
         }
         <tr><td style="padding:24px 32px 28px;">
           <hr style="border:none;border-top:1px solid ${C.line};margin:0 0 14px;">
-          <p style="margin:0;font-size:12px;line-height:1.5;color:${C.faint};">Setnayan · Filipino wedding planning + verified vendors<br>You're receiving this because you started a Papic gallery for your event.</p>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:${C.faint};">Setnayan · Filipino wedding planning + verified vendors<br>${esc(footer)}</p>
         </td></tr>
       </table>
     </td></tr>

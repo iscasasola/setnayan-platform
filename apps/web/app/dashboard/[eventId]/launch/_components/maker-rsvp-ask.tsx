@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
+  GUEST_REMINDERS_TIP,
   ONE_AT_A_TIME_TIP,
   RSVP_ASK_FIELDS,
   RSVP_ASK_LABEL,
@@ -13,6 +14,7 @@ import {
   WHO_CAN_RSVP,
   WHO_CAN_RSVP_LABEL,
   WHO_CAN_RSVP_TIP,
+  readGuestReminders,
   readOneAtATime,
   readWhoCanRsvp,
   rsvpAsks,
@@ -32,6 +34,8 @@ import { formatCount } from '@/lib/format-number';
  *   · Who can RSVP?                (`rsvp_ask_config.whoCanRsvp` — ONE stored
  *                                   value; Guest List → Invite reads the same)
  *   · Reply by                     (the couple's deadline, or 30 days before)
+ *   · Reminder emails              (`rsvp_ask_config.guestReminders` — the
+ *                                   30 · 7 · 1 day guest emails; absent = On)
  *   · Requests waiting (n)         → Open Requests
  *
  * 💾 THE DRAFT, NEVER LIVE — and ONE object. All three settings live in the
@@ -101,6 +105,7 @@ export function MakerRsvpSettings({
 
   const oneAtATime = readOneAtATime(local);
   const who = readWhoCanRsvp(local);
+  const guestReminders = readGuestReminders(local);
 
   return (
     <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">
@@ -189,6 +194,31 @@ export function MakerRsvpSettings({
           )}
           <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
         </Link>
+      </section>
+
+      {/* ── Reminder emails — 30 · 7 · 1 days (owner 2026-09-26). ONE switch,
+          `rsvp_ask_config.guestReminders`; absent = On. The sender
+          (`lib/guest-reminder-emails.ts`) reads the LIVE value, so like every
+          setting on this page it takes effect when the couple presses Apply. ── */}
+      <section className="flex flex-col gap-1" data-rsvp-setting="guest-reminders">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <InfoTip label="Reminder emails" align="start">
+            {GUEST_REMINDERS_TIP}
+          </InfoTip>
+        </p>
+        <Switch
+          label={
+            guestReminders
+              ? 'On · 30 days, 7 days and the day before'
+              : 'Off · no reminder emails'
+          }
+          on={guestReminders}
+          disabled={pending}
+          onChange={(v) => save({ guestReminders: v })}
+        />
+        <p className="text-xs text-ink/60">
+          Only guests with an email. Each reminder lists what they have not ticked on their checklist and links to their own page.
+        </p>
       </section>
 
       {/* ── Requests waiting ── */}

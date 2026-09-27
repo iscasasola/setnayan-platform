@@ -51,6 +51,21 @@ export const UNBILLED_FEE_REPAIR_GAP_MS = 30 * 60 * 1000;
 export const PRICE_BAND_REFILL_GAP_MS = 12 * 60 * 60 * 1000;
 
 /**
+ * Guest reminder emails at 30 · 7 · 1 days before the event (owner 2026-09-26).
+ *
+ * Every six hours, not daily: the daily gap (~20h) drifts four hours earlier
+ * each day and a quiet site can skip a calendar day, which for the DAY-BEFORE
+ * reminder is the whole reminder. Six hours gives four chances per day at a
+ * query that is one indexed `event_date IN (…)` lookup when nothing is due.
+ * Sends are idempotent per guest × milestone (`guest_reminder_email_log`), so
+ * the extra claims can never double-send.
+ *
+ * 🔑 DECLARED HERE, IMPORTED BY `guest-reminder-emails.ts` — same direction as
+ * `PRICE_BAND_REFILL_GAP_MS`, so this registry never drags `server-only` in.
+ */
+export const GUEST_REMINDER_GAP_MS = 6 * 60 * 60 * 1000;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -221,6 +236,18 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: DAILY_GAP_MS,
     what: 'Verified-badge 60-day reminder and expiry note',
+    reportsCount: true,
+  },
+  {
+    // 📮 ADDED 2026-09-28 (owner 2026-09-26, "THE LAST 30 DAYS"). Each
+    // identified guest with an email gets three short reminders listing only
+    // what they have not ticked on their checklist; the couple can switch them
+    // off on the Maker's RSVP page. Rides `runDailyEmailJobs` like every other
+    // guest-facing mail — no scheduler, no SMS.
+    key: 'guest-reminder-emails',
+    kind: 'operational',
+    gapMs: GUEST_REMINDER_GAP_MS,
+    what: 'Guest reminder emails at 30 · 7 · 1 days before the event (the couple can switch them off)',
     reportsCount: true,
   },
   {

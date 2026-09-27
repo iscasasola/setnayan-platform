@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { UploadYourQr } from './upload-your-qr';
 
 /**
  * THE STRANGER'S ONE BUTTON (owner 2026-09-26, verbatim: *"Get Inside: Scan
@@ -25,7 +26,7 @@ export function GetInside({
   eventId,
   signedInNotListed,
   theOrganizer,
-  mayAskToJoin = true,
+  mayAskToJoin = false,
 }: {
   /** The couple chose "Anyone, I approve" (`anyoneMayAskToJoin`, lib/rsvp-ask.ts). */
   mayAskToJoin?: boolean;
@@ -68,23 +69,18 @@ export function GetInside({
         <span className="text-base">Get inside</span>
         <span className="text-xs font-normal opacity-80">Scan your QR · Tap NFC · Sign in</span>
       </summary>
-      <ol className="mt-4 space-y-3 text-left text-sm text-ink/80">
-        <li>
-          <span className="font-medium text-ink">Scan your QR</span> — point your phone&rsquo;s camera at
-          the code on your invitation.
-        </li>
-        <li>
-          <span className="font-medium text-ink">Tap NFC</span> — hold your invitation card to the back of
-          your phone.
-        </li>
-        <li>
-          <span className="font-medium text-ink">Sign in</span> — if you saved this invitation to your
-          account.{' '}
-          <Link href={signIn} className="font-medium text-link underline underline-offset-2">
-            Sign in
-          </Link>
-        </li>
-      </ol>
+      {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
+          qr to login") — exactly two things: the guest's own QR, read on the
+          phone, or their account. */}
+      <div className="mt-4 space-y-4">
+        {slug ? <UploadYourQr slug={slug} /> : null}
+        <Link
+          href={signIn}
+          className="flex min-h-[48px] w-full items-center justify-center text-sm font-medium text-ink underline underline-offset-4"
+        >
+          Sign in
+        </Link>
+      </div>
     </details>
   );
 }

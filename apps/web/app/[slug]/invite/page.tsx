@@ -1,4 +1,5 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { anyoneMayAskToJoin } from '@/lib/rsvp-ask';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { JoinFlow } from '@/app/join/[eventId]/_components/join-flow';
@@ -43,7 +44,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude`,
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude, rsvp_ask_config`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
@@ -98,6 +99,17 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   // delete this block. Nothing else depends on it.
   if (resolveEffectiveVisibility(event) === 'private') {
     notFound();
+  }
+
+  /* 🪧 THE EVENT POSTER QR OPENS THE EVENT (owner 2026-09-27, verbatim: *"Event
+     Poster QR. will go to the event. sign in to enter or upload your qr to
+     login."*). This branded door is the ask-to-join form, and it exists only
+     when the couple chose "Anyone, I approve" (`anyoneMayAskToJoin`). On an
+     "Only my Guest List" event there is nothing to request: the poster lands on
+     the event page, whose one door is Sign in or Upload your QR — and a guest
+     already holding their key is recognised there and sent to their RSVP. */
+  if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {
+    redirect(`/${event.slug}`);
   }
 
   // Resolve the event's current join token server-side (it never appears in the

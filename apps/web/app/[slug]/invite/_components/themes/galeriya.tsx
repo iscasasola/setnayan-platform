@@ -45,6 +45,7 @@ const schibsted = localFont({
     },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-galeriya-sans',
   // Metric-matched fallback while the face loads — with local files it must be
   // stated (app/layout.tsx carries the same note).

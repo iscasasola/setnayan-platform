@@ -27,6 +27,8 @@ import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { GoldMonogramReveal } from './gold-monogram-reveal';
 import { MoltenMonogramInline } from './molten-monogram-inline';
 import { springEasing, holdsFor, runSpecularSweep } from '@/lib/monogram-studio/choreography';
+import { isLayeredLogo } from '@/lib/logo-layers';
+import { LayeredLogoPlayer } from './layered-logo-player';
 
 export type StudioAnim = { kind: StudioAnimKind; dur: number; smooth: number; delay: number };
 
@@ -51,6 +53,9 @@ export function StudioRevealPlayer({
   // Menu merge (benchmark verdict §4): Trace is a Quick-tempo Handwriting
   // alias; Gold Turn is absorbed by the Medallion Turn. Saved configs with the
   // old keys upgrade automatically — the wire format never changed.
+  // 🅻 A layered logo carries each layer's own motion — it plays that, not the
+  // studio's one-reveal kinds (lib/logo-layers.ts).
+  if (svg && isLayeredLogo(svg)) return <LayeredLogoPlayer svg={svg} className={className} />;
   let kind: StudioAnimKind = anim.kind;
   let dur = anim.dur;
   if (kind === 'trace') {

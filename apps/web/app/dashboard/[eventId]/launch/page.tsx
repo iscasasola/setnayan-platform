@@ -128,6 +128,9 @@ type Props = {
     print_theme?: string | string[];
     print_saved?: string | string[];
     print_error?: string | string[];
+    /** A draft save that did NOT land (`hubDraftBounceHref` in `lib/hub-draft.ts`):
+     *  `too_large` · `failed`. The toolbar says it beside Apply. */
+    draft_error?: string | string[];
     pass_format?: string | string[];
     invitation_format?: string | string[];
     card_format?: string | string[];
@@ -1125,7 +1128,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       )}
       /* 💾 Phase 2: the draft's Apply · Restore · Reset, in the toolbar. Only
          where the work area is the editor — a coordinator has nothing to draft. */
-      applySlot={hasWork ? <HubDraftDock eventId={eventId} /> : null}
+      applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
     >
       {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, once the day
           has happened. Never on the Maker's very first visit: the Maker's own

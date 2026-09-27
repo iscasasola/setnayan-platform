@@ -52,15 +52,17 @@ export const QR_LOOK_EXTRA_COLUMNS = 'role_palette, style_preferences';
 export const QR_LOOK_COLUMNS = `${HERO_MONOGRAM_COLUMNS}, ${QR_LOOK_EXTRA_COLUMNS}`;
 
 /**
- * For a select that ALREADY carries `display_name, monogram_text, monogram_color`
- * through another canonical list (the invite doors' `INVITE_LOOK_COLUMNS` =
- * `HUB_LOOK_COLUMNS`): the rest of the look's columns, so the two lists can
- * sit side by side without naming a column twice. Kept equal to
- * HERO_MONOGRAM_COLUMNS minus those three, plus the look's two — asserted in
- * lib/every-qr-look-decodes.test.ts so it cannot drift from the canonical list.
+ * For the invite doors, whose select ALREADY carries `display_name,
+ * monogram_text, monogram_color` (`INVITE_LOOK_COLUMNS` = `HUB_LOOK_COLUMNS`)
+ * and `monogram_custom_svg, monogram_uploaded_svg, role_palette`
+ * (`INVITE_MARK_COLUMNS`, the door's own seal since 2026-09-28): the rest of the
+ * look's columns, so the three lists sit side by side without naming a column
+ * twice. Kept equal to HERO_MONOGRAM_COLUMNS minus those six, plus
+ * `style_preferences` — asserted in lib/every-qr-look-decodes.test.ts so it
+ * cannot drift from the canonical list.
  */
-export const QR_LOOK_COLUMNS_AFTER_HUB_LOOK =
-  'monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, role_palette, style_preferences';
+export const QR_LOOK_COLUMNS_AFTER_INVITE_MARK =
+  'monogram_font_key, monogram_style, monogram_frame_key, monogram_motion_key, monogram_studio_config, style_preferences';
 
 /** The row shape `resolveEventQrLook` reads. Every field optional: a caller
  *  that selected fewer columns degrades (no drawn logo → the lockup; no palette

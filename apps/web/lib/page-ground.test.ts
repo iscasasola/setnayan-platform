@@ -63,22 +63,41 @@ test('on every Pro theme the base is always there, and the hero goes ON TOP of i
 
 test('every surface that paints the page ground asks the one rule', () => {
   // 1 · The hero-on-top layer: resolved only behind the tier gate, drawn once.
-  const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /import \{ heroMayBePageGround \} from '@\/lib\/page-ground';/);
+  /*
+    🪤 IT MOVED OUT OF site-body.tsx (2026-09-28) INTO ONE HELPER, and this
+    guard moved with it. The owner ruled the RSVP page's background follows the
+    Event Hub's, so two pages now draw the Main background — and the property
+    this guard holds ("resolved only behind the tier gate, mounted once") is
+    kept by making both ASK the one helper rather than each carrying a copy.
+    The gate assertions below are the same ones that read site-body before.
+  */
+  const helper = read('app/[slug]/_lib/main-ground-layer.tsx');
+  assert.match(helper, /import \{ heroMayBePageGround \} from '@\/lib\/page-ground';/);
   assert.match(
-    body,
-    /const mainGround = heroMayBePageGround\(sceneTheme\)\s*\?\s*resolveMainGround\(/,
+    helper,
+    /const mainGround = heroMayBePageGround\(theme\)\s*\?\s*resolveMainGround\(/,
     'the Main background is resolved without asking the one rule',
   );
-  assert.equal(body.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');
-  assert.equal(body.split('<MainGround').length - 1, 1, 'MainGround is mounted twice');
-  const mount = body.indexOf('<MainGround');
-  const gate = body.lastIndexOf('if (mainGround) {', mount);
+  assert.equal(helper.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');
+  assert.equal(helper.split('<MainGround').length - 1, 1, 'MainGround is mounted twice');
+  const mount = helper.indexOf('<MainGround');
+  const gate = helper.lastIndexOf('if (mainGround) {', mount);
   assert.ok(gate > 0 && mount - gate < 800, 'MainGround is mounted outside the `if (mainGround)` gate');
+
+  // The two pages that draw it ask the helper — neither resolves it itself.
+  const body = read('app/[slug]/_components/site-body.tsx');
+  const reply = read('app/[slug]/invite/reply/page.tsx');
+  for (const [rel, src] of [
+    ['site-body.tsx', body],
+    ['invite/reply/page.tsx', reply],
+  ] as const) {
+    assert.equal(src.split('mainGroundLayerFor(').length - 1, 1, `${rel} does not draw the Main background through the one helper`);
+    assert.doesNotMatch(src, /resolveMainGround\(|<MainGround\b/, `${rel} resolves or mounts the Main background itself`);
+  }
 
   // No other page in the guest tree draws the hero as a ground.
   for (const rel of ['app/[slug]/layout.tsx', 'app/[slug]/page.tsx', 'app/[slug]/_components/guest-look-scope.tsx']) {
-    assert.doesNotMatch(read(rel), /<MainGround\b/, `${rel} draws the Main background — only site-body may, behind the gate`);
+    assert.doesNotMatch(read(rel), /<MainGround\b|mainGroundLayerFor\(/, `${rel} draws the Main background — only a gated page may`);
   }
 
   // 2 · The theme loop over the base.

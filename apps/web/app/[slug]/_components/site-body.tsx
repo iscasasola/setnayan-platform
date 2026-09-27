@@ -131,16 +131,12 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs, hubMainGround, resolveMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
-import { heroMayBePageGround } from '@/lib/page-ground';
-import { resolveHero } from '@/lib/event-hero';
-import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
-import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
-import { MainGround } from './main-ground';
+import { mainGroundLayerFor } from '../_lib/main-ground-layer';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
@@ -562,44 +558,19 @@ export async function SiteBody({
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
-  // 🎞 THE MAIN BACKGROUND (Maker Phase 10). By default it IS THE HERO (owner,
-  // 2026-09-25: "whatever they make on the hero scene will be their cover and
-  // the main background") — `resolveMainGround` over `resolveHero`, the one
-  // hero answer; an explicit "different clip or photo" override wins. Stored
-  // on the hero row, draft-overlaid for the host's preview like every other
-  // canvas. Only over a THEME: Classic is plain paper by design (owner,
-  // "classic has no photo or video"), and its shell paints opaque paper over
-  // any layer beneath. The scrim is measured over the frame and is free; the
-  // tint follows it only when "Match my photo's colours" is on. Their own
-  // button colour, if they chose one, outranks the automatic tint.
-  // ⛔ An unscreened clip plays for the HOST only; a guest gets the still —
-  // the same closed switch every hero-video read goes through.
-  // 🧱 THE ONE PAGE-GROUND RULE (`lib/page-ground.ts`, owner 2026-09-26 "YES
-  // TO ALL" (a)): the colour + effect is always the base; the hero sits on top
-  // ONLY on a Pro theme. `heroMayBePageGround` keys on the theme's tier, so
-  // Classic — and any future free theme — never gets the hero as its ground.
+  // 🎞 THE MAIN BACKGROUND (Maker Phase 10) — the hero (or the couple's own
+  // clip or photo) laid over the page, on a Pro theme only. Resolved by ONE
+  // helper shared with the RSVP page, whose background follows this one (owner
+  // 2026-09-28): see `_lib/main-ground-layer.tsx` for the whole rule. The hero
+  // row is draft-overlaid for the host's preview like every other canvas.
   const heroRow = widgets.find((w) => w.widget_type === 'hero');
-  const mainGround = heroMayBePageGround(sceneTheme)
-    ? resolveMainGround(hubMainGround(heroRow?.config_json), resolveHero(event), heroVideoRefForGuests)
-    : null;
-  let mainGroundLayer: React.ReactNode = null;
-  if (mainGround) {
-    const adaptive = resolveAdaptiveTheme(INVITE_THEMES[sceneTheme], mainGround.tint);
-    const sign = async (ref: string | null) =>
-      ref ? (canvasMediaUrls[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
-    const [still, clip] = await Promise.all([
-      sign(mainGround.stillRef),
-      sign(viewerIsHost ? mainGround.clipRef : mainGround.guestClipRef),
-    ]);
-    mainGroundLayer = (
-      <MainGround
-        still={still}
-        clip={clip}
-        adaptive={adaptive}
-        vars={adaptiveThemeVars(adaptive, { ownButton: Boolean(event.site_button_color) })}
-      />
-    );
-  }
+  const mainGroundLayer = await mainGroundLayerFor({
+    theme: sceneTheme,
+    heroConfig: heroRow?.config_json,
+    event,
+    viewerIsHost,
+    signed: canvasMediaUrls,
+  });
   // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
   // canvas they are drawn as a GUEST sees them — the host's "Manage" slot is

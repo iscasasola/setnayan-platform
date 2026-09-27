@@ -55,7 +55,7 @@ import {
   sanitizeQrStyle,
   type QrLook,
 } from '@/lib/qr-look';
-import { QR_LOOK_COLUMNS, QR_LOOK_COLUMNS_AFTER_HUB_LOOK, QR_LOOK_EXTRA_COLUMNS, qrLookFromRow } from '@/lib/qr-look.server';
+import { QR_LOOK_COLUMNS, QR_LOOK_COLUMNS_AFTER_INVITE_MARK, QR_LOOK_EXTRA_COLUMNS, qrLookFromRow } from '@/lib/qr-look.server';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { buildEventLandingUrl, buildInvitationUrl, renderEventLandingQrPng, renderInvitationQrPng, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
@@ -282,10 +282,25 @@ test('QR_LOOK_COLUMNS is HERO_MONOGRAM_COLUMNS plus the look\'s two, byte for by
   // drift from the canonical list it copies.
   assert.equal(QR_LOOK_COLUMNS, `${HERO_MONOGRAM_COLUMNS}, ${QR_LOOK_EXTRA_COLUMNS}`);
   const split = (s: string) => s.split(',').map((c) => c.trim());
-  // The "after hub look" fragment = the canonical list minus the three the
-  // invite doors already carry, plus the look's two — no column twice, none lost.
-  const expected = split(HERO_MONOGRAM_COLUMNS).filter((c) => !['display_name', 'monogram_text', 'monogram_color'].includes(c));
-  assert.deepEqual(split(QR_LOOK_COLUMNS_AFTER_HUB_LOOK), [...expected, ...split(QR_LOOK_EXTRA_COLUMNS)]);
+  // The invite door's select = INVITE_LOOK_COLUMNS (= HUB_LOOK_COLUMNS) +
+  // INVITE_MARK_COLUMNS + this fragment. Together they must cover every column
+  // QR_LOOK_COLUMNS names, and name none of them twice. The two door lists live
+  // in `server-only` modules, so they are read from SOURCE here (the same way
+  // the-door-wears-the-hub.test.ts pins INVITE_MARK_COLUMNS).
+  const literal = (rel: string, name: string) => {
+    const m = new RegExp(`export const ${name} =\\s*'([^']*)'`).exec(read(rel));
+    assert.ok(m, `${name} not found in ${rel} — the door's select moved`);
+    return m![1]!;
+  };
+  const door = [
+    // The door's own literal prefix names display_name before the three lists.
+    'display_name',
+    ...split(literal('app/[slug]/_lib/hub-look.ts', 'HUB_LOOK_COLUMNS')),
+    ...split(literal('app/[slug]/invite/_lib/load-invite-look.ts', 'INVITE_MARK_COLUMNS')),
+    ...split(QR_LOOK_COLUMNS_AFTER_INVITE_MARK),
+  ];
+  assert.equal(new Set(door).size, door.length, 'the invite door names a column twice');
+  for (const c of split(QR_LOOK_COLUMNS)) assert.ok(door.includes(c), `the invite door's select lacks ${c} — its pass would lose part of the look`);
 });
 
 // ── 8 · EVERY GUEST-FACING CALL PASSES THE LOOK ───────────────────────────

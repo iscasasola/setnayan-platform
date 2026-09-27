@@ -469,12 +469,14 @@ const OUT_KF: Record<Exclude<HubElOut, 'stay'>, string> = {
  *          before the guest saw anything (measured: `finished` at load). Its In
  *          plays on arrival instead — exactly what the Maker's Play button
  *          shows — and its Out still follows the scroll.
- *   scrub  a pinned Scrub scene. The scene is a SCROLL CONTAINER
- *          (`overflow-y: auto`, so a tall scene can scroll inside itself), and
- *          `view()` binds to the NEAREST scroll container — one that never
- *          scrolls. Measured: the part's In read `none` at every position
- *          through the run. So it follows the scene's own named timeline
- *          (`--hub-tl`, the spacer that drives the hold) instead.
+ *   scrub  a pinned Scrub scene. Its frame is PINNED (sticky) and, when a
+ *          scene follows it in the run, a SCROLL CONTAINER too (`overflow-y:
+ *          auto`, so a tall scene can scroll inside itself before it hands
+ *          over). `view()` binds to the NEAREST scroll container — one that
+ *          never scrolls — and a pinned box does not travel anyway. Measured:
+ *          the part's In read `none` at every position through the run. So it
+ *          follows the scene's own named timeline (`--hub-tl`, the spacer that
+ *          drives the hold) instead.
  *   auto   an armed Auto run — its scenes are scroll containers too, for the
  *          same reason; it follows the run's timeline (`--hub-tl`).
  */
@@ -514,10 +516,16 @@ type MotionSlot = { a: string; timeline: string; range: string };
 /** The timeline and ranges a part's OWN scroll-linked In and Out take, by where it sits. */
 const OWN_SCROLL: Record<Exclude<HubElementPlace, 'hero'>, { tl: string; in: string; out: string }> = {
   page: { tl: 'view()', in: 'entry 0% cover 30%', out: 'exit 0% exit 100%' },
-  /* On the spacer's timeline the scene fades in over `entry 15–75%`, holds for
-     `contain`, and cross-fades from `exit 25%`: the part arrives as the scene
-     settles and leaves before the hand-over. */
-  scrub: { tl: 'var(--hub-tl)', in: 'entry 25% entry 60%', out: 'exit 0% exit 25%' },
+  /* On the spacer's timeline, measured from the pin line (`--hub-at` = the
+     spacer's top on it; globals.css "A SCENE IS AS TALL AS ITS CONTENT — SCRUB
+     TOO"): the scene fades in while that top is 0.6 → 0.1 step below the line
+     and hands over from half a step past it. The part arrives as the scene
+     settles and leaves exactly as the hand-over begins. */
+  scrub: {
+    tl: 'var(--hub-tl)',
+    in: 'cover calc(var(--hub-at) - 0.1 * var(--hub-step)) cover calc(var(--hub-at) + 0.3 * var(--hub-step))',
+    out: 'cover calc(var(--hub-at) + 0.25 * var(--hub-step)) cover calc(var(--hub-at) + 0.5 * var(--hub-step))',
+  },
   auto: { tl: 'var(--hub-tl)', in: 'entry 0% cover 30%', out: 'exit 0% exit 100%' },
 };
 

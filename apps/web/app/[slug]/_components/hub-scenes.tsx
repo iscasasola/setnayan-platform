@@ -6,7 +6,7 @@ import {
   hasScrubRun,
   renderedTransition,
   resolveTransition,
-  sceneProgressRange,
+  SCENE_PROGRESS_RANGE,
   sceneTimelineName,
 } from '@/lib/hub-scenes';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
@@ -36,9 +36,11 @@ import { HubAutoRun } from './hub-auto-run';
  *   div.hub-scenes            timeline-scope for every section's name
  *     div.hub-prog            the progress mark, one segment per section
  *     div.hub-scene.hub-scroll    an ordinary section (names its own timeline)
- *     div.hub-run             consecutive scrub sections, which un-pin together
- *       div.hub-scene.hub-scrub   pinned, one screen tall
- *       i.hub-sp                  its 170vh spacer, which drives it
+ *     div.hub-run             consecutive scrub sections, stacked in one cell
+ *                             (`--hub-n` = how many, so the stylesheet can lay
+ *                             one spacer row per section)
+ *       div.hub-scene.hub-scrub   its frame pinned, AS TALL AS ITS CONTENT
+ *       i.hub-sp                  its one-step spacer, which drives it
  *       …
  *
  * 🔑 WHICH SCRUB SECTION IS FIRST / LAST IN A RUN IS DECIDED IN CSS, NOT HERE.
@@ -79,39 +81,21 @@ export function HubScenes({
 
   const names = widgets.map((_, i) => sceneTimelineName(i));
   const tl = (i: number) => ({ '--hub-tl': names[i] }) as React.CSSProperties;
+  /* Every segment fills on the same line — see `SCENE_PROGRESS_RANGE`. */
+  const segStyle = (i: number) => ({ ...tl(i), '--hub-pr': SCENE_PROGRESS_RANGE }) as React.CSSProperties;
 
   return (
     <div className="hub-scenes" style={{ '--hub-scope': names.join(', ') } as React.CSSProperties}>
       <div className="hub-prog" aria-hidden="true">
         <span className="hub-prog-bar">
-          {segments.flatMap((seg) =>
+          {segments.flatMap((sg) =>
             /* An auto run is ONE screen, so it is one segment, filled as the
                run passes — its scenes change on a clock, not under the thumb. */
-            seg.kind === 'auto'
-              ? [
-                  <i
-                    key={`a${seg.entries[0]?.index}`}
-                    style={{ ...tl(seg.entries[0]?.index ?? 0), '--hub-pr': sceneProgressRange('scroll', false, false) } as React.CSSProperties}
-                  />,
-                ]
-              : seg.kind === 'scroll'
-              ? [
-                  <i
-                    key={seg.entry.index}
-                    style={{ ...tl(seg.entry.index), '--hub-pr': sceneProgressRange('scroll', false, false) } as React.CSSProperties}
-                  />,
-                ]
-              : seg.entries.map((e, k) => (
-                  <i
-                    key={e.index}
-                    style={
-                      {
-                        ...tl(e.index),
-                        '--hub-pr': sceneProgressRange('scrub', k === 0, k === seg.entries.length - 1),
-                      } as React.CSSProperties
-                    }
-                  />
-                )),
+            sg.kind === 'auto'
+              ? [<i key={`a${sg.entries[0]?.index}`} style={segStyle(sg.entries[0]?.index ?? 0)} />]
+              : sg.kind === 'scroll'
+              ? [<i key={sg.entry.index} style={segStyle(sg.entry.index)} />]
+              : sg.entries.map((e) => <i key={e.index} style={segStyle(e.index)} />),
           )}
         </span>
       </div>
@@ -138,7 +122,11 @@ export function HubScenes({
             {nodes[seg.entry.index]}
           </div>
         ) : (
-          <div key={`run-${seg.entries[0]?.index}`} className="hub-run">
+          <div
+            key={`run-${seg.entries[0]?.index}`}
+            className="hub-run"
+            style={{ '--hub-n': seg.entries.length } as React.CSSProperties}
+          >
             {seg.entries.flatMap((e) => [
               <div key={`s${e.index}`} className="hub-scene hub-scrub" style={tl(e.index)}>
                 {nodes[e.index]}

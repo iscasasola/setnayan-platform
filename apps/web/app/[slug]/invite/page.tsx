@@ -4,7 +4,7 @@ import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { JoinFlow } from '@/app/join/[eventId]/_components/join-flow';
 import { InvalidTokenScreen } from '@/app/join/[eventId]/_components/join-shell';
-import { INVITE_LOOK_COLUMNS, loadInviteLook } from './_lib/load-invite-look';
+import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from './_lib/load-invite-look';
 import { RevealOverlayServer } from '../_components/reveal/reveal-overlay-server';
 import {
   coerceRevealTemplate,
@@ -44,7 +44,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude, rsvp_ask_config`,
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude, rsvp_ask_config`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one

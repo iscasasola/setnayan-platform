@@ -10,7 +10,7 @@ import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-des
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
-import { QR_LOOK_COLUMNS_AFTER_HUB_LOOK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
+import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { guestAccountState } from '@/lib/guest-one-path';
 import { keepLinkSentFor, readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
@@ -21,7 +21,7 @@ import { thankYouHeadline, replySummary } from '../../_lib/thank-you-words';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { YourGuests } from '../../_components/your-guests';
 import { InviteQrPanel } from '../_components/invite-qr-panel';
-import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
+import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: 'Thank you', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -58,10 +58,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      // + the QR look's remaining columns (the invite look already carries
-      // display_name · monogram_text · monogram_color): the pass drawn below
-      // wears the event's look — lib/qr-look.server.ts.
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_HUB_LOOK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
+      // + the QR look's remaining columns (the invite look and the invite mark
+      // already carry display_name · monogram_text · monogram_color · the two
+      // SVGs · role_palette): the pass drawn below wears the event's look —
+      // lib/qr-look.server.ts.
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
     )
     .ilike('slug', slug)
     .maybeSingle();

@@ -956,14 +956,22 @@ test('T21 · a canonical list re-exported under a second name still resolves', (
 
   // …and the real tree: the three invite doors must be CHECKED, not merely
   // absent from the unresolved list.
+  //
+  // 🪤 COUNTED BY FILE, NOT BY SITE (2026-09-28). Each door's select now
+  // interpolates TWO lists — the look (`INVITE_LOOK_COLUMNS`, the alias this
+  // test exists for) and the couple's logo (`INVITE_MARK_COLUMNS`, three
+  // columns) — and the scanner resolves one site per interpolated constant. So
+  // the property is: every door is resolved, and each through the look alias.
   const scan = scanAllSelectSites();
   const doors = scan.resolved.filter((r) => /invite\/(page|reply\/page|enter\/page)\.tsx$/.test(r.file));
+  const doorFiles = [...new Set(doors.map((d) => d.file))];
   assert.equal(
-    doors.length,
+    doorFiles.length,
     3,
-    `expected all three invite doors resolved through the alias, got ${doors.length}`,
+    `expected all three invite doors resolved through the alias, got ${doorFiles.length}: ${doorFiles.join(', ')}`,
   );
-  for (const d of doors) {
-    assert.ok(d.columns.length >= 6, `${d.file} resolved to ${d.columns.length} columns`);
+  for (const f of doorFiles) {
+    const widest = Math.max(...doors.filter((d) => d.file === f).map((d) => d.columns.length));
+    assert.ok(widest >= 6, `${f} resolved to ${widest} columns — the look alias is not among them`);
   }
 });

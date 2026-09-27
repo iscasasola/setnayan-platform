@@ -236,7 +236,17 @@ const EVENT = {
       { id: 'm-2', line: 'He asked, on the beach.', date: { y: 2024, m: 6 } },
     ],
   },
-  role_palette: null,
+  /* A real Mood Board, so the Dress code scene's GENERAL view — "Our colours"
+     and every role's row (owner 2026-09-28) — is on the ground too. With
+     `null` here those words never rendered, and the scene's newest text would
+     have gone unchecked by the one guard that reads its ink. */
+  role_palette: {
+    reception: ['#7A1F2B', '#C9A24B', '#F4E9DC', '#2B1D14', '#8E3B5B'],
+    groom: ['#FAF7F2'],
+    principal_sponsors: ['#C9A24B', '#F4E9DC'],
+    bridesmaids: ['#8E3B5B', '#C9A24B', '#F4E9DC'],
+    guest: ['#2B1D14', '#8E3B5B'],
+  },
 } as const;
 
 const GUEST = {

@@ -53,6 +53,9 @@ import {
   type SectionContentEvent,
 } from '@/lib/website-section-content';
 import {
+  HUB_DRAFT_SAVE_FAILED_MESSAGE,
+  HUB_DRAFT_TOO_LARGE_MESSAGE,
+  HubDraftTooLargeError,
   emptyHubDraft,
   hubDraftItemLabel,
   hubResetPatch,
@@ -368,8 +371,11 @@ export async function hubDraftAction(
     );
   } catch (e) {
     console.error('[hub-draft] action failed:', intent, e instanceof Error ? e.message : e);
+    // 📏 The draft would not fit even with no Undo history: say WHAT to do,
+    // not "try again" — trying again can never succeed (prod, 2026-09-27).
+    if (e instanceof HubDraftTooLargeError) return { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE };
     // Not "nothing changed": an apply can fail after some writes landed. The
     // draft is only trimmed on success, so trying again is always safe.
-    return { ok: false, intent, error: 'Something went wrong. Please try again — your draft is kept.' };
+    return { ok: false, intent, error: HUB_DRAFT_SAVE_FAILED_MESSAGE };
   }
 }

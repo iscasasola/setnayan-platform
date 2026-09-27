@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ImageIcon, RotateCcw } from 'lucide-react';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import {
   HUB_DEFAULT_FOCAL,
   HUB_DEFAULT_SCENE_SHAPE,
@@ -225,7 +227,13 @@ export function SceneBackgroundRow({
               }`}
             >
               <span aria-hidden className="h-6 w-10 rounded-[5px] border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
-              {CHOICE_LABEL[c]}
+              <span className="inline-flex items-center gap-1">
+                {CHOICE_LABEL[c]}
+                {/* 💎 Media behind a scene is Event Hub Pro — the chip is drawn only for a couple who owns it. */}
+                {c === 'media' ? (
+                  <PaidMark state={ownsPro ? 'unlocked' : 'locked'} label={paidMarkLabel(ownsPro ? 'unlocked' : 'locked', 'Event Hub Pro')} size="xs" tone="current" />
+                ) : null}
+              </span>
             </button>
           ),
         )}

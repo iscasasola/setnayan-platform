@@ -44,6 +44,10 @@ before/after in Chromium and iOS Safari 26.5:
    `none`; the hero's "Follows the scroll · In" plays on arrival (the hero is on
    screen when the page opens), its Out still follows the scroll.
 
+The Maker canvas's instant preview (`editor-bridge.tsx` `applyHeroPartStyle`)
+lays a hero part's motion the same way the guest page now does (the three
+custom properties + `data-el-motion`, one list: `hubElementHeroMotionVars`).
+
 Guarded by `apps/web/lib/the-motion-reaches-the-guest.test.ts` (14 properties,
 each sabotage-proven) and four new cases in
 `the-choreography-waits-for-the-page.test.ts`.

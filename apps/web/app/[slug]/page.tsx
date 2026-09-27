@@ -34,6 +34,12 @@ import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteReplyPath } from '@/lib/invite-arrival';
+import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
+import { manilaToday } from '@/lib/std-views';
+import { cookies } from 'next/headers';
+import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
+import { yourGuestsFor } from './_lib/plus-one-seats.server';
+import { GuestMe } from './_components/guest-me';
 import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
@@ -1483,6 +1489,48 @@ async function InvitationBody({
   // This guest has been read, so their reply is known. `venueIsOpen` also opens
   // from the event day onward, so a guest who never replied is never locked out
   // while travelling to the wedding.
+  // ☑ "YOUR CHECKLIST" — the last 30 days (owner 2026-09-26). Read only inside
+  // the window, and only THIS guest's own row (service role; the table has no
+  // browser grants — the ticks are private to the guest). A failed read is SAID
+  // on the page, never drawn as "nothing ticked".
+  let checklist: { ticks: ChecklistKey[]; readFailed: boolean } | null = null;
+  if (checklistShows({ eventDate: event.event_date, today: manilaToday() })) {
+    const { data: tickRow, error: tickErr } = await admin
+      .from('guest_checklist_ticks')
+      .select('ticks')
+      .eq('guest_id', guest.guest_id)
+      .maybeSingle();
+    if (tickErr) console.error('[supabase-error] app/[slug]/page.tsx · from:guest_checklist_ticks.select', tickErr);
+    checklist = { ticks: sanitizeTicks(tickRow?.ticks), readFailed: Boolean(tickErr) };
+  }
+
+  // ── ME (guest pathway item 4, owner 2026-09-26/27) — their name + "Not you?
+  // Switch", their plus-ones (their own links and passes), and "Save to my
+  // account" any time. Mounted into the one `#site-me` section GuestHubBar owns.
+  const myGuests =
+    event.slug && !isEditorCanvas
+      ? await yourGuestsFor(admin, { event_id: event.event_id, slug: event.slug }, guest.guest_id, {
+          withPasses: true,
+          monogram,
+        })
+      : { guests: [], passes: {} };
+  const meSlot = isEditorCanvas ? null : (
+    <GuestMe
+      name={
+        guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
+      }
+      slug={event.slug ?? slug}
+      eventId={event.event_id}
+      eventName={event.display_name ?? 'the celebration'}
+      guests={myGuests.guests}
+      passes={myGuests.passes}
+      account={account}
+      hasEmail={Boolean(guest.email?.trim())}
+      userAgent={(await headers()).get('user-agent')}
+      termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
+    />
+  );
+
   const venueOpen = venueIsOpen({
     rsvpStatus: guest.rsvp_status,
     eventDate: event.event_date,
@@ -1515,6 +1563,7 @@ async function InvitationBody({
           faceMode: rsvpFaceMode,
           profileDetails,
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
+          checklist,
         })}
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
@@ -1547,6 +1596,7 @@ async function InvitationBody({
           flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
           isSample: Boolean(event.is_sample),
         })}
+        meSlot={meSlot}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)

@@ -36,6 +36,7 @@ import {
   rsvpTermsCarried,
 } from '@/lib/terms-agreement';
 import { KEEP_EMAIL_SHAPE } from '@/lib/guest-one-path';
+import { applyTick, isChecklistKey } from '@/lib/guest-checklist';
 import { cookies } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
@@ -226,6 +227,41 @@ export async function submitRsvp(
       .eq('event_id', eventId)
       .maybeSingle();
     redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : '/');
+  }
+
+  /*
+    ☑ "YOUR CHECKLIST" — ONE TICK (owner 2026-09-26: ticks saved to the GUEST,
+    private to them, and the save must reuse an existing guest save action — +0
+    server actions). This IS the guest's own save, already bound to THIS guest on
+    THIS event and already checked against their key above, so the tick rides it
+    as its own branch and returns before anything of the reply is touched: no
+    answer, no meal, no contact detail is read from this form or written.
+    Service-role write into `guest_checklist_ticks`, which no browser role can
+    read — the couple never sees per-guest ticks.
+  */
+  const checklistItem = clean(formData.get('checklist_item'));
+  if (checklistItem) {
+    if (!isChecklistKey(checklistItem)) throw new Error('Unknown checklist item');
+    const done = clean(formData.get('checklist_done')) === '1';
+    const tickAdmin = createAdminClient();
+    const { data: row, error: readErr } = await tickAdmin
+      .from('guest_checklist_ticks')
+      .select('ticks')
+      .eq('guest_id', guestId)
+      .maybeSingle();
+    if (readErr) throw new Error('Could not read your checklist');
+    const { error: tickErr } = await tickAdmin.from('guest_checklist_ticks').upsert(
+      {
+        guest_id: guestId,
+        event_id: eventId,
+        ticks: applyTick((row?.ticks as string[] | null) ?? [], checklistItem, done),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'guest_id' },
+    );
+    // THROWN, not swallowed: the tick on screen puts itself back and says so.
+    if (tickErr) throw new Error('Could not save your checklist');
+    return;
   }
 
   const status = clean(formData.get('rsvp_status')) as RsvpStatus;

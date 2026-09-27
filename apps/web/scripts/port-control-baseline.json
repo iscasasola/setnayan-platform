@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5a690e1a5",
+  "generatedFromRef": "50cbae275",
   "routeCount": 435,
   "destinations": 947,
   "actions": 669,
-  "blocks": 4823,
+  "blocks": 4824,
   "routes": {
     "/": {
       "files": [
@@ -876,6 +876,7 @@
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
+        "[slug]/_components/upload-your-qr.tsx",
         "[slug]/_components/vendor-doorway.tsx",
         "[slug]/_components/venue-widget.tsx",
         "[slug]/_components/watch-live-block.tsx",
@@ -1235,6 +1236,7 @@
         "TierComparisonWidget",
         "ToolTile",
         "UnnameResult",
+        "UploadYourQr",
         "VeilLook",
         "VeilReveal",
         "VendorCapability",

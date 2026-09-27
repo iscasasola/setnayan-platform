@@ -9,9 +9,10 @@ import { UploadYourQr } from './upload-your-qr';
  * Two states, one button each:
  *
  *   · not signed in → **"Get inside"** · "Scan your QR · Tap NFC · Sign in".
- *     Pressing it opens the three ways in — the phone's camera on the QR, the
- *     invitation card held to the phone, or Sign in. A `<details>`, so it works
- *     with no script and in every in-app webview;
+ *     Pressing it opens exactly two things (owner 2026-09-27, the poster QR:
+ *     "sign in to enter or upload your qr to login"): Upload your QR (a photo
+ *     or screenshot, decoded on the phone) and Sign in. A `<details>`, so it
+ *     opens with no script and in every in-app webview;
  *   · signed in, not on this guest list → "You're not on the guest list for
  *     this event yet" + **"Ask to join"**, which goes to the couple's Requests
  *     (`/join/{eventId}`) — never an automatic entry; a name match alone never

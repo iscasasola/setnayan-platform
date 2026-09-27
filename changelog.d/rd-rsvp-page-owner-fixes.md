@@ -32,4 +32,18 @@ question per screen."* · *"didn't we get passed the no boxes concept already?"*
 - **The one-at-a-time switch** re-seeds from the draft whenever it changes and
   carries `aria-checked`, so label, knob and value are one value.
 
+- **The preview wears this event's own guest** (owner 2026-09-27: *"each
+  editor of each event will adapt to their event"*): the first guest on the
+  list who is not the couple — preferring one with a plus-one — by NAME and
+  PLUS-ONE ALLOWANCE only, read only, keeping the sample's id so nothing is
+  ever written for them; "Your guest" when the list is empty. (cale-ice: Antonio
+  Loo, +1.)
+- **The event poster QR opens the event** (owner 2026-09-27: *"sign in to enter
+  or upload your qr to login"*): the stranger's door is now Upload your QR
+  (decoded in the browser with the repo's `jsqr`, never uploaded; only THIS
+  event's invitation goes to its key, anything else gets "That code isn't an
+  invitation to this event.") and Sign in. "Ask to join" appears only when the
+  couple chose "Anyone, I approve"; the branded poster door `/{slug}/invite`
+  sends everyone to the event page on an "Only my Guest List" event.
+
 SPEC IMPACT: None — follows the owner's 2026-09-27 rulings as given.

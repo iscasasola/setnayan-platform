@@ -224,7 +224,9 @@ export function DetailsBoundField({
           >
             Save
           </button>
-          {onStyle ? (
+          {/* Only once the words are saved: the sheet or the Details page takes
+              this panel's place, and unsaved words would go with it. */}
+          {onStyle && !changed ? (
             <button
               type="button"
               data-details-style=""
@@ -234,7 +236,7 @@ export function DetailsBoundField({
               Font, colour &amp; size
             </button>
           ) : null}
-          {onOpenDetails ? (
+          {onOpenDetails && !changed ? (
             <button
               type="button"
               onClick={onOpenDetails}

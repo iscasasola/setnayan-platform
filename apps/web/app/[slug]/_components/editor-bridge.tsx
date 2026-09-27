@@ -204,10 +204,14 @@ export function sceneWordsTarget(section: Element): { look: HTMLElement | null; 
 export function previewSceneWords(section: Element, text: string): boolean {
   const { look, text: target } = sceneWordsTarget(section);
   if (look) {
+    /* `display` as well as `hidden`: the prompt's eyebrow is a flex row, and a
+       class's `display` outranks the `hidden` attribute. */
     const blank = text.trim().length === 0;
     look.hidden = blank;
+    look.style.display = blank ? 'none' : '';
     section.querySelectorAll<HTMLElement>('[data-maker-empty-prompt]').forEach((p) => {
       p.hidden = !blank;
+      p.style.display = blank ? '' : 'none';
     });
   }
   if (!target) return false;

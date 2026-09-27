@@ -415,6 +415,11 @@ export function MakerWork({
         setElementTarget(null);
         select?.({ ...picked, tab: 'content' });
         setWordsFocus({ key: data.key, n: Date.now() });
+        // The words are what is edited, not the part the tap outlined.
+        frameRef.current?.contentWindow?.postMessage(
+          { source: 'setnayan-editor', t: 'markEl', key: data.key, el: null },
+          window.location.origin,
+        );
         return;
       }
       if (picked) {

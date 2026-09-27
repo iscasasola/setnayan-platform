@@ -29,7 +29,7 @@ import { join } from 'node:path';
 
 import { isWordsScene, tapOpensWords, MAKER_WORDS_SCENE_TYPES } from './maker-scene-words';
 import { stripComments } from './strip-comments';
-import { makerEmptyPrompt } from './maker-scene-list';
+import { makerEmptyPrompt, makerSceneLabel } from './maker-scene-list';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -87,6 +87,8 @@ class Txt extends Node_ {
 }
 class El extends Node_ {
   attrs = new Map<string, string>();
+  /** Only `display` matters here: a class's display outranks `hidden`, so the bridge sets both. */
+  style: { display: string } = { display: '' };
   children: Array<El | Txt> = [];
   constructor(public tag: string) {
     super();
@@ -143,7 +145,11 @@ class El extends Node_ {
   }
   /** Visible text: what a hidden ancestor keeps off the screen is left out. */
   shownText(): string {
-    if (this.hidden) return '';
+    // A flex class outranks `hidden` in a real browser, so ONLY an inline `display: none` counts
+    // for an element whose class sets a display (the eyebrow); `hidden` counts for the rest.
+    const cls = this.attrs.get('class') ?? '';
+    const classDisplays = /\b(flex|grid|block|inline-flex|pahina-eyebrow)\b/.test(cls);
+    if (this.style.display === 'none' || (this.hidden && !classDisplays)) return '';
     return this.children.map((c) => (c instanceof Txt ? c.data : c.shownText())).join('');
   }
 }
@@ -227,6 +233,11 @@ test('✍ the EMPTY Special message shows what is typed in the real look, and th
   const after = s.shownText();
   assert.ok(after.includes('Dear family,\nsee you there.'), 'the typed words are on the scene, line breaks kept');
   assert.ok(!after.includes(prompt), 'the prompt stepped aside');
+  assert.ok(
+    !after.includes(makerSceneLabel('special_message')),
+    'its label stepped aside too — a flex eyebrow ignores `hidden`, so the bridge must set display',
+  );
+  assert.ok(after.includes('A note from us'), 'the look’s own label is what guests will read');
   assert.match(after, /Only you see this/, 'the "only you see this" line stays until it is saved');
   // In the real look's text part — the same element guests' words are drawn in.
   assert.equal(look.querySelector('[data-el="body"]')!.textContent, 'Dear family,\nsee you there.');

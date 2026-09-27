@@ -64,17 +64,22 @@ export function useSceneWordsBox(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [want]);
 
+  /* 🔑 The context's value changes whenever the focus request does, so the box
+     reads it through a ref: keying the release on `ctx` would "close" the box
+     (and wipe its preview off the canvas) the moment it took the focus. */
   const savedRef = useRef(saved);
   savedRef.current = saved;
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
   useEffect(() => {
-    if (!ctx || !key) return;
-    return () => ctx.release(key, savedRef.current());
-  }, [ctx, key]);
+    if (!key) return;
+    return () => ctxRef.current?.release(key, savedRef.current());
+  }, [key]);
 
   return useCallback(
     (text: string) => {
-      if (ctx && key) ctx.preview(key, text);
+      if (key) ctxRef.current?.preview(key, text);
     },
-    [ctx, key],
+    [key],
   );
 }

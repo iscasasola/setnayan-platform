@@ -3,11 +3,22 @@
 import { useEffect } from 'react';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
+  HUB_ELEMENT_LOOK_PROPS,
+  HUB_ELEMENT_MOTION_PROPS,
   HUB_ELEMENT_RUN_KEYS,
+  HUB_HERO_ELEMENT_KEYS,
   HUB_SCENE_ELEMENT_KEYS,
   HUB_SCENE_ELEMENT_SELECTOR,
+  hubElementDeclarations,
+  hubElementSceneCss,
+  hubRunDeclarations,
   hubTextHash,
+  hubTextSegments,
+  isHubElementKey,
+  sanitizeHubElements,
   type HubElementKey,
+  type HubElementStyle,
+  type HubElementStyles,
 } from '@/lib/element-style';
 
 /**
@@ -27,7 +38,18 @@ import {
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el? }
  *   frame  → parent { source:'setnayan-site',   t:'select',   key, el, start, end, of, text }
  *   parent → frame  { source:'setnayan-editor', t:'playEl',   key, el }
+ *   parent → frame  { source:'setnayan-editor', t:'elStyle',  key, el, elements, motion, replay }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *
+ * ⚡ `elStyle` IS THE INSTANT PREVIEW (owner 2026-09-27, editing his own page:
+ * *"changing size does nothing"* · *"the toolbars are not working"*). The
+ * element sheet posts it on every choice BEFORE the draft save, and this canvas
+ * lays the choice on the part at once — through the SAME functions the guest
+ * page renders with (`hubElementDeclarations` for a hero part's inline style,
+ * `hubTextSegments` + `hubRunDeclarations` for its runs, `hubElementSceneCss`
+ * for a scene's scoped `<style>`), never a second mapping. The save then lands
+ * without reloading this frame (the canvas hold, `element-preview.ts`); a save
+ * that fails is answered by a second `elStyle` carrying the last saved style.
  *
  * 🧭 `bar` is the stage's Event Bar exactly as the page resolved it for this
  * canvas (`data-maker-bar`, stamped by `site-body.tsx` from the SAME value the
@@ -171,6 +193,163 @@ export function selectionInPart(
   return { part, el, start, end: start + text.length, of: hubTextHash(whole), text };
 }
 
+/* ── ⚡ THE INSTANT PREVIEW — one choice laid on the canvas, no reload ──── */
+
+/** The part of the DOM the preview writes through — a real document, or a test's. */
+type PreviewDoc = Pick<Document, 'createElement' | 'createTextNode'>;
+
+const LOOK_PROPS: readonly string[] = HUB_ELEMENT_LOOK_PROPS;
+
+/**
+ * A HERO PART'S OWN LOOK, laid inline exactly as `PahinaMasthead` writes it
+ * (`hubElementInlineStyle` is these same declarations, camel-cased). The look
+ * (font · colour · size) is always re-laid; the motion only when it changed
+ * (`motion`), because writing an animation again restarts it and a font change
+ * must not replay the entrance. `animation-name` goes with the motion because
+ * ▶ Play leaves its `-p` twin inline.
+ */
+export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | null | undefined, motion: boolean): void {
+  const clear: string[] = [...LOOK_PROPS];
+  if (motion) clear.push(...HUB_ELEMENT_MOTION_PROPS, 'animation-name');
+  for (const p of clear) part.style.removeProperty(p);
+  for (const [p, v] of hubElementDeclarations(style)) {
+    if (motion || LOOK_PROPS.includes(p)) part.style.setProperty(p, v);
+  }
+}
+
+function textNodesOf(node: Node, out: Text[]): Text[] {
+  node.childNodes.forEach((c) => {
+    if (c.nodeType === 3) out.push(c as Text);
+    else if (c.nodeType === 1) textNodesOf(c, out);
+  });
+  return out;
+}
+
+/**
+ * ✍ A HERO PART'S RUNS, re-cut in place. The old run spans are unwrapped back
+ * into plain text, then every text node is cut by `hubTextSegments` at its own
+ * offset in the part's WHOLE text (`textContent` — the string the server's
+ * `whole` is, and the one the selection's offsets are counted in), and each run
+ * piece becomes the same `<span data-el-run>` the guest page draws.
+ */
+export function applyHeroPartRuns(part: HTMLElement, style: HubElementStyle | null | undefined, doc: PreviewDoc): void {
+  part.querySelectorAll('[data-el-run]').forEach((span) => {
+    span.parentNode?.replaceChild(doc.createTextNode(span.textContent ?? ''), span);
+  });
+  part.normalize();
+  const whole = part.textContent ?? '';
+  let at = 0;
+  for (const node of textNodesOf(part, [])) {
+    const text = node.data;
+    const segments = hubTextSegments(text, style, { text: whole, segmentStart: at });
+    at += text.length;
+    if (segments.length === 1 && !segments[0]!.run) continue;
+    const parent = node.parentNode;
+    if (!parent) continue;
+    for (const seg of segments) {
+      if (!seg.run) {
+        parent.insertBefore(doc.createTextNode(seg.text), node);
+        continue;
+      }
+      const span = doc.createElement('span');
+      span.setAttribute('data-el-run', '');
+      for (const [p, v] of hubRunDeclarations(seg.run)) span.style.setProperty(p, v);
+      span.appendChild(doc.createTextNode(seg.text));
+      parent.insertBefore(span, node);
+    }
+    parent.removeChild(node);
+  }
+}
+
+/** The scene's own `<style data-hub-els>` — after the scene, before the next scene's marker. */
+function sceneStyleOf(section: Element, widgetType: string): HTMLStyleElement | null {
+  for (let n = section.nextElementSibling; n && !n.hasAttribute('data-maker-section'); n = n.nextElementSibling) {
+    if (n.tagName === 'STYLE' && n.getAttribute('data-hub-els') === widgetType) return n as HTMLStyleElement;
+  }
+  return null;
+}
+
+/**
+ * A SCENE'S PARTS, restyled by re-writing its scoped `<style>` with the text
+ * `HubCanvasFrame` renders (`hubElementSceneCss`). A scene nobody styled yet
+ * has no such tag, so one is placed straight after the scene — where the frame
+ * puts it — because the rules address the scene as `:has(+ style[…])`.
+ */
+export function applySceneElementStyles(
+  section: HTMLElement,
+  widgetType: string,
+  elements: HubElementStyles | null,
+  doc: PreviewDoc,
+): HTMLStyleElement | null {
+  if (HUB_ELEMENT_EXCLUDED_WIDGETS.includes(widgetType)) return null;
+  const css = hubElementSceneCss(widgetType, elements) ?? '';
+  let tag = sceneStyleOf(section, widgetType);
+  if (!tag) {
+    if (!css) return null;
+    tag = doc.createElement('style');
+    tag.hidden = true;
+    tag.setAttribute('data-hub-els', widgetType);
+    section.parentNode?.insertBefore(tag, section.nextSibling);
+  }
+  tag.textContent = css;
+  return tag;
+}
+
+/**
+ * ONE ELEMENT'S CHOICE, ON THE CANVAS NOW. `key` is the navigator key the sheet
+ * was opened from (`f:hero`, `w:<type>`); `motion` says whether the element's
+ * motion changed (only then is its animation re-laid). Returns the parts it
+ * touched, so the caller can replay their In.
+ */
+export function applyElementPreview(
+  section: HTMLElement,
+  key: string,
+  el: HubElementKey,
+  elements: HubElementStyles | null,
+  motion: boolean,
+  doc: PreviewDoc,
+): HTMLElement[] {
+  const parts = Array.from(section.querySelectorAll<HTMLElement>(`[data-el="${el}"]`));
+  if ((HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(el)) {
+    for (const part of parts) {
+      applyHeroPartStyle(part, elements?.[el], motion);
+      if (HUB_ELEMENT_RUN_KEYS.includes(el)) applyHeroPartRuns(part, elements?.[el], doc);
+    }
+    return parts;
+  }
+  if (!key.startsWith('w:')) return [];
+  // A ▶ Play leaves an inline `-p` twin that would outrank the new motion.
+  if (motion) for (const part of parts) part.style.removeProperty('animation-name');
+  applySceneElementStyles(section, key.slice(2), elements, doc);
+  return parts;
+}
+
+/**
+ * ▶ REPLAY ONE PART'S IN, with the editing furniture hidden. A CSS animation
+ * restarts only when its NAME changes, so the In keyframe is swapped for its
+ * `-p` twin (and back on the next Play); a part that follows the scroll plays
+ * on the clock for this one replay. False when the part has no In to play.
+ */
+export function replayElementIn(part: HTMLElement): boolean {
+  const names = getComputedStyle(part).animationName.split(',').map((n) => n.trim());
+  const i = names.findIndex((n) => n.startsWith('el-in-'));
+  if (i < 0) return false;
+  names[i] = names[i]!.endsWith('-p') ? names[i]!.slice(0, -2) : `${names[i]}-p`;
+  const prevOutline = part.style.outline;
+  part.style.outline = 'none';
+  part.scrollIntoView({ behavior: 'auto', block: 'center' });
+  const timelines = getComputedStyle(part).getPropertyValue('animation-timeline');
+  if (timelines && timelines.includes('view')) {
+    part.style.setProperty('animation-timeline', timelines.split(',').map(() => 'auto').join(', '));
+  }
+  part.style.animationName = names.join(', ');
+  window.setTimeout(() => {
+    part.style.outline = prevOutline;
+    part.style.removeProperty('animation-timeline');
+  }, 2200);
+  return true;
+}
+
 let marked: HTMLElement | null = null;
 /** Outline the element being edited, until another is chosen. */
 function mark(el: HTMLElement | null) {
@@ -294,29 +473,28 @@ export function EditorBridge() {
       const el = findMakerSection(document, data.key);
       if (!el) return;
       if (data.t === 'playEl') {
-        /* ▶ REPLAY ONE ELEMENT'S IN, with the editing furniture hidden. A CSS
-           animation restarts only when its NAME changes, so the In keyframe is
-           swapped for its `-p` twin (and back on the next Play); a part that
-           follows the scroll plays on the clock for this one replay. */
+        /* ▶ REPLAY ONE ELEMENT'S IN (`replayElementIn`). */
         const part =
           typeof data.el === 'string' ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`) : null;
-        if (!part) return;
-        const names = getComputedStyle(part).animationName.split(',').map((n) => n.trim());
-        const i = names.findIndex((n) => n.startsWith('el-in-'));
-        if (i < 0) return;
-        names[i] = names[i]!.endsWith('-p') ? names[i]!.slice(0, -2) : `${names[i]}-p`;
-        const prevOutline = part.style.outline;
-        part.style.outline = 'none';
-        part.scrollIntoView({ behavior: 'auto', block: 'center' });
-        const timelines = getComputedStyle(part).getPropertyValue('animation-timeline');
-        if (timelines && timelines.includes('view')) {
-          part.style.setProperty('animation-timeline', timelines.split(',').map(() => 'auto').join(', '));
-        }
-        part.style.animationName = names.join(', ');
-        window.setTimeout(() => {
-          part.style.outline = prevOutline;
-          part.style.removeProperty('animation-timeline');
-        }, 2200);
+        if (part) replayElementIn(part);
+        return;
+      }
+      if (data.t === 'elStyle') {
+        /* ⚡ THE INSTANT PREVIEW — the choice on the canvas now, the save behind
+           it. Re-sanitized here: a scene's choice becomes `<style>` text, and
+           only the closed sets may ever reach CSS. A motion change replays the
+           part's In so the couple sees the new arrival. */
+        if (!isHubElementKey(data.el)) return;
+        const msg = data as { elements?: unknown; motion?: unknown; replay?: unknown };
+        const parts = applyElementPreview(
+          el,
+          data.key,
+          data.el,
+          sanitizeHubElements(msg.elements),
+          msg.motion === true,
+          document,
+        );
+        if (msg.replay === true && parts[0]) replayElementIn(parts[0]);
         return;
       }
       if (data.t === 'markEl') {

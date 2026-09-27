@@ -44,6 +44,7 @@ import {
 } from '@/lib/element-style';
 import { PickMenu } from './pick-menu';
 import { Play } from 'lucide-react';
+import { elementPreview, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
 
 /**
  * THE ELEMENT SHEET — one tapped element's font · colour · size · animation.
@@ -63,7 +64,15 @@ import { Play } from 'lucide-react';
  *
  * 🔑 THE LATEST CANVAS IS A REF, NOT THE PROP. Two quick taps would otherwise
  * both build on the canvas from before the first save, and the second would
- * silently undo the first.
+ * silently undo the first. For the same reason a server canvas that arrives
+ * while a save is still on its way is NOT adopted — it is older than the ref.
+ *
+ * ⚡ EVERY CHOICE IS ON THE CANVAS BEFORE IT IS SAVED (owner 2026-09-27:
+ * *"changing size does nothing"*). `onPreview` posts it to the canvas first
+ * (`element-preview.ts` → the bridge's `elStyle`), then the save runs behind
+ * it; `onSaving` tells the shell what the canvas now shows, so the save's
+ * refresh does not reload the canvas. A refused save puts the last SAVED look
+ * back on the canvas and says why, in the sheet's own error line.
  *
  * Phone first: a bottom sheet over the lower canvas, the element still in view
  * above it; from `lg` it is the inspector's column. Still, app-like controls —
@@ -125,11 +134,17 @@ export function ElementSheet({
   onClose,
   resize,
   onPlay,
+  onPreview,
+  onSaving,
 }: {
   /** The tools column's width and drag handle, shared with the inspector (desktop). */
   resize?: ToolsResize;
   /** ▶ Replay this part's In on the canvas (the bridge's `playEl`). */
   onPlay?: () => void;
+  /** ⚡ Lay a choice on the canvas NOW (the bridge's `elStyle`), before its save. */
+  onPreview?: (message: ElementPreviewMessage) => void;
+  /** ⚡ The canvas now shows this scene canvas — hold it through the save's refresh. */
+  onSaving?: (widgetType: string, canvas: HubSectionCanvas) => void;
   /** `hubDraftAction` — see `ElementDraftAction`. */
   draftAction: ElementDraftAction;
   eventId: string;
@@ -144,12 +159,19 @@ export function ElementSheet({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const latest = useRef<HubSectionCanvas>(canvas);
+  /** The canvas the draft last ACCEPTED — what a refused save goes back to. */
+  const saved = useRef<HubSectionCanvas>(canvas);
+  /** Saves still on their way — while any is, the server's canvas is older than ours. */
+  const inflight = useRef(0);
   const [style, setStyle] = useState(canvas.elements?.[target.el] ?? {});
   const canvasJson = JSON.stringify(canvas);
 
-  /* A fresh canvas from the server (after the refresh) is the truth again. */
+  /* A fresh canvas from the server (after the refresh) is the truth again —
+     unless a save is still on its way, whose canvas is newer than it. */
   useEffect(() => {
+    if (inflight.current > 0) return;
     latest.current = canvas;
+    saved.current = canvas;
     setStyle(canvas.elements?.[target.el] ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasJson, target.el, target.widgetType]);
@@ -158,18 +180,42 @@ export function ElementSheet({
   const has = (f: HubElementField) => fields.includes(f);
 
   const commit = (elements: HubSectionCanvas['elements'] | null) => {
-    const next: HubSectionCanvas = { ...latest.current };
+    const before = latest.current;
+    const next: HubSectionCanvas = { ...before };
     if (elements) next.elements = elements;
     else delete next.elements;
     latest.current = next;
     setStyle(next.elements?.[target.el] ?? {});
     setError(null);
+    /* ⚡ On the canvas first — the save runs behind it. */
+    onPreview?.(elementPreview(target.key, target.el, before, next));
+    onSaving?.(target.widgetType, next);
+    inflight.current += 1;
     start(async () => {
-      const res = await saveCanvas(draftAction, eventId, target.widgetType, next);
+      let res: HubDraftActionResult;
+      try {
+        res = await saveCanvas(draftAction, eventId, target.widgetType, next);
+      } catch {
+        res = { ok: false, intent: 'save', error: 'That change could not be saved. Please try again.' };
+      } finally {
+        inflight.current -= 1;
+      }
       if (!res.ok) {
+        /* ↩ Refused: the canvas and the sheet go back to the last saved look. */
+        const back = revertAfterFailedSave(next, latest.current, saved.current);
+        if (back) {
+          latest.current = back;
+          setStyle(back.elements?.[target.el] ?? {});
+          onPreview?.(elementPreview(target.key, target.el, next, back, false));
+          onSaving?.(target.widgetType, back);
+        }
         setError(res.error);
         return;
       }
+      saved.current = next;
+      /* The toolbar's Apply · Undo · Restore count reads the draft on the
+         server, so the page still refreshes — the shell's canvas hold keeps
+         the canvas from reloading for a render that shows what it shows. */
       router.refresh();
     });
   };

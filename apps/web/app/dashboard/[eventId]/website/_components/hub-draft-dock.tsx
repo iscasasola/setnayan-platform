@@ -1,4 +1,5 @@
 import { loadHubDraftBarData } from '@/lib/hub-draft-store';
+import { hubDraftSaveFailureText } from '@/lib/hub-draft';
 import { HubDraftToolbar } from './hub-draft-bar';
 
 /**
@@ -13,7 +14,9 @@ import { HubDraftToolbar } from './hub-draft-bar';
  * prints comes from that one server read — no price is typed, and in the store
  * shell none is fetched.
  */
-export async function HubDraftDock({ eventId }: { eventId: string }) {
+export async function HubDraftDock({ eventId, saveError }: { eventId: string; saveError?: string }) {
   const bar = await loadHubDraftBarData(eventId);
-  return <HubDraftToolbar {...bar} />;
+  /* `?draft_error=` — a form's draft save that did not land came back here
+     instead of crashing the page; only the two known words become text. */
+  return <HubDraftToolbar {...bar} saveError={hubDraftSaveFailureText(saveError)} />;
 }

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
+import { HUB_DRAFT_TOO_LARGE_MESSAGE, HubDraftTooLargeError } from '@/lib/hub-draft';
 import {
   isPhotoMomentMode,
   PHOTO_MOMENT_LIMITS,
@@ -136,8 +137,13 @@ export async function updatePhotoMoments(
     await requireHostMembership(eventIdRaw);
     try {
       await saveHubDraftPatch(eventIdRaw, { events: { photo_moments_config: config } });
-    } catch {
-      return { ok: false, error: 'Couldn’t save to your draft. Nothing changed — please try again.' };
+    } catch (e) {
+      return {
+        ok: false,
+        error: e instanceof HubDraftTooLargeError
+          ? HUB_DRAFT_TOO_LARGE_MESSAGE
+          : 'Couldn’t save to your draft. Nothing changed — please try again.',
+      };
     }
     revalidatePath(`/dashboard/${eventIdRaw}/website`, 'layout');
     revalidatePath(`/dashboard/${eventIdRaw}/launch`);

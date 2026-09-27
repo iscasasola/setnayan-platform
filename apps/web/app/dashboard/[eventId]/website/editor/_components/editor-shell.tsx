@@ -29,7 +29,7 @@ import { ScenePreview } from './scene-preview';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
-import { MakerPage, MakerPageFrame } from '../../../launch/_components/maker-page';
+import { MakerPage, MakerPageFrame, MakerPageSwitch as PageSwitch } from '../../../launch/_components/maker-page';
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
@@ -1262,39 +1262,6 @@ function madeOncePageKey(
   return madeOnce?.[selection.key] ? selection.key : null;
 }
 
-/** A two- or three-way switch at the top of a made-once page (not a tab bar:
- *  both sides are the same page, shown two ways). */
-function PageSwitch({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: ReadonlyArray<readonly [string, string]>;
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex shrink-0 justify-center px-2 pt-2" data-maker-page-switch="">
-      <div className="flex items-center rounded-full bg-ink/5 p-0.5">
-        {options.map(([v, text]) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={value === v}
-            onClick={() => onChange(v)}
-            className={`sn-press inline-flex min-h-9 items-center whitespace-nowrap rounded-full px-3 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn ${
-              value === v ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
-            }`}
-          >
-            {text}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** Love Story's controls, beside its page: the words the Invitation weaves into
  *  its story paragraph (the editor's own Story row, with its own bound action). */

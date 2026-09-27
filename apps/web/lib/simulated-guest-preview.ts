@@ -176,6 +176,23 @@ const SIMULATED_GUEST_ROW: Readonly<GuestRow> = Object.freeze({
 } satisfies GuestRow);
 
 /**
+ * THE SAMPLE GUEST THE MAKER'S RSVP CANVAS ASKS (owner 2026-09-27: "The
+ * questions" is the default view). Same invented person as above, one step
+ * EARLIER: they have not replied, so every question the couple switches on is
+ * drawn — including "Who are you bringing?", which is why this sample alone is
+ * allowed ONE plus-one (the plus-one switch must visibly do something here).
+ * Never written anywhere: the RSVP page renders it only for a verified host
+ * behind `?editor=1`, and `submitInviteReply` refuses it by id.
+ */
+export const RSVP_CANVAS_GUEST: Readonly<GuestRow> = Object.freeze({
+  ...SIMULATED_GUEST_ROW,
+  rsvp_status: 'pending',
+  plus_one_allowed: true,
+  plus_one_count: 1,
+  custom_tags: [],
+} satisfies GuestRow);
+
+/**
  * Build the simulated guest identity.
  *
  * Routed through `guestIdentity()` — the key-pick constructor — for the same

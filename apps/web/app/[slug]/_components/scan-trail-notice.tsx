@@ -84,7 +84,7 @@ export async function ScanTrailNotice({
   return (
     <form
       action={toggle}
-      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-xs text-ink/60"
+      className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/60"
     >
       <span className="min-w-0">{sentence}</span>
       <SubmitButton

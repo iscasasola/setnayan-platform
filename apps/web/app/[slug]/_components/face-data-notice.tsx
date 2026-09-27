@@ -106,7 +106,7 @@ export async function FaceDataNotice({
 
   return (
     <div className="space-y-2">
-      <div className="rounded-xl border border-ink/10 bg-cream px-4 py-3 text-xs text-ink/60">
+      <div className="text-xs text-ink/60">
         {/* ⚠ THIS LINE USED TO SAY "set up for face recognition" ON EVERY
             EVENT. Every event is mode_b until an admin switches matching on,
             and in mode_b no descriptor is ever computed — so the sentence told
@@ -162,7 +162,7 @@ export async function FaceDataNotice({
 
       <form
         action={withdraw}
-        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-xs text-ink/60"
+        className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/60"
       >
         <span className="min-w-0">
           Or remove your photo and face data from this {w.eventWord} altogether.

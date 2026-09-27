@@ -164,6 +164,8 @@ import { KeepOnHomeScreen } from './keep-on-home-screen';
 import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
 import { inviteReplyPath } from '@/lib/invite-arrival';
+import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
+import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 import { hostPitchShows, replyOffersKeep } from '@/lib/guest-one-path';
 import type { EntourageGroup } from '@/lib/entourage';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
@@ -1618,7 +1620,7 @@ export async function SiteBody({
       <section
         id={PASS_ANCHOR}
         data-motion="pass"
-        className="mx-auto max-w-md scroll-mt-6 overflow-hidden rounded-2xl border border-ink/10 bg-cream text-center shadow-lg"
+        className="mx-auto max-w-md scroll-mt-6 text-center"
       >
         {/* The anchor the arrival action's day-of label points at. A fragment
             link to a missing id fails SILENTLY — the first version of that
@@ -1640,10 +1642,10 @@ export async function SiteBody({
             celebration, who you are, where you sit, when to arrive, and one
             large code. Colours are the site palette's (mulberry = the moodboard
             wine), never hard-coded. */}
-        <div className="bg-mulberry px-5 py-4 text-left text-cream">
-          <p className="font-pahina text-xl leading-tight">{event.display_name}</p>
+        <div className="text-left">
+          <p className="font-pahina text-xl leading-tight text-ink">{event.display_name}</p>
           {event.event_date ? (
-            <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-cream/80">
+            <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
               {formatEventDate(event.event_date)}
             </p>
           ) : null}
@@ -1654,7 +1656,7 @@ export async function SiteBody({
             one that stays quiet: the guest believes it and is moved in front
             of other people. See lib/guest-pass.ts. */}
         {passFacts.length > 0 ? (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-5 pt-5 text-left">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 text-left">
             {passFacts.map((fact) => (
               <div key={fact.label}>
                 <dt className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
@@ -1665,19 +1667,17 @@ export async function SiteBody({
             ))}
           </dl>
         ) : null}
-        {/* The tear line — where a paper pass would be torn at the door. */}
-        <div aria-hidden className="mx-5 mt-5 border-t border-dashed border-ink/20" />
         <div
           aria-label={`QR code for ${displayNameOf(guest)}`}
           className="mx-auto mt-5 inline-block rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-56"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
-        <p className="mx-auto mt-3 max-w-prose px-5 text-sm text-ink/60">
+        <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">
           Show this at the door. It finds your table too.
         </p>
         {/* Save it or copy it — the code is drawn as an inline SVG, so a
             long-press offers nothing and a screenshot was the only answer. */}
-        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4 px-5" />
+        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
         {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
             "Find my table" (the Indoor Blueprint map) and "Your seat pass"
             (this guest's exact seat, the same map, their tablemates and the
@@ -2212,7 +2212,7 @@ export async function SiteBody({
                   ) : guest.rsvp_status === 'declined' ? (
                     /* Declined: a quiet line, never a keepsake — the ticket is
                        for people who are coming (design §11). */
-                    <div className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
+                    <div>
                       <p className="font-pahina text-xl font-light italic leading-snug text-ink/80">
                         We&rsquo;ll miss you.
                       </p>
@@ -2232,11 +2232,7 @@ export async function SiteBody({
                   {rsvpFlash ? (
                     <p
                       role={rsvpFlash.tone === 'error' ? 'alert' : 'status'}
-                      className={`rounded-lg border px-3 py-2 text-sm ${
-                        rsvpFlash.tone === 'error'
-                          ? 'border-terracotta/40 bg-terracotta/10 text-terracotta-700'
-                          : 'border-success-700/30 bg-success-50 text-success-800'
-                      }`}
+                      className={`text-sm font-medium ${rsvpFlash.tone === 'error' ? 'text-terracotta-700' : 'text-ink/80'}`}
                     >
                       {rsvpFlash.text}
                     </p>
@@ -2250,7 +2246,7 @@ export async function SiteBody({
                       mark, and one accent per screen is the point of that slice. */}
                   <a
                     href="#your-details"
-                    className="flex min-h-[52px] w-full items-center justify-between gap-3 border border-ink/20 bg-paper px-4 text-sm text-ink/80 transition-colors hover:border-ink/40 hover:text-ink"
+                    className="flex min-h-[52px] w-full items-center justify-between gap-3 text-sm text-ink/80 underline-offset-4 transition-colors hover:text-ink hover:underline"
                   >
                     {
                       rsvpSheetTrigger({
@@ -2273,7 +2269,13 @@ export async function SiteBody({
                   guest leaves a scan trail whether or not they ever gave a
                   selfie, so this cannot hide behind the selfie test above.
                   See scan-trail-notice.tsx. */}
-              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} />
+              {/* Not in the Maker's canvas, and never for the SAMPLE guest of
+                  the "After they reply" preview — it has no row to read, and
+                  the honest "we couldn't check" line would be a lie about a
+                  person who does not exist (owner 2026-09-27). */}
+              {isEditorCanvas || guest.guest_id === SIMULATED_GUEST_ID ? null : (
+                <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} />
+              )}
 
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at
@@ -2432,6 +2434,11 @@ export async function SiteBody({
                 keepOffer={account ? replyOffersKeep(account) : false}
                 hostPitch={account ? hostPitchShows(account) : false}
                 ask={rsvpAsk}
+                /* "Ask one question at a time" — the SAME stored value the RSVP
+                   page reads (owner 2026-09-27: "this is not one question per
+                   screen"). In the Maker's canvas `event` is the couple's DRAFT,
+                   so the switch shows here before Apply. */
+                oneAtATime={askOneAtATime(event.rsvp_ask_config)}
               />
             </div>
           </RsvpSheet>

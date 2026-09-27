@@ -137,3 +137,75 @@ function isTextField(el: HTMLElement): boolean {
   const type = (el as HTMLInputElement).type;
   return !['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color', 'hidden'].includes(type);
 }
+
+/** A two- or three-way switch at the top of a made-once page (not a tab bar:
+ *  both sides are the same page, shown two ways). */
+export function MakerPageSwitch({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: ReadonlyArray<readonly [string, string]>;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex shrink-0 justify-center px-2 pt-2" data-maker-page-switch="">
+      <div className="flex items-center rounded-full bg-ink/5 p-0.5">
+        {options.map(([v, text]) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={value === v}
+            onClick={() => onChange(v)}
+            className={`sn-press inline-flex min-h-9 items-center whitespace-nowrap rounded-full px-3 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn ${
+              value === v ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 🗳 THE RSVP PAGE'S CANVAS (owner 2026-09-27): "The questions" by default —
+ * the page every switch beside it changes — or "After they reply", the ticket
+ * and pass a guest sees once they have answered. The SAME two-position switch
+ * Love Story uses ("Your story · As guests see it"); both frames wear the
+ * couple's draft, so a switch shows before Apply.
+ */
+export function MakerRsvpCanvas({
+  questionsSrc,
+  repliedSrc,
+  stamp,
+}: {
+  questionsSrc: string;
+  repliedSrc: string;
+  stamp: string;
+}) {
+  const [replied, setReplied] = useState(false);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-maker-rsvp-canvas={replied ? 'replied' : 'questions'}>
+      <MakerPageSwitch
+        label="Show the RSVP"
+        value={replied ? 'replied' : 'questions'}
+        onChange={(v) => setReplied(v === 'replied')}
+        options={[
+          ['questions', 'The questions'],
+          ['replied', 'After they reply'],
+        ]}
+      />
+      <MakerPageFrame
+        src={replied ? repliedSrc : questionsSrc}
+        title={replied ? 'After a guest replies' : 'Your RSVP questions'}
+        device="phone"
+        frameKey={`rsvp:${replied ? 'replied' : 'questions'}:${stamp}`}
+      />
+    </div>
+  );
+}

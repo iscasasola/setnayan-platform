@@ -53,6 +53,12 @@ export type MakerPageOpts = {
   guestView?: boolean;
   /** Reveal: which of the couple's chosen stages to play it on. */
   revealStage?: LifecyclePhase | null;
+  /**
+   * RSVP: which half of the reply the canvas shows (the switch on its page,
+   * "The questions" · "After they reply"). Absent = the questions — the part
+   * every "What do you ask your guests?" switch visibly changes.
+   */
+  rsvpView?: 'questions' | 'replied';
 };
 
 /**
@@ -104,6 +110,11 @@ export function makerPageCanvasSrc(
   // host-verified on the guest page — a stranger's `?as=` is ignored), with the
   // reply sheet open (`#your-details`, rsvp-sheet.tsx). The canvas door
   // (`editor=1`) wears the couple's DRAFT, so a switch shows before Apply.
+  // 🗳 "The questions" (the default, owner 2026-09-27: the canvas must follow
+  // what the couple asks): the key-holder's own RSVP page, drawn for a SAMPLE
+  // guest who has not replied — host-verified on that page, and it wears the
+  // couple's DRAFT, so every switch shows before Apply.
+  if (key === 'rsvp-page' && opts.rsvpView !== 'replied') return `${publicLandingUrl}/invite/reply?editor=1`;
   if (key === 'rsvp-page') return `${publicLandingUrl}?phase=${phase}&editor=1&as=replied#your-details`;
   const anchor = key === 'love-story' ? '#site-story' : '';
   // 🎬 The Reveal's page must PLAY the opening, and only the stage preview

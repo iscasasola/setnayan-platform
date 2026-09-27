@@ -94,6 +94,7 @@ export type TourKey =
   | 'customer_adaptive_theme_v1'
   | 'customer_post_event_v1'
   | 'customer_ombre_background_v1'
+  | 'customer_details_bound_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -110,6 +111,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_adaptive_theme_v1',
   'customer_post_event_v1',
   'customer_ombre_background_v1',
+  'customer_details_bound_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -502,6 +504,35 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: CheckCircle2,
         title: 'Your words always read',
         body: 'We measure the whole blend and choose the ink that reads on it. If your own colours sit too close to the words, a soft veil is added for you.',
+      },
+    ],
+  },
+  /*
+    DETAILS IS THE SOURCE (owner 2026-09-25: *"any edits on details will reflect
+    across the stages and prints. but if the edit that part on the scene itself,
+    they will ask if do you want to update details and apply to all or just
+    here"*). Mounted in a bound scene's Content tab (`details-bound-field.tsx`),
+    so it fires the first time a couple opens one. Sells nothing — words are free.
+  */
+  customer_details_bound_v1: {
+    key: 'customer_details_bound_v1',
+    label: 'Everywhere, or just here',
+    blurb: 'A scene that shows a Details fact asks where a change should go.',
+    slides: [
+      {
+        Icon: MessageSquare,
+        title: 'Written once, in Details',
+        body: 'Your special message lives in Details, and every scene that shows it follows. Change it in Details and every scene changes with it.',
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'Everywhere, or just here',
+        body: 'Change it on a scene and we ask: <strong>Change it everywhere</strong> updates Details, or <strong>Just this scene</strong> keeps a version for this scene only. Tap <strong>&#8634; Use Details</strong> to bring the scene back in line.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Nothing goes live yet',
+        body: 'Every change waits in your draft. Guests see it after you Apply.',
       },
     ],
   },

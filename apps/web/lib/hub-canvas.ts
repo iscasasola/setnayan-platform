@@ -43,6 +43,7 @@ import { SCENE_MAX_SLOTS, sceneTemplateId, type SceneTemplateId } from '@/lib/sc
 import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/custom-columns';
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
+import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -306,6 +307,14 @@ export type HubSectionCanvas = {
    * contract, the selectors and the CSS are `lib/element-style.ts`.
    */
   elements?: HubElementStyles;
+  /**
+   * 🔗 THIS SCENE'S OWN VERSION OF A DETAILS FACT (owner 2026-09-25: *"they
+   * will ask if do you want to update details and apply to all or just here"*).
+   * Absent = the scene is BOUND to Details and shows its value; present = the
+   * couple chose "Just this scene". Words, never look — not a Pro key. The
+   * contract and the one read rule (`sceneBoundText`) are `lib/details-bound.ts`.
+   */
+  details?: HubDetailsOverrides;
 };
 
 /** One slot of a template scene. See `slots` above. */
@@ -540,6 +549,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (video) out.video = video;
   const elements = sanitizeHubElements(canvas.elements);
   if (elements) out.elements = elements;
+  const details = sanitizeDetailsOverrides(canvas.details);
+  if (details) out.details = details;
   return out;
 }
 
@@ -914,7 +925,9 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
      brings the default preset's motion with it, so the whole section would
      start fading in because one word changed colour. The elements are drawn by
      their own scoped style (`hubElementSceneCss`), framed or not. */
-  return Object.keys(canvas).some((k) => k !== 'elements');
+  /* 🔗 Nor is a scene's own version of a Details fact (`details`) — it is
+     words, drawn by the scene itself; framing it would add motion nobody chose. */
+  return Object.keys(canvas).some((k) => k !== 'elements' && k !== 'details');
 }
 
 /**

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { HubSectionCanvas, HubSceneSlot } from '@/lib/hub-canvas';
 import { SCENE_TEMPLATES, sceneTemplateClass, type SceneTemplate } from '@/lib/scene-templates';
 import { SceneClip } from './scene-clip';
+import { sceneBoundText } from '@/lib/details-bound';
 
 /**
  * A TEMPLATE SCENE ON THE GUEST PAGE — one of the 25 (`lib/scene-templates.ts`),
@@ -78,7 +79,13 @@ export function renderScene(input: SceneRenderInput): ReactElement | null {
   }
   const blocks = t.blocks > 0 ? readBlocks(slots, t, facts) : [];
   const display = displayText(t, facts, title);
-  const letterBody = t.builtOn === 'special_message' ? body || facts.specialMessage || '' : body;
+  /* 🔗 11 · Letter is BOUND to Details' special message (`lib/details-bound.ts`):
+     the scene's own words written before binding existed, else this scene's
+     "Just this scene" version, else the Details value. */
+  const letterBody =
+    t.builtOn === 'special_message'
+      ? body || sceneBoundText('message', input.canvas, facts.specialMessage).text || ''
+      : body;
   const hasWords = Boolean(title || letterBody);
 
   const anything = pics.length > 0 || blocks.length > 0 || Boolean(display) || hasWords;

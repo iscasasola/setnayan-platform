@@ -8,7 +8,7 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { classifyPopulation, type ProbeResult } from './verdict';
-import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 /**
  * The probe registry — one entry per interconnection we are willing to claim
@@ -503,7 +503,7 @@ const guestListReach: Probe = {
       .select('event_id')
       .is('deleted_at', null)
       // …and its request rule (fetchGuestsByEvent reads the ACCEPTED list).
-      .neq('entry_source', REQUEST_ENTRY_SOURCE);
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false);
     if (error) throw new Error(`guests unreadable: ${error.message}`);
 
     const truthByEvent = new Map<string, number>();

@@ -75,8 +75,8 @@ test('print uses the CEREMONY block time — not the first item of the run of sh
   assert.equal(ceremonyBlock(BLOCKS.filter((b) => b.block_type !== 'ceremony')), null, 'no ceremony block → no time, never a guess');
 });
 
-test('† follows a parent only when marked departed; print_details stores only choices, never copies', () => {
-  assert.equal(parentLine({ name: 'Indalecio Sr.', deceased: true, side: 'groom' }), 'Indalecio Sr. †');
+test('"the late" prefixes a parent only when marked Passed away; print_details stores only choices, never copies', () => {
+  assert.equal(parentLine({ name: 'Indalecio Sr.', deceased: true, side: 'groom' }), 'the late Indalecio Sr.');
   assert.equal(parentLine({ name: 'Rosa', deceased: false, side: 'groom' }), 'Rosa');
   // Parents live on the Guest list and gifts on E-Gifts (owner 2026-09-25) —
   // a stored copy of either is DROPPED, never read back.

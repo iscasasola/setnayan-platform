@@ -51,7 +51,7 @@ test('the list readers read the ACCEPTED list by default; only the roster opts i
   assert.match(count.slice(0, 700), /\.neq\('entry_source', REQUEST_ENTRY_SOURCE\)/, 'the guest total counts requests');
   // Exactly one caller opts in: the roster, which draws requests as their own rows.
   const roster = read('app/dashboard/[eventId]/guests/page.tsx');
-  assert.match(roster, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true \}\)/);
+  assert.match(roster, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true(?:, includePassedAway: true)? \}\)/);
   assert.match(roster, /const counted = guests\.filter\(countsTowardEvent\)/, 'the side counts include requests');
   assert.match(roster, /!countsTowardEvent\(g\)\s*\?\s*null/, 'a request is suggested a seat');
 });

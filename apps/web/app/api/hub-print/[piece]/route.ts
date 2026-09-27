@@ -161,7 +161,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       // The measured read: a refused guest list is "we could not read it", never
       // a registry that says the wedding has no guests.
       const [guests, tables, seats] = await Promise.all([
-        fetchGuestsByEventMeasured(admin, eventId),
+        // 🕯 The desk LISTS a guest who passed away ("In loving memory") and
+        // counts them nowhere — `registryRows` / `listedNotCounted`.
+        fetchGuestsByEventMeasured(admin, eventId, { includePassedAway: true }),
         fetchTables(admin, eventId),
         fetchAssignments(admin, eventId),
       ]);
@@ -177,7 +179,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       }
       const rows = registryRows(guests.rows, tableOf);
       docs = layoutGuestRegistry({ title: event.display_name ?? 'Guest list', dateLabel: registryDate(event.event_date), rows });
-      subject = `${rows.length} guests`;
+      subject = `${rows.filter((r) => r.counted).length} guests`;
     }
     if (thumb) {
       return new NextResponse(renderPrintSvg(docs[0]!, images), {

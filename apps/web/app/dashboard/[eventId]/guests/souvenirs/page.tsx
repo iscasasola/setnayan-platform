@@ -11,7 +11,7 @@ import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { SouvenirDesk, type DeskGuest, type DeskClaim } from './_components/souvenir-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
-import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 export const metadata = { title: 'Souvenir table' };
 
@@ -74,7 +74,7 @@ export default async function SouvenirTablePage({ params }: Props) {
       .eq('event_id', eventId)
       .is('deleted_at', null)
       // 🛂 A request is not inside until Keep or Link.
-      .neq('entry_source', REQUEST_ENTRY_SOURCE)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
       .order('last_name'),
     supabase
       .from('event_seat_assignments')

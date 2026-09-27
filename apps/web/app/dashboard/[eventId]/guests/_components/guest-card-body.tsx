@@ -5,6 +5,7 @@ import {
   Camera,
   Check,
   EyeOff,
+  Flower2,
   Tag,
   Users,
   UserX,
@@ -260,7 +261,14 @@ export function GuestCardBody({
           brandedQrActive={brandedQrActive}
         />
         <div className="overflow-hidden rounded-lg border border-ink/10">
-          {guest.email ? (
+          {guest.passed_away ? (
+            // 🕯 Nothing is sent to a guest the couple marked "Passed away" —
+            // `inviteGuestByEmailAction` refuses it too, so this is said up front.
+            <p className="flex items-center gap-3 border-b border-ink/[0.06] px-3.5 py-3 text-sm text-ink/45">
+              <span>Email a sign-in link</span>
+              <span className="ml-auto italic">Not sent · passed away</span>
+            </p>
+          ) : guest.email ? (
             <form action={inviteAction}>
               <SubmitButton
                 className="flex w-full items-center gap-3 border-b border-ink/[0.06] px-3.5 py-3 text-left text-sm text-ink transition-colors hover:bg-ink/[0.03] disabled:opacity-60"
@@ -605,6 +613,21 @@ export function GuestCardBody({
             destroyed here either, which was not.
           */}
           <input type="hidden" name="relation" value={guest.relation ?? ''} />
+          {/* 🕯 PASSED AWAY — listed, never counted (owner 2026-09-25: *"a button
+              of passed can be placed there … If passed away already, then not
+              counted on the guestlist. but listed."*). They stay on this list
+              and print as "the late …" in the parents' lines; no headcount,
+              seat, caterer number or invitation counts them. Never offered for
+              the couple themselves — `updateGuest` refuses it for them too. */}
+          {isCouple ? null : (
+            <Toggle
+              name="passed_away"
+              defaultChecked={guest.passed_away === true}
+              icon={<Flower2 aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />}
+              label="Passed away"
+              note="Printed as “the late …”. Not counted, seated or sent an invitation."
+            />
+          )}
         </Section>
 
         {/* ── 6 · PRIVACY ────────────────────────────────────────────────── */}

@@ -637,9 +637,14 @@ export const OPENING_LINE_TEMPLATES: readonly OpeningLineTemplate[] = [
   { key: 'simple', name: 'Simple', body: 'Please join us as we begin our life together' },
 ];
 
-/** A parent's printed name: the † follows ONLY a departed parent. */
+/**
+ * A parent's printed name. 🕯 A parent the couple marked "Passed away" on the
+ * guest card prints as "the late <name>" — the owner's words (DECISION_LOG
+ * 2026-09-25, "PRINT CONTENT COMES FROM WHERE IT ALREADY LIVES": listed, never
+ * counted). Everyone else prints as themselves.
+ */
 export function parentLine(p: PrintParent): string {
-  return p.deceased ? `${p.name} †` : p.name;
+  return p.deceased ? `the late ${p.name}` : p.name;
 }
 
 /**

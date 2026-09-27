@@ -107,11 +107,15 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
   const admin = createAdminClient();
   const { data: guest } = await admin
     .from('guests')
-    .select('email, deleted_at')
+    .select('email, deleted_at, passed_away')
     .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // 🕯 Never sent to a guest the couple marked "Passed away" (the card says so).
+  if (guest?.passed_away === true) {
+    return redirect(`${backTo}?invite=passed_away`);
+  }
   const email = (guest?.email as string | null)?.trim();
   if (!guest || guest.deleted_at || !email) {
     return redirect(`${backTo}?invite=no_email`);
@@ -168,6 +172,11 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // face recognition (typically a minor). When ON, the guest is never enrolled
   // for auto-tagging and any existing enrolment is revoked below. Collects no age.
   const face_recognition_excluded = clean(formData.get('face_recognition_excluded')) === 'on';
+  // 🕯 "Passed away" (owner 2026-09-25) — LISTED, never counted, seated or sent
+  // to. The card offers it to everyone but the couple, and the couple can never
+  // carry it: they are the event, always attending (see `effectiveRsvp`).
+  const passed_away =
+    role !== 'bride' && role !== 'groom' && clean(formData.get('passed_away')) === 'on';
   // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
   // permission only; the +1's name + RSVP confirmation lands on the
   // public RSVP widget (PR B follow-up). Toggling OFF is non-
@@ -274,7 +283,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     // a host correcting a phone number, so an ordinary edit does not throw four
     // public caches away.
     .select(
-      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, email, first_name, display_name',
+      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, email, first_name, display_name, passed_away',
     )
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
@@ -333,6 +342,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       photo_consent,
       faceblock_enabled,
       face_recognition_excluded,
+      passed_away,
       ...plusOneWrite,
       notes,
       invited_to_blocks,
@@ -550,9 +560,26 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     });
   }
 
+  // 🕯 MARKED "PASSED AWAY" → THEIR CHAIR IS GIVEN BACK. The seat plan reads the
+  // living list (`fetchGuestsByEvent`), so a seat row left behind would be a
+  // chair held for nobody that no screen can show. Only on the change itself;
+  // un-marking hands them to the reconcile below like any returning guest.
+  const passedAwayMoved = prevGuest != null && (prevGuest.passed_away === true) !== passed_away;
+  if (passedAwayMoved && passed_away) {
+    const { error: seatError } = await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId);
+    if (seatError) console.error('updateGuest: passed-away seat release failed', eventId, guestId, seatError.message);
+  }
+
   // Smart seat-plan Phase 5: role + group_category drive the seating tier — re-place
   // this guest (and their +1) only when one of those actually changed on this save.
-  if (prevGuest && (prevGuest.role !== role || prevGuest.group_category !== group_category)) {
+  if (
+    prevGuest &&
+    (prevGuest.role !== role || prevGuest.group_category !== group_category || (passedAwayMoved && !passed_away))
+  ) {
     await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
   }
   // ⚖ "+ will have seats beside the person invited" — one seat row per extra

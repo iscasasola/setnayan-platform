@@ -22,7 +22,7 @@ import {
   AUTO_COMPLETABLE_KEYS,
   type ChecklistSignals,
 } from '@/lib/checklist-autocomplete';
-import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 /**
  * Idempotent TOP-UP seed for the couple planning checklist. Fires when the home
@@ -234,7 +234,7 @@ async function reconcileChecklistCompletion(
         .eq('event_id', eventId)
         .maybeSingle(),
       admin.from('event_vendors').select('category, status').eq('event_id', eventId),
-      admin.from('guests').select('event_id', { count: 'exact', head: true }).eq('event_id', eventId).neq('entry_source', REQUEST_ENTRY_SOURCE),
+      admin.from('guests').select('event_id', { count: 'exact', head: true }).eq('event_id', eventId).neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false),
       admin
         .from('event_tables')
         .select('event_id', { count: 'exact', head: true })

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventActiveSkus } from '@/lib/entitlements';
 import { countGuestsByEvent } from '@/lib/guests';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
-import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 /**
  * after-summary.ts — what a finished event has to SHOW for itself.
@@ -111,7 +111,7 @@ export async function loadAfterSummary(
           // Same soft-delete filter as above — a removed guest is not attending.
           .is('deleted_at', null)
           // …and the same request rule as countGuestsByEvent above.
-          .neq('entry_source', REQUEST_ENTRY_SOURCE)
+          .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
           .eq('rsvp_status', 'attending'),
       ),
       countOf(supabase, () =>

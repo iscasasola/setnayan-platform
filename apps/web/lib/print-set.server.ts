@@ -36,7 +36,7 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
-import { REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 /**
  * lib/print-set.server.ts — everything a print piece needs, read ONCE.
@@ -141,20 +141,27 @@ async function readBlocks(admin: SupabaseClient, eventId: string): Promise<Block
   return (data as BlockRow[] | null) ?? [];
 }
 
-async function readEntourage(admin: SupabaseClient, eventId: string) {
+async function readEntourage(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<{ groups: ReturnType<typeof buildEntourage>; passedAway: ReadonlySet<string> }> {
   const { data, error } = await admin
     .from('guests')
-    .select(ENTOURAGE_COLUMNS)
+    // + `passed_away` for THIS reader only (ENTOURAGE_COLUMNS' own rule: never
+    // widen the shared list for one reader) — the parents' "the late …".
+    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);
   if (error) {
     logQueryError('print-set.readEntourage', error, { event_id: eventId }, 'graceful_degrade');
-    return [];
+    return { groups: [], passedAway: new Set() };
   }
+  const rows = (data ?? []) as Array<EntourageGuestRow & { passed_away?: boolean | null }>;
+  const passedAway = new Set(rows.filter((r) => r.passed_away === true && r.guest_id).map((r) => r.guest_id as string));
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
-  return buildEntourage((data ?? []) as EntourageGuestRow[], await loadEntourageSectionOrder(admin, eventId));
+  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId)), passedAway };
 }
 
 function attireLines(raw: unknown): Array<{ label: string; line: string }> {
@@ -262,7 +269,8 @@ function excerpt(story: string | null): string | null {
 /** The parents on this event's guest list — for the Details panel's read-only list. */
 export async function parentsFromEntourageForEvent(eventId: string): Promise<PrintParent[]> {
   const admin = createAdminClient();
-  return parentsFromEntourage(await readEntourage(admin, eventId));
+  const { groups, passedAway } = await readEntourage(admin, eventId);
+  return parentsFromEntourage(groups, passedAway);
 }
 
 /** Does this event have a Mood Board palette to print? */
@@ -270,15 +278,26 @@ export function hasPalette(rolePalette: unknown): boolean {
   return swatchesFrom(rolePalette).length > 0;
 }
 
-/** The parents, from the guest list's Parents group (groom's side, then bride's). */
-export function parentsFromEntourage(groups: ReturnType<typeof buildEntourage>): PrintParent[] {
+/**
+ * The parents, from the guest list's Parents group (groom's side, then bride's).
+ * 🕯 A parent the couple marked "Passed away" on the guest card is still printed —
+ * as "the late …" (`parentLine`) — never dropped.
+ */
+export function parentsFromEntourage(
+  groups: ReturnType<typeof buildEntourage>,
+  passedAway: ReadonlySet<string> = new Set(),
+): PrintParent[] {
   const g = groups.find((x) => x.key === 'parents');
   if (!g) return [];
   const out: PrintParent[] = [];
   for (const row of g.rows) {
     for (const p of row) {
       if (!p) continue;
-      out.push({ name: p.name, deceased: false, side: p.role === 'bride_parents' ? 'bride' : 'groom' });
+      out.push({
+        name: p.name,
+        deceased: p.id !== null && passedAway.has(p.id),
+        side: p.role === 'bride_parents' ? 'bride' : 'groom',
+      });
     }
   }
   return out;
@@ -440,7 +459,7 @@ export async function loadPrintSet(
     // source is not drawn because it is never passed, not because a layout
     // remembered to check a flag.
     details: {
-      parents: inc.parents ? parentsFromEntourage(entourage) : [],
+      parents: inc.parents ? parentsFromEntourage(entourage.groups, entourage.passedAway) : [],
       openingLine: inc.openingLine ? stored.openingLine : null,
       rsvpContact: inc.rsvp ? rsvpLine(stored.rsvp, hosts) : null,
       giftLines: inc.giftDetails ? giftLines : [],
@@ -457,7 +476,7 @@ export async function loadPrintSet(
       guestNames: inc.guestNames,
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
-    entourage: entourage.filter((g) => g.key !== 'parents'),
+    entourage: entourage.groups.filter((g) => g.key !== 'parents'),
     attire: attireLines(event.dress_code_config),
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,
@@ -486,7 +505,7 @@ export async function loadGuestPasses(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 No pass for a request until Keep or Link.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE)
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
     .order('last_name', { ascending: true });
   if (error) {
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');

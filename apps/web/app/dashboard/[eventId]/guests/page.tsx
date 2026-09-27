@@ -346,7 +346,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, assignments, tables, arrived, floorPlan, brandedQrActive] =
     await Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
-      fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true }),
+      fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true }),
       supabase
         .from('events')
         // ⚠ THIS PAGE DID NOT READ THE EVENT'S DATE AT ALL. Owner, the morning

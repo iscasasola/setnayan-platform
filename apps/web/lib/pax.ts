@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
 import { guestListDeadlineEndMs } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
-import { REQUEST_ENTRY_SOURCE } from './guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from './guests';
 
 // Which guests count toward the live pax (events.headcount_basis). 'attending'
 // = sure guests only (owner-locked default). Mirrors the same union in
@@ -32,7 +32,7 @@ async function liveHeadcount(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 A request counts for nothing until Keep or Link (lib/guests.ts).
-    .neq('entry_source', REQUEST_ENTRY_SOURCE);
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false);
   if (basis === 'invited') {
     q = q.neq('rsvp_status', 'declined');
   } else if (basis === 'attending_plus_maybe') {

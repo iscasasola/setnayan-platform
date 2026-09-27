@@ -51,7 +51,7 @@ const FIRST_PAINT: Record<string, string> = {
   'app/layout.tsx#fraunces':
     'THE GUEST PAGE’S DISPLAY FACE — the couple’s names and the date in the masthead, the largest words on the first screen of EVERY guest page: House, Velvet and Gatsby all set them in Fraunces.',
   'app/layout.tsx#cormorant':
-    'THE HOUSE THEME’S HEADINGS — the monogram, the Save-the-Date lines and every `font-display` heading of an event that never chose a theme (the default), and the loading skeleton’s couple name that paints before the page streams in.',
+    'THE HOUSE THEME’S HEADINGS — the monogram, the Save-the-Date lines and every `font-display` heading of an event that never chose a theme (the default) — including the default lettered mark, which the loading skeleton now draws too (its couple name moved to Fraunces with the masthead, 2026-09-27).',
 };
 
 /** Every source file that can declare a face. */

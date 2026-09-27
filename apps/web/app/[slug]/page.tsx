@@ -9,7 +9,10 @@ import { getCurrentUser } from '@/lib/auth';
 import { ServerTimer } from '@/lib/server-timing';
 import { Suspense } from 'react';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventWordsFor, solemnAdjustedPhase } from './_lib/event-words';
+import { eventWordsFor, eventWordsFromProfile, solemnAdjustedPhase } from './_lib/event-words';
+import { resolveHero } from '@/lib/event-hero';
+import { resolveMonogram } from '@/lib/monogram';
+import { venueNamesLine } from '@/lib/event-venues';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
@@ -471,6 +474,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     asksForHostCanvas(search) && typeof search.phase === 'string' && search.phase in PUBLIC_STAGE_LABELS
       ? PUBLIC_STAGE_LABELS[search.phase as keyof typeof PUBLIC_STAGE_LABELS]
       : null;
+  // 🪞 THE FALLBACK IS THE PAGE, LOADING (owner 2026-09-27: "before the actual
+  // website runs, i see another website under"). Everything it is handed is
+  // already in hand — the event row and the profile resolved for the surface
+  // gate above — and every derivation is pure (`resolveHero` signs nothing), so
+  // it wears the real masthead's words at no extra read. See the skeleton's
+  // docblock.
+  const skeletonHero = resolveHero(event);
   return (
     <Suspense
       fallback={
@@ -478,6 +488,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           displayName={event.display_name}
           monogramText={event.monogram_text}
           phaseLabel={skeletonPhaseLabel}
+          words={eventWordsFromProfile(eventTypeProfile)}
+          eventDate={event.event_date}
+          heroMedia={skeletonHero.photoRef !== null || skeletonHero.guestVideoRef !== null}
+          venueName={venueNamesLine(event)}
+          showHeader={!(asksForEditorBridge(search) && search.bars !== '1')}
+          mark={
+            event.monogram_custom_svg || event.monogram_uploaded_svg
+              ? null
+              : { design: event, monogram: resolveMonogram(event) }
+          }
         />
       }
     >

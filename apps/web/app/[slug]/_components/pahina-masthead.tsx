@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { formatEventDate } from '@/lib/events';
-import { hubElementInlineStyle, type HubElementStyles, type HubHeroElementKey } from '@/lib/element-style';
+import {
+  hubElementInlineStyle,
+  hubRunInlineStyle,
+  hubTextSegments,
+  type HubElementStyles,
+  type HubHeroElementKey,
+} from '@/lib/element-style';
 
 /**
  * PahinaMasthead — the typographic hero of the Pahina guest site
@@ -132,6 +138,29 @@ export function PahinaMasthead({
     ...(stampElements ? { 'data-el': key } : {}),
     style: hubElementInlineStyle(elements?.[key]),
   });
+  /**
+   * ✍ A piece of a part's text, with its runs (one letter, one word in its own
+   * face) drawn as spans — server-side, so what a guest sees is exactly what
+   * the canvas showed. `whole` is the part's WHOLE text as a browser reads it
+   * (`textContent`), which the runs' offsets and their `of` hash are measured
+   * on; a run made on older text is dropped, never moved (`hubTextSegments`).
+   */
+  const txt = (key: HubHeroElementKey, text: string, whole: string = text, segmentStart = 0) => {
+    const parts = hubTextSegments(text, elements?.[key], { text: whole, segmentStart });
+    if (parts.length === 1 && !parts[0]!.run) return text;
+    return parts.map((p, i) =>
+      p.run ? (
+        <span key={i} data-el-run="" style={hubRunInlineStyle(p.run)}>
+          {p.text}
+        </span>
+      ) : (
+        p.text
+      ),
+    );
+  };
+  const cardJoiner = names.joiner === '&' ? 'and' : (names.joiner ?? '');
+  const cardNames = `${names.first}${names.second ? `${cardJoiner}${names.second}` : ''}`;
+  const plainNames = `${names.first}${names.second ? `${names.joiner ?? ''}${names.second}` : ''}`;
 
   if (card) {
     return (
@@ -139,7 +168,7 @@ export function PahinaMasthead({
         {badgeSlot}
         <div className="mx-auto max-w-md rounded-sm bg-cream p-3 shadow-[0_20px_48px_rgba(30,34,41,0.16)]">
           <div className="border border-gild/45 px-5 pb-7 pt-8">
-            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">{card.eyebrow}</p>
+            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">{txt('eyebrow', card.eyebrow)}</p>
             {monogramSlot ? (
               <div {...el('mark')} data-motion="arrive-mark" className="mt-5 flex h-[9.5rem] items-center justify-center">
                 {/* The mark renders at its own 80px; the card shows it at
@@ -153,26 +182,26 @@ export function PahinaMasthead({
               data-motion="arrive-names"
               className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
             >
-              <span className="block">{names.first}</span>
+              <span className="block">{txt('names', names.first, cardNames, 0)}</span>
               {names.second ? (
                 <>
                   <span className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
-                    {names.joiner === '&' ? 'and' : names.joiner}
+                    {txt('names', cardJoiner, cardNames, names.first.length)}
                   </span>
-                  <span className="block">{names.second}</span>
+                  <span className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
                 </>
               ) : null}
             </h1>
-            {card.line ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{card.line}</p> : null}
+            {card.line ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{txt('line', card.line)}</p> : null}
             {dateLabel ? (
               <p {...el('date')} data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3">
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
-                <span className="font-pahina text-xl text-ink">{dateLabel}</span>
+                <span className="font-pahina text-xl text-ink">{txt('date', dateLabel)}</span>
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
               </p>
             ) : null}
             {card.timeLabel ? (
-              <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{card.timeLabel}</p>
+              <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{txt('time', card.timeLabel)}</p>
             ) : null}
           </div>
         </div>
@@ -196,20 +225,20 @@ export function PahinaMasthead({
           all rather than an empty one with a stray decorative rule. */}
       {eyebrow ? (
         <p {...el('eyebrow')} className="pahina-eyebrow justify-center">
-          <span>{eyebrow}</span>
+          <span>{txt('eyebrow', eyebrow)}</span>
         </p>
       ) : null}
       {monogramSlot ? <div {...el('mark')} data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
 
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
       <h1 {...el('names')} data-motion="arrive-names" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
-        <span className="block">{names.first}</span>
+        <span className="block">{txt('names', names.first, plainNames, 0)}</span>
         {names.second ? (
           <>
             <span className="block font-pahina text-[0.42em] italic text-gild" aria-hidden>
-              {names.joiner}
+              {txt('names', names.joiner ?? '', plainNames, names.first.length)}
             </span>
-            <span className="block">{names.second}</span>
+            <span className="block">{txt('names', names.second, plainNames, names.first.length + (names.joiner ?? '').length)}</span>
           </>
         ) : null}
       </h1>
@@ -219,7 +248,7 @@ export function PahinaMasthead({
       {/* The gild date — oversized lining numerals; venue meta beneath. */}
       {dateLabel ? (
         <p {...el('date')} data-motion="arrive-date" className="mt-6 font-pahina text-[clamp(1.6rem,6vw,2.4rem)] font-light tracking-tight text-gild">
-          {dateLabel}
+          {txt('date', dateLabel)}
         </p>
       ) : null}
       {venueName ? <p className="mt-2 text-base text-ink/70">{venueName}</p> : null}

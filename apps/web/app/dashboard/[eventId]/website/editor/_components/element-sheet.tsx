@@ -11,20 +11,39 @@ import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
 import { hubFontPreviewStack } from '@/lib/hub-fonts';
 import {
-  HUB_ELEMENT_ANIMS,
-  HUB_ELEMENT_ANIM_LABEL,
+  HUB_EL_DELAY,
+  HUB_EL_DELAY_LABEL,
+  HUB_EL_DURATION,
+  HUB_EL_DURATION_LABEL,
+  HUB_EL_DURING_LABEL,
+  HUB_EL_DURING_WORDS,
+  HUB_EL_IN,
+  HUB_EL_IN_LABEL,
+  HUB_EL_OUT,
+  HUB_EL_OUT_LABEL,
+  HUB_EL_TIMELINE,
+  HUB_EL_TIMELINE_LABEL,
   HUB_ELEMENT_FIELDS,
   HUB_ELEMENT_FONTS,
   HUB_ELEMENT_LABEL,
+  HUB_ELEMENT_RUN_KEYS,
   HUB_ELEMENT_SIZES,
   HUB_ELEMENT_SIZE_LABEL,
   hubElementColor,
   hubElementContrast,
   withElementChoice,
+  withElementMotion,
+  withRunChoice,
   withoutElement,
+  withoutMotion,
+  withoutRuns,
   type HubElementField,
   type HubElementKey,
+  type HubElementMotion,
+  type HubElementRun,
 } from '@/lib/element-style';
+import { PickMenu } from './pick-menu';
+import { Play } from 'lucide-react';
 
 /**
  * THE ELEMENT SHEET — one tapped element's font · colour · size · animation.
@@ -66,6 +85,12 @@ export type ElementTarget = {
   /** Which widget row stores it — `hero` for the hero's parts. */
   widgetType: string;
   el: HubElementKey;
+  /**
+   * ✍ The text selected INSIDE the part (a word, one letter), as offsets into
+   * its text and the text's hash — from the bridge's `selectionInPart`. Null =
+   * the choices style the whole part.
+   */
+  range?: { start: number; end: number; of: string; text: string } | null;
 };
 
 /**
@@ -99,9 +124,12 @@ export function ElementSheet({
   draftAction,
   onClose,
   resize,
+  onPlay,
 }: {
   /** The tools column's width and drag handle, shared with the inspector (desktop). */
   resize?: ToolsResize;
+  /** ▶ Replay this part's In on the canvas (the bridge's `playEl`). */
+  onPlay?: () => void;
   /** `hubDraftAction` — see `ElementDraftAction`. */
   draftAction: ElementDraftAction;
   eventId: string;
@@ -145,14 +173,33 @@ export function ElementSheet({
       router.refresh();
     });
   };
-  const choose = (field: HubElementField, value: string | null) =>
-    commit(withElementChoice(latest.current.elements, target.el, field, value));
+  /* ✍ A selection inside the part's text makes font · colour · size a RUN; the
+     couple can drop back to the whole part with one tap. */
+  const [useRange, setUseRange] = useState(true);
+  useEffect(() => setUseRange(true), [target.range?.start, target.range?.end, target.range?.of]);
+  const range = target.range && useRange && HUB_ELEMENT_RUN_KEYS.includes(target.el) ? target.range : null;
+  const run: HubElementRun | null = range
+    ? ((style.of === range.of ? style.runs : undefined)?.find((r) => r.start === range.start && r.end === range.end) ?? null)
+    : null;
+  /** What the font · colour · size controls show: the run's own, or the part's. */
+  const face = range ? { font: run?.font, color: run?.color, size: run?.size } : style;
+
+  const choose = (field: Exclude<HubElementField, 'motion'>, value: string | null) =>
+    commit(
+      range
+        ? withRunChoice(latest.current.elements, target.el, range, field, value)
+        : withElementChoice(latest.current.elements, target.el, field, value),
+    );
+  const motion: HubElementMotion = style.motion ?? {};
+  const moveTo = (part: keyof HubElementMotion, value: string | null) =>
+    commit(withElementMotion(latest.current.elements, target.el, part, value));
+  const scroll = motion.timeline === 'scroll';
 
   /* The contrast warning — measured, never blocking (a quiet accent may be meant). */
   const ground = canvas.kind === 'color' && canvas.color ? canvas.color : palette.surface;
-  const contrast = style.color ? hubElementContrast(style.color, ground) : null;
+  const contrast = face.color ? hubElementContrast(face.color, ground) : null;
   const swatches = [...new Set([palette.ink, palette.heading, palette.accent, palette.muted].map((c) => c.toLowerCase()))];
-  const custom = style.color && !swatches.includes(style.color) ? style.color : null;
+  const custom = face.color && !swatches.includes(face.color) ? face.color : null;
   const titleId = 'maker-element-sheet-title';
 
   return (
@@ -193,20 +240,33 @@ export function ElementSheet({
         </button>
       </div>
 
+      {target.range && HUB_ELEMENT_RUN_KEYS.includes(target.el) ? (
+        <div className="flex items-center gap-2 px-4 pt-2" data-element-range="">
+          <Seg on={useRange} onClick={() => setUseRange(true)}>
+            “{target.range.text.length > 14 ? `${target.range.text.slice(0, 13)}…` : target.range.text}”
+          </Seg>
+          <Seg on={!useRange} onClick={() => setUseRange(false)}>
+            Whole {HUB_ELEMENT_LABEL[target.el].toLowerCase()}
+          </Seg>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 divide-y divide-ink/10 overflow-y-auto overflow-x-hidden px-4" aria-busy={pending}>
         {has('font') ? (
           <div className={ROW} data-element-row="font">
             <p className={LABEL}>Font</p>
-            <div className="-my-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
-              <Chip on={!style.font} onClick={() => choose('font', null)}>
-                Event Hub font
-              </Chip>
-              {HUB_ELEMENT_FONTS.map((f) => (
-                <Chip key={f.key} on={style.font === f.key} onClick={() => choose('font', f.key)} fontFamily={hubFontPreviewStack(f.key)}>
-                  {f.label}
-                </Chip>
-              ))}
-            </div>
+            {/* ▾ A DROPDOWN, each face drawn in itself (owner 2026-09-27: "font
+                should be a drop down"); "Event Hub font" at the top is the reset. */}
+            <PickMenu
+              label="Font"
+              dataAttr="data-element-font"
+              value={face.font ?? 'hub'}
+              options={[
+                { key: 'hub', label: 'Event Hub font' },
+                ...HUB_ELEMENT_FONTS.map((f) => ({ key: f.key, label: f.label, fontFamily: hubFontPreviewStack(f.key) })),
+              ]}
+              onPick={(key) => choose('font', key === 'hub' ? null : key)}
+              className="flex-1"
+            />
           </div>
         ) : null}
 
@@ -216,7 +276,7 @@ export function ElementSheet({
               <p className={LABEL}>Colour</p>
               <div className="flex flex-1 flex-wrap items-center gap-2">
                 {swatches.map((c) => (
-                  <Swatch key={c} color={c} on={style.color === c} onClick={() => choose('color', c)} />
+                  <Swatch key={c} color={c} on={face.color === c} onClick={() => choose('color', c)} />
                 ))}
                 <label
                   className={`sn-press relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[18px] text-ink/70 transition-all duration-300 ease-in-out ${
@@ -229,7 +289,7 @@ export function ElementSheet({
                   <span className="sr-only">Your own colour</span>
                   <input
                     type="color"
-                    value={style.color ?? palette.ink}
+                    value={face.color ?? palette.ink}
                     onChange={(e) => {
                       const c = hubElementColor(e.target.value);
                       if (c) choose('color', c);
@@ -255,7 +315,7 @@ export function ElementSheet({
             <p className={LABEL}>Size</p>
             <Segmented>
               {HUB_ELEMENT_SIZES.map((sz) => (
-                <Seg key={sz} on={(style.size ?? 'm') === sz} onClick={() => choose('size', sz === 'm' ? null : sz)}>
+                <Seg key={sz} on={(face.size ?? 'm') === sz} onClick={() => choose('size', sz === 'm' ? null : sz)}>
                   {HUB_ELEMENT_SIZE_LABEL[sz]}
                 </Seg>
               ))}
@@ -263,23 +323,84 @@ export function ElementSheet({
           </div>
         ) : null}
 
-        {has('anim') ? (
-          <div className={ROW} data-element-row="anim">
-            <p className={LABEL}>Animation</p>
-            <Segmented>
-              {HUB_ELEMENT_ANIMS.map((a) => (
-                <Seg key={a} on={style.anim === a} onClick={() => choose('anim', a)}>
-                  {HUB_ELEMENT_ANIM_LABEL[a]}
+        {has('motion') && !range ? (
+          <div className="space-y-2.5 py-3" data-element-row="motion">
+            <div className="flex items-center gap-3">
+              <p className={LABEL}>Motion</p>
+              <Segmented>
+                {HUB_EL_TIMELINE.map((t) => (
+                  <Seg key={t} on={(motion.timeline ?? 'once') === t} onClick={() => moveTo('timeline', t === 'once' ? null : t)}>
+                    {HUB_EL_TIMELINE_LABEL[t]}
+                  </Seg>
+                ))}
+              </Segmented>
+            </div>
+            {/* In and During play TOGETHER — choosing one never clears the other. */}
+            <MotionRow label="In" data="in">
+              {HUB_EL_IN.map((v) => (
+                <Seg key={v} on={(motion.in ?? 'none') === v} onClick={() => moveTo('in', v === 'none' ? null : v)}>
+                  {HUB_EL_IN_LABEL[v]}
                 </Seg>
               ))}
-            </Segmented>
+            </MotionRow>
+            <MotionRow label="During" data="during">
+              {HUB_EL_DURING_WORDS.map((v) => (
+                <Seg key={v} on={(motion.during ?? 'still') === v} onClick={() => moveTo('during', v === 'still' ? null : v)}>
+                  {HUB_EL_DURING_LABEL[v]}
+                </Seg>
+              ))}
+            </MotionRow>
+            {scroll ? (
+              <MotionRow label="Out" data="out">
+                {HUB_EL_OUT.map((v) => (
+                  <Seg key={v} on={(motion.out ?? 'stay') === v} onClick={() => moveTo('out', v === 'stay' ? null : v)}>
+                    {HUB_EL_OUT_LABEL[v]}
+                  </Seg>
+                ))}
+              </MotionRow>
+            ) : null}
+            {/* Timed: Duration and Delay apply. Following the scroll: distance is
+                the control, so they dim. */}
+            <div className={scroll || !motion.in ? 'pointer-events-none opacity-40' : ''} aria-disabled={scroll || !motion.in}>
+              <MotionRow label="Duration" data="duration">
+                {HUB_EL_DURATION.map((v) => (
+                  <Seg key={v} on={(motion.duration ?? 'normal') === v} onClick={() => moveTo('duration', v === 'normal' ? null : v)}>
+                    {HUB_EL_DURATION_LABEL[v]}
+                  </Seg>
+                ))}
+              </MotionRow>
+              <div className="h-2.5" />
+              <MotionRow label="Delay" data="delay">
+                {HUB_EL_DELAY.map((v) => (
+                  <Seg key={v} on={(motion.delay ?? 'none') === v} onClick={() => moveTo('delay', v === 'none' ? null : v)}>
+                    {HUB_EL_DELAY_LABEL[v]}
+                  </Seg>
+                ))}
+              </MotionRow>
+            </div>
+            {onPlay && motion.in ? (
+              <button
+                type="button"
+                onClick={onPlay}
+                data-element-play=""
+                className="sn-press inline-flex min-h-10 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90"
+              >
+                <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Play
+              </button>
+            ) : null}
           </div>
         ) : null}
 
         <div className="flex flex-wrap gap-2 py-3" data-element-row="resets">
-          {style.font ? <Reset onClick={() => choose('font', null)}>Use the Event Hub font</Reset> : null}
-          {style.color ? <Reset onClick={() => choose('color', null)}>Use the theme colour</Reset> : null}
-          {style.anim ? <Reset onClick={() => choose('anim', null)}>Move with the scene</Reset> : null}
+          {face.font ? <Reset onClick={() => choose('font', null)}>Use the Event Hub font</Reset> : null}
+          {face.color ? <Reset onClick={() => choose('color', null)}>Use the theme colour</Reset> : null}
+          {range && run ? (
+            <Reset onClick={() => commit(withoutRuns(latest.current.elements, target.el, range))}>Clear this selection</Reset>
+          ) : null}
+          {!range && style.motion ? (
+            <Reset onClick={() => commit(withoutMotion(latest.current.elements, target.el))}>Move with the scene</Reset>
+          ) : null}
           {Object.keys(style).length > 1 ? (
             <Reset onClick={() => commit(withoutElement(latest.current.elements, target.el))}>Reset this element</Reset>
           ) : null}
@@ -294,29 +415,12 @@ export function ElementSheet({
   );
 }
 
-function Chip({
-  on,
-  onClick,
-  fontFamily,
-  children,
-}: {
-  on: boolean;
-  onClick: () => void;
-  fontFamily?: string;
-  children: React.ReactNode;
-}) {
+function MotionRow({ label, data, children }: { label: string; data: string; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      style={fontFamily ? { fontFamily } : undefined}
-      className={`sn-press inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3.5 text-[14px] transition-all duration-300 ease-in-out ${
-        on ? 'bg-ink text-cream' : 'bg-ink/5 text-ink/80 hover:bg-ink/10'
-      }`}
-    >
-      {children}
-    </button>
+    <div className="flex items-center gap-3" data-element-motion={data}>
+      <p className="w-[4.5rem] shrink-0 text-[12px] font-semibold text-ink/70">{label}</p>
+      <Segmented>{children}</Segmented>
+    </div>
   );
 }
 

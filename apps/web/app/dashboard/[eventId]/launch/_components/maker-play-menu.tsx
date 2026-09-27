@@ -18,6 +18,15 @@ import { InfoTip } from '@/app/_components/info-tip';
  *     through a dashboard route (`app/[slug]/_lib/editor-canvas.ts`).
  */
 
+/**
+ * 🧰 KEYNOTE'S LABELLED TOOL BUTTON (the approved prototype's top bar: *"Exit,
+ * left, with its word under the icon (Keynote's labelled buttons)"*). The word
+ * shows from `md`; on a phone the button is its 44 px icon, the word its name.
+ */
+export const MAKER_TOOL_BUTTON =
+  'sn-press inline-flex h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink aria-pressed:bg-ink/[0.09] aria-pressed:text-ink aria-expanded:bg-ink/[0.09] md:h-12 md:min-w-[3.25rem]';
+export const MAKER_TOOL_WORD = 'hidden text-[10.5px] font-semibold leading-none md:block';
+
 /** The toolbar's "Play this scene" fires this; the work area plays it in the canvas. */
 export const MAKER_PLAY_SCENE_EVENT = 'setnayan:maker-play-scene';
 
@@ -59,9 +68,11 @@ export function MakerPlayMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
+        data-maker-tool="play"
+        className={MAKER_TOOL_BUTTON}
       >
         <Play aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        <span className={MAKER_TOOL_WORD}>Play</span>
       </button>
       {open ? (
         <span role="menu" data-maker-play-menu="" className="sn-glass-bare absolute left-0 top-full z-40 mt-1 w-60 rounded-md p-1">

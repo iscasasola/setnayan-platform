@@ -117,7 +117,19 @@ export function SectionsPanel({
   hideLocked = false,
   sceneStage = 'your Event Hub',
   openBrowse = true,
+  makerPart = null,
 }: {
+  /**
+   * 🧰 THE MAKER'S INSPECTOR TABS (Keynote rebuild, 2026-09-27). The Maker draws
+   * a scene's Format · Animate · Arrange in its own client tabs
+   * (`scene-inspector.tsx`, `scene-background-row.tsx`); from this panel it
+   * takes only what is still a server form:
+   *   · `'content'` — a scene of their own: its heading and words (and a
+   *     template's pictures and word blocks), under Content;
+   *   · `'remove'`  — its confirm-first Remove, under Arrange.
+   * Null (the rail, and every other caller) = the whole panel, unchanged.
+   */
+  makerPart?: 'content' | 'remove' | null;
   /**
    * THE EVENT HUB MAKER'S INSPECTOR (2026-09-25) shows ONE section at a time.
    * `only` renders just that row — but the whole list is still walked, so its
@@ -249,6 +261,7 @@ export function SectionsPanel({
                the section's controls sit flat on the panel, grouped by space
                and their small labels. */
             <li key={row.widget_id} className="py-1.5">
+              {makerPart ? null : (
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 text-[0.76rem] font-semibold text-ink">
                   {catalog?.label ?? row.widget_type}
@@ -318,6 +331,8 @@ export function SectionsPanel({
                 </form>
               </div>
 
+              )}
+
               {/* Auto · Shown · Hidden — THE MODE CHIPS. This event's own
                   visibility control while `openBrowse` is on for it: `auto`
                   reproduces the eye's old fallback behaviour, and `shown` /
@@ -326,7 +341,7 @@ export function SectionsPanel({
                   the eye above — two controls that both claim to govern the
                   same section is the defect this split fixes. See
                   `visibility-control-is-singular.test.ts`. */}
-              {openBrowse ? (
+              {openBrowse && !makerPart ? (
               <div className="mt-1.5 flex items-center gap-1" data-visibility-control="mode">
                 {(['auto', 'shown', 'hidden'] as const).map((m) => {
                   const active = mode === m;
@@ -758,11 +773,12 @@ export function SectionsPanel({
                       </form>
                     </details>
                   );
+                  if (makerPart === 'remove') return removeForm;
                   if (locked) {
                     return (
                       <div className="mt-2">
                         {customLock}
-                        {removeForm}
+                        {makerPart ? null : removeForm}
                       </div>
                     );
                   }
@@ -829,7 +845,7 @@ export function SectionsPanel({
                         🎬 A scene made from a TEMPLATE lays itself out, so the
                         four arrangements would move nothing there — they are
                         hidden, and the template's own controls follow. */}
-                    <div className="mt-2" hidden={Boolean(sanitizeHubCanvas(row.config_json).template)}>
+                    <div className="mt-2" hidden={Boolean(makerPart) || Boolean(sanitizeHubCanvas(row.config_json).template)}>
                       <p className="mb-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
                         Layout
                       </p>
@@ -869,7 +885,7 @@ export function SectionsPanel({
                       returnTo={back}
                       stageLabel={sceneStage}
                     />
-                    {removeForm}
+                    {makerPart ? null : removeForm}
                     </>
                   );
                 })()

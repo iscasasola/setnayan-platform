@@ -276,3 +276,71 @@ test('8 · "each editor of each event will adapt to their event": a real name an
   const PAGE = read('[slug]/page.tsx');
   assert.match(PAGE, /person: await loadPreviewPerson\(admin, event\.event_id\),/);
 });
+
+// ═══ 9 · a step never holds another step (owner 2026-09-28) ══════════════
+
+/**
+ * Every `data-rsvp-step` that sits INSIDE another one, in the markup the
+ * browser would build. "Ask one question at a time" counts every step: a
+ * nested one was counted twice and shown as its parent with itself hidden — a
+ * BLANK "8 of 9" (owner, on the RSVP page: entries 7 and 8 had identical text,
+ * 7 containing 8).
+ */
+function nestedSteps(html: string): string[] {
+  const VOID = new Set(['input', 'img', 'br', 'hr', 'meta', 'link', 'source', 'path', 'circle', 'rect']);
+  const stack: { tag: string; step: boolean }[] = [];
+  const nested: string[] = [];
+  const re = /<(\/?)([a-zA-Z0-9]+)([^>]*?)(\/?)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const [, close, rawTag, attrs, selfClose] = m;
+    const tag = rawTag!.toLowerCase();
+    if (close) {
+      for (let i = stack.length - 1; i >= 0; i--) {
+        if (stack[i]!.tag === tag) {
+          stack.length = i;
+          break;
+        }
+      }
+      continue;
+    }
+    const step = /\sdata-rsvp-step(?:=|\s|$)/.test(attrs!);
+    if (step && stack.some((s) => s.step)) nested.push(`<${tag}${attrs}>`.slice(0, 90));
+    if (VOID.has(tag) || selfClose) continue;
+    stack.push({ tag, step });
+  }
+  return nested;
+}
+
+test('9 · no step holds another step — on the RSVP page, the Event Hub card, and the focus form', async () => {
+  const attending = { ...RSVP_CANVAS_GUEST, rsvp_status: 'attending' };
+  const shapes: [string, Record<string, unknown>][] = [
+    ['RSVP page · canvas', {}],
+    ['RSVP page · a guest', { previewEveryQuestion: false }],
+    ['Event Hub card · keep offer', { termsOnSend: false, keepOffer: true, doorAction: undefined, previewEveryQuestion: false }],
+    ['Event Hub card', { termsOnSend: false, doorAction: undefined }],
+    ['Event Hub card · selfie', { offerSelfie: true, termsOnSend: false, doorAction: undefined }],
+    ['Event Hub card · locked', { replyLocked: true, termsOnSend: false, doorAction: undefined, guest: attending, offerSelfie: true }],
+    ['only what is missing', { gate: { missing: ['meal', 'mobile'], coupleMarked: true }, guest: attending }],
+  ];
+  for (const [name, extra] of shapes) {
+    const html = await card({ oneAtATime: true, ...extra });
+    const steps = (html.match(/\sdata-rsvp-step(?:=|\s|>)/g) ?? []).length;
+    assert.ok(steps >= 2, `${name}: ${steps} steps drawn — this guard is looking at nothing`);
+    assert.deepEqual(nestedSteps(html), [], `${name}: a step inside a step (a blank screen in one-at-a-time)`);
+  }
+  // …and the RSVP page's Send step still holds the Terms tick AND the button.
+  const html = await card({ oneAtATime: true });
+  const tail = html.slice(html.lastIndexOf('data-rsvp-step'));
+  assert.match(tail, /name="terms_agreed"/, 'the Terms tick left the Send step');
+  assert.match(tail, /type="submit"/, 'Send left the Send step');
+});
+
+test('9 · the one-at-a-time walker counts only OUTERMOST steps — the belt under the card rule', () => {
+  const WALKER = read('[slug]/_components/rsvp-one-at-a-time.tsx');
+  assert.match(
+    WALKER,
+    /querySelectorAll<HTMLElement>\('\[data-rsvp-step\]'\)\)\.filter\(\s*\(el\) => !el\.parentElement\?\.closest\('\[data-rsvp-step\]'\),?\s*\)/,
+    'the walker counts nested steps again — a nested step becomes a blank screen',
+  );
+});

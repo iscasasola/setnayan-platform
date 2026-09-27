@@ -21,6 +21,8 @@
  *            transitions is a RUN: its first scene scrolls in like a page and
  *            pins, its last un-pins and scrolls away like a page, and while a
  *            scene holds its parts arrive in turn under the reader's thumb.
+ *            Every pinned frame is AS TALL AS ITS CONTENT (owner 2026-09-27:
+ *            "this scene should not be alone"), never a full screen.
  *   auto   — N and N+1 share ONE screen and cross-fade on a CLOCK
  *            (`prototypes/scenes_three_modes_std_2026-09-24.html`): a chain of
  *            auto transitions is an AUTO RUN, its scenes stacked in one cell and
@@ -277,25 +279,26 @@ export function sceneTimelineName(index: number): string {
 }
 
 /**
- * WHAT ONE PROGRESS SEGMENT COVERS, as an `animation-range`.
+ * WHAT ONE PROGRESS SEGMENT COVERS, as an `animation-range` — ONE range for
+ * every kind of section.
  *
  * A pinned page hides how much is left, so the approved prototype carries one
- * segment per section. The ranges are the prototype's, measured there:
- *   · a scrub section's segment follows its SPACER — from the moment it pins
- *     (first of a run) or mid-handoff (inside a run), to mid-handoff (not last)
- *     or half-way off the screen (last of a run);
- *   · a scroll section's segment follows its own box, mid-entry to mid-exit.
+ * segment per section. A segment fills while ITS section's box — a Scroll
+ * scene, a Scrub scene's spacer, an Auto run — crosses ONE line, the middle of
+ * the screen: from its top on the line to its bottom on the line.
+ *
+ * 🔴 WHY ONE LINE (owner 2026-09-28: "look at the progress line, there was a
+ * blank"). The ranges used to differ by kind — a scroll scene from mid-entry
+ * to mid-exit, a scrub scene from its pin to mid-handoff — so two segments
+ * could fill at once and a later one could be AHEAD of an earlier one. Boxes on
+ * a page never overlap, so a single line makes the order structural: segment
+ * N+1 cannot start until segment N is full. `cover 50vh` is "top on the middle
+ * line"; `calc(100% - 50vh)` is "bottom on the middle line", whatever the
+ * box's height. (The other half of that report — a segment for a section that
+ * rendered nothing — is the stylesheet's: see "A SEGMENT EXISTS ONLY WHILE ITS
+ * SECTION DOES" in `globals.css`.)
  */
-export function sceneProgressRange(
-  kind: 'scroll' | 'scrub',
-  firstOfRun: boolean,
-  lastOfRun: boolean,
-): string {
-  if (kind === 'scroll') return 'entry 50% exit 50%';
-  const from = firstOfRun ? 'entry 0%' : 'entry 45%';
-  const to = lastOfRun ? 'exit 50%' : 'exit 55%';
-  return `${from} ${to}`;
-}
+export const SCENE_PROGRESS_RANGE = 'cover 50vh cover calc(100% - 50vh)';
 
 /**
  * THE CLASS VOCABULARY the renderer emits — exported so the stylesheet guard

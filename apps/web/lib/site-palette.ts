@@ -297,6 +297,32 @@ export function sealColorFromPalette(palette: RolePalette | null | undefined): s
   return toHex(pick);
 }
 
+/**
+ * 🎨 THE PAGE'S COLOURS AS THE MOOD BOARD GIVES THEM — what the guest page
+ * paints while the couple has picked no colour of their own: the page's
+ * background (`--color-cream`, the paper) and its buttons (`--color-mulberry`,
+ * the CTA), read from `buildSitePaletteVars` — the SAME resolver the guest page
+ * wears (`app/[slug]/_lib/loaders.ts`) — plus the swatches themselves.
+ *
+ * Owner, 2026-09-27, on the Maker's Colors panel: *"mood board palettes did not
+ * update"* — the panel drew a hard-coded cream for "blank = use my Mood Board",
+ * so it never showed the couple's colours. Null = no Mood Board palette yet.
+ */
+export function moodBoardSiteColours(
+  palette: RolePalette | null | undefined,
+): { background: string; buttons: string; swatches: string[] } | null {
+  const vars = buildSitePaletteVars(palette);
+  if (!vars) return null;
+  const hexOf = (ch: string | undefined) => {
+    const [r, g, b] = (ch ?? '').split(' ').map(Number);
+    return [r, g, b].every((n) => Number.isFinite(n)) ? toHex({ r: r!, g: g!, b: b! }) : null;
+  };
+  const background = hexOf(vars['--color-cream']);
+  const buttons = hexOf(vars['--color-mulberry']);
+  if (!background || !buttons) return null;
+  return { background, buttons, swatches: paletteSwatches(palette).map((h) => h.toLowerCase()) };
+}
+
 /** The de-duped Mood-Board swatches as `#rrggbb` hexes (for the wax-colour picker). */
 export function paletteSwatches(palette: RolePalette | null | undefined): string[] {
   return palettePool(palette).map(toHex);

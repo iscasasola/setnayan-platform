@@ -184,7 +184,8 @@ async function draftBackdrop(
   eventId: string,
   value: { theme: string; intensity: string } | null,
 ): Promise<never> {
-  await saveHubDraftPatch(eventId, { events: { rsvp_backdrop: value } });
+  const fallback = `/dashboard/${eventId}/website/editor?open=backdrop&drafted=1`;
+  await saveHubDraftPatch(eventId, { events: { rsvp_backdrop: value } }, { formData, fallback });
   revalidatePath(`/dashboard/${eventId}/website/editor`);
-  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=backdrop&drafted=1`, '?drafted=1'));
+  redirect(resolveReturnTo(formData, fallback, '?drafted=1'));
 }

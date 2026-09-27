@@ -1,5 +1,6 @@
 'use client';
 
+import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
@@ -9,6 +10,7 @@ import { useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
 import {
   HUB_RESET_NEVER_TOUCHES,
+  hubDraftPanelStaysOpen,
   type HubDraftActionResult,
   type HubDraftRefusal,
   type HubDraftSummary,
@@ -65,6 +67,8 @@ export type HubDraftBarProps = {
   priceLabel: string | null;
   proHref: string | null;
   readError?: boolean;
+  /** A form's draft save that did not land, in words (`?draft_error=`, via `HubDraftDock`). */
+  saveError?: string | null;
 };
 
 /* The hidden field lives in `hub-draft-field.tsx` — a module with no server
@@ -146,10 +150,10 @@ const quietButton =
  * action open from one ⋯ beside them. Reset uses the stage the couple is
  * looking at (`useMaker().stage`; Invitation outside the Maker).
  *
- * The ⋯ panel opens by itself when an action reports back, so an Apply that
- * held keys back is never a silent one.
+ * The ⋯ panel opens by itself when an action reports something to read, so an
+ * Apply that held keys back is never a silent one — and closes on a clean one.
  */
-export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proHref, readError }: HubDraftBarProps) {
+export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proHref, readError, saveError }: HubDraftBarProps) {
   const maker = useMaker();
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, result, run } = useDraftIntent(eventId);
@@ -159,11 +163,30 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
      Apply — `lib/maker-save-status.ts`. An error stays until a save succeeds. */
   const [saveStatus, setSaveStatus] = useState<MakerSaveStatus | null>(null);
   useEffect(() => onMakerSave(setSaveStatus), []);
+  /* More ▾ → "Reset this stage…" in the Maker toolbar opens THIS confirm. */
+  useEffect(() => {
+    const open = () => {
+      setOpen(true);
+      setAsking(true);
+    };
+    window.addEventListener(MAKER_OPEN_RESET_EVENT, open);
+    return () => window.removeEventListener(MAKER_OPEN_RESET_EVENT, open);
+  }, []);
   const act = (fields: Record<string, string>) => {
     run(fields);
     setAsking(false);
-    setOpen(true);
   };
+  /* The ⋯ panel follows the ANSWER, not the press: it opens when there is
+     something to read (an error, a key Apply held back, Reset's note) and
+     closes on a clean Apply · Undo · Restore — owner 2026-09-27, the panel
+     stayed open over the Maker after Apply saying "2 changes are now live". */
+  useEffect(() => {
+    if (result) setOpen(hubDraftPanelStaysOpen(result));
+  }, [result]);
+  const appliedClean = result?.ok === true && result.intent === 'apply' && !hubDraftPanelStaysOpen(result);
+  /* The newest word wins: a status this page announced, else a form save that
+     came back refused (`saveError`). An error is never truncated away. */
+  const status: MakerSaveStatus | null = saveStatus ?? (saveError ? { state: 'error', text: saveError } : null);
 
   const onlyPro = summary.proCount > 0 && summary.proCount === summary.changeCount;
   const freeCount = summary.changeCount - summary.proCount;
@@ -171,16 +194,20 @@ export function HubDraftToolbar({ eventId, summary, storeShell, priceLabel, proH
 
   return (
     <div className="flex items-center gap-1" data-maker-draft-actions="">
-      {saveStatus ? (
+      {status ? (
         <span
-          role={saveStatus.state === 'error' ? 'alert' : 'status'}
-          data-maker-save-status={saveStatus.state}
-          className={`max-w-[9rem] truncate text-[11px] font-semibold ${
-            saveStatus.state === 'error' ? 'text-terracotta-700' : 'text-ink/60'
+          role={status.state === 'error' ? 'alert' : 'status'}
+          data-maker-save-status={status.state}
+          className={`max-w-[9rem] text-[11px] font-semibold ${
+            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60'
           }`}
-          title={makerSaveStatusText(saveStatus)}
+          title={makerSaveStatusText(status)}
         >
-          {makerSaveStatusText(saveStatus)}
+          {makerSaveStatusText(status)}
+        </span>
+      ) : appliedClean ? (
+        <span role="status" data-maker-save-status="applied" className="text-[11px] font-semibold text-ink/60">
+          Live now
         </span>
       ) : null}
       {readError ? (

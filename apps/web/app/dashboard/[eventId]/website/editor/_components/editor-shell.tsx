@@ -60,6 +60,9 @@ import { MakerPage, MakerPageFrame, MakerPageSwitch as PageSwitch } from '../../
 import { isMakerPageKey, makerPageCanvasSrc, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { InspectorTabs } from './inspector-kit';
+import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
+import { SceneBackgroundRow } from './scene-background-row';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -216,7 +219,28 @@ export function MakerWork({
   revealStages = ['save_the_date'],
   elementEditing = null,
   detailsBound = null,
+  sceneRemovers = {},
+  sceneFormat = null,
 }: {
+  /** 🧰 A couple's own scene's confirm-first Remove (server form), by scene id — under Arrange. */
+  sceneRemovers?: Record<string, ReactNode>;
+  /**
+   * 🧰 THE SCENE INSPECTOR'S FORMAT TAB (Keynote rebuild, 2026-09-27): the
+   * background choices' inputs — the couple's palette, uploads and theme — and
+   * Animate's one lock. Null = the tabs fall back to saying why they are empty.
+   */
+  sceneFormat?: {
+    colorChoices: readonly string[];
+    photoChoices: readonly { ref: string; url: string }[];
+    videoChoice: { ref: string; url: string } | null;
+    mediaHref: string;
+    hubTheme: string;
+    openBrowse: boolean;
+    hideLocked: boolean;
+    lookLock: ReactNode;
+    /** Two people at the centre — the hero has a Joiner to style. */
+    twoPeople: boolean;
+  } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
    * live) for the scenes bound to them, the scenes whose words are still their
@@ -827,6 +851,122 @@ export function MakerWork({
   useEffect(() => {
     if (selectedTabKey) setTabKey(selectedTabKey);
   }, [selectedTabKey]);
+
+  /* 🧰 THE SCENE INSPECTOR'S TABS — Format · Animate · Arrange · Content
+     (Keynote rebuild, 2026-09-27; approved prototype frame A). Built here, where
+     the stage's list, the canvases, the canvas frame and the navigator's own
+     draft form (`post` / `move` / `eyeWrite`) live; the Inspector only lays
+     them out. The Transition tab is folded into Animate (owner, answer 4). */
+  const canvasOf = (type: string): HubSectionCanvas =>
+    heldCanvasFor(canvasHold.current, type, Date.now()) ?? elementEditing?.canvases[type] ?? {};
+  /** "Every scene" = THIS stage's scenes (owner, answer 6), with their canvases. */
+  const stageScenes = shownSceneIds.flatMap((id) => {
+    const sc = sceneById.get(id);
+    return sc ? [{ type: sc.type, canvas: canvasOf(sc.type) }] : [];
+  });
+  /** The colours this Event Hub already uses — the synced half of "Saved colours". */
+  const usedColours = (() => {
+    const out = new Set<string>();
+    for (const c of Object.values(elementEditing?.canvases ?? {})) {
+      if (c.color) out.add(c.color);
+      for (const st of Object.values(c.elements ?? {})) {
+        if (st?.color) out.add(st.color.slice(0, 7));
+        for (const r of st?.runs ?? []) if (r.color) out.add(r.color.slice(0, 7));
+      }
+    }
+    return [...out].slice(0, 15);
+  })();
+  const postToCanvas = (message: unknown) => {
+    frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+    scheduleSnapshots(600);
+  };
+  const sceneTabs = (() => {
+    if (!selectedScene) return null;
+    const id = selectedScene.id;
+    const type = selectedScene.type;
+    const at = shownSceneIds.indexOf(id);
+    const canvas = canvasOf(type);
+    const partsKeys = HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? [] : HUB_SCENE_ELEMENT_KEYS;
+    /** A couple's own scene — the page hands a Remove for exactly those. */
+    const ownScene = id in sceneRemovers;
+    const openPart = (el: HubElementKey) => setElementTarget({ key: `w:${type}`, widgetType: type, el });
+    return {
+      format:
+        elementEditing && sceneFormat ? (
+          <>
+            <SceneBackgroundRow
+              key={type}
+              eventId={eventId}
+              widgetType={type}
+              canvas={canvas}
+              stageScenes={stageScenes}
+              stageLabel={PUBLIC_STAGE_LABELS[stage]}
+              draftAction={elementEditing.draftAction}
+              themeColours={sceneFormat.colorChoices}
+              usedColours={usedColours}
+              photoChoices={sceneFormat.photoChoices}
+              videoChoice={sceneFormat.videoChoice}
+              ownsPro={ownsPro}
+              mediaHref={sceneFormat.mediaHref}
+              hubTheme={sceneFormat.hubTheme as never}
+              onPreview={(message) => {
+                /* ⚡ The background is on the canvas now; the save's reload confirms it. */
+                releaseCanvas();
+                postToCanvas(message);
+              }}
+            />
+            {ownScene ? (
+              <SceneLayoutRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} />
+            ) : null}
+          </>
+        ) : null,
+      animate: elementEditing ? (
+        <SceneAnimateTab
+          key={type}
+          eventId={eventId}
+          widgetType={type}
+          canvas={canvas}
+          draftAction={elementEditing.draftAction}
+          ownsPro={ownsPro}
+          hideLocked={sceneFormat?.hideLocked ?? false}
+          isLast={at === shownSceneIds.length - 1}
+          lookLock={sceneFormat?.lookLock}
+          onPreview={() => window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT))}
+        />
+      ) : null,
+      arrange: (
+        <SceneArrangeTab
+          mode={selectedScene.mode}
+          isVisible={selectedScene.isVisible}
+          hasContent={selectedScene.hasContent}
+          openBrowse={sceneFormat?.openBrowse ?? true}
+          pending={pending}
+          onMode={(m) => post('mode', { widget_id: id, next_mode: m, return_to: back(id) })}
+          onEye={() => eyeWrite(selectedScene)}
+          canUp={at > 0}
+          canDown={at >= 0 && at < shownSceneIds.length - 1}
+          onUp={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at - 1] ?? null))}
+          onDown={() => move(id, swapsForDrop(fullOrder, id, shownSceneIds[at + 2] ?? afterLastShown))}
+          removeForm={sceneRemovers[id]}
+        />
+      ),
+      ownScene,
+      contentExtra: (
+        <>
+          {ownScene ? scenePanels[id] : null}
+          {elementEditing && partsKeys.length > 0 ? (
+            <SceneParts
+              keys={partsKeys}
+              onElement={openPart}
+              proMark={sceneFormat?.hideLocked && !ownsPro ? null : ownsPro ? 'unlocked' : 'locked'}
+            />
+          ) : null}
+        </>
+      ),
+    };
+  })();
+  /** 🔤 The part sheet's Part ▾: this scene's parts (the hero's has a Joiner only for two people). */
+  const heroParts = HUB_HERO_ELEMENT_KEYS.filter((k) => k !== 'joiner' || sceneFormat?.twoPeople !== false);
   /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
      the groups (`navigatorRows`) — never a tab that hides the rest. */
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
@@ -1278,7 +1418,7 @@ export function MakerWork({
                 {scene && next?.kind === 'scene' ? (
                   <button
                     type="button"
-                    onClick={() => select?.({ kind: 'scene', id: scene.id, tab: 'transition' })}
+                    onClick={() => select?.({ kind: 'scene', id: scene.id, tab: 'animate' })}
                     title="The transition into the next scene"
                     className="sn-press mx-auto hidden h-5 items-center gap-1 rounded-full px-2 text-[10px] font-semibold text-ink/60 hover:bg-ink/5 hover:text-ink lg:ml-5 lg:flex"
                   >
@@ -1472,6 +1612,19 @@ export function MakerWork({
           ownsPro={ownsPro}
           draftAction={elementEditing.draftAction}
           resize={toolsResize}
+          parts={elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
+          onPart={(el) => {
+            frameRef.current?.contentWindow?.postMessage(
+              { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el },
+              window.location.origin,
+            );
+            setElementTarget({ key: elementTarget.key, widgetType: elementTarget.widgetType, el });
+          }}
+          sceneLabel={
+            elementTarget.widgetType === 'hero' ? 'Names & date' : (scenes.find((sc) => sc.type === elementTarget.widgetType)?.label ?? undefined)
+          }
+          onOpenHero={elementTarget.widgetType === 'hero' ? () => select?.({ kind: 'tool', key: 'hero' }) : undefined}
+          usedColours={usedColours}
           onPreview={(message) => {
             frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
             // The navigator's tiles are pictures of the canvas — re-take them.
@@ -1567,6 +1720,7 @@ export function MakerWork({
           postEventWrittenAt={navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.generatedAt : null}
           scene={selectedScene}
           scenePanel={selectedScene ? scenePanels[selectedScene.id] : null}
+          sceneTabs={sceneTabs}
           rows={rows}
           themes={themes}
           themeHref={themeHref}
@@ -1934,15 +2088,9 @@ function ElementButtons({
   );
 }
 
-const TABS: Array<{ key: MakerSceneTab; label: string }> = [
-  { key: 'format', label: 'Format' },
-  { key: 'animate', label: 'Animate' },
-  { key: 'transition', label: 'Transition' },
-  { key: 'content', label: 'Content' },
-];
-
 function Inspector({
   selection,
+  sceneTabs = null,
   contentBound = null,
   postEventTile = null,
   postEventWrittenAt = null,
@@ -1962,6 +2110,8 @@ function Inspector({
 }: {
   /** The tools column's width and its drag handle (desktop). */
   resize: ToolsResize;
+  /** 🧰 The scene's Format · Animate · Arrange tabs, and what Content adds (its own words, its parts). */
+  sceneTabs?: { format: ReactNode; animate: ReactNode; arrange: ReactNode; contentExtra: ReactNode; ownScene: boolean } | null;
   /** 🔗 A scene bound to a Details fact: its Content is this field, which asks
    *  "everywhere or just here" (`details-bound-field.tsx`). */
   contentBound?: ReactNode;
@@ -1986,17 +2136,13 @@ function Inspector({
   onTab: (tab: MakerSceneTab) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const tab: MakerSceneTab = selection.kind === 'scene' ? (selection.tab ?? 'format') : 'format';
+  /* The old Transition tab (a saved address, a navigator chip) now opens Animate — answer 4, "fold it". */
+  const asked: MakerSceneTab = selection.kind === 'scene' ? (selection.tab ?? 'format') : 'format';
+  const tab: SceneTab = asked === 'transition' ? 'animate' : asked;
 
-  /* Format · Animate · Transition are the three parts of ONE panel (the
-     section's own controls); a tab brings its part into view. */
+  /* A new tab starts at its top. */
   useEffect(() => {
-    if (selection.kind !== 'scene' || tab === 'content' || tab === 'format') {
-      bodyRef.current?.scrollTo({ top: 0 });
-      return;
-    }
-    const target = bodyRef.current?.querySelector(`[data-maker-part="${tab}"]`);
-    target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    bodyRef.current?.scrollTo({ top: 0 });
   }, [selection, tab]);
 
   const title =
@@ -2012,7 +2158,7 @@ function Inspector({
             ? fixedScenePanel(fixedOfKey(selection.key)!).label
             : (rows[selection.key]?.label ?? 'Edit');
 
-  const tabs = TABS.filter((t) => showMotionTabs || (t.key !== 'animate' && t.key !== 'transition'));
+  const tabs = SCENE_TABS.filter((t) => showMotionTabs || t.key !== 'animate');
   const contentRow = scene ? CONTENT_ROW_FOR_TYPE[scene.type] : undefined;
 
   let body: ReactNode = null;
@@ -2076,19 +2222,23 @@ function Inspector({
     body =
       tab === 'content' ? (
         /* The hero scene's words and photo ARE the one hero (Phase 6): made
-           once, in the Hero workspace — not a second, live-writing copy. */
+           once, in the Hero workspace — not a second, live-writing copy. A
+           couple's own scene's words, and every scene's parts, follow below
+           (`sceneTabs.contentExtra`). */
         contentBound ? (
           contentBound
         ) : scene?.type === 'hero' && madeOnce?.hero ? (
           madeOnce.hero
         ) : contentRow && rows[contentRow] ? (
           <RowBlock row={rows[contentRow]!} />
-        ) : (
+        ) : sceneTabs?.ownScene ? null : (
           <p className="px-1 text-[13px] text-ink/70">
             This scene is written for you from your event — your guest list, your schedule and your replies —
             so there is nothing to type here.
           </p>
         )
+      ) : sceneTabs ? (
+        (sceneTabs[tab] ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>)
       ) : (
         <>
           {scenePanel ?? <p className="px-1 text-[13px] text-ink/70">This scene has no settings of its own.</p>}
@@ -2184,25 +2334,13 @@ function Inspector({
         </button>
       </div>
       {selection.kind === 'scene' ? (
-        <div role="tablist" aria-label="Edit this scene" className="flex gap-0.5 px-3 pt-2">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              onClick={() => onTab(t.key)}
-              className={`sn-press min-h-9 flex-1 whitespace-nowrap rounded-md px-1 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn ${
-                tab === t.key ? 'bg-ink text-cream' : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        /* 🧰 Format · Animate · Arrange · Content — the inspector's own tab row,
+           their ONE home (never the top bar: "repeated. just place it on the sidebar"). */
+        <InspectorTabs tabs={tabs} value={tab} onChange={onTab} label="Edit this scene" />
       ) : null}
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-6 pt-3">
         {body}
+        {selection.kind === 'scene' && tab === 'content' ? sceneTabs?.contentExtra : null}
       </div>
     </aside>
   );

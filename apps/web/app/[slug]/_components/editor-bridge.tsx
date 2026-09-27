@@ -21,6 +21,7 @@ import {
   type HubElementStyle,
   type HubElementStyles,
 } from '@/lib/element-style';
+import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -41,6 +42,7 @@ import {
  *   parent → frame  { source:'setnayan-editor', t:'playEl',   key, el }
  *   parent → frame  { source:'setnayan-editor', t:'words',    key, text }
  *   parent → frame  { source:'setnayan-editor', t:'elStyle',  key, el, elements, motion, replay }
+ *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
  *
  * ✍ `words` IS THE SCENE'S TEXT, LIVE (owner 2026-09-27, writing his own
@@ -261,7 +263,9 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   const clear: string[] = [...LOOK_PROPS];
   if (motion) clear.push(...HUB_ELEMENT_MOTION_PROPS, 'animation-name');
   for (const p of clear) part.style.removeProperty(p);
-  for (const [p, v] of hubElementDeclarations(style)) part.style.setProperty(p, v);
+  // The Maker's canvas: a hidden part is ghosted, never gone (as the server
+  // draws it with `stampElements`).
+  for (const [p, v] of hubElementDeclarations(style, { editor: true })) part.style.setProperty(p, v);
   if (!motion) return;
   /* The motion as the guest page carries it: three custom properties and the
      `data-el-motion` hook the one gated rule in globals.css reads. */
@@ -269,6 +273,15 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   for (const [p, v] of vars) part.style.setProperty(p, v);
   if (vars.length > 0) part.setAttribute('data-el-motion', '');
   else part.removeAttribute('data-el-motion');
+}
+
+/**
+ * 🔗 THE JOINER'S WORD, on the canvas now. The word the page drew first is kept
+ * on the part (`data-el-word`), so taking the couple's word off puts it back.
+ */
+export function applyJoinerWord(part: HTMLElement, word: string | null | undefined): void {
+  if (!part.hasAttribute('data-el-word')) part.setAttribute('data-el-word', part.textContent ?? '');
+  part.textContent = word ?? part.getAttribute('data-el-word') ?? '';
 }
 
 function textNodesOf(node: Node, out: Text[]): Text[] {
@@ -365,8 +378,17 @@ export function applyElementPreview(
 ): HTMLElement[] {
   const parts = Array.from(section.querySelectorAll<HTMLElement>(`[data-el="${el}"]`));
   if ((HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(el)) {
+    /* The hero's alignment is ONE choice for every part (`withElementAlign`), and
+       "↺ Use the Event Hub style" takes it off every part — so every hero part's
+       LOOK is re-laid (cheap, idempotent); the motion only on the part that
+       changed, so no other part's entrance replays. */
+    for (const k of HUB_HERO_ELEMENT_KEYS) {
+      if (k === el) continue;
+      for (const other of section.querySelectorAll<HTMLElement>(`[data-el="${k}"]`)) applyHeroPartStyle(other, elements?.[k], false);
+    }
     for (const part of parts) {
       applyHeroPartStyle(part, elements?.[el], motion);
+      if (el === 'joiner') applyJoinerWord(part, elements?.joiner?.word);
       if (HUB_ELEMENT_RUN_KEYS.includes(el)) applyHeroPartRuns(part, elements?.[el], doc);
     }
     return parts;
@@ -526,6 +548,16 @@ export function EditorBridge() {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== origin) return;
       const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
+      if (data && data.source === 'setnayan-editor' && data.t === 'sceneBg') {
+        /* ⚡ A SCENE'S BACKGROUND, ON THE CANVAS NOW (`scene-bg-preview.ts`) —
+           one scene, or every scene of the stage. The Maker computed each
+           frame with the server's own functions; this only lays it, checked. */
+        for (const scene of sanitizeSceneBgPreview((data as { scenes?: unknown }).scenes)) {
+          const section = findMakerSection(document, scene.key);
+          if (section) applySceneBgPreview(section, scene, document);
+        }
+        return;
+      }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
       const el = findMakerSection(document, data.key);
       if (!el) return;

@@ -13,6 +13,9 @@ import {
   HUB_DRAFT_EVENT_COLUMNS,
   HUB_DRAFT_FIELD,
   emptyHubDraft,
+  hubDraftBounceHref,
+  hubDraftForWrite,
+  hubDraftSaveFailure,
   mergeHubDraft,
   sanitizeHubDraft,
   summarizeHubDraft,
@@ -75,13 +78,22 @@ export async function readHubDraft(supabase: SessionClient, eventId: string): Pr
  * Hide). Keep the grant tight; write the columns the grant allows.
  *
  * Asks for the row back each time: zero rows is a refusal, never a success.
+ *
+ * 📏 THE ONE DOOR EVERY DRAFT WRITE PASSES, so the size rule lives here too:
+ * the oldest Undo states are dropped until the draft fits
+ * `HUB_DRAFT_BYTE_BUDGET`, and a draft that does not fit even with no history
+ * is NOT written — `hubDraftForWrite` throws `HubDraftTooLargeError`, which the
+ * callers turn into "Your Event Hub is too large to save". Before this, the
+ * row's 200 KB CHECK refused the write and every later save with it (prod,
+ * 2026-09-27).
  */
 export async function writeHubDraft(
   supabase: SessionClient,
   eventId: string,
-  draft: HubDraft,
+  draftIn: HubDraft,
   appliedSnapshot?: Record<string, unknown>,
 ): Promise<void> {
+  const draft = hubDraftForWrite(draftIn);
   const fields = {
     draft_json: draft,
     ...(appliedSnapshot ? { applied_snapshot: appliedSnapshot } : {}),
@@ -119,11 +131,29 @@ export async function writeHubDraft(
   }
 }
 
-/** Merge one save into the event's draft (creating it when there is none). */
-export async function saveHubDraftPatch(eventId: string, patch: HubDraftPatch): Promise<void> {
-  const supabase = await createClient();
-  const current = (await readHubDraft(supabase, eventId)) ?? emptyHubDraft();
-  await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
+/** Where a form's draft save goes back to when it did NOT land. */
+export type HubDraftBounce = { formData: FormData; fallback: string };
+
+/**
+ * Merge one save into the event's draft (creating it when there is none).
+ *
+ * 🧯 A FAILED SAVE NEVER CRASHES THE PAGE. Given `back` (every form action that
+ * redirects afterwards), a failure is logged and the couple is sent back where
+ * they were with `?draft_error=`, which the Maker toolbar puts into words —
+ * before this, the thrown error reached the Maker's POST as a full 500 page
+ * (prod, 2026-09-27, digest 1691351420). Without `back` (a caller that RETURNS
+ * a result, `updatePhotoMoments`) it throws, for that caller's own catch.
+ */
+export async function saveHubDraftPatch(eventId: string, patch: HubDraftPatch, back?: HubDraftBounce): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const current = (await readHubDraft(supabase, eventId)) ?? emptyHubDraft();
+    await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
+  } catch (e) {
+    if (!back) throw e;
+    console.error('[hub-draft] save failed:', e instanceof Error ? e.message : e);
+    redirect(hubDraftBounceHref(back.formData, back.fallback, hubDraftSaveFailure(e)));
+  }
 }
 
 /**
@@ -164,7 +194,7 @@ export async function draftEventsAndReturn(
   formData: FormData,
   fallback: string,
 ): Promise<never> {
-  await saveHubDraftPatch(eventId, { events });
+  await saveHubDraftPatch(eventId, { events }, { formData, fallback });
   revalidatePath(`/dashboard/${eventId}/website`, 'layout');
   revalidatePath(`/dashboard/${eventId}/launch`);
   redirect(resolveReturnTo(formData, fallback));

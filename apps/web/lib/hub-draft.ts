@@ -107,12 +107,140 @@ import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
 
-/** How many earlier states Undo can walk back through. */
+/** How many earlier states Undo can walk back through — at most; see the byte budget. */
 export const HUB_DRAFT_HISTORY_LIMIT = 10;
+
+/**
+ * 📏 THE ROW'S HARD CAP — `event_site_drafts_draft_json_check` in
+ * `20271246169682_event_site_drafts.sql`: `octet_length(draft_json::text) <=
+ * 200000`. A write over it is refused by Postgres, and every save after it
+ * failed too (prod, 2026-09-27, the owner's own wedding).
+ */
+export const HUB_DRAFT_DB_BYTE_CAP = 200_000;
+
+/**
+ * 📏 THE BUDGET A DRAFT IS HELD UNDER, safely below the cap. Undo's history is
+ * capped by COUNT (`HUB_DRAFT_HISTORY_LIMIT`), but every entry is a FULL state —
+ * with a traced Logo that is ~24 KB a save (the studio layers plus the composed
+ * SVG), so 7 Logo edits filled 168 KB of history and the next save hit the cap.
+ * The oldest states are dropped until the whole draft fits this budget. The
+ * 20 KB of headroom covers what `hubDraftBytes` cannot see exactly (Postgres
+ * prints some numbers longer than JavaScript does).
+ */
+export const HUB_DRAFT_BYTE_BUDGET = 180_000;
+
+/** What a couple reads when the draft itself — with no Undo history at all — will not fit. */
+export const HUB_DRAFT_TOO_LARGE_MESSAGE = 'Your Event Hub is too large to save — remove a layer or an image.';
+
+/** What a couple reads when a draft save failed for any other reason. Nothing they drafted is lost. */
+export const HUB_DRAFT_SAVE_FAILED_MESSAGE = 'Something went wrong. Please try again — your draft is kept.';
+
+/** Why a draft save did not land — carried back to the Maker as `?draft_error=`. */
+export type HubDraftSaveFailure = 'too_large' | 'failed';
+
+export function hubDraftSaveFailureText(v: unknown): string | null {
+  return v === 'too_large' ? HUB_DRAFT_TOO_LARGE_MESSAGE : v === 'failed' ? HUB_DRAFT_SAVE_FAILED_MESSAGE : null;
+}
+
+/** Thrown by the store when a draft would not fit even with its history emptied. Nothing is written. */
+export class HubDraftTooLargeError extends Error {
+  readonly reason = 'too_large' as const;
+  readonly bytes: number;
+  constructor(bytes: number) {
+    // A log line, never shown to a couple (they read HUB_DRAFT_TOO_LARGE_MESSAGE); the size rides on `.bytes`.
+    super('The Event Hub draft is over its byte budget even with no Undo history.');
+    this.name = 'HubDraftTooLargeError';
+    this.bytes = bytes;
+  }
+}
+
+/**
+ * The bytes Postgres will count for `octet_length(value::jsonb::text)`: UTF-8
+ * bytes — never `string.length`, which counts UTF-16 units — of the JSON, plus
+ * the one space jsonb's text form prints after every `:` and `,`
+ * (`{"a": 1, "b": 2}`). One pass over `JSON.stringify`, no allocation.
+ */
+export function hubDraftBytes(value: unknown): number {
+  const s = JSON.stringify(value);
+  if (s === undefined) return 0;
+  let bytes = 0;
+  let inString = false;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s.charCodeAt(i);
+    if (inString) {
+      if (c === 0x5c) {
+        bytes += 2; // a backslash escape is two ASCII bytes (\uXXXX's four digits are counted as they come)
+        i += 1;
+        continue;
+      }
+      if (c === 0x22) inString = false;
+    } else if (c === 0x22) {
+      inString = true;
+    } else if (c === 0x3a || c === 0x2c) {
+      bytes += 1; // jsonb::text prints ": " and ", "
+    }
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
+      bytes += 4; // a surrogate pair is one 4-byte code point
+      i += 1;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+/**
+ * Drop the OLDEST Undo states until the whole draft fits `HUB_DRAFT_BYTE_BUDGET`.
+ * The current state is never touched. Returns the same object when it already
+ * fits. A draft that does not fit even with no history is returned with none —
+ * the store then refuses to write it (`HubDraftTooLargeError`).
+ */
+export function fitHubDraftHistory(draft: HubDraft): HubDraft {
+  const base = hubDraftBytes({ ...draft, history: [] });
+  const sizes = draft.history.map(hubDraftBytes);
+  // `[a, b, c]` adds each entry plus ", " (2 bytes) between neighbours.
+  let total = base + sizes.reduce((a, b) => a + b, 0) + 2 * Math.max(0, sizes.length - 1);
+  let drop = 0;
+  while (drop < sizes.length && total > HUB_DRAFT_BYTE_BUDGET) {
+    total -= sizes[drop]! + (sizes.length - drop > 1 ? 2 : 0);
+    drop += 1;
+  }
+  return drop === 0 ? draft : { ...draft, history: draft.history.slice(drop) };
+}
+
+/**
+ * The draft exactly as it may be written: fitted to the budget, or REFUSED —
+ * `HubDraftTooLargeError` when the current state alone is over it. The store's
+ * one write door (`writeHubDraft`) calls this before it touches the row, so an
+ * oversized draft is never sent to Postgres to be refused there.
+ */
+export function hubDraftForWrite(draft: HubDraft): HubDraft {
+  const fitted = fitHubDraftHistory(draft);
+  const bytes = hubDraftBytes(fitted);
+  if (bytes > HUB_DRAFT_BYTE_BUDGET) throw new HubDraftTooLargeError(bytes);
+  return fitted;
+}
+
+/** Why a draft write failed, as the one word the Maker reads back (`?draft_error=`). */
+export function hubDraftSaveFailure(e: unknown): HubDraftSaveFailure {
+  return e instanceof HubDraftTooLargeError ? 'too_large' : 'failed';
+}
+
+/**
+ * Where a form's draft save that did NOT land sends the couple: the form's own
+ * `return_to` (validated by `resolveReturnTo`, else `fallback`) with
+ * `draft_error=<reason>` on it — read by the Maker toolbar (`launch/page.tsx` →
+ * `HubDraftDock` → `HubDraftToolbar`), which puts it into words.
+ */
+export function hubDraftBounceHref(formData: FormData, fallback: string, reason: HubDraftSaveFailure): string {
+  const to = resolveReturnTo(formData, fallback);
+  return `${to}${to.includes('?') ? '&' : '?'}draft_error=${reason}`;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    THE SHAPE
@@ -424,7 +552,7 @@ export function sanitizeHubDraft(raw: unknown): HubDraft {
   const history = Array.isArray(src.history)
     ? src.history.slice(-HUB_DRAFT_HISTORY_LIMIT).map(sanitizeState)
     : [];
-  return { v: 1, ...state, history };
+  return fitHubDraftHistory({ v: 1, ...state, history });
 }
 
 /** Does the draft differ from nothing? (Whether it differs from LIVE is `planHubDraftApply`.) */
@@ -469,7 +597,7 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
     };
   }
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
-  return { v: 1, ...next, history };
+  return fitHubDraftHistory({ v: 1, ...next, history });
 }
 
 /** Step back one save. With nothing to go back to, the draft is returned as is. */
@@ -707,7 +835,24 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
   for (const key of HUB_ELEMENT_KEYS) {
     // font · colour · size, the motion (In · During · Out · timeline) and the
     // text runs — each compared on its own, so taking one off stays a removal.
-    for (const field of ['font', 'color', 'size', 'motion', 'runs'] as const) {
+    // 🧰 The Text tab's Pages rows (weight · B · I · U · alignment · line and
+    // letter spacing, 2026-09-27) are LOOK too. Two element fields are NOT:
+    // `hidden` (Arrange → Show, like hiding a whole scene, which is free) and
+    // the joiner's `word` (words are the page we write — owner 2026-09-22/24,
+    // "Free is the page we write. Pro is changing how it looks").
+    for (const field of [
+      'font',
+      'color',
+      'size',
+      'motion',
+      'runs',
+      'weight',
+      'italic',
+      'underline',
+      'align',
+      'leading',
+      'tracking',
+    ] as const) {
       changes.push(refChange(asText(live.elements?.[key]?.[field]), asText(next.elements?.[key]?.[field])));
     }
   }
@@ -1022,6 +1167,19 @@ export type HubDraftActionResult =
       held: Array<{ label: string; reason: HubDraftRefusal }>;
     }
   | { ok: false; intent: HubDraftIntent | null; error: string };
+
+/**
+ * Does the Maker toolbar's ⋯ panel stay OPEN once an action reports back? Only
+ * when there is something to read there: an error, a key Apply held back, or
+ * Reset's own note. A clean Apply, Undo or Restore closes it — owner,
+ * 2026-09-27: after Apply the panel stayed open over the Maker saying "2 changes
+ * are now live".
+ */
+export function hubDraftPanelStaysOpen(result: HubDraftActionResult): boolean {
+  if (!result.ok) return true;
+  if (result.intent === 'reset') return true;
+  return result.held.length > 0;
+}
 
 /** A sentence-ready name for each draftable `events` column. */
 export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {

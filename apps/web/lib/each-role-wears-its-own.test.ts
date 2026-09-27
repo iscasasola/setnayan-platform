@@ -54,6 +54,16 @@ test('a ninang is told her role, her outfit and her colour', () => {
   assert.equal(mine.styleLabel, 'Filipiniana');
   assert.equal(mine.note, 'ivory, not white');
   assert.equal(mine.hex, '#842334', 'the colour comes from their own mood board');
+  // And ALL of them (owner 2026-09-28, "show their palette only") — `hex` is
+  // the first of `hexes`, never a second walk of the chain.
+  assert.deepEqual(mine.hexes, ['#842334']);
+  const three = resolveGuestDressCode({
+    role: 'principal_sponsor_ninang',
+    roles: {},
+    palette: { principal_sponsors: ['#842334', '#C9A24B', '#F4E9DC'] },
+  });
+  assert.deepEqual(three?.hexes, ['#842334', '#C9A24B', '#F4E9DC'], 'a three-colour role is three colours');
+  assert.equal(three?.hex, '#842334');
 });
 
 test('two roles that share a palette key can still wear different things', () => {

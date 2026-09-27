@@ -62,11 +62,11 @@ test('the logo autosaves: after a pause, on the way out, and when the tab is hid
     ['the page left', /pagehide/],
     // …and never on open: only a canvas that differs from how it stood when
     // the couple first reached for it (lib/the-logo-never-saves-on-open.test.ts).
-    ['a real edit only', /gate\.current\.shouldSave\(m\.mark\.svg\)/],
+    ['a real edit only', /gate\.current\.shouldSave\(svg\)/],
   ] as const) {
     assert.match(src, re, `the logo does not save on ${what}`);
   }
-  assert.match(src, /monogram_custom_svg:\s*m\.mark\.svg/, 'the autosave must carry the mark');
+  assert.match(src, /monogram_custom_svg:\s*svg,/, 'the autosave must carry the mark');
   assert.match(src, /monogram_studio_config:/, 'the autosave must carry the re-editable design');
 });
 

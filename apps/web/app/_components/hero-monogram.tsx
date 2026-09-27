@@ -9,6 +9,8 @@ import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
+import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
+import { isLayeredLogo } from '@/lib/logo-layers';
 
 /**
  * HeroMonogram — the couple's mark on their PUBLIC landing page hero.
@@ -98,6 +100,16 @@ export function HeroMonogram({
   // mark (no animation). The chosen reveal — NOT monogram_motion_key — is the
   // source for studio marks (owner 2026-06-23 unification).
   if (bespokeSvg) {
+    // 🅻 A LAYERED LOGO (the Maker's Logo page) plays each layer's OWN motion,
+    // in stack order — the same player as the editor's ▶ Play. Same gate as every
+    // animated mark: owned (`animatedMonogram`), else the still mark below.
+    if (animatedMonogram && isLayeredLogo(bespokeSvg)) {
+      return (
+        <span aria-hidden className="inline-flex" style={{ width: HERO_PX, height: HERO_PX }} data-hero-layered-logo="">
+          <LayeredLogoPlayer svg={bespokeSvg} />
+        </span>
+      );
+    }
     if (animatedMonogram && studioAnim) {
       return (
         <span aria-hidden className="inline-flex" style={{ width: HERO_PX, height: HERO_PX }}>

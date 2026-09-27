@@ -1,25 +1,30 @@
 import { resolveMonogram } from './monogram';
 import { safeMonogramSvg } from './monogram-svg-safe';
 import { sanitizeStudioConfig, type StudioConfig } from './monogram-studio-shared';
+import { isLayeredLogo, type LogoLayerMeta } from './logo-layers';
 
 /**
  * WHAT THE MAKER'S LOGO PAGE OPENS ON — the couple's own logo and names, never
- * a sample (owner 2026-09-27, measured on his own event).
+ * a sample (owner 2026-09-27: *"each editor of each event will adapt to their
+ * event"*).
  *
- * His event's mark was an uploaded logo. Beside it sat a studio config holding
- * only reveal settings and `text: ""` — an upload saves its animation there. The
- * page took that config for a DESIGN, reopened it, the studio read the empty
- * names as "no names" and drew its sample "M & J" — and then autosaved it.
+ * The Logo page is a stack of layers (`lib/logo-layers.ts`). It opens on:
  *
- *   · A studio config counts as a design ONLY beside a composition
- *     (`monogram_custom_svg`) — the Monogram Maker page's own `hasStudio` rule.
- *   · An uploaded logo with no composition IS the couple's mark: the page shows
- *     it as it is ("Upload a different one" / "Design one instead").
- *   · The names are the couple's own initials (`resolveMonogram`: the chosen
- *     monogram text, else derived from `display_name`; "S" only for an event
- *     with no name at all).
+ *   · `layers` — a logo made here before: its layers, their shapes read back
+ *     from the saved file;
+ *   · `mark`   — a logo made anywhere else (the Monogram Maker's studio): that
+ *     mark as ONE image layer, as it is, so nothing the couple had is lost;
+ *   · `upload` — their uploaded logo, the same way, when no mark was designed;
+ *   · `names`  — nothing yet: one Text layer holding the couple's OWN initials
+ *     (`resolveMonogram`: the chosen monogram text, else derived from
+ *     `display_name`; "S" only for an event with no name at all).
  *
- * Pure, so `lib/the-logo-never-saves-on-open.test.ts` can hold it.
+ * A studio config beside no composition (an upload's leftover reveal settings,
+ * `text: ""`) is NOT a design — the leak that drew "M & J" over the owner's logo.
+ *
+ * Opening writes nothing: the Logo page's save gate waits for a real touch
+ * (`lib/maker-logo-save-gate.ts`). Pure, so `lib/the-logo-is-layers.test.ts`
+ * can hold it.
  */
 export type MakerLogoRow = {
   display_name: string | null;
@@ -31,20 +36,27 @@ export type MakerLogoRow = {
 };
 
 export type MakerLogoOpening = {
-  /** The re-editable design to reopen, or null to start fresh from `names`. */
-  config: StudioConfig | null;
-  /** The couple's initials — the studio's Names box. */
+  source: 'layers' | 'mark' | 'upload' | 'names';
+  /** The saved layers' metadata (`layers` only). */
+  layers: LogoLayerMeta[];
+  /** The file the shapes are read from (`layers` · `mark` · `upload`). */
+  svg: string | null;
+  /** The couple's initials. */
   names: string;
-  /** The uploaded logo (sanitised) to show as it is, or null. */
-  uploadedSvg: string | null;
+  /** The studio's reveal settings, kept as they are when the logo is saved. */
+  anim: StudioConfig['anim'] | null;
 };
 
 export function makerLogoOpening(row: MakerLogoRow): MakerLogoOpening {
-  const hasComposition = typeof row.monogram_custom_svg === 'string' && row.monogram_custom_svg.length > 0;
+  const custom = safeMonogramSvg(row.monogram_custom_svg);
   const uploaded = safeMonogramSvg(row.monogram_uploaded_svg);
-  return {
-    config: hasComposition ? sanitizeStudioConfig(row.monogram_studio_config) : null,
-    names: resolveMonogram(row).text,
-    uploadedSvg: uploaded && !hasComposition ? uploaded : null,
-  };
+  const cfg = custom ? sanitizeStudioConfig(row.monogram_studio_config) : null;
+  const names = resolveMonogram(row).text;
+  const anim = cfg?.anim ?? null;
+  if (custom && cfg?.layers?.length && isLayeredLogo(custom)) {
+    return { source: 'layers', layers: cfg.layers, svg: custom, names, anim };
+  }
+  if (custom) return { source: 'mark', layers: [], svg: custom, names, anim };
+  if (uploaded) return { source: 'upload', layers: [], svg: uploaded, names, anim: null };
+  return { source: 'names', layers: [], svg: null, names, anim: null };
 }

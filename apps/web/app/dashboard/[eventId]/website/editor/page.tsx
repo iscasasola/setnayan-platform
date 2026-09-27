@@ -1137,7 +1137,7 @@ export default async function WebsiteEditorPage({
           </>
         ),
         reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} />,
-        logo: <MakerLogoPanel eventId={eventId} />,
+        logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} />,
         /* 💌 Love Story's own PAGE — Our Love Story, the scrapbook — drawn in the
            Maker's body (owner 2026-09-25: "Love story, add and create your
            story"). Streamed, so the Maker never waits on it. */

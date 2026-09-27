@@ -27,35 +27,10 @@
  */
 
 import { HOSTILE_SVG_PATTERNS } from './monogram-svg-safe';
+import { STUDIO_FONT_KEYS, type StudioFontKey } from './monogram-studio-fonts';
+import { sanitizeLogoLayers, type LogoLayerMeta } from './logo-layers';
 
-export const STUDIO_FONT_KEYS = [
-  'cardo',
-  'gilda',
-  'playfairsc',
-  'marcellus',
-  'yeseva',
-  'cinzeldec',
-  'script',
-  'pinyon',
-] as const;
-export type StudioFontKey = (typeof STUDIO_FONT_KEYS)[number];
-
-export const STUDIO_FONTS: { key: StudioFontKey; label: string; file: string }[] = [
-  { key: 'cardo', label: 'Cardo', file: 'Cardo-Italic.ttf' },
-  { key: 'gilda', label: 'Gilda', file: 'GildaDisplay-Regular.ttf' },
-  { key: 'playfairsc', label: 'Playfair', file: 'PlayfairDisplaySC-Regular.ttf' },
-  { key: 'marcellus', label: 'Marcellus', file: 'Marcellus-Regular.ttf' },
-  { key: 'yeseva', label: 'Yeseva', file: 'YesevaOne-Regular.ttf' },
-  { key: 'cinzeldec', label: 'Cinzel Dec', file: 'CinzelDecorative-Regular.ttf' },
-  { key: 'script', label: 'Vibes', file: 'GreatVibes-Regular.ttf' },
-  { key: 'pinyon', label: 'Pinyon', file: 'PinyonScript-Regular.ttf' },
-];
-
-/** Public path the client engine fetches a face from (self-hosted, OFL). */
-export function studioFontUrl(file: string): string {
-  return `/monogram-studio/fonts/${file}`;
-}
-
+export { STUDIO_FONT_KEYS, STUDIO_FONTS, studioFontUrl, type StudioFontKey } from './monogram-studio-fonts';
 export const STUDIO_INKS = ['#5C2542', '#8C6932', '#1E2229'] as const;
 export const STUDIO_BGS = ['#FBFBFA', '#ffffff', '#e7dcc2', '#1E2229', 'transparent'] as const;
 const STROKE_STYLES = ['broad', 'pointed', 'monoline', 'brush'] as const;
@@ -267,6 +242,11 @@ export type StudioConfig = {
   frames?: StudioFrame[];
   /** Starting-point provenance — which preset card seeded this design. */
   preset?: StudioPresetKey;
+  /** 🅻 THE MAKER'S LAYERED LOGO (owner 2026-09-27) — the Logo page's elements,
+   *  bottom→top: Text · Image · Frame, each with its own place and motion. Only
+   *  the metadata lives here; each layer's shapes live in the saved SVG's own
+   *  `data-logo-layer` group (`lib/logo-layers.ts`). */
+  layers?: LogoLayerMeta[];
   anim?: {
     kind: (typeof ANIM_KINDS)[number];
     dur: number;
@@ -447,6 +427,10 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
     ...(frames.length ? { frames } : {}),
     ...(preset ? { preset } : {}),
     ...(anim ? { anim } : {}),
+    ...(() => {
+      const layers = sanitizeLogoLayers(o.layers);
+      return layers.length ? { layers } : {};
+    })(),
   };
   if (JSON.stringify(cfg).length > MAX_CONFIG_BYTES) return null;
   return cfg;

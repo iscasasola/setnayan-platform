@@ -57,18 +57,20 @@ test('(a) the save gate refuses every canvas until the couple touches the studio
 
 test('(a) the Logo page saves only through the gate, touched by the couple’s own input', () => {
   const src = code(read(`${L}/maker-logo.tsx`));
-  const flush = src.slice(src.indexOf('const flush = useCallback('), src.indexOf('const schedule = useCallback('));
+  const flush = src.slice(src.indexOf('const flush = useCallback('), src.indexOf('const onReach = '));
   assert.ok(flush.length > 100, 'anti-vacuity: the flush body was not found');
-  const gateAt = flush.indexOf('gate.current.shouldSave(m.mark.svg)');
+  const gateAt = flush.indexOf('gate.current.shouldSave(svg)');
   const postAt = flush.indexOf('hubDraftAction(');
   assert.ok(gateAt > 0, 'the flush no longer asks the gate before saving');
   assert.ok(postAt > gateAt, 'the draft is posted before the gate is asked');
-  assert.match(flush, /if \(!gate\.current\.shouldSave\(m\.mark\.svg\)[^)]*\) return;/, 'the gate answer is not what stops the save');
+  assert.match(flush, /if \(!gate\.current\.shouldSave\(svg\)[^)]*\) return;/, 'the gate answer is not what stops the save');
+  // …and the autosave after a change asks it too.
+  assert.match(src, /if \(!composed \|\| !ready \|\| !gate\.current\.shouldSave\(composed\)\) return;/);
   // The old "differs from the last save" test is what saved on open.
   assert.doesNotMatch(src, /lastSvg/, 'the last-saved comparison is back — an untouched canvas differs from null');
   // The baseline is taken on the couple's own input, before the edit lands.
-  assert.match(src, /if \(!e\.isTrusted\) return;/);
-  assert.match(src, /gate\.current\.touch\(m\.mark\.svg\)/);
+  assert.match(src, /if \(!e\.isTrusted \|\| !readyRef\.current\) return;/);
+  assert.match(src, /gate\.current\.touch\(composedRef\.current\)/);
   assert.match(src, /addEventListener\(t, onReach, true\)/, 'the touch must be caught in the capture phase');
 });
 
@@ -87,8 +89,9 @@ const OWNER_ROW = {
 
 test('(b) an event with an uploaded logo opens on THAT logo, not a studio design', () => {
   const o = makerLogoOpening(OWNER_ROW);
-  assert.ok(o.uploadedSvg, 'the uploaded logo is not shown');
-  assert.equal(o.config, null, 'a config with no composition beside it was reopened as a design');
+  assert.equal(o.source, 'upload', 'the uploaded logo is not what opens');
+  assert.ok(o.svg, 'the uploaded logo is not shown');
+  assert.equal(o.anim, null, 'a config with no composition beside it was read as a design');
   assert.equal(o.names, 'I & C');
 });
 
@@ -102,10 +105,13 @@ test('(b) a named couple gets their own initials — never "M & J"', () => {
     assert.equal(o.names, want, display);
     assert.notEqual(o.names, 'M & J');
   }
-  // A composition keeps its design (re-editing a real mark).
+  // A composition opens as the couple's logo (and outranks the upload).
   const designed = makerLogoOpening({ ...OWNER_ROW, monogram_custom_svg: LOGO });
-  assert.ok(designed.config, 'a real design must reopen');
-  assert.equal(designed.uploadedSvg, null, 'the composition outranks the upload');
+  assert.equal(designed.source, 'mark', 'a real design must reopen');
+  assert.equal(designed.svg, LOGO);
+  // Nothing at all → their own initials, never a sample.
+  const empty = makerLogoOpening({ ...OWNER_ROW, monogram_uploaded_svg: null });
+  assert.equal(empty.source, 'names');
 });
 
 test('(b) no sample couple can reach a real event through the studio', () => {
@@ -125,7 +131,7 @@ test('(b) no sample couple can reach a real event through the studio', () => {
   assert.doesNotMatch(studio, /M & J/, 'the studio preview falls back to a sample couple');
   // And the Maker's panel reads the opening rule, not its own copy of it.
   const panel = code(read(`${L}/maker-made-once.tsx`));
-  assert.match(panel, /makerLogoOpening\(drafted\)/);
+  assert.match(panel, /makerLogoOpening\(m\.drafted\)/);
   assert.doesNotMatch(panel, /sanitizeStudioConfig\(/, 'the panel re-decides which config counts');
 });
 

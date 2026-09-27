@@ -114,7 +114,8 @@ test('⛔ the CSS addresses the grandchildren, and only when the parts carry it'
   );
   // 🔑 Exclusive levels: both animating would multiply two opacities and the
   // section would arrive muddy.
-  assert.match(css, /\.hub-seq-whole\.hub-tl-time\s*>\s*\.hub-canvas-body\s*\{/);
+  // "Plays once" binds only once the page's observer marks the scene as reached.
+  assert.match(css, /\.hub-seq-whole\.hub-tl-time\.pahina-in\s*>\s*\.hub-canvas-body\s*\{/);
   assert.match(css, /\.hub-seq-whole\.hub-tl-scrub\s*>\s*\.hub-canvas-body\s*\{/);
   assert.doesNotMatch(
     css,
@@ -125,15 +126,19 @@ test('⛔ the CSS addresses the grandchildren, and only when the parts carry it'
 
 test('⭐ every part up to the eighth gets its own gap', () => {
   const css = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
+  // …and the values reach the animation: the one parts rule reads them back.
+  assert.match(css, /animation-delay:\s*var\(--hub-part-delay, 0s\)/);
+  assert.match(css, /animation-range:\s*var\(--hub-part-in-range, normal\)/);
   for (let n = 2; n <= 8; n += 1) {
     assert.match(
       css,
-      new RegExp(`\\.hub-seq-parts\\.hub-tl-time[^{]*nth-child\\(${n}\\)[^}]*animation-delay`),
+      // The gap travels as a value (`--hub-part-delay`), read back by the one parts rule.
+      new RegExp(`\\.hub-seq-parts\\.hub-tl-time[^{]*nth-child\\(${n}\\)[^}]*--hub-part-delay`),
       `part ${n} has no delay — it would arrive with the first`,
     );
     assert.match(
       css,
-      new RegExp(`\\.hub-seq-parts\\.hub-tl-scrub[^{]*nth-child\\(${n}\\)[^}]*animation-range`),
+      new RegExp(`\\.hub-seq-parts\\.hub-tl-scrub[^{]*nth-child\\(${n}\\)[^}]*--hub-part-in-range`),
       `part ${n} has no range offset — scrubbed, a delay does nothing`,
     );
   }

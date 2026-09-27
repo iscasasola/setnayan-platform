@@ -79,7 +79,15 @@ const bootSplashScript = `(function(){try{
 //
 // `display: 'swap'` means the system fallback paints immediately while the
 // webfont streams, so LCP measurements stay anchored to first paint instead
-// of font load. The weight subsets are minimal — only the weights we actually
+// of font load.
+//
+// 📱 ONLY THREE FACES HERE ARE PRELOADED (2026-09-27): Hanken
+// Grotesk (every UI word, on every page), Fraunces (the couple's names and date
+// on a guest page, themed or not) and Cormorant Garamond (the House theme's
+// headings, monogram and Save-the-Date). A preload is a download in EVERY
+// page's <head> whether or not a letter is set in it; every other face
+// downloads only on a page that sets text in it. Measured on a phone profile, see
+// `lib/fonts-preload-only-the-first-paint.test.ts`. The weight subsets are minimal — only the weights we actually
 // reference — so payload stays under ~80KB total for all three families.
 const cormorant = localFont({
   src: [
@@ -89,6 +97,9 @@ const cormorant = localFont({
     { path: './_fonts/cormorant-garamond/cormorant-garamond-700.woff2', weight: '700', style: 'normal' },
   ],
   display: 'swap',
+  // ⚡ PRELOADED — measured first-paint face; the reason is in the allowlist of
+  // lib/fonts-preload-only-the-first-paint.test.ts.
+  preload: true,
   variable: '--font-editorial-display',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -117,6 +128,9 @@ const fraunces = localFont({
     { path: './_fonts/fraunces/fraunces-600.woff2', weight: '600', style: 'normal' },
   ],
   display: 'swap',
+  // ⚡ PRELOADED — measured first-paint face; the reason is in the allowlist of
+  // lib/fonts-preload-only-the-first-paint.test.ts.
+  preload: true,
   variable: '--font-pahina-display',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -131,6 +145,7 @@ const manrope = localFont({
     { path: './_fonts/manrope/manrope-700.woff2', weight: '700', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-editorial-sans',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -143,6 +158,7 @@ const dmMono = localFont({
     { path: './_fonts/dm-mono/dm-mono-500.woff2', weight: '500', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-editorial-mono',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -167,6 +183,9 @@ const hanken = localFont({
     { path: './_fonts/hanken-grotesk/hanken-grotesk-800.woff2', weight: '800', style: 'normal' },
   ],
   display: 'swap',
+  // ⚡ PRELOADED — measured first-paint face; the reason is in the allowlist of
+  // lib/fonts-preload-only-the-first-paint.test.ts.
+  preload: true,
   variable: '--font-hanken',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -179,6 +198,7 @@ const spaceMono = localFont({
     { path: './_fonts/space-mono/space-mono-700.woff2', weight: '700', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-space-mono',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -188,19 +208,26 @@ const spaceMono = localFont({
 // Monogram display faces — the couple's onboarding monogram renders in its
 // EXACT chosen face in the dashboard chrome (event switcher + profile avatar),
 // matching the onboarding medallion. Owner-locked 2026-06-03 ("yes exact font").
-// preload: false on all seven monogram/script faces below — they render ONLY in
-// the Monogram Maker + monogram chrome, never on the marketing homepage or any
-// public page, yet next/font was emitting a <link rel=preload as=font> for each
-// into EVERY page's <head>. `preload:false` keeps them fully functional (loaded
-// on demand when a monogram surface mounts, display:swap covers the swap) while
-// removing ~7 wasted font preloads from the first-paint path site-wide.
-// (Perf sweep 2026-07-02, findings #5/#11/#12/#14.)
+// preload: false on all seven monogram/script faces below — each is set only
+// where a couple CHOSE it (their monogram, the Maker's font list), yet
+// next/font was emitting a preload for each into EVERY page's <head>.
+// `preload:false` keeps them fully functional (downloaded the moment some text
+// is set in them; display:swap covers the swap). (Perf sweep 2026-07-02,
+// findings #5/#11/#12/#14.)
+//
+// 🪤 THIS PARAGRAPH SAID `preload: false` FOR TWO MONTHS WHILE THE CODE DID NOT.
+// The setting was dropped when these moved from next/font/google to local files
+// (3b1fade66) and the comment survived it — every guest page then preloaded all
+// seven. `lib/fonts-preload-only-the-first-paint.test.ts` now reads the CODE:
+// every face here and in every other `localFont` file must say `preload: false`
+// unless it is on that test's allowlist of measured first-paint faces.
 const cinzel = localFont({
   src: [
     { path: './_fonts/cinzel/cinzel-400.woff2', weight: '400', style: 'normal' },
     { path: './_fonts/cinzel/cinzel-600.woff2', weight: '600', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-cinzel',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -215,6 +242,7 @@ const playfairDisplay = localFont({
     { path: './_fonts/playfair-display/playfair-display-600.woff2', weight: '600', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-playfair',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -226,6 +254,7 @@ const greatVibes = localFont({
     { path: './_fonts/great-vibes/great-vibes-400.woff2', weight: '400', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-script',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -241,6 +270,7 @@ const libreCaslon = localFont({
     { path: './_fonts/libre-caslon-display/libre-caslon-display-400.woff2', weight: '400', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-libre-caslon',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -253,6 +283,7 @@ const tangerine = localFont({
     { path: './_fonts/tangerine/tangerine-700.woff2', weight: '700', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-tangerine',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -264,6 +295,7 @@ const luxuriousScript = localFont({
     { path: './_fonts/luxurious-script/luxurious-script-400.woff2', weight: '400', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-luxurious',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.
@@ -275,6 +307,7 @@ const vidaloka = localFont({
     { path: './_fonts/vidaloka/vidaloka-400.woff2', weight: '400', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-vidaloka',
   // Metric-matched fallback while the face loads. next/font/google
   // derived this per family; with local files it must be stated.

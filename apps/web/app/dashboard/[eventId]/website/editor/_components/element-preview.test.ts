@@ -116,6 +116,9 @@ class FakeEl extends FakeNode {
   hasAttribute(n: string) {
     return this.attrs.has(n);
   }
+  removeAttribute(n: string) {
+    this.attrs.delete(n);
+  }
   appendChild(c: FakeNode) {
     return this.insertBefore(c, null);
   }
@@ -294,15 +297,21 @@ test('a font or colour change never touches the animation — only a motion chan
   const live = masthead({ names: { motion: { in: 'rise' } } }).find('data-el', 'names');
   // ▶ Play left its `-p` twin inline; a font change must leave the arrival alone.
   live.style.setProperty('animation-name', 'el-in-rise-p');
-  const before = live.style.getPropertyValue('animation');
+  const before = live.style.getPropertyValue('--el-anim');
+  assert.match(before, /el-in-rise/, 'precondition: the server laid the motion');
   bridge.applyHeroPartStyle(live as unknown as HTMLElement, { font: FONT, motion: { in: 'rise' } }, false);
-  assert.equal(live.style.getPropertyValue('animation'), before);
+  assert.equal(live.style.getPropertyValue('--el-anim'), before);
   assert.equal(live.style.getPropertyValue('animation-name'), 'el-in-rise-p');
   assert.ok(live.style.getPropertyValue('font-family'));
   // A motion change clears the twin and lays the new motion.
   bridge.applyHeroPartStyle(live as unknown as HTMLElement, { font: FONT, motion: { in: 'fade' } }, true);
   assert.equal(live.style.getPropertyValue('animation-name'), '');
-  assert.match(live.style.getPropertyValue('animation'), /el-in-fade/);
+  assert.match(live.style.getPropertyValue('--el-anim'), /el-in-fade/);
+  assert.equal(live.getAttribute('data-el-motion'), '', 'the gated rule\'s hook is laid with the motion');
+  // Motion taken away (↺): the properties AND the hook go.
+  bridge.applyHeroPartStyle(live as unknown as HTMLElement, { font: FONT }, true);
+  assert.equal(live.style.getPropertyValue('--el-anim'), '');
+  assert.equal(live.getAttribute('data-el-motion'), null);
 });
 
 test('the preview clears exactly the properties the declarations can write', () => {
@@ -313,7 +322,9 @@ test('the preview clears exactly the properties the declarations can write', () 
     { during: 'drift' },
   ];
   for (const motion of motions) {
-    for (const [p] of es.hubElementDeclarations({ font: FONT, color: '#000000', size: 120, motion } as never)) emitted.add(p);
+    const style = { font: FONT, color: '#000000', size: 120, weight: 600, italic: true, underline: true, align: 'left', leading: 1.2, tracking: 8, hidden: true, motion } as never;
+    for (const [p] of es.hubElementDeclarations(style)) emitted.add(p);
+    for (const [p] of es.hubElementHeroMotionVars(style)) emitted.add(p);
   }
   const listed = new Set<string>([...es.HUB_ELEMENT_LOOK_PROPS, ...es.HUB_ELEMENT_MOTION_PROPS]);
   for (const p of emitted) assert.ok(listed.has(p), `${p} is written by the declarations but never cleared by the preview`);

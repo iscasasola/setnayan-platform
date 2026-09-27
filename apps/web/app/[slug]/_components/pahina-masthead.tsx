@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { formatEventDate } from '@/lib/events';
 import {
   hubElementInlineStyle,
+  hubElementMotionAttr,
   hubRunInlineStyle,
   hubTextSegments,
   type HubElementStyles,
@@ -136,6 +137,9 @@ export function PahinaMasthead({
   /** The part's own style and, in the Maker canvas only, its key. */
   const el = (key: HubHeroElementKey) => ({
     ...(stampElements ? { 'data-el': key } : {}),
+    // The part's own motion rides as custom properties; this is the hook the
+    // ONE gated rule in globals.css reads (`[data-el-motion]`).
+    ...hubElementMotionAttr(elements?.[key]),
     // A part the couple hid is never drawn for a guest; in the Maker canvas it
     // is ghosted so it can be brought back (`hubElementDeclarations`).
     style: hubElementInlineStyle(elements?.[key], { editor: stampElements }),

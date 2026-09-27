@@ -29,10 +29,11 @@ import { autoRunTimings, type HubAutoSpeed } from '@/lib/hub-scenes';
  * React never renders these attributes or `style` on the scene wrappers, so
  * nothing it re-renders can wipe them.
  *
- * ⛔ A TOUCH STOPS IT FOR GOOD (owner: "stops auto-advancing on guest
- * scroll/touch"). A tap, a press, a key inside the run — the guest is reading
- * or reaching for something, and a scene sliding away under their thumb is the
- * worst thing this could do. Only the Play button starts it again. Scrolling the
+ * ⛔ A TAP STOPS IT FOR GOOD (owner: "stops auto-advancing on guest
+ * scroll/touch"). A tap or a key inside the run — the guest is reading or
+ * reaching for something, and a scene sliding away under their thumb is the
+ * worst thing this could do. A thumb that is SCROLLING the page is not a tap
+ * (see the listener below). Only the Play button starts it again. Scrolling the
  * PAGE past the run is not a touch of it: it pauses by leaving the screen and
  * resumes on return, as in the approved prototype.
  */
@@ -94,7 +95,13 @@ export function HubAutoRun({
       if ((ev.target as Element | null)?.closest?.('[data-auto-toggle]')) return;
       setStopped(true);
     };
-    el.addEventListener('pointerdown', stop);
+    /* 🔴 `click`, NEVER `pointerdown`. On a phone the finger that SCROLLS the
+       page lands on the run — a touch pan starts with a pointerdown — so the
+       run stopped the moment a guest scrolled to it, before it had played a
+       single hand-off (measured: one thumb flick → `data-playing` gone, the
+       button reading "Play", no scene ever changed). A pan never fires
+       `click`; a tap does. So a tap or a key stops it, and scrolling does not. */
+    el.addEventListener('click', stop);
     el.addEventListener('keydown', stop);
     // Reduced motion switched on mid-visit: disarm, and the page is plain again.
     const onReduce = () => {
@@ -103,7 +110,7 @@ export function HubAutoRun({
     reduce?.addEventListener?.('change', onReduce);
     return () => {
       io.disconnect();
-      el.removeEventListener('pointerdown', stop);
+      el.removeEventListener('click', stop);
       el.removeEventListener('keydown', stop);
       reduce?.removeEventListener?.('change', onReduce);
     };

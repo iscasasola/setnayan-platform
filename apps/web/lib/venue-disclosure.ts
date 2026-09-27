@@ -151,3 +151,65 @@ export function withheldVenue<T extends VenueFields>(event: T): T {
 
 /** What a viewer who has not replied is told where the map would be. */
 export const VENUE_WITHHELD_LINE = 'The address and directions open as soon as you reply.';
+
+// ── THE SAVE-THE-DATE FILM'S PLACE LINE (2026-09-27) ────────────────────────
+//
+// The film prints one small line under the reception name — "Tagaytay", say.
+// It used to be built in the loader as `std_film_venue_city ?? venue_address`
+// and handed to the film for EVERY viewer, beside the gate rather than through
+// it: a stranger holding a forwarded link would have read the street address
+// in the film (and in its "add to calendar" location) while the Venue scene
+// below it correctly said the address opens on a reply. Nobody was exposed —
+// no event had `venue_address` set when this was found — so it was a leak
+// waiting for its first address.
+//
+// The line is now two halves, and only one of them can ever be an address:
+//
+//   1. `stdFilmOwnCity` — the Save-the-Date's OWN "City or area" field. City
+//      level, typed by the couple for the film, fine for anyone. Read in the
+//      loader from the raw row.
+//   2. `stdFilmPlaceLine` — the fallback to the street address, read from the
+//      event the page ALREADY gated (`withheldVenue` / `venueIsOpen` in
+//      `app/[slug]/page.tsx`). No second rule: a withheld row has no address
+//      to fall back to, so the film says the city or nothing.
+
+/** Whitespace- and case-blind, so a copied address still counts as one. */
+function samePlace(a: string, b: string): boolean {
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  return norm(a) === norm(b);
+}
+
+/**
+ * The Save-the-Date's own city/area, fine to show anyone — or null.
+ *
+ * ⚠ NOT BLINDLY `std_film_venue_city`. Until 2026-09-27 the builder's
+ * "Autofill" button copied the event's street address into this field, and
+ * "Render" saved it. A city field holding the street address IS the street
+ * address, so it is dropped here — `stdFilmPlaceLine`'s gated fallback still
+ * shows it to a viewer who is allowed it.
+ */
+export function stdFilmOwnCity(row: {
+  std_film_venue_city?: string | null;
+  venue_address?: string | null;
+}): string | null {
+  const city = row.std_film_venue_city?.trim();
+  if (!city) return null;
+  const address = row.venue_address?.trim();
+  if (address && samePlace(city, address)) return null;
+  return city;
+}
+
+/**
+ * The film's place line for THIS viewer: the couple's own city when set, else
+ * the street address — but only as the page's gate left it. Pass the event the
+ * page handed to the render (withheld or open), never the raw row.
+ */
+export function stdFilmPlaceLine(
+  ownCity: string | null | undefined,
+  gatedEvent: Pick<VenueFields, 'venue_address' | 'venue_withheld'>,
+): string | null {
+  const city = ownCity?.trim();
+  if (city) return city;
+  if (gatedEvent.venue_withheld) return null;
+  return gatedEvent.venue_address?.trim() || null;
+}

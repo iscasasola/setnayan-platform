@@ -10,6 +10,7 @@ import {
   HUB_SCENE_ELEMENT_KEYS,
   HUB_SCENE_ELEMENT_SELECTOR,
   hubElementDeclarations,
+  hubElementHeroMotionVars,
   hubElementSceneCss,
   hubRunDeclarations,
   hubTextHash,
@@ -216,9 +217,14 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   for (const p of clear) part.style.removeProperty(p);
   // The Maker's canvas: a hidden part is ghosted, never gone (as the server
   // draws it with `stampElements`).
-  for (const [p, v] of hubElementDeclarations(style, { editor: true })) {
-    if (motion || LOOK_PROPS.includes(p)) part.style.setProperty(p, v);
-  }
+  for (const [p, v] of hubElementDeclarations(style, { editor: true })) part.style.setProperty(p, v);
+  if (!motion) return;
+  /* The motion as the guest page carries it: three custom properties and the
+     `data-el-motion` hook the one gated rule in globals.css reads. */
+  const vars = hubElementHeroMotionVars(style);
+  for (const [p, v] of vars) part.style.setProperty(p, v);
+  if (vars.length > 0) part.setAttribute('data-el-motion', '');
+  else part.removeAttribute('data-el-motion');
 }
 
 /**

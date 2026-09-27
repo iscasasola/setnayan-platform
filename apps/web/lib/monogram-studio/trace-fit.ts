@@ -524,29 +524,55 @@ export function fitLoop(raw: Pt[]): string {
   // (sharp, exact). On one line: the traced point pulled onto it, so the line
   // stays straight. Otherwise: the traced point as found.
   const place = new Map<number, Pt>();
+  /* ⚠ A HAIRPIN — a line that runs out to a tip and comes straight back, which
+   * is what a thin straight stroke's end is (two parallel sides, a cap a few px
+   * wide). Its two lines never cross, and the old code then pinned BOTH of them
+   * to one projected point, so the stroke's two sides were drawn between the
+   * same two points: a zero-width path. Measured 2026-09-27: a 4px straight
+   * hairline traced to `M a L b L a Z` and came back 0% — invisible. A hairpin
+   * gets TWO places (where each side ends) joined by a round cap instead. */
+  const hairpin = new Map<number, { inEnd: Pt; outStart: Pt; c1: Pt; c2: Pt }>();
   for (const b of pts) {
     const traced = raw[b.idx] as Pt;
     let p: Pt | null = null;
     if (b.lineIn && b.lineOut) p = intersect(b.lineIn, b.lineOut);
+    if (!p && b.lineIn && b.lineOut && dot(b.lineIn.d, b.lineOut.d) < 0) {
+      const tipIn = projectOnto(traced, b.lineIn);
+      const tipOut = projectOnto(traced, b.lineOut);
+      const r = len(sub(tipIn, tipOut)) / 2;
+      const inEnd = sub(tipIn, mul(b.lineIn.d, r));
+      const outStart = add(tipOut, mul(b.lineOut.d, r));
+      const k = (4 / 3) * r; // one cubic ≈ a half circle of radius r
+      hairpin.set(b.idx, { inEnd, outStart, c1: add(inEnd, mul(b.lineIn.d, k)), c2: sub(outStart, mul(b.lineOut.d, k)) });
+      place.set(b.idx, outStart);
+      continue;
+    }
     if (!p && b.lineOut) p = projectOnto(traced, b.lineOut);
     if (!p && b.lineIn) p = projectOnto(traced, b.lineIn);
     place.set(b.idx, p ?? traced);
   }
+  /** Where the outline ARRIVES at a breakpoint (a hairpin's incoming side ends
+   *  short of the tip; everything else arrives where it leaves). */
+  const arrive = (idx: number): Pt => hairpin.get(idx)?.inEnd ?? (place.get(idx) as Pt);
+  const cap = (idx: number): string => {
+    const h = hairpin.get(idx);
+    return h ? `C${P(h.c1)} ${P(h.c2)} ${P(h.outStart)}` : '';
+  };
 
   let d = `M${P(place.get((pts[0] as BP).idx) as Pt)}`;
   for (let q = 0; q < pts.length; q++) {
     const A = pts[q] as BP;
     const B = pts[(q + 1) % pts.length] as BP;
     const start = place.get(A.idx) as Pt;
-    const end = place.get(B.idx) as Pt;
+    const end = arrive(B.idx);
     const run = lineFrom.get(A.idx);
     if (run && run.e === B.idx) {
-      d += `L${P(end)}`;
+      d += `L${P(end)}` + cap(B.idx);
       continue;
     }
     let seg = slice(smooth, A.idx, B.idx);
     if (seg.length < 3) {
-      d += `L${P(end)}`;
+      d += `L${P(end)}` + cap(B.idx);
       continue;
     }
     /* Beside a CORNER the first couple of points were rounded into it by the
@@ -564,6 +590,7 @@ export function fitLoop(raw: Pt[]): string {
     const t1 = !A.corner && A.lineIn ? A.lineIn.d : undefined;
     const t2 = !B.corner && B.lineOut ? mul(B.lineOut.d, -1) : undefined;
     for (const z of fitRun(seg, t1, t2)) d += `C${P(z[1])} ${P(z[2])} ${P(z[3])}`;
+    d += cap(B.idx);
   }
   return d + 'Z';
 }

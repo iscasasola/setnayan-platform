@@ -18,6 +18,19 @@ import type { InviteThemeId } from '@/lib/invite-themes';
  * resolved font config, so a guest who came through the door does not download
  * a second copy.
  *
+ * 📱 `preload: false` ON EVERY ONE (2026-09-27). This module is imported by the
+ * guest-tree layout, so a preload here was a download of EVERY theme's faces on
+ * EVERY guest page — a plain House page included, which sets a letter in none
+ * of them. next/font decides preloading per declaration at build time and
+ * cannot know which theme a request wears, so there is no per-theme preload to
+ * be had; without one, a face downloads only when text is set in it, i.e. only
+ * the ACTIVE theme's. 🔑 AND THE SAME FILE MUST SAY THE SAME THING EVERYWHERE:
+ * next/font names a preloaded file `<hash>.p.woff2` and an unpreloaded one
+ * `<hash>.woff2`, so the door (`invite/_components/themes/*`) and
+ * `_fonts/choice-faces.ts` say `preload: false` too — otherwise one face is two
+ * URLs and a guest who walks from the door to the page downloads it twice.
+ * Both rules are held by `lib/fonts-preload-only-the-first-paint.test.ts`.
+ *
  * ⚠ `adjustFontFallback` IS STATED ON EVERY ONE. With local files Next does not
  * infer it, and without it the swap from the metric fallback to the real face
  * reflows the page — `app/layout.tsx` carries the same note.
@@ -33,6 +46,7 @@ import type { InviteThemeId } from '@/lib/invite-themes';
 const bodoni = localFont({
   src: [{ path: '../../../_fonts/bodoni-moda/bodoni-moda-600.woff2', weight: '600', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-velvet-display',
   adjustFontFallback: 'Times New Roman',
 });
@@ -42,6 +56,7 @@ const jost = localFont({
     { path: '../../../_fonts/jost/jost-500.woff2', weight: '500', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-velvet-utility',
   adjustFontFallback: 'Arial',
 });
@@ -52,6 +67,7 @@ const instrumentSerif = localFont({
     { path: '../../../_fonts/instrument-serif/instrument-serif-400-italic.woff2', weight: '400', style: 'italic' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-galeriya-display',
   adjustFontFallback: 'Times New Roman',
 });
@@ -59,6 +75,7 @@ const instrumentSerif = localFont({
 const italiana = localFont({
   src: [{ path: '../../../_fonts/italiana/italiana-400.woff2', weight: '400', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-cinderella-display',
   adjustFontFallback: 'Times New Roman',
 });
@@ -69,6 +86,7 @@ const cormorantSc = localFont({
     { path: '../../../_fonts/cormorant-sc/cormorant-sc-600.woff2', weight: '600', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-velvet-labels',
   adjustFontFallback: 'Times New Roman',
 });
@@ -76,6 +94,7 @@ const cormorantSc = localFont({
 const yesevaOne = localFont({
   src: [{ path: '../../../_fonts/yeseva-one/yeseva-one-400.woff2', weight: '400', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-whimsical-display',
   adjustFontFallback: 'Times New Roman',
 });
@@ -86,6 +105,7 @@ const quicksand = localFont({
     { path: '../../../_fonts/quicksand/quicksand-500.woff2', weight: '500', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-whimsical-labels',
   adjustFontFallback: 'Arial',
 });
@@ -93,6 +113,7 @@ const quicksand = localFont({
 const prata = localFont({
   src: [{ path: '../../../_fonts/prata/prata-400.woff2', weight: '400', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-regency-display',
   adjustFontFallback: 'Times New Roman',
 });
@@ -100,6 +121,7 @@ const prata = localFont({
 const limelight = localFont({
   src: [{ path: '../../../_fonts/limelight/limelight-400.woff2', weight: '400', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-gatsby-display',
   adjustFontFallback: 'Times New Roman',
 });
@@ -107,6 +129,7 @@ const limelight = localFont({
 const poiretOne = localFont({
   src: [{ path: '../../../_fonts/poiret-one/poiret-one-400.woff2', weight: '400', style: 'normal' }],
   display: 'swap',
+  preload: false,
   variable: '--font-gatsby-labels',
   adjustFontFallback: 'Arial',
 });
@@ -117,6 +140,7 @@ const syne = localFont({
     { path: '../../../_fonts/syne/syne-700.woff2', weight: '700', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-cyber-display',
   adjustFontFallback: 'Arial',
 });
@@ -127,6 +151,7 @@ const outfit = localFont({
     { path: '../../../_fonts/outfit/outfit-500.woff2', weight: '500', style: 'normal' },
   ],
   display: 'swap',
+  preload: false,
   variable: '--font-cyber-labels',
   adjustFontFallback: 'Arial',
 });

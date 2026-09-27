@@ -8,6 +8,7 @@ import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { firstVenue, receptionVenue, venueNamesLine } from '@/lib/event-venues';
+import { stdFilmPlaceLine } from '@/lib/venue-disclosure';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
 import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
@@ -995,7 +996,7 @@ export async function SiteBody({
         videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
         ceremonyVenue={stdVenues?.ceremony ?? null}
         receptionVenue={stdVenues?.reception ?? null}
-        receptionCity={stdVenues?.receptionCity ?? null}
+        receptionCity={stdFilmPlaceLine(stdVenues?.receptionCity, event)}
         galleryUrls={
           ownsStdReveal
             ? ourPhotoUrls.length

@@ -27,7 +27,12 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { buildTemplateInsertRows, getScheduleTemplate } from './schedule-templates';
+import {
+  buildTemplateInsertRows,
+  getScheduleTemplate,
+  type ScheduleTemplate,
+  type TemplateInsertRow,
+} from './schedule-templates';
 import { formatWallClock, fromDatetimeLocalValue } from './schedule-datetime-local';
 import { formatBlockTime, formatBlockTimeRange, formatViewerTime, DEFAULT_EVENT_TZ } from './schedule';
 import { stripComments } from './strip-comments';
@@ -46,7 +51,7 @@ function underTz<T>(tz: string, fn: () => T): T {
 }
 
 /** ICU puts a narrow no-break space before AM/PM on newer builds. */
-const norm = (s: string | null) => (s ?? "").replace(/\s+/gu, " ").trim();
+const norm = (s: string | null) => (s ?? '').replace(/\s+/gu, ' ').trim();
 
 // cale-ice's own row, as prod stores it today.
 const GUESTS_ARRIVE = '2026-12-18T13:30:00+00:00';
@@ -54,11 +59,12 @@ const GUESTS_ARRIVE = '2026-12-18T13:30:00+00:00';
 // ── Writes ──────────────────────────────────────────────────────────────────
 
 test('the template writes the wall clock it names, on any machine', () => {
-  const tpl = getScheduleTemplate('wedding_classic_full_day');
-  assert.ok(tpl, 'the classic template exists');
+  const found = getScheduleTemplate('wedding_classic_full_day');
+  assert.ok(found, 'the classic template exists');
+  const tpl: ScheduleTemplate = found;
   for (const tz of ZONES) {
-    const rows = underTz(tz, () => buildTemplateInsertRows(tpl, '2026-12-18'));
-    const arrive = rows.find((r) => r.label === 'Guests arrive');
+    const rows: TemplateInsertRow[] = underTz(tz, () => buildTemplateInsertRows(tpl, '2026-12-18'));
+    const arrive = rows.find((r: TemplateInsertRow) => r.label === 'Guests arrive');
     assert.equal(arrive?.start_at, '2026-12-18T13:30:00.000Z', `template 13:30 stored wrong under TZ=${tz}`);
     assert.equal(arrive?.end_at, '2026-12-18T14:00:00.000Z', `template end stored wrong under TZ=${tz}`);
   }
@@ -88,7 +94,7 @@ test('dashboard, guest page and Maker tile print the same time for the same row'
     });
   }
   // The guest page's "YOUR TIME" line, for a guest whose phone is at the venue.
-  const viewer = underTz('Asia/Manila', () => formatViewerTime(GUESTS_ARRIVE, DEFAULT_EVENT_TZ));
+  const viewer: string | null = underTz('Asia/Manila', () => formatViewerTime(GUESTS_ARRIVE, DEFAULT_EVENT_TZ));
   assert.equal(norm(viewer), '1:30 PM', 'a Manila guest reads the couple\'s own 1:30 PM');
 });
 

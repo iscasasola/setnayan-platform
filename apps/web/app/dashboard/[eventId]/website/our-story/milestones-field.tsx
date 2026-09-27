@@ -81,10 +81,10 @@ export function MilestonesField({ initial }: { initial: MilestoneRow[] }) {
         className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3.5 py-2 text-sm font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta"
       >
         <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Add a moment
+        Add a milestone
       </button>
       <p className="text-xs text-ink/45">
-        A moment needs a year and a few words — month and day are optional. Your timeline
+        A milestone needs a year and a few words — month and day are optional. Your timeline
         sorts itself by date.
       </p>
     </div>

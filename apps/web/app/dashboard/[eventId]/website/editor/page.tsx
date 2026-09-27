@@ -78,6 +78,7 @@ import { clearRsvpBackdrop, saveRsvpBackdrop, setLaunchPhase, setOpenBrowse } fr
 import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';
 import { updateOurStory } from '../our-story/actions';
 import type { LoveStoryBlob } from '../our-story/_components/story-fields';
+import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { paletteSwatches } from '@/lib/site-palette';
 import type { RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
@@ -691,16 +692,17 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'story',
-          label: 'Our story',
-          blurb: 'How you met, the proposal, the milestones.',
+          label: 'Your chapters',
           href: `${w}/our-story`,
           anchor: 'story',
-          status: drafted.love_story ? done('Written') : todo('Not set'),
+          // What the page counts — never "Written" for an empty story.
+          status: loveStoryRowStatus(story),
           panel: (
             <StoryPanel
               action={updateOurStory.bind(null, eventId)}
               eventId={eventId}
               story={story}
+              ownsPro={ownsPro}
             />
           ),
         },

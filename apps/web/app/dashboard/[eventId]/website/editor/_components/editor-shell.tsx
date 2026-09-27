@@ -1406,15 +1406,18 @@ function madeOncePageKey(
 }
 
 
-/** Love Story's controls, beside its page: the words the Invitation weaves into
- *  its story paragraph (the editor's own Story row, with its own bound action). */
+/** Love Story's controls, beside its page: the page's five chapters, each with
+ *  its moments and its questions (the Story row, with its own bound action —
+ *  `our-story/_components/love-story-chapters-panel.tsx`). */
 function LoveStoryControls({ rows }: { rows: Record<string, MakerRowPanel> }) {
   const keys = (TOOL_ROWS['love-story'] ?? []).filter((k) => rows[k]);
   return (
     <section className="flex flex-col gap-3" data-made-once="love-story">
       <p className="px-1 text-[13.5px] text-ink/75">
-        Your moments, each one a scene on your {PUBLIC_STAGE_LABELS.rsvp}. Add and arrange them on the page; a year is
-        enough, and five stories in your words are free.
+        <InfoTip label="The same chapters as your page." ariaLabel="About your chapters" align="start">
+          Each moment is a scene on your {PUBLIC_STAGE_LABELS.rsvp}. Tap one to edit it on the page. A year is enough, and
+          five stories in your words are free. The answers under each chapter feed your story&rsquo;s paragraph.
+        </InfoTip>
       </p>
       {keys.map((k) => (
         <RowBlock key={k} row={rows[k]!} />

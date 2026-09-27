@@ -115,6 +115,12 @@ test('(b) no sample couple can reach a real event through the studio', () => {
   // Empty saved names never overwrite the couple's initials.
   assert.match(engine, /cfg\.text\.trim\(\) \|\| !initialNames/);
   assert.match(engine, /if \(initialNames && !\(initialConfig && typeof initialConfig\.text === 'string' && initialConfig\.text\.trim\(\)\)\)/);
+  // The Names box starts empty and asks — no sample couple in either editor DOM.
+  for (const rel of ['lib/monogram-studio/markup.ts', 'lib/monogram-studio/markup-v2.ts']) {
+    const markup = read(rel);
+    assert.match(markup, /id="names" type="text" value="" placeholder="Add your names"/, `${rel}: the Names box has a sample value`);
+    assert.doesNotMatch(markup, /Maria|Juan/, `${rel}: a sample couple is back`);
+  }
   const studio = code(read('app/dashboard/[eventId]/monogram/studio.tsx'));
   assert.doesNotMatch(studio, /M & J/, 'the studio preview falls back to a sample couple');
   // And the Maker's panel reads the opening rule, not its own copy of it.

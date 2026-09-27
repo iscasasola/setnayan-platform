@@ -16,7 +16,9 @@ then the Hero page previewed it.
   Monogram Maker page's own rule (a config is a design only beside a composition); an uploaded
   logo with no composition is shown **as it is**, with "Upload a different one" / "Design one
   instead". The studio's Names box is the couple's initials; the engine's empty-names fallback is
-  the event's own initials, then the neutral "S" — never a sample couple.
+  the event's own initials, then the neutral "S" (`deriveMonogram`'s own) — never a sample couple.
+  The sample "Maria & Juan" is gone from both editor DOMs: the Names box starts empty and says
+  "Add your names" (owner 2026-09-27: *"each editor of each event will adapt to their event"*).
 - **Hero page = the hero alone.** Its canvas asks `?only=hero`; `canvasOnlyScene`
   (`app/[slug]/_lib/editor-canvas.ts`) honours it ONLY on the host-verified canvas, and one
   guarded `<style>` in `site-body.tsx` hides everything but the hero scene (fail-visible: no hero

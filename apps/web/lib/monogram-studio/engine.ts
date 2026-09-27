@@ -333,10 +333,10 @@ export function mountStudio(opts) {
     outlineHex = '#C5A059';
     bindUI();
     // Seed from the event's initials (e.g. "A & B") on a FIRST open — when there
-    // is no saved studio design to restore. Without this the editor falls back to
-    // its built-in "Maria & Juan" placeholder, so a couple sees the wrong
-    // initials and a save would replace their assigned monogram with a generic
-    // one. A saved initialConfig (applyConfig) carries its own names, so skip then.
+    // is no saved studio design to restore. The markup's Names box starts EMPTY
+    // ("Add your names") — there is no sample couple any more (owner 2026-09-27:
+    // "each editor of each event will adapt to their event"). A saved
+    // initialConfig (applyConfig) carries its own names, so skip then.
     // A saved design with EMPTY names (an upload's leftover `text: ""`) is not
     // names — the couple's own initials fill the box then too (2026-09-27).
     if (initialNames && !(initialConfig && typeof initialConfig.text === 'string' && initialConfig.text.trim()))

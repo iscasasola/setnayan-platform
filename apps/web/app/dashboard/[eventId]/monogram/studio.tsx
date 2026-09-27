@@ -52,7 +52,7 @@ export function VectorStudio({
   eventId: string;
   initialConfig: StudioConfig | null;
   /** The event's initials (e.g. "A & B") — seeds a FIRST design so the editor
-   *  opens on the couple's mark, not the built-in "Maria & Juan" placeholder. */
+   *  opens on the couple’s mark — the Names box has no sample couple. */
   initialNames: string | null;
   /** The couple's uploaded logo, when that is the mark they are working from.
    *  Passed only while no studio composition exists yet: the studio then builds

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { ImageIcon, RotateCcw } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerSave } from '@/lib/maker-refresh';
 import {
   HUB_DEFAULT_FOCAL,
   HUB_DEFAULT_SCENE_SHAPE,
@@ -96,8 +97,17 @@ export function SceneBackgroundRow({
   ownsPro,
   mediaHref,
   onPreview,
+  onSaving,
   hubTheme,
 }: {
+  /**
+   * ⚡ THE CANVAS HOLD (`element-preview.ts`): every scene's canvas this save
+   * writes, exactly as the preview laid it — told BEFORE the save is sent, so
+   * the render the save brings back keeps the canvas instead of reloading a
+   * page that already shows it. A refused save tells it again with the
+   * canvases put back.
+   */
+  onSaving?: (canvases: Record<string, HubSectionCanvas>) => void;
   /** The live theme — the preview's words take its inks over the new ground, as the page will. */
   hubTheme?: InviteThemeId | null;
   /**
@@ -128,10 +138,13 @@ export function SceneBackgroundRow({
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const latest = useRef<HubSectionCanvas>(canvas);
+  /** This scene's canvas as the Maker canvas last had it laid — the revert point. */
+  const laid = useRef<HubSectionCanvas>(canvas);
   const [shown, setShown] = useState<HubSectionCanvas>(canvas);
   const canvasJson = JSON.stringify(canvas);
   useEffect(() => {
     latest.current = canvas;
+    laid.current = canvas;
     setShown(canvas);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasJson]);
@@ -141,27 +154,59 @@ export function SceneBackgroundRow({
   /** The couple's own photo URLs, by ref — what a photo background paints with. */
   const mediaUrl = (ref: string) =>
     photoChoices.find((p) => p.ref === ref)?.url ?? (videoChoice?.ref === ref ? videoChoice.url : null);
-  const save = (patch: { widgets: Record<string, { canvas: HubSectionCanvas }> }, after?: () => void) => {
+  const theme = INVITE_THEMES[hubTheme ?? 'house'] ?? INVITE_THEMES.house;
+  const save = (
+    patch: { widgets: Record<string, { canvas: HubSectionCanvas }> },
+    after?: () => void,
+  ) => {
     setError(null);
-    /* ⚡ On the canvas first — every scene the patch touches — then the save. */
-    onPreview?.(
-      sceneBgPreviewMessage(
-        Object.entries(patch.widgets).map(([type, w]) => ({ type, canvas: w.canvas })),
-        mediaUrl,
-        INVITE_THEMES[hubTheme ?? 'house'] ?? INVITE_THEMES.house,
-      ),
+    const touched = Object.fromEntries(Object.entries(patch.widgets).map(([type, w]) => [type, w.canvas]));
+    /** This scene as the canvas showed it BEFORE the change — what a refused save puts back. */
+    const prior = laid.current;
+    if (widgetType in touched) laid.current = touched[widgetType]!;
+    /* What each touched scene showed before — put back if the save is refused. */
+    const before: Record<string, HubSectionCanvas> = Object.fromEntries(
+      Object.keys(touched).map((type) => [
+        type,
+        type === widgetType ? prior : (stageScenes.find((sc) => sc.type === type)?.canvas ?? {}),
+      ]),
     );
+    const lay = (canvases: Record<string, HubSectionCanvas>) =>
+      onPreview?.(
+        sceneBgPreviewMessage(
+          Object.entries(canvases).map(([type, canvas]) => ({ type, canvas })),
+          mediaUrl,
+          theme,
+        ),
+      );
+    /* ⚡ On the canvas first — every scene the patch touches — then the hold,
+       then the save. */
+    lay(touched);
+    onSaving?.(touched);
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
-      const res = await draftAction(eventId, fd);
+      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true }).catch(
+        () => ({ ok: false as const, intent: 'save' as const, error: 'That change could not be saved. Please try again.' }),
+      );
       if (!res.ok) {
+        /* ↩ Refused: the canvas, the hold and the row go back to what was saved
+           — unless a later choice on this scene is already on its way (it
+           carries the whole canvas and decides). */
+        if (latest.current === touched[widgetType] || !(widgetType in touched)) {
+          if (widgetType in touched) {
+            latest.current = prior;
+            laid.current = prior;
+            setShown(prior);
+          }
+          lay(before);
+          onSaving?.(before);
+        }
         setError(res.error);
         return;
       }
       after?.();
-      router.refresh();
     });
   };
   /** One change to THIS scene's background; `ask` raises the one-or-all question. */

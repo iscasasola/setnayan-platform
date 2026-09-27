@@ -97,9 +97,98 @@ export type CanvasHold = {
   until: number;
   /** Every scene's canvas as the canvas iframe now SHOWS it, or null when not holding. */
   shows: Record<string, HubSectionCanvas> | null;
+  /**
+   * 🧭 WHICH SCENES THE CANVAS DRAWS, per stage, in order (`canvasOrderOf`) —
+   * the second half of what the canvas shows. A hold started with it compares
+   * it too, so a render that drew a different set of scenes (a scene shown, a
+   * reorder, another tab's write) always reloads. Absent on a hold that was
+   * started without it (the element sheet's own tests): canvases only.
+   */
+  order?: string | null;
 };
 
 export const NO_CANVAS_HOLD: CanvasHold = { until: 0, shows: null };
+
+/**
+ * The scenes each stage's canvas draws, in canvas order — ONE string, from the
+ * navigator's own lists (`lib/maker-scene-list.ts`, the same resolver the page
+ * asks). An empty scene is marked: filling it changes what is drawn.
+ */
+export function canvasOrderOf(
+  stageLists: Record<string, { shown: ReadonlyArray<{ key: string; empty?: string }> }>,
+): string {
+  return Object.keys(stageLists)
+    .sort()
+    .map((stage) => `${stage}=${stageLists[stage]!.shown.map((t) => `${t.key}${t.empty ? '∅' : ''}`).join(',')}`)
+    .join(';');
+}
+
+/**
+ * 🙈 A SCENE TAKEN OFF THE PAGE: the order the canvas draws once `key` is no
+ * longer drawn on ANY stage — exactly what the server's next render lists,
+ * because a hidden scene moves to every stage's fold (`maker-scene-list.ts`).
+ */
+export function orderWithout(order: string, key: string): string {
+  return order
+    .split(';')
+    .map((part) => {
+      const at = part.indexOf('=');
+      if (at < 0) return part;
+      const keys = part.slice(at + 1).split(',').filter((k) => k.length > 0 && k.replace(/∅$/, '') !== key);
+      return `${part.slice(0, at)}=${keys.join(',')}`;
+    })
+    .join(';');
+}
+
+type SceneGate = { mode: 'auto' | 'shown' | 'hidden'; isVisible: boolean };
+
+/**
+ * 👁 WHAT ONE EYE / Auto·Shown·Hidden WRITE DOES TO THE CANVAS — read the way
+ * the page reads it: with open browsing ON, `mode` decides and `auto` falls
+ * back to `is_visible` (`openBrowseSectionVisible`); with it OFF, the page
+ * reads `is_visible` alone and `mode` changes nothing it draws.
+ *
+ *   'hide'    — a drawn scene leaves the page: the bridge hides it now, held;
+ *   'none'    — nothing the canvas draws changes: held as it is;
+ *   'show'    — a scene the page never drew must be drawn: reload;
+ *   'unknown' — open browsing unread: reload (never guess).
+ */
+export function sceneDrawEffect(
+  before: SceneGate,
+  after: SceneGate,
+  openBrowse: boolean | null | undefined,
+): 'hide' | 'none' | 'show' | 'unknown' {
+  if (typeof openBrowse !== 'boolean') return 'unknown';
+  const drawn = (s: SceneGate) =>
+    openBrowse ? (s.mode === 'hidden' ? false : s.mode === 'shown' ? true : s.isVisible) : s.isVisible;
+  const was = drawn(before);
+  const is = drawn(after);
+  return was === is ? 'none' : was ? 'hide' : 'show';
+}
+
+/**
+ * ⚡ ANY CHANGE THE BRIDGE HAS ALREADY DRAWN, held (owner 2026-09-28: *"picking
+ * something takes a lot of time before the website reacts"*). The element
+ * sheet's `holdCanvas` generalised: `canvases` are scenes whose canvas the
+ * bridge laid (a background, a part, words), `order` the scenes it took off the
+ * page (`orderWithout`). `server` is what the last render handed the shell; a
+ * hold still running builds on what the canvas already shows.
+ */
+export function holdChange(
+  hold: CanvasHold,
+  server: { canvases: Record<string, HubSectionCanvas>; order: string },
+  change: { canvases?: Record<string, HubSectionCanvas>; order?: (shown: string) => string },
+  now: number,
+): CanvasHold {
+  const running = hold.shows && now < hold.until;
+  const shows = running ? hold.shows! : server.canvases;
+  const order = running && typeof hold.order === 'string' ? hold.order : server.order;
+  return {
+    until: now + CANVAS_HOLD_MS,
+    shows: { ...shows, ...(change.canvases ?? {}) },
+    order: change.order ? change.order(order) : order,
+  };
+}
 
 /** A canvas map in one spelling — keys sorted, empty canvases dropped (absent = empty). */
 export function canvasesFingerprint(canvases: Record<string, HubSectionCanvas> | null | undefined): string {
@@ -133,9 +222,13 @@ export function holdCanvas(
   widgetType: string,
   canvas: HubSectionCanvas,
   now: number,
+  /** The render's scene order (`canvasOrderOf`) — held too, so a render that drew other scenes reloads. */
+  serverOrder?: string,
 ): CanvasHold {
-  const base = hold.shows && now < hold.until ? hold.shows : server;
-  return { until: now + CANVAS_HOLD_MS, shows: { ...base, [widgetType]: canvas } };
+  const running = hold.shows && now < hold.until;
+  const base = running ? hold.shows! : server;
+  const order = running && typeof hold.order === 'string' ? hold.order : (serverOrder ?? null);
+  return { until: now + CANVAS_HOLD_MS, shows: { ...base, [widgetType]: canvas }, ...(order !== null ? { order } : {}) };
 }
 
 /**
@@ -147,8 +240,11 @@ export function canvasKeepsItsPage(
   hold: CanvasHold,
   server: Record<string, HubSectionCanvas>,
   now: number,
+  /** The render's scene order (`canvasOrderOf`). A hold that carries an order must match it. */
+  serverOrder?: string,
 ): boolean {
   if (!hold.shows || now >= hold.until) return false;
+  if (typeof hold.order === 'string' && hold.order !== serverOrder) return false;
   return canvasesFingerprint(hold.shows) === canvasesFingerprint(server);
 }
 

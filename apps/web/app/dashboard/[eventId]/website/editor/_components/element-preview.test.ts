@@ -452,7 +452,10 @@ test('the stage canvas iframe is keyed on the held stamp, never on every render'
   const frame = src.slice(src.indexOf('<BufferedCanvasFrame'), src.indexOf('/>', src.indexOf('<BufferedCanvasFrame')));
   assert.ok(frame.length > 0, 'the stage canvas is the buffered frame');
   assert.match(frame, /frameKey=\{`\$\{stage\}:\$\{canvasStamp\}/, 'the stage canvas must be keyed on canvasStamp');
-  assert.doesNotMatch(frame, /renderStamp/, 'a key on renderStamp reloads the canvas on every element save');
+  // `warmGen` is not a key: it only tells the buffer a render landed, a moment to
+  // warm the OTHER stages (2026-09-28). Everything else must never see renderStamp.
+  assert.match(frame, /warmGen=\{maker\.renderStamp\}/);
+  assert.doesNotMatch(frame.replace('warmGen={maker.renderStamp}', ''), /renderStamp/, 'a key on renderStamp reloads the canvas on every element save');
   assert.match(src, /canvasKeepsItsPage\(canvasHold\.current/);
   assert.match(src, /onSaving=\{\(widgetType, canvas\) => \{\s*canvasHold\.current = holdCanvas\(/);
 });
@@ -475,7 +478,8 @@ test('the sheet previews BEFORE it saves, and a refusal previews the saved look'
   const src = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx'), 'utf8');
   const commit = src.slice(src.indexOf('const commit = '), src.indexOf('/* ✍ A selection inside'));
   const preview = commit.indexOf('onPreview?.(elementPreview(target.key, target.el, before, next))');
-  const save = commit.indexOf('await saveCanvas(');
+  // The save starts inside `makerSave` (one refresh per burst, `lib/maker-refresh.ts`).
+  const save = commit.indexOf('saveCanvas(draftAction');
   assert.ok(preview > 0 && save > preview, 'the canvas must be told before the save starts');
   const refused = commit.slice(commit.indexOf('if (!res.ok)'));
   assert.match(refused, /revertAfterFailedSave\(/);

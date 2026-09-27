@@ -1,5 +1,6 @@
 'use client';
 
+import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -253,12 +254,15 @@ export function MakerLogoDoor({
             },
           }),
         );
-        const r = await hubDraftAction(eventId, fd);
+        /* One refresh after the last save in flight (`lib/maker-refresh.ts`) —
+           the toolbar's count reads the draft. The action used to re-render the
+           whole Maker in its own response on EVERY autosave (`revalidatePath`),
+           whether `refresh` was asked for or not; this is that render, once. */
+        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (r.ok) {
           gate.current.saved(svg);
           setSave({ kind: 'saved' });
           announceMakerSave({ state: 'saved' });
-          if (opts.refresh) router.refresh();
         } else {
           setSave({ kind: 'error', text: r.error });
           announceMakerSave({ state: 'error', text: r.error });

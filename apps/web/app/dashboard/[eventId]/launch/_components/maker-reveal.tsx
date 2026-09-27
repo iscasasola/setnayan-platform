@@ -1,5 +1,6 @@
 'use client';
 
+import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, Play } from 'lucide-react';
@@ -117,9 +118,8 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_template: value } }));
-        const r = await hubDraftAction(eventId, fd);
+        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) setError(r.error);
-        else router.refresh();
       } catch {
         setError('Your reveal could not be saved. Please try again.');
       }
@@ -132,9 +132,8 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { reveal_stages: next } }));
-        const r = await hubDraftAction(eventId, fd);
+        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) setError(r.error);
-        else router.refresh();
       } catch {
         setError('Where your reveal plays could not be saved. Please try again.');
       }
@@ -149,9 +148,8 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_effects: next } }));
-        const r = await hubDraftAction(eventId, fd);
+        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) setError(r.error);
-        else router.refresh();
       } catch {
         setError('Your reveal’s effects could not be saved. Please try again.');
       }

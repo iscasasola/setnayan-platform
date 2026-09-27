@@ -343,11 +343,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     .from('events')
     .update({ print_details: serializePrintDetails(details) })
     .eq('event_id', eventId);
+  if (error) logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
+  /* 🧷 The Maker saves this form IN PLACE (`launch/_components/soft-post.tsx`,
+     owner 2026-09-28: *"it reloads the whole page. which shouldn't"*): asked
+     for JSON, it gets the answer, not a 303 that reloads the whole document.
+     A plain form post (no JavaScript) still comes back to the Maker. */
+  if ((req.headers.get('accept') ?? '').includes('application/json')) {
+    return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
+  }
   const back = new URL(`/dashboard/${eventId}/launch`, req.url);
   back.searchParams.set('tool', 'details');
-  if (error) {
-    logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
-    back.searchParams.set('print_error', '1');
-  } else back.searchParams.set('print_saved', '1');
+  if (error) back.searchParams.set('print_error', '1');
+  else back.searchParams.set('print_saved', '1');
   return NextResponse.redirect(back, 303);
 }

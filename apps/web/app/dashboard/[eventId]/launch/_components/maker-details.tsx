@@ -5,6 +5,7 @@ import type { PrintParent, StoredPrintDetails } from '@/lib/print-pieces';
 import { HubDraftField, HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PabuyaMessageEditor } from '../../pabuya/_components/pabuya-message-editor';
 import { OpeningLineField } from './opening-line-field';
+import { SoftPost } from './soft-post';
 import { MAKER_DETAILS_LABEL } from './maker-bar';
 import { SlugField } from '../../invitation/_components/slug-field';
 import { siteOrigin } from '@/lib/site-origin';
@@ -209,10 +210,12 @@ export function MakerDetails({
               />
             </Toggle>
           </div>
-          <div className="pt-2">
+          <div className="flex items-center gap-3 pt-2">
             <button type="submit" className="button-primary text-sm">
               Save
             </button>
+            {/* 🧷 Saves in place — never a whole-page reload (owner 2026-09-28). */}
+            <SoftPost />
           </div>
         </form>
 

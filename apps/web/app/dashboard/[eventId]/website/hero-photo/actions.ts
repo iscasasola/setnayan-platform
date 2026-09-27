@@ -44,8 +44,10 @@ async function draftHero(eventId: string, ref: string | null, formData: FormData
     { events: { landing_page_hero_image_url: ref } },
     { formData, fallback: `/dashboard/${eventId}/launch` },
   );
-  revalidatePath(`/dashboard/${eventId}/launch`);
-  revalidatePath('/[slug]', 'page');
+  /* ⚡ No revalidation: a DRAFTED hero reaches no guest until Apply (so every
+     guest page — `'/[slug]', 'page'` — was invalidated for nothing), and the
+     redirect carries the Maker's fresh render back in this response (owner
+     2026-09-28, `a-maker-pick-never-reloads-what-it-drew.test.ts`). */
   redirect(resolveReturnTo(formData, `/dashboard/${eventId}/launch`));
 }
 

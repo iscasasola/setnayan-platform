@@ -39,7 +39,11 @@ import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 
 /** The hero photo, into the couple's draft — then back to the Maker. Never returns. */
 async function draftHero(eventId: string, ref: string | null, formData: FormData): Promise<never> {
-  await saveHubDraftPatch(eventId, { events: { landing_page_hero_image_url: ref } });
+  await saveHubDraftPatch(
+    eventId,
+    { events: { landing_page_hero_image_url: ref } },
+    { formData, fallback: `/dashboard/${eventId}/launch` },
+  );
   revalidatePath(`/dashboard/${eventId}/launch`);
   revalidatePath('/[slug]', 'page');
   redirect(resolveReturnTo(formData, `/dashboard/${eventId}/launch`));

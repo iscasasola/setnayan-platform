@@ -160,7 +160,7 @@ export default async function WebsiteEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ open?: string; pin?: string; maker?: string; scene?: string; chain?: string }>;
+  searchParams: Promise<{ open?: string; pin?: string; maker?: string; scene?: string; chain?: string; draft_error?: string }>;
 }) {
   const { eventId } = await params;
   const {
@@ -169,6 +169,7 @@ export default async function WebsiteEditorPage({
     maker: inMaker,
     scene: sceneParam,
     chain: chainParam,
+    draft_error: draftError,
   } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -251,6 +252,8 @@ export default async function WebsiteEditorPage({
     const q = new URLSearchParams({ stage: initialPhase });
     if (typeof openRow === 'string') q.set('open', openRow);
     if (typeof pinResult === 'string') q.set('pin', pinResult);
+    // A draft save that did not land says so in the Maker's toolbar — carry it.
+    if (typeof draftError === 'string') q.set('draft_error', draftError);
     redirect(`/dashboard/${eventId}/launch?${q.toString()}`);
   }
   // 🔒 App-store shell: Pro-only rows and their locks are HIDDEN, not locked.

@@ -155,7 +155,11 @@ test('the rest of the Phase 2 dock survives the redesign: Pro line, store-shell 
   assert.match(fn, /Reset in your draft\. Guests still see the old page until you Apply\./, "Reset's own confirmation copy must still render");
 });
 
-test('the ⋯ opens by itself when an action reports back — an Apply that held keys back is never silent', () => {
+test('the ⋯ opens by itself when an action reports something to read — an Apply that held keys back is never silent', () => {
   const fn = body('HubDraftToolbar');
-  assert.match(fn, /const act = \(fields: Record<string, string>\) => \{\s*run\(fields\);\s*setAsking\(false\);\s*setOpen\(true\);\s*\};/);
+  // 2026-09-27 (owner, on the live Maker): the panel used to open on EVERY
+  // press and then stayed open after a clean Apply. It now follows the answer —
+  // `hubDraftPanelStaysOpen` (open on an error, a held key or Reset; closed on
+  // a clean Apply) — proved in lib/the-draft-always-fits.test.ts.
+  assert.match(fn, /useEffect\(\(\) => \{\s*if \(result\) setOpen\(hubDraftPanelStaysOpen\(result\)\);\s*\}, \[result\]\);/);
 });

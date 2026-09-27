@@ -60,7 +60,9 @@ test('the logo autosaves: after a pause, on the way out, and when the tab is hid
     ['a pause after a change', /setTimeout\(\(\) => void flush\(\)/],
     ['the tab hidden', /visibilitychange/],
     ['the page left', /pagehide/],
-    ['Back (to the stage)', /const close = useCallback\(\(\) => \{\s*void flush\(/],
+    // …and never on open: only a canvas that differs from how it stood when
+    // the couple first reached for it (lib/the-logo-never-saves-on-open.test.ts).
+    ['a real edit only', /gate\.current\.shouldSave\(m\.mark\.svg\)/],
   ] as const) {
     assert.match(src, re, `the logo does not save on ${what}`);
   }

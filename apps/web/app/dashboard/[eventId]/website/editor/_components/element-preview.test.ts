@@ -94,7 +94,7 @@ class FakeEl extends FakeNode {
   nodeType = 1;
   attrs = new Map<string, string>();
   style = new FakeStyle();
-  childNodes: FakeNode[] & { forEach: (fn: (n: FakeNode) => void) => void } = [] as never;
+  childNodes: FakeNode[] = [];
   hidden = false;
   constructor(public tagName: string) {
     super();
@@ -366,7 +366,10 @@ test("a scene's parts: the bridge writes the SAME scoped <style> the frame rende
     updated_at: '',
   };
   const html = renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, { widget: widget as never }, React.createElement('section', null, 'x')),
+    React.createElement(HubCanvasFrame, {
+      widget: widget as never,
+      children: React.createElement('section', null, 'x'),
+    }),
   );
   const serverCss = unesc(/<style[^>]*data-hub-els="details"[^>]*>([\s\S]*?)<\/style>/.exec(html)?.[1] ?? '');
   assert.ok(serverCss.includes('zoom:1.2'), 'the frame really rendered the choice');
@@ -399,7 +402,7 @@ test('the elStyle message is wired: the canvas applies it, and replays on a moti
 /* ═══ 2 · AN ELEMENT SAVE DOES NOT RELOAD THE CANVAS ═════════════════════ */
 
 const hero: Canvas = { elements: { names: { size: 'l' } } };
-const details: Canvas = { arrangement: 'split' } as Canvas;
+const details: Canvas = { arrangement: 'left' };
 
 test('the hold keeps the page for a render that shows what the canvas shows', () => {
   const server = { hero: {}, details };
@@ -417,7 +420,7 @@ test('the hold never swallows a render that changed something — or one after i
   // Undo took the choice back: the canvas must reload.
   assert.equal(ep.canvasKeepsItsPage(hold, server, 2000), false);
   // A background changed on another scene: reload.
-  assert.equal(ep.canvasKeepsItsPage(hold, { hero, details: { ...details, zoom: 'in' } as Canvas }, 2000), false);
+  assert.equal(ep.canvasKeepsItsPage(hold, { hero, details: { ...details, zoom: 120 } }, 2000), false);
   // No hold at all (every other Maker write): reload.
   assert.equal(ep.canvasKeepsItsPage(ep.NO_CANVAS_HOLD, { hero, details }, 2000), false);
   // The hold lapsed: reload.

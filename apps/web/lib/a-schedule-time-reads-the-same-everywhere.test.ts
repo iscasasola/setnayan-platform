@@ -111,6 +111,10 @@ test('dashboard, guest page and Maker tile print the same time for the same row'
 
 const EXEMPT: Record<string, { count: number; why: string }> = {
   'app/[slug]/_components/editorial/data.ts': { count: 1, why: "a photo capture's real instant, in Manila" },
+  // `fmtInstant` — `actual_start_at` is the database's now() at the press, a
+  // real instant, read on the venue's clock. `fmtTime` beside it reads the
+  // stored wall clock with timeZone: 'UTC' and is not counted.
+  'app/_components/run-of-show-header.tsx': { count: 1, why: 'when a moment ACTUALLY started (actual_start_at) is a real instant, shown in the venue zone' },
   'lib/alaala-chapters.ts': { count: 1, why: 'venue parts of real capture instants' },
   'lib/papic-window.ts': { count: 1, why: 'the capture window closes at a real instant' },
   'lib/schedule.ts': { count: 2, why: 'the tz maths itself, and formatViewerTime — the lift into the viewer\'s zone' },

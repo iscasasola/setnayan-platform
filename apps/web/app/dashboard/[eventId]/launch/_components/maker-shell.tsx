@@ -3,13 +3,14 @@
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Info, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
+import { Info, Monitor, MoreHorizontal, PanelLeft, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { MAKER_BAR, MAKER_COMING_NEXT, isStagePhase, type MakerBarItem } from './maker-bar';
 import {
   MakerContext,
+  MAKER_ADD_SCENE_SLOT_ID,
   MAKER_MORE_ROWS_ID,
   type MakerDevice,
   type MakerSelection,
@@ -280,9 +281,11 @@ export function MakerShell({
                 }
               />
             ) : null}
-            <ComingNext label="Add a scene" note={MAKER_COMING_NEXT.add} align="start">
-              <Plus aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </ComingNext>
+            {/* ＋ ADD A SCENE — the work area portals the working button here
+                (`MAKER_ADD_SCENE_SLOT_ID`): it opens the same template sheet as
+                the navigator's "+ Add a scene", and the scene goes into the
+                draft. */}
+            <span id={MAKER_ADD_SCENE_SLOT_ID} data-maker-add-scene-slot="" className="contents" />
             <p className="ml-1 truncate font-serif text-base text-ink md:hidden">Event Hub Maker</p>
             <span className="ml-auto flex items-center gap-1 md:hidden">
               <IconButton label="About the Event Hub Maker" onClick={() => setTour('again')}>

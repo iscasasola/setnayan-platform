@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   SCENE_BUILT_ON_LABEL,
   SCENE_FAMILIES,
@@ -41,12 +41,22 @@ export function SceneTemplatePicker({
   overlay = false,
   facts = null,
   draft = false,
+  open: openProp,
+  onOpenChange,
 }: {
   /**
+   * Controlled open state, for a sheet with a second door (the Maker's toolbar
+   * ＋ opens the same "Add a scene" sheet as the navigator's button). Absent →
+   * the picker keeps its own.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
    * 💾 The tiles save to the Event Hub DRAFT (`draft=1`). True for "Change
-   * template" (`saveCustomSection` `intent=template` has a draft door); false
-   * for "+ Add a scene", which inserts a new row at once — and then the sheet
-   * says "Saves immediately" (`every-maker-form-drafts-or-says-so.test.ts`).
+   * template" (`saveCustomSection` `intent=template`) and for the Maker's
+   * "+ Add a scene" (`addCustomSection` inserts the row HIDDEN and drafts it
+   * shown — guests meet it at Apply). A picker without it says "Saves
+   * immediately" (`every-maker-form-drafts-or-says-so.test.ts`).
    */
   draft?: boolean;
   /**
@@ -76,16 +86,24 @@ export function SceneTemplatePicker({
    */
   hideMediaSlots?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = openProp ?? ownOpen;
+  const setOpen = (next: boolean | ((was: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (openProp === undefined) setOwnOpen(value);
+    onOpenChange?.(value);
+  };
   const [view, setView] = useState<SceneView>(initialView);
   // The view follows the one being edited each time the picker opens.
   useEffect(() => {
     if (open) setView(initialView);
   }, [open, initialView]);
+  const closeRef = useRef(() => setOpen(false));
+  closeRef.current = () => setOpen(false);
   useEffect(() => {
     if (!open || !overlay) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') closeRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -115,7 +133,9 @@ export function SceneTemplatePicker({
           aria-label={`${heading} ${stageLabel}`}
           className={
             overlay
-              ? 'fixed inset-x-3 bottom-3 top-16 z-[91] mx-auto max-w-3xl overflow-y-auto rounded-md border border-ink/10 bg-cream p-3 shadow-lg sm:inset-x-6'
+              ? /* 📱 A bottom sheet on a phone (rounded top, from the bottom
+                   edge, the page still peeking above); a panel from sm up. */
+                'fixed inset-x-0 bottom-0 top-auto z-[91] mx-auto max-h-[85dvh] max-w-3xl overflow-y-auto rounded-t-3xl border border-ink/10 bg-cream p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg sm:inset-x-6 sm:bottom-3 sm:top-16 sm:max-h-none sm:rounded-md'
               : 'mt-2 rounded-md border border-ink/10 bg-cream p-3 shadow-sm'
           }
         >

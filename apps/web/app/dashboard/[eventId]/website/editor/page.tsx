@@ -1206,7 +1206,7 @@ export default async function WebsiteEditorPage({
         storeShell
           ? null
           : !ownsPro
-            ? { note: 'Scenes of your own, from 25 templates, come with Event Hub Pro.' }
+            ? { note: 'Scenes of your own, from 25 templates, come with Event Hub Pro.', locked: true }
             : !nextFreeCustomSlot(allWidgets.map((w) => w.widget_type))
               ? { note: 'You have all six of your own scenes. Remove one you are not using to add another.' }
               : { action: addCustomSection, returnTo: `/dashboard/${eventId}/launch` }

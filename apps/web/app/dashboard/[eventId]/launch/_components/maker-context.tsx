@@ -64,3 +64,11 @@ export function useMaker(): MakerState | null {
 
 /** The element id the ⋯ sheet keeps for the work area's address rows. */
 export const MAKER_MORE_ROWS_ID = 'maker-more-rows';
+
+/**
+ * The toolbar's ＋ slot. "+ Add a scene" needs what only the work area knows —
+ * the templates, whether this couple may add one (Pro, the six), and the stage
+ * — so the work area portals its button in here, the way it portals the
+ * address rows into the ⋯ sheet above.
+ */
+export const MAKER_ADD_SCENE_SLOT_ID = 'maker-add-scene';

@@ -63,11 +63,11 @@ function paintCountdown(canvas: unknown, mediaUrls: Record<string, string> = {})
   const w = row(canvas);
   const bare = sceneWidgetIsBare(w, mediaUrls);
   return renderToStaticMarkup(
-    React.createElement(
-      HubCanvasFrame,
-      { widget: w, mediaUrls },
-      React.createElement(CountdownWidget, { targetIso: '2099-12-12', bare }),
-    ),
+    React.createElement(HubCanvasFrame, {
+      widget: w,
+      mediaUrls,
+      children: React.createElement(CountdownWidget, { targetIso: '2099-12-12', bare }),
+    }),
   );
 }
 

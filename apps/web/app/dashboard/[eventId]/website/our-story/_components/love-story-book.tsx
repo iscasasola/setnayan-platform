@@ -94,11 +94,14 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
     mediaUrls: p.mediaUrls,
   };
   const proLine = <LoveStoryProLine storeShell={p.storeShell} href={p.proHref} price={p.proPrice} />;
-  const addButton = canAdd ? (
+  /* `opensFor="add"` on ONE of the two add buttons (the foot's) — the Maker's
+     panel asks it to open under a chapter (`love-story-open.ts`). */
+  const addButton = (opensFor?: string) => canAdd ? (
     <MomentSheet
       {...sheetProps}
       trigger={<AddMomentLabel />}
       triggerClassName="button-primary inline-flex items-center gap-1.5"
+      opensFor={opensFor}
     />
   ) : (
     <div data-love-story-cap="reached">
@@ -177,7 +180,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
         {/* The prototype's phone dock, placed IN the page rather than pinned:
             the phone already stacks the moment strip and the nav at the foot,
             and a third pinned bar slid under them (harness, 2026-09-25). */}
-        {p.refused ? null : <div className="mt-6 flex justify-center">{addButton}</div>}
+        {p.refused ? null : <div className="mt-6 flex justify-center">{addButton()}</div>}
         {p.refused ? (
           <div role="status" data-love-story-refused={p.refused} className="mx-auto mt-6 max-w-md">
             <p className="text-[14px]">
@@ -224,7 +227,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
             const numbered = chapter !== 'before';
             if (numbered) chapterNo += 1;
             return (
-              <section key={chapter} id={`ch-${chapter}`} className="scroll-mt-16">
+              <section key={chapter} id={`ch-${chapter}`} data-love-story-chapter={chapter} className="scroll-mt-16">
                 <header className="mb-6">
                   <p className={`${eye} text-[color:var(--ls-heading)]`}>
                     {numbered ? `Chapter ${chapterNo}` : 'Before us · optional'}
@@ -271,6 +274,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                             <MomentSheet
                               {...sheetProps}
                               moment={m}
+                              opensFor={m.id}
                               trigger={
                                 <>
                                   <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Edit
@@ -318,7 +322,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                 ? 'Add as many moments as you like, with your photos.'
                 : `Up to ${FREE_MOMENT_CAP} stories, in your words, are free.`}
             </p>
-            {addButton}
+            {addButton('add')}
           </div>
 
           {p.pickSlot}

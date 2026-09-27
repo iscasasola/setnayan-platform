@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -12,9 +12,11 @@ import {
   chapterOf,
   formatMomentDate,
   readMomentDate,
+  type LoveStoryChapter,
   type LoveStoryMoment,
   type MomentAnchor,
 } from '@/lib/love-story-moments';
+import { LOVE_STORY_OPEN_EVENT, takeQueuedOpen, type LoveStoryOpenAsk } from './love-story-open';
 import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { useMaker } from '../../../launch/_components/maker-context';
@@ -36,6 +38,15 @@ import { InMakerReturnTo } from './in-maker-return-to';
  */
 type Precision = 'day' | 'month' | 'year';
 
+/** Where a moment of this chapter must be dated — said only when the date puts it elsewhere. */
+const CHAPTER_RULE: Record<LoveStoryChapter, string> = {
+  before: 'Before us holds moments dated before How we met.',
+  met: 'How we met holds the one moment marked How we met.',
+  falling: 'Falling holds moments dated between How we met and The yes.',
+  yes: 'The yes holds the one moment marked The yes.',
+  toward: 'Toward the day holds moments dated after The yes.',
+};
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -54,6 +65,7 @@ export function MomentSheet({
   mediaUrls = {},
   trigger,
   triggerClassName,
+  opensFor,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   /** The whole list, for the live "Will sit in". */
@@ -69,6 +81,12 @@ export function MomentSheet({
   mediaUrls?: Readonly<Record<string, string>>;
   trigger: React.ReactNode;
   triggerClassName: string;
+  /**
+   * The Maker's Love Story panel may ask this sheet to open (`love-story-open.ts`):
+   * a moment's id for its Edit sheet, `add` for the page's one add sheet. Only
+   * ONE sheet per target may carry it — the ask is answered by whoever hears it.
+   */
+  opensFor?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -98,6 +116,36 @@ export function MomentSheet({
   const [month, setMonth] = useState(d?.m ? String(d.m) : '');
   const [day, setDay] = useState(d?.d ? String(d.d) : '');
   const [anchor, setAnchor] = useState<MomentAnchor | ''>(moment?.anchor ?? '');
+  /* The chapter the panel's "Add a moment" was pressed under — null otherwise. */
+  const [target, setTarget] = useState<LoveStoryChapter | null>(null);
+
+  /* 🧭 THE PANEL ASKS, THIS SHEET OPENS — never a second editor. */
+  const openRef = useRef(openSheet);
+  openRef.current = openSheet;
+  useEffect(() => {
+    if (!opensFor) return;
+    const answer = (ask: LoveStoryOpenAsk) => {
+      if (ask.chapter) {
+        // The two anchors ARE their chapters; the other three follow the date.
+        setTarget(ask.chapter);
+        setAnchor(ask.chapter === 'met' || ask.chapter === 'yes' ? ask.chapter : '');
+      }
+      openRef.current();
+      window.requestAnimationFrame(() =>
+        triggerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }),
+      );
+    };
+    const queuedAsk = takeQueuedOpen(opensFor);
+    if (queuedAsk) answer(queuedAsk);
+    const onAsk = (e: Event) => {
+      const ask = (e as CustomEvent<LoveStoryOpenAsk>).detail;
+      if (!ask || ask.target !== opensFor) return;
+      e.preventDefault();
+      answer(ask);
+    };
+    window.addEventListener(LOVE_STORY_OPEN_EVENT, onAsk);
+    return () => window.removeEventListener(LOVE_STORY_OPEN_EVENT, onAsk);
+  }, [opensFor]);
 
   const sitsIn = useMemo(() => {
     const date = readMomentDate({
@@ -116,7 +164,8 @@ export function MomentSheet({
     const rest = moments.filter((m) => m.id !== draft.id).map((m) =>
       anchor && m.anchor === anchor ? { ...m, anchor: undefined } : m,
     );
-    return `${formatMomentDate(date)} · ${LOVE_STORY_CHAPTER_LABEL[chapterOf(draft, [...rest, draft])]}`;
+    const chapter = chapterOf(draft, [...rest, draft]);
+    return { label: `${formatMomentDate(date)} · ${LOVE_STORY_CHAPTER_LABEL[chapter]}`, chapter };
   }, [year, month, day, precision, anchor, moment, moments]);
 
   const field =
@@ -344,7 +393,12 @@ export function MomentSheet({
 
               <div aria-live="polite" className="border-t border-[color:var(--ls-rule)] pt-4">
                 <p className={eye}>Will sit in</p>
-                <p className="mt-1 font-pahina text-xl">{sitsIn ?? 'Add a year to find its place'}</p>
+                <p className="mt-1 font-pahina text-xl">{sitsIn?.label ?? 'Add a year to find its place'}</p>
+                {target && sitsIn && sitsIn.chapter !== target ? (
+                  <p data-moment-chapter-rule={target} className="mt-1 text-[13px] text-[color:var(--ls-muted)]">
+                    {CHAPTER_RULE[target]}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex items-center justify-end gap-2">
@@ -370,7 +424,18 @@ export function MomentSheet({
         type="button"
         aria-expanded={inMaker ? open : undefined}
         className={triggerClassName}
-        onClick={inMaker && open ? () => setOpen(false) : openSheet}
+        onClick={
+          inMaker && open
+            ? () => setOpen(false)
+            : () => {
+                // Opened by its own button: no chapter was asked for.
+                if (target) {
+                  setTarget(null);
+                  setAnchor(moment?.anchor ?? '');
+                }
+                openSheet();
+              }
+        }
       >
         {trigger}
       </button>

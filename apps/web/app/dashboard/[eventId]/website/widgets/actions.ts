@@ -747,14 +747,12 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
      check below still runs for a draft — a draft may only hold THEIR photo. */
   if (!drafting) await requireLookPro(
     eventId,
-    // The shape alone changes no media — nothing to classify.
-    shapeOnly
-      ? 'none'
-      : sectionBackgroundChange({
-          currentMedia: typeof canvas.media === 'string' ? canvas.media : null,
-          kind: tinted ? (kind as 'color' | 'glass' | 'frost' | 'none') : kind === 'snippet' ? 'snippet' : 'photo',
-          nextMedia: tinted || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
-        }),
+    sectionBackgroundChange({
+      // The shape alone moves no media: classified as media-free, so free.
+      currentMedia: shapeOnly ? null : typeof canvas.media === 'string' ? canvas.media : null,
+      kind: shapeOnly ? 'none' : tinted ? (kind as 'color' | 'glass' | 'frost' | 'none') : kind === 'snippet' ? 'snippet' : 'photo',
+      nextMedia: shapeOnly || tinted || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
+    }),
   );
 
   if (shapeOnly) {

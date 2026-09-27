@@ -62,12 +62,9 @@ function row(canvas: unknown): InvitationWidgetRow {
 function paintCountdown(canvas: unknown, mediaUrls: Record<string, string> = {}): string {
   const w = row(canvas);
   const bare = sceneWidgetIsBare(w, mediaUrls);
+  const props = { widget: w, mediaUrls } as React.ComponentProps<typeof HubCanvasFrame>;
   return renderToStaticMarkup(
-    React.createElement(HubCanvasFrame, {
-      widget: w,
-      mediaUrls,
-      children: React.createElement(CountdownWidget, { targetIso: '2099-12-12', bare }),
-    }),
+    React.createElement(HubCanvasFrame, props, React.createElement(CountdownWidget, { targetIso: '2099-12-12', bare })),
   );
 }
 
@@ -214,7 +211,7 @@ test('6 · colour, both glasses, "none" and the shape are free; photo / snippet 
   // WRITE — the live action classifies every tinted kind (and none) as media-free.
   const writer = stripComments(readFileSync(join(ROOT, 'app/dashboard/[eventId]/website/widgets/actions.ts'), 'utf8'));
   assert.match(writer, /const tinted = kind === 'color' \|\| kind === 'glass' \|\| kind === 'frost' \|\| kind === 'none';/);
-  assert.match(writer, /nextMedia: tinted \|\| wanted\.length === 0 \? null/);
+  assert.match(writer, /nextMedia: shapeOnly \|\| tinted \|\| wanted\.length === 0 \? null/);
 });
 
 /* ── 7 · the photo fills, the content sets the height ────────────────────── */

@@ -1,4 +1,5 @@
 import { Check, XCircle } from 'lucide-react';
+import { MAX_TRACE_PIECES } from '@/lib/monogram-studio/trace';
 
 /**
  * <UploadTips> — what actually uploads well, said BEFORE the upload.
@@ -8,8 +9,9 @@ import { Check, XCircle } from 'lucide-react';
  * definition arrives after a couple has already failed once — and the failures
  * are not obvious ones. `lib/monogram-studio/trace.ts` finds the mark by its
  * ALPHA channel for transparent art and by LUMINANCE for opaque scans, keeps
- * one path per connected component up to MAX_COMPONENTS = 40, and drops pieces
- * under MIN_COMPONENT_FRAC of the canvas. So:
+ * one path per connected component up to MAX_TRACE_PIECES (rendered below from
+ * the constant itself), and drops only small, compact pieces far from the rest
+ * of the drawing (dust). So:
  *   · a PNG on a white rectangle traces the RECTANGLE (there is no transparency
  *     to find) — the single most common bad upload
  *   · a gradient or a drop shadow has no clean edge to follow
@@ -50,7 +52,7 @@ export function UploadTips({ open }: { open?: boolean }) {
           Soft gradients, drop shadows and photographic fills blur the edges we trace along.
         </Tip>
         <Tip>
-          <strong className="font-semibold text-ink">We keep up to 40 separate pieces.</strong> Each
+          <strong className="font-semibold text-ink">We keep up to {MAX_TRACE_PIECES} separate pieces.</strong> Each
           one animates on its own, so a few clean shapes reveal far more beautifully than hundreds of
           specks.
         </Tip>

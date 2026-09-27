@@ -34,6 +34,7 @@ import {
   type CoordinatorBroadcastItem,
 } from '@/lib/coordinator-broadcasts';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { formatCount } from '@/lib/format-number';
 import { Tip } from './day-ui';
 
 const SENDER: Record<BroadcastSenderRole, string> = {
@@ -131,7 +132,7 @@ export function AnnounceButton({
                 : 'Guests see your latest announcement at the top of their Event Hub on the day.'}
             </p>
             <span className="font-mono text-[11px] text-ink/45">
-              {text.length}/{BROADCAST_MAX_LENGTH}
+              {formatCount(text.length)}/{formatCount(BROADCAST_MAX_LENGTH)}
             </span>
           </div>
           {error ? (

@@ -42,6 +42,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { CalendarClock, Check, Eye, EyeOff, MessageSquare, Mic, MoveVertical, Plus } from 'lucide-react';
 import { useIsDesktop } from '@/lib/use-responsive';
+import { formatCount } from '@/lib/format-number';
 import { venueNowMs } from '@/lib/schedule';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import {
@@ -937,7 +938,7 @@ function Glance({
   return (
     <div className="space-y-4 pt-2 font-display text-[21px] leading-snug text-ink/80">
       <p>
-        <b className="font-normal text-ink">{count}</b> moment{count === 1 ? '' : 's'} ·{' '}
+        <b className="font-normal text-ink">{formatCount(count)}</b> moment{count === 1 ? '' : 's'} ·{' '}
         <b className="font-normal text-ink">{visible}</b> shown to guests
         {staged > 0 ? (
           <span className="mt-0.5 block font-sans text-[12.5px] text-ink/55">{staged} staged, only you see them</span>
@@ -956,7 +957,7 @@ function Glance({
       ) : null}
       {role !== 'view' && requests > 0 ? (
         <p>
-          <b className="font-normal text-ink">{requests}</b> supplier request{requests === 1 ? '' : 's'}
+          <b className="font-normal text-ink">{formatCount(requests)}</b> supplier request{requests === 1 ? '' : 's'}
           <button
             type="button"
             onClick={onRequests}
@@ -1044,7 +1045,7 @@ function EmptyRail({
                     <b className="block text-[14.5px] font-semibold text-ink">{t.label}</b>
                     <small className="text-xs text-ink/55">{t.description}</small>
                   </span>
-                  <span className="whitespace-nowrap font-mono text-[11px] text-ink/55">{t.count} moments</span>
+                  <span className="whitespace-nowrap font-mono text-[11px] text-ink/55">{formatCount(t.count)} moments</span>
                 </button>
               </li>
             ))}

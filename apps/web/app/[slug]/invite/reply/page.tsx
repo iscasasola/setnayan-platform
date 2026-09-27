@@ -14,14 +14,28 @@ import { NotYouSwitch } from '../../_components/not-you-switch';
 import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
-import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
+import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
+import { hubDoorSkin } from '../_components/hub-door-skin';
 import { resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import {
+  guestLookFrom,
+  loadEventShell,
+  loadGuestLook,
+  loadHostMembership,
+  loadHostPreviewDraft,
+  loadWidgets,
+  type EventShellRow,
+  type GuestLook,
+} from '../../_lib/loaders';
+import { resolveHubTheme } from '../../_lib/hub-look';
+import { mainGroundLayerFor } from '../../_lib/main-ground-layer';
+import { GuestLookScope } from '../../_components/guest-look-scope';
+import { lookScopeProps } from '../../_components/host-draft-look';
 import { getCurrentUser } from '@/lib/auth';
-import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { HUB_DRAFT_LOOK_COLUMNS, overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
 
@@ -64,7 +78,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: liveEvent, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)
@@ -133,11 +147,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceMode, supabase, look, seats] = await Promise.all([
+  const [words, faceMode, supabase, hub, seats] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolvePapicFaceMode(admin, event.event_id as string),
     createClient(),
-    loadInviteLook(event),
+    wearTheHub(slug, admin, hostDraft, canvas),
     canvas ? Promise.resolve([]) : plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
   ]);
   const {
@@ -231,71 +245,125 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     'Your reply';
 
   return (
-    <DoorShell
-      eyebrow="You’re invited"
-      title={(event.display_name as string | null) || guestName}
-      meta={joinDoorMeta({
-        event_date: event.event_date as string | null,
-        event_date_precision: event.event_date_precision as string | null,
-        venue_name: event.venue_name as string | null,
-      })}
-      width="lg"
-      skin={look.skin}
-    >
-      {/* Whose reply this is — and, on a phone a family shares, the way out. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <p className="font-serif text-lg text-ink" data-reply-for="">
-          {guestName}
-        </p>
-        {canvas ? null : <NotYouSwitch slug={home} />}
-      </div>
+    /* 🎨 THE EVENT HUB'S LOOK AND GROUND (owner 2026-09-28: "background should
+       follow the background of the event hub"). The guest-tree layout leaves
+       `/invite/*` undressed (`SEGMENTS_THAT_DRESS_THEMSELVES`), so this page
+       wears the look itself — the SAME translation the layout and the host
+       canvas use (`lookScopeProps`) — and lays the Main background over it.
+       `hubDoorSkin` keeps the card a card and paints nothing behind it. */
+    <GuestLookScope {...lookScopeProps(hub.look)}>
+      {hub.ground}
+      <DoorShell
+        eyebrow="You’re invited"
+        title={(event.display_name as string | null) || guestName}
+        meta={joinDoorMeta({
+          event_date: event.event_date as string | null,
+          event_date_precision: event.event_date_precision as string | null,
+          venue_name: event.venue_name as string | null,
+        })}
+        width="lg"
+        skin={hubDoorSkin(doorMarkFor(event))}
+      >
+        {/* Whose reply this is — and, on a phone a family shares, the way out. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <p className="font-serif text-lg text-ink" data-reply-for="">
+            {guestName}
+          </p>
+          {canvas ? null : <NotYouSwitch slug={home} />}
+        </div>
 
-      {hasAnswered ? (
-        <DoorNotice>
-          Your reply is saved.{' '}
-          <Link
-            className="font-medium text-link underline-offset-2 hover:underline"
-            href={inviteEnterPath(home)}
-          >
-            Go to your QR and open the {words.eventWord}
-          </Link>
-          {replyLocked ? null : <> &mdash; or change your answer below.</>}
-        </DoorNotice>
-      ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
-        <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
-      ) : null}
+        {hasAnswered ? (
+          <DoorNotice>
+            Your reply is saved.{' '}
+            <Link
+              className="font-medium text-link underline-offset-2 hover:underline"
+              href={inviteEnterPath(home)}
+            >
+              Go to your QR and open the {words.eventWord}
+            </Link>
+            {replyLocked ? null : <> &mdash; or change your answer below.</>}
+          </DoorNotice>
+        ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
+          <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
+        ) : null}
 
-      <RsvpWidget
-        words={words}
-        guest={{
-          ...(guest as unknown as GuestRow),
-          // One name box per seat (+1…+4). Names only — a seat's key is for
-          // the thank-you's "Send their invite", never for this form.
-          plus_one_seats: seats.map((s) => ({ guest_id: s.guest_id, name: s.name })),
-        }}
-        eventId={event.event_id as string}
-        eventPublicId={event.public_id as string}
-        faceMode={faceMode}
-        flash={flash}
-        replyLocked={replyLocked}
-        profileDetails={profileDetails}
-        doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
-        /* 🔑 NO FACE TAGGING ON THE INVITE (owner, verbatim 2026-09-11: "face
-           tagging does not happen on the invite. it happens on their first view
-           on the day of the event? or on the day papic becomes available to use
-           for them."). The catch he describes ALREADY SHIPS —
-           `_components/day-of-face-enroll.tsx`, mounted on the day-of landing,
-           in the hub (`needsFaceEnroll`) and inside the Papic guest camera,
-           self-hiding once enrolled. So this is a removal from ONE surface, not
-           a feature taken away: a prop, because this card is shared with the
-           Event Hub's own RSVP card, which keeps its selfie. */
-        offerSelfie={false}
-        ask={resolveRsvpAsk(event.rsvp_ask_config)}
-        gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
-        termsOnSend
-        oneAtATime={askOneAtATime(event.rsvp_ask_config)}
-        previewEveryQuestion={canvas}
-      />
-    </DoorShell>
+        <RsvpWidget
+          words={words}
+          guest={{
+            ...(guest as unknown as GuestRow),
+            // One name box per seat (+1…+4). Names only — a seat's key is for
+            // the thank-you's "Send their invite", never for this form.
+            plus_one_seats: seats.map((s) => ({ guest_id: s.guest_id, name: s.name })),
+          }}
+          eventId={event.event_id as string}
+          eventPublicId={event.public_id as string}
+          faceMode={faceMode}
+          flash={flash}
+          replyLocked={replyLocked}
+          profileDetails={profileDetails}
+          doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
+          /* 🔑 NO FACE TAGGING ON THE INVITE (owner, verbatim 2026-09-11: "face
+             tagging does not happen on the invite. it happens on their first view
+             on the day of the event? or on the day papic becomes available to use
+             for them."). The catch he describes ALREADY SHIPS —
+             `_components/day-of-face-enroll.tsx`, mounted on the day-of landing,
+             in the hub (`needsFaceEnroll`) and inside the Papic guest camera,
+             self-hiding once enrolled. So this is a removal from ONE surface, not
+             a feature taken away: a prop, because this card is shared with the
+             Event Hub's own RSVP card, which keeps its selfie. */
+          offerSelfie={false}
+          ask={resolveRsvpAsk(event.rsvp_ask_config)}
+          gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
+          termsOnSend
+          oneAtATime={askOneAtATime(event.rsvp_ask_config)}
+          previewEveryQuestion={canvas}
+        />
+      </DoorShell>
+    </GuestLookScope>
   );
+}
+
+/**
+ * THE EVENT HUB'S LOOK AND MAIN BACKGROUND, for the RSVP page.
+ *
+ *   · the look — for a guest, `loadGuestLook(slug)`: the very value the
+ *     guest-tree layout wears on every Event Hub page (and `cache()`d, so it
+ *     costs nothing — the layout already asked). On the Maker's canvas, when the
+ *     couple's DRAFT holds a Colors-panel column, it is re-resolved from the
+ *     drafted row exactly as the Event Hub canvas does (`guestLookFrom(…, true)`,
+ *     app/[slug]/page.tsx), so a colour tried in the Maker shows here before
+ *     Apply.
+ *   · the ground — `mainGroundLayerFor`, the helper the Event Hub body itself
+ *     calls, over the (draft-overlaid) hero row. Pro themes only, by the one
+ *     page-ground rule.
+ *
+ * ⚖ BEST-EFFORT, LIKE THE LAYOUT'S LOOK. A background that cannot be read
+ * renders the page in the house look — never takes the reply form down.
+ */
+async function wearTheHub(
+  slug: string,
+  admin: ReturnType<typeof createAdminClient>,
+  hostDraft: Awaited<ReturnType<typeof loadHostPreviewDraft>>,
+  viewerIsHost: boolean,
+): Promise<{ look: GuestLook | null; ground: React.ReactNode }> {
+  try {
+    const shell = await loadEventShell(slug);
+    if (!shell?.event_id) return { look: null, ground: null };
+    const row = overlayHubDraftEvent(shell as Record<string, unknown>, hostDraft) as EventShellRow;
+    const draftsLook = Boolean(hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events));
+    const look = draftsLook
+      ? guestLookFrom(row, await resolveHubTheme(row), true)
+      : await loadGuestLook(slug);
+    if (!look?.theme) return { look, ground: null };
+    const widgets = overlayHubDraftWidgets(await loadWidgets(admin, shell.event_id), hostDraft);
+    const ground = await mainGroundLayerFor({
+      theme: look.theme,
+      heroConfig: widgets.find((w) => w.widget_type === 'hero')?.config_json,
+      event: row,
+      viewerIsHost,
+    });
+    return { look, ground };
+  } catch {
+    return { look: null, ground: null };
+  }
 }

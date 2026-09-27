@@ -30,7 +30,13 @@ export function RsvpOneAtATime() {
   const [total, setTotal] = useState(0);
 
   const visibleSteps = useCallback((f: HTMLFormElement): HTMLElement[] => {
-    const all = Array.from(f.querySelectorAll<HTMLElement>('[data-rsvp-step]'));
+    // Outermost steps only. A step nested in another would be counted twice —
+    // shown as its parent with itself hidden, i.e. a BLANK screen (owner
+    // 2026-09-28, "8 of 9"). The card never nests one (pinned by
+    // the-rsvp-page-follows-the-maker.test.ts § 9); this is the belt.
+    const all = Array.from(f.querySelectorAll<HTMLElement>('[data-rsvp-step]')).filter(
+      (el) => !el.parentElement?.closest('[data-rsvp-step]'),
+    );
     // Measure with every step shown, so the card's own reveals decide.
     for (const el of all) el.removeAttribute('data-rsvp-away');
     // Drawn = it has a box. `getComputedStyle(el).display` would still read

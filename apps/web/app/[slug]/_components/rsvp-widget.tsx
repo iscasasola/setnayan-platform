@@ -652,8 +652,13 @@ export function RsvpWidget({
       {termsOnSend ? (
         /* THE RSVP PAGE's last step (owner 2026-09-27): the Terms tick, then ONE
            button. Unticked and required — the browser will not send without it,
-           and `submitInviteReply` refuses a POST that lacks it. */
-        <div data-rsvp-step className="space-y-5">
+           and `submitInviteReply` refuses a POST that lacks it.
+           🔑 NOT A STEP OF ITS OWN — it already sits inside the Send step that
+           opens above. A step inside a step is counted twice by "one question
+           at a time": the outer one is shown with the inner one hidden, and the
+           guest meets a BLANK "8 of 9" (owner, 2026-09-28). Pinned by
+           the-rsvp-page-follows-the-maker.test.ts § 9. */
+        <div className="space-y-5">
           <TermsTick />
           <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
             Send

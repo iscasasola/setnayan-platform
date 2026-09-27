@@ -14,6 +14,13 @@ import { pageGround } from '@/lib/page-ground';
  * `[data-hub-theme]` page mappings are *"`[data-hub-theme]` ONLY. The door must
  * not be re-skinned by these."* An ancestor attribute would reach straight into
  * it — Velvet's page ink is a light cream, and the door's card is bright.
+ *
+ * ⚖ ONE PAGE UNDER `invite` WEARS THE LOOK ANYWAY — `/invite/reply`, the RSVP
+ * (owner 2026-09-28: "background should follow the background of the event
+ * hub"). It wears it from INSIDE its own page (`<GuestLookScope
+ * {...lookScopeProps(…)}>`, with `hubDoorSkin` keeping its card a card on the
+ * page's paper), so the rule here stays one segment wide and the other two
+ * doors keep their own compositions.
  */
 export const SEGMENTS_THAT_DRESS_THEMSELVES: readonly string[] = ['invite'];
 

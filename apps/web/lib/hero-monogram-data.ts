@@ -72,6 +72,28 @@ export type HeroMonogramData = {
 };
 
 /**
+ * THE COUPLE'S LOGO, EXACTLY AS THE EVENT HUB HERO DRAWS IT — the one sanitised
+ * mark (`resolveEventMonogramSvg`: the Maker's Logo composition first, then an
+ * upload), painted in their reception ink when the mark asks for the palette.
+ *
+ * 🔑 ONE CALL FOR EVERY SURFACE THAT STANDS FOR THE HERO. The Event Hub's hero
+ * (`loadMedia`, app/[slug]/_lib/loaders.ts) and the invite doors' crest
+ * (`loadInviteLook`) both ask this, so the RSVP can never draw "I & C" initials
+ * beside a hub that draws the couple's real logo (owner 2026-09-28: "the logo
+ * did not adapt"). Null when the couple has no logo, or the stored one fails the
+ * read-time gate — the caller then draws their initials.
+ */
+export function heroMarkSvg(row: {
+  monogram_custom_svg?: string | null;
+  monogram_uploaded_svg?: string | null;
+  role_palette?: unknown;
+}): string | null {
+  return resolveEventMonogramSvg(row, {
+    ink: getPrimaryColor(sanitizeRolePalette(row.role_palette), 'reception') ?? null,
+  });
+}
+
+/**
  * Resolve an already-fetched event row (selected with HERO_MONOGRAM_COLUMNS) into
  * the HeroMonogram inputs. The ownership check needs the client + eventId; pass a
  * client that can read the event's orders (admin for anonymous-viewable surfaces).

@@ -1,6 +1,7 @@
 import localFont from 'next/font/local';
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import type { InviteSkinInput } from './invite-skin';
+import { SealMark } from './seal-mark';
 import styles from './velvet.module.css';
 
 /**
@@ -55,7 +56,7 @@ const jost = localFont({
   adjustFontFallback: 'Arial',
 });
 
-export function velvetSkin({ photo, accent, monogram }: InviteSkinInput): DoorSkin {
+export function velvetSkin({ photo, accent, monogram, mark }: InviteSkinInput): DoorSkin {
   return {
     themeId: 'velvet',
     className: [styles.velvet ?? '', bodoni.variable, jost.variable].join(' '),
@@ -95,7 +96,9 @@ export function velvetSkin({ photo, accent, monogram }: InviteSkinInput): DoorSk
         <span className={styles.ring} />
         <span className={styles.engraveOuter} />
         <span className={styles.engraveInner} />
-        <span className={styles.seal}>{monogram}</span>
+        <span className={styles.seal}>
+          <SealMark mark={mark} monogram={monogram} px={36} />
+        </span>
       </div>
     ),
     hinge: (

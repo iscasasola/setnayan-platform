@@ -11,8 +11,14 @@ export type InviteSkinInput = {
   photo: string | null;
   /** Their colour — `resolveMonogram(event).color`. Ornament only. */
   accent: string;
-  /** Their mark — `resolveMonogram(event).text`, e.g. "C & I". */
+  /** Their initials — `resolveMonogram(event).text`, e.g. "C & I". */
   monogram: string;
+  /**
+   * Their LOGO — the sanitised mark the Event Hub hero draws (`heroMarkSvg`),
+   * or null. When present the seal wears it instead of the initials (owner
+   * 2026-09-28: "the logo did not adapt"). Drawn only through `SealMark`.
+   */
+  mark: string | null;
 };
 
 /**

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d6b84fc48",
+  "generatedFromRef": "3728f65fa",
   "routeCount": 435,
-  "destinations": 945,
+  "destinations": 946,
   "actions": 669,
-  "blocks": 4806,
+  "blocks": 4815,
   "routes": {
     "/": {
       "files": [
@@ -5812,6 +5812,7 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch?tool=rsvp-page",
         "/dashboard/[seg]/studio/save-the-date",
         "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/website",
@@ -6027,6 +6028,7 @@
         "/[seg]",
         "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/launch?tool=prints",
@@ -6074,10 +6076,11 @@
         "MakerDevice",
         "MakerLogoDoor",
         "MakerPage",
+        "MakerPageFrame",
         "MakerPlayMenu",
         "MakerPrints",
         "MakerRevealPicker",
-        "MakerRsvpAsk",
+        "MakerRsvpSettings",
         "MakerSelection",
         "MakerShell",
         "MakerState",
@@ -8374,8 +8377,7 @@
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/save-the-date",
-        "/dashboard/[seg]/studio/website-pro",
-        "/dashboard/[seg]/website/our-story"
+        "/dashboard/[seg]/studio/website-pro"
       ],
       "actions": [
         "action",
@@ -8423,6 +8425,7 @@
         "LaunchStdButton",
         "LifecyclePhase",
         "Link",
+        "LoveStoryChaptersPanel",
         "LoveStoryControls",
         "MainBackgroundPanel",
         "MakerHeroPanel",
@@ -8459,7 +8462,6 @@
         "SectionsPanel",
         "SiteChromePanel",
         "StdPanel",
-        "StoryFields",
         "StoryPanel",
         "SubmitButton",
         "Suspense",
@@ -8468,7 +8470,8 @@
         "ThemePanel",
         "Thumb",
         "TileHead",
-        "VisibilityPanel"
+        "VisibilityPanel",
+        "WordsReturnTo"
       ]
     },
     "/dashboard/[eventId]/website/editorial": {
@@ -8554,12 +8557,20 @@
     },
     "/dashboard/[eventId]/website/our-story": {
       "files": [
+        "dashboard/[eventId]/website/our-story/_components/chapter-moments.tsx",
         "dashboard/[eventId]/website/our-story/_components/in-maker-return-to.tsx",
         "dashboard/[eventId]/website/our-story/_components/love-story-book.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-chapters-panel.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-open.ts",
         "dashboard/[eventId]/website/our-story/_components/love-story-pro-line.tsx",
+        "dashboard/[eventId]/website/our-story/_components/love-story-status.ts",
         "dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx",
+        "dashboard/[eventId]/website/our-story/_components/our-events-read.ts",
+        "dashboard/[eventId]/website/our-story/_components/our-events-rule.ts",
+        "dashboard/[eventId]/website/our-story/_components/panel-follows-the-page.tsx",
         "dashboard/[eventId]/website/our-story/_components/pick-from-our-events.tsx",
         "dashboard/[eventId]/website/our-story/_components/story-fields.tsx",
+        "dashboard/[eventId]/website/our-story/_components/words-return-to.tsx",
         "dashboard/[eventId]/website/our-story/actions.ts",
         "dashboard/[eventId]/website/our-story/milestones-field.tsx",
         "dashboard/[eventId]/website/our-story/page.tsx"
@@ -8573,24 +8584,31 @@
       ],
       "blocks": [
         "AddMomentLabel",
+        "ChapterMoments",
         "Field",
         "FileUpload",
         "HTMLButtonElement",
         "HTMLDivElement",
+        "HTMLElement",
         "HubDraftField",
         "InMakerReturnTo",
         "InfoTip",
         "Link",
         "LoveStoryBook",
+        "LoveStoryChapter",
+        "LoveStoryOpenAsk",
         "LoveStoryProLine",
         "MilestonesField",
         "MiniTour",
         "MomentAnchor",
         "MomentSheet",
+        "PanelFollowsThePage",
         "PickFromOurEvents",
         "Precision",
+        "StoryChapterFields",
         "StoryFields",
-        "SubmitButton"
+        "SubmitButton",
+        "T"
       ]
     },
     "/dashboard/[eventId]/website/photo-moments": {

@@ -34,6 +34,7 @@ import {
   makerStageLists,
   makerSceneLabel,
   swapsForDrop,
+  widgetsGuestsMeet,
   MAKER_SCENE_LABEL,
   type MakerStageInput,
 } from './maker-scene-list';
@@ -99,9 +100,12 @@ test('1 · for EVERY stage, the scene tiles are the plan’s own list, in the pl
       hasHeroMedia: false,
       hasBgMusic: false,
       liveMediaPublic: false,
-      widgets: OWNER.widgets,
+      // The Maker's canvas: the scenes guests meet on this stage (no "Two ways
+      // to celebrate" on the Invitation or the Day), content failing OPEN so
+      // an empty scene keeps its place as a placeholder (owner 2026-09-27).
+      widgets: widgetsGuestsMeet(OWNER.widgets, stage),
       openBrowse: false,
-      content: OWNER.content,
+      content: {},
     });
     const tiles = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
     const planIds = plan.publicSafeWidgets.map((w) => w.widget_id);
@@ -124,12 +128,23 @@ test('1 · for EVERY stage, the scene tiles are the plan’s own list, in the pl
 
 test('2 · the owner’s page, stage by stage — fixed sections included, in the canvas’s order', () => {
   const keys = (stage: LifecyclePhase) => makerStageList({ ...OWNER, stage }).shown.map((t) => t.key);
+  // Owner 2026-09-27: an EMPTY scene keeps its place in the Maker (drawn as a
+  // placeholder — the message, gift note, gallery and love story below); "Two
+  // ways to celebrate" is gone from the Invitation and the Day, as guests see
+  // it (owner review 2026-09-27; Post Event keeps it — a separate decision);
+  // and the schedule shows on the day ("YES TO ALL" (2)).
   assert.deepEqual(keys('save_the_date'), ['f:film', 'f:hero', 'f:entourage']);
   assert.deepEqual(keys('rsvp'), [
-    'f:hero', 'w:countdown', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:photo_moments', 'w:tier_comparison', 'f:entourage',
+    'f:hero', 'w:countdown', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:photo_moments',
+    'w:special_message', 'w:what_to_bring', 'w:our_photos', 'w:our_love_story', 'f:entourage',
   ]);
-  assert.deepEqual(keys('event'), ['f:hero', 'w:venue_map', 'w:tier_comparison', 'f:entourage']);
-  assert.deepEqual(keys('editorial'), ['f:editorial', 'f:hero', 'w:tier_comparison', 'f:entourage']);
+  assert.deepEqual(keys('event'), ['f:hero', 'w:schedule', 'w:venue_map', 'f:entourage']);
+  assert.deepEqual(keys('editorial'), [
+    'f:editorial', 'f:hero', 'w:tier_comparison', 'w:special_message', 'w:our_photos', 'w:our_love_story', 'f:entourage',
+  ]);
+  const empties = (stage: LifecyclePhase) =>
+    makerStageList({ ...OWNER, stage }).shown.flatMap((t) => (t.kind === 'scene' && t.empty ? [t.type] : []));
+  assert.deepEqual(empties('rsvp'), ['special_message', 'what_to_bring', 'our_photos', 'our_love_story']);
 });
 
 test('2b · the navigator is NOT the same twelve on every stage', () => {
@@ -143,6 +158,12 @@ test('3 · nothing is lost — every hideable section is shown XOR folded, and a
     const list = makerStageList({ ...OWNER, stage });
     const shown = new Set(list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : [])));
     for (const w of OWNER.widgets.filter((x) => !x.is_always_on)) {
+      // "Two ways to celebrate" is not on the Invitation or the Day at all —
+      // guests never meet it there, so the Maker omits it (owner review 2026-09-27).
+      if (w.widget_type === 'tier_comparison' && stage !== 'editorial') {
+        assert.ok(!shown.has(w.widget_id) && !list.folded.some((f) => f.widgetId === w.widget_id), `${stage}: tier_comparison must be omitted`);
+        continue;
+      }
       const folded = list.folded.filter((f) => f.widgetId === w.widget_id);
       assert.equal(shown.has(w.widget_id) ? 0 : 1, folded.length, `${stage}: ${w.widget_type} must be shown or folded, once`);
       if (folded[0]) assert.ok(folded[0].reason.length > 8, `${stage}: ${w.widget_type} folded with no reason`);
@@ -150,7 +171,10 @@ test('3 · nothing is lost — every hideable section is shown XOR folded, and a
   }
   const rsvp = makerStageList({ ...OWNER, stage: 'rsvp' });
   const why = (t: WidgetType) => rsvp.folded.find((f) => f.type === t)?.reason ?? '';
-  assert.match(why('special_message'), /Empty/);
+  // An empty scene is no longer folded — it is SHOWN, with its prompt (owner 2026-09-27).
+  assert.equal(why('special_message'), '');
+  const message = rsvp.shown.find((t) => t.kind === 'scene' && t.type === 'special_message');
+  assert.match(message && message.kind === 'scene' ? (message.empty ?? '') : '', /write your message/i);
   assert.match(why('event_details'), /own link/);
   assert.match(why('your_photos'), /own link|Not part of this stage/);
   assert.match(why('rsvp'), /own link/);

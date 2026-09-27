@@ -1051,6 +1051,12 @@ export function MakerWork({
                     ) : (
                       <span className={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}>
                         {tile.label}
+                        {/* 🧩 Empty: drawn in the Maker so it can be filled; guests do not see it yet. */}
+                        {tile.kind === 'scene' && tile.empty ? (
+                          <span className="block text-[10px] font-medium italic text-ink/50" data-maker-tile-empty="">
+                            Empty · tap to fill
+                          </span>
+                        ) : null}
                       </span>
                     )}
                   </div>

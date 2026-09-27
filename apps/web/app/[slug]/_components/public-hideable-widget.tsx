@@ -6,6 +6,7 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
+import { MakerEmptyScene } from './maker-empty-scene';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
@@ -36,6 +37,12 @@ type PublicHideableWidgetProps = {
   /** A GUEST's / stranger's view (not the Maker canvas): empty sections are left
    *  out rather than printed as "coming soon" (owner 2026-09-26). Default false. */
   guestView?: boolean;
+  /**
+   * 🧩 The Maker's canvas only: this scene is EMPTY, so draw its placeholder
+   * (`MakerEmptyScene`) instead of nothing (owner 2026-09-27). Never set for a
+   * guest — `site-body.tsx` derives it from `isMakerCanvas`.
+   */
+  makerEmpty?: boolean;
   event: EventRow;
   /** The event type's own words, resolved ONCE by the body and threaded here
    *  rather than re-resolved per widget. */
@@ -62,7 +69,11 @@ type PublicHideableWidgetProps = {
  * both doors; the reasoning lives in `hub-canvas-frame.tsx`.
  */
 export function PublicHideableWidget(props: PublicHideableWidgetProps) {
-  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>{PublicHideableWidgetBody(props)}</HubCanvasFrame>;
+  return (
+    <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme}>
+      {props.makerEmpty ? <MakerEmptyScene type={props.widget.widget_type} /> : PublicHideableWidgetBody(props)}
+    </HubCanvasFrame>
+  );
 }
 
 function PublicHideableWidgetBody({

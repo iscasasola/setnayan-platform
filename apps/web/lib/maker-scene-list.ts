@@ -65,6 +65,12 @@ export type MakerTile =
       widgetId: string;
       type: WidgetType;
       label: string;
+      /**
+       * 🧩 EMPTY — the scene has nothing in it yet. Guests are never shown it;
+       * the Maker draws it in place with this prompt so the couple can tap it
+       * and fill it (owner 2026-09-27). Absent when the scene has content.
+       */
+      empty?: string;
     }
   | {
       /**
@@ -194,6 +200,39 @@ export function makerSceneLabel(type: WidgetType): string {
 const GUEST_ONLY: ReadonlySet<WidgetType> = new Set<WidgetType>(['event_details', 'your_photos']);
 const ALWAYS_ON_GUEST_ONLY: readonly WidgetType[] = ['greeting', 'qr_card', 'rsvp'];
 
+/**
+ * 🧩 WHAT AN EMPTY SCENE SAYS IN THE MAKER — its placeholder's one line.
+ *
+ * Owner, 2026-09-27, measured on his own page: Love Story, Venue and Message
+ * were empty, so they vanished from the editing canvas into "Not shown", and
+ * "I cannot edit the body". In the Maker an empty scene now keeps its place —
+ * on the canvas and in the list — drawn with this prompt. Guests still never
+ * see an empty scene (`guestView`, #6009); "Not shown" is only for scenes the
+ * couple chose to hide, or that this stage leaves out.
+ */
+export function makerEmptyPrompt(type: WidgetType): string {
+  const reason = EMPTY_REASON[type];
+  if (reason) return reason.replace(/^Empty — /, '').replace(/^./, (c) => c.toUpperCase());
+  if (isCustomSectionType(type)) return 'Write this scene.';
+  return 'Add its content.';
+}
+
+/** The scenes whose emptiness the Maker draws as a placeholder instead of dropping. */
+export const MAKER_EMPTY_DRAWN: ReadonlySet<WidgetType> = new Set<WidgetType>([
+  'schedule',
+  'venue_map',
+  'special_message',
+  'what_to_bring',
+  'our_photos',
+  'our_love_story',
+  'countdown',
+]);
+
+/** Does the Maker draw this empty scene as a placeholder? */
+export function makerDrawsEmpty(type: WidgetType): boolean {
+  return MAKER_EMPTY_DRAWN.has(type) || isCustomSectionType(type);
+}
+
 const EMPTY_REASON: Partial<Record<WidgetType, string>> = {
   schedule: 'Empty — add the moments of your day in Schedule.',
   venue_map: 'Empty — add your venue.',
@@ -279,32 +318,51 @@ function whyNotDrawn(w: InvitationWidgetRow, input: MakerStageInput): string | n
     case 'countdown':
       // `event.event_date && !words.solemn ? <CountdownWidget/>` — and the widget retires once past.
       if (input.solemn) return 'Not shown for this kind of event.';
-      if (!has('countdown')) return EMPTY_REASON.countdown!;
-      if (input.countdownPast) return 'Retired — the day has arrived.';
+      if (input.countdownPast && has('countdown')) return 'Retired — the day has arrived.';
       return null;
     case 'schedule':
-      // `!isLive && scheduleBlocks.length > 0`
-      if (live) return 'On the day itself the page leaves it out.';
-      return has('schedule') ? null : EMPTY_REASON.schedule!;
+      // The page draws the schedule on the day too (owner 2026-09-27, "YES TO
+      // ALL" (2), `public-hideable-widget.tsx`); empty → the Maker's placeholder.
+      void live;
+      return null;
     case 'special_message':
     case 'what_to_bring':
     case 'our_photos':
     case 'our_love_story':
     case 'venue_map':
-      return has(t) ? null : (EMPTY_REASON[t] ?? 'Empty.');
+      // Empty → drawn in the Maker as a placeholder (`emptyOf`), never folded.
+      return null;
     case 'dress_code':
     case 'photo_moments':
     case 'tier_comparison':
       // These draw a polite "closer to the day" card even when empty.
       return null;
     default:
-      if (isCustomSectionType(t)) return has(t) ? null : 'Empty — write this scene.';
+      if (isCustomSectionType(t)) return null;
       return GUEST_ONLY.has(t) ? "Only on each guest's own link." : null;
   }
 }
 
+/** The prompt an empty scene wears in the Maker, or undefined when it has content. */
+function emptyOf(w: InvitationWidgetRow, input: MakerStageInput): string | undefined {
+  if (!makerDrawsEmpty(w.widget_type)) return undefined;
+  return input.content[w.widget_type] === false ? makerEmptyPrompt(w.widget_type) : undefined;
+}
+
+/**
+ * 🧾 "TWO WAYS TO CELEBRATE" IS NOT ON THE INVITATION OR THE DAY (owner
+ * 2026-09-26, replaced by the post-RSVP "Save to my account"; owner review
+ * 2026-09-27: the Maker must show what guests see). Guests never meet it there,
+ * so neither the Maker's canvas nor this list shows it. Post Event keeps it —
+ * that is a separate owner decision. ONE rule, read by the page and this list.
+ */
+export function widgetsGuestsMeet<T extends { widget_type: string }>(widgets: readonly T[], stage: LifecyclePhase): T[] {
+  return stage === 'editorial' ? [...widgets] : widgets.filter((w) => w.widget_type !== 'tier_comparison');
+}
+
 export function makerStageList(input: MakerStageInput): MakerStageList {
-  const { stage, widgets, openBrowse } = input;
+  const { stage, openBrowse } = input;
+  const widgets = widgetsGuestsMeet(input.widgets, stage);
   const plan = resolveSiteBodyPlan({
     identity: 'anonymous',
     phasesEnabled: true,
@@ -317,7 +375,9 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     weddingOnlyParts: input.weddingOnlyParts,
     widgets,
     openBrowse,
-    content: input.content,
+    // The Maker's canvas fails OPEN on content (`site-body.tsx`), so an empty
+    // scene keeps its place and is drawn as a placeholder there.
+    content: {},
   });
 
   const fixed = (k: MakerFixedKey): MakerTile => ({
@@ -346,7 +406,15 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   for (const w of plan.publicSafeWidgets) {
     if (whyNotDrawn(w, input) !== null) continue;
     drawn.add(w.widget_id);
-    shown.push({ kind: 'scene', key: `w:${w.widget_type}`, widgetId: w.widget_id, type: w.widget_type, label: makerSceneLabel(w.widget_type) });
+    const empty = emptyOf(w, input);
+    shown.push({
+      kind: 'scene',
+      key: `w:${w.widget_type}`,
+      widgetId: w.widget_id,
+      type: w.widget_type,
+      label: makerSceneLabel(w.widget_type),
+      ...(empty ? { empty } : {}),
+    });
   }
   if (input.hasEntourage) shown.push(fixed('entourage'));
   if (input.storyRenders) shown.push(fixed('story'));

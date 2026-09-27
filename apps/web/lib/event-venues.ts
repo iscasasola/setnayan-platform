@@ -354,7 +354,7 @@ export async function loadVenueBookings(admin: SupabaseClient, eventId: string):
       if (scopeToEvent) q = q.eq('event_id', eventId);
       const { data: rs, error: e } = await q;
       if (e) console.error(`[supabase-error] lib/event-venues.ts · from:${table}.select`, e);
-      for (const r of (rs ?? []) as Record<string, unknown>[]) out.set(String(r[idCol]), map(r));
+      for (const r of (rs ?? []) as unknown as Record<string, unknown>[]) out.set(String(r[idCol]), map(r));
       return out;
     };
     const hq = (r: Record<string, unknown>): PlaceRecord => ({

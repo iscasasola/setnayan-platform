@@ -5,7 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { INVITE_THEMES, normalizeThemeId, themeMediaKey, type InviteThemeId } from '@/lib/invite-themes';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
-import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { resolveEventMonogram } from '@/lib/hero-monogram-data';
+import { flattenSvgMark, rasterMarkPayload } from '@/lib/print-mark';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
 import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
@@ -55,7 +56,7 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, rsvp_ask_config';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -87,6 +88,8 @@ export type PrintEventRow = {
   monogram_frame_key: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
+  monogram_motion_key: string | null;
+  monogram_studio_config: unknown;
   /** Which RSVP-form questions this couple still asks — Details panel toggle (lib/rsvp-ask.ts). */
   rsvp_ask_config: unknown;
 };
@@ -115,18 +118,35 @@ export function printThemeFor(event: Pick<PrintEventRow, 'invite_theme'>, previe
   return normalizeThemeId(preview) ?? normalizeThemeId(event.invite_theme) ?? 'house';
 }
 
-/** An uploaded / composed mark → its path data, when it is plain paths. */
-export function monogramPathsFrom(svg: string | null): PrintMonogram | null {
-  if (!svg) return null;
-  // A transform or a <use> would move the pieces somewhere these paths do
-  // not know about — draw the initials instead of a scrambled mark.
-  if (/\btransform\s*=|<use\b|<image\b/i.test(svg)) return null;
-  const vb = /viewBox\s*=\s*"([-\d.\s,]+)"/i.exec(svg)?.[1]?.trim().split(/[\s,]+/).map(Number);
-  const paths = [...svg.matchAll(/<path\b[^>]*?\sd\s*=\s*"([^"]+)"/gi)].map((m) => m[1]!).filter(Boolean);
-  if (!paths.length) return null;
-  const viewBox: [number, number, number, number] =
-    vb && vb.length === 4 && vb.every((v) => Number.isFinite(v)) ? (vb as [number, number, number, number]) : [0, 0, 1024, 1024];
-  return { viewBox, paths };
+/**
+ * THE COUPLE'S LOGO ON PAPER — through THE resolver the Event Hub hero uses
+ * (`resolveEventMonogram`: the studio composition ?? the uploaded logo, the
+ * read-time safety gate, and the ink policy with the couple's mood-board
+ * colour), never a print-only read of the monogram columns. Owner 2026-09-28:
+ * cale-ice's cards printed an "I & C" ring although the couple had made their
+ * logo in the Maker — the old reader refused any `transform=`, which every
+ * studio logo has. Outlines when the mark is vector (`lib/print-mark.ts`), the
+ * uploaded picture when it is the raster wrapper, the initials otherwise.
+ */
+export async function printMarkFor(
+  admin: SupabaseClient,
+  event: PrintEventRow,
+): Promise<{ monogram: PrintMonogram | null; image: PrintImages[string] }> {
+  const resolved = await resolveEventMonogram(admin, event.event_id, event).catch(() => null);
+  const svg = resolved?.bespokeSvg ?? null;
+  const raster = rasterMarkPayload(svg);
+  if (raster) {
+    try {
+      const sharp = (await import('sharp')).default;
+      const png = new Uint8Array(await sharp(raster.bytes).png().toBuffer());
+      return { monogram: { kind: 'image', w: raster.w, h: raster.h }, image: { bytes: png, mime: 'image/png' } };
+    } catch (err) {
+      console.error('[print-set] raster logo unreadable', String(err));
+      return { monogram: null, image: null };
+    }
+  }
+  const flat = flattenSvgMark(svg);
+  return { monogram: flat ? { kind: 'outline', ...flat } : null, image: null };
 }
 
 type BlockRow = { label: string | null; block_type: string | null; start_at: string | null; location: string | null; parent_block_id: string | null; is_public?: boolean | null };
@@ -407,7 +427,7 @@ export async function loadPrintSet(
 
   const stored = parsePrintDetails(event.print_details);
   const inc = stored.include;
-  const [blocks, entourage, venues, ownerSlug, stillRaw, giftLines, hosts] = await Promise.all([
+  const [blocks, entourage, venues, ownerSlug, stillRaw, giftLines, hosts, printMark] = await Promise.all([
     readBlocks(admin, eventId),
     readEntourage(admin, eventId),
     resolveStdFinalizedVenues(admin, eventId),
@@ -417,6 +437,7 @@ export async function loadPrintSet(
       : Promise.resolve(null),
     readGiftLines(admin, eventId),
     stored.rsvp?.kind === 'host' ? readRsvpHosts(eventId) : Promise.resolve([] as RsvpHostOption[]),
+    printMarkFor(admin, event),
   ]);
 
   const ceremony = ceremonyBlock(blocks);
@@ -429,6 +450,7 @@ export async function loadPrintSet(
   let still = stillRaw;
   if (still && look.sepia) still = await sepia(still);
   if (still) images.still = { bytes: still, mime: 'image/jpeg' };
+  if (printMark.image) images.mark = printMark.image;
 
   let hasEventQr = false;
   if (opts.withEventQr !== false && event.slug) {
@@ -453,7 +475,7 @@ export async function loadPrintSet(
     ceremonyVenue: ceremony?.location?.trim() || venues.ceremony || event.std_film_ceremony_name?.trim() || null,
     receptionTime: blockTime(reception),
     receptionVenue: reception?.location?.trim() || venues.reception || event.std_film_venue_name?.trim() || event.venue_name?.trim() || null,
-    monogram: monogramPathsFrom(resolveEventMonogramSvg(event)),
+    monogram: printMark.monogram,
     initials: [a, b].filter(Boolean).join(' & ') || 'S',
     // 🔑 THE INCLUDE TOGGLES DECIDE WHAT IS HANDED TO THE LAYOUT — an unticked
     // source is not drawn because it is never passed, not because a layout

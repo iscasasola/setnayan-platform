@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadGuestPasses, loadPrintSet, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
-import { layoutPasses, layoutPiece, layoutQrCodes, type PrintDoc, type PrintImages } from '@/lib/print-layout';
+import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages } from '@/lib/print-layout';
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
@@ -242,7 +242,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false);
     }
     if (mode === 'screen') {
-      const svg = renderPrintSvg(layoutPiece(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
+      const svg = renderPrintSvg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
       return new NextResponse(svg, {
         status: 200,
         // 🕐 `stale-while-revalidate` — the couple flips between the Maker's
@@ -255,7 +255,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       });
     }
     const keys = wantsSet ? [...PRINT_SET_KEYS] : [piece as PrintSetKey];
-    const docs: PrintDoc[] = keys.map((k) => layoutPiece(k, { ...input, format: formatParam(k) }));
+    // EVERY SIDE prints — a piece with a back (a large Entourage) is two pages.
+    const docs: PrintDoc[] = keys.flatMap((k) => layoutPieceDocs(k, { ...input, format: formatParam(k) }));
     const label = wantsSet ? 'The print set' : PRINT_PIECES[piece].label;
     const bytes = await renderPrintPdf(docs, set.images, {
       mode: 'print',
@@ -276,8 +277,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   const spot = spotLayersFor(set.theme);
   const input = { look: set.look, data: set.data, mode: 'sample' as const, foil: spot.foil };
   const jpeg = wantsSet
-    ? await renderSampleSheetJpeg(PRINT_SET_KEYS.map((k) => layoutPiece(k, { ...input, format: formatParam(k) })), set.images)
-    : await renderSampleJpeg(layoutPiece(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
+    ? await renderSampleSheetJpeg(PRINT_SET_KEYS.map((k) => layoutPieceView(k, { ...input, format: formatParam(k) })), set.images)
+    : await renderSampleJpeg(layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) }), set.images);
   const name = `${(set.event.slug || 'event').replace(/[^a-z0-9-]/gi, '').slice(0, 40) || 'event'}-${wantsSet ? 'set' : piece}-sample.jpg`;
   return new NextResponse(Buffer.from(jpeg), {
     status: 200,

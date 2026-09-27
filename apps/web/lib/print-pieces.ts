@@ -243,10 +243,16 @@ export const DIE_CUTS: Record<InviteThemeId, DieCut> = {
  * CR80 (rounded corners are the card standard) and the poster is A3 flat —
  * cutting a poster into an arch is not something a print shop quotes.
  */
-export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey): DieCut {
+export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey, format?: Pick<PrintFormat, 'wMm' | 'hMm'> | null): DieCut {
   if (piece === 'pass' || piece === 'passes') return 'rounded';
   if (piece === 'poster' || PRINT_PIECES[piece].kind === 'free') return 'rect';
-  return DIE_CUTS[theme];
+  const cut = DIE_CUTS[theme];
+  // An arch or a chevron is drawn across the sheet's WIDTH; on a LANDSCAPE card
+  // (an index card) an arch that wide would take away the whole top of the card
+  // and every corner the QR could use (measured 2026-09-28,
+  // every-print-fits.test.ts). A landscape card is cut with soft corners instead.
+  if (format && format.wMm > format.hMm && (cut === 'arch' || cut === 'chevron')) return 'rounded';
+  return cut;
 }
 
 // ─── Spot layers (print-ready only) ─────────────────────────────────────────

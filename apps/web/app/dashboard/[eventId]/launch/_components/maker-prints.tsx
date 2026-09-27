@@ -270,7 +270,7 @@ export function MakerPrints({
                   <p className="text-sm font-semibold text-ink">{spec.label}</p>
                   <p className="text-xs text-ink/60">
                     {fam ? `${formats[fam].label} · ${formats[fam].wMm} × ${formats[fam].hMm} mm` : spec.size}
-                    {dieCutFor(theme, k) !== 'rect' ? ` · ${dieCutFor(theme, k)} cut` : ''}
+                    {dieCutFor(theme, k, fam ? formats[fam] : null) !== 'rect' ? ` · ${dieCutFor(theme, k, fam ? formats[fam] : null)} cut` : ''}
                   </p>
                   {fam && (k === 'invitation' || k === 'pass' || k === 'card') ? (
                     <div role="group" aria-label={`${spec.label} size`} data-print-formats={fam} className="flex flex-wrap justify-center gap-1">

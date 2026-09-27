@@ -27,6 +27,7 @@ import {
   PDFOperatorNames,
   PDFString,
   clip,
+  drawSvgPath,
   endPath,
   popGraphicsState,
   pushGraphicsState,
@@ -142,6 +143,16 @@ function drawOp(page: PDFPage, o: PrintOp, ox: number, oy: number, pageH: number
       });
       break;
     case 'path':
+      if (o.evenOdd && o.fill && !o.stroke && o.opacity === undefined) {
+        // The couple's logo traces its letters' holes with fill-rule="evenodd";
+        // pdf-lib's drawSvgPath always fills non-zero, which would fill the
+        // counter of an "O" solid. Same operators, the even-odd fill (f*).
+        const opsList = drawSvgPath(o.d, { x: ox, y: pageH - oy, scale: undefined, color: hex(o.fill), borderColor: undefined, borderWidth: 0 });
+        page.pushOperators(
+          ...opsList.map((op) => (op.toString().trim() === 'f' ? PDFOperator.of(PDFOperatorNames.FillEvenOdd) : op)),
+        );
+        break;
+      }
       page.drawSvgPath(o.d, {
         x: ox,
         y: pageH - oy,

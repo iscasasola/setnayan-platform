@@ -5,14 +5,19 @@
  *   · `stageLists` — for each of the four stages, what the canvas draws, in the
  *     order it draws it, plus the fold of what it leaves out and why
  *     (`lib/maker-scene-list.ts`, which asks the page's own `resolveSiteBodyPlan`).
- *   · `fullOrder` — every hideable section in (drafted) display order: the order
- *     the move actions swap in, so a drag past hidden rows is counted right.
+ *   · `fullOrders` — for each stage, every section on it (hidden and guest-only
+ *     ones included) in the stage's drafted order (`stageRowOrder`): the list
+ *     the move action swaps in, so a drag past hidden rows is counted right.
+ *   · `stdLead` — the Save the Date's Film · Photos pick, or null where this
+ *     kind of event has no film (then there is nothing to pick).
  *   · `minis` — a miniature of each section for its tile (owner 2026-09-25:
  *     *"shouldnt mobile mode also have mobile preview on navigation"*): the
  *     section's own title, its first line, and its ground (colour or photo).
  *     No iframe per tile — the words and the picture the section already has.
  */
-import type { InvitationWidgetRow, LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
+import { isWidgetType, widgetInPhase, type InvitationWidgetRow, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
+import { stageRowOrder, stdShows, storedStdLead, type StdLead } from '@/lib/stage-scenes';
+import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import { makerStageLists, type MakerStageList, type MakerStageInput } from '@/lib/maker-scene-list';
 import { sanitizeHubCanvas, resolveHubBackground } from '@/lib/hub-canvas';
 import { sanitizeCustomSection, isCustomSectionType } from '@/lib/custom-sections';
@@ -32,7 +37,8 @@ export type SceneMini = {
 
 export type MakerNavigatorData = {
   stageLists: Record<LifecyclePhase, MakerStageList>;
-  fullOrder: string[];
+  fullOrders: Record<LifecyclePhase, string[]>;
+  stdLead: StdLead | null;
   minis: Record<string, SceneMini>;
   /** The theme's page ground / ink / accent, for tiles with no ground of their own. */
   tint: { canvas: string; ink: string; accent: string };
@@ -152,7 +158,16 @@ export function buildMakerNavigatorData(input: {
   return {
     postEvent: pe ? { generatedAt: pe.generatedAt } : input.postEvent && !input.postEvent.ok ? 'unreadable' : null,
     stageLists: makerStageLists({ ...input.plan, postEvent: pe?.rows ?? null }),
-    fullOrder: input.sectionRows.map((r) => r.widget_id),
+    fullOrders: Object.fromEntries(
+      PUBLIC_STAGE_ORDER.map((stage) => [
+        stage,
+        stageRowOrder(input.sectionRows, stage, (t, s) => isWidgetType(t) && widgetInPhase(t, s)).map((r) => r.widget_id),
+      ]),
+    ) as Record<LifecyclePhase, string[]>,
+    stdLead:
+      (input.plan.weddingOnlyParts?.save_the_date_film ?? true)
+        ? stdShows(storedStdLead(input.plan.widgets), true)
+        : null,
     minis,
     tint: input.tint,
   };

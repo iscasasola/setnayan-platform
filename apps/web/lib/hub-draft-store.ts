@@ -199,7 +199,23 @@ export async function draftedDisplayOrders(eventId: string): Promise<Record<stri
   return out;
 }
 
-const WIDGET_LIVE_SELECT = 'widget_id, widget_type, is_always_on, is_visible, display_order, config_json, mode';
+/**
+ * ↕ The drafted stage places, per section — what a stage move builds on in
+ * draft mode, so the couple's preview order is the order a drag swaps in.
+ */
+export async function draftedStageOrders(
+  eventId: string,
+): Promise<Record<string, NonNullable<HubDraft['widgets'][keyof HubDraft['widgets']]>['stage_order']>> {
+  const supabase = await createClient();
+  const draft = await readHubDraft(supabase, eventId);
+  const out: Record<string, NonNullable<HubDraft['widgets'][keyof HubDraft['widgets']]>['stage_order']> = {};
+  for (const [type, w] of Object.entries(draft?.widgets ?? {})) {
+    if (w?.stage_order !== undefined) out[type] = w.stage_order;
+  }
+  return out;
+}
+
+const WIDGET_LIVE_SELECT ='widget_id, widget_type, is_always_on, is_visible, display_order, config_json, mode';
 
 /**
  * What the live page holds for everything a draft can touch — read through the

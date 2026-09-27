@@ -22,7 +22,7 @@
 import type { WeddingOnlyParts } from './wedding-only-parts';
 import { revealStageChosen } from './reveal-stages';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
-import { inStageOrder } from './stage-scenes';
+import { inStageOrder, storedStdLead, stdShows } from './stage-scenes';
 import { anonymousPublicCapability } from './public-capability';
 import {
   visibleHideableWidgets,
@@ -335,8 +335,11 @@ export function resolveSiteBodyPlan(input: {
   // type that may not have one falls through to the ordinary body rather than
   // being handed somebody else's product. Absent ⇒ allowed ⇒ today's behaviour.
   const mayShowStdFilm = weddingOnlyParts?.save_the_date_film ?? true;
-  const showSaveTheDate =
-    phasesEnabled && lifecyclePhase === 'save_the_date' && mayShowStdFilm;
+  // 🎞 FILM OR PHOTOS (owner 2026-09-27): the couple picks what leads the Save
+  // the Date (`config_json.std_lead` on the gallery's row). Photos → the
+  // ordinary body, whose Save-the-Date scenes lead with the gallery.
+  const stdStage = phasesEnabled && lifecyclePhase === 'save_the_date' && mayShowStdFilm;
+  const showSaveTheDate = stdStage && stdShows(storedStdLead(widgets), mayShowStdFilm) === 'film';
 
   // The reveal's own rule (which stages, which event types) is
   // `cinematicRevealPlays` above — one rule for every door that mounts it.
@@ -454,7 +457,8 @@ export function resolveSiteBodyPlan(input: {
   return {
     body,
     fullBleed: showSaveTheDate && stdFilm,
-    stdViewBeacon: showSaveTheDate && !isSample,
+    // A Save-the-Date VIEW, whichever of film or photos leads it.
+    stdViewBeacon: stdStage && !isSample,
     revealEnabled: cinematicRevealPlays({ phasesEnabled, lifecyclePhase, weddingOnlyParts, revealStages: input.revealStages }),
     // ⚠ DELIBERATELY STILL KEYED ON `showSaveTheDate` ALONE, not on the reveal.
     // The 2026-06-19 ruling is that the STD FILM owns audio in its own phase;

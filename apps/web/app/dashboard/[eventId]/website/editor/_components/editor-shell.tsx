@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
@@ -24,7 +25,6 @@ import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
-import { isCustomSectionType } from '@/lib/custom-sections';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
@@ -557,6 +557,27 @@ export function MakerWork({
   /* ── the one hidden form every navigator write goes through ────────────── */
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, setPending] = useState(false);
+  const router = useRouter();
+
+  /* 🎞 SAVE THE DATE: FILM · PHOTOS (owner 2026-09-27, "Couple picks Film or
+     Photos"). One switch; the pick is kept on the gallery's row
+     (`config_json.std_lead`) through the draft like every other Maker edit,
+     so guests see it at Apply. */
+  const [leadError, setLeadError] = useState(false);
+  const pickStdLead = async (lead: 'film' | 'photos') => {
+    if (!elementEditing || pending || lead === navigator.stdLead) return;
+    setPending(true);
+    setLeadError(false);
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: lead } } }));
+    const res = await elementEditing.draftAction(eventId, fd).catch(() => null);
+    if (res?.ok) router.refresh();
+    else {
+      setPending(false);
+      setLeadError(true);
+    }
+  };
   const back = (sceneId: string, rest?: string) => {
     const q = new URLSearchParams({ stage, scene: sceneId });
     if (rest) q.set('chain', rest);
@@ -660,8 +681,10 @@ export function MakerWork({
   const selectedScene = selection?.kind === 'scene' ? scenes.find((s) => s.id === selection.id) ?? null : null;
 
   /* 🧭 THE STAGE'S LIST — the canvas's own order (`lib/maker-scene-list.ts`). */
-  const { stageLists, fullOrder, minis, tint } = navigator;
+  const { stageLists, fullOrders, minis, tint } = navigator;
   const list = stageLists[stage];
+  /* ↕ The STAGE's whole list — what a move on this stage swaps in. */
+  const fullOrder = fullOrders[stage];
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
   const shownSceneIds = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
   /* "After the last scene on this stage" in the FULL order — the row that
@@ -873,6 +896,30 @@ export function MakerWork({
               <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </button>
           </li>
+          {stage === 'save_the_date' && navigator.stdLead && elementEditing ? (
+            <li className="flex shrink-0 flex-col items-start gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-std-lead="">
+              <div role="radiogroup" aria-label="What opens your Save the Date" className="inline-flex rounded-full bg-white/70 p-0.5">
+                {(['film', 'photos'] as const).map((lead) => (
+                  <button
+                    key={lead}
+                    type="button"
+                    role="radio"
+                    aria-checked={navigator.stdLead === lead}
+                    disabled={pending}
+                    onClick={() => void pickStdLead(lead)}
+                    className={`sn-press inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
+                      navigator.stdLead === lead ? 'bg-ink text-cream' : 'text-ink/75 hover:text-ink'
+                    }`}
+                  >
+                    {lead === 'film' ? 'Film' : 'Photos'}
+                  </button>
+                ))}
+              </div>
+              {leadError ? (
+                <span role="alert" className="px-1 text-[11px] text-terracotta">That did not save. Try again.</span>
+              ) : null}
+            </li>
+          ) : null}
           {activeTab?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
               <InfoTip className="min-w-0 max-w-full" label={`${activeTab.label} opens its own page`} align="start">
@@ -911,9 +958,8 @@ export function MakerWork({
             const on = tileIsSelected(tile, selection);
             const showing = scene ? sceneShowing(scene) : tile.kind === 'post-event' ? tile.drawn : true;
             const next = list.shown[i + 1];
-            /* 🗂 Each stage sets its own order (`STAGE_SCENES`); only the couple's
-               own scenes still move. */
-            const canDrag = tile.kind === 'scene' && !pending && (!list.orderIsAutomatic || isCustomSectionType(tile.type));
+            /* ↕ Every scene drags within its stage (owner 2026-09-27). */
+            const canDrag = tile.kind === 'scene' && !pending;
             return (
               <Fragment key={tile.key}>
               {header ? (
@@ -1095,8 +1141,8 @@ export function MakerWork({
                   {scene && menuFor === scene.id ? (
                     <SceneMenu
                       onClose={() => setMenuFor(null)}
-                      canUp={shownSceneIds.indexOf(scene.id) > 0 && (!list.orderIsAutomatic || isCustomSectionType(scene.type))}
-                      canDown={shownSceneIds.indexOf(scene.id) < shownSceneIds.length - 1 && (!list.orderIsAutomatic || isCustomSectionType(scene.type))}
+                      canUp={shownSceneIds.indexOf(scene.id) > 0}
+                      canDown={shownSceneIds.indexOf(scene.id) < shownSceneIds.length - 1}
                       showing={showing}
                       onUp={() => {
                         const k = shownSceneIds.indexOf(scene.id);
@@ -1124,13 +1170,6 @@ export function MakerWork({
               </Fragment>
             );
           })}
-          {list.orderIsAutomatic ? (
-            <li className="shrink-0 self-center px-4 text-[11px] text-ink/60 lg:mt-2 lg:self-stretch">
-              <InfoTip className="min-w-0 max-w-full" label="Order set for you" align="start">
-                Each stage keeps its scenes in the order its job needs. Your own scenes can still be moved.
-              </InfoTip>
-            </li>
-          ) : null}
           {/* 🗂 THE FOLD — every section this stage does not draw, with why. */}
           {list.folded.length > 0 ? (
             <li className="shrink-0 self-start lg:mt-3 lg:self-stretch" data-maker-fold="">
@@ -1362,6 +1401,8 @@ export function MakerWork({
         <input type="hidden" name="next_visible" defaultValue="" />
         <input type="hidden" name="next_mode" defaultValue="" />
         <input type="hidden" name="return_to" defaultValue="" />
+        {/* ↕ A move arranges THIS stage only (`config_json.stage_order`). */}
+        <input type="hidden" name="stage" value={stage} readOnly />
         <button type="submit" data-op="toggle" formAction={toggleAction} tabIndex={-1} />
         <button type="submit" data-op="mode" formAction={setModeAction} tabIndex={-1} />
         <button type="submit" data-op="up" formAction={moveUpAction} tabIndex={-1} />

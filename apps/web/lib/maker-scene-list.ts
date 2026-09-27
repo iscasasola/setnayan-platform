@@ -119,9 +119,6 @@ export type MakerStageList = {
   stage: LifecyclePhase;
   shown: MakerTile[];
   folded: MakerFolded[];
-  /** Open browsing orders sections by their kind, not by the couple's order,
-   *  so dragging cannot change what guests see — the navigator says so. */
-  orderIsAutomatic: boolean;
 };
 
 /**
@@ -478,9 +475,11 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     folded.push({ key: `w:${t}`, widgetId: null, type: t, label: makerSceneLabel(t), reason: "Only on each guest's own link — every invited guest sees their own.", hiddenByCouple: false });
   }
 
-  // 🗂 Every stage keeps its scenes in the stage's own order now
-  // (`STAGE_SCENES`); only the couple's own scenes still move.
-  return { stage, shown, folded, orderIsAutomatic: true };
+  // ↕ Every scene drags within its stage — on both paths, open browsing
+  // included — and the stage keeps the couple's order (owner 2026-09-27,
+  // `config_json.stage_order`, read by the plan above). `STAGE_SCENES` is only
+  // the order before anybody drags.
+  return { stage, shown, folded };
 }
 
 /** All four stages at once — the server hands the Maker this, and the stage switch reads it. */
@@ -500,7 +499,9 @@ export function makerStageLists(input: Omit<MakerStageInput, 'stage'>): Record<L
  * shown scene at `to`" into the signed number of single swaps in that full
  * order — the same N-step chain the navigator already posts.
  *
- * `fullOrder` is every hideable widget id in (drafted) display order.
+ * `fullOrder` is the STAGE's whole list — every section on it, hidden and
+ * guest-only ones included, in the stage's (drafted) order: `stageRowOrder`
+ * (`lib/stage-scenes.ts`), the same list the move action swaps in.
  */
 export function swapsForDrop(fullOrder: readonly string[], movingId: string, beforeId: string | null): number {
   const from = fullOrder.indexOf(movingId);

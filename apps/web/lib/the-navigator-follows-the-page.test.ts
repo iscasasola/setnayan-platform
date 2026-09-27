@@ -224,9 +224,16 @@ test('4b · a drop is counted in the FULL order the move actions swap in', () =>
   assert.equal(swapsForDrop(full, 'zzz', 'a'), 0, 'an unknown row moves nothing');
 });
 
-test('4c · open browsing orders by kind — the navigator says so instead of pretending to drag', () => {
+test('4c · open browsing no longer orders by kind — every scene drags, and the navigator says nothing is fixed', () => {
+  // Owner 2026-09-27, "EVERY SCENE DRAGS WITHIN ITS STAGE": the stage's order
+  // (the couple's, else `STAGE_SCENES`) holds on both paths, so there is no
+  // "order set for you" state left to announce.
   const list = makerStageList({ ...OWNER, openBrowse: true, stage: 'rsvp' });
-  assert.equal(list.orderIsAutomatic, true);
+  assert.ok(!('orderIsAutomatic' in list));
+  const SHELL = stripComments(
+    readFileSync(join(import.meta.dirname, '../app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), 'utf8'),
+  );
+  assert.doesNotMatch(SHELL, /Order set for you/);
 });
 
 test('5 · guest-facing words — no internal names in the navigator', () => {

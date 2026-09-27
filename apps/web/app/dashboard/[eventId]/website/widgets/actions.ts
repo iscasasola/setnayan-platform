@@ -8,7 +8,8 @@ import { nextTransition } from '@/lib/hub-scenes';
 import { sceneTemplateDefaults, sceneTemplateIdFromForm } from '@/lib/scene-templates';
 import { applySceneSlot, applySceneTemplate, applySceneVideo, type SlotPatch } from '@/lib/scene-writes';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
+import { hasContent, isWidgetType, widgetInPhase, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
+import { configWithStageOrder, stagePlacesAfterMove, stageRowOrder } from '@/lib/stage-scenes';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import {
   customSectionHasContent,
@@ -59,6 +60,7 @@ import { requireLookPro } from '@/lib/hub-look-gate';
 import type { HubDraftPatch, HubDraftWidget } from '@/lib/hub-draft';
 import {
   draftedDisplayOrders,
+  draftedStageOrders,
   draftedWidgetConfig,
   isHubDraftWrite,
   saveHubDraftPatch,
@@ -391,6 +393,15 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
 
   const supabase = await createClient();
 
+  // ↕ THE MAKER MOVES A SCENE WITHIN ONE STAGE (owner 2026-09-27, "EVERY SCENE
+  // DRAGS WITHIN ITS STAGE (ORDER SAVED PER STAGE)"). Same action, one more
+  // field — the navigator's form names the stage it is arranging.
+  const stageRaw = formData.get('stage');
+  if (typeof stageRaw === 'string' && (STAGE_KEYS as readonly string[]).includes(stageRaw)) {
+    await moveWithinStage(formData, supabase, eventId, widgetId, stageRaw as LifecyclePhase, direction);
+    return;
+  }
+
   // Load the moving row + its neighbor in one round trip. We fetch all
   // hideable rows for the event (max 8 today) and pick the neighbor
   // in-memory — cheaper than a clever SQL query for V1's row counts.
@@ -479,6 +490,71 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   redirect(
     resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
   );
+}
+
+const STAGE_KEYS = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
+
+/**
+ * ↕ One step of a drag WITHIN A STAGE. The stage's whole list — every section
+ * on it, hidden and guest-only ones included, in the order the stage shows
+ * them (`stageRowOrder`, the same list the navigator counts a drop in) — swaps
+ * `widgetId` with its neighbour, and every section on the stage is given its
+ * place, so the stage's order is saved whole (`config_json.stage_order`). In
+ * the draft when the Maker is drafting (guests see nothing until Apply);
+ * otherwise live. `display_order` is not touched: the other stages keep theirs.
+ */
+async function moveWithinStage(
+  formData: FormData,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  widgetId: string,
+  stage: LifecyclePhase,
+  direction: 'up' | 'down',
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, widget_type, display_order, is_always_on, config_json')
+    .eq('event_id', eventId)
+    .eq('is_always_on', false);
+  if (error) throw new Error(`Failed to load widgets: ${error.message}`);
+  const drafting = isHubDraftWrite(formData);
+  // In the draft the order is the drafted one — swap as the couple sees it.
+  const drafted = drafting ? await draftedStageOrders(eventId) : {};
+  const rows = (
+    (data ?? []) as Array<{ widget_id: string; widget_type: string; display_order: number; is_always_on: boolean; config_json: unknown }>
+  ).map((r) => {
+    const d = drafted[r.widget_type];
+    return d ? { ...r, config_json: configWithStageOrder(r.config_json, d) } : r;
+  });
+  const ordered = stageRowOrder(rows, stage, (t, s) => isWidgetType(t) && widgetInPhase(t, s));
+  const places = stagePlacesAfterMove(ordered, widgetId, direction);
+  // At an edge, or not on this stage — nothing to swap with. Silent no-op.
+  if (!places) redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets`));
+
+  if (drafting) {
+    await saveHubDraftPatch(eventId, {
+      widgets: Object.fromEntries(
+        places.map(({ row, place }) => [row.widget_type, { stage_order: { [stage]: place } }]),
+      ) as HubDraftPatch['widgets'],
+    });
+    finishDraftSave(formData, eventId);
+  }
+
+  // Live: each row's `config_json` keeps every sibling key (its canvas above all).
+  const results = await Promise.all(
+    places.map(({ row, place }) =>
+      supabase
+        .from('invitation_widgets')
+        .update({ config_json: configWithStageOrder(row.config_json, { [stage]: place }) })
+        .eq('widget_id', row.widget_id)
+        .eq('event_id', eventId),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(`Failed to reorder scenes: ${failed.error.message}`);
+
+  await revalidateForWidgetChange(eventId);
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'));
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

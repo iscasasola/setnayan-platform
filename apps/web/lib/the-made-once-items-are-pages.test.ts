@@ -98,7 +98,7 @@ test('no made-once file mounts a dialog, a sheet or a portal', () => {
 /* ── the rendered work area ─────────────────────────────────────────────── */
 
 const STAGES = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
-const emptyList = (stage: (typeof STAGES)[number]) => ({ stage, shown: [], folded: [], orderIsAutomatic: false });
+const emptyList = (stage: (typeof STAGES)[number]) => ({ stage, shown: [], folded: [] });
 
 async function paintWork(selection: unknown, opts: { revealStages?: string[] } = {}) {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -128,7 +128,8 @@ async function paintWork(selection: unknown, opts: { revealStages?: string[] } =
         scenes: [],
         navigator: {
           stageLists: Object.fromEntries(STAGES.map((s) => [s, emptyList(s)])),
-          fullOrder: [],
+          fullOrders: Object.fromEntries(STAGES.map((s) => [s, []])),
+          stdLead: null,
           minis: {},
           tint: { canvas: '#fff', ink: '#111', accent: '#a55' },
         },

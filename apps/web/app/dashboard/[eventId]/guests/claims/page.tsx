@@ -15,6 +15,7 @@ import {
   requestAge,
   suggestRequestMatch,
 } from '@/lib/guest-requests';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { LinkPicker } from './link-picker';
 import { KeepQuickAdd } from './keep-quick-add';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -169,10 +170,10 @@ export default async function RequestsPage({ params, searchParams }: Props) {
         <ArrowLeft className="h-4 w-4" /> Guest List
       </Link>
 
-      <header className="mt-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Guest list</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Requests</h1>
-      </header>
+      <PageMasthead title="Requests" />
+      <p aria-hidden className="mt-2 text-3xl font-semibold tracking-tight text-ink">
+        Requests
+      </p>
 
       {actionError ? (
         <p role="alert" className="mt-4 border-l-2 border-danger-700 pl-3 text-sm text-danger-900">

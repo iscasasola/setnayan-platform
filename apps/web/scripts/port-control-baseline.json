@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d6b84fc48",
+  "generatedFromRef": "4aee8872b0",
   "routeCount": 435,
-  "destinations": 945,
+  "destinations": 950,
   "actions": 669,
-  "blocks": 4806,
+  "blocks": 4811,
   "routes": {
     "/": {
       "files": [
@@ -5628,6 +5628,7 @@
         "HTMLInputElement",
         "HTMLSpanElement",
         "Icon",
+        "InfoTip",
         "InlineEditor",
         "InlineResult",
         "InspectorColumn",
@@ -5777,6 +5778,7 @@
         "Link",
         "LinkCandidate",
         "LinkPicker",
+        "PageMasthead",
         "SubmitButton"
       ]
     },
@@ -5812,6 +5814,7 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/launch?tool=rsvp-page",
         "/dashboard/[seg]/studio/save-the-date",
         "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/website",
@@ -6027,6 +6030,7 @@
         "/[seg]",
         "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=hero",
         "/dashboard/[seg]/launch?tool=prints",
@@ -6074,10 +6078,11 @@
         "MakerDevice",
         "MakerLogoDoor",
         "MakerPage",
+        "MakerPageFrame",
         "MakerPlayMenu",
         "MakerPrints",
         "MakerRevealPicker",
-        "MakerRsvpAsk",
+        "MakerRsvpSettings",
         "MakerSelection",
         "MakerShell",
         "MakerState",
@@ -8894,18 +8899,23 @@
       "files": [
         "join/[eventId]/_components/join-flow.tsx",
         "join/[eventId]/_components/join-shell.tsx",
+        "join/[eventId]/_components/request-form.tsx",
         "join/[eventId]/actions.ts",
         "join/[eventId]/loading.tsx",
         "join/[eventId]/page.tsx"
       ],
       "destinations": [
-        "/"
+        "/",
+        "/[seg]",
+        "/privacy",
+        "/terms"
       ],
       "actions": [
         "action",
         "selfAction"
       ],
       "blocks": [
+        "AskToJoinIntro",
         "DoorShell",
         "FormFlash",
         "FormPageSkeleton",
@@ -8913,6 +8923,8 @@
         "JoinFlow",
         "JoinShell",
         "Link",
+        "RequestForm",
+        "RequestSentScreen",
         "SubmitButton"
       ]
     },
@@ -8958,7 +8970,6 @@
       ],
       "actions": [],
       "blocks": [
-        "DoorNotice",
         "DoorShell",
         "FormPageSkeleton",
         "Link"

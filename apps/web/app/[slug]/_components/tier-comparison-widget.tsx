@@ -29,7 +29,16 @@ export function TierComparisonWidget({
   limited,
   eventNoun,
   words,
+  bare = false,
 }: {
+  /**
+   * 🖼 THE SCENE BACKGROUND OWNS THE BOX (owner 2026-09-27: *"if we set no
+   * background it will remove the square frame"*) — `sceneWidgetIsBare`. True:
+   * no card of this widget's own (no border, no fill, no radius); the scene's
+   * background, or the page ground, is the box. Absent/false: the card, as the
+   * page always looked when no background was chosen.
+   */
+  bare?: boolean;
   limited: boolean;
   eventNoun: string;
   /** The event type's own words. Passed in rather than resolved here so this
@@ -38,7 +47,7 @@ export function TierComparisonWidget({
 }) {
   if (limited) {
     return (
-      <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+      <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
         <header>
           <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
             Your access
@@ -79,7 +88,7 @@ export function TierComparisonWidget({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+    <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
       <header>
         <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">Your access</p>
         <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>

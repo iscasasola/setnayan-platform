@@ -8,6 +8,7 @@ import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { HubCanvasFrame } from './hub-canvas-frame';
+import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow, GuestRow } from '../_lib/types';
@@ -87,11 +88,14 @@ function HideableWidgetBody({
   // an always-on widget here is a defensive no-op (would only happen
   // via a DB-side row that bypassed the editor's is_always_on flag).
   if (widget.is_always_on) return null;
+  /* 🖼 The scene background owns the box — the widget then draws no card of
+     its own (owner 2026-09-27, "no background means no box"). */
+  const bare = sceneWidgetIsBare(widget, canvasMediaUrls);
 
   switch (widget.widget_type) {
     case 'event_details':
       return (
-        <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+        <section data-scene-card={bare ? 'bare' : 'own'} className={bare ? 'space-y-4' : 'space-y-4 rounded-xl border border-ink/10 bg-cream p-6'}>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
             Event details
           </p>
@@ -117,6 +121,7 @@ function HideableWidgetBody({
         <CountdownWidget
           targetIso={event.event_date}
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+          bare={bare}
         />
       ) : null;
 
@@ -151,7 +156,7 @@ function HideableWidgetBody({
       return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guest?.role ?? null} rolePalette={(event as { role_palette?: unknown }).role_palette as never} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
-      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} />;
+      return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;
 
     case 'your_photos':
       return (
@@ -198,6 +203,7 @@ function HideableWidgetBody({
           limited={isLimitedPlusOne}
           eventNoun={eventNounOf(event)}
           words={words}
+          bare={bare}
         />
       );
 

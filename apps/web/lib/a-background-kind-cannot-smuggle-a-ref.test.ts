@@ -100,6 +100,9 @@ test('⛔ an unknown kind is DROPPED, never repaired', () => {
     // The media is still good, so it still reads as a photo — the safe default.
     assert.deepEqual(resolveHubBackground(out), { kind: 'photo', media: PUBLIC_REF });
   }
-  assert.equal(HUB_BACKGROUND_KINDS.length, 3, 'three kinds — a film is deliberately not one');
+  // Six since 2026-09-27 (DECISION_LOG "A SCENE'S BACKGROUND EXISTS TO SEPARATE
+  // IT FROM THE NEXT": no background · full colour · opaque glass · frosted
+  // glass · photo · snippet). Still never a film.
+  assert.equal(HUB_BACKGROUND_KINDS.length, 6, 'six kinds — a film is deliberately not one');
   assert.ok(!(HUB_BACKGROUND_KINDS as readonly string[]).includes('film'));
 });

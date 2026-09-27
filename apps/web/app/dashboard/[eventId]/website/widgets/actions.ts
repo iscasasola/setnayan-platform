@@ -804,6 +804,12 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
      `resolveHubBackground` states for every row written before kinds existed. */
   const kindRaw = formData.get('kind');
   const kind = typeof kindRaw === 'string' ? kindRaw.trim() : '';
+  /* 🖼 FRAMED OR FULL WIDTH (owner 2026-09-27) rides this same action: a form
+     that posts ONLY `shape` changes only the shape — never the background
+     (an absent `media` would otherwise read as "take it off"). Free, like the
+     colour it shapes. */
+  const shapeOnly = formData.has('shape') && !formData.has('kind') && !formData.has('media');
+  const tinted = kind === 'color' || kind === 'glass' || kind === 'frost' || kind === 'none';
 
   /* ⛔ MEDIA BEHIND A SECTION IS PRO; A COLOUR IS NOT (owner 2026-09-24:
      "changing background color is free. making media a background is pro.").
@@ -818,13 +824,37 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
   if (!drafting) await requireLookPro(
     eventId,
     sectionBackgroundChange({
-      currentMedia: typeof canvas.media === 'string' ? canvas.media : null,
-      kind: kind === 'color' ? 'color' : kind === 'snippet' ? 'snippet' : 'photo',
-      nextMedia: kind === 'color' || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
+      // The shape alone moves no media: classified as media-free, so free.
+      currentMedia: shapeOnly ? null : typeof canvas.media === 'string' ? canvas.media : null,
+      kind: shapeOnly ? 'none' : tinted ? (kind as 'color' | 'glass' | 'frost' | 'none') : kind === 'snippet' ? 'snippet' : 'photo',
+      nextMedia: shapeOnly || tinted || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
     }),
   );
 
-  if (kind === 'color') {
+  if (shapeOnly) {
+    /* Full width, or back to the default Framed (the absence of the key).
+       `sanitizeHubCanvas` keeps it only beside a background that paints. */
+    if (formData.get('shape') === 'full') canvas.shape = 'full';
+    else delete canvas.shape;
+  } else if (kind === 'glass' || kind === 'frost') {
+    /* 🪟 A GLASS, TINTED FROM THE SCENE'S OWN COLOUR (owner 2026-09-27: "the
+       same background color with or without effects"): the colour posted, else
+       the colour already there — so switching Full colour → Frosted keeps it.
+       Same fence as a colour: six hex digits or nothing, never the ref path. */
+    const color = hubBackgroundColor(formData.get('color')) ?? hubBackgroundColor(canvas.color);
+    delete canvas.media;
+    canvas.kind = kind;
+    if (color) canvas.color = color;
+    else delete canvas.color;
+  } else if (kind === 'none') {
+    /* 🖼 NO BACKGROUND — and so no box (owner 2026-09-27). Stored, not just
+       cleared: an absent kind means "never chose", which keeps the widget's
+       own card; "none" means the couple asked for no box at all. */
+    delete canvas.media;
+    delete canvas.color;
+    delete canvas.shape;
+    canvas.kind = 'none';
+  } else if (kind === 'color') {
     /* 🔒 A COLOUR NEVER TOUCHES THE REF PATH. It has its own field and its own
        shape, so there is no way to hand this branch an `r2://` and have it
        stored — which would be a second doorway into `media` with no

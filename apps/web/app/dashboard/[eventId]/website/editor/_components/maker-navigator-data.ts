@@ -19,7 +19,7 @@ import { isWidgetType, widgetInPhase, type InvitationWidgetRow, type LifecyclePh
 import { stageRowOrder, stdShows, storedStdLead, type StdLead } from '@/lib/stage-scenes';
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import { makerStageLists, type MakerStageList, type MakerStageInput } from '@/lib/maker-scene-list';
-import { sanitizeHubCanvas, resolveHubBackground } from '@/lib/hub-canvas';
+import { sanitizeHubCanvas, resolveHubBackground, hubBackgroundIsMedia, hubBackgroundTint } from '@/lib/hub-canvas';
 import { sanitizeCustomSection, isCustomSectionType } from '@/lib/custom-sections';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { loveStoryScenes } from '@/lib/love-story-moments';
@@ -135,8 +135,9 @@ export function buildMakerNavigatorData(input: {
       : (byType[row.widget_type] ?? { title: row.widget_type });
     minis[`w:${row.widget_type}`] = {
       ...base,
-      ...(bg?.kind === 'color' ? { ground: bg.color } : {}),
-      ...(bg && bg.kind !== 'color' && input.photoUrls[bg.media] ? { photoUrl: input.photoUrls[bg.media] } : {}),
+      // A colour — flat or either glass — is the tile's ground.
+      ...(hubBackgroundTint(bg) ? { ground: hubBackgroundTint(bg) as string } : {}),
+      ...(hubBackgroundIsMedia(bg) && input.photoUrls[bg.media] ? { photoUrl: input.photoUrls[bg.media] } : {}),
     };
   }
 

@@ -81,13 +81,23 @@ test('the day GUEST_HERO_VIDEO_PLAYBACK opens for a screened ref, the gate passe
 const SRC_PATH = join(import.meta.dirname, 'hub-canvas-frame.tsx');
 const raw = readFileSync(SRC_PATH, 'utf8');
 const code = stripComments(raw);
+/* 🖼 The ground reader moved out of the frame (2026-09-27, scene backgrounds) so
+   the two dispatchers can ask the SAME question — does the scene background own
+   the box? — without a second copy of the gate. The gate lives there now, and
+   the frame must take its media URL from that reader and nowhere else. */
+const READER = stripComments(readFileSync(join(import.meta.dirname, '../../../lib/scene-ground.ts'), 'utf8'));
 
-test('HubCanvasFrame imports and calls heroVideoRefForGuests before using the snippet media URL', () => {
-  assert.match(code, /import \{ heroVideoRefForGuests \} from '@\/lib\/guest-hero-video';/);
+test('HubCanvasFrame reads its media URL ONLY through the gated reader, which calls heroVideoRefForGuests', () => {
+  assert.match(READER, /import \{ heroVideoRefForGuests \} from '\.\/guest-hero-video';/);
   assert.match(
-    code,
+    READER,
     /bg && bg\.kind === 'snippet'\s*\?\s*\(heroVideoRefForGuests\(bg\.media\) \? rawMediaUrl : null\)\s*:\s*rawMediaUrl/,
   );
+  assert.match(READER, /return \{ canvas, bg, mediaUrl, painted \};/, 'the reader must hand back the GATED url');
+  // The frame takes `mediaUrl` from the reader, and reads no raw URL of its own.
+  assert.match(code, /import \{ sceneGround \} from '@\/lib\/scene-ground';/);
+  assert.match(code, /const \{ bg, mediaUrl, painted \} = sceneGround\(widget, mediaUrls\);/);
+  assert.doesNotMatch(code, /mediaUrls\?\.\[/, 'the frame reads a raw, ungated media URL');
 });
 
 test('the video element only renders once mediaUrl has passed the gate — no second, ungated read of canvas.media', () => {

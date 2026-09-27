@@ -693,16 +693,42 @@ export function resolveAttirePaletteColor(
   palette: RolePalette,
   sideColor: string | null,
 ): string | null {
+  // 🔑 THE FIRST OF THE LIST BELOW, NEVER A SECOND WALK OF THE CHAIN. The 3D
+  // room dresses a figure in one colour and the Event Hub's dress-code scene
+  // shows a role every colour it holds; both must stop at the SAME link, so
+  // the chain is written once, in `resolveAttirePaletteColors`.
+  return resolveAttirePaletteColors(role, palette, sideColor)[0] ?? null;
+}
+
+/**
+ * EVERY colour a role wears, by the same STRICT chain as
+ * `resolveAttirePaletteColor` (specific key → `wedding_party` → side colour →
+ * kit default): the WHOLE list of the first link that holds any colour.
+ *
+ * Owner, 2026-09-28, on the Event Hub's Dress code scene: *"if there is an
+ * account specified to this, show their palette only."* Their palette is all
+ * of it — the scene used to show a role holding three colours only the first.
+ *
+ * `[]` is the kit default (the single resolver's `null`). A non-array value is
+ * read as empty, never indexed: stored JSON is data, not a promise about shape.
+ */
+export function resolveAttirePaletteColors(
+  role: GuestRole,
+  palette: RolePalette,
+  sideColor: string | null,
+): string[] {
+  const list = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((c): c is string => typeof c === 'string' && c.length > 0) : [];
   // 1. specific role palette key
-  const specific = palette[paletteKeyForRole(role)]?.[0];
-  if (specific) return specific;
+  const specific = list(palette[paletteKeyForRole(role)]);
+  if (specific.length > 0) return specific;
   // 2. shared wedding_party fallback
-  const party = palette.wedding_party?.[0];
-  if (party) return party;
+  const party = list(palette.wedding_party);
+  if (party.length > 0) return party;
   // 3. bride/groom side color
-  if (sideColor) return sideColor;
-  // 4. kit default (null → the kit's own neutral cloth)
-  return null;
+  if (sideColor) return [sideColor];
+  // 4. kit default (empty → the kit's own neutral cloth)
+  return [];
 }
 
 // ── Room-dressing resolver (taxonomy v2) ────────────────────────────────────

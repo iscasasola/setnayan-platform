@@ -139,7 +139,12 @@ function PublicHideableWidgetBody({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} hideWhenEmpty={guestView} />;
+      /* 🎨 The stranger's door reads the Mood Board too (owner 2026-09-28: "if
+         in general, show our theme and the palettes of each role"). No role —
+         nobody is identified here — so this is always the general view.
+         `role_palette` is already on this row: `loadEventShell` selects it
+         with the admin client, the same read the page's theme colours use. */
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} hideWhenEmpty={guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} />;

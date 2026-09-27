@@ -126,7 +126,7 @@ import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
-import { hubCanvasMediaRefs, hubMainGround, resolveMainGround } from '@/lib/hub-canvas';
+import { hubCanvasMediaRefs, hubMainGround, resolveMainGround, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { heroMayBePageGround } from '@/lib/page-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
@@ -612,6 +612,13 @@ export async function SiteBody({
   // the `space-y` rhythm and out of layout; for every guest it is not rendered.
   const makerMark = (key: string) =>
     isEditorCanvas && editorBridge ? <span hidden data-maker-section={key} /> : null;
+  // 🔤 The hero's parts in the couple's own font · colour · size · animation
+  // (`lib/element-style.ts`, on the hero row's canvas), and — in the Maker's
+  // canvas only — the `data-el` keys that tell the Maker which part was tapped.
+  const heroElements = {
+    elements: sanitizeHubCanvas(heroRow?.config_json).elements ?? null,
+    stampElements: isMakerCanvas,
+  };
 
   /*
     WHO IS ASKING — resolved ONCE, here, from the same facts this page already
@@ -1122,6 +1129,7 @@ export async function SiteBody({
           <PahinaMasthead
             eyebrow={mastheadEyebrow(clientWords)}
             displayName={event.display_name}
+            {...heroElements}
             twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
             venueName={event.venue_name}
@@ -1150,6 +1158,7 @@ export async function SiteBody({
                 <PahinaMasthead
                   eyebrow={mastheadEyebrow(clientWords)}
                   displayName={event.display_name}
+                  {...heroElements}
                   card={inviteCard ?? undefined}
                   twoPeople={clientWords.twoPeople}
                   eventDate={event.event_date}
@@ -1780,6 +1789,7 @@ export async function SiteBody({
             <PahinaMasthead
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
+              {...heroElements}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={event.venue_name}
@@ -1799,6 +1809,7 @@ export async function SiteBody({
             <PahinaMasthead
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
+              {...heroElements}
               card={inviteCard ?? undefined}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}

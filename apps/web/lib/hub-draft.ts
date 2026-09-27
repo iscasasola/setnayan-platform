@@ -73,6 +73,7 @@ import {
   type HubMainGround,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
+import { HUB_ELEMENT_KEYS } from '@/lib/element-style';
 import {
   HUB_CANVAS_LOOK_KEYS,
   HUB_LOOK_EVENT_COLUMNS,
@@ -652,8 +653,18 @@ export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas)
     c.kind !== 'color' && c.media ? `${c.kind ?? 'photo'}:${c.media}` : null;
   const changes: LookChange[] = [refChange(mediaRef(live), mediaRef(next))];
   for (const k of HUB_CANVAS_LOOK_KEYS) {
-    if (k === 'media') continue;
+    if (k === 'media' || k === 'elements') continue;
     changes.push(refChange(asText(live[k]), asText(next[k])));
+  }
+  /* 🔤 ONE ELEMENT'S OWN LOOK (`lib/element-style.ts`) — compared FIELD BY
+     FIELD, so taking one override off stays a free removal even while another
+     element keeps its own. Adding or changing any of font · colour · size ·
+     animation is Pro (owner 2026-09-26, "Pro, per the fonts/colours Pro rule");
+     a free couple tries it in the draft and it is held at Apply. */
+  for (const key of HUB_ELEMENT_KEYS) {
+    for (const field of ['font', 'color', 'size', 'anim'] as const) {
+      changes.push(refChange(live.elements?.[key]?.[field] ?? null, next.elements?.[key]?.[field] ?? null));
+    }
   }
   /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
      line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a
